@@ -2,7 +2,7 @@ package example
 
 import zhttp.http.{Http, Response}
 import zhttp.service.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
-import zhttp.service.{ChannelEvent, EventLoopGroup}
+import zhttp.service.{ChannelEvent, Client, EventLoopGroup}
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio._
 
@@ -32,8 +32,9 @@ object WebSocketSimpleClient extends ZIOAppDefault {
           ZIO.succeed(println("Goodbye!")) *> ch.writeAndFlush(WebSocketFrame.close(1000))
       }
 
-  val app: ZIO[Any with EventLoopGroup with Scope, Throwable, Response] =
-    httpSocket.toSocketApp.connect(url)
+  val app: ZIO[Any with EventLoopGroup with Scope, Throwable, Response] = Client.make[Any]().flatMap { c =>
+    httpSocket.toSocketApp.connect(url, client = c)
+  }
 
   val run = app.provideLayer(env)
 

@@ -1,7 +1,6 @@
 package zhttp.socket
 
-import zhttp.http.{Headers, Http, HttpApp, Response}
-import zhttp.service.ChannelModel.ChannelType
+import zhttp.http._
 import zhttp.service.{ChannelEvent, Client, EventLoopGroup}
 import zio.{ZIO, _}
 
@@ -15,12 +14,12 @@ final case class SocketApp[-R](
    * Creates a socket connection on the provided URL. Typically used to connect
    * as a client.
    */
-  def connect(
+  def connect[R0 <: R](
     url: String,
     headers: Headers = Headers.empty,
-    channelType: ChannelType = ChannelType.AUTO,
-  ): ZIO[R with EventLoopGroup with Scope, Throwable, Response] =
-    Client.socket(url, self, headers, channelType = channelType)
+    client: Client[R0],
+  ): ZIO[R0 with EventLoopGroup with Scope, Throwable, Response] =
+    ZIO.fromEither(URL.fromString(url)).flatMap(u => client.socket(u, headers, self))
 
   /**
    * Provides the socket app with its required environment, which eliminates its

@@ -58,12 +58,12 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, Request, Response] =
+    def deploy(client: Client[R])(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         response <- Http.fromFunctionZIO[Request] { params =>
-          Client
+          client
             .request(
               params
                 .addHeader(DynamicServer.APP_ID, id)
@@ -73,18 +73,20 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         }
       } yield response
 
-    def deployWS(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, SocketApp[HttpEnv], Response] =
+    def deployWS(
+      client: Client[HttpEnv],
+    )(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, SocketApp[HttpEnv], Response] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
+        uri      <- Http.fromZIO(ZIO.fromEither(URL.fromString(url)))
         response <- Http.fromFunctionZIO[SocketApp[HttpEnv]] { app =>
           ZIO.scoped[HttpEnv](
-            Client
+            client
               .socket(
-                url = url,
+                url = uri,
                 headers = Headers(DynamicServer.APP_ID, id),
-                app = app,
-                channelType = ChannelType.NIO,
+                app,
               ),
           )
         }
@@ -108,15 +110,15 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   def status(
     method: Method = Method.GET,
     path: Path,
+    client: Client[Any],
   ): ZIO[EventLoopGroup with DynamicServer, Throwable, Status] = {
     for {
       port   <- DynamicServer.port
-      status <- Client
+      status <- client
         .request(
           "http://localhost:%d/%s".format(port, path),
           method,
           ssl = ClientSSLOptions.DefaultSSL,
-          channelType = ChannelType.NIO,
         )
         .map(_.status)
     } yield status

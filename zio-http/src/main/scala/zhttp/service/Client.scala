@@ -31,7 +31,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
     headers: Headers = Headers.empty,
     content: Body = Body.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
+  ): ZIO[EventLoopGroup, Throwable, Response] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(
@@ -165,45 +165,6 @@ object Client {
     el <- ZIO.service[JEventLoopGroup]
     zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)
-
-  def request(
-    url: String,
-    method: Method = Method.GET,
-    headers: Headers = Headers.empty,
-    content: Body = Body.empty,
-    ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-    channelType: ChannelType = ChannelType.AUTO,
-  ): ZIO[EventLoopGroup, Throwable, Response] =
-    for {
-      uri <- ZIO.fromEither(URL.fromString(url))
-      res <- request(
-        Request(Version.Http_1_1, method, uri, headers, content),
-        clientConfig = Config(ssl = Some(ssl)).withChannelType(channelType),
-      )
-    } yield res
-
-  def request(
-    request: Request,
-    clientConfig: Config,
-  ): ZIO[EventLoopGroup, Throwable, Response] =
-    for {
-      clt <- make[Any](clientConfig.channelType)
-      res <- clt.request(request, clientConfig)
-    } yield res
-
-  def socket[R](
-    url: String,
-    app: SocketApp[R],
-    headers: Headers = Headers.empty,
-    sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-    channelType: ChannelType = ChannelType.AUTO,
-  ): ZIO[R with EventLoopGroup with Scope, Throwable, Response] = {
-    for {
-      clt <- make[R](channelType)
-      uri <- ZIO.fromEither(URL.fromString(url))
-      res <- clt.socket(uri, headers, app, sslOptions)
-    } yield res
-  }
 
   case class Config(
     socketApp: Option[SocketApp[Any]] = None,

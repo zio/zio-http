@@ -12,7 +12,7 @@ object ClientServer extends ZIOAppDefault {
 
     case Method.GET -> !! =>
       val url = "http://localhost:8080/hello"
-      Client.request(url)
+      Client.make[Any]().flatMap(_.request(url))
   }
 
   val run = {

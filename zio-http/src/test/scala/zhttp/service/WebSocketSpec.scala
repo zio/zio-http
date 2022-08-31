@@ -1,10 +1,9 @@
 package zhttp.service
 
 import zhttp.http.{Headers, Http, Status}
-import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClient, websocketTestClient}
 import zhttp.service.ChannelEvent.UserEvent.HandshakeComplete
 import zhttp.service.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
-import zhttp.service.ChannelModel.ChannelType
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio._
 import zio.test.Assertion.equalTo
@@ -19,9 +18,9 @@ object WebSocketSpec extends HttpRunnableSpec {
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {
       for {
-        msg <- MessageCollector.make[ChannelEvent.Event[WebSocketFrame]]
-        url <- DynamicServer.wsURL
-        id  <- DynamicServer.deploy {
+        msg    <- MessageCollector.make[ChannelEvent.Event[WebSocketFrame]]
+        url    <- DynamicServer.wsURL
+        id     <- DynamicServer.deploy {
           Http
             .collectZIO[WebSocketChannelEvent] {
               case ev @ ChannelEvent(ch, ChannelRead(frame)) => ch.writeAndFlush(frame) *> msg.add(ev.event)
@@ -31,8 +30,8 @@ object WebSocketSpec extends HttpRunnableSpec {
             .toSocketApp
             .toHttp
         }
-
-        res <- ZIO.scoped {
+        client <- testClient
+        res    <- ZIO.scoped {
           Http
             .collectZIO[WebSocketChannelEvent] {
               case ChannelEvent(ch, UserEventTriggered(HandshakeComplete))   =>
@@ -43,7 +42,7 @@ object WebSocketSpec extends HttpRunnableSpec {
                 ch.close()
             }
             .toSocketApp
-            .connect(url, Headers(DynamicServer.APP_ID, id), channelType = ChannelType.NIO) *> {
+            .connect(url, Headers(DynamicServer.APP_ID, id), client) *> {
             for {
               events <- msg.await
               expected = List(
@@ -66,14 +65,14 @@ object WebSocketSpec extends HttpRunnableSpec {
         clock     <- testClock
 
         // Setup websocket server
-
+        client <- websocketTestClient
         serverHttp   = Http
           .collectZIO[WebSocketChannelEvent] { case ChannelEvent(_, ChannelUnregistered) =>
             isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
           }
           .toSocketApp
           .toHttp
-          .deployWS
+          .deployWS(client)
 
         // Setup Client
         // Client closes the connection after 1 second
@@ -96,7 +95,9 @@ object WebSocketSpec extends HttpRunnableSpec {
       } yield assertCompletes
     } @@ nonFlaky,
     test("Multiple websocket upgrades") {
-      val app   = Http.succeed(WebSocketFrame.text("BAR")).toSocketApp.toHttp.deployWS
+      val app   = Http
+        .fromZIO(websocketTestClient)
+        .flatMap(client => Http.succeed(WebSocketFrame.text("BAR")).toSocketApp.toHttp.deployWS(client))
       val codes = ZIO
         .foreach(1 to 1024)(_ => app(Http.empty.toSocketApp).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))

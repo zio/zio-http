@@ -29,9 +29,10 @@ object HttpsClient extends ZIOAppDefault {
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
 
   val program = for {
-    res  <- Client.request(url, headers = headers, ssl = sslOption)
-    data <- res.body.asString
-    _    <- Console.printLine(data)
+    client <- Client.make[Any]()
+    res    <- client.request(url, headers = headers, ssl = sslOption)
+    data   <- res.body.asString
+    _      <- Console.printLine(data)
   } yield ()
 
   val run = program.provide(env)

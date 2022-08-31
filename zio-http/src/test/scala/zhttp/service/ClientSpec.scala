@@ -1,7 +1,7 @@
 package zhttp.service
 import zhttp.http._
 import zhttp.http.middleware.Auth.Credentials
-import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClient}
 import zhttp.service.ChannelModel.ChannelType
 import zhttp.service.Client.Config
 import zio.test.Assertion._
@@ -18,31 +18,34 @@ object ClientSpec extends HttpRunnableSpec {
 
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {
-      val app = Http.ok.deploy.status.run()
+      val app = testClient.flatMap(client => Http.ok.deploy(client).status.run())
       assertZIO(app)(equalTo(Status.Ok))
     },
     test("non empty content") {
       val app             = Http.text("abc")
-      val responseContent = app.deploy.body.run().flatMap(_.asChunk)
+      val responseContent = testClient.flatMap(client => app.deploy(client).body.run().flatMap(_.asChunk))
       assertZIO(responseContent)(isNonEmpty)
     },
     test("echo POST request content") {
       val app = Http.collectZIO[Request] { case req => req.body.asString.map(Response.text(_)) }
-      val res = app.deploy.body.mapZIO(_.asString).run(method = Method.POST, body = Body.fromString("ZIO user"))
+      val res = testClient.flatMap(client =>
+        app.deploy(client).body.mapZIO(_.asString).run(method = Method.POST, body = Body.fromString("ZIO user")),
+      )
       assertZIO(res)(equalTo("ZIO user"))
     },
     test("non empty content") {
       val app             = Http.empty
-      val responseContent = app.deploy.body.run().flatMap(_.asString.map(_.length))
+      val responseContent =
+        testClient.flatMap(client => app.deploy(client).body.run().flatMap(_.asString.map(_.length)))
       assertZIO(responseContent)(isGreaterThan(0))
     },
     test("text content") {
       val app             = Http.text("zio user does not exist")
-      val responseContent = app.deploy.body.mapZIO(_.asString).run()
+      val responseContent = testClient.flatMap(client => app.deploy(client).body.mapZIO(_.asString).run())
       assertZIO(responseContent)(containsString("user"))
     },
     test("handle connection failure") {
-      val res = Client.request("http://localhost:1", channelType = ChannelType.NIO).either
+      val res = testClient.flatMap(client => client.request("http://localhost:1").either)
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
     test("handle proxy connection failure") {
@@ -51,10 +54,12 @@ object ClientSpec extends HttpRunnableSpec {
           validServerPort <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
           serverUrl       <- ZIO.fromEither(URL.fromString(s"http://localhost:$validServerPort"))
           proxyUrl        <- ZIO.fromEither(URL.fromString("http://localhost:0001"))
-          out             <- Client.request(
-            Request(url = serverUrl),
-            Config().withProxy(Proxy(proxyUrl)).withChannelType(ChannelType.NIO),
-          )
+          client          <- testClient
+          out             <-
+            client.request(
+              Request(url = serverUrl),
+              Config().withProxy(Proxy(proxyUrl)).withChannelType(ChannelType.NIO),
+            )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
     },
@@ -65,7 +70,8 @@ object ClientSpec extends HttpRunnableSpec {
           url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
           id   <- DynamicServer.deploy(Http.ok)
           proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
-          out <- Client.request(
+          client <- testClient
+          out    <- client.request(
             Request(url = url),
             Config().withProxy(proxy).withChannelType(ChannelType.NIO),
           )
@@ -89,7 +95,8 @@ object ClientSpec extends HttpRunnableSpec {
             .withUrl(url)
             .withHeaders(Headers(DynamicServer.APP_ID, id))
             .withCredentials(Credentials("test", "test"))
-          out <- Client.request(
+          client <- testClient
+          out    <- client.request(
             Request(url = url),
             Config().withProxy(proxy).withChannelType(ChannelType.NIO),
           )

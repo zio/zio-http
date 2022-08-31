@@ -3,6 +3,7 @@ package zhttp.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Status
+import zhttp.internal.testClient
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
@@ -30,27 +31,36 @@ object ClientHttpsSpec extends ZIOSpecDefault {
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
   override def spec               = suite("Https Client request")(
     test("respond Ok") {
-      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
+      val actual =
+        testClient.flatMap(client => client.request("https://sports.api.decathlon.com/groups/water-aerobics"))
       assertZIO(actual)(anything)
     },
     test("respond Ok with sslOption") {
-      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics", ssl = sslOption)
+      val actual = testClient.flatMap(client =>
+        client.request("https://sports.api.decathlon.com/groups/water-aerobics", ssl = sslOption),
+      )
       assertZIO(actual)(anything)
     },
     test("should respond as Bad Request") {
-      val actual = Client
-        .request(
-          "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
-          ssl = sslOption,
+      val actual = testClient
+        .flatMap(client =>
+          client
+            .request(
+              "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
+              ssl = sslOption,
+            ),
         )
         .map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
     },
     test("should throw DecoderException for handshake failure") {
-      val actual = Client
-        .request(
-          "https://untrusted-root.badssl.com/",
-          ssl = sslOption,
+      val actual = testClient
+        .flatMap(client =>
+          client
+            .request(
+              "https://untrusted-root.badssl.com/",
+              ssl = sslOption,
+            ),
         )
         .exit
       assertZIO(actual)(fails(isSubtype[DecoderException](anything)))

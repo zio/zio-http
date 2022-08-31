@@ -1,6 +1,6 @@
 package zhttp.service
 import zhttp.http._
-import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClient}
 import zhttp.service.ServerSpec.{requestBodySpec, responseSpec, serverErrorSpec}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
@@ -31,7 +31,8 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
         _.body.asStream.runCount
           .map(bytesCount => Response.text(bytesCount.toString))
       }
-      val res     = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(content))
+      val res     =
+        testClient.flatMap(client => app.deploy(client).body.mapZIO(_.asString).run(body = Body.fromString(content)))
       assertZIO(res)(equalTo(size.toString))
     },
     test("multiple body read") {
@@ -41,7 +42,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
           _ <- req.body.asChunk
         } yield Response.ok
       }
-      val res = app.deploy.status.run()
+      val res = testClient.flatMap(client => app.deploy(client).status.run())
       assertZIO(res)(equalTo(Status.InternalServerError))
     },
   ) @@ timeout(10 seconds)
