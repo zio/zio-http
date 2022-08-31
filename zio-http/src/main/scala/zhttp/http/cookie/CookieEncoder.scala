@@ -4,23 +4,23 @@ import io.netty.handler.codec.http.{cookie => jCookie}
 
 sealed trait CookieEncoder[A] {
   final def apply(a: Cookie[A]): String = unsafeEncode(a, false)
-  def unsafeEncode(a: Cookie[A], strict: Boolean): String
+  def unsafeEncode(a: Cookie[A], validate: Boolean): String
 }
 
 object CookieEncoder {
   implicit object RequestCookieEncoder extends CookieEncoder[Cookie.Request] {
-    override def unsafeEncode(cookie: Cookie[Request], strict: Boolean): String = {
-      val encoder = if (strict) jCookie.ClientCookieEncoder.STRICT else jCookie.ClientCookieEncoder.LAX
+    override def unsafeEncode(cookie: Cookie[Request], validate: Boolean): String = {
+      val encoder = if (validate) jCookie.ClientCookieEncoder.STRICT else jCookie.ClientCookieEncoder.LAX
       val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
       encoder.encode(builder)
     }
   }
 
   implicit object ResponseCookieEncoder extends CookieEncoder[Cookie.Response] {
-    override def unsafeEncode(cookie: Cookie[Cookie.Response], strict: Boolean): String = {
+    override def unsafeEncode(cookie: Cookie[Cookie.Response], validate: Boolean): String = {
       val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
 
-      val encoder = if (strict) jCookie.ServerCookieEncoder.STRICT else jCookie.ServerCookieEncoder.LAX
+      val encoder = if (validate) jCookie.ServerCookieEncoder.STRICT else jCookie.ServerCookieEncoder.LAX
 
       cookie.domain.foreach(builder.setDomain)
       cookie.path.foreach(i => builder.setPath(i.encode))

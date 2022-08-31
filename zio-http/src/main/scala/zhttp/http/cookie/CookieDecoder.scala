@@ -8,8 +8,8 @@ import scala.jdk.CollectionConverters._
 sealed trait CookieDecoder[A] {
   type Out
 
-  final def apply(cookie: String): Out = unsafeDecode(cookie, strict = false)
-  def unsafeDecode(header: String, strict: Boolean): Out
+  final def apply(cookie: String): Out = unsafeDecode(cookie, validate = false)
+  def unsafeDecode(header: String, validate: Boolean): Out
 }
 
 object CookieDecoder {
@@ -18,8 +18,8 @@ object CookieDecoder {
   implicit object RequestCookieDecoder extends CookieDecoder[Cookie.Request] {
     override type Out = List[RequestCookie]
 
-    override def unsafeDecode(header: String, strict: Boolean): List[Cookie[Request]] = {
-      val decoder = if (strict) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
+    override def unsafeDecode(header: String, validate: Boolean): List[Cookie[Request]] = {
+      val decoder = if (validate) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
       decoder.decodeAll(header).asScala.toList.map { cookie =>
         Cookie(cookie.name(), cookie.value())
       }
@@ -28,8 +28,8 @@ object CookieDecoder {
 
   implicit object ResponseCookieDecoder extends CookieDecoder[Cookie.Response] {
     override type Out = ResponseCookie
-    override def unsafeDecode(header: String, strict: Boolean): ResponseCookie = {
-      val decoder = if (strict) jCookie.ClientCookieDecoder.STRICT else jCookie.ClientCookieDecoder.LAX
+    override def unsafeDecode(header: String, validate: Boolean): ResponseCookie = {
+      val decoder = if (validate) jCookie.ClientCookieDecoder.STRICT else jCookie.ClientCookieDecoder.LAX
 
       val cookie = decoder.decode(header).asInstanceOf[jCookie.DefaultCookie]
 
