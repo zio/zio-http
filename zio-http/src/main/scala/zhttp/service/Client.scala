@@ -160,9 +160,9 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
 }
 
 object Client {
-  def make[R](channelType: ChannelType = ChannelType.AUTO): ZIO[R with Scope, Nothing, Client[R]] = for {
-    cf <- ChannelFactory.Live.get(channelType)
-    el <- EventLoopGroup.Live.get(channelType)(0)
+  def make[R](config: Config = Config.empty): ZIO[R with Scope, Nothing, Client[R]] = for {
+    cf <- ChannelFactory.Live.get(config.channelType)
+    el <- EventLoopGroup.Live.get(config.channelType)(config.nThreads)
     zx <- HttpRuntime.default[R]
   } yield service.Client(zx, cf, el)
 
@@ -170,6 +170,7 @@ object Client {
     socketApp: Option[SocketApp[Any]] = None,
     ssl: Option[ClientSSLOptions] = None,
     proxy: Option[Proxy] = None,
+    nThreads: Int = 0,
     channelType: ChannelType = ChannelType.AUTO,
   ) {
     self =>
@@ -178,6 +179,8 @@ object Client {
     def withProxy(proxy: Proxy): Config                  = self.copy(proxy = Some(proxy))
 
     def withChannelType(channelType: ChannelType) = self.copy(channelType = channelType)
+
+    def withMaxThreads(nThreads: Int) = self.copy(nThreads = nThreads)
   }
 
   object Config {
