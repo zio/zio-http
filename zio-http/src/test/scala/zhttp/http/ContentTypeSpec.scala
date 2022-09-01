@@ -1,7 +1,6 @@
 package zhttp.http
 
 import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClient}
-import zhttp.service.EventLoopGroup
 import zio._
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
@@ -43,8 +42,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
     },
   )
 
-  private val env =
-    EventLoopGroup.nio() ++ DynamicServer.live ++ Scope.default
+  private val env = DynamicServer.live ++ Scope.default
 
   override def spec = {
     suite("Content-type") {

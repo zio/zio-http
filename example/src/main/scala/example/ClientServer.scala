@@ -1,8 +1,8 @@
 package example
 
 import zhttp.http._
-import zhttp.service.{Client, EventLoopGroup, Server}
-import zio.{ZIO, ZIOAppDefault}
+import zhttp.service.{Client, Server}
+import zio.{Scope, ZIO, ZIOAppDefault}
 
 object ClientServer extends ZIOAppDefault {
 
@@ -16,7 +16,7 @@ object ClientServer extends ZIOAppDefault {
   }
 
   val run = {
-    val clientLayers = EventLoopGroup.auto()
+    val clientLayers = Scope.default
     Server.start(8080, app).provideLayer(clientLayers).exitCode
   }
 }

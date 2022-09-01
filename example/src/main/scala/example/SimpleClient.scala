@@ -1,10 +1,10 @@
 package example
 
-import zhttp.service.{Client, EventLoopGroup}
+import zhttp.service.Client
 import zio._
 
 object SimpleClient extends ZIOAppDefault {
-  val env = EventLoopGroup.auto()
+  val env = Scope.default
   val url = "http://sports.api.decathlon.com/groups/water-aerobics"
 
   val program = for {

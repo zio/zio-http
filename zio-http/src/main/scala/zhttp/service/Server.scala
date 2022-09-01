@@ -226,7 +226,7 @@ object Server {
 
   def start[R](socketAddress: InetSocketAddress, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
     (Server(http).withBinding(socketAddress).make *> ZIO.never)
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ Scope.default)
+      .provideSomeLayer[R](Scope.default)
 
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer = UnsafeChannelPipeline(pipeline)
 

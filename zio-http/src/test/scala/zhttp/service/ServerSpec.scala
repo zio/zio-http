@@ -20,7 +20,7 @@ object ServerSpec extends HttpRunnableSpec {
   } yield (data.mkString(""), content)
 
   private val env =
-    EventLoopGroup.nio() ++ DynamicServer.live ++ Scope.default
+    DynamicServer.live ++ Scope.default
 
   private val MaxSize = 1024 * 10
   private val app     =

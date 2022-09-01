@@ -11,8 +11,7 @@ import java.io.File
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val env =
-    EventLoopGroup.nio() ++ DynamicServer.live ++ Scope.default
+  private val env = DynamicServer.live ++ Scope.default
 
   private val fileOk = Http.fromZIO(testClient).flatMap(client => Http.fromResource("TestFile.txt").deploy(client))
   private val fileNotFound = Http.fromZIO(testClient).flatMap(client => Http.fromResource("Nothing").deploy(client))
