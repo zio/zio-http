@@ -4,6 +4,8 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 
+import scala.util.Try
+
 object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
   private val PORT = 0
@@ -18,14 +20,15 @@ object HelloWorldAdvanced extends ZIOAppDefault {
     case Method.GET -> !! / "utc"    => Clock.currentDateTime.map(s => Response.text(s.toString))
   }
 
-  private val server =
-    Server.port(PORT) ++              // Setup port
-      Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.app(fooBar ++ app)       // Setup the Http app
-
   val run = ZIOAppArgs.getArgs.flatMap { args =>
     // Configure thread count using CLI
-    // val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
+    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
+
+    val server =
+      Server.port(PORT) ++                     // Setup port
+        Server.maxNumberOfThreads(nThreads) ++ // Set maximum number of threads to be used by event loop
+        Server.paranoidLeakDetection ++        // Paranoid leak detection (affects performance)
+        Server.app(fooBar ++ app)              // Setup the Http app
 
     // Create a new server
     server.make

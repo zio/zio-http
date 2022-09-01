@@ -55,4 +55,5 @@ object Main extends ZIOAppDefault {
       .withConsolidateFlush(true)
       .withFlowControl(false)
       .withObjectAggregator(-1)
+      .withMaxNumberOfThreads(8)
 }
