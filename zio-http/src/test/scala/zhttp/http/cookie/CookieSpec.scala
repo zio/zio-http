@@ -16,7 +16,7 @@ object CookieSpec extends ZIOSpecDefault {
             name    <- Gen.alphaNumericString
             content <- Gen.alphaNumericString
           } yield (name, content) -> Cookie(name, content, Cookie.Request)
-          check(cookieGen) { case (name, content) -> cookie =>
+          check(cookieGen) { case ((name, content), cookie) =>
             assertTrue(cookie.content == content) && assertTrue(cookie.name == name)
           }
         },
@@ -34,7 +34,7 @@ object CookieSpec extends ZIOSpecDefault {
             } yield Cookie.Response(domain, path, isSecure, isHttpOnly, maxAge, sameSite)
           } yield (name, content) -> Cookie(name, content, response)
 
-          check(responseCookieGen) { case (name, content) -> cookie =>
+          check(responseCookieGen) { case ((name, content), cookie) =>
             assertTrue(cookie.content == content) &&
             assertTrue(cookie.name == name) &&
             assertTrue(cookie.domain == cookie.target.domain) &&
