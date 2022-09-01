@@ -31,6 +31,7 @@ sealed trait Server[-R, +E] { self =>
     case ObjectAggregator(maxRequestSize)         => s.copy(objectAggregator = maxRequestSize)
     case UnsafeServerBootstrap(init)              => s.copy(serverBootstrapInitializer = init)
     case UserServerChannelType(serverChannelType) => s.copy(serverChannelType = serverChannelType)
+    case MaxNumberOfThreads(nThreads)             => s.copy(nThreads = nThreads)
   }
 
   def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
@@ -151,6 +152,8 @@ sealed trait Server[-R, +E] { self =>
 
   def withServerChannelType(serverChannelType: ChannelType): Server[R, E] =
     Concat(self, UserServerChannelType(serverChannelType))
+
+  def withMaxNumberOfThreads(nThreads: Int): Server[R, E] = Concat(self, MaxNumberOfThreads(nThreads))
 }
 object Server {
   val disableFlowControl: UServer                                = Server.FlowControl(false)
@@ -161,6 +164,7 @@ object Server {
   val disableKeepAlive: UServer                                  = Server.KeepAlive(false)
   val consolidateFlush: UServer                                  = ConsolidateFlush(true)
   def serverChannelType(serverChannelType: ChannelType): UServer = UserServerChannelType(serverChannelType)
+  def maxNumberOfThreads(nThreads: Int): UServer                 = MaxNumberOfThreads(nThreads)
   private[zhttp] val log                                         = Log.withTags("Server")
 
   def acceptContinue: UServer = Server.AcceptContinue(true)
@@ -190,7 +194,7 @@ object Server {
     val settings = server.settings()
     for {
       channelFactory <- ServerChannelFactory.get(settings.serverChannelType)
-      eventLoopGroup <- EventLoopGroup.Live.get(settings.serverChannelType)(0)
+      eventLoopGroup <- EventLoopGroup.Live.get(settings.serverChannelType)(settings.nThreads)
       rtm            <- HttpRuntime.sticky[R](eventLoopGroup)
       time            = ServerTime.make(1000 millis)
       reqHandler      = Handler(settings.app, rtm, settings, time)
@@ -254,6 +258,7 @@ object Server {
     objectAggregator: Int = 1024 * 100,
     serverBootstrapInitializer: ServerBootstrap => Unit = null,
     serverChannelType: ChannelType = ChannelType.AUTO,
+    nThreads: Int = 0,
   ) {
     def useAggregator: Boolean = objectAggregator >= 0
   }
@@ -287,4 +292,6 @@ object Server {
   private final case class UnsafeServerBootstrap(init: ServerBootstrap => Unit) extends UServer
 
   private final case class UserServerChannelType(serverChannelType: ChannelType) extends UServer
+
+  private final case class MaxNumberOfThreads(nThreads: Int) extends UServer
 }

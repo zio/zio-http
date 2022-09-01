@@ -11,6 +11,6 @@ package object internal {
   val testClientLayer: ZLayer[Scope, Nothing, Client[Any]]                       =
     ZLayer.fromZIO(Client.make[Any](Config.empty.withChannelType(ChannelType.NIO)))
   val webSocketClientLayer: ZLayer[HttpEnv with Scope, Nothing, Client[HttpEnv]] =
-    ZLayer.fromZIO(Client.make[HttpEnv](Config.empty.withChannelType(ChannelType.NIO)))
+    ZLayer.fromZIO(Client.make[HttpEnv](Config.empty.withChannelType(ChannelType.AUTO)))
 
 }
