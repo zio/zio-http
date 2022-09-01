@@ -2,7 +2,7 @@ package zhttp.service
 
 import io.netty.handler.codec.http.HttpHeaderValues
 import zhttp.http.{HeaderNames, Headers, Http, Version}
-import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClient}
+import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClientLayer}
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertZIO
@@ -14,36 +14,30 @@ object KeepAliveSpec extends HttpRunnableSpec {
   val connectionCloseHeader       = Headers.connection(HttpHeaderValues.CLOSE)
   val keepAliveHeader             = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
   private val env                 =
-    DynamicServer.live ++ Scope.default
+    DynamicServer.live ++ Scope.default ++ testClientLayer
   private val appKeepAliveEnabled = serve(DynamicServer.app)
 
   def keepAliveSpec = suite("KeepAlive")(
     suite("Http 1.1")(
       test("without connection close") {
-        val res = testClient.flatMap(client => app.deploy(client).headerValue(HeaderNames.connection).run())
+        val res = app.deploy.headerValue(HeaderNames.connection).run()
         assertZIO(res)(isNone)
       },
       test("with connection close") {
-        val res = testClient.flatMap(client =>
-          app.deploy(client).headerValue(HeaderNames.connection).run(headers = connectionCloseHeader),
-        )
+        val res = app.deploy.headerValue(HeaderNames.connection).run(headers = connectionCloseHeader)
         assertZIO(res)(isSome(equalTo("close")))
       },
     ),
     suite("Http 1.0")(
       test("without keep-alive") {
-        val res = testClient.flatMap(client =>
-          app.deploy(client).headerValue(HeaderNames.connection).run(version = Version.Http_1_0),
-        )
+        val res = app.deploy.headerValue(HeaderNames.connection).run(version = Version.Http_1_0)
         assertZIO(res)(isSome(equalTo("close")))
       },
       test("with keep-alive") {
-        val res = testClient.flatMap(client =>
-          app
-            .deploy(client)
+        val res =
+          app.deploy
             .headerValue(HeaderNames.connection)
-            .run(version = Version.Http_1_0, headers = keepAliveHeader),
-        )
+            .run(version = Version.Http_1_0, headers = keepAliveHeader)
         assertZIO(res)(isNone)
       },
     ),

@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http.{Headers, Http, Status}
-import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClient, websocketTestClient}
+import zhttp.internal.{DynamicServer, HttpEnv, HttpRunnableSpec, webSocketClientLayer}
 import zhttp.service.ChannelEvent.UserEvent.HandshakeComplete
 import zhttp.service.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zhttp.socket.{WebSocketChannelEvent, WebSocketFrame}
@@ -12,7 +12,7 @@ import zio.test._
 
 object WebSocketSpec extends HttpRunnableSpec {
 
-  private val env = DynamicServer.live ++ Scope.default
+  private val env = DynamicServer.live ++ Scope.default ++ (DynamicServer.live >>> webSocketClientLayer)
 
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {
@@ -29,7 +29,7 @@ object WebSocketSpec extends HttpRunnableSpec {
             .toSocketApp
             .toHttp
         }
-        client <- testClient
+        client <- ZIO.service[Client[HttpEnv]]
         res    <- ZIO.scoped {
           Http
             .collectZIO[WebSocketChannelEvent] {
@@ -54,7 +54,7 @@ object WebSocketSpec extends HttpRunnableSpec {
           }
         }
       } yield res
-    },
+    } @@ nonFlaky,
     test("on close interruptibility") {
       for {
 
@@ -64,14 +64,13 @@ object WebSocketSpec extends HttpRunnableSpec {
         clock     <- testClock
 
         // Setup websocket server
-        client <- websocketTestClient
         serverHttp   = Http
           .collectZIO[WebSocketChannelEvent] { case ChannelEvent(_, ChannelUnregistered) =>
             isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
           }
           .toSocketApp
           .toHttp
-          .deployWS(client)
+          .deployWS
 
         // Setup Client
         // Client closes the connection after 1 second
@@ -92,11 +91,9 @@ object WebSocketSpec extends HttpRunnableSpec {
 
         // Check if the close handler was completed
       } yield assertCompletes
-    } @@ nonFlaky,
+    },
     test("Multiple websocket upgrades") {
-      val app   = Http
-        .fromZIO(websocketTestClient)
-        .flatMap(client => Http.succeed(WebSocketFrame.text("BAR")).toSocketApp.toHttp.deployWS(client))
+      val app   = Http.succeed(WebSocketFrame.text("BAR")).toSocketApp.toHttp.deployWS
       val codes = ZIO
         .foreach(1 to 1024)(_ => app(Http.empty.toSocketApp).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))
@@ -109,8 +106,7 @@ object WebSocketSpec extends HttpRunnableSpec {
     serve {
       DynamicServer.app
     }.as(List(websocketSpec))
-  }
-    .provideLayerShared(env) @@ timeout(30 seconds)
+  }.provideLayerShared(env) @@ timeout(30 seconds)
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
     def add(a: A, isDone: Boolean = false): UIO[Unit] = ref.update(_ :+ a) <* promise.succeed(()).when(isDone)

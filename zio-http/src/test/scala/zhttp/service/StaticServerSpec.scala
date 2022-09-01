@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec, testClient}
+import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec, testClientLayer}
 import zhttp.service.ChannelModel.ChannelType
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -10,7 +10,7 @@ import zio.{Scope, ZIO, durationInt}
 
 object StaticServerSpec extends HttpRunnableSpec {
 
-  private val env = DynamicServer.live ++ Scope.default
+  private val env = DynamicServer.live ++ Scope.default ++ (Scope.default >>> testClientLayer)
 
   private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
@@ -44,22 +44,19 @@ object StaticServerSpec extends HttpRunnableSpec {
   def nonZIOSpec = suite("NonZIOSpec")(
     test("200 response") {
       checkAll(HttpGen.method) { method =>
-        val actual = testClient
-          .flatMap(client => status(method, !! / "HExitSuccess", client))
+        val actual = status(method, !! / "HExitSuccess")
         assertZIO(actual)(equalTo(Status.Ok))
       }
     },
     test("500 response") {
       checkAll(methodGenWithoutHEAD) { method =>
-        val actual = testClient
-          .flatMap(client => status(method, !! / "HExitFailure", client))
+        val actual = status(method, !! / "HExitFailure")
         assertZIO(actual)(equalTo(Status.InternalServerError))
       }
     },
     test("404 response ") {
       checkAll(methodGenWithoutHEAD) { method =>
-        val actual = testClient
-          .flatMap(client => status(method, !! / "A", client))
+        val actual = status(method, !! / "A")
         assertZIO(actual)(equalTo(Status.NotFound))
       }
     },
@@ -94,42 +91,35 @@ object StaticServerSpec extends HttpRunnableSpec {
 
   def staticAppSpec    = suite("StaticAppSpec")(
     test("200 response") {
-      val actual = testClient
-        .flatMap(client => status(path = !! / "success", client = client))
+      val actual = status(path = !! / "success")
       assertZIO(actual)(equalTo(Status.Ok))
     },
     test("500 response on failure") {
-      val actual = testClient
-        .flatMap(client => status(path = !! / "failure", client = client))
+      val actual = status(path = !! / "failure")
       assertZIO(actual)(equalTo(Status.InternalServerError))
     },
     test("500 response on die") {
-      val actual = testClient
-        .flatMap(client => status(path = !! / "die", client = client))
+      val actual = status(path = !! / "die")
       assertZIO(actual)(equalTo(Status.InternalServerError))
     },
     test("404 response") {
-      val actual = testClient
-        .flatMap(client => status(path = !! / "random", client = client))
+      val actual = status(path = !! / "random")
       assertZIO(actual)(equalTo(Status.NotFound))
     },
     test("200 response with encoded path") {
-      val actual = testClient
-        .flatMap(client => status(path = !! / "get%2Fsuccess", client = client))
+      val actual = status(path = !! / "get%2Fsuccess")
       assertZIO(actual)(equalTo(Status.Ok))
     },
     test("Multiple 200 response") {
       for {
-        client <- testClient
-        data   <- status(path = !! / "success", client = client).repeatN(1024)
+        data <- status(path = !! / "success").repeatN(1024)
       } yield assertTrue(data == Status.Ok)
     },
   )
   def throwableAppSpec = suite("ThrowableAppSpec") {
     test("Throw inside Handler") {
       for {
-        client <- testClient
-        status <- status(Method.GET, !! / "throwable", client = client)
+        status <- status(Method.GET, !! / "throwable")
       } yield assertTrue(status == Status.InternalServerError)
     }
   }

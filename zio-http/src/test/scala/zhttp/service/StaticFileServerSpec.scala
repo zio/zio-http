@@ -1,7 +1,7 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClient}
+import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClientLayer}
 import zio._
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
@@ -11,24 +11,17 @@ import java.io.File
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val env = DynamicServer.live ++ Scope.default
+  private val env = DynamicServer.live ++ Scope.default ++ testClientLayer
 
-  private val fileOk = Http.fromZIO(testClient).flatMap(client => Http.fromResource("TestFile.txt").deploy(client))
-  private val fileNotFound = Http.fromZIO(testClient).flatMap(client => Http.fromResource("Nothing").deploy(client))
+  private val fileOk       = Http.fromResource("TestFile.txt").deploy
+  private val fileNotFound = Http.fromResource("Nothing").deploy
 
-  private val testArchivePath  = getClass.getResource("/TestArchive.jar").getPath
-  private val resourceOk       =
-    Http
-      .fromZIO(testClient)
-      .flatMap(client =>
-        Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).deploy(client),
-      )
+  private val testArchivePath = getClass.getResource("/TestArchive.jar").getPath
+  private val resourceOk      =
+    Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).deploy
+
   private val resourceNotFound =
-    Http
-      .fromZIO(testClient)
-      .flatMap(client =>
-        Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt")).deploy(client),
-      )
+    Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt")).deploy
 
   override def spec = suite("StaticFileServer") {
     serve(DynamicServer.app).as(List(staticSpec))
@@ -62,8 +55,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
     suite("fromFile")(
       suite("failure on construction")(
         test("should respond with 500") {
-          val res = testClient
-            .flatMap(client => Http.fromFile(throw new Error("Wut happened?")).deploy(client).run().map(_.status))
+          val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),
@@ -73,8 +65,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
             override def length: Long    = throw new Error("Haha")
             override def isFile: Boolean = true
           }
-          val res = testClient
-            .flatMap(client => Http.fromFile(new BadFile("Length Failure")).deploy(client).run().map(_.status))
+          val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),

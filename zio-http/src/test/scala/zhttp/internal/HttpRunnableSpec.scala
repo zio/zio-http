@@ -58,28 +58,30 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy(client: Client[R])(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, Request, Response] =
+    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv with Client[Any], Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
+        client   <- Http.fromZIO(ZIO.service[Client[Any]])
         response <- Http.fromFunctionZIO[Request] { params =>
           client
             .request(
               params
                 .addHeader(DynamicServer.APP_ID, id)
                 .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-              Config.empty.withChannelType(ChannelType.NIO),
+              Config.empty,
             )
         }
       } yield response
 
-    def deployWS(
-      client: Client[HttpEnv],
-    )(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, SocketApp[HttpEnv], Response] =
+    def deployWS(implicit
+      e: E <:< Throwable,
+    ): Http[R with HttpEnv with Client[HttpEnv], Throwable, SocketApp[HttpEnv], Response] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
         uri      <- Http.fromZIO(ZIO.fromEither(URL.fromString(url)))
+        client   <- Http.fromZIO(ZIO.service[Client[HttpEnv]])
         response <- Http.fromFunctionZIO[SocketApp[HttpEnv]] { app =>
           ZIO.scoped[HttpEnv](
             client
@@ -110,10 +112,10 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   def status(
     method: Method = Method.GET,
     path: Path,
-    client: Client[Any],
-  ): ZIO[DynamicServer, Throwable, Status] = {
+  ): ZIO[DynamicServer with Client[Any], Throwable, Status] = {
     for {
       port   <- DynamicServer.port
+      client <- ZIO.service[Client[Any]]
       status <- client
         .request(
           "http://localhost:%d/%s".format(port, path),

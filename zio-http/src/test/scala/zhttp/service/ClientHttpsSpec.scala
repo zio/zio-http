@@ -3,12 +3,12 @@ package zhttp.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Status
-import zhttp.internal.testClient
+import zhttp.internal.testClientLayer
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zio.{Scope, durationInt}
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}
+import zio.{Scope, ZIO, durationInt}
 
 import java.io._
 import java.security.KeyStore
@@ -16,7 +16,7 @@ import javax.net.ssl.TrustManagerFactory
 
 object ClientHttpsSpec extends ZIOSpecDefault {
 
-  val env                         = Scope.default
+  val env                         = Scope.default ++ testClientLayer
   val trustStore: KeyStore        = KeyStore.getInstance("JKS")
   val trustStorePassword: String  = "changeit"
   val trustStoreFile: InputStream = getClass().getClassLoader().getResourceAsStream("truststore.jks")
@@ -32,17 +32,20 @@ object ClientHttpsSpec extends ZIOSpecDefault {
   override def spec               = suite("Https Client request")(
     test("respond Ok") {
       val actual =
-        testClient.flatMap(client => client.request("https://sports.api.decathlon.com/groups/water-aerobics"))
+        ZIO
+          .service[Client[Any]]
+          .flatMap(client => client.request("https://sports.api.decathlon.com/groups/water-aerobics"))
       assertZIO(actual)(anything)
     },
     test("respond Ok with sslOption") {
-      val actual = testClient.flatMap(client =>
-        client.request("https://sports.api.decathlon.com/groups/water-aerobics", ssl = sslOption),
-      )
+      val actual = ZIO
+        .service[Client[Any]]
+        .flatMap(client => client.request("https://sports.api.decathlon.com/groups/water-aerobics", ssl = sslOption))
       assertZIO(actual)(anything)
     },
     test("should respond as Bad Request") {
-      val actual = testClient
+      val actual = ZIO
+        .service[Client[Any]]
         .flatMap(client =>
           client
             .request(
@@ -54,7 +57,8 @@ object ClientHttpsSpec extends ZIOSpecDefault {
       assertZIO(actual)(equalTo(Status.BadRequest))
     },
     test("should throw DecoderException for handshake failure") {
-      val actual = testClient
+      val actual = ZIO
+        .service[Client[Any]]
         .flatMap(client =>
           client
             .request(

@@ -1,7 +1,7 @@
 package zhttp.service
 import zhttp.http._
 import zhttp.http.middleware.Auth.Credentials
-import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClient}
+import zhttp.internal.{DynamicServer, HttpRunnableSpec, testClientLayer}
 import zhttp.service.ChannelModel.ChannelType
 import zhttp.service.Client.Config
 import zio.test.Assertion._
@@ -14,38 +14,38 @@ import java.net.ConnectException
 object ClientSpec extends HttpRunnableSpec {
 
   private val env =
-    DynamicServer.live ++ Scope.default
+    DynamicServer.live ++ Scope.default ++ testClientLayer
 
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {
-      val app = testClient.flatMap(client => Http.ok.deploy(client).status.run())
+      val app = Http.ok.deploy.status.run()
       assertZIO(app)(equalTo(Status.Ok))
     },
     test("non empty content") {
       val app             = Http.text("abc")
-      val responseContent = testClient.flatMap(client => app.deploy(client).body.run().flatMap(_.asChunk))
+      val responseContent = app.deploy.body.run().flatMap(_.asChunk)
       assertZIO(responseContent)(isNonEmpty)
     },
     test("echo POST request content") {
       val app = Http.collectZIO[Request] { case req => req.body.asString.map(Response.text(_)) }
-      val res = testClient.flatMap(client =>
-        app.deploy(client).body.mapZIO(_.asString).run(method = Method.POST, body = Body.fromString("ZIO user")),
-      )
+      val res =
+        app.deploy.body.mapZIO(_.asString).run(method = Method.POST, body = Body.fromString("ZIO user"))
+
       assertZIO(res)(equalTo("ZIO user"))
     },
     test("non empty content") {
       val app             = Http.empty
       val responseContent =
-        testClient.flatMap(client => app.deploy(client).body.run().flatMap(_.asString.map(_.length)))
+        app.deploy.body.run().flatMap(_.asString.map(_.length))
       assertZIO(responseContent)(isGreaterThan(0))
     },
     test("text content") {
       val app             = Http.text("zio user does not exist")
-      val responseContent = testClient.flatMap(client => app.deploy(client).body.mapZIO(_.asString).run())
+      val responseContent = app.deploy.body.mapZIO(_.asString).run()
       assertZIO(responseContent)(containsString("user"))
     },
     test("handle connection failure") {
-      val res = testClient.flatMap(client => client.request("http://localhost:1").either)
+      val res = ZIO.service[Client[Any]].flatMap(client => client.request("http://localhost:1").either)
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
     test("handle proxy connection failure") {
@@ -54,7 +54,7 @@ object ClientSpec extends HttpRunnableSpec {
           validServerPort <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
           serverUrl       <- ZIO.fromEither(URL.fromString(s"http://localhost:$validServerPort"))
           proxyUrl        <- ZIO.fromEither(URL.fromString("http://localhost:0001"))
-          client          <- testClient
+          client          <- ZIO.service[Client[Any]]
           out             <-
             client.request(
               Request(url = serverUrl),
@@ -70,7 +70,7 @@ object ClientSpec extends HttpRunnableSpec {
           url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
           id   <- DynamicServer.deploy(Http.ok)
           proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
-          client <- testClient
+          client <- ZIO.service[Client[Any]]
           out    <- client.request(
             Request(url = url),
             Config().withProxy(proxy).withChannelType(ChannelType.NIO),
@@ -95,7 +95,7 @@ object ClientSpec extends HttpRunnableSpec {
             .withUrl(url)
             .withHeaders(Headers(DynamicServer.APP_ID, id))
             .withCredentials(Credentials("test", "test"))
-          client <- testClient
+          client <- ZIO.service[Client[Any]]
           out    <- client.request(
             Request(url = url),
             Config().withProxy(proxy).withChannelType(ChannelType.NIO),

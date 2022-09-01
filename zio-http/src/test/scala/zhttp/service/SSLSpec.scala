@@ -3,7 +3,7 @@ package zhttp.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http._
-import zhttp.internal.testClient
+import zhttp.internal.testClientLayer
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zio._
@@ -12,7 +12,7 @@ import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertZIO, check}
 
 object SSLSpec extends ZIOSpecDefault {
-  val env = Scope.default
+  val env = Scope.default ++ (Scope.default >>> testClientLayer)
 
   val serverSSL  = ctxFromCert(
     getClass().getClassLoader().getResourceAsStream("server.crt"),
@@ -41,15 +41,18 @@ object SSLSpec extends ZIOSpecDefault {
       .as(
         List(
           test("succeed when client has the server certificate") {
-            val actual = testClient.flatMap(client =>
-              client
-                .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
-                .map(_.status),
-            )
+            val actual = ZIO
+              .service[Client[Any]]
+              .flatMap(client =>
+                client
+                  .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
+                  .map(_.status),
+              )
             assertZIO(actual)(equalTo(Status.Ok))
           },
           test("fail with DecoderException when client doesn't have the server certificate") {
-            val actual = testClient
+            val actual = ZIO
+              .service[Client[Any]]
               .flatMap(client =>
                 client
                   .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL2)),
@@ -60,24 +63,29 @@ object SSLSpec extends ZIOSpecDefault {
             assertZIO(actual)(equalTo("DecoderException"))
           },
           test("succeed when client has default SSL") {
-            val actual = testClient.flatMap(client =>
-              client
-                .request("https://localhost:8073/success", ssl = ClientSSLOptions.DefaultSSL)
-                .map(_.status),
-            )
+            val actual = ZIO
+              .service[Client[Any]]
+              .flatMap(client =>
+                client
+                  .request("https://localhost:8073/success", ssl = ClientSSLOptions.DefaultSSL)
+                  .map(_.status),
+              )
             assertZIO(actual)(equalTo(Status.Ok))
           },
           test("Https Redirect when client makes http request") {
-            val actual = testClient.flatMap(client =>
-              client
-                .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
-                .map(_.status),
-            )
+            val actual = ZIO
+              .service[Client[Any]]
+              .flatMap(client =>
+                client
+                  .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
+                  .map(_.status),
+              )
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
           },
           test("Https request with a large payload should respond with 413") {
             check(payload) { payload =>
-              val actual = testClient
+              val actual = ZIO
+                .service[Client[Any]]
                 .flatMap(client =>
                   client
                     .request(

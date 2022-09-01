@@ -1,15 +1,8 @@
 package zhttp
 
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelHandlerContext,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.ChannelHandlerContext
 
 package object service extends Logging {
-  type ChannelFactory     = JChannelFactory[JChannel]
-  type EventLoopGroup     = JEventLoopGroup
   type UServer            = Server[Any, Nothing]
   private[zhttp] type Ctx = ChannelHandlerContext
   private[service] val AUTO_RELEASE_REQUEST               = false
