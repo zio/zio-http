@@ -6,8 +6,8 @@ import zhttp.service.Log
 import zio.Duration
 
 import java.security.MessageDigest
-import java.util.concurrent.TimeUnit
 import java.util.Base64.getEncoder
+import java.util.concurrent.TimeUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import scala.collection.mutable

@@ -3,8 +3,8 @@ package zhttp.http.cookie
 import zhttp.http.Path
 import zhttp.http.cookie.Cookie.SameSite
 import zio.durationInt
-import zio.test._
 import zio.test.Assertion.{equalTo, isLeft, isRight, startsWithString}
+import zio.test._
 
 object CookieSpec extends ZIOSpecDefault {
 
