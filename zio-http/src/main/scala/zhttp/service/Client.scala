@@ -31,7 +31,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
     headers: Headers = Headers.empty,
     content: Body = Body.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
-  ): ZIO[EventLoopGroup, Throwable, Response] =
+  ): Task[Response] =
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(
