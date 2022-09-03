@@ -117,6 +117,12 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
     response(_.copy(isHttpOnly = httpOnly))
 
   /**
+   * Sets httpOnly in cookie
+   */
+  def withHttpOnly(implicit ev: T =:= Cookie.Response): ResponseCookie =
+    withHttpOnly(true)
+
+  /**
    * Sets maxAge of the cookie
    */
   def withMaxAge(maxAge: Duration)(implicit ev: T =:= Cookie.Response): ResponseCookie =
@@ -150,6 +156,12 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
    */
   def withSecure(secure: Boolean)(implicit ev: T =:= Cookie.Response): ResponseCookie =
     response(_.copy(isSecure = secure))
+
+  /**
+   * Sets secure flag of the cookie
+   */
+  def withSecure(implicit ev: T =:= Cookie.Response): ResponseCookie =
+    withSecure(true)
 
   private def response(f: Cookie.Response => Cookie.Response)(implicit
     ev: T =:= Cookie.Response,
