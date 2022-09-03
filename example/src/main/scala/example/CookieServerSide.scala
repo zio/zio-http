@@ -22,7 +22,7 @@ object CookieServerSide extends ZIOAppDefault {
       Response.ok.addCookie(cookie.withSecure(true).withPath(!! / "secure-cookie"))
 
     case Method.GET -> !! / "cookie" / "remove" =>
-      res.addCookie(cookie.withContent(""))
+      res.addCookie(Cookie.clear("key"))
   }
 
   // Run it like any simple app

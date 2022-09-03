@@ -162,6 +162,11 @@ object Cookie {
   def apply(name: String, content: String): ResponseCookie = Cookie(name, content, Response())
 
   /**
+   * Creates a cookie with an expired maxAge
+   */
+  def clear(name: String): ResponseCookie = Cookie(name, "").withMaxAge(Long.MinValue)
+
+  /**
    * Creates a cookie from a string.
    */
   def decode[S](string: String, validate: Boolean = false)(implicit ev: CookieDecoder[S]): Either[Exception, ev.Out] = {
