@@ -1,8 +1,7 @@
 package zhttp.http.middleware
 
 import zhttp.http.Middleware._
-import zhttp.http._
-import zhttp.http.cookie.Cookie
+import zhttp.http.{Cookie, _}
 import zhttp.internal.HttpAppTestExtensions
 import zio._
 import zio.test.Assertion._

@@ -3,7 +3,7 @@ package zhttp.http.headers
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zhttp.http._
-import zhttp.http.cookie.{RequestCookie, ResponseCookie}
+import zhttp.http.{RequestCookie, ResponseCookie}
 import zio.Duration
 
 import java.util.Base64

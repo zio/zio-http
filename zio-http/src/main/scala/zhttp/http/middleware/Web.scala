@@ -1,8 +1,8 @@
 package zhttp.http.middleware
 
 import zhttp.http.URL.encode
-import zhttp.http._
-import zhttp.http.cookie.{Cookie, ResponseCookie}
+import zhttp.http.{Cookie, _}
+import zhttp.http.{ResponseCookie}
 import zhttp.http.headers.HeaderModifier
 import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
 import zio._

@@ -1,7 +1,8 @@
-package zhttp.http.cookie
+package zhttp.http
+
 import io.netty.handler.codec.http.{cookie => jCookie}
-import zhttp.http.Path
-import zhttp.http.cookie.Cookie.{Request, SameSite}
+import Cookie.{Request, SameSite}
+import zhttp.http.{RequestCookie, ResponseCookie}
 import zhttp.service.Log
 
 import scala.jdk.CollectionConverters._

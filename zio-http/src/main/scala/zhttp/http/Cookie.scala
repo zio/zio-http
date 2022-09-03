@@ -1,7 +1,6 @@
-package zhttp.http.cookie
+package zhttp.http
 
-import zhttp.http.Path
-import zhttp.http.cookie.CookieDecoder.log
+import CookieDecoder.log
 import zhttp.service.Log
 import zio.Duration
 
@@ -190,7 +189,7 @@ object Cookie {
     getEncoder.encodeToString(mda.digest(signed))
   }
 
-  private[cookie] val log = Log.withTags("Cookie")
+  private[http] val log = Log.withTags("Cookie")
 
   type Request = Request.type
   case object Request

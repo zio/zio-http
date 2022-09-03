@@ -1,7 +1,7 @@
 package zhttp.http.headers
 
 import zhttp.http._
-import zhttp.http.cookie.ResponseCookie
+import zhttp.http.ResponseCookie
 import zio.Duration
 
 /**

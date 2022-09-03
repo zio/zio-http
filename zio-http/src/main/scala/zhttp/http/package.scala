@@ -14,6 +14,9 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
   type Header                                = (CharSequence, CharSequence)
   type UMiddleware[+AIn, -BIn, -AOut, +BOut] = Middleware[Any, Nothing, AIn, BIn, AOut, BOut]
 
+  type RequestCookie  = Cookie[Cookie.Request]
+  type ResponseCookie = Cookie[Cookie.Response]
+
   /**
    * Default HTTP Charset
    */

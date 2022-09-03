@@ -1,9 +1,9 @@
 package zhttp.benchmarks
 
 import org.openjdk.jmh.annotations._
-import zhttp.http._
-import zhttp.http.cookie.Cookie
-import zhttp.http.cookie.Cookie.SameSite
+import zhttp.http.{Cookie, _}
+import Cookie.SameSite
+import zhttp.http
 
 import java.util.concurrent.TimeUnit
 
@@ -30,7 +30,7 @@ class CookieDecodeBenchmark {
 
   @Benchmark
   def benchmarkNettyCookie(): Unit = {
-    val _ = cookie.CookieDecoder.ResponseCookieDecoder.unsafeDecode(oldCookieString, false)
+    val _ = http.CookieDecoder.ResponseCookieDecoder.unsafeDecode(oldCookieString, false)
     ()
   }
 }

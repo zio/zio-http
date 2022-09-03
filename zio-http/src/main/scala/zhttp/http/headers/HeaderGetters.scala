@@ -3,8 +3,8 @@ package zhttp.http.headers
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
-import zhttp.http._
-import zhttp.http.cookie.{Cookie, RequestCookie, ResponseCookie}
+import zhttp.http.{Cookie, _}
+import zhttp.http.{RequestCookie, ResponseCookie}
 import zhttp.http.middleware.Auth.Credentials
 import zhttp.service.server.ServerTime
 
