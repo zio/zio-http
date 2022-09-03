@@ -1,6 +1,5 @@
-package zhttp.http.cookie
+package zhttp.http
 
-import zhttp.http.{Cookie, Path}
 import zhttp.http.Cookie.SameSite
 import zio.durationInt
 import zio.test.Assertion.{equalTo, isLeft, isRight, startsWithString}
