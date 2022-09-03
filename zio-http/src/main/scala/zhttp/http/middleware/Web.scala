@@ -146,8 +146,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
         Cookie
           .decode[Cookie.Response](h.header(HeaderNames.setCookie).get._2.toString)
           .map(_.sign(secret))
-          .flatMap(_.encode)
-          .map(cookie => h.addHeader(HeaderNames.setCookie, cookie))
+          .map { cookie => Headers.setCookie(cookie) }
           .getOrElse(h)
 
       case h => h
