@@ -3,7 +3,7 @@ package zhttp.api
 import zhttp.http.{Http, HttpApp, Request, Response}
 import zio.schema.Schema
 import zio.schema.codec.JsonCodec
-import zio.{Chunk, UIO, ZIO}
+import zio.{Chunk, ZIO}
 
 private[api] object ServerInterpreter {
 
@@ -21,13 +21,13 @@ private[api] object ServerInterpreter {
       if (handler.api.inputSchema == Schema[Unit]) {
         process(().asInstanceOf[Input])
       } else {
-        request.body.flatMap { string =>
+        request.body.asChunk.flatMap { string =>
           inputDecoder(string) match {
-            case Left(err)    => UIO(Response.text(s"Invalid input: $err"))
+            case Left(err)    => ZIO.succeed(Response.text(s"Invalid input: $err"))
             case Right(value) => process(value)
           }
         }.catchAll { err =>
-          UIO(Response.text(s"Error parsing request body: $err"))
+          ZIO.succeed(Response.text(s"Error parsing request body: $err"))
         }
       }
     }

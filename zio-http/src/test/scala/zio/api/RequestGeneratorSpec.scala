@@ -1,10 +1,10 @@
 package zhttp.api
 
-import zio.test.{DefaultRunnableSpec, assertTrue}
+import zio.test.{ZIOSpecDefault, assertTrue}
 
 import java.util.UUID
 
-object RequestGeneratorSpec extends DefaultRunnableSpec {
+object RequestGeneratorSpec extends ZIOSpecDefault {
 
   def generateRequest[A](api: API[A, _, _])(params: A): (String, Map[String, String]) = {
     val state = new ClientInterpreter.RequestState

@@ -26,7 +26,7 @@ final class APIOps[Params, Input, Output: NotUnit, ZipOut, Id](
 
   def call(host: String)(params: ZipOut): ZIO[EventLoopGroup with ChannelFactory, Throwable, Output] = {
     val tuple = zipper.unzip(params)
-    ClientInterpreter.interpret(host)(self)(tuple._1, tuple._2).flatMap(_.body).flatMap { string =>
+    ClientInterpreter.interpret(host)(self)(tuple._1, tuple._2).flatMap(_.body.asChunk).flatMap { string =>
       JsonCodec.decode(self.outputSchema)(string) match {
         case Left(err)    => ZIO.fail(new Error(s"Could not parse response: $err"))
         case Right(value) => ZIO.succeed(value)

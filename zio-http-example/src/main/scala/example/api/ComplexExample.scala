@@ -1,13 +1,12 @@
 package example.api
 
-import zhttp.http.HttpApp
-import zhttp.service.{ChannelFactory, EventLoopGroup}
-import zio._
+import example.api.Domain._
 import zhttp.api._
 import zhttp.api.openapi.OpenApiInterpreter
+import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zio._
 import zio.json.{uuid => _, _}
 import zio.schema.{DeriveSchema, Schema}
-import Domain._
 
 import java.util.UUID
 
@@ -29,17 +28,7 @@ import java.util.UUID
 //   - /talks/id
 //   - /talks/id
 
-object ComplexExample extends App {
-  // APIs
-  // GET /talks?title=my_talk
-  // case req @ Methods.GET -> !! / "talks" -> req.queryParams =>
-
-  val cool: HttpApp[Any, Nothing] =
-    API
-      .get("dogs" / string)
-      .toHttp { string =>
-        ZIO.succeed(string.length)
-      }
+object ComplexExample extends ZIOAppDefault {
 
   val allTalks: API[Option[String], Unit, List[Talk]] =
     API
@@ -84,14 +73,14 @@ object ComplexExample extends App {
     }
 
   val deleteTalkHandler =
-    Handler.make(deleteTalk) { case (uuid, _) =>
+    deleteTalk.handle { uuid =>
       Talks.delete(uuid)
     }
 
   val handlers =
     getTalkHandler ++ allTalksHandler ++ deleteTalkHandler ++ createTalkHandler
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  val run =
     printSchema *>
       Server
         .start(8080, apis, handlers)
@@ -110,13 +99,13 @@ object CreateTalk {
   implicit val schema: Schema[CreateTalk]   = DeriveSchema.gen[CreateTalk]
 }
 
-object ExampleClient extends App {
+object ExampleClient extends ZIOAppDefault {
 
   val clientRequest =
     ComplexExample.getTalk
       .call("http://localhost:8080")(UUID.fromString("ee6c1806-3160-43e9-a501-95e1e8fcd1c2"))
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  val run =
     clientRequest.map(_.mkString("\n")).debug.provideLayer(EventLoopGroup.auto() ++ ChannelFactory.auto).exitCode
 }
 
@@ -137,11 +126,11 @@ object Domain {
   }
 
   object Logger {
-    def log(msg: String): ZIO[Has[Logger], Nothing, Unit] =
-      ZIO.serviceWith[Logger](_.log(msg))
+    def log(msg: String): ZIO[Logger, Nothing, Unit] =
+      ZIO.serviceWithZIO[Logger](_.log(msg))
 
-    val live: ULayer[Has[Logger]] =
-      ZIO.succeed(LoggerLive()).toLayer[Logger]
+    val live: ULayer[Logger] =
+      ZLayer.succeed(LoggerLive())
 
     final case class LoggerLive() extends Logger {
       override def log(msg: String): UIO[Unit] = ZIO.succeed(println(msg))
@@ -167,17 +156,17 @@ object Domain {
   object Talks {
 
     // Accessors
-    def all: ZIO[Has[Talks], Throwable, List[Talk]] =
-      ZIO.serviceWith[Talks](_.all)
+    def all: ZIO[Talks, Throwable, List[Talk]] =
+      ZIO.serviceWithZIO[Talks](_.all)
 
-    def get(id: UUID): ZIO[Has[Talks], Throwable, Option[Talk]] =
-      ZIO.serviceWith[Talks](_.get(id))
+    def get(id: UUID): ZIO[Talks, Throwable, Option[Talk]] =
+      ZIO.serviceWithZIO[Talks](_.get(id))
 
-    def create(title: String, description: String, duration: Int): ZIO[Has[Talks], Throwable, Talk] =
-      ZIO.serviceWith[Talks](_.create(title, description, duration))
+    def create(title: String, description: String, duration: Int): ZIO[Talks, Throwable, Talk] =
+      ZIO.serviceWithZIO[Talks](_.create(title, description, duration))
 
-    def delete(id: UUID): ZIO[Has[Talks], Throwable, Unit] =
-      ZIO.serviceWith[Talks](_.delete(id))
+    def delete(id: UUID): ZIO[Talks, Throwable, Unit] =
+      ZIO.serviceWithZIO[Talks](_.delete(id))
 
     final case class TalksLive(log: Logger, ref: Ref[Map[UUID, Talk]]) extends Talks {
       override def all: Task[List[Talk]] =
@@ -202,11 +191,11 @@ object Domain {
     val wiemTalk     = Talk(UUID.randomUUID(), "Book Your Spot and ZIO!", "Wiem Zine Elabidine", 10)
     val exampleTalks = List(kitTalk, adamTalk, wiemTalk).map(t => t.id -> t).toMap
 
-    val live: ZLayer[Has[Logger], Nothing, Has[Talks]] = {
+    val live: ZLayer[Logger, Nothing, Talks] = ZLayer {
       for {
         logger <- ZIO.service[Logger]
         ref    <- Ref.make(exampleTalks)
       } yield TalksLive(logger, ref)
-    }.toLayer[Talks]
+    }
   }
 }

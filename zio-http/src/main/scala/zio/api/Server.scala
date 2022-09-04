@@ -1,8 +1,8 @@
 package zhttp.api
 
-import zio.{Has, ZIO}
+import zio.ZIO
 
-final case class Server[R <: Has[_], E <: Throwable](apis: APIs, handlers: Handlers[R, E]) {
+final case class Server[R, E <: Throwable](apis: APIs, handlers: Handlers[R, E]) {
   import zhttp.http._
 
   def start(port: Int): ZIO[R, Throwable, Nothing] =
@@ -16,13 +16,13 @@ final case class Server[R <: Has[_], E <: Throwable](apis: APIs, handlers: Handl
 }
 
 object Server {
-  def make[R <: Has[_], E <: Throwable](
+  def make[R, E <: Throwable](
     apis: APIs,
     handlers: Handlers[R, E],
   ): Server[R, E] =
     Server(apis, handlers)
 
-  def start[R <: Has[_], E <: Throwable](
+  def start[R, E <: Throwable](
     port: Int,
     apis: APIs,
     handlers: Handlers[R, E],

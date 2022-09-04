@@ -55,7 +55,7 @@ object SchemaObject {
   implicit lazy val encoder: JsonEncoder[SchemaObject] =
     defer(
       SchemaObjectBase.encoder
-        .eraseEither(AnyOf.encoder)
+        .orElseEither(AnyOf.encoder)
         .contramap[SchemaObject] { //
           case base: SchemaObjectBase =>
             Left(base)
@@ -91,7 +91,7 @@ object SchemaObject {
       case _: Schema.Enum[_]                   => ???
       case record: Schema.Record[_]            =>
         val properties: Map[String, SchemaObject] =
-          record.structure.map { case Schema.Field(label, schema, _) =>
+          record.structure.map { case Schema.Field(label, schema, _, _) =>
             label -> fromSchema(schema)
           }.toMap
         SchemaObjectBase(

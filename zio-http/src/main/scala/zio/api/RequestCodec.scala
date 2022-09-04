@@ -1,5 +1,6 @@
 package zhttp.api
 
+import zhttp.http.Path.Segment
 import zhttp.http.Request
 import zio.schema.Schema
 
@@ -269,7 +270,7 @@ sealed trait Route[A] extends RequestCodec[A] { self =>
   // Akka  fallback  — EGAD!
 
   override private[api] def parseRequestImpl(request: Request): A = {
-    val state  = RouteState(request.url.path.toList)
+    val state  = RouteState(request.url.path.segments.collect { case Segment.Text(s) => s })
     val result = parseImpl(state)
     if (result == null || state.input.nonEmpty) null.asInstanceOf[A]
     else result
@@ -278,7 +279,7 @@ sealed trait Route[A] extends RequestCodec[A] { self =>
   private[api] def parseImpl(pathState: RouteState): A
 }
 
-final case class RouteState(var input: List[String])
+final case class RouteState(var input: Vector[String])
 
 object Route {
   def path(name: String): Route[Unit] = Route.Literal(name).asInstanceOf[Route[Unit]]

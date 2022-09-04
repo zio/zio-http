@@ -1,6 +1,6 @@
 package zhttp.api
 
-import zhttp.http.{HttpData, Response}
+import zhttp.http.{Body, Response}
 import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio.ZIO
 import zio.schema.Schema
@@ -16,8 +16,8 @@ private[api] object ClientInterpreter {
     parseUrl(api.requestCodec, state)(params)
     val (url, headers) = state.result
     val data           =
-      if (api.inputSchema == Schema[Unit]) HttpData.empty
-      else HttpData.fromChunk(JsonCodec.encode(api.inputSchema)(input))
+      if (api.inputSchema == Schema[Unit]) Body.empty
+      else Body.fromChunk(JsonCodec.encode(api.inputSchema)(input))
 
     Client.request(s"$host$url", api.method, zhttp.http.Headers(headers.toList), content = data)
   }
@@ -25,10 +25,10 @@ private[api] object ClientInterpreter {
   private[api] class RequestState {
     private val query: mutable.Map[String, String]   = mutable.Map.empty
     private val headers: mutable.Map[String, String] = mutable.Map.empty
-    private val pathBuilder: StringBuilder           = new StringBuilder()
+    private val pathBuilder: mutable.StringBuilder   = new mutable.StringBuilder()
 
     def addPath(path: String): Unit =
-      pathBuilder.append(path)
+      pathBuilder ++= path
 
     def addQuery(key: String, value: String): Unit = {
       val _ = query.put(key, value)

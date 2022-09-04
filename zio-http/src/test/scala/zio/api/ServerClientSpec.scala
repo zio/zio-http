@@ -3,13 +3,12 @@ package zhttp.api
 import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio._
 import zio.json.{uuid => _, _}
-import zio.test._
 import zio.schema._
+import zio.test._
 
 import java.util.UUID
 
-object ServerClientSpec extends DefaultRunnableSpec {
-
+object ServerClientSpec extends ZIOSpecDefault {
   // APIs
 
   val usersAPI =
@@ -36,7 +35,7 @@ object ServerClientSpec extends DefaultRunnableSpec {
 
   val usersHandler =
     usersAPI.handle { _ =>
-      UIO {
+      ZIO.succeed {
         List(
           User(UUID.randomUUID(), "kit@email.com"),
           User(UUID.randomUUID(), "another@gmail.com"),
@@ -46,7 +45,7 @@ object ServerClientSpec extends DefaultRunnableSpec {
 
   val userHandler =
     userAPI.handle { id =>
-      UIO.some(User(id, "kit@email.com"))
+      ZIO.some(User(id, "kit@email.com"))
     }
 
   val countHandler =
@@ -66,34 +65,36 @@ object ServerClientSpec extends DefaultRunnableSpec {
   private val handlers = userHandler ++ usersHandler ++ countHandler ++ incrementHandler
 
   val serverLayer =
-    Server.start(port, apis, handlers).fork.unit.toLayer
+    ZLayer {
+      Server.start(port, apis, handlers).fork.unit
+    }
 
   def spec =
     suite("ServerClientSpec")(
-      testM("get users") {
+      test("get users") {
         for {
           users <- usersAPI.call(host)(())
         } yield assertTrue(users.length == 2)
       },
-      testM("get user") {
+      test("get user") {
         for {
           _ <- ZIO.service[Unit]
           userId = UUID.randomUUID()
           user <- userAPI.call(host)(userId)
         } yield assertTrue(user.get.id == userId)
       },
-      testM("counter api") {
+      test("counter api") {
         for {
           count  <- countAPI.call(host)(())
           _      <- incrementAPI.call(host)(2) <&> incrementAPI.call(host)(4)
           count2 <- countAPI.call(host)(())
         } yield assertTrue(count == 0 && count2 == 6)
       },
-    ).provideCustomLayer(
-      Counter.live >+>
-        EventLoopGroup.auto() >+>
-        ChannelFactory.auto >+>
-        serverLayer,
+    ).provide(
+      Counter.live,
+      EventLoopGroup.auto(),
+      ChannelFactory.auto,
+      serverLayer,
     )
 
   // Example Service
@@ -104,14 +105,14 @@ object ServerClientSpec extends DefaultRunnableSpec {
   }
 
   object Counter {
-    def increment(amount: Int): ZIO[Has[Counter], Nothing, Unit] =
-      ZIO.serviceWith[Counter](_.increment(amount))
+    def increment(amount: Int): ZIO[Counter, Nothing, Unit] =
+      ZIO.serviceWithZIO[Counter](_.increment(amount))
 
-    val count: ZIO[Has[Counter], Nothing, Int] =
-      ZIO.serviceWith[Counter](_.count)
+    val count: ZIO[Counter, Nothing, Int] =
+      ZIO.serviceWithZIO[Counter](_.count)
 
-    val live: ZLayer[Any, Nothing, Has[Counter]] =
-      Ref.make(0).toLayer >>> (Counter.apply _).toLayer
+    val live: ZLayer[Any, Nothing, Counter] =
+      ZLayer(Ref.make(0)) >>> ZLayer.fromFunction(Counter.apply _)
   }
 
   // User

@@ -1,9 +1,9 @@
 package zhttp.api
 
 import zhttp.http.{Headers, Request, URL}
-import zio.test.{DefaultRunnableSpec, assertTrue}
+import zio.test.{ZIOSpecDefault, assertTrue}
 
-object RequestCodecSpec extends DefaultRunnableSpec {
+object RequestCodecSpec extends ZIOSpecDefault {
 
   def parseRequest[A](api: API[A, _, _]): Request => Option[A] =
     api.requestCodec.parseRequest
