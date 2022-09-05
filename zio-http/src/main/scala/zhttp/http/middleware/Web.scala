@@ -17,10 +17,10 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
   /**
    * Sets cookie in response headers
    */
-  final def addCookie(cookie: ResponseCookie): HttpMiddleware[Any, Nothing] =
+  final def addCookie(cookie: Cookie[Response]): HttpMiddleware[Any, Nothing] =
     self.withSetCookie(cookie)
 
-  final def addCookieZIO[R, E](cookie: ZIO[R, E, ResponseCookie]): HttpMiddleware[R, E] =
+  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]]): HttpMiddleware[R, E] =
     patchZIO(_ => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
 
   /**

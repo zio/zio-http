@@ -75,12 +75,12 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Target[
   /**
    * Converts cookie to a request cookie.
    */
-  def toRequest: RequestCookie = Cookie(name, content, Target.request)
+  def toRequest: Cookie[Request] = Cookie(name, content, Target.request)
 
   /**
    * Converts cookie to a response cookie.
    */
-  def toResponse: ResponseCookie = {
+  def toResponse: Cookie[Response] = {
     self.target match {
       case _: Target.RequestTarget.type  => Cookie(name, content, Target.response())
       case target: Target.ResponseTarget => Cookie(name, content, target: Cookie.Target[Response])
@@ -105,31 +105,31 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Target[
   /**
    * Sets domain in cookie
    */
-  def withDomain(domain: String)(implicit ev: T =:= Response): ResponseCookie =
+  def withDomain(domain: String)(implicit ev: T =:= Response): Cookie[Response] =
     update(_.copy(domain = Some(domain)))
 
   /**
    * Sets httpOnly in cookie
    */
-  def withHttpOnly(httpOnly: Boolean)(implicit ev: T =:= Response): ResponseCookie =
+  def withHttpOnly(httpOnly: Boolean)(implicit ev: T =:= Response): Cookie[Response] =
     update(_.copy(isHttpOnly = httpOnly))
 
   /**
    * Sets httpOnly in cookie
    */
-  def withHttpOnly(implicit ev: T =:= Response): ResponseCookie =
+  def withHttpOnly(implicit ev: T =:= Response): Cookie[Response] =
     withHttpOnly(true)
 
   /**
    * Sets maxAge of the cookie
    */
-  def withMaxAge(maxAge: Duration)(implicit ev: T =:= Response): ResponseCookie =
+  def withMaxAge(maxAge: Duration)(implicit ev: T =:= Response): Cookie[Response] =
     update(_.copy(maxAge = Some(maxAge.getSeconds)))
 
   /**
    * Sets maxAge of the cookie
    */
-  def withMaxAge(seconds: Long)(implicit ev: T =:= Response): ResponseCookie =
+  def withMaxAge(seconds: Long)(implicit ev: T =:= Response): Cookie[Response] =
     update(_.copy(maxAge = Some(seconds)))
 
   /**
@@ -140,33 +140,33 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Target[
   /**
    * Sets path of the cookie
    */
-  def withPath(path: Path)(implicit ev: T =:= Response): ResponseCookie =
+  def withPath(path: Path)(implicit ev: T =:= Response): Cookie[Response] =
     update(_.copy(path = Some(path)))
 
   /**
    * Sets sameSite of the cookie
    */
-  def withSameSite(sameSite: Cookie.SameSite)(implicit ev: T =:= Response): ResponseCookie =
+  def withSameSite(sameSite: Cookie.SameSite)(implicit ev: T =:= Response): Cookie[Response] =
     update(_.copy(sameSite = Some(sameSite)))
 
   /**
    * Sets secure flag of the cookie
    */
-  def withSecure(secure: Boolean)(implicit ev: T =:= Response): ResponseCookie =
+  def withSecure(secure: Boolean)(implicit ev: T =:= Response): Cookie[Response] =
     update(_.copy(isSecure = secure))
 
   /**
    * Sets secure flag of the cookie
    */
-  def withSecure(implicit ev: T =:= Response): ResponseCookie =
+  def withSecure(implicit ev: T =:= Response): Cookie[Response] =
     withSecure(true)
 
-  private def update(f: Target.ResponseTarget => Target.ResponseTarget)(implicit ev: T =:= Response): ResponseCookie =
+  private def update(f: Target.ResponseTarget => Target.ResponseTarget)(implicit ev: T =:= Response): Cookie[Response] =
     self.copy(target = f(toResponse.target.asResponse))
 }
 
 object Cookie {
-  def apply(name: String, content: String): ResponseCookie = Cookie(name, content, Target.response())
+  def apply(name: String, content: String): Cookie[Response] = Cookie(name, content, Target.response())
   def apply(
     name: String,
     content: String,
@@ -176,13 +176,13 @@ object Cookie {
     isHttpOnly: Boolean,
     maxAge: Option[Long],
     sameSite: Option[SameSite],
-  ): ResponseCookie =
+  ): Cookie[Response] =
     Cookie(name, content, Target.response(domain, path, isSecure, isHttpOnly, maxAge, sameSite))
 
   /**
    * Creates a cookie with an expired maxAge
    */
-  def clear(name: String): ResponseCookie = Cookie(name, "").withMaxAge(Long.MinValue)
+  def clear(name: String): Cookie[Response] = Cookie(name, "").withMaxAge(Long.MinValue)
 
   /**
    * Creates a cookie from a string.

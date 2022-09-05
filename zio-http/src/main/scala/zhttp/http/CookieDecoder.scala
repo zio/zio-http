@@ -16,7 +16,7 @@ object CookieDecoder {
   val log = Log.withTags("Cookie")
 
   implicit object RequestCookieDecoder extends CookieDecoder[Request] {
-    override type Out = List[RequestCookie]
+    override type Out = List[Cookie[Request]]
 
     override def unsafeDecode(header: String, validate: Boolean): List[Cookie[Request]] = {
       val decoder = if (validate) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
@@ -27,8 +27,8 @@ object CookieDecoder {
   }
 
   implicit object ResponseCookieDecoder extends CookieDecoder[Response] {
-    override type Out = ResponseCookie
-    override def unsafeDecode(header: String, validate: Boolean): ResponseCookie = {
+    override type Out = Cookie[Response]
+    override def unsafeDecode(header: String, validate: Boolean): Cookie[Response] = {
       val decoder = if (validate) jCookie.ClientCookieDecoder.STRICT else jCookie.ClientCookieDecoder.LAX
 
       val cookie = decoder.decode(header).asInstanceOf[jCookie.DefaultCookie]

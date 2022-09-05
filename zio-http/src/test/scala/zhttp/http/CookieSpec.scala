@@ -58,7 +58,7 @@ object CookieSpec extends ZIOSpecDefault {
         test("response") {
           val cookie = Cookie("name", "content")
 
-          val cookieGen: Gen[Any, (ResponseCookie, Assertion[String])] = Gen.fromIterable(
+          val cookieGen: Gen[Any, (Cookie[Response], Assertion[String])] = Gen.fromIterable(
             Seq(
               cookie                            -> equalTo("name=content"),
               cookie.withDomain("abc.com")      -> equalTo("name=content; Domain=abc.com"),

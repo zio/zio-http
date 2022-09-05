@@ -161,7 +161,7 @@ trait HeaderGetters[+A] { self =>
   final def cookieValue(name: CharSequence): Option[CharSequence] =
     cookiesDecoded.find(_.name == name).map(_.content)
 
-  final def cookiesDecoded: List[RequestCookie] =
+  final def cookiesDecoded: List[Cookie[Request]] =
     headerValues(HeaderNames.cookie).flatMap { header =>
       Cookie.decode[Request](header) match {
         case Left(_)      => Nil
@@ -285,7 +285,7 @@ trait HeaderGetters[+A] { self =>
   final def setCookie: Option[CharSequence] =
     headerValue(HeaderNames.setCookie)
 
-  final def setCookiesDecoded(secret: Option[String] = None): List[ResponseCookie] =
+  final def setCookiesDecoded(secret: Option[String] = None): List[Cookie[Response]] =
     headerValues(HeaderNames.setCookie).flatMap { header =>
       Cookie.decode[Response](header) match {
         case Left(_)      => Nil

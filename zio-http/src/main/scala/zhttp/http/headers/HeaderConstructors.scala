@@ -3,7 +3,6 @@ package zhttp.http.headers
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zhttp.http._
-import zhttp.http.{RequestCookie, ResponseCookie}
 import zio.Duration
 
 import java.util.Base64
@@ -123,7 +122,7 @@ trait HeaderConstructors {
   final def cookie(value: CharSequence): Headers =
     Headers(HeaderNames.cookie, value)
 
-  final def cookie(value: RequestCookie): Headers =
+  final def cookie(value: Cookie[Request]): Headers =
     value.encode.map(Headers(HeaderNames.cookie, _)).getOrElse(Headers.empty)
 
   final def date(value: CharSequence): Headers =
@@ -216,7 +215,7 @@ trait HeaderConstructors {
   final def server(value: CharSequence): Headers =
     Headers(HeaderNames.server, value)
 
-  final def setCookie(value: ResponseCookie): Headers =
+  final def setCookie(value: Cookie[Response]): Headers =
     value.encode.map(Headers(HeaderNames.setCookie, _)).getOrElse(Headers.empty)
 
   final def te(value: CharSequence): Headers =

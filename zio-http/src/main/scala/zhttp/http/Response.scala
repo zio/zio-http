@@ -21,7 +21,7 @@ final case class Response private (
   /**
    * Adds cookies in the response headers.
    */
-  def addCookie(cookie: ResponseCookie): Response =
+  def addCookie(cookie: Cookie[Response]): Response =
     self.copy(headers = self.headers ++ Headers.setCookie(cookie))
 
   /**
