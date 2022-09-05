@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.http.Cookie.{SameSite, Target}
+import zhttp.http.Cookie.{SameSite, Type}
 import zhttp.http.CookieDecoder.log
 import zhttp.service.Log
 import zio.Duration
@@ -18,7 +18,7 @@ import scala.collection.mutable
  * `Cookie[Request]` is only available in the `Request` object and
  * `Cookie[Response]` is only available in the `Response` object.
  */
-final case class Cookie[T](name: String, content: String, target: Cookie.Target[T]) { self =>
+final case class Cookie[T](name: String, content: String, target: Cookie.Type[T]) { self =>
 
   /**
    * Gets the cookie's Domain attribute.
@@ -81,7 +81,7 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Target[
   /**
    * Converts cookie to a request cookie.
    */
-  def toRequest: Cookie[Request] = Cookie(name, content, Target.request)
+  def toRequest: Cookie[Request] = Cookie(name, content, Type.request)
 
   /**
    * Converts cookie to a response cookie.
@@ -100,9 +100,9 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Target[
     sameSite: Option[SameSite] = None,
   ): Cookie[Response] = {
     self.target match {
-      case _: Target.RequestTarget.type  =>
-        Cookie(name, content, Target.response(domain, path, isSecure, isHttpOnly, maxAge, sameSite))
-      case target: Target.ResponseTarget => Cookie(name, content, target: Cookie.Target[Response])
+      case _: Type.RequestType.type  =>
+        Cookie(name, content, Type.response(domain, path, isSecure, isHttpOnly, maxAge, sameSite))
+      case target: Type.ResponseType => Cookie(name, content, target: Cookie.Type[Response])
     }
   }
 
@@ -180,12 +180,17 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Target[
   def withSecure(implicit ev: T =:= Response): Cookie[Response] =
     withSecure(true)
 
-  private def update(f: Target.ResponseTarget => Target.ResponseTarget)(implicit ev: T =:= Response): Cookie[Response] =
+  private def update(f: Type.ResponseType => Type.ResponseType)(implicit ev: T =:= Response): Cookie[Response] =
     self.copy(target = f(toResponse.target.asResponse))
 }
 
 object Cookie {
 
+  private[http] val log = Log.withTags("Cookie")
+
+  /**
+   * Creates a new cookie of response type
+   */
   def apply(
     name: String,
     content: String,
@@ -196,7 +201,7 @@ object Cookie {
     maxAge: Option[Long] = None,
     sameSite: Option[SameSite] = None,
   ): Cookie[Response] =
-    Cookie(name, content, Target.response(domain, path, isSecure, isHttpOnly, maxAge, sameSite))
+    Cookie(name, content, Type.response(domain, path, isSecure, isHttpOnly, maxAge, sameSite))
 
   /**
    * Creates a cookie with an expired maxAge
@@ -227,26 +232,24 @@ object Cookie {
     getEncoder.encodeToString(mda.digest(signed))
   }
 
-  private[http] val log = Log.withTags("Cookie")
-
-  sealed trait Target[A] extends Product with Serializable {
-    def asResponse(implicit ev: A =:= Response): Target.ResponseTarget =
-      this.asInstanceOf[Target.ResponseTarget]
+  sealed trait Type[A] extends Product with Serializable {
+    def asResponse(implicit ev: A =:= Response): Type.ResponseType =
+      this.asInstanceOf[Type.ResponseType]
   }
 
-  object Target {
-    case object RequestTarget extends Target[Request]
+  object Type {
+    case object RequestType extends Type[Request]
 
-    final case class ResponseTarget(
+    final case class ResponseType(
       domain: Option[String] = None,
       path: Option[Path] = None,
       isSecure: Boolean = false,
       isHttpOnly: Boolean = false,
       maxAge: Option[Long] = None,
       sameSite: Option[SameSite] = None,
-    ) extends Target[Response]
+    ) extends Type[Response]
 
-    def request: Target[Request] = RequestTarget
+    def request: Type[Request] = RequestType
     def response(
       domain: Option[String] = None,
       path: Option[Path] = None,
@@ -254,7 +257,7 @@ object Cookie {
       isHttpOnly: Boolean = false,
       maxAge: Option[Long] = None,
       sameSite: Option[SameSite] = None,
-    ): Target[Response] = ResponseTarget(domain, path, isSecure, isHttpOnly, maxAge, sameSite)
+    ): Type[Response] = ResponseType(domain, path, isSecure, isHttpOnly, maxAge, sameSite)
   }
 
   sealed trait SameSite
