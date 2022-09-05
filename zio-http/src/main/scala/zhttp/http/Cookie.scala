@@ -1,6 +1,7 @@
 package zhttp.http
 
 import CookieDecoder.log
+import zhttp.http.Cookie.Target
 import zhttp.service.Log
 import zio.Duration
 
@@ -11,12 +12,13 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import scala.collection.mutable
 
-final case class Cookie[T](name: String, content: String, target: T) { self =>
+final case class Cookie[T](name: String, content: String, target: Cookie.Target[T]) { self =>
 
   /**
    * Gets the cookie's Domain attribute.
    */
-  def domain(implicit ev: T =:= Cookie.Response): Option[String] = target.domain
+  def domain(implicit ev: T =:= Response): Option[String] =
+    target.asResponse.domain
 
   /**
    * Encodes the cookie to a string.
@@ -38,30 +40,30 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
   /**
    * Returns true if the cookie is allowed over https only
    */
-  def isHttpOnly(implicit ev: T =:= Cookie.Response): Boolean = target.isHttpOnly
+  def isHttpOnly(implicit ev: T =:= Response): Boolean = target.asResponse.isHttpOnly
 
   /**
    * Returns true if the cookie is allowed over secure connections
    */
-  def isSecure(implicit ev: T =:= Cookie.Response): Boolean = target.isSecure
+  def isSecure(implicit ev: T =:= Response): Boolean = target.asResponse.isSecure
 
-  def maxAge(implicit ev: T =:= Cookie.Response): Option[Duration] =
-    target.maxAge.map(long => Duration(long, TimeUnit.SECONDS))
+  def maxAge(implicit ev: T =:= Response): Option[Duration] =
+    target.asResponse.maxAge.map(long => Duration(long, TimeUnit.SECONDS))
 
   /**
    * Returns the path of the cookie
    */
-  def path(implicit ev: T =:= Cookie.Response): Option[Path] = target.path
+  def path(implicit ev: T =:= Response): Option[Path] = target.asResponse.path
 
   /**
    * Returns the same-site setting for this cookie.
    */
-  def sameSite(implicit ev: T =:= Cookie.Response): Option[Cookie.SameSite] = target.sameSite
+  def sameSite(implicit ev: T =:= Response): Option[Cookie.SameSite] = target.asResponse.sameSite
 
   /**
    * Signs cookie content with a secret and returns a signed cookie.
    */
-  def sign(secret: String)(implicit ev: T =:= Cookie.Response): Cookie[T] =
+  def sign(secret: String)(implicit ev: T =:= Response): Cookie[T] =
     withContent(
       new mutable.StringBuilder()
         .append(content)
@@ -73,26 +75,22 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
   /**
    * Converts cookie to a request cookie.
    */
-  def toRequest: RequestCookie = {
-    self.target match {
-      case _: Cookie.Request => self.asInstanceOf[RequestCookie]
-      case _                 => Cookie(name, content, Cookie.Request)
-    }
-  }
+  def toRequest: RequestCookie = Cookie(name, content, Target.request)
 
   /**
    * Converts cookie to a response cookie.
    */
-  def toResponse: ResponseCookie =
+  def toResponse: ResponseCookie = {
     self.target match {
-      case _: Cookie.Response => self.asInstanceOf[ResponseCookie]
-      case _                  => self.copy(target = Cookie.Response())
+      case _: Target.RequestTarget.type  => Cookie(name, content, Target.response())
+      case target: Target.ResponseTarget => Cookie(name, content, target: Cookie.Target[Response])
     }
+  }
 
   /**
    * Un-signs cookie content with a secret and returns an unsigned cookie.
    */
-  def unSign(secret: String)(implicit ev: T =:= Cookie.Request): Option[Cookie[T]] = {
+  def unSign(secret: String)(implicit ev: T =:= Request): Option[Cookie[T]] = {
     val index     = content.lastIndexOf('.')
     val signature = content.slice(index + 1, content.length)
     val value     = content.slice(0, index)
@@ -107,32 +105,32 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
   /**
    * Sets domain in cookie
    */
-  def withDomain(domain: String)(implicit ev: T =:= Cookie.Response): ResponseCookie =
-    response(_.copy(domain = Some(domain)))
+  def withDomain(domain: String)(implicit ev: T =:= Response): ResponseCookie =
+    update(_.copy(domain = Some(domain)))
 
   /**
    * Sets httpOnly in cookie
    */
-  def withHttpOnly(httpOnly: Boolean)(implicit ev: T =:= Cookie.Response): ResponseCookie =
-    response(_.copy(isHttpOnly = httpOnly))
+  def withHttpOnly(httpOnly: Boolean)(implicit ev: T =:= Response): ResponseCookie =
+    update(_.copy(isHttpOnly = httpOnly))
 
   /**
    * Sets httpOnly in cookie
    */
-  def withHttpOnly(implicit ev: T =:= Cookie.Response): ResponseCookie =
+  def withHttpOnly(implicit ev: T =:= Response): ResponseCookie =
     withHttpOnly(true)
 
   /**
    * Sets maxAge of the cookie
    */
-  def withMaxAge(maxAge: Duration)(implicit ev: T =:= Cookie.Response): ResponseCookie =
-    response(_.copy(maxAge = Some(maxAge.getSeconds)))
+  def withMaxAge(maxAge: Duration)(implicit ev: T =:= Response): ResponseCookie =
+    update(_.copy(maxAge = Some(maxAge.getSeconds)))
 
   /**
    * Sets maxAge of the cookie
    */
-  def withMaxAge(seconds: Long)(implicit ev: T =:= Cookie.Response): ResponseCookie =
-    response(_.copy(maxAge = Some(seconds)))
+  def withMaxAge(seconds: Long)(implicit ev: T =:= Response): ResponseCookie =
+    update(_.copy(maxAge = Some(seconds)))
 
   /**
    * Sets name of the cookie
@@ -142,35 +140,44 @@ final case class Cookie[T](name: String, content: String, target: T) { self =>
   /**
    * Sets path of the cookie
    */
-  def withPath(path: Path)(implicit ev: T =:= Cookie.Response): ResponseCookie =
-    response(_.copy(path = Some(path)))
+  def withPath(path: Path)(implicit ev: T =:= Response): ResponseCookie =
+    update(_.copy(path = Some(path)))
 
   /**
    * Sets sameSite of the cookie
    */
-  def withSameSite(sameSite: Cookie.SameSite)(implicit ev: T =:= Cookie.Response): ResponseCookie =
-    response(_.copy(sameSite = Some(sameSite)))
+  def withSameSite(sameSite: Cookie.SameSite)(implicit ev: T =:= Response): ResponseCookie =
+    update(_.copy(sameSite = Some(sameSite)))
 
   /**
    * Sets secure flag of the cookie
    */
-  def withSecure(secure: Boolean)(implicit ev: T =:= Cookie.Response): ResponseCookie =
-    response(_.copy(isSecure = secure))
+  def withSecure(secure: Boolean)(implicit ev: T =:= Response): ResponseCookie =
+    update(_.copy(isSecure = secure))
 
   /**
    * Sets secure flag of the cookie
    */
-  def withSecure(implicit ev: T =:= Cookie.Response): ResponseCookie =
+  def withSecure(implicit ev: T =:= Response): ResponseCookie =
     withSecure(true)
 
-  private def response(f: Cookie.Response => Cookie.Response)(implicit
-    ev: T =:= Cookie.Response,
-  ): ResponseCookie =
-    self.copy(target = f(toResponse.target))
+  private def update(f: Target.ResponseTarget => Target.ResponseTarget)(implicit ev: T =:= Response): ResponseCookie =
+    self.copy(target = f(toResponse.target.asResponse))
 }
 
 object Cookie {
-  def apply(name: String, content: String): ResponseCookie = Cookie(name, content, Response())
+  def apply(name: String, content: String): ResponseCookie = Cookie(name, content, Target.response())
+  def apply(
+    name: String,
+    content: String,
+    domain: Option[String],
+    path: Option[Path],
+    isSecure: Boolean,
+    isHttpOnly: Boolean,
+    maxAge: Option[Long],
+    sameSite: Option[SameSite],
+  ): ResponseCookie =
+    Cookie(name, content, Target.response(domain, path, isSecure, isHttpOnly, maxAge, sameSite))
 
   /**
    * Creates a cookie with an expired maxAge
@@ -203,17 +210,33 @@ object Cookie {
 
   private[http] val log = Log.withTags("Cookie")
 
-  type Request = Request.type
-  case object Request
+  sealed trait Target[A] extends Product with Serializable {
+    def asResponse(implicit ev: A =:= Response): Target.ResponseTarget =
+      this.asInstanceOf[Target.ResponseTarget]
+  }
 
-  final case class Response(
-    domain: Option[String] = None,
-    path: Option[Path] = None,
-    isSecure: Boolean = false,
-    isHttpOnly: Boolean = false,
-    maxAge: Option[Long] = None,
-    sameSite: Option[SameSite] = None,
-  )
+  object Target {
+    case object RequestTarget extends Target[Request]
+
+    final case class ResponseTarget(
+      domain: Option[String] = None,
+      path: Option[Path] = None,
+      isSecure: Boolean = false,
+      isHttpOnly: Boolean = false,
+      maxAge: Option[Long] = None,
+      sameSite: Option[SameSite] = None,
+    ) extends Target[Response]
+
+    def request: Target[Request] = RequestTarget
+    def response(
+      domain: Option[String] = None,
+      path: Option[Path] = None,
+      isSecure: Boolean = false,
+      isHttpOnly: Boolean = false,
+      maxAge: Option[Long] = None,
+      sameSite: Option[SameSite] = None,
+    ): Target[Response] = ResponseTarget(domain, path, isSecure, isHttpOnly, maxAge, sameSite)
+  }
 
   sealed trait SameSite
   object SameSite {

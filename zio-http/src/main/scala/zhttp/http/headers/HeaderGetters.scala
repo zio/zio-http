@@ -3,8 +3,7 @@ package zhttp.http.headers
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zhttp.http.Headers.{BasicSchemeName, BearerSchemeName}
-import zhttp.http.{Cookie, _}
-import zhttp.http.{RequestCookie, ResponseCookie}
+import zhttp.http._
 import zhttp.http.middleware.Auth.Credentials
 import zhttp.service.server.ServerTime
 
@@ -164,7 +163,7 @@ trait HeaderGetters[+A] { self =>
 
   final def cookiesDecoded: List[RequestCookie] =
     headerValues(HeaderNames.cookie).flatMap { header =>
-      Cookie.decode[Cookie.Request](header) match {
+      Cookie.decode[Request](header) match {
         case Left(_)      => Nil
         case Right(value) => value
       }
@@ -288,7 +287,7 @@ trait HeaderGetters[+A] { self =>
 
   final def setCookiesDecoded(secret: Option[String] = None): List[ResponseCookie] =
     headerValues(HeaderNames.setCookie).flatMap { header =>
-      Cookie.decode[Cookie.Response](header) match {
+      Cookie.decode[Response](header) match {
         case Left(_)      => Nil
         case Right(value) => List(value)
       }

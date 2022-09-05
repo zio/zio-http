@@ -14,34 +14,32 @@ object CookieSpec extends ZIOSpecDefault {
           val cookieGen = for {
             name    <- Gen.alphaNumericString
             content <- Gen.alphaNumericString
-          } yield (name, content) -> Cookie(name, content, Cookie.Request)
+          } yield (name, content) -> Cookie(name, content)
           check(cookieGen) { case ((name, content), cookie) =>
             assertTrue(cookie.content == content) && assertTrue(cookie.name == name)
           }
         },
         test("response") {
           val responseCookieGen = for {
-            name     <- Gen.alphaNumericString
-            content  <- Gen.alphaNumericString
-            response <- for {
-              domain     <- Gen.option(Gen.alphaNumericString)
-              path       <- Gen.option(Gen.elements(Path.root / "a", Path.root / "a" / "b"))
-              maxAge     <- Gen.option(Gen.long)
-              sameSite   <- Gen.option(Gen.fromIterable(Cookie.SameSite.values))
-              isSecure   <- Gen.boolean
-              isHttpOnly <- Gen.boolean
-            } yield Cookie.Response(domain, path, isSecure, isHttpOnly, maxAge, sameSite)
-          } yield (name, content) -> Cookie(name, content, response)
+            name       <- Gen.alphaNumericString
+            content    <- Gen.alphaNumericString
+            domain     <- Gen.option(Gen.alphaNumericString)
+            path       <- Gen.option(Gen.elements(Path.root / "a", Path.root / "a" / "b"))
+            isSecure   <- Gen.boolean
+            isHttpOnly <- Gen.boolean
+            maxAge     <- Gen.option(Gen.long)
+            sameSite   <- Gen.option(Gen.fromIterable(Cookie.SameSite.values))
+          } yield (name, content) -> Cookie(name, content, domain, path, isSecure, isHttpOnly, maxAge, sameSite)
 
           check(responseCookieGen) { case ((name, content), cookie) =>
             assertTrue(cookie.content == content) &&
             assertTrue(cookie.name == name) &&
-            assertTrue(cookie.domain == cookie.target.domain) &&
-            assertTrue(cookie.path == cookie.target.path) &&
-            assertTrue(cookie.maxAge.map(_.getSeconds) == cookie.target.maxAge) &&
-            assertTrue(cookie.sameSite == cookie.target.sameSite) &&
-            assertTrue(cookie.isSecure == cookie.target.isSecure) &&
-            assertTrue(cookie.isHttpOnly == cookie.target.isHttpOnly)
+            assertTrue(cookie.domain == cookie.target.asResponse.domain) &&
+            assertTrue(cookie.path == cookie.target.asResponse.path) &&
+            assertTrue(cookie.maxAge.map(_.getSeconds) == cookie.target.asResponse.maxAge) &&
+            assertTrue(cookie.sameSite == cookie.target.asResponse.sameSite) &&
+            assertTrue(cookie.isSecure == cookie.target.asResponse.isSecure) &&
+            assertTrue(cookie.isHttpOnly == cookie.target.asResponse.isHttpOnly)
           }
         },
       ),
@@ -60,7 +58,7 @@ object CookieSpec extends ZIOSpecDefault {
         test("response") {
           val cookie = Cookie("name", "content")
 
-          val cookieGen = Gen.fromIterable(
+          val cookieGen: Gen[Any, (ResponseCookie, Assertion[String])] = Gen.fromIterable(
             Seq(
               cookie                            -> equalTo("name=content"),
               cookie.withDomain("abc.com")      -> equalTo("name=content; Domain=abc.com"),
@@ -82,26 +80,24 @@ object CookieSpec extends ZIOSpecDefault {
       suite("decode")(
         test("request") {
           val cookie  = Cookie("name", "value")
-          val program = cookie.encode.flatMap(Cookie.decode[Cookie.Request](_))
+          val program = cookie.encode.flatMap(Cookie.decode[Request](_))
           assertTrue(program == Right(List(cookie.toRequest)))
         },
         test("decode response") {
           val responseCookieGen = for {
-            name     <- Gen.alphaNumericStringBounded(1, 4)
-            content  <- Gen.alphaNumericStringBounded(1, 4)
-            response <- for {
-              domain     <- Gen.option(Gen.alphaNumericStringBounded(1, 4))
-              path       <- Gen.option(Gen.elements(Path.root / "a", Path.root / "a" / "b"))
-              maxAge     <- Gen.option(Gen.long(1, 86400))
-              sameSite   <- Gen.option(Gen.fromIterable(Cookie.SameSite.values))
-              isSecure   <- Gen.boolean
-              isHttpOnly <- Gen.boolean
-            } yield Cookie.Response(domain, path, isSecure, isHttpOnly, maxAge, sameSite)
-          } yield Cookie(name, content, response)
+            name       <- Gen.alphaNumericStringBounded(1, 4)
+            content    <- Gen.alphaNumericStringBounded(1, 4)
+            domain     <- Gen.option(Gen.alphaNumericStringBounded(1, 4))
+            path       <- Gen.option(Gen.elements(Path.root / "a", Path.root / "a" / "b"))
+            maxAge     <- Gen.option(Gen.long(1, 86400))
+            sameSite   <- Gen.option(Gen.fromIterable(Cookie.SameSite.values))
+            isSecure   <- Gen.boolean
+            isHttpOnly <- Gen.boolean
+          } yield Cookie(name, content, domain, path, isSecure, isHttpOnly, maxAge, sameSite)
 
-          check(responseCookieGen) { case cookie =>
+          check(responseCookieGen) { cookie =>
             val encoded = cookie.encode(true)
-            val decoded = encoded.flatMap(Cookie.decode[Cookie.Response](_, true))
+            val decoded = encoded.flatMap(Cookie.decode[Response](_, true))
             assert(decoded)(isRight(equalTo(cookie)))
           }
         },

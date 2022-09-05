@@ -1,8 +1,7 @@
 package zhttp.http.middleware
 
 import zhttp.http.URL.encode
-import zhttp.http.{Cookie, _}
-import zhttp.http.{ResponseCookie}
+import zhttp.http._
 import zhttp.http.headers.HeaderModifier
 import zhttp.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
 import zio._
@@ -144,7 +143,7 @@ private[zhttp] trait Web extends Cors with Csrf with Auth with HeaderModifier[Ht
     updateHeaders {
       case h if h.header(HeaderNames.setCookie).isDefined =>
         Cookie
-          .decode[Cookie.Response](h.header(HeaderNames.setCookie).get._2.toString)
+          .decode[Response](h.header(HeaderNames.setCookie).get._2.toString)
           .map(_.sign(secret))
           .map { cookie => Headers.setCookie(cookie) }
           .getOrElse(h)

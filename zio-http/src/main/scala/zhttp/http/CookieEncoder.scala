@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{cookie => jCookie}
-import Cookie.{Request, SameSite}
+import Cookie.SameSite
 
 sealed trait CookieEncoder[A] {
   final def apply(a: Cookie[A]): String = unsafeEncode(a, false)
@@ -9,7 +9,7 @@ sealed trait CookieEncoder[A] {
 }
 
 object CookieEncoder {
-  implicit object RequestCookieEncoder extends CookieEncoder[Cookie.Request] {
+  implicit object RequestCookieEncoder extends CookieEncoder[Request] {
     override def unsafeEncode(cookie: Cookie[Request], validate: Boolean): String = {
       val encoder = if (validate) jCookie.ClientCookieEncoder.STRICT else jCookie.ClientCookieEncoder.LAX
       val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
@@ -17,8 +17,8 @@ object CookieEncoder {
     }
   }
 
-  implicit object ResponseCookieEncoder extends CookieEncoder[Cookie.Response] {
-    override def unsafeEncode(cookie: Cookie[Cookie.Response], validate: Boolean): String = {
+  implicit object ResponseCookieEncoder extends CookieEncoder[Response] {
+    override def unsafeEncode(cookie: Cookie[Response], validate: Boolean): String = {
       val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
 
       val encoder = if (validate) jCookie.ServerCookieEncoder.STRICT else jCookie.ServerCookieEncoder.LAX

@@ -4,7 +4,6 @@ import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 import zhttp.html._
-import zhttp.http.ResponseCookie
 import zhttp.http.headers.HeaderExtension
 import zhttp.service.{ChannelEvent, ChannelFuture}
 import zhttp.socket.{SocketApp, WebSocketFrame}
