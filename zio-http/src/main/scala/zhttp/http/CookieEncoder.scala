@@ -1,7 +1,7 @@
 package zhttp.http
 
 import io.netty.handler.codec.http.{cookie => jCookie}
-import Cookie.SameSite
+import zhttp.http.Cookie.SameSite
 
 sealed trait CookieEncoder[A] {
   final def apply(a: Cookie[A]): String = unsafeEncode(a, false)

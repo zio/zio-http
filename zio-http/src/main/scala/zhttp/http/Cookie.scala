@@ -1,7 +1,7 @@
 package zhttp.http
 
-import CookieDecoder.log
 import zhttp.http.Cookie.Target
+import zhttp.http.CookieDecoder.log
 import zhttp.service.Log
 import zio.Duration
 
