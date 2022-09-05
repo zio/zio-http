@@ -1,6 +1,6 @@
 package zhttp.http
 
-import zhttp.http.Cookie.Target
+import zhttp.http.Cookie.{SameSite, Target}
 import zhttp.http.CookieDecoder.log
 import zhttp.service.Log
 import zio.Duration
@@ -12,6 +12,12 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import scala.collection.mutable
 
+/**
+ * Cookie is an immutable and type-safe representation of an HTTP cookie. It can
+ * be of type types viz. `Cookie[Request]` and `Cookie[Response]`.
+ * `Cookie[Request]` is only available in the `Request` object and
+ * `Cookie[Response]` is only available in the `Response` object.
+ */
 final case class Cookie[T](name: String, content: String, target: Cookie.Target[T]) { self =>
 
   /**
@@ -80,9 +86,22 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Target[
   /**
    * Converts cookie to a response cookie.
    */
-  def toResponse: Cookie[Response] = {
+  def toResponse: Cookie[Response] = toResponse()
+
+  /**
+   * Converts cookie to a response cookie.
+   */
+  def toResponse(
+    domain: Option[String] = None,
+    path: Option[Path] = None,
+    isSecure: Boolean = false,
+    isHttpOnly: Boolean = false,
+    maxAge: Option[Long] = None,
+    sameSite: Option[SameSite] = None,
+  ): Cookie[Response] = {
     self.target match {
-      case _: Target.RequestTarget.type  => Cookie(name, content, Target.response())
+      case _: Target.RequestTarget.type  =>
+        Cookie(name, content, Target.response(domain, path, isSecure, isHttpOnly, maxAge, sameSite))
       case target: Target.ResponseTarget => Cookie(name, content, target: Cookie.Target[Response])
     }
   }
@@ -166,23 +185,23 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Target[
 }
 
 object Cookie {
-  def apply(name: String, content: String): Cookie[Response] = Cookie(name, content, Target.response())
+
   def apply(
     name: String,
     content: String,
-    domain: Option[String],
-    path: Option[Path],
-    isSecure: Boolean,
-    isHttpOnly: Boolean,
-    maxAge: Option[Long],
-    sameSite: Option[SameSite],
+    domain: Option[String] = None,
+    path: Option[Path] = None,
+    isSecure: Boolean = false,
+    isHttpOnly: Boolean = false,
+    maxAge: Option[Long] = None,
+    sameSite: Option[SameSite] = None,
   ): Cookie[Response] =
     Cookie(name, content, Target.response(domain, path, isSecure, isHttpOnly, maxAge, sameSite))
 
   /**
    * Creates a cookie with an expired maxAge
    */
-  def clear(name: String): Cookie[Response] = Cookie(name, "").withMaxAge(Long.MinValue)
+  def clear(name: String): Cookie[Response] = Cookie(name, "").toResponse.withMaxAge(Long.MinValue)
 
   /**
    * Creates a cookie from a string.
