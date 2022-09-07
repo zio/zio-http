@@ -1,7 +1,7 @@
 package zhttp.http.middleware
 
 import zhttp.http.Middleware._
-import zhttp.http._
+import zhttp.http.{Cookie, _}
 import zhttp.internal.HttpAppTestExtensions
 import zio._
 import zio.test.Assertion._
@@ -170,7 +170,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         val cookie = Cookie("test", "testValue")
         val app    = (Http.ok @@ addCookie(cookie)).header("set-cookie")
         assertZIO(app(Request()))(
-          equalTo(Some(cookie.encode)),
+          equalTo(cookie.encode.toOption),
         )
       },
       test("addCookieM") {
@@ -178,15 +178,15 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         val app    =
           (Http.ok @@ addCookieZIO(ZIO.succeed(cookie))).header("set-cookie")
         assertZIO(app(Request()))(
-          equalTo(Some(cookie.encode)),
+          equalTo(cookie.encode.toOption),
         )
       },
     ),
     suite("signCookies")(
       test("should sign cookies") {
-        val cookie = Cookie("key", "value").withHttpOnly
+        val cookie = Cookie("key", "value").withHttpOnly(true)
         val app    = Http.ok.withSetCookie(cookie) @@ signCookies("secret") header "set-cookie"
-        assertZIO(app(Request()))(isSome(equalTo(cookie.sign("secret").encode)))
+        assertZIO(app(Request()))(equalTo(cookie.sign("secret").encode.toOption))
       } +
         test("sign cookies no cookie header") {
           val app = (Http.ok.addHeader("keyA", "ValueA") @@ signCookies("secret")).headerValues

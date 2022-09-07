@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http._
+import zhttp.http.{Cookie, _}
 import zhttp.service.Server
 import zio._
 

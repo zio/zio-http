@@ -122,8 +122,8 @@ trait HeaderConstructors {
   final def cookie(value: CharSequence): Headers =
     Headers(HeaderNames.cookie, value)
 
-  final def cookie(value: Cookie): Headers =
-    Headers(HeaderNames.cookie, value.encode)
+  final def cookie(value: Cookie[Request]): Headers =
+    value.encode.map(Headers(HeaderNames.cookie, _)).getOrElse(Headers.empty)
 
   final def date(value: CharSequence): Headers =
     Headers(HeaderNames.date, value)
@@ -215,8 +215,8 @@ trait HeaderConstructors {
   final def server(value: CharSequence): Headers =
     Headers(HeaderNames.server, value)
 
-  final def setCookie(value: Cookie): Headers =
-    Headers(HeaderNames.setCookie, value.encode)
+  final def setCookie(value: Cookie[Response]): Headers =
+    value.encode.map(Headers(HeaderNames.setCookie, _)).getOrElse(Headers.empty)
 
   final def te(value: CharSequence): Headers =
     Headers(HeaderNames.te, value)

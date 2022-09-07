@@ -1,6 +1,6 @@
 package example
 
-import zhttp.http.{Cookie, Method, Response, _}
+import zhttp.http._
 import zhttp.service.Server
 import zio._
 
@@ -21,7 +21,7 @@ object CookieServerSide extends ZIOAppDefault {
       Response.ok.addCookie(cookie.withSecure.withPath(!! / "secure-cookie"))
 
     case Method.GET -> !! / "cookie" / "remove" =>
-      res.addCookie(cookie.clear)
+      res.addCookie(Cookie.clear("key"))
   }
 
   // Run it like any simple app
