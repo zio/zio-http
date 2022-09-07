@@ -25,30 +25,33 @@ object WebSocketAdvanced extends ZIOAppDefault {
       // Echo the same message 10 times if it's not "foo" or "bar"
       // Improve performance by writing multiple frames at once
       // And flushing it on the channel only once.
-      case (ch, text) =>
-        ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
+//      case (ch, text) =>
+//        ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
   val channelSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
     Http.collectZIO[WebSocketChannelEvent] {
 
       // Send a "greeting" message to the server once the connection is established
-      case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete))  =>
-        ch.writeAndFlush(WebSocketFrame.text("Greetings!"))
+      case ChannelEvent(_, UserEventTriggered(UserEvent.HandshakeComplete))  =>
+        ZIO.logInfo("Received HandshakeComplete")
 
       // Log when the channel is getting closed
       case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
-        Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
+        ZIO.logInfo("Closing channel with status: " + status + " and reason: " + reason)
 
       // Print the exception if it's not a normal close
       case ChannelEvent(_, ExceptionCaught(cause))                            =>
-        Console.printLine(s"Channel error!: ${cause.getMessage}")
+        ZIO.logInfo(s"Channel error!: ${cause.getMessage}")
+
+      case ChannelEvent(_, event) =>
+        ZIO.logInfo(s"Channel event: $event")
     }
 
   val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
     messageSocket ++ channelSocket
 
-  val protocol = SocketProtocol.default.withSubProtocol(Some("json")) // Setup protocol settings
+  val protocol = SocketProtocol.default.withSubProtocol(Some("json")).withForwardCloseFrames(true) // Setup protocol settings
 
   val decoder = SocketDecoder.default.withExtensions(allowed = true) // Setup decoder settings
 
