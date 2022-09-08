@@ -1,10 +1,9 @@
 package example
 
-import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
+import zhttp.service.{Client, ZHttpApp}
 import zio._
 
-object SimpleClient extends ZIOAppDefault {
-  val env = ChannelFactory.auto ++ EventLoopGroup.auto()
+object SimpleClient extends ZHttpApp {
   val url = "http://sports.api.decathlon.com/groups/water-aerobics"
 
   val program = for {
@@ -13,6 +12,6 @@ object SimpleClient extends ZIOAppDefault {
     _    <- Console.printLine(data)
   } yield ()
 
-  override val run = program.provide(env)
+  override def runHttpApp = program
 
 }
