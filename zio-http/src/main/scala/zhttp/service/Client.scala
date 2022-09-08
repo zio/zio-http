@@ -119,6 +119,10 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
           // we always buffer the whole HTTP response we can letty Netty take care of this)
           pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, 8192, 8192, true))
 
+          // HttpContentDecompressor
+          if (clientConfig.requestDecompression._1)
+            pipeline.addLast(HTTP_REQUEST_DECOMPRESSION, new HttpContentDecompressor(clientConfig.requestDecompression._2))
+
           // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
           // This is also required to make WebSocketHandlers work
           pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
@@ -203,11 +207,13 @@ object Client {
     socketApp: Option[SocketApp[Any]] = None,
     ssl: Option[ClientSSLOptions] = None,
     proxy: Option[Proxy] = None,
+    requestDecompression: (Boolean, Boolean) = (false, false),
   ) {
     self =>
-    def withSSL(ssl: ClientSSLOptions): Config           = self.copy(ssl = Some(ssl))
-    def withSocketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
-    def withProxy(proxy: Proxy): Config                  = self.copy(proxy = Some(proxy))
+    def withSSL(ssl: ClientSSLOptions): Config            = self.copy(ssl = Some(ssl))
+    def withSocketApp(socketApp: SocketApp[Any]): Config  = self.copy(socketApp = Some(socketApp))
+    def withProxy(proxy: Proxy): Config                   = self.copy(proxy = Some(proxy))
+    def withRequestDecompression(strict: Boolean): Config = self.copy(requestDecompression = (true, strict))
   }
 
   object Config {
