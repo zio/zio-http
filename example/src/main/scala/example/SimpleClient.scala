@@ -1,10 +1,10 @@
 package example
 
-import zhttp.ZHttpDefaultApp
+import zhttp.ZHttpDefaultClientApp
 import zhttp.service.Client
 import zio._
 
-object SimpleClient extends ZHttpDefaultApp {
+object SimpleClient extends ZHttpDefaultClientApp {
   val url = "http://sports.api.decathlon.com/groups/water-aerobics"
 
   val program = for {

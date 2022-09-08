@@ -1,10 +1,10 @@
 package example
 
+import zhttp.ZHttpDefaultServerApp
 import zhttp.http._
 import zhttp.service.Server
-import zio._
 
-object HelloWorld extends ZIOAppDefault {
+object HelloWorld extends ZHttpDefaultServerApp {
 
   // Create HTTP route
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
