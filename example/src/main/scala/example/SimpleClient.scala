@@ -1,9 +1,10 @@
 package example
 
-import zhttp.service.{Client, ZHttpApp}
+import zhttp.ZHttpDefaultApp
+import zhttp.service.Client
 import zio._
 
-object SimpleClient extends ZHttpApp {
+object SimpleClient extends ZHttpDefaultApp {
   val url = "http://sports.api.decathlon.com/groups/water-aerobics"
 
   val program = for {
@@ -12,6 +13,6 @@ object SimpleClient extends ZHttpApp {
     _    <- Console.printLine(data)
   } yield ()
 
-  override def runHttpApp = program
+  override def run = program
 
 }
