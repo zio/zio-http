@@ -5,14 +5,14 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import zhttp.http.Response
 import zhttp.service.server.WebSocketUpgrade.log
-import zhttp.service.{Handler, Log, WEB_SOCKET_HANDLER, WebSocketAppHandler}
+import zhttp.service.{Log, WEB_SOCKET_HANDLER, WebSocketAppHandler}
 
 import scala.annotation.tailrec
 
 /**
  * Module to switch protocol to websockets
  */
-trait WebSocketUpgrade[R] { self: Handler[R] =>
+trait WebSocketUpgrade[R] { self: ServerInboundHandler[R] =>
 
   /**
    * Checks if the response requires to switch protocol to websocket. Returns

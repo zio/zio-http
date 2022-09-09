@@ -187,7 +187,7 @@ object Server {
       eventLoopGroup <- ZIO.service[EventLoopGroup]
       rtm            <- HttpRuntime.sticky[R](eventLoopGroup)
       time            = ServerTime.make(1000 millis)
-      reqHandler      = Handler(settings.app, rtm, settings, time)
+      reqHandler      = ServerInboundHandler(settings.app, rtm, settings, time)
       init            = ServerChannelInitializer(rtm, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       chf  <- ZIO.attempt(serverBootstrap.childHandler(init).bind(settings.address))

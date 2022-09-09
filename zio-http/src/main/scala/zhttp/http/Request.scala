@@ -3,7 +3,8 @@ package zhttp.http
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpRequest}
 import zhttp.http.headers.HeaderExtension
-import zhttp.service.{Ctx, Handler}
+import zhttp.service.{Ctx}
+import zhttp.service.server.ServerInboundHandler
 
 import java.io.IOException
 
@@ -169,7 +170,7 @@ object Request {
       override def version: Version          = Version.unsafeFromJava(jReq.protocolVersion())
       override def unsafeEncode: HttpRequest = jReq
       override def unsafeContext: Ctx        = ctx
-      override def body: Body                = Body.fromAsync { async => Handler.Unsafe.addContentHandler(async) }
+      override def body: Body = Body.fromAsync { async => ServerInboundHandler.Unsafe.addAsyncBodyHandler(async) }
     }
   }
 }

@@ -1,17 +1,18 @@
-package zhttp.service
+package zhttp.service.server
 
-import io.netty.handler.codec.http.{FullHttpResponse, HttpRequest}
-import zhttp.http.{HExit, HttpError, Response}
 import zio.ZIO
+import zhttp.http.{HExit, HttpError, Response}
+import zhttp.service.{Ctx}
+import io.netty.handler.codec.http.{FullHttpResponse, HttpRequest}
 
 /**
  * Handles all advanced scenarios that are left out by the FastPassWriter. It
  * handles websockets, streaming and other side-effects.
  */
-trait FullPassWriter[R] {
-  self: Handler[R] =>
+trait ServerFullResponseWriter[R] {
+  self: ServerInboundHandler[R] =>
 
-  import Handler.{log, Unsafe}
+  import ServerInboundHandler.{log, Unsafe}
 
   def attemptFullWrite[R1 >: R](exit: HExit[R1, Throwable, Response], jRequest: HttpRequest)(implicit
     ctx: Ctx,

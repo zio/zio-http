@@ -2,11 +2,11 @@ package zhttp.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zhttp.internal.HttpGen
-import zhttp.service.EncodeRequest
+import zhttp.service.client.ClientRequestEncoder
 import zio.test.Assertion._
 import zio.test._
 
-object EncodeRequestSpec extends ZIOSpecDefault with EncodeRequest {
+object ClientRequestEncoderSpec extends ZIOSpecDefault with ClientRequestEncoder {
 
   val anyClientParam: Gen[Sized, Request] = HttpGen.requestGen(
     HttpGen.body(

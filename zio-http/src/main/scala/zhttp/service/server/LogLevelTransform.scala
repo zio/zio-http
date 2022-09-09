@@ -11,5 +11,4 @@ object LogLevelTransform {
       case zhttp.logging.LogLevel.Error => io.netty.handler.logging.LogLevel.ERROR
     }
   }
-
 }

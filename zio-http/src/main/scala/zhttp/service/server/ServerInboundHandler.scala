@@ -1,4 +1,4 @@
-package zhttp.service
+package zhttp.service.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
@@ -6,20 +6,20 @@ import io.netty.handler.codec.http._
 import io.netty.util.AttributeKey
 import zhttp.http._
 import zhttp.logging.Logger
-import zhttp.service.Handler.{Unsafe, log}
-import zhttp.service.server.{ServerTime, WebSocketUpgrade}
+import ServerInboundHandler.{log, Unsafe}
+import zhttp.service._
 import zio.ZIO
 
 @Sharable
-private[zhttp] final case class Handler[R](
+private[zhttp] final case class ServerInboundHandler[R](
   http: HttpApp[R, Throwable],
   runtime: HttpRuntime[R],
   config: Server.Config[R, Throwable],
   time: ServerTime,
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with WebSocketUpgrade[R]
-    with FullPassWriter[R]
-    with FastPassWriter[R] { self =>
+    with ServerFullResponseWriter[R]
+    with ServerFastResponseWriter[R] { self =>
 
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
     log.debug(s"Message: [${msg.getClass.getName}]")
@@ -62,15 +62,18 @@ private[zhttp] final case class Handler[R](
   }
 }
 
-object Handler {
+object ServerInboundHandler {
   val log: Logger = Log.withTags("Server", "Request")
 
   object Unsafe {
     private val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
-    def addContentHandler(async: Body.UnsafeAsync)(implicit ctx: Ctx): Unit = {
+    def addAsyncBodyHandler(async: Body.UnsafeAsync)(implicit ctx: Ctx): Unit = {
       if (Unsafe.contentIsRead) throw new RuntimeException("Content is already read")
-      ctx.channel().pipeline().addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new ContentHandler(async)): Unit
+      ctx
+        .channel()
+        .pipeline()
+        .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new ServerAsyncBodyHandler(async)): Unit
       Unsafe.setContentReadAttr(true)(ctx)
     }
 

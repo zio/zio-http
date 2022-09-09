@@ -1,11 +1,13 @@
-package zhttp.service
+package zhttp.service.server
+
 import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zhttp.http.Body
 import zio.Chunk
 
-final class ContentHandler(val async: Body.UnsafeAsync) extends SimpleChannelInboundHandler[HttpContent](true) { self =>
+final class ServerAsyncBodyHandler(val async: Body.UnsafeAsync) extends SimpleChannelInboundHandler[HttpContent](true) {
+  self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
     val isLast = msg.isInstanceOf[LastHttpContent]

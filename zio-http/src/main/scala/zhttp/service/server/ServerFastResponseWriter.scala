@@ -1,15 +1,16 @@
-package zhttp.service
+package zhttp.service.server
 
-import io.netty.handler.codec.http.FullHttpResponse
 import zhttp.http.{HExit, Response}
+import zhttp.service.{Ctx}
+import io.netty.handler.codec.http.FullHttpResponse
 
 /**
  * An executor that evaluates HExits that don't fail or require any side-effects
  * to be performed. The executor returns true if the response is completely
  * written on the channel.
  */
-trait FastPassWriter[R] { self: Handler[R] =>
-  import Handler.{log, Unsafe}
+trait ServerFastResponseWriter[R] { self: ServerInboundHandler[R] =>
+  import ServerInboundHandler.{log, Unsafe}
 
   def attemptFastWrite(exit: HExit[R, Throwable, Response])(implicit ctx: Ctx): Boolean = {
     exit match {
