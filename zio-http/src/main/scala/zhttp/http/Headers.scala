@@ -37,11 +37,18 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
   /**
    * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders]
    */
-  private[zhttp] def encode: HttpHeaders =
-    self.toList
+  private[zhttp] def encode: HttpHeaders = {
+    val (exceptions, regularHeaders) = self.toList.span(h => h._1.contains(HeaderNames.setCookie))
+    val combinedHeaders              = regularHeaders
+      .groupBy(_._1)
+      .map { case (key, tuples) =>
+        key -> tuples.map(_._2).map(value => if (value.contains(",")) s"\"$value\"" else value).mkString(",")
+      }
+    (exceptions ++ combinedHeaders)
       .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>
         headers.add(entry._1, entry._2)
       }
+  }
 
 }
 
