@@ -21,7 +21,7 @@ Check out the full documentation here: [Documentation]
 - [ZIO Http](#zio-http)
 - [Getting Started](#getting-started)
 - [Installation](#installation)
-- [Documentation](https://dream11.github.io/zio-http/)
+- [Documentation](https://zio.github.io/zio-http/)
 
 # Getting Started
 
