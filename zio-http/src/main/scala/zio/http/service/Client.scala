@@ -20,7 +20,7 @@ import zio.{Promise, Scope, Task, ZIO}
 
 import java.net.InetSocketAddress
 
-final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
+final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el: JEventLoopGroup)
     extends ClientRequestEncoder {
 
   def request(
@@ -48,7 +48,7 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
       res     <- promise.await
     } yield res
 
-  def socket(
+  def socket[R](
     url: URL,
     headers: Headers = Headers.empty,
     socketApp: SocketApp[R],
@@ -158,10 +158,10 @@ final case class Client[R](rtm: HttpRuntime[R], cf: JChannelFactory[JChannel], e
 }
 
 object Client {
-  def make[R]: ZIO[R with EventLoopGroup with ChannelFactory, Nothing, Client[R]] = for {
+  def make: ZIO[EventLoopGroup with ChannelFactory, Nothing, Client] = for {
     cf <- ZIO.service[JChannelFactory[JChannel]]
     el <- ZIO.service[JEventLoopGroup]
-    zx <- HttpRuntime.default[R]
+    zx <- HttpRuntime.default[Any]
   } yield service.Client(zx, cf, el)
 
   def request(
@@ -172,7 +172,7 @@ object Client {
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
-      clt <- make[Any]
+      clt <- make
       res <- clt.request(url, method, headers, content, ssl)
     } yield res
 
@@ -181,7 +181,7 @@ object Client {
     clientConfig: Config,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
-      clt <- make[Any]
+      clt <- make
       res <- clt.request(request, clientConfig)
     } yield res
 
@@ -192,7 +192,7 @@ object Client {
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
   ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] = {
     for {
-      clt <- make[R]
+      clt <- make
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- clt.socket(uri, headers, app, sslOptions)
     } yield res
