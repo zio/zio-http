@@ -6,8 +6,8 @@ import io.netty.handler.codec.http._
 import io.netty.util.AttributeKey
 import zhttp.http._
 import zhttp.logging.Logger
-import ServerInboundHandler.{log, Unsafe}
 import zhttp.service._
+import zhttp.service.server.ServerInboundHandler.{Unsafe, log}
 import zio.ZIO
 
 @Sharable

@@ -37,7 +37,7 @@ object BuildHelper extends ScalaSettings {
     val publishSettings = Seq(
       organization           := "io.d11",
       organizationName       := "d11",
-      licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
+      licenses += ("MIT License", new URL("https://github.com/zio/zio-http/blob/master/LICENSE")),
       sonatypeCredentialHost := "s01.oss.sonatype.org",
       sonatypeRepository     := "https://s01.oss.sonatype.org/service/local",
       sonatypeProfileName    := "io.d11",
@@ -74,10 +74,10 @@ object BuildHelper extends ScalaSettings {
   )
 
   def meta = Seq(
-    ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
+    ThisBuild / homepage   := Some(url("https://github.com/zio/zio-http")),
     ThisBuild / scmInfo    :=
       Some(
-        ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
+        ScmInfo(url("https://github.com/zio/zio-http"), "scm:git@github.com:zio/zio-http.git"),
       ),
     ThisBuild / developers := List(
       Developer(

@@ -1,9 +1,9 @@
 package zhttp.service.server
 
-import zio.ZIO
-import zhttp.http.{HExit, HttpError, Response}
-import zhttp.service.{Ctx}
 import io.netty.handler.codec.http.{FullHttpResponse, HttpRequest}
+import zhttp.http.{HExit, HttpError, Response}
+import zhttp.service.Ctx
+import zio.ZIO
 
 /**
  * Handles all advanced scenarios that are left out by the FastPassWriter. It

@@ -1,9 +1,9 @@
 package zhttp.service.client
 
-import zio.Task
 import io.netty.buffer.Unpooled
-import zhttp.http.Request
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
+import zhttp.http.Request
+import zio.Task
 
 trait ClientRequestEncoder {
 

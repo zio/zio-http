@@ -137,10 +137,10 @@ A simple Http app that responds with empty content and a `200` status code is de
 
 # Examples
 
-- [Simple Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/HelloWorld.scala)
-- [Advanced Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/HelloWorldAdvanced.scala)
-- [WebSocket Server](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/SocketEchoServer.scala)
-- [Streaming Response](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/StreamingResponse.scala)
-- [Simple Client](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/SimpleClient.scala)
-- [File Streaming](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/FileStreaming.scala)
-- [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/Authentication.scala)
+- [Simple Server](https://github.com/zio/zio-http/blob/main/example/src/main/scala/HelloWorld.scala)
+- [Advanced Server](https://github.com/zio/zio-http/blob/main/example/src/main/scala/HelloWorldAdvanced.scala)
+- [WebSocket Server](https://github.com/zio/zio-http/blob/main/example/src/main/scala/SocketEchoServer.scala)
+- [Streaming Response](https://github.com/zio/zio-http/blob/main/example/src/main/scala/StreamingResponse.scala)
+- [Simple Client](https://github.com/zio/zio-http/blob/main/example/src/main/scala/SimpleClient.scala)
+- [File Streaming](https://github.com/zio/zio-http/blob/main/example/src/main/scala/FileStreaming.scala)
+- [Authentication](https://github.com/zio/zio-http/blob/main/example/src/main/scala/Authentication.scala)

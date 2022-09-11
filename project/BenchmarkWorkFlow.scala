@@ -49,7 +49,7 @@ object BenchmarkWorkFlow {
         WorkflowStep.Use(
           ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
           cond = Some(
-            "${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}",
+            "${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}",
           ),
           params = Map(
             "sha"  -> "${{github.event.pull_request.head.sha}}",

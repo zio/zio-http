@@ -1,8 +1,8 @@
 package zhttp.service.server
 
-import zhttp.http.{HExit, Response}
-import zhttp.service.{Ctx}
 import io.netty.handler.codec.http.FullHttpResponse
+import zhttp.http.{HExit, Response}
+import zhttp.service.Ctx
 
 /**
  * An executor that evaluates HExits that don't fail or require any side-effects

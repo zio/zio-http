@@ -103,8 +103,8 @@ On the Server-side you can read Request headers as given below
     ```
 
 - More examples:
-  - [BasicAuth](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/BasicAuth.scala)
-  - [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/Authentication.scala)
+  - [BasicAuth](https://github.com/zio/zio-http/blob/main/example/src/main/scala/BasicAuth.scala)
+  - [Authentication](https://github.com/zio/zio-http/blob/main/example/src/main/scala/Authentication.scala)
 
 </details>
 

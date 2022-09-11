@@ -3,7 +3,7 @@ package zhttp.http
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpRequest}
 import zhttp.http.headers.HeaderExtension
-import zhttp.service.{Ctx}
+import zhttp.service.Ctx
 import zhttp.service.server.ServerInboundHandler
 
 import java.io.IOException

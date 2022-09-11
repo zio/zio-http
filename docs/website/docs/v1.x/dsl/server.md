@@ -103,7 +103,7 @@ object HelloWorldAdvanced extends App {
 | `Server.app(httpApp)`          | Mount routes. Refer to complete example above                               |
 | `Server.maxRequestSize(8 * 1024)`          | handle max request size of 8 KB (default 4 KB)                               |
 | `Server.port(portNum)` or `Server.bind(portNum)`       | Bind server to the port, refer to examples above                               |
-| `Server.ssl(sslOptions)`       | Creates a new server with ssl options. [HttpsHelloWorld](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/example/HttpsHelloWorld.scala)                               |
+| `Server.ssl(sslOptions)`       | Creates a new server with ssl options. [HttpsHelloWorld](https://github.com/zio/zio-http/blob/main/example/src/main/scala/example/HttpsHelloWorld.scala)                               |
 | `Server.acceptContinue`        | Sends a [100 CONTINUE](https://www.w3.org/Protocols/rfc2616/rfc2616-sec8.html#sec8.2.3)                              |
 | `Server.disableFlowControl`    | Refer [Netty FlowControlHandler](https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html)                               |
 | `Server.disableLeakDetection`  | Disable any leak detection Refer netty's [ResourceLeakDetector](https://netty.io/4.0/api/io/netty/util/ResourceLeakDetector.Level.html)                               |
