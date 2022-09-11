@@ -3,9 +3,9 @@
 ```scala
 package example
 
-import zhttp.http.Middleware.{csrfGenerate, csrfValidate}
-import zhttp.http._
-import zhttp.service.Server
+import zio.http.Middleware.{csrfGenerate, csrfValidate}
+import zio.http._
+import zio.http.Server
 import zio._
 
 object CSRF extends App {

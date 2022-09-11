@@ -2,8 +2,8 @@
 
 ```scala
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
-import zhttp.http._
-import zhttp.service.Server
+import zio.http._
+import zio.http.Server
 import zio._
 
 import java.time.Clock

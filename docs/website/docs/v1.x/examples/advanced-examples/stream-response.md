@@ -1,8 +1,8 @@
 # Streaming Response
 
 ```scala
-import zhttp.http._
-import zhttp.service.Server
+import zio.http._
+import zio.http.Server
 import zio.stream.ZStream
 import zio._
 
