@@ -46,7 +46,7 @@ On the Server-side you can read Request headers as given below
 
   ```scala
   import zio.http._
-  import zio.http.service.Server
+  import zio.http.Server
   import zio.{App, Chunk, ExitCode, URIO}
   import zio.stream.ZStream
   

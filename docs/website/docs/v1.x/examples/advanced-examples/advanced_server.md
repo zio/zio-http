@@ -3,7 +3,7 @@
 ```scala
 import zio.http._
 import zio.http.service._
-import zio.http.service.server.ServerChannelFactory
+import zio.http.service.ServerChannelFactory
 import zio._
 
 import scala.util.Try

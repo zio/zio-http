@@ -151,7 +151,7 @@ We will write a middleware that will attach a custom header to the response.
 Start with imports
 ```scala
 import zio.http._
-import zio.http.service.Server
+import zio.http.Server
 import zio.console.{putStrLn}
 import zio.{App, ExitCode, URIO}
 ```
@@ -347,7 +347,7 @@ Start with imports
 ```scala
 import zio.http.Middleware.basicAuth
 import zio.http._
-import zio.http.service.Server
+import zio.http.Server
 import zio.console.putStrLn
 import zio.{App, ExitCode, URIO}
 ```
@@ -484,7 +484,7 @@ val mid: Middleware[Any, Nothing, Nothing, Any, Int, Int] = Middleware.ifThenEls
 ```scala
     import zio.http._
     import zio.http.middleware.HttpMiddleware
-    import zio.http.service.Server
+    import zio.http.Server
     import zio.clock.{Clock, currentTime}
     import zio.console.Console
     import zio.duration._

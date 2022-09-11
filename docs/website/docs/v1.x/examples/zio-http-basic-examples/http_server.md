@@ -2,7 +2,7 @@
 
 ```scala
 import zio.http._
-import zio.http.service.Server
+import zio.http.Server
 import zio._
 
 object HelloWorld extends App {

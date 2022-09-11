@@ -153,7 +153,7 @@ To launch our app, we need to start the server on a port. The below example show
 
 ```scala
 import zio.http._
-import zio.http.service.Server
+import zio.http.Server
 import zio._
 
 object HelloWorld extends App {

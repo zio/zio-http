@@ -1,9 +1,9 @@
 # HTTPS Server
 ```scala
 import zio.http._
-import zio.http.service.server.ServerChannelFactory
-import zio.http.service.server.ServerSSLHandler._
-import zio.http.service.{EventLoopGroup, Server}
+import zio.http.service.ServerChannelFactory
+import zio.http.service.ServerSSLHandler._
+import zio.http.service.{EventLoopGroup}
 import zio._
 
 object HttpsHelloWorld extends App {
