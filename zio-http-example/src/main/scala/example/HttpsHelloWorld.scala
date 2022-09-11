@@ -3,7 +3,7 @@ package example
 import zio._
 import zio.http._
 import zio.http.service.ServerSSLHandler._
-import zio.http.service.{EventLoopGroup, Server, ServerChannelFactory}
+import zio.http.service.{EventLoopGroup, ServerChannelFactory}
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route

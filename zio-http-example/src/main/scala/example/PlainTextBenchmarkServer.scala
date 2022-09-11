@@ -2,9 +2,9 @@ package example
 
 import io.netty.util.AsciiString
 import zio._
+import zio.http.Server.LeakDetectionLevel
 import zio.http._
-import zio.http.service.Server.LeakDetectionLevel
-import zio.http.service.{EventLoopGroup, Server, ServerChannelFactory}
+import zio.http.service.{EventLoopGroup, ServerChannelFactory}
 
 /**
  * This server is used to run plaintext benchmarks on CI.

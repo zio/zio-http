@@ -1,9 +1,8 @@
 package example
 
 import zio._
+import zio.http.ChannelEvent.ChannelRead
 import zio.http._
-import zio.http.service.ChannelEvent.ChannelRead
-import zio.http.service.{ChannelEvent, Server}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
 
 object WebSocketEcho extends ZIOAppDefault {

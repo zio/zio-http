@@ -1,11 +1,11 @@
-package zio.http.service
+package zio.http
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zio._
 import zio.http.service.ServerSSLHandler._
-import zio.http.{Http, HttpApp}
+import zio.http.service._
 
 import java.net.{InetAddress, InetSocketAddress}
 

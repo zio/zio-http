@@ -1,6 +1,7 @@
-package zio.http.service
+package zio.http
 
 import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
+import zio.http.service.ChannelFuture
 import zio.{Task, UIO, ZIO}
 
 /**

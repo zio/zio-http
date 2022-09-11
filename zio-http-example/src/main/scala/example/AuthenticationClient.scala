@@ -1,8 +1,8 @@
 package example
 
 import zio._
-import zio.http.Headers
-import zio.http.service.{ChannelFactory, Client, EventLoopGroup}
+import zio.http.service.{ChannelFactory, EventLoopGroup}
+import zio.http.{Client, Headers}
 
 object AuthenticationClient extends ZIOAppDefault {
 

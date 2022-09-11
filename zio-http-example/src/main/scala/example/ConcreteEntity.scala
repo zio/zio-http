@@ -1,8 +1,7 @@
 package example
 
 import zio._
-import zio.http.service.Server
-import zio.http.{Http, HttpApp, Request, Response}
+import zio.http.{Http, HttpApp, Request, Response, Server}
 
 /**
  * Example to build app on concrete entity

@@ -4,7 +4,8 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
-import zio.http.service.ChannelEvent.UserEvent
+import zio.http.ChannelEvent
+import zio.http.ChannelEvent.UserEvent
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.logging.Logger
 

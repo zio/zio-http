@@ -1,21 +1,15 @@
-package zio.http.service
+package zio.http
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.proxy.HttpProxyHandler
-import zio.http._
-import zio.http.service.Client.{Config, log}
+import zio.http.Client.{Config, log}
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
+import zio.http.service._
 import zio.http.socket.SocketApp
-import zio.{Promise, Scope, Task, ZIO}
+import zio.{Promise, Scope, Task, ZIO, http}
 
 import java.net.InetSocketAddress
 
@@ -161,7 +155,7 @@ object Client {
     cf <- ZIO.service[JChannelFactory[JChannel]]
     el <- ZIO.service[JEventLoopGroup]
     zx <- HttpRuntime.default[Any]
-  } yield service.Client(zx, cf, el)
+  } yield http.Client(zx, cf, el)
 
   def request(
     url: String,

@@ -1,9 +1,9 @@
 package zio.http.service
 
+import zio.http.Client.Config
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
 import zio.http.middleware.Auth.Credentials
-import zio.http.service.Client.Config
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO

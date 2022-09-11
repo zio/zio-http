@@ -1,8 +1,8 @@
 package zio.http.internal
 
+import zio.http.Client.Config
 import zio.http.URL.Location
 import zio.http._
-import zio.http.service.Client.Config
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.socket.SocketApp

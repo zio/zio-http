@@ -4,6 +4,7 @@ import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.ssl.{SslContext, SslHandler}
+import zio.http.Server
 import zio.http.service.ServerSSLHandler.SSLHttpBehaviour
 
 import java.util

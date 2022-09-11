@@ -5,7 +5,7 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 import zio.http.headers.HeaderExtension
 import zio.http.html._
-import zio.http.service.{ChannelEvent, ChannelFuture}
+import zio.http.service.ChannelFuture
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.{Task, ZIO}
 

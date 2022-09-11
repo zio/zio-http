@@ -2,7 +2,6 @@ package example
 
 import zio._
 import zio.http._
-import zio.http.service.Server
 
 object HtmlTemplating extends ZIOAppDefault {
   // Importing everything from `zio.html`

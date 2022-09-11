@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http
 
 import io.netty.channel.ChannelHandlerContext
 

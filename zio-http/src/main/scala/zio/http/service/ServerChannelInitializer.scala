@@ -11,7 +11,7 @@ import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
-import zio.http.service.Server.Config
+import zio.http.Server.Config
 import zio.http.service.ServerChannelInitializer.log
 import zio.http.service.logging.LogLevelTransform._
 import zio.logging.LogLevel

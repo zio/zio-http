@@ -2,7 +2,6 @@ package example
 
 import zio._
 import zio.http._
-import zio.http.service.Server
 import zio.stream.ZStream
 
 import java.io.File

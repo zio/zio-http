@@ -1,8 +1,7 @@
 package example
 
 import zio._
-import zio.http.service.Server
-import zio.http.{Cookie, _}
+import zio.http._
 
 /**
  * Example to make app using signed-cookies

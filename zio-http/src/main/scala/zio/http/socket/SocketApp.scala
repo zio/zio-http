@@ -1,8 +1,8 @@
 package zio.http.socket
 
-import zio.http.service.{ChannelEvent, ChannelFactory, Client, EventLoopGroup}
-import zio.http.{Headers, Http, HttpApp, Response}
-import zio.{ZIO, _}
+import zio._
+import zio.http._
+import zio.http.service.{ChannelFactory, EventLoopGroup}
 
 final case class SocketApp[-R](
   decoder: SocketDecoder = SocketDecoder.default,
