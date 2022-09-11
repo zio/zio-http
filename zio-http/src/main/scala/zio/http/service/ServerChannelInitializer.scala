@@ -1,7 +1,7 @@
 package zio.http.service
 
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{Channel, ChannelHandler, ChannelInitializer}
+import io.netty.channel.{Channel => JChannel, ChannelHandler, ChannelInitializer}
 import io.netty.handler.codec.http.HttpObjectDecoder.{
   DEFAULT_MAX_CHUNK_SIZE,
   DEFAULT_MAX_HEADER_SIZE,
@@ -24,8 +24,8 @@ final case class ServerChannelInitializer[R](
   zExec: HttpRuntime[R],
   cfg: Config[R, Throwable],
   reqHandler: ChannelHandler,
-) extends ChannelInitializer[Channel] {
-  override def initChannel(channel: Channel): Unit = {
+) extends ChannelInitializer[JChannel] {
+  override def initChannel(channel: JChannel): Unit = {
     // !! IMPORTANT !!
     // Order of handlers are critical to make this work
     val pipeline = channel.pipeline()
