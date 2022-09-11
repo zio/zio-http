@@ -1,8 +1,8 @@
 package example
 
-import zhttp.http._
-import zhttp.service.Server
 import zio._
+import zio.http._
+import zio.service.Server
 object RequestStreaming extends ZIOAppDefault {
 
   // Create HTTP route which echos back the request body

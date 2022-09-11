@@ -150,8 +150,8 @@ We will write a middleware that will attach a custom header to the response.
 
 Start with imports
 ```scala
-import zhttp.http._
-import zhttp.service.Server
+import zio.http._
+import zio.service.Server
 import zio.console.{putStrLn}
 import zio.{App, ExitCode, URIO}
 ```
@@ -197,10 +197,10 @@ Here is a slightly longer example to explore how powerful middleware transformat
 
 Start with imports
 ```scala
-import zhttp.http.{Http, HttpError, Middleware, Request, Response}
+import zio.http.{Http, HttpError, Middleware, Request, Response}
 import zio.{ExitCode, URIO, ZEnv, ZIO}
 import zio.json._
-import zhttp.service._
+import zio.service._
 ```
 Define some "User" domain types
 ```scala
@@ -345,9 +345,9 @@ f1 ++ f2 ++ f3 applies on an `http`, from left to right with f1 first followed b
 #### A simple example using `++` combinator
 Start with imports
 ```scala
-import zhttp.http.Middleware.basicAuth
-import zhttp.http._
-import zhttp.service.Server
+import zio.http.Middleware.basicAuth
+import zio.http._
+import zio.service.Server
 import zio.console.putStrLn
 import zio.{App, ExitCode, URIO}
 ```
@@ -482,9 +482,9 @@ val mid: Middleware[Any, Nothing, Nothing, Any, Int, Int] = Middleware.ifThenEls
 <summary><b>Detailed example showing "debug" and "addHeader" middlewares</b></summary>
 
 ```scala
-    import zhttp.http._
-    import zhttp.http.middleware.HttpMiddleware
-    import zhttp.service.Server
+    import zio.http._
+    import zio.http.middleware.HttpMiddleware
+    import zio.service.Server
     import zio.clock.{Clock, currentTime}
     import zio.console.Console
     import zio.duration._

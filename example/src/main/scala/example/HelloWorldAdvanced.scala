@@ -1,9 +1,9 @@
 package example
 
-import zhttp.http._
-import zhttp.service.server.ServerChannelFactory
-import zhttp.service.{EventLoopGroup, Server}
 import zio._
+import zio.http._
+import zio.service.server.ServerChannelFactory
+import zio.service.{EventLoopGroup, Server}
 
 import scala.util.Try
 

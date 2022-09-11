@@ -1,10 +1,10 @@
 package example
 
 import io.netty.util.AsciiString
-import zhttp.http._
-import zhttp.service.server.{LeakDetectionLevel, ServerChannelFactory}
-import zhttp.service.{EventLoopGroup, Server}
 import zio._
+import zio.http._
+import zio.service.server.{LeakDetectionLevel, ServerChannelFactory}
+import zio.service.{EventLoopGroup, Server}
 
 /**
  * This server is used to run plaintext benchmarks on CI.

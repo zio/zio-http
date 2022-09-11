@@ -1,9 +1,9 @@
 package example
 
-import zhttp.html._
-import zhttp.http._
-import zhttp.service.Server
 import zio.ZIOAppDefault
+import zio.html._
+import zio.http._
+import zio.service.Server
 
 object StaticServer extends ZIOAppDefault {
 

@@ -13,9 +13,9 @@ This section describes, ZIO HTTP Server and different configurations you can pro
 ## Start a ZIO HTTP Server with custom configurations.
 1. Imports required by the customised server. 
     ```scala
-    import zhttp.http._
-    import zhttp.service.server.ServerChannelFactory
-    import zhttp.service.{EventLoopGroup, Server}
+    import zio.http._
+    import zio.service.server.ServerChannelFactory
+    import zio.service.{EventLoopGroup, Server}
     import zio._
     import scala.util.Try
     ```
@@ -50,9 +50,9 @@ One can bind server to Inet address in multiple ways, either by providing a port
 - Example below shows how the server can be started in forever mode to serve HTTP requests:
 
 ```scala
-import zhttp.http._
-import zhttp.service._
-import zhttp.service.server.ServerChannelFactory
+import zio.http._
+import zio.service._
+import zio.service.server.ServerChannelFactory
 import zio._
 
 import scala.util.Try

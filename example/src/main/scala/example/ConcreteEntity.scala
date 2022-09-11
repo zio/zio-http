@@ -1,8 +1,8 @@
 package example
 
-import zhttp.http.{Http, HttpApp, Request, Response}
-import zhttp.service.Server
 import zio._
+import zio.http.{Http, HttpApp, Request, Response}
+import zio.service.Server
 
 /**
  * Example to build app on concrete entity

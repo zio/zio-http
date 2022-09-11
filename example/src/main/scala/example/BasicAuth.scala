@@ -1,9 +1,9 @@
 package example
 
-import zhttp.http.Middleware.basicAuth
-import zhttp.http._
-import zhttp.service.Server
 import zio._
+import zio.http.Middleware.basicAuth
+import zio.http._
+import zio.service.Server
 
 object BasicAuth extends ZIOAppDefault {
 

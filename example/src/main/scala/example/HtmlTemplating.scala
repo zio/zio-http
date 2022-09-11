@@ -1,12 +1,12 @@
 package example
 
-import zhttp.http._
-import zhttp.service.Server
 import zio._
+import zio.http._
+import zio.service.Server
 
 object HtmlTemplating extends ZIOAppDefault {
-  // Importing everything from `zhttp.html`
-  import zhttp.html._
+  // Importing everything from `zio.html`
+  import zio.html._
 
   def app: HttpApp[Any, Nothing] = {
     // Html response takes in a `Html` instance.

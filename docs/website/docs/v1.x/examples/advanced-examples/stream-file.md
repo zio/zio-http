@@ -1,7 +1,7 @@
 # Streaming File
 ```scala
-import zhttp.http._
-import zhttp.service.Server
+import zio.http._
+import zio.service.Server
 import zio.stream.ZStream
 import zio._
 

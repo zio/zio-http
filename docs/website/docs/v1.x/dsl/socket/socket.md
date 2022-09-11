@@ -6,8 +6,8 @@ sidebar_label: "Socket"
 Websocket support can be added to your Http application using the same `Http` domain, something like this —
 
 ```scala
-import zhttp.http._
-import zhttp.socket._
+import zio.http._
+import zio.socket._
 
 val socket = Http.collectZIO[WebSocketChannelEvent] {
   case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("foo"))) =>

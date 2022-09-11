@@ -28,8 +28,8 @@ Check out the full documentation here: [Documentation]
 A simple Http server can be built using a few lines of code.
 
 ```scala
-import zhttp.http._
-import zhttp.service.Server
+import zio.http._
+import zio.service.Server
 import zio._
 
 object HelloWorld extends ZIOAppDefault {
@@ -67,7 +67,7 @@ You can checkout more examples in the [example](https://github.com/zio/zio-http/
 Setup via `build.sbt`
 
 ```scala
-libraryDependencies += "io.d11" %% "zhttp"      % "[version]"
+libraryDependencies += "dev.zio" %% "zio-http"      % "[version]"
 ```
 
 **NOTE:** ZIO Http is compatible with `ZIO 1.x` and `ZIO 2.x`.

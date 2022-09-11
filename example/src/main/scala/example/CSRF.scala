@@ -1,9 +1,9 @@
 package example
 
-import zhttp.http.Middleware.{csrfGenerate, csrfValidate}
-import zhttp.http._
-import zhttp.service.Server
 import zio._
+import zio.http.Middleware.{csrfGenerate, csrfValidate}
+import zio.http._
+import zio.service.Server
 
 object CSRF extends ZIOAppDefault {
   val privateApp = Http.collect[Request] { case Method.GET -> !! / "unsafeEndpoint" =>

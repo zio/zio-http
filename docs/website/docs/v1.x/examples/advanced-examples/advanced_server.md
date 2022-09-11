@@ -1,9 +1,9 @@
 # Advanced Server
 
 ```scala
-import zhttp.http._
-import zhttp.service._
-import zhttp.service.server.ServerChannelFactory
+import zio.http._
+import zio.service._
+import zio.service.server.ServerChannelFactory
 import zio._
 
 import scala.util.Try

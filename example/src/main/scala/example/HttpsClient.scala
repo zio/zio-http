@@ -1,10 +1,10 @@
 package example
 
 import io.netty.handler.ssl.SslContextBuilder
-import zhttp.http.Headers
-import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
+import zio.http.Headers
+import zio.service.client.ClientSSLHandler.ClientSSLOptions
+import zio.service.{ChannelFactory, Client, EventLoopGroup}
 
 import java.io.InputStream
 import java.security.KeyStore

@@ -1,10 +1,10 @@
 package example
 
-import zhttp.http.Middleware.cors
-import zhttp.http._
-import zhttp.http.middleware.Cors.CorsConfig
-import zhttp.service.Server
 import zio._
+import zio.http.Middleware.cors
+import zio.http._
+import zio.http.middleware.Cors.CorsConfig
+import zio.service.Server
 
 object HelloWorldWithCORS extends ZIOAppDefault {
 

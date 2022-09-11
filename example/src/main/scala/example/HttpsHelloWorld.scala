@@ -1,10 +1,10 @@
 package example
 
-import zhttp.http._
-import zhttp.service.server.ServerChannelFactory
-import zhttp.service.server.ServerSSLHandler._
-import zhttp.service.{EventLoopGroup, Server}
 import zio._
+import zio.http._
+import zio.service.server.ServerChannelFactory
+import zio.service.server.ServerSSLHandler._
+import zio.service.{EventLoopGroup, Server}
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route

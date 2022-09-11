@@ -1,9 +1,9 @@
 package example
 
-import zhttp.http._
-import zhttp.http.middleware.HttpMiddleware
-import zhttp.service.Server
 import zio._
+import zio.http._
+import zio.http.middleware.HttpMiddleware
+import zio.service.Server
 
 import java.io.IOException
 import java.util.concurrent.TimeUnit

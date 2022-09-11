@@ -1,8 +1,8 @@
 package example
 
-import zhttp.http._
-import zhttp.service.Server
 import zio._
+import zio.http._
+import zio.service.Server
 
 /**
  * Example to make app using cookies

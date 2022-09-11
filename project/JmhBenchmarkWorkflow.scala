@@ -7,7 +7,7 @@ object JmhBenchmarkWorkflow {
 
   val jmhPlugin                = s"""addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "$JmhVersion")"""
   val scalaSources: PathFilter = ** / "*.scala"
-  val files = FileTreeView.default.list(Glob("./zio-http-benchmarks/src/main/scala/zhttp.benchmarks/**"), scalaSources)
+  val files = FileTreeView.default.list(Glob("./zio-http-benchmarks/src/main/scala/zio.benchmarks/**"), scalaSources)
 
   /**
    * Get zhttpBenchmark file names

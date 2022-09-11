@@ -1,10 +1,10 @@
 package example
 
-import zhttp.http._
-import zhttp.service.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
-import zhttp.service.{Channel, ChannelEvent, Server}
-import zhttp.socket._
 import zio._
+import zio.http._
+import zio.service.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
+import zio.service.{Channel, ChannelEvent, Server}
+import zio.socket._
 
 object WebSocketAdvanced extends ZIOAppDefault {
   val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
