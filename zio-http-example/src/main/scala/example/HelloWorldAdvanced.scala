@@ -2,8 +2,8 @@ package example
 
 import zio._
 import zio.http._
-import zio.service.server.ServerChannelFactory
-import zio.service.{EventLoopGroup, Server}
+import zio.http.service.server.ServerChannelFactory
+import zio.http.service.{EventLoopGroup, Server}
 
 import scala.util.Try
 

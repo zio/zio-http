@@ -1,10 +1,10 @@
-package zio.service
+package zio.http.service
 
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zio.durationInt
 import zio.http.Status
-import zio.service.client.ClientSSLHandler.ClientSSLOptions
+import zio.http.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}

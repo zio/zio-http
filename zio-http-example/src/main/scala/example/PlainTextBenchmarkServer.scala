@@ -3,8 +3,8 @@ package example
 import io.netty.util.AsciiString
 import zio._
 import zio.http._
-import zio.service.server.{LeakDetectionLevel, ServerChannelFactory}
-import zio.service.{EventLoopGroup, Server}
+import zio.http.service.server.{LeakDetectionLevel, ServerChannelFactory}
+import zio.http.service.{EventLoopGroup, Server}
 
 /**
  * This server is used to run plaintext benchmarks on CI.

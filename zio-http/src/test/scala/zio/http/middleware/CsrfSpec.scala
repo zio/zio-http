@@ -2,8 +2,8 @@ package zio.http.middleware
 
 import zio.Ref
 import zio.http.Middleware.csrfValidate
+import zio.http.service.internal.HttpAppTestExtensions
 import zio.http.{Cookie, _}
-import zio.service.internal.HttpAppTestExtensions
 import zio.test.Assertion.equalTo
 import zio.test._
 

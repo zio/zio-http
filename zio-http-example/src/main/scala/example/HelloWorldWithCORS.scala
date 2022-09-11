@@ -4,7 +4,7 @@ import zio._
 import zio.http.Middleware.cors
 import zio.http._
 import zio.http.middleware.Cors.CorsConfig
-import zio.service.Server
+import zio.http.service.Server
 
 object HelloWorldWithCORS extends ZIOAppDefault {
 

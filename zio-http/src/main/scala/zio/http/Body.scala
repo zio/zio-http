@@ -5,7 +5,7 @@ import io.netty.channel.{Channel, DefaultFileRegion}
 import io.netty.handler.codec.http.LastHttpContent
 import io.netty.util.AsciiString
 import zio._
-import zio.service.Ctx
+import zio.http.service.Ctx
 import zio.stream.ZStream
 
 import java.io.FileInputStream

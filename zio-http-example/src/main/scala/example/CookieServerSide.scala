@@ -2,7 +2,7 @@ package example
 
 import zio._
 import zio.http._
-import zio.service.Server
+import zio.http.service.Server
 
 /**
  * Example to make app using cookies

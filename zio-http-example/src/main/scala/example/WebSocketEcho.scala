@@ -2,9 +2,9 @@ package example
 
 import zio._
 import zio.http._
+import zio.http.service.ChannelEvent.ChannelRead
+import zio.http.service.{ChannelEvent, Server}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
-import zio.service.ChannelEvent.ChannelRead
-import zio.service.{ChannelEvent, Server}
 
 object WebSocketEcho extends ZIOAppDefault {
   private val socket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =

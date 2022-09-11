@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.service.internal.HttpGen
+import zio.http.service.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 

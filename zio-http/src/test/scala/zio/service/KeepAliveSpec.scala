@@ -1,9 +1,9 @@
-package zio.service
+package zio.http.service
 
 import io.netty.handler.codec.http.HttpHeaderValues
+import zio.http.service.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.service.server._
 import zio.http.{HeaderNames, Headers, Http, Version}
-import zio.service.internal.{DynamicServer, HttpRunnableSpec}
-import zio.service.server._
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertZIO

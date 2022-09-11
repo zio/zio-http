@@ -1,11 +1,11 @@
-package zio.service.internal
+package zio.http.service.internal
 
 import zio.http.URL.Location
 import zio.http._
+import zio.http.service.Client.Config
+import zio.http.service._
+import zio.http.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.socket.SocketApp
-import zio.service.Client.Config
-import zio.service._
-import zio.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.test.ZIOSpecDefault
 import zio.{Scope, ZIO}
 

@@ -1,4 +1,4 @@
-package zio.service.internal
+package zio.http.service.internal
 
 import zio.http._
 

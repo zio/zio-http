@@ -1,7 +1,7 @@
 package zio.http.socket
 
+import zio.http.service.{ChannelEvent, ChannelFactory, Client, EventLoopGroup}
 import zio.http.{Headers, Http, HttpApp, Response}
-import zio.service.{ChannelEvent, ChannelFactory, Client, EventLoopGroup}
 import zio.{ZIO, _}
 
 final case class SocketApp[-R](

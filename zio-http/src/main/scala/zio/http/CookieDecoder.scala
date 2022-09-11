@@ -2,7 +2,7 @@ package zio.http
 
 import io.netty.handler.codec.http.{cookie => jCookie}
 import zio.http.Cookie.SameSite
-import zio.service.Log
+import zio.http.service.Log
 
 import scala.jdk.CollectionConverters._
 sealed trait CookieDecoder[A] {

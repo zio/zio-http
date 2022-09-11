@@ -1,7 +1,7 @@
 package example
 
 import zio._
-import zio.service.{ChannelFactory, Client, EventLoopGroup}
+import zio.http.service.{ChannelFactory, Client, EventLoopGroup}
 
 object SimpleClient extends ZIOAppDefault {
   val env = ChannelFactory.auto ++ EventLoopGroup.auto()

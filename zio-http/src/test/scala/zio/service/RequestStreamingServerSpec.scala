@@ -1,8 +1,8 @@
-package zio.service
+package zio.http.service
 
 import zio.http._
-import zio.service.ServerSpec.requestBodySpec
-import zio.service.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.service.ServerSpec.requestBodySpec
+import zio.http.service.internal.{DynamicServer, HttpRunnableSpec}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
@@ -10,7 +10,7 @@ import zio.{ZIO, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ zio.service.server.ServerChannelFactory.nio ++ DynamicServer.live
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ zio.http.service.server.ServerChannelFactory.nio ++ DynamicServer.live
 
   private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.enableObjectAggregator(-1)))
 

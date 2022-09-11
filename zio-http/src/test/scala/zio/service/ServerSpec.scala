@@ -1,9 +1,9 @@
-package zio.service
+package zio.http.service
 
 import io.netty.util.AsciiString
 import zio.http._
-import zio.service.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
-import zio.service.server._
+import zio.http.service.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zio.http.service.server._
 import zio.stream.{ZPipeline, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect._

@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.service.{Channel, ChannelEvent}
+import zio.http.service.{Channel, ChannelEvent}
 
 package object socket {
 

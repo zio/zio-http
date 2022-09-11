@@ -1,10 +1,10 @@
-package zio.service
+package zio.http.service
 
 import zio.http._
 import zio.http.middleware.Auth.Credentials
-import zio.service.Client.Config
-import zio.service.internal.{DynamicServer, HttpRunnableSpec}
-import zio.service.server.ServerChannelFactory
+import zio.http.service.Client.Config
+import zio.http.service.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.service.server.ServerChannelFactory
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO

@@ -3,7 +3,7 @@ package example
 import zio._
 import zio.http.Middleware.basicAuth
 import zio.http._
-import zio.service.Server
+import zio.http.service.Server
 
 object BasicAuth extends ZIOAppDefault {
 

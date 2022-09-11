@@ -1,7 +1,7 @@
 package example
 
 import zio.http._
-import zio.service.{ChannelFactory, Client, EventLoopGroup, Server}
+import zio.http.service.{ChannelFactory, Client, EventLoopGroup, Server}
 import zio.{ZIO, ZIOAppDefault}
 
 object ClientServer extends ZIOAppDefault {

@@ -1,9 +1,9 @@
 package zio.http
 
 import zio._
-import zio.service.internal.{DynamicServer, HttpRunnableSpec}
-import zio.service.server.ServerChannelFactory
-import zio.service.{ChannelFactory, EventLoopGroup}
+import zio.http.service.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.service.server.ServerChannelFactory
+import zio.http.service.{ChannelFactory, EventLoopGroup}
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test._

@@ -2,9 +2,9 @@ package example
 
 import zio._
 import zio.http._
+import zio.http.service.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
+import zio.http.service.{Channel, ChannelEvent, Server}
 import zio.http.socket._
-import zio.service.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
-import zio.service.{Channel, ChannelEvent, Server}
 
 object WebSocketAdvanced extends ZIOAppDefault {
   val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =

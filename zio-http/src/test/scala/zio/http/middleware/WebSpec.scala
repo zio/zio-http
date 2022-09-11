@@ -2,8 +2,8 @@ package zio.http.middleware
 
 import zio._
 import zio.http.Middleware._
+import zio.http.service.internal.HttpAppTestExtensions
 import zio.http.{Cookie, _}
-import zio.service.internal.HttpAppTestExtensions
 import zio.test.Assertion._
 import zio.test._
 

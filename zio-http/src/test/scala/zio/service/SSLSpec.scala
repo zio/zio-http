@@ -1,11 +1,11 @@
-package zio.service
+package zio.http.service
 
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zio.http._
-import zio.service.client.ClientSSLHandler.ClientSSLOptions
-import zio.service.server.ServerChannelFactory
-import zio.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
+import zio.http.service.client.ClientSSLHandler.ClientSSLOptions
+import zio.http.service.server.ServerChannelFactory
+import zio.http.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertZIO, check}

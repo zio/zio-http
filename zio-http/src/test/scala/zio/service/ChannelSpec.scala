@@ -1,4 +1,4 @@
-package zio.service
+package zio.http.service
 
 import io.netty.channel.embedded.EmbeddedChannel
 import zio.test.TestAspect.timeout

@@ -1,9 +1,9 @@
-package zio.service.internal
+package zio.http.service.internal
 
 import zio._
 import zio.http._
-import zio.service.Server.Start
-import zio.service.internal.DynamicServer.Id
+import zio.http.service.Server.Start
+import zio.http.service.internal.DynamicServer.Id
 
 import java.util.UUID
 

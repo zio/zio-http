@@ -5,7 +5,7 @@ import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zio.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http._
 import zio.http.middleware.Auth.Credentials
-import zio.service.server.ServerTime
+import zio.http.service.server.ServerTime
 
 import java.nio.charset.Charset
 import java.util.{Base64, Date}

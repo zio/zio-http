@@ -2,7 +2,7 @@ package example
 
 import zio._
 import zio.http.Headers
-import zio.service.{ChannelFactory, Client, EventLoopGroup}
+import zio.http.service.{ChannelFactory, Client, EventLoopGroup}
 
 object AuthenticationClient extends ZIOAppDefault {
 

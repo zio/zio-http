@@ -3,7 +3,7 @@ package zio.http
 import zio.Duration
 import zio.http.Cookie.{SameSite, Type}
 import zio.http.CookieDecoder.log
-import zio.service.Log
+import zio.http.service.Log
 
 import java.security.MessageDigest
 import java.util.Base64.getEncoder

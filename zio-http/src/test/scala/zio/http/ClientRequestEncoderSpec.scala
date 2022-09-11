@@ -1,8 +1,8 @@
 package zio.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zio.service.client.ClientRequestEncoder
-import zio.service.internal.HttpGen
+import zio.http.service.client.ClientRequestEncoder
+import zio.http.service.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
 
