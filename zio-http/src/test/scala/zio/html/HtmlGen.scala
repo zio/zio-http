@@ -1,4 +1,4 @@
-package zio.html
+package zio.http.html
 
 import zio.test.Gen
 

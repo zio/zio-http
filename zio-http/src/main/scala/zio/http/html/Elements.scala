@@ -1,6 +1,6 @@
-package zio.html
+package zio.http.html
 
-import zio.html.Element.PartialElement
+import zio.http.html.Element.PartialElement
 
 trait Elements {
   final def a: PartialElement = PartialElement("a")

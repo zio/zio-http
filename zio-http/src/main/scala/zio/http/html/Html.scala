@@ -1,4 +1,4 @@
-package zio.html
+package zio.http.html
 
 import scala.language.implicitConversions
 

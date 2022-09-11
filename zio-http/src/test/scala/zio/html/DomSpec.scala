@@ -1,6 +1,6 @@
-package zio.html
+package zio.http.html
 
-import zio.html.HtmlGen.{tagGen, voidTagGen}
+import zio.http.html.HtmlGen.{tagGen, voidTagGen}
 import zio.test.{ZIOSpecDefault, assertTrue, check, checkAll}
 
 object DomSpec extends ZIOSpecDefault {

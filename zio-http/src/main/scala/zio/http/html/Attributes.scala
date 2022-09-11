@@ -1,6 +1,6 @@
-package zio.html
+package zio.http.html
 
-import zio.html.Attributes.PartialAttribute
+import zio.http.html.Attributes.PartialAttribute
 
 trait Attributes {
   final def acceptAttr: PartialAttribute[String] = PartialAttribute("accept")

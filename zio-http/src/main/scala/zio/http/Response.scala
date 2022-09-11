@@ -3,8 +3,8 @@ package zio.http
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
-import zio.html._
 import zio.http.headers.HeaderExtension
+import zio.http.html._
 import zio.service.{ChannelEvent, ChannelFuture}
 import zio.socket.{SocketApp, WebSocketFrame}
 import zio.{Task, ZIO}

@@ -4,8 +4,8 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.ZIO.attemptBlocking
 import zio._
-import zio.html._
 import zio.http.headers.HeaderModifier
+import zio.http.html._
 import zio.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 

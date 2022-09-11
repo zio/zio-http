@@ -1,7 +1,6 @@
 package zio.service
 
 import io.netty.util.AsciiString
-import zio.html._
 import zio.http._
 import zio.service.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zio.service.server._
@@ -14,6 +13,7 @@ import zio.{Chunk, ZIO, durationInt}
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec {
+  import html._
 
   private val nonEmptyContent = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
