@@ -5,7 +5,7 @@ import zio.logging.{LogLevel, Logger}
 import zio.service.logging.NettyLoggerFactory.Live
 
 /**
- * Custom implementation that uses the zhttp logger's transport for logging
+ * Custom implementation that uses the zio-http logger's transport for logging
  * netty messages.
  */
 final case class NettyLoggerFactory(logger: Logger) extends InternalLoggerFactory {

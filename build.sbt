@@ -136,8 +136,8 @@ lazy val zioHttpLogging = (project in file("zio-http-logging"))
     libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`),
   )
 
-lazy val zioHttpExample = (project in file("./example"))
-  .settings(stdSettings("example"))
+lazy val zioHttpExample = (project in file("zio-http-example"))
+  .settings(stdSettings("zio-http-example"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))

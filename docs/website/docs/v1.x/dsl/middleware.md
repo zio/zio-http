@@ -282,7 +282,7 @@ content-length: 68
 
 ## Creating Middleware
 
-Refer to [Middleware.scala](https://github.com/zio/zio-http/blob/main/zio-http/src/main/scala/zhttp/http/Middleware.scala) for various ways of creating a middleware.
+Refer to [Middleware.scala](https://github.com/zio/zio-http/blob/main/zio-http/src/main/scala/zio/http/Middleware.scala) for various ways of creating a middleware.
 
 Again remember that a "middleware" is just a **_transformative function_**. There are ways of creating such transformative functions:  
 * **identity**: works like an [identity function](https://en.wikipedia.org/wiki/Identity_function) in mathematics

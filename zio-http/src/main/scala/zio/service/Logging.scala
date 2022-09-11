@@ -9,7 +9,7 @@ import zio.logging.{LogFormat, Logger}
 trait Logging {
 
   /**
-   * Controls if you want to pipe netty logs into the zhttp logger.
+   * Controls if you want to pipe netty logs into the zio-http logger.
    */
   val EnableNettyLogging: Boolean = false
 
