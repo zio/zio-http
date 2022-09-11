@@ -2,7 +2,7 @@ package zio.http.middleware
 
 import zio.ZIO
 import zio.http._
-import zio.http.service.internal.HttpAppTestExtensions
+import zio.http.internal.HttpAppTestExtensions
 import zio.test.Assertion._
 import zio.test._
 

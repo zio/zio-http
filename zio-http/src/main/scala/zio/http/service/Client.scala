@@ -13,8 +13,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http._
 import zio.http.service.Client.{Config, log}
-import zio.http.service.client.ClientSSLHandler.ClientSSLOptions
-import zio.http.service.client.{ClientInboundHandler, ClientRequestEncoder, ClientSSLHandler}
+import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.socket.SocketApp
 import zio.{Promise, Scope, Task, ZIO}
 

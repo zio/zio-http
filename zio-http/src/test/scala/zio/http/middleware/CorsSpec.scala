@@ -2,8 +2,8 @@ package zio.http.middleware
 
 import zio.http.Middleware.cors
 import zio.http._
+import zio.http.internal.HttpAppTestExtensions
 import zio.http.middleware.Cors.CorsConfig
-import zio.http.service.internal.HttpAppTestExtensions
 import zio.test.Assertion.hasSubset
 import zio.test._
 

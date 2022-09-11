@@ -4,8 +4,7 @@ import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelPipeline
 import io.netty.util.ResourceLeakDetector
 import zio._
-import zio.http.service.server.ServerSSLHandler._
-import zio.http.service.server._
+import zio.http.service.ServerSSLHandler._
 import zio.http.{Http, HttpApp}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -249,6 +248,26 @@ object Server {
     serverBootstrapInitializer: ServerBootstrap => Unit = null,
   ) {
     def useAggregator: Boolean = objectAggregator >= 0
+  }
+
+  sealed trait LeakDetectionLevel {
+    self =>
+    def jResourceLeakDetectionLevel: ResourceLeakDetector.Level = self match {
+      case LeakDetectionLevel.DISABLED => ResourceLeakDetector.Level.DISABLED
+      case LeakDetectionLevel.SIMPLE   => ResourceLeakDetector.Level.SIMPLE
+      case LeakDetectionLevel.ADVANCED => ResourceLeakDetector.Level.ADVANCED
+      case LeakDetectionLevel.PARANOID => ResourceLeakDetector.Level.PARANOID
+    }
+  }
+
+  object LeakDetectionLevel {
+    case object DISABLED extends LeakDetectionLevel
+
+    case object SIMPLE extends LeakDetectionLevel
+
+    case object ADVANCED extends LeakDetectionLevel
+
+    case object PARANOID extends LeakDetectionLevel
   }
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
