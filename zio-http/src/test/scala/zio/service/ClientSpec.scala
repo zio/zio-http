@@ -4,7 +4,6 @@ import zio.http._
 import zio.http.middleware.Auth.Credentials
 import zio.http.service.Client.Config
 import zio.http.service.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.service.server.ServerChannelFactory
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
@@ -15,7 +14,7 @@ import java.net.ConnectException
 object ClientSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ server.ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {

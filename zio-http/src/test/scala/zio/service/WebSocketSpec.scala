@@ -3,7 +3,6 @@ package zio.http.service
 import zio.http.service.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.service.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zio.http.service.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.service.server.ServerChannelFactory
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio.http.{Headers, Http, Status}
 import zio.test.Assertion.equalTo
@@ -14,7 +13,7 @@ import zio.{Promise, Ref, UIO, ZIO, durationInt}
 object WebSocketSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
+    EventLoopGroup.nio() ++ server.ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
 
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {

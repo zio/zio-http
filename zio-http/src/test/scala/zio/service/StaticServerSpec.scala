@@ -2,7 +2,6 @@ package zio.http.service
 
 import zio.http._
 import zio.http.service.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
-import zio.http.service.server.ServerChannelFactory
 import zio.test.Assertion.{equalTo, not}
 import zio.test.TestAspect.timeout
 import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
@@ -11,7 +10,7 @@ import zio.{Scope, ZIO, durationInt}
 object StaticServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
+    EventLoopGroup.nio() ++ ChannelFactory.nio ++ server.ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
   private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)

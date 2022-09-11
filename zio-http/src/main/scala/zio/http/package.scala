@@ -1,7 +1,6 @@
 package zio
 
 import io.netty.util.CharsetUtil
-import zio.ZIO
 
 import java.nio.charset.Charset
 
