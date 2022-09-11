@@ -1,10 +1,10 @@
 package example
 
 import zio._
+import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio.http.{Http, Response}
 import zio.service.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
 import zio.service.{ChannelEvent, ChannelFactory, EventLoopGroup}
-import zio.socket.{WebSocketChannelEvent, WebSocketFrame}
 
 object WebSocketSimpleClient extends ZIOAppDefault {
 

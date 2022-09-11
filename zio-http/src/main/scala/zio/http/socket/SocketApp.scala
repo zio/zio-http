@@ -1,4 +1,4 @@
-package zio.socket
+package zio.http.socket
 
 import zio.http.{Headers, Http, HttpApp, Response}
 import zio.service.{ChannelEvent, ChannelFactory, Client, EventLoopGroup}

@@ -5,8 +5,8 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 import zio.http.headers.HeaderExtension
 import zio.http.html._
+import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.service.{ChannelEvent, ChannelFuture}
-import zio.socket.{SocketApp, WebSocketFrame}
 import zio.{Task, ZIO}
 
 import java.io.{IOException, PrintWriter, StringWriter}

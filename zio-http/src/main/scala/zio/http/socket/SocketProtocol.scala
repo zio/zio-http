@@ -1,4 +1,4 @@
-package zio.socket
+package zio.http.socket
 
 import io.netty.handler.codec.http.websocketx.{
   WebSocketClientProtocolConfig,

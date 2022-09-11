@@ -1,4 +1,4 @@
-package zio
+package zio.http
 
 import zio.service.{Channel, ChannelEvent}
 

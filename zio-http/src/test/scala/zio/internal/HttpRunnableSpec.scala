@@ -2,10 +2,10 @@ package zio.service.internal
 
 import zio.http.URL.Location
 import zio.http._
+import zio.http.socket.SocketApp
 import zio.service.Client.Config
 import zio.service._
 import zio.service.client.ClientSSLHandler.ClientSSLOptions
-import zio.socket.SocketApp
 import zio.test.ZIOSpecDefault
 import zio.{Scope, ZIO}
 

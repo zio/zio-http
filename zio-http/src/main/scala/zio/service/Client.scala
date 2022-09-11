@@ -12,10 +12,10 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http._
+import zio.http.socket.SocketApp
 import zio.service.Client.{Config, log}
 import zio.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.service.client.{ClientInboundHandler, ClientRequestEncoder, ClientSSLHandler}
-import zio.socket.SocketApp
 import zio.{Promise, Scope, Task, ZIO, service}
 
 import java.net.InetSocketAddress

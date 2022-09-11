@@ -1,11 +1,11 @@
 package zio.service
 
+import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio.http.{Headers, Http, Status}
 import zio.service.ChannelEvent.UserEvent.HandshakeComplete
 import zio.service.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zio.service.internal.{DynamicServer, HttpRunnableSpec}
 import zio.service.server.ServerChannelFactory
-import zio.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}

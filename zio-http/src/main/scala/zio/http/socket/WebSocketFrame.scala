@@ -1,4 +1,4 @@
-package zio.socket
+package zio.http.socket
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
