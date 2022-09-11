@@ -2,7 +2,7 @@
 
 ```scala
 import zio.http._
-import zio.service.Server
+import zio.http.service.Server
 import zio.stream.ZStream
 import zio._
 

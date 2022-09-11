@@ -2,8 +2,8 @@
 
 ```scala
 import zio.http._
-import zio.service._
-import zio.service.server.ServerChannelFactory
+import zio.http.service._
+import zio.http.service.server.ServerChannelFactory
 import zio._
 
 import scala.util.Try

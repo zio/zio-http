@@ -14,8 +14,8 @@ This section describes, ZIO HTTP Server and different configurations you can pro
 1. Imports required by the customised server. 
     ```scala
     import zio.http._
-    import zio.service.server.ServerChannelFactory
-    import zio.service.{EventLoopGroup, Server}
+    import zio.http.service.server.ServerChannelFactory
+    import zio.http.service.{EventLoopGroup, Server}
     import zio._
     import scala.util.Try
     ```
@@ -51,8 +51,8 @@ One can bind server to Inet address in multiple ways, either by providing a port
 
 ```scala
 import zio.http._
-import zio.service._
-import zio.service.server.ServerChannelFactory
+import zio.http.service._
+import zio.http.service.server.ServerChannelFactory
 import zio._
 
 import scala.util.Try

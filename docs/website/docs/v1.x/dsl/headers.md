@@ -46,7 +46,7 @@ On the Server-side you can read Request headers as given below
 
   ```scala
   import zio.http._
-  import zio.service.Server
+  import zio.http.service.Server
   import zio.{App, Chunk, ExitCode, URIO}
   import zio.stream.ZStream
   
@@ -132,7 +132,7 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
 
     ```scala
     import zio.http._
-    import zio.service._
+    import zio.http.service._
     import zio._
     
     object SimpleClientJson extends App {

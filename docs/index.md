@@ -122,7 +122,7 @@ private val app = Http.collect[Request] {
 
 ```scala
 import zio.http._
-import zio.service.Server
+import zio.http.service.Server
 import zio._
 
 object HelloWorld extends App {

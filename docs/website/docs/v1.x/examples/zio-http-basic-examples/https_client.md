@@ -3,8 +3,8 @@
 ```scala
 import io.netty.handler.ssl.SslContextBuilder
 import zio.http.Headers
-import zio.service.client.ClientSSLHandler.ClientSSLOptions
-import zio.service.{ChannelFactory, Client, EventLoopGroup}
+import zio.http.service.client.ClientSSLHandler.ClientSSLOptions
+import zio.http.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
 import java.io.InputStream

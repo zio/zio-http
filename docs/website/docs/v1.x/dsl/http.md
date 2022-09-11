@@ -360,7 +360,7 @@ ZIO HTTP server needs an `HttpApp[R,E]` for running.
 We can use `Server.app()` method to bootstrap the server with an `HttpApp[R,E]`
 ```scala
   import zio.http._
-  import zio.service.Server
+  import zio.http.service.Server
   import zio._
     
   object HelloWorld extends App {

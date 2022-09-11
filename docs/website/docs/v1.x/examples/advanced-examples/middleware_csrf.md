@@ -5,7 +5,7 @@ package example
 
 import zio.http.Middleware.{csrfGenerate, csrfValidate}
 import zio.http._
-import zio.service.Server
+import zio.http.service.Server
 import zio._
 
 object CSRF extends App {

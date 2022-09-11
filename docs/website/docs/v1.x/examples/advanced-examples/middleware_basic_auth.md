@@ -5,7 +5,7 @@ package example
 
 import zio.http.Middleware.basicAuth
 import zio.http._
-import zio.service.Server
+import zio.http.service.Server
 import zio.{App, ExitCode, URIO}
 
 object BasicAuth extends App {

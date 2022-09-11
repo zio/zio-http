@@ -1,7 +1,7 @@
 # HTTP Client
 ```scala
 import zio.http.Headers
-import zio.service.{ChannelFactory, Client, EventLoopGroup}
+import zio.http.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
 object SimpleClient extends App {
