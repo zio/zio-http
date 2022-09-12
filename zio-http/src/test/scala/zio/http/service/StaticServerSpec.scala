@@ -1,7 +1,9 @@
 package zio.http.service
 
+import zio.http.Middleware.cors
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zio.http.middleware.Cors.CorsConfig
 import zio.test.Assertion.{equalTo, not}
 import zio.test.TestAspect.timeout
 import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
@@ -26,7 +28,11 @@ object StaticServerSpec extends HttpRunnableSpec {
     case _ -> !! / "throwable"    => throw new Exception("Throw inside Handler")
   }
 
-  private val app = serve { nonZIO ++ staticApp }
+  private val staticAppWithCors = Http.collectZIO[Request] { case Method.GET -> !! / "success-cors" =>
+    ZIO.succeed(Response.ok.withVary("test1").withVary("test2"))
+  } @@ cors(CorsConfig(allowedMethods = Some(Set(Method.GET, Method.POST))))
+
+  private val app = serve { nonZIO ++ staticApp ++ staticAppWithCors }
 
   private val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
     List(
@@ -84,7 +90,7 @@ object StaticServerSpec extends HttpRunnableSpec {
     suite("Server") {
       app
         .as(
-          List(serverStartSpec, staticAppSpec, nonZIOSpec, throwableAppSpec),
+          List(serverStartSpec, staticAppSpec, nonZIOSpec, throwableAppSpec, multiHeadersSpec),
         )
     }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds)
 
@@ -122,4 +128,23 @@ object StaticServerSpec extends HttpRunnableSpec {
       } yield assertTrue(status == Status.InternalServerError)
     }
   }
+
+  def multiHeadersSpec = suite("Multi headers spec")(
+    test("Multiple headers should have the value combined in a single header") {
+      for {
+        result <- headers(Method.GET, !! / "success-cors")
+      } yield {
+        assertTrue(result.hasHeader(HeaderNames.vary)) &&
+        assertTrue(result.vary.contains("test1,test2"))
+      }
+    },
+    test("CORS headers should be properly encoded") {
+      for {
+        result <- headers(Method.GET, !! / "success-cors", Headers.origin("example.com"))
+      } yield {
+        assertTrue(result.hasHeader(HeaderNames.accessControlAllowMethods)) &&
+        assertTrue(result.accessControlAllowMethods.contains("GET,POST"))
+      }
+    },
+  )
 }
