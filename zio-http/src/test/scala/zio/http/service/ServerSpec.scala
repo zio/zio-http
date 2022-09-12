@@ -1,5 +1,6 @@
 package zio.http.service
 
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
 import io.netty.util.AsciiString
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
@@ -10,8 +11,6 @@ import zio.test._
 import zio.{Chunk, ZIO, durationInt}
 
 import java.nio.file.Paths
-import io.netty.handler.codec.http.DefaultHttpHeaders
-import io.netty.handler.codec.http.HttpHeaders
 
 object ServerSpec extends HttpRunnableSpec {
   import html._
