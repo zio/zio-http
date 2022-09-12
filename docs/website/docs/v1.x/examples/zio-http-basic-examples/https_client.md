@@ -2,9 +2,9 @@
 
 ```scala
 import io.netty.handler.ssl.SslContextBuilder
-import zhttp.http.Headers
-import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
+import zio.http.Headers
+import zio.http.service.ClientSSLHandler.ClientSSLOptions
+import zio.http.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 
 import java.io.InputStream

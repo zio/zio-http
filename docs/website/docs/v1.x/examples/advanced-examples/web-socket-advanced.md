@@ -1,9 +1,9 @@
 # Advanced Web Socket Server
 
 ```scala
-import zhttp.http._
-import zhttp.service.Server
-import zhttp.socket._
+import zio.http._
+import zio.http.Server
+import zio.socket._
 import zio._
 import zio.duration._
 import zio.stream.ZStream
