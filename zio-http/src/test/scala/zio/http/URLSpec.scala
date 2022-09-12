@@ -96,5 +96,13 @@ object URLSpec extends ZIOSpecDefault {
           }
         },
       ),
+      suite("queryParamsAsString")(
+        test("") {
+          val url      = URL.fromString("https://ziverge.com/about?a=1&b=1,2,3&c=la%2B123-c")
+          val expected = s"a=1&b=1,2,3&c=la+123-c"
+          val actual   = url.map(_.queryParamsAsString)
+          assertTrue(actual.contains(expected))
+        },
+      ),
     )
 }

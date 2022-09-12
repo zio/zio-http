@@ -98,6 +98,9 @@ final case class URL(
    * location.
    */
   def toJavaURL: Option[java.net.URL] = if (self.kind == URL.Location.Relative) None else Some(toJavaURI.toURL)
+
+  def queryParamsAsString: String =
+    self.queryParams.toList.map { case (k, v) => s"$k=${v.mkString(",")}" }.mkString("&")
 }
 object URL {
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
