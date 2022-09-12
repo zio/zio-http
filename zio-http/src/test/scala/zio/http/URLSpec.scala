@@ -1,5 +1,6 @@
 package zio.http
 
+import io.netty.handler.codec.http.QueryStringDecoder
 import zio.http.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
@@ -96,12 +97,39 @@ object URLSpec extends ZIOSpecDefault {
           }
         },
       ),
-      suite("queryParamsAsString")(
-        test("") {
-          val url      = URL.fromString("https://ziverge.com/about?a=1&b=1,2,3&c=la%2B123-c")
-          val expected = s"a=1&b=1,2,3&c=la+123-c"
-          val actual   = url.map(_.queryParamsAsString)
-          assertTrue(actual.contains(expected))
+      suite("queryParamsAsString XXX")(
+        test("successfully returns the URL query params as a decoded string") {
+          val urls = Gen.fromIterable(
+            Seq(
+              "",
+              "/",
+              "/users?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
+              "/users",
+              "/users#the%20hash",
+              "http://abc.com",
+              "http://abc.com/",
+              "http://abc.com/list",
+              "http://abc.com/users?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
+              "http://abc.com/users?u=1&u=2&ord=ASC&txt=scala%20is%20awesome%21",
+              "http://abc.com/users?u=1#the%20hash",
+              "http://abc.com/users",
+              "http://abc.com/users/?u=1&u=2&ord=ASC&txt=scala%3Fis%2Bawesome%21",
+              "http://abc.com/users#the%20hash",
+              "ws://abc.com/subscriptions",
+              "ws://abc.com/subscriptions?",
+              "wss://abc.com/subscriptions",
+            ),
+          )
+
+          checkAll(urls) { genUrl =>
+            val url                     = URL.fromString(genUrl)
+            val actualQueryParamsEither = url.map(_.queryParamsAsString)
+
+            val urlWithoutHash      = genUrl.split("#")(0)
+            val decodedQueryFixture =
+              QueryStringDecoder.decodeComponent(new QueryStringDecoder(urlWithoutHash).rawQuery())
+            assertTrue(actualQueryParamsEither.exists(decodedQueryFixture.equals))
+          }
         },
       ),
     )
