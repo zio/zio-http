@@ -97,7 +97,7 @@ object URLSpec extends ZIOSpecDefault {
           }
         },
       ),
-      suite("queryParamsAsString XXX")(
+      suite("queryParamsAsString")(
         test("successfully returns the URL query params as a decoded string") {
           val urls = Gen.fromIterable(
             Seq(
