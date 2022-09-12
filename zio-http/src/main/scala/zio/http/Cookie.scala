@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.Duration
+import zio.{Duration, Unsafe}
 import zio.http.Cookie.{SameSite, Type}
 import zio.http.CookieDecoder.log
 import zio.http.service.Log
@@ -31,7 +31,9 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Type[T]
    */
   def encode(validate: Boolean)(implicit ev: CookieEncoder[T]): Either[Exception, String] =
     try {
-      Right(ev.unsafeEncode(self, validate))
+      Unsafe.unsafe { implicit u =>
+        Right(ev.unsafe.encode(self, validate))
+      }
     } catch {
       case e: Exception =>
         log.error("Cookie encoding failure", e)
@@ -213,7 +215,9 @@ object Cookie {
    */
   def decode[S](string: String, validate: Boolean = false)(implicit ev: CookieDecoder[S]): Either[Exception, ev.Out] = {
     try {
-      Right(ev.unsafeDecode(string, validate))
+      Unsafe.unsafe { implicit u =>
+        Right(ev.unsafe.decode(string, validate))
+      }
     } catch {
       case e: Exception =>
         log.error("Cookie decoding failure", e)

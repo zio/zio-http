@@ -2,10 +2,10 @@ package zio.http
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
+  ChannelInitializer,
   Channel => JChannel,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
-  ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._
@@ -15,7 +15,7 @@ import zio.http.Client.{Config, log}
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.socket.SocketApp
-import zio.{Promise, Scope, Task, ZIO, http}
+import zio.{Promise, Scope, Task, Unsafe, ZIO, http}
 
 import java.net.InetSocketAddress
 
@@ -41,9 +41,11 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
     for {
       promise <- Promise.make[Throwable, Response]
       jReq    <- encode(request)
-      _       <- ChannelFuture
-        .unit(unsafeRequest(request, clientConfig, jReq, promise))
-        .catchAll(cause => promise.fail(cause))
+      _       <- Unsafe.unsafe { implicit u =>
+        ChannelFuture
+          .unit(this.request(request, clientConfig, jReq, promise))
+          .catchAll(cause => promise.fail(cause))
+      }
       res     <- promise.await
     } yield res
 
@@ -68,12 +70,12 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
   /**
    * It handles both - Websocket and HTTP requests.
    */
-  private def unsafeRequest(
+  private def request(
     req: Request,
     clientConfig: Config,
     jReq: FullHttpRequest,
     promise: Promise[Throwable, Response],
-  ): JChannelFuture = {
+  )(implicit unsafe: Unsafe): JChannelFuture = {
 
     try {
       val host = req.url.host.getOrElse { assert(false, "Host name is required"); "" }

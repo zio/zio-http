@@ -32,8 +32,9 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
     if (ctx.channel().isOpen) ctx.close(): Unit
   }
 
-  def unsafeRun(program: ZIO[R, Throwable, Any], interruptOnClose: Boolean = true)(implicit
+  def run(program: ZIO[R, Throwable, Any], interruptOnClose: Boolean = true)(implicit
     ctx: ChannelHandlerContext,
+    unsafe: Unsafe,
   ): Unit = {
     val rtm = strategy.runtime(ctx)
 
@@ -44,29 +45,27 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
 
     // Close the connection if the program fails
     // When connection closes, interrupt the program
-    Unsafe.unsafe { implicit unsafe =>
-      var close: GenericFutureListener[Future[_ >: Void]] = null
+    var close: GenericFutureListener[Future[_ >: Void]] = null
 
-      val fiber = rtm.unsafe.fork(program)
+    val fiber = rtm.unsafe.fork(program)
 
-      log.debug(s"Started Fiber: [${fiber.id}]")
-      if (interruptOnClose) {
-        close = closeListener(rtm, fiber)
-        ctx.channel().closeFuture.addListener(close)
-      }
-      fiber.unsafe.addObserver {
-        case Exit.Success(_)     =>
-          log.debug(s"Completed Fiber: [${fiber.id}]")
-          removeListener(close)
-        case Exit.Failure(cause) =>
-          onFailure(cause)
-          removeListener(close)
-      }
+    log.debug(s"Started Fiber: [${fiber.id}]")
+    if (interruptOnClose) {
+      close = closeListener(rtm, fiber)
+      ctx.channel().closeFuture.addListener(close)
+    }
+    fiber.unsafe.addObserver {
+      case Exit.Success(_)     =>
+        log.debug(s"Completed Fiber: [${fiber.id}]")
+        removeListener(close)
+      case Exit.Failure(cause) =>
+        onFailure(cause)
+        removeListener(close)
     }
   }
 
-  def unsafeRunUninterruptible(program: ZIO[R, Throwable, Any])(implicit ctx: ChannelHandlerContext): Unit =
-    unsafeRun(program, interruptOnClose = false)
+  def runUninterruptible(program: ZIO[R, Throwable, Any])(implicit ctx: ChannelHandlerContext, unsafe: Unsafe): Unit =
+    run(program, interruptOnClose = false)
 }
 
 object HttpRuntime {

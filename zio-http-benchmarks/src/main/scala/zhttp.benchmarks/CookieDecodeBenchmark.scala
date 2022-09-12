@@ -1,7 +1,7 @@
 package zio.benchmarks
 
 import org.openjdk.jmh.annotations._
-import zio.http
+import zio.{Unsafe, http}
 import zio.http.Cookie.SameSite
 import zio.http.{Cookie, _}
 
@@ -30,7 +30,9 @@ class CookieDecodeBenchmark {
 
   @Benchmark
   def benchmarkNettyCookie(): Unit = {
-    val _ = http.CookieDecoder.ResponseCookieDecoder.unsafeDecode(oldCookieString, false)
-    ()
+    Unsafe.unsafe { implicit u =>
+      val _ = http.CookieDecoder.ResponseCookieDecoder.unsafe.decode(oldCookieString, false)
+      ()
+    }
   }
 }

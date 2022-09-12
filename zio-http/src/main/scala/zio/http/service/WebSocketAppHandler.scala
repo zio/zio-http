@@ -3,7 +3,8 @@ package zio.http.service
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
+import zio.Unsafe
 import zio.http.ChannelEvent
 import zio.http.ChannelEvent.UserEvent
 import zio.http.socket.{SocketApp, WebSocketFrame}
@@ -27,9 +28,11 @@ final class WebSocketAppHandler[R](
     log.debug(s"ChannelEvent: [${event.event}]")
     app.message match {
       case Some(f) =>
-        zExec.unsafeRunUninterruptible(
-          f(event.map(WebSocketFrame.unsafeFromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)),
-        )
+        Unsafe.unsafe { implicit u =>
+          zExec.runUninterruptible(
+            f(event.map(WebSocketFrame.unsafe.fromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)),
+          )
+        }
       case None    => ()
     }
   }

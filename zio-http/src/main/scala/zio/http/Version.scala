@@ -1,6 +1,7 @@
 package zio.http
 
 import io.netty.handler.codec.http.HttpVersion
+import zio.Unsafe
 
 sealed trait Version { self =>
   def isHttp1_0: Boolean = self == Version.Http_1_0
@@ -17,12 +18,14 @@ object Version {
   val `HTTP/1.0`: Version = Http_1_0
   val `HTTP/1.1`: Version = Http_1_1
 
-  def unsafeFromJava(version: HttpVersion): Version =
-    version match {
-      case HttpVersion.HTTP_1_0 => Http_1_0
-      case HttpVersion.HTTP_1_1 => Http_1_1
-      case _                    => throw new IllegalArgumentException(s"Unsupported HTTP version: $version")
-    }
+  object unsafe {
+    def fromJava(version: HttpVersion)(implicit unsafe: Unsafe): Version =
+      version match {
+        case HttpVersion.HTTP_1_0 => Http_1_0
+        case HttpVersion.HTTP_1_1 => Http_1_1
+        case _                    => throw new IllegalArgumentException(s"Unsupported HTTP version: $version")
+      }
+  }
 
   case object Http_1_0 extends Version
 
