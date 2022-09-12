@@ -1,21 +1,15 @@
 package zio.http
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  ChannelInitializer,
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.proxy.HttpProxyHandler
+import zio._
 import zio.http.Client.{Config, log}
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.socket.SocketApp
-import zio.{Promise, Scope, Task, Unsafe, ZIO, http}
 
 import java.net.InetSocketAddress
 

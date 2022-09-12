@@ -1,7 +1,7 @@
 package zio.http.service
 
 import io.netty.handler.codec.http.{FullHttpResponse, HttpRequest}
-import zio.{Unsafe, ZIO}
+import zio.ZIO
 import zio.http.{HExit, HttpError, Response}
 
 /**
@@ -15,7 +15,7 @@ trait ServerFullResponseWriter[R] {
 
   def attemptFullWrite[R1 >: R](exit: HExit[R1, Throwable, Response], jRequest: HttpRequest)(implicit
     ctx: Ctx,
-  ): ZIO[R, Throwable, Unit] = Unsafe.unsafe { implicit u =>
+  ): ZIO[R, Throwable, Unit] = {
     for {
       response <- exit.toZIO.unrefine { case error => Option(error) }.catchAll {
         case None        => ZIO.succeed(HttpError.NotFound(jRequest.uri()).toResponse)
@@ -26,13 +26,15 @@ trait ServerFullResponseWriter[R] {
         else
           for {
             jResponse <- response.encode()
-            _         <- ZIO.attempt(ServerInboundHandler.unsafe.setServerTime(self.time, response, jResponse))
+            _         <- ZIO.attemptUnsafe(implicit u =>
+              ServerInboundHandler.unsafe.setServerTime(self.time, response, jResponse),
+            )
             _         <- ZIO.attempt(ctx.writeAndFlush(jResponse))
             flushed   <- if (!jResponse.isInstanceOf[FullHttpResponse]) response.body.write(ctx) else ZIO.succeed(true)
             _         <- ZIO.attempt(ctx.flush()).when(!flushed)
           } yield ()
 
-      _ <- ZIO.attempt(ServerInboundHandler.unsafe.setContentReadAttr(false))
+      _ <- ZIO.attemptUnsafe(implicit u => ServerInboundHandler.unsafe.setContentReadAttr(false))
     } yield log.debug("Full write performed")
 
   }

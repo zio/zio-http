@@ -2,8 +2,8 @@ package zio.http.service
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
-import zio.{Promise, Unsafe}
 import zio.http.Response
+import zio.{Promise, Unsafe}
 
 /**
  * Handles HTTP response

@@ -1,9 +1,9 @@
 package zio.benchmarks
 
 import org.openjdk.jmh.annotations._
-import zio.{Unsafe, http}
 import zio.http.Cookie.SameSite
 import zio.http.{Cookie, _}
+import zio.{Unsafe, http}
 
 import java.util.concurrent.TimeUnit
 

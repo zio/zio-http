@@ -4,10 +4,10 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import io.netty.util.AttributeKey
-import zio.{Unsafe, ZIO}
 import zio.http._
 import zio.http.service.ServerInboundHandler.{log, unsafe}
 import zio.logging.Logger
+import zio.{Unsafe, ZIO}
 
 @Sharable
 private[zio] final case class ServerInboundHandler[R](
@@ -35,7 +35,7 @@ private[zio] final case class ServerInboundHandler[R](
           } else
             runtime.run {
               self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed {
-                unsafe.releaseRequest(jReq)
+                unsafe.releaseRequest(jReq)(u)
               }
             }
         }
@@ -49,7 +49,7 @@ private[zio] final case class ServerInboundHandler[R](
           if (!self.attemptFastWrite(exit)) {
             if (unsafe.canHaveBody(jReq)) unsafe.setAutoRead(false)
             runtime.run {
-              self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed(unsafe.setAutoRead(true))
+              self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed(unsafe.setAutoRead(true)(ctx, u))
             }
           }
         }
