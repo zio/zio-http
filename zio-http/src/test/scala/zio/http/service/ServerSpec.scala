@@ -10,6 +10,8 @@ import zio.test._
 import zio.{Chunk, ZIO, durationInt}
 
 import java.nio.file.Paths
+import io.netty.handler.codec.http.DefaultHttpHeaders
+import io.netty.handler.codec.http.HttpHeaders
 
 object ServerSpec extends HttpRunnableSpec {
   import html._
@@ -273,6 +275,12 @@ object ServerSpec extends HttpRunnableSpec {
           res    <- Response.text("abc").withVary("test1").withVary("test2").freeze
           actual <- Http.response(res).deploy.headerValue(HeaderNames.vary).run()
         } yield assert(actual)(isSome(equalTo(expectedValue)))
+      },
+      test("header with multiple values should not be escaped") {
+        val headers               = Headers("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        val expected: HttpHeaders =
+          new DefaultHttpHeaders(true).add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        assertTrue(headers.encode == expected)
       },
     ),
   )
