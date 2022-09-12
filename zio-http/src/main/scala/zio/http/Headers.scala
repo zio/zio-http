@@ -3,7 +3,6 @@ package zio.http
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
 import zio.http.headers.{HeaderConstructors, HeaderExtension}
 import zio.Chunk
-import zio.http.{Header, HeaderNames}
 
 import scala.jdk.CollectionConverters._
 
@@ -38,7 +37,7 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
   /**
    * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders]
    */
-  private[zhttp] def encode: HttpHeaders = {
+  private[http] def encode: HttpHeaders = {
     val (exceptions, regularHeaders) = self.toList.span(h => h._1.contains(HeaderNames.setCookie))
     val combinedHeaders              = regularHeaders
       .groupBy(_._1)
@@ -77,6 +76,6 @@ object Headers extends HeaderConstructors {
 
   def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else Headers.empty
 
-  private[zhttp] def decode(headers: HttpHeaders): Headers =
+  private[http] def decode(headers: HttpHeaders): Headers =
     Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
 }

@@ -1,7 +1,9 @@
 package zio.http.service
 
+import zio.http.Middleware.cors
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zio.http.middleware.Cors.CorsConfig
 import zio.test.Assertion.{equalTo, not}
 import zio.test.TestAspect.timeout
 import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
