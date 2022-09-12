@@ -48,24 +48,19 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       },
     ),
     suite("logging")(
-      test("ZIO.log status method url and time") {
-        val program = runApp(app @@ logDefault) *> ZTestLogger.logOutput
+      test("log status method url and time") {
+        val program = runApp(app @@ logResponseDefault) *> ZTestLogger.logOutput
         for {
           res <- program
           logMessages = res.map(_.message())
-          _ <- ZIO.debug(logMessages)
-        } yield assert(logMessages.toVector)(equalTo(Vector("200 GET /health 1000ms")))
+        } yield assertTrue(logMessages == Chunk("200 GET /health 1000ms"))
       },
-      test("ZIO.log 404 status method url and time") {
-//        val program = runApp(Http.empty ++ Http.notFound @@ logDefault) *> TestConsole.output
-
-
-        val program = runApp(Http.empty ++ Http.notFound @@ logDefault) *> ZTestLogger.logOutput
+      test("log 404 status method url and time") {
+        val program = runApp(Http.empty ++ Http.notFound @@ logResponseDefault) *> ZTestLogger.logOutput
         for {
           res <- program
           logMessages = res.map(_.message())
-          _ <- ZIO.debug(logMessages)
-        } yield assert(logMessages.toVector)(equalTo(Vector("404 GET /health 0ms")))
+        } yield assertTrue(logMessages == Chunk("404 GET /health 0ms"))
       },
     ),
     suite("when")(
