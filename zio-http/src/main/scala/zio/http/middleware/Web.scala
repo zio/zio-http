@@ -37,6 +37,19 @@ private[zio] trait Web extends Cors with Csrf with Auth with HeaderModifier[Http
         } yield Patch.empty
     }
 
+  final def log: HttpMiddleware[Any, IOException] =
+    interceptZIOPatch(req => Clock.nanoTime.map(start => (req.method, req.url, start))) {
+      case (response, (method, url, start)) =>
+        for {
+          end <- Clock.nanoTime
+          duration = (end - start) / 1000000
+          _ <- ZIO.logInfo(duration.toString)
+          _   <- Console
+            .printLine(s"${response.status.asJava.code()} ${method} ${url.encode} ${duration}ms")
+            .mapError(Option(_))
+        } yield Patch.empty
+    }
+
   /**
    * Removes the trailing slash from the path.
    */
