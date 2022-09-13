@@ -1,6 +1,6 @@
 package zio.http
 
-import io.netty.handler.codec.http.{CombinedHttpHeaders, EmptyHttpHeaders, HttpHeaders}
+import io.netty.handler.codec.http.{CombinedHttpHeaders, DefaultHttpHeaders, HttpHeaders}
 import zio.Chunk
 import zio.http.headers.{HeaderConstructors, HeaderExtension}
 
@@ -124,7 +124,7 @@ case object EmptyHeaders extends Headers { self =>
 
   override def toList: List[(String, String)] = Nil
 
-  override private[zio] def encode: HttpHeaders = EmptyHttpHeaders.INSTANCE
+  override private[zio] def encode: HttpHeaders = new DefaultHttpHeaders()
 }
 
 object Headers extends HeaderConstructors {
@@ -153,6 +153,5 @@ object Headers extends HeaderConstructors {
   private[zio] def decode(headers: HttpHeaders): Headers =
     Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
 
-  // TODO: Look into why using FromJHeaders, ForAll or EmptyHeaders causes some tests to fail
-  def empty: Headers = FromChunk(Chunk.empty)
+  def empty: Headers = EmptyHeaders
 }
