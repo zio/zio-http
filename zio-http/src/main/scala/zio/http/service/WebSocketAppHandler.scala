@@ -21,6 +21,7 @@ final class WebSocketAppHandler[R](
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
   private[zio] val log = if (isClient) WebSocketAppHandler.clientLog else WebSocketAppHandler.serverLog
+  implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
   private def dispatch(
     event: ChannelEvent[JWebSocketFrame, JWebSocketFrame],
@@ -28,11 +29,9 @@ final class WebSocketAppHandler[R](
     log.debug(s"ChannelEvent: [${event.event}]")
     app.message match {
       case Some(f) =>
-        Unsafe.unsafe { implicit u =>
-          zExec.runUninterruptible(
-            f(event.map(WebSocketFrame.unsafe.fromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)),
-          )
-        }
+        zExec.runUninterruptible(
+          f(event.map(WebSocketFrame.unsafe.fromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)),
+        )(ctx, unsafeClass)
       case None    => ()
     }
   }

@@ -33,7 +33,7 @@ object WebSocketFrame {
   def continuation(chunks: ByteBuf): WebSocketFrame = WebSocketFrame.Continuation(chunks)
 
   def fromJFrame(jFrame: JWebSocketFrame): Option[WebSocketFrame] =
-    Option(Unsafe.unsafe { implicit u => unsafe.fromJFrame(jFrame) })
+    Option(unsafe.fromJFrame(jFrame)(Unsafe.unsafe))
 
   def ping: WebSocketFrame = WebSocketFrame.Ping
 

@@ -15,12 +15,11 @@ final class HttpRuntime[+R](strategy: HttpRuntime.Strategy[R]) {
   private[zio] val log = HttpRuntime.log
 
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
-    (_: Future[_ >: Void]) =>
-      Unsafe.unsafe { implicit unsafe =>
-        val _ = rtm.unsafe.fork {
-          fiber.interrupt.as(log.debug(s"Interrupted Fiber: [${fiber.id}]"))
-        }
-      }
+    (_: Future[_ >: Void]) => {
+      val _ = rtm.unsafe.fork {
+        fiber.interrupt.as(log.debug(s"Interrupted Fiber: [${fiber.id}]"))
+      }(implicitly[Trace], Unsafe.unsafe)
+    }
 
   private def onFailure(cause: Cause[Throwable])(implicit ctx: ChannelHandlerContext): Unit = {
     cause.failureOption.orElse(cause.dieOption) match {

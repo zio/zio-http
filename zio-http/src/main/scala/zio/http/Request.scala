@@ -161,9 +161,7 @@ object Request {
   }
 
   private[zio] def fromFullHttpRequest(jReq: FullHttpRequest)(implicit ctx: Ctx): Request = {
-    val protocolVersion = Unsafe.unsafe { implicit u =>
-      Version.unsafe.fromJava(jReq.protocolVersion())
-    }
+    val protocolVersion = Version.unsafe.fromJava(jReq.protocolVersion())(Unsafe.unsafe)
 
     new Request {
       override final def method: Method    = Method.fromHttpMethod(jReq.method())
@@ -179,18 +177,15 @@ object Request {
   }
 
   private[zio] def fromHttpRequest(jReq: HttpRequest)(implicit ctx: Ctx): Request = {
-    val protocolVersion = Unsafe.unsafe { implicit u =>
-      Version.unsafe.fromJava(jReq.protocolVersion())
-    }
+    val protocolVersion = Version.unsafe.fromJava(jReq.protocolVersion())(Unsafe.unsafe)
+
     new Request {
       override final def headers: Headers = Headers.make(jReq.headers())
       override final def method: Method   = Method.fromHttpMethod(jReq.method())
       override final def url: URL         = URL.fromString(jReq.uri()).getOrElse(URL.empty)
       override final val version: Version = protocolVersion
       override final def body: Body       = Body.fromAsync { async =>
-        Unsafe.unsafe { implicit u =>
-          ServerInboundHandler.unsafe.addAsyncBodyHandler(async)
-        }
+        ServerInboundHandler.unsafe.addAsyncBodyHandler(async)(ctx, Unsafe.unsafe)
       }
 
       override final val unsafe: UnsafeAPI = new UnsafeAPI {

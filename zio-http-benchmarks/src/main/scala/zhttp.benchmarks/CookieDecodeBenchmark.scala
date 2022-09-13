@@ -30,9 +30,7 @@ class CookieDecodeBenchmark {
 
   @Benchmark
   def benchmarkNettyCookie(): Unit = {
-    Unsafe.unsafe { implicit u =>
-      val _ = http.CookieDecoder.ResponseCookieDecoder.unsafe.decode(oldCookieString, false)
-      ()
-    }
+    val _ = http.CookieDecoder.ResponseCookieDecoder.unsafe.decode(oldCookieString, false)(Unsafe.unsafe)
+    ()
   }
 }

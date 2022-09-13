@@ -41,11 +41,9 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
     for {
       promise <- Promise.make[Throwable, Response]
       jReq    <- encode(request)
-      _       <- Unsafe.unsafe { implicit u =>
-        ChannelFuture
-          .unit(this.request(request, clientConfig, jReq, promise))
-          .catchAll(cause => promise.fail(cause))
-      }
+      _       <- ChannelFuture
+        .unit(this.request(request, clientConfig, jReq, promise)(Unsafe.unsafe))
+        .catchAll(cause => promise.fail(cause))
       res     <- promise.await
     } yield res
 

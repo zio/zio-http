@@ -46,7 +46,7 @@ object Scheme       {
    * null/non-valid Scheme
    */
   def decode(scheme: String): Option[Scheme] =
-    Option(Unsafe.unsafe { implicit u => unsafe.decode(scheme) })
+    Option(unsafe.decode(scheme)(Unsafe.unsafe))
 
   def fromJScheme(scheme: HttpScheme): Option[Scheme] = scheme match {
     case HttpScheme.HTTPS => Option(HTTPS)
