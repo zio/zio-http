@@ -36,7 +36,7 @@ private[zio] final case class ServerInboundHandler[R](
         } else
           runtime.run {
             self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed {
-              unsafe.releaseRequest(jReq)
+              unsafe.releaseRequest(jReq)(unsafeClass)
             }
           }
 
