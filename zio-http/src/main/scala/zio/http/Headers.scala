@@ -35,7 +35,7 @@ sealed trait Headers extends HeaderExtension[Headers] {
 
   def when(cond: Boolean): Headers = if (cond) self else EmptyHeaders
 
-  private[zio] def encode: HttpHeaders
+  private[http] def encode: HttpHeaders
 }
 
 final case class SingleHeader private[zio] (header: Header) extends Headers {
@@ -82,7 +82,7 @@ final case class FromChunk private[zio] (toChunk: Chunk[Header]) extends Headers
 
   override def toList: List[(String, String)] = toChunk.map(a => (a._1.toString, a._2.toString)).toList
 
-  private[zio] def encode: HttpHeaders = {
+  private[http] def encode: HttpHeaders = {
     val (exceptions, regularHeaders) = self.toList.span(h => h._1.contains(HeaderNames.setCookie))
     val combinedHeaders              = regularHeaders
       .groupBy(_._1)
@@ -120,7 +120,7 @@ final case class FromJHeaders private[zio] (toJHeaders: HttpHeaders) extends Hea
 
   override def toList: List[(String, String)] = toJHeaders.entries().asScala.map(e => (e.getKey, e.getValue)).toList
 
-  override private[zio] def encode: HttpHeaders = toJHeaders
+  override private[http] def encode: HttpHeaders = toJHeaders
 }
 
 final case class FromAll private[zio] (toChunk: Chunk[Header], toJHeaders: HttpHeaders) extends Headers { self =>
@@ -148,7 +148,7 @@ final case class FromAll private[zio] (toChunk: Chunk[Header], toJHeaders: HttpH
       .map(a => (a._1.toString, a._2.toString))
       .toList ++ toJHeaders.entries().asScala.map(e => (e.getKey, e.getValue)).toList
 
-  override private[zio] def encode: HttpHeaders =
+  override private[http] def encode: HttpHeaders =
     self.toList
       .foldLeft[HttpHeaders](new CombinedHttpHeaders(true)) { case (headers, entry) =>
         headers.add(entry._1, entry._2)
@@ -163,7 +163,7 @@ case object EmptyHeaders extends Headers { self =>
 
   override def toList: List[(String, String)] = Nil
 
-  override private[zio] def encode: HttpHeaders = new DefaultHttpHeaders()
+  override private[http] def encode: HttpHeaders = new DefaultHttpHeaders()
 }
 
 object Headers extends HeaderConstructors {
