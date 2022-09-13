@@ -6,7 +6,7 @@ import zio.http._
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{ignore, timeout}
+import zio.test.TestAspect.{flaky, ignore, timeout}
 import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertZIO, check}
 import zio.{Scope, ZIO, durationInt}
 
@@ -77,8 +77,8 @@ object SSLSpec extends ZIOSpecDefault {
                 .map(_.status)
               assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
             }
-          },
+          } @@ ignore,
         ),
       ),
-  ).provideSomeLayer[TestEnvironment](env) @@ timeout(5 second) @@ ignore
+  ).provideSomeLayer[TestEnvironment](env) @@ timeout(5 second) @@ flaky
 }
