@@ -52,10 +52,17 @@ final case class SingleHeader private[zio] (header: Header) extends Headers {
 
   override def toList: List[(String, String)] = List((header._1.toString, header._2.toString))
 
-  override private[zio] def encode = {
-    val headers = new DefaultHttpHeaders(true)
-    headers.add(header._1, header._2)
-    headers
+  override private[http] def encode: HttpHeaders = {
+    val (exceptions, regularHeaders) = self.toList.span(h => h._1.contains(HeaderNames.setCookie))
+    val combinedHeaders              = regularHeaders
+      .groupBy(_._1)
+      .map { case (key, tuples) =>
+        key -> tuples.map(_._2).map(value => if (value.contains(",")) s"""\"$value\"""" else value).mkString(",")
+      }
+    (exceptions ++ combinedHeaders)
+      .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>
+        headers.add(entry._1, entry._2)
+      }
   }
 }
 
@@ -75,11 +82,18 @@ final case class FromChunk private[zio] (toChunk: Chunk[Header]) extends Headers
 
   override def toList: List[(String, String)] = toChunk.map(a => (a._1.toString, a._2.toString)).toList
 
-  private[zio] def encode: HttpHeaders =
-    self.toList
-      .foldLeft[HttpHeaders](new CombinedHttpHeaders(true)) { case (headers, entry) =>
+  private[zio] def encode: HttpHeaders = {
+    val (exceptions, regularHeaders) = self.toList.span(h => h._1.contains(HeaderNames.setCookie))
+    val combinedHeaders              = regularHeaders
+      .groupBy(_._1)
+      .map { case (key, tuples) =>
+        key -> tuples.map(_._2).map(value => if (value.contains(",")) s"""\"$value\"""" else value).mkString(",")
+      }
+    (exceptions ++ combinedHeaders)
+      .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>
         headers.add(entry._1, entry._2)
       }
+  }
 
 }
 
@@ -169,7 +183,7 @@ object Headers extends HeaderConstructors {
 
   def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else EmptyHeaders
 
-  private[zio] def decode(headers: HttpHeaders): Headers = FromJHeaders(headers)
+  private[http] def decode(headers: HttpHeaders): Headers = FromJHeaders(headers)
 
   def empty: Headers = EmptyHeaders
 }

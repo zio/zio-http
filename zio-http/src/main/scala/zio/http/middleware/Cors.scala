@@ -2,7 +2,7 @@ package zio.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.http._
-import zio.http.middleware.Cors.CorsConfig
+import zio.http.middleware.Cors.{CorsConfig, buildHeaders}
 
 private[zio] trait Cors {
 
@@ -24,17 +24,13 @@ private[zio] trait Cors {
       }
     def corsHeaders(origin: Header, method: Method, isPreflight: Boolean): Headers = {
       Headers.ifThenElse(isPreflight)(
-        onTrue = config.allowedHeaders.fold(Headers.empty) { h =>
-          Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS.toString(), h.mkString(","))
-        },
-        onFalse = config.exposedHeaders.fold(Headers.empty) { h =>
-          Headers(HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(), h.mkString(","))
-        },
+        onTrue = buildHeaders(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS.toString(), config.allowedHeaders),
+        onFalse = buildHeaders(HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(), config.exposedHeaders),
       ) ++
         Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(), origin._2) ++
-        Headers(
+        buildHeaders(
           HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS.toString(),
-          config.allowedMethods.fold(method.toString())(m => m.map(m => m.toString()).mkString(",")),
+          config.allowedMethods.map(_.map(_.toJava.name())),
         ) ++
         Headers.when(config.allowCredentials) {
           Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS, config.allowCredentials.toString)
@@ -73,4 +69,12 @@ object Cors {
     ),
     exposedHeaders: Option[Set[String]] = Some(Set("*")),
   )
+
+  private def buildHeaders(headerName: String, values: Option[Set[String]]): Headers = {
+    values match {
+      case Some(headerValues) =>
+        Headers(headerValues.toList.map(value => headerName -> value))
+      case None               => Headers.empty
+    }
+  }
 }
