@@ -16,7 +16,7 @@ import scala.jdk.CollectionConverters._
  * `HeaderExtension`.
  */
 
-sealed trait Headers                                             extends HeaderExtension[Headers] {
+sealed trait Headers extends HeaderExtension[Headers] {
   self =>
   def ++(other: Headers): Headers = self.combine(other)
 
@@ -37,7 +37,29 @@ sealed trait Headers                                             extends HeaderE
 
   private[zio] def encode: HttpHeaders
 }
-final case class FromChunk private[zio] (toChunk: Chunk[Header]) extends Headers                  {
+
+final case class SingleHeader private[zio] (header: Header) extends Headers {
+  self =>
+  override def combine(other: Headers): Headers = other match {
+    case SingleHeader(h)              => FromChunk(Chunk(header, h))
+    case FromChunk(toChunk)           => FromChunk(toChunk.prepended(header))
+    case FromJHeaders(toJHeaders)     => FromAll(Chunk(header), toJHeaders)
+    case FromAll(toChunk, toJHeaders) => FromAll(toChunk.prepended(header), toJHeaders)
+    case EmptyHeaders                 => self
+  }
+
+  override def modify(f: Header => Header): Headers = SingleHeader(f(header))
+
+  override def toList: List[(String, String)] = List((header._1.toString, header._2.toString))
+
+  override private[zio] def encode = {
+    val headers = new DefaultHttpHeaders(true)
+    headers.add(header._1, header._2)
+    headers
+  }
+}
+
+final case class FromChunk private[zio] (toChunk: Chunk[Header]) extends Headers {
   self =>
 
   override def combine(other: Headers): Headers = other match {
@@ -45,6 +67,7 @@ final case class FromChunk private[zio] (toChunk: Chunk[Header]) extends Headers
     case FromJHeaders(toJHeaders)     => FromAll(toChunk, toJHeaders)
     case FromAll(toChunk, toJHeaders) =>
       FromAll(toChunk ++ self.toChunk, toJHeaders)
+    case SingleHeader(header)         => FromChunk(toChunk.appended(header))
     case EmptyHeaders                 => other
   }
 
@@ -68,6 +91,7 @@ final case class FromJHeaders private[zio] (toJHeaders: HttpHeaders) extends Hea
     case FromJHeaders(otherJHeaders)        => FromJHeaders(toJHeaders.add(otherJHeaders))
     case FromAll(otherChunk, otherJHeaders) =>
       FromAll(otherChunk, toJHeaders.add(otherJHeaders))
+    case SingleHeader(header)               => FromAll(Chunk(header), toJHeaders)
     case EmptyHeaders                       => other
   }
 
@@ -92,6 +116,7 @@ final case class FromAll private[zio] (toChunk: Chunk[Header], toJHeaders: HttpH
     case FromJHeaders(otherJHeaders)        => FromAll(toChunk, toJHeaders.add(otherJHeaders))
     case FromAll(otherChunk, otherJHeaders) =>
       FromAll(toChunk ++ otherChunk, toJHeaders.add(otherJHeaders))
+    case SingleHeader(header)               => FromAll(toChunk.appended(header), toJHeaders)
     case EmptyHeaders                       => other
   }
 
