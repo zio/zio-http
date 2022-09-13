@@ -1,7 +1,7 @@
 package zio.http
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
-import zio.http.URL.{Fragment, Location}
+import zio.http.URL.{Fragment, Location, QueryParams}
 
 import java.net.{MalformedURLException, URI}
 import scala.jdk.CollectionConverters._
@@ -10,19 +10,9 @@ import scala.util.Try
 final case class URL(
   path: Path,
   kind: URL.Location = URL.Location.Relative,
-  queryParams: Map[String, List[String]] = Map.empty,
+  queryParams: QueryParams = QueryParams.empty,
   fragment: Option[Fragment] = None,
 ) { self =>
-
-  private[zio] def normalize: URL = {
-    val queryParams = self.queryParams.toList.filter(i => i._1.nonEmpty && i._2.nonEmpty).sortBy(_._1).toMap
-    self.copy(queryParams = queryParams)
-  }
-
-  private[zio] def relative: URL = self.kind match {
-    case URL.Location.Relative => self
-    case _                     => self.copy(kind = URL.Location.Relative)
-  }
 
   def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
 
@@ -42,9 +32,20 @@ final case class URL(
 
   def isRelative: Boolean = !isAbsolute
 
+  private[zio] def normalize: URL = {
+    val queryParamsMap =
+      self.queryParams.queryParamsMap.toList.filter(i => i._1.nonEmpty && i._2.nonEmpty).sortBy(_._1).toMap
+    self.copy(queryParams = QueryParams(queryParamsMap))
+  }
+
   def port: Option[Int] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.port)
+  }
+
+  private[zio] def relative: URL = self.kind match {
+    case URL.Location.Relative => self
+    case _                     => self.copy(kind = URL.Location.Relative)
   }
 
   def scheme: Option[Scheme] = kind match {
@@ -74,11 +75,11 @@ final case class URL(
     copy(kind = location)
   }
 
-  def setQueryParams(queryParams: Map[String, List[String]]): URL =
+  def setQueryParams(queryParams: QueryParams): URL =
     copy(queryParams = queryParams)
 
   def setQueryParams(query: String): URL =
-    copy(queryParams = URL.queryParams(query))
+    copy(queryParams = QueryParams.decode(query))
 
   def setScheme(scheme: Scheme): URL = {
     val location = kind match {
@@ -100,13 +101,8 @@ final case class URL(
    */
   def toJavaURL: Option[java.net.URL] = if (self.kind == URL.Location.Relative) None else Try(toJavaURI.toURL).toOption
 
-  def uriQueryParamsAsString: String =
-    Option(self.toJavaURI.getQuery).getOrElse("")
-
-  def urlQueryParamsAsString: String =
-    self.toJavaURL.map(_ => self.uriQueryParamsAsString).getOrElse("")
-
 }
+
 object URL {
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
     for {
@@ -115,26 +111,16 @@ object URL {
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
       connection = URL.Location.Absolute(scheme, host, port)
-    } yield URL(Path.decode(path), connection, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
+    } yield URL(Path.decode(path), connection, QueryParams.queryParams(uri.getRawQuery), Fragment.fromURI(uri))
   }
 
   private def fromRelativeURI(uri: URI): Option[URL] = for {
     path <- Option(uri.getRawPath)
-  } yield URL(Path.decode(path), Location.Relative, queryParams(uri.getRawQuery), Fragment.fromURI(uri))
+  } yield URL(Path.decode(path), Location.Relative, QueryParams.queryParams(uri.getRawQuery), Fragment.fromURI(uri))
 
   private def portFromScheme(scheme: Scheme): Int = scheme match {
     case Scheme.HTTP | Scheme.WS   => 80
     case Scheme.HTTPS | Scheme.WSS => 443
-  }
-
-  private def queryParams(query: String) = {
-    if (query == null || query.isEmpty) {
-      Map.empty[String, List[String]]
-    } else {
-      val decoder = new QueryStringDecoder(query, false)
-      val params  = decoder.parameters()
-      params.asScala.view.map { case (k, v) => (k, v.asScala.toList) }.toMap
-    }
   }
 
   def empty: URL = URL(!!)
@@ -142,7 +128,7 @@ object URL {
   def encode(url: URL): String = {
     def path: String = {
       val encoder = new QueryStringEncoder(s"${url.path.encode}")
-      url.queryParams.foreach { case (key, values) =>
+      url.queryParams.queryParamsMap.foreach { case (key, values) =>
         if (key != "") values.foreach { value => encoder.addParam(key, value) }
       }
 
@@ -190,6 +176,64 @@ object URL {
       raw     <- Option(uri.getRawFragment)
       decoded <- Option(uri.getFragment)
     } yield Fragment(raw, decoded)
+  }
+
+  // todo - make this extend scala.collection.Map
+  final case class QueryParams private[http] (map: Map[String, List[String]]) { self =>
+
+    def ++(other: QueryParams): QueryParams =
+      QueryParams((map.toList ++ other.map.toList).groupBy(_._1).map { case (key, values) =>
+        (key, values.flatMap(_._2))
+      })
+
+    def add(key: String, value: String): QueryParams = if (map.contains(key)) {
+      self.copy(
+        map = map.map { case (key, oldValue) =>
+          (key, oldValue :+ value)
+        },
+      )
+    } else self.copy(map = map.updated(key, List(value)))
+
+    def encode: String = {
+      val encoder = new QueryStringEncoder(s"")
+      map.foreach { case (key, values) =>
+        if (key != "") values.foreach { value => encoder.addParam(key, value) }
+      }
+
+      encoder.toString
+
+    }
+
+    def isEmpty: Boolean = map.isEmpty
+
+    def queryParamsMap: Map[String, List[String]] = map
+
+    def remove(key: String): QueryParams = self.copy(map.removed(key))
+
+  }
+
+  object QueryParams {
+
+    def apply(tuples: Tuple2[String, String]*): QueryParams =
+      QueryParams(map = tuples.groupBy(_._1).map { case (key, values) =>
+        key -> values.map(_._2).toList
+      })
+
+    def decode(queryStringFragment: String): QueryParams = queryParams(queryStringFragment)
+    val empty: QueryParams                               = QueryParams(Map.empty[String, List[String]])
+
+    private[http] def queryParams(query: String): QueryParams = {
+      if (query == null || query.isEmpty) {
+        QueryParams.empty
+      } else {
+        val decoder = new QueryStringDecoder(query, false)
+        val params  = decoder.parameters()
+        QueryParams(params.asScala.view.map { case (k, v) =>
+          (k, v.asScala.toList)
+        }.toMap)
+      }
+    }
+
   }
 
 }
