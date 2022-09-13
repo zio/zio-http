@@ -140,18 +140,11 @@ object Headers extends HeaderConstructors {
 
   def ifThenElse(cond: Boolean)(onTrue: => Headers, onFalse: => Headers): Headers = if (cond) onTrue else onFalse
 
-  def make(headers: HttpHeaders): Headers = Headers {
-    headers
-      .iteratorCharSequence()
-      .asScala
-      .map(h => (h.getKey, h.getValue))
-      .toList
-  }
+  def make(headers: HttpHeaders): Headers = FromJHeaders(headers)
 
   def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else EmptyHeaders
 
-  private[zio] def decode(headers: HttpHeaders): Headers =
-    Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
+  private[zio] def decode(headers: HttpHeaders): Headers = FromJHeaders(headers)
 
   def empty: Headers = EmptyHeaders
 }
