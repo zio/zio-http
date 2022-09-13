@@ -2,6 +2,7 @@ package zio.http
 
 import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
+import zio.Unsafe
 import zio.http.Scheme.{HTTP, HTTPS, WS, WSS}
 
 sealed trait Scheme { self =>
@@ -45,19 +46,7 @@ object Scheme       {
    * null/non-valid Scheme
    */
   def decode(scheme: String): Option[Scheme] =
-    Option(unsafeDecode(scheme))
-
-  private[zio] def unsafeDecode(scheme: String): Scheme = {
-    if (scheme == null) null
-    else
-      scheme.length match {
-        case 5 => HTTPS
-        case 4 => HTTP
-        case 3 => WSS
-        case 2 => WS
-        case _ => null
-      }
-  }
+    Option(unsafe.decode(scheme)(Unsafe.unsafe))
 
   def fromJScheme(scheme: HttpScheme): Option[Scheme] = scheme match {
     case HttpScheme.HTTPS => Option(HTTPS)
@@ -69,6 +58,20 @@ object Scheme       {
     case WebSocketScheme.WSS => Option(WSS)
     case WebSocketScheme.WS  => Option(WS)
     case _                   => None
+  }
+
+  private[zio] object unsafe {
+    def decode(scheme: String)(implicit unsafe: Unsafe): Scheme = {
+      if (scheme == null) null
+      else
+        scheme.length match {
+          case 5 => HTTPS
+          case 4 => HTTP
+          case 3 => WSS
+          case 2 => WS
+          case _ => null
+        }
+    }
   }
 
   case object HTTP extends Scheme

@@ -667,12 +667,14 @@ object Http {
     /**
      * Applies Http based on the path
      */
-    def whenPathEq(p: Path): HttpApp[R, E] = http.whenPathEq(p.encode)
+    def whenPathEq(p: Path): HttpApp[R, E] =
+      http.whenPathEq(p.encode)(Unsafe.unsafe)
 
     /**
      * Applies Http based on the path as string
      */
-    def whenPathEq(p: String): HttpApp[R, E] = http.when(_.unsafeEncode.uri().contentEquals(p))
+    def whenPathEq(p: String)(implicit unsafe: Unsafe): HttpApp[R, E] =
+      http.when(_.unsafe.encode.uri().contentEquals(p))
   }
 
   /**
@@ -721,7 +723,8 @@ object Http {
   /**
    * Provides access to the request's ChannelHandlerContext
    */
-  def context: Http[Any, Nothing, Request, ChannelHandlerContext] = Http.fromFunction[Request](_.unsafeContext)
+  def context: Http[Any, Nothing, Request, ChannelHandlerContext] =
+    Http.fromFunctionZIO[Request](request => ZIO.succeedUnsafe { implicit u => request.unsafe.context })
 
   /**
    * Returns an http app that dies with the specified `Throwable`. This method

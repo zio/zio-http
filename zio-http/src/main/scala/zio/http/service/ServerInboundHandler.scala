@@ -4,10 +4,10 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import io.netty.util.AttributeKey
-import zio.ZIO
 import zio.http._
-import zio.http.service.ServerInboundHandler.{Unsafe, log}
+import zio.http.service.ServerInboundHandler.{log, unsafe}
 import zio.logging.Logger
+import zio.{Unsafe, ZIO}
 
 @Sharable
 private[zio] final case class ServerInboundHandler[R](
@@ -20,6 +20,8 @@ private[zio] final case class ServerInboundHandler[R](
     with ServerFullResponseWriter[R]
     with ServerFastResponseWriter[R] { self =>
 
+  implicit private val unsafeClass: Unsafe = Unsafe.unsafe
+
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
     log.debug(s"Message: [${msg.getClass.getName}]")
     implicit val iCtx: ChannelHandlerContext = ctx
@@ -30,10 +32,12 @@ private[zio] final case class ServerInboundHandler[R](
         val exit = http.execute(req)
 
         if (self.attemptFastWrite(exit)) {
-          Unsafe.releaseRequest(jReq)
+          unsafe.releaseRequest(jReq)
         } else
-          runtime.unsafeRun {
-            self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed { Unsafe.releaseRequest(jReq) }
+          runtime.run {
+            self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed {
+              unsafe.releaseRequest(jReq)(unsafeClass)
+            }
           }
 
       case jReq: HttpRequest =>
@@ -42,9 +46,9 @@ private[zio] final case class ServerInboundHandler[R](
         val exit = http.execute(req)
 
         if (!self.attemptFastWrite(exit)) {
-          if (Unsafe.canHaveBody(jReq)) Unsafe.setAutoRead(false)
-          runtime.unsafeRun {
-            self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed(Unsafe.setAutoRead(true))
+          if (unsafe.canHaveBody(jReq)) unsafe.setAutoRead(false)
+          runtime.run {
+            self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed(unsafe.setAutoRead(true)(ctx, unsafeClass))
           }
         }
 
@@ -57,66 +61,66 @@ private[zio] final case class ServerInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(f(cause))(ctx))
+    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.run(f(cause))(ctx, unsafeClass))
   }
 }
 
 object ServerInboundHandler {
   val log: Logger = Log.withTags("Server", "Request")
 
-  object Unsafe {
+  object unsafe {
     private val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
-    def addAsyncBodyHandler(async: Body.UnsafeAsync)(implicit ctx: Ctx): Unit = {
-      if (Unsafe.contentIsRead) throw new RuntimeException("Content is already read")
+    def addAsyncBodyHandler(async: Body.UnsafeAsync)(implicit ctx: Ctx, unsafe: Unsafe): Unit = {
+      if (contentIsRead) throw new RuntimeException("Content is already read")
       ctx
         .channel()
         .pipeline()
         .addAfter(HTTP_REQUEST_HANDLER, HTTP_CONTENT_HANDLER, new ServerAsyncBodyHandler(async)): Unit
-      Unsafe.setContentReadAttr(true)(ctx)
+      setContentReadAttr(flag = true)
     }
 
     /**
      * Enables auto-read if possible. Also performs the first read.
      */
-    def attemptAutoRead[R, E](config: Server.Config[R, E])(implicit ctx: Ctx): Unit = {
+    def attemptAutoRead[R, E](config: Server.Config[R, E])(implicit ctx: Ctx, unsafe: Unsafe): Unit = {
       if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
         ctx.channel().config().setAutoRead(true)
         ctx.read(): Unit
       }
     }
 
-    def canHaveBody(jReq: HttpRequest): Boolean = {
+    def canHaveBody(jReq: HttpRequest)(implicit unsafe: Unsafe): Boolean = {
       jReq.method() == HttpMethod.TRACE ||
       jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
       jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
     }
 
-    def contentIsRead(implicit ctx: Ctx): Boolean =
+    def contentIsRead(implicit ctx: Ctx, unsafe: Unsafe): Boolean =
       ctx.channel().attr(isReadKey).get()
 
-    def hasChanged(r1: Response, r2: Response): Boolean =
+    def hasChanged(r1: Response, r2: Response)(implicit unsafe: Unsafe): Boolean =
       (r1.status eq r2.status) && (r1.body eq r2.body) && (r1.headers eq r2.headers)
 
-    def releaseRequest(jReq: FullHttpRequest, cnt: Int = 1): Unit = {
+    def releaseRequest(jReq: FullHttpRequest, cnt: Int = 1)(implicit unsafe: Unsafe): Unit = {
       if (jReq.refCnt() > 0 && cnt > 0) {
         jReq.release(cnt): Unit
       }
     }
 
-    def setAutoRead(cond: Boolean)(implicit ctx: Ctx): Unit = {
+    def setAutoRead(cond: Boolean)(implicit ctx: Ctx, unsafe: Unsafe): Unit = {
       log.debug(s"Setting channel auto-read to: [${cond}]")
       ctx.channel().config().setAutoRead(cond): Unit
     }
 
-    def setContentReadAttr(flag: Boolean)(implicit ctx: Ctx): Unit = {
+    def setContentReadAttr(flag: Boolean)(implicit ctx: Ctx, unsafe: Unsafe): Unit = {
       ctx.channel().attr(isReadKey).set(flag)
     }
 
     /**
      * Sets the server time on the response if required
      */
-    def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
+    def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse)(implicit unsafe: Unsafe): Unit = {
       if (response.attribute.serverTime)
         jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet()): Unit
     }

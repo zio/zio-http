@@ -221,9 +221,14 @@ object Server {
     (Server(http).withBinding(socketAddress).make *> ZIO.never)
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
-  def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer = UnsafeChannelPipeline(pipeline)
+  object unsafe {
+    def pipeline(pipeline: ChannelPipeline => Unit)(implicit unsafe: Unsafe): UServer =
+      UnsafeChannelPipeline(pipeline)
 
-  def unsafeServerBootstrap(serverBootstrap: ServerBootstrap => Unit): UServer = UnsafeServerBootstrap(serverBootstrap)
+    def serverBootstrap(serverBootstrap: ServerBootstrap => Unit)(implicit unsafe: Unsafe): UServer =
+      UnsafeServerBootstrap(serverBootstrap)
+
+  }
 
   /**
    * Holds server start information.

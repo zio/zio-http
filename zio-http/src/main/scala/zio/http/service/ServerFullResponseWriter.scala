@@ -11,7 +11,7 @@ import zio.http.{HExit, HttpError, Response}
 trait ServerFullResponseWriter[R] {
   self: ServerInboundHandler[R] =>
 
-  import ServerInboundHandler.{log, Unsafe}
+  import ServerInboundHandler.log
 
   def attemptFullWrite[R1 >: R](exit: HExit[R1, Throwable, Response], jRequest: HttpRequest)(implicit
     ctx: Ctx,
@@ -26,13 +26,15 @@ trait ServerFullResponseWriter[R] {
         else
           for {
             jResponse <- response.encode()
-            _         <- ZIO.attempt(Unsafe.setServerTime(self.time, response, jResponse))
+            _         <- ZIO.attemptUnsafe(implicit u =>
+              ServerInboundHandler.unsafe.setServerTime(self.time, response, jResponse),
+            )
             _         <- ZIO.attempt(ctx.writeAndFlush(jResponse))
             flushed   <- if (!jResponse.isInstanceOf[FullHttpResponse]) response.body.write(ctx) else ZIO.succeed(true)
             _         <- ZIO.attempt(ctx.flush()).when(!flushed)
           } yield ()
 
-      _ <- ZIO.attempt(Unsafe.setContentReadAttr(false))
+      _ <- ZIO.attemptUnsafe(implicit u => ServerInboundHandler.unsafe.setContentReadAttr(false))
     } yield log.debug("Full write performed")
 
   }
