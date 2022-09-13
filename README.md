@@ -46,15 +46,15 @@ object HelloWorld extends ZIOAppDefault {
 
 You can checkout more examples in the [example](https://github.com/zio/zio-http/tree/main/example/src/main/scala/example) project —
 
-- [Simple Server](https://github.com/zio/zio-http/blob/main/example/src/main/scala/example/HelloWorld.scala)
-- [Advanced Server](https://github.com/zio/zio-http/blob/main/example/src/main/scala/example/HelloWorldAdvanced.scala)
-- [WebSocket Server](https://github.com/zio/zio-http/blob/main/example/src/main/scala/example/WebSocketEcho.scala)
-- [Streaming Response](https://github.com/zio/zio-http/blob/main/example/src/main/scala/example/StreamingResponse.scala)
-- [Simple Client](https://github.com/zio/zio-http/blob/main/example/src/main/scala/example/SimpleClient.scala)
-- [File Streaming](https://github.com/zio/zio-http/blob/main/example/src/main/scala/example/FileStreaming.scala)
-- [Basic Authentication](https://github.com/zio/zio-http/blob/main/example/src/main/scala/example/BasicAuth.scala)
-- [JWT Authentication Client](https://github.com/zio/zio-http/blob/main/example/src/main/scala/example/AuthenticationClient.scala)
-- [JWT Authentication Server](https://github.com/zio/zio-http/blob/main/example/src/main/scala/example/AuthenticationServer.scala)
+- [Simple Server](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/HelloWorld.scala)
+- [Advanced Server](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/HelloWorldAdvanced.scala)
+- [WebSocket Server](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/WebSocketEcho.scala)
+- [Streaming Response](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/StreamingResponse.scala)
+- [Simple Client](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/SimpleClient.scala)
+- [File Streaming](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/FileStreaming.scala)
+- [Basic Authentication](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/BasicAuth.scala)
+- [JWT Authentication Client](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/AuthenticationClient.scala)
+- [JWT Authentication Server](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/AuthenticationServer.scala)
 
 #### Steps to run an example
 
