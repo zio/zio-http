@@ -9,7 +9,7 @@ import java.nio.file.Path
  * This is the base class for all logging operations. Logger is a collection of
  * LoggerTransports. Internally whenever a message needs to be logged, it is
  * broadcasted to all the available transports. The transports can internally
- * decide what to do with the mssage and discard it if the message or the level
+ * decide what to do with the message and discard it if the message or the level
  * is not relevant to the transport.
  */
 final case class Logger(transports: List[LoggerTransport]) extends LoggerMacroExtensions { self =>
