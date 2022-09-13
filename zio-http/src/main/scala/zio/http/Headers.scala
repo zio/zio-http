@@ -52,18 +52,8 @@ final case class SingleHeader private[zio] (header: Header) extends Headers {
 
   override def toList: List[(String, String)] = List((header._1.toString, header._2.toString))
 
-  override private[http] def encode: HttpHeaders = {
-    val (exceptions, regularHeaders) = self.toList.span(h => h._1.contains(HeaderNames.setCookie))
-    val combinedHeaders              = regularHeaders
-      .groupBy(_._1)
-      .map { case (key, tuples) =>
-        key -> tuples.map(_._2).map(value => if (value.contains(",")) s"""\"$value\"""" else value).mkString(",")
-      }
-    (exceptions ++ combinedHeaders)
-      .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>
-        headers.add(entry._1, entry._2)
-      }
-  }
+  override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
+
 }
 
 final case class FromChunk private[zio] (toChunk: Chunk[Header]) extends Headers {
@@ -82,18 +72,7 @@ final case class FromChunk private[zio] (toChunk: Chunk[Header]) extends Headers
 
   override def toList: List[(String, String)] = toChunk.map(a => (a._1.toString, a._2.toString)).toList
 
-  private[http] def encode: HttpHeaders = {
-    val (exceptions, regularHeaders) = self.toList.span(h => h._1.contains(HeaderNames.setCookie))
-    val combinedHeaders              = regularHeaders
-      .groupBy(_._1)
-      .map { case (key, tuples) =>
-        key -> tuples.map(_._2).map(value => if (value.contains(",")) s"""\"$value\"""" else value).mkString(",")
-      }
-    (exceptions ++ combinedHeaders)
-      .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>
-        headers.add(entry._1, entry._2)
-      }
-  }
+  private[http] def encode: HttpHeaders = Headers.encode(self.toList)
 
 }
 
@@ -148,11 +127,7 @@ final case class FromAll private[zio] (toChunk: Chunk[Header], toJHeaders: HttpH
       .map(a => (a._1.toString, a._2.toString))
       .toList ++ toJHeaders.entries().asScala.map(e => (e.getKey, e.getValue)).toList
 
-  override private[http] def encode: HttpHeaders =
-    self.toList
-      .foldLeft[HttpHeaders](new CombinedHttpHeaders(true)) { case (headers, entry) =>
-        headers.add(entry._1, entry._2)
-      }
+  override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
 
 }
 
@@ -184,6 +159,19 @@ object Headers extends HeaderConstructors {
   def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else EmptyHeaders
 
   private[http] def decode(headers: HttpHeaders): Headers = FromJHeaders(headers)
+
+  private[http] def encode(headersList: List[(String, String)]): HttpHeaders = {
+    val (exceptions, regularHeaders) = headersList.span(h => h._1.contains(HeaderNames.setCookie))
+    val combinedHeaders              = regularHeaders
+      .groupBy(_._1)
+      .map { case (key, tuples) =>
+        key -> tuples.map(_._2).map(value => if (value.contains(",")) s"""\"$value\"""" else value).mkString(",")
+      }
+    (exceptions ++ combinedHeaders)
+      .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>
+        headers.add(entry._1, entry._2)
+      }
+  }
 
   def empty: Headers = EmptyHeaders
 }
