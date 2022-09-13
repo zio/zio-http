@@ -17,11 +17,11 @@ The first step when using ZIO HTTP is creating an HTTP app.
 Creating an HTTP app using ZIO Http is as simple as given below, this app will always respond with "Hello World!"
 
 ```scala
-import zhttp.http._
+import zio.http._
 
 val app = Http.text("Hello World!")
 ```
-An app can be made using any of the available constructors on `zhttp.Http`.
+An app can be made using any of the available constructors on `zio.Http`.
 
 ### Routing
 
@@ -29,7 +29,7 @@ An app can be made using any of the available constructors on `zhttp.Http`.
 The example below shows how to create routes:
 
 ```scala
-import zhttp.http._
+import zio.http._
 
 val app = Http.collect[Request] {
   case Method.GET -> !! / "fruits" / "a"  => Response.text("Apple")
@@ -38,7 +38,7 @@ val app = Http.collect[Request] {
 ```
 You can create typed routes as well. The below example shows how to accept count as `Int` only.
  ```scala
- import zhttp.http._
+ import zio.http._
  
  val app = Http.collect[Request] {
    case Method.GET -> !! / "Apple" / int(count)  => Response.text(s"Apple: $count")
@@ -52,7 +52,7 @@ Apps can be composed using operators in `Http`:
 - Using the `++` operator. The way it works is, if none of the routes match in `a`, then the control is passed on to the `b` app.
 
 ```scala
- import zhttp.http._
+ import zio.http._
  
  val a = Http.collect[Request] { case Method.GET -> !! / "a"  => Response.ok }
  val b = Http.collect[Request] { case Method.GET -> !! / "b"  => Response.ok }
@@ -64,7 +64,7 @@ Apps can be composed using operators in `Http`:
 - Using the `<>` operator. The way it works is, if `a` fails, then the control is passed on to the `b` app.
 
 ```scala
-import zhttp.http._
+import zio.http._
 
 val a = Http.fail(new Error("SERVER_ERROR"))
 val b = Http.text("OK")
@@ -87,7 +87,7 @@ val app = Http.collectZIO[Request] {
 To access the request use `@` as it binds a matched pattern to a variable and can be used while creating a response.
 
 ```scala
-import zhttp.http._
+import zio.http._
 
 val app = Http.collectZIO[Request] {
     case req @ Method.GET -> !! / "fruits" / "a"  =>
@@ -103,7 +103,7 @@ Since `Http` is a function of the form `A => ZIO[R, Option[E], B]` to test it yo
 
 ```scala
 import zio.test._
-import zhttp.http._
+import zio.http._
 
 object Spec extends DefaultRunnableSpec {
 
@@ -116,7 +116,7 @@ object Spec extends DefaultRunnableSpec {
     )
 }
 ```
-When we call the `app` with the `request` it calls the apply method of `Http` via `zhttp.test` package
+When we call the `app` with the `request` it calls the apply method of `Http` via `zio.test` package
 
 ## Socket
 
@@ -130,7 +130,7 @@ Finally, we need to convert socketApp to `Response` using `toResponse`, so that 
 The below example shows a simple socket app, we are using `collect` which returns a stream with WebsSocketTextFrame "BAR" on receiving WebsSocketTextFrame "FOO".   
 
 ```scala
-import zhttp.socket._
+import zio.socket._
 
 private val socket = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text("FOO") =>
     ZStream.succeed(WebSocketFrame.text("BAR"))
@@ -152,8 +152,8 @@ ZIO HTTP provides a way to set configurations for your server. The server can be
 To launch our app, we need to start the server on a port. The below example shows a simple HTTP app that responds with empty content and a `200` status code, deployed on port `8090` using `Server.start`.
 
 ```scala
-import zhttp.http._
-import zhttp.service.Server
+import zio.http._
+import zio.http.Server
 import zio._
 
 object HelloWorld extends App {
@@ -166,10 +166,10 @@ object HelloWorld extends App {
 
 ## Examples
 
-- [HTTP Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/http_server)
-- [Advanced Server](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/advanced_server)
-- [WebSocket Server](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/web-socket)
-- [Streaming Response](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-response)
-- [HTTP Client](https://dream11.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/http_client)
-- [File Streaming](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-file)
-- [Authentication](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/authentication)
+- [HTTP Server](https://zio.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/http_server)
+- [Advanced Server](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/advanced_server)
+- [WebSocket Server](https://zio.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/web-socket)
+- [Streaming Response](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-response)
+- [HTTP Client](https://zio.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/http_client)
+- [File Streaming](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-file)
+- [Authentication](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/authentication)

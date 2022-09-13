@@ -1,8 +1,8 @@
-package zhttp.benchmarks
+package zio.benchmarks
 
 import org.openjdk.jmh.annotations.{Scope => JScope, _}
-import zhttp.http._
 import zio._
+import zio.http._
 
 import java.util.concurrent.TimeUnit
 
