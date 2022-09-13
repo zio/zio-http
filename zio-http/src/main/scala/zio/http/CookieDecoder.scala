@@ -9,8 +9,8 @@ import scala.jdk.CollectionConverters._
 sealed trait CookieDecoder[A] {
   type Out
 
-  final def apply(cookie: String): Out =
-    Unsafe.unsafe { implicit u => unsafe.decode(cookie, validate = false) }
+  final def apply(cookie: String)(implicit unsafe: Unsafe): Out =
+    this.unsafe.decode(cookie, validate = false)
 
   trait UnsafeAPI {
     def decode(header: String, validate: Boolean)(implicit unsafe: Unsafe): Out

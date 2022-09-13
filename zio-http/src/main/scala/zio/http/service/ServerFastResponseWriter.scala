@@ -12,22 +12,21 @@ import zio.http.{HExit, Response}
 trait ServerFastResponseWriter[R] { self: ServerInboundHandler[R] =>
   import ServerInboundHandler.log
 
-  def attemptFastWrite(exit: HExit[R, Throwable, Response])(implicit ctx: Ctx): Boolean =
-    Unsafe.unsafe { implicit u =>
-      exit match {
-        case HExit.Success(response) =>
-          response.attribute.encoded match {
-            case Some((oResponse, jResponse: FullHttpResponse))
-                if ServerInboundHandler.unsafe.hasChanged(response, oResponse) =>
-              val djResponse = jResponse.retainedDuplicate()
-              ServerInboundHandler.unsafe.setServerTime(time, response, djResponse)
-              ctx.writeAndFlush(djResponse, ctx.voidPromise()): Unit
-              log.debug("Fast write performed")
-              true
+  def attemptFastWrite(exit: HExit[R, Throwable, Response])(implicit ctx: Ctx, unsafe: Unsafe): Boolean =
+    exit match {
+      case HExit.Success(response) =>
+        response.attribute.encoded match {
+          case Some((oResponse, jResponse: FullHttpResponse))
+              if ServerInboundHandler.unsafe.hasChanged(response, oResponse) =>
+            val djResponse = jResponse.retainedDuplicate()
+            ServerInboundHandler.unsafe.setServerTime(time, response, djResponse)
+            ctx.writeAndFlush(djResponse, ctx.voidPromise()): Unit
+            log.debug("Fast write performed")
+            true
 
-            case _ => false
-          }
-        case _                       => false
-      }
+          case _ => false
+        }
+      case _                       => false
     }
+
 }

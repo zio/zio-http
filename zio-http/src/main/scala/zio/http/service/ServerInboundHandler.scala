@@ -20,6 +20,8 @@ private[zio] final case class ServerInboundHandler[R](
     with ServerFullResponseWriter[R]
     with ServerFastResponseWriter[R] { self =>
 
+  implicit private val unsafeClass: Unsafe = Unsafe.unsafe
+
   override def channelRead0(ctx: Ctx, msg: HttpObject): Unit = {
     log.debug(s"Message: [${msg.getClass.getName}]")
     implicit val iCtx: ChannelHandlerContext = ctx
@@ -29,28 +31,24 @@ private[zio] final case class ServerInboundHandler[R](
         val req  = Request.fromFullHttpRequest(jReq)
         val exit = http.execute(req)
 
-        Unsafe.unsafe { implicit u =>
-          if (self.attemptFastWrite(exit)) {
-            unsafe.releaseRequest(jReq)
-          } else
-            runtime.run {
-              self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed {
-                unsafe.releaseRequest(jReq)(u)
-              }
+        if (self.attemptFastWrite(exit)) {
+          unsafe.releaseRequest(jReq)
+        } else
+          runtime.run {
+            self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed {
+              unsafe.releaseRequest(jReq)
             }
-        }
+          }
 
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromHttpRequest(jReq)
         val exit = http.execute(req)
 
-        Unsafe.unsafe { implicit u =>
-          if (!self.attemptFastWrite(exit)) {
-            if (unsafe.canHaveBody(jReq)) unsafe.setAutoRead(false)
-            runtime.run {
-              self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed(unsafe.setAutoRead(true)(ctx, u))
-            }
+        if (!self.attemptFastWrite(exit)) {
+          if (unsafe.canHaveBody(jReq)) unsafe.setAutoRead(false)
+          runtime.run {
+            self.attemptFullWrite(exit, jReq) ensuring ZIO.succeed(unsafe.setAutoRead(true)(ctx, unsafeClass))
           }
         }
 
@@ -63,11 +61,7 @@ private[zio] final case class ServerInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    config.error.fold(super.exceptionCaught(ctx, cause))(f =>
-      Unsafe.unsafe { implicit u =>
-        runtime.run(f(cause))(ctx, u)
-      },
-    )
+    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.run(f(cause))(ctx, unsafeClass))
   }
 }
 

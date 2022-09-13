@@ -5,8 +5,8 @@ import zio.Unsafe
 import zio.http.Cookie.SameSite
 
 sealed trait CookieEncoder[A] {
-  final def apply(a: Cookie[A]): String =
-    Unsafe.unsafe { implicit u => unsafe.encode(a, validate = false) }
+  final def apply(a: Cookie[A])(implicit unsafe: Unsafe): String =
+    this.unsafe.encode(a, validate = false)
 
   trait UnsafeAPI {
     def encode(a: Cookie[A], validate: Boolean)(implicit unsafe: Unsafe): String
