@@ -81,7 +81,7 @@ sealed trait Server[-R, +E] { self =>
   /**
    * Creates a new server with the errorHandler provided.
    */
-  def withError[R1](errorHandler: Throwable => ZIO[R1, Nothing, Unit]): Server[R with R1, E] =
+  def onError[R1](errorHandler: Throwable => ZIO[R1, Nothing, Unit]): Server[R with R1, E] =
     Concat(self, Server.OnError(errorHandler))
 
   /**
