@@ -1,6 +1,5 @@
 package zio.http.service
 
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
 import io.netty.util.AsciiString
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
@@ -274,12 +273,6 @@ object ServerSpec extends HttpRunnableSpec {
           res    <- Response.text("abc").withVary("test1").withVary("test2").freeze
           actual <- Http.response(res).deploy.headerValue(HeaderNames.vary).run()
         } yield assert(actual)(isSome(equalTo(expectedValue)))
-      },
-      test("header with multiple values should not be escaped") {
-        val headers               = Headers("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-        val expected: HttpHeaders =
-          new DefaultHttpHeaders(true).add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-        assertTrue(headers.encode == expected)
       },
     ),
   )
