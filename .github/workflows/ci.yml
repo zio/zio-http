@@ -77,7 +77,7 @@ jobs:
         run: tar cf targets.tar target zio-http/target zio-http-logging/target zio-http-benchmarks/target zio-http-example/target project/target
 
       - name: Upload target directories
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: target-${{ matrix.os }}-${{ matrix.scala }}-${{ matrix.java }}
           path: targets.tar
