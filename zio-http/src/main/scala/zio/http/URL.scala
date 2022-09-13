@@ -5,6 +5,7 @@ import zio.http.URL.{Fragment, Location}
 
 import java.net.{MalformedURLException, URI}
 import scala.jdk.CollectionConverters._
+import scala.util.Try
 
 final case class URL(
   path: Path,
@@ -97,10 +98,13 @@ final case class URL(
    * Returns a new java.net.URL only if this URL represents an absolute
    * location.
    */
-  def toJavaURL: Option[java.net.URL] = if (self.kind == URL.Location.Relative) None else Some(toJavaURI.toURL)
+  def toJavaURL: Option[java.net.URL] = if (self.kind == URL.Location.Relative) None else Try(toJavaURI.toURL).toOption
 
-  def queryParamsAsString: String =
+  def uriQueryParamsAsString: String =
     Option(self.toJavaURI.getQuery).getOrElse("")
+
+  def urlQueryParamsAsString: String =
+    self.toJavaURL.map(_ => self.uriQueryParamsAsString).getOrElse("")
 
 }
 object URL {

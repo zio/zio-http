@@ -98,7 +98,7 @@ object URLSpec extends ZIOSpecDefault {
         },
       ),
       suite("queryParamsAsString")(
-        test("successfully returns the URL query params as a decoded string") {
+        test("uriQueryParamsAsString successfully returns the URL query params as a decoded string") {
           val urls = Gen.fromIterable(
             Seq(
               "",
@@ -117,18 +117,58 @@ object URLSpec extends ZIOSpecDefault {
               "http://abc.com/users#the%20hash",
               "ws://abc.com/subscriptions",
               "ws://abc.com/subscriptions?",
-              "wss://abc.com/subscriptions",
+              "wss://abc.com/subscriptions?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
             ),
           )
 
           checkAll(urls) { genUrl =>
             val url                     = URL.fromString(genUrl)
-            val actualQueryParamsEither = url.map(_.queryParamsAsString)
-
-            val urlWithoutHash      = genUrl.split("#")(0)
-            val decodedQueryFixture =
+            val actualQueryParamsEither = url.map(_.uriQueryParamsAsString)
+            val urlWithoutHash          = genUrl.split("#")(0)
+            val decodedQueryFixture     =
               QueryStringDecoder.decodeComponent(new QueryStringDecoder(urlWithoutHash).rawQuery())
             assertTrue(actualQueryParamsEither.exists(decodedQueryFixture.equals))
+          }
+        },
+        test("urlQueryParamsAsString successfully returns the URL query params as a decoded string") {
+          val urls = Gen.fromIterable(
+            Seq(
+              "",
+              "/",
+              "/users?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
+              "/users",
+              "/users#the%20hash",
+              "http://abc.com",
+              "http://abc.com/",
+              "http://abc.com/list",
+              "http://abc.com/users?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
+              "http://abc.com/users?u=1&u=2&ord=ASC&txt=scala%20is%20awesome%21",
+              "http://abc.com/users?u=1#the%20hash",
+              "http://abc.com/users",
+              "http://abc.com/users/?u=1&u=2&ord=ASC&txt=scala%3Fis%2Bawesome%21",
+              "http://abc.com/users#the%20hash",
+              "ws://abc.com/subscriptions",
+              "ws://abc.com/subscriptions?",
+              "wss://abc.com/subscriptions?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
+            ),
+          )
+
+          checkAll(urls) { genUrl =>
+            val url                     = URL.fromString(genUrl)
+            val actualQueryParamsEither = url.map(_.urlQueryParamsAsString)
+
+            val jURL = url.toOption.flatMap(_.toJavaURL)
+
+            jURL match {
+              case Some(_) => {
+                val urlWithoutHash      = genUrl.split("#")(0)
+                val decodedQueryFixture =
+                  QueryStringDecoder.decodeComponent(new QueryStringDecoder(urlWithoutHash).rawQuery())
+                assertTrue(actualQueryParamsEither.exists(decodedQueryFixture.equals))
+              }
+              case None    => assertTrue(true)
+            }
+
           }
         },
       ),
