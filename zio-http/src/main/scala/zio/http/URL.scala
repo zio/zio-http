@@ -208,7 +208,7 @@ object URL {
 
     def queryParamsMap: Map[String, List[String]] = map
 
-    def remove(key: String): QueryParams = self.copy(map.removed(key))
+    def remove(key: String): QueryParams = self.copy(map - key)
 
   }
 
