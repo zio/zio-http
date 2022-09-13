@@ -42,9 +42,9 @@ final case class SingleHeader private[zio] (header: Header) extends Headers {
   self =>
   override def combine(other: Headers): Headers = other match {
     case SingleHeader(h)              => FromChunk(Chunk(header, h))
-    case FromChunk(toChunk)           => FromChunk(toChunk.prepended(header))
+    case FromChunk(toChunk)           => FromChunk(Chunk(header) ++ toChunk)
     case FromJHeaders(toJHeaders)     => FromAll(Chunk(header), toJHeaders)
-    case FromAll(toChunk, toJHeaders) => FromAll(toChunk.prepended(header), toJHeaders)
+    case FromAll(toChunk, toJHeaders) => FromAll(Chunk(header) ++ toChunk, toJHeaders)
     case EmptyHeaders                 => self
   }
 
@@ -64,7 +64,7 @@ final case class FromChunk private[zio] (toChunk: Chunk[Header]) extends Headers
     case FromJHeaders(toJHeaders)     => FromAll(toChunk, toJHeaders)
     case FromAll(toChunk, toJHeaders) =>
       FromAll(toChunk ++ self.toChunk, toJHeaders)
-    case SingleHeader(header)         => FromChunk(toChunk.appended(header))
+    case SingleHeader(header)         => FromChunk(toChunk ++ Chunk(header))
     case EmptyHeaders                 => other
   }
 
@@ -109,7 +109,7 @@ final case class FromAll private[zio] (toChunk: Chunk[Header], toJHeaders: HttpH
     case FromJHeaders(otherJHeaders)        => FromAll(toChunk, toJHeaders.add(otherJHeaders))
     case FromAll(otherChunk, otherJHeaders) =>
       FromAll(toChunk ++ otherChunk, toJHeaders.add(otherJHeaders))
-    case SingleHeader(header)               => FromAll(toChunk.appended(header), toJHeaders)
+    case SingleHeader(header)               => FromAll(toChunk ++ Chunk(header), toJHeaders)
     case EmptyHeaders                       => other
   }
 
