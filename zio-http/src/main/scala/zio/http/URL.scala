@@ -178,8 +178,13 @@ object URL {
     } yield Fragment(raw, decoded)
   }
 
-  // todo - make this extend scala.collection.Map
-  final case class QueryParams private[http] (map: Map[String, List[String]]) { self =>
+  final case class QueryParams private[http] (map: Map[String, List[String]])
+      extends scala.collection.Map[String, List[String]] { self =>
+
+    override def -(key: String): QueryParams = QueryParams(map - key)
+
+    override def -(key1: String, key2: String, keys: String*): QueryParams =
+      QueryParams(map.--(List(key1, key2) ++ keys))
 
     def ++(other: QueryParams): QueryParams =
       QueryParams((map.toList ++ other.map.toList).groupBy(_._1).map { case (key, values) =>
@@ -204,11 +209,11 @@ object URL {
 
     }
 
-    def isEmpty: Boolean = map.isEmpty
-
     def queryParamsMap: Map[String, List[String]] = map
 
-    def remove(key: String): QueryParams = self.copy(map - key)
+    override def get(key: String): Option[List[String]] = map.get(key)
+
+    override def iterator: Iterator[(String, List[String])] = map.iterator
 
   }
 
