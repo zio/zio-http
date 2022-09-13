@@ -2,17 +2,24 @@ package zhttp.api
 
 import zhttp.http.{Method, Headers => _, Path => _}
 import zio.schema.Schema
+import zio.stream.ZStream
 
 /**
  *   - Input and Output as Schemas.
  *   - Support wide range of Codecs including Json
  *     - Dynamically decide response format based upon Request Header
  */
+
+// final case class API[Input, Error, Output]
+// final case class API[Route, Params, Input, Error, Output]
+// - optimization
+// - maintainability
+// - getting something really good out there
 final case class API[Params, Input, Output](
   method: Method,
   requestCodec: RequestCodec[Params], // Path / QueryParams / Headers
   doc: Doc,
-  inputSchema: Schema[Input],         // Generate any sort of codec, generate OpenAPI docs.
+  inputType: InputType[Input],        // Generate any sort of codec, generate OpenAPI docs.
   outputSchema: Schema[Output],
 ) { self =>
   type Id
@@ -26,7 +33,10 @@ final case class API[Params, Input, Output](
     copy(requestCodec = requestCodec ++ headers)
 
   def input[Input2](implicit schema: Schema[Input2]): API[Params, Input2, Output] =
-    copy(inputSchema = schema)
+    copy(inputType = InputType.ZIOInput(schema))
+
+  def inputStream: API[Params, ZStream[Any, Throwable, Byte], Output] =
+    copy(inputType = InputType.StreamInput)
 
   def output[Output2](implicit schema: Schema[Output2]): API[Params, Input, Output2] =
     copy(outputSchema = schema)
@@ -80,7 +90,7 @@ object API {
       method = method,
       requestCodec = route,
       doc = Doc.empty,
-      inputSchema = Schema[Unit],
+      inputType = InputType.ZIOInput(Schema[Unit]),
       outputSchema = Schema[Unit],
     )
 

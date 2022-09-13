@@ -4,6 +4,11 @@ import zhttp.http.Path.Segment
 import zhttp.http.Request
 import zio.schema.Schema
 
+// API.in("users" / uuid / "post").in(query[String]) // (UUID, String, Int)
+// - RouteParser (UUID, Int)
+// - QueryParser (String)
+// - Header
+
 /**
  * A RequestCodec is a description of a Route, Query Parameters, and Headers.:
  *   - Route: /users/:id/posts
@@ -177,7 +182,7 @@ object Header {
 }
 
 /**
- * QUERY PARAMS \============
+ * =QUERY PARAMS=
  */
 sealed trait Query[A] extends RequestCodec[A] { self =>
   def ? : Query[Option[A]] = Query.Optional(self)

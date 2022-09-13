@@ -4,6 +4,7 @@ import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zio._
 import zio.json.{uuid => _, _}
 import zio.schema._
+import zio.stream.{ZPipeline, ZStream}
 import zio.test._
 
 import java.util.UUID
@@ -11,25 +12,25 @@ import java.util.UUID
 object ServerClientSpec extends ZIOSpecDefault {
   // APIs
 
+  // API[A]
+  // - Server Interpreter = API => HttpApp
+  //   - parseRequest: Request => Option[Input]
+  //   - route, headers, queryParams
+
   val usersAPI =
-    API
-      .get("users")
-      .output[List[User]]
+    API.get("users").output[List[User]]
 
   val userAPI =
-    API
-      .get("users" / uuid)
-      .output[Option[User]]
+    API.get("users" / uuid).output[Option[User]]
 
   val countAPI =
-    API
-      .get("counter")
-      .output[Int]
+    API.get("counter").output[Int]
 
-  val incrementAPI =
-    API
-      .post("counter")
-      .input[Int]
+  val incrementAPI: API[Unit, Int, Unit] =
+    API.post("counter").input[Int]
+
+  val streamAPI: API[Unit, ZStream[Any, Throwable, Byte], Unit] =
+    API.post("stream").inputStream
 
   // Handlers
 
@@ -58,15 +59,25 @@ object ServerClientSpec extends ZIOSpecDefault {
       Counter.increment(int)
     }
 
+  val streamHandler =
+    streamAPI.handle { stream =>
+      (stream.tap(str => ZIO.debug(s"HI: $str")) >>> ZPipeline.utf8Decode)
+        .tap(str => ZIO.debug(s"Received: $str"))
+        .runCollect
+        .flatMap { result =>
+          ZIO.debug(s"DONE: $result") *> ZIO.succeed(result)
+        }
+    }
+
   val port = 9898
   val host = s"http://localhost:$port"
 
-  private val apis     = usersAPI ++ userAPI ++ countAPI ++ incrementAPI
-  private val handlers = userHandler ++ usersHandler ++ countHandler ++ incrementHandler
+//  private val apis     = usersAPI ++ userAPI ++ countAPI ++ incrementAPI
+  private val handlers = userHandler ++ usersHandler ++ countHandler ++ incrementHandler ++ streamHandler
 
   val serverLayer =
     ZLayer {
-      Server.start(port, apis, handlers).fork.unit
+      Server.start(port, handlers).fork.unit
     }
 
   def spec =
@@ -89,6 +100,20 @@ object ServerClientSpec extends ZIOSpecDefault {
           _      <- incrementAPI.call(host)(2) <&> incrementAPI.call(host)(4)
           count2 <- countAPI.call(host)(())
         } yield assertTrue(count == 0 && count2 == 6)
+      },
+      test("stream api") {
+        for {
+          _ <- streamAPI.call(host)(
+            ZStream
+              .unfoldZIO(100) { i =>
+                if (i == 0) ZIO.none
+                else ZIO.succeed(Some((i.toString, i - 1)))
+              }
+              .map(s => Chunk.fromArray(s.getBytes))
+              .tap(_ => ZIO.debug("Sending chunk"))
+              .flattenChunks,
+          )
+        } yield assertCompletes
       },
     ).provide(
       Counter.live,

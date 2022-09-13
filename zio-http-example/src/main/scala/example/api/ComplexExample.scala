@@ -25,27 +25,20 @@ import java.util.UUID
 //   -       /id - handler
 //   -          /posts - handler
 //   -                /id - handler
+//   - /talks/id/posts
 //   - /talks/id
-//   - /talks/id
+//   - /talks
 
 object ComplexExample extends ZIOAppDefault {
 
   val allTalks: API[Option[String], Unit, List[Talk]] =
-    API
-      .get("talks")
-      .query(string("title").?)
-      .output[List[Talk]]
+    API.get("talks").query(string("title").?).output[List[Talk]]
 
   val getTalk: API[UUID, Unit, Option[Talk]] =
-    API
-      .get("talks" / uuid)
-      .output[Option[Talk]]
+    API.get("talks" / uuid).output[Option[Talk]]
 
   val createTalk: API[Unit, CreateTalk, Talk] =
-    API
-      .post("talks")
-      .input[CreateTalk]
-      .output[Talk]
+    API.post("talks").input[CreateTalk].output[Talk]
 
   val deleteTalk =
     API.delete("talks" / uuid)
@@ -54,7 +47,7 @@ object ComplexExample extends ZIOAppDefault {
     getTalk ++ allTalks ++ deleteTalk ++ createTalk
 
   // HANDLERS
-  val allTalksHandler =
+  val allTalksHandler: Handler[Talks, Throwable, Option[String], Unit, List[Talk]] =
     allTalks.handle {
       case Some(filter) =>
         Talks.all.map(_.filter(_.title.toLowerCase.contains(filter.toLowerCase)))
@@ -83,7 +76,7 @@ object ComplexExample extends ZIOAppDefault {
   val run =
     printSchema *>
       Server
-        .start(8080, apis, handlers)
+        .start(8080, handlers)
         .provideLayer(Logger.live >>> Talks.live)
         .exitCode
 

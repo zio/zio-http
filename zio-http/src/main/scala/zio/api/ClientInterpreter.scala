@@ -5,6 +5,7 @@ import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
 import zio.ZIO
 import zio.schema.Schema
 import zio.schema.codec.JsonCodec
+import zio.stream.ZStream
 
 import scala.collection.mutable
 
@@ -15,9 +16,15 @@ private[api] object ClientInterpreter {
     val state          = new RequestState()
     parseUrl(api.requestCodec, state)(params)
     val (url, headers) = state.result
-    val data           =
-      if (api.inputSchema == Schema[Unit]) Body.empty
-      else Body.fromChunk(JsonCodec.encode(api.inputSchema)(input))
+    val data           = {
+      api.inputType match {
+        case InputType.ZIOInput(schema) =>
+          if (schema == Schema[Unit]) Body.empty
+          else Body.fromChunk(JsonCodec.encode(schema)(input))
+        case InputType.StreamInput      =>
+          Body.fromStream(input.asInstanceOf[ZStream[Any, Throwable, Byte]])
+      }
+    }
 
     Client.request(s"$host$url", api.method, zhttp.http.Headers(headers.toList), content = data)
   }

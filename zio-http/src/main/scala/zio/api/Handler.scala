@@ -19,7 +19,7 @@ final case class Handler[-R, +E, Params, Input, Output](
 }
 
 object Handler {
-  def make[R, E, Params, Input, Output](
+  private[api] def make[R, E, Params, Input, Output](
     api: API[Params, Input, Output],
   )(
     handle: ((Params, Input)) => ZIO[R, E, ApiResponse[Output]],
