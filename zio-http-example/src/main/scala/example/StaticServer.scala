@@ -42,6 +42,8 @@ object StaticServer extends ZIOAppDefault {
     } yield http
   }
 
-  val run = Server.start(8090, app).exitCode
+  val run = Server2.Server.serve(
+    app
+  ).provide(Server2.ServerConfig.default >>> Server2.Server.live)
 
 }

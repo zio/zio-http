@@ -2,8 +2,8 @@ package zio.http
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.ChannelPipeline
-import io.netty.util.ResourceLeakDetector
 import zio._
+import zio.http.Server2.ServerConfig.LeakDetectionLevel
 import zio.http.service.ServerSSLHandler._
 import zio.http.service._
 
@@ -13,22 +13,20 @@ sealed trait Server[-R, +E] { self =>
 
   import Server._
 
-  private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
-    case Concat(self, other)                   => other.settings(self.settings(s))
-    case LeakDetection(level)                  => s.copy(leakDetectionLevel = level)
-    case Error(errorHandler)                   => s.copy(error = Some(errorHandler))
-    case Ssl(sslOption)                        => s.copy(sslOption = sslOption)
-    case App(app)                              => s.copy(app = app)
-    case Address(address)                      => s.copy(address = address)
-    case AcceptContinue(enabled)               => s.copy(acceptContinue = enabled)
-    case KeepAlive(enabled)                    => s.copy(keepAlive = enabled)
-    case FlowControl(enabled)                  => s.copy(flowControl = enabled)
-    case ConsolidateFlush(enabled)             => s.copy(consolidateFlush = enabled)
-    case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
-    case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
-    case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
-    case UnsafeServerBootstrap(init)           => s.copy(serverBootstrapInitializer = init)
-  }
+//  private def settings[R1 <: R, E1 >: E](s: Config = Config()): Config = self match {
+//    case Concat(self, other)                   => other.settings(self.settings(s))
+//    case LeakDetection(level)                  => s.copy(leakDetectionLevel = level)
+//    case Ssl(sslOption)                        => s.copy(sslOption = sslOption)
+//    case Address(address)                      => s.copy(address = address)
+//    case AcceptContinue(enabled)               => s.copy(acceptContinue = enabled)
+//    case KeepAlive(enabled)                    => s.copy(keepAlive = enabled)
+//    case FlowControl(enabled)                  => s.copy(flowControl = enabled)
+//    case ConsolidateFlush(enabled)             => s.copy(consolidateFlush = enabled)
+//    case UnsafeChannelPipeline(init)           => s.copy(channelInitializer = init)
+//    case RequestDecompression(enabled, strict) => s.copy(requestDecompression = (enabled, strict))
+//    case ObjectAggregator(maxRequestSize)      => s.copy(objectAggregator = maxRequestSize)
+//    case UnsafeServerBootstrap(init)           => s.copy(serverBootstrapInitializer = init)
+//  }
 
   def ++[R1 <: R, E1 >: E](other: Server[R1, E1]): Server[R1, E1] =
     Concat(self, other)
@@ -81,8 +79,8 @@ sealed trait Server[-R, +E] { self =>
   /**
    * Creates a new server with the errorHandler provided.
    */
-  def withError[R1](errorHandler: Throwable => ZIO[R1, Nothing, Unit]): Server[R with R1, E] =
-    Concat(self, Server.Error(errorHandler))
+//  def withError[R1](errorHandler: Throwable => ZIO[R1, Nothing, Unit]): Server[R with R1, E] =
+//    Concat(self, Server.Error(errorHandler))
 
   /**
    * Creates a new server using netty FlowControlHandler if enable (@see <a
@@ -158,12 +156,12 @@ object Server {
 
   def acceptContinue: UServer = Server.AcceptContinue(true)
 
-  def app[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
+  //def app[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
 
   /**
    * Creates a server from a http app.
    */
-  def apply[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
+  //def apply[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
 
   def bind(port: Int): UServer = Server.Address(new InetSocketAddress(port))
 
@@ -175,32 +173,33 @@ object Server {
 
   def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer = ObjectAggregator(maxRequestSize)
 
-  def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
+ // def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZIO[R with EventLoopGroup with ServerChannelFactory with Scope, Throwable, Start] = {
-    val settings = server.settings()
-    for {
-      channelFactory <- ZIO.service[ServerChannelFactory]
-      eventLoopGroup <- ZIO.service[EventLoopGroup]
-      rtm            <- HttpRuntime.sticky[R](eventLoopGroup)
-      time            = ServerTime.make(1000 millis)
-      reqHandler      = ServerInboundHandler(settings.app, rtm, settings, time)
-      init            = ServerChannelInitializer(rtm, settings, reqHandler)
-      serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
-      chf  <- ZIO.attempt(serverBootstrap.childHandler(init).bind(settings.address))
-      _    <- ChannelFuture.scoped(chf)
-      port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
-    } yield {
-      ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
-      log.info(s"Server Started on Port: [${port}]")
-      log.debug(s"Keep Alive: [${settings.keepAlive}]")
-      log.debug(s"Leak Detection: [${settings.leakDetectionLevel}]")
-      log.debug(s"Transport: [${eventLoopGroup.getClass.getName}]")
-      Start(port)
-    }
-  }
+  ): ZIO[R with EventLoopGroup with ServerChannelFactory with Scope, Throwable, Start] =  ???
+//  {
+//    val settings = server.settings()
+//    for {
+//      channelFactory <- ZIO.service[ServerChannelFactory]
+//      eventLoopGroup <- ZIO.service[EventLoopGroup]
+//      rtm            <- HttpRuntime.sticky[R](eventLoopGroup)
+//      time            = ServerTime.make(1000 millis)
+//      reqHandler      = ServerInboundHandler(settings.app, rtm, settings, time)
+//      init            = ServerChannelInitializer(rtm, settings, reqHandler)
+//      serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
+//      chf  <- ZIO.attempt(serverBootstrap.childHandler(init).bind(settings.address))
+//      _    <- ChannelFuture.scoped(chf)
+//      port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
+//    } yield {
+//      ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel)
+//      log.info(s"Server Started on Port: [${port}]")
+//      log.debug(s"Keep Alive: [${settings.keepAlive}]")
+//      log.debug(s"Leak Detection: [${settings.leakDetectionLevel}]")
+//      log.debug(s"Transport: [${eventLoopGroup.getClass.getName}]")
+//      Start(port)
+//    }
+//  }
 
   def port(port: Int): UServer = Server.Address(new InetSocketAddress(port))
 
@@ -211,15 +210,15 @@ object Server {
   /**
    * Launches the app on the provided port.
    */
-  def start[R](port: Int, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
-    start(new InetSocketAddress(port), http)
+//  def start[R](port: Int, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
+//    start(new InetSocketAddress(port), http)
 
-  def start[R](address: InetAddress, port: Int, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
-    start(new InetSocketAddress(address, port), http)
+//  def start[R](address: InetAddress, port: Int, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
+//    start(new InetSocketAddress(address, port), http)
 
-  def start[R](socketAddress: InetSocketAddress, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
-    (Server(http).withBinding(socketAddress).make *> ZIO.never)
-      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
+//  def start[R](socketAddress: InetSocketAddress, http: HttpApp[R, Throwable]): ZIO[R, Throwable, Nothing] =
+//    (Server(http).withBinding(socketAddress).make *> ZIO.never)
+//      .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
   def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer = UnsafeChannelPipeline(pipeline)
 
@@ -230,57 +229,21 @@ object Server {
    */
   final case class Start(port: Int = 0)
 
-  private[zio] final case class Config[-R, +E](
-    leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
-    error: Option[Throwable => ZIO[R, Nothing, Unit]] = None,
-    sslOption: ServerSSLOptions = null,
 
-    // TODO: move app out of settings
-    app: HttpApp[R, E] = Http.empty,
-    address: InetSocketAddress = new InetSocketAddress(8080),
-    acceptContinue: Boolean = false,
-    keepAlive: Boolean = true,
-    consolidateFlush: Boolean = false,
-    flowControl: Boolean = true,
-    channelInitializer: ChannelPipeline => Unit = null,
-    requestDecompression: (Boolean, Boolean) = (false, false),
-    objectAggregator: Int = 1024 * 100,
-    serverBootstrapInitializer: ServerBootstrap => Unit = null,
-  ) {
-    def useAggregator: Boolean = objectAggregator >= 0
-  }
 
-  sealed trait LeakDetectionLevel {
-    self =>
-    def jResourceLeakDetectionLevel: ResourceLeakDetector.Level = self match {
-      case LeakDetectionLevel.DISABLED => ResourceLeakDetector.Level.DISABLED
-      case LeakDetectionLevel.SIMPLE   => ResourceLeakDetector.Level.SIMPLE
-      case LeakDetectionLevel.ADVANCED => ResourceLeakDetector.Level.ADVANCED
-      case LeakDetectionLevel.PARANOID => ResourceLeakDetector.Level.PARANOID
-    }
-  }
 
-  object LeakDetectionLevel {
-    case object DISABLED extends LeakDetectionLevel
-
-    case object SIMPLE extends LeakDetectionLevel
-
-    case object ADVANCED extends LeakDetectionLevel
-
-    case object PARANOID extends LeakDetectionLevel
-  }
 
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
 
   private final case class LeakDetection(level: LeakDetectionLevel) extends UServer
 
-  private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
+ // private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
 
   private final case class Ssl(sslOptions: ServerSSLOptions) extends UServer
 
   private final case class Address(address: InetSocketAddress) extends UServer
 
-  private final case class App[R, E](app: HttpApp[R, E]) extends Server[R, E]
+ // private final case class App[R, E](app: HttpApp[R, E]) extends Server[R, E]
 
   private final case class KeepAlive(enabled: Boolean) extends Server[Any, Nothing]
 

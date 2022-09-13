@@ -2,7 +2,6 @@ package example
 
 import io.netty.util.AsciiString
 import zio._
-import zio.http.Server.LeakDetectionLevel
 import zio.http._
 import zio.http.service.{EventLoopGroup, ServerChannelFactory}
 
@@ -42,17 +41,20 @@ object Main extends ZIOAppDefault {
 
   val run: UIO[ExitCode] =
     app
-      .flatMap(server(_).start)
+      .flatMap(server)
       .provideLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
       .exitCode
 
   private def server(app: HttpApp[Any, Nothing]) =
-    Server
-      .app(app)
-      .withPort(8080)
-      .withError(_ => ZIO.unit)
-      .withLeakDetection(LeakDetectionLevel.DISABLED)
-      .withConsolidateFlush(true)
-      .withFlowControl(false)
-      .withObjectAggregator(-1)
+    Server2.Server.serve(
+      app
+    ).provide(Server2.ServerConfig.default >>> Server2.Server.live)
+//    Server
+//      .app(app)
+//      .withPort(8080)
+//      .withError(_ => ZIO.unit)
+//      .withLeakDetection(LeakDetectionLevel.DISABLED)
+//      .withConsolidateFlush(true)
+//      .withFlowControl(false)
+//      .withObjectAggregator(-1)
 }

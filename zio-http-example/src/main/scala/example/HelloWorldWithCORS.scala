@@ -20,5 +20,7 @@ object HelloWorldWithCORS extends ZIOAppDefault {
 
   // Run it like any simple app
   val run =
-    Server.start(8090, app)
+    Server2.Server.serve(
+      app
+    ).provide(Server2.ServerConfig.default >>> Server2.Server.live)
 }

@@ -51,5 +51,7 @@ object AuthenticationServer extends ZIOAppDefault {
   val app: UHttpApp = login ++ user
 
   // Run it like any simple app
-  override val run = Server.start(8090, app)
+  override val run = Server2.Server.serve(
+    app
+  ).provide(Server2.ServerConfig.default >>> Server2.Server.live)
 }
