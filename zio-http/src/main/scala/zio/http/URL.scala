@@ -186,6 +186,10 @@ object URL {
     override def -(key1: String, key2: String, keys: String*): QueryParams =
       QueryParams(map.--(List(key1, key2) ++ keys))
 
+    @deprecated("Use add instead", "2.12")
+    override def +[V1 >: List[String]](kv: (String, V1)): QueryParams =
+      throw new UnsupportedOperationException("deprecated")
+
     def ++(other: QueryParams): QueryParams =
       QueryParams((map.toList ++ other.map.toList).groupBy(_._1).map { case (key, values) =>
         (key, values.flatMap(_._2))
@@ -198,6 +202,14 @@ object URL {
         },
       )
     } else self.copy(map = map.updated(key, List(value)))
+
+    def add(key: String, value: List[String]): QueryParams = if (map.contains(key)) {
+      self.copy(
+        map = map.map { case (key, oldValue) =>
+          (key, oldValue ++ value)
+        },
+      )
+    } else self.copy(map = map.updated(key, value))
 
     def encode: String = {
       val encoder = new QueryStringEncoder(s"")
