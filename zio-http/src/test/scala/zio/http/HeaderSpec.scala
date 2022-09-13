@@ -1,6 +1,6 @@
 package zio.http
 
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
 import zio.http.Headers.BearerSchemeName
 import zio.http.middleware.Auth.Credentials
 import zio.test.Assertion._
@@ -224,6 +224,12 @@ object HeaderSpec extends ZIOSpecDefault {
         val cookieHeaders = Headers(HeaderNames.setCookie, "x1") ++ Headers(HeaderNames.setCookie, "x2")
         val result        = cookieHeaders.encode.entries().size()
         assertTrue(result == 2)
+      },
+      test("header with multiple values should not be escaped") {
+        val headers               = Headers("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        val expected: HttpHeaders =
+          new DefaultHttpHeaders(true).add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        assertTrue(headers.encode == expected)
       },
     ),
   )

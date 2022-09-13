@@ -56,7 +56,7 @@ object Main extends ZIOAppDefault {
     Server
       .app(app)
       .withPort(8080)
-      .withError(_ => ZIO.unit)
+      .onError(_ => ZIO.unit)
       .withLeakDetection(LeakDetectionLevel.DISABLED)
       .withConsolidateFlush(true)
       .withFlowControl(false)
