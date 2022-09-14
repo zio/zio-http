@@ -16,7 +16,7 @@ sealed trait Server[-R, +E] { self =>
   private def settings[R1 <: R, E1 >: E](s: Config[R1, E1] = Config()): Config[R1, E1] = self match {
     case Concat(self, other)                   => other.settings(self.settings(s))
     case LeakDetection(level)                  => s.copy(leakDetectionLevel = level)
-    case Error(errorHandler)                   => s.copy(error = Some(errorHandler))
+    case OnError(errorHandler)                 => s.copy(error = Some(errorHandler))
     case Ssl(sslOption)                        => s.copy(sslOption = sslOption)
     case App(app)                              => s.copy(app = app)
     case Address(address)                      => s.copy(address = address)
@@ -81,8 +81,8 @@ sealed trait Server[-R, +E] { self =>
   /**
    * Creates a new server with the errorHandler provided.
    */
-  def withError[R1](errorHandler: Throwable => ZIO[R1, Nothing, Unit]): Server[R with R1, E] =
-    Concat(self, Server.Error(errorHandler))
+  def onError[R1](errorHandler: Throwable => ZIO[R1, Nothing, Unit]): Server[R with R1, E] =
+    Concat(self, Server.OnError(errorHandler))
 
   /**
    * Creates a new server using netty FlowControlHandler if enable (@see <a
@@ -175,7 +175,7 @@ object Server {
 
   def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer = ObjectAggregator(maxRequestSize)
 
-  def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
+  def onError[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.OnError(errorHandler)
 
   def make[R](
     server: Server[R, Throwable],
@@ -221,9 +221,14 @@ object Server {
     (Server(http).withBinding(socketAddress).make *> ZIO.never)
       .provideSomeLayer[R](EventLoopGroup.auto(0) ++ ServerChannelFactory.auto ++ Scope.default)
 
-  def unsafePipeline(pipeline: ChannelPipeline => Unit): UServer = UnsafeChannelPipeline(pipeline)
+  object unsafe {
+    def pipeline(pipeline: ChannelPipeline => Unit)(implicit unsafe: Unsafe): UServer =
+      UnsafeChannelPipeline(pipeline)
 
-  def unsafeServerBootstrap(serverBootstrap: ServerBootstrap => Unit): UServer = UnsafeServerBootstrap(serverBootstrap)
+    def serverBootstrap(serverBootstrap: ServerBootstrap => Unit)(implicit unsafe: Unsafe): UServer =
+      UnsafeServerBootstrap(serverBootstrap)
+
+  }
 
   /**
    * Holds server start information.
@@ -274,7 +279,7 @@ object Server {
 
   private final case class LeakDetection(level: LeakDetectionLevel) extends UServer
 
-  private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
+  private final case class OnError[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
 
   private final case class Ssl(sslOptions: ServerSSLOptions) extends UServer
 

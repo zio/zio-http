@@ -4,6 +4,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
+import zio.Unsafe
 import zio.http.ChannelEvent
 import zio.http.ChannelEvent.UserEvent
 import zio.http.socket.{SocketApp, WebSocketFrame}
@@ -20,6 +21,7 @@ final class WebSocketAppHandler[R](
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
   private[zio] val log = if (isClient) WebSocketAppHandler.clientLog else WebSocketAppHandler.serverLog
+  implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
   private def dispatch(
     event: ChannelEvent[JWebSocketFrame, JWebSocketFrame],
@@ -27,9 +29,9 @@ final class WebSocketAppHandler[R](
     log.debug(s"ChannelEvent: [${event.event}]")
     app.message match {
       case Some(f) =>
-        zExec.unsafeRunUninterruptible(
-          f(event.map(WebSocketFrame.unsafeFromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)),
-        )
+        zExec.runUninterruptible(
+          f(event.map(WebSocketFrame.unsafe.fromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)),
+        )(ctx, unsafeClass)
       case None    => ()
     }
   }
