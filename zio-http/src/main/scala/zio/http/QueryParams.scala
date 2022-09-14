@@ -1,6 +1,7 @@
 package zio.http
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
+
 import scala.jdk.CollectionConverters._
 
 final case class QueryParams private[http] (map: Map[String, List[String]])
