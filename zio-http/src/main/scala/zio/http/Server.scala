@@ -9,7 +9,7 @@ import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 
 trait Server {
-  def serve[R](httpApp: HttpApp[R, Throwable]): URIO[R, Unit]
+  def install[R](httpApp: HttpApp[R, Throwable]): URIO[R, Unit]
 
   def port[R]: URIO[R, Int]
 }
@@ -19,7 +19,7 @@ object Server {
     install(httpApp) *> ZIO.never
 
   def install[R](httpApp: HttpApp[R, Throwable]): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.serve(httpApp)) *> ZIO.serviceWithZIO[Server](_.port)
+    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.serviceWithZIO[Server](_.port)
   }
 
   val default = ServerConfigLayer.default >>> live
@@ -48,7 +48,7 @@ object Server {
     appRef: java.util.concurrent.atomic.AtomicReference[HttpApp[Any, Throwable]],
     bindPort: Int,
   ) extends Server {
-    override def serve[R](httpApp: HttpApp[R, Throwable]): URIO[R, Unit] =
+    override def install[R](httpApp: HttpApp[R, Throwable]): URIO[R, Unit] =
       ZIO.environment[R].map { env =>
         val newApp =
           if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
