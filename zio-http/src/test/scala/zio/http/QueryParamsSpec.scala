@@ -133,7 +133,7 @@ object QueryParamsSpec extends ZIOSpecDefault {
                   ("u", List("1")),
                   ("u", List("2")),
                 ),
-                Map("ord" -> List("ASC"), "txt" -> List("scala is awesome!"), "u" -> List("1", "2")),
+                QueryParams(Map("ord" -> List("ASC"), "txt" -> List("scala is awesome!"), "u" -> List("1", "2"))),
               ),
               (
                 Seq(
@@ -142,14 +142,14 @@ object QueryParamsSpec extends ZIOSpecDefault {
                   ("u", List("1")),
                   ("u", List("2")),
                 ),
-                Map("ord" -> List("ASC"), "txt" -> List("scala, is awesome!"), "u" -> List("1", "2")),
+                QueryParams(Map("ord" -> List("ASC"), "txt" -> List("scala, is awesome!"), "u" -> List("1", "2"))),
               ),
             ),
           )
 
           checkAll(gens) { case (tuples, expected) =>
             val result = QueryParams(tuples: _*)
-            assert(result.map)(equalTo(expected))
+            assert(result)(equalTo(expected))
           }
 
         },
@@ -158,14 +158,14 @@ object QueryParamsSpec extends ZIOSpecDefault {
         test("successfully decodes queryStringFragment") {
           val gens = Gen.fromIterable(
             Seq(
-              ("", QueryParams.empty),
-              ("foo", QueryParams(Map("foo" -> List("")))),
+              ("?", QueryParams.empty),
+              ("?foo", QueryParams(Map("foo" -> List("")))),
               (
-                "ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
+                "?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
                 QueryParams(Map("ord" -> List("ASC"), "txt" -> List("scala is awesome!"), "u" -> List("1", "2"))),
               ),
               (
-                "ord=ASC&txt=scala%20is%20awesome%21&u=1%2C2",
+                "?ord=ASC&txt=scala%20is%20awesome%21&u=1%2C2",
                 QueryParams(Map("ord" -> List("ASC"), "txt" -> List("scala is awesome!"), "u" -> List("1", "2"))),
               ),
             ),
@@ -174,6 +174,45 @@ object QueryParamsSpec extends ZIOSpecDefault {
           checkAll(gens) { case (queryStringFragment, expected) =>
             val result = QueryParams.decode(queryStringFragment)
             assertTrue(result == expected)
+          }
+        },
+      ),
+      suite("encode")(
+        test("success") {
+          val gens = Gen.fromIterable(
+            Seq(
+              (QueryParams.empty, ""),
+              (QueryParams(Map("a" -> List(""))), "?a="),
+              (QueryParams(Map("a" -> List("foo"))), "?a=foo"),
+              (QueryParams(Map("a" -> List("foo", "fee"))), "?a=foo%2Cfee"),
+              (
+                QueryParams(Map("a" -> List("scala is awesome!", "fee"), "b" -> List("ZIO is awesome!"))),
+                "?a=scala%20is%20awesome%21%2Cfee&b=ZIO%20is%20awesome%21",
+              ),
+            ),
+          )
+
+          checkAll(gens) { case (queryParams, expected) =>
+            val result = queryParams.encode
+            assertTrue(result == expected)
+          }
+        },
+      ),
+      suite("encode - decode")(
+        test("success") {
+          val gens = Gen.fromIterable(
+            Seq(
+              QueryParams.empty,
+              QueryParams(Map("a" -> List(""))),
+              QueryParams(Map("a" -> List("foo"))),
+              QueryParams(Map("a" -> List("foo", "fee"))),
+              QueryParams(Map("a" -> List("scala is awesome!", "fee"), "b" -> List("ZIO is awesome!"))),
+            ),
+          )
+
+          checkAll(gens) { case queryParams =>
+            val result = QueryParams.decode(queryParams.encode)
+            assertTrue(result == queryParams)
           }
         },
       ),

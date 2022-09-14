@@ -37,11 +37,10 @@ final case class QueryParams private[http] (map: Map[String, List[String]])
   def encode: String = {
     val encoder = new QueryStringEncoder(s"")
     map.foreach { case (key, values) =>
-      if (key != "") values.foreach { value => encoder.addParam(key, value) }
+      if (key != "") encoder.addParam(key, values.mkString(","))
     }
 
     encoder.toString
-
   }
 
   def toMap: Map[String, List[String]] = map
