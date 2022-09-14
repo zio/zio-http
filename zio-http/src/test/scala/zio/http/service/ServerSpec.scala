@@ -267,6 +267,13 @@ object ServerSpec extends HttpRunnableSpec {
           actual <- Http.response(res).withServer(server).deploy.headerValue(HeaderNames.server).run()
         } yield assert(actual)(isSome(equalTo(server)))
       },
+      test("multiple headers of same type with different values") {
+        val expectedValue = "test1,test2"
+        for {
+          res    <- Response.text("abc").withVary("test1").withVary("test2").freeze
+          actual <- Http.response(res).deploy.headerValue(HeaderNames.vary).run()
+        } yield assert(actual)(isSome(equalTo(expectedValue)))
+      },
     ),
   )
 
