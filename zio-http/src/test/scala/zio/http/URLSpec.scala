@@ -75,7 +75,7 @@ object URLSpec extends ZIOSpecDefault {
         test("returns relative URL if port, host, and scheme are not set") {
           val actual = URL.empty
             .setPath(Path.decode("/list"))
-            .setQueryParams(URL.QueryParams(Map("type" -> List("builder"), "query" -> List("provided"))))
+            .setQueryParams(QueryParams(Map("type" -> List("builder"), "query" -> List("provided"))))
             .normalize
             .encode
 
