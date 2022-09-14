@@ -9,7 +9,7 @@ import zio.http.service.ServerSSLHandler.SSLHttpBehaviour
 
 import java.util
 
-class ServerSSLDecoder(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour, cfg: ServerConfig.Config)
+class ServerSSLDecoder(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour, cfg: ServerConfig)
     extends ByteToMessageDecoder {
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     val pipeline = context.channel().pipeline()

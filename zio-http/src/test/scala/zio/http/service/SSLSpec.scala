@@ -17,8 +17,8 @@ object SSLSpec extends ZIOSpecDefault {
     getClass().getClassLoader().getResourceAsStream("server.crt"),
     getClass().getClassLoader().getResourceAsStream("server.key"),
   )
-  val config = ServerConfig.Config().withPort(8073).withSsl(ServerSSLOptions(serverSSL))
-  val env = DynamicServer.live ++ (ServerConfig.live(config) >>> Server.live)++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
+  val config = ServerConfig.default.withPort(8073).withSsl(ServerSSLOptions(serverSSL))
+  val env = DynamicServer.live ++ (ServerConfigLayer.live(config) >>> Server.live)++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
 
 
   val clientSSL1 =

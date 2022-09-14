@@ -13,7 +13,7 @@ import zio.logging.Logger
 private[zio] final case class ServerInboundHandler[R](
   appRef: java.util.concurrent.atomic.AtomicReference[HttpApp[Any, Throwable]],
   runtime: HttpRuntime[R],
-  config: ServerConfig.Config,
+  config: ServerConfig,
   time: ServerTime,
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with ServerWebSocketUpgrade[R]
@@ -79,7 +79,7 @@ object ServerInboundHandler {
     /**
      * Enables auto-read if possible. Also performs the first read.
      */
-    def attemptAutoRead[R, E](config: ServerConfig.Config)(implicit ctx: Ctx): Unit = {
+    def attemptAutoRead[R, E](config: ServerConfig)(implicit ctx: Ctx): Unit = {
       if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
         ctx.channel().config().setAutoRead(true)
         ctx.read(): Unit

@@ -20,8 +20,8 @@ object ServerSpec extends HttpRunnableSpec {
   } yield (data.mkString(""), content)
 
   private val MaxSize             = 1024 * 10
-  val configApp = ServerConfig.Config().withRequestDecompression(true, true).withObjectAggregator(MaxSize)
-  val envApp = DynamicServer.live ++ (ServerConfig.live(configApp) >>> Server.live) ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
+  val configApp = ServerConfig.default.withRequestDecompression(true, true).withObjectAggregator(MaxSize)
+  val envApp = DynamicServer.live ++ (ServerConfigLayer.live(configApp) >>> Server.live) ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
 
 //  val configAppWithRequestStreaming = ServerConfig.Config().withRequestDecompression(true, true).withObjectAggregator(-1)
 //  private val envAppWithRequestStreaming =

@@ -18,7 +18,7 @@ import zio.logging.LogLevel
 @Sharable
 final case class ServerChannelInitializer[R](
   zExec: HttpRuntime[R],
-  cfg: ServerConfig.Config,
+  cfg: ServerConfig,
   reqHandler: ChannelHandler,
 ) extends ChannelInitializer[JChannel] {
   override def initChannel(channel: JChannel): Unit = {

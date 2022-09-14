@@ -2,7 +2,6 @@ package zio.http
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
-import zio.http.ServerConfig.Config
 import zio.http.service._
 import zio.{UIO, URIO, ZIO, ZLayer, durationInt}
 
@@ -19,13 +18,13 @@ object Server {
   def serve[R](httpApp: HttpApp[R, Throwable]): URIO[R with Server, Unit] =
     ZIO.serviceWithZIO[Server](_.serve(httpApp)) *> ZIO.never
 
-  val default = ServerConfig.default >>> live
+  val default = ServerConfigLayer.default >>> live
 
-  val live: ZLayer[Config with EventLoopGroup with ServerChannelFactory, Throwable, Server] = ZLayer.scoped {
+  val live: ZLayer[ServerConfig with EventLoopGroup with ServerChannelFactory, Throwable, Server] = ZLayer.scoped {
     for {
       channelFactory <- ZIO.service[ServerChannelFactory]
       eventLoopGroup <- ZIO.service[EventLoopGroup]
-      settings <- ZIO.service[Config]
+      settings <- ZIO.service[ServerConfig]
       rtm <- HttpRuntime.sticky[Any](eventLoopGroup)
       time = ServerTime.make(1000 millis)
       appRef = new AtomicReference[HttpApp[Any, Throwable]](Http.empty)
@@ -39,7 +38,7 @@ object Server {
     } yield ServerLive(appRef, port)
   }
 
-  val test = ServerConfig.testConfig >>> live
+  val test = ServerConfigLayer.testServerConfig >>> live
 
   private final case class ServerLive(
                                        appRef: java.util.concurrent.atomic.AtomicReference[HttpApp[Any, Throwable]],
