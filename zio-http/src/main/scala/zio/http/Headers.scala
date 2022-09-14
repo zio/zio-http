@@ -65,7 +65,7 @@ object Headers extends HeaderConstructors {
 
   }
 
-  final case class FromIterable private[zio] (iter: Iterable[Header]) extends Headers with Iterable[Header] {
+  final case class FromIterable private[zio] (iter: Iterable[Header]) extends Headers {
     self =>
 
     private[http] def encode: HttpHeaders = Headers.encode(self.toList)
