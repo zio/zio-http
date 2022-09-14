@@ -8,6 +8,56 @@ object QueryParamsSpec extends ZIOSpecDefault {
 
   def spec =
     suite("QueryParams")(
+      suite("-")(
+        test("removes query param") {
+          val gens = Gen.fromIterable(
+            Seq(
+              (
+                Map("a" -> List("foo", "bar"), "b" -> List("fii"), "c" -> List("baz")),
+                "a",
+                Map("b" -> List("fii"), "c"        -> List("baz")),
+              ),
+              (
+                Map("a" -> List("foo", "bar"), "b" -> List("fii")),
+                "c",
+                Map("a" -> List("foo", "bar"), "b" -> List("fii")),
+              ),
+            ),
+          )
+
+          checkAll(gens) { case (initialMap, keyToRemove, expectedResult) =>
+            val queryParams  = QueryParams(initialMap)
+            val actualResult = queryParams.-(keyToRemove).map
+            assert(actualResult)(equalTo(expectedResult))
+          }
+        },
+        test("removes query params") {
+          val gens = Gen.fromIterable(
+            Seq(
+              (
+                Map("a" -> List("foo", "bar"), "b" -> List("fii"), "c" -> List("baz"), "d" -> List("boo")),
+                "a",
+                "c",
+                Seq("d"),
+                Map("b" -> List("fii")),
+              ),
+              (
+                Map("a" -> List("foo", "bar"), "b" -> List("fii")),
+                "b",
+                "c",
+                Seq("d"),
+                Map("a" -> List("foo", "bar")),
+              ),
+            ),
+          )
+
+          checkAll(gens) { case (initialMap, key1, key2, otherKeysToRemove, expectedResult) =>
+            val queryParams  = QueryParams(initialMap)
+            val actualResult = queryParams.-(key1, key2, otherKeysToRemove: _*).map
+            assert(actualResult)(equalTo(expectedResult))
+          }
+        },
+      ),
       suite("apply")(
         test("success") {
           val gens = Gen.fromIterable(
