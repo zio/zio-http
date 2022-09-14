@@ -2,15 +2,13 @@ package zio.http
 package netty
 
 import io.netty.channel._
-import io.netty.channel.epoll.Epoll
-import io.netty.channel.kqueue.KQueue
+import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}
+import io.netty.channel.kqueue.{KQueue, KQueueEventLoopGroup}
+import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.incubator.channel.uring.IOUringEventLoopGroup
 import zio._
 
 import java.util.concurrent.Executor
-import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.channel.epoll.EpollEventLoopGroup
-import io.netty.channel.kqueue.KQueueEventLoopGroup
 
 /**
  * Simple wrapper over NioEventLoopGroup

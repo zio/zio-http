@@ -1,10 +1,10 @@
 package zio.http
 package netty
 
-import zio._
 import io.netty.channel._
-import io.netty.util.concurrent.GenericFutureListener
-import io.netty.util.concurrent.Future
+import io.netty.util.concurrent.{Future, GenericFutureListener}
+import zio._
+
 import scala.jdk.CollectionConverters._
 
 private[zio] trait NettyRuntime { self =>
@@ -13,7 +13,9 @@ private[zio] trait NettyRuntime { self =>
 
   def runtime(ctx: ChannelHandlerContext): Runtime[Any]
 
-  def unsafeRun(ctx: ChannelHandlerContext, interruptOnClose: Boolean = true)(program: ZIO[Any, Throwable, Any]): Unit = {
+  def unsafeRun(ctx: ChannelHandlerContext, interruptOnClose: Boolean = true)(
+    program: ZIO[Any, Throwable, Any],
+  ): Unit = {
     val rtm: Runtime[Any] = runtime(ctx)
 
     def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =

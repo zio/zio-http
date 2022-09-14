@@ -1,12 +1,12 @@
 package zio.http.netty
 
 import io.netty.channel._
-import zio._
+import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.channel.epoll._
 import io.netty.channel.kqueue._
 import io.netty.channel.socket.nio._
 import io.netty.incubator.channel.uring._
-import io.netty.channel.embedded.EmbeddedChannel
+import zio._
 import zio.http.ServerConfig
 
 object Channels {

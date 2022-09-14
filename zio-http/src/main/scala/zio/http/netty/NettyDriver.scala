@@ -1,12 +1,13 @@
 package zio.http
 package netty
 
-import zio._
-import io.netty.channel._
-import java.net.InetSocketAddress
 import io.netty.bootstrap.ServerBootstrap
-import service.Log
+import io.netty.channel._
 import io.netty.util.ResourceLeakDetector
+import zio._
+import zio.http.service.Log
+
+import java.net.InetSocketAddress
 // import io.netty.handler.codec.http.HttpObject
 
 private[zio] final case class NettyDriver(
@@ -26,8 +27,8 @@ private[zio] final case class NettyDriver(
       // reqHandler <- ZIO.succeed(ServerInboundHandler(appRef, rtm, serverConfig, time))
       // init            = ServerChannelInitializer(rtm, serverConfig, reqHandler)
       serverBootstrap <- ZIO.attempt(new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup))
-      chf  <- ZIO.attempt(serverBootstrap.childHandler(channelInitializer).bind(serverConfig.address))
-      _    <- NettyFutureExecutor.scoped(chf)
+      chf             <- ZIO.attempt(serverBootstrap.childHandler(channelInitializer).bind(serverConfig.address))
+      _               <- NettyFutureExecutor.scoped(chf)
       _    <- ZIO.succeed(ResourceLeakDetector.setLevel(serverConfig.leakDetectionLevel.jResourceLeakDetectionLevel))
       port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield port
@@ -66,10 +67,10 @@ object NettyDriver {
   val layer =
     ZLayer.fromZIO {
       for {
-        cf         <- ZIO.service[ChannelFactory[ServerChannel]]
-        cInit      <- ZIO.service[ChannelInitializer[Channel]]
-        elg        <- ZIO.service[EventLoopGroup]
-        sc         <- ZIO.service[ServerConfig]
+        cf    <- ZIO.service[ChannelFactory[ServerChannel]]
+        cInit <- ZIO.service[ChannelInitializer[Channel]]
+        elg   <- ZIO.service[EventLoopGroup]
+        sc    <- ZIO.service[ServerConfig]
       } yield new NettyDriver(
         channelFactory = cf,
         channelInitializer = cInit,

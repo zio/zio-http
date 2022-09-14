@@ -8,6 +8,7 @@ import zio._
 import zio.http._
 import zio.http.service.ServerInboundHandler.{Unsafe, log}
 import zio.logging.Logger
+
 import java.util.concurrent.atomic.AtomicReference
 
 @Sharable

@@ -3,8 +3,9 @@ package zio.http
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
 import zio._
+import zio.http.netty.ChannelType
 import zio.http.service._
-import netty.ChannelType
+
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 

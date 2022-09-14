@@ -7,7 +7,8 @@ import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zio.Chunk
 import zio.http.Body
 
-private[zio] final class ServerAsyncBodyHandler(val async: Body.UnsafeAsync) extends SimpleChannelInboundHandler[HttpContent](true) {
+private[zio] final class ServerAsyncBodyHandler(val async: Body.UnsafeAsync)
+    extends SimpleChannelInboundHandler[HttpContent](true) {
   self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {

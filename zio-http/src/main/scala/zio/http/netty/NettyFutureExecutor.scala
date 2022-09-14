@@ -3,6 +3,7 @@ package netty
 
 import io.netty.util.concurrent.{Future, GenericFutureListener}
 import zio._
+
 import java.util.concurrent.CancellationException
 
 private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {

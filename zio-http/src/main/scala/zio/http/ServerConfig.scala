@@ -1,7 +1,8 @@
 package zio.http
 
+import zio.http.netty.ChannelType
 import zio.http.service.ServerSSLHandler.ServerSSLOptions
-import netty.ChannelType
+
 import java.net.{InetAddress, InetSocketAddress}
 
 final case class ServerConfig private (

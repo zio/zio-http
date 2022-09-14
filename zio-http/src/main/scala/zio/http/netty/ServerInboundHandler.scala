@@ -4,13 +4,14 @@ package netty
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import io.netty.util.AttributeKey
 import zio._
 import zio.http._
 import zio.logging.Logger
+
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
