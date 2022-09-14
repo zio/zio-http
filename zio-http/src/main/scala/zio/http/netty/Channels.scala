@@ -1,0 +1,44 @@
+package zio.http.netty
+
+import io.netty.channel._
+import zio._
+import io.netty.channel.epoll._
+import io.netty.channel.kqueue._
+import io.netty.channel.socket.nio._
+import io.netty.incubator.channel.uring._
+import io.netty.channel.embedded.EmbeddedChannel
+
+object Channels {
+
+  private[zio] def make[A <: Channel](channel: => A): UIO[ChannelFactory[A]] = ZIO.succeed(new ChannelFactory[A] {
+    override def newChannel(): A = channel
+  })
+
+  private[zio] def serverChannel[A <: ServerChannel](channel: => A) = ZLayer.fromZIO(make[ServerChannel](channel))
+
+  private[zio] def clientChannel(channel: => Channel) = ZLayer.fromZIO(make(channel))
+
+  object Server {
+    def nio    = serverChannel(new NioServerSocketChannel())
+    def epoll  = serverChannel(new EpollServerSocketChannel())
+    def uring  = serverChannel(new IOUringServerSocketChannel())
+    def kQueue = serverChannel(new KQueueServerSocketChannel())
+    def layer  =
+      if (Epoll.isAvailable) epoll
+      else if (KQueue.isAvailable) kQueue
+      else nio
+  }
+
+  object Client {
+    def nio      = clientChannel(new NioSocketChannel())
+    def epoll    = clientChannel(new EpollSocketChannel())
+    def kQueue   = clientChannel(new KQueueSocketChannel())
+    def uring    = clientChannel(new IOUringSocketChannel())
+    def embedded = clientChannel(new EmbeddedChannel(false, false))
+    def layer    =
+      if (Epoll.isAvailable) epoll
+      else if (KQueue.isAvailable) kQueue
+      else nio
+  }
+
+}
