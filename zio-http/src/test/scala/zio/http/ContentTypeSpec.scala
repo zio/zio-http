@@ -2,7 +2,7 @@ package zio.http
 
 import zio._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.service.{ChannelFactory, EventLoopGroup, ServerChannelFactory}
+import zio.http.service.{ChannelFactory, EventLoopGroup}
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test._
@@ -42,11 +42,11 @@ object ContentTypeSpec extends HttpRunnableSpec {
   )
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
+    DynamicServer.live ++ Server.test ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
 
   override def spec = {
     suite("Content-type") {
       serve(DynamicServer.app).as(List(contentSpec))
-    }.provideLayerShared(env) @@ timeout(5 seconds)
+    }.provideLayer(env) @@ timeout(5 seconds)
   }
 }

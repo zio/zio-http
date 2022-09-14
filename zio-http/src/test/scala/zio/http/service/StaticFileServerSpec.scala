@@ -1,7 +1,7 @@
 package zio.http.service
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.{Http, MediaType, Status}
+import zio.http.{Http, MediaType, Server, Status}
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertZIO
@@ -12,7 +12,7 @@ import java.io.File
 object StaticFileServerSpec extends HttpRunnableSpec {
 
   private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+    DynamicServer.live ++ Server.test ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
 
   private val fileOk       = Http.fromResource("TestFile.txt").deploy
   private val fileNotFound = Http.fromResource("Nothing").deploy

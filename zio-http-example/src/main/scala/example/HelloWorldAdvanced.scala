@@ -26,11 +26,7 @@ object HelloWorldAdvanced extends ZIOAppDefault {
     // Configure thread count using CLI
     // val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
-    Server2.Server
-      .serve(
-        fooBar ++ app,
-      )
-      .provide(Server2.ServerConfig.default >>> Server2.Server.live)
+    Server.serve(fooBar ++ app).provide(Server.default)
 
     // Create a new server
     /*server.make

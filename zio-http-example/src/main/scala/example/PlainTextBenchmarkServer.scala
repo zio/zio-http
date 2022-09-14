@@ -46,11 +46,7 @@ object Main extends ZIOAppDefault {
       .exitCode
 
   private def server(app: HttpApp[Any, Nothing]) =
-    Server2.Server
-      .serve(
-        app,
-      )
-      .provide(Server2.ServerConfig.default >>> Server2.Server.live)
+    Server.serve(app).provide(Server.default)
 //    Server
 //      .app(app)
 //      .withPort(8080)

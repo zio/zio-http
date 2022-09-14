@@ -19,13 +19,17 @@ object ServerSpec extends HttpRunnableSpec {
     content <- HttpGen.nonEmptyBody(Gen.const(data))
   } yield (data.mkString(""), content)
 
-  private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
-
   private val MaxSize             = 1024 * 10
-  private val app                 =
-    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(MaxSize)))
-  private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.requestDecompression(true)))
+  val configApp = ServerConfig.Config().withRequestDecompression(true, true).withObjectAggregator(MaxSize)
+  val envApp = DynamicServer.live ++ (ServerConfig.live(configApp) >>> Server.live) ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
+
+//  val configAppWithRequestStreaming = ServerConfig.Config().withRequestDecompression(true, true).withObjectAggregator(-1)
+//  private val envAppWithRequestStreaming =
+//    DynamicServer.live ++ (ServerConfig.live(configAppWithRequestStreaming) >>> Server.live) ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
+
+
+  private val app                 = serve(DynamicServer.app)
+ // private val appWithReqStreaming = serve(DynamicServer.app)
 
   def dynamicAppSpec = suite("DynamicAppSpec")(
     suite("success")(
@@ -315,8 +319,7 @@ object ServerSpec extends HttpRunnableSpec {
   override def spec =
     suite("Server") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
-      suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) } +
-        suite("app with request streaming") { ZIO.scoped(appWithReqStreaming.as(List(spec))) }
-    }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds) @@ sequential
+      suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
+    }.provideSomeLayerShared[TestEnvironment](envApp) @@ timeout(30 seconds) @@ sequential
 
 }

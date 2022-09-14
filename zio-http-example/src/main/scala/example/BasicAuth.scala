@@ -15,9 +15,5 @@ object BasicAuth extends ZIOAppDefault {
   val app: UHttpApp = user @@ basicAuth("admin", "admin")
 
   // Run it like any simple app
-  val run = Server2.Server
-    .serve(
-      app,
-    )
-    .provide(Server2.ServerConfig.default >>> Server2.Server.live)
+  val run = Server.serve(app).provide(Server.default)
 }

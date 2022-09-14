@@ -25,8 +25,10 @@ object AuthenticationServer extends ZIOAppDefault {
 
   // Helper to encode the JWT token
   def jwtEncode(username: String): String = {
-    val json  = s"""{"user": "${username}"}"""
-    val claim = JwtClaim { json }.issuedNow.expiresIn(300)
+    val json = s"""{"user": "${username}"}"""
+    val claim = JwtClaim {
+      json
+    }.issuedNow.expiresIn(300)
     Jwt.encode(claim, SECRET_KEY, JwtAlgorithm.HS512)
   }
 
@@ -51,9 +53,5 @@ object AuthenticationServer extends ZIOAppDefault {
   val app: UHttpApp = login ++ user
 
   // Run it like any simple app
-  override val run = Server2.Server
-    .serve(
-      app,
-    )
-    .provide(Server2.ServerConfig.default >>> Server2.Server.live)
+  override val run = Server.serve(app).provide(Server.default)
 }

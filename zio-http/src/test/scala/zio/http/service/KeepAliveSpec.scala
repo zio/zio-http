@@ -1,12 +1,12 @@
 package zio.http.service
 
 import io.netty.handler.codec.http.HttpHeaderValues
+import zio.durationInt
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.{HeaderNames, Headers, Http, Version}
+import zio.http._
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertZIO
-import zio.{Scope, durationInt}
 
 object KeepAliveSpec extends HttpRunnableSpec {
 
@@ -14,7 +14,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   val connectionCloseHeader       = Headers.connection(HttpHeaderValues.CLOSE)
   val keepAliveHeader             = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
   private val env                 =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
+    DynamicServer.live ++ Server.test ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
   private val appKeepAliveEnabled = serve(DynamicServer.app)
 
   def keepAliveSpec = suite("KeepAlive")(

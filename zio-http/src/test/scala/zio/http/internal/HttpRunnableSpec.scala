@@ -1,5 +1,6 @@
 package zio.http.internal
 
+import zio.ZIO
 import zio.http.Client.Config
 import zio.http.URL.Location
 import zio.http._
@@ -7,7 +8,6 @@ import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.socket.SocketApp
 import zio.test.ZIOSpecDefault
-import zio.{Scope, ZIO}
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would
@@ -57,7 +57,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, Request, Response] =
+    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv with EventLoopGroup, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
@@ -71,12 +71,12 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         }
       } yield response
 
-    def deployWS(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, SocketApp[HttpEnv], Response] =
+    def deployWS(implicit e: E <:< Throwable): Http[R with HttpEnv with EventLoopGroup, Throwable, SocketApp[HttpEnv], Response] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
-        response <- Http.fromFunctionZIO[SocketApp[HttpEnv]] { app =>
-          ZIO.scoped[HttpEnv](
+        response <- Http.fromFunctionZIO[SocketApp[HttpEnv with EventLoopGroup]] { app =>
+          ZIO.scoped[HttpEnv with EventLoopGroup](
             Client
               .socket(
                 url = url,
@@ -90,13 +90,12 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
 
   def serve[R](
     app: HttpApp[R, Throwable],
-    server: Option[Server[R, Throwable]] = None,
-  ): ZIO[R with EventLoopGroup with ServerChannelFactory with DynamicServer with Scope, Nothing, Unit] =
+    server: Option[Server] = None,
+  ): ZIO[R with DynamicServer with Server, Nothing, Unit] =
     for {
-      settings <- ZIO
-        .succeed(server.foldLeft(Server.app(app) ++ Server.port(0) ++ Server.paranoidLeakDetection)(_ ++ _))
-      start    <- Server.make(settings).orDie
-      _        <- DynamicServer.setStart(start)
+      server <- ZIO.service[Server]
+      _    <- Server.serve(app)
+      _        <- DynamicServer.setStart(server)
     } yield ()
 
   def status(

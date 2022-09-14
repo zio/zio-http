@@ -12,7 +12,6 @@ package object service extends Logging {
   type ChannelFactory       = JChannelFactory[JChannel]
   type EventLoopGroup       = JEventLoopGroup
   type ServerChannelFactory = JChannelFactory[ServerChannel]
-  type UServer              = Server[Any, Nothing]
   private[zio] type Ctx     = ChannelHandlerContext
   private[zio] val AUTO_RELEASE_REQUEST               = false
   private[zio] val SERVER_CODEC_HANDLER               = "SERVER_CODEC"

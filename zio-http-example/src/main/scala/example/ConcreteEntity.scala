@@ -25,9 +25,5 @@ object ConcreteEntity extends ZIOAppDefault {
 
   // Run it like any simple app
   val run =
-    Server2.Server
-      .serve(
-        app,
-      )
-      .provide(Server2.ServerConfig.default >>> Server2.Server.live)
+    Server.serve(app).provide(Server.default)
 }

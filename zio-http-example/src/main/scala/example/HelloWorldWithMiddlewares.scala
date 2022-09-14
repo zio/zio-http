@@ -34,9 +34,5 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
       serverTime
 
   // Run it like any simple app
-  val run = Server2.Server
-    .serve(
-      app @@ middlewares,
-    )
-    .provide(Server2.ServerConfig.default >>> Server2.Server.live)
+  val run = Server.serve(app @@ middlewares).provide(Server.default)
 }

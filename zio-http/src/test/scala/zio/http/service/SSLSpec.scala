@@ -3,20 +3,24 @@ package zio.http.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zio.http._
+import zio.http.internal.DynamicServer
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertZIO, check}
-import zio.{Scope, ZIO, durationInt}
+import zio.{ZIO, durationInt}
 
 object SSLSpec extends ZIOSpecDefault {
-  val env = EventLoopGroup.auto() ++ ChannelFactory.auto ++ ServerChannelFactory.auto ++ Scope.default
 
   val serverSSL  = ctxFromCert(
     getClass().getClassLoader().getResourceAsStream("server.crt"),
     getClass().getClassLoader().getResourceAsStream("server.key"),
   )
+  val config = ServerConfig.Config().withPort(8073).withSsl(ServerSSLOptions(serverSSL))
+  val env = DynamicServer.live ++ (ServerConfig.live(config) >>> Server.live)++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
+
+
   val clientSSL1 =
     SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt")).build()
   val clientSSL2 =
@@ -34,9 +38,7 @@ object SSLSpec extends ZIOSpecDefault {
   }
 
   override def spec = suite("SSL")(
-    Server
-      .make(Server.app(app) ++ Server.port(8073) ++ Server.ssl(ServerSSLOptions(serverSSL)))
-      .orDie
+    Server.serve(app)
       .as(
         List(
           test("succeed when client has the server certificate") {
