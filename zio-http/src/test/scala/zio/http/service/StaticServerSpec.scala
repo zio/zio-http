@@ -65,24 +65,6 @@ object StaticServerSpec extends HttpRunnableSpec {
     },
   )
 
-//  def serverStartSpec = suite("ServerStartSpec")(
-//    test("desired port") {
-//      val port = 8088
-//      ZIO.scoped {
-//        (Server.port(port) ++ Server.app(Http.empty)).make.flatMap { start =>
-//          assertZIO(ZIO.attempt(start.port))(equalTo(port))
-//        }
-//      }
-//    },
-//    test("available port") {
-//      ZIO.scoped {
-//        (Server.port(0) ++ Server.app(Http.empty)).make.flatMap { start =>
-//          assertZIO(ZIO.attempt(start.port))(not(equalTo(0)))
-//        }
-//      }
-//    },
-//  )
-
   override def spec =
     suite("Server") {
       app
