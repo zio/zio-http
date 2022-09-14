@@ -58,7 +58,7 @@ final case class QueryParams private[http] (map: Map[String, List[String]])
 
 object QueryParams {
 
-  def apply(tuples: Tuple2[String, List[String]]*): QueryParams =
+  def apply(tuples: (String, List[String])*): QueryParams =
     QueryParams(map = tuples.toList.groupBy(_._1).map { case (key, values) =>
       key -> values.flatMap(_._2)
     })
