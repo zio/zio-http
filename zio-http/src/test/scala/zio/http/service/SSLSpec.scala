@@ -81,8 +81,13 @@ object SSLSpec extends ZIOSpecDefault {
           },
         ),
       ),
-  ).provide(DynamicServer.live, ServerConfigLayer.live(config), Server.live,ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+  ).provide(
+    DynamicServer.live,
+    ServerConfigLayer.live(config),
+    Server.live,
+    ChannelFactory.nio,
+    EventLoopGroup.nio(0),
+  ) @@
     timeout(5 second) @@ ignore
-
 
 }

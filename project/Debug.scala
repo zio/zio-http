@@ -11,7 +11,7 @@ object Debug {
    *
    * Possible Values: DEBUG, ERROR, INFO, TRACE, WARN
    */
-  val ZIOHttpLogLevel = "TRACE"
+  val ZIOHttpLogLevel = "INFO"
 
   /**
    * Sets the main application to execute in the example project.

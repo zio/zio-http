@@ -2,8 +2,8 @@ package zio.http
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
+import zio._
 import zio.http.service._
-import zio.{Scope, UIO, URIO, ZEnvironment, ZIO, ZLayer, durationInt}
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
@@ -44,21 +44,21 @@ object Server {
 
   private def channelFactory(config: ServerConfig): UIO[ServerChannelFactory] = {
     config.channelType match {
-      case ChannelType.NIO => ServerChannelFactory.nio
-      case ChannelType.EPOLL => ServerChannelFactory.epoll
+      case ChannelType.NIO    => ServerChannelFactory.nio
+      case ChannelType.EPOLL  => ServerChannelFactory.epoll
       case ChannelType.KQUEUE => ServerChannelFactory.kQueue
-      case ChannelType.URING => ServerChannelFactory.uring
-      case ChannelType.AUTO => ServerChannelFactory.auto
+      case ChannelType.URING  => ServerChannelFactory.uring
+      case ChannelType.AUTO   => ServerChannelFactory.auto
     }
   }
 
   private def eventLoopGroup(config: ServerConfig): ZIO[Scope, Nothing, EventLoopGroup] = {
     config.channelType match {
-      case ChannelType.NIO => EventLoopGroup.Live.nio(config.nThreads)
-      case ChannelType.EPOLL => EventLoopGroup.Live.epoll(config.nThreads)
+      case ChannelType.NIO    => EventLoopGroup.Live.nio(config.nThreads)
+      case ChannelType.EPOLL  => EventLoopGroup.Live.epoll(config.nThreads)
       case ChannelType.KQUEUE => EventLoopGroup.Live.kQueue(config.nThreads)
-      case ChannelType.URING => EventLoopGroup.Live.uring(config.nThreads)
-      case ChannelType.AUTO => EventLoopGroup.Live.auto(config.nThreads)
+      case ChannelType.URING  => EventLoopGroup.Live.uring(config.nThreads)
+      case ChannelType.AUTO   => EventLoopGroup.Live.auto(config.nThreads)
     }
   }
 
@@ -80,7 +80,7 @@ object Server {
         }
         ()
       }
-    override def port[R]: URIO[R, Int]                                   = ZIO.succeed(bindPort)
+    override def port[R]: URIO[R, Int]                                     = ZIO.succeed(bindPort)
   }
 
 }

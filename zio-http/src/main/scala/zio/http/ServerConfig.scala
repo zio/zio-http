@@ -21,7 +21,7 @@ final case class ServerConfig private (
   def useAggregator: Boolean = objectAggregator >= 0
 
   /**
-   * Configure the server to use  HttpServerExpectContinueHandler to send a 100
+   * Configure the server to use HttpServerExpectContinueHandler to send a 100
    * HttpResponse if necessary.
    */
   def acceptContinue(enable: Boolean): ServerConfig = self.copy(acceptContinue = enable)
@@ -44,14 +44,14 @@ final case class ServerConfig private (
   def binding(inetSocketAddress: InetSocketAddress): ServerConfig = self.copy(address = inetSocketAddress)
 
   /**
-   * Configure the server to  use FlushConsolidationHandler to control the flush
+   * Configure the server to use FlushConsolidationHandler to control the flush
    * operations in a more efficient way if enabled (@see <a
    * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
    */
   def consolidateFlush(enable: Boolean): ServerConfig = self.copy(consolidateFlush = enable)
 
   /**
-   * Configure the server to  use netty FlowControlHandler if enable (@see <a
+   * Configure the server to use netty FlowControlHandler if enable (@see <a
    * href="https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html">FlowControlHandler</a>).
    */
   def flowControl(enable: Boolean): ServerConfig = self.copy(flowControl = enable)
@@ -70,8 +70,8 @@ final case class ServerConfig private (
   def leakDetection(level: LeakDetectionLevel): ServerConfig = self.copy(leakDetectionLevel = level)
 
   /**
-   * Configure the server to use HttpObjectAggregator with the specified max size
-   * of the aggregated content.
+   * Configure the server to use HttpObjectAggregator with the specified max
+   * size of the aggregated content.
    */
   def objectAggregator(maxRequestSize: Int = 1024 * 100): ServerConfig =
     self.copy(objectAggregator = maxRequestSize)
@@ -90,7 +90,7 @@ final case class ServerConfig private (
     self.copy(requestDecompression = (enabled, strict))
 
   /**
-   * Configure the server  with the following ssl options.
+   * Configure the server with the following ssl options.
    */
   def ssl(sslOptions: ServerSSLOptions): ServerConfig = self.copy(sslOption = sslOptions)
 

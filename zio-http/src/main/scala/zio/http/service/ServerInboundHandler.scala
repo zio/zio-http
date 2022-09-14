@@ -59,7 +59,7 @@ private[zio] final case class ServerInboundHandler[R](
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
     // TODO: need a different way to provide the error handler
 
-    //config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(f(cause))(ctx))
+    // config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(f(cause))(ctx))
   }
 }
 

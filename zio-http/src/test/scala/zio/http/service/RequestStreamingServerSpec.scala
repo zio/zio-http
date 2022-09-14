@@ -10,11 +10,9 @@ import zio.{ZIO, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
 
-   private val configAppWithRequestStreaming = ServerConfig
-     .default
-     .requestDecompression(true, true)
-     .objectAggregator(-1)
-
+  private val configAppWithRequestStreaming = ServerConfig.default
+    .requestDecompression(true, true)
+    .objectAggregator(-1)
 
   private val appWithReqStreaming = serve(DynamicServer.app)
 
@@ -55,7 +53,13 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       suite("app with request streaming") {
         ZIO.scoped(appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec)))
       }
-    }.provideShared(DynamicServer.live, ServerConfigLayer.live(configAppWithRequestStreaming), Server.live, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+    }.provideShared(
+      DynamicServer.live,
+      ServerConfigLayer.live(configAppWithRequestStreaming),
+      Server.live,
+      ChannelFactory.nio,
+      EventLoopGroup.nio(0),
+    ) @@
       timeout(10 seconds) @@ sequential
 
 }

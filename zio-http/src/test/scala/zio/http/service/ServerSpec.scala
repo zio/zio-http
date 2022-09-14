@@ -22,7 +22,6 @@ object ServerSpec extends HttpRunnableSpec {
   private val MaxSize = 1024 * 10
   val configApp       = ServerConfig.default.requestDecompression(true, true).objectAggregator(MaxSize)
 
-
   private val app = serve(DynamicServer.app)
 
   def dynamicAppSpec = suite("DynamicAppSpec")(
@@ -314,7 +313,12 @@ object ServerSpec extends HttpRunnableSpec {
     suite("Server") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
-    }.provideSomeShared[TestEnvironment](DynamicServer.live, ServerConfigLayer.live(configApp), Server.live,
-      ChannelFactory.nio, EventLoopGroup.nio(0)) @@ timeout(30 seconds) @@ sequential
+    }.provideSomeShared[TestEnvironment](
+      DynamicServer.live,
+      ServerConfigLayer.live(configApp),
+      Server.live,
+      ChannelFactory.nio,
+      EventLoopGroup.nio(0),
+    ) @@ timeout(30 seconds) @@ sequential
 
 }

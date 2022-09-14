@@ -91,11 +91,11 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   }
 
   def serve[R](
-    app: HttpApp[R, Throwable]
+    app: HttpApp[R, Throwable],
   ): ZIO[R with DynamicServer with Server, Nothing, Int] =
     for {
       server <- ZIO.service[Server]
-      port     <- Server.install(app)
+      port   <- Server.install(app)
       _      <- DynamicServer.setStart(server)
     } yield port
 

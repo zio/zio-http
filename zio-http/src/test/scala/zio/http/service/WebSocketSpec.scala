@@ -111,8 +111,6 @@ object WebSocketSpec extends HttpRunnableSpec {
     .provideShared(DynamicServer.live, Server.test, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
     timeout(30 seconds)
 
-
-
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
     def add(a: A, isDone: Boolean = false): UIO[Unit] = ref.update(_ :+ a) <* promise.succeed(()).when(isDone)
     def await: UIO[List[A]]                           = promise.await *> ref.get
