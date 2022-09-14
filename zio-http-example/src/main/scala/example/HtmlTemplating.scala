@@ -46,7 +46,9 @@ object HtmlTemplating extends ZIOAppDefault {
     }
   }
 
-  def run = Server2.Server.serve(
-    app
-  ).provide(Server2.ServerConfig.default >>> Server2.Server.live)
+  def run = Server2.Server
+    .serve(
+      app,
+    )
+    .provide(Server2.ServerConfig.default >>> Server2.Server.live)
 }

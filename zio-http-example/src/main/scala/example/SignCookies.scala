@@ -16,7 +16,9 @@ object SignCookies extends ZIOAppDefault {
   }
 
   // Run it like any simple app
-  val run = Server2.Server.serve(
-    app
-  ).provide(Server2.ServerConfig.default >>> Server2.Server.live)
+  val run = Server2.Server
+    .serve(
+      app,
+    )
+    .provide(Server2.ServerConfig.default >>> Server2.Server.live)
 }

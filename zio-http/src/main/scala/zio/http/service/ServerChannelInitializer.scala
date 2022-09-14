@@ -1,8 +1,12 @@
 package zio.http.service
 
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{ChannelHandler, ChannelInitializer, Channel => JChannel}
-import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_HEADER_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
+import io.netty.channel.{Channel => JChannel, ChannelHandler, ChannelInitializer}
+import io.netty.handler.codec.http.HttpObjectDecoder.{
+  DEFAULT_MAX_CHUNK_SIZE,
+  DEFAULT_MAX_HEADER_SIZE,
+  DEFAULT_MAX_INITIAL_LINE_LENGTH,
+}
 import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler

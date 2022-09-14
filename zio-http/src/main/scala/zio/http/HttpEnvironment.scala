@@ -1,12 +1,12 @@
 package zio.http
 
-import zio.UIO
 import io.netty.channel.{
   Channel => JChannel,
   ChannelFactory => JChannelFactory,
   EventLoopGroup => JEventLoopGroup,
   ServerChannel => JServerChannel,
 }
+import zio.UIO
 
 object HttpEnvironment {
 

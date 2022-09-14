@@ -5,7 +5,7 @@ import zio.http._
 
 object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
-  //private val PORT = 0
+  // private val PORT = 0
 
   private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "foo" => Response.text("bar")
@@ -24,11 +24,13 @@ object HelloWorldAdvanced extends ZIOAppDefault {
 
   val run = ZIOAppArgs.getArgs.flatMap { args =>
     // Configure thread count using CLI
-    //val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
+    // val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
-    Server2.Server.serve(
-      fooBar ++ app
-    ).provide(Server2.ServerConfig.default >>> Server2.Server.live)
+    Server2.Server
+      .serve(
+        fooBar ++ app,
+      )
+      .provide(Server2.ServerConfig.default >>> Server2.Server.live)
 
     // Create a new server
     /*server.make
@@ -37,8 +39,8 @@ object HelloWorldAdvanced extends ZIOAppDefault {
         Console.printLine(s"Server started on port ${start.port}")
 
         // Ensures the server doesn't die after printing
-          *> ZIO.never,
+     *> ZIO.never,
       )
-    *///  .provide(ServerChannelFactory.auto, EventLoopGroup.auto(nThreads), Scope.default)
+     */ //  .provide(ServerChannelFactory.auto, EventLoopGroup.auto(nThreads), Scope.default)
   }
 }

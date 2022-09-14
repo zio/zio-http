@@ -9,9 +9,11 @@ import zio.stream.ZStream
  */
 object StreamingResponse extends ZIOAppDefault {
   // Starting the server (for more advanced startup configuration checkout `HelloWorldAdvanced`)
-  def run = Server2.Server.serve(
-    app
-  ).provide(Server2.ServerConfig.default >>> Server2.Server.live)
+  def run = Server2.Server
+    .serve(
+      app,
+    )
+    .provide(Server2.ServerConfig.default >>> Server2.Server.live)
 
   // Create a message as a Chunk[Byte]
   def message                    = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))

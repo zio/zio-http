@@ -156,12 +156,12 @@ object Server {
 
   def acceptContinue: UServer = Server.AcceptContinue(true)
 
-  //def app[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
+  // def app[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
 
   /**
    * Creates a server from a http app.
    */
-  //def apply[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
+  // def apply[R, E](http: HttpApp[R, E]): Server[R, E] = Server.App(http)
 
   def bind(port: Int): UServer = Server.Address(new InetSocketAddress(port))
 
@@ -173,11 +173,11 @@ object Server {
 
   def enableObjectAggregator(maxRequestSize: Int = Int.MaxValue): UServer = ObjectAggregator(maxRequestSize)
 
- // def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
+  // def error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]): Server[R, Nothing] = Server.Error(errorHandler)
 
   def make[R](
     server: Server[R, Throwable],
-  ): ZIO[R with EventLoopGroup with ServerChannelFactory with Scope, Throwable, Start] =  ???
+  ): ZIO[R with EventLoopGroup with ServerChannelFactory with Scope, Throwable, Start] = ???
 //  {
 //    val settings = server.settings()
 //    for {
@@ -229,21 +229,17 @@ object Server {
    */
   final case class Start(port: Int = 0)
 
-
-
-
-
   private final case class Concat[R, E](self: Server[R, E], other: Server[R, E]) extends Server[R, E]
 
   private final case class LeakDetection(level: LeakDetectionLevel) extends UServer
 
- // private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
+  // private final case class Error[R](errorHandler: Throwable => ZIO[R, Nothing, Unit]) extends Server[R, Nothing]
 
   private final case class Ssl(sslOptions: ServerSSLOptions) extends UServer
 
   private final case class Address(address: InetSocketAddress) extends UServer
 
- // private final case class App[R, E](app: HttpApp[R, E]) extends Server[R, E]
+  // private final case class App[R, E](app: HttpApp[R, E]) extends Server[R, E]
 
   private final case class KeepAlive(enabled: Boolean) extends Server[Any, Nothing]
 
