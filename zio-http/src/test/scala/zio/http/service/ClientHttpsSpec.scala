@@ -15,7 +15,6 @@ import javax.net.ssl.TrustManagerFactory
 
 object ClientHttpsSpec extends ZIOSpecDefault {
 
-  val env                         = ChannelFactory.auto ++ EventLoopGroup.auto()
   val trustStore: KeyStore        = KeyStore.getInstance("JKS")
   val trustStorePassword: String  = "changeit"
   val trustStoreFile: InputStream = getClass().getClassLoader().getResourceAsStream("truststore.jks")
@@ -55,5 +54,5 @@ object ClientHttpsSpec extends ZIOSpecDefault {
         .exit
       assertZIO(actual)(fails(isSubtype[DecoderException](anything)))
     },
-  ).provideLayer(env) @@ timeout(30 seconds) @@ ignore
+  ).provide(ChannelFactory.auto, EventLoopGroup.auto()) @@ timeout(30 seconds) @@ ignore
 }

@@ -12,9 +12,6 @@ import zio.{Promise, Ref, UIO, ZIO, durationInt}
 
 object WebSocketSpec extends HttpRunnableSpec {
 
-  private val env =
-    DynamicServer.live ++ Server.test ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
-
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {
       for {
@@ -111,7 +108,10 @@ object WebSocketSpec extends HttpRunnableSpec {
       }.as(List(websocketSpec))
     }
   }
-    .provideLayerShared(env) @@ timeout(30 seconds)
+    .provideShared(DynamicServer.live, Server.test, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+    timeout(30 seconds)
+
+
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
     def add(a: A, isDone: Boolean = false): UIO[Unit] = ref.update(_ :+ a) <* promise.succeed(()).when(isDone)

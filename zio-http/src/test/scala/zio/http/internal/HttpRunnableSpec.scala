@@ -96,7 +96,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   ): ZIO[R with DynamicServer with Server, Nothing, Unit] =
     for {
       server <- ZIO.service[Server]
-      _      <- Server.serve(app)
+      _      <- Server.install(app)
       _      <- DynamicServer.setStart(server)
     } yield ()
 

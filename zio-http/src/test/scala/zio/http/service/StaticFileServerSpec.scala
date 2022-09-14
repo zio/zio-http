@@ -11,9 +11,6 @@ import java.io.File
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val env =
-    DynamicServer.live ++ Server.test ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
-
   private val fileOk       = Http.fromResource("TestFile.txt").deploy
   private val fileNotFound = Http.fromResource("Nothing").deploy
 
@@ -25,7 +22,8 @@ object StaticFileServerSpec extends HttpRunnableSpec {
 
   override def spec = suite("StaticFileServer") {
     ZIO.scoped(serve(DynamicServer.app).as(List(staticSpec)))
-  }.provideLayerShared(env) @@ timeout(5 seconds)
+  }.provideShared(DynamicServer.live, Server.test, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+    timeout(5 seconds)
 
   private def staticSpec = suite("Static RandomAccessFile Server")(
     suite("fromResource")(

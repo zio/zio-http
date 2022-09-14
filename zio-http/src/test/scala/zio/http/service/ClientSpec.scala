@@ -7,14 +7,11 @@ import zio.http.middleware.Auth.Credentials
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
-import zio.{ZIO, ZLayer, durationInt}
+import zio.{ZIO, durationInt}
 
 import java.net.ConnectException
 
 object ClientSpec extends HttpRunnableSpec {
-
-  private val env =
-    DynamicServer.live ++ Server.test ++ ChannelFactory.nio ++ EventLoopGroup.nio(0) ++ ZLayer.Debug.mermaid
 
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {
@@ -101,6 +98,7 @@ object ClientSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Client") {
       serve(DynamicServer.app).as(List(clientSpec))
-    }.provideLayerShared(env) @@ timeout(5 seconds) @@ sequential
+    }.provideShared(DynamicServer.live, Server.test, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+      timeout(5 seconds) @@ sequential
   }
 }

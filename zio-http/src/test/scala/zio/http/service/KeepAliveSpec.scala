@@ -13,8 +13,6 @@ object KeepAliveSpec extends HttpRunnableSpec {
   val app                         = Http.ok
   val connectionCloseHeader       = Headers.connection(HttpHeaderValues.CLOSE)
   val keepAliveHeader             = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
-  private val env                 =
-    DynamicServer.live ++ Server.test ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
   private val appKeepAliveEnabled = serve(DynamicServer.app)
 
   def keepAliveSpec = suite("KeepAlive")(
@@ -45,7 +43,8 @@ object KeepAliveSpec extends HttpRunnableSpec {
   override def spec = {
     suite("ServerConfigSpec") {
       appKeepAliveEnabled.as(List(keepAliveSpec))
-    }.provideLayerShared(env) @@ timeout(30.seconds)
+    }.provideShared(
+      DynamicServer.live, Server.test, ChannelFactory.nio,EventLoopGroup.nio(0)) @@ timeout(30.seconds)
   }
 
 }

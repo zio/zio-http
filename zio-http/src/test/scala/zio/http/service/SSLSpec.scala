@@ -8,7 +8,7 @@ import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{Gen, TestEnvironment, ZIOSpecDefault, assertZIO, check}
+import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
 import zio.{ZIO, durationInt}
 
 object SSLSpec extends ZIOSpecDefault {
@@ -17,11 +17,7 @@ object SSLSpec extends ZIOSpecDefault {
     getClass().getClassLoader().getResourceAsStream("server.crt"),
     getClass().getClassLoader().getResourceAsStream("server.key"),
   )
-  val config    = ServerConfig.default.withPort(8073).withSsl(ServerSSLOptions(serverSSL))
-  val env       =
-    DynamicServer.live ++ (ServerConfigLayer.live(config) >>> Server.live) ++ ChannelFactory.nio ++ EventLoopGroup.nio(
-      0,
-    )
+  val config    = ServerConfig.default.port(8073).ssl(ServerSSLOptions(serverSSL))
 
   val clientSSL1 =
     SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt")).build()
@@ -85,5 +81,8 @@ object SSLSpec extends ZIOSpecDefault {
           },
         ),
       ),
-  ).provideSomeLayer[TestEnvironment](env) @@ timeout(5 second) @@ ignore
+  ).provide(DynamicServer.live, ServerConfigLayer.live(config), Server.live,ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+    timeout(5 second) @@ ignore
+
+
 }
