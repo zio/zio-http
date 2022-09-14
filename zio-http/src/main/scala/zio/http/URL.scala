@@ -34,7 +34,7 @@ final case class URL(
 
   private[zio] def normalize: URL = {
     val queryParamsMap =
-      self.queryParams.queryParamsMap.toList.filter(i => i._1.nonEmpty && i._2.nonEmpty).sortBy(_._1).toMap
+      self.queryParams.toMap.toList.filter(i => i._1.nonEmpty && i._2.nonEmpty).sortBy(_._1).toMap
     self.copy(queryParams = QueryParams(queryParamsMap))
   }
 
@@ -128,7 +128,7 @@ object URL {
   def encode(url: URL): String = {
     def path: String = {
       val encoder = new QueryStringEncoder(s"${url.path.encode}")
-      url.queryParams.queryParamsMap.foreach { case (key, values) =>
+      url.queryParams.toMap.foreach { case (key, values) =>
         if (key != "") values.foreach { value => encoder.addParam(key, value) }
       }
 
@@ -221,7 +221,7 @@ object URL {
 
     }
 
-    def queryParamsMap: Map[String, List[String]] = map
+    def toMap: Map[String, List[String]] = map
 
     override def get(key: String): Option[List[String]] = map.get(key)
 
