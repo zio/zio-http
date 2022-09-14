@@ -15,29 +15,17 @@ import io.netty.handler.logging.LoggingHandler
 import ServerChannelInitializer.log
 import zio.http.service.logging.LogLevelTransform._
 import zio.logging.LogLevel
-// import zio._
-
-
-trait ZIOServerChannelInitializer extends ChannelInitializer[Channel]
-
-object ZIOServerChannelInitializer {
-
-  // def layer[R] = for {
-  //  driver <- ZIO.service[NettyDriver[R]]
-  // } yield ()
-}
-
+import zio._
 
 /**
  * Initializes the netty channel with default handlers
  */
 @Sharable
-private[zio] final case class ServerChannelInitializer[R](
+private[zio] final case class ServerChannelInitializer(
   cfg: ServerConfig,
-  reqHandler: ChannelHandler,
-  enableNettyLogging: Boolean = false
+  reqHandler: ChannelInboundHandler,
+  enableNettyLogging: Boolean = false,
 ) extends ChannelInitializer[Channel] {
-
 
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
@@ -102,6 +90,13 @@ private[zio] final case class ServerChannelInitializer[R](
 
 }
 
-private[zio] object ServerChannelInitializer {
+object ServerChannelInitializer {
   private val log = service.Log.withTags("Server", "Channel")
+
+  val layer = ZLayer.fromZIO {
+    for {
+      cfg     <- ZIO.service[ServerConfig]
+      handler <- ZIO.service[SimpleChannelInboundHandler[HttpObject]]
+    } yield ServerChannelInitializer(cfg, handler, false) // TODO add Netty logging flag to ServerConfig.
+  }
 }

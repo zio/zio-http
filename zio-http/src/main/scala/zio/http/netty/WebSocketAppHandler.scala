@@ -14,9 +14,9 @@ import zio.logging.Logger
  * A generic SocketApp handler that can be used on both - the client and the
  * server.
  */
-private[zio] final class WebSocketAppHandler[R](
-  zExec: NettyRuntime[R],
-  app: SocketApp[R],
+private[zio] final class WebSocketAppHandler(
+  zExec: NettyRuntime,
+  app: SocketApp[Any],
   isClient: Boolean,
 ) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 

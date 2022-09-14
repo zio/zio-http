@@ -4,14 +4,15 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import io.netty.util.AttributeKey
-import zio.ZIO
+import zio._
 import zio.http._
 import zio.http.service.ServerInboundHandler.{Unsafe, log}
 import zio.logging.Logger
+import java.util.concurrent.atomic.AtomicReference
 
 @Sharable
 private[zio] final case class ServerInboundHandler[R](
-  appRef: java.util.concurrent.atomic.AtomicReference[HttpApp[Any, Throwable]],
+  appRef: AtomicReference[HttpApp[Any, Throwable]],
   runtime: HttpRuntime[R],
   config: ServerConfig,
   time: ServerTime,

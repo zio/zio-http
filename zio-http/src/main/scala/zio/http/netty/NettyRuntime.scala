@@ -7,14 +7,14 @@ import io.netty.util.concurrent.GenericFutureListener
 import io.netty.util.concurrent.Future
 import scala.jdk.CollectionConverters._
 
-private[zio] trait NettyRuntime[R] { self =>
+private[zio] trait NettyRuntime { self =>
 
   private[zio] val log = NettyDriver.log
 
-  def runtime(ctx: ChannelHandlerContext): Runtime[R]
+  def runtime(ctx: ChannelHandlerContext): Runtime[Any]
 
-  def unsafeRun(ctx: ChannelHandlerContext, interruptOnClose: Boolean = true)(program: ZIO[R, Throwable, Any]): Unit = {
-    val rtm: Runtime[R] = runtime(ctx)
+  def unsafeRun(ctx: ChannelHandlerContext, interruptOnClose: Boolean = true)(program: ZIO[Any, Throwable, Any]): Unit = {
+    val rtm: Runtime[Any] = runtime(ctx)
 
     def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
       (_: Future[_ >: Void]) =>
@@ -62,7 +62,7 @@ private[zio] trait NettyRuntime[R] { self =>
     }
   }
 
-  def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[R, Throwable, Any]): Unit =
+  def unsafeRunUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[Any, Throwable, Any]): Unit =
     unsafeRun(ctx, interruptOnClose = false)(program)
 }
 
@@ -71,12 +71,12 @@ object NettyRuntime {
   /**
    * Creates a runtime that uses a separate thread pool for ZIO operations.
    */
-  def usingDedicatedThreadPool[R: Tag] = ZLayer.fromZIO {
+  def usingDedicatedThreadPool = ZLayer.fromZIO {
     ZIO
-      .runtime[R]
+      .runtime[Any]
       .map(rtm =>
-        new NettyRuntime[R] {
-          def runtime(ctx: ChannelHandlerContext): Runtime[R] = rtm
+        new NettyRuntime {
+          def runtime(ctx: ChannelHandlerContext): Runtime[Any] = rtm
         },
       )
   }
@@ -86,15 +86,15 @@ object NettyRuntime {
    * event loop. This should be the preferred way of creating the runtime for
    * the server.
    */
-  def usingSharedThreadPool[R: Tag] =
+  def usingSharedThreadPool =
     ZLayer.fromZIO {
       for {
         elg      <- ZIO.service[EventLoopGroup]
-        provider <- ZIO.runtime[R].flatMap { runtime =>
+        provider <- ZIO.runtime[Any].flatMap { runtime =>
           ZIO
             .foreach(elg.asScala) { javaExecutor =>
               val executor = Executor.fromJavaExecutor(javaExecutor)
-              ZIO.runtime[R].onExecutor(executor).map { runtime =>
+              ZIO.runtime[Any].onExecutor(executor).map { runtime =>
                 javaExecutor -> runtime
               }
             }
@@ -103,8 +103,8 @@ object NettyRuntime {
               (ctx: ChannelHandlerContext) => map.getOrElse(ctx.executor(), runtime)
             }
         }
-      } yield new NettyRuntime[R] {
-        def runtime(ctx: ChannelHandlerContext): Runtime[R] = provider(ctx)
+      } yield new NettyRuntime {
+        def runtime(ctx: ChannelHandlerContext): Runtime[Any] = provider(ctx)
       }
     }
 

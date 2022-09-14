@@ -9,6 +9,7 @@ private[zio] class ServerHttpsHandler(httpBehaviour: SSLHttpBehaviour)
     extends SimpleChannelInboundHandler[HttpMessage] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpMessage): Unit = {
 
+    // TODO: PatMat maybe???
     if (msg.isInstanceOf[HttpMessage]) {
       if (httpBehaviour == SSLHttpBehaviour.Redirect) {
         val message  = msg.asInstanceOf[HttpMessage]

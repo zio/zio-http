@@ -42,6 +42,30 @@ object Server {
     } yield ServerLive(appRef, port)
   }
 
+  val base: ZIO[Scope with Driver with AtomicReference[HttpApp[Any, Throwable]], Throwable, Server] =
+    for {
+      driver <- ZIO.service[Driver]
+      appRef <- ZIO.service[AtomicReference[HttpApp[Any, Throwable]]]
+      port   <- driver.start()
+    } yield ServerLive(appRef, port)
+
+  val nettyLive: ZLayer[ServerConfig, Throwable, Server] = {
+    val appRef = ZLayer.succeed(new AtomicReference[HttpApp[Any, Throwable]](Http.empty))
+    val time   = ZLayer.succeed(ServerTime.make(1000 millis))
+    ZLayer.scoped {
+      base.provideSome[ServerConfig & Scope](
+        netty.NettyDriver.layer,
+        appRef,
+        time,
+        netty.ServerChannelInitializer.layer,
+        netty.ServerInboundHandler.layer,
+        netty.Channels.Server.fromConfig,
+        netty.EventLoopGroups.fromConfig,
+        netty.NettyRuntime.usingSharedThreadPool,
+      )
+    }
+  }
+
   private def channelFactory(config: ServerConfig): UIO[ServerChannelFactory] = {
     config.channelType match {
       case ChannelType.NIO    => ServerChannelFactory.nio
@@ -62,7 +86,7 @@ object Server {
     }
   }
 
-  val test = ServerConfigLayer.testServerConfig >>> live
+  val test = ServerConfigLayer.testServerConfig >>> nettyLive
 
   private final case class ServerLive(
     appRef: java.util.concurrent.atomic.AtomicReference[HttpApp[Any, Throwable]],
