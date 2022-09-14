@@ -74,11 +74,11 @@ final case class Handler2[A](
   handler: A => ZIO[Any, Throwable, Response],
 )
 
-object ServerInterpreter2 {
-  def run(handlers: List[Handler2[_]]): Unit = {
-    val optimized = ???
-  }
-}
+//object ServerInterpreter2 {
+//  def run(handlers: List[Handler2[_]]): Unit = {
+//    val optimized = ???
+//  }
+//}
 
 // TODO: Add [-R, +E]
 sealed trait OptimizedRouteCodec extends Product with Serializable { self =>
