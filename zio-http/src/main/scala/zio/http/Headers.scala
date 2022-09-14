@@ -1,16 +1,15 @@
 package zio.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zio.Chunk
 import zio.http.Headers.Header
 import zio.http.headers.{HeaderConstructors, HeaderExtension}
 
 import scala.jdk.CollectionConverters._
 
 /**
- * Represents an immutable collection of headers i.e. essentially a
- * Chunk[(String, String)]. It extends HeaderExtensions and has a ton of
- * powerful operators that can be used to add, remove and modify headers.
+ * Represents an immutable collection of headers. It extends HeaderExtensions
+ * and has a ton of powerful operators that can be used to add, remove and
+ * modify headers.
  *
  * NOTE: Generic operators that are not specific to `Headers` should not be
  * defined here. A better place would be one of the traits extended by
@@ -29,13 +28,13 @@ sealed trait Headers extends HeaderExtension[Headers] with Iterable[Header] {
 
   private[http] def encode: HttpHeaders
 
-  def flatten: Chunk[Header]
+  def flatten: Iterable[Header]
 
   override final def headers: Headers = self
 
   override def iterator: Iterator[Header]
 
-  final def modify(f: Header => Header): Headers = Headers.FromChunk(flatten.map(f))
+  final def modify(f: Header => Header): Headers = Headers.FromIterable(flatten.map(f))
 
   override final def updateHeaders(update: Headers => Headers): Headers = update(self)
 
@@ -56,7 +55,7 @@ object Headers extends HeaderConstructors {
 
     override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
 
-    def flatten: Chunk[Header] = Chunk(self)
+    def flatten: Iterable[Header] = Iterable(self)
 
     override def iterator: Iterator[Header] =
       Iterator.single(self)
@@ -66,16 +65,15 @@ object Headers extends HeaderConstructors {
 
   }
 
-  // todo make it FromIterable - then flatten can return an iterable of Header
-  final case class FromChunk private[zio] (toChunk: Chunk[Header]) extends Headers {
+  final case class FromIterable private[zio] (iter: Iterable[Header]) extends Headers with Iterable[Header] {
     self =>
 
     private[http] def encode: HttpHeaders = Headers.encode(self.toList)
 
-    def flatten: Chunk[Header] = toChunk.flatMap(_.flatten)
+    def flatten: Iterable[Header] = iter.flatMap(_.flatten)
 
     override def iterator: Iterator[Header] =
-      toChunk.iterator.flatMap(_.iterator)
+      iter.iterator.flatMap(_.iterator)
 
   }
 
@@ -84,8 +82,8 @@ object Headers extends HeaderConstructors {
 
     override private[http] def encode: HttpHeaders = toJHeaders
 
-    def flatten: Chunk[Header] =
-      Chunk.fromIterable(toJHeaders.entries().asScala.map(e => Header(e.getKey, e.getValue)))
+    def flatten: Iterable[Header] =
+      toJHeaders.entries().asScala.map(e => Header(e.getKey, e.getValue))
 
     override def iterator: Iterator[Header] =
       toJHeaders.entries().asScala.map(e => Header(e.getKey, e.getValue)).iterator
@@ -97,7 +95,7 @@ object Headers extends HeaderConstructors {
 
     override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
 
-    override def flatten: Chunk[Header] = first.flatten ++ second.flatten
+    override def flatten: Iterable[Header] = first.flatten ++ second.flatten
 
     override def iterator: Iterator[Header] =
       first.iterator ++ second.iterator
@@ -109,7 +107,7 @@ object Headers extends HeaderConstructors {
 
     override private[http] def encode: HttpHeaders = new DefaultHttpHeaders()
 
-    override def flatten: Chunk[Header] = Chunk.empty
+    override def flatten: Iterable[Header] = Iterable.empty
 
     override def iterator: Iterator[Header] =
       Iterator.empty
@@ -123,9 +121,9 @@ object Headers extends HeaderConstructors {
 
   def apply(tuple2: (CharSequence, CharSequence)): Headers = Headers.Header(tuple2._1, tuple2._2)
 
-  def apply(headers: Header*): Headers = FromChunk(Chunk.fromIterable(headers))
+  def apply(headers: Header*): Headers = FromIterable(headers)
 
-  def apply(iter: Iterable[Header]): Headers = FromChunk(Chunk.fromIterable(iter))
+  def apply(iter: Iterable[Header]): Headers = FromIterable(iter)
 
   private[http] def decode(headers: HttpHeaders): Headers = FromJHeaders(headers)
 
