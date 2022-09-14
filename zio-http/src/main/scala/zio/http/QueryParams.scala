@@ -22,21 +22,17 @@ final case class QueryParams private[http] (map: Map[String, List[String]])
       (key, values.flatMap(_._2))
     })
 
-  def add(key: String, value: String): QueryParams = if (map.contains(key)) {
-    self.copy(
-      map = map.map { case (key, oldValue) =>
-        (key, oldValue :+ value)
-      },
-    )
-  } else self.copy(map = map.updated(key, List(value)))
+  def add(key: String, value: String): QueryParams =
+    add(key, List(value))
 
-  def add(key: String, value: List[String]): QueryParams = if (map.contains(key)) {
-    self.copy(
-      map = map.map { case (key, oldValue) =>
-        (key, oldValue ++ value)
-      },
-    )
-  } else self.copy(map = map.updated(key, value))
+  def add(key: String, value: List[String]): QueryParams = {
+    val previousValue = map.get(key)
+    val newValue      = previousValue match {
+      case Some(prev) => prev ++ value
+      case None       => value
+    }
+    QueryParams(map.updated(key, newValue))
+  }
 
   def encode: String = {
     val encoder = new QueryStringEncoder(s"")

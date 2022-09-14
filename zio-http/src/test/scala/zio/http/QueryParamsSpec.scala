@@ -74,6 +74,54 @@ object QueryParamsSpec extends ZIOSpecDefault {
           }
         },
       ),
+      suite("add")(
+        test("success when non list input value") {
+          val gens = Gen.fromIterable(
+            List(
+              (
+                QueryParams(Map("a" -> List("foo"), "b" -> List("bar"))),
+                "a",
+                "faa",
+                QueryParams(Map("a" -> List("foo", "faa"), "b" -> List("bar"))),
+              ),
+              (
+                QueryParams(Map("a" -> List("foo"), "b" -> List("bar, baz"))),
+                "c",
+                "fee",
+                QueryParams(Map("a" -> List("foo"), "b" -> List("bar, baz"), "c" -> List("fee"))),
+              ),
+            ),
+          )
+
+          checkAll(gens) { case (initial, key, value, expected) =>
+            val actual = initial.add(key, value)
+            assert(actual)(equalTo(expected))
+          }
+        },
+        test("success when list input value") {
+          val gens = Gen.fromIterable(
+            List(
+              (
+                QueryParams(Map("a" -> List("foo"), "b" -> List("bar"))),
+                "a",
+                List("faa", "fee"),
+                QueryParams(Map("a" -> List("foo", "faa", "fee"), "b" -> List("bar"))),
+              ),
+              (
+                QueryParams(Map("a" -> List("foo"), "b" -> List("bar, baz"))),
+                "c",
+                List("fee", "faa"),
+                QueryParams(Map("a" -> List("foo"), "b" -> List("bar, baz"), "c" -> List("fee", "faa"))),
+              ),
+            ),
+          )
+
+          checkAll(gens) { case (initial, key, value, expected) =>
+            val actual = initial.add(key, value)
+            assert(actual)(equalTo(expected))
+          }
+        },
+      ),
       suite("apply")(
         test("from tuples") {
           val gens = Gen.fromIterable(
