@@ -70,7 +70,7 @@ object QueryParams {
       val decoder = new QueryStringDecoder(queryStringFragment, false)
       val params  = decoder.parameters()
       QueryParams(params.asScala.view.map { case (k, v) =>
-        (k, v.asScala.toList)
+        (k, v.asScala.toList.flatMap(_.split(",")))
       }.toMap)
     }
 

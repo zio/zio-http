@@ -96,48 +96,5 @@ object URLSpec extends ZIOSpecDefault {
           }
         },
       ),
-      suite("QueryParams")(
-        suite("encode")(
-          test("successfully returns encoded string") {
-            val urls = Gen.fromIterable(
-              Seq(
-                "",
-                "/",
-                "/users?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
-                "/users?ord=ASC&txt=scala%20is%20awesome%21&u=1%2C2",
-                "/users",
-                "/users#the%20hash",
-                "http://abc.com",
-                "http://abc.com/",
-                "http://abc.com/list",
-                "http://abc.com/users?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
-                "http://abc.com/users?u=1&u=2&ord=ASC&txt=scala%20is%20awesome%21",
-                "http://abc.com/users?u=1#the%20hash",
-                "http://abc.com/users",
-                "http://abc.com/users/?u=1&u=2&ord=ASC&txt=scala%3Fis%2Bawesome%21",
-                "http://abc.com/users#the%20hash",
-                "ws://abc.com/subscriptions",
-                "ws://abc.com/subscriptions?",
-                "wss://abc.com/subscriptions?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
-              ),
-            )
-
-            checkAll(urls) { genUrl =>
-              val url                          = URL.fromString(genUrl)
-              val actualQueryParamsEither      = url.map(_.queryParams.encode)
-              val genUrlQueryParamsWithoutHash =
-                if (genUrl.isEmpty) Nil else genUrl.split("#")(0).split("\\?").toList
-
-              val fixtureQueryParamsString = genUrlQueryParamsWithoutHash.reverse match {
-                case Nil                      => ""
-                case ::(_, Nil)               => ""
-                case ::(queryParamsString, _) => s"?$queryParamsString"
-              }
-
-              assertTrue(actualQueryParamsEither.exists(fixtureQueryParamsString.equals))
-            }
-          },
-        ),
-      ),
     )
 }
