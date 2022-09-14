@@ -1,4 +1,5 @@
 package zio.http
+package netty
 
 sealed trait ChannelType
 

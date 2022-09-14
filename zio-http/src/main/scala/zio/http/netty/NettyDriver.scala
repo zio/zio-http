@@ -14,12 +14,12 @@ private[zio] final case class NettyDriver[R](
   channelInitializer: ChannelInitializer[Channel],
   eventLoopGroup: EventLoopGroup,
   requestHandler: SimpleChannelInboundHandler[HttpObject],
-  serverConfig: Server.Config[R, Throwable],
+  serverConfig: ServerConfig,
 ) extends Driver[R] { self =>
 
   private[zio] val log = NettyDriver.log
 
-  def start(httpApp: HttpApp[R, Throwable]): RIO[R with Scope, Server.Start] =
+  def start(httpApp: HttpApp[R, Throwable]): RIO[R with Scope, Unit] =
     for {
       //   channelFactory <- ZIO.service[ServerChannelFactory]
       //   eventLoopGroup <- ZIO.service[EventLoopGroup]
@@ -37,7 +37,7 @@ private[zio] final case class NettyDriver[R](
       log.debug(s"Keep Alive: [${serverConfig.keepAlive}]")
       log.debug(s"Leak Detection: [${serverConfig.leakDetectionLevel}]")
       log.debug(s"Transport: [${eventLoopGroup.getClass.getName}]")
-      Server.Start(port)
+      // Server.Start(port)
     }
 
 }
@@ -50,7 +50,7 @@ object NettyDriver {
     with ChannelFactory[ServerChannel]
     with ChannelInitializer[Channel]
     with EventLoopGroup
-    with Server.Config[R, Throwable]
+    with ServerConfig
     with SimpleChannelInboundHandler[HttpObject]
 
   def layer[R: Tag]: URIO[Env[R], Driver[R]] =
@@ -59,7 +59,7 @@ object NettyDriver {
       cInit      <- ZIO.service[ChannelInitializer[Channel]]
       elg        <- ZIO.service[EventLoopGroup]
       reqHandler <- ZIO.service[SimpleChannelInboundHandler[HttpObject]]
-      sc         <- ZIO.service[Server.Config[R, Throwable]]
+      sc         <- ZIO.service[ServerConfig]
     } yield new NettyDriver(
       channelFactory = cf,
       channelInitializer = cInit,

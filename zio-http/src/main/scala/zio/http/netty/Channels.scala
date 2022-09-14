@@ -7,6 +7,7 @@ import io.netty.channel.kqueue._
 import io.netty.channel.socket.nio._
 import io.netty.incubator.channel.uring._
 import io.netty.channel.embedded.EmbeddedChannel
+import zio.http.ServerConfig
 
 object Channels {
 
@@ -14,7 +15,7 @@ object Channels {
     override def newChannel(): A = channel
   })
 
-  private[zio] def serverChannel[A <: ServerChannel](channel: => A) = ZLayer.fromZIO(make[ServerChannel](channel))
+  private[zio] def serverChannel[A <: ServerChannel](channel: => A) = make[ServerChannel](channel)
 
   private[zio] def clientChannel(channel: => Channel) = ZLayer.fromZIO(make(channel))
 
@@ -22,11 +23,23 @@ object Channels {
     def nio    = serverChannel(new NioServerSocketChannel())
     def epoll  = serverChannel(new EpollServerSocketChannel())
     def uring  = serverChannel(new IOUringServerSocketChannel())
-    def kQueue = serverChannel(new KQueueServerSocketChannel())
-    def layer  =
+    def kqueue = serverChannel(new KQueueServerSocketChannel())
+    def auto   =
       if (Epoll.isAvailable) epoll
-      else if (KQueue.isAvailable) kQueue
+      else if (KQueue.isAvailable) kqueue
       else nio
+
+    val fromConfig = ZLayer.fromZIO {
+      ZIO.service[ServerConfig].flatMap {
+        _.channelType match {
+          case ChannelType.NIO    => nio
+          case ChannelType.EPOLL  => epoll
+          case ChannelType.KQUEUE => kqueue
+          case ChannelType.URING  => uring
+          case ChannelType.AUTO   => auto
+        }
+      }
+    }
   }
 
   object Client {

@@ -12,7 +12,6 @@ import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
-import zio.http.Server.Config
 import ServerChannelInitializer.log
 import zio.http.service.logging.LogLevelTransform._
 import zio.logging.LogLevel
@@ -34,7 +33,7 @@ object ZIOServerChannelInitializer {
  */
 @Sharable
 private[zio] final case class ServerChannelInitializer[R](
-  cfg: Config[R, Throwable],
+  cfg: ServerConfig,
   reqHandler: ChannelHandler,
   enableNettyLogging: Boolean = false
 ) extends ChannelInitializer[Channel] {
@@ -50,7 +49,7 @@ private[zio] final case class ServerChannelInitializer[R](
     val sslctx   = if (cfg.sslOption == null) null else cfg.sslOption.sslContext
     if (sslctx != null)
       pipeline
-        .addFirst(service.SSL_HANDLER, new ServerSSLDecoder(sslctx, cfg.sslOption.httpBehaviour, cfg))
+        .addFirst(Names.SSLHandler, new ServerSSLDecoder(sslctx, cfg.sslOption.httpBehaviour, cfg))
 
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
@@ -97,7 +96,7 @@ private[zio] final case class ServerChannelInitializer[R](
     // RequestHandler
     // Always add ZIO Http Request Handler
     pipeline.addLast(Names.HttpRequestHandler, reqHandler)
-    if (cfg.channelInitializer != null) { cfg.channelInitializer(pipeline) }
+    // TODO: find a different approach if (cfg.channelInitializer != null) { cfg.channelInitializer(pipeline) }
     ()
   }
 

@@ -14,7 +14,7 @@ import zio.logging.Logger
 private[zio] final case class ServerInboundHandler[R](
   http: HttpApp[R, Throwable],
   runtime: NettyRuntime[R],
-  config: Server.Config[R, Throwable],
+  config: ServerConfig,
   time: service.ServerTime,
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with ServerWebSocketUpgrade[R]
@@ -58,7 +58,11 @@ private[zio] final case class ServerInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(ctx)(f(cause)))
+    // TODO: need a different way to provide the error handler
+
+    // config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(f(cause))(ctx))
+
+
   }
 }
 
@@ -80,7 +84,7 @@ private[zio] object ServerInboundHandler {
     /**
      * Enables auto-read if possible. Also performs the first read.
      */
-    def attemptAutoRead[R, E](config: Server.Config[R, E])(implicit ctx: ChannelHandlerContext): Unit = {
+    def attemptAutoRead[R, E](config: ServerConfig)(implicit ctx: ChannelHandlerContext): Unit = {
       if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
         ctx.channel().config().setAutoRead(true)
         ctx.read(): Unit
