@@ -3,7 +3,7 @@ package zio.http
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
 import zio.http.service._
-import zio.{URIO, ZEnvironment, ZIO, ZLayer, durationInt}
+import zio.{Scope, UIO, URIO, ZEnvironment, ZIO, ZLayer, durationInt}
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
@@ -24,11 +24,11 @@ object Server {
 
   val default = ServerConfigLayer.default >>> live
 
-  val live: ZLayer[ServerConfig with EventLoopGroup with ServerChannelFactory, Throwable, Server] = ZLayer.scoped {
+  val live: ZLayer[ServerConfig, Throwable, Server] = ZLayer.scoped {
     for {
-      channelFactory <- ZIO.service[ServerChannelFactory]
-      eventLoopGroup <- ZIO.service[EventLoopGroup]
       settings       <- ZIO.service[ServerConfig]
+      channelFactory <- channelFactory(settings)
+      eventLoopGroup <- eventLoopGroup(settings)
       rtm            <- HttpRuntime.sticky[Any](eventLoopGroup)
       time   = ServerTime.make(1000 millis)
       appRef = new AtomicReference[HttpApp[Any, Throwable]](Http.empty)
@@ -40,6 +40,26 @@ object Server {
       _    <- ZIO.succeed(ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel))
       port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield ServerLive(appRef, port)
+  }
+
+  private def channelFactory(config: ServerConfig): UIO[ServerChannelFactory] = {
+    config.channelType match {
+      case ChannelType.NIO => ServerChannelFactory.nio
+      case ChannelType.EPOLL => ServerChannelFactory.epoll
+      case ChannelType.KQUEUE => ServerChannelFactory.kQueue
+      case ChannelType.URING => ServerChannelFactory.uring
+      case ChannelType.AUTO => ServerChannelFactory.auto
+    }
+  }
+
+  private def eventLoopGroup(config: ServerConfig): ZIO[Scope, Nothing, EventLoopGroup] = {
+    config.channelType match {
+      case ChannelType.NIO => EventLoopGroup.Live.nio(config.nThreads)
+      case ChannelType.EPOLL => EventLoopGroup.Live.epoll(config.nThreads)
+      case ChannelType.KQUEUE => EventLoopGroup.Live.kQueue(config.nThreads)
+      case ChannelType.URING => EventLoopGroup.Live.uring(config.nThreads)
+      case ChannelType.AUTO => EventLoopGroup.Live.auto(config.nThreads)
+    }
   }
 
   val test = ServerConfigLayer.testServerConfig >>> live

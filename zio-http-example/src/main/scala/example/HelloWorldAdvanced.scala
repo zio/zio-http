@@ -24,9 +24,9 @@ object HelloWorldAdvanced extends ZIOAppDefault {
     val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
     val config      = ServerConfig.default
-      .withPort(PORT)
-      .withLeakDetection(LeakDetectionLevel.PARANOID)
-      .withMaxThreads(nThreads)
+      .port(PORT)
+      .leakDetection(LeakDetectionLevel.PARANOID)
+      .maxThreads(nThreads)
     val configLayer = ServerConfigLayer.live(config)
 
     (Server.install(fooBar ++ app).flatMap { port =>

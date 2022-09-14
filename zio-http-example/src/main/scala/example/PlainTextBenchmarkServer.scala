@@ -39,12 +39,12 @@ object Main extends ZIOAppDefault {
   } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
 
   private val config = ServerConfig.default
-    .withPort(8000)
-    .withMaxThreads(8)
-    .withLeakDetection(LeakDetectionLevel.DISABLED)
-    .withConsolidateFlush(true)
-    .withFlowControl(false)
-    .withObjectAggregator(-1)
+    .port(8000)
+    .maxThreads(8)
+    .leakDetection(LeakDetectionLevel.DISABLED)
+    .consolidateFlush(true)
+    .flowControl(false)
+    .objectAggregator(-1)
 
   private val configLayer = ServerConfigLayer.live(config)
 

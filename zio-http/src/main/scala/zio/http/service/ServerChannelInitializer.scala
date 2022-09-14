@@ -82,7 +82,7 @@ final case class ServerChannelInitializer[R](
     // RequestHandler
     // Always add ZIO Http Request Handler
     pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
-    if (cfg.channelInitializer != null) { cfg.channelInitializer(pipeline) }
+    //TODO: find a different approach if (cfg.channelInitializer != null) { cfg.channelInitializer(pipeline) }
     ()
   }
 
