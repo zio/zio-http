@@ -10,7 +10,8 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
   type RHttpApp[-R]                          = HttpApp[R, Throwable]
   type UHttp[-A, +B]                         = Http[Any, Nothing, A, B]
   type ResponseZIO[-R, +E]                   = ZIO[R, E, Response]
-  type Header                                = (CharSequence, CharSequence)
+  type Header                                = Headers.Header
+  val Header = Headers.Header
   type UMiddleware[+AIn, -BIn, -AOut, +BOut] = Middleware[Any, Nothing, AIn, BIn, AOut, BOut]
 
   /**

@@ -73,7 +73,7 @@ object Cors {
   private def buildHeaders(headerName: String, values: Option[Set[String]]): Headers = {
     values match {
       case Some(headerValues) =>
-        Headers(headerValues.toList.map(value => headerName -> value))
+        Headers(headerValues.toList.map(value => Header(headerName, value)))
       case None               => Headers.empty
     }
   }
