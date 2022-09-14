@@ -59,7 +59,7 @@ object QueryParamsSpec extends ZIOSpecDefault {
         },
       ),
       suite("apply")(
-        test("success") {
+        test("from tuples") {
           val gens = Gen.fromIterable(
             Seq(
               (
