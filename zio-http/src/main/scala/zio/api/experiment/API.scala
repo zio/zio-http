@@ -7,11 +7,13 @@ import zio.Chunk
 import java.util.UUID
 import scala.language.implicitConversions
 
+// TODO: Index Atom
 trait Schema[A]
 
 final case class API[Input, Output](
   method: Method,
   inputCodec: InputCodec[Input],
+//  outputCodec: OutputCodec[Input],
 ) {
   def header[A](headerParser: HeaderParser[A])(implicit combiner: Combiner[Input, A]): API[combiner.Out, Output] =
     copy(inputCodec = inputCodec ++ InputCodec.Header(headerParser))
@@ -22,6 +24,11 @@ object API {
     API(Method.GET, InputCodec.liftRoute(route))
 }
 
+// TODO:
+// - move index to Atom itself
+// - remove need for RouteParser Combine
+//   - alternative: type member on InputCodec
+//   - make / only accept Routes
 sealed trait RouteParser[A] { self =>
   def /[B](that: RouteParser[B])(implicit combiner: Combiner[A, B]): RouteParser[combiner.Out] =
     RouteParser.Combine(self, that, combiner)
@@ -76,14 +83,16 @@ object InputCodec {
   //     UserWithId(id, user)
   //   }
   //   .input("posts")
-
   // "users" / id / "posts"
 
-  case object Empty                                               extends Atom[Unit]
-  final case class Route[A](segmentParser: RouteParser[A])        extends Atom[A]
-  final case class InputBody[A](input: Schema[A])                 extends Atom[A]
-  final case class Query[A](queryParser: QueryParser[A])          extends Atom[A]
-  final case class Header[A](headerParser: HeaderParser[A])       extends Atom[A]
+  case object Empty                                         extends Atom[Unit]
+  final case class Route[A](segmentParser: RouteParser[A])  extends Atom[A]
+  final case class InputBody[A](input: Schema[A])           extends Atom[A]
+  final case class Query[A](queryParser: QueryParser[A])    extends Atom[A]
+  final case class Header[A](headerParser: HeaderParser[A]) extends Atom[A]
+
+  // - 0
+  // - pre-index
   final case class IndexedAtom[A](atom: Atom[A], index: Int)      extends Atom[A]
   final case class Transform[X, A](api: InputCodec[X], f: X => A) extends InputCodec[A]
 
@@ -114,7 +123,7 @@ object InputCodec {
   private def indexed[A](api: InputCodec[A]): InputCodec[A] =
     indexedImpl(api, 0)._1
 
-  private def indexedImpl[A](api: InputCodec[A], start: Int): (InputCodec[A], Int) = {
+  private def indexedImpl[A](api: InputCodec[A], start: Int): (InputCodec[A], Int) =
     api.asInstanceOf[InputCodec[_]] match {
       case Combine(left, right, inputCombiner) =>
         val (left2, leftEnd)   = indexedImpl(left, start)
@@ -126,7 +135,6 @@ object InputCodec {
         val (api2, end) = indexedImpl(api, start)
         (Transform(api2, f).asInstanceOf[InputCodec[A]], end)
     }
-  }
 
   def thread[A](api: InputCodec[A]): Constructor[A] =
     threadIndexed(indexed(api))
@@ -229,24 +237,11 @@ object Example extends App {
 
   import InputCodec._
 
-  // OptRouteParser -> Chunk[(Any, Int)]
-  // HeaderParser -> Chunk[(Any, Int)]
-
-  // 0         1         2         3         4         5         6
-  // route1 ++ route2 ++ query1 ++ route3 ++ query2 ++ header1 ++ header2
-
-  //           0         1        3
-  // routes = route1 ++ route2 ++ route3
-  //           2        4
-  // queries = query1 ++ query2 // Chunk((???, 2), (???, 4))
-  // headers = header1 ++ header2
-
-  // thread((routes ++ queries ++ headers).sort)
-
-  val sample      = literal("users") ++ int ++ literal("posts") ++ int ++ literal("comments") ++ int
-  val result      = Chunk((), 100, (), 500, (), 900)
-  val constructor = thread(sample)
-  val threaded    = constructor(result)
+  val sample: InputCodec[(Int, Int, Int)] =
+    literal("users") ++ int ++ literal("posts") ++ int ++ literal("comments") ++ int
+  val result                              = Chunk((), 100, (), 500, (), 900)
+  val constructor                         = thread(sample)
+  val threaded                            = constructor(result)
 
   println(threaded)
 }
@@ -256,8 +251,9 @@ object Example2 extends App {
   import zio.Chunk
   import InputCodec._
 
-  val sample                    = literal("users") ++ int.map(n => ("Adam", n * 2)) ++ literal("posts") ++ int
-  val flattened: Chunk[Atom[_]] = flatten(sample)
+  val sample: InputCodec[(String, Int, Int)] =
+    literal("users") ++ int.map(n => ("Adam", n * 2)) ++ literal("posts") ++ int
+  val flattened: Chunk[Atom[_]]              = flatten(sample)
   println(flattened)
 
   val result = Chunk((), 500, (), 900)
