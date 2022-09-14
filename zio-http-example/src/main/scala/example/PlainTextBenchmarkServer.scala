@@ -3,7 +3,6 @@ package example
 import io.netty.util.AsciiString
 import zio._
 import zio.http._
-import zio.http.service.{EventLoopGroup, ServerChannelFactory}
 
 /**
  * This server is used to run plaintext benchmarks on CI.
@@ -39,20 +38,19 @@ object Main extends ZIOAppDefault {
     jsonResponse      <- frozenJsonResponse
   } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
 
+  private val config = ServerConfig.default
+    .withPort(8000)
+    .withMaxThreads(8)
+    .withLeakDetection(LeakDetectionLevel.DISABLED)
+    .withConsolidateFlush(true)
+    .withFlowControl(false)
+    .withObjectAggregator(-1)
+
+  private val configLayer = ServerConfigLayer.live(config)
+
   val run: UIO[ExitCode] =
     app
-      .flatMap(server)
-      .provideLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
+      .flatMap(Server.serve(_).provide(configLayer, Server.live))
       .exitCode
 
-  private def server(app: HttpApp[Any, Nothing]) =
-    Server.serve(app).provide(Server.default)
-//    Server
-//      .app(app)
-//      .withPort(8080)
-//      .withError(_ => ZIO.unit)
-//      .withLeakDetection(LeakDetectionLevel.DISABLED)
-//      .withConsolidateFlush(true)
-//      .withFlowControl(false)
-//      .withObjectAggregator(-1)
 }

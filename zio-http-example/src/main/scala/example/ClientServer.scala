@@ -17,7 +17,6 @@ object ClientServer extends ZIOAppDefault {
 
   val run = {
     val clientLayers = ChannelFactory.auto ++ EventLoopGroup.auto()
-    Server.serve(app).provide(Server.default ++ clientLayers)
-      .exitCode
+    Server.serve(app).provide(Server.default ++ clientLayers).exitCode
   }
 }

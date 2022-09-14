@@ -19,17 +19,18 @@ object ServerSpec extends HttpRunnableSpec {
     content <- HttpGen.nonEmptyBody(Gen.const(data))
   } yield (data.mkString(""), content)
 
-  private val MaxSize             = 1024 * 10
-  val configApp = ServerConfig.default.withRequestDecompression(true, true).withObjectAggregator(MaxSize)
-  val envApp = DynamicServer.live ++ (ServerConfigLayer.live(configApp) >>> Server.live) ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
+  private val MaxSize = 1024 * 10
+  val configApp       = ServerConfig.default.withRequestDecompression(true, true).withObjectAggregator(MaxSize)
+  val envApp          =
+    DynamicServer.live ++ (ServerConfigLayer.live(configApp) >>> Server.live) ++ ChannelFactory.nio ++ EventLoopGroup
+      .nio(0)
 
 //  val configAppWithRequestStreaming = ServerConfig.Config().withRequestDecompression(true, true).withObjectAggregator(-1)
 //  private val envAppWithRequestStreaming =
 //    DynamicServer.live ++ (ServerConfig.live(configAppWithRequestStreaming) >>> Server.live) ++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
 
-
-  private val app                 = serve(DynamicServer.app)
- // private val appWithReqStreaming = serve(DynamicServer.app)
+  private val app = serve(DynamicServer.app)
+  // private val appWithReqStreaming = serve(DynamicServer.app)
 
   def dynamicAppSpec = suite("DynamicAppSpec")(
     suite("success")(

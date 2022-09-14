@@ -8,7 +8,7 @@ import io.netty.incubator.channel.uring.IOUringServerSocketChannel
 import zio.{UIO, ZLayer}
 
 object ServerChannelFactory {
-  def nio: ZLayer[Any, Nothing, ServerChannelFactory] = ZLayer(Live.nio)
+  def nio: ZLayer[Any, Nothing, ServerChannelFactory]    = ZLayer(Live.nio)
   def epoll: ZLayer[Any, Nothing, ServerChannelFactory]  = ZLayer(Live.epoll)
   def uring: ZLayer[Any, Nothing, ServerChannelFactory]  = ZLayer(Live.uring)
   def auto: ZLayer[Any, Nothing, ServerChannelFactory]   = ZLayer(Live.auto)

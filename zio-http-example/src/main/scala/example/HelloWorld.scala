@@ -12,10 +12,10 @@ object HelloWorld extends ZIOAppDefault {
   }
 
   // Run it like any simple app
-  //override val run = Server.serve(app).provide(Server.default)
+  // override val run = Server.serve(app).provide(Server.default)
 
-  val config = ServerConfig.default.withPort(8090)
-  val configLayer = ServerConfigLayer.live(config)
+  val config       = ServerConfig.default.withPort(8090)
+  val configLayer  = ServerConfigLayer.live(config)
   override val run = Server.serve(app).provide(configLayer, Server.live)
 
 }

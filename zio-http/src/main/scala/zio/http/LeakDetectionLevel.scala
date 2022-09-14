@@ -6,7 +6,7 @@ sealed trait LeakDetectionLevel {
   self =>
   def jResourceLeakDetectionLevel: ResourceLeakDetector.Level = self match {
     case LeakDetectionLevel.DISABLED => ResourceLeakDetector.Level.DISABLED
-    case LeakDetectionLevel.SIMPLE => ResourceLeakDetector.Level.SIMPLE
+    case LeakDetectionLevel.SIMPLE   => ResourceLeakDetector.Level.SIMPLE
     case LeakDetectionLevel.ADVANCED => ResourceLeakDetector.Level.ADVANCED
     case LeakDetectionLevel.PARANOID => ResourceLeakDetector.Level.PARANOID
   }

@@ -13,13 +13,15 @@ import zio.{ZIO, durationInt}
 
 object SSLSpec extends ZIOSpecDefault {
 
-  val serverSSL  = ctxFromCert(
+  val serverSSL = ctxFromCert(
     getClass().getClassLoader().getResourceAsStream("server.crt"),
     getClass().getClassLoader().getResourceAsStream("server.key"),
   )
-  val config = ServerConfig.default.withPort(8073).withSsl(ServerSSLOptions(serverSSL))
-  val env = DynamicServer.live ++ (ServerConfigLayer.live(config) >>> Server.live)++ ChannelFactory.nio ++ EventLoopGroup.nio(0)
-
+  val config    = ServerConfig.default.withPort(8073).withSsl(ServerSSLOptions(serverSSL))
+  val env       =
+    DynamicServer.live ++ (ServerConfigLayer.live(config) >>> Server.live) ++ ChannelFactory.nio ++ EventLoopGroup.nio(
+      0,
+    )
 
   val clientSSL1 =
     SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt")).build()
@@ -38,7 +40,8 @@ object SSLSpec extends ZIOSpecDefault {
   }
 
   override def spec = suite("SSL")(
-    Server.serve(app)
+    Server
+      .serve(app)
       .as(
         List(
           test("succeed when client has the server certificate") {

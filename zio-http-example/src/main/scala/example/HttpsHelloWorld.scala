@@ -24,12 +24,12 @@ object HttpsHelloWorld extends ZIOAppDefault {
     getClass().getClassLoader().getResourceAsStream("server.key"),
   )
 
-//  private val server =
-//    Server.port(8090) ++ Server.app(app) ++ Server.ssl(
-//      ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept),
-//    )
+  private val config      = ServerConfig.default
+    .withPort(8090)
+    .withSsl(ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept))
+  private val configLayer = ServerConfigLayer.live(config)
 
   override val run =
-    Server.serve(app).provide(Server.default)
-  // server.start.provide(ServerChannelFactory.auto, EventLoopGroup.auto(0))
+    Server.serve(app).provide(configLayer, Server.live)
+
 }

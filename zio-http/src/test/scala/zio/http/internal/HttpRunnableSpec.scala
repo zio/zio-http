@@ -71,7 +71,9 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         }
       } yield response
 
-    def deployWS(implicit e: E <:< Throwable): Http[R with HttpEnv with EventLoopGroup, Throwable, SocketApp[HttpEnv], Response] =
+    def deployWS(implicit
+      e: E <:< Throwable,
+    ): Http[R with HttpEnv with EventLoopGroup, Throwable, SocketApp[HttpEnv], Response] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
@@ -94,8 +96,8 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   ): ZIO[R with DynamicServer with Server, Nothing, Unit] =
     for {
       server <- ZIO.service[Server]
-      _    <- Server.serve(app)
-      _        <- DynamicServer.setStart(server)
+      _      <- Server.serve(app)
+      _      <- DynamicServer.setStart(server)
     } yield ()
 
   def status(

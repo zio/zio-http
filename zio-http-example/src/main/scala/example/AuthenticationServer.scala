@@ -25,7 +25,7 @@ object AuthenticationServer extends ZIOAppDefault {
 
   // Helper to encode the JWT token
   def jwtEncode(username: String): String = {
-    val json = s"""{"user": "${username}"}"""
+    val json  = s"""{"user": "${username}"}"""
     val claim = JwtClaim {
       json
     }.issuedNow.expiresIn(300)
