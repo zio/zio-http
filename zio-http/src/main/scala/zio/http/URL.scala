@@ -111,12 +111,12 @@ object URL {
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
       connection = URL.Location.Absolute(scheme, host, port)
-    } yield URL(Path.decode(path), connection, QueryParams.queryParams(uri.getRawQuery), Fragment.fromURI(uri))
+    } yield URL(Path.decode(path), connection, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
   }
 
   private def fromRelativeURI(uri: URI): Option[URL] = for {
     path <- Option(uri.getRawPath)
-  } yield URL(Path.decode(path), Location.Relative, QueryParams.queryParams(uri.getRawQuery), Fragment.fromURI(uri))
+  } yield URL(Path.decode(path), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
 
   private def portFromScheme(scheme: Scheme): Int = scheme match {
     case Scheme.HTTP | Scheme.WS   => 80
@@ -236,20 +236,18 @@ object URL {
         key -> values.map(_._2).toList
       })
 
-    def decode(queryStringFragment: String): QueryParams = queryParams(queryStringFragment)
-    val empty: QueryParams                               = QueryParams(Map.empty[String, List[String]])
-
-    private[http] def queryParams(query: String): QueryParams = {
-      if (query == null || query.isEmpty) {
+    def decode(queryStringFragment: String): QueryParams =
+      if (queryStringFragment == null || queryStringFragment.isEmpty) {
         QueryParams.empty
       } else {
-        val decoder = new QueryStringDecoder(query, false)
+        val decoder = new QueryStringDecoder(queryStringFragment, false)
         val params  = decoder.parameters()
         QueryParams(params.asScala.view.map { case (k, v) =>
           (k, v.asScala.toList)
         }.toMap)
       }
-    }
+
+    val empty: QueryParams = QueryParams(Map.empty[String, List[String]])
 
   }
 
