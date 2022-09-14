@@ -77,6 +77,12 @@ final case class URL(
   def setQueryParams(queryParams: QueryParams): URL =
     copy(queryParams = queryParams)
 
+  def setQueryParams(queryParams: Map[String, List[String]]): URL =
+    copy(queryParams = QueryParams(queryParams))
+
+  def setQueryParams(queryParams: (String, List[String])*): URL =
+    copy(queryParams = QueryParams(queryParams.toMap))
+
   def setQueryParams(query: String): URL =
     copy(queryParams = QueryParams.decode(query))
 
