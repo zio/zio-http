@@ -1,5 +1,6 @@
 package zio.http
 
+import zio.Chunk
 import zio.http.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
@@ -75,7 +76,7 @@ object URLSpec extends ZIOSpecDefault {
         test("returns relative URL if port, host, and scheme are not set") {
           val actual = URL.empty
             .setPath(Path.decode("/list"))
-            .setQueryParams(Map("type" -> List("builder"), "query" -> List("provided")))
+            .setQueryParams(QueryParams(Map("type" -> Chunk("builder"), "query" -> Chunk("provided"))))
             .normalize
             .encode
 
