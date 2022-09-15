@@ -2,7 +2,7 @@ package zio.http.api
 
 import java.util.UUID
 
-trait TextCodec[A] {
+sealed trait TextCodec[A] {
   def decode(value: String): Option[A]
 
   def encode(value: A): String
@@ -11,33 +11,41 @@ trait TextCodec[A] {
     TextCodec(input => decode(input).map(f), b => encode(g(b)))
 }
 object TextCodec   {
-  def apply[A](decode0: String => Option[A], encode0: A => String): TextCodec[A] = new TextCodec[A] {
-    def decode(value: String): Option[A] = decode0(value)
-    def encode(value: A): String         = encode0(value)
+  val boolean: TextCodec[Boolean] = BooleanCodec 
+  
+  def constant(string: String): TextCodec[Unit] = Constant(string)
+
+  val int: TextCodec[Int] = IntCodec 
+
+  val uuid: TextCodec[UUID] = UUIDCodec
+
+  final case class Constant(string: String) extends TextCodec {
+    def decode(value: String): Option[Unit] = Some(())
+
+    def encode(value: Unit): String = string 
   }
+  final case object IntCodec extends TextCodec {
+    def decode(value: String): Option[Int] = value.toIntOption
 
-  def constant(string: String): TextCodec[Unit] = TextCodec(_ => Some(()), _ => string)
+    def encode(value: Int): String = value.toString
+  }
+  case object BooleanCodec extends TextCodec[Boolean] {
+    def decode(value: String): Option[Boolean] = 
+      value match {
+        case "true" | "on" | "yes" | "1"  => Some(true)
+        case "false" | "off" | "no" | "0" => Some(false)
+        case _                            => None
+      }
 
-  val int: TextCodec[Int] = TextCodec[Int](_.toIntOption, _.toString)
+    def encode(value: Boolean): String = value.toString
+  }
+  case object UUIDCodec extends TextCodec[UUID] {
+    def decode(input: String): Option[UUID] =
+      try Some(UUID.fromString(input))
+      catch {
+        case _: IllegalArgumentException => None
+      }
 
-  val boolean: TextCodec[Boolean] = TextCodec[Boolean](
-    {
-      case "true" | "on" | "yes" | "1"  => Some(true)
-      case "false" | "off" | "no" | "0" => Some(false)
-      case _                            => None
-    },
-    _.toString,
-  )
-
-  val unit: TextCodec[Unit] = TextCodec[Unit](_ => Some(()), _ => "")
-
-  val uuid: TextCodec[UUID] =
-    TextCodec[UUID](
-      input =>
-        try Some(UUID.fromString(input))
-        catch {
-          case _: IllegalArgumentException => None
-        },
-      _.toString,
-    )
+    def encode(value: UUID): String = value.toString
+  }
 }
