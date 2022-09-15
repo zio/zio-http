@@ -13,7 +13,6 @@ import java.util.concurrent.Executor
  * Simple wrapper over NioEventLoopGroup
  */
 object EventLoopGroups {
-
   trait Config extends ChannelType.Config {
     def nThreads: Int
   }
