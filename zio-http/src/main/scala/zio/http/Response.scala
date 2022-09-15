@@ -1,4 +1,4 @@
-package zhttp.http
+package zio.http
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext

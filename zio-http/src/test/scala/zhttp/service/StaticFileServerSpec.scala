@@ -1,9 +1,10 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.internal.DynamicServer
 import zhttp.service.server._
 import zio.duration.durationInt
+import zio.http.internal.HttpRunnableSpec
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertM

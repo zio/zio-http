@@ -1,8 +1,10 @@
-package zhttp.service
+package zio.http.service
+
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, DefaultFileRegion}
 import io.netty.handler.codec.http._
-import zhttp.http.{HttpData, Request}
+import zhttp.http.Request
+import zhttp.service.{ChannelFuture, HttpRuntime}
 import zio.stream.ZStream
 import zio.{UIO, ZIO}
 

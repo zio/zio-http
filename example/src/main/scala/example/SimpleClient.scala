@@ -1,6 +1,7 @@
 package example
 
-import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
+import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zio.http.service.Client
 import zio.{App, ExitCode, URIO, console}
 
 object SimpleClient extends App {

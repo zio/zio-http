@@ -5,6 +5,7 @@ import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Status
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zio.duration.durationInt
+import zio.http.service.Client
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{DefaultRunnableSpec, assertM}

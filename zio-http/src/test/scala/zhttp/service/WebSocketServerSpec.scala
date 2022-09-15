@@ -1,11 +1,12 @@
 package zhttp.service
 
 import zhttp.http.{Http, Status}
-import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.internal.DynamicServer
 import zhttp.service.server._
 import zhttp.socket.{Socket, WebSocketFrame}
 import zio.clock.Clock
 import zio.duration._
+import zio.http.internal.HttpRunnableSpec
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{nonFlaky, timeout}

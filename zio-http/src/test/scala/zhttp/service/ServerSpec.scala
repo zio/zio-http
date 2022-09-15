@@ -3,9 +3,10 @@ package zhttp.service
 import io.netty.util.AsciiString
 import zhttp.html._
 import zhttp.http._
-import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zhttp.internal.{DynamicServer, HttpGen}
 import zhttp.service.server._
 import zio.duration.durationInt
+import zio.http.internal.HttpRunnableSpec
 import zio.stream.{ZStream, ZTransducer}
 import zio.test.Assertion._
 import zio.test.TestAspect._

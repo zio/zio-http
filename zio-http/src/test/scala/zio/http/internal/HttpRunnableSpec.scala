@@ -1,11 +1,13 @@
-package zhttp.internal
+package zio.http.internal
 
 import zhttp.http.URL.Location
 import zhttp.http._
-import zhttp.service.Client.Config
+import zhttp.internal.{DynamicServer, HttpEnv}
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
+import zio.http.service.Client
+import zio.http.service.Client.Config
 import zio.test.DefaultRunnableSpec
 import zio.{Has, ZIO, ZManaged}
 

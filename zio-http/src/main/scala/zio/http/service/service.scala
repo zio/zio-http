@@ -1,12 +1,7 @@
-package zhttp
+package zio.http.service
 
-import io.netty.channel.{
-  Channel,
-  ChannelFactory => JChannelFactory,
-  ChannelHandlerContext,
-  EventLoopGroup => JEventLoopGroup,
-  ServerChannel,
-}
+import io.netty.channel.{Channel, ChannelHandlerContext, ServerChannel}
+import zhttp.service.{Logging, Server}
 import zio.Has
 
 package object service extends Logging {

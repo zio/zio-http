@@ -1,13 +1,14 @@
-package zhttp.service
+package zio.http.service
 
-import zhttp.http._
-import zhttp.internal.{DynamicServer, HttpRunnableSpec}
-import zhttp.service.server._
-import zio.duration.durationInt
+import zhttp.http.{Http, Method, Request, Status}
+import zhttp.internal.DynamicServer
+import zhttp.service.server.ServerChannelFactory
+import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zio.http.internal.HttpRunnableSpec
 import zio.stream.ZStream
 import zio.test.Assertion._
-import zio.test.TestAspect.{sequential, timeout}
-import zio.test._
+import zio.test.TestAspect.timeout
+import zio.test.assertM
 
 import java.net.ConnectException
 

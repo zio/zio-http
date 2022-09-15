@@ -3,7 +3,8 @@ package example
 import io.netty.handler.ssl.SslContextBuilder
 import zhttp.http.Headers
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
-import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
+import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zio.http.service.Client
 import zio.{App, ExitCode, URIO, console}
 
 import java.io.InputStream

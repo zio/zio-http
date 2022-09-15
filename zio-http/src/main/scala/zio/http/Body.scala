@@ -1,11 +1,11 @@
-package zhttp.http
+package zio.http
 
 import io.netty.buffer.{ByteBuf, Unpooled}
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import io.netty.util.AsciiString
-import zhttp.http.HttpData.ByteBufConfig
 import zio._
+import zio.http.Body.ByteBufConfig
 import zio.stream.ZStream
 
 import java.io.FileInputStream
@@ -14,7 +14,7 @@ import java.nio.charset.Charset
 /**
  * Holds HttpData that needs to be written on the HttpChannel
  */
-sealed trait HttpData { self =>
+sealed trait Body { self =>
 
   /**
    * Encodes the HttpData into a ByteBuf. Takes in ByteBufConfig to have a more
@@ -39,7 +39,7 @@ sealed trait HttpData { self =>
    * Returns true if HttpData is empty
    */
   final def isEmpty: Boolean = self match {
-    case HttpData.Empty => true
+    case Body.Empty => true
     case _              => false
   }
 
@@ -59,7 +59,7 @@ sealed trait HttpData { self =>
   final def toHttp: Http[Any, Throwable, Any, ByteBuf] = toHttp(ByteBufConfig.default)
 }
 
-object HttpData {
+object Body {
 
   private def collectStream[R, E](stream: ZStream[R, E, ByteBuf]): ZIO[R, E, ByteBuf] =
     stream.fold(Unpooled.compositeBuffer()) { case (cmp, buf) => cmp.addComponent(true, buf) }
@@ -67,52 +67,52 @@ object HttpData {
   /**
    * Helper to create empty HttpData
    */
-  def empty: HttpData = Empty
+  def empty: Body = Empty
 
   /**
    * Helper to create HttpData from AsciiString
    */
-  def fromAsciiString(asciiString: AsciiString): HttpData = FromAsciiString(asciiString)
+  def fromAsciiString(asciiString: AsciiString): Body = FromAsciiString(asciiString)
 
   /**
    * Helper to create HttpData from ByteBuf
    */
-  def fromByteBuf(byteBuf: ByteBuf): HttpData = HttpData.BinaryByteBuf(byteBuf)
+  def fromByteBuf(byteBuf: ByteBuf): Body = Body.BinaryByteBuf(byteBuf)
 
   /**
    * Helper to create HttpData from CharSequence
    */
-  def fromCharSequence(charSequence: CharSequence, charset: Charset = HTTP_CHARSET): HttpData =
+  def fromCharSequence(charSequence: CharSequence, charset: Charset = HTTP_CHARSET): Body =
     fromAsciiString(new AsciiString(charSequence, charset))
 
   /**
    * Helper to create HttpData from chunk of bytes
    */
-  def fromChunk(data: Chunk[Byte]): HttpData = BinaryChunk(data)
+  def fromChunk(data: Chunk[Byte]): Body = BinaryChunk(data)
 
   /**
    * Helper to create HttpData from contents of a file
    */
-  def fromFile(file: => java.io.File): HttpData = JavaFile(() => file)
+  def fromFile(file: => java.io.File): Body = JavaFile(() => file)
 
   /**
    * Helper to create HttpData from Stream of string
    */
-  def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET): HttpData =
-    HttpData.BinaryStream(stream.map(str => Unpooled.wrappedBuffer(str.toString.getBytes(charset))))
+  def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET): Body =
+    Body.BinaryStream(stream.map(str => Unpooled.wrappedBuffer(str.toString.getBytes(charset))))
 
   /**
    * Helper to create HttpData from Stream of bytes
    */
-  def fromStream(stream: ZStream[Any, Throwable, Byte]): HttpData =
-    HttpData.BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.wrappedBuffer(chunks.toArray))))
+  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body =
+    Body.BinaryStream(stream.mapChunks(chunks => Chunk(Unpooled.wrappedBuffer(chunks.toArray))))
 
   /**
    * Helper to create HttpData from String
    */
-  def fromString(text: String, charset: Charset = HTTP_CHARSET): HttpData = fromCharSequence(text, charset)
+  def fromString(text: String, charset: Charset = HTTP_CHARSET): Body = fromCharSequence(text, charset)
 
-  private[zhttp] sealed trait Complete extends HttpData
+  private[zhttp] sealed trait Complete extends Body
 
   /**
    * Provides a more fine grained control while encoding HttpData into ByteBUfs
@@ -127,7 +127,7 @@ object HttpData {
   }
 
   private[zhttp] final case class UnsafeAsync(unsafeRun: (ChannelHandlerContext => HttpContent => Any) => Unit)
-      extends HttpData {
+      extends Body {
 
     private def isLast(msg: HttpContent): Boolean = msg.isInstanceOf[LastHttpContent]
 

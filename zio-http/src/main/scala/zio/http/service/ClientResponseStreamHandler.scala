@@ -1,8 +1,9 @@
-package zhttp.service
+package zio.http.service
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{DefaultHttpContent, HttpContent, LastHttpContent}
+import zhttp.service.Ctx
 
 final class ClientResponseStreamHandler(val callback: HttpContent => Any)
     extends SimpleChannelInboundHandler[HttpContent](false) { self =>

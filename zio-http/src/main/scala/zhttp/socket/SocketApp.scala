@@ -1,9 +1,10 @@
 package zhttp.socket
 
 import zhttp.http.Response
-import zhttp.service.{ChannelFactory, Client, EventLoopGroup}
+import zhttp.service.{ChannelFactory, EventLoopGroup}
 import zhttp.socket.SocketApp.Handle.{WithEffect, WithSocket}
 import zhttp.socket.SocketApp.{Connection, Handle}
+import zio.http.service.Client
 import zio.stream.ZStream
 import zio.{NeedsEnv, ZIO, ZManaged}
 

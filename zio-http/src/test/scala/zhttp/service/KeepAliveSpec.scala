@@ -2,8 +2,9 @@ package zhttp.service
 
 import io.netty.handler.codec.http.HttpHeaderValues
 import zhttp.http.{HeaderNames, Headers, Http, Version}
-import zhttp.internal.{DynamicServer, HttpRunnableSpec}
+import zhttp.internal.DynamicServer
 import zhttp.service.server._
+import zio.http.internal.HttpRunnableSpec
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.assertM
 

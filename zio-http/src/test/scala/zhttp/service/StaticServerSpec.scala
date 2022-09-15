@@ -1,10 +1,11 @@
 package zhttp.service
 
 import zhttp.http._
-import zhttp.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zhttp.internal.{DynamicServer, HttpGen}
 import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
+import zio.http.internal.HttpRunnableSpec
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._

@@ -1,8 +1,7 @@
-package zhttp.service.client
+package zio.http.service.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
-import zhttp.http.Response
 import zhttp.service.HttpRuntime
 import zio.Promise
 
