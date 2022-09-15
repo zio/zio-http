@@ -17,6 +17,9 @@ final case class API[Input, Output](
 
   def in[Input2](in2: In[Input2])(implicit combiner: Combiner[Input, Input2]): API[combiner.Out, Output] =
     copy(in = self.in ++ in2)
+
+  def output[Output2]: API[Input, Output2] =
+    self.asInstanceOf[API[Input, Output2]]
 }
 
 object API {

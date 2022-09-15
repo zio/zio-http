@@ -1,7 +1,6 @@
 package zio.http.api
 
-import zio._
-import zio.http.api.internal._
+// import zio.http.api.internal._
 
 // object CommonPrefixTesting extends App {
 //   import In._

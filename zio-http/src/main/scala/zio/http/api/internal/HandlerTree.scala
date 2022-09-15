@@ -4,8 +4,6 @@ import zio._
 import zio.http._
 import zio.http.api._
 
-import scala.annotation.tailrec
-
 sealed trait HandlerTree[-R, +E] { self =>
   import HandlerTree._
 
@@ -49,7 +47,7 @@ object HandlerTree {
 
   def single[R, E](handledAPI: HandledAPI[R, E, Request, Response]): HandlerTree[R, E] = {
     val routeCodecs =
-      In.flatten(handledAPI.api.in).collect { case In.Route(textCodec: TextCodec[_]) => textCodec }
+      In.flatten(handledAPI.api.in).routes
 
     routeCodecs.foldRight[HandlerTree[R, E]](Leaf(handledAPI)) { case (codec, acc) =>
       Branch(Map(Some(codec) -> acc))
@@ -102,11 +100,10 @@ object HandlerTreeExamples extends ZIOAppDefault {
   val api1: HandledAPI[Any, Nothing, Int, Unit] =
     API.get(literal("users") / int).handle { case (id: Int) => ZIO.debug(s"API1 RESULT parsed: users/$id") }
 
-// API.get( uuid / "foo" / query("foo") / string / "bar" / int / "baz" / query("bar"))
-  val api2: HandledAPI[Any, Nothing, (Int, String, String), Unit] =
+  val api2: HandledAPI[Any, Nothing, (Int, String, Int), Unit] =
     API
-      .get(literal("users") / int / literal("posts") / query("name") / string)
-      .handle { case (id1, id2, query) =>
+      .get(literal("users") / int / literal("posts") / query("name") / int)
+      .handle { case (id1, query, id2) =>
         ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
       }
 

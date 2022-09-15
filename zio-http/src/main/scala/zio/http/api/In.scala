@@ -25,7 +25,7 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
   //   .input("posts")
   // "users" / id / "posts"
 
-  private[api] case object Empty                                                 extends Atom[Unit]
+  // private[api] case object Empty                                                 extends Atom[Unit]
   private[api] final case class Route[A](textCodec: TextCodec[A])                extends Atom[A]
   private[api] final case class InputBody[A](input: Schema[A])                   extends Atom[A]
   private[api] final case class Query[A](name: String, textCodec: TextCodec[A])  extends Atom[A]
@@ -44,30 +44,37 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
 
   import zio.Chunk
 
-  def flatten(api: In[_]): Chunk[Atom[_]] =
-    api match {
-      case Combine(left, right, _) => flatten(left) ++ flatten(right)
+  def flatten(in: In[_]): FlattenedAtoms = {
+    var result = FlattenedAtoms.empty
+    flattenedAtoms(in).foreach { atom =>
+      result = result.append(atom)
+    }
+    result
+  }
+
+  private def flattenedAtoms(in: In[_]): Chunk[Atom[_]] =
+    in match {
+      case Combine(left, right, _) => flattenedAtoms(left) ++ flattenedAtoms(right)
       case atom: Atom[_]           => Chunk(atom)
-      case map: Transform[_, _]    => flatten(map.api)
+      case map: Transform[_, _]    => flattenedAtoms(map.api)
     }
 
-  type Constructor[+A]   = Chunk[Any] => A
-  type Deconstructor[-A] = A => Chunk[Any]
+  type Constructor[+A] = InputResults => A
 
   private def indexed[A](api: In[A]): In[A] =
-    indexedImpl(api, 0)._1
+    indexedImpl(api, AtomIndices())._1
 
-  private def indexedImpl[A](api: In[A], start: Int): (In[A], Int) =
+  private def indexedImpl[A](api: In[A], indices: AtomIndices): (In[A], AtomIndices) =
     api.asInstanceOf[In[_]] match {
       case Combine(left, right, inputCombiner) =>
-        val (left2, leftEnd)   = indexedImpl(left, start)
-        val (right2, rightEnd) = indexedImpl(right, leftEnd)
-        (Combine(left2, right2, inputCombiner).asInstanceOf[In[A]], rightEnd)
+        val (left2, leftIndices)   = indexedImpl(left, indices)
+        val (right2, rightIndices) = indexedImpl(right, leftIndices)
+        (Combine(left2, right2, inputCombiner).asInstanceOf[In[A]], rightIndices)
       case atom: Atom[_]                       =>
-        (IndexedAtom(atom, start).asInstanceOf[In[A]], start + 1)
+        (IndexedAtom(atom, indices.get(atom)).asInstanceOf[In[A]], indices.increment(atom))
       case Transform(api, f)                   =>
-        val (api2, end) = indexedImpl(api, start)
-        (Transform(api2, f).asInstanceOf[In[A]], end)
+        val (api2, resultIndices) = indexedImpl(api, indices)
+        (Transform(api2, f).asInstanceOf[In[A]], resultIndices)
     }
 
   def thread[A](api: In[A]): Constructor[A] =
@@ -81,23 +88,82 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
         val leftThread  = threadIndexed(left)
         val rightThread = threadIndexed(right)
 
-        chunk => {
-          val leftValue  = leftThread(chunk)
-          val rightValue = rightThread(chunk)
+        results => {
+          val leftValue  = leftThread(results)
+          val rightValue = rightThread(results)
 
           inputCombiner.combine(leftValue, rightValue)
         }
 
-      case indexedAtom: IndexedAtom[_] =>
-        chunk => coerce(chunk(indexedAtom.index))
+      case IndexedAtom(_: Route[_], index)     =>
+        results => coerce(results.routes(index))
+      case IndexedAtom(_: Header[_], index)    =>
+        results => coerce(results.headers(index))
+      case IndexedAtom(_: Query[_], index)     =>
+        results => coerce(results.queries(index))
+      case IndexedAtom(_: InputBody[_], index) =>
+        results => coerce(results.inputBody(index))
 
       case transform: Transform[_, A] =>
         val threaded = threadIndexed(transform.api)
-        chunk => transform.f(threaded(chunk))
+        results => transform.f(threaded(results))
 
       case atom: Atom[_] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
     }
   }
 
+  // Private Helper Classes
+
+  private[api] final case class FlattenedAtoms(
+    routes: Chunk[TextCodec[_]],
+    queries: Chunk[Query[_]],
+    headers: Chunk[Header[_]],
+    inputBodies: Chunk[InputBody[_]],
+  ) {
+    def append(atom: Atom[_]) = atom match {
+      case route: Route[_]         => copy(routes = routes.appended(route.textCodec))
+      case query: Query[_]         => copy(queries = queries.appended(query))
+      case header: Header[_]       => copy(headers = headers.appended(header))
+      case inputBody: InputBody[_] => copy(inputBodies = inputBodies.appended(inputBody))
+      case _: IndexedAtom[_]       => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
+    }
+  }
+
+  private[api] object FlattenedAtoms {
+    val empty = FlattenedAtoms(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
+  }
+
+  private[api] final case class InputResults(
+    routes: Chunk[Any] = Chunk.empty,
+    queries: Chunk[Any] = Chunk.empty,
+    headers: Chunk[Any] = Chunk.empty,
+    inputBody: Chunk[Any] = Chunk.empty,
+  )
+
+  private final case class AtomIndices(
+    route: Int = 0,
+    query: Int = 0,
+    header: Int = 0,
+    inputBody: Int = 0,
+  ) {
+    def increment(atom: Atom[_]): AtomIndices = {
+      atom match {
+        case _: Route[_]       => copy(route = route + 1)
+        case _: Query[_]       => copy(query = query + 1)
+        case _: Header[_]      => copy(header = header + 1)
+        case _: InputBody[_]   => copy(inputBody = inputBody + 1)
+        case _: IndexedAtom[_] => throw new RuntimeException("IndexedAtom should not be passed to increment")
+      }
+    }
+
+    def get(atom: Atom[_]): Int =
+      atom match {
+        case _: Route[_]       => route
+        case _: Query[_]       => query
+        case _: Header[_]      => header
+        case _: InputBody[_]   => inputBody
+        case _: IndexedAtom[_] => throw new RuntimeException("IndexedAtom should not be passed to get")
+      }
+  }
 }
