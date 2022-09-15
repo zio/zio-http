@@ -72,7 +72,7 @@ sealed trait HExit[-R, +E, +A] { self =>
     case HExit.Success(a)  => ZIO.succeed(a)
     case HExit.Failure(e)  => ZIO.fail(Option(e))
     case HExit.Die(e)      => ZIO.die(e)
-    case HExit.Empty       => ZIO.fail(None)
+    case HExit.Empty       => failNoStacktrace
     case HExit.Effect(zio) => zio
   }
 }
