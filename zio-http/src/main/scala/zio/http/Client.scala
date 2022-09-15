@@ -12,7 +12,7 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio._
-import zio.http.Client.{Config, log}
+import zio.http.Client.log
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.socket.SocketApp
@@ -33,11 +33,11 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(
         Request(Version.Http_1_1, method, uri, headers, body = content),
-        clientConfig = Config(ssl = Some(ssl)),
+        clientConfig = ClientConfig(ssl = Some(ssl)),
       )
     } yield res
 
-  def request(request: Request, clientConfig: Config): Task[Response] =
+  def request(request: Request, clientConfig: ClientConfig): Task[Response] =
     for {
       promise <- Promise.make[Throwable, Response]
       jReq    <- encode(request)
@@ -61,7 +61,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
         url,
         headers,
       ),
-      clientConfig = Client.Config(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
+      clientConfig = ClientConfig(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
     ).withFinalizer(_.close.orDie)
   } yield res
 
@@ -70,7 +70,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
    */
   private def request(
     req: Request,
-    clientConfig: Config,
+    clientConfig: ClientConfig,
     jReq: FullHttpRequest,
     promise: Promise[Throwable, Response],
   )(implicit unsafe: Unsafe): JChannelFuture = {
@@ -177,7 +177,7 @@ object Client {
 
   def request(
     request: Request,
-    clientConfig: Config,
+    clientConfig: ClientConfig,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
       clt <- make
@@ -195,21 +195,6 @@ object Client {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- clt.socket(uri, headers, app, sslOptions)
     } yield res
-  }
-
-  case class Config(
-    socketApp: Option[SocketApp[Any]] = None,
-    ssl: Option[ClientSSLOptions] = None,
-    proxy: Option[Proxy] = None,
-  ) {
-    self =>
-    def withSSL(ssl: ClientSSLOptions): Config           = self.copy(ssl = Some(ssl))
-    def withSocketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
-    def withProxy(proxy: Proxy): Config                  = self.copy(proxy = Some(proxy))
-  }
-
-  object Config {
-    def empty: Config = Config()
   }
 
   private[zio] val log = Log.withTags("Client")

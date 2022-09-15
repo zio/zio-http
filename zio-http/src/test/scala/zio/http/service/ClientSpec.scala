@@ -1,6 +1,5 @@
 package zio.http.service
 
-import zio.http.Client.Config
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Auth.Credentials
@@ -50,7 +49,7 @@ object ClientSpec extends HttpRunnableSpec {
           proxyUrl        <- ZIO.fromEither(URL.fromString("http://localhost:0001"))
           out             <- Client.request(
             Request(url = serverUrl),
-            Config().withProxy(Proxy(proxyUrl)),
+            ClientConfig.empty.proxy(Proxy(proxyUrl)),
           )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
@@ -64,7 +63,7 @@ object ClientSpec extends HttpRunnableSpec {
           proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
           out <- Client.request(
             Request(url = url),
-            Config().withProxy(proxy),
+            ClientConfig.empty.proxy(proxy),
           )
         } yield out
       assertZIO(res.either)(isRight)
@@ -88,7 +87,7 @@ object ClientSpec extends HttpRunnableSpec {
             .withCredentials(Credentials("test", "test"))
           out <- Client.request(
             Request(url = url),
-            Config().withProxy(proxy),
+            ClientConfig.empty.proxy(proxy),
           )
         } yield out
       assertZIO(res.either)(isRight)

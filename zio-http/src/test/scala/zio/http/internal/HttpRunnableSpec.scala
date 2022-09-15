@@ -1,7 +1,6 @@
 package zio.http.internal
 
 import zio.ZIO
-import zio.http.Client.Config
 import zio.http.URL.Location
 import zio.http._
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
@@ -66,7 +65,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
             params
               .addHeader(DynamicServer.APP_ID, id)
               .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            Config.empty,
+            ClientConfig.empty,
           )
         }
       } yield response
