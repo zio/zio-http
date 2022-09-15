@@ -1,8 +1,7 @@
 package zio.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zio.http.Headers.Header
-import zio.http.headers.{HeaderConstructors, HeaderExtension}
+import zio.http.headers.{HeaderConstructors, HeaderExtension, HeaderIterable}
 
 import scala.jdk.CollectionConverters._
 
@@ -16,7 +15,7 @@ import scala.jdk.CollectionConverters._
  * `HeaderExtension`.
  */
 
-sealed trait Headers extends HeaderExtension[Headers] with Iterable[Header] {
+sealed trait Headers extends HeaderExtension[Headers] with HeaderIterable {
   self =>
   final def ++(other: Headers): Headers = self.combine(other)
 
