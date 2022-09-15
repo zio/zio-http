@@ -11,7 +11,12 @@ import java.io.IOException
 /**
  * Middlewares on an HttpApp
  */
-private[zio] trait Web extends Cors with Csrf with Auth with HeaderModifier[HttpMiddleware[Any, Nothing]] {
+private[zio] trait Web
+    extends Cors
+    with Csrf
+    with Auth
+    with RequestLogging
+    with HeaderModifier[HttpMiddleware[Any, Nothing]] {
   self =>
 
   /**

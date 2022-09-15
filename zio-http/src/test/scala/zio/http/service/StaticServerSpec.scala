@@ -2,17 +2,14 @@ package zio.http.service
 
 import zio.http.Middleware.cors
 import zio.http._
-import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Cors.CorsConfig
-import zio.test.Assertion.{equalTo, not}
+import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
 import zio.{Scope, ZIO, durationInt}
 
 object StaticServerSpec extends HttpRunnableSpec {
-
-  private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
   private val staticApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "success"       => ZIO.succeed(Response.ok)
@@ -68,31 +65,19 @@ object StaticServerSpec extends HttpRunnableSpec {
     },
   )
 
-  def serverStartSpec = suite("ServerStartSpec")(
-    test("desired port") {
-      val port = 8088
-      ZIO.scoped {
-        (Server.port(port) ++ Server.app(Http.empty)).make.flatMap { start =>
-          assertZIO(ZIO.attempt(start.port))(equalTo(port))
-        }
-      }
-    },
-    test("available port") {
-      ZIO.scoped {
-        (Server.port(0) ++ Server.app(Http.empty)).make.flatMap { start =>
-          assertZIO(ZIO.attempt(start.port))(not(equalTo(0)))
-        }
-      }
-    },
-  )
-
   override def spec =
     suite("Server") {
       app
         .as(
-          List(serverStartSpec, staticAppSpec, nonZIOSpec, throwableAppSpec, multiHeadersSpec),
+          List(staticAppSpec, nonZIOSpec, throwableAppSpec, multiHeadersSpec),
         )
-    }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds)
+    }.provideSomeShared[TestEnvironment](
+      DynamicServer.live,
+      severTestLayer,
+      Client.default,
+      Scope.default,
+    ) @@
+      timeout(30 seconds)
 
   def staticAppSpec    = suite("StaticAppSpec")(
     test("200 response") {

@@ -2,9 +2,8 @@ package example
 
 import io.netty.util.AsciiString
 import zio._
-import zio.http.Server.LeakDetectionLevel
+import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http._
-import zio.http.service.{EventLoopGroup, ServerChannelFactory}
 
 /**
  * This server is used to run plaintext benchmarks on CI.
@@ -46,19 +45,19 @@ object Main extends ZIOAppDefault {
     jsonResponse      <- frozenJsonResponse
   } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
 
+  private val config = ServerConfig.default
+    .port(8080)
+    .maxThreads(8)
+    .leakDetection(LeakDetectionLevel.DISABLED)
+    .consolidateFlush(true)
+    .flowControl(false)
+    .objectAggregator(-1)
+
+  private val configLayer = ServerConfig.live(config)
+
   val run: UIO[ExitCode] =
     app
-      .flatMap(server(_).start)
-      .provideLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(8))
+      .flatMap(Server.serve(_).provide(configLayer, Server.live))
       .exitCode
 
-  private def server(app: HttpApp[Any, Nothing]) =
-    Server
-      .app(app)
-      .withPort(8080)
-      .onError(_ => ZIO.unit)
-      .withLeakDetection(LeakDetectionLevel.DISABLED)
-      .withConsolidateFlush(true)
-      .withFlowControl(false)
-      .withObjectAggregator(-1)
 }

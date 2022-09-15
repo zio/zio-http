@@ -7,7 +7,7 @@ import zio.stream.{ZPipeline, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{Chunk, ZIO, durationInt}
+import zio.{Chunk, Scope, ZIO, durationInt}
 
 import java.nio.file.Paths
 
@@ -19,13 +19,10 @@ object ServerSpec extends HttpRunnableSpec {
     content <- HttpGen.nonEmptyBody(Gen.const(data))
   } yield (data.mkString(""), content)
 
-  private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
+  private val MaxSize = 1024 * 10
+  val configApp       = ServerConfig.default.requestDecompression(true, true).objectAggregator(MaxSize)
 
-  private val MaxSize             = 1024 * 10
-  private val app                 =
-    serve(DynamicServer.app, Some(Server.requestDecompression(true) ++ Server.enableObjectAggregator(MaxSize)))
-  private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.requestDecompression(true)))
+  private val app = serve(DynamicServer.app)
 
   def dynamicAppSpec = suite("DynamicAppSpec")(
     suite("success")(
@@ -315,8 +312,13 @@ object ServerSpec extends HttpRunnableSpec {
   override def spec =
     suite("Server") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
-      suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) } +
-        suite("app with request streaming") { ZIO.scoped(appWithReqStreaming.as(List(spec))) }
-    }.provideSomeLayerShared[TestEnvironment](env) @@ timeout(30 seconds) @@ sequential
+      suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
+    }.provideSomeShared[TestEnvironment](
+      DynamicServer.live,
+      ServerConfig.live(configApp),
+      Server.live,
+      Client.default,
+      Scope.default,
+    ) @@ timeout(30 seconds) @@ sequential
 
 }

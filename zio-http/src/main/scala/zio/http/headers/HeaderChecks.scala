@@ -1,7 +1,8 @@
 package zio.http.headers
 
+import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
-import zio.http.HeaderValues
+import zio.http.{HeaderValues, MediaType}
 
 /**
  * Maintains a list of operators that checks if the Headers meet the give
@@ -11,8 +12,13 @@ import zio.http.HeaderValues
  * true or false based on if the conditions are met or not.
  */
 trait HeaderChecks[+A] { self: HeaderExtension[A] with A =>
-  final def hasContentType(value: CharSequence): Boolean =
-    contentType.exists(contentEqualsIgnoreCase(value, _))
+  final def hasContentType(value: CharSequence): Boolean = {
+    contentType
+      .flatMap(ct => Option(HttpUtil.getMimeType(ct)))
+      .fold(false)(
+        contentEqualsIgnoreCase(_, value),
+      )
+  }
 
   final def hasFormUrlencodedContentType: Boolean =
     hasContentType(HeaderValues.applicationXWWWFormUrlencoded)
@@ -28,6 +34,12 @@ trait HeaderChecks[+A] { self: HeaderExtension[A] with A =>
 
   final def hasJsonContentType: Boolean =
     hasContentType(HeaderValues.applicationJson)
+
+  final def hasMediaType(other: MediaType): Boolean =
+    mediaType match {
+      case None     => false
+      case Some(mt) => mt == other
+    }
 
   final def hasTextPlainContentType: Boolean =
     hasContentType(HeaderValues.textPlain)
