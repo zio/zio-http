@@ -45,7 +45,7 @@ object Main extends ZIOAppDefault {
   } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
 
   private val config = ServerConfig.default
-    .port(8000)
+    .port(8080)
     .maxThreads(8)
     .leakDetection(LeakDetectionLevel.DISABLED)
     .consolidateFlush(true)
