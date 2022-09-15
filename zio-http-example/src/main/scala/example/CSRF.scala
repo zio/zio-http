@@ -15,5 +15,5 @@ object CSRF extends ZIOAppDefault {
 
   val app = publicApp ++ privateApp
 
-  def run = Server.start(8090, app)
+  def run = Server.serve(app).provide(Server.default)
 }

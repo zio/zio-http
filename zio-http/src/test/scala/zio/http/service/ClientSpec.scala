@@ -1,28 +1,16 @@
 package zio.http.service
 
-import zio.http.Client.Config
 import zio.http._
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.middleware.Auth.Credentials
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
-import zio.{Scope, ZIO, durationInt}
+import zio.{Scope, durationInt}
 
 import java.net.ConnectException
 
 object ClientSpec extends HttpRunnableSpec {
-
-  private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
-
-  private val appUserAgent: Http[Any, Nothing, Request, Response] = Http.collect[Request] { case req =>
-    val headersList                     = req.headers.toList
-    val userAgentOption: Option[String] = headersList.collectFirst { case (k, v) if k.toLowerCase == "user-agent" => v }
-    val useragentStr                    = userAgentOption.getOrElse("")
-    Response.text(useragentStr)
-  }
 
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {
@@ -61,74 +49,12 @@ object ClientSpec extends HttpRunnableSpec {
         .flatMap(_.asString)
       assertZIO(res)(equalTo("abc"))
     },
-    test("streaming content from server - extended") {
-      val app    = Http.collect[Request] { case req => Response(body = Body.fromStream(req.body.asStream)) }
-      val stream = ZStream.fromIterable(List("This ", "is ", "a ", "longer ", "text."))
-      val res    = app.deployChunked.body
-        .run(method = Method.POST, body = Body.fromStream(stream))
-        .flatMap(_.asString)
-      assertZIO(res)(equalTo("This is a longer text."))
-    },
-    test("handle proxy connection failure") {
-      val res =
-        for {
-          validServerPort <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
-          serverUrl       <- ZIO.fromEither(URL.fromString(s"http://localhost:$validServerPort"))
-          proxyUrl        <- ZIO.fromEither(URL.fromString("http://localhost:0001"))
-          out             <- Client.request(
-            Request(url = serverUrl),
-            Config().withProxy(Proxy(proxyUrl)),
-          )
-        } yield out
-      assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
-    },
-    test("proxy respond Ok") {
-      val res =
-        for {
-          port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
-          url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
-          id   <- DynamicServer.deploy(Http.ok)
-          proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
-          out <- Client.request(
-            Request(url = url),
-            Config().withProxy(proxy),
-          )
-        } yield out
-      assertZIO(res.either)(isRight)
-    },
-    test("proxy respond Ok for auth server") {
-      val proxyAuthApp = Http.collect[Request] { case req =>
-        val proxyAuthHeaderName = HeaderNames.proxyAuthorization.toString
-        req.headers.toList.collectFirst { case (`proxyAuthHeaderName`, _) =>
-          Response.ok
-        }.getOrElse(Response.status(Status.Forbidden))
-      }
-
-      val res =
-        for {
-          port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
-          url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
-          id   <- DynamicServer.deploy(proxyAuthApp)
-          proxy = Proxy.empty
-            .withUrl(url)
-            .withHeaders(Headers(DynamicServer.APP_ID, id))
-            .withCredentials(Credentials("test", "test"))
-          out <- Client.request(
-            Request(url = url),
-            Config().withProxy(proxy),
-          )
-        } yield out
-      assertZIO(res.either)(isRight)
-    },
-    test("test using default user agent") {
-      val res = appUserAgent.deploy.body.run(method = Method.GET, addZioUserAgentHeader = true).flatMap(_.asString)
-      assertZIO(res)(equalTo(Client.defaultUAHeader.toList.head._2))
-    },
   )
 
   override def spec = {
     suite("Client") {
       serve(DynamicServer.app).as(List(clientSpec))
-    }.provideLayerShared(env) @@ timeout(20 seconds) @@ sequential
+    }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
+      timeout(5 seconds) @@ sequential
   }
 }

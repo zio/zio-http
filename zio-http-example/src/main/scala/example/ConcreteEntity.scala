@@ -1,7 +1,7 @@
 package example
 
 import zio._
-import zio.http.{Http, HttpApp, Request, Response, Server}
+import zio.http._
 
 /**
  * Example to build app on concrete entity
@@ -25,5 +25,5 @@ object ConcreteEntity extends ZIOAppDefault {
 
   // Run it like any simple app
   val run =
-    Server.start(8090, app)
+    Server.serve(app).provide(Server.default)
 }

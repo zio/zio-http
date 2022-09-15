@@ -1,7 +1,6 @@
 package zio.http.internal
 
 import zio._
-import zio.http.Server.Start
 import zio.http._
 import zio.http.internal.DynamicServer.Id
 
@@ -14,9 +13,9 @@ sealed trait DynamicServer {
 
   def port: ZIO[Any, Nothing, Int]
 
-  def setStart(n: Start): UIO[Boolean]
+  def setStart(n: Server): UIO[Boolean]
 
-  def start: IO[Nothing, Start]
+  def start: IO[Nothing, Server]
 }
 
 object DynamicServer {
@@ -58,20 +57,20 @@ object DynamicServer {
     ZLayer {
       for {
         ref <- Ref.make(Map.empty[Id, HttpApp[Any, Throwable]])
-        pr  <- Promise.make[Nothing, Start]
+        pr  <- Promise.make[Nothing, Server]
       } yield new Live(ref, pr)
     }
 
   def port: ZIO[DynamicServer, Nothing, Int] = ZIO.environmentWithZIO[DynamicServer](_.get.port)
 
-  def setStart(s: Start): ZIO[DynamicServer, Nothing, Boolean] =
+  def setStart(s: Server): ZIO[DynamicServer, Nothing, Boolean] =
     ZIO.environmentWithZIO[DynamicServer](_.get.setStart(s))
 
-  def start: ZIO[DynamicServer, Nothing, Start] = ZIO.environmentWithZIO[DynamicServer](_.get.start)
+  def start: ZIO[DynamicServer, Nothing, Server] = ZIO.environmentWithZIO[DynamicServer](_.get.start)
 
   def wsURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.WS)
 
-  final class Live(ref: Ref[Map[Id, HttpApp[Any, Throwable]]], pr: Promise[Nothing, Start]) extends DynamicServer {
+  final class Live(ref: Ref[Map[Id, HttpApp[Any, Throwable]]], pr: Promise[Nothing, Server]) extends DynamicServer {
     def add(app: HttpApp[Any, Throwable]): UIO[Id] = for {
       id <- ZIO.succeed(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))
@@ -81,8 +80,8 @@ object DynamicServer {
 
     def port: ZIO[Any, Nothing, Int] = start.map(_.port)
 
-    def setStart(s: Start): UIO[Boolean] = pr.complete(ZIO.attempt(s).orDie)
+    def setStart(s: Server): UIO[Boolean] = pr.complete(ZIO.attempt(s).orDie)
 
-    def start: IO[Nothing, Start] = pr.await
+    def start: IO[Nothing, Server] = pr.await
   }
 }

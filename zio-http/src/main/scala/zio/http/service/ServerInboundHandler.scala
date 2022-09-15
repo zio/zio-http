@@ -4,6 +4,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import io.netty.util.AttributeKey
+import zio.http.Server.ErrorCallback
 import zio.http._
 import zio.http.service.ServerInboundHandler.{log, unsafe}
 import zio.logging.Logger
@@ -11,10 +12,11 @@ import zio.{Unsafe, ZIO}
 
 @Sharable
 private[zio] final case class ServerInboundHandler[R](
-  http: HttpApp[R, Throwable],
+  appRef: java.util.concurrent.atomic.AtomicReference[HttpApp[Any, Throwable]],
   runtime: HttpRuntime[R],
-  config: Server.Config[R, Throwable],
+  config: ServerConfig,
   time: ServerTime,
+  onError: java.util.concurrent.atomic.AtomicReference[Option[ErrorCallback]],
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with ServerWebSocketUpgrade[R]
     with ServerFullResponseWriter[R]
@@ -29,7 +31,7 @@ private[zio] final case class ServerInboundHandler[R](
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromFullHttpRequest(jReq)
-        val exit = http.execute(req)
+        val exit = appRef.get.execute(req)
 
         if (self.attemptFastWrite(exit)) {
           unsafe.releaseRequest(jReq)
@@ -43,7 +45,7 @@ private[zio] final case class ServerInboundHandler[R](
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromHttpRequest(jReq)
-        val exit = http.execute(req)
+        val exit = appRef.get.execute(req)
 
         if (!self.attemptFastWrite(exit)) {
           if (unsafe.canHaveBody(jReq)) unsafe.setAutoRead(false)
@@ -61,7 +63,7 @@ private[zio] final case class ServerInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.run(f(cause))(ctx, unsafeClass))
+    onError.get.fold(super.exceptionCaught(ctx, cause))(f => runtime.run(f(cause))(ctx, unsafeClass))
   }
 }
 
@@ -83,7 +85,7 @@ object ServerInboundHandler {
     /**
      * Enables auto-read if possible. Also performs the first read.
      */
-    def attemptAutoRead[R, E](config: Server.Config[R, E])(implicit ctx: Ctx, unsafe: Unsafe): Unit = {
+    def attemptAutoRead[R, E](config: ServerConfig)(implicit ctx: Ctx, unsafe: Unsafe): Unit = {
       if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
         ctx.channel().config().setAutoRead(true)
         ctx.read(): Unit

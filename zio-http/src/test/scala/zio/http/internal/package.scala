@@ -1,7 +1,12 @@
 package zio.http
 
-import zio.http.service.{ChannelFactory, EventLoopGroup, ServerChannelFactory}
+import zio.ZLayer
+import zio.http.ServerConfig.LeakDetectionLevel
 
 package object internal {
-  type HttpEnv = EventLoopGroup with ChannelFactory with DynamicServer with ServerChannelFactory
+
+  val testServerConfig: ZLayer[Any, Nothing, ServerConfig] =
+    ZLayer.succeed(ServerConfig.default.port(0).leakDetection(LeakDetectionLevel.PARANOID))
+
+  val severTestLayer = testServerConfig >>> Server.live
 }

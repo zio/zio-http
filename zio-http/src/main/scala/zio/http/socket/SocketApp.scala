@@ -2,7 +2,6 @@ package zio.http.socket
 
 import zio._
 import zio.http._
-import zio.http.service.{ChannelFactory, EventLoopGroup}
 
 final case class SocketApp[-R](
   decoder: SocketDecoder = SocketDecoder.default,
@@ -17,7 +16,7 @@ final case class SocketApp[-R](
   def connect(
     url: String,
     headers: Headers = Headers.empty,
-  ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] =
+  ): ZIO[R with Client with Scope, Throwable, Response] =
     Client.socket(url, self, headers)
 
   /**
