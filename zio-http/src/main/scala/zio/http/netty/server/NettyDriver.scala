@@ -6,7 +6,6 @@ import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.util.ResourceLeakDetector
 import zio._
-import zio.http.netty.server._
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
