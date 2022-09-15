@@ -20,4 +20,6 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
   object HeaderNames  extends headers.HeaderNames
   object HeaderValues extends headers.HeaderValues
+
+  val failNoStacktrace: ZIO[Any, None.type, Nothing] = ZIO.refailCause(Cause.fail(None))
 }
