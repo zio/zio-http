@@ -10,6 +10,7 @@ import io.netty.channel.{
 }
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
+import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio._
 import zio.http.Client.{Config, log}
@@ -119,10 +120,24 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
 
           // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
           // This is also required to make WebSocketHandlers work
-          pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
+          if (clientConfig.useAggregator) {
+            pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
+            pipeline
+              .addLast(
+                CLIENT_INBOUND_HANDLER,
+                new ClientInboundHandler(rtm, jReq, promise, isWebSocket),
+              )
+          } else {
 
-          // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
-          pipeline.addLast(CLIENT_INBOUND_HANDLER, new ClientInboundHandler(rtm, jReq, promise, isWebSocket))
+            // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
+            pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+            pipeline
+              .addLast(
+                CLIENT_INBOUND_HANDLER,
+                new ClientInboundStreamingHandler(rtm, req, promise),
+              )
+
+          }
 
           // Add WebSocketHandlers if it's a `ws` or `wss` request
           if (isWebSocket) {
@@ -201,10 +216,12 @@ object Client {
     socketApp: Option[SocketApp[Any]] = None,
     ssl: Option[ClientSSLOptions] = None,
     proxy: Option[Proxy] = None,
+    useAggregator: Boolean = true,
   ) {
     self =>
     def withSSL(ssl: ClientSSLOptions): Config           = self.copy(ssl = Some(ssl))
     def withSocketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
+    def withAggregator(useAggregator: Boolean): Config   = self.copy(useAggregator = useAggregator)
     def withProxy(proxy: Proxy): Config                  = self.copy(proxy = Some(proxy))
   }
 
