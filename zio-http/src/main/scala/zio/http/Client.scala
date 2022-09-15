@@ -147,7 +147,6 @@ object Client {
 
   final case class ClientLive(
     settings: ClientConfig,
-    // rtm: HttpRuntime[Any],
     rtm: NettyRuntime,
     cf: JChannelFactory[JChannel],
     el: JEventLoopGroup,
@@ -366,34 +365,14 @@ object Client {
     ZLayer {
       for {
         settings       <- ZIO.service[ClientConfig]
-        channelFactory <- ZIO.service[ChannelFactory] // channelFactory(settings)
-        eventLoopGroup <- ZIO.service[EventLoopGroup] // eventLoopGroup(settings)
-        zx <- ZIO.service[NettyRuntime] // NettyRuntime.usingDedicatedThreadPool //HttpRuntime.default[Any]
+        channelFactory <- ZIO.service[ChannelFactory]
+        eventLoopGroup <- ZIO.service[EventLoopGroup]
+        zx <- ZIO.service[NettyRuntime]
       } yield ClientLive(settings, zx, channelFactory, eventLoopGroup)
     }
 
   val default =
     ClientConfig.default >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool >>> live
-
-  // private def channelFactory(config: ClientConfig): UIO[ChannelFactory] = {
-  //   config.channelType match {
-  //     case ChannelType.NIO    => ChannelFactory.Live.nio
-  //     case ChannelType.EPOLL  => ChannelFactory.Live.epoll
-  //     case ChannelType.KQUEUE => ChannelFactory.Live.kQueue
-  //     case ChannelType.URING  => ChannelFactory.Live.uring
-  //     case ChannelType.AUTO   => ChannelFactory.Live.auto
-  //   }
-  // }
-
-  // private def eventLoopGroup(config: ClientConfig): ZIO[Scope, Nothing, EventLoopGroup] = {
-  //   config.channelType match {
-  //     case ChannelType.NIO    => EventLoopGroup.Live.nio(config.nThreads)
-  //     case ChannelType.EPOLL  => EventLoopGroup.Live.epoll(config.nThreads)
-  //     case ChannelType.KQUEUE => EventLoopGroup.Live.kQueue(config.nThreads)
-  //     case ChannelType.URING  => EventLoopGroup.Live.uring(config.nThreads)
-  //     case ChannelType.AUTO   => EventLoopGroup.Live.auto(config.nThreads)
-  //   }
-  // }
 
   val zioHttpVersion: CharSequence           = Client.getClass().getPackage().getImplementationVersion()
   val zioHttpVersionNormalized: CharSequence = Option(zioHttpVersion).getOrElse("")
