@@ -1,6 +1,7 @@
 package zio.http
 
 import zio.ZLayer
+import zio.http.ServerConfig.LeakDetectionLevel
 
 package object internal {
 

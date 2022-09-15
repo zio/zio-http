@@ -1,6 +1,7 @@
 package example
 
 import zio._
+import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http._
 
 import scala.util.Try

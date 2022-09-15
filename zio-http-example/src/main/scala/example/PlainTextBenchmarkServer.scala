@@ -2,6 +2,7 @@ package example
 
 import io.netty.util.AsciiString
 import zio._
+import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http._
 
 /**
