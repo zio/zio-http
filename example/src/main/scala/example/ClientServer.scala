@@ -2,7 +2,7 @@ package example
 
 import zhttp.http._
 import zhttp.service.{ChannelFactory, EventLoopGroup, Server}
-import zio.http.service.Client
+import zio.http.Client
 import zio.{App, ZIO}
 
 object ClientServer extends App {

@@ -1,4 +1,4 @@
-package zio.http.service.client
+package zio.http.service
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._

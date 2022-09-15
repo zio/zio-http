@@ -1,11 +1,10 @@
-package zio.http.service.client
+package zio.http.service
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zhttp.http.Request
-import zhttp.service.{CLIENT_INBOUND_HANDLER, CLIENT_STREAMING_BODY_HANDLER, HttpRuntime}
+import zhttp.service.HttpRuntime
 import zio.Promise
-import zio.http.service.{ClientRequestHandler, ClientResponseStreamHandler}
 
 final class ClientInboundStreamingHandler[R](
   val zExec: HttpRuntime[R],

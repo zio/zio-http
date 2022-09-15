@@ -4,6 +4,7 @@ import zhttp.http.{Http, Method, Request, Status}
 import zhttp.internal.DynamicServer
 import zhttp.service.server.ServerChannelFactory
 import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zio.http.Client
 import zio.http.internal.HttpRunnableSpec
 import zio.stream.ZStream
 import zio.test.Assertion._

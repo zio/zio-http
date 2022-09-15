@@ -2,7 +2,7 @@ package example
 
 import zhttp.http.Headers
 import zhttp.service.{ChannelFactory, EventLoopGroup}
-import zio.http.service.Client
+import zio.http.Client
 import zio.{App, ExitCode, URIO}
 
 object AuthenticationClient extends App {

@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http
 
 import io.netty.channel.{Channel, ChannelHandlerContext, ServerChannel}
 import zhttp.service.{Logging, Server}

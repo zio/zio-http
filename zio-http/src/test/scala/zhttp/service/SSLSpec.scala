@@ -8,7 +8,7 @@ import zhttp.service.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zhttp.service.server._
 import zio.ZIO
 import zio.duration.durationInt
-import zio.http.service.Client
+import zio.http.Client
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{DefaultRunnableSpec, Gen, assertM, checkM}

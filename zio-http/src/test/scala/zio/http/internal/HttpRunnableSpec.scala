@@ -6,8 +6,8 @@ import zhttp.internal.{DynamicServer, HttpEnv}
 import zhttp.service._
 import zhttp.service.client.ClientSSLHandler.ClientSSLOptions
 import zhttp.socket.SocketApp
-import zio.http.service.Client
-import zio.http.service.Client.Config
+import zio.http.Client
+import Client.Config
 import zio.test.DefaultRunnableSpec
 import zio.{Has, ZIO, ZManaged}
 
