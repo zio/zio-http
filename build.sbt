@@ -133,7 +133,7 @@ lazy val zioHttpLogging = (project in file("zio-http-logging"))
   )
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    libraryDependencies ++= Seq(`zio-test`, `zio-test-sbt`),
+    libraryDependencies ++= Seq(`zio`, `zio-test`, `zio-test-sbt`),
   )
 
 lazy val zioHttpExample = (project in file("zio-http-example"))

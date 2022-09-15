@@ -68,6 +68,13 @@ object HeaderSpec extends ZIOSpecDefault {
         assert(actual)(isTrue)
       },
     ),
+    suite("hasContentType")(
+      test("should match content type with charsets and boundaries") {
+        val header = Headers(HeaderNames.contentType, "application/json; charset=UTF-8")
+        val actual = header.hasContentType("application/json")
+        assert(actual)(isTrue)
+      },
+    ),
     suite("hasJsonContentType")(
       test("should return true if content-type is application/json") {
         val actual = contentTypeJson.hasJsonContentType
@@ -81,6 +88,12 @@ object HeaderSpec extends ZIOSpecDefault {
         val headers = acceptJson
         val actual  = headers.hasJsonContentType
         assert(actual)(isFalse)
+      },
+    ),
+    suite("hasMediaType")(
+      test("should return true if content-type is application/json") {
+        val actual = contentTypeJson.hasMediaType(MediaType.application.json)
+        assert(actual)(isTrue)
       },
     ),
     suite("isPlainTextContentType")(
@@ -217,6 +230,13 @@ object HeaderSpec extends ZIOSpecDefault {
           val actual = Headers(HttpHeaderNames.CONTENT_LENGTH, c.toString).contentLength
           assert(actual)(isNone)
         }
+      },
+    ),
+    suite("mediaType")(
+      test("should correctly parse the media type") {
+        val header = Headers(HeaderNames.contentType, "application/json; charset=UTF-8")
+        val mt     = header.mediaType
+        assertTrue(mt == Some(MediaType.application.json))
       },
     ),
     suite("encode")(

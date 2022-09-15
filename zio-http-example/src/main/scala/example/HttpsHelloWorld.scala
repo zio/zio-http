@@ -3,7 +3,6 @@ package example
 import zio._
 import zio.http._
 import zio.http.service.ServerSSLHandler._
-import zio.http.service.{EventLoopGroup, ServerChannelFactory}
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route
@@ -25,11 +24,12 @@ object HttpsHelloWorld extends ZIOAppDefault {
     getClass().getClassLoader().getResourceAsStream("server.key"),
   )
 
-  private val server =
-    Server.port(8090) ++ Server.app(app) ++ Server.ssl(
-      ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept),
-    )
+  private val config      = ServerConfig.default
+    .port(8090)
+    .ssl(ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept))
+  private val configLayer = ServerConfig.live(config)
 
   override val run =
-    server.start.provide(ServerChannelFactory.auto, EventLoopGroup.auto(0))
+    Server.serve(app).provide(configLayer, Server.live)
+
 }

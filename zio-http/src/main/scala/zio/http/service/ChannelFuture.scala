@@ -21,7 +21,7 @@ final class ChannelFuture[A] private (jFuture: Future[A]) {
           jFuture.cause() match {
             case null                     => cb(ZIO.attempt(Option(jFuture.get)))
             case _: CancellationException => cb(ZIO.succeed(Option.empty))
-            case cause                    => cb(ZIO.fail(cause))
+            case cause                    => cb(ZIO.refailCause(Cause.fail(cause)))
           }
         }
         jFuture.addListener(handler)

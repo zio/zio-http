@@ -6,13 +6,15 @@ import zio.http.service.ServerSpec.requestBodySpec
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
-import zio.{ZIO, durationInt}
+import zio.{Scope, ZIO, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
-  private val env =
-    EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live
 
-  private val appWithReqStreaming = serve(DynamicServer.app, Some(Server.enableObjectAggregator(-1)))
+  private val configAppWithRequestStreaming = ServerConfig.default
+    .requestDecompression(true, true)
+    .objectAggregator(-1)
+
+  private val appWithReqStreaming = serve(DynamicServer.app)
 
   /**
    * Generates a string of the provided length and char.
@@ -51,6 +53,13 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       suite("app with request streaming") {
         ZIO.scoped(appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec)))
       }
-    }.provideLayerShared(env) @@ timeout(10 seconds) @@ sequential
+    }.provideShared(
+      DynamicServer.live,
+      ServerConfig.live(configAppWithRequestStreaming),
+      Server.live,
+      Client.default,
+      Scope.default,
+    ) @@
+      timeout(10 seconds) @@ sequential
 
 }

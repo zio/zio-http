@@ -1,19 +1,16 @@
 package zio.http.service
 
+import zio._
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
-import zio.http.{ChannelEvent, Headers, Http, Status}
+import zio.http.{ChannelEvent, Client, Headers, Http, Status}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
-import zio.{Promise, Ref, UIO, ZIO, durationInt}
 
 object WebSocketSpec extends HttpRunnableSpec {
-
-  private val env =
-    EventLoopGroup.nio() ++ ServerChannelFactory.nio ++ DynamicServer.live ++ ChannelFactory.nio
 
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {
@@ -111,7 +108,8 @@ object WebSocketSpec extends HttpRunnableSpec {
       }.as(List(websocketSpec))
     }
   }
-    .provideLayerShared(env) @@ timeout(30 seconds)
+    .provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
+    timeout(30 seconds)
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
     def add(a: A, isDone: Boolean = false): UIO[Unit] = ref.update(_ :+ a) <* promise.succeed(()).when(isDone)
