@@ -1,6 +1,6 @@
 package zio.http
 
-import io.netty.handler.codec.compression.{StandardCompressionOptions, CompressionOptions => JCompressionOptions}
+import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
 import io.netty.util.ResourceLeakDetector
 import zio.ZLayer
 import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}

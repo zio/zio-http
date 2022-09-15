@@ -21,8 +21,7 @@ object ServerSpec extends HttpRunnableSpec {
   } yield (data.mkString(""), content)
 
   private val MaxSize = 1024 * 10
-  val configApp       = ServerConfig
-    .default
+  val configApp       = ServerConfig.default
     .requestDecompression(true, true)
     .objectAggregator(MaxSize)
     .responseCompression()
@@ -127,21 +126,21 @@ object ServerSpec extends HttpRunnableSpec {
         }
       } +
       suite("compression") {
-        val body = "some-text"
+        val body         = "some-text"
         val bodyAsStream = ZStream.fromChunk(Chunk.fromArray(body.getBytes))
 
         val app = Http.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
 
         def roundTrip[R, E <: Throwable](
-                                          app: HttpApp[R, Throwable],
-                                          headers: Headers,
-                                          contentStream: ZStream[R, E, Byte],
-                                          compressor: ZPipeline[R, E, Byte, Byte],
-                                          decompressor: ZPipeline[R, E, Byte, Byte],
-                                        ) = for {
+          app: HttpApp[R, Throwable],
+          headers: Headers,
+          contentStream: ZStream[R, E, Byte],
+          compressor: ZPipeline[R, E, Byte, Byte],
+          decompressor: ZPipeline[R, E, Byte, Byte],
+        ) = for {
           compressed <- contentStream.via(compressor).runCollect
-          response <- app.run(body = Body.fromChunk(compressed), headers = headers)
-          body <- response.body.asChunk.flatMap(ch => ZStream.fromChunk(ch).via(decompressor).runCollect)
+          response   <- app.run(body = Body.fromChunk(compressed), headers = headers)
+          body       <- response.body.asChunk.flatMap(ch => ZStream.fromChunk(ch).via(decompressor).runCollect)
         } yield new String(body.toArray, StandardCharsets.UTF_8)
 
         test("should decompress request and compress response") {
