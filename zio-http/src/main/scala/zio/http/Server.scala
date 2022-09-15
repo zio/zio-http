@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicReference
 trait Server {
   def install[R](httpApp: HttpApp[R, Throwable]): URIO[R, Unit]
 
-  def port[R]: URIO[R, Int]
+  def port: Int
 }
 
 object Server {
@@ -19,7 +19,7 @@ object Server {
     install(httpApp) *> ZIO.never
 
   def install[R](httpApp: HttpApp[R, Throwable]): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.serviceWithZIO[Server](_.port)
+    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
   }
 
   val default = ServerConfigLayer.default >>> live
@@ -80,7 +80,7 @@ object Server {
         }
         ()
       }
-    override def port[R]: URIO[R, Int]                                     = ZIO.succeed(bindPort)
+    override def port: Int                                     = bindPort
   }
 
 }
