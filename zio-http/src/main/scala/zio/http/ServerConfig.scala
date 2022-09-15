@@ -7,7 +7,7 @@ import java.net.{InetAddress, InetSocketAddress}
 
 final case class ServerConfig(
   leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
-  sslOption: ServerSSLOptions = null,
+  sslOption: Option[ServerSSLOptions] = None,
   address: InetSocketAddress = new InetSocketAddress(8080),
   acceptContinue: Boolean = false,
   keepAlive: Boolean = true,
@@ -93,7 +93,7 @@ final case class ServerConfig(
   /**
    * Configure the server with the following ssl options.
    */
-  def ssl(sslOptions: ServerSSLOptions): ServerConfig = self.copy(sslOption = sslOptions)
+  def ssl(sslOptions: ServerSSLOptions): ServerConfig = self.copy(sslOption = Some(sslOptions))
 
   /**
    * Configure the server to use a maximum of nThreads in to process requests.
