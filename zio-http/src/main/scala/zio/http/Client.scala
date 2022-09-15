@@ -26,6 +26,7 @@ trait Client {
     url: String,
     app: SocketApp[R],
     headers: Headers = Headers.empty,
+    addZioUserAgentHeader: Boolean = false,
   )(implicit unsafe: Unsafe): ZIO[R with Scope, Throwable, Response]
 
 }
@@ -39,9 +40,10 @@ object Client {
   ) extends Client
       with ClientRequestEncoder {
 
-    override def request(request: Request): ZIO[Any, Throwable, Response] = requestAsync(request, settings)
+    override def request(request: Request): ZIO[Any, Throwable, Response] =
+      requestAsync(request, settings)
 
-    override def socket[R](url: String, app: SocketApp[R], headers: Headers)(implicit
+    override def socket[R](url: String, app: SocketApp[R], headers: Headers, addZioUserAgentHeader: Boolean)(implicit
       unsafe: Unsafe,
     ): ZIO[R with Scope, Throwable, Response] =
       for {
@@ -52,7 +54,7 @@ object Client {
             version = Version.Http_1_1,
             Method.GET,
             uri,
-            headers,
+            headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
           ),
           clientConfig = settings.copy(socketApp = Some(app.provideEnvironment(env))),
         ).withFinalizer(_.close.orDie)
@@ -182,11 +184,20 @@ object Client {
     method: Method = Method.GET,
     headers: Headers = Headers.empty,
     content: Body = Body.empty,
+    addZioUserAgentHeader: Boolean = false,
   ): ZIO[Client, Throwable, Response] = {
     for {
       uri      <- ZIO.fromEither(URL.fromString(url))
       response <- ZIO.serviceWithZIO[Client](
-        _.request(Request(version = Version.Http_1_1, method = method, url = uri, headers = headers, body = content)),
+        _.request(
+          Request(
+            version = Version.Http_1_1,
+            method = method,
+            url = uri,
+            headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
+            body = content,
+          ),
+        ),
       )
     } yield response
 
@@ -235,6 +246,13 @@ object Client {
       case ChannelType.AUTO   => EventLoopGroup.Live.auto(config.nThreads)
     }
   }
+
+  val zioHttpVersion: CharSequence           = Client.getClass().getPackage().getImplementationVersion()
+  val zioHttpVersionNormalized: CharSequence = Option(zioHttpVersion).getOrElse("")
+
+  val scalaVersion: CharSequence   = util.Properties.versionString
+  val userAgentValue: CharSequence = s"Zio-Http-Client ${zioHttpVersionNormalized} Scala $scalaVersion"
+  val defaultUAHeader: Headers     = Headers(HeaderNames.userAgent, userAgentValue)
 
   private[zio] val log = Log.withTags("Client")
 
