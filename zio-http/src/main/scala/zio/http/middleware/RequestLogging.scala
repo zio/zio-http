@@ -1,5 +1,6 @@
 package zio.http.middleware
 
+import zio.http.Headers.Header
 import zio.http.{Middleware, Patch, Status}
 import zio.{Clock, LogAnnotation, LogLevel, ZIO}
 
@@ -26,11 +27,13 @@ private[zio] trait RequestLogging {
           .logLevel(level(response.status)) {
             val requestHeaders  =
               request.headers.toList.collect {
-                case (name, value) if loggedRequestHeaders.contains(name) => LogAnnotation(name, value)
+                case Header(name, value) if loggedRequestHeaders.contains(name.toString) =>
+                  LogAnnotation(name.toString, value.toString)
               }.toSet
             val responseHeaders =
               response.headers.toList.collect {
-                case (name, value) if loggedResponseHeader.contains(name) => LogAnnotation(name, value)
+                case Header(name, value) if loggedResponseHeader.contains(name.toString) =>
+                  LogAnnotation(name.toString, value.toString)
               }.toSet
 
             val requestBody  = if (request.body.isComplete) request.body.asChunk.map(Some(_)) else ZIO.none
