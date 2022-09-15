@@ -4,7 +4,7 @@ import zio.http.service.ServerSSLHandler.ServerSSLOptions
 
 import java.net.{InetAddress, InetSocketAddress}
 
-final case class ServerConfig (
+final case class ServerConfig(
   leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
   sslOption: ServerSSLOptions = null,
   address: InetSocketAddress = new InetSocketAddress(8080),
