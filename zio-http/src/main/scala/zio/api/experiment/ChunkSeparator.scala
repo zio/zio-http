@@ -1,7 +1,7 @@
 package zhttp.api.experiment
 
 import zhttp.api.experiment.ChunkSeparator.IndexedChunk
-import zhttp.api.experiment.InputCodec.{Atom, InputBody}
+import zhttp.api.experiment.InputCodec.InputBody
 import zio.Chunk
 
 object ChunkSeparator {

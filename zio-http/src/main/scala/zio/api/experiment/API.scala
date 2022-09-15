@@ -461,8 +461,6 @@ object Example2 extends App {
 
   val sample: InputCodec[(String, Int, Int)] =
     literal("users") ++ int.map(n => ("Adam", n * 2)) ++ literal("posts") ++ int
-  val flattened: Chunk[Atom[_]]              = flatten(sample)
-  println(flattened)
 
   val result = Chunk((), 500, (), 900)
 
@@ -478,8 +476,6 @@ object Example3 extends App {
   import InputCodec._
 
   val sample = (literal("users") ++ int.map(n => ("COOL", n * 2)) ++ literal("posts") ++ int).map(n => ("Adam", n))
-  val flattened: Chunk[Atom[_]] = flatten(sample)
-  println(flattened)
 
   val result = Chunk((), 500, (), 900)
 
@@ -495,8 +491,6 @@ object Example4 extends App {
   import InputCodec._
 
   val sample = literal("users") / int / literal("posts") / int // / InputCodec.Header(HeaderParser.header("AUTH"))
-
-  // println(flattened)
 
   val result = Chunk((), 500, (), 900, "some-auth-token")
 
