@@ -1,6 +1,7 @@
 package zio.http
 
 import io.netty.handler.codec.http.QueryStringEncoder
+import zio.Chunk
 import zio.http.URL.{Fragment, Location}
 
 import java.net.{MalformedURLException, URI}
@@ -77,10 +78,10 @@ final case class URL(
   def setQueryParams(queryParams: QueryParams): URL =
     copy(queryParams = queryParams)
 
-  def setQueryParams(queryParams: Map[String, List[String]]): URL =
+  def setQueryParams(queryParams: Map[String, Chunk[String]]): URL =
     copy(queryParams = QueryParams(queryParams))
 
-  def setQueryParams(queryParams: (String, List[String])*): URL =
+  def setQueryParams(queryParams: (String, Chunk[String])*): URL =
     copy(queryParams = QueryParams(queryParams.toMap))
 
   def setQueryParams(query: String): URL =

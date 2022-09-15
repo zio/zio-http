@@ -40,13 +40,13 @@ object HttpGen {
   def genRelativeURL = for {
     path        <- HttpGen.anyPath
     kind        <- HttpGen.genRelativeLocation
-    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))
 
   def genAbsoluteURL = for {
     path        <- HttpGen.nonEmptyPath
     kind        <- HttpGen.genAbsoluteLocation
-    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))
 
   def genRelativeLocation: Gen[Any, Location.Relative.type] = Gen.const(URL.Location.Relative)
@@ -213,7 +213,7 @@ object HttpGen {
   def url: Gen[Sized, URL] = for {
     path        <- Gen.elements(Path.root, Path.root / "a", Path.root / "a" / "b", Path.root / "a" / "b" / "c")
     kind        <- HttpGen.location
-    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))
 
 }

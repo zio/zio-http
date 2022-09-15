@@ -1,31 +1,31 @@
 package zio.http
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
+import zio.Chunk
 
 import scala.jdk.CollectionConverters._
 
-final case class QueryParams private[http] (map: Map[String, List[String]])
-    extends scala.collection.Map[String, List[String]] {
+final case class QueryParams private[http] (map: Map[String, Chunk[String]])
+    extends scala.collection.Map[String, Chunk[String]] {
   self =>
 
   override def -(key: String): QueryParams = QueryParams(map - key)
 
   override def -(key1: String, key2: String, keys: String*): QueryParams =
-    QueryParams(map.--(List(key1, key2) ++ keys))
+    QueryParams(map.--(Chunk(key1, key2) ++ keys))
 
-  @deprecated("Use add instead", "2.12")
-  override def +[V1 >: List[String]](kv: (String, V1)): QueryParams =
-    throw new UnsupportedOperationException("deprecated")
+  override def +[V1 >: Chunk[String]](kv: (String, V1)): Map[String, V1] =
+    map.+(kv)
 
   def ++(other: QueryParams): QueryParams =
-    QueryParams((map.toList ++ other.map.toList).groupBy(_._1).map { case (key, values) =>
+    QueryParams((Chunk.fromIterable(map) ++ Chunk.fromIterable(other.map)).groupBy(_._1).map { case (key, values) =>
       (key, values.flatMap(_._2))
     })
 
   def add(key: String, value: String): QueryParams =
-    add(key, List(value))
+    addAll(key, Chunk(value))
 
-  def add(key: String, value: List[String]): QueryParams = {
+  def addAll(key: String, value: Chunk[String]): QueryParams = {
     val previousValue = map.get(key)
     val newValue      = previousValue match {
       case Some(prev) => prev ++ value
@@ -37,25 +37,35 @@ final case class QueryParams private[http] (map: Map[String, List[String]])
   def encode: String = {
     val encoder = new QueryStringEncoder(s"")
     map.foreach { case (key, values) =>
-      if (key != "") encoder.addParam(key, values.mkString(","))
+      if (key != "") {
+        if (values.isEmpty) {
+          encoder.addParam(key, "")
+        } else
+          values.foreach(value => encoder.addParam(key, value))
+      }
     }
 
     encoder.toString
   }
 
-  def toMap: Map[String, List[String]] = map
+  def toMap: Map[String, Chunk[String]] = map
 
-  override def get(key: String): Option[List[String]] = map.get(key)
+  override def get(key: String): Option[Chunk[String]] = map.get(key)
 
-  override def iterator: Iterator[(String, List[String])] = map.iterator
+  override def iterator: Iterator[(String, Chunk[String])] = map.iterator
 
 }
 
 object QueryParams {
 
-  def apply(tuples: (String, List[String])*): QueryParams =
-    QueryParams(map = tuples.toList.groupBy(_._1).map { case (key, values) =>
+  def apply(tuples: (String, Chunk[String])*): QueryParams =
+    QueryParams(map = Chunk.fromIterable(tuples).groupBy(_._1).map { case (key, values) =>
       key -> values.flatMap(_._2)
+    })
+
+  def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams =
+    QueryParams(map = Chunk.fromIterable(tuple1 +: tuples.toVector).groupBy(_._1).map { case (key, values) =>
+      key -> values.map(_._2)
     })
 
   def decode(queryStringFragment: String): QueryParams =
@@ -65,10 +75,10 @@ object QueryParams {
       val decoder = new QueryStringDecoder(queryStringFragment, false)
       val params  = decoder.parameters()
       QueryParams(params.asScala.view.map { case (k, v) =>
-        (k, v.asScala.toList.flatMap(_.split(",")))
+        (k, Chunk.fromIterable(v.asScala))
       }.toMap)
     }
 
-  val empty: QueryParams = QueryParams(Map.empty[String, List[String]])
+  val empty: QueryParams = QueryParams(Map.empty[String, Chunk[String]])
 
 }
