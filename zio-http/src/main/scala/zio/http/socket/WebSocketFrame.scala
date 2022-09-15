@@ -2,7 +2,7 @@ package zio.http.socket
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
-import zio.Chunk
+import zio.{Chunk, Unsafe}
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
   def isFinal: Boolean = true
@@ -12,16 +12,18 @@ sealed trait WebSocketFrame extends Product with Serializable { self =>
 
 object WebSocketFrame {
 
-  private[zio] def unsafeFromJFrame(jFrame: JWebSocketFrame): WebSocketFrame =
-    jFrame match {
-      case _: PingWebSocketFrame   => Ping
-      case _: PongWebSocketFrame   => Pong
-      case m: BinaryWebSocketFrame => Binary(Chunk.fromArray(ByteBufUtil.getBytes(m.content())), m.isFinalFragment)
-      case m: TextWebSocketFrame   => Text(m.text(), m.isFinalFragment)
-      case m: CloseWebSocketFrame  => Close(m.statusCode(), Option(m.reasonText()))
-      case m: ContinuationWebSocketFrame => Continuation(m.content(), m.isFinalFragment)
-      case _                             => null
-    }
+  private[zio] object unsafe {
+    final def fromJFrame(jFrame: JWebSocketFrame)(implicit unsafe: Unsafe): WebSocketFrame =
+      jFrame match {
+        case _: PingWebSocketFrame   => Ping
+        case _: PongWebSocketFrame   => Pong
+        case m: BinaryWebSocketFrame => Binary(Chunk.fromArray(ByteBufUtil.getBytes(m.content())), m.isFinalFragment)
+        case m: TextWebSocketFrame   => Text(m.text(), m.isFinalFragment)
+        case m: CloseWebSocketFrame  => Close(m.statusCode(), Option(m.reasonText()))
+        case m: ContinuationWebSocketFrame => Continuation(m.content(), m.isFinalFragment)
+        case _                             => null
+      }
+  }
 
   def binary(bytes: Chunk[Byte]): WebSocketFrame = WebSocketFrame.Binary(bytes)
 
@@ -31,7 +33,7 @@ object WebSocketFrame {
   def continuation(chunks: ByteBuf): WebSocketFrame = WebSocketFrame.Continuation(chunks)
 
   def fromJFrame(jFrame: JWebSocketFrame): Option[WebSocketFrame] =
-    Option(unsafeFromJFrame(jFrame))
+    Option(unsafe.fromJFrame(jFrame)(Unsafe.unsafe))
 
   def ping: WebSocketFrame = WebSocketFrame.Ping
 

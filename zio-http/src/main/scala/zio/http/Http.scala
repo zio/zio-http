@@ -9,11 +9,12 @@ import zio.http.html._
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
-import java.io.{File, IOException}
+import java.io.{File, FileNotFoundException, IOException}
 import java.net
 import java.net.{InetAddress, InetSocketAddress}
 import java.nio.charset.Charset
 import java.nio.file.Paths
+import java.util.zip.ZipFile
 import scala.annotation.unused
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
@@ -667,12 +668,14 @@ object Http {
     /**
      * Applies Http based on the path
      */
-    def whenPathEq(p: Path): HttpApp[R, E] = http.whenPathEq(p.encode)
+    def whenPathEq(p: Path): HttpApp[R, E] =
+      http.whenPathEq(p.encode)(Unsafe.unsafe)
 
     /**
      * Applies Http based on the path as string
      */
-    def whenPathEq(p: String): HttpApp[R, E] = http.when(_.unsafeEncode.uri().contentEquals(p))
+    def whenPathEq(p: String)(implicit unsafe: Unsafe): HttpApp[R, E] =
+      http.when(_.unsafe.encode.uri().contentEquals(p))
   }
 
   /**
@@ -721,7 +724,8 @@ object Http {
   /**
    * Provides access to the request's ChannelHandlerContext
    */
-  def context: Http[Any, Nothing, Request, ChannelHandlerContext] = Http.fromFunction[Request](_.unsafeContext)
+  def context: Http[Any, Nothing, Request, ChannelHandlerContext] =
+    Http.fromFunctionZIO[Request](request => ZIO.succeedUnsafe { implicit u => request.unsafe.context })
 
   /**
    * Returns an http app that dies with the specified `Throwable`. This method
@@ -874,33 +878,31 @@ object Http {
         val bangIndex    = path.indexOf('!')
         val filePath     = path.substring(0, bangIndex)
         val resourcePath = path.substring(bangIndex + 2)
-        val appZIO       =
-          ZIO
-            .attemptBlockingIO(new java.util.zip.ZipFile(filePath))
-            .asSomeError
-            .flatMap { jar =>
-              val closeJar = ZIO.attemptBlocking(jar.close()).ignoreLogged
-              (for {
-                entry <- ZIO.attemptBlocking(Option(jar.getEntry(resourcePath))).some
-                _     <- ZIO.when(entry.isDirectory)(ZIO.fail(None))
-                contentLength = entry.getSize
-                inStream <- ZIO.attemptBlockingIO(jar.getInputStream(entry)).asSomeError
-                mediaType = determineMediaType(resourcePath)
-                app       =
-                  Http
-                    .fromStream(
-                      ZStream
-                        .fromInputStream(inStream)
-                        .ensuring(closeJar),
-                    )
-                    .withContentLength(contentLength)
-              } yield mediaType.fold(app)(t => app.withMediaType(t))).onError(_ => closeJar)
-            }
+        val mediaType    = determineMediaType(resourcePath)
+        val openZip      = ZIO.attemptBlockingIO(new ZipFile(filePath))
+        val closeZip     = (jar: ZipFile) => ZIO.attemptBlocking(jar.close()).ignoreLogged
+        def fileNotFound = new FileNotFoundException(s"Resource $resourcePath not found")
+        def isDirectory  = new IllegalArgumentException(s"Resource $resourcePath is a directory")
 
-        Http.fromZIO(appZIO).flatten.catchAll {
-          case Some(e) => Http.fail(e)
-          case None    => Http.empty
-        }
+        val appZIO =
+          ZIO.acquireReleaseWith(openZip)(closeZip) { jar =>
+            for {
+              entry <- ZIO
+                .attemptBlocking(Option(jar.getEntry(resourcePath)))
+                .collect(fileNotFound) { case Some(e) => e }
+              _     <- ZIO.when(entry.isDirectory)(ZIO.fail(isDirectory))
+              contentLength = entry.getSize
+              inZStream     = ZStream
+                .acquireReleaseWith(openZip)(closeZip)
+                .mapZIO(jar => ZIO.attemptBlocking(jar.getEntry(resourcePath) -> jar))
+                .flatMap { case (entry, jar) => ZStream.fromInputStream(jar.getInputStream(entry)) }
+              response      = Response(body = Body.fromStream(inZStream))
+            } yield mediaType.fold(response) { t =>
+              response.withMediaType(t).withContentLength(contentLength)
+            }
+          }
+
+        Http.fromZIO(appZIO).catchSome { case _: FileNotFoundException => Http.empty }
       case proto  =>
         Http.fail(new IllegalArgumentException(s"Unsupported protocol: $proto"))
     }

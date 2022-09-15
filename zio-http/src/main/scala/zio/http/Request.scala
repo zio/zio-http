@@ -2,6 +2,7 @@ package zio.http
 
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpRequest}
+import zio.Unsafe
 import zio.http.headers.HeaderExtension
 import zio.http.service.{Ctx, ServerInboundHandler}
 
@@ -42,13 +43,16 @@ trait Request extends HeaderExtension[Request] { self =>
     val h = headers
     val v = version
     new Request {
-      override def method: Method                       = m
-      override def url: URL                             = u
-      override def headers: Headers                     = h
-      override def version: Version                     = v
-      override def unsafeEncode: HttpRequest            = self.unsafeEncode
-      override def body: Body                           = self.body
-      override def unsafeContext: ChannelHandlerContext = self.unsafeContext
+      override final val method: Method   = m
+      override final val url: URL         = u
+      override final val headers: Headers = h
+      override final val version: Version = v
+      override final val body: Body       = self.body
+
+      override final val unsafe: UnsafeAPI = new UnsafeAPI {
+        override final def context(implicit unsafe: Unsafe): ChannelHandlerContext = self.unsafe.context
+        override final def encode(implicit unsafe: Unsafe): HttpRequest            = self.unsafe.encode
+      }
     }
   }
 
@@ -102,16 +106,20 @@ trait Request extends HeaderExtension[Request] { self =>
    */
   def version: Version
 
-  /**
-   * Accesses the channel's context for more low level control
-   */
-  private[zio] def unsafeContext: ChannelHandlerContext
+  private[zio] trait UnsafeAPI {
 
-  /**
-   * Gets the HttpRequest
-   */
-  private[zio] def unsafeEncode: HttpRequest
+    /**
+     * Accesses the channel's context for more low level control
+     */
+    def context(implicit unsafe: Unsafe): ChannelHandlerContext
 
+    /**
+     * Gets the HttpRequest
+     */
+    def encode(implicit unsafe: Unsafe): HttpRequest
+  }
+
+  private[zio] val unsafe: UnsafeAPI
 }
 
 object Request {
@@ -133,43 +141,58 @@ object Request {
     val v = version
 
     new Request {
-      override def method: Method                       = m
-      override def url: URL                             = u
-      override def headers: Headers                     = h
-      override def version: Version                     = v
-      override def unsafeEncode: HttpRequest            = {
-        val jVersion = v.toJava
-        val path     = url.relative.encode
-        new DefaultFullHttpRequest(jVersion, method.toJava, path)
-      }
-      override def body: Body                           = d
-      override def unsafeContext: ChannelHandlerContext = throw new IOException("Request does not have a context")
+      override final val method: Method   = m
+      override final val url: URL         = u
+      override final val headers: Headers = h
+      override final val version: Version = v
+      override final val body: Body       = d
 
+      override final val unsafe: UnsafeAPI = new UnsafeAPI {
+        override final def context(implicit unsafe: Unsafe): ChannelHandlerContext = throw new IOException(
+          "Request does not have a context",
+        )
+        override final def encode(implicit unsafe: Unsafe): HttpRequest            = {
+          val jVersion = v.toJava
+          val path     = url.relative.encode
+          new DefaultFullHttpRequest(jVersion, method.toJava, path)
+        }
+      }
     }
   }
 
   private[zio] def fromFullHttpRequest(jReq: FullHttpRequest)(implicit ctx: Ctx): Request = {
+    val protocolVersion = Version.unsafe.fromJava(jReq.protocolVersion())(Unsafe.unsafe)
 
     new Request {
-      override def method: Method            = Method.fromHttpMethod(jReq.method())
-      override def url: URL                  = URL.fromString(jReq.uri()).getOrElse(URL.empty)
-      override def headers: Headers          = Headers.make(jReq.headers())
-      override def body: Body                = Body.fromByteBuf(jReq.content())
-      override def version: Version          = Version.unsafeFromJava(jReq.protocolVersion())
-      override def unsafeEncode: HttpRequest = jReq
-      override def unsafeContext: Ctx        = ctx
+      override final def method: Method    = Method.fromHttpMethod(jReq.method())
+      override final def url: URL          = URL.fromString(jReq.uri()).getOrElse(URL.empty)
+      override final def headers: Headers  = Headers.make(jReq.headers())
+      override final def body: Body        = Body.fromByteBuf(jReq.content())
+      override final val version: Version  = protocolVersion
+      override final val unsafe: UnsafeAPI = new UnsafeAPI {
+        override final def encode(implicit unsafe: Unsafe): HttpRequest = jReq
+        override final def context(implicit unsafe: Unsafe): Ctx        = ctx
+      }
     }
   }
 
   private[zio] def fromHttpRequest(jReq: HttpRequest)(implicit ctx: Ctx): Request = {
+    val protocolVersion = Version.unsafe.fromJava(jReq.protocolVersion())(Unsafe.unsafe)
+
     new Request {
-      override def headers: Headers          = Headers.make(jReq.headers())
-      override def method: Method            = Method.fromHttpMethod(jReq.method())
-      override def url: URL                  = URL.fromString(jReq.uri()).getOrElse(URL.empty)
-      override def version: Version          = Version.unsafeFromJava(jReq.protocolVersion())
-      override def unsafeEncode: HttpRequest = jReq
-      override def unsafeContext: Ctx        = ctx
-      override def body: Body = Body.fromAsync { async => ServerInboundHandler.Unsafe.addAsyncBodyHandler(async) }
+      override final def headers: Headers = Headers.make(jReq.headers())
+      override final def method: Method   = Method.fromHttpMethod(jReq.method())
+      override final def url: URL         = URL.fromString(jReq.uri()).getOrElse(URL.empty)
+      override final val version: Version = protocolVersion
+      override final def body: Body       = Body.fromAsync { async =>
+        ServerInboundHandler.unsafe.addAsyncBodyHandler(async)(ctx, Unsafe.unsafe)
+      }
+
+      override final val unsafe: UnsafeAPI = new UnsafeAPI {
+        override final def encode(implicit unsafe: Unsafe): HttpRequest = jReq
+
+        override final def context(implicit unsafe: Unsafe): Ctx = ctx
+      }
     }
   }
 }
