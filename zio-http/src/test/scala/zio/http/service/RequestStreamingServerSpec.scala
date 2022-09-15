@@ -58,7 +58,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       ServerConfig.live(configAppWithRequestStreaming),
       Server.live,
       Client.default,
-      Scope.default
+      Scope.default,
     ) @@
       timeout(10 seconds) @@ sequential
 

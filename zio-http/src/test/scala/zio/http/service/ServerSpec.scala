@@ -318,7 +318,7 @@ object ServerSpec extends HttpRunnableSpec {
       ServerConfig.live(configApp),
       Server.live,
       Client.default,
-      Scope.default
+      Scope.default,
     ) @@ timeout(30 seconds) @@ sequential
 
 }

@@ -1,5 +1,6 @@
 package zio.http.service
 
+import zio._
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
@@ -8,7 +9,6 @@ import zio.http.{ChannelEvent, Client, Headers, Http, Status}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
-import zio.{Promise, Ref, Scope, UIO, ZIO, durationInt}
 
 object WebSocketSpec extends HttpRunnableSpec {
 

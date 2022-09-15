@@ -1,10 +1,10 @@
 package zio.http.internal
 
-import zio.{Scope, ZIO}
 import zio.http.URL.Location
 import zio.http._
 import zio.http.socket.SocketApp
 import zio.test.ZIOSpecDefault
+import zio.{Scope, ZIO}
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would
@@ -54,7 +54,9 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy(implicit e: E <:< Throwable): Http[R with Client with DynamicServer with Scope, Throwable, Request, Response] =
+    def deploy(implicit
+      e: E <:< Throwable,
+    ): Http[R with Client with DynamicServer with Scope, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
@@ -62,7 +64,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
           Client.request(
             params
               .addHeader(DynamicServer.APP_ID, id)
-              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port)))
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
           )
         }
       } yield response
@@ -104,7 +106,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       status <- Client
         .request(
           "http://localhost:%d/%s".format(port, path),
-          method
+          method,
         )
         .map(_.status)
     } yield status

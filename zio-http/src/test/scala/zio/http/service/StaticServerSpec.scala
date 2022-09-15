@@ -75,7 +75,7 @@ object StaticServerSpec extends HttpRunnableSpec {
       DynamicServer.live,
       severTestLayer,
       Client.default,
-      Scope.default
+      Scope.default,
     ) @@
       timeout(30 seconds)
 

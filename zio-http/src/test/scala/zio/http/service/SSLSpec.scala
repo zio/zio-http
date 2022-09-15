@@ -44,7 +44,11 @@ object SSLSpec extends ZIOSpecDefault {
               .request("https://localhost:8073/success")
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
-          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1)))),
+          }.provide(
+            Scope.default,
+            Client.live,
+            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1))),
+          ),
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
               .request("https://localhost:8073/success")
@@ -52,7 +56,11 @@ object SSLSpec extends ZIOSpecDefault {
                 ZIO.succeed("DecoderException")
               }
             assertZIO(actual)(equalTo("DecoderException"))
-          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL2)))),
+          }.provide(
+            Scope.default,
+            Client.live,
+            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL2))),
+          ),
           test("succeed when client has default SSL") {
             val actual = Client
               .request("https://localhost:8073/success")
@@ -64,7 +72,11 @@ object SSLSpec extends ZIOSpecDefault {
               .request("http://localhost:8073/success")
               .map(_.status)
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
-          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1)))),
+          }.provide(
+            Scope.default,
+            Client.live,
+            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1))),
+          ),
           test("Https request with a large payload should respond with 413") {
             check(payload) { payload =>
               val actual = Client
@@ -76,12 +88,16 @@ object SSLSpec extends ZIOSpecDefault {
                 .map(_.status)
               assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
             }
-          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1)))),
+          }.provide(
+            Scope.default,
+            Client.live,
+            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1))),
+          ),
         ),
       ),
   ).provideShared(
     ServerConfig.live(config),
-    Server.live
+    Server.live,
   ) @@
     timeout(5 second) @@ ignore
 

@@ -2,12 +2,12 @@ package zio.http.service
 
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
-import zio.{Scope, durationInt}
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.{Client, ClientConfig, Status}
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}
+import zio.{Scope, durationInt}
 
 import java.io.InputStream
 import java.security.KeyStore
@@ -39,7 +39,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
     test("should respond as Bad Request") {
       val actual = Client
         .request(
-          "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/"
+          "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
         )
         .map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
@@ -47,10 +47,12 @@ object ClientHttpsSpec extends ZIOSpecDefault {
     test("should throw DecoderException for handshake failure") {
       val actual = Client
         .request(
-          "https://untrusted-root.badssl.com/"
+          "https://untrusted-root.badssl.com/",
         )
         .exit
       assertZIO(actual)(fails(isSubtype[DecoderException](anything)))
     },
-  ).provide(ClientConfig.live(ClientConfig.empty.ssl(sslOption)), Client.live, Scope.default) @@ timeout(30 seconds) @@ ignore
+  ).provide(ClientConfig.live(ClientConfig.empty.ssl(sslOption)), Client.live, Scope.default) @@ timeout(
+    30 seconds,
+  ) @@ ignore
 }
