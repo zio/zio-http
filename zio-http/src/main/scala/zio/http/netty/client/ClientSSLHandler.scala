@@ -1,4 +1,6 @@
-package zio.http.service
+package zio.http
+package netty
+package client
 
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}

@@ -1,12 +1,16 @@
-package zio.http.service
+package zio.http
+package netty
+package server
 
 import io.netty.channel.{ChannelFutureListener, ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{DefaultHttpResponse, HttpMessage, HttpResponseStatus, HttpVersion}
-import zio.http.service.ServerSSLHandler.SSLHttpBehaviour
+import zio.http.netty.server.ServerSSLHandler.SSLHttpBehaviour
 
-class ServerHttpsHandler(httpBehaviour: SSLHttpBehaviour) extends SimpleChannelInboundHandler[HttpMessage] {
+private[zio] class ServerHttpsHandler(httpBehaviour: SSLHttpBehaviour)
+    extends SimpleChannelInboundHandler[HttpMessage] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpMessage): Unit = {
 
+    // TODO: PatMat maybe???
     if (msg.isInstanceOf[HttpMessage]) {
       if (httpBehaviour == SSLHttpBehaviour.Redirect) {
         val message  = msg.asInstanceOf[HttpMessage]

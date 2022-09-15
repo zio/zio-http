@@ -1,4 +1,6 @@
-package zio.http.service
+package zio.http
+package netty
+package client
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}

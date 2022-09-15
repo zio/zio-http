@@ -5,12 +5,9 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 import zio.http.headers.HeaderExtension
 import zio.http.html._
-import zio.http.service.{
-  CLIENT_INBOUND_HANDLER,
-  CLIENT_STREAMING_BODY_HANDLER,
-  ChannelFuture,
-  ClientResponseStreamHandler,
-}
+import zio.http.netty._
+import zio.http.netty.client._
+import zio.http.service.{CLIENT_INBOUND_HANDLER, CLIENT_STREAMING_BODY_HANDLER}
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.{Cause, Task, Unsafe, ZIO}
 
@@ -75,7 +72,7 @@ final case class Response private (
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
   private[zio] def close: Task[Unit] = self.attribute.channel match {
-    case Some(channel) => ChannelFuture.unit(channel.close())
+    case Some(channel) => NettyFutureExecutor.unit(channel.close())
     case None          => ZIO.refailCause(Cause.fail(new IOException("Channel context isn't available")))
   }
 

@@ -3,8 +3,9 @@ package zio.http
 import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
 import io.netty.util.ResourceLeakDetector
 import zio.ZLayer
-import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
-import zio.http.service.ServerSSLHandler.ServerSSLOptions
+import zio.http.ServerConfig.LeakDetectionLevel
+import zio.http.netty.server.ServerSSLHandler.ServerSSLOptions
+import zio.http.netty.{ChannelType, EventLoopGroups}
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -21,7 +22,7 @@ final case class ServerConfig(
   objectAggregator: Int = 1024 * 100,
   channelType: ChannelType = ChannelType.AUTO,
   nThreads: Int = 0,
-) {
+) extends EventLoopGroups.Config {
   self =>
   def useAggregator: Boolean = objectAggregator >= 0
 
