@@ -69,11 +69,31 @@ object Headers extends HeaderConstructors {
       h
     }
 
-    override def equals(that: Any): Boolean =
+    override def equals(that: Any): Boolean = {
       that match {
-        case Header(k, v) => CharSequence.compare(key, k) == 0 && CharSequence.compare(value, v) == 0
-        case _            => false
+        case Header(k, v) =>
+          def eqs(l: CharSequence, r: CharSequence): Boolean = {
+            if (l.length() != r.length()) false
+            else {
+              var i     = 0
+              var equal = true
+
+              while (i < l.length()) {
+                if (l.charAt(i) != r.charAt(i)) {
+                  equal = false
+                  i = l.length()
+                }
+                i = i + 1
+              }
+              equal
+            }
+          }
+
+          eqs(self.key, k) && eqs(self.value, v)
+
+        case _ => false
       }
+    }
 
     override def iterator: Iterator[Header] =
       Iterator.single(self)
