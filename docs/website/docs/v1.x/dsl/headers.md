@@ -22,7 +22,7 @@ There are multiple ways to attach headers to a response:
            status = Status.OK,
            // Setting response header 
            headers = Headers.contentLength(0L),
-           data = HttpData.empty
+           body = Body.empty
     ```
 - Using `Middlewares`.
     ```scala
@@ -45,8 +45,8 @@ On the Server-side you can read Request headers as given below
 - Example below shows how the Headers could be added to a response by using `Response` constructors and how a custom header is added to `Response` through `addHeader`:
 
   ```scala
-  import zhttp.http._
-  import zhttp.service.Server
+  import zio.http._
+  import zio.http.Server
   import zio.{App, Chunk, ExitCode, URIO}
   import zio.stream.ZStream
   
@@ -74,11 +74,11 @@ On the Server-side you can read Request headers as given below
             status = Status.OK,
             // Setting response header 
             headers = Headers.contentLength(message.length.toLong), // adding CONTENT-LENGTH header
-            data = HttpData.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
+            body = Body.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
           )
         else { 
           // Adding a custom header to Response
-          Response(status = Status.ACCEPTED, data = HttpData.fromChunk(message)).addHeader("X-MY-HEADER", "test")
+          Response(status = Status.ACCEPTED, body = Body.fromChunk(message)).addHeader("X-MY-HEADER", "test")
         }
     }
   }
@@ -103,8 +103,8 @@ On the Server-side you can read Request headers as given below
     ```
 
 - More examples:
-  - [BasicAuth](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/BasicAuth.scala)
-  - [Authentication](https://github.com/dream11/zio-http/blob/main/example/src/main/scala/Authentication.scala)
+  - [BasicAuth](https://github.com/zio/zio-http/blob/main/example/src/main/scala/BasicAuth.scala)
+  - [Authentication](https://github.com/zio/zio-http/blob/main/example/src/main/scala/Authentication.scala)
 
 </details>
 
@@ -131,8 +131,8 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
 - The sample below shows how a header could be added to a client request:
 
     ```scala
-    import zhttp.http._
-    import zhttp.service._
+    import zio.http._
+    import zio.http.service._
     import zio._
     
     object SimpleClientJson extends App {
@@ -166,17 +166,17 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
 
 Headers DSL provides plenty of powerful operators that can be used to add, remove, modify and verify headers. Headers APIs could be used on client, server, and middleware.
 
-`zhttp.http.Headers`      - represents an immutable collection of headers i.e. essentially a `Chunk[(String, String)]`.
+`zio.http.Headers`      - represents an immutable collection of headers i.e. essentially a `Chunk[(String, String)]`.
 
-`zhttp.http.HeaderNames`  - commonly used header names.
+`zio.http.HeaderNames`  - commonly used header names.
 
-`zhttp.http.HeaderValues` - commonly used header values
+`zio.http.HeaderValues` - commonly used header values
 
 `Headers` have following type of helpers
 - Constructors -  Provides a list of helpful methods that can create `Headers`.
 
     ```scala
-    import zhttp.http._
+    import zio.http._
     
     // create a simple Accept header:
     val acceptHeader: Headers = Headers.accept(HeaderValues.applicationJson)
@@ -188,7 +188,7 @@ Headers DSL provides plenty of powerful operators that can be used to add, remov
 - Getters - Provides a list of operators that parse and extract data from the `Headers`.
 
     ```scala
-    import zhttp.http._
+    import zio.http._
     
     // retrieving the value of Accept header value:
     val acceptHeader: Headers = Headers.accept(HeaderValues.applicationJson)
@@ -203,7 +203,7 @@ Headers DSL provides plenty of powerful operators that can be used to add, remov
 - Modifiers - Provides a list of operators that modify the current `Headers`. Once modified, a new instance of the same type is returned.
 
     ```scala
-    import zhttp.http._
+    import zio.http._
     
     // add Accept header:
     val headers = Headers.empty

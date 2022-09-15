@@ -17,7 +17,7 @@ onLoadMessage := {
       |${header("/___| |___|  \\___/        |_||_|   |_|     |_|   |_|")}
       |
       |Useful sbt tasks:
-      |${item("fmt")}: Prepares source files using scalafmt and scalafmt.
+      |${item("fmt")}: Prepares source files using scalafix and scalafmt.
       |${item("sFix")}: Fixes sources files using scalafix.
       |${item("fmtCheck")}: Checks sources by applying both scalafix and scalafmt.
       |${item("sFixCheck")}: Checks sources by applying both scalafix.

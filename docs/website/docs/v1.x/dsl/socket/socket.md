@@ -3,164 +3,84 @@ title: "Socket"
 sidebar_label: "Socket"
 ---
 
-`Socket[-R, +E, -A, +B]` models a function from `A` to `ZStream[R, E, B]`. When a value of type `A` is evaluated against a `Socket[R, E, A, B]`, it can either succeed with a stream of values of type `B`, or fail with an `E`, and it could have its requirement on `R`.
-
-## Creating Sockets
-
-### An empty Socket
-
-To create an empty Socket, you can use the `empty` constructor.
+Websocket support can be added to your Http application using the same `Http` domain, something like this —
 
 ```scala
-val socket = Socket.empty
-```
+import zio.http._
+import zio.socket._
 
-### Socket that has ended
+val socket = Http.collectZIO[WebSocketChannelEvent] {
+  case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("foo"))) =>
+    ch.writeAndFlush(WebSocketFrame.text("bar"))
+}
 
-To create a Socket that has ended, you can use the `end` constructor.
-
-```scala
-val socket = Socket.end
-```
-
-### Socket that always succeeds
-
-You can use the `succeed` constructor to create a Socket that always returns the same response and never fails.
-
-```scala
-val socket = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP"))
-```
-
-### Socket that echoes the message
-
-You can use the `echo` constructor to create a Socket that always echoes back the message.
-
-```scala
-val socket = Socket.echo(WebSocketFrame.text("Hello, from ZIO-HTTP"))
-```
-
-### Socket from a partial function
-
-`Socket.collect` can create a `Socket[R, E, A, B]` from a `PartialFunction[A, B]`.
-
-```scala
-val fromCollect = Socket.collect[WebSocketFrame] {
-  case WebSocketFrame.Text("fail") => ZStream.fail(new Exception("error"))
-  case WebSocketFrame.Text(text)   => ZStream.succeed(text)
+val http = Http.collectZIO[Request] {
+  case Method.GET -> !! / "subscriptions" => socket.toSocketApp.toResponse
 }
 ```
 
-### Socket from a function
+The WebSocket API leverages the already powerful `Http` domain to write web socket apps. The difference is that instead
+of collecting `Request` we collect `ChannelEvent` or more specifically `WebSocketChannelEvent`. And, instead of
+returning
+a `Response` we return `Unit`, because we use the channel (which is available in the event) to write content directly.
 
-To create a Socket from a function, you can use the `fromFunction` constructor.
+## Channel
+
+Essentially whenever there is a connection created between a server and client a channel is created on both sides. The
+channel is a low level api that allows us to send and receive arbitrary messages.
+
+When we upgrade a Http connection to WebSocket, we create a specialized channel that only allows websocket frames to be
+sent and received. The access to channel is available thru the `ChannelEvent` api.
+
+## ChannelEvents
+
+A `ChannelEvent` is an immutable, type-safe representation of an event that's happened on a channel and it looks like
+this —
 
 ```scala
-val socket = Socket.fromFunction[WebSocketFrame](wsf => ZStream.succeed(wsf))
+case class ChannelEvent[A, B](channel: Channel[A], event: Event[B])
 ```
 
-### Socket from a ZStream
+It contains two elements — The **Channel** on which the event was triggered and the actual **Event** that was triggered.
+The
+type param `A` on the Channel represents the kind of message one can **write** using the channel and the type param `B`
+represents the kind of messages that can be received on the channel.
 
-To create a socket from a `ZStream[R, E, B]`, you can use the `fromStream` constructor.
+The type `WebSocketChannelEvent` is a type alias to `ChannelEvent[WebsocketFrame, WebSocketFrame]`. Meaning a channel
+that only accepts `WebSocketFrame` and produces `WebSocketFrame` type of messages.
+
+## Using `Http`
+
+We can use `Http.collect` to select the events that we care about for our use case, like in the above example we are
+only interested in the `ChannelRead` event. There are other life cycle events such as `ChannelRegistered`
+and `ChannelUnregistered` that one might want to hook onto for some other use cases.
+
+The main benefit of using `Http` is that one can write custom middlewares that can process incoming and outgoing
+messages easily, for eg:
 
 ```scala
-val transducer = ZTransducer[Int].map(elem => WebSocketFrame.Text(elem.toString))
-val stream     = ZStream
-  .fromIterable((0 to 10))
-  .transduce(transducer)
+val userAction = Http.collect[ChannelEvent[Action, Command]] {
+  case CreateAccount(name, password) => ???
+  case DeleteAccount(id) => ???
+}
 
-val socket = Socket.fromStream(stream)
+val codec: Middleware[Any, Nothing, ChannelEvent[Action, Command], Unit, WebSocketChannelEvent, Unit]
+
+val socket = userAction @@ codec
 ```
 
-## Composing Sockets
+## SocketApp
 
-### Using `merge`
-
-You can merge two Sockets using the `merge` operator, the resulting Socket will emit the values of both Sockets.
-
-```scala
-val s1 = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP"))
-val s2 = Socket.succeed(WebSocketFrame.text("Welcome to the party"))
-val socket = s1 merge s2
-```
-
-## Transforming Sockets
-
-### `map` over a Socket's output channel
-
-Socket is a domain, so you can use `map` to transform the output of a Socket from type `Socket[R, E, A, B]` to type `Socket[R, E, A, C]`, it takes a function from `B => Socket[R, E, A, C]`.
+The `Http` that accepts `WebSocketChannelEvent` isn't enough to create a websocket connection. There some other settings
+that one might need to configure in a websocket connection, things such as `handshakeTimeout` or `subProtocol` etc. For
+those purposes a Http of the type `Http[R, E, WebSocketChannelEvent, Unit]` needs to converted into a `SocketApp` using
+the `toSocketApp` method first, before it can be sent as a response. Consider the following example where we set a few
+addtional properties for the websocket connection.
 
 ```scala
-val sc     = Socket.succeed("Hello, from ZIO-HTTP")
-val socket = sc.map(text => WebSocketFrame.text(text))
-```
-
-You can also transform the output of a Socket effecfully using the `mapZIO` operator. It takes a function
- `B => ZIO[R, E, C]` and returns a Socket of type `Socket[R, E, A, C]`.
-
-### `contramap` over a Socket's input channel
-
-Socket also comes with a contramap operator that lets you map over the input of Socket before it gets passed over to it.
-
-```scala
-val sc     = Socket.collect[String] { case text => ZStream(text) }
-val socket = sc.contramap[WebSocketFrame.Text](wsf => wsf.text)
-
-val res = socket(WebSocketFrame.Text("Hello, from ZIO-HTTP"))
-```
-
- Additionally, you can use the `contramapZIO` operator to transform the input of a Socket effectfully.
-
-```scala
-val sc     = Socket.collect[String] { case text => ZStream(text) }
-val socket = sc.contramapZIO[Any, Throwable, WebSocketFrame.Text](wsf => ZIO(wsf.text))
-
-val res = socket(WebSocketFrame.Text("Hello, from ZIO-HTTP"))
-```
-
-## Providing environment
-
-### Using `provideEnvironment`
-
-You can use the `provideEnvironment` operator to provide a Socket with its required environment, which eliminates its dependency on R.
-
-:::info
-This operation assumes that the Socket requires an environment of type `R`.
-:::
-
-```scala
-val socket = Socket
-  .fromStream(ZStream.environment[WebSocketFrame])
-  .provideEnvironment(WebSocketFrame.text("Hello, from ZIO-HTTP"))
-```
-
-## Special operators on Socket
-
-There are special operators on Socket that let you transform it into other entities in ZIO-HTTP
-
-:::info
-These operators only work if the Socket is an instance of `Socket[R, Throwable, WebSocketFrame, WebSocketFrame]`
-:::
-
-### `toHttp`
-
-You can use the `toHttp` operator to convert a Socket to an `HTTP[-R, +E, +A, -B]`.
-
-```scala
-val http = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP")).toHttp
-```
-
-### `toResponse`
-
-You can use the `toResponse` operator to convert a Socket to a `Response`.
-
-```scala
-val response = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP")).toResponse
-```
-
-### `toSocketApp`
-
-You can use the `toSocketApp` operator to covert a Socket to a `SocketApp`.
-
-```scala
-val app = Socket.succeed(WebSocketFrame.text("Hello, from ZIO-HTTP")).toSocketApp
+socket
+  .toSocketApp
+  .withDecoder(SocketDecoder.skipUTF8Validation)
+  .withEncoder(SocketProtocol.subProtocol("json") ++ SocketProtocol.handshakeTimeout(5 seconds))
+  .toResponse
 ```

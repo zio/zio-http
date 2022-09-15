@@ -10,7 +10,7 @@ name: Continuous Integration
 on:
   pull_request:
     branches: ['**']
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened, edited, labeled]
   push:
     branches: ['**']
     tags: [v*]
@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.15, 2.13.8, 3.1.1]
+        scala: [2.12.16, 2.13.8, 3.2.0]
         java: [graal_21.1.0@11, temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -74,7 +74,7 @@ jobs:
         run: sbt ++2.13.8 doc
 
       - name: Compress target directories
-        run: tar cf targets.tar target zio-http-test/target zio-http/target zio-http-benchmarks/target example/target project/target
+        run: tar cf targets.tar target zio-http/target zio-http-logging/target zio-http-benchmarks/target zio-http-example/target project/target
 
       - name: Upload target directories
         uses: actions/upload-artifact@v2
@@ -124,12 +124,12 @@ jobs:
             ~/Library/Caches/Coursier/v1
           key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
 
-      - name: Download target directories (2.12.15)
+      - name: Download target directories (2.12.16)
         uses: actions/download-artifact@v2
         with:
-          name: target-${{ matrix.os }}-2.12.15-${{ matrix.java }}
+          name: target-${{ matrix.os }}-2.12.16-${{ matrix.java }}
 
-      - name: Inflate target directories (2.12.15)
+      - name: Inflate target directories (2.12.16)
         run: |
           tar xf targets.tar
           rm targets.tar
@@ -144,12 +144,12 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (3.1.1)
+      - name: Download target directories (3.2.0)
         uses: actions/download-artifact@v2
         with:
-          name: target-${{ matrix.os }}-3.1.1-${{ matrix.java }}
+          name: target-${{ matrix.os }}-3.2.0-${{ matrix.java }}
 
-      - name: Inflate target directories (3.1.1)
+      - name: Inflate target directories (3.2.0)
         run: |
           tar xf targets.tar
           rm targets.tar
@@ -223,7 +223,7 @@ jobs:
 
       - name: Run Coverage
         id: run_coverage
-        run: sbt ++${{ matrix.scala }} 'coverage; project zhttp; test; coverageReport'
+        run: sbt ++${{ matrix.scala }} 'coverage; project zioHttp; test; coverageReport'
 
       - name: Push Codecov
         id: push_codecov
@@ -258,7 +258,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
-          cp ./zio-http/example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
+          cp ./zio-http/zio-http-example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
           cd ./FrameworkBenchMarks
           sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt
           ./tfb  --test zio-http | tee result
@@ -267,7 +267,7 @@ jobs:
           echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
           echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
 
-      - if: ${{github.event.pull_request.head.repo.full_name == 'dream11/zio-http'}}
+      - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
         uses: peter-evans/commit-comment@v1
         with:
           sha: ${{github.event.pull_request.head.sha}}
@@ -277,3 +277,54 @@ jobs:
 
             ${{steps.result.outputs.concurrency_result}}
             ${{steps.result.outputs.request_result}}
+
+  Jmh_publish:
+    name: Jmh Publish
+    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Format Output
+        id: fomat_output
+        run: |
+          cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
+                    while IFS= read -r line; do
+                    if grep -q "$line" Current.txt
+                    then
+                    grep "$line" Current.txt | sed 's/^.*: //' >> finalCurrent.txt;
+                    else
+                    echo "" >> finalCurrent.txt;
+                    fi
+                      if grep -q "$line" Main.txt
+                    then
+                    grep "$line" Main.txt | sed 's/^.*: //' >> finalMain.txt;
+                    else
+                    echo "" >> finalMain.txt;
+                    fi
+                     done < c.txt
+          paste -d '|' c.txt finalCurrent.txt finalMain.txt > FinalOutput.txt
+           sed -i -e 's/^/|/' FinalOutput.txt
+           sed -i -e 's/$/|/' FinalOutput.txt
+           body=$(cat FinalOutput.txt)
+           body="${body//'%'/'%25'}"
+           body="${body//$'\n'/'%0A'}"
+           body="${body//$'\r'/'%0D'}"
+           echo $body
+           echo ::set-output name=body::$(echo $body)
+
+      
+      - uses: peter-evans/commit-comment@v1
+        with:
+          sha: ${{github.sha}}
+          body: |
+
+            **🚀 Jmh Benchmark:**
+
+            |Name |Current| Main|
+            |-----|----| ----|
+             ${{steps.fomat_output.outputs.body}}
+             
