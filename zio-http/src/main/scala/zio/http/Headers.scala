@@ -27,13 +27,11 @@ sealed trait Headers extends HeaderExtension[Headers] with HeaderIterable {
 
   private[http] def encode: HttpHeaders
 
-  def flatten: Iterable[Header]
-
   override final def headers: Headers = self
 
   override def iterator: Iterator[Header]
 
-  final def modify(f: Header => Header): Headers = Headers.FromIterable(flatten.map(f))
+  final def modify(f: Header => Header): Headers = Headers.FromIterable(self.map(f))
 
   override final def updateHeaders(update: Headers => Headers): Headers = update(self)
 
@@ -43,7 +41,7 @@ sealed trait Headers extends HeaderExtension[Headers] with HeaderIterable {
 
 object Headers extends HeaderConstructors {
 
-  final case class Header private[zio] (key: CharSequence, value: CharSequence)
+  final case class Header(key: CharSequence, value: CharSequence)
       extends Product2[CharSequence, CharSequence]
       with Headers {
     self =>
@@ -54,69 +52,80 @@ object Headers extends HeaderConstructors {
 
     override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
 
-    def flatten: Iterable[Header] = Iterable(self)
+    override def hashCode(): Int = {
+      var h       = 0
+      val kLength = key.length()
+      var i       = 0
+      while (i < kLength) {
+        h = 17 * h + key.charAt(i)
+        i = i + 1
+      }
+      i = 0
+      val vLength = value.length()
+      while (i < vLength) {
+        h = 17 * h + value.charAt(i)
+        i = i + 1
+      }
+      h
+    }
+
+    override def equals(that: Any): Boolean =
+      that match {
+        case Header(k, v) => CharSequence.compare(key, k) == 0 && CharSequence.compare(value, v) == 0
+        case _            => false
+      }
 
     override def iterator: Iterator[Header] =
       Iterator.single(self)
 
-    // Unless we implement it headers.toString results in StackOverflow
     override def toString(): String = (key, value).toString()
 
   }
 
-  final case class FromIterable private[zio] (iter: Iterable[Header]) extends Headers {
+  private[zio] final case class FromIterable(iter: Iterable[Header]) extends Headers {
     self =>
 
     private[http] def encode: HttpHeaders = Headers.encode(self.toList)
-
-    def flatten: Iterable[Header] = iter.flatMap(_.flatten)
 
     override def iterator: Iterator[Header] =
       iter.iterator.flatMap(_.iterator)
 
   }
 
-  final case class FromJHeaders private[zio] (toJHeaders: HttpHeaders) extends Headers {
+  private[zio] final case class FromJHeaders(toJHeaders: HttpHeaders) extends Headers {
     self =>
 
     override private[http] def encode: HttpHeaders = toJHeaders
-
-    def flatten: Iterable[Header] =
-      toJHeaders.entries().asScala.map(e => Header(e.getKey, e.getValue))
 
     override def iterator: Iterator[Header] =
       toJHeaders.entries().asScala.map(e => Header(e.getKey, e.getValue)).iterator
 
   }
 
-  final case class Concat private[zio] (first: Headers, second: Headers) extends Headers {
+  private[zio] final case class Concat(first: Headers, second: Headers) extends Headers {
     self =>
 
     override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
-
-    override def flatten: Iterable[Header] = first.flatten ++ second.flatten
 
     override def iterator: Iterator[Header] =
       first.iterator ++ second.iterator
 
   }
 
-  case object EmptyHeaders extends Headers {
+  private[zio] case object EmptyHeaders extends Headers {
     self =>
 
     override private[http] def encode: HttpHeaders = new DefaultHttpHeaders()
-
-    override def flatten: Iterable[Header] = Iterable.empty
 
     override def iterator: Iterator[Header] =
       Iterator.empty
 
   }
 
-  val BasicSchemeName  = "Basic"
-  val BearerSchemeName = "Bearer"
+  private[http] val BasicSchemeName  = "Basic"
+  private[http] val BearerSchemeName = "Bearer"
 
-  def apply(name: CharSequence, value: CharSequence): Headers = Headers.Header(name.toString, value.toString)
+  def apply(name: CharSequence, value: CharSequence): Headers = Headers.Header(name, value)
 
   def apply(tuple2: (CharSequence, CharSequence)): Headers = Headers.Header(tuple2._1, tuple2._2)
 
