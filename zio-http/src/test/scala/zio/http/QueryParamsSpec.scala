@@ -1,8 +1,8 @@
 package zio.http
 
-import zio.{Chunk, ZIO}
 import zio.test.Assertion.equalTo
 import zio.test.{ZIOSpecDefault, _}
+import zio.{Chunk, ZIO}
 
 object QueryParamsSpec extends ZIOSpecDefault {
 
