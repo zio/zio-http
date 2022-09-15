@@ -15,7 +15,7 @@ trait Server {
 }
 
 object Server {
-  def serve[R](httpApp: HttpApp[R, Throwable]): URIO[R with Server, Unit] =
+  def serve[R](httpApp: HttpApp[R, Throwable]): URIO[R with Server, Nothing] =
     install(httpApp) *> ZIO.never
 
   def install[R](httpApp: HttpApp[R, Throwable]): URIO[R with Server, Int] = {
