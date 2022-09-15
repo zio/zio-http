@@ -53,6 +53,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
     headers: Headers = Headers.empty,
     socketApp: SocketApp[R],
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+    addZioUserAgentHeader: Boolean = false,
   ): ZIO[R with Scope, Throwable, Response] = for {
     env <- ZIO.environment[R]
     res <- request(
@@ -60,7 +61,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
         version = Version.Http_1_1,
         Method.GET,
         url,
-        headers,
+        headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
       ),
       clientConfig = Client.Config(socketApp = Some(socketApp.provideEnvironment(env)), ssl = Some(sslOptions)),
     ).withFinalizer(_.close.orDie)
@@ -184,10 +185,20 @@ object Client {
     headers: Headers = Headers.empty,
     content: Body = Body.empty,
     ssl: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+    addZioUserAgentHeader: Boolean = false,
   ): ZIO[EventLoopGroup with ChannelFactory, Throwable, Response] =
     for {
-      clt <- make
-      res <- clt.request(url, method, headers, content, ssl)
+      uri <- ZIO.fromEither(URL.fromString(url))
+      res <- request(
+        Request(
+          Version.Http_1_1,
+          method,
+          uri,
+          headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
+          body = content,
+        ),
+        clientConfig = Config(ssl = Some(ssl)),
+      )
     } yield res
 
   def request(
@@ -204,6 +215,7 @@ object Client {
     app: SocketApp[R],
     headers: Headers = Headers.empty,
     sslOptions: ClientSSLOptions = ClientSSLOptions.DefaultSSL,
+    addZioUserAgentHeader: Boolean = false,
   ): ZIO[R with EventLoopGroup with ChannelFactory with Scope, Throwable, Response] = {
     for {
       clt <- make
@@ -228,6 +240,13 @@ object Client {
   object Config {
     def empty: Config = Config()
   }
+
+  val zioHttpVersion: CharSequence           = Client.getClass().getPackage().getImplementationVersion()
+  val zioHttpVersionNormalized: CharSequence = Option(zioHttpVersion).getOrElse("")
+
+  val scalaVersion: CharSequence   = util.Properties.versionString
+  val userAgentValue: CharSequence = s"Zio-Http-Client ${zioHttpVersionNormalized} Scala $scalaVersion"
+  val defaultUAHeader: Headers     = Headers(HeaderNames.userAgent, userAgentValue)
 
   private[zio] val log = Log.withTags("Client")
 }

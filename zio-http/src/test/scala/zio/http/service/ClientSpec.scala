@@ -17,6 +17,13 @@ object ClientSpec extends HttpRunnableSpec {
   private val env =
     EventLoopGroup.nio() ++ ChannelFactory.nio ++ ServerChannelFactory.nio ++ DynamicServer.live ++ Scope.default
 
+  private val appUserAgent: Http[Any, Nothing, Request, Response] = Http.collect[Request] { case req =>
+    val headersList                     = req.headers.toList
+    val userAgentOption: Option[String] = headersList.collectFirst { case (k, v) if k.toLowerCase == "user-agent" => v }
+    val useragentStr                    = userAgentOption.getOrElse("")
+    Response.text(useragentStr)
+  }
+
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {
       val app = Http.ok.deploy.status.run()
@@ -112,6 +119,10 @@ object ClientSpec extends HttpRunnableSpec {
           )
         } yield out
       assertZIO(res.either)(isRight)
+    },
+    test("test using default user agent") {
+      val res = appUserAgent.deploy.body.run(method = Method.GET, addZioUserAgentHeader = true).flatMap(_.asString)
+      assertZIO(res)(equalTo(Client.defaultUAHeader.toList.head._2))
     },
   )
 
