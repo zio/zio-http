@@ -2,8 +2,6 @@ package zio.http.service
 
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.middleware.Auth.Credentials
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
@@ -58,7 +56,7 @@ object ClientSpec extends HttpRunnableSpec {
         .run(method = Method.POST, body = Body.fromStream(stream))
         .flatMap(_.asString)
       assertZIO(res)(equalTo("This is a longer text."))
-    }
+    },
   )
 
   override def spec = {

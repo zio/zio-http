@@ -69,7 +69,9 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         }
       } yield response
 
-    def deployChunked(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, Request, Response] =
+    def deployChunked(implicit
+      e: E <:< Throwable,
+    ): Http[R with Client with DynamicServer, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
@@ -78,12 +80,9 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
             params
               .addHeader(DynamicServer.APP_ID, id)
               .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            Client.Config.empty.withAggregator(false),
           )
         }
       } yield response
-
-    def deployWS(implicit e: E <:< Throwable): Http[R with HttpEnv, Throwable, SocketApp[HttpEnv], Response] =
     def deployWS(implicit
       e: E <:< Throwable,
     ): Http[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =

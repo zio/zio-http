@@ -10,6 +10,7 @@ case class ClientConfig(
   proxy: Option[Proxy] = None,
   channelType: ChannelType = ChannelType.AUTO,
   nThreads: Int = 0,
+  useAggregator: Boolean = true,
 ) {
   self =>
   def ssl(ssl: ClientSSLOptions): ClientConfig = self.copy(ssl = Some(ssl))
@@ -21,6 +22,8 @@ case class ClientConfig(
   def channelType(channelType: ChannelType): ClientConfig = self.copy(channelType = channelType)
 
   def maxThreads(nThreads: Int): ClientConfig = self.copy(nThreads = nThreads)
+
+  def useObjectAggregator(objectAggregator: Boolean): ClientConfig = self.copy(useAggregator = objectAggregator)
 }
 
 object ClientConfig {
