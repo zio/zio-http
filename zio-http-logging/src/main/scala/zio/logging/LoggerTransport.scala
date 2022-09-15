@@ -1,8 +1,7 @@
 package zio.logging
 
-import zio._
-import zio.logging.LogLevel
 import zio.logging.Logger.SourcePos
+import zio.{LogLevel => _, _}
 
 import java.io.{PrintWriter, StringWriter}
 import java.nio.file.{Files, Path, StandardOpenOption}
