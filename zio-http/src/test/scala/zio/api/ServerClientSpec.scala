@@ -1,6 +1,6 @@
-package zhttp.api
+package zio.http.api
 
-import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zio.http.service.{ChannelFactory, EventLoopGroup}
 import zio._
 import zio.json.{uuid => _, _}
 import zio.schema._

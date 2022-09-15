@@ -1,6 +1,6 @@
-package zhttp.api
+package zio.http.api
 
-import zhttp.http.{Headers, Request, URL}
+import zio.http.http.{Headers, Request, URL}
 import zio.test.{ZIOSpecDefault, assertTrue}
 
 object RequestCodecSpec extends ZIOSpecDefault {

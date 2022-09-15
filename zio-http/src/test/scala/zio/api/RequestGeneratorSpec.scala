@@ -1,4 +1,4 @@
-package zhttp.api
+package zio.http.api
 
 import zio.test.{ZIOSpecDefault, assertTrue}
 

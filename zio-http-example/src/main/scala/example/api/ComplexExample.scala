@@ -1,9 +1,9 @@
 package example.api
 
 import example.api.Domain._
-import zhttp.api._
-import zhttp.api.openapi.OpenApiInterpreter
-import zhttp.service.{ChannelFactory, EventLoopGroup}
+import zio.http.api._
+import zio.http.api.openapi.OpenApiInterpreter
+import zio.http.service.{ChannelFactory, EventLoopGroup}
 import zio._
 import zio.json.{uuid => _, _}
 import zio.schema.{DeriveSchema, Schema}

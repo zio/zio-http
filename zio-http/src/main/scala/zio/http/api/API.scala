@@ -1,12 +1,38 @@
-package zhttp.api.experiment
+package zio.http.api
 
-import zhttp.api.Parser
-import zhttp.api.experiment.InputCodec.RouteType
-import zhttp.http.Method
+import zio.http.Method
 import zio._
 
 import java.util.UUID
 import scala.language.implicitConversions
+
+trait TextCodec[A] {
+  def decode(value: String): Option[A] 
+
+  def encode(value: A): String 
+}
+object TextCodec {
+  def apply[A](decode0: String => Option[A], encode0: A => String): TextCodec[A] = new TextCodec[A] {
+    def decode(value: String): Option[A] = decode0(value)
+    def encode(value: A): String         = encode0(value)
+  }
+
+  lazy val int: TextCodec[Int] = TextCodec[Int](_.toIntOption, _.toString)
+
+  lazy val boolean: TextCodec[Boolean] = TextCodec[Boolean](
+    {
+      case "true" | "on" | "yes" | "1" => Some(true)
+      case "false" | "off" | "no" | "0" => Some(false)
+      case _       => None
+    },
+    _.toString
+  )
+  lazy val uuid: TextCodec[UUID] = 
+    TextCodec[UUID](input => try Some(UUID.fromString(input))
+      catch {
+        case _: IllegalArgumentException => None
+      }, _.toString)
+}
 
 // TODO: Index Atom
 trait Schema[A]
@@ -34,12 +60,12 @@ sealed trait RouteParser[A]
 
 object RouteParser {
   final case class Literal(value: String)           extends RouteParser[Unit]
-  final case class ParseRoute[A](parser: Parser[A]) extends RouteParser[A]
+  final case class ParseRoute[A](TextCodec: TextCodec[A]) extends RouteParser[A]
 
   implicit def literal(value: String): RouteParser[Unit] = Literal(value)
-  val int: RouteParser[Int]                              = ParseRoute(Parser.intParser)
-  val boolean: RouteParser[Boolean]                      = ParseRoute(Parser.booleanParser)
-  val uuid: RouteParser[UUID]                            = ParseRoute(Parser.uuidParser)
+  val int: RouteParser[Int]                              = ParseRoute(TextCodec.int)
+  val boolean: RouteParser[Boolean]                      = ParseRoute(TextCodec.boolean)
+  val uuid: RouteParser[UUID]                            = ParseRoute(TextCodec.uuid)
 //  def compile[A](index: Int, segmentParser: RouteParser[A]): Array[AnyRef] => Unit =
 //    ???
 }
@@ -52,7 +78,7 @@ sealed trait HeaderParser[A]
 
 object HeaderParser {
   final case class Header(name: String)                            extends HeaderParser[String]
-  final case class ParseHeader[A](name: String, parser: Parser[A]) extends HeaderParser[A]
+  final case class ParseHeader[A](name: String, TextCodec: TextCodec[A]) extends HeaderParser[A]
   def header(name: String): HeaderParser[String] = Header(name)
 }
 
@@ -83,6 +109,7 @@ import scala.annotation.implicitNotFound
 sealed trait IsRouteType[CodecType] extends (CodecType => InputCodec.RouteType)
 
 object IsRouteType {
+  import InputCodec._
 
   implicit def isRouteType[Input](implicit
     ev: Input <:< InputCodec.RouteType,
@@ -352,10 +379,10 @@ sealed trait ZippedHandledAPIs[-R, +E] { self =>
 //     Alternatives(
 //       Chunk(Route(Literal(posts)),Route(int)),
 //       Chunk(
-//         Handle(zhttp.api.experiment.ZippedHandledAPIs$$$Lambda$12/0x00000008000b3840@7d68ef40)
+//         Handle(zio.http.api.experiment.ZippedHandledAPIs$$$Lambda$12/0x00000008000b3840@7d68ef40)
 //       )
 //    ),
-//    Handle(zhttp.api.experiment.ZippedHandledAPIs$$$Lambda$12/0x00000008000b3840@5b0abc94))
+//    Handle(zio.http.api.experiment.ZippedHandledAPIs$$$Lambda$12/0x00000008000b3840@5b0abc94))
 // )
 
 object CommonPrefixTesting extends App {
