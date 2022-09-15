@@ -1,8 +1,9 @@
 package zio.http
 
+import io.netty.handler.codec.compression.{StandardCompressionOptions, CompressionOptions => JCompressionOptions}
 import io.netty.util.ResourceLeakDetector
 import zio.ZLayer
-import zio.http.ServerConfig.LeakDetectionLevel
+import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
 import zio.http.service.ServerSSLHandler.ServerSSLOptions
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -16,6 +17,7 @@ final case class ServerConfig(
   consolidateFlush: Boolean = false,
   flowControl: Boolean = true,
   requestDecompression: (Boolean, Boolean) = (false, false),
+  responseCompression: Option[ResponseCompressionConfig] = None,
   objectAggregator: Int = 1024 * 100,
   channelType: ChannelType = ChannelType.AUTO,
   nThreads: Int = 0,
@@ -93,6 +95,14 @@ final case class ServerConfig(
     self.copy(requestDecompression = (enabled, strict))
 
   /**
+   * Configure the new server with netty's HttpContentCompressor to compress
+   * Http responses (@see <a href =
+   * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentCompressor.html"HttpContentCompressor</a>).
+   */
+  def responseCompression(rCfg: ResponseCompressionConfig = ServerConfig.responseCompressionConfig()): ServerConfig =
+    self.copy(responseCompression = Option(rCfg))
+
+  /**
    * Configure the server with the following ssl options.
    */
   def ssl(sslOptions: ServerSSLOptions): ServerConfig = self.copy(sslOption = Some(sslOptions))
@@ -104,12 +114,17 @@ final case class ServerConfig(
 }
 
 object ServerConfig {
-  val default = ServerConfig()
+  val default: ServerConfig = ServerConfig()
 
   val live: ZLayer[Any, Nothing, ServerConfig] =
     ZLayer.succeed(ServerConfig.default)
 
   def live(config: ServerConfig): ZLayer[Any, Nothing, ServerConfig] = ZLayer.succeed(config)
+
+  def responseCompressionConfig(
+    contentThreshold: Int = 0,
+    options: IndexedSeq[CompressionOptions] = IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()),
+  ): ResponseCompressionConfig = ResponseCompressionConfig(contentThreshold, options)
 
   sealed trait LeakDetectionLevel {
     self =>
@@ -131,4 +146,46 @@ object ServerConfig {
     case object PARANOID extends LeakDetectionLevel
   }
 
+  final case class ResponseCompressionConfig(
+    contentThreshold: Int = 0,
+    options: IndexedSeq[CompressionOptions] = IndexedSeq.empty,
+  )
+
+  final case class CompressionOptions(
+    level: Int,
+    bits: Int,
+    mem: Int,
+    kind: CompressionOptions.CompressionType,
+  ) { self =>
+    def toJava: JCompressionOptions = self.kind match {
+      case CompressionOptions.GZip    => StandardCompressionOptions.gzip(self.level, self.bits, self.mem)
+      case CompressionOptions.Deflate => StandardCompressionOptions.deflate(self.level, self.bits, self.mem)
+    }
+  }
+
+  object CompressionOptions {
+    val Level = 6
+    val Bits  = 15
+    val Mem   = 8
+
+    /**
+     * Creates GZip CompressionOptions. Defines defaults as per
+     * io.netty.handler.codec.compression.GzipOptions#DEFAULT
+     */
+    def gzip(level: Int = Level, bits: Int = Bits, mem: Int = Mem): CompressionOptions =
+      CompressionOptions(level, bits, mem, GZip)
+
+    /**
+     * Creates Deflate CompressionOptions. Defines defaults as per
+     * io.netty.handler.codec.compression.DeflateOptions#DEFAULT
+     */
+    def deflate(level: Int = Level, bits: Int = Bits, mem: Int = Mem): CompressionOptions =
+      CompressionOptions(level, bits, mem, Deflate)
+
+    sealed trait CompressionType
+
+    private case object GZip extends CompressionType
+
+    private case object Deflate extends CompressionType
+  }
 }

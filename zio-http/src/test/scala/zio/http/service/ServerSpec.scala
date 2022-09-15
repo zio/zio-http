@@ -9,6 +9,7 @@ import zio.test.TestAspect._
 import zio.test._
 import zio.{Chunk, Scope, ZIO, durationInt}
 
+import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 
 object ServerSpec extends HttpRunnableSpec {
@@ -20,7 +21,11 @@ object ServerSpec extends HttpRunnableSpec {
   } yield (data.mkString(""), content)
 
   private val MaxSize = 1024 * 10
-  val configApp       = ServerConfig.default.requestDecompression(true, true).objectAggregator(MaxSize)
+  val configApp       = ServerConfig
+    .default
+    .requestDecompression(true, true)
+    .objectAggregator(MaxSize)
+    .responseCompression()
 
   private val app = serve(DynamicServer.app)
 
@@ -121,30 +126,61 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo("abc"))
         }
       } +
-      suite("decompression") {
-        val app     = Http.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
-        val content = "some-text"
-        val stream  = ZStream.fromChunk(Chunk.fromArray(content.getBytes))
+      suite("compression") {
+        val body = "some-text"
+        val bodyAsStream = ZStream.fromChunk(Chunk.fromArray(body.getBytes))
 
-        test("gzip") {
-          val res = for {
-            body     <- stream.via(ZPipeline.gzip()).runCollect
-            response <- app.run(
-              body = Body.fromChunk(body),
-              headers = Headers.contentEncoding(HeaderValues.gzip),
+        val app = Http.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
+
+        def roundTrip[R, E <: Throwable](
+                                          app: HttpApp[R, Throwable],
+                                          headers: Headers,
+                                          contentStream: ZStream[R, E, Byte],
+                                          compressor: ZPipeline[R, E, Byte, Byte],
+                                          decompressor: ZPipeline[R, E, Byte, Byte],
+                                        ) = for {
+          compressed <- contentStream.via(compressor).runCollect
+          response <- app.run(body = Body.fromChunk(compressed), headers = headers)
+          body <- response.body.asChunk.flatMap(ch => ZStream.fromChunk(ch).via(decompressor).runCollect)
+        } yield new String(body.toArray, StandardCharsets.UTF_8)
+
+        test("should decompress request and compress response") {
+          checkAll(
+            Gen.fromIterable(
+              List(
+                // Content-Encoding,   Client Request Compressor, Accept-Encoding,      Client Response Decompressor
+                (HeaderValues.gzip, ZPipeline.gzip(), HeaderValues.gzip, ZPipeline.gunzip()),
+                (HeaderValues.deflate, ZPipeline.deflate(), HeaderValues.deflate, ZPipeline.inflate()),
+                (HeaderValues.gzip, ZPipeline.gzip(), HeaderValues.deflate, ZPipeline.inflate()),
+                (HeaderValues.deflate, ZPipeline.deflate(), HeaderValues.gzip, ZPipeline.gunzip()),
+              ),
+            ),
+          ) { case (contentEncoding, compressor, acceptEncoding, decompressor) =>
+            val result = roundTrip(
+              app,
+              Headers.acceptEncoding(acceptEncoding) ++ Headers.contentEncoding(contentEncoding),
+              bodyAsStream,
+              compressor,
+              decompressor,
             )
-          } yield response
-          assertZIO(res.flatMap(_.body.asString))(equalTo(content))
+            assertZIO(result)(equalTo(body))
+          }
         } +
-          test("deflate") {
-            val res = for {
-              body     <- stream.via(ZPipeline.deflate()).runCollect
-              response <- app.run(
-                body = Body.fromChunk(body),
-                headers = Headers.contentEncoding(HeaderValues.deflate),
+          test("pass through for unsupported accept encoding request") {
+            val result = app.run(
+              body = Body.fromString(body),
+              headers = Headers.acceptEncoding(HeaderValues.br),
+            )
+            assertZIO(result.flatMap(_.body.asString))(equalTo(body))
+          } +
+          test("fail on getting compressed response") {
+            checkAll(Gen.fromIterable(List(HeaderValues.gzip, HeaderValues.deflate, HeaderValues.gzipDeflate))) { ae =>
+              val result = app.run(
+                body = Body.fromString(body),
+                headers = Headers.acceptEncoding(ae),
               )
-            } yield response
-            assertZIO(res.flatMap(_.body.asString))(equalTo(content))
+              assertZIO(result.flatMap(_.body.asString))(not(equalTo(body)))
+            }
           }
       },
   )

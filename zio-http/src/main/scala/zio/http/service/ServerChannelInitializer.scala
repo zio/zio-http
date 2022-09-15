@@ -49,7 +49,12 @@ final case class ServerChannelInitializer[R](
     if (cfg.requestDecompression._1)
       pipeline.addLast(HTTP_REQUEST_DECOMPRESSION, new HttpContentDecompressor(cfg.requestDecompression._2))
 
-    // TODO: See if server codec is really required
+    cfg.responseCompression.foreach(ops => {
+      pipeline.addLast(
+        HTTP_RESPONSE_COMPRESSION,
+        new HttpContentCompressor(ops.contentThreshold, ops.options.map(_.toJava): _*),
+      )
+    })
 
     // ObjectAggregator
     // Always add ObjectAggregator
