@@ -1,4 +1,5 @@
 package zio.logging
+import zio.logging.LoggerTransport.DefaultLoggerTransport
 import zio.test._
 
 import scala.collection.mutable.ListBuffer
@@ -71,7 +72,7 @@ object LoggerSpec extends ZIOSpecDefault {
     ),
   )
 
-  final class MemoryTransport extends LoggerTransport() {
+  final class MemoryTransport extends DefaultLoggerTransport() {
     val buffer: ListBuffer[String] = ListBuffer.empty[String]
     def reset(): Unit              = buffer.clear()
     def stdout: String             = buffer.mkString("\n")

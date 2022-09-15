@@ -10,6 +10,7 @@ import io.netty.channel.{
 }
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
+import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio._
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
@@ -124,12 +125,26 @@ object Client {
             // we always buffer the whole HTTP response we can letty Netty take care of this)
             pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, 8192, 8192, true))
 
-            // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
-            // This is also required to make WebSocketHandlers work
+          // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
+          // This is also required to make WebSocketHandlers work
+          if (clientConfig.useAggregator) {
             pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
+            pipeline
+              .addLast(
+                CLIENT_INBOUND_HANDLER,
+                new ClientInboundHandler(rtm, jReq, promise, isWebSocket),
+              )
+          } else {
 
             // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
-            pipeline.addLast(CLIENT_INBOUND_HANDLER, new ClientInboundHandler(rtm, jReq, promise, isWebSocket))
+            pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+            pipeline
+              .addLast(
+                CLIENT_INBOUND_HANDLER,
+                new ClientInboundStreamingHandler(rtm, req, promise),
+              )
+
+          }
 
             // Add WebSocketHandlers if it's a `ws` or `wss` request
             if (isWebSocket) {

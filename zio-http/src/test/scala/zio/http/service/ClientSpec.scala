@@ -2,6 +2,9 @@ package zio.http.service
 
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.middleware.Auth.Credentials
+import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
@@ -40,6 +43,22 @@ object ClientSpec extends HttpRunnableSpec {
       val res = Client.request("http://localhost:1").either
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
+    test("streaming content to server") {
+      val app    = Http.collectZIO[Request] { case req => req.body.asString.map(Response.text(_)) }
+      val stream = ZStream.fromIterable(List("a", "b", "c"))
+      val res    = app.deploy.body
+        .run(method = Method.POST, body = Body.fromStream(stream))
+        .flatMap(_.asString)
+      assertZIO(res)(equalTo("abc"))
+    },
+    test("streaming content from server - extended") {
+      val app    = Http.collect[Request] { case req => Response(body = Body.fromStream(req.body.asStream)) }
+      val stream = ZStream.fromIterable(List("This ", "is ", "a ", "longer ", "text."))
+      val res    = app.deployChunked.body
+        .run(method = Method.POST, body = Body.fromStream(stream))
+        .flatMap(_.asString)
+      assertZIO(res)(equalTo("This is a longer text."))
+    }
   )
 
   override def spec = {

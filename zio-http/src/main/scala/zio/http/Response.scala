@@ -5,7 +5,12 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 import zio.http.headers.HeaderExtension
 import zio.http.html._
-import zio.http.service.ChannelFuture
+import zio.http.service.{
+  CLIENT_INBOUND_HANDLER,
+  CLIENT_STREAMING_BODY_HANDLER,
+  ChannelFuture,
+  ClientResponseStreamHandler,
+}
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.{Task, Unsafe, ZIO}
 
@@ -226,6 +231,23 @@ object Response {
       val headers      = Headers.decode(jRes.headers())
       val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
       val data         = Body.fromByteBuf(copiedBuffer)
+      Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
+    }
+
+    final def fromStreamingJResponse(ctx: ChannelHandlerContext, jRes: HttpResponse)(implicit
+      unsafe: Unsafe,
+    ): Response = {
+      val status  = Status.fromHttpResponseStatus(jRes.status())
+      val headers = Headers.decode(jRes.headers())
+      val data    = Body.fromAsync { callback =>
+        ctx
+          .pipeline()
+          .addAfter(
+            CLIENT_INBOUND_HANDLER,
+            CLIENT_STREAMING_BODY_HANDLER,
+            new ClientResponseStreamHandler(callback),
+          ): Unit
+      }
       Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
     }
   }
