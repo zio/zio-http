@@ -59,7 +59,7 @@ object BuildHelper extends ScalaSettings {
     ThisBuild / scalafixDependencies ++=
       List(
         "com.github.liancheng" %% "organize-imports" % "0.5.0",
-        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.16",
+        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.23",
       ),
     Test / parallelExecution               := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),

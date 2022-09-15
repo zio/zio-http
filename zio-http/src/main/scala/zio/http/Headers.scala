@@ -42,7 +42,7 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
     val combinedHeaders              = regularHeaders
       .groupBy(_._1)
       .map { case (key, tuples) =>
-        key -> tuples.map(_._2).map(value => if (value.contains(",")) s"""\"$value\"""" else value).mkString(",")
+        key -> tuples.map(_._2).mkString(",")
       }
     (exceptions ++ combinedHeaders)
       .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>

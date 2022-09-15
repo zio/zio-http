@@ -29,9 +29,15 @@ object Main extends ZIOAppDefault {
     .withServer(STATIC_SERVER_NAME)
     .freeze
 
-  private def plainTextApp(response: Response) = Http.fromHExit(HExit.succeed(response)).whenPathEq(plaintextPath)
+  private def plainTextApp(response: Response) =
+    Unsafe.unsafe { implicit u =>
+      Http.fromHExit(HExit.succeed(response)).whenPathEq(plaintextPath)
+    }
 
-  private def jsonApp(json: Response) = Http.fromHExit(HExit.succeed(json)).whenPathEq(jsonPath)
+  private def jsonApp(json: Response) =
+    Unsafe.unsafe { implicit u =>
+      Http.fromHExit(HExit.succeed(json)).whenPathEq(jsonPath)
+    }
 
   private def app = for {
     plainTextResponse <- frozenPlainTextResponse

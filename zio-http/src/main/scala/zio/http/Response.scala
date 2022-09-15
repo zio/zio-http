@@ -7,7 +7,7 @@ import zio.http.headers.HeaderExtension
 import zio.http.html._
 import zio.http.service.ChannelFuture
 import zio.http.socket.{SocketApp, WebSocketFrame}
-import zio.{Task, ZIO}
+import zio.{Task, Unsafe, ZIO}
 
 import java.io.{IOException, PrintWriter, StringWriter}
 
@@ -218,12 +218,16 @@ object Response {
       headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
     )
 
-  private[zio] def unsafeFromJResponse(ctx: ChannelHandlerContext, jRes: FullHttpResponse): Response = {
-    val status       = Status.fromHttpResponseStatus(jRes.status())
-    val headers      = Headers.decode(jRes.headers())
-    val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
-    val data         = Body.fromByteBuf(copiedBuffer)
-    Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
+  private[zio] object unsafe {
+    final def fromJResponse(ctx: ChannelHandlerContext, jRes: FullHttpResponse)(implicit
+      unsafe: Unsafe,
+    ): Response = {
+      val status       = Status.fromHttpResponseStatus(jRes.status())
+      val headers      = Headers.decode(jRes.headers())
+      val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
+      val data         = Body.fromByteBuf(copiedBuffer)
+      Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
+    }
   }
 
   /**
