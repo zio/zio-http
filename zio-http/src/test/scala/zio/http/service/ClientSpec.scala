@@ -2,7 +2,7 @@ package zio.http.service
 
 import zio.http.Client.Config
 import zio.http._
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Auth.Credentials
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
@@ -98,7 +98,7 @@ object ClientSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Client") {
       serve(DynamicServer.app).as(List(clientSpec))
-    }.provideShared(DynamicServer.live, Server.test, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+    }.provideShared(DynamicServer.live, severTestLayer, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
       timeout(5 seconds) @@ sequential
   }
 }

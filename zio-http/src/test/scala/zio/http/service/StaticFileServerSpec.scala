@@ -1,7 +1,7 @@
 package zio.http.service
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.{Http, MediaType, Server, Status}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.{Http, MediaType, Status}
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertZIO
@@ -22,7 +22,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
 
   override def spec = suite("StaticFileServer") {
     ZIO.scoped(serve(DynamicServer.app).as(List(staticSpec)))
-  }.provideShared(DynamicServer.live, Server.test, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+  }.provideShared(DynamicServer.live, severTestLayer, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
     timeout(5 seconds)
 
   private def staticSpec = suite("Static RandomAccessFile Server")(

@@ -2,7 +2,7 @@ package zio.http.service
 
 import zio.http.Middleware.cors
 import zio.http._
-import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Cors.CorsConfig
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
@@ -71,7 +71,12 @@ object StaticServerSpec extends HttpRunnableSpec {
         .as(
           List(staticAppSpec, nonZIOSpec, throwableAppSpec, multiHeadersSpec),
         )
-    }.provideSomeShared[TestEnvironment](DynamicServer.live, Server.test, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+    }.provideSomeShared[TestEnvironment](
+      DynamicServer.live,
+      severTestLayer,
+      ChannelFactory.nio,
+      EventLoopGroup.nio(0),
+    ) @@
       timeout(30 seconds)
 
   def staticAppSpec    = suite("StaticAppSpec")(

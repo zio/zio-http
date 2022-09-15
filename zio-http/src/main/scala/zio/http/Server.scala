@@ -62,8 +62,6 @@ object Server {
     }
   }
 
-  val test = ServerConfig.testServerConfig >>> live
-
   private final case class ServerLive(
     appRef: java.util.concurrent.atomic.AtomicReference[HttpApp[Any, Throwable]],
     bindPort: Int,
