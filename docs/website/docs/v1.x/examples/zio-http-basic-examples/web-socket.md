@@ -1,9 +1,9 @@
 # Websocket Server
 
 ```scala
-import zhttp.http._
-import zhttp.service._
-import zhttp.socket._
+import zio.http._
+import zio.http.service._
+import zio.socket._
 import zio._
 import zio.duration._
 import zio.stream.ZStream

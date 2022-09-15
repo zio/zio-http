@@ -8,11 +8,11 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'ZIO-HTTP',
   tagline: 'Scala library for building http apps',
-  url: 'https://github.com/dream11',
+  url: 'https://github.com/zio',
   baseUrl: '/zio-http/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
-  organizationName: 'dream11', // Usually your GitHub org/user name.
+  organizationName: 'zio', // Usually your GitHub org/user name.
   projectName: 'zio-http', // Usually your repo name.
 
   presets: [

@@ -108,7 +108,7 @@ Observe how we gained the following benefits by using middlewares
 A middleware helps in addressing common crosscutting concerns without duplicating boilerplate code.
 
 #### Revisiting HTTP 
-[`Http`](https://dream11.github.io/zio-http/docs/v1.x/dsl/http) is the most fundamental type for modeling Http applications
+[`Http`](https://zio.github.io/zio-http/docs/v1.x/dsl/http) is the most fundamental type for modeling Http applications
 
 ```Http[-R, +E, -A, +B]``` is equivalent to ```(A) => ZIO[R, Option[E], B]``` where
 
@@ -150,8 +150,8 @@ We will write a middleware that will attach a custom header to the response.
 
 Start with imports
 ```scala
-import zhttp.http._
-import zhttp.service.Server
+import zio.http._
+import zio.http.Server
 import zio.console.{putStrLn}
 import zio.{App, ExitCode, URIO}
 ```
@@ -197,10 +197,10 @@ Here is a slightly longer example to explore how powerful middleware transformat
 
 Start with imports
 ```scala
-import zhttp.http.{Http, HttpError, Middleware, Request, Response}
+import zio.http.{Http, HttpError, Middleware, Request, Response}
 import zio.{ExitCode, URIO, ZEnv, ZIO}
 import zio.json._
-import zhttp.service._
+import zio.http.service._
 ```
 Define some "User" domain types
 ```scala
@@ -282,7 +282,7 @@ content-length: 68
 
 ## Creating Middleware
 
-Refer to [Middleware.scala](https://github.com/dream11/zio-http/blob/main/zio-http/src/main/scala/zhttp/http/Middleware.scala) for various ways of creating a middleware.
+Refer to [Middleware.scala](https://github.com/zio/zio-http/blob/main/zio-http/src/main/scala/zio/http/Middleware.scala) for various ways of creating a middleware.
 
 Again remember that a "middleware" is just a **_transformative function_**. There are ways of creating such transformative functions:  
 * **identity**: works like an [identity function](https://en.wikipedia.org/wiki/Identity_function) in mathematics
@@ -345,9 +345,9 @@ f1 ++ f2 ++ f3 applies on an `http`, from left to right with f1 first followed b
 #### A simple example using `++` combinator
 Start with imports
 ```scala
-import zhttp.http.Middleware.basicAuth
-import zhttp.http._
-import zhttp.service.Server
+import zio.http.Middleware.basicAuth
+import zio.http._
+import zio.http.Server
 import zio.console.putStrLn
 import zio.{App, ExitCode, URIO}
 ```
@@ -482,9 +482,9 @@ val mid: Middleware[Any, Nothing, Nothing, Any, Int, Int] = Middleware.ifThenEls
 <summary><b>Detailed example showing "debug" and "addHeader" middlewares</b></summary>
 
 ```scala
-    import zhttp.http._
-    import zhttp.http.middleware.HttpMiddleware
-    import zhttp.service.Server
+    import zio.http._
+    import zio.http.middleware.HttpMiddleware
+    import zio.http.Server
     import zio.clock.{Clock, currentTime}
     import zio.console.Console
     import zio.duration._
@@ -513,7 +513,7 @@ val mid: Middleware[Any, Nothing, Nothing, Any, Int, Int] = Middleware.ifThenEls
 </details>   
 
 ### A few "Out of the box" middlewares
-- [Basic Auth](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_basic_auth) 
-- [CORS](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_cors)
-- [CSRF](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_csrf)
+- [Basic Auth](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_basic_auth) 
+- [CORS](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_cors)
+- [CSRF](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/middleware_csrf)
 

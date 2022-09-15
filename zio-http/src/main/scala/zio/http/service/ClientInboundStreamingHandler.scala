@@ -2,9 +2,8 @@ package zio.http.service
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
-import zhttp.http.Request
-import zhttp.service.HttpRuntime
-import zio.Promise
+import zio.http.{Request, Response}
+import zio.{Promise, Unsafe}
 
 final class ClientInboundStreamingHandler[R](
   val zExec: HttpRuntime[R],
@@ -12,6 +11,8 @@ final class ClientInboundStreamingHandler[R](
   promise: Promise[Throwable, Response],
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with ClientRequestHandler[R] {
+
+  private implicit val unsafeClass: Unsafe = Unsafe.unsafe
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     writeRequest(req)(ctx): Unit
@@ -21,25 +22,15 @@ final class ClientInboundStreamingHandler[R](
     msg match {
       case response: HttpResponse =>
         ctx.channel().config().setAutoRead(false)
-        zExec.unsafeRun(ctx) {
+        zExec.runUninterruptible {
           promise
             .succeed(
-              Response.unsafeFromJResponse(
+              Response.unsafe.fromStreamingJResponse(
+                ctx,
                 response,
-                HttpData.UnsafeAsync { callback =>
-                  ctx
-                    .pipeline()
-                    .addAfter(
-                      CLIENT_INBOUND_HANDLER,
-                      CLIENT_STREAMING_BODY_HANDLER,
-                      new ClientResponseStreamHandler(callback(ctx)),
-                    ): Unit
-                },
               ),
             )
-            .uninterruptible
-
-        }
+        }(ctx, unsafeClass)
       case content: HttpContent   =>
         ctx.fireChannelRead(content): Unit
 
@@ -48,7 +39,7 @@ final class ClientInboundStreamingHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    zExec.unsafeRun(ctx)(promise.fail(error).uninterruptible)
+    zExec.run(promise.fail(error).uninterruptible)(ctx, unsafeClass)
   }
 
 }

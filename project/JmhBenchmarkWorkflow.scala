@@ -7,10 +7,10 @@ object JmhBenchmarkWorkflow {
 
   val jmhPlugin                = s"""addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "$JmhVersion")"""
   val scalaSources: PathFilter = ** / "*.scala"
-  val files = FileTreeView.default.list(Glob("./zio-http-benchmarks/src/main/scala/zhttp.benchmarks/**"), scalaSources)
+  val files = FileTreeView.default.list(Glob("./zio-http-benchmarks/src/main/scala/zio.benchmarks/**"), scalaSources)
 
   /**
-   * Get zhttpBenchmark file names
+   * Get zioHttpBenchmark file names
    */
   def getFilenames = files
     .map(file => {
@@ -23,7 +23,7 @@ object JmhBenchmarkWorkflow {
    * Run jmh benchmarks and store result
    */
   def runSBT(list: Seq[String], branch: String) = list.map(str =>
-    s"""sbt -no-colors -v "zhttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 $str" | grep "thrpt" >> ../${branch}_${list.head}.txt""".stripMargin,
+    s"""sbt -no-colors -v "zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 $str" | grep "thrpt" >> ../${branch}_${list.head}.txt""".stripMargin,
   )
 
   /**
