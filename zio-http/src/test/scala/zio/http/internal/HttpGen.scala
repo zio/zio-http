@@ -54,7 +54,7 @@ object HttpGen {
   def header: Gen[Sized, Header] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
     value <- Gen.alphaNumericStringBounded(1, 4)
-  } yield (key, value)
+  } yield Header(key, value)
 
   def body[R](gen: Gen[R, List[String]]): Gen[R, Body] =
     for {
@@ -142,7 +142,7 @@ object HttpGen {
   def response[R](gContent: Gen[R, List[String]]): Gen[Sized with R, Response] = {
     for {
       content <- HttpGen.body(gContent)
-      headers <- HttpGen.header.map(Headers(_))
+      headers <- HttpGen.header
       status  <- HttpGen.status
     } yield Response(status, headers, content)
   }

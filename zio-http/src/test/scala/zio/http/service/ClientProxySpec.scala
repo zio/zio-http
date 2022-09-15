@@ -45,7 +45,7 @@ object ClientProxySpec extends HttpRunnableSpec {
     test("proxy respond Ok for auth server") {
       val proxyAuthApp = Http.collect[Request] { case req =>
         val proxyAuthHeaderName = HeaderNames.proxyAuthorization.toString
-        req.headers.toList.collectFirst { case (`proxyAuthHeaderName`, _) =>
+        req.headers.toList.collectFirst { case Header(`proxyAuthHeaderName`, _) =>
           Response.ok
         }.getOrElse(Response.status(Status.Forbidden))
       }

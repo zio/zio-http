@@ -202,7 +202,7 @@ trait HeaderGetters[+A] { self =>
    */
   def headers: Headers
 
-  final def headersAsList: List[(String, String)] = self.headers.toList
+  final def headersAsList: List[Header] = self.headers.toList
 
   final def host: Option[CharSequence] =
     headerValue(HeaderNames.host)

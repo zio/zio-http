@@ -14,7 +14,7 @@ import zio.http._
  */
 trait HeaderModifier[+A] { self =>
 
-  final def addHeader(header: Header): A = addHeaders(Headers(header))
+  final def addHeader(header: Header): A = addHeaders(header)
 
   final def addHeader(name: CharSequence, value: CharSequence): A = addHeaders(Headers(name, value))
 

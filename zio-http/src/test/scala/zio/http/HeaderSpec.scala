@@ -261,12 +261,12 @@ object HeaderSpec extends ZIOSpecDefault {
   private val acceptJson                = Headers(HeaderNames.accept, HeaderValues.applicationJson)
   private val contentTypeFormUrlEncoded =
     Headers(HeaderNames.contentType, HeaderValues.applicationXWWWFormUrlencoded)
-  private def customAcceptJsonHeader    = ("accept", "application/json")
-  private def customContentJsonHeader   = ("content-type", "application/json")
-  private def customHeaders: Headers    = Headers(customContentJsonHeader) ++ Headers(customAcceptJsonHeader)
+  private def customAcceptJsonHeader    = Header("accept", "application/json")
+  private def customContentJsonHeader   = Header("content-type", "application/json")
+  private def customHeaders: Headers    = Headers(customContentJsonHeader, customAcceptJsonHeader)
 
-  private def predefinedHeaders: Headers = Headers {
-    HeaderNames.accept      -> HeaderValues.applicationJson
-    HeaderNames.contentType -> HeaderValues.applicationJson
-  }
+  private def predefinedHeaders: Headers = Headers(
+    Header(HeaderNames.accept, HeaderValues.applicationJson),
+    Header(HeaderNames.contentType, HeaderValues.applicationJson),
+  )
 }

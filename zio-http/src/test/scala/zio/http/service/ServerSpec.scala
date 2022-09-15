@@ -200,9 +200,9 @@ object ServerSpec extends HttpRunnableSpec {
 
     },
     test("header") {
-      check(HttpGen.header) { case header @ (name, value) =>
-        val res = Http.ok.addHeader(header).deploy.headerValue(name).run()
-        assertZIO(res)(isSome(equalTo(value)))
+      check(HttpGen.header) { header =>
+        val res = Http.ok.addHeader(header).deploy.headerValue(header.key).run()
+        assertZIO(res)(isSome(equalTo(header.value)))
       }
     },
     test("text streaming") {

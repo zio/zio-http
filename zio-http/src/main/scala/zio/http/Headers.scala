@@ -1,44 +1,164 @@
 package zio.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zio.Chunk
-import zio.http.headers.{HeaderConstructors, HeaderExtension}
+import zio.http.headers.{HeaderConstructors, HeaderExtension, HeaderIterable}
 
 import scala.jdk.CollectionConverters._
 
 /**
- * Represents an immutable collection of headers i.e. essentially a
- * Chunk[(String, String)]. It extends HeaderExtensions and has a ton of
- * powerful operators that can be used to add, remove and modify headers.
+ * Represents an immutable collection of headers. It extends HeaderExtensions
+ * and has a ton of powerful operators that can be used to add, remove and
+ * modify headers.
  *
  * NOTE: Generic operators that are not specific to `Headers` should not be
  * defined here. A better place would be one of the traits extended by
  * `HeaderExtension`.
  */
-final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers] {
+
+sealed trait Headers extends HeaderExtension[Headers] with HeaderIterable {
   self =>
+  final def ++(other: Headers): Headers = self.combine(other)
 
-  def ++(other: Headers): Headers = self.combine(other)
+  final def combine(other: Headers): Headers =
+    Headers.Concat(self, other)
 
-  def combine(other: Headers): Headers = Headers(self.toChunk ++ other.toChunk)
+  final def combineIf(cond: Boolean)(other: Headers): Headers =
+    if (cond) self ++ other else self
 
-  def combineIf(cond: Boolean)(other: Headers): Headers = if (cond) Headers(self.toChunk ++ other.toChunk) else self
+  private[http] def encode: HttpHeaders
 
-  override def headers: Headers = self
+  override final def headers: Headers = self
 
-  def modify(f: Header => Header): Headers = Headers(toChunk.map(f(_)))
+  override def iterator: Iterator[Header]
 
-  def toList: List[(String, String)] = toChunk.map { case (name, value) => (name.toString, value.toString) }.toList
+  final def modify(f: Header => Header): Headers = Headers.FromIterable(self.map(f))
 
-  override def updateHeaders(update: Headers => Headers): Headers = update(self)
+  override final def updateHeaders(update: Headers => Headers): Headers = update(self)
 
-  def when(cond: Boolean): Headers = if (cond) self else Headers.empty
+  final def when(cond: Boolean): Headers = if (cond) self else Headers.EmptyHeaders
 
-  /**
-   * Converts a Headers to [io.netty.handler.codec.http.HttpHeaders]
-   */
-  private[http] def encode: HttpHeaders = {
-    val (exceptions, regularHeaders) = self.toList.span(h => h._1.contains(HeaderNames.setCookie))
+}
+
+object Headers extends HeaderConstructors {
+
+  final case class Header(key: CharSequence, value: CharSequence)
+      extends Product2[CharSequence, CharSequence]
+      with Headers {
+    self =>
+
+    override def _1: CharSequence = key
+
+    override def _2: CharSequence = value
+
+    override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
+
+    override def hashCode(): Int = {
+      var h       = 0
+      val kLength = key.length()
+      var i       = 0
+      while (i < kLength) {
+        h = 17 * h + key.charAt(i)
+        i = i + 1
+      }
+      i = 0
+      val vLength = value.length()
+      while (i < vLength) {
+        h = 17 * h + value.charAt(i)
+        i = i + 1
+      }
+      h
+    }
+
+    override def equals(that: Any): Boolean = {
+      that match {
+        case Header(k, v) =>
+          def eqs(l: CharSequence, r: CharSequence): Boolean = {
+            if (l.length() != r.length()) false
+            else {
+              var i     = 0
+              var equal = true
+
+              while (i < l.length()) {
+                if (l.charAt(i) != r.charAt(i)) {
+                  equal = false
+                  i = l.length()
+                }
+                i = i + 1
+              }
+              equal
+            }
+          }
+
+          eqs(self.key, k) && eqs(self.value, v)
+
+        case _ => false
+      }
+    }
+
+    override def iterator: Iterator[Header] =
+      Iterator.single(self)
+
+    override def toString(): String = (key, value).toString()
+
+  }
+
+  private[zio] final case class FromIterable(iter: Iterable[Header]) extends Headers {
+    self =>
+
+    private[http] def encode: HttpHeaders = Headers.encode(self.toList)
+
+    override def iterator: Iterator[Header] =
+      iter.iterator.flatMap(_.iterator)
+
+  }
+
+  private[zio] final case class FromJHeaders(toJHeaders: HttpHeaders) extends Headers {
+    self =>
+
+    override private[http] def encode: HttpHeaders = toJHeaders
+
+    override def iterator: Iterator[Header] =
+      toJHeaders.entries().asScala.map(e => Header(e.getKey, e.getValue)).iterator
+
+  }
+
+  private[zio] final case class Concat(first: Headers, second: Headers) extends Headers {
+    self =>
+
+    override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
+
+    override def iterator: Iterator[Header] =
+      first.iterator ++ second.iterator
+
+  }
+
+  private[zio] case object EmptyHeaders extends Headers {
+    self =>
+
+    override private[http] def encode: HttpHeaders = new DefaultHttpHeaders()
+
+    override def iterator: Iterator[Header] =
+      Iterator.empty
+
+  }
+
+  private[http] val BasicSchemeName  = "Basic"
+  private[http] val BearerSchemeName = "Bearer"
+
+  def apply(name: CharSequence, value: CharSequence): Headers = Headers.Header(name, value)
+
+  def apply(tuple2: (CharSequence, CharSequence)): Headers = Headers.Header(tuple2._1, tuple2._2)
+
+  def apply(headers: Header*): Headers = FromIterable(headers)
+
+  def apply(iter: Iterable[Header]): Headers = FromIterable(iter)
+
+  private[http] def decode(headers: HttpHeaders): Headers = FromJHeaders(headers)
+
+  def empty: Headers = EmptyHeaders
+
+  private[http] def encode(headersList: List[Product2[CharSequence, CharSequence]]): HttpHeaders = {
+    val (exceptions, regularHeaders) = headersList.span(h => h._1.toString.contains(HeaderNames.setCookie.toString))
     val combinedHeaders              = regularHeaders
       .groupBy(_._1)
       .map { case (key, tuples) =>
@@ -50,32 +170,10 @@ final case class Headers(toChunk: Chunk[Header]) extends HeaderExtension[Headers
       }
   }
 
-}
-
-object Headers extends HeaderConstructors {
-
-  val empty: Headers   = Headers(Nil)
-  val BasicSchemeName  = "Basic"
-  val BearerSchemeName = "Bearer"
-
-  def apply(name: CharSequence, value: CharSequence): Headers = Headers(Chunk((name, value)))
-
-  def apply(tuples: Header*): Headers = Headers(Chunk.fromIterable(tuples))
-
-  def apply(iter: Iterable[Header]): Headers = Headers(Chunk.fromIterable(iter))
-
   def ifThenElse(cond: Boolean)(onTrue: => Headers, onFalse: => Headers): Headers = if (cond) onTrue else onFalse
 
-  def make(headers: HttpHeaders): Headers = Headers {
-    headers
-      .iteratorCharSequence()
-      .asScala
-      .map(h => (h.getKey, h.getValue))
-      .toList
-  }
+  def make(headers: HttpHeaders): Headers = FromJHeaders(headers)
 
-  def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else Headers.empty
+  def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else EmptyHeaders
 
-  private[http] def decode(headers: HttpHeaders): Headers =
-    Headers(headers.entries().asScala.toList.map(entry => (entry.getKey, entry.getValue)))
 }
