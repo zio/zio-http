@@ -3,23 +3,33 @@ package zio.http
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.util.ResourceLeakDetector
 import zio._
+import zio.http.Server.ErrorCallback
 import zio.http.service._
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 
 trait Server {
-  def install[R](httpApp: HttpApp[R, Throwable]): URIO[R, Unit]
+  def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback] = None): URIO[R, Unit]
 
   def port: Int
+
 }
 
 object Server {
-  def serve[R](httpApp: HttpApp[R, Throwable]): URIO[R with Server, Nothing] =
-    install(httpApp) *> ZIO.never
 
-  def install[R](httpApp: HttpApp[R, Throwable]): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
+  type ErrorCallback = Throwable => ZIO[Any, Nothing, Unit]
+  def serve[R](
+    httpApp: HttpApp[R, Throwable],
+    errorCallback: Option[ErrorCallback] = None,
+  ): URIO[R with Server, Nothing] =
+    install(httpApp, errorCallback) *> ZIO.never
+
+  def install[R](
+    httpApp: HttpApp[R, Throwable],
+    errorCallback: Option[ErrorCallback] = None,
+  ): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.install(httpApp, errorCallback)) *> ZIO.service[Server].map(_.port)
   }
 
   val default = ServerConfig.live >>> live
@@ -30,16 +40,17 @@ object Server {
       channelFactory <- channelFactory(settings)
       eventLoopGroup <- eventLoopGroup(settings)
       rtm            <- HttpRuntime.sticky[Any](eventLoopGroup)
-      time   = ServerTime.make(1000 millis)
-      appRef = new AtomicReference[HttpApp[Any, Throwable]](Http.empty)
-      reqHandler <- ZIO.succeed(ServerInboundHandler(appRef, rtm, settings, time))
+      time     = ServerTime.make(1000 millis)
+      appRef   = new AtomicReference[HttpApp[Any, Throwable]](Http.empty)
+      errorRef = new AtomicReference[Option[ErrorCallback]](None)
+      reqHandler <- ZIO.succeed(ServerInboundHandler(appRef, rtm, settings, time, errorRef))
       init            = ServerChannelInitializer(rtm, settings, reqHandler)
       serverBootstrap = new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup)
       chf  <- ZIO.attempt(serverBootstrap.childHandler(init).bind(settings.address))
       _    <- ChannelFuture.scoped(chf)
       _    <- ZIO.succeed(ResourceLeakDetector.setLevel(settings.leakDetectionLevel.jResourceLeakDetectionLevel))
       port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
-    } yield ServerLive(appRef, port)
+    } yield ServerLive(appRef, errorRef, port)
   }
 
   private def channelFactory(config: ServerConfig): UIO[ServerChannelFactory] = {
@@ -64,9 +75,10 @@ object Server {
 
   private final case class ServerLive(
     appRef: java.util.concurrent.atomic.AtomicReference[HttpApp[Any, Throwable]],
+    errorRef: java.util.concurrent.atomic.AtomicReference[Option[ErrorCallback]],
     bindPort: Int,
   ) extends Server {
-    override def install[R](httpApp: HttpApp[R, Throwable]): URIO[R, Unit] =
+    override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] =
       ZIO.environment[R].map { env =>
         val newApp =
           if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
@@ -77,8 +89,24 @@ object Server {
           if (appRef.compareAndSet(oldApp, newApp ++ oldApp)) loop = false
         }
         ()
-      }
-    override def port: Int                                                 = bindPort
+      } *> setErrorCallback(errorCallback)
+
+    override def port: Int = bindPort
+
+    private def setErrorCallback(errorCallback: Option[ErrorCallback]): UIO[Unit] = {
+      ZIO
+        .environment[Any]
+        .as {
+          var loop = true
+          while (loop) {
+            val oldErrorCallback = errorRef.get()
+            if (errorRef.compareAndSet(oldErrorCallback, errorCallback)) loop = false
+          }
+          ()
+        }
+        .unless(errorCallback.isEmpty)
+        .map(_.getOrElse(()))
+    }
   }
 
 }

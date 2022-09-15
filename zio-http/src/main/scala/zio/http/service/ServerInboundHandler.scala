@@ -4,6 +4,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import io.netty.util.AttributeKey
+import zio.http.Server.ErrorCallback
 import zio.http._
 import zio.http.service.ServerInboundHandler.{log, unsafe}
 import zio.logging.Logger
@@ -15,6 +16,7 @@ private[zio] final case class ServerInboundHandler[R](
   runtime: HttpRuntime[R],
   config: ServerConfig,
   time: ServerTime,
+  onError: java.util.concurrent.atomic.AtomicReference[Option[ErrorCallback]],
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with ServerWebSocketUpgrade[R]
     with ServerFullResponseWriter[R]
@@ -61,9 +63,7 @@ private[zio] final case class ServerInboundHandler[R](
   }
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    // TODO: need a different way to provide the error handler
-
-    // config.error.fold(super.exceptionCaught(ctx, cause))(f => runtime.unsafeRun(f(cause))(ctx))
+    onError.get.fold(super.exceptionCaught(ctx, cause))(f => runtime.run(f(cause))(ctx, unsafeClass))
   }
 }
 
