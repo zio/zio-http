@@ -1,8 +1,8 @@
-package zhttp.benchmarks
+package zio.benchmarks
 
 import org.openjdk.jmh.annotations.{Scope => JScope, _}
-import zhttp.http._
 import zio._
+import zio.http._
 
 import java.util.concurrent.TimeUnit
 
@@ -21,17 +21,13 @@ class HttpRouteTextPerf {
 
   @Benchmark
   def benchmarkHttpProgram(): Unit = {
-    Unsafe.unsafeCompat { implicit u =>
-      runtime.unsafe.run(httpProgram)
-      ()
-    }
+    runtime.unsafe.run(httpProgram)(implicitly[Trace], Unsafe.unsafe)
+    ()
   }
 
   @Benchmark
   def benchmarkUIOProgram(): Unit = {
-    Unsafe.unsafeCompat { implicit u =>
-      runtime.unsafe.run(UIOProgram)
-      ()
-    }
+    runtime.unsafe.run(UIOProgram)(implicitly[Trace], Unsafe.unsafe)
+    ()
   }
 }

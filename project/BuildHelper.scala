@@ -4,9 +4,9 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
 
 object BuildHelper extends ScalaSettings {
-  val Scala212         = "2.12.15"
+  val Scala212         = "2.12.16"
   val Scala213         = "2.13.8"
-  val ScalaDotty       = "3.1.3"
+  val ScalaDotty       = "3.2.0"
   val ScoverageVersion = "1.9.3"
   val JmhVersion       = "0.4.3"
 
@@ -35,12 +35,12 @@ object BuildHelper extends ScalaSettings {
 
   def publishSetting(publishArtifacts: Boolean) = {
     val publishSettings = Seq(
-      organization           := "io.d11",
-      organizationName       := "d11",
-      licenses += ("MIT License", new URL("https://github.com/dream11/zio-http/blob/master/LICENSE")),
+      organization           := "dev.zio",
+      organizationName       := "zio",
+      licenses += ("MIT License", new URL("https://github.com/zio/zio-http/blob/master/LICENSE")),
       sonatypeCredentialHost := "s01.oss.sonatype.org",
       sonatypeRepository     := "https://s01.oss.sonatype.org/service/local",
-      sonatypeProfileName    := "io.d11",
+      sonatypeProfileName    := "dev.zio",
     )
     val skipSettings    = Seq(
       publish / skip  := true,
@@ -59,13 +59,16 @@ object BuildHelper extends ScalaSettings {
     ThisBuild / scalafixDependencies ++=
       List(
         "com.github.liancheng" %% "organize-imports" % "0.5.0",
-        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.16",
+        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.23",
       ),
     Test / parallelExecution               := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings                        := true,
-    ThisBuild / javaOptions := Seq("-Dio.netty.leakDetectionLevel=paranoid", s"-DZHttpLogLevel=${Debug.ZHttpLogLevel}"),
-    ThisBuild / fork        := true,
+    ThisBuild / javaOptions                := Seq(
+      "-Dio.netty.leakDetectionLevel=paranoid",
+      s"-DZIOHttpLogLevel=${Debug.ZIOHttpLogLevel}",
+    ),
+    ThisBuild / fork                       := true,
   )
 
   def runSettings(className: String = "example.HelloWorld") = Seq(
@@ -74,10 +77,10 @@ object BuildHelper extends ScalaSettings {
   )
 
   def meta = Seq(
-    ThisBuild / homepage   := Some(url("https://github.com/dream11/zio-http")),
+    ThisBuild / homepage   := Some(url("https://github.com/zio/zio-http")),
     ThisBuild / scmInfo    :=
       Some(
-        ScmInfo(url("https://github.com/dream11/zio-http"), "scm:git@github.com:dream11/zio-http.git"),
+        ScmInfo(url("https://github.com/zio/zio-http"), "scm:git@github.com:zio/zio-http.git"),
       ),
     ThisBuild / developers := List(
       Developer(

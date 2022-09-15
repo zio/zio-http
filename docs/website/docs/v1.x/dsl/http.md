@@ -220,9 +220,9 @@ Since an HTTP application `Http[R, E, A, B]` is a function from `A` to `ZIO[R, O
 
 The below snippet tests an app that takes `Int` as input and responds by adding 1 to the input.
 ```scala
-    package zhttp.http.middleware
+    package zio.http.middleware
     
-    import zhttp.http._
+    import zio.http._
     import zio.test.Assertion.equalTo
     import zio.test._
     
@@ -359,8 +359,8 @@ We can also convert an `Http` to `HttpApp` using codec middlewares that take in 
 ZIO HTTP server needs an `HttpApp[R,E]` for running.
 We can use `Server.app()` method to bootstrap the server with an `HttpApp[R,E]`
 ```scala
-  import zhttp.http._
-  import zhttp.service.Server
+  import zio.http._
+  import zio.http.Server
   import zio._
     
   object HelloWorld extends App {
