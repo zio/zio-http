@@ -8,7 +8,7 @@ import zio.http.service.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
-import zio.{ZIO, durationInt}
+import zio.{Scope, ZIO, durationInt}
 
 object SSLSpec extends ZIOSpecDefault {
 
@@ -41,50 +41,47 @@ object SSLSpec extends ZIOSpecDefault {
         List(
           test("succeed when client has the server certificate") {
             val actual = Client
-              .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
+              .request("https://localhost:8073/success")
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
-          },
+          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1)))),
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
-              .request("https://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL2))
+              .request("https://localhost:8073/success")
               .catchSome { case _: DecoderException =>
                 ZIO.succeed("DecoderException")
               }
             assertZIO(actual)(equalTo("DecoderException"))
-          },
+          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL2)))),
           test("succeed when client has default SSL") {
             val actual = Client
-              .request("https://localhost:8073/success", ssl = ClientSSLOptions.DefaultSSL)
+              .request("https://localhost:8073/success")
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
-          },
+          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.DefaultSSL))),
           test("Https Redirect when client makes http request") {
             val actual = Client
-              .request("http://localhost:8073/success", ssl = ClientSSLOptions.CustomSSL(clientSSL1))
+              .request("http://localhost:8073/success")
               .map(_.status)
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
-          },
+          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1)))),
           test("Https request with a large payload should respond with 413") {
             check(payload) { payload =>
               val actual = Client
                 .request(
                   "https://localhost:8073/text",
                   Method.POST,
-                  ssl = ClientSSLOptions.CustomSSL(clientSSL1),
                   content = Body.fromString(payload),
                 )
                 .map(_.status)
               assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
             }
-          },
+          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1)))),
         ),
       ),
-  ).provide(
+  ).provideShared(
     ServerConfig.live(config),
-    Server.live,
-    ChannelFactory.nio,
-    EventLoopGroup.nio(0),
+    Server.live
   ) @@
     timeout(5 second) @@ ignore
 

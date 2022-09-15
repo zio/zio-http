@@ -1,8 +1,7 @@
 package example
 
 import zio.http._
-import zio.http.service.{ChannelFactory, EventLoopGroup}
-import zio.{ZIO, ZIOAppDefault}
+import zio.{Scope, ZIO, ZIOAppDefault}
 
 object ClientServer extends ZIOAppDefault {
 
@@ -16,7 +15,6 @@ object ClientServer extends ZIOAppDefault {
   }
 
   val run = {
-    val clientLayers = ChannelFactory.auto ++ EventLoopGroup.auto()
-    Server.serve(app).provide(Server.default ++ clientLayers).exitCode
+    Server.serve(app).provide(Server.default, Client.default, Scope.default).exitCode
   }
 }

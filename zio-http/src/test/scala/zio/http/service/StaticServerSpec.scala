@@ -7,7 +7,7 @@ import zio.http.middleware.Cors.CorsConfig
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
-import zio.{ZIO, durationInt}
+import zio.{Scope, ZIO, durationInt}
 
 object StaticServerSpec extends HttpRunnableSpec {
 
@@ -74,8 +74,8 @@ object StaticServerSpec extends HttpRunnableSpec {
     }.provideSomeShared[TestEnvironment](
       DynamicServer.live,
       severTestLayer,
-      ChannelFactory.nio,
-      EventLoopGroup.nio(0),
+      Client.default,
+      Scope.default
     ) @@
       timeout(30 seconds)
 

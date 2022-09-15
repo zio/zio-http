@@ -6,7 +6,7 @@ import zio.http.service.ServerSpec.requestBodySpec
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
-import zio.{ZIO, durationInt}
+import zio.{Scope, ZIO, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
 
@@ -57,8 +57,8 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       DynamicServer.live,
       ServerConfig.live(configAppWithRequestStreaming),
       Server.live,
-      ChannelFactory.nio,
-      EventLoopGroup.nio(0),
+      Client.default,
+      Scope.default
     ) @@
       timeout(10 seconds) @@ sequential
 

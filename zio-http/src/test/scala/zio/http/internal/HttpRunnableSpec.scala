@@ -1,10 +1,8 @@
 package zio.http.internal
 
-import zio.ZIO
+import zio.{Scope, ZIO}
 import zio.http.URL.Location
 import zio.http._
-import zio.http.service.ClientSSLHandler.ClientSSLOptions
-import zio.http.service._
 import zio.http.socket.SocketApp
 import zio.test.ZIOSpecDefault
 
@@ -56,7 +54,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy(implicit e: E <:< Throwable): Http[R with HttpEnv with EventLoopGroup, Throwable, Request, Response] =
+    def deploy(implicit e: E <:< Throwable): Http[R with Client with DynamicServer with Scope, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
         id       <- Http.fromZIO(DynamicServer.deploy(app))
@@ -64,20 +62,19 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
           Client.request(
             params
               .addHeader(DynamicServer.APP_ID, id)
-              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            ClientConfig.empty,
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port)))
           )
         }
       } yield response
 
     def deployWS(implicit
       e: E <:< Throwable,
-    ): Http[R with HttpEnv with EventLoopGroup, Throwable, SocketApp[HttpEnv], Response] =
+    ): Http[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =
       for {
         id       <- Http.fromZIO(DynamicServer.deploy(app))
         url      <- Http.fromZIO(DynamicServer.wsURL)
-        response <- Http.fromFunctionZIO[SocketApp[HttpEnv with EventLoopGroup]] { app =>
-          ZIO.scoped[HttpEnv with EventLoopGroup](
+        response <- Http.fromFunctionZIO[SocketApp[Client with Scope]] { app =>
+          ZIO.scoped[Client with Scope](
             Client
               .socket(
                 url = url,
@@ -101,14 +98,13 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   def status(
     method: Method = Method.GET,
     path: Path,
-  ): ZIO[EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Status] = {
+  ): ZIO[Client with DynamicServer with Scope, Throwable, Status] = {
     for {
       port   <- DynamicServer.port
       status <- Client
         .request(
           "http://localhost:%d/%s".format(port, path),
-          method,
-          ssl = ClientSSLOptions.DefaultSSL,
+          method
         )
         .map(_.status)
     } yield status
@@ -118,14 +114,13 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
     method: Method = Method.GET,
     path: Path,
     headers: Headers = Headers.empty,
-  ): ZIO[EventLoopGroup with ChannelFactory with DynamicServer, Throwable, Headers] = {
+  ): ZIO[Client with DynamicServer with Scope, Throwable, Headers] = {
     for {
       port    <- DynamicServer.port
       headers <- Client
         .request(
           "http://localhost:%d/%s".format(port, path),
           method,
-          ssl = ClientSSLOptions.DefaultSSL,
           headers = headers,
         )
         .map(_.headers)

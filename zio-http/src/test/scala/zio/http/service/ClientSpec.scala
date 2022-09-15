@@ -2,11 +2,10 @@ package zio.http.service
 
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.middleware.Auth.Credentials
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
-import zio.{ZIO, durationInt}
+import zio.{Scope, durationInt}
 
 import java.net.ConnectException
 
@@ -41,63 +40,12 @@ object ClientSpec extends HttpRunnableSpec {
       val res = Client.request("http://localhost:1").either
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
-    test("handle proxy connection failure") {
-      val res =
-        for {
-          validServerPort <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
-          serverUrl       <- ZIO.fromEither(URL.fromString(s"http://localhost:$validServerPort"))
-          proxyUrl        <- ZIO.fromEither(URL.fromString("http://localhost:0001"))
-          out             <- Client.request(
-            Request(url = serverUrl),
-            ClientConfig.empty.proxy(Proxy(proxyUrl)),
-          )
-        } yield out
-      assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
-    },
-    test("proxy respond Ok") {
-      val res =
-        for {
-          port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
-          url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
-          id   <- DynamicServer.deploy(Http.ok)
-          proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
-          out <- Client.request(
-            Request(url = url),
-            ClientConfig.empty.proxy(proxy),
-          )
-        } yield out
-      assertZIO(res.either)(isRight)
-    },
-    test("proxy respond Ok for auth server") {
-      val proxyAuthApp = Http.collect[Request] { case req =>
-        val proxyAuthHeaderName = HeaderNames.proxyAuthorization.toString
-        req.headers.toList.collectFirst { case (`proxyAuthHeaderName`, _) =>
-          Response.ok
-        }.getOrElse(Response.status(Status.Forbidden))
-      }
-
-      val res =
-        for {
-          port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
-          url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
-          id   <- DynamicServer.deploy(proxyAuthApp)
-          proxy = Proxy.empty
-            .withUrl(url)
-            .withHeaders(Headers(DynamicServer.APP_ID, id))
-            .withCredentials(Credentials("test", "test"))
-          out <- Client.request(
-            Request(url = url),
-            ClientConfig.empty.proxy(proxy),
-          )
-        } yield out
-      assertZIO(res.either)(isRight)
-    },
   )
 
   override def spec = {
     suite("Client") {
       serve(DynamicServer.app).as(List(clientSpec))
-    }.provideShared(DynamicServer.live, severTestLayer, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+    }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
       timeout(5 seconds) @@ sequential
   }
 }

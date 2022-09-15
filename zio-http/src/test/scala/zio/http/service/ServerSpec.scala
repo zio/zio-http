@@ -7,7 +7,7 @@ import zio.stream.{ZPipeline, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{Chunk, ZIO, durationInt}
+import zio.{Chunk, Scope, ZIO, durationInt}
 
 import java.nio.file.Paths
 
@@ -317,8 +317,8 @@ object ServerSpec extends HttpRunnableSpec {
       DynamicServer.live,
       ServerConfig.live(configApp),
       Server.live,
-      ChannelFactory.nio,
-      EventLoopGroup.nio(0),
+      Client.default,
+      Scope.default
     ) @@ timeout(30 seconds) @@ sequential
 
 }

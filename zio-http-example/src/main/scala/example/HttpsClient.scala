@@ -3,15 +3,13 @@ package example
 import io.netty.handler.ssl.SslContextBuilder
 import zio._
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
-import zio.http.service.{ChannelFactory, EventLoopGroup}
-import zio.http.{Client, Headers}
+import zio.http.{Client, ClientConfig, Headers}
 
 import java.io.InputStream
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
 object HttpsClient extends ZIOAppDefault {
-  val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
   val headers = Headers.host("sports.api.decathlon.com")
 
@@ -29,11 +27,12 @@ object HttpsClient extends ZIOAppDefault {
     ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
 
   val program = for {
-    res  <- Client.request(url, headers = headers, ssl = sslOption)
+    res  <- Client.request(url, headers = headers)
     data <- res.body.asString
     _    <- Console.printLine(data)
   } yield ()
 
-  val run = program.provide(env)
+  val clientConfig = ClientConfig.empty.ssl(sslOption)
+  val run          = program.provide(ClientConfig.live(clientConfig), Client.live, Scope.default)
 
 }

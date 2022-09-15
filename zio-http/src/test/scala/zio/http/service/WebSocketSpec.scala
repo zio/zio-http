@@ -4,11 +4,11 @@ import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
-import zio.http.{ChannelEvent, Headers, Http, Status}
+import zio.http.{ChannelEvent, Client, Headers, Http, Status}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
-import zio.{Promise, Ref, UIO, ZIO, durationInt}
+import zio.{Promise, Ref, Scope, UIO, ZIO, durationInt}
 
 object WebSocketSpec extends HttpRunnableSpec {
 
@@ -108,7 +108,7 @@ object WebSocketSpec extends HttpRunnableSpec {
       }.as(List(websocketSpec))
     }
   }
-    .provideShared(DynamicServer.live, severTestLayer, ChannelFactory.nio, EventLoopGroup.nio(0)) @@
+    .provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
     timeout(30 seconds)
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {

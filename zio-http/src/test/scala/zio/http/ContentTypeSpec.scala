@@ -2,7 +2,6 @@ package zio.http
 
 import zio._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.service.{ChannelFactory, EventLoopGroup}
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test._
@@ -44,6 +43,6 @@ object ContentTypeSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Content-type") {
       serve(DynamicServer.app).as(List(contentSpec))
-    }.provideShared(DynamicServer.live, severTestLayer, ChannelFactory.nio, EventLoopGroup.nio(0)) @@ timeout(5 seconds)
+    }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@ timeout(5 seconds)
   }
 }

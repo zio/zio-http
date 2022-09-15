@@ -1,7 +1,7 @@
 package zio.http.service
 
 import io.netty.handler.codec.http.HttpHeaderValues
-import zio.durationInt
+import zio.{Scope, durationInt}
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.test.Assertion.{equalTo, isNone, isSome}
@@ -43,7 +43,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   override def spec = {
     suite("ServerConfigSpec") {
       appKeepAliveEnabled.as(List(keepAliveSpec))
-    }.provideShared(DynamicServer.live, severTestLayer, ChannelFactory.nio, EventLoopGroup.nio(0)) @@ timeout(
+    }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@ timeout(
       30.seconds,
     )
   }
