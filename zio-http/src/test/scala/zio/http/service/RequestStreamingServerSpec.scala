@@ -55,7 +55,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       }
     }.provideShared(
       DynamicServer.live,
-      ServerConfigLayer.live(configAppWithRequestStreaming),
+      ServerConfig.live(configAppWithRequestStreaming),
       Server.live,
       ChannelFactory.nio,
       EventLoopGroup.nio(0),

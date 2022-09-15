@@ -3,7 +3,6 @@ package zio.http.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zio.http._
-import zio.http.internal.DynamicServer
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zio.test.Assertion.equalTo
@@ -82,8 +81,7 @@ object SSLSpec extends ZIOSpecDefault {
         ),
       ),
   ).provide(
-    DynamicServer.live,
-    ServerConfigLayer.live(config),
+    ServerConfig.live(config),
     Server.live,
     ChannelFactory.nio,
     EventLoopGroup.nio(0),

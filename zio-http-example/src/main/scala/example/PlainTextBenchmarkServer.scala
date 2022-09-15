@@ -46,7 +46,7 @@ object Main extends ZIOAppDefault {
     .flowControl(false)
     .objectAggregator(-1)
 
-  private val configLayer = ServerConfigLayer.live(config)
+  private val configLayer = ServerConfig.live(config)
 
   val run: UIO[ExitCode] =
     app

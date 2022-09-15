@@ -315,7 +315,7 @@ object ServerSpec extends HttpRunnableSpec {
       suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
     }.provideSomeShared[TestEnvironment](
       DynamicServer.live,
-      ServerConfigLayer.live(configApp),
+      ServerConfig.live(configApp),
       Server.live,
       ChannelFactory.nio,
       EventLoopGroup.nio(0),

@@ -27,7 +27,7 @@ object HelloWorldAdvanced extends ZIOAppDefault {
       .port(PORT)
       .leakDetection(LeakDetectionLevel.PARANOID)
       .maxThreads(nThreads)
-    val configLayer = ServerConfigLayer.live(config)
+    val configLayer = ServerConfig.live(config)
 
     (Server.install(fooBar ++ app).flatMap { port =>
       Console.printLine(s"Started server on port: $port")

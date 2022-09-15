@@ -22,7 +22,7 @@ object Server {
     ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
   }
 
-  val default = ServerConfigLayer.default >>> live
+  val default = ServerConfig.live >>> live
 
   val live: ZLayer[ServerConfig, Throwable, Server] = ZLayer.scoped {
     for {
@@ -62,7 +62,7 @@ object Server {
     }
   }
 
-  val test = ServerConfigLayer.testServerConfig >>> live
+  val test = ServerConfig.testServerConfig >>> live
 
   private final case class ServerLive(
     appRef: java.util.concurrent.atomic.AtomicReference[HttpApp[Any, Throwable]],
@@ -80,7 +80,7 @@ object Server {
         }
         ()
       }
-    override def port: Int                                     = bindPort
+    override def port: Int                                                 = bindPort
   }
 
 }
