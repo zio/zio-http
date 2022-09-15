@@ -49,14 +49,6 @@ object ClientSpec extends HttpRunnableSpec {
         .flatMap(_.asString)
       assertZIO(res)(equalTo("abc"))
     },
-    test("streaming content from server - extended") {
-      val app    = Http.collect[Request] { case req => Response(body = Body.fromStream(req.body.asStream)) }
-      val stream = ZStream.fromIterable(List("This ", "is ", "a ", "longer ", "text."))
-      val res    = app.deployChunked.body
-        .run(method = Method.POST, body = Body.fromStream(stream))
-        .flatMap(_.asString)
-      assertZIO(res)(equalTo("This is a longer text."))
-    },
   )
 
   override def spec = {
