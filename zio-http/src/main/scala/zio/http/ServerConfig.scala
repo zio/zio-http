@@ -3,12 +3,11 @@ package zio.http
 import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
 import io.netty.util.ResourceLeakDetector
 import zio.ZLayer
-import zio.http.ServerConfig.LeakDetectionLevel
+import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
 import zio.http.netty.server.ServerSSLHandler.ServerSSLOptions
 import zio.http.netty.{ChannelType, EventLoopGroups}
 
 import java.net.{InetAddress, InetSocketAddress}
-import ServerConfig.ResponseCompressionConfig
 
 final case class ServerConfig(
   leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,

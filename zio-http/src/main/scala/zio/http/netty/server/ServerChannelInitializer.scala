@@ -55,7 +55,7 @@ private[zio] final case class ServerChannelInitializer(
 
     cfg.responseCompression.foreach(ops => {
       pipeline.addLast(
-        Names.HttpResponseCompression, 
+        Names.HttpResponseCompression,
         new HttpContentCompressor(ops.contentThreshold, ops.options.map(_.toJava): _*),
       )
     })
