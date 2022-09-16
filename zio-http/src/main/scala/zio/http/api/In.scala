@@ -8,11 +8,22 @@ sealed trait In[Input] {
   def ++[Input2](that: In[Input2])(implicit combiner: Combiner[Input, Input2]): In[combiner.Out] =
     In.Combine(self, that, combiner)
 
-  def map[Input2](f: Input => Input2): In[Input2] =
-    In.Transform(self, f)
-
   def /[Input2](that: In[Input2])(implicit combiner: Combiner[Input, Input2]): In[combiner.Out] =
     self ++ that
+
+  /**
+   * Transforms the type parameter of this `In` from `Input` to `Input2`. Due to
+   * the fact that `In` is invariant in its type parameter, the transformation
+   * requires not just a function from `Input` to `Input2`, but also, a function
+   * from `Input2` to `Input`.
+   *
+   * One of these functions will be used in decoding, for example, when the
+   * endpoint is invoked on the server. The other of these functions will be
+   * used in encoding, for example, when a client calls the endpoint on the
+   * server.
+   */
+  def transform[Input2](f: Input => Input2, g: Input2 => Input): In[Input2] =
+    In.Transform(self, f, g)
 }
 
 object In extends RouteInputs with QueryInputs with HeaderInputs {
@@ -36,8 +47,8 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
 
   // - 0
   // - pre-index
-  private final case class IndexedAtom[A](atom: Atom[A], index: Int) extends Atom[A]
-  private final case class Transform[X, A](api: In[X], f: X => A)    extends In[A]
+  private final case class IndexedAtom[A](atom: Atom[A], index: Int)         extends Atom[A]
+  private final case class Transform[X, A](api: In[X], f: X => A, g: A => X) extends In[A]
 
   private final case class Combine[A1, A2, B1, B2, A, B](
     left: In[A1],
@@ -76,9 +87,9 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
         (Combine(left2, right2, inputCombiner).asInstanceOf[In[A]], rightIndices)
       case atom: Atom[_]                       =>
         (IndexedAtom(atom, indices.get(atom)).asInstanceOf[In[A]], indices.increment(atom))
-      case Transform(api, f)                   =>
+      case Transform(api, f, g)                =>
         val (api2, resultIndices) = indexedImpl(api, indices)
-        (Transform(api2, f).asInstanceOf[In[A]], resultIndices)
+        (Transform(api2, f, g).asInstanceOf[In[A]], resultIndices)
 
       case WithDoc(api, _) => indexedImpl(api.asInstanceOf[In[A]], indices)
     }
