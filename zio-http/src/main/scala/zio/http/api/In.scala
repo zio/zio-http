@@ -1,6 +1,8 @@
 package zio.http.api
 
-sealed trait In[Input] extends RouteInputs with QueryInputs with HeaderInputs {
+import zio.schema.Schema
+
+sealed trait In[Input] {
   self =>
 
   def ++[Input2](that: In[Input2])(implicit combiner: Combiner[Input, Input2]): In[combiner.Out] =
@@ -30,6 +32,7 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
   private[api] final case class InputBody[A](input: Schema[A])                   extends Atom[A]
   private[api] final case class Query[A](name: String, textCodec: TextCodec[A])  extends Atom[A]
   private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[A]
+  private[api] final case class WithDoc[A](in: In[A], doc: Doc)                  extends In[A]
 
   // - 0
   // - pre-index
@@ -57,6 +60,7 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
       case Combine(left, right, _) => flattenedAtoms(left) ++ flattenedAtoms(right)
       case atom: Atom[_]           => Chunk(atom)
       case map: Transform[_, _]    => flattenedAtoms(map.api)
+      case WithDoc(api, _)         => flattenedAtoms(api)
     }
 
   type Constructor[+A] = InputResults => A
@@ -75,6 +79,8 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
       case Transform(api, f)                   =>
         val (api2, resultIndices) = indexedImpl(api, indices)
         (Transform(api2, f).asInstanceOf[In[A]], resultIndices)
+
+      case WithDoc(api, _) => indexedImpl(api.asInstanceOf[In[A]], indices)
     }
 
   def thread[A](api: In[A]): Constructor[A] =
@@ -107,6 +113,8 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
       case transform: Transform[_, A] =>
         val threaded = threadIndexed(transform.api)
         results => transform.f(threaded(results))
+
+      case WithDoc(api, _) => threadIndexed(api)
 
       case atom: Atom[_] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")

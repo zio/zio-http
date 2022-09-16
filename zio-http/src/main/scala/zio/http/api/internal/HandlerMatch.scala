@@ -10,7 +10,7 @@ final case class HandlerMatch[-R, +E, Input, Output](
   results: Chunk[Any],
 ) {
 
-  val in       = handledApi.api.in
+  val in       = handledApi.api.input
   val atoms    = In.flatten(in)
   val threader = In.thread(in)
 
@@ -21,6 +21,7 @@ final case class HandlerMatch[-R, +E, Input, Output](
 
     // Reassembled and Threaded
     val fullResults = In.InputResults(results, queryResults)
+    val _           = fullResults
     val input       = threader(fullResults)
     handledApi.handler(input).map { out =>
       Response.text(out.toString)

@@ -5,6 +5,9 @@
 *.iws
 .idea
 .bloop/
+.bsp 
+.metals 
+.vscode 
 out
 .cache/
 .history/
