@@ -59,7 +59,6 @@ object Client {
         jReq       <- encode(request)
         _          <- internalRequest(request, jReq, onResponse, clientConfig)(Unsafe.unsafe)
           .catchAll(cause => onResponse.fail(cause))
-        _          <- ZIO.debug("Waiting for onResponse")
         res        <- onResponse.await
       } yield res
 
@@ -77,13 +76,17 @@ object Client {
         req.url.kind match {
           case location: Location.Absolute =>
             for {
-              channel    <- connectionPool.get(
-                location,
-                clientConfig.proxy,
-                clientConfig.ssl.getOrElse(ClientSSLOptions.DefaultSSL),
-              )
-              onComplete <- Promise.make[Throwable, Unit]
-              release    <- ZIO.attempt {
+              channelScope <- Scope.make
+              channel      <-
+                connectionPool
+                  .get(
+                    location,
+                    clientConfig.proxy,
+                    clientConfig.ssl.getOrElse(ClientSSLOptions.DefaultSSL),
+                  )
+                  .provideEnvironment(ZEnvironment(channelScope))
+              onComplete   <- Promise.make[Throwable, Unit]
+              release      <- ZIO.attempt {
                 requestOnChannel(
                   channel,
                   location,
@@ -95,7 +98,11 @@ object Client {
                   () => clientConfig.socketApp.getOrElse(SocketApp()),
                 )
               }
-              _          <- (onComplete.await.exit *> release.catchAll(onResponse.fail).uninterruptible).forkDaemon
+              // TODO: cleanup, ensure channel is always released, invalidate channel in pool in case of error
+              _            <- onComplete.await.exit.flatMap { exit =>
+                (release.catchAll(onResponse.fail) *>
+                  channelScope.close(exit)).uninterruptible
+              }.forkDaemon
             } yield ()
           case Location.Relative           =>
             throw new IllegalArgumentException("Absolute URL is required")

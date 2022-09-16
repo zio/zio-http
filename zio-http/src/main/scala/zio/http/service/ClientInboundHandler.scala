@@ -17,16 +17,23 @@ final class ClientInboundHandler[R](
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
-  // TODO: maybe we need to write on channelRegister insttead/as well
+  override def handlerAdded(ctx: Ctx): Unit = {
+    if (ctx.channel().isActive && ctx.channel().isRegistered) {
+      sendRequest(ctx)
+    }
+  }
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
+    sendRequest(ctx)
+  }
+
+  private def sendRequest(ctx: ChannelHandlerContext): Unit =
     if (isWebSocket) {
       ctx.fireChannelActive(): Unit
     } else {
       ctx.writeAndFlush(jReq)
       ()
     }
-  }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     msg.touch("handlers.ClientInboundHandler-channelRead0")

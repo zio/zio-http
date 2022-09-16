@@ -1,18 +1,13 @@
 package zio.http.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.HttpClientCodec
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.URL.Location
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.{ChannelType, ClientConfig, Proxy, URL}
-import zio.{Scope, UIO, ZIO, ZLayer}
+import zio.{Duration, Scope, UIO, ZIO, ZLayer}
 
 import java.net.InetSocketAddress
 
@@ -21,68 +16,77 @@ trait ConnectionPool {
     location: URL.Location.Absolute,
     proxy: Option[Proxy],
     sslOptions: ClientSSLOptions,
-  ): ZIO[Any, Throwable, JChannel]
+  ): ZIO[Scope, Throwable, JChannel]
 }
 
 object ConnectionPool {
-  private trait ConnectionPoolBase extends ConnectionPool {
-    val channelFactory: JChannelFactory[JChannel]
-    val eventLoopGroup: JEventLoopGroup
+  protected def createChannel(
+    channelFactory: JChannelFactory[JChannel],
+    eventLoopGroup: JEventLoopGroup,
+    location: URL.Location.Absolute,
+    proxy: Option[Proxy],
+    sslOptions: ClientSSLOptions,
+  ): ZIO[Any, Throwable, JChannel] = {
+    val initializer = new ChannelInitializer[JChannel] {
+      override def initChannel(ch: JChannel): Unit = {
+        val pipeline = ch.pipeline()
 
-    protected def createChannel(
-      location: URL.Location.Absolute,
-      proxy: Option[Proxy],
-      sslOptions: ClientSSLOptions,
-    ): ZIO[Any, Throwable, JChannel] = {
-      val initializer = new ChannelInitializer[JChannel] {
-        override def initChannel(ch: JChannel): Unit = {
-          val pipeline = ch.pipeline()
-
-          proxy match {
-            case Some(proxy) =>
-              pipeline.addLast(
-                PROXY_HANDLER,
-                proxy.encode.getOrElse(new HttpProxyHandler(new InetSocketAddress(location.host, location.port))),
-              )
-            case None        =>
-          }
-
-          if (location.scheme.isSecure) {
+        proxy match {
+          case Some(proxy) =>
             pipeline.addLast(
-              SSL_HANDLER,
-              ClientSSLHandler.ssl(sslOptions).newHandler(ch.alloc, location.host, location.port),
+              PROXY_HANDLER,
+              proxy.encode.getOrElse(new HttpProxyHandler(new InetSocketAddress(location.host, location.port))),
             )
-          }
-
-          pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, 8192, 8192, true))
-
-          ()
+          case None        =>
         }
-      }
 
-      ZIO.attempt {
-        new Bootstrap()
-          .channelFactory(channelFactory)
-          .group(eventLoopGroup)
-          .remoteAddress(new InetSocketAddress(location.host, location.port))
-          .handler(initializer)
-          .connect()
-      }.flatMap { channelFuture =>
-        ZIO.debug("got channel future") *>
-          ChannelFuture.unit(channelFuture) *> ZIO.debug("channel future completed") *>
-          ZIO.attempt(channelFuture.channel()).debug("channel")
+        if (location.scheme.isSecure) {
+          pipeline.addLast(
+            SSL_HANDLER,
+            ClientSSLHandler.ssl(sslOptions).newHandler(ch.alloc, location.host, location.port),
+          )
+        }
+
+        pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, 8192, 8192, true))
+
+        ()
       }
+    }
+
+    ZIO.attempt {
+      new Bootstrap()
+        .channelFactory(channelFactory)
+        .group(eventLoopGroup)
+        .remoteAddress(new InetSocketAddress(location.host, location.port))
+        .handler(initializer)
+        .connect()
+    }.flatMap { channelFuture =>
+      ChannelFuture.unit(channelFuture) *>
+        ZIO.attempt(channelFuture.channel())
     }
   }
 
-  private class NoConnectionPool(val channelFactory: JChannelFactory[JChannel], val eventLoopGroup: JEventLoopGroup)
-      extends ConnectionPoolBase {
+  private class NoConnectionPool(channelFactory: JChannelFactory[JChannel], eventLoopGroup: JEventLoopGroup)
+      extends ConnectionPool {
     override def get(
       location: Location.Absolute,
       proxy: Option[Proxy],
       sslOptions: ClientSSLOptions,
-    ): ZIO[Any, Throwable, JChannel] =
-      createChannel(location, proxy, sslOptions)
+    ): ZIO[Scope, Throwable, JChannel] =
+      createChannel(channelFactory, eventLoopGroup, location, proxy, sslOptions)
+  }
+
+  case class PoolKey(location: Location.Absolute, proxy: Option[Proxy], sslOptions: ClientSSLOptions)
+
+  private class ZioConnectionPool(
+    pool: ZKeyedPool[Throwable, PoolKey, JChannel],
+  ) extends ConnectionPool {
+    override def get(
+      location: Location.Absolute,
+      proxy: Option[Proxy],
+      sslOptions: ClientSSLOptions,
+    ): ZIO[Scope, Throwable, JChannel] =
+      pool.get(PoolKey(location, proxy, sslOptions))
   }
 
   private def channelFactory(config: ClientConfig): UIO[ChannelFactory] = {
@@ -115,5 +119,34 @@ object ConnectionPool {
         eventLoopGroup <- eventLoopGroup(config)
 
       } yield new NoConnectionPool(channelFactory, eventLoopGroup)
+    }
+
+  // TODO: "auto" layer to be set up from ClientConfig
+
+  def fixed(size: Int): ZLayer[Scope with ClientConfig, Throwable, ConnectionPool] =
+    ZLayer.scoped {
+      for {
+        config         <- ZIO.service[ClientConfig]
+        channelFactory <- channelFactory(config)
+        eventLoopGroup <- eventLoopGroup(config)
+        keyedPool      <- ZKeyedPool.make(
+          (key: PoolKey) => createChannel(channelFactory, eventLoopGroup, key.location, key.proxy, key.sslOptions),
+          size,
+        )
+      } yield new ZioConnectionPool(keyedPool)
+    }
+
+  def dynamic(min: Int, max: Int, ttl: Duration): ZLayer[Scope with ClientConfig, Throwable, ConnectionPool] =
+    ZLayer.scoped {
+      for {
+        config         <- ZIO.service[ClientConfig]
+        channelFactory <- channelFactory(config)
+        eventLoopGroup <- eventLoopGroup(config)
+        keyedPool      <- ZKeyedPool.make(
+          (key: PoolKey) => createChannel(channelFactory, eventLoopGroup, key.location, key.proxy, key.sslOptions),
+          min to max,
+          ttl,
+        )
+      } yield new ZioConnectionPool(keyedPool)
     }
 }
