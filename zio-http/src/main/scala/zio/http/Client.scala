@@ -1,18 +1,14 @@
 package zio.http
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{ChannelInitializer, Channel => JChannel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.proxy.HttpProxyHandler
-import zio._
+import zio.{http, _}
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.socket.SocketApp
@@ -50,14 +46,14 @@ object Client {
         env <- ZIO.environment[R]
         uri <- ZIO.fromEither(URL.fromString(url))
         res <- requestAsync(
-          Request(
+          http.Request(
             version = Version.Http_1_1,
             Method.GET,
             uri,
             headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
           ),
           clientConfig = settings.copy(socketApp = Some(app.provideEnvironment(env))),
-        ).withFinalizer(_.close.orDie)
+          ).withFinalizer(_.close.orDie)
       } yield res
 
     private def requestAsync(request: Request, clientConfig: ClientConfig): ZIO[Any, Throwable, Response] = {
@@ -190,14 +186,14 @@ object Client {
       uri      <- ZIO.fromEither(URL.fromString(url))
       response <- ZIO.serviceWithZIO[Client](
         _.request(
-          Request(
+          http.Request(
             version = Version.Http_1_1,
             method = method,
             url = uri,
             headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
             body = content,
           ),
-        ),
+          ),
       )
     } yield response
 

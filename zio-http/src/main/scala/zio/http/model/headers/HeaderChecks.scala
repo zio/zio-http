@@ -1,8 +1,9 @@
-package zio.http.headers
+package zio.http.model.headers
 
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
-import zio.http.{HeaderValues, MediaType}
+import zio.http.HeaderValues
+import zio.http.model.MediaType
 
 /**
  * Maintains a list of operators that checks if the Headers meet the give

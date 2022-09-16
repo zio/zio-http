@@ -1,8 +1,10 @@
 package zio.http
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
-import zio.http.Headers.BearerSchemeName
 import zio.http.middleware.Auth.Credentials
+import zio.http.model.headers.Headers.BearerSchemeName
+import zio.http.model.MediaType
+import zio.http.model.headers.Headers
 import zio.test.Assertion._
 import zio.test.{Gen, ZIOSpecDefault, assert, assertTrue, check}
 

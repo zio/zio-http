@@ -1,13 +1,15 @@
 package zio.http.internal
 
 import io.netty.buffer.Unpooled
-import zio.http.Path.Segment
-import zio.http.Scheme.{HTTP, HTTPS, WS, WSS}
-import zio.http.URL.Location
 import zio.http._
+import Path.Segment
+import zio.http.model.Scheme.{HTTP, HTTPS, WS, WSS}
+import URL.Location
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
-import zio.{Chunk, ZIO}
+import zio.{Chunk, ZIO, http}
 
 import java.io.File
 
@@ -28,7 +30,7 @@ object HttpGen {
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       version <- httpVersion
-    } yield Request(version, method, url, headers, body = Body.fromFile(file))
+    } yield http.Request(version, method, url, headers, body = Body.fromFile(file))
   }
 
   def genAbsoluteLocation: Gen[Sized, Location.Absolute] = for {
@@ -47,7 +49,7 @@ object HttpGen {
     path        <- HttpGen.nonEmptyPath
     kind        <- HttpGen.genAbsoluteLocation
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
-  } yield URL(path, kind, QueryParams(queryParams))
+  } yield http.URL(path, kind, QueryParams(queryParams))
 
   def genRelativeLocation: Gen[Any, Location.Relative.type] = Gen.const(URL.Location.Relative)
 
@@ -123,7 +125,7 @@ object HttpGen {
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
     data    <- HttpGen.body(Gen.listOf(Gen.alphaNumericString))
-  } yield Request(version, method, url, headers, data)
+  } yield http.Request(version, method, url, headers, data)
 
   def requestGen[R](
     dataGen: Gen[R, Body],
@@ -137,14 +139,14 @@ object HttpGen {
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
       version <- httpVersion
-    } yield Request(version, method, url, headers, body = data)
+    } yield http.Request(version, method, url, headers, body = data)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Sized with R, Response] = {
     for {
       content <- HttpGen.body(gContent)
       headers <- HttpGen.header
       status  <- HttpGen.status
-    } yield Response(status, headers, content)
+    } yield http.Response(status, headers, content)
   }
 
   def scheme: Gen[Any, Scheme] = Gen.fromIterable(List(HTTP, HTTPS, WS, WSS))
@@ -214,6 +216,6 @@ object HttpGen {
     path        <- Gen.elements(Path.root, Path.root / "a", Path.root / "a" / "b", Path.root / "a" / "b" / "c")
     kind        <- HttpGen.location
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
-  } yield URL(path, kind, QueryParams(queryParams))
+  } yield http.URL(path, kind, QueryParams(queryParams))
 
 }

@@ -2,6 +2,7 @@ package zio.http.middleware
 
 import zio.ZIO
 import zio.http._
+import zio.http.model.{Cookie, Status}
 
 import java.util.UUID
 

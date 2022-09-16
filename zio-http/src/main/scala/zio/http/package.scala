@@ -1,6 +1,8 @@
 package zio
 
 import io.netty.util.CharsetUtil
+import zio.http.{Request, Response}
+import zio.http.model.headers.{HeaderNames, HeaderValues, Headers}
 
 import java.nio.charset.Charset
 
@@ -19,8 +21,8 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
    */
   val HTTP_CHARSET: Charset = CharsetUtil.UTF_8
 
-  object HeaderNames  extends headers.HeaderNames
-  object HeaderValues extends headers.HeaderValues
+  object HeaderNames  extends HeaderNames
+  object HeaderValues extends HeaderValues
 
   private[http] val failNoStacktrace: ZIO[Any, None.type, Nothing] = ZIO.refailCause(Cause.fail(None))
 }

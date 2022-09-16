@@ -3,6 +3,7 @@ package example
 import zio._
 import zio.http.Middleware.{csrfGenerate, csrfValidate}
 import zio.http._
+import zio.http.model.Method
 
 object CSRF extends ZIOAppDefault {
   val privateApp = Http.collect[Request] { case Method.GET -> !! / "unsafeEndpoint" =>

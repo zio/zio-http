@@ -1,8 +1,11 @@
 package zio.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zio.http._
+import zio.http
 import zio.http.middleware.Cors.{CorsConfig, buildHeaders}
+import zio.http.model.{Method, Status}
+import zio.http._
+import zio.http.model.headers.Headers
 
 private[zio] trait Cors {
 
@@ -44,11 +47,11 @@ private[zio] trait Cors {
       ) match {
         case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
           Middleware.succeed(
-            Response(
+            http.Response(
               Status.NoContent,
               headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
             ),
-          )
+            )
         case (_, Some(origin), _) if allowCORS(origin, req.method)                                                =>
           Middleware.addHeaders(corsHeaders(origin, req.method, isPreflight = false))
         case _ => Middleware.identity

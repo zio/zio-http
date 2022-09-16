@@ -1,5 +1,6 @@
 package zio.http
 
+import zio.http.model.Status
 import zio.test.Assertion._
 import zio.test._
 

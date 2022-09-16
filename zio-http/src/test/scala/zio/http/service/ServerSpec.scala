@@ -3,11 +3,13 @@ package zio.http.service
 import io.netty.util.AsciiString
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.stream.{ZPipeline, ZStream}
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{Chunk, Scope, ZIO, durationInt}
+import zio.{Chunk, Scope, ZIO, durationInt, http}
 
 import java.nio.file.Paths
 
@@ -115,7 +117,7 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(isSome(equalTo("Bar")))
         }
       } + suite("response") {
-        val app = Http.response(Response(status = Status.Ok, body = Body.fromString("abc")))
+        val app = Http.response(http.Response(status = Status.Ok, body = Body.fromString("abc")))
         test("body is set") {
           val res = app.deploy.body.mapZIO(_.asString).run()
           assertZIO(res)(equalTo("abc"))

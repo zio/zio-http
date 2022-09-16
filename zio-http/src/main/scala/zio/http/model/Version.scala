@@ -1,4 +1,4 @@
-package zio.http
+package zio.http.model
 
 import io.netty.handler.codec.http.HttpVersion
 import zio.Unsafe

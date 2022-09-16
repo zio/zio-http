@@ -1,8 +1,7 @@
-package zio.http
+package zio.http.model
 
-import zio.http.Cookie.{SameSite, Type}
-import zio.http.CookieDecoder.log
-import zio.http.service.Log
+import zio.http.model.Cookie.{SameSite, Type}
+import zio.http.{CookieDecoder, CookieEncoder, Path, Request, Response}
 import zio.{Duration, Unsafe}
 
 import java.security.MessageDigest
@@ -34,7 +33,6 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Type[T]
       Right(ev.unsafe.encode(self, validate)(Unsafe.unsafe))
     } catch {
       case e: Exception =>
-        log.error("Cookie encoding failure", e)
         Left(e)
     }
 
@@ -186,8 +184,6 @@ final case class Cookie[T](name: String, content: String, target: Cookie.Type[T]
 
 object Cookie {
 
-  private[http] val log = Log.withTags("Cookie")
-
   /**
    * Creates a new cookie of response type
    */
@@ -216,7 +212,6 @@ object Cookie {
       Right(ev.unsafe.decode(string, validate)(Unsafe.unsafe))
     } catch {
       case e: Exception =>
-        log.error("Cookie decoding failure", e)
         Left(e)
     }
   }

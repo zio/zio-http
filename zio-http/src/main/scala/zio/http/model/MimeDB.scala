@@ -1,4 +1,4 @@
-package zio.http
+package zio.http.model
 
 private[zio] trait MimeDB {
   private[zio] lazy val allMediaTypes: List[MediaType] =

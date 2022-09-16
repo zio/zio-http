@@ -1,9 +1,9 @@
-package zio.http.headers
+package zio.http.model.headers
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zio.Duration
-import zio.http.Headers.{BasicSchemeName, BearerSchemeName}
-import zio.http._
+import Headers.{BasicSchemeName, BearerSchemeName}
+import zio.http.model.{Cookie, Method}
+import zio.http.{HTTP_CHARSET, HeaderNames, Request, Response}
 
 import java.util.Base64
 

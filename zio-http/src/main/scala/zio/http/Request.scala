@@ -3,7 +3,8 @@ package zio.http
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpRequest}
 import zio.Unsafe
-import zio.http.headers.HeaderExtension
+import zio.http.model.headers.{HeaderExtension, Headers}
+import zio.http.model.{Method, Version}
 import zio.http.service.{Ctx, ServerInboundHandler}
 
 import java.io.IOException

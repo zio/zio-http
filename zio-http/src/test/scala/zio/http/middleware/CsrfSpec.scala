@@ -1,9 +1,11 @@
 package zio.http.middleware
 
-import zio.Ref
+import zio.{Ref, http}
 import zio.http.Middleware.csrfValidate
+import zio.http._
 import zio.http.internal.HttpAppTestExtensions
-import zio.http.{Cookie, _}
+import zio.http.model.headers.Headers
+import zio.http.model.{Cookie, Status}
 import zio.test.Assertion.equalTo
 import zio.test._
 
@@ -14,15 +16,15 @@ object CsrfSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val validXToken   = Headers("x-token", "secret")
   override def spec         = suite("CSRF Middlewares")(
     test("x-token not present") {
-      assertZIO(app(Request(headers = setCookie)))(equalTo(Status.Forbidden))
+      assertZIO(app(http.Request(headers = setCookie)))(equalTo(Status.Forbidden))
     },
     test("x-token mismatch") {
-      assertZIO(app(Request(headers = setCookie ++ invalidXToken)))(
+      assertZIO(app(http.Request(headers = setCookie ++ invalidXToken)))(
         equalTo(Status.Forbidden),
       )
     },
     test("x-token match") {
-      assertZIO(app(Request(headers = setCookie ++ validXToken)))(
+      assertZIO(app(http.Request(headers = setCookie ++ validXToken)))(
         equalTo(Status.Ok),
       )
     },
@@ -30,7 +32,7 @@ object CsrfSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       for {
         r <- Ref.make(false)
         app = Http.ok.tapZIO(_ => r.set(true)) @@ csrfValidate("x-token")
-        _   <- app(Request(headers = setCookie ++ invalidXToken))
+        _   <- app(http.Request(headers = setCookie ++ invalidXToken))
         res <- r.get
       } yield assert(res)(equalTo(false))
     },

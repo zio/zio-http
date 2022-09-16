@@ -3,6 +3,7 @@ package example
 import zio._
 import zio.http.Middleware.basicAuth
 import zio.http._
+import zio.http.model.Method
 
 object BasicAuth extends ZIOAppDefault {
 

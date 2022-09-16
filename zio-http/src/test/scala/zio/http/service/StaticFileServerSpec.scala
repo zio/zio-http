@@ -1,7 +1,8 @@
 package zio.http.service
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.{Client, Http, MediaType, Status}
+import zio.http.model.{MediaType, Status}
+import zio.http.{Client, Http}
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertZIO

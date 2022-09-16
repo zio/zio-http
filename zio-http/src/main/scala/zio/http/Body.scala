@@ -1,7 +1,7 @@
 package zio.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{Channel => JChannel, DefaultFileRegion}
+import io.netty.channel.{DefaultFileRegion, Channel => JChannel}
 import io.netty.handler.codec.http.LastHttpContent
 import io.netty.util.AsciiString
 import zio._

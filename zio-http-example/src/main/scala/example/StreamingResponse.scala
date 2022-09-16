@@ -1,7 +1,9 @@
 package example
 
-import zio._
+import zio.{http, _}
 import zio.http._
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.stream.ZStream
 
 /**
@@ -21,7 +23,7 @@ object StreamingResponse extends ZIOAppDefault {
 
     // ZStream powered response
     case Method.GET -> !! / "stream" =>
-      Response(
+      http.Response(
         status = Status.Ok,
         headers = Headers.contentLength(message.length.toLong),
         body = Body.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream

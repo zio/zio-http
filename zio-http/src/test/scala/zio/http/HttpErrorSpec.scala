@@ -1,5 +1,6 @@
 package zio.http
 
+import zio.http.model.{HttpError, Status}
 import zio.test.Assertion.equalTo
 import zio.test.{ZIOSpecDefault, assert}
 

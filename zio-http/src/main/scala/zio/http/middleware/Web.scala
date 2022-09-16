@@ -1,10 +1,11 @@
 package zio.http.middleware
 
 import zio._
-import zio.http.URL.encode
 import zio.http._
-import zio.http.headers.HeaderModifier
 import zio.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
+import URL.encode
+import zio.http.model._
+import zio.http.model.headers.{HeaderModifier, Headers}
 
 import java.io.IOException
 
