@@ -2,7 +2,6 @@ package zio.http.api
 
 import zio._
 import zio.http._
-import zio.http.api.internal._
 
 object Examples extends ZIOAppDefault {
   import In._
@@ -19,16 +18,10 @@ object Examples extends ZIOAppDefault {
 
   val apis = api1 ++ api2
 
-  val 
-
-  val tree: HandlerTree[Any, Nothing] = HandlerTree.fromService(apis)
+  val app = apis.toHttpApp
 
   val request = Request(url = URL.fromString("/users/100/posts/200?name=adam").toOption.get)
   println(s"Looking up $request")
 
-  val result = tree.lookup(request).get
-  println(s"Match Results: ${result.results}")
-  println(s"Match API: ${api2 == result.handledApi}")
-
-  val run = result.run(request).debug("run")
+  val run = app(request).debug
 }
