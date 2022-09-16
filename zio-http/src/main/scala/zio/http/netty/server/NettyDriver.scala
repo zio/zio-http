@@ -4,11 +4,11 @@ import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.util.ResourceLeakDetector
 import zio._
+import zio.http.netty._
+import zio.http.service.ServerTime
+import zio.http.{Driver, ServerConfig}
 
 import java.net.InetSocketAddress
-import zio.http.{Driver, ServerConfig}
-import zio.http.service.ServerTime
-import zio.http.netty._
 
 private[zio] final case class NettyDriver(
   channelFactory: ChannelFactory[ServerChannel],

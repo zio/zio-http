@@ -7,9 +7,9 @@ import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame
 import zio._
 import zio.http.ChannelEvent
 import zio.http.ChannelEvent.UserEvent
+import zio.http.service.Log
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.logging.Logger
-import zio.http.service.Log
 
 /**
  * A generic SocketApp handler that can be used on both - the client and the

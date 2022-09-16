@@ -12,12 +12,12 @@ import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
 import zio._
-import zio.http.netty.server.ServerChannelInitializer.log
-import zio.http.service.logging.LogLevelTransform._
-import zio.logging.LogLevel
 import zio.http.ServerConfig
 import zio.http.netty.Names
+import zio.http.netty.server.ServerChannelInitializer.log
 import zio.http.service.Log
+import zio.http.service.logging.LogLevelTransform._
+import zio.logging.LogLevel
 
 /**
  * Initializes the netty channel with default handlers

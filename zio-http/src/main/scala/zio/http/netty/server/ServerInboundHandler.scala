@@ -5,10 +5,8 @@ import io.netty.channel._
 import io.netty.handler.codec.http._
 import zio._
 import zio.http._
+import zio.http.netty.{NettyRuntime, _}
 import zio.logging.Logger
-
-import zio.http.netty.NettyRuntime
-import zio.http.netty._
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -73,9 +71,9 @@ object ServerInboundHandler {
       // appRef <- ZIO.service[AtomicReference[HttpApp[Any, Throwable]]]
       // errRef <- ZIO.service[AtomicReference[Option[ErrorCallback]]]
       driverCtx <- ZIO.service[Driver.Context]
-      rtm    <- ZIO.service[NettyRuntime]
-      config <- ZIO.service[ServerConfig]
-      time   <- ZIO.service[service.ServerTime]
+      rtm       <- ZIO.service[NettyRuntime]
+      config    <- ZIO.service[ServerConfig]
+      time      <- ZIO.service[service.ServerTime]
 
     } yield ServerInboundHandler(driverCtx, rtm, config, time)
   }
