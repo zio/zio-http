@@ -2,6 +2,17 @@ package zio.http.api
 
 import java.util.UUID
 
+/**
+ * A [[zio.http.api.TextCodec]] defines a codec for a text fragment. The text
+ * fragment can be decoded into a value, or the value can be encoded into a text
+ * fragment.
+ *
+ * Unlike parsers, text codecs operate on entire fragments. They do not consume
+ * input and leave remainders. Also unlike parsers, text codecs do not fail with
+ * error messages, but rather, simply return None if they do not succeed in
+ * decoding from a given text fragment. Finally, unlike ordinary parsers, text
+ * codecs are fully invertible, and can therefore be used in client generation.
+ */
 sealed trait TextCodec[A] {
   def decode(value: String): Option[A]
 
@@ -9,18 +20,21 @@ sealed trait TextCodec[A] {
 }
 
 object TextCodec {
-  val boolean: TextCodec[Boolean] = BooleanCodec
+  implicit val boolean: TextCodec[Boolean] = BooleanCodec
 
   def constant(string: String): TextCodec[Unit] = Constant(string)
 
-  val int: TextCodec[Int] = IntCodec
+  implicit val int: TextCodec[Int] = IntCodec
 
-  val string: TextCodec[String] = StringCodec
+  implicit val string: TextCodec[String] = StringCodec
 
-  val uuid: TextCodec[UUID] = UUIDCodec
+  implicit val uuid: TextCodec[UUID] = UUIDCodec
+
+  private val someUnit: Option[Unit] = Some(())
 
   final case class Constant(string: String) extends TextCodec[Unit] {
-    def decode(value: String): Option[Unit] = Some(())
+
+    def decode(value: String): Option[Unit] = if (value == string) someUnit else None
 
     def encode(value: Unit): String = string
   }

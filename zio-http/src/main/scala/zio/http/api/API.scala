@@ -22,7 +22,7 @@ final case class API[Input, Output](
   method: Method,
   input: In[Input],
   output: Out[Output],
-  doc: Doc = Doc.empty,
+  doc: Doc,
 ) { self =>
   def ??(that: Doc): API[Input, Output] = copy(doc = self.doc + that)
 
@@ -52,15 +52,40 @@ final case class API[Input, Output](
 }
 
 object API {
+
+  /**
+   * Constructs an API for a DELETE endpoint, given the specified input. It is
+   * not necessary to specify the full input to the endpoint upfront, as the
+   * `API#in` method can be used to incrementally append additional input to the
+   * definition of the API.
+   */
   def delete[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.GET, route, Out.unit)
+    API(Method.GET, route, Out.unit, Doc.empty)
 
+  /**
+   * Constructs an API for a GET endpoint, given the specified input. It is not
+   * necessary to specify the full input to the endpoint upfront, as the
+   * `API#in` method can be used to incrementally append additional input to the
+   * definition of the API.
+   */
   def get[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.GET, route, Out.unit)
+    API(Method.GET, route, Out.unit, Doc.empty)
 
+  /**
+   * Constructs an API for a POST endpoint, given the specified input. It is not
+   * necessary to specify the full input to the endpoint upfront, as the
+   * `API#in` method can be used to incrementally append additional input to the
+   * definition of the API.
+   */
   def post[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.POST, route, Out.unit)
+    API(Method.POST, route, Out.unit, Doc.empty)
 
+  /**
+   * Constructs an API for a PUT endpoint, given the specified input. It is not
+   * necessary to specify the full input to the endpoint upfront, as the
+   * `API#in` method can be used to incrementally append additional input to the
+   * definition of the API.
+   */
   def put[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.PUT, route, Out.unit)
+    API(Method.PUT, route, Out.unit, Doc.empty)
 }

@@ -34,6 +34,3 @@ final case class HandlerMatch[-R, +E, Input, Output](
     }
   }
 }
-
-// API.get( uuid / "foo" / query("foo") / string / "bar" / int / "baz" / query("bar"))
-// (UUID, String, String, Int, String)
