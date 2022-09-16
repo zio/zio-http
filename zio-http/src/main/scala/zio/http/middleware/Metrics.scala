@@ -11,6 +11,7 @@ private[zio] trait Metrics {
     totalRequestsName: String = "http_requests_total",
     requestDurationName: String = "http_request_duration_seconds",
     requestDurationBoundaries: MetricKeyType.Histogram.Boundaries = Metrics.defaultBoundaries,
+    extraLabels: Set[MetricLabel] = Set.empty,
   ): HttpMiddleware[Any, Nothing] = {
     new Middleware[Any, Nothing, Request, Response, Request, Response] {
       val requestsTotal      = Metric.counterInt(totalRequestsName)
@@ -24,7 +25,7 @@ private[zio] trait Metrics {
         Set(
           MetricLabel("method", req.method.toString),
           MetricLabel("path", pathLabelMapper.lift(req).getOrElse(req.path.toString())),
-        )
+        ) ++ extraLabels
 
       def labelsForResponse(res: Response): Set[MetricLabel] =
         Set(
