@@ -9,9 +9,6 @@ import zio.test.TestAspect._
 import zio.test._
 import zio.{Chunk, Scope, ZIO, durationInt}
 
-import java.nio.charset.StandardCharsets
-import java.nio.file.Paths
-
 object ServerSpec extends HttpRunnableSpec {
   import html._
 

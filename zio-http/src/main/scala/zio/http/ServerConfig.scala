@@ -164,22 +164,22 @@ object ServerConfig {
   }
 
   object CompressionOptions {
-    val Level = 6
-    val Bits  = 15
-    val Mem   = 8
+    val DefaultLevel = 6
+    val DefaultBits  = 15
+    val DefaultMem   = 8
 
     /**
      * Creates GZip CompressionOptions. Defines defaults as per
      * io.netty.handler.codec.compression.GzipOptions#DEFAULT
      */
-    def gzip(level: Int = Level, bits: Int = Bits, mem: Int = Mem): CompressionOptions =
+    def gzip(level: Int = DefaultLevel, bits: Int = DefaultBits, mem: Int = DefaultMem): CompressionOptions =
       CompressionOptions(level, bits, mem, GZip)
 
     /**
      * Creates Deflate CompressionOptions. Defines defaults as per
      * io.netty.handler.codec.compression.DeflateOptions#DEFAULT
      */
-    def deflate(level: Int = Level, bits: Int = Bits, mem: Int = Mem): CompressionOptions =
+    def deflate(level: Int = DefaultLevel, bits: Int = DefaultBits, mem: Int = DefaultMem): CompressionOptions =
       CompressionOptions(level, bits, mem, Deflate)
 
     sealed trait CompressionType
