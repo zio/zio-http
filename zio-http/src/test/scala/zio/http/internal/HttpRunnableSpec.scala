@@ -1,11 +1,12 @@
 package zio.http.internal
 
 import zio.http.Client.Config
-import zio.http.URL.Location
-import zio.http._
+import zio.http.model.URL.Location
+import zio.http.model._
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.socket.SocketApp
+import zio.http.{model, _}
 import zio.test.ZIOSpecDefault
 import zio.{Scope, ZIO}
 
@@ -32,7 +33,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       version: Version = Version.Http_1_1,
     ): ZIO[R, Throwable, A] =
       app(
-        Request(
+        model.Request(
           url = URL(path), // url set here is overridden later via `deploy` method
           method = method,
           headers = headers,

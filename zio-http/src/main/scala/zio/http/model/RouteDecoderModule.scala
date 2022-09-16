@@ -1,4 +1,4 @@
-package zio.http
+package zio.http.model
 
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID

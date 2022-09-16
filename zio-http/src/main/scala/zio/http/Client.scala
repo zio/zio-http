@@ -1,17 +1,12 @@
 package zio.http
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.Client.{Config, log}
+import zio.http.model._
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.socket.SocketApp
@@ -32,7 +27,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
     for {
       uri <- ZIO.fromEither(URL.fromString(url))
       res <- request(
-        Request(Version.Http_1_1, method, uri, headers, body = content),
+        model.Request(Version.Http_1_1, method, uri, headers, body = content),
         clientConfig = Config(ssl = Some(ssl)),
       )
     } yield res
@@ -55,7 +50,7 @@ final case class Client(rtm: HttpRuntime[Any], cf: JChannelFactory[JChannel], el
   ): ZIO[R with Scope, Throwable, Response] = for {
     env <- ZIO.environment[R]
     res <- request(
-      Request(
+      model.Request(
         version = Version.Http_1_1,
         Method.GET,
         url,

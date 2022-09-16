@@ -1,7 +1,8 @@
 package zio.http
 
-import zio.http.Path.Segment
 import zio.http.internal.HttpGen
+import zio.http.model.Path
+import zio.http.model.Path.Segment
 import zio.test._
 
 import scala.collection.Seq

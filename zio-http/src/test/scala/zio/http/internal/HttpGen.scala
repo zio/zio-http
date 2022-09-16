@@ -1,10 +1,11 @@
 package zio.http.internal
 
 import io.netty.buffer.Unpooled
-import zio.http.Path.Segment
-import zio.http.Scheme.{HTTP, HTTPS, WS, WSS}
-import zio.http.URL.Location
 import zio.http._
+import zio.http.model.Path.Segment
+import zio.http.model.Scheme.{HTTP, HTTPS, WS, WSS}
+import zio.http.model.URL.Location
+import zio.http.model._
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 import zio.{Chunk, ZIO}
@@ -28,7 +29,7 @@ object HttpGen {
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       version <- httpVersion
-    } yield Request(version, method, url, headers, body = Body.fromFile(file))
+    } yield model.Request(version, method, url, headers, body = Body.fromFile(file))
   }
 
   def genAbsoluteLocation: Gen[Sized, Location.Absolute] = for {
@@ -41,7 +42,7 @@ object HttpGen {
     path        <- HttpGen.anyPath
     kind        <- HttpGen.genRelativeLocation
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
-  } yield URL(path, kind, queryParams)
+  } yield model.URL(path, kind, queryParams)
 
   def genAbsoluteURL = for {
     path        <- HttpGen.nonEmptyPath
@@ -123,7 +124,7 @@ object HttpGen {
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
     data    <- HttpGen.body(Gen.listOf(Gen.alphaNumericString))
-  } yield Request(version, method, url, headers, data)
+  } yield model.Request(version, method, url, headers, data)
 
   def requestGen[R](
     dataGen: Gen[R, Body],
@@ -137,7 +138,7 @@ object HttpGen {
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
       version <- httpVersion
-    } yield Request(version, method, url, headers, body = data)
+    } yield model.Request(version, method, url, headers, body = data)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Sized with R, Response] = {
     for {
@@ -214,6 +215,6 @@ object HttpGen {
     path        <- Gen.elements(Path.root, Path.root / "a", Path.root / "a" / "b", Path.root / "a" / "b" / "c")
     kind        <- HttpGen.location
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.listOf(Gen.alphaNumericString))
-  } yield URL(path, kind, queryParams)
+  } yield model.URL(path, kind, queryParams)
 
 }

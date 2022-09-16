@@ -2,7 +2,7 @@
 
 ```scala
 import io.netty.handler.ssl.SslContextBuilder
-import zio.http.Headers
+import zio.http.model.Headers
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._

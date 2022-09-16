@@ -1,5 +1,7 @@
 package zio.http
 
+import zio.http.model.{Headers, Response, Status}
+
 import scala.annotation.tailrec
 
 /**
@@ -34,7 +36,7 @@ object Patch {
 
   def empty: Patch                                              = Empty
   def addHeader(headers: Headers): Patch                        = AddHeaders(headers)
-  def addHeader(headers: Header): Patch                         = AddHeaders(Headers(headers))
+  def addHeader(headers: Header): Patch                         = AddHeaders(model.Headers(headers))
   def addHeader(name: CharSequence, value: CharSequence): Patch = AddHeaders(Headers(name, value))
   def removeHeaders(headers: List[String]): Patch               = RemoveHeaders(headers)
   def setStatus(status: Status): Patch                          = SetStatus(status)

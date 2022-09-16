@@ -2,9 +2,10 @@ package zio.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.ZIO
-import zio.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http._
 import zio.http.middleware.Auth.Credentials
+import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
+import zio.http.model.{Headers, Request, Status}
 
 private[zio] trait Auth {
 

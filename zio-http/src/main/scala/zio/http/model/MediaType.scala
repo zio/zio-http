@@ -1,4 +1,4 @@
-package zio.http
+package zio.http.model
 
 final case class MediaType(
   mainType: String,

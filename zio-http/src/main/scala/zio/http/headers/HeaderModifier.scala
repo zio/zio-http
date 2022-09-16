@@ -1,7 +1,8 @@
 package zio.http.headers
 
 import zio.Duration
-import zio.http._
+import zio.http.model.{Cookie, Headers, MediaType, Method, Response}
+import zio.http.{model, _}
 
 /**
  * Maintains a list of operators that modify the current Headers. Once modified,
@@ -14,7 +15,7 @@ import zio.http._
  */
 trait HeaderModifier[+A] { self =>
 
-  final def addHeader(header: Header): A = addHeaders(Headers(header))
+  final def addHeader(header: Header): A = addHeaders(model.Headers(header))
 
   final def addHeader(name: CharSequence, value: CharSequence): A = addHeaders(Headers(name, value))
 

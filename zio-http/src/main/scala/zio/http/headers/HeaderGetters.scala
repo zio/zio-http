@@ -2,9 +2,10 @@ package zio.http.headers
 
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
-import zio.http.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http._
 import zio.http.middleware.Auth.Credentials
+import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
+import zio.http.model.{Cookie, Headers, MediaType, Request, Response}
 import zio.http.service.ServerTime
 
 import java.nio.charset.Charset

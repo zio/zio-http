@@ -3,7 +3,7 @@ package zio.http.service
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zio.Promise
-import zio.http.Response
+import zio.http.model.Response
 
 /**
  * Handles HTTP response

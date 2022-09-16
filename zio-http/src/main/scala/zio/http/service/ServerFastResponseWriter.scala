@@ -1,7 +1,8 @@
 package zio.http.service
 
 import io.netty.handler.codec.http.FullHttpResponse
-import zio.http.{HExit, Response}
+import zio.http.HExit
+import zio.http.model.Response
 
 /**
  * An executor that evaluates HExits that don't fail or require any side-effects

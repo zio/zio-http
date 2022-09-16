@@ -1,4 +1,4 @@
-package zio.http
+package zio.http.model
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext
@@ -7,6 +7,7 @@ import zio.http.headers.HeaderExtension
 import zio.http.html._
 import zio.http.service.ChannelFuture
 import zio.http.socket.{SocketApp, WebSocketFrame}
+import zio.http.{ChannelEvent, HeaderNames, HeaderValues, Http}
 import zio.{Task, ZIO}
 
 import java.io.{IOException, PrintWriter, StringWriter}

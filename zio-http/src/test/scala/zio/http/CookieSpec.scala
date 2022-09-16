@@ -1,7 +1,8 @@
 package zio.http
 
 import zio.durationInt
-import zio.http.Cookie.SameSite
+import zio.http.model.Cookie.SameSite
+import zio.http.model.{Cookie, Path, Request, Response}
 import zio.test.Assertion.{equalTo, isLeft, isRight, startsWithString}
 import zio.test._
 

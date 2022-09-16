@@ -2,6 +2,7 @@ package zio.benchmarks
 
 import org.openjdk.jmh.annotations._
 import zio.http._
+import zio.http.model.{Request, URL}
 
 import java.util.concurrent.TimeUnit
 

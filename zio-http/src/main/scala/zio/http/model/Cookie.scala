@@ -1,9 +1,10 @@
-package zio.http
+package zio.http.model
 
 import zio.Duration
-import zio.http.Cookie.{SameSite, Type}
 import zio.http.CookieDecoder.log
+import zio.http.model.Cookie.{SameSite, Type}
 import zio.http.service.Log
+import zio.http.{CookieDecoder, CookieEncoder}
 
 import java.security.MessageDigest
 import java.util.Base64.getEncoder

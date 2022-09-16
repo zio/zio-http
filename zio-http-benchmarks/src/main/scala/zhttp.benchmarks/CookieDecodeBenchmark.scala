@@ -2,8 +2,8 @@ package zio.benchmarks
 
 import org.openjdk.jmh.annotations._
 import zio.http
-import zio.http.Cookie.SameSite
-import zio.http.{Cookie, _}
+import zio.http.model.Cookie.SameSite
+import zio.http.model.{Cookie, Path}
 
 import java.util.concurrent.TimeUnit
 

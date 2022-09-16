@@ -1,6 +1,7 @@
 package zio.http
 
 import zio.http.internal.HttpGen
+import zio.http.model.{Path, Scheme, URL}
 import zio.test.Assertion._
 import zio.test._
 
@@ -88,7 +89,7 @@ object URLSpec extends ZIOSpecDefault {
             assert(url.toJavaURL)(isNone)
           }
         },
-        test("converts a zio.http.URL to java.net.URI") {
+        test("converts a zio.http.model.URL to java.net.URI") {
           check(HttpGen.genAbsoluteURL) { url =>
             val httpURLString = url.encode
             val javaURLString = url.toJavaURI.toString

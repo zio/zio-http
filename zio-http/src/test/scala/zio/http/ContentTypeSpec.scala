@@ -2,6 +2,7 @@ package zio.http
 
 import zio._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.model.MediaType
 import zio.http.service.{ChannelFactory, EventLoopGroup, ServerChannelFactory}
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout

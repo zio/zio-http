@@ -1,6 +1,7 @@
 package zio.http
 
 import zio.http.internal.HttpGen
+import zio.http.model.Request
 import zio.test.Assertion._
 import zio.test._
 

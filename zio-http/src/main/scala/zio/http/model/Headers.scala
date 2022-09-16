@@ -1,8 +1,9 @@
-package zio.http
+package zio.http.model
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
 import zio.Chunk
 import zio.http.headers.{HeaderConstructors, HeaderExtension}
+import zio.http.{Header, HeaderNames}
 
 import scala.jdk.CollectionConverters._
 

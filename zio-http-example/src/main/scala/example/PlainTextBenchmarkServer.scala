@@ -4,6 +4,7 @@ import io.netty.util.AsciiString
 import zio._
 import zio.http.Server.LeakDetectionLevel
 import zio.http._
+import zio.http.model.Response
 import zio.http.service.{EventLoopGroup, ServerChannelFactory}
 
 /**

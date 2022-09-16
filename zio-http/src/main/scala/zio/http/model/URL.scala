@@ -1,7 +1,8 @@
-package zio.http
+package zio.http.model
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
-import zio.http.URL.{Fragment, Location}
+import zio.http.!!
+import zio.http.model.URL.{Fragment, Location}
 
 import java.net.{MalformedURLException, URI}
 import scala.jdk.CollectionConverters._

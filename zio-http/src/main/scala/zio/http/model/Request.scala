@@ -1,4 +1,4 @@
-package zio.http
+package zio.http.model
 
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpRequest}

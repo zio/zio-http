@@ -2,7 +2,8 @@ package zio.benchmarks
 
 import org.openjdk.jmh.annotations.{Scope => JScope, _}
 import zio._
-import zio.http._
+import zio.http.model.{Method, Request, Response, URL, Version}
+import zio.http.{model, _}
 
 import java.util.concurrent.TimeUnit
 
@@ -15,7 +16,7 @@ class HttpRouteTextPerf {
 
   private val res          = Response.text("HELLO WORLD")
   private val app          = Http.succeed(res)
-  private val req: Request = Request(Version.`HTTP/1.1`, Method.GET, URL(!!))
+  private val req: Request = model.Request(Version.`HTTP/1.1`, Method.GET, URL(!!))
   private val httpProgram  = ZIO.foreachDiscard(0 to 1000) { _ => app.execute(req).toZIO }
   private val UIOProgram   = ZIO.foreachDiscard(0 to 1000) { _ => ZIO.succeed(res) }
 

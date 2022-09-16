@@ -1,6 +1,7 @@
 package zio.http
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.middleware.Auth.Credentials
+import zio.http.model.{Headers, URL}
 
 import java.net.InetSocketAddress
 

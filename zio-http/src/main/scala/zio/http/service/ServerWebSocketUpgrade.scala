@@ -3,7 +3,7 @@ package zio.http.service
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import zio.http.Response
+import zio.http.model.Response
 import zio.http.service.ServerWebSocketUpgrade.log
 
 import scala.annotation.tailrec

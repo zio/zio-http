@@ -4,6 +4,7 @@ import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 import zio._
 import zio.http.Middleware.bearerAuth
 import zio.http._
+import zio.http.model.{Method, Request, Response, Status}
 
 import java.time.Clock
 

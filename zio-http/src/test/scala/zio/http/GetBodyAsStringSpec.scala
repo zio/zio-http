@@ -1,6 +1,7 @@
 package zio.http
 
 import zio.Chunk
+import zio.http.model.{Body, Headers, Request, URL}
 import zio.test.Assertion._
 import zio.test._
 
@@ -29,7 +30,7 @@ object GetBodyAsStringSpec extends ZIOSpecDefault {
         }
       },
       test("should map bytes to default utf-8 if no charset given") {
-        val request  = Request(url = URL(!!), body = Body.fromChunk(Chunk.fromArray("abc".getBytes())))
+        val request  = Request(url = model.URL(!!), body = Body.fromChunk(Chunk.fromArray("abc".getBytes())))
         val encoded  = request.body.asString
         val expected = new String(Chunk.fromArray("abc".getBytes()).toArray, HTTP_CHARSET)
         assertZIO(encoded)(equalTo(expected))

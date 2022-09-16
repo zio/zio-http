@@ -3,8 +3,9 @@ package zio.http.service
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.model.{Headers, Status}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
-import zio.http.{ChannelEvent, Headers, Http, Status}
+import zio.http.{ChannelEvent, Http}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{nonFlaky, timeout}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}

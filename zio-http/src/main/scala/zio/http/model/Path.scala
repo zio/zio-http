@@ -1,7 +1,7 @@
-package zio.http
+package zio.http.model
 
-import zio.http.Path.Segment
-import zio.http.Path.Segment.Text
+import zio.http.model.Path.Segment
+import zio.http.model.Path.Segment.Text
 
 import scala.collection.mutable
 

@@ -3,7 +3,7 @@ package zio.http.service
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
 import zio.Task
-import zio.http.Request
+import zio.http.model.Request
 
 trait ClientRequestEncoder {
 

@@ -1,7 +1,8 @@
 package zio.http
 
 import io.netty.handler.codec.http.{cookie => jCookie}
-import zio.http.Cookie.SameSite
+import zio.http.model.Cookie.SameSite
+import zio.http.model.{Cookie, Path, Request, Response}
 import zio.http.service.Log
 
 import scala.jdk.CollectionConverters._

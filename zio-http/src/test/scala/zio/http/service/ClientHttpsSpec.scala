@@ -3,8 +3,9 @@ package zio.http.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zio.durationInt
+import zio.http.Client
+import zio.http.model.Status
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
-import zio.http.{Client, Status}
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}

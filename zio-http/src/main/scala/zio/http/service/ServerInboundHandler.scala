@@ -6,6 +6,7 @@ import io.netty.handler.codec.http._
 import io.netty.util.AttributeKey
 import zio.ZIO
 import zio.http._
+import zio.http.model.{Body, Request, Response}
 import zio.http.service.ServerInboundHandler.{Unsafe, log}
 import zio.logging.Logger
 

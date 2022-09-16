@@ -1,7 +1,8 @@
 package zio.http
 
 import io.netty.handler.codec.http.{cookie => jCookie}
-import zio.http.Cookie.SameSite
+import zio.http.model.Cookie.SameSite
+import zio.http.model.{Cookie, Request, Response}
 
 sealed trait CookieEncoder[A] {
   final def apply(a: Cookie[A]): String = unsafeEncode(a, false)

@@ -1,6 +1,7 @@
 package zio.http
 
 import zio.http.middleware.Auth.Credentials
+import zio.http.model.URL
 import zio.test.Assertion.{equalTo, isNone, isNull, isSome}
 import zio.test._
 

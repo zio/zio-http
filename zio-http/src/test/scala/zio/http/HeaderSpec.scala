@@ -1,8 +1,9 @@
 package zio.http
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
-import zio.http.Headers.BearerSchemeName
 import zio.http.middleware.Auth.Credentials
+import zio.http.model.Headers
+import zio.http.model.Headers.BearerSchemeName
 import zio.test.Assertion._
 import zio.test.{Gen, ZIOSpecDefault, assert, assertTrue, check}
 
@@ -237,9 +238,9 @@ object HeaderSpec extends ZIOSpecDefault {
     Headers(HeaderNames.contentType, HeaderValues.applicationXWWWFormUrlencoded)
   private def customAcceptJsonHeader    = ("accept", "application/json")
   private def customContentJsonHeader   = ("content-type", "application/json")
-  private def customHeaders: Headers    = Headers(customContentJsonHeader) ++ Headers(customAcceptJsonHeader)
+  private def customHeaders: Headers = model.Headers(customContentJsonHeader) ++ model.Headers(customAcceptJsonHeader)
 
-  private def predefinedHeaders: Headers = Headers {
+  private def predefinedHeaders: Headers = model.Headers {
     HeaderNames.accept      -> HeaderValues.applicationJson
     HeaderNames.contentType -> HeaderValues.applicationJson
   }

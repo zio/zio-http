@@ -4,6 +4,7 @@ import zio._
 import zio.http.Server.Start
 import zio.http._
 import zio.http.internal.DynamicServer.Id
+import zio.http.model.{Request, Scheme}
 
 import java.util.UUID
 

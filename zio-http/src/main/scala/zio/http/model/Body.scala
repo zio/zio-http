@@ -1,10 +1,11 @@
-package zio.http
+package zio.http.model
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.{Channel => JChannel, DefaultFileRegion}
 import io.netty.handler.codec.http.LastHttpContent
 import io.netty.util.AsciiString
 import zio._
+import zio.http.HTTP_CHARSET
 import zio.http.service.Ctx
 import zio.stream.ZStream
 

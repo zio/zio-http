@@ -1,6 +1,7 @@
 package example
 
 import zio.http._
+import zio.http.model.{Method, Request, Response}
 import zio.http.service.{ChannelFactory, EventLoopGroup}
 import zio.{ZIO, ZIOAppDefault}
 

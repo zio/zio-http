@@ -2,6 +2,7 @@ package zio.http.socket
 
 import zio._
 import zio.http._
+import zio.http.model.{Headers, Response}
 import zio.http.service.{ChannelFactory, EventLoopGroup}
 
 final case class SocketApp[-R](

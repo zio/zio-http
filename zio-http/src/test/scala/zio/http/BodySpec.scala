@@ -1,6 +1,7 @@
 package zio.http
 
 import io.netty.channel.embedded.EmbeddedChannel
+import zio.http.model.Body
 import zio.stream.ZStream
 import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
 import zio.test.TestAspect.timeout

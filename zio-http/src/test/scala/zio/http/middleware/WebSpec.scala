@@ -2,8 +2,9 @@ package zio.http.middleware
 
 import zio._
 import zio.http.Middleware._
-import zio.http._
 import zio.http.internal.HttpAppTestExtensions
+import zio.http.model._
+import zio.http.{model, _}
 import zio.test.Assertion._
 import zio.test._
 
@@ -268,7 +269,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
 
   private def runApp[R, E](app: HttpApp[R, E]): ZIO[R, Option[E], Response] = {
     for {
-      fib <- app { Request(url = URL(!! / "health")) }.fork
+      fib <- app { Request(url = model.URL(!! / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)
       res <- fib.join
     } yield res

@@ -2,6 +2,7 @@ package example
 
 import zio._
 import zio.http._
+import zio.http.model.{Body, Method, Request, Response}
 object RequestStreaming extends ZIOAppDefault {
 
   // Create HTTP route which echos back the request body

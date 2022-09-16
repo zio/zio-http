@@ -1,6 +1,7 @@
 package zio
 
 import io.netty.util.CharsetUtil
+import zio.http.model.{Request, Response, RouteDecoderModule}
 
 import java.nio.charset.Charset
 

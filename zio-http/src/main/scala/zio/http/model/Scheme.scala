@@ -1,8 +1,8 @@
-package zio.http
+package zio.http.model
 
 import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
-import zio.http.Scheme.{HTTP, HTTPS, WS, WSS}
+import zio.http.model.Scheme.{HTTP, HTTPS, WS, WSS}
 
 sealed trait Scheme { self =>
   def encode: String = self match {

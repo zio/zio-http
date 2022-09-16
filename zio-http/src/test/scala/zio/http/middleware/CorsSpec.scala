@@ -1,9 +1,10 @@
 package zio.http.middleware
 
 import zio.http.Middleware.cors
-import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.middleware.Cors.CorsConfig
+import zio.http.model.{Headers, Method, Request, Status, URL}
+import zio.http.{model, _}
 import zio.test.Assertion.hasSubset
 import zio.test._
 
@@ -38,9 +39,9 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     },
     test("GET request") {
       val request =
-        Request(
+        model.Request(
           method = Method.GET,
-          url = URL(!! / "success"),
+          url = model.URL(!! / "success"),
           headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
         )
 

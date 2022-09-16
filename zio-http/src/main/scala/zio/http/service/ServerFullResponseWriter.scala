@@ -2,7 +2,8 @@ package zio.http.service
 
 import io.netty.handler.codec.http.{FullHttpResponse, HttpRequest}
 import zio.ZIO
-import zio.http.{HExit, HttpError, Response}
+import zio.http.HExit
+import zio.http.model.{HttpError, Response}
 
 /**
  * Handles all advanced scenarios that are left out by the FastPassWriter. It
