@@ -5,7 +5,7 @@ import zio.http.api._
 import zio.http.{Request, Response}
 
 final case class HandlerMatch[-R, +E, Input, Output](
-  handledApi: HandledAPI[R, E, Input, Output],
+  handledApi: Service.HandledAPI[R, E, Input, Output],
   // route parsing results
   results: Chunk[Any],
 ) {

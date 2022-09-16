@@ -5,6 +5,8 @@ import zio.schema.Schema
 sealed trait In[Input] {
   self =>
 
+  def ??(doc: Doc): In[Input] = In.WithDoc(self, doc)
+
   def ++[Input2](that: In[Input2])(implicit combiner: Combiner[Input, Input2]): In[combiner.Out] =
     In.Combine(self, that, combiner)
 

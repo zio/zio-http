@@ -7,7 +7,9 @@ import zio.http.api._
 sealed trait HandlerTree[-R, +E] { self =>
   import HandlerTree._
 
-  def add[R1 <: R, E1 >: E](handledAPI: HandledAPI[R1, E1, Request, Response]): HandlerTree[R1, E1] =
+  def generateError(request: Request): String = s"The path ${request.path} does not match any route"
+
+  def add[R1 <: R, E1 >: E](handledAPI: Service.HandledAPI[R1, E1, _, _]): HandlerTree[R1, E1] =
     merge(HandlerTree.single(handledAPI))
 
   def merge[R1 <: R, E1 >: E](that: HandlerTree[R1, E1]): HandlerTree[R1, E1] =
@@ -26,7 +28,7 @@ sealed trait HandlerTree[-R, +E] { self =>
 
     }
 
-  def lookup(request: Request): Option[HandlerMatch[R, E, Request, Response]] =
+  def lookup(request: Request): Option[HandlerMatch[R, E, _, _]] =
     HandlerTree.lookup(request.path.segments.collect { case Path.Segment.Text(text) => text }, 0, self, Chunk.empty)
 
   // lazy val maxAtoms: Int = ???
@@ -45,7 +47,7 @@ object HandlerTree {
   val empty: HandlerTree[Any, Nothing] =
     Branch(Map.empty)
 
-  def single[R, E](handledAPI: HandledAPI[R, E, Request, Response]): HandlerTree[R, E] = {
+  def single[R, E](handledAPI: Service.HandledAPI[R, E, _, _]): HandlerTree[R, E] = {
     val routeCodecs =
       In.flatten(handledAPI.api.input).routes
 
@@ -54,10 +56,13 @@ object HandlerTree {
     }
   }
 
-  def fromIterable[R, E](handledAPIs: Iterable[HandledAPI[R, E, Request, Response]]): HandlerTree[R, E] =
+  def fromService[R, E](service: Service[R, E]): HandlerTree[R, E] =
+    fromIterable(Service.flatten(service))
+
+  def fromIterable[R, E](handledAPIs: Iterable[Service.HandledAPI[R, E, _, _]]): HandlerTree[R, E] =
     handledAPIs.foldLeft[HandlerTree[R, E]](empty)(_ add _)
 
-  private final case class Leaf[-R, +E](handledApi: HandledAPI[R, E, Request, Response]) extends HandlerTree[R, E]
+  private final case class Leaf[-R, +E](handledApi: Service.HandledAPI[R, E, _, _]) extends HandlerTree[R, E]
 
   private final case class Branch[-R, +E](
     children: Map[Option[TextCodec[_]], HandlerTree[R, E]],
@@ -69,7 +74,7 @@ object HandlerTree {
     index: Int,
     current: HandlerTree[R, E],
     results: Chunk[Any],
-  ): Option[HandlerMatch[R, E, Request, Response]] =
+  ): Option[HandlerMatch[R, E, _, _]] =
     current match {
       case Leaf(handler) =>
         if (index < segments.length) None

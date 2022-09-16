@@ -14,14 +14,14 @@ object InSpec extends ZIOSpecDefault {
         val testRoutes = testApi(
           API
             .get(literal("users") / int)
-            .output[String]
+            .out[String]
             .handle { userId =>
               ZIO.succeed(s"route(users, $userId)")
-            },
+            } ++
           API
             .get(literal("users") / int / literal("posts") / int)
             .in(query("name"))
-            .output[String]
+            .out[String]
             .handle { case (userId, postId, name) =>
               ZIO.succeed(s"route(users, $userId, posts, $postId) query(name=$name)")
             },
@@ -33,16 +33,16 @@ object InSpec extends ZIOSpecDefault {
         val testRoutes = testApi(
           API
             .get(literal("users") / int)
-            .output[String]
+            .out[String]
             .handle { userId =>
               ZIO.succeed(s"route(users, $userId)")
-            },
+            } ++
           API
             .get(literal("users") / int)
             .in(query("name"))
             .in(literal("posts") / int)
             .in(query("age"))
-            .output[String]
+            .out[String]
             .handle { case (userId, name, postId, age) =>
               ZIO.succeed(s"route(users, $userId, posts, $postId) query(name=$name, age=$age)")
             },
@@ -56,11 +56,11 @@ object InSpec extends ZIOSpecDefault {
     ),
   )
 
-  def testApi[R, E](routes: HandledAPI[R, E, _, _]*)(
+  def testApi[R, E](service: Service[R, E])(
     url: String,
     expected: String,
   ): ZIO[R, E, TestResult] = {
-    val tree: HandlerTree[R, E] = HandlerTree.fromIterable(routes.map(cast))
+    val tree: HandlerTree[R, E] = HandlerTree.fromService(service)
     val request                 = Request(url = URL.fromString(url).toOption.get)
     val handler                 = tree.lookup(request).get
     for {
@@ -70,7 +70,4 @@ object InSpec extends ZIOSpecDefault {
 
   def parseResponse(response: Response): UIO[String] =
     response.body.asString.!
-
-  private def cast[R, E](handled: HandledAPI[R, E, _, _]): HandledAPI[R, E, Request, Response] =
-    handled.asInstanceOf[HandledAPI[R, E, Request, Response]]
 }

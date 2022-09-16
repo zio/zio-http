@@ -24,10 +24,12 @@ final case class API[Input, Output](
   output: Out[Output],
   doc: Doc,
 ) { self =>
+  type Id
+
   def ??(that: Doc): API[Input, Output] = copy(doc = self.doc + that)
 
-  def handle[R, E](f: Input => ZIO[R, E, Output]): HandledAPI[R, E, Input, Output] =
-    HandledAPI(self, f)
+  def handle[R, E](f: Input => ZIO[R, E, Output]): Service[R, E] =
+    Service.HandledAPI(self, f)
 
   /**
    * Adds a new element of input to the API, which can come from the portion of
