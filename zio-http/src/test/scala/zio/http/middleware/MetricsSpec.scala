@@ -1,12 +1,12 @@
 package zio.http.middleware
 
+import zio._
 import zio.http.Middleware.metrics
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
-import zio._
-import zio.metrics.{Metric, MetricState}
+import zio.http.model._
+import zio.metrics.{Metric, MetricLabel, MetricState}
 import zio.test._
-import zio.metrics.MetricLabel
 
 object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   override def spec = suite("MetricsSpec")(
@@ -39,6 +39,23 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertTrue(totalDefectsCount == MetricState.Counter(1)) &&
         assertTrue(totalNotFoundCount == MetricState.Counter(1))
     },
+    test("http_requests_total with path label mapper") {
+      val app = Http.ok @@ metrics(
+        pathLabelMapper = { case Method.GET -> !! / "user" / _ =>
+          "/user/:id"
+        },
+        extraLabels = Set(MetricLabel("test", "http_requests_total with path label mapper")),
+      )
+
+      val total = Metric.counterInt("http_requests_total").tagged("test", "http_requests_total with path label mapper")
+      val totalOk = total.tagged("path", "/user/:id").tagged("method", "GET").tagged("status", "200")
+
+      for {
+        _            <- app(Request(method = Method.GET, url = URL(!! / "user" / "1")))
+        _            <- app(Request(method = Method.GET, url = URL(!! / "user" / "2")))
+        totalOkCount <- totalOk.value
+      } yield assertTrue(totalOkCount == MetricState.Counter(2))
+    },
     test("http_request_duration_seconds") {
       val histogram = Metric
         .histogram(
@@ -50,8 +67,8 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         .tagged("method", "GET")
         .tagged("status", "200")
 
-      val app: Http[Any, Nothing, Request, Response] = Http
-        .ok @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
+      val app: Http[Any, Nothing, Request, Response] =
+        Http.ok @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
 
       for {
         _        <- app(Request(method = Method.GET, url = URL(!! / "ok")))
