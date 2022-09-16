@@ -64,7 +64,7 @@ final case class API[Input, Output](
     self.asInstanceOf[API.WithId[Input, Output, I]]
 }
 
-object API {
+object API extends APISyntax {
   type WithId[I, O, X] = API[I, O] { type Id = X }
 
   /**
