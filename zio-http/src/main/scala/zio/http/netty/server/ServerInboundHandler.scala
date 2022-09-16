@@ -11,42 +11,51 @@ import zio.logging.Logger
 @Sharable
 private[zio] final case class ServerInboundHandler(
   driverCtx: Driver.Context,
-  // appRef: AtomicReference[HttpApp[Any, Throwable]],
   runtime: NettyRuntime,
   config: ServerConfig,
   time: service.ServerTime,
-  // onError: AtomicReference[Option[ErrorCallback]],
 ) extends SimpleChannelInboundHandler[HttpObject](false) { self =>
-  import ServerInboundHandler.{unsafeOps, log}
+  import ServerInboundHandler.log
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
+
+    def canHaveBody(jReq: HttpRequest): Boolean = {
+      jReq.method() == HttpMethod.TRACE ||
+      jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
+      jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
+    }
+
+    def releaseRequest(jReq: FullHttpRequest, cnt: Int = 1): Unit = {
+      if (jReq.refCnt() > 0 && cnt > 0) {
+        jReq.release(cnt): Unit
+      }
+    }
+
     log.debug(s"Message: [${msg.getClass.getName}]")
     msg match {
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromFullHttpRequest(jReq)(ctx)
-        // val exit = appRef.get.execute(req)
         val exit = driverCtx.onApp(_.execute(req))
 
         if (ctx.attemptFastWrite(exit, time)) {
-          unsafeOps.releaseRequest(jReq)
+          releaseRequest(jReq)
         } else
           runtime.run(ctx) {
-            ctx.attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed { unsafeOps.releaseRequest(jReq) }
+            ctx.attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed { releaseRequest(jReq) }
           }
 
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromHttpRequest(jReq)(ctx)
-        // val exit = appRef.get.execute(req)
         val exit = driverCtx.onApp(_.execute(req))
 
         if (!ctx.attemptFastWrite(exit, time)) {
-          if (unsafeOps.canHaveBody(jReq)) ctx.setAutoRead(false)
+          if (canHaveBody(jReq)) ctx.setAutoRead(false)
           runtime.run(ctx) {
-            ctx.attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed(ctx.setAutoRead(true))
+            ctx.attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed(ctx.setAutoRead(true)(unsafe))
           }
         }
 
@@ -68,30 +77,12 @@ object ServerInboundHandler {
 
   def layer = ZLayer.fromZIO {
     for {
-      // appRef <- ZIO.service[AtomicReference[HttpApp[Any, Throwable]]]
-      // errRef <- ZIO.service[AtomicReference[Option[ErrorCallback]]]
       driverCtx <- ZIO.service[Driver.Context]
       rtm       <- ZIO.service[NettyRuntime]
       config    <- ZIO.service[ServerConfig]
       time      <- ZIO.service[service.ServerTime]
 
     } yield ServerInboundHandler(driverCtx, rtm, config, time)
-  }
-
-  object unsafeOps {
-
-    def canHaveBody(jReq: HttpRequest)(implicit unsafe: Unsafe): Boolean = {
-      jReq.method() == HttpMethod.TRACE ||
-      jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
-      jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
-    }
-
-    def releaseRequest(jReq: FullHttpRequest, cnt: Int = 1)(implicit unsafe: Unsafe): Unit = {
-      if (jReq.refCnt() > 0 && cnt > 0) {
-        jReq.release(cnt): Unit
-      }
-    }
-
   }
 
 }
