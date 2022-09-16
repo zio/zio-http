@@ -6,8 +6,7 @@ import io.netty.util.ResourceLeakDetector
 import zio._
 
 import java.net.InetSocketAddress
-import java.util.concurrent.atomic.AtomicReference
-import zio.http.{Driver, ServerConfig, HttpApp, Server, Http}
+import zio.http.{Driver, ServerConfig}
 import zio.http.service.ServerTime
 import zio.http.netty._
 
@@ -47,18 +46,12 @@ object NettyDriver {
       d
     }
 
-  type Provides = Driver
-    with AtomicReference[HttpApp[Any, Throwable]]
-    with AtomicReference[Option[Server.ErrorCallback]]
-
   val default = ZLayer.scopedEnvironment {
-    val appRef   = new AtomicReference[HttpApp[Any, Throwable]](Http.empty)
-    val errorRef = new AtomicReference[Option[Server.ErrorCallback]](None)
-    val time     = ZLayer.succeed(ServerTime.make(1000 millis))
+    val context = Driver.Context.empty
+    val time    = ZLayer.succeed(ServerTime.make(1000 millis))
     make
       .provideSome[ServerConfig & Scope](
-        ZLayer.succeed(appRef),
-        ZLayer.succeed(errorRef),
+        ZLayer.succeed(context),
         time,
         ServerChannelInitializer.layer,
         ServerInboundHandler.layer,
@@ -66,7 +59,7 @@ object NettyDriver {
         EventLoopGroups.fromConfig,
         NettyRuntime.usingSharedThreadPool,
       )
-      .map(d => ZEnvironment(d, appRef, errorRef))
+      .map(d => ZEnvironment(d, context))
 
   }
 

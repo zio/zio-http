@@ -4,8 +4,6 @@ import zio._
 import zio.http.Server.ErrorCallback
 import zio.http.netty.server._
 
-import java.util.concurrent.atomic.AtomicReference
-
 trait Server {
   def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback] = None): URIO[R, Unit]
 
@@ -34,21 +32,19 @@ object Server {
   val live = NettyDriver.default >>> base
 
   val base: ZLayer[
-    Driver with AtomicReference[HttpApp[Any, Throwable]] with AtomicReference[Option[ErrorCallback]],
+    Driver with Driver.Context,
     Throwable,
     Server,
   ] = ZLayer.scoped {
     for {
-      driver   <- ZIO.service[Driver]
-      appRef   <- ZIO.service[AtomicReference[HttpApp[Any, Throwable]]]
-      errorRef <- ZIO.service[AtomicReference[Option[ErrorCallback]]]
-      port     <- driver.start()
-    } yield ServerLive(appRef, errorRef, port)
+      driver    <- ZIO.service[Driver]
+      driverCtx <- ZIO.service[Driver.Context]
+      port      <- driver.start()
+    } yield ServerLive(driverCtx, port)
   }
 
   private final case class ServerLive(
-    appRef: java.util.concurrent.atomic.AtomicReference[HttpApp[Any, Throwable]],
-    errorRef: java.util.concurrent.atomic.AtomicReference[Option[ErrorCallback]],
+    driverCtx: Driver.Context,
     bindPort: Int,
   ) extends Server {
     override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] =
@@ -58,8 +54,10 @@ object Server {
           else httpApp.provideEnvironment(env)
         var loop   = true
         while (loop) {
-          val oldApp = appRef.get()
-          if (appRef.compareAndSet(oldApp, newApp ++ oldApp)) loop = false
+          driverCtx.onAppRef { appRef =>
+            val oldApp = appRef.get()
+            if (appRef.compareAndSet(oldApp, newApp ++ oldApp)) loop = false
+          }
         }
         ()
       } *> setErrorCallback(errorCallback)
@@ -72,8 +70,10 @@ object Server {
         .as {
           var loop = true
           while (loop) {
-            val oldErrorCallback = errorRef.get()
-            if (errorRef.compareAndSet(oldErrorCallback, errorCallback)) loop = false
+            driverCtx.onErrorCallbackRef { errorRef =>
+              val oldErrorCallback = errorRef.get()
+              if (errorRef.compareAndSet(oldErrorCallback, errorCallback)) loop = false
+            }
           }
           ()
         }

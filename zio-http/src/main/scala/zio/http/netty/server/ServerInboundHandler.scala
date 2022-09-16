@@ -4,21 +4,20 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import zio._
-import zio.http.Server.ErrorCallback
 import zio.http._
 import zio.logging.Logger
 
-import java.util.concurrent.atomic.AtomicReference
 import zio.http.netty.NettyRuntime
 import zio.http.netty._
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
-  appRef: AtomicReference[HttpApp[Any, Throwable]],
+  driverCtx: Driver.Context,
+  // appRef: AtomicReference[HttpApp[Any, Throwable]],
   runtime: NettyRuntime,
   config: ServerConfig,
   time: service.ServerTime,
-  onError: AtomicReference[Option[ErrorCallback]],
+  // onError: AtomicReference[Option[ErrorCallback]],
 ) extends SimpleChannelInboundHandler[HttpObject](false) { self =>
   import ServerInboundHandler.{unsafeOps, log}
 
@@ -30,7 +29,8 @@ private[zio] final case class ServerInboundHandler(
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromFullHttpRequest(jReq)(ctx)
-        val exit = appRef.get.execute(req)
+        // val exit = appRef.get.execute(req)
+        val exit = driverCtx.onApp(_.execute(req))
 
         if (ctx.attemptFastWrite(exit, time)) {
           unsafeOps.releaseRequest(jReq)
@@ -42,7 +42,8 @@ private[zio] final case class ServerInboundHandler(
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromHttpRequest(jReq)(ctx)
-        val exit = appRef.get.execute(req)
+        // val exit = appRef.get.execute(req)
+        val exit = driverCtx.onApp(_.execute(req))
 
         if (!ctx.attemptFastWrite(exit, time)) {
           if (unsafeOps.canHaveBody(jReq)) ctx.setAutoRead(false)
@@ -60,7 +61,7 @@ private[zio] final case class ServerInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    onError.get.fold(super.exceptionCaught(ctx, cause))(f => runtime.run(ctx)(f(cause)))
+    driverCtx.errorCallback.fold(super.exceptionCaught(ctx, cause))(f => runtime.run(ctx)(f(cause)))
   }
 }
 
@@ -69,13 +70,14 @@ object ServerInboundHandler {
 
   def layer = ZLayer.fromZIO {
     for {
-      appRef <- ZIO.service[AtomicReference[HttpApp[Any, Throwable]]]
-      errRef <- ZIO.service[AtomicReference[Option[ErrorCallback]]]
+      // appRef <- ZIO.service[AtomicReference[HttpApp[Any, Throwable]]]
+      // errRef <- ZIO.service[AtomicReference[Option[ErrorCallback]]]
+      driverCtx <- ZIO.service[Driver.Context]
       rtm    <- ZIO.service[NettyRuntime]
       config <- ZIO.service[ServerConfig]
       time   <- ZIO.service[service.ServerTime]
 
-    } yield ServerInboundHandler(appRef, rtm, config, time, errRef)
+    } yield ServerInboundHandler(driverCtx, rtm, config, time)
   }
 
   object unsafeOps {
