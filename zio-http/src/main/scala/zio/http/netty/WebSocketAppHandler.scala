@@ -1,5 +1,4 @@
-package zio.http
-package netty
+package zio.http.netty
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
@@ -10,6 +9,7 @@ import zio.http.ChannelEvent
 import zio.http.ChannelEvent.UserEvent
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.logging.Logger
+import zio.http.service.Log
 
 /**
  * A generic SocketApp handler that can be used on both - the client and the
@@ -62,6 +62,6 @@ private[zio] final class WebSocketAppHandler(
 }
 
 private[zio] object WebSocketAppHandler {
-  val clientLog: Logger = service.Log.withTags("Client", "WebSocket")
-  val serverLog: Logger = service.Log.withTags("Server", "WebSocket")
+  val clientLog: Logger = Log.withTags("Client", "WebSocket")
+  val serverLog: Logger = Log.withTags("Server", "WebSocket")
 }

@@ -1,6 +1,4 @@
-package zio.http
-package netty
-package server
+package zio.http.netty.server
 
 import io.netty.channel.{ChannelFutureListener, ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{DefaultHttpResponse, HttpMessage, HttpResponseStatus, HttpVersion}

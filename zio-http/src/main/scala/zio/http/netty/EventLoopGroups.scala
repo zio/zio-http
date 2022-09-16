@@ -1,5 +1,4 @@
-package zio.http
-package netty
+package zio.http.netty
 
 import io.netty.channel._
 import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}

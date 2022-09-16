@@ -1,11 +1,10 @@
-package zio.http
-package netty
-package client
+package zio.http.netty.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zio._
 import zio.http.Response
+import zio.http.netty.NettyRuntime
 
 /**
  * Handles HTTP response

@@ -1,5 +1,4 @@
-package zio.http
-package netty
+package zio.http.netty
 
 import io.netty.util.concurrent.{Future, GenericFutureListener}
 import zio._

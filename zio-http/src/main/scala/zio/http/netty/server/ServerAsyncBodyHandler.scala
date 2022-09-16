@@ -1,6 +1,4 @@
-package zio.http
-package netty
-package server
+package zio.http.netty.server
 
 import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}

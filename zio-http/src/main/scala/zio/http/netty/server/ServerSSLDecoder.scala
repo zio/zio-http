@@ -1,6 +1,4 @@
-package zio.http
-package netty
-package server
+package zio.http.netty.server
 
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandlerContext
@@ -9,6 +7,8 @@ import io.netty.handler.ssl.{SslContext, SslHandler}
 import zio.http.netty.server.ServerSSLHandler.SSLHttpBehaviour
 
 import java.util
+import zio.http.netty.Names
+import zio.http.ServerConfig
 
 private[zio] class ServerSSLDecoder(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour, cfg: ServerConfig)
     extends ByteToMessageDecoder {
@@ -17,7 +17,7 @@ private[zio] class ServerSSLDecoder(sslContext: SslContext, httpBehaviour: SSLHt
     if (in.readableBytes < 5)
       ()
     else if (SslHandler.isEncrypted(in)) {
-      pipeline.replace(this, service.SSL_HANDLER, sslContext.newHandler(context.alloc()))
+      pipeline.replace(this, Names.SSLHandler, sslContext.newHandler(context.alloc()))
       ()
     } else {
       httpBehaviour match {
@@ -25,8 +25,8 @@ private[zio] class ServerSSLDecoder(sslContext: SslContext, httpBehaviour: SSLHt
           pipeline.remove(this)
           ()
         case _                       =>
-          pipeline.remove(service.HTTP_REQUEST_HANDLER)
-          if (cfg.keepAlive) pipeline.remove(service.HTTP_KEEPALIVE_HANDLER)
+          pipeline.remove(Names.HttpRequestHandler)
+          if (cfg.keepAlive) pipeline.remove(Names.HttpKeepAliveHandler)
           pipeline.remove(this)
           pipeline.addLast(new ServerHttpsHandler(httpBehaviour))
           ()

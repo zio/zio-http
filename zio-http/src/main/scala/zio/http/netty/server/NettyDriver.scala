@@ -1,6 +1,4 @@
-package zio.http
-package netty
-package server
+package zio.http.netty.server
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
@@ -9,6 +7,9 @@ import zio._
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
+import zio.http.{Driver, ServerConfig, HttpApp, Server, Http}
+import zio.http.service.ServerTime
+import zio.http.netty._
 
 private[zio] final case class NettyDriver(
   channelFactory: ChannelFactory[ServerChannel],
@@ -53,7 +54,7 @@ object NettyDriver {
   val default = ZLayer.scopedEnvironment {
     val appRef   = new AtomicReference[HttpApp[Any, Throwable]](Http.empty)
     val errorRef = new AtomicReference[Option[Server.ErrorCallback]](None)
-    val time     = ZLayer.succeed(service.ServerTime.make(1000 millis))
+    val time     = ZLayer.succeed(ServerTime.make(1000 millis))
     make
       .provideSome[ServerConfig & Scope](
         ZLayer.succeed(appRef),

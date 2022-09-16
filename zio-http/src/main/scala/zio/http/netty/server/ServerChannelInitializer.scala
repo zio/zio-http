@@ -1,6 +1,4 @@
-package zio.http
-package netty
-package server
+package zio.http.netty.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
@@ -17,6 +15,9 @@ import zio._
 import zio.http.netty.server.ServerChannelInitializer.log
 import zio.http.service.logging.LogLevelTransform._
 import zio.logging.LogLevel
+import zio.http.ServerConfig
+import zio.http.netty.Names
+import zio.http.service.Log
 
 /**
  * Initializes the netty channel with default handlers
@@ -97,7 +98,7 @@ private[zio] final case class ServerChannelInitializer(
 }
 
 object ServerChannelInitializer {
-  private val log = service.Log.withTags("Server", "Channel")
+  private val log = Log.withTags("Server", "Channel")
 
   val layer = ZLayer.fromZIO {
     for {

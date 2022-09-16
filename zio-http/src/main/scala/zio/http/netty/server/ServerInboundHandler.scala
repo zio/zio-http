@@ -1,6 +1,4 @@
-package zio.http
-package netty
-package server
+package zio.http.netty.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
@@ -11,6 +9,8 @@ import zio.http._
 import zio.logging.Logger
 
 import java.util.concurrent.atomic.AtomicReference
+import zio.http.netty.NettyRuntime
+import zio.http.netty._
 
 @Sharable
 private[zio] final case class ServerInboundHandler(

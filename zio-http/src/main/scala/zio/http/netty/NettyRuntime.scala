@@ -1,15 +1,15 @@
-package zio.http
-package netty
+package zio.http.netty
 
 import io.netty.channel._
 import io.netty.util.concurrent.{Future, GenericFutureListener}
 import zio._
+import zio.http.service.Log
 
 import scala.jdk.CollectionConverters._
 
 private[zio] trait NettyRuntime { self =>
 
-  private val log = service.Log.withTags("NettyRuntime")
+  private val log = Log.withTags("NettyRuntime")
 
   def runtime(ctx: ChannelHandlerContext): Runtime[Any]
 
