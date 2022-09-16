@@ -5,7 +5,6 @@ import io.netty.handler.codec.http._
 import zio.http.netty.NettyRuntime
 import zio.http.{Request, Response}
 import zio.{Promise, Unsafe}
-import zio.http.netty.NettyRuntime
 
 final class ClientInboundStreamingHandler(
   val rtm: NettyRuntime,

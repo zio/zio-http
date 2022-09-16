@@ -1,6 +1,7 @@
 package zio.http
 
 import zio._
+
 import java.util.concurrent.atomic.AtomicReference
 
 trait Driver {
@@ -18,13 +19,13 @@ object Driver {
     errorCallbackRef: AtomicReference[Option[Server.ErrorCallback]],
   ) {
 
-    def errorCallback: Option[Server.ErrorCallback]  = errorCallbackRef.get
+    def errorCallback: Option[Server.ErrorCallback] = errorCallbackRef.get
 
     def onApp[A](f: HttpApp[Any, Throwable] => A): A = f(httpAppRef.get())
 
     def onAppRef[A](f: AtomicReference[HttpApp[Any, Throwable]] => A): A = f(httpAppRef)
-    
-    def onErrorCallbackRef[A](f:  AtomicReference[Option[Server.ErrorCallback]]=> A): A = f(errorCallbackRef)
+
+    def onErrorCallbackRef[A](f: AtomicReference[Option[Server.ErrorCallback]] => A): A = f(errorCallbackRef)
 
   }
 

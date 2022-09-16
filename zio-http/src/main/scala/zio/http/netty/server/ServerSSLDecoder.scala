@@ -9,8 +9,6 @@ import zio.http.netty.Names
 import zio.http.netty.server.ServerSSLHandler.SSLHttpBehaviour
 
 import java.util
-import zio.http.netty.Names
-import zio.http.ServerConfig
 
 private[zio] class ServerSSLDecoder(sslContext: SslContext, httpBehaviour: SSLHttpBehaviour, cfg: ServerConfig)
     extends ByteToMessageDecoder {

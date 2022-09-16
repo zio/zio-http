@@ -9,9 +9,6 @@ import zio.http.service.ServerTime
 import zio.http.{Driver, Http, HttpApp, Server, ServerConfig}
 
 import java.net.InetSocketAddress
-import zio.http.{Driver, ServerConfig}
-import zio.http.service.ServerTime
-import zio.http.netty._
 
 private[zio] final case class NettyDriver(
   appRef: AppRef,
