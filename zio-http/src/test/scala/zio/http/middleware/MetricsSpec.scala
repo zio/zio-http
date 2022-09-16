@@ -50,9 +50,8 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         .tagged("method", "GET")
         .tagged("status", "200")
 
-      val app = Http
-        .collect[Request] { case Method.GET -> !! / "ok" => Http.ok }
-        .flatten @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
+      val app: Http[Any, Nothing, Request, Response] = Http
+        .ok @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
 
       for {
         _        <- app(Request(method = Method.GET, url = URL(!! / "ok")))
@@ -69,7 +68,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       for {
         promise <- Promise.make[Nothing, Unit]
         app = Http
-          .collect[Request] { case Method.GET -> !! / "slow" =>
+          .collect[Request] { case _ =>
             Http.fromZIO(promise.succeed(())) *> Http.ok.delay(10.seconds)
           }
           .flatten @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
