@@ -40,7 +40,6 @@ private[zio] final case class ServerInboundHandler(
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromFullHttpRequest(jReq)(ctx)
-        // val exit = appRef.get.execute(req)
         val exit = driverCtx.onApp(_.execute(req))
 
         if (ctx.attemptFastWrite(exit, time)) {
@@ -53,7 +52,6 @@ private[zio] final case class ServerInboundHandler(
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromHttpRequest(jReq)(ctx)
-        // val exit = appRef.get.execute(req)
         val exit = driverCtx.onApp(_.execute(req))
 
         if (!ctx.attemptFastWrite(exit, time)) {
