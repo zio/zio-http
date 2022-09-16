@@ -30,8 +30,7 @@ final class ClientInboundHandler(
     msg.touch("handlers.ClientInboundHandler-channelRead0")
     // NOTE: The promise is made uninterruptible to be able to complete the promise in a error situation.
     // It allows to avoid loosing the message from pipeline in case the channel pipeline is closed due to an error.
-    zExec.run(ctx)(promise.succeed(Response.unsafe.fromJResponse(ctx, msg)))(unsafeClass)
-    zExec.run(ctx)(ZIO.unit)
+    zExec.runUninterruptible(ctx)(promise.succeed(Response.unsafe.fromJResponse(ctx, msg)))(unsafeClass)
 
     if (isWebSocket) {
       ctx.fireChannelRead(msg.retain())
