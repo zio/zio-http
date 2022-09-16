@@ -48,7 +48,7 @@ object NettyDriver {
       serverConfig = sc,
     )
 
-  val default: ZLayer[ServerConfig & Scope, Throwable, Driver & Driver.Context] = ZLayer.scopedEnvironment {
+  val default: ZLayer[ServerConfig, Throwable, Driver & Driver.Context] = ZLayer.scopedEnvironment {
     val context = Driver.Context.empty
     val time    = ZLayer.succeed(ServerTime.make(1000 millis))
     make
