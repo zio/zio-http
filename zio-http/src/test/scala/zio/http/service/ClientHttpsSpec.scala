@@ -52,7 +52,12 @@ object ClientHttpsSpec extends ZIOSpecDefault {
         .exit
       assertZIO(actual)(fails(isSubtype[DecoderException](anything)))
     },
-  ).provide(ClientConfig.live(ClientConfig.empty.ssl(sslOption)), Client.live, Scope.default) @@ timeout(
+  ).provide(
+    ClientConfig.live(ClientConfig.empty.ssl(sslOption)),
+    Client.live,
+    ConnectionPool.disabled,
+    Scope.default,
+  ) @@ timeout(
     30 seconds,
   ) @@ ignore
 }

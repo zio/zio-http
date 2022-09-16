@@ -8,11 +8,17 @@ import zio.{Promise, Unsafe}
 final class ClientInboundStreamingHandler[R](
   val zExec: HttpRuntime[R],
   req: Request,
-  promise: Promise[Throwable, Response],
+  onResponse: Promise[Throwable, Response],
+  onComplete: Promise[Throwable, Unit],
 ) extends SimpleChannelInboundHandler[HttpObject](false)
     with ClientRequestHandler[R] {
 
   private implicit val unsafeClass: Unsafe = Unsafe.unsafe
+
+  // TODO: maybe we need to write on channelRegister instead/as well
+
+  override def channelRegistered(ctx: Ctx): Unit =
+    super.channelRegistered(ctx)
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     writeRequest(req)(ctx): Unit
@@ -23,11 +29,13 @@ final class ClientInboundStreamingHandler[R](
       case response: HttpResponse =>
         ctx.channel().config().setAutoRead(false)
         zExec.runUninterruptible {
-          promise
+          onResponse
             .succeed(
               Response.unsafe.fromStreamingJResponse(
                 ctx,
                 response,
+                zExec,
+                onComplete,
               ),
             )
         }(ctx, unsafeClass)
@@ -39,7 +47,9 @@ final class ClientInboundStreamingHandler[R](
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    zExec.run(promise.fail(error).uninterruptible)(ctx, unsafeClass)
+    zExec.runUninterruptible {
+      onResponse.fail(error) *> onComplete.fail(error)
+    }(ctx, unsafeClass)
   }
 
 }

@@ -1,23 +1,16 @@
 package zio.http
 
-import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelFuture => JChannelFuture,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelHandler}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.flow.FlowControlHandler
-import io.netty.handler.proxy.HttpProxyHandler
 import zio._
+import zio.http.URL.Location
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.socket.SocketApp
 
-import java.net.InetSocketAddress
+import scala.collection.mutable
 
 trait Client {
   def request(request: Request): ZIO[Any, Throwable, Response]
@@ -34,9 +27,9 @@ trait Client {
 object Client {
   final case class ClientLive(
     settings: ClientConfig,
+    runtime: Runtime[Any],
     rtm: HttpRuntime[Any],
-    cf: JChannelFactory[JChannel],
-    el: JEventLoopGroup,
+    connectionPool: ConnectionPool,
   ) extends Client
       with ClientRequestEncoder {
 
@@ -60,17 +53,15 @@ object Client {
         ).withFinalizer(_.close.orDie)
       } yield res
 
-    private def requestAsync(request: Request, clientConfig: ClientConfig): ZIO[Any, Throwable, Response] = {
+    private def requestAsync(request: Request, clientConfig: ClientConfig): ZIO[Any, Throwable, Response] =
       for {
-        promise <- Promise.make[Throwable, Response]
-        jReq    <- encode(request)
-        _       <- ChannelFuture
-          .unit(internalRequest(request, jReq, promise, clientConfig)(Unsafe.unsafe))
-          .catchAll(cause => promise.fail(cause))
-        res     <- promise.await
+        onResponse <- Promise.make[Throwable, Response]
+        jReq       <- encode(request)
+        _          <- internalRequest(request, jReq, onResponse, clientConfig)(Unsafe.unsafe)
+          .catchAll(cause => onResponse.fail(cause))
+        _          <- ZIO.debug("Waiting for onResponse")
+        res        <- onResponse.await
       } yield res
-
-    }
 
     /**
      * It handles both - Websocket and HTTP requests.
@@ -78,98 +69,37 @@ object Client {
     private def internalRequest(
       req: Request,
       jReq: FullHttpRequest,
-      promise: Promise[Throwable, Response],
+      onResponse: Promise[Throwable, Response],
       clientConfig: ClientConfig,
-    )(implicit unsafe: Unsafe): JChannelFuture = {
+    )(implicit unsafe: Unsafe): ZIO[Any, Throwable, Unit] = {
 
       try {
-        val host = req.url.host.getOrElse {
-          assert(false, "Host name is required");
-          ""
-        }
-        val port = req.url.port.getOrElse(80)
-
-        val isWebSocket = req.url.scheme.exists(_.isWebSocket)
-        val isSSL       = req.url.scheme.exists(_.isSecure)
-        val isProxy     = clientConfig.proxy.isDefined
-
-        log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
-        val initializer = new ChannelInitializer[JChannel]() {
-          override def initChannel(ch: JChannel): Unit = {
-
-            val pipeline                    = ch.pipeline()
-            val sslOption: ClientSSLOptions = clientConfig.ssl.getOrElse(ClientSSLOptions.DefaultSSL)
-
-            // Adding proxy handler
-            if (isProxy) {
-              val handler: HttpProxyHandler =
-                clientConfig.proxy
-                  .flatMap(_.encode)
-                  .getOrElse(new HttpProxyHandler(new InetSocketAddress(host, port)))
-
-              pipeline.addLast(
-                PROXY_HANDLER,
-                handler,
+        req.url.kind match {
+          case location: Location.Absolute =>
+            for {
+              channel    <- connectionPool.get(
+                location,
+                clientConfig.proxy,
+                clientConfig.ssl.getOrElse(ClientSSLOptions.DefaultSSL),
               )
-            }
-
-            // If a https or wss request is made we need to add the ssl handler at the starting of the pipeline.
-            if (isSSL) pipeline.addLast(SSL_HANDLER, ClientSSLHandler.ssl(sslOption).newHandler(ch.alloc, host, port))
-
-            // Adding default client channel handlers
-            // Defaults from netty:
-            //   maxInitialLineLength=4096
-            //   maxHeaderSize=8192
-            //   maxChunkSize=8192
-            // and we add: failOnMissingResponse=true
-            // This way, if the server closes the connection before the whole response has been sent,
-            // we get an error. (We can also handle the channelInactive callback, but since for now
-            // we always buffer the whole HTTP response we can letty Netty take care of this)
-            pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, 8192, 8192, true))
-
-            // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
-            // This is also required to make WebSocketHandlers work
-            if (clientConfig.useAggregator) {
-              pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(Int.MaxValue))
-              pipeline
-                .addLast(
-                  CLIENT_INBOUND_HANDLER,
-                  new ClientInboundHandler(rtm, jReq, promise, isWebSocket),
+              onComplete <- Promise.make[Throwable, Unit]
+              release    <- ZIO.attempt {
+                requestOnChannel(
+                  channel,
+                  location,
+                  req,
+                  jReq,
+                  onResponse,
+                  onComplete,
+                  clientConfig.useAggregator,
+                  () => clientConfig.socketApp.getOrElse(SocketApp()),
                 )
-            } else {
-
-              // ClientInboundHandler is used to take ClientResponse from FullHttpResponse
-              pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
-              pipeline
-                .addLast(
-                  CLIENT_INBOUND_HANDLER,
-                  new ClientInboundStreamingHandler(rtm, req, promise),
-                )
-
-            }
-
-            // Add WebSocketHandlers if it's a `ws` or `wss` request
-            if (isWebSocket) {
-              val headers = req.headers.encode
-              val app     = clientConfig.socketApp.getOrElse(SocketApp())
-              val config  = app.protocol.clientBuilder
-                .customHeaders(headers)
-                .webSocketUri(req.url.encode)
-                .build()
-
-              // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
-              pipeline.addLast(WEB_SOCKET_CLIENT_PROTOCOL_HANDLER, new WebSocketClientProtocolHandler(config))
-              pipeline.addLast(WEB_SOCKET_HANDLER, new WebSocketAppHandler(rtm, app, true))
-            }
-            ()
-          }
+              }
+              _          <- (onComplete.await.exit *> release.catchAll(onResponse.fail).uninterruptible).forkDaemon
+            } yield ()
+          case Location.Relative           =>
+            throw new IllegalArgumentException("Absolute URL is required")
         }
-
-        val jBoo = new Bootstrap().channelFactory(cf).group(el).handler(initializer)
-
-        jBoo.remoteAddress(new InetSocketAddress(host, port))
-
-        jBoo.connect()
       } catch {
         case err: Throwable =>
           if (jReq.refCnt() > 0) {
@@ -178,7 +108,78 @@ object Client {
           throw err
       }
     }
+
+    private def requestOnChannel(
+      channel: JChannel,
+      location: URL.Location.Absolute,
+      req: Request,
+      jReq: FullHttpRequest,
+      onResponse: Promise[Throwable, Response],
+      onComplete: Promise[Throwable, Unit],
+      useAggregator: Boolean,
+      createSocketApp: () => SocketApp[Any],
+    ): ZIO[Any, Throwable, Unit] = {
+      log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
+
+      val pipeline                              = channel.pipeline()
+      val toRemove: mutable.Set[ChannelHandler] = new mutable.HashSet[ChannelHandler]()
+
+      // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
+      // This is also required to make WebSocketHandlers work
+      if (useAggregator) {
+        val httpObjectAggregator = new HttpObjectAggregator(Int.MaxValue)
+        val clientInbound = new ClientInboundHandler(rtm, jReq, onResponse, onComplete, location.scheme.isWebSocket)
+        pipeline.addLast(HTTP_OBJECT_AGGREGATOR, httpObjectAggregator)
+        pipeline.addLast(CLIENT_INBOUND_HANDLER, clientInbound)
+
+        if (!location.scheme.isWebSocket) {
+          // NOTE: _something_ seems to remove the HttpObjectAggregator on websocket upgrade but not clear what
+          toRemove.add(httpObjectAggregator)
+
+          // NOTE: in case of websocket connections the handler removes itself (refactor?)
+          toRemove.add(clientInbound)
+        }
+      } else {
+        val flowControl   = new FlowControlHandler()
+        val clientInbound = new ClientInboundStreamingHandler(rtm, req, onResponse, onComplete)
+
+        pipeline.addLast(FLOW_CONTROL_HANDLER, flowControl)
+        pipeline.addLast(CLIENT_INBOUND_HANDLER, clientInbound)
+
+        toRemove.add(flowControl)
+        toRemove.add(clientInbound)
+      }
+
+      // Add WebSocketHandlers if it's a `ws` or `wss` request
+      if (location.scheme.isWebSocket) {
+        val headers = req.headers.encode
+        val app     = createSocketApp()
+        val config  = app.protocol.clientBuilder
+          .customHeaders(headers)
+          .webSocketUri(req.url.encode)
+          .build()
+
+        // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
+
+        val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
+        val webSocket               = new WebSocketAppHandler(rtm, app, true)
+
+        pipeline.addLast(WEB_SOCKET_CLIENT_PROTOCOL_HANDLER, webSocketClientProtocol)
+        pipeline.addLast(WEB_SOCKET_HANDLER, webSocket)
+
+        toRemove.add(webSocketClientProtocol)
+        toRemove.add(webSocket)
+      }
+
+      val frozenToRemove = toRemove.toSet
+      ZIO.attempt {
+        frozenToRemove.foreach(pipeline.remove)
+
+        // TODO: upgrade to websocket removes the HttpClientCodec from the pipeline, re-add it or mark the channel invalid?
+      }
+    }
   }
+
   def request(
     url: String,
     method: Method = Method.GET,
@@ -216,36 +217,17 @@ object Client {
       ZIO.serviceWithZIO[Client](_.socket(url, app, headers))
     }
 
-  val live: ZLayer[ClientConfig with Scope, Throwable, Client] = ZLayer {
-    for {
-      settings       <- ZIO.service[ClientConfig]
-      channelFactory <- channelFactory(settings)
-      eventLoopGroup <- eventLoopGroup(settings)
-      zx             <- HttpRuntime.default[Any]
-    } yield ClientLive(settings, zx, channelFactory, eventLoopGroup)
-  }
-
-  val default = ClientConfig.default >>> live
-
-  private def channelFactory(config: ClientConfig): UIO[ChannelFactory] = {
-    config.channelType match {
-      case ChannelType.NIO    => ChannelFactory.Live.nio
-      case ChannelType.EPOLL  => ChannelFactory.Live.epoll
-      case ChannelType.KQUEUE => ChannelFactory.Live.kQueue
-      case ChannelType.URING  => ChannelFactory.Live.uring
-      case ChannelType.AUTO   => ChannelFactory.Live.auto
+  val live: ZLayer[ClientConfig with ConnectionPool, Throwable, Client] =
+    ZLayer {
+      for {
+        settings       <- ZIO.service[ClientConfig]
+        runtime        <- ZIO.runtime[Any]
+        zx             <- HttpRuntime.default[Any]
+        connectionPool <- ZIO.service[ConnectionPool]
+      } yield ClientLive(settings, runtime, zx, connectionPool)
     }
-  }
 
-  private def eventLoopGroup(config: ClientConfig): ZIO[Scope, Nothing, EventLoopGroup] = {
-    config.channelType match {
-      case ChannelType.NIO    => EventLoopGroup.Live.nio(config.nThreads)
-      case ChannelType.EPOLL  => EventLoopGroup.Live.epoll(config.nThreads)
-      case ChannelType.KQUEUE => EventLoopGroup.Live.kQueue(config.nThreads)
-      case ChannelType.URING  => EventLoopGroup.Live.uring(config.nThreads)
-      case ChannelType.AUTO   => EventLoopGroup.Live.auto(config.nThreads)
-    }
-  }
+  val default = ClientConfig.default >+> ConnectionPool.disabled >>> live
 
   val zioHttpVersion: CharSequence           = Client.getClass().getPackage().getImplementationVersion()
   val zioHttpVersionNormalized: CharSequence = Option(zioHttpVersion).getOrElse("")

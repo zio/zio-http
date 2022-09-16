@@ -46,6 +46,7 @@ object SSLSpec extends ZIOSpecDefault {
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
             Scope.default,
+            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1))),
           ),
@@ -58,6 +59,7 @@ object SSLSpec extends ZIOSpecDefault {
             assertZIO(actual)(equalTo("DecoderException"))
           }.provide(
             Scope.default,
+            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL2))),
           ),
@@ -66,7 +68,12 @@ object SSLSpec extends ZIOSpecDefault {
               .request("https://localhost:8073/success")
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
-          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.DefaultSSL))),
+          }.provide(
+            Scope.default,
+            ConnectionPool.disabled,
+            Client.live,
+            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.DefaultSSL)),
+          ),
           test("Https Redirect when client makes http request") {
             val actual = Client
               .request("http://localhost:8073/success")
@@ -74,6 +81,7 @@ object SSLSpec extends ZIOSpecDefault {
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
           }.provide(
             Scope.default,
+            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1))),
           ),
@@ -90,6 +98,7 @@ object SSLSpec extends ZIOSpecDefault {
             }
           }.provide(
             Scope.default,
+            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1))),
           ),

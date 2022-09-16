@@ -27,6 +27,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
     Scope.default,
     DynamicServer.live,
     severTestLayer,
+    ConnectionPool.disabled,
     Client.live,
     ClientConfig.live(ClientConfig.empty.useObjectAggregator(false)),
   ) @@

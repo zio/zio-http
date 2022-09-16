@@ -10,9 +10,10 @@ import zio.http.service.{
   CLIENT_STREAMING_BODY_HANDLER,
   ChannelFuture,
   ClientResponseStreamHandler,
+  HttpRuntime,
 }
 import zio.http.socket.{SocketApp, WebSocketFrame}
-import zio.{Cause, Task, Unsafe, ZIO}
+import zio.{Cause, Promise, Task, Unsafe, ZIO}
 
 import java.io.{IOException, PrintWriter, StringWriter}
 
@@ -234,7 +235,12 @@ object Response {
       Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
     }
 
-    final def fromStreamingJResponse(ctx: ChannelHandlerContext, jRes: HttpResponse)(implicit
+    final def fromStreamingJResponse(
+      ctx: ChannelHandlerContext,
+      jRes: HttpResponse,
+      zExec: HttpRuntime[Any],
+      onComplete: Promise[Throwable, Unit],
+    )(implicit
       unsafe: Unsafe,
     ): Response = {
       val status  = Status.fromHttpResponseStatus(jRes.status())
@@ -245,7 +251,7 @@ object Response {
           .addAfter(
             CLIENT_INBOUND_HANDLER,
             CLIENT_STREAMING_BODY_HANDLER,
-            new ClientResponseStreamHandler(callback),
+            new ClientResponseStreamHandler(callback, zExec, onComplete),
           ): Unit
       }
       Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))

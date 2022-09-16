@@ -23,7 +23,12 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request(url = serverUrl),
             )
-            .provideSome(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))))
+            .provideSome(
+              Scope.default,
+              ConnectionPool.disabled,
+              Client.live,
+              ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))),
+            )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
     },
@@ -38,7 +43,12 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request(url = url),
             )
-            .provideSome(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.proxy(proxy)))
+            .provideSome(
+              Scope.default,
+              ConnectionPool.disabled,
+              Client.live,
+              ClientConfig.live(ClientConfig.empty.proxy(proxy)),
+            )
         } yield out
       assertZIO(res.either)(isRight)
     },
@@ -63,7 +73,12 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request(url = url),
             )
-            .provideSome(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.proxy(proxy)))
+            .provideSome(
+              Scope.default,
+              ConnectionPool.disabled,
+              Client.live,
+              ClientConfig.live(ClientConfig.empty.proxy(proxy)),
+            )
         } yield out
       assertZIO(res.either)(isRight)
     },
