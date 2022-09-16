@@ -31,36 +31,31 @@ private[zio] trait Metrics {
           MetricLabel("status", res.status.code.toString),
         )
 
-      def observeRequest(start: Long, labels: Set[MetricLabel]) =
-        for {
-          _   <- requestsTotal.tagged(labels).increment
-          end <- Clock.nanoTime
-          took = end - start
-          _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
-        } yield ()
-
       def apply[R1 <: Any, E1 >: Nothing](
         http: Http[R1, E1, Request, Response],
       ): Http[R1, E1, Request, Response] =
         Http.fromOptionFunction[Request] { req =>
           val requestLabels = labelsForRequest(req)
 
-          (for {
+          for {
             start <- Clock.nanoTime
             _     <- concurrentRequests.tagged(requestLabels).increment
-            res   <- http(req)
-              .tapBoth(
-                err => {
-                  observeRequest(start, requestLabels ++ err.fold(status404)(_ => status500))
-                },
-                response => {
-                  observeRequest(start, requestLabels ++ labelsForResponse(response))
-                },
-              )
-              .tapDefect(_ => {
-                observeRequest(start, requestLabels ++ status500)
-              })
-          } yield res).ensuring(concurrentRequests.tagged(requestLabels).decrement)
+            res   <- http(req).onExit(exit => {
+              val labels =
+                requestLabels ++ exit.foldExit(
+                  cause => cause.failureOption.fold(status500)(failure => failure.fold(status404)(_ => status500)),
+                  labelsForResponse,
+                )
+
+              for {
+                _   <- requestsTotal.tagged(labels).increment
+                _   <- concurrentRequests.tagged(requestLabels).decrement
+                end <- Clock.nanoTime
+                took = end - start
+                _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
+              } yield ()
+            })
+          } yield res
         }
     }
   }
