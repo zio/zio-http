@@ -1,12 +1,14 @@
 package zio.http.middleware
 
+import io.netty.handler.codec.http.HttpHeaderValues
 import zio._
 import zio.http.URL.encode
 import zio.http._
 import zio.http.headers.HeaderModifier
+import zio.http.html._
 import zio.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
 
-import java.io.IOException
+import java.io.{IOException, PrintWriter, StringWriter}
 
 /**
  * Middlewares on an HttpApp
@@ -27,6 +29,12 @@ private[zio] trait Web
 
   final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]]): HttpMiddleware[R, E] =
     patchZIO(_ => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
+
+  /**
+   * Beautify the error response.
+   */
+  final def beautifyErrors: HttpMiddleware[Any, Nothing] =
+    Middleware.intercept[Request, Response](identity)((res, req) => Web.updateErrorResponse(res, req))
 
   /**
    * Add log status, method, url and time taken from req to res
@@ -235,5 +243,71 @@ object Web {
         .interceptZIO[Request, Response](req(_))((response, state) =>
           res(response, state).map(patch => patch(response)),
         )
+  }
+
+  private def updateErrorResponse(response: Response, request: Request): Response = {
+    def htmlResponse: Body = {
+      val message: String = response.httpError.map(_.message).getOrElse("")
+      val data            = Template.container(s"${response.status}") {
+        div(
+          div(
+            styles := Seq("text-align" -> "center"),
+            div(s"${response.status.code}", styles := Seq("font-size" -> "20em")),
+            div(message),
+          ),
+          div(
+            response.httpError.get.foldCause(div()) { throwable =>
+              div(h3("Cause:"), pre(prettify(throwable)))
+            },
+          ),
+        )
+      }
+      Body.fromString("<!DOCTYPE html>" + data.encode)
+    }
+
+    def textResponse: Body = {
+      Body.fromString(formatErrorMessage(response))
+    }
+
+    if (response.status.isError) {
+      request.accept match {
+        case Some(value) if HttpHeaderValues.TEXT_HTML.contains(value) =>
+          htmlResponse
+          response.copy(
+            body = htmlResponse,
+            headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
+          )
+        case _                                                         =>
+          request.userAgent match {
+            case Some(userAgent) if userAgent.toString.contains("curl") =>
+              response.copy(
+                body = textResponse,
+                headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
+              )
+            case _                                                      => response
+          }
+      }
+
+    } else
+      response
+  }
+
+  private def prettify(throwable: Throwable): String = {
+    val sw = new StringWriter
+    throwable.printStackTrace(new PrintWriter(sw))
+    s"${sw.toString}"
+  }
+
+  private def formatCause(response: Response): String =
+    response.httpError.get.foldCause("") { throwable =>
+      s"${scala.Console.BOLD}Cause: ${scala.Console.RESET}\n ${prettify(throwable)}"
+    }
+
+  private def formatErrorMessage(response: Response) = {
+    val errorMessage: String = response.httpError.map(_.message).getOrElse("")
+    val status               = response.status.code
+    s"${scala.Console.BOLD}${scala.Console.RED}${response.status} ${scala.Console.RESET} - " +
+      s"${scala.Console.BOLD}${scala.Console.CYAN}$status ${scala.Console.RESET} - " +
+      s"${errorMessage}\n${formatCause(response)}"
   }
 }
