@@ -42,7 +42,6 @@ private[zio] trait NettyRuntime { self =>
 
     // Close the connection if the program fails
     // When connection closes, interrupt the program
-    // Unsafe.unsafe { implicit unsafe =>
     var close: GenericFutureListener[Future[_ >: Void]] = null
 
     val fiber = rtm.unsafe.fork(program)
@@ -59,7 +58,6 @@ private[zio] trait NettyRuntime { self =>
       case Exit.Failure(cause) =>
         onFailure(cause, ctx)
         removeListener(close)
-      // }
     }
   }
 
