@@ -19,8 +19,19 @@ import zio.http.socket.SocketApp
 
 import java.net.InetSocketAddress
 
-trait Client {
-  def request(request: Request): ZIO[Any, Throwable, Response]
+trait Client { self =>
+
+  def headers: Headers
+
+  def hostOption: Option[String]
+
+  def pathPrefix: Path
+
+  def portOption: Option[Int]
+
+  def queries: Map[String, Chunk[String]]
+
+  def sslOption: Option[ClientSSLOptions]
 
   def socket[R](
     url: String,
@@ -29,9 +40,109 @@ trait Client {
     addZioUserAgentHeader: Boolean = false,
   )(implicit unsafe: Unsafe): ZIO[R with Scope, Throwable, Response]
 
+  def header(key: String, value: String): Client =
+    copy(headers = headers ++ Headers.Header(key, value))
+
+  def host(host: String): Client =
+    copy(hostOption = Some(host))
+
+  def path(segment: String): Client =
+    copy(pathPrefix = pathPrefix / segment)
+
+  def port(port: Int): Client =
+    copy(portOption = Some(port))
+
+  def query(key: String, value: String): Client =
+    copy(queries = queries + (key -> Chunk(value)))
+
+  final def request(method: Method, pathSuffix: String, body: Body): ZIO[Any, Throwable, Response] =
+    requestInternal(
+      body,
+      headers,
+      hostOption,
+      method,
+      pathPrefix / pathSuffix,
+      portOption,
+      queries,
+      sslOption,
+      Version.Http_1_1,
+    )
+
+  final def request(request: Request): ZIO[Any, Throwable, Response] = {
+    requestInternal(
+      request.body,
+      headers ++ request.headers,
+      request.url.host,
+      request.method,
+      pathPrefix ++ request.path,
+      request.url.port,
+      queries ++ request.url.queryParams,
+      sslOption,
+      request.version,
+    )
+  }
+
+  def ssl(ssl: ClientSSLOptions): Client =
+    copy(sslOption = Some(ssl))
+
+  protected def requestInternal(
+    body: Body,
+    headers: Headers,
+    hostOption: Option[String],
+    method: Method,
+    pathPrefix: Path,
+    portOption: Option[Int],
+    queries: Map[String, Chunk[String]],
+    sslOption: Option[ClientSSLOptions],
+    version: Version,
+  ): ZIO[Any, Throwable, Response]
+
+  private def copy(
+    headers: Headers = headers,
+    hostOption: Option[String] = hostOption,
+    pathPrefix: Path = pathPrefix,
+    portOption: Option[Int] = portOption,
+    queries: Map[String, Chunk[String]] = queries,
+    sslOption: Option[ClientSSLOptions] = sslOption,
+  ): Client =
+    Client.Proxy(self, headers, hostOption, pathPrefix, portOption, queries, sslOption)
 }
 
 object Client {
+
+  private final case class Proxy(
+    client: Client,
+    headers: Headers,
+    hostOption: Option[String],
+    pathPrefix: Path,
+    portOption: Option[Int],
+    queries: Map[String, Chunk[String]],
+    sslOption: Option[ClientSSLOptions],
+  ) extends Client {
+
+    def requestInternal(
+      body: Body,
+      headers: Headers,
+      hostOption: Option[String],
+      method: Method,
+      path: Path,
+      portOption: Option[Int],
+      queries: Map[String, Chunk[String]],
+      sslOption: Option[ClientSSLOptions],
+      version: Version,
+    ): ZIO[Any, Throwable, Response] =
+      client.requestInternal(body, headers, hostOption, method, path, portOption, queries, sslOption, version)
+
+    def socket[R](
+      url: String,
+      app: SocketApp[R],
+      headers: Headers = Headers.empty,
+      addZioUserAgentHeader: Boolean = false,
+    )(implicit unsafe: Unsafe): ZIO[R with Scope, Throwable, Response] =
+      client.socket(url, app, headers, addZioUserAgentHeader)
+
+  }
+
   final case class ClientLive(
     settings: ClientConfig,
     rtm: HttpRuntime[Any],
@@ -39,11 +150,42 @@ object Client {
     el: JEventLoopGroup,
   ) extends Client
       with ClientRequestEncoder {
+    val headers: Headers                    = Headers.empty
+    val hostOption: Option[String]          = None
+    val pathPrefix: Path                    = Path.empty
+    val portOption: Option[Int]             = None
+    val queries: Map[String, Chunk[String]] = Map.empty
+    val sslOption: Option[ClientSSLOptions] = None
 
-    override def request(request: Request): ZIO[Any, Throwable, Response] =
-      requestAsync(request, settings)
+    def requestInternal(
+      body: Body,
+      headers: Headers,
+      hostOption: Option[String],
+      method: Method,
+      path: Path,
+      portOption: Option[Int],
+      queries: Map[String, Chunk[String]],
+      sslOption: Option[ClientSSLOptions],
+      version: Version,
+    ): ZIO[Any, Throwable, Response] = {
 
-    override def socket[R](url: String, app: SocketApp[R], headers: Headers, addZioUserAgentHeader: Boolean)(implicit
+      for {
+        host     <- ZIO.fromOption(hostOption).orElseFail(new IllegalArgumentException("Host is required"))
+        port     <- ZIO.fromOption(portOption).orElseSucceed(80)
+        response <- requestAsync(
+          Request(
+            version = version,
+            method = method,
+            url = URL(path, URL.Location.Absolute(Scheme.HTTP, host, port)).setQueryParams(queries),
+            headers = headers,
+            body = body,
+          ),
+          sslOption.fold(settings)(settings.ssl),
+        )
+      } yield response
+    }
+
+    def socket[R](url: String, app: SocketApp[R], headers: Headers, addZioUserAgentHeader: Boolean)(implicit
       unsafe: Unsafe,
     ): ZIO[R with Scope, Throwable, Response] =
       for {
