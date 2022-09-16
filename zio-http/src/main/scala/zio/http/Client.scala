@@ -361,7 +361,7 @@ object Client {
     }
 
   val live
-    : ZLayer[ClientConfig with Scope with ChannelFactory with EventLoopGroup with NettyRuntime, Throwable, Client] =
+    : ZLayer[ClientConfig with ChannelFactory with EventLoopGroup with NettyRuntime, Throwable, Client] =
     ZLayer {
       for {
         settings       <- ZIO.service[ClientConfig]
