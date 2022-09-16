@@ -9,7 +9,12 @@ import zio.http._
 sealed trait Service[-R, +E] { self =>
   type AllIds
 
-  def ++[R1 <: R, E1 >: E](that: Service[R1, E1]): Service[R1, E1] = Service.Concat(self, that)
+  /**
+   * Combines this service and the specified service into a single service,
+   * which contains all endpoints and their associated handlers.
+   */
+  def ++[R1 <: R, E1 >: E](that: Service[R1, E1]): Service.WithAllIds[R1, E1, AllIds with that.AllIds] =
+    Service.Concat(self, that).withAllIds[AllIds with that.AllIds]
 
   /**
    * Converts this service into a [[zio.http.HttpApp]], which can then be served
@@ -28,8 +33,13 @@ sealed trait Service[-R, +E] { self =>
       )(_.run(request))
     }
   }
+
+  private[api] def withAllIds[AllIds0]: Service.WithAllIds[R, E, AllIds0] =
+    self.asInstanceOf[Service.WithAllIds[R, E, AllIds0]]
 }
 object Service               {
+  type WithAllIds[-R, +E, AllIds0] = Service[R, E] { type AllIds = AllIds0 }
+
   final case class HandledAPI[-R, +E, In0, Out0](
     api: API[In0, Out0],
     handler: In0 => ZIO[R, E, Out0],

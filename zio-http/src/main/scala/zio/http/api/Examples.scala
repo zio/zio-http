@@ -7,11 +7,14 @@ object Examples extends ZIOAppDefault {
   import In._
 
   val api1 =
-    API.get(literal("users") / int).handle { case (id: Int) => ZIO.debug(s"API1 RESULT parsed: users/$id") }
+    API.get(literal("users") / int).id("get-users").handle { case (id: Int) =>
+      ZIO.debug(s"API1 RESULT parsed: users/$id")
+    }
 
   val api2 =
     API
       .get(literal("users") / int / literal("posts") / query("name") / int)
+      .id("get-user-posts")
       .handle { case (id1, query, id2) =>
         ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
       }

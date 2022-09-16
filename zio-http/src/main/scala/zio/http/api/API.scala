@@ -28,32 +28,44 @@ final case class API[Input, Output](
 
   def ??(that: Doc): API[Input, Output] = copy(doc = self.doc + that)
 
-  def handle[R, E](f: Input => ZIO[R, E, Output]): Service[R, E] =
-    Service.HandledAPI(self, f)
+  def handle[R, E](f: Input => ZIO[R, E, Output]): Service.WithAllIds[R, E, Id] =
+    Service.HandledAPI(self, f).withAllIds[Id]
+
+  /**
+   * Changes the identity of the API to the specified singleton string type.
+   */
+  def id[I <: String with Singleton](i: I): API.WithId[Input, Output, I] = {
+    val _ = i
+    self.asInstanceOf[API.WithId[Input, Output, I]]
+  }
 
   /**
    * Adds a new element of input to the API, which can come from the portion of
    * the HTTP path not yet consumed, the query string parameters, or the HTTP
    * headers of the request.
    */
-  def in[Input2](in2: In[Input2])(implicit combiner: Combiner[Input, Input2]): API[combiner.Out, Output] =
-    copy(input = self.input ++ in2)
+  def in[Input2](in2: In[Input2])(implicit combiner: Combiner[Input, Input2]): API.WithId[combiner.Out, Output, Id] =
+    copy(input = self.input ++ in2).withId[Id]
 
   /**
    * Changes the output type of the endpoint to the specified output type.
    */
-  def out[Output2: Schema]: API[Input, Output2] =
-    copy(output = Out.Value(implicitly[Schema[Output2]]))
+  def out[Output2: Schema]: API.WithId[Input, Output2, Id] =
+    copy(output = Out.Value(implicitly[Schema[Output2]])).withId[Id]
 
   /**
    * Changes the output type of the endpoint to be a stream of the specified
    * output type.
    */
-  def outStream[Output2: Schema]: API[Input, ZStream[Any, Throwable, Output2]] =
-    copy(output = Out.Stream(implicitly[Schema[Output2]]))
+  def outStream[Output2: Schema]: API.WithId[Input, ZStream[Any, Throwable, Output2], Id] =
+    copy(output = Out.Stream(implicitly[Schema[Output2]])).withId[Id]
+
+  private def withId[I]: API.WithId[Input, Output, I] =
+    self.asInstanceOf[API.WithId[Input, Output, I]]
 }
 
 object API {
+  type WithId[I, O, X] = API[I, O] { type Id = X }
 
   /**
    * Constructs an API for a DELETE endpoint, given the specified input. It is
