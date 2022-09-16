@@ -5,6 +5,26 @@ import zio._
 import zio.metrics.{Metric, MetricKeyType, MetricLabel}
 
 private[zio] trait Metrics {
+
+  /**
+   * Adds metrics to a zio-http server.
+   *
+   * @param pathLabelMapper
+   *   A mapping function to map incoming paths to patterns, such as /users/1 to
+   *   /users/:id.
+   * @param totalRequestsName
+   *   Total HTTP requests metric name.
+   * @param requestDurationName
+   *   HTTP request duration metric name.
+   * @param requestDurationBoundaries
+   *   Boundaries for the HTTP request duration metric.
+   * @param extraLabels
+   *   A set of extra labels all metrics will be tagged with.
+   * @note
+   *   When using Prometheus as your metrics backend, make sure to provide a
+   *   `pathLabelMapper` in order to avoid
+   *   [[https://prometheus.io/docs/practices/naming/#labels high cardinality labels]].
+   */
   def metrics(
     pathLabelMapper: PartialFunction[Request, String] = Map.empty,
     concurrentRequestsName: String = "http_concurrent_requests_total",
