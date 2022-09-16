@@ -18,6 +18,9 @@ import zio.http.netty.server.ServerChannelInitializer.log
 import zio.http.service.Log
 import zio.http.service.logging.LogLevelTransform._
 import zio.logging.LogLevel
+import zio.http.ServerConfig
+import zio.http.netty.Names
+import zio.http.service.Log
 
 /**
  * Initializes the netty channel with default handlers
