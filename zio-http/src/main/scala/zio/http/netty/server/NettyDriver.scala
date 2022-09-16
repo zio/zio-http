@@ -30,7 +30,10 @@ private[zio] final case class NettyDriver(
 
 object NettyDriver {
 
-  private type Env = ChannelFactory[ServerChannel] with ChannelInitializer[Channel] with EventLoopGroup with ServerConfig
+  private type Env = ChannelFactory[ServerChannel]
+    with ChannelInitializer[Channel]
+    with EventLoopGroup
+    with ServerConfig
 
   val make: ZIO[Env, Nothing, Driver] =
     for {
@@ -38,14 +41,12 @@ object NettyDriver {
       cInit <- ZIO.service[ChannelInitializer[Channel]]
       elg   <- ZIO.service[EventLoopGroup]
       sc    <- ZIO.service[ServerConfig]
-    } yield 
-      new NettyDriver(
-        channelFactory = cf,
-        channelInitializer = cInit,
-        eventLoopGroup = elg,
-        serverConfig = sc,
-      )
-
+    } yield new NettyDriver(
+      channelFactory = cf,
+      channelInitializer = cInit,
+      eventLoopGroup = elg,
+      serverConfig = sc,
+    )
 
   val default: ZLayer[ServerConfig & Scope, Throwable, Driver & Driver.Context] = ZLayer.scopedEnvironment {
     val context = Driver.Context.empty

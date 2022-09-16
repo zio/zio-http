@@ -360,8 +360,7 @@ object Client {
       ZIO.serviceWithZIO[Client](_.socket(url, app, headers))
     }
 
-  val live
-    : ZLayer[ClientConfig with ChannelFactory with EventLoopGroup with NettyRuntime, Throwable, Client] =
+  val live: ZLayer[ClientConfig with ChannelFactory with EventLoopGroup with NettyRuntime, Throwable, Client] =
     ZLayer {
       for {
         settings       <- ZIO.service[ClientConfig]
