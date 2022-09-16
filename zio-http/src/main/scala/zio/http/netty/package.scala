@@ -30,6 +30,7 @@ package object netty {
     val ClientInboundHandler           = "CLIENT_INBOUND_HANDLER"
     val WebSocketClientProtocolHandler = "WEB_SOCKET_CLIENT_PROTOCOL_HANDLER"
     val HttpRequestDecompression       = "HTTP_REQUEST_DECOMPRESSION"
+    val HttpResponseCompression        = "HTTP_RESPONSE_COMPRESSION"
     val LowLevelLogging                = "LOW_LEVEL_LOGGING"
     val ProxyHandler                   = "PROXY_HANDLER"
     val HttpContentHandler             = "HTTP_CONTENT_HANDLER"
