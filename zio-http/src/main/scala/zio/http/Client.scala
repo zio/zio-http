@@ -209,7 +209,7 @@ object Client {
         promise <- Promise.make[Throwable, Response]
         jReq    <- encode(request)
         _       <- NettyFutureExecutor
-          .unit(internalRequest(request, jReq, promise, clientConfig)(Unsafe.unsafe))
+          .executed(internalRequest(request, jReq, promise, clientConfig)(Unsafe.unsafe))
           .catchAll(cause => promise.fail(cause))
         res     <- promise.await
       } yield res

@@ -15,7 +15,7 @@ final case class Channel[-A](
   self =>
 
   private def foreach[S](await: Boolean)(run: JChannel => JChannelFuture): Task[Unit] = {
-    if (await) NettyFutureExecutor.unit(run(channel))
+    if (await) NettyFutureExecutor.executed(run(channel))
     else ZIO.attempt(run(channel): Unit)
   }
 

@@ -40,7 +40,7 @@ private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
 object NettyFutureExecutor {
   def make[A](jFuture: => Future[A]): Task[NettyFutureExecutor[A]] = ZIO.attempt(new NettyFutureExecutor(jFuture))
 
-  def unit[A](jFuture: => Future[A]): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
+  def executed[A](jFuture: => Future[A]): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
 
   def scoped[A](jFuture: => Future[A]): ZIO[Scope, Throwable, Unit] = make(jFuture).flatMap(_.scoped.unit)
 }

@@ -25,7 +25,7 @@ object EventLoopGroups {
     make(ZIO.succeed(new NioEventLoopGroup(nThreads, executor)))
 
   def make(eventLoopGroup: UIO[EventLoopGroup]): ZIO[Scope, Nothing, EventLoopGroup] =
-    ZIO.acquireRelease(eventLoopGroup)(ev => NettyFutureExecutor.unit(ev.shutdownGracefully).orDie)
+    ZIO.acquireRelease(eventLoopGroup)(ev => NettyFutureExecutor.executed(ev.shutdownGracefully).orDie)
 
   def epoll(nThreads: Int): ZIO[Scope, Nothing, EventLoopGroup] =
     make(ZIO.succeed(new EpollEventLoopGroup(nThreads)))
