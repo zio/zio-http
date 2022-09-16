@@ -4,6 +4,7 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
 import zio.Task
 import zio.http.Request
+import zio.http.netty._
 
 trait ClientRequestEncoder {
 
@@ -14,7 +15,7 @@ trait ClientRequestEncoder {
     req.body.asChunk.map { chunk =>
       val content  = Unpooled.wrappedBuffer(chunk.toArray)
       val method   = req.method.toJava
-      val jVersion = req.version.toJava
+      val jVersion = Versions.make(req.version)
 
       // As per the spec, the path should contain only the relative path.
       // Host and port information should be in the headers.
