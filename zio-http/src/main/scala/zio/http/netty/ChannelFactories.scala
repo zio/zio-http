@@ -23,10 +23,6 @@ object ChannelFactories {
     def epoll  = serverChannel(new EpollServerSocketChannel())
     def uring  = serverChannel(new IOUringServerSocketChannel())
     def kqueue = serverChannel(new KQueueServerSocketChannel())
-    def auto   =
-      if (Epoll.isAvailable) epoll
-      else if (KQueue.isAvailable) kqueue
-      else nio
 
     val fromConfig = ZLayer.fromZIO {
       ZIO.service[ChannelType.Config].flatMap {
@@ -35,7 +31,10 @@ object ChannelFactories {
           case ChannelType.EPOLL  => epoll
           case ChannelType.KQUEUE => kqueue
           case ChannelType.URING  => uring
-          case ChannelType.AUTO   => auto
+          case ChannelType.AUTO   =>
+            if (Epoll.isAvailable) epoll
+            else if (KQueue.isAvailable) kqueue
+            else nio
         }
       }
     }
@@ -47,10 +46,6 @@ object ChannelFactories {
     def kqueue   = clientChannel(new KQueueSocketChannel())
     def uring    = clientChannel(new IOUringSocketChannel())
     def embedded = clientChannel(new EmbeddedChannel(false, false))
-    def auto     =
-      if (Epoll.isAvailable) epoll
-      else if (KQueue.isAvailable) kqueue
-      else nio
 
     val fromConfig = ZLayer.fromZIO {
       ZIO.service[ChannelType.Config].flatMap {
@@ -59,7 +54,10 @@ object ChannelFactories {
           case ChannelType.EPOLL  => epoll
           case ChannelType.KQUEUE => kqueue
           case ChannelType.URING  => uring
-          case ChannelType.AUTO   => auto
+          case ChannelType.AUTO   =>
+            if (Epoll.isAvailable) epoll
+            else if (KQueue.isAvailable) kqueue
+            else nio
         }
       }
     }
