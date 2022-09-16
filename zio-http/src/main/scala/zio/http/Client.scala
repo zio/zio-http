@@ -367,7 +367,7 @@ object Client {
         settings       <- ZIO.service[ClientConfig]
         channelFactory <- ZIO.service[ChannelFactory]
         eventLoopGroup <- ZIO.service[EventLoopGroup]
-        zx <- ZIO.service[NettyRuntime]
+        zx             <- ZIO.service[NettyRuntime]
       } yield ClientLive(settings, zx, channelFactory, eventLoopGroup)
     }
 

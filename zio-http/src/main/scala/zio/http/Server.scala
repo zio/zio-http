@@ -3,6 +3,7 @@ package zio.http
 import zio._
 import zio.http.Server.ErrorCallback
 import zio.http.netty.server._
+
 import java.util.concurrent.atomic.AtomicReference
 
 trait Server {
