@@ -177,7 +177,7 @@ private[api] object Mechanic {
     routes: Array[Any],
     queries: Array[Any],
     headers: Array[Any],
-    inputBody: Array[Any],
+    inputBodies: Array[Any],
   ) { self =>
     def setRoute(index: Int, value: Any): Unit =
       routes(index) = value
@@ -189,7 +189,7 @@ private[api] object Mechanic {
       headers(index) = value
 
     def setInputBody(index: Int, value: Any): Unit =
-      inputBody(index) = value
+      inputBodies(index) = value
   }
   private[api] object InputsBuilder  {
     def make(routes: Int, queries: Int, headers: Int, bodies: Int): InputsBuilder =
@@ -197,7 +197,7 @@ private[api] object Mechanic {
         routes = new Array(routes),
         queries = new Array(queries),
         headers = new Array(headers),
-        inputBody = new Array(bodies),
+        inputBodies = new Array(bodies),
       )
   }
 

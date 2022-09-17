@@ -9,6 +9,7 @@ import zio.schema.Schema
  */
 sealed trait Out[Output] {
   type Atom
+  type Type
 
   def bodySchema: Schema[Atom]
 }
@@ -21,11 +22,13 @@ object Out               {
 
   final case class Value[Output](schema: Schema[Output])    extends Out[Output]                           {
     type Atom = Output
+    type Type = Output
 
     override def bodySchema: Schema[Output] = schema
   }
   final case class Stream[Element](schema: Schema[Element]) extends Out[ZStream[Any, Throwable, Element]] {
     type Atom = Element
+    type Type = ZStream[Any, Throwable, Element]
 
     override def bodySchema: Schema[Element] = schema
   }
