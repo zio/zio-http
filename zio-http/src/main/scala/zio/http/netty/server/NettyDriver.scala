@@ -20,7 +20,7 @@ private[zio] final case class NettyDriver(
   serverConfig: ServerConfig,
 ) extends Driver { self =>
 
-  def start(): RIO[Scope, Int] =
+  def start: RIO[Scope, Int] =
     for {
       serverBootstrap <- ZIO.attempt(new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup))
       chf             <- ZIO.attempt(serverBootstrap.childHandler(channelInitializer).bind(serverConfig.address))

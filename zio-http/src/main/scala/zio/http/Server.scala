@@ -38,7 +38,7 @@ object Server {
   ] = ZLayer.scoped {
     for {
       driver <- ZIO.service[Driver]
-      port   <- driver.start()
+      port   <- driver.start
     } yield ServerLive(driver, port)
   }
 
