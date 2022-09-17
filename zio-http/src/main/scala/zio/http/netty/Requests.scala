@@ -19,10 +19,6 @@ private[zio] object Requests {
 
     nettyReq match {
       case nettyReq: FullHttpRequest =>
-        //   override final val unsafe: UnsafeAPI = new UnsafeAPI {
-        //     override final def encode(implicit unsafe: Unsafe): HttpRequest = jReq
-        //     override final def context(implicit unsafe: Unsafe): Ctx        = ctx
-        //   }
         Request(
           Body.fromByteBuf(nettyReq.content()),
           Headers.make(nettyReq.headers()),
@@ -32,11 +28,6 @@ private[zio] object Requests {
           remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-        //   override final val unsafe: UnsafeAPI = new UnsafeAPI {
-        //     override final def encode(implicit unsafe: Unsafe): HttpRequest = jReq
-
-        //     override final def context(implicit unsafe: Unsafe): Ctx = ctx
-        //   }
         val body = Body.fromAsync { async =>
           ctx.addAsyncBodyHandler(async)
         }
