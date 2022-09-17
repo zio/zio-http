@@ -1,3 +1,9 @@
+/**
+ * Credit for the initial work goes to @saeltz (Bendix Saltz) and
+ * @zagyi
+ *   (Balazs Zagyvai), who did this work in `zio-microservice` under the ZIO CLA
+ *   and Apache 2 license.
+ */
 package zio.http.api.openapi
 
 import java.net.URI
