@@ -1,7 +1,8 @@
 package zio.http
 
 import zio.ZLayer
-import zio.http.service.ClientSSLHandler.ClientSSLOptions
+import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
+import zio.http.netty.{ChannelFactories, EventLoopGroups, _}
 import zio.http.socket.SocketApp
 
 case class ClientConfig(
@@ -11,7 +12,7 @@ case class ClientConfig(
   channelType: ChannelType = ChannelType.AUTO,
   nThreads: Int = 0,
   useAggregator: Boolean = true,
-) {
+) extends EventLoopGroups.Config {
   self =>
   def ssl(ssl: ClientSSLOptions): ClientConfig = self.copy(ssl = Some(ssl))
 
@@ -29,7 +30,12 @@ case class ClientConfig(
 object ClientConfig {
   def empty: ClientConfig = ClientConfig()
 
-  def default = ZLayer.succeed(empty)
+  def default = ZLayer.succeed(
+    empty,
+  ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
 
-  def live(clientConfig: ClientConfig) = ZLayer.succeed(clientConfig)
+  def live(clientConfig: ClientConfig) =
+    ZLayer.succeed(
+      clientConfig,
+    ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
 }

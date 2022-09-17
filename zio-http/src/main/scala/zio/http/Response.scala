@@ -7,16 +7,19 @@ import zio.http.html._
 import zio.http.model.headers.{HeaderExtension, Headers}
 import zio.http.model.{Cookie, HttpError, Status}
 import zio.http.service.{CLIENT_INBOUND_HANDLER, CLIENT_STREAMING_BODY_HANDLER, ChannelFuture, ClientResponseStreamHandler}
+import zio.http.netty._
+import zio.http.netty.client._
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.{Cause, Task, Unsafe, ZIO}
 
-import java.io.{IOException, PrintWriter, StringWriter}
+import java.io.IOException
 
 final case class Response private (
   status: Status,
   headers: Headers,
   body: Body,
   private[zio] val attribute: Response.Attribute,
+  private[zio] val httpError: Option[HttpError],
 ) extends HeaderExtension[Response] { self =>
 
   /**
@@ -71,7 +74,7 @@ final case class Response private (
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
   private[zio] def close: Task[Unit] = self.attribute.channel match {
-    case Some(channel) => ChannelFuture.unit(channel.close())
+    case Some(channel) => NettyFutureExecutor.executed(channel.close())
     case None          => ZIO.refailCause(Cause.fail(new IOException("Channel context isn't available")))
   }
 
@@ -112,36 +115,11 @@ object Response {
     status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     body: Body = Body.empty,
+    httpError: Option[HttpError] = None,
   ): Response =
-    Response(status, headers, body, Attribute.empty)
+    Response(status, headers, body, Attribute.empty, httpError)
 
-  def fromHttpError(error: HttpError): Response = {
-
-    def prettify(throwable: Throwable): String = {
-      val sw = new StringWriter
-      throwable.printStackTrace(new PrintWriter(sw))
-      s"${sw.toString}"
-    }
-
-    Response
-      .html(
-        status = error.status,
-        data = Template.container(s"${error.status}") {
-          div(
-            div(
-              styles := Seq("text-align" -> "center"),
-              div(s"${error.status.code}", styles := Seq("font-size" -> "20em")),
-              div(error.message),
-            ),
-            div(
-              error.foldCause(div()) { throwable =>
-                div(h3("Cause:"), pre(prettify(throwable)))
-              },
-            ),
-          )
-        },
-      )
-  }
+  def fromHttpError(error: HttpError): Response = Response(status = error.status, httpError = Some(error))
 
   /**
    * Creates a new response for the provided socket
@@ -161,6 +139,7 @@ object Response {
         Headers.empty,
         Body.empty,
         Attribute(socketApp = Option(app.provideEnvironment(env))),
+        None,
       )
     }
 
@@ -227,7 +206,7 @@ object Response {
       val headers      = Headers.decode(jRes.headers())
       val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
       val data         = Body.fromByteBuf(copiedBuffer)
-      Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
+      Response(status, headers, data, attribute = Attribute(channel = Some(ctx)), None)
     }
 
     final def fromStreamingJResponse(ctx: ChannelHandlerContext, jRes: HttpResponse)(implicit
@@ -244,7 +223,7 @@ object Response {
             new ClientResponseStreamHandler(callback),
           ): Unit
       }
-      Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))
+      Response(status, headers, data, attribute = Attribute(channel = Some(ctx)), None)
     }
   }
 

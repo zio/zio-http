@@ -3,7 +3,7 @@ package example
 import zio._
 import zio.http._
 import zio.http.model.Method
-import zio.http.service.ServerSSLHandler._
+import zio.http.netty.server.ServerSSLHandler._
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route

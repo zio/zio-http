@@ -9,14 +9,27 @@ import io.netty.handler.proxy.HttpProxyHandler
 import zio.{http, _}
 import zio.http.model._
 import zio.http.model.headers.Headers
-import zio.http.service.ClientSSLHandler.ClientSSLOptions
+import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
+import zio.http.netty.client._
+import zio.http.netty.{NettyRuntime, _}
 import zio.http.service._
 import zio.http.socket.SocketApp
 
 import java.net.InetSocketAddress
 
-trait Client {
-  def request(request: Request): ZIO[Any, Throwable, Response]
+trait Client { self =>
+
+  def headers: Headers
+
+  def hostOption: Option[String]
+
+  def pathPrefix: Path
+
+  def portOption: Option[Int]
+
+  def queries: Map[String, Chunk[String]]
+
+  def sslOption: Option[ClientSSLOptions]
 
   def socket[R](
     url: String,
@@ -25,21 +38,152 @@ trait Client {
     addZioUserAgentHeader: Boolean = false,
   )(implicit unsafe: Unsafe): ZIO[R with Scope, Throwable, Response]
 
+  def header(key: String, value: String): Client =
+    copy(headers = headers ++ Headers.Header(key, value))
+
+  def host(host: String): Client =
+    copy(hostOption = Some(host))
+
+  def path(segment: String): Client =
+    copy(pathPrefix = pathPrefix / segment)
+
+  def port(port: Int): Client =
+    copy(portOption = Some(port))
+
+  def query(key: String, value: String): Client =
+    copy(queries = queries + (key -> Chunk(value)))
+
+  final def request(method: Method, pathSuffix: String, body: Body): ZIO[Any, Throwable, Response] =
+    requestInternal(
+      body,
+      headers,
+      hostOption,
+      method,
+      pathPrefix / pathSuffix,
+      portOption,
+      queries,
+      sslOption,
+      Version.Http_1_1,
+    )
+
+  final def request(request: Request): ZIO[Any, Throwable, Response] = {
+    requestInternal(
+      request.body,
+      headers ++ request.headers,
+      request.url.host,
+      request.method,
+      pathPrefix ++ request.path,
+      request.url.port,
+      queries ++ request.url.queryParams,
+      sslOption,
+      request.version,
+    )
+  }
+
+  def ssl(ssl: ClientSSLOptions): Client =
+    copy(sslOption = Some(ssl))
+
+  protected def requestInternal(
+    body: Body,
+    headers: Headers,
+    hostOption: Option[String],
+    method: Method,
+    pathPrefix: Path,
+    portOption: Option[Int],
+    queries: Map[String, Chunk[String]],
+    sslOption: Option[ClientSSLOptions],
+    version: Version,
+  ): ZIO[Any, Throwable, Response]
+
+  private def copy(
+    headers: Headers = headers,
+    hostOption: Option[String] = hostOption,
+    pathPrefix: Path = pathPrefix,
+    portOption: Option[Int] = portOption,
+    queries: Map[String, Chunk[String]] = queries,
+    sslOption: Option[ClientSSLOptions] = sslOption,
+  ): Client =
+    Client.Proxy(self, headers, hostOption, pathPrefix, portOption, queries, sslOption)
 }
 
 object Client {
+
+  private final case class Proxy(
+    client: Client,
+    headers: Headers,
+    hostOption: Option[String],
+    pathPrefix: Path,
+    portOption: Option[Int],
+    queries: Map[String, Chunk[String]],
+    sslOption: Option[ClientSSLOptions],
+  ) extends Client {
+
+    def requestInternal(
+      body: Body,
+      headers: Headers,
+      hostOption: Option[String],
+      method: Method,
+      path: Path,
+      portOption: Option[Int],
+      queries: Map[String, Chunk[String]],
+      sslOption: Option[ClientSSLOptions],
+      version: Version,
+    ): ZIO[Any, Throwable, Response] =
+      client.requestInternal(body, headers, hostOption, method, path, portOption, queries, sslOption, version)
+
+    def socket[R](
+      url: String,
+      app: SocketApp[R],
+      headers: Headers = Headers.empty,
+      addZioUserAgentHeader: Boolean = false,
+    )(implicit unsafe: Unsafe): ZIO[R with Scope, Throwable, Response] =
+      client.socket(url, app, headers, addZioUserAgentHeader)
+
+  }
+
   final case class ClientLive(
     settings: ClientConfig,
-    rtm: HttpRuntime[Any],
+    rtm: NettyRuntime,
     cf: JChannelFactory[JChannel],
     el: JEventLoopGroup,
   ) extends Client
       with ClientRequestEncoder {
+    val headers: Headers                    = Headers.empty
+    val hostOption: Option[String]          = None
+    val pathPrefix: Path                    = Path.empty
+    val portOption: Option[Int]             = None
+    val queries: Map[String, Chunk[String]] = Map.empty
+    val sslOption: Option[ClientSSLOptions] = None
 
-    override def request(request: Request): ZIO[Any, Throwable, Response] =
-      requestAsync(request, settings)
+    def requestInternal(
+      body: Body,
+      headers: Headers,
+      hostOption: Option[String],
+      method: Method,
+      path: Path,
+      portOption: Option[Int],
+      queries: Map[String, Chunk[String]],
+      sslOption: Option[ClientSSLOptions],
+      version: Version,
+    ): ZIO[Any, Throwable, Response] = {
 
-    override def socket[R](url: String, app: SocketApp[R], headers: Headers, addZioUserAgentHeader: Boolean)(implicit
+      for {
+        host     <- ZIO.fromOption(hostOption).orElseFail(new IllegalArgumentException("Host is required"))
+        port     <- ZIO.fromOption(portOption).orElseSucceed(80)
+        response <- requestAsync(
+          Request(
+            version = version,
+            method = method,
+            url = URL(path, URL.Location.Absolute(Scheme.HTTP, host, port)).setQueryParams(queries),
+            headers = headers,
+            body = body,
+          ),
+          sslOption.fold(settings)(settings.ssl),
+        )
+      } yield response
+    }
+
+    def socket[R](url: String, app: SocketApp[R], headers: Headers, addZioUserAgentHeader: Boolean)(implicit
       unsafe: Unsafe,
     ): ZIO[R with Scope, Throwable, Response] =
       for {
@@ -60,8 +204,8 @@ object Client {
       for {
         promise <- Promise.make[Throwable, Response]
         jReq    <- encode(request)
-        _       <- ChannelFuture
-          .unit(internalRequest(request, jReq, promise, clientConfig)(Unsafe.unsafe))
+        _       <- NettyFutureExecutor
+          .executed(internalRequest(request, jReq, promise, clientConfig)(Unsafe.unsafe))
           .catchAll(cause => promise.fail(cause))
         res     <- promise.await
       } yield res
@@ -212,36 +356,18 @@ object Client {
       ZIO.serviceWithZIO[Client](_.socket(url, app, headers))
     }
 
-  val live: ZLayer[ClientConfig with Scope, Throwable, Client] = ZLayer {
-    for {
-      settings       <- ZIO.service[ClientConfig]
-      channelFactory <- channelFactory(settings)
-      eventLoopGroup <- eventLoopGroup(settings)
-      zx             <- HttpRuntime.default[Any]
-    } yield ClientLive(settings, zx, channelFactory, eventLoopGroup)
-  }
-
-  val default = ClientConfig.default >>> live
-
-  private def channelFactory(config: ClientConfig): UIO[ChannelFactory] = {
-    config.channelType match {
-      case ChannelType.NIO    => ChannelFactory.Live.nio
-      case ChannelType.EPOLL  => ChannelFactory.Live.epoll
-      case ChannelType.KQUEUE => ChannelFactory.Live.kQueue
-      case ChannelType.URING  => ChannelFactory.Live.uring
-      case ChannelType.AUTO   => ChannelFactory.Live.auto
+  val live: ZLayer[ClientConfig with ChannelFactory with EventLoopGroup with NettyRuntime, Throwable, Client] =
+    ZLayer {
+      for {
+        settings       <- ZIO.service[ClientConfig]
+        channelFactory <- ZIO.service[ChannelFactory]
+        eventLoopGroup <- ZIO.service[EventLoopGroup]
+        zx             <- ZIO.service[NettyRuntime]
+      } yield ClientLive(settings, zx, channelFactory, eventLoopGroup)
     }
-  }
 
-  private def eventLoopGroup(config: ClientConfig): ZIO[Scope, Nothing, EventLoopGroup] = {
-    config.channelType match {
-      case ChannelType.NIO    => EventLoopGroup.Live.nio(config.nThreads)
-      case ChannelType.EPOLL  => EventLoopGroup.Live.epoll(config.nThreads)
-      case ChannelType.KQUEUE => EventLoopGroup.Live.kQueue(config.nThreads)
-      case ChannelType.URING  => EventLoopGroup.Live.uring(config.nThreads)
-      case ChannelType.AUTO   => EventLoopGroup.Live.auto(config.nThreads)
-    }
-  }
+  val default =
+    ClientConfig.default >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool >>> live
 
   val zioHttpVersion: CharSequence           = Client.getClass().getPackage().getImplementationVersion()
   val zioHttpVersionNormalized: CharSequence = Option(zioHttpVersion).getOrElse("")

@@ -5,7 +5,8 @@ import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, Htt
 import zio.Unsafe
 import zio.http.model.headers.{HeaderExtension, Headers}
 import zio.http.model.{Method, Version}
-import zio.http.service.{Ctx, ServerInboundHandler}
+import zio.http.netty._
+import zio.http.service.Ctx
 
 import java.io.IOException
 
@@ -186,7 +187,7 @@ object Request {
       override final def url: URL         = URL.fromString(jReq.uri()).getOrElse(URL.empty)
       override final val version: Version = protocolVersion
       override final def body: Body       = Body.fromAsync { async =>
-        ServerInboundHandler.unsafe.addAsyncBodyHandler(async)(ctx, Unsafe.unsafe)
+        ctx.addAsyncBodyHandler(async)(Unsafe.unsafe)
       }
 
       override final val unsafe: UnsafeAPI = new UnsafeAPI {

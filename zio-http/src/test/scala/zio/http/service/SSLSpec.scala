@@ -4,8 +4,8 @@ import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zio.http._
 import zio.http.model.{Method, Status}
-import zio.http.service.ClientSSLHandler.ClientSSLOptions
-import zio.http.service.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
+import zio.http.netty.client.ClientSSLHandler._
+import zio.http.netty.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}

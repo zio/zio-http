@@ -31,6 +31,7 @@ package object service extends Logging {
   private[zio] val CLIENT_STREAMING_BODY_HANDLER      = "CLIENT_STREAMING_BODY_HANDLER"
   private[zio] val WEB_SOCKET_CLIENT_PROTOCOL_HANDLER = "WEB_SOCKET_CLIENT_PROTOCOL_HANDLER"
   private[zio] val HTTP_REQUEST_DECOMPRESSION         = "HTTP_REQUEST_DECOMPRESSION"
+  private[zio] val HTTP_RESPONSE_COMPRESSION          = "HTTP_RESPONSE_COMPRESSION"
   private[zio] val LOW_LEVEL_LOGGING                  = "LOW_LEVEL_LOGGING"
   private[zio] val PROXY_HANDLER                      = "PROXY_HANDLER"
   private[zio] val HTTP_CONTENT_HANDLER               = "HTTP_CONTENT_HANDLER"

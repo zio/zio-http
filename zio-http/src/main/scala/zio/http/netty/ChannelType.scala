@@ -1,4 +1,4 @@
-package zio.http
+package zio.http.netty
 
 sealed trait ChannelType
 
@@ -12,4 +12,9 @@ object ChannelType {
   case object URING extends ChannelType
 
   case object AUTO extends ChannelType
+
+  trait Config {
+    def channelType: ChannelType
+  }
+
 }

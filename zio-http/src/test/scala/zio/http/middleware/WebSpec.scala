@@ -262,6 +262,21 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         }
       },
     ),
+    suite("prettify error") {
+      test("should not add anything to the body  as request do not have an accept header") {
+        val app = (Http.error("Error !!!") @@ beautifyErrors) header "content-type"
+        assertZIO(app(Request()))(isNone)
+      } +
+        test("should return a html body as the request has accept header set to text/html.") {
+          val app = (Http
+            .error("Error !!!") @@ beautifyErrors) header "content-type"
+          assertZIO(
+            app(
+              Request(headers = Headers.accept(HeaderValues.textHtml)),
+            ),
+          )(isSome(equalTo("text/html")))
+        }
+    },
   )
 
   private def cond(flg: Boolean) = (_: Any) => flg
