@@ -1,15 +1,16 @@
-package zio.http.service
+package zio.http.netty.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpUtil}
+import zio._
 import zio.http.Response
-import zio.{Promise, Unsafe}
+import zio.http.netty.{NettyFutureExecutor, NettyRuntime}
 
 /**
  * Handles HTTP response
  */
-final class ClientInboundHandler[R](
-  zExec: HttpRuntime[R],
+final class ClientInboundHandler(
+  zExec: NettyRuntime,
   jReq: FullHttpRequest,
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, Unit],
@@ -17,7 +18,7 @@ final class ClientInboundHandler[R](
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
-  override def handlerAdded(ctx: Ctx): Unit = {
+  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
     if (ctx.channel().isActive && ctx.channel().isRegistered) {
       sendRequest(ctx)
     }
@@ -39,9 +40,9 @@ final class ClientInboundHandler[R](
     msg.touch("handlers.ClientInboundHandler-channelRead0")
     // NOTE: The promise is made uninterruptible to be able to complete the promise in a error situation.
     // It allows to avoid loosing the message from pipeline in case the channel pipeline is closed due to an error.
-    zExec.runUninterruptible {
+    zExec.runUninterruptible(ctx) {
       onResponse.succeed(Response.unsafe.fromJResponse(ctx, msg))
-    }(ctx, unsafeClass)
+    }(unsafeClass)
 
     if (isWebSocket) {
       ctx.fireChannelRead(msg.retain())
@@ -51,19 +52,19 @@ final class ClientInboundHandler[R](
       val shouldKeepAlive = HttpUtil.isKeepAlive(msg)
 
       if (!shouldKeepAlive) {
-        zExec.runUninterruptible(
-          ChannelFuture.unit(ctx.close()).exit.flatMap(onComplete.done(_)),
-        )(ctx, unsafeClass)
+        zExec.runUninterruptible(ctx)(
+          NettyFutureExecutor.executed(ctx.close()).exit.flatMap(onComplete.done(_)),
+        )(unsafeClass)
       } else {
-        zExec.runUninterruptible(onComplete.succeed(()))(ctx, unsafeClass)
+        zExec.runUninterruptible(ctx)(onComplete.succeed(()))(unsafeClass)
       }
     }
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    zExec.runUninterruptible {
-      onResponse.fail(error) *> onComplete.fail(error)
-    }(ctx, unsafeClass)
+    zExec.runUninterruptible(ctx)(
+      onResponse.fail(error) *> onComplete.fail(error),
+    )(unsafeClass)
     releaseRequest()
   }
 

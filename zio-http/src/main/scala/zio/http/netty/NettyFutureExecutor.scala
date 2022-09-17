@@ -1,11 +1,11 @@
-package zio.http.service
+package zio.http.netty
 
 import io.netty.util.concurrent.{Future, GenericFutureListener}
 import zio._
 
 import java.util.concurrent.CancellationException
 
-final class ChannelFuture[A] private (jFuture: Future[A]) {
+private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
 
   /**
    * Resolves when the underlying future resolves and removes the handler
@@ -21,7 +21,7 @@ final class ChannelFuture[A] private (jFuture: Future[A]) {
           jFuture.cause() match {
             case null                     => cb(ZIO.attempt(Option(jFuture.get)))
             case _: CancellationException => cb(ZIO.succeed(Option.empty))
-            case cause                    => cb(ZIO.refailCause(Cause.fail(cause)))
+            case cause                    => cb(ZIO.fail(cause))
           }
         }
         jFuture.addListener(handler)
@@ -37,10 +37,10 @@ final class ChannelFuture[A] private (jFuture: Future[A]) {
   def cancel(interruptIfRunning: Boolean = false): UIO[Boolean] = ZIO.succeed(jFuture.cancel(interruptIfRunning))
 }
 
-object ChannelFuture {
-  def make[A](jFuture: => Future[A]): Task[ChannelFuture[A]] = ZIO.attempt(new ChannelFuture(jFuture))
+object NettyFutureExecutor {
+  def make[A](jFuture: => Future[A]): Task[NettyFutureExecutor[A]] = ZIO.attempt(new NettyFutureExecutor(jFuture))
 
-  def unit[A](jFuture: => Future[A]): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
+  def executed[A](jFuture: => Future[A]): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
 
   def scoped[A](jFuture: => Future[A]): ZIO[Scope, Throwable, Unit] = make(jFuture).flatMap(_.scoped.unit)
 }

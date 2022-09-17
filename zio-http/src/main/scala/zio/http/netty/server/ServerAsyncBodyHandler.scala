@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http.netty.server
 
 import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
@@ -6,7 +6,8 @@ import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zio.Chunk
 import zio.http.Body
 
-final class ServerAsyncBodyHandler(val async: Body.UnsafeAsync) extends SimpleChannelInboundHandler[HttpContent](true) {
+private[zio] final class ServerAsyncBodyHandler(val async: Body.UnsafeAsync)
+    extends SimpleChannelInboundHandler[HttpContent](true) {
   self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {

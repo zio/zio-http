@@ -2,7 +2,7 @@ package example
 
 import io.netty.handler.ssl.SslContextBuilder
 import zio._
-import zio.http.service.ClientSSLHandler.ClientSSLOptions
+import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.service.ConnectionPool
 import zio.http.{Client, ClientConfig, Headers}
 

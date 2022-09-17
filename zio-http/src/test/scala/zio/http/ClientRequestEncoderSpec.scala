@@ -2,7 +2,7 @@ package zio.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.http.internal.HttpGen
-import zio.http.service.ClientRequestEncoder
+import zio.http.netty.client._
 import zio.test.Assertion._
 import zio.test._
 

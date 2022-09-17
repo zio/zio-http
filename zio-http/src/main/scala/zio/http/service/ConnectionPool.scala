@@ -6,11 +6,13 @@ import io.netty.handler.codec.http.HttpClientCodec
 import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.URL.Location
-import zio.http.service.ClientSSLHandler.ClientSSLOptions
+import zio.http.netty.NettyFutureExecutor
+import zio.http.netty.client.ClientSSLHandler
+import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
-import zio.http.{ChannelType, ClientConfig, Proxy, URL}
+import zio.http.{Proxy, URL}
 import zio.logging.LogLevel
-import zio.{Duration, Scope, UIO, ZIO, ZLayer}
+import zio.{Duration, Scope, ZIO, ZLayer}
 
 import java.net.InetSocketAddress
 
@@ -72,7 +74,7 @@ object ConnectionPool {
         .handler(initializer)
         .connect()
     }.flatMap { channelFuture =>
-      ChannelFuture.unit(channelFuture) *>
+      NettyFutureExecutor.executed(channelFuture) *>
         ZIO.attempt(channelFuture.channel())
     }
   }
@@ -100,8 +102,8 @@ object ConnectionPool {
       pool
         .get(PoolKey(location, proxy, sslOptions))
         .tap(channel =>
-          ChannelFuture
-            .unit(channel.closeFuture())
+          NettyFutureExecutor
+            .executed(channel.closeFuture())
             .zipRight(
               pool.invalidate(channel),
             )
@@ -109,46 +111,24 @@ object ConnectionPool {
         )
   }
 
-  private def channelFactory(config: ClientConfig): UIO[ChannelFactory] = {
-    config.channelType match {
-      case ChannelType.NIO    => ChannelFactory.Live.nio
-      case ChannelType.EPOLL  => ChannelFactory.Live.epoll
-      case ChannelType.KQUEUE => ChannelFactory.Live.kQueue
-      case ChannelType.URING  => ChannelFactory.Live.uring
-      case ChannelType.AUTO   => ChannelFactory.Live.auto
-    }
-  }
-
-  private def eventLoopGroup(config: ClientConfig): ZIO[Scope, Nothing, EventLoopGroup] = {
-    config.channelType match {
-      case ChannelType.NIO    => EventLoopGroup.Live.nio(config.nThreads)
-      case ChannelType.EPOLL  => EventLoopGroup.Live.epoll(config.nThreads)
-      case ChannelType.KQUEUE => EventLoopGroup.Live.kQueue(config.nThreads)
-      case ChannelType.URING  => EventLoopGroup.Live.uring(config.nThreads)
-      case ChannelType.AUTO   => EventLoopGroup.Live.auto(config.nThreads)
-    }
-  }
-
   // TODO: these should be scoped layers and not getting scope from outside
 
-  val disabled: ZLayer[Scope with ClientConfig, Nothing, ConnectionPool] =
+  val disabled: ZLayer[EventLoopGroup with ChannelFactory, Nothing, ConnectionPool] =
     ZLayer {
       for {
-        config         <- ZIO.service[ClientConfig]
-        channelFactory <- channelFactory(config)
-        eventLoopGroup <- eventLoopGroup(config)
+        channelFactory <- ZIO.service[ChannelFactory]
+        eventLoopGroup <- ZIO.service[EventLoopGroup]
 
       } yield new NoConnectionPool(channelFactory, eventLoopGroup)
     }
 
   // TODO: "auto" layer to be set up from ClientConfig
 
-  def fixed(size: Int): ZLayer[Scope with ClientConfig, Throwable, ConnectionPool] =
-    ZLayer.scoped {
+  def fixed(size: Int): ZLayer[ChannelFactory with EventLoopGroup, Throwable, ConnectionPool] =
+    ZLayer.scoped[ChannelFactory with EventLoopGroup] {
       for {
-        config         <- ZIO.service[ClientConfig]
-        channelFactory <- channelFactory(config)
-        eventLoopGroup <- eventLoopGroup(config)
+        channelFactory <- ZIO.service[ChannelFactory]
+        eventLoopGroup <- ZIO.service[EventLoopGroup]
         keyedPool      <- ZKeyedPool.make(
           (key: PoolKey) => createChannel(channelFactory, eventLoopGroup, key.location, key.proxy, key.sslOptions),
           size,
@@ -156,12 +136,15 @@ object ConnectionPool {
       } yield new ZioConnectionPool(keyedPool)
     }
 
-  def dynamic(min: Int, max: Int, ttl: Duration): ZLayer[Scope with ClientConfig, Throwable, ConnectionPool] =
-    ZLayer.scoped {
+  def dynamic(
+    min: Int,
+    max: Int,
+    ttl: Duration,
+  ): ZLayer[ChannelFactory with EventLoopGroup, Throwable, ConnectionPool] =
+    ZLayer.scoped[ChannelFactory with EventLoopGroup] {
       for {
-        config         <- ZIO.service[ClientConfig]
-        channelFactory <- channelFactory(config)
-        eventLoopGroup <- eventLoopGroup(config)
+        channelFactory <- ZIO.service[ChannelFactory]
+        eventLoopGroup <- ZIO.service[EventLoopGroup]
         keyedPool      <- ZKeyedPool.make(
           (key: PoolKey) => createChannel(channelFactory, eventLoopGroup, key.location, key.proxy, key.sslOptions),
           min to max,
