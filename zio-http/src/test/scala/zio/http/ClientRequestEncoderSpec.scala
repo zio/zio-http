@@ -2,8 +2,8 @@ package zio.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.http.internal.HttpGen
-import zio.http.netty.client._
 import zio.http.netty._
+import zio.http.netty.client._
 import zio.test.Assertion._
 import zio.test._
 
@@ -94,7 +94,7 @@ object ClientRequestEncoderSpec extends ZIOSpecDefault with ClientRequestEncoder
     test("http version") {
       check(anyClientParam) { params =>
         val req = encode(params).map(i => i.protocolVersion())
-        assertZIO(req)(equalTo(Versions.make( params.version)))
+        assertZIO(req)(equalTo(Versions.make(params.version)))
       }
     },
   )
