@@ -55,7 +55,7 @@ object APIExecutor      {
 
       location match {
         case Some(loc) => execute(loc, invocation)
-        case None => ZIO.fail(NotFound("An API could not be located during execution of an invocation", invocation.api))
+        case None => ZIO.die(NotFound("An API could not be located during execution of an invocation", invocation.api))
       }
     }
 
@@ -70,7 +70,7 @@ object APIExecutor      {
         response =>
           response.body.asChunk.flatMap { response =>
             meta.decoder(response) match {
-              case Left(error)  => ZIO.fail(DecodeError(s"Could not decode response: $error", invocation.api))
+              case Left(error)  => ZIO.die(DecodeError(s"Could not decode response: $error", invocation.api))
               case Right(value) => ZIO.succeed(value.asInstanceOf[B])
             }
           }
