@@ -4,7 +4,10 @@ import zio.Chunk
 import zio.http.api._
 import zio.http.api.In._
 
-object Threader {
+object Mechanic {
+  type Constructor[+A]   = InputResults => A
+  type Deconstructor[-A] = A => InputResults
+
   def flatten(in: In[_]): FlattenedAtoms = {
     var result = FlattenedAtoms.empty
     flattenedAtoms(in).foreach { atom =>
@@ -20,8 +23,6 @@ object Threader {
       case map: Transform[_, _]    => flattenedAtoms(map.api)
       case WithDoc(api, _)         => flattenedAtoms(api)
     }
-
-  type Constructor[+A] = InputResults => A
 
   private def indexed[A](api: In[A]): In[A] =
     indexedImpl(api, AtomIndices())._1
@@ -41,16 +42,19 @@ object Threader {
       case WithDoc(api, _) => indexedImpl(api.asInstanceOf[In[A]], indices)
     }
 
-  def thread[A](api: In[A]): Constructor[A] =
-    threadIndexed(indexed(api))
+  def makeConstructor[A](api: In[A]): Constructor[A] =
+    makeConstructorLoop(indexed(api))
 
-  private def threadIndexed[A](api: In[A]): Constructor[A] = {
+  def makeDeconstructor[A](api: In[A]): Deconstructor[A] =
+    makeDeconstructorLoop(indexed(api))
+
+  private def makeConstructorLoop[A](api: In[A]): Constructor[A] = {
     def coerce(any: Any): A = any.asInstanceOf[A]
 
     api match {
       case Combine(left, right, inputCombiner) =>
-        val leftThread  = threadIndexed(left)
-        val rightThread = threadIndexed(right)
+        val leftThread  = makeConstructorLoop(left)
+        val rightThread = makeConstructorLoop(right)
 
         results => {
           val leftValue  = leftThread(results)
@@ -69,10 +73,36 @@ object Threader {
         results => coerce(results.inputBody(index))
 
       case transform: Transform[_, A] =>
-        val threaded = threadIndexed(transform.api)
+        val threaded = makeConstructorLoop(transform.api)
         results => transform.f(threaded(results))
 
-      case WithDoc(api, _) => threadIndexed(api)
+      case WithDoc(api, _) => makeConstructorLoop(api)
+
+      case atom: Atom[_] =>
+        throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
+    }
+  }
+
+  private def makeDeconstructorLoop[A](api: In[A]): Deconstructor[A] = {
+    api match {
+      case Combine(left, right, inputCombiner) =>
+        val leftDeconstructor  = makeDeconstructorLoop(left)
+        val rightDeconstructor = makeDeconstructorLoop(right)
+
+        input => {
+          val (left, right) = inputCombiner.separate(input)
+
+          leftDeconstructor(left) ++ rightDeconstructor(right)
+        }
+
+      case IndexedAtom(_: Route[_], _)     => ???
+      case IndexedAtom(_: Header[_], _)    => ???
+      case IndexedAtom(_: Query[_], _)     => ???
+      case IndexedAtom(_: InputBody[_], _) => ???
+
+      case _: Transform[_, A] => ???
+
+      case WithDoc(api, _) => makeDeconstructorLoop(api)
 
       case atom: Atom[_] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
@@ -105,7 +135,18 @@ object Threader {
     queries: Chunk[Any] = Chunk.empty,
     headers: Chunk[Any] = Chunk.empty,
     inputBody: Chunk[Any] = Chunk.empty,
-  )
+  ) { self =>
+    def ++(that: InputResults): InputResults =
+      InputResults(
+        routes = self.routes ++ that.routes,
+        queries = self.queries ++ that.queries,
+        headers = self.headers ++ that.headers,
+        inputBody = self.inputBody ++ that.inputBody,
+      )
+  }
+  private[api] object InputResults   {
+    val empty: InputResults = InputResults(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
+  }
 
   private final case class AtomIndices(
     route: Int = 0,

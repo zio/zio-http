@@ -49,7 +49,7 @@ object HandlerTree {
 
   def single[R, E](handledAPI: Service.HandledAPI[R, E, _, _]): HandlerTree[R, E] = {
     val routeCodecs =
-      Threader.flatten(handledAPI.api.input).routes
+      Mechanic.flatten(handledAPI.api.input).routes
 
     routeCodecs.foldRight[HandlerTree[R, E]](Leaf(handledAPI)) { case (codec, acc) =>
       Branch(Map(Some(codec) -> acc))
