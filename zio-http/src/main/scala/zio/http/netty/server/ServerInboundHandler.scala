@@ -10,9 +10,11 @@ import zio.logging.Logger
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
-  driverCtx: Driver.Context,
-  runtime: NettyRuntime,
+  // driverCtx: Driver.Context,
+  appRef: AppRef,
   config: ServerConfig,
+  errCallbackRef: ErrorCallbackRef,
+  runtime: NettyRuntime,
   time: service.ServerTime,
 ) extends SimpleChannelInboundHandler[HttpObject](false) { self =>
   import ServerInboundHandler.log
@@ -38,7 +40,7 @@ private[zio] final case class ServerInboundHandler(
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromFullHttpRequest(jReq)(ctx)
-        val exit = driverCtx.onApp(_.execute(req))
+        val exit = appRef.get.execute(req)
 
         if (ctx.attemptFastWrite(exit, time)) {
           releaseRequest(jReq)
@@ -50,7 +52,7 @@ private[zio] final case class ServerInboundHandler(
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Request.fromHttpRequest(jReq)(ctx)
-        val exit = driverCtx.onApp(_.execute(req))
+        val exit = appRef.get.execute(req)
 
         if (!ctx.attemptFastWrite(exit, time)) {
           if (canHaveBody(jReq)) ctx.setAutoRead(false)
@@ -68,7 +70,7 @@ private[zio] final case class ServerInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    driverCtx.errorCallback.fold(super.exceptionCaught(ctx, cause))(f => runtime.run(ctx)(f(cause)))
+    errCallbackRef.get().fold(super.exceptionCaught(ctx, cause))(f => runtime.run(ctx)(f(cause)))
   }
 }
 
@@ -77,12 +79,13 @@ object ServerInboundHandler {
 
   def layer = ZLayer.fromZIO {
     for {
-      driverCtx <- ZIO.service[Driver.Context]
-      rtm       <- ZIO.service[NettyRuntime]
-      config    <- ZIO.service[ServerConfig]
-      time      <- ZIO.service[service.ServerTime]
+      appRef      <- ZIO.service[AppRef]
+      errCallback <- ZIO.service[ErrorCallbackRef]
+      rtm         <- ZIO.service[NettyRuntime]
+      config      <- ZIO.service[ServerConfig]
+      time        <- ZIO.service[service.ServerTime]
 
-    } yield ServerInboundHandler(driverCtx, rtm, config, time)
+    } yield ServerInboundHandler(appRef, config, errCallback, rtm, time)
   }
 
 }

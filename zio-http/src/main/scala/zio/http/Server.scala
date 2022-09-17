@@ -32,34 +32,27 @@ object Server {
   val live = NettyDriver.default >>> base
 
   val base: ZLayer[
-    Driver with Driver.Context,
+    Driver,
     Throwable,
     Server,
   ] = ZLayer.scoped {
     for {
-      driver    <- ZIO.service[Driver]
-      driverCtx <- ZIO.service[Driver.Context]
-      port      <- driver.start()
-    } yield ServerLive(driverCtx, port)
+      driver <- ZIO.service[Driver]
+      port   <- driver.start()
+    } yield ServerLive(driver, port)
   }
 
   private final case class ServerLive(
-    driverCtx: Driver.Context,
+    driver: Driver,
     bindPort: Int,
   ) extends Server {
     override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] =
-      ZIO.environment[R].map { env =>
-        val newApp =
+      ZIO.environment[R].flatMap { env =>
+        driver.setApp(
           if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
-          else httpApp.provideEnvironment(env)
-        var loop   = true
-        while (loop) {
-          driverCtx.onAppRef { appRef =>
-            val oldApp = appRef.get()
-            if (appRef.compareAndSet(oldApp, newApp ++ oldApp)) loop = false
-          }
-        }
-        ()
+          else httpApp.provideEnvironment(env),
+        )
+
       } *> setErrorCallback(errorCallback)
 
     override def port: Int = bindPort
@@ -67,16 +60,7 @@ object Server {
     private def setErrorCallback(errorCallback: Option[ErrorCallback]): UIO[Unit] = {
       ZIO
         .environment[Any]
-        .as {
-          var loop = true
-          while (loop) {
-            driverCtx.onErrorCallbackRef { errorRef =>
-              val oldErrorCallback = errorRef.get()
-              if (errorRef.compareAndSet(oldErrorCallback, errorCallback)) loop = false
-            }
-          }
-          ()
-        }
+        .flatMap(_ => driver.setErrorCallback(errorCallback))
         .unless(errorCallback.isEmpty)
         .map(_.getOrElse(()))
     }
