@@ -1,7 +1,6 @@
 package zio.http
 
-import Path.Segment
-import zio.http
+import zio.http.Path.Segment
 
 private[zio] trait PathSyntax { module =>
   val !! : Path = Path.root
@@ -16,7 +15,7 @@ private[zio] trait PathSyntax { module =>
           case Segment.Root       => ""
         }
         tail = path.segments.drop(1)
-      } yield (head, http.Path(tail))
+      } yield (head, Path(tail))
   }
 
   object / {
@@ -32,7 +31,7 @@ private[zio] trait PathSyntax { module =>
           case Segment.Root       => ""
           case Segment.Text(text) => text
         }
-        Some(http.Path(path.segments.init) -> last)
+        Some(Path(path.segments.init) -> last)
       } else None
     }
   }

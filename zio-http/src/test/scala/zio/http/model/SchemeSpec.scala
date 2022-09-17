@@ -1,9 +1,8 @@
-package zio.http
+package zio.http.model
 
 import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import zio.http.internal.HttpGen
-import zio.http.model.Scheme
 import zio.test.Assertion.isNone
 import zio.test._
 

@@ -1,7 +1,7 @@
 package zio.http.model
 
+import zio.http._
 import zio.http.model.Cookie.{SameSite, Type}
-import zio.http.{CookieDecoder, CookieEncoder, Path, Request, Response}
 import zio.{Duration, Unsafe}
 
 import java.security.MessageDigest

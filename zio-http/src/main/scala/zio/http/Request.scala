@@ -3,8 +3,8 @@ package zio.http
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpRequest}
 import zio.Unsafe
-import zio.http.model.headers.{HeaderExtension, Headers}
-import zio.http.model.{Method, Version}
+import zio.http.model._
+import zio.http.model.headers._
 import zio.http.netty._
 import zio.http.service.Ctx
 

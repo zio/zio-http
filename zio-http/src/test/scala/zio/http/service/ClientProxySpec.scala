@@ -1,6 +1,6 @@
 package zio.http.service
 
-import zio.http.{Request, Response, URL, _}
+import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Status
@@ -8,7 +8,7 @@ import zio.http.model.headers.Headers
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
-import zio.{Scope, ZIO, durationInt, http}
+import zio.{Scope, ZIO, durationInt}
 
 import java.net.ConnectException
 
@@ -23,8 +23,8 @@ object ClientProxySpec extends HttpRunnableSpec {
           proxyUrl        <- ZIO.fromEither(URL.fromString("http://localhost:0001"))
           out             <- Client
             .request(
-              http.Request(url = serverUrl),
-              )
+              Request(url = serverUrl),
+            )
             .provideSome(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))))
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
@@ -38,8 +38,8 @@ object ClientProxySpec extends HttpRunnableSpec {
           proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
           out <- Client
             .request(
-              http.Request(url = url),
-              )
+              Request(url = url),
+            )
             .provideSome(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.proxy(proxy)))
         } yield out
       assertZIO(res.either)(isRight)
@@ -63,8 +63,8 @@ object ClientProxySpec extends HttpRunnableSpec {
             .withCredentials(Credentials("test", "test"))
           out <- Client
             .request(
-              http.Request(url = url),
-              )
+              Request(url = url),
+            )
             .provideSome(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.proxy(proxy)))
         } yield out
       assertZIO(res.either)(isRight)

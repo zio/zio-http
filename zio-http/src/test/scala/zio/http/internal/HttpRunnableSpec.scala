@@ -1,7 +1,7 @@
 package zio.http.internal
 
+import zio.http.URL.Location
 import zio.http._
-import URL.Location
 import zio.http.model._
 import zio.http.model.headers.Headers
 import zio.http.socket.SocketApp
@@ -39,7 +39,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
           body = body,
           version = version,
         ),
-        ).catchAll {
+      ).catchAll {
         case Some(value) => ZIO.fail(value)
         case None        => ZIO.fail(new RuntimeException("No response"))
       }

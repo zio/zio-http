@@ -1,12 +1,18 @@
 package zio.http
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{ChannelInitializer, Channel => JChannel, ChannelFactory => JChannelFactory, ChannelFuture => JChannelFuture, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{
+  ChannelInitializer,
+  Channel => JChannel,
+  ChannelFactory => JChannelFactory,
+  ChannelFuture => JChannelFuture,
+  EventLoopGroup => JEventLoopGroup,
+}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.proxy.HttpProxyHandler
-import zio.{http, _}
+import zio._
 import zio.http.model._
 import zio.http.model.headers.Headers
 import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
@@ -197,7 +203,7 @@ object Client {
             headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
           ),
           clientConfig = settings.copy(socketApp = Some(app.provideEnvironment(env))),
-          ).withFinalizer(_.close.orDie)
+        ).withFinalizer(_.close.orDie)
       } yield res
 
     private def requestAsync(request: Request, clientConfig: ClientConfig): ZIO[Any, Throwable, Response] = {
@@ -337,7 +343,7 @@ object Client {
             headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
             body = content,
           ),
-          ),
+        ),
       )
     } yield response
 

@@ -1,8 +1,7 @@
 package zio
 
 import io.netty.util.CharsetUtil
-import zio.http.{Request, Response}
-import zio.http.model.headers.{HeaderNames, HeaderValues, Headers}
+import zio.http.model.headers._
 
 import java.nio.charset.Charset
 

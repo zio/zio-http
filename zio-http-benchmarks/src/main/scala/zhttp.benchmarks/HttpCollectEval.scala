@@ -1,7 +1,6 @@
 package zio.benchmarks
 
 import org.openjdk.jmh.annotations._
-import zio.http
 import zio.http._
 
 import java.util.concurrent.TimeUnit
@@ -24,7 +23,7 @@ class HttpCollectEval {
 
   @Benchmark
   def benchmarkHttp(): Unit = {
-    (0 to MAX).foreach(_ => http.execute(http.Request(url = URL(!! / "text"))))
+    (0 to MAX).foreach(_ => http.execute(Request(url = URL(!! / "text"))))
     ()
   }
 

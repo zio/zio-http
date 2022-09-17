@@ -3,14 +3,13 @@ package zio.http.model
 import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import zio.Unsafe
-import zio.http.model.Scheme.{HTTP, HTTPS, WS, WSS}
 
 sealed trait Scheme { self =>
   def encode: String = self match {
-    case HTTP  => "http"
-    case HTTPS => "https"
-    case WS    => "ws"
-    case WSS   => "wss"
+    case Scheme.HTTP  => "http"
+    case Scheme.HTTPS => "https"
+    case Scheme.WS    => "ws"
+    case Scheme.WSS   => "wss"
   }
 
   def isHttp: Boolean = !isWebSocket
@@ -28,15 +27,15 @@ sealed trait Scheme { self =>
   }
 
   def toJHttpScheme: Option[HttpScheme] = self match {
-    case HTTP  => Option(HttpScheme.HTTP)
-    case HTTPS => Option(HttpScheme.HTTPS)
-    case _     => None
+    case Scheme.HTTP  => Option(HttpScheme.HTTP)
+    case Scheme.HTTPS => Option(HttpScheme.HTTPS)
+    case _            => None
   }
 
   def toJWebSocketScheme: Option[WebSocketScheme] = self match {
-    case WS  => Option(WebSocketScheme.WS)
-    case WSS => Option(WebSocketScheme.WSS)
-    case _   => None
+    case Scheme.WS  => Option(WebSocketScheme.WS)
+    case Scheme.WSS => Option(WebSocketScheme.WSS)
+    case _          => None
   }
 }
 object Scheme       {
@@ -49,14 +48,14 @@ object Scheme       {
     Option(unsafe.decode(scheme)(Unsafe.unsafe))
 
   def fromJScheme(scheme: HttpScheme): Option[Scheme] = scheme match {
-    case HttpScheme.HTTPS => Option(HTTPS)
-    case HttpScheme.HTTP  => Option(HTTP)
+    case HttpScheme.HTTPS => Option(Scheme.HTTPS)
+    case HttpScheme.HTTP  => Option(Scheme.HTTP)
     case _                => None
   }
 
   def fromJScheme(scheme: WebSocketScheme): Option[Scheme] = scheme match {
-    case WebSocketScheme.WSS => Option(WSS)
-    case WebSocketScheme.WS  => Option(WS)
+    case WebSocketScheme.WSS => Option(Scheme.WSS)
+    case WebSocketScheme.WS  => Option(Scheme.WS)
     case _                   => None
   }
 
@@ -65,10 +64,10 @@ object Scheme       {
       if (scheme == null) null
       else
         scheme.length match {
-          case 5 => HTTPS
-          case 4 => HTTP
-          case 3 => WSS
-          case 2 => WS
+          case 5 => Scheme.HTTPS
+          case 4 => Scheme.HTTP
+          case 3 => Scheme.WSS
+          case 2 => Scheme.WS
           case _ => null
         }
     }

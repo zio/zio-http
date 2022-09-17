@@ -3,7 +3,7 @@ package zio.http.service
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zio.http._
-import zio.http.model.{Method, Status}
+import zio.http.model._
 import zio.http.netty.client.ClientSSLHandler._
 import zio.http.netty.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zio.test.Assertion.equalTo

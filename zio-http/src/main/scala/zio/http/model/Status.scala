@@ -1,7 +1,7 @@
 package zio.http.model
 
 import io.netty.handler.codec.http.HttpResponseStatus
-import zio.http.{Http, Response, UHttpApp}
+import zio.http._
 
 sealed trait Status extends Product with Serializable { self =>
 

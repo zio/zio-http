@@ -2,13 +2,12 @@ package zio.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderValues
 import zio._
+import zio.http.URL.encode
 import zio.http._
-import zio.http.model.headers.HeaderModifier
 import zio.http.html._
 import zio.http.middleware.Web.{PartialInterceptPatch, PartialInterceptZIOPatch}
-import URL.encode
 import zio.http.model._
-import zio.http.model.headers.{HeaderModifier, Headers}
+import zio.http.model.headers._
 
 import java.io.{IOException, PrintWriter, StringWriter}
 
