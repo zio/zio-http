@@ -48,7 +48,7 @@ object Server {
   ) extends Server {
     override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] =
       ZIO.environment[R].flatMap { env =>
-        driver.setApp(
+        driver.addApp(
           if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
           else httpApp.provideEnvironment(env),
         )

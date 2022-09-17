@@ -7,5 +7,5 @@ trait Driver {
 
   def setErrorCallback(newCallback: Option[Server.ErrorCallback]): UIO[Unit]
 
-  def setApp(newApp: HttpApp[Any, Throwable]): UIO[Unit]
+  def addApp(newApp: HttpApp[Any, Throwable]): UIO[Unit]
 }

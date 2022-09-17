@@ -6,11 +6,10 @@ import io.netty.util.ResourceLeakDetector
 import zio._
 import zio.http.netty._
 import zio.http.service.ServerTime
-import zio.http.{Driver, ServerConfig, Server, HttpApp}
+import zio.http.{Driver, Http, HttpApp, Server, ServerConfig}
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
-import zio.http.Http
 
 private[zio] final case class NettyDriver(
   appRef: AppRef,
@@ -38,7 +37,7 @@ private[zio] final case class NettyDriver(
     }
   }
 
-  def setApp(newApp: HttpApp[Any, Throwable]): UIO[Unit] = ZIO.succeed {
+  def addApp(newApp: HttpApp[Any, Throwable]): UIO[Unit] = ZIO.succeed {
     var loop = true
     while (loop) {
       val oldApp = appRef.get()
