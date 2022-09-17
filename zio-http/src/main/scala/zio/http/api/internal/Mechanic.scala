@@ -6,7 +6,7 @@ import zio.http.api.In._
 
 private[api] object Mechanic {
   type Constructor[+A]   = InputResults => A
-  type Deconstructor[-A] = A => InputResults
+  type Deconstructor[-A] = A => InputsBuilder
 
   def flatten(in: In[_]): FlattenedAtoms = {
     var result = FlattenedAtoms.empty
@@ -45,8 +45,22 @@ private[api] object Mechanic {
   def makeConstructor[A](api: In[A]): Constructor[A] =
     makeConstructorLoop(indexed(api))
 
-  def makeDeconstructor[A](api: In[A]): Deconstructor[A] =
-    makeDeconstructorLoop(indexed(api))
+  def makeDeconstructor[A](api: In[A]): Deconstructor[A] = {
+    val flattened = flatten(api)
+
+    val routeCount  = flattened.routes.length
+    val queryCount  = flattened.queries.length
+    val headerCount = flattened.headers.length
+    val bodyCount   = flattened.inputBodies.length
+
+    val deconstructor = makeDeconstructorLoop(indexed(api))
+
+    (a: A) => {
+      val inputsBuilder = InputsBuilder.make(routeCount, queryCount, headerCount, bodyCount)
+      deconstructor(a, inputsBuilder)
+      inputsBuilder
+    }
+  }
 
   private def makeConstructorLoop[A](api: In[A]): Constructor[A] = {
     def coerce(any: Any): A = any.asInstanceOf[A]
@@ -83,24 +97,35 @@ private[api] object Mechanic {
     }
   }
 
-  private def makeDeconstructorLoop[A](api: In[A]): Deconstructor[A] = {
+  private def makeDeconstructorLoop[A](api: In[A]): (A, InputsBuilder) => Unit = {
     api match {
       case Combine(left, right, inputCombiner) =>
         val leftDeconstructor  = makeDeconstructorLoop(left)
         val rightDeconstructor = makeDeconstructorLoop(right)
 
-        input => {
+        (input, inputsBuilder) => {
           val (left, right) = inputCombiner.separate(input)
 
-          leftDeconstructor(left) ++ rightDeconstructor(right)
+          leftDeconstructor(left, inputsBuilder)
+          rightDeconstructor(right, inputsBuilder)
         }
 
-      case IndexedAtom(_: Route[_], _)     => ???
-      case IndexedAtom(_: Header[_], _)    => ???
-      case IndexedAtom(_: Query[_], _)     => ???
-      case IndexedAtom(_: InputBody[_], _) => ???
+      case IndexedAtom(_: Route[_], index) =>
+        (input, inputsBuilder) => inputsBuilder.setRoute(index, input)
 
-      case _: Transform[_, A] => ???
+      case IndexedAtom(_: Header[_], index) =>
+        (input, inputsBuilder) => inputsBuilder.setHeader(index, input)
+
+      case IndexedAtom(_: Query[_], index) =>
+        (input, inputsBuilder) => inputsBuilder.setQuery(index, input)
+
+      case IndexedAtom(_: InputBody[_], index) =>
+        (input, inputsBuilder) => inputsBuilder.setInputBody(index, input)
+
+      case transform: Transform[_, A] =>
+        val deconstructor = makeDeconstructorLoop(transform.api)
+
+        (input, inputsBuilder) => deconstructor(transform.g(input), inputsBuilder)
 
       case WithDoc(api, _) => makeDeconstructorLoop(api)
 
@@ -146,6 +171,34 @@ private[api] object Mechanic {
   }
   private[api] object InputResults   {
     val empty: InputResults = InputResults(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
+  }
+
+  private[api] final case class InputsBuilder(
+    routes: Array[Any],
+    queries: Array[Any],
+    headers: Array[Any],
+    inputBody: Array[Any],
+  ) { self =>
+    def setRoute(index: Int, value: Any): Unit =
+      routes(index) = value
+
+    def setQuery(index: Int, value: Any): Unit =
+      queries(index) = value
+
+    def setHeader(index: Int, value: Any): Unit =
+      headers(index) = value
+
+    def setInputBody(index: Int, value: Any): Unit =
+      inputBody(index) = value
+  }
+  private[api] object InputsBuilder  {
+    def make(routes: Int, queries: Int, headers: Int, bodies: Int): InputsBuilder =
+      InputsBuilder(
+        routes = new Array(routes),
+        queries = new Array(queries),
+        headers = new Array(headers),
+        inputBody = new Array(bodies),
+      )
   }
 
   private final case class AtomIndices(
