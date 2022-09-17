@@ -1,8 +1,9 @@
-package zio.http.service
+package zio.http
+package service
 
 import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
-import zio.http.service.ClientSSLHandler.ClientSSLOptions
+import zio.http.netty.client.ClientSSLHandler._
 import zio.http.{Client, ClientConfig, Status}
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}

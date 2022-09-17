@@ -1,7 +1,7 @@
-package zio.http.service
+package zio.http.netty.server
 
 import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel.{Channel => JChannel, ChannelHandler, ChannelInitializer}
+import io.netty.channel._
 import io.netty.handler.codec.http.HttpObjectDecoder.{
   DEFAULT_MAX_CHUNK_SIZE,
   DEFAULT_MAX_HEADER_SIZE,
@@ -11,8 +11,11 @@ import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
+import zio._
 import zio.http.ServerConfig
-import zio.http.service.ServerChannelInitializer.log
+import zio.http.netty.Names
+import zio.http.netty.server.ServerChannelInitializer.log
+import zio.http.service.Log
 import zio.http.service.logging.LogLevelTransform._
 import zio.logging.LogLevel
 
@@ -20,12 +23,13 @@ import zio.logging.LogLevel
  * Initializes the netty channel with default handlers
  */
 @Sharable
-final case class ServerChannelInitializer[R](
-  zExec: HttpRuntime[R],
+private[zio] final case class ServerChannelInitializer(
   cfg: ServerConfig,
-  reqHandler: ChannelHandler,
-) extends ChannelInitializer[JChannel] {
-  override def initChannel(channel: JChannel): Unit = {
+  reqHandler: ChannelInboundHandler,
+  enableNettyLogging: Boolean = false,
+) extends ChannelInitializer[Channel] {
+
+  override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
     // Order of handlers are critical to make this work
     val pipeline = channel.pipeline()
@@ -34,7 +38,7 @@ final case class ServerChannelInitializer[R](
     // Add SSL Handler if CTX is available
     cfg.sslOption.map(_.sslContext).foreach { ctx =>
       pipeline
-        .addFirst(SSL_HANDLER, new ServerSSLDecoder(ctx, cfg.sslOption.map(_.httpBehaviour).orNull, cfg))
+        .addFirst(Names.SSLHandler, new ServerSSLDecoder(ctx, cfg.sslOption.map(_.httpBehaviour).orNull, cfg))
     }
 
     // ServerCodec
@@ -47,11 +51,11 @@ final case class ServerChannelInitializer[R](
 
     // HttpContentDecompressor
     if (cfg.requestDecompression._1)
-      pipeline.addLast(HTTP_REQUEST_DECOMPRESSION, new HttpContentDecompressor(cfg.requestDecompression._2))
+      pipeline.addLast(Names.HttpRequestDecompression, new HttpContentDecompressor(cfg.requestDecompression._2))
 
     cfg.responseCompression.foreach(ops => {
       pipeline.addLast(
-        HTTP_RESPONSE_COMPRESSION,
+        Names.HttpResponseCompression,
         new HttpContentCompressor(ops.contentThreshold, ops.options.map(_.toJava): _*),
       )
     })
@@ -59,34 +63,34 @@ final case class ServerChannelInitializer[R](
     // ObjectAggregator
     // Always add ObjectAggregator
     if (cfg.useAggregator)
-      pipeline.addLast(HTTP_OBJECT_AGGREGATOR, new HttpObjectAggregator(cfg.objectAggregator))
+      pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(cfg.objectAggregator))
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
-    if (cfg.acceptContinue) pipeline.addLast(HTTP_SERVER_EXPECT_CONTINUE, new HttpServerExpectContinueHandler())
+    if (cfg.acceptContinue) pipeline.addLast(Names.HttpServerExpectContinue, new HttpServerExpectContinueHandler())
 
     // KeepAliveHandler
     // Add Keep-Alive handler is settings is true
-    if (cfg.keepAlive) pipeline.addLast(HTTP_KEEPALIVE_HANDLER, new HttpServerKeepAliveHandler)
+    if (cfg.keepAlive) pipeline.addLast(Names.HttpKeepAliveHandler, new HttpServerKeepAliveHandler)
 
     // FlowControlHandler
     // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
     // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
-    if (cfg.flowControl) pipeline.addLast(FLOW_CONTROL_HANDLER, new FlowControlHandler())
+    if (cfg.flowControl) pipeline.addLast(Names.FlowControlHandler, new FlowControlHandler())
 
     // FlushConsolidationHandler
     // Flushing content is done in batches. Can potentially improve performance.
-    if (cfg.consolidateFlush) pipeline.addLast(HTTP_SERVER_FLUSH_CONSOLIDATION, new FlushConsolidationHandler)
+    if (cfg.consolidateFlush) pipeline.addLast(Names.HttpServerFlushConsolidation, new FlushConsolidationHandler)
 
-    if (EnableNettyLogging) {
+    if (enableNettyLogging) {
       import io.netty.util.internal.logging.InternalLoggerFactory
       InternalLoggerFactory.setDefaultFactory(zio.http.service.logging.NettyLoggerFactory(log))
-      pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(LogLevel.Debug.toNettyLogLevel))
+      pipeline.addLast(Names.LowLevelLogging, new LoggingHandler(LogLevel.Debug.toNettyLogLevel))
     }
 
     // RequestHandler
     // Always add ZIO Http Request Handler
-    pipeline.addLast(HTTP_REQUEST_HANDLER, reqHandler)
+    pipeline.addLast(Names.HttpRequestHandler, reqHandler)
     // TODO: find a different approach if (cfg.channelInitializer != null) { cfg.channelInitializer(pipeline) }
     ()
   }
@@ -95,4 +99,11 @@ final case class ServerChannelInitializer[R](
 
 object ServerChannelInitializer {
   private val log = Log.withTags("Server", "Channel")
+
+  val layer = ZLayer.fromZIO {
+    for {
+      cfg     <- ZIO.service[ServerConfig]
+      handler <- ZIO.service[SimpleChannelInboundHandler[HttpObject]]
+    } yield ServerChannelInitializer(cfg, handler, false) // TODO add Netty logging flag to ServerConfig.
+  }
 }

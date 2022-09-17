@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http.netty.server
 
 import io.netty.handler.ssl.ApplicationProtocolConfig.{
   Protocol,

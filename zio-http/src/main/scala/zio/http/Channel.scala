@@ -1,7 +1,7 @@
 package zio.http
 
 import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
-import zio.http.service.ChannelFuture
+import zio.http.netty.NettyFutureExecutor
 import zio.{Task, UIO, ZIO}
 
 /**
@@ -15,7 +15,7 @@ final case class Channel[-A](
   self =>
 
   private def foreach[S](await: Boolean)(run: JChannel => JChannelFuture): Task[Unit] = {
-    if (await) ChannelFuture.unit(run(channel))
+    if (await) NettyFutureExecutor.executed(run(channel))
     else ZIO.attempt(run(channel): Unit)
   }
 
