@@ -4,7 +4,6 @@ import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHea
 import zio.http.middleware.Auth.Credentials
 import zio.http.model._
 import zio.http.model.headers.Headers.{BearerSchemeName, Header}
-import zio.http.{HeaderNames, HeaderValues}
 import zio.test.Assertion._
 import zio.test.{Gen, ZIOSpecDefault, assert, assertTrue, check}
 

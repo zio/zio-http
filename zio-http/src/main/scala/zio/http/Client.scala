@@ -2,10 +2,10 @@ package zio.http
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
-  ChannelInitializer,
   Channel => JChannel,
   ChannelFactory => JChannelFactory,
   ChannelFuture => JChannelFuture,
+  ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http._

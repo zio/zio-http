@@ -2,8 +2,7 @@ package zio.http.model.headers
 
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
-import zio.http.HeaderValues
-import zio.http.model.MediaType
+import zio.http.model._
 
 /**
  * Maintains a list of operators that checks if the Headers meet the give

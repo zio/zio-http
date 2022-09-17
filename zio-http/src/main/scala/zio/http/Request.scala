@@ -1,6 +1,5 @@
 package zio.http
 
-import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpRequest}
 import zio.Unsafe
 import zio.http.model._
@@ -52,8 +51,8 @@ trait Request extends HeaderExtension[Request] { self =>
       override final val body: Body       = self.body
 
       override final val unsafe: UnsafeAPI = new UnsafeAPI {
-        override final def context(implicit unsafe: Unsafe): ChannelHandlerContext = self.unsafe.context
-        override final def encode(implicit unsafe: Unsafe): HttpRequest            = self.unsafe.encode
+        override final def context(implicit unsafe: Unsafe): Ctx        = self.unsafe.context
+        override final def encode(implicit unsafe: Unsafe): HttpRequest = self.unsafe.encode
       }
     }
   }
@@ -113,7 +112,7 @@ trait Request extends HeaderExtension[Request] { self =>
     /**
      * Accesses the channel's context for more low level control
      */
-    def context(implicit unsafe: Unsafe): ChannelHandlerContext
+    def context(implicit unsafe: Unsafe): Ctx
 
     /**
      * Gets the HttpRequest
@@ -150,10 +149,10 @@ object Request {
       override final val body: Body       = d
 
       override final val unsafe: UnsafeAPI = new UnsafeAPI {
-        override final def context(implicit unsafe: Unsafe): ChannelHandlerContext = throw new IOException(
+        override final def context(implicit unsafe: Unsafe): Ctx        = throw new IOException(
           "Request does not have a context",
         )
-        override final def encode(implicit unsafe: Unsafe): HttpRequest            = {
+        override final def encode(implicit unsafe: Unsafe): HttpRequest = {
           val jVersion = v.toJava
           val path     = url.relative.encode
           new DefaultFullHttpRequest(jVersion, method.toJava, path)
