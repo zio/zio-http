@@ -10,7 +10,6 @@ import zio.logging.Logger
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
-  // driverCtx: Driver.Context,
   appRef: AppRef,
   config: ServerConfig,
   errCallbackRef: ErrorCallbackRef,
@@ -40,7 +39,7 @@ private[zio] final case class ServerInboundHandler(
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Requests.make(jReq, ctx)
-        val exit = driverCtx.onApp(_.execute(req))
+        val exit = appRef.get.execute(req)
 
         if (ctx.attemptFastWrite(exit, time)) {
           releaseRequest(jReq)
@@ -52,7 +51,7 @@ private[zio] final case class ServerInboundHandler(
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = Requests.make(jReq, ctx)
-        val exit = driverCtx.onApp(_.execute(req))
+        val exit = appRef.get.execute(req)
 
         if (!ctx.attemptFastWrite(exit, time)) {
           if (canHaveBody(jReq)) ctx.setAutoRead(false)

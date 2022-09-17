@@ -9,7 +9,7 @@ import zio.http.model.headers.HeaderModifier
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
-import java.io.{File, FileNotFoundException }
+import java.io.{File, FileNotFoundException}
 import java.net
 import java.nio.charset.Charset
 import java.nio.file.Paths
@@ -670,12 +670,12 @@ object Http {
     def whenPathEq(p: Path): HttpApp[R, E] =
       http.whenPathEq(p.encode)(Unsafe.unsafe)
 
-    /** [1453]
-     * Applies Http based on the path as string
+    /**
+     * [1453] Applies Http based on the path as string
      */
-    def whenPathEq(p: String)(implicit unsafe: Unsafe): HttpApp[R, E] = 
-      http.when(_.url.toString.contentEquals( p))
-      // http.when(_.unsafe.encode.uri().contentEquals(p))
+    def whenPathEq(p: String)(implicit unsafe: Unsafe): HttpApp[R, E] =
+      http.when(_.url.toString.contentEquals(p))
+    // http.when(_.unsafe.encode.uri().contentEquals(p))
   }
 
   /**
@@ -721,11 +721,11 @@ object Http {
   def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]]): Http[R, E, A, B] =
     i.reduce(_.defaultWith(_))
 
-  /** [1453]
-   * Provides access to the request's ChannelHandlerContext
+  /**
+   * [1453] Provides access to the request's ChannelHandlerContext
    */
   // def context: Http[Any, Nothing, Request, ChannelHandlerContext] = ???
-    // Http.fromFunctionZIO[Request](request => ZIO.succeedUnsafe { implicit u => request.unsafe.context })
+  // Http.fromFunctionZIO[Request](request => ZIO.succeedUnsafe { implicit u => request.unsafe.context })
 
   /**
    * Returns an http app that dies with the specified `Throwable`. This method
@@ -980,8 +980,8 @@ object Http {
   def ok: HttpApp[Any, Nothing] = status(Status.Ok)
 
   /**
-   * Provides access to the request's remote address
-   * [1453] Moved to `zio.http.Request`
+   * Provides access to the request's remote address [1453] Moved to
+   * `zio.http.Request`
    */
   // def remoteAddress: Http[Any, IOException, Request, InetAddress] =
   //   context flatMap { ctx =>
@@ -1036,9 +1036,9 @@ object Http {
    */
   def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.RequestEntityTooLarge)
 
-  /** [1453]
-   * Provides low level access to an HttpApp to perform unsafe operations using
-   * the request's ChannelHandlerContext.
+  /**
+   * [1453] Provides low level access to an HttpApp to perform unsafe operations
+   * using the request's ChannelHandlerContext.
    */
   // def usingContext[R, E](f: ChannelHandlerContext => HttpApp[R, E]): HttpApp[R, E] = context.flatMap(f(_))
 

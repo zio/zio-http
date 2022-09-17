@@ -9,6 +9,7 @@ import zio.http.service.ServerTime
 import zio.http.{Driver, Http, HttpApp, Server, ServerConfig}
 
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicReference
 
 private[zio] final case class NettyDriver(
   appRef: AppRef,

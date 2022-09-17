@@ -1,9 +1,10 @@
 package zio.http.netty
 
-import io.netty.handler.codec.http.{FullHttpRequest, HttpRequest}
 import io.netty.channel._
-import zio.http._
+import io.netty.handler.codec.http.{FullHttpRequest, HttpRequest}
 import zio._
+import zio.http._
+
 import java.net.InetSocketAddress
 
 private[zio] object Requests {
@@ -28,7 +29,7 @@ private[zio] object Requests {
           Method.fromHttpMethod(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
-          remoteAddress
+          remoteAddress,
         )
       case nettyReq: HttpRequest     =>
         //   override final val unsafe: UnsafeAPI = new UnsafeAPI {
@@ -45,7 +46,7 @@ private[zio] object Requests {
           Method.fromHttpMethod(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
-          remoteAddress
+          remoteAddress,
         )
     }
 

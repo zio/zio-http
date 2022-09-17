@@ -1,6 +1,7 @@
 package zio.http
 
 import zio.http.headers.HeaderExtension
+
 import java.net.InetAddress
 
 final case class Request(
