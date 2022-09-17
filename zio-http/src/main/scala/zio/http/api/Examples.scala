@@ -36,11 +36,11 @@ object Examples extends ZIOAppDefault {
   object Client {
     def example(client: Client) = {
       val registry =
-        ServiceRegistry.empty
-          .register(getUser, ServiceAddress("localhost", 8080))
-          .register(getUserPosts, ServiceAddress("localhost", 8080))
+        APIRegistry.empty.registerAll(APIAddress("localhost", 8080)) {
+          getUser ++ getUserPosts
+        }
 
-      val executor = ServiceExecutor(client, registry)
+      val executor = APIExecutor(client, registry)
 
       val x1 = getUser(42)
       val x2 = getUserPosts(42, "adam", 200)

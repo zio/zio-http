@@ -26,13 +26,35 @@ final case class API[Input, Output](
 ) { self =>
   type Id
 
+  /**
+   * Combines this API and another group of APIs.
+   */
+  def ++[Ids](that: APIs[Ids]): APIs[Id with Ids] = APIs(self).++[Ids](that)
+
+  /**
+   * Combines this API with another API.
+   */
+  def ++(that: API[_, _]): APIs[Id with that.Id] = APIs(self).++[that.Id](APIs(that))
+
+  /**
+   * Returns a new API that is derived from this one, but which includes
+   * additional documentation that will be included in OpenAPI generation.
+   */
   def ??(that: Doc): API[Input, Output] = copy(doc = self.doc + that)
 
+  /**
+   * Converts this API, which is an abstract description of an endpoint, into a
+   * service, which is a concrete implementation of the endpoint. In order to
+   * convert an API into a service, you must specify a function which handles
+   * the input, and returns the output.
+   */
   def handle[R, E](f: Input => ZIO[R, E, Output]): Service.WithAllIds[R, E, Id] =
     Service.HandledAPI(self, f).withAllIds[Id]
 
   /**
    * Changes the identity of the API to the specified singleton string type.
+   * Currently this is only used to "prettify" type signatures and, assuming
+   * each API is uniquely identified, has no effect on behavior.
    */
   def id[I <: String with Singleton](i: I): API.WithId[Input, Output, I] = {
     val _ = i

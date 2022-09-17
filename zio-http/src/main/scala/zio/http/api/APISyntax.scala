@@ -1,5 +1,9 @@
 package zio.http.api
 
+/**
+ * These syntax class are provided so that users do not have to wrap the
+ * arguments to an API into a tuple.
+ */
 private[api] trait APISyntax extends APISyntaxLowPriority {
   implicit class APITuple2Syntax[Id, A, B, Z](val api: API.WithId[(A, B), Z, Id])                                     {
     def apply(a: A, b: B): Invocation[Id, (A, B), Z] = Invocation(api, (a, b))

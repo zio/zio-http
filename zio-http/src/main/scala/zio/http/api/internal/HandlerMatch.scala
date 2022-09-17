@@ -11,8 +11,8 @@ final case class HandlerMatch[-R, +E, Input, Output](
 ) {
 
   val in       = handledApi.api.input
-  val atoms    = In.flatten(in)
-  val threader = In.thread(in)
+  val atoms    = Threader.flatten(in)
+  val threader = Threader.thread(in)
 
   // TODO: precompute threader and anything else that's derivable from API itself
   def run(request: Request): ZIO[R, E, Response] = {
@@ -20,7 +20,7 @@ final case class HandlerMatch[-R, +E, Input, Output](
     val queryResults: Chunk[Any] = parseQuery(request, atoms.queries)
 
     // Reassembled and Threaded
-    val fullResults = In.InputResults(results, queryResults)
+    val fullResults = Threader.InputResults(results, queryResults)
     val _           = fullResults
     val input       = threader(fullResults)
     handledApi.handler(input).map { out =>

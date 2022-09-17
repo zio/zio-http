@@ -1,5 +1,10 @@
 package zio.http.api
 
+/**
+ * A combiner is a type class responsible for combining invariant type
+ * parameters. It is used to compose the inputs of the [[zio.http.api.In]] data
+ * type.
+ */
 sealed trait Combiner[L, R] {
   type Out
 

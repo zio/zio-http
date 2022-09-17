@@ -1,7 +1,7 @@
 package zio.http.api
 
 /**
- * A `Doc` models the full documentation for a command-line application.
+ * A `Doc` models documentation for an endpoint or input.
  *
  * `Doc` is composed of optional header and footers, and in-between, a list of
  * Doc-level content items.
