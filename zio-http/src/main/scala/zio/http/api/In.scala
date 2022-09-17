@@ -12,6 +12,7 @@ import zio.schema.Schema
  */
 sealed trait In[Input] {
   self =>
+  import zio.http.api.In._
 
   def ??(doc: Doc): In[Input] = In.WithDoc(self, doc)
 
@@ -20,6 +21,18 @@ sealed trait In[Input] {
 
   def /[Input2](that: In[Input2])(implicit combiner: Combiner[Input, Input2]): In[combiner.Out] =
     self ++ that
+
+  def bodySchema: Option[Schema[_]] =
+    self match {
+      case Route(_)                => None
+      case InputBody(schema)       => Some(schema)
+      case Query(_, _)             => None
+      case Header(_, _)            => None
+      case IndexedAtom(atom, _)    => atom.bodySchema
+      case Transform(in, _, _)     => in.bodySchema
+      case WithDoc(in, _)          => in.bodySchema
+      case Combine(left, right, _) => left.bodySchema orElse right.bodySchema
+    }
 
   /**
    * Transforms the type parameter of this `In` from `Input` to `Input2`. Due to

@@ -1,12 +1,14 @@
 package zio.http.api
 
-final case class APIRegistry[+Ids] private (private val map: Map[API[_, _], APIAddress]) extends APILocator { self =>
-  def locate(api: API[_, _]): Option[APIAddress] = map.get(api)
+import zio.http.URL
 
-  def register(api: API[_, _], address: APIAddress): APIRegistry[Ids with api.Id] =
+final case class APIRegistry[+Ids] private (private val map: Map[API[_, _], URL]) extends APILocator { self =>
+  def locate(api: API[_, _]): Option[URL] = map.get(api)
+
+  def register(api: API[_, _], address: URL): APIRegistry[Ids with api.Id] =
     copy(map = map + (api -> address)).withIds[Ids with api.Id]
 
-  def registerAll[Ids2](address: APIAddress)(apis: APIs[Ids2]): APIRegistry[Ids with Ids2] =
+  def registerAll[Ids2](address: URL)(apis: APIs[Ids2]): APIRegistry[Ids with Ids2] =
     apis.flatten
       .foldLeft[APIRegistry[_]](self) { case (registry, api) =>
         registry.register(api, address)

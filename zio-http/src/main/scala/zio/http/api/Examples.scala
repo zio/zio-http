@@ -36,7 +36,7 @@ object Examples extends ZIOAppDefault {
   object Client {
     def example(client: Client) = {
       val registry =
-        APIRegistry.empty.registerAll(APIAddress("localhost", 8080)) {
+        APIRegistry.empty.registerAll(URL.fromString("http://localhost:8080").getOrElse(???)) {
           getUser ++ getUserPosts
         }
 
