@@ -4,7 +4,6 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zio.http.internal.HttpGen
 import zio.http.netty._
 import zio.http.netty.client._
-import zio.http.netty._
 import zio.test.Assertion._
 import zio.test._
 
