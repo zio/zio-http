@@ -4,7 +4,7 @@ import zio.Chunk
 import zio.http.api._
 import zio.http.api.In._
 
-object Mechanic {
+private[api] object Mechanic {
   type Constructor[+A]   = InputResults => A
   type Deconstructor[-A] = A => InputResults
 
