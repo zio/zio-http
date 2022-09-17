@@ -64,6 +64,8 @@ object APIExecutor      {
 
       val encodedInput: Chunk[Byte] = meta.encoder(invocation.request)
 
+      // FIXME: Add query string parameters, path, headers:
+
       client.request(Request(url = loc, headers = meta.requestHeaders, body = Body.fromChunk(encodedInput))).flatMap {
         response =>
           response.body.asChunk.flatMap { response =>
