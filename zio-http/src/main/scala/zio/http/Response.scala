@@ -240,6 +240,7 @@ object Response {
       jRes: HttpResponse,
       zExec: HttpRuntime[Any],
       onComplete: Promise[Throwable, Unit],
+      keepAlive: Boolean,
     )(implicit
       unsafe: Unsafe,
     ): Response = {
@@ -251,7 +252,7 @@ object Response {
           .addAfter(
             CLIENT_INBOUND_HANDLER,
             CLIENT_STREAMING_BODY_HANDLER,
-            new ClientResponseStreamHandler(callback, zExec, onComplete),
+            new ClientResponseStreamHandler(callback, zExec, onComplete, keepAlive),
           ): Unit
       }
       Response(status, headers, data, attribute = Attribute(channel = Some(ctx)))

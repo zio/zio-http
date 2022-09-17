@@ -3,10 +3,13 @@ package zio.http.service
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.HttpClientCodec
+import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.URL.Location
 import zio.http.service.ClientSSLHandler.ClientSSLOptions
+import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
 import zio.http.{ChannelType, ClientConfig, Proxy, URL}
+import zio.logging.LogLevel
 import zio.{Duration, Scope, UIO, ZIO, ZLayer}
 
 import java.net.InetSocketAddress
@@ -20,6 +23,8 @@ trait ConnectionPool {
 }
 
 object ConnectionPool {
+  private val log = Log.withTags("Client", "Channel")
+
   protected def createChannel(
     channelFactory: JChannelFactory[JChannel],
     eventLoopGroup: JEventLoopGroup,
@@ -30,6 +35,12 @@ object ConnectionPool {
     val initializer = new ChannelInitializer[JChannel] {
       override def initChannel(ch: JChannel): Unit = {
         val pipeline = ch.pipeline()
+
+        if (EnableNettyLogging) {
+          import io.netty.util.internal.logging.InternalLoggerFactory
+          InternalLoggerFactory.setDefaultFactory(zio.http.service.logging.NettyLoggerFactory(log))
+          pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(LogLevel.Debug.toNettyLogLevel))
+        }
 
         proxy match {
           case Some(proxy) =>
@@ -86,7 +97,16 @@ object ConnectionPool {
       proxy: Option[Proxy],
       sslOptions: ClientSSLOptions,
     ): ZIO[Scope, Throwable, JChannel] =
-      pool.get(PoolKey(location, proxy, sslOptions))
+      pool
+        .get(PoolKey(location, proxy, sslOptions))
+        .tap(channel =>
+          ChannelFuture
+            .unit(channel.closeFuture())
+            .zipRight(
+              pool.invalidate(channel),
+            )
+            .forkDaemon,
+        )
   }
 
   private def channelFactory(config: ClientConfig): UIO[ChannelFactory] = {

@@ -154,7 +154,7 @@ object ZKeyedPool {
         .commit
         .flatten
 
-    private def acquireFrom(key: Key, pool: ZPool[Err, Item]) =
+    private def acquireFrom(key: Key, pool: ZPool[Err, Item]): ZIO[Scope, Err, Item] =
       for {
         promise <- Promise.make[Nothing, Item]
         _       <- Scope.addFinalizer(removeFromAcquiredItems(promise))

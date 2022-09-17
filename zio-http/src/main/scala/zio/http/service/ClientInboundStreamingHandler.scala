@@ -40,6 +40,7 @@ final class ClientInboundStreamingHandler[R](
                 response,
                 zExec,
                 onComplete,
+                HttpUtil.isKeepAlive(response),
               ),
             )
         }(ctx, unsafeClass)

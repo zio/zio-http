@@ -10,7 +10,10 @@ final class ClientResponseStreamHandler(
   val callback: UnsafeAsync,
   zExec: HttpRuntime[Any],
   onComplete: Promise[Throwable, Unit],
+  keepAlive: Boolean,
 ) extends SimpleChannelInboundHandler[HttpContent](false) { self =>
+
+  private val unsafeClass: Unsafe = Unsafe.unsafe
 
   override def channelRead0(
     ctx: Ctx,
@@ -21,7 +24,14 @@ final class ClientResponseStreamHandler(
     callback(ctx.channel(), chunk, isLast)
     if (isLast) {
       ctx.channel().pipeline().remove(self)
-      zExec.runUninterruptible(onComplete.succeed(()))(ctx, Unsafe.unsafe)
+
+      if (keepAlive)
+        zExec.runUninterruptible(onComplete.succeed(()))(ctx, unsafeClass)
+      else {
+        zExec.runUninterruptible(
+          ChannelFuture.unit(ctx.close()).exit.flatMap(onComplete.done(_)),
+        )(ctx, unsafeClass)
+      }
     }: Unit
   }
 
@@ -30,6 +40,6 @@ final class ClientResponseStreamHandler(
   }
 
   override def exceptionCaught(ctx: Ctx, cause: Throwable): Unit = {
-    zExec.runUninterruptible(onComplete.succeed(()))(ctx, Unsafe.unsafe)
+    zExec.runUninterruptible(onComplete.succeed(()))(ctx, unsafeClass)
   }
 }

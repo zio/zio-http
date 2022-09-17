@@ -1,7 +1,7 @@
 package zio.http.service
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
+import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpUtil}
 import zio.http.Response
 import zio.{Promise, Unsafe}
 
@@ -40,13 +40,23 @@ final class ClientInboundHandler[R](
     // NOTE: The promise is made uninterruptible to be able to complete the promise in a error situation.
     // It allows to avoid loosing the message from pipeline in case the channel pipeline is closed due to an error.
     zExec.runUninterruptible {
-      onResponse.succeed(Response.unsafe.fromJResponse(ctx, msg)) *>
-        onComplete.succeed(())
+      onResponse.succeed(Response.unsafe.fromJResponse(ctx, msg))
     }(ctx, unsafeClass)
 
     if (isWebSocket) {
       ctx.fireChannelRead(msg.retain())
       ctx.pipeline().remove(ctx.name()): Unit
+    } else {
+
+      val shouldKeepAlive = HttpUtil.isKeepAlive(msg)
+
+      if (!shouldKeepAlive) {
+        zExec.runUninterruptible(
+          ChannelFuture.unit(ctx.close()).exit.flatMap(onComplete.done(_)),
+        )(ctx, unsafeClass)
+      } else {
+        zExec.runUninterruptible(onComplete.succeed(()))(ctx, unsafeClass)
+      }
     }
   }
 
