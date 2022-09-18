@@ -3,6 +3,7 @@ package zio.http
 import io.netty.handler.codec.http.QueryStringEncoder
 import zio.Chunk
 import zio.http.URL.{Fragment, Location}
+import zio.http.model.Scheme
 
 import java.net.{MalformedURLException, URI}
 import scala.util.Try

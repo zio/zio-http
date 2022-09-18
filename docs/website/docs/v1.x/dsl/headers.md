@@ -166,11 +166,11 @@ val responseHeaders: Task[Headers] =  Client.request(url).map(_.headers)
 
 Headers DSL provides plenty of powerful operators that can be used to add, remove, modify and verify headers. Headers APIs could be used on client, server, and middleware.
 
-`zio.http.Headers`      - represents an immutable collection of headers i.e. essentially a `Chunk[(String, String)]`.
+`zio.http.model.headers.Headers` - represents an immutable collection of headers i.e. essentially a `Chunk[(String, String)]`.
 
-`zio.http.HeaderNames`  - commonly used header names.
+`zio.http.HeaderNames`           - commonly used header names.
 
-`zio.http.HeaderValues` - commonly used header values
+`zio.http.HeaderValues`          - commonly used header values
 
 `Headers` have following type of helpers
 - Constructors -  Provides a list of helpful methods that can create `Headers`.

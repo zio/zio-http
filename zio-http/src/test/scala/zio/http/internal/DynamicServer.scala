@@ -3,6 +3,7 @@ package zio.http.internal
 import zio._
 import zio.http._
 import zio.http.internal.DynamicServer.Id
+import zio.http.model.Scheme
 
 import java.util.UUID
 

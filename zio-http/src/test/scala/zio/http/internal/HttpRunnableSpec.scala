@@ -2,9 +2,11 @@ package zio.http.internal
 
 import zio.http.URL.Location
 import zio.http._
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.http.socket.SocketApp
 import zio.test.ZIOSpecDefault
-import zio.{Scope, ZIO}
+import zio.{Scope, ZIO, http}
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would
@@ -30,7 +32,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       addZioUserAgentHeader: Boolean = false,
     ): ZIO[R, Throwable, A] =
       app(
-        Request(
+        http.Request(
           url = URL(path), // url set here is overridden later via `deploy` method
           method = method,
           headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),

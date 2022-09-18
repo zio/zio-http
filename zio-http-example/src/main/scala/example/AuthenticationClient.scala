@@ -1,7 +1,8 @@
 package example
 
 import zio._
-import zio.http.{Client, Headers}
+import zio.http.Client
+import zio.http.model.headers.Headers
 
 object AuthenticationClient extends ZIOAppDefault {
 

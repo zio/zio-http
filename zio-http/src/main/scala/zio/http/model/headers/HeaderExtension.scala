@@ -1,4 +1,4 @@
-package zio.http.headers
+package zio.http.model.headers
 
 /**
  * A trait that provides a ton of powerful operators when extended. Any type

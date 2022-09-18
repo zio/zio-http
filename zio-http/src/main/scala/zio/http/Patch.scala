@@ -1,5 +1,8 @@
 package zio.http
 
+import zio.http.model._
+import zio.http.model.headers.Headers
+
 import scala.annotation.tailrec
 
 /**

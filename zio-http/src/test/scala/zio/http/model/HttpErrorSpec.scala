@@ -1,5 +1,6 @@
-package zio.http
+package zio.http.model
 
+import zio.http._
 import zio.test.Assertion.equalTo
 import zio.test.{ZIOSpecDefault, assert}
 

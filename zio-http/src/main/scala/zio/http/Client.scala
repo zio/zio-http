@@ -13,6 +13,8 @@ import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio._
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.netty.client._
 import zio.http.netty.{NettyRuntime, _}
@@ -194,7 +196,7 @@ object Client {
         env <- ZIO.environment[R]
         uri <- ZIO.fromEither(URL.fromString(url))
         res <- requestAsync(
-          Request(
+          http.Request(
             version = Version.Http_1_1,
             Method.GET,
             uri,
@@ -334,7 +336,7 @@ object Client {
       uri      <- ZIO.fromEither(URL.fromString(url))
       response <- ZIO.serviceWithZIO[Client](
         _.request(
-          Request(
+          http.Request(
             version = Version.Http_1_1,
             method = method,
             url = uri,

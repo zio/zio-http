@@ -3,6 +3,8 @@ package zio.http.middleware
 import zio.ZIO
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
+import zio.http.model.Status
+import zio.http.model.headers.Headers
 import zio.test.Assertion._
 import zio.test._
 

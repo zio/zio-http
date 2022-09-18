@@ -2,6 +2,7 @@ package zio.http.service
 
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.model.Method
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
