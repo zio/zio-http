@@ -27,6 +27,7 @@ trait ScalaSettings {
     // "-Xlint:unused",                 // TODO check if we still need -Wunused below
 
     "-Xlint:deprecation", // Enable linted deprecations.
+    "-Xlint:-infer-any",  // Disable infer any warning
 
     // "-Wunused:explicits",                        // Warn if an explicit parameter is unused.
     // "-Wunused:params",                           // Enable -Wunused:explicits,implicits.
