@@ -17,13 +17,13 @@ object InSpec extends ZIOSpecDefault {
             .handle { userId =>
               ZIO.succeed(s"route(users, $userId)")
             } ++
-          API
-            .get(literal("users") / int / literal("posts") / int)
-            .in(query("name"))
-            .out[String]
-            .handle { case (userId, postId, name) =>
-              ZIO.succeed(s"route(users, $userId, posts, $postId) query(name=$name)")
-            },
+            API
+              .get(literal("users") / int / literal("posts") / int)
+              .in(query("name"))
+              .out[String]
+              .handle { case (userId, postId, name) =>
+                ZIO.succeed(s"route(users, $userId, posts, $postId) query(name=$name)")
+              },
         ) _
         testRoutes("/users/123", "route(users, 123)") &&
         testRoutes("/users/123/posts/555?name=adam", "route(users, 123, posts, 555) query(name=adam)")
@@ -36,15 +36,15 @@ object InSpec extends ZIOSpecDefault {
             .handle { userId =>
               ZIO.succeed(s"route(users, $userId)")
             } ++
-          API
-            .get(literal("users") / int)
-            .in(query("name"))
-            .in(literal("posts") / int)
-            .in(query("age"))
-            .out[String]
-            .handle { case (userId, name, postId, age) =>
-              ZIO.succeed(s"route(users, $userId, posts, $postId) query(name=$name, age=$age)")
-            },
+            API
+              .get(literal("users") / int)
+              .in(query("name"))
+              .in(literal("posts") / int)
+              .in(query("age"))
+              .out[String]
+              .handle { case (userId, name, postId, age) =>
+                ZIO.succeed(s"route(users, $userId, posts, $postId) query(name=$name, age=$age)")
+              },
         ) _
         testRoutes("/users/123", "route(users, 123)") &&
         testRoutes(
@@ -59,9 +59,9 @@ object InSpec extends ZIOSpecDefault {
     url: String,
     expected: String,
   ): ZIO[R, E, TestResult] = {
-    
-    val request = Request(url = URL.fromString(url).toOption.get)  
-  
+
+    val request = Request(url = URL.fromString(url).toOption.get)
+
     for {
       response <- service.toHttpApp(request).mapError(_.get)
       body     <- response.body.asString.orDie
