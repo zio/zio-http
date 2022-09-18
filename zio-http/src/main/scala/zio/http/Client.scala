@@ -44,6 +44,9 @@ trait Client { self =>
     addZioUserAgentHeader: Boolean = false,
   )(implicit unsafe: Unsafe): ZIO[R with Scope, Throwable, Response]
 
+  final def get(pathSuffix: String)(body: Body): Task[Response] =
+    request(Method.GET, pathSuffix, body)
+
   def header(key: String, value: String): Client =
     copy(headers = headers ++ Headers.Header(key, value))
 
@@ -52,6 +55,9 @@ trait Client { self =>
 
   def path(segment: String): Client =
     copy(pathPrefix = pathPrefix / segment)
+
+  def put(pathSuffix: String)(body: Body): Task[Response] =
+    request(Method.PUT, pathSuffix, body)
 
   def port(port: Int): Client =
     copy(portOption = Some(port))
