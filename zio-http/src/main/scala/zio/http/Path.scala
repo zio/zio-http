@@ -154,6 +154,8 @@ final case class Path private (segments: Vector[Segment]) { self =>
    */
   def take(n: Int): Path = Path(segments.take(n))
 
+  def textSegments: Vector[String] = segments.collect { case Segment.Text(text) => text }
+
   override def toString: String = encode
 
   /**
