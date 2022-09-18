@@ -2,6 +2,7 @@ package example
 
 import zio._
 import zio.http._
+import zio.http.model.Method
 
 object HelloWorld extends ZIOAppDefault {
 

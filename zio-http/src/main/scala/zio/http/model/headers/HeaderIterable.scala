@@ -1,6 +1,6 @@
-package zio.http.headers
+package zio.http.model.headers
 
-import zio.http.Headers.Header
+import zio.http.model.headers.Headers.Header
 
 /**
  * A trait that provides a ton of powerful operators when extended. Any type

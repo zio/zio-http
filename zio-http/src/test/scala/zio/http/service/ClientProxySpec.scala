@@ -3,6 +3,8 @@ package zio.http.service
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Auth.Credentials
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._

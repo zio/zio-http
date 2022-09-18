@@ -4,6 +4,8 @@ import zio.http.Middleware.cors
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.middleware.Cors.CorsConfig
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.test.Assertion.hasSubset
 import zio.test._
 

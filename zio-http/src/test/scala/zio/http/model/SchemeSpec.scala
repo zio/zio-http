@@ -1,4 +1,4 @@
-package zio.http
+package zio.http.model
 
 import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme

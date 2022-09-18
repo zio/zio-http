@@ -1,11 +1,13 @@
 package zio.http.middleware
 
-import zio._
 import zio.http.Middleware._
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.test.Assertion._
 import zio.test._
+import zio.{http, _}
 
 object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
   private val app  = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
@@ -211,7 +213,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
           val app = Http.collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash
           for {
             url      <- ZIO.fromEither(URL.fromString(url))
-            response <- app(Request(url = url))
+            response <- app(http.Request(url = url))
             text     <- response.body.asString
           } yield assertTrue(text == expected)
         }
@@ -234,7 +236,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
 
           for {
             url      <- ZIO.fromEither(URL.fromString(url))
-            response <- app(Request(url = url))
+            response <- app(http.Request(url = url))
           } yield assertTrue(
             response.status == status,
             response.headers.location == location,
@@ -255,7 +257,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
           val app = Http.ok @@ redirectTrailingSlash(true)
           for {
             url      <- ZIO.fromEither(URL.fromString(url))
-            response <- app(Request(url = url))
+            response <- app(http.Request(url = url))
           } yield assertTrue(response.status == Status.Ok)
         }
       },
@@ -283,7 +285,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
 
   private def runApp[R, E](app: HttpApp[R, E]): ZIO[R, Option[E], Response] = {
     for {
-      fib <- app { Request(url = URL(!! / "health")) }.fork
+      fib <- app { http.Request(url = URL(!! / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)
       res <- fib.join
     } yield res

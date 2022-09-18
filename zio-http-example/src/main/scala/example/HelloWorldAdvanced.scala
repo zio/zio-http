@@ -3,6 +3,7 @@ package example
 import zio._
 import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http._
+import zio.http.model.Method
 
 import scala.util.Try
 

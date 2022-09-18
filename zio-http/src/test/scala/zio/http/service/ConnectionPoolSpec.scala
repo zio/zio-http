@@ -4,6 +4,8 @@ import io.netty.handler.codec.http.HttpHeaderValues
 import zio._
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.model.headers.Headers
+import zio.http.model.{Status, Version}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test._

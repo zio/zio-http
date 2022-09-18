@@ -4,6 +4,8 @@ import zio.http.Middleware.cors
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Cors.CorsConfig
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}

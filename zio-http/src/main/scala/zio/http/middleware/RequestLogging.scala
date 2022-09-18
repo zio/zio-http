@@ -1,7 +1,8 @@
 package zio.http.middleware
 
-import zio.http.Headers.Header
-import zio.http.{Middleware, Patch, Status}
+import zio.http._
+import zio.http.model.Status
+import zio.http.model.headers.Headers.Header
 import zio.{Clock, LogAnnotation, LogLevel, ZIO}
 
 import java.nio.charset.{Charset, StandardCharsets}

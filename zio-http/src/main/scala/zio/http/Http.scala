@@ -4,8 +4,9 @@ import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.ZIO.attemptBlocking
 import zio._
-import zio.http.headers.HeaderModifier
 import zio.http.html._
+import zio.http.model._
+import zio.http.model.headers.{HeaderModifier, Headers}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
@@ -809,7 +810,7 @@ object Http {
         ZIO.attempt {
           if (file.isFile) {
             val length   = Headers.contentLength(file.length())
-            val response = Response(headers = length, body = Body.fromFile(file))
+            val response = http.Response(headers = length, body = Body.fromFile(file))
             val pathName = file.toPath.toString
 
             // Set MIME type in the response headers. This is only relevant in
@@ -1004,7 +1005,7 @@ object Http {
    * Creates an HTTP app which always responds with the same status code and
    * empty data.
    */
-  def status(code: Status): HttpApp[Any, Nothing] = Http.succeed(Response(code))
+  def status(code: Status): HttpApp[Any, Nothing] = Http.succeed(http.Response(code))
 
   /**
    * Creates an Http that always returns the same response and never fails.

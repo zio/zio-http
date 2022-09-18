@@ -3,6 +3,7 @@ package example
 import zio._
 import zio.http._
 import zio.http.middleware.HttpMiddleware
+import zio.http.model.Method
 
 import java.io.IOException
 import java.util.concurrent.TimeUnit

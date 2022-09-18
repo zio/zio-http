@@ -1,6 +1,6 @@
 # HTTP Client
 ```scala
-import zio.http.Headers
+import zio.http.model.headers.Headers
 import zio.http.service.{ChannelFactory, Client, EventLoopGroup}
 import zio._
 

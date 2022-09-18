@@ -1,6 +1,7 @@
-package zio.http
+package zio.http.model
 
-import zio.http.HttpError.HTTPErrorWithCause
+import zio.http.Response
+import zio.http.model.HttpError.HTTPErrorWithCause
 
 sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message) { self =>
   def foldCause[A](a: A)(f: Throwable => A): A = self match {
@@ -22,7 +23,7 @@ object HttpError {
     case _              => None
   }
 
-  abstract class HTTPErrorWithCause(status: Status, msg: String) extends HttpError(status, msg) {
+  sealed abstract class HTTPErrorWithCause(status: Status, msg: String) extends HttpError(status, msg) {
     def cause: Option[Throwable]
     cause.foreach(initCause)
   }

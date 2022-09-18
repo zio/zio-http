@@ -1,13 +1,14 @@
 package zio.http.internal
 
 import io.netty.buffer.Unpooled
+import zio._
 import zio.http.Path.Segment
-import zio.http.Scheme.{HTTP, HTTPS, WS, WSS}
 import zio.http.URL.Location
 import zio.http._
+import zio.http.model._
+import zio.http.model.headers.Headers
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
-import zio.{Chunk, ZIO}
 
 import java.io.File
 
@@ -147,7 +148,9 @@ object HttpGen {
     } yield Response(status, headers, content)
   }
 
-  def scheme: Gen[Any, Scheme] = Gen.fromIterable(List(HTTP, HTTPS, WS, WSS))
+  def scheme: Gen[Any, Scheme] = Gen.fromIterable(
+    List(Scheme.HTTP, Scheme.HTTPS, Scheme.WS, Scheme.WSS),
+  )
 
   def status: Gen[Any, Status] = Gen.fromIterable(
     List(

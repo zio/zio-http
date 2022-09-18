@@ -5,6 +5,7 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import io.netty.util.AttributeKey
 import zio._
+import zio.http.model._
 
 import scala.annotation.tailrec
 

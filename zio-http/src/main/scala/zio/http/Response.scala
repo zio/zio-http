@@ -3,10 +3,11 @@ package zio.http
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
-import zio.http.headers.HeaderExtension
 import zio.http.html._
+import zio.http.model._
+import zio.http.model.headers.{HeaderExtension, Headers}
 import zio.http.netty._
-import zio.http.netty.client._
+import zio.http.netty.client.ClientResponseStreamHandler
 import zio.http.service.{CLIENT_INBOUND_HANDLER, CLIENT_STREAMING_BODY_HANDLER}
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.{Cause, Promise, Task, Unsafe, ZIO}

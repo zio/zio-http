@@ -1,4 +1,4 @@
-package zio.http.headers
+package zio.http.model.headers
 
 import io.netty.handler.codec.http.HttpHeaderNames
 
