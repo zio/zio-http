@@ -10,7 +10,7 @@ import zio.{Chunk, Promise, Unsafe}
 final class ClientResponseStreamHandler(
   val callback: UnsafeAsync,
   zExec: NettyRuntime,
-  onComplete: Promise[Throwable, Unit],
+  onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,
 ) extends SimpleChannelInboundHandler[HttpContent](false) { self =>
 
@@ -27,10 +27,14 @@ final class ClientResponseStreamHandler(
       ctx.channel().pipeline().remove(self)
 
       if (keepAlive)
-        zExec.runUninterruptible(ctx)(onComplete.succeed(()))(unsafeClass)
+        zExec.runUninterruptible(ctx)(onComplete.succeed(ChannelState.Reusable))(unsafeClass)
       else {
         zExec.runUninterruptible(ctx)(
-          NettyFutureExecutor.executed(ctx.close()).exit.flatMap(onComplete.done(_)),
+          NettyFutureExecutor
+            .executed(ctx.close())
+            .as(ChannelState.Invalid)
+            .exit
+            .flatMap(onComplete.done(_)),
         )(unsafeClass)
       }
     }: Unit
@@ -41,6 +45,6 @@ final class ClientResponseStreamHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    zExec.runUninterruptible(ctx)(onComplete.succeed(()))(unsafeClass)
+    zExec.runUninterruptible(ctx)(onComplete.fail(cause))(unsafeClass)
   }
 }

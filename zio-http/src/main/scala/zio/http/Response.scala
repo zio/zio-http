@@ -7,7 +7,7 @@ import zio.http.html._
 import zio.http.model._
 import zio.http.model.headers.{HeaderExtension, Headers}
 import zio.http.netty._
-import zio.http.netty.client.ClientResponseStreamHandler
+import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
 import zio.http.service.{CLIENT_INBOUND_HANDLER, CLIENT_STREAMING_BODY_HANDLER}
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.{Cause, Promise, Task, Unsafe, ZIO}
@@ -213,7 +213,7 @@ object Response {
       ctx: ChannelHandlerContext,
       jRes: HttpResponse,
       zExec: NettyRuntime,
-      onComplete: Promise[Throwable, Unit],
+      onComplete: Promise[Throwable, ChannelState],
       keepAlive: Boolean,
     )(implicit
       unsafe: Unsafe,

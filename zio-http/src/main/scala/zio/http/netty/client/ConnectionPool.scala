@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http.netty.client
 
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
@@ -8,8 +8,8 @@ import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.URL.Location
 import zio.http.internal.ZKeyedPool
 import zio.http.netty.NettyFutureExecutor
-import zio.http.netty.client.ClientSSLHandler
 import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
+import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
 import zio.http.{Proxy, URL}
 import zio.logging.LogLevel
@@ -78,7 +78,9 @@ object ConnectionPool {
         .connect()
     }.flatMap { channelFuture =>
       NettyFutureExecutor.executed(channelFuture) *>
-        ZIO.attempt(channelFuture.channel())
+        ZIO
+          .attempt(channelFuture.channel())
+          .debug("Created new channel")
     }
   }
 
@@ -105,19 +107,23 @@ object ConnectionPool {
       proxy: Option[Proxy],
       sslOptions: ClientSSLOptions,
     ): ZIO[Scope, Throwable, JChannel] =
-      pool
-        .get(PoolKey(location, proxy, sslOptions))
-        .tap(channel =>
-          NettyFutureExecutor
-            .executed(channel.closeFuture())
-            .zipRight(
+      ZIO.uninterruptibleMask { restore =>
+        restore(
+          pool
+            .get(PoolKey(location, proxy, sslOptions)),
+        ).tap { channel =>
+          restore(
+            NettyFutureExecutor.executed(channel.closeFuture()),
+          ).zipRight(
+            ZIO.debug(s"Channel closed, invalidating ($channel)") *>
               pool.invalidate(channel),
-            )
-            .forkDaemon,
-        )
+          ).forkDaemon
+        }
+      }
 
     override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
-      pool.invalidate(channel)
+      ZIO.debug(s"Invalidating $channel") *>
+        pool.invalidate(channel)
   }
 
   val disabled: ZLayer[EventLoopGroup with ChannelFactory, Nothing, ConnectionPool] =

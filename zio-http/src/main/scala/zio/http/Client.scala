@@ -220,10 +220,11 @@ object Client {
       req.url.kind match {
         case location: Location.Absolute =>
           for {
-            onComplete   <- Promise.make[Throwable, Unit]
+            onComplete   <- Promise.make[Throwable, ChannelState]
             channelScope <- Scope.make
             _            <- ZIO.uninterruptibleMask { restore =>
               for {
+                _            <- ZIO.debug("Acquiring channel")
                 channel      <-
                   restore {
                     connectionPool
@@ -234,6 +235,7 @@ object Client {
                       )
                       .provideEnvironment(ZEnvironment(channelScope))
                   }
+                _            <- ZIO.debug(s"Acquired channel $channel")
                 resetChannel <- ZIO.attempt {
                   requestOnChannel(
                     channel,
@@ -245,22 +247,32 @@ object Client {
                     clientConfig.useAggregator,
                     () => clientConfig.socketApp.getOrElse(SocketApp()),
                   )
-                }.tapErrorCause(cause => channelScope.close(Exit.failCause(cause)))
+                }.tapErrorCause { cause =>
+                  ZIO.debug(s"Releasing channel $channel because of $cause") *>
+                    channelScope.close(Exit.failCause(cause))
+                }
                 // If request registration failed we release the channel immediately.
                 // Otherwise we wait for completion signal from netty in a background fiber:
-                _            <- onComplete.await.exit.flatMap { exit =>
-                  resetChannel
-                    .catchAll(_ => ZIO.succeed(false)) // In case resetting the channel fails we cannot reuse it
-                    .flatMap { channelIsReusable =>
-                      connectionPool
-                        .invalidate(channel)
-                        .when(!channelIsReusable || exit.isFailure)
-                    }
-                    .flatMap { _ =>
-                      channelScope.close(exit)
-                    }
-                    .uninterruptible
-                }.forkDaemon
+                _            <-
+                  onComplete.await.interruptible.exit.flatMap { exit =>
+                    ZIO.debug(s"onComplete for channel $channel, resetting") *>
+                      resetChannel
+                        .zip(exit)
+                        .map { case (s1, s2) => s1 && s2 }
+                        .catchAll(_ =>
+                          ZIO.succeed(ChannelState.Invalid),
+                        ) // In case resetting the channel fails we cannot reuse it
+                        .flatMap { channelState =>
+                          (ZIO.debug(s"Invalidating because not reusable ($channel)") *>
+                            connectionPool
+                              .invalidate(channel)).when(channelState == ChannelState.Invalid)
+                        }
+                        .flatMap { _ =>
+                          ZIO.debug(s"Releasing channel $channel") *>
+                            channelScope.close(exit)
+                        }
+                        .uninterruptible
+                  }.forkDaemon
               } yield ()
             }
           } yield ()
@@ -281,10 +293,10 @@ object Client {
       req: Request,
       jReq: FullHttpRequest,
       onResponse: Promise[Throwable, Response],
-      onComplete: Promise[Throwable, Unit],
+      onComplete: Promise[Throwable, ChannelState],
       useAggregator: Boolean,
       createSocketApp: () => SocketApp[Any],
-    ): ZIO[Any, Throwable, Boolean] = {
+    ): ZIO[Any, Throwable, ChannelState] = {
       log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
 
       val pipeline                              = channel.pipeline()
@@ -334,7 +346,9 @@ object Client {
         pipeline.fireChannelRegistered()
         pipeline.fireChannelActive()
 
-        ZIO.succeed(false) // channel becomes invalid - reuse of websocket channels not supported currently
+        ZIO.succeed(
+          ChannelState.Invalid,
+        ) // channel becomes invalid - reuse of websocket channels not supported currently
       } else {
 
         pipeline.fireChannelRegistered()
@@ -344,7 +358,7 @@ object Client {
 
         ZIO.attempt {
           frozenToRemove.foreach(pipeline.remove)
-          true // channel can be reused
+          ChannelState.Reusable // channel can be reused
         }
       }
     }

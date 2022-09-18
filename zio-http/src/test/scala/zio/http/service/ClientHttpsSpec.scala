@@ -4,6 +4,7 @@ import io.netty.handler.codec.DecoderException
 import io.netty.handler.ssl.SslContextBuilder
 import zio.http.model.Status
 import zio.http.netty.client.ClientSSLHandler._
+import zio.http.netty.client.ConnectionPool
 import zio.http.{Client, ClientConfig}
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}

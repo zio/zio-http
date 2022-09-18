@@ -110,8 +110,8 @@ object ZKeyedPool {
   ) extends ZKeyedPool[Err, Key, Item] {
 
     override def get(key: Key)(implicit trace: Trace): ZIO[Scope, Err, Item] =
-      ZIO.uninterruptibleMask { restore =>
-        restore {
+      ZIO.uninterruptibleMask { outerRestore =>
+        outerRestore {
           activePools
             .get(key)
             .flatMap {
@@ -124,12 +124,14 @@ object ZKeyedPool {
                   activePools
                     .put(key, promise)
                     .as {
-                      ZIO.uninterruptibleMask { restore =>
-                        for {
-                          pool <- createPool(key)
-                          _    <- promise.succeed(pool).commit
-                          item <- restore(acquireFrom(key, pool))
-                        } yield item
+                      outerRestore {
+                        ZIO.uninterruptibleMask { innerRestore =>
+                          for {
+                            pool <- createPool(key)
+                            _    <- promise.succeed(pool).commit
+                            item <- innerRestore(acquireFrom(key, pool))
+                          } yield item
+                        }
                       }
                     }
                 }

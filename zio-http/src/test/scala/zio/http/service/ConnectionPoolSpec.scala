@@ -6,9 +6,11 @@ import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.headers.Headers
 import zio.http.model.{Method, Version}
+import zio.http.netty.NettyRuntime
+import zio.http.netty.client.ConnectionPool
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, ignore, sequential, timeout}
+import zio.test.TestAspect.{diagnose, ignore, nonFlaky, sequential, timeout}
 import zio.test._
 
 object ConnectionPoolSpec extends HttpRunnableSpec {
@@ -22,12 +24,12 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
   private val keepAliveHeader       = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
   private val appKeepAliveEnabled   = serve(DynamicServer.app)
 
-  private val N = 128
+  private val N = 64
 
   def connectionPoolTests(
     version: Version,
     casesByHeaders: Map[String, Headers],
-  ): Spec[Client with DynamicServer with Scope, Throwable] =
+  ): Spec[Scope with Client with DynamicServer, Throwable] =
     suite(version.toString)(
       casesByHeaders.map { case (name, extraHeaders) =>
         suite(name)(
@@ -47,7 +49,7 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
                 (1 to N).map(_.toString).toList,
               ),
             )
-          },
+          } @@ nonFlaky(10),
           test("streaming request") {
             val res      = ZIO.foreachPar((1 to N).toList) { idx =>
               val stream = ZStream.fromIterable(List("a", "b", "c-", idx.toString), chunkSize = 1)
@@ -61,7 +63,7 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
             }
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
-          },
+          } @@ nonFlaky(10),
           test("streaming response") {
             val res =
               ZIO.foreachPar((1 to N).toList) { idx =>
@@ -79,7 +81,7 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
                 (1 to N).map(_.toString).toList,
               ),
             )
-          },
+          } @@ nonFlaky(10),
           test("streaming request and response") {
             val res      = ZIO.foreachPar((1 to N).toList) { idx =>
               val stream = ZStream.fromIterable(List("a", "b", "c-", idx.toString), chunkSize = 1)
@@ -94,42 +96,66 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
             }
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
-          },
+          } @@ nonFlaky(10),
         )
       },
     )
 
-  def connectionPoolSpec: Spec[Client with DynamicServer with Scope, Throwable] =
+  def connectionPoolSpec
+    : Spec[Scope with ClientConfig with EventLoopGroup with ChannelFactory with NettyRuntime, Throwable] =
     suite("ConnectionPool")(
-      connectionPoolTests(
-        Version.Http_1_1,
-        Map(
-          "without connection close" -> Headers.empty,
-          "with connection close"    -> connectionCloseHeader,
+      suite("fixed")(
+        connectionPoolTests(
+          Version.Http_1_1,
+          Map(
+            "without connection close" -> Headers.empty,
+            "with connection close"    -> connectionCloseHeader,
+          ),
         ),
-      ),
-      connectionPoolTests(
-        Version.Http_1_0,
-        Map(
-          "without keep-alive" -> Headers.empty,
-          "with keep-alive"    -> keepAliveHeader,
+        connectionPoolTests(
+          Version.Http_1_0,
+          Map(
+            "without keep-alive" -> Headers.empty,
+            "with keep-alive"    -> keepAliveHeader,
+          ),
         ),
+      ).provideSomeShared[Scope with ClientConfig with EventLoopGroup with ChannelFactory with NettyRuntime](
+        ZLayer(appKeepAliveEnabled.unit),
+        DynamicServer.live,
+        severTestLayer,
+        Client.live,
+        ConnectionPool.fixed(2),
       ),
-    ) @@ ignore
+      suite("dynamic")(
+        connectionPoolTests(
+          Version.Http_1_1,
+          Map(
+            "without connection close" -> Headers.empty,
+            "with connection close"    -> connectionCloseHeader,
+          ),
+        ),
+        connectionPoolTests(
+          Version.Http_1_0,
+          Map(
+            "without keep-alive" -> Headers.empty,
+            "with keep-alive"    -> keepAliveHeader,
+          ),
+        ),
+      ).provideSomeShared[Scope with ClientConfig with EventLoopGroup with ChannelFactory with NettyRuntime](
+        ZLayer(appKeepAliveEnabled.unit),
+        DynamicServer.live,
+        severTestLayer,
+        Client.live,
+        ConnectionPool.dynamic(4, 16, 100.millis),
+      ) @@ ignore, // TODO: there seems to be an issue in releasing dynamic ZPools
+    )
 
-  override def spec = {
-    suite("ConnectionPoolSpec") {
-      appKeepAliveEnabled.as(List(connectionPoolSpec))
-    }.provideShared(
-      DynamicServer.live,
-      severTestLayer,
-      ClientConfig.default,
-      Client.live,
-//      ConnectionPool.disabled,
-      ConnectionPool.fixed(2),
-//      ConnectionPool.dynamic(4, 16, 500.millis),
-      Scope.default,
-    ) @@ timeout(5.seconds) @@ diagnose(5.seconds) @@ sequential
+  override def spec: Spec[Any, Throwable] = {
+    connectionPoolSpec
+      .provideShared(
+        ClientConfig.default,
+        Scope.default,
+      ) @@ timeout(30.seconds) @@ diagnose(30.seconds) @@ sequential
   }
 
 }

@@ -5,6 +5,7 @@ import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Auth.Credentials
 import zio.http.model._
 import zio.http.model.headers.Headers
+import zio.http.netty.client.ConnectionPool
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._

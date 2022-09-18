@@ -10,7 +10,7 @@ final class ClientInboundStreamingHandler(
   val rtm: NettyRuntime,
   req: Request,
   onResponse: Promise[Throwable, Response],
-  onComplete: Promise[Throwable, Unit],
+  onComplete: Promise[Throwable, ChannelState],
 ) extends SimpleChannelInboundHandler[HttpObject](false) {
 
   private implicit val unsafeClass: Unsafe = Unsafe.unsafe

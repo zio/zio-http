@@ -13,7 +13,7 @@ final class ClientInboundHandler(
   zExec: NettyRuntime,
   jReq: FullHttpRequest,
   onResponse: Promise[Throwable, Response],
-  onComplete: Promise[Throwable, Unit],
+  onComplete: Promise[Throwable, ChannelState],
   isWebSocket: Boolean,
 ) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
@@ -49,10 +49,14 @@ final class ClientInboundHandler(
 
     if (!shouldKeepAlive) {
       zExec.runUninterruptible(ctx)(
-        NettyFutureExecutor.executed(ctx.close()).exit.flatMap(onComplete.done(_)),
+        NettyFutureExecutor
+          .executed(ctx.close())
+          .as(ChannelState.Invalid)
+          .exit
+          .flatMap(onComplete.done(_)),
       )(unsafeClass)
     } else {
-      zExec.runUninterruptible(ctx)(onComplete.succeed(()))(unsafeClass)
+      zExec.runUninterruptible(ctx)(onComplete.succeed(ChannelState.Reusable))(unsafeClass)
     }
 
   }

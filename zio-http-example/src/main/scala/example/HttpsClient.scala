@@ -4,7 +4,7 @@ import io.netty.handler.ssl.SslContextBuilder
 import zio._
 import zio.http.model.headers.Headers
 import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
-import zio.http.service.ConnectionPool
+import zio.http.netty.client.ConnectionPool
 import zio.http.{Client, ClientConfig}
 
 import java.io.InputStream
