@@ -1,7 +1,6 @@
 package zio.http.model
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zio.http.model._
 import zio.http.model.headers._
 
 import scala.jdk.CollectionConverters._

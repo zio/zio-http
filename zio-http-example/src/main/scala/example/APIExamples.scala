@@ -3,24 +3,23 @@ package zio.http.api
 import zio._
 import zio.http._
 
-object Examples extends ZIOAppDefault {
+object APIExamples extends ZIOAppDefault {
   import In._
 
   val getUser =
-    API.get(literal("users") / int).id("get-user")
+    API.get(literal("users") / int)
 
   val getUsersService =
-    getUser.handle { case (id: Int) =>
+    getUser.handle[Any, Nothing] { case (id: Int) =>
       ZIO.debug(s"API1 RESULT parsed: users/$id")
     }
 
   val getUserPosts =
     API
       .get(literal("users") / int / literal("posts") / query("name") / int)
-      .id("get-user-posts")
 
   val getUserPostsService =
-    getUserPosts.handle { case (id1, query, id2) =>
+    getUserPosts.handle[Any, Nothing] { case (id1, query, id2) =>
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 

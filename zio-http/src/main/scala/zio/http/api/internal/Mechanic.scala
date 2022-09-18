@@ -136,12 +136,12 @@ private[api] object Mechanic {
     queries: Chunk[Query[_]],
     headers: Chunk[Header[_]],
     inputBodies: Chunk[InputBody[_]],
-  ) {
+  ) { self =>
     def append(atom: Atom[_]) = atom match {
-      case route: Route[_]         => copy(routes = routes.appended(route.textCodec))
-      case query: Query[_]         => copy(queries = queries.appended(query))
-      case header: Header[_]       => copy(headers = headers.appended(header))
-      case inputBody: InputBody[_] => copy(inputBodies = inputBodies.appended(inputBody))
+      case route: Route[_]         => copy(routes = routes :+ route.textCodec)
+      case query: Query[_]         => copy(queries = queries :+ query)
+      case header: Header[_]       => copy(headers = headers :+ header)
+      case inputBody: InputBody[_] => copy(inputBodies = inputBodies :+ inputBody)
       case _: IndexedAtom[_]       => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
     }
 

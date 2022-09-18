@@ -46,7 +46,9 @@ object TextCodec {
   }
 
   final case object IntCodec extends TextCodec[Int] {
-    def decode(value: String): Option[Int] = value.toIntOption
+    def decode(value: String): Option[Int] =
+      try Some(value.toInt)
+      catch { case _: NumberFormatException => None }
 
     def encode(value: Int): String = value.toString
   }
