@@ -35,14 +35,9 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
 
   def queries: QueryParams
 
-  def sslOption: Option[ClientSSLOptions]
+  def schemeOption: Option[Scheme]
 
-  def socket[R](
-    url: String,
-    app: SocketApp[R],
-    headers: Headers = Headers.empty,
-    addZioUserAgentHeader: Boolean = false,
-  )(implicit trace: Trace, unsafe: Unsafe): ZIO[R with Scope, Throwable, Response]
+  def sslOption: Option[ClientSSLOptions]
 
   final def contramap[In2](f: In2 => In): ZClient[Env, In2, Err, Out] =
     contramapZIO(in => ZIO.succeedNow(f(in)))
@@ -54,14 +49,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def pathPrefix: Path                    = self.pathPrefix
       def portOption: Option[Int]             = self.portOption
       def queries: QueryParams                = self.queries
+      def schemeOption: Option[Scheme]        = self.schemeOption
       def sslOption: Option[ClientSSLOptions] = self.sslOption
-      def socket[R](
-        url: String,
-        app: SocketApp[R],
-        headers: Headers = Headers.empty,
-        addZioUserAgentHeader: Boolean = false,
-      )(implicit trace: Trace, unsafe: Unsafe): ZIO[R with Scope, Throwable, Response] =
-        self.socket(url, app, headers, addZioUserAgentHeader)
       def requestInternal(
         body: In2,
         headers: Headers,
@@ -86,6 +75,26 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             version,
           )
         }
+      def socketInternal[Env2 <: Env1](
+        app: SocketApp[Env2],
+        headers: Headers,
+        hostOption: Option[String],
+        pathPrefix: Path,
+        portOption: Option[Int],
+        queries: QueryParams,
+        schemeOption: Option[Scheme],
+        version: Version,
+      )(implicit trace: Trace): ZIO[Env2 with Scope, Err1, Out] =
+        self.socketInternal(
+          app,
+          headers,
+          hostOption,
+          pathPrefix,
+          portOption,
+          queries,
+          schemeOption,
+          version,
+        )
     }
 
   final def dieOn(
@@ -112,14 +121,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       override def pathPrefix: Path                    = self.pathPrefix
       override def portOption: Option[Int]             = self.portOption
       override def queries: QueryParams                = self.queries
+      override def schemeOption: Option[Scheme]        = self.schemeOption
       override def sslOption: Option[ClientSSLOptions] = self.sslOption
-      override def socket[R](
-        url: String,
-        app: SocketApp[R],
-        headers: Headers = Headers.empty,
-        addZioUserAgentHeader: Boolean = false,
-      )(implicit trace: Trace, unsafe: Unsafe): ZIO[R with Scope, Throwable, Response] =
-        self.socket(url, app, headers, addZioUserAgentHeader)
       def requestInternal(
         body: In,
         headers: Headers,
@@ -141,6 +144,28 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             portOption,
             queries,
             sslOption,
+            version,
+          )
+          .flatMap(f)
+      protected def socketInternal[Env2 <: Env1](
+        app: SocketApp[Env2],
+        headers: Headers,
+        hostOption: Option[String],
+        pathPrefix: Path,
+        portOption: Option[Int],
+        queries: QueryParams,
+        schemeOption: Option[Scheme],
+        version: Version,
+      )(implicit trace: Trace): ZIO[Env2 with Scope, Err1, Out2] =
+        self
+          .socketInternal(
+            app,
+            headers,
+            hostOption,
+            pathPrefix,
+            portOption,
+            queries,
+            schemeOption,
             version,
           )
           .flatMap(f)
@@ -167,14 +192,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       override def pathPrefix: Path                    = self.pathPrefix
       override def portOption: Option[Int]             = self.portOption
       override def queries: QueryParams                = self.queries
+      override def schemeOption: Option[Scheme]        = self.schemeOption
       override def sslOption: Option[ClientSSLOptions] = self.sslOption
-      override def socket[R](
-        url: String,
-        app: SocketApp[R],
-        headers: Headers = Headers.empty,
-        addZioUserAgentHeader: Boolean = false,
-      )(implicit trace: Trace, unsafe: Unsafe): ZIO[R with Scope, Throwable, Response] =
-        self.socket(url, app, headers, addZioUserAgentHeader)
       def requestInternal(
         body: In,
         headers: Headers,
@@ -196,6 +215,28 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             portOption,
             queries,
             sslOption,
+            version,
+          )
+          .refineOrDie(pf)
+      protected def socketInternal[Env1 <: Env](
+        app: SocketApp[Env1],
+        headers: Headers,
+        hostOption: Option[String],
+        pathPrefix: Path,
+        portOption: Option[Int],
+        queries: QueryParams,
+        schemeOption: Option[Scheme],
+        version: Version,
+      )(implicit trace: Trace): ZIO[Env1 with Scope, Err2, Out] =
+        self
+          .socketInternal(
+            app,
+            headers,
+            hostOption,
+            pathPrefix,
+            portOption,
+            queries,
+            schemeOption,
             version,
           )
           .refineOrDie(pf)
@@ -235,14 +276,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       override def pathPrefix: Path                    = self.pathPrefix
       override def portOption: Option[Int]             = self.portOption
       override def queries: QueryParams                = self.queries
+      override def schemeOption: Option[Scheme]        = self.schemeOption
       override def sslOption: Option[ClientSSLOptions] = self.sslOption
-      override def socket[R](
-        url: String,
-        app: SocketApp[R],
-        headers: Headers = Headers.empty,
-        addZioUserAgentHeader: Boolean = false,
-      )(implicit trace: Trace, unsafe: Unsafe): ZIO[R with Scope, Throwable, Response] =
-        self.socket(url, app, headers, addZioUserAgentHeader)
       def requestInternal(
         body: In,
         headers: Headers,
@@ -267,7 +302,65 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             version,
           )
           .retry(policy)
+      def socketInternal[Env2 <: Env1](
+        app: SocketApp[Env2],
+        headers: Headers,
+        hostOption: Option[String],
+        pathPrefix: Path,
+        portOption: Option[Int],
+        queries: QueryParams,
+        schemeOption: Option[Scheme],
+        version: Version,
+      )(implicit trace: Trace): ZIO[Env2 with Scope, Err, Out] =
+        self
+          .socketInternal(
+            app,
+            headers,
+            hostOption,
+            pathPrefix,
+            portOption,
+            queries,
+            schemeOption,
+            version,
+          )
+          .retry(policy)
     }
+
+  final def scheme(scheme: Scheme): ZClient[Env, In, Err, Out] =
+    copy(schemeOption = Some(scheme))
+
+  final def socket[Env1 <: Env](
+    pathSuffix: String,
+  )(app: SocketApp[Env1])(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
+    socketInternal(
+      app,
+      headers,
+      hostOption,
+      pathPrefix / pathSuffix,
+      portOption,
+      queries,
+      schemeOption,
+      Version.Http_1_1,
+    )
+
+  final def socket[Env1 <: Env](
+    url: String,
+    app: SocketApp[Env1],
+    headers: Headers = Headers.empty,
+  )(implicit trace: Trace, unsafe: Unsafe): ZIO[Env1 with Scope, Err, Out] =
+    for {
+      url <- ZIO.fromEither(URL.fromString(url)).orDie
+      out <- socketInternal(
+        app,
+        headers,
+        url.host,
+        pathPrefix ++ url.path,
+        url.port,
+        queries ++ url.queryParams,
+        url.scheme,
+        Version.Http_1_1,
+      )
+    } yield out
 
   final def ssl(ssl: ClientSSLOptions): ZClient[Env, In, Err, Out] =
     copy(sslOption = Some(ssl))
@@ -300,15 +393,36 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     version: Version,
   )(implicit trace: Trace): ZIO[Env, Err, Out]
 
+  protected def socketInternal[Env1 <: Env](
+    app: SocketApp[Env1],
+    headers: Headers,
+    hostOption: Option[String],
+    pathPrefix: Path,
+    portOption: Option[Int],
+    queries: QueryParams,
+    schemeOption: Option[Scheme],
+    version: Version,
+  )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out]
+
   private final def copy(
     headers: Headers = headers,
     hostOption: Option[String] = hostOption,
     pathPrefix: Path = pathPrefix,
     portOption: Option[Int] = portOption,
     queries: QueryParams = queries,
+    schemeOption: Option[Scheme] = schemeOption,
     sslOption: Option[ClientSSLOptions] = sslOption,
   ): ZClient[Env, In, Err, Out] =
-    ZClient.Proxy[Env, In, Err, Out](self, headers, hostOption, pathPrefix, portOption, queries, sslOption)
+    ZClient.Proxy[Env, In, Err, Out](
+      self,
+      headers,
+      hostOption,
+      pathPrefix,
+      portOption,
+      queries,
+      schemeOption,
+      sslOption,
+    )
 }
 
 object ZClient {
@@ -320,6 +434,7 @@ object ZClient {
     pathPrefix: Path,
     portOption: Option[Int],
     queries: QueryParams,
+    schemeOption: Option[Scheme],
     sslOption: Option[ClientSSLOptions],
   ) extends ZClient[Env, In, Err, Out] {
 
@@ -336,13 +451,17 @@ object ZClient {
     )(implicit trace: Trace): ZIO[Env, Err, Out] =
       client.requestInternal(body, headers, hostOption, method, path, portOption, queries, sslOption, version)
 
-    def socket[R](
-      url: String,
-      app: SocketApp[R],
-      headers: Headers = Headers.empty,
-      addZioUserAgentHeader: Boolean = false,
-    )(implicit trace: Trace, unsafe: Unsafe): ZIO[R with Scope, Throwable, Response] =
-      client.socket(url, app, headers, addZioUserAgentHeader)
+    protected def socketInternal[Env1 <: Env](
+      app: SocketApp[Env1],
+      headers: Headers,
+      hostOption: Option[String],
+      pathPrefix: Path,
+      portOption: Option[Int],
+      queries: QueryParams,
+      schemeOption: Option[Scheme],
+      version: Version,
+    )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
+      client.socketInternal(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
 
   }
 
@@ -358,6 +477,7 @@ object ZClient {
     val pathPrefix: Path                    = Path.empty
     val portOption: Option[Int]             = None
     val queries: QueryParams                = QueryParams.empty
+    val schemeOption: Option[Scheme]        = None
     val sslOption: Option[ClientSSLOptions] = None
 
     def requestInternal(
@@ -388,19 +508,31 @@ object ZClient {
       } yield response
     }
 
-    def socket[R](url: String, app: SocketApp[R], headers: Headers, addZioUserAgentHeader: Boolean)(implicit
-      trace: Trace,
-      unsafe: Unsafe,
-    ): ZIO[R with Scope, Throwable, Response] =
+    protected override def socketInternal[R](
+      app: SocketApp[R],
+      headers: Headers,
+      hostOption: Option[String],
+      path: Path,
+      portOption: Option[Int],
+      queries: QueryParams,
+      schemeOption: Option[Scheme],
+      version: Version,
+    )(implicit trace: Trace): ZIO[R with Scope, Throwable, Response] =
       for {
-        env <- ZIO.environment[R]
-        uri <- ZIO.fromEither(URL.fromString(url))
-        res <- requestAsync(
+        env      <- ZIO.environment[R]
+        location <- ZIO.fromOption {
+          for {
+            host   <- hostOption
+            port   <- portOption
+            scheme <- schemeOption
+          } yield URL.Location.Absolute(scheme, host, port)
+        }.orElseSucceed(URL.Location.Relative)
+        res      <- requestAsync(
           http.Request(
-            version = Version.Http_1_1,
+            version = version,
             Method.GET,
-            uri,
-            headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
+            url = URL(path, location).setQueryParams(queries),
+            headers,
           ),
           clientConfig = settings.copy(socketApp = Some(app.provideEnvironment(env))),
         ).withFinalizer(_.close.orDie)
