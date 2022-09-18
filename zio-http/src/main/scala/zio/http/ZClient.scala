@@ -44,10 +44,10 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     addZioUserAgentHeader: Boolean = false,
   )(implicit trace: Trace, unsafe: Unsafe): ZIO[R with Scope, Throwable, Response]
 
-  def contramap[In2](f: In2 => In): ZClient[Env, In2, Err, Out] =
+  final def contramap[In2](f: In2 => In): ZClient[Env, In2, Err, Out] =
     contramapZIO(in => ZIO.succeedNow(f(in)))
 
-  def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): ZClient[Env1, In2, Err1, Out] =
+  final def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): ZClient[Env1, In2, Err1, Out] =
     new ZClient[Env1, In2, Err1, Out] {
       def headers: Headers                    = self.headers
       def hostOption: Option[String]          = self.hostOption
@@ -88,7 +88,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         }
     }
 
-  def dieOn(
+  final def dieOn(
     f: Err => Boolean,
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err, Out] =
     refineOrDie { case e if !f(e) => e }
@@ -96,16 +96,16 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
   final def get(pathSuffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
     request(Method.GET, pathSuffix, body)
 
-  def header(key: String, value: String): ZClient[Env, In, Err, Out] =
+  final def header(key: String, value: String): ZClient[Env, In, Err, Out] =
     copy(headers = headers ++ Headers.Header(key, value))
 
-  def host(host: String): ZClient[Env, In, Err, Out] =
+  final def host(host: String): ZClient[Env, In, Err, Out] =
     copy(hostOption = Some(host))
 
-  def map[Out2](f: Out => Out2): ZClient[Env, In, Err, Out2] =
+  final def map[Out2](f: Out => Out2): ZClient[Env, In, Err, Out2] =
     mapZIO(out => ZIO.succeedNow(f(out)))
 
-  def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): ZClient[Env1, In, Err1, Out2] =
+  final def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): ZClient[Env1, In, Err1, Out2] =
     new ZClient[Env1, In, Err1, Out2] {
       override def headers: Headers                    = self.headers
       override def hostOption: Option[String]          = self.hostOption
@@ -146,13 +146,13 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
           .flatMap(f)
     }
 
-  def path(segment: String): ZClient[Env, In, Err, Out] =
+  final def path(segment: String): ZClient[Env, In, Err, Out] =
     copy(pathPrefix = pathPrefix / segment)
 
-  def put(pathSuffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+  final def put(pathSuffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
     request(Method.PUT, pathSuffix, body)
 
-  def port(port: Int): ZClient[Env, In, Err, Out] =
+  final def port(port: Int): ZClient[Env, In, Err, Out] =
     copy(portOption = Some(port))
 
   def query(key: String, value: String): ZClient[Env, In, Err, Out] =
@@ -269,7 +269,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
           .retry(policy)
     }
 
-  def ssl(ssl: ClientSSLOptions): ZClient[Env, In, Err, Out] =
+  final def ssl(ssl: ClientSSLOptions): ZClient[Env, In, Err, Out] =
     copy(sslOption = Some(ssl))
 
   final def uri(uri: URI): ZClient[Env, In, Err, Out] =
@@ -300,7 +300,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     version: Version,
   )(implicit trace: Trace): ZIO[Env, Err, Out]
 
-  private def copy(
+  private final def copy(
     headers: Headers = headers,
     hostOption: Option[String] = hostOption,
     pathPrefix: Path = pathPrefix,
