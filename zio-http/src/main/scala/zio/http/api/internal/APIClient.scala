@@ -94,7 +94,7 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
     client.request(request).flatMap { response =>
       response.body.asChunk.flatMap { response =>
         outputJsonDecoder(response) match {
-          case Left(error)  => ZIO.die(APIExecutor.DecodeError(s"Could not decode response: $error", api))
+          case Left(error)  => ZIO.die(APIError.MalformedResponseBody(s"Could not decode response: $error", api))
           case Right(value) => ZIO.succeed(value.asInstanceOf[O])
         }
       }

@@ -38,19 +38,6 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
     }
   }
 
-  // def decodeRoute(path: Path, inputs: Array[Any]): Unit = {
-  //   val segments = path.textSegments
-  //   if (segments.length < inputs.length) throw new Exception("Insufficient route length")
-  //   var i = 0
-  //   while (i < flattened.routes.length) {
-  //     val route = flattened.routes(i).asInstanceOf[In.Route[Any]]
-
-  //     inputs(i) = route.textCodec.decode(segments(i)).getOrElse(throw new Exception(s"Error decoding route segment ${route.textCodec}"))
-
-  //     i = i + 1
-  //   }
-  // }
-
   private def decodeQuery(queryParams: Map[String, List[String]], inputs: Array[Any]): Unit = {
     var i = 0
     while (i < flattened.queries.length) {
@@ -59,10 +46,10 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
       val value = queryParams
         .getOrElse(query.name, Nil)
         .headOption
-        .getOrElse(throw new Exception(s"Missing query parameter ${query.name}"))
+        .getOrElse(throw APIError.MissingQueryParam(query.name))
 
       inputs(i) =
-        query.textCodec.decode(value).getOrElse(throw new Exception(s"Error decoding query parameter ${query.name}"))
+        query.textCodec.decode(value).getOrElse(throw APIError.MalformedQueryParam(query.name, query.textCodec))
 
       i = i + 1
     }
@@ -73,9 +60,10 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
     while (i < flattened.headers.length) {
       val header = flattened.headers(i).asInstanceOf[In.Header[Any]]
 
-      val value = headers.get(header.name).getOrElse(throw new Exception(s"Missing header ${header.name}"))
+      val value = headers.get(header.name).getOrElse(throw APIError.MissingHeader(header.name))
 
-      inputs(i) = header.textCodec.decode(value).getOrElse(throw new Exception(s"Error decoding header ${header.name}"))
+      inputs(i) =
+        header.textCodec.decode(value).getOrElse(throw APIError.MalformedHeader(header.name, header.textCodec))
 
       i = i + 1
     }
@@ -85,7 +73,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
     body.asChunk.orDie.map { chunk =>
       if (inputs.length == 0) ()
       else {
-        inputs(0) = bodyJsonDecoder(chunk).getOrElse(throw new Exception(s"Error decoding body"))
+        inputs(0) = bodyJsonDecoder(chunk).getOrElse(throw APIError.MalformedRequestBody(api))
       }
     }
 }

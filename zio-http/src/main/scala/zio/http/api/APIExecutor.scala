@@ -14,8 +14,6 @@ trait APIExecutor[+Ids] {
   def apply[Id, A, B](invocation: Invocation[Id, A, B])(implicit ev: Ids <:< Id): ZIO[Any, Throwable, B]
 }
 object APIExecutor      {
-  final case class NotFound(message: String, api: API[_, _])    extends RuntimeException(message)
-  final case class DecodeError(message: String, api: API[_, _]) extends RuntimeException(message)
 
   /**
    * The default constructor creates a typed executor, which requires a service
@@ -35,7 +33,7 @@ object APIExecutor      {
   private final case class UntypedServiceExecutor(client: Client, locator: APILocator) extends APIExecutor[Nothing] {
     val metadata = zio.http.api.internal.Memoized[API[_, _], APIClient[Any, Any]] { (api: API[_, _]) =>
       APIClient(
-        locator.locate(api).getOrElse(throw NotFound(s"Could not locate API", api)),
+        locator.locate(api).getOrElse(throw APIError.NotFound(s"Could not locate API", api)),
         api.asInstanceOf[API[Any, Any]],
       )
     }
