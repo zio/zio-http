@@ -175,7 +175,7 @@ object Client {
 
       for {
         host     <- ZIO.fromOption(hostOption).orElseFail(new IllegalArgumentException("Host is required"))
-        port     <- ZIO.fromOption(portOption).orElseSucceed(80)
+        port     <- ZIO.fromOption(portOption).orElseSucceed(sslOption.fold(80)(_ => 443))
         response <- requestAsync(
           Request(
             version = version,
