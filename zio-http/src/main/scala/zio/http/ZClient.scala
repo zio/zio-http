@@ -116,13 +116,13 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
 
   final def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): ZClient[Env1, In, Err1, Out2] =
     new ZClient[Env1, In, Err1, Out2] {
-      override def headers: Headers                    = self.headers
-      override def hostOption: Option[String]          = self.hostOption
-      override def pathPrefix: Path                    = self.pathPrefix
-      override def portOption: Option[Int]             = self.portOption
-      override def queries: QueryParams                = self.queries
-      override def schemeOption: Option[Scheme]        = self.schemeOption
-      override def sslOption: Option[ClientSSLOptions] = self.sslOption
+      def headers: Headers                    = self.headers
+      def hostOption: Option[String]          = self.hostOption
+      def pathPrefix: Path                    = self.pathPrefix
+      def portOption: Option[Int]             = self.portOption
+      def queries: QueryParams                = self.queries
+      def schemeOption: Option[Scheme]        = self.schemeOption
+      def sslOption: Option[ClientSSLOptions] = self.sslOption
       def requestInternal(
         body: In,
         headers: Headers,
@@ -187,13 +187,13 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     pf: PartialFunction[Err, Err2],
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err2, Out] =
     new ZClient[Env, In, Err2, Out] {
-      override def headers: Headers                    = self.headers
-      override def hostOption: Option[String]          = self.hostOption
-      override def pathPrefix: Path                    = self.pathPrefix
-      override def portOption: Option[Int]             = self.portOption
-      override def queries: QueryParams                = self.queries
-      override def schemeOption: Option[Scheme]        = self.schemeOption
-      override def sslOption: Option[ClientSSLOptions] = self.sslOption
+      def headers: Headers                    = self.headers
+      def hostOption: Option[String]          = self.hostOption
+      def pathPrefix: Path                    = self.pathPrefix
+      def portOption: Option[Int]             = self.portOption
+      def queries: QueryParams                = self.queries
+      def schemeOption: Option[Scheme]        = self.schemeOption
+      def sslOption: Option[ClientSSLOptions] = self.sslOption
       def requestInternal(
         body: In,
         headers: Headers,
@@ -271,13 +271,13 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
 
   final def retry[Env1 <: Env](policy: Schedule[Env1, Err, Any]): ZClient[Env1, In, Err, Out] =
     new ZClient[Env1, In, Err, Out] {
-      override def headers: Headers                    = self.headers
-      override def hostOption: Option[String]          = self.hostOption
-      override def pathPrefix: Path                    = self.pathPrefix
-      override def portOption: Option[Int]             = self.portOption
-      override def queries: QueryParams                = self.queries
-      override def schemeOption: Option[Scheme]        = self.schemeOption
-      override def sslOption: Option[ClientSSLOptions] = self.sslOption
+      def headers: Headers                    = self.headers
+      def hostOption: Option[String]          = self.hostOption
+      def pathPrefix: Path                    = self.pathPrefix
+      def portOption: Option[Int]             = self.portOption
+      def queries: QueryParams                = self.queries
+      def schemeOption: Option[Scheme]        = self.schemeOption
+      def sslOption: Option[ClientSSLOptions] = self.sslOption
       def requestInternal(
         body: In,
         headers: Headers,
