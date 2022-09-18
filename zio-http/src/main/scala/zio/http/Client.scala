@@ -33,7 +33,7 @@ trait Client { self =>
 
   def portOption: Option[Int]
 
-  def queries: Map[String, Chunk[String]]
+  def queries: QueryParams
 
   def sslOption: Option[ClientSSLOptions]
 
@@ -63,7 +63,7 @@ trait Client { self =>
     copy(portOption = Some(port))
 
   def query(key: String, value: String): Client =
-    copy(queries = queries + (key -> Chunk(value)))
+    copy(queries = queries.add(key, value))
 
   final def request(method: Method, pathSuffix: String, body: Body): ZIO[Any, Throwable, Response] =
     requestInternal(
@@ -102,7 +102,7 @@ trait Client { self =>
     method: Method,
     pathPrefix: Path,
     portOption: Option[Int],
-    queries: Map[String, Chunk[String]],
+    queries: QueryParams,
     sslOption: Option[ClientSSLOptions],
     version: Version,
   ): ZIO[Any, Throwable, Response]
@@ -112,7 +112,7 @@ trait Client { self =>
     hostOption: Option[String] = hostOption,
     pathPrefix: Path = pathPrefix,
     portOption: Option[Int] = portOption,
-    queries: Map[String, Chunk[String]] = queries,
+    queries: QueryParams = queries,
     sslOption: Option[ClientSSLOptions] = sslOption,
   ): Client =
     Client.Proxy(self, headers, hostOption, pathPrefix, portOption, queries, sslOption)
@@ -126,7 +126,7 @@ object Client {
     hostOption: Option[String],
     pathPrefix: Path,
     portOption: Option[Int],
-    queries: Map[String, Chunk[String]],
+    queries: QueryParams,
     sslOption: Option[ClientSSLOptions],
   ) extends Client {
 
@@ -137,7 +137,7 @@ object Client {
       method: Method,
       path: Path,
       portOption: Option[Int],
-      queries: Map[String, Chunk[String]],
+      queries: QueryParams,
       sslOption: Option[ClientSSLOptions],
       version: Version,
     ): ZIO[Any, Throwable, Response] =
@@ -164,7 +164,7 @@ object Client {
     val hostOption: Option[String]          = None
     val pathPrefix: Path                    = Path.empty
     val portOption: Option[Int]             = None
-    val queries: Map[String, Chunk[String]] = Map.empty
+    val queries: QueryParams                = QueryParams.empty
     val sslOption: Option[ClientSSLOptions] = None
 
     def requestInternal(
@@ -174,7 +174,7 @@ object Client {
       method: Method,
       path: Path,
       portOption: Option[Int],
-      queries: Map[String, Chunk[String]],
+      queries: QueryParams,
       sslOption: Option[ClientSSLOptions],
       version: Version,
     ): ZIO[Any, Throwable, Response] = {
