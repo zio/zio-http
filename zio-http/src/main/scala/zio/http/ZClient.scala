@@ -23,7 +23,7 @@ import zio.http.socket.SocketApp
 
 import java.net.{InetSocketAddress, URI}
 
-trait Client { self =>
+trait ZClient[-Env, -In, +Err, +Out] { self =>
 
   def headers: Headers
 
@@ -44,28 +44,28 @@ trait Client { self =>
     addZioUserAgentHeader: Boolean = false,
   )(implicit unsafe: Unsafe): ZIO[R with Scope, Throwable, Response]
 
-  final def get(pathSuffix: String)(body: Body): Task[Response] =
+  final def get(pathSuffix: String)(body: In): ZIO[Env, Err, Out] =
     request(Method.GET, pathSuffix, body)
 
-  def header(key: String, value: String): Client =
+  def header(key: String, value: String): ZClient[Env, In, Err, Out] =
     copy(headers = headers ++ Headers.Header(key, value))
 
-  def host(host: String): Client =
+  def host(host: String): ZClient[Env, In, Err, Out] =
     copy(hostOption = Some(host))
 
-  def path(segment: String): Client =
+  def path(segment: String): ZClient[Env, In, Err, Out] =
     copy(pathPrefix = pathPrefix / segment)
 
-  def put(pathSuffix: String)(body: Body): Task[Response] =
+  def put(pathSuffix: String)(body: In): ZIO[Env, Err, Out] =
     request(Method.PUT, pathSuffix, body)
 
-  def port(port: Int): Client =
+  def port(port: Int): ZClient[Env, In, Err, Out] =
     copy(portOption = Some(port))
 
-  def query(key: String, value: String): Client =
+  def query(key: String, value: String): ZClient[Env, In, Err, Out] =
     copy(queries = queries.add(key, value))
 
-  final def request(method: Method, pathSuffix: String, body: Body): ZIO[Any, Throwable, Response] =
+  final def request(method: Method, pathSuffix: String, body: In): ZIO[Env, Err, Out] =
     requestInternal(
       body,
       headers,
@@ -78,9 +78,9 @@ trait Client { self =>
       Version.Http_1_1,
     )
 
-  final def request(request: Request): ZIO[Any, Throwable, Response] = {
+  final def request(request: Request)(implicit ev: Body <:< In): ZIO[Env, Err, Out] = {
     requestInternal(
-      request.body,
+      ev(request.body),
       headers ++ request.headers,
       request.url.host,
       request.method,
@@ -92,10 +92,10 @@ trait Client { self =>
     )
   }
 
-  def ssl(ssl: ClientSSLOptions): Client =
+  def ssl(ssl: ClientSSLOptions): ZClient[Env, In, Err, Out] =
     copy(sslOption = Some(ssl))
 
-  final def uri(uri: URI): Client =
+  final def uri(uri: URI): ZClient[Env, In, Err, Out] =
     copy(
       hostOption = Option(uri.getHost),
       pathPrefix = pathPrefix ++ Path.decode(uri.getRawPath),
@@ -103,7 +103,7 @@ trait Client { self =>
       queries = queries ++ QueryParams.decode(uri.getRawQuery),
     )
 
-  final def url(url: URL): Client =
+  final def url(url: URL): ZClient[Env, In, Err, Out] =
     copy(
       hostOption = url.host,
       pathPrefix = pathPrefix ++ url.path,
@@ -112,7 +112,7 @@ trait Client { self =>
     )
 
   protected def requestInternal(
-    body: Body,
+    body: In,
     headers: Headers,
     hostOption: Option[String],
     method: Method,
@@ -121,7 +121,7 @@ trait Client { self =>
     queries: QueryParams,
     sslOption: Option[ClientSSLOptions],
     version: Version,
-  ): ZIO[Any, Throwable, Response]
+  ): ZIO[Env, Err, Out]
 
   private def copy(
     headers: Headers = headers,
@@ -130,24 +130,24 @@ trait Client { self =>
     portOption: Option[Int] = portOption,
     queries: QueryParams = queries,
     sslOption: Option[ClientSSLOptions] = sslOption,
-  ): Client =
-    Client.Proxy(self, headers, hostOption, pathPrefix, portOption, queries, sslOption)
+  ): ZClient[Env, In, Err, Out] =
+    ZClient.Proxy[Env, In, Err, Out](self, headers, hostOption, pathPrefix, portOption, queries, sslOption)
 }
 
-object Client {
+object ZClient {
 
-  private final case class Proxy(
-    client: Client,
+  private final case class Proxy[-Env, -In, +Err, +Out](
+    client: ZClient[Env, In, Err, Out],
     headers: Headers,
     hostOption: Option[String],
     pathPrefix: Path,
     portOption: Option[Int],
     queries: QueryParams,
     sslOption: Option[ClientSSLOptions],
-  ) extends Client {
+  ) extends ZClient[Env, In, Err, Out] {
 
     def requestInternal(
-      body: Body,
+      body: In,
       headers: Headers,
       hostOption: Option[String],
       method: Method,
@@ -156,7 +156,7 @@ object Client {
       queries: QueryParams,
       sslOption: Option[ClientSSLOptions],
       version: Version,
-    ): ZIO[Any, Throwable, Response] =
+    ): ZIO[Env, Err, Out] =
       client.requestInternal(body, headers, hostOption, method, path, portOption, queries, sslOption, version)
 
     def socket[R](
