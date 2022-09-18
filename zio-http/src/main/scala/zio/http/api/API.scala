@@ -1,8 +1,7 @@
 package zio.http.api
 
-import zio.http.model.Method
-
 import zio._
+import zio.http.model.Method
 import zio.schema._
 import zio.stream.ZStream
 

@@ -2,9 +2,8 @@ package zio.http.api.internal
 
 import zio._
 import zio.http._
-import zio.http.model.Headers
 import zio.http.api._
-
+import zio.http.model.Headers
 import zio.schema._
 import zio.schema.codec._
 

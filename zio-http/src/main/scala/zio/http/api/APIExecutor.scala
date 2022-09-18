@@ -2,7 +2,6 @@ package zio.http.api
 
 import zio._
 import zio.http._
-
 import zio.http.api.internal.APIClient
 
 /**

@@ -6,12 +6,11 @@
  */
 package zio.http.api.openapi
 
-import java.net.URI
-
 import zio.NonEmptyChunk
 import zio.http.api.Doc
 import zio.http.model.Status
 
+import java.net.URI
 import scala.util.matching.Regex
 
 object OpenAPI {

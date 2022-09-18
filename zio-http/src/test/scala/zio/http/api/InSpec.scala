@@ -1,9 +1,9 @@
 package zio.http.api
 
 import zio._
-import zio.test._
+import zio.http.api.In._
 import zio.http.{Request, Response, URL}
-import In._
+import zio.test._
 
 object InSpec extends ZIOSpecDefault {
 
