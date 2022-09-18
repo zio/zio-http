@@ -30,7 +30,7 @@ object ZKeyedPool {
    * because the `Scope` is closed, the individual items allocated by the pool
    * will be released in some unspecified order.
    */
-  def make[Key, Env: Tag, Err, Item](get: Key => ZIO[Env, Err, Item], size: => Int)(implicit
+  def make[Key, Env: EnvironmentTag, Err, Item](get: Key => ZIO[Env, Err, Item], size: => Int)(implicit
     trace: Trace,
   ): ZIO[Env with Scope, Nothing, ZKeyedPool[Err, Key, Item]] =
     make(get, _ => size)
@@ -43,7 +43,7 @@ object ZKeyedPool {
    *
    * The size of the underlying pools can be configured per key.
    */
-  def make[Key, Env: Tag, Err, Item](get: Key => ZIO[Env, Err, Item], size: Key => Int)(implicit
+  def make[Key, Env: EnvironmentTag, Err, Item](get: Key => ZIO[Env, Err, Item], size: Key => Int)(implicit
     trace: Trace,
   ): ZIO[Env with Scope, Nothing, ZKeyedPool[Err, Key, Item]] = {
     makeWith(get, (key: Key) => { val s = size(key); s to s })(_ => None)
@@ -57,7 +57,7 @@ object ZKeyedPool {
    * used, the individual items allocated by the pool will be released in some
    * unspecified order.
    */
-  def make[Key, Env: Tag, Err, Item](get: Key => ZIO[Env, Err, Item], range: => Range, timeToLive: => Duration)(implicit
+  def make[Key, Env: EnvironmentTag, Err, Item](get: Key => ZIO[Env, Err, Item], range: => Range, timeToLive: => Duration)(implicit
     trace: Trace,
   ): ZIO[Env with Scope, Nothing, ZKeyedPool[Err, Key, Item]] =
     make(get, _ => range, _ => timeToLive)
@@ -72,12 +72,12 @@ object ZKeyedPool {
    *
    * The size of the underlying pools can be configured per key.
    */
-  def make[Key, Env: Tag, Err, Item](get: Key => ZIO[Env, Err, Item], range: Key => Range, timeToLive: Key => Duration)(
+  def make[Key, Env: EnvironmentTag, Err, Item](get: Key => ZIO[Env, Err, Item], range: Key => Range, timeToLive: Key => Duration)(
     implicit trace: Trace,
   ): ZIO[Env with Scope, Nothing, ZKeyedPool[Err, Key, Item]] =
     makeWith(get, range)((key: Key) => Some(timeToLive(key)))
 
-  private def makeWith[Key, Env: Tag, Err, Item](get: Key => ZIO[Env, Err, Item], range: Key => Range)(
+  private def makeWith[Key, Env: EnvironmentTag, Err, Item](get: Key => ZIO[Env, Err, Item], range: Key => Range)(
     ttl: Key => Option[Duration],
   )(implicit
     trace: Trace,
