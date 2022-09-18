@@ -6,7 +6,6 @@ import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
 import zio.http.model._
-import zio.http.model.headers.Headers
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 

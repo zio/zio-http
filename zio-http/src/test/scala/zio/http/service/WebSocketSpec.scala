@@ -5,8 +5,7 @@ import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model.Status
-import zio.http.model.headers.Headers
+import zio.http.model.{Headers, Status}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{nonFlaky, timeout}
