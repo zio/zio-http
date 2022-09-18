@@ -4,8 +4,7 @@ import io.netty.handler.codec.http.HttpHeaderValues
 import zio._
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model.headers.Headers
-import zio.http.model.{Method, Version}
+import zio.http.model.{Headers, Method, Version}
 import zio.http.netty.NettyRuntime
 import zio.http.netty.client.ConnectionPool
 import zio.stream.ZStream

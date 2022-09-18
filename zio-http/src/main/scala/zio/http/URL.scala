@@ -15,6 +15,9 @@ final case class URL(
   fragment: Option[Fragment] = None,
 ) { self =>
 
+  def ++(that: URL): URL =
+    URL(self.path ++ that.path, self.kind, self.queryParams ++ that.queryParams, self.fragment.orElse(that.fragment))
+
   def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
 
   def dropTrailingSlash: URL = self.copy(path = path.dropTrailingSlash)

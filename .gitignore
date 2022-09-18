@@ -5,6 +5,9 @@
 *.iws
 .idea
 .bloop/
+.bsp 
+.metals 
+.vscode 
 out
 .cache/
 .history/
@@ -31,3 +34,4 @@ node_modules/
 web/.DS_Store
 
 project/.bloop
+.metals

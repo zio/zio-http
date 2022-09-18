@@ -2,7 +2,6 @@ package example
 
 import zio.http._
 import zio.http.model._
-import zio.http.model.headers.Headers
 import zio.stream.ZStream
 import zio.{http, _}
 

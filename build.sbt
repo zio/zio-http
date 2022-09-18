@@ -102,6 +102,8 @@ lazy val zioHttp = (project in file("zio-http"))
     libraryDependencies ++= netty ++ Seq(
       `zio`,
       `zio-streams`,
+      `zio-schema`,
+      `zio-schema-json`,
       `zio-test`,
       `zio-test-sbt`,
       `netty-incubator`,

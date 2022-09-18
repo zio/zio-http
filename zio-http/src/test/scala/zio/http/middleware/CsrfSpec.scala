@@ -3,8 +3,7 @@ package zio.http.middleware
 import zio.http.Middleware.csrfValidate
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
-import zio.http.model.headers.Headers
-import zio.http.model.{Cookie, Status}
+import zio.http.model.{Cookie, Headers, Status}
 import zio.test.Assertion.equalTo
 import zio.test._
 import zio.{Ref, http}

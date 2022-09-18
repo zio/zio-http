@@ -1,8 +1,7 @@
 package zio.http.internal
 
 import zio.http._
-import zio.http.model.Status
-import zio.http.model.headers.Headers
+import zio.http.model._
 
 trait HttpAppTestExtensions {
   implicit class HttpAppSyntax[R, E](app: HttpApp[R, E]) {
