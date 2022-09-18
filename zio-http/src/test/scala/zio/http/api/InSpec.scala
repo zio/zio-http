@@ -3,7 +3,6 @@ package zio.http.api
 import zio._
 import zio.test._
 import zio.http.{Request, Response, URL}
-import zio.http.api.internal._
 import In._
 
 object InSpec extends ZIOSpecDefault {
@@ -60,12 +59,13 @@ object InSpec extends ZIOSpecDefault {
     url: String,
     expected: String,
   ): ZIO[R, E, TestResult] = {
-    val tree: HandlerTree[R, E] = HandlerTree.fromService(service)
-    val request                 = Request(url = URL.fromString(url).toOption.get)
-    val handler                 = tree.lookup(request).get
+    
+    val request = Request(url = URL.fromString(url).toOption.get)  
+  
     for {
-      response <- handler.run(request).flatMap(parseResponse)
-    } yield assertTrue(response == expected)
+      response <- service.toHttpApp(request).mapError(_.get)
+      body     <- response.body.asString.orDie
+    } yield assertTrue(body == expected)
   }
 
   def parseResponse(response: Response): UIO[String] =

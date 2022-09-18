@@ -23,14 +23,19 @@ sealed trait Service[-R, +E] { self =>
   def toHttpApp: HttpApp[R, E] = {
     import zio.http.api.internal._
 
-    val handlerTree = HandlerTree.fromService(self)
+    val handlerTree     = HandlerTree.fromService(self)
+    val requestHandlers = Memoized[Service.HandledAPI[R, E, _, _], APIServer[R, E, _, _]] { handledApi =>
+      APIServer(handledApi)
+    }
 
     Http.collectZIO[Request].apply[R, E, Response] { case request =>
       val handler = handlerTree.lookup(request)
 
-      handler.fold[ZIO[R, E, Response]](
-        ZIO.succeed(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request)))),
-      )(_.run(request))
+      handler match {
+        case None => ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
+        case Some(handlerMatch) =>
+          requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)
+      }
     }
   }
 

@@ -5,7 +5,7 @@ import zio.http.api._
 import zio.http.api.In._
 
 private[api] object Mechanic {
-  type Constructor[+A]   = InputResults => A
+  type Constructor[+A]   = InputsBuilder => A
   type Deconstructor[-A] = A => InputsBuilder
 
   def flatten(in: In[_]): FlattenedAtoms = {
@@ -48,15 +48,10 @@ private[api] object Mechanic {
   def makeDeconstructor[A](api: In[A]): Deconstructor[A] = {
     val flattened = flatten(api)
 
-    val routeCount  = flattened.routes.length
-    val queryCount  = flattened.queries.length
-    val headerCount = flattened.headers.length
-    val bodyCount   = flattened.inputBodies.length
-
     val deconstructor = makeDeconstructorLoop(indexed(api))
 
     (a: A) => {
-      val inputsBuilder = InputsBuilder.make(routeCount, queryCount, headerCount, bodyCount)
+      val inputsBuilder = flattened.makeInputsBuilder()
       deconstructor(a, inputsBuilder)
       inputsBuilder
     }
@@ -84,7 +79,7 @@ private[api] object Mechanic {
       case IndexedAtom(_: Query[_], index)     =>
         results => coerce(results.queries(index))
       case IndexedAtom(_: InputBody[_], index) =>
-        results => coerce(results.inputBody(index))
+        results => coerce(results.inputBodies(index))
 
       case transform: Transform[_, A] =>
         val threaded = makeConstructorLoop(transform.api)
@@ -149,28 +144,14 @@ private[api] object Mechanic {
       case inputBody: InputBody[_] => copy(inputBodies = inputBodies.appended(inputBody))
       case _: IndexedAtom[_]       => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
     }
+
+    def makeInputsBuilder(): InputsBuilder = {
+      Mechanic.InputsBuilder.make(routes.length, queries.length, headers.length, inputBodies.length)
+    }
   }
 
   private[api] object FlattenedAtoms {
     val empty = FlattenedAtoms(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
-  }
-
-  private[api] final case class InputResults(
-    routes: Chunk[Any] = Chunk.empty,
-    queries: Chunk[Any] = Chunk.empty,
-    headers: Chunk[Any] = Chunk.empty,
-    inputBody: Chunk[Any] = Chunk.empty,
-  ) { self =>
-    def ++(that: InputResults): InputResults =
-      InputResults(
-        routes = self.routes ++ that.routes,
-        queries = self.queries ++ that.queries,
-        headers = self.headers ++ that.headers,
-        inputBody = self.inputBody ++ that.inputBody,
-      )
-  }
-  private[api] object InputResults   {
-    val empty: InputResults = InputResults(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
   }
 
   private[api] final case class InputsBuilder(

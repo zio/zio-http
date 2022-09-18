@@ -7,10 +7,10 @@ import zio.http.api._
 sealed trait HandlerTree[-R, +E] { self =>
   import HandlerTree._
 
-  def generateError(request: Request): String = s"The path ${request.path} does not match any route"
-
   def add[R1 <: R, E1 >: E](handledAPI: Service.HandledAPI[R1, E1, _, _]): HandlerTree[R1, E1] =
     merge(HandlerTree.single(handledAPI))
+
+  def generateError(request: Request): String = s"The path ${request.path} does not match any route"
 
   def merge[R1 <: R, E1 >: E](that: HandlerTree[R1, E1]): HandlerTree[R1, E1] =
     (self, that) match {
@@ -30,8 +30,6 @@ sealed trait HandlerTree[-R, +E] { self =>
 
   def lookup(request: Request): Option[HandlerMatch[R, E, _, _]] =
     HandlerTree.lookup(request.path.segments.collect { case Path.Segment.Text(text) => text }, 0, self, Chunk.empty)
-
-  // lazy val maxAtoms: Int = ???
 
   private def mergeWith[K, V](left: Map[K, V], right: Map[K, V])(f: (V, V) => V): Map[K, V] =
     left.foldLeft(right) { case (acc, (k, v)) =>
