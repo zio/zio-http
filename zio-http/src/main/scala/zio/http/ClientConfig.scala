@@ -5,7 +5,7 @@ import io.netty.channel.{ChannelFactory, EventLoopGroup}
 import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.netty.{ChannelFactories, EventLoopGroups, _}
 import zio.http.socket.SocketApp
-import zio.{Scope, ZLayer}
+import zio.{Duration, Scope, ZLayer}
 
 case class ClientConfig(
   socketApp: Option[SocketApp[Any]] = None,
@@ -14,6 +14,7 @@ case class ClientConfig(
   channelType: ChannelType = ChannelType.AUTO,
   nThreads: Int = 0,
   useAggregator: Boolean = true,
+  connectionPool: ConnectionPoolConfig = ConnectionPoolConfig.Disabled,
 ) extends EventLoopGroups.Config {
   self =>
   def ssl(ssl: ClientSSLOptions): ClientConfig = self.copy(ssl = Some(ssl))
@@ -27,6 +28,12 @@ case class ClientConfig(
   def maxThreads(nThreads: Int): ClientConfig = self.copy(nThreads = nThreads)
 
   def useObjectAggregator(objectAggregator: Boolean): ClientConfig = self.copy(useAggregator = objectAggregator)
+
+  def withFixedConnectionPool(size: Int): ClientConfig =
+    self.copy(connectionPool = ConnectionPoolConfig.Fixed(size))
+
+  def withDynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): ClientConfig =
+    self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
 }
 
 object ClientConfig {

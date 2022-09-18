@@ -1,12 +1,7 @@
 package zio.http.netty.client
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.HttpClientCodec
 import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
@@ -16,7 +11,7 @@ import zio.http.netty.NettyFutureExecutor
 import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
-import zio.http.{Proxy, URL}
+import zio.http.{ClientConfig, ConnectionPoolConfig, Proxy, URL}
 import zio.logging.LogLevel
 import zio.{Duration, Scope, ZIO, ZLayer}
 
@@ -131,25 +126,45 @@ object ConnectionPool {
 
   val disabled: ZLayer[EventLoopGroup with ChannelFactory, Nothing, ConnectionPool] =
     ZLayer {
-      for {
-        channelFactory <- ZIO.service[ChannelFactory]
-        eventLoopGroup <- ZIO.service[EventLoopGroup]
-
-      } yield new NoConnectionPool(channelFactory, eventLoopGroup)
+      createDisabled
     }
 
-  // TODO: "auto" layer to be set up from ClientConfig
+  def fromConfig: ZLayer[ConnectionPoolConfig with ChannelFactory with EventLoopGroup, Throwable, ConnectionPool] =
+    ZLayer.scoped {
+      for {
+        config <- ZIO.service[ConnectionPoolConfig]
+        pool   <- config match {
+          case ConnectionPoolConfig.Disabled                         =>
+            createDisabled
+          case ConnectionPoolConfig.Fixed(size)                      =>
+            createFixed(size)
+          case ConnectionPoolConfig.FixedPerHost(sizes, default)     =>
+            createFixedPerHost(location => sizes.getOrElse(location, default).size)
+          case ConnectionPoolConfig.Dynamic(minimum, maximum, ttl)   =>
+            createDynamic(minimum, maximum, ttl)
+          case ConnectionPoolConfig.DynamicPerHost(configs, default) =>
+            createDynamicPerHost(
+              location => configs.getOrElse(location, default).minimum,
+              location => configs.getOrElse(location, default).maximum,
+              location => configs.getOrElse(location, default).ttl,
+            )
+        }
+      } yield pool
+    }
+
+  def auto: ZLayer[ClientConfig with ChannelFactory with EventLoopGroup, Throwable, ConnectionPool] =
+    ZLayer.service[ClientConfig].project(_.connectionPool) >>> fromConfig
 
   def fixed(size: Int): ZLayer[ChannelFactory with EventLoopGroup, Throwable, ConnectionPool] =
     ZLayer.scoped[ChannelFactory with EventLoopGroup] {
-      for {
-        channelFactory <- ZIO.service[ChannelFactory]
-        eventLoopGroup <- ZIO.service[EventLoopGroup]
-        keyedPool      <- ZKeyedPool.make(
-          (key: PoolKey) => createChannel(channelFactory, eventLoopGroup, key.location, key.proxy, key.sslOptions),
-          size,
-        )
-      } yield new ZioConnectionPool(keyedPool)
+      createFixed(size)
+    }
+
+  def fixedPerHost(
+    size: URL.Location.Absolute => Int,
+  ): ZLayer[ChannelFactory with EventLoopGroup, Throwable, ConnectionPool] =
+    ZLayer.scoped[ChannelFactory with EventLoopGroup] {
+      createFixedPerHost(size)
     }
 
   def dynamic(
@@ -158,14 +173,59 @@ object ConnectionPool {
     ttl: Duration,
   ): ZLayer[ChannelFactory with EventLoopGroup, Throwable, ConnectionPool] =
     ZLayer.scoped[ChannelFactory with EventLoopGroup] {
-      for {
-        channelFactory <- ZIO.service[ChannelFactory]
-        eventLoopGroup <- ZIO.service[EventLoopGroup]
-        keyedPool      <- ZKeyedPool.make(
-          (key: PoolKey) => createChannel(channelFactory, eventLoopGroup, key.location, key.proxy, key.sslOptions),
-          min to max,
-          ttl,
-        )
-      } yield new ZioConnectionPool(keyedPool)
+      createDynamic(min, max, ttl)
     }
+
+  def dynamicPerHost(
+    min: URL.Location.Absolute => Int,
+    max: URL.Location.Absolute => Int,
+    ttl: URL.Location.Absolute => Duration,
+  ): ZLayer[ChannelFactory with EventLoopGroup, Throwable, ConnectionPool] =
+    ZLayer.scoped[ChannelFactory with EventLoopGroup] {
+      createDynamicPerHost(min, max, ttl)
+    }
+
+  private def createDisabled: ZIO[EventLoopGroup with ChannelFactory, Nothing, ConnectionPool] =
+    for {
+      channelFactory <- ZIO.service[ChannelFactory]
+      eventLoopGroup <- ZIO.service[EventLoopGroup]
+
+    } yield new NoConnectionPool(channelFactory, eventLoopGroup)
+
+  private def createFixed(size: Int): ZIO[Scope with ChannelFactory with EventLoopGroup, Nothing, ConnectionPool] =
+    createFixedPerHost(_ => size)
+
+  private def createFixedPerHost(
+    size: URL.Location.Absolute => Int,
+  ): ZIO[Scope with ChannelFactory with EventLoopGroup, Nothing, ConnectionPool] =
+    for {
+      channelFactory <- ZIO.service[ChannelFactory]
+      eventLoopGroup <- ZIO.service[EventLoopGroup]
+      keyedPool      <- ZKeyedPool.make(
+        (key: PoolKey) => createChannel(channelFactory, eventLoopGroup, key.location, key.proxy, key.sslOptions),
+        (key: PoolKey) => size(key.location),
+      )
+    } yield new ZioConnectionPool(keyedPool)
+
+  private def createDynamic(
+    min: Int,
+    max: Int,
+    ttl: Duration,
+  ): ZIO[Scope with ChannelFactory with EventLoopGroup, Nothing, ConnectionPool] =
+    createDynamicPerHost(_ => min, _ => max, _ => ttl)
+
+  private def createDynamicPerHost(
+    min: URL.Location.Absolute => Int,
+    max: URL.Location.Absolute => Int,
+    ttl: URL.Location.Absolute => Duration,
+  ): ZIO[Scope with ChannelFactory with EventLoopGroup, Nothing, ConnectionPool] =
+    for {
+      channelFactory <- ZIO.service[ChannelFactory]
+      eventLoopGroup <- ZIO.service[EventLoopGroup]
+      keyedPool      <- ZKeyedPool.make(
+        (key: PoolKey) => createChannel(channelFactory, eventLoopGroup, key.location, key.proxy, key.sslOptions),
+        (key: PoolKey) => min(key.location) to max(key.location),
+        (key: PoolKey) => ttl(key.location),
+      )
+    } yield new ZioConnectionPool(keyedPool)
 }
