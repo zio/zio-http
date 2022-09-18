@@ -1,9 +1,9 @@
 package zio.benchmarks
 
 import org.openjdk.jmh.annotations.{Scope => JScope, _}
+import zio._
 import zio.http._
 import zio.http.model.{Method, Version}
-import zio.{http, _}
 
 import java.util.concurrent.TimeUnit
 

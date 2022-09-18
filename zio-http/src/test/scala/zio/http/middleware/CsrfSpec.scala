@@ -1,12 +1,12 @@
 package zio.http.middleware
 
+import zio.Ref
 import zio.http.Middleware.csrfValidate
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.model.{Cookie, Headers, Status}
 import zio.test.Assertion.equalTo
 import zio.test._
-import zio.{Ref, http}
 
 object CsrfSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val app           = (Http.ok @@ csrfValidate("x-token")).status

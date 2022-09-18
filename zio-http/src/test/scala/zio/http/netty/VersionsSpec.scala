@@ -2,7 +2,7 @@ package zio.http.netty
 
 import io.netty.handler.codec.http.HttpVersion
 import zio._
-import zio.http.Version
+import zio.http.model.Version
 import zio.test._
 
 object VersionsSpec extends ZIOSpecDefault {
