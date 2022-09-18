@@ -120,15 +120,13 @@ object ConnectionPool {
           restore(
             NettyFutureExecutor.executed(channel.closeFuture()),
           ).zipRight(
-            ZIO.debug(s"Channel closed, invalidating ($channel)") *>
-              pool.invalidate(channel),
+            pool.invalidate(channel),
           ).forkDaemon
         }
       }
 
     override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
-      ZIO.debug(s"Invalidating $channel") *>
-        pool.invalidate(channel)
+      pool.invalidate(channel)
   }
 
   val disabled: ZLayer[EventLoopGroup with ChannelFactory, Nothing, ConnectionPool] =

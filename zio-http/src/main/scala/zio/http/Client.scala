@@ -224,7 +224,6 @@ object Client {
             channelScope <- Scope.make
             _            <- ZIO.uninterruptibleMask { restore =>
               for {
-                _            <- ZIO.debug("Acquiring channel")
                 channel      <-
                   restore {
                     connectionPool
@@ -235,7 +234,6 @@ object Client {
                       )
                       .provideEnvironment(ZEnvironment(channelScope))
                   }
-                _            <- ZIO.debug(s"Acquired channel $channel")
                 resetChannel <- ZIO.attempt {
                   requestOnChannel(
                     channel,
@@ -248,30 +246,27 @@ object Client {
                     () => clientConfig.socketApp.getOrElse(SocketApp()),
                   )
                 }.tapErrorCause { cause =>
-                  ZIO.debug(s"Releasing channel $channel because of $cause") *>
-                    channelScope.close(Exit.failCause(cause))
+                  channelScope.close(Exit.failCause(cause))
                 }
                 // If request registration failed we release the channel immediately.
                 // Otherwise we wait for completion signal from netty in a background fiber:
                 _            <-
                   onComplete.await.interruptible.exit.flatMap { exit =>
-                    ZIO.debug(s"onComplete for channel $channel, resetting") *>
-                      resetChannel
-                        .zip(exit)
-                        .map { case (s1, s2) => s1 && s2 }
-                        .catchAll(_ =>
-                          ZIO.succeed(ChannelState.Invalid),
-                        ) // In case resetting the channel fails we cannot reuse it
-                        .flatMap { channelState =>
-                          (ZIO.debug(s"Invalidating because not reusable ($channel)") *>
-                            connectionPool
-                              .invalidate(channel)).when(channelState == ChannelState.Invalid)
-                        }
-                        .flatMap { _ =>
-                          ZIO.debug(s"Releasing channel $channel") *>
-                            channelScope.close(exit)
-                        }
-                        .uninterruptible
+                    resetChannel
+                      .zip(exit)
+                      .map { case (s1, s2) => s1 && s2 }
+                      .catchAll(_ =>
+                        ZIO.succeed(ChannelState.Invalid),
+                      ) // In case resetting the channel fails we cannot reuse it
+                      .flatMap { channelState =>
+                        connectionPool
+                          .invalidate(channel)
+                          .when(channelState == ChannelState.Invalid)
+                      }
+                      .flatMap { _ =>
+                        channelScope.close(exit)
+                      }
+                      .uninterruptible
                   }.forkDaemon
               } yield ()
             }
