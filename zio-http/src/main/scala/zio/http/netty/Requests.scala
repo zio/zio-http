@@ -4,6 +4,8 @@ import io.netty.channel._
 import io.netty.handler.codec.http.{FullHttpRequest, HttpRequest}
 import zio._
 import zio.http._
+import zio.http.model._
+import zio.http.model.headers.Headers
 
 import java.net.InetSocketAddress
 
