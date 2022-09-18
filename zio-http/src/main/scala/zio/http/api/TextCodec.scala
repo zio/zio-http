@@ -39,13 +39,13 @@ object TextCodec {
     def encode(value: Unit): String = string
   }
 
-  final case object StringCodec extends TextCodec[String] {
+  case object StringCodec extends TextCodec[String] {
     def decode(value: String): Option[String] = Some(value)
 
     def encode(value: String): String = value
   }
 
-  final case object IntCodec extends TextCodec[Int] {
+  case object IntCodec extends TextCodec[Int] {
     def decode(value: String): Option[Int] =
       try Some(value.toInt)
       catch { case _: NumberFormatException => None }
