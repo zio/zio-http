@@ -7,7 +7,7 @@ import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.headers.Headers
 import zio.http.model.{Status, Version}
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{diagnose, sequential, timeout}
 import zio.test._
 
 object ConnectionPoolSpec extends HttpRunnableSpec {
@@ -84,7 +84,7 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
       ConnectionPool.fixed(2),
 //      ConnectionPool.dynamic(4, 16, 500.millis),
       Scope.default,
-    ) @@ timeout(30.seconds)
+    ) @@ timeout(30.seconds) @@ diagnose(30.seconds) @@ sequential
   }
 
 }

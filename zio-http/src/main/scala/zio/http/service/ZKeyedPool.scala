@@ -1,7 +1,7 @@
 package zio.http.service
 
 import zio._
-import zio.stm.{TMap, TSet, ZSTM}
+import zio.stm.{TMap, TPromise, ZSTM}
 
 trait ZKeyedPool[+Err, -Key, Item] {
 
@@ -83,8 +83,7 @@ object ZKeyedPool {
     trace: Trace,
   ): ZIO[Env with Scope, Nothing, ZKeyedPool[Err, Key, Item]] =
     for {
-      activePools   <- TMap.empty[Key, ZPool[Err, Item]].commit
-      createdPools  <- TSet.empty[Key].commit
+      activePools   <- TMap.empty[Key, TPromise[Nothing, ZPool[Err, Item]]].commit
       acquiredItems <- TMap.empty[Item, Key].commit
       env           <- ZIO.environment[Env]
       createPool = (key: Key) =>
@@ -101,43 +100,37 @@ object ZKeyedPool {
     } yield DefaultKeyedPool[Err, Key, Item](
       createPool,
       activePools,
-      createdPools,
       acquiredItems,
     )
 
   private final case class DefaultKeyedPool[Err, Key, Item](
     createPool: Key => ZIO[Scope, Nothing, ZPool[Err, Item]],
-    activePools: TMap[Key, ZPool[Err, Item]],
-    createdPools: TSet[Key],
+    activePools: TMap[Key, TPromise[Nothing, ZPool[Err, Item]]],
     acquiredItems: TMap[Item, Key],
   ) extends ZKeyedPool[Err, Key, Item] {
 
     override def get(key: Key)(implicit trace: Trace): ZIO[Scope, Err, Item] =
       ZIO.uninterruptibleMask { restore =>
         restore {
-          createdPools
-            .contains(key)
-            .flatMap { alreadyCreated =>
-              if (alreadyCreated) {
-                activePools.get(key).flatMap {
-                  case None       =>
-                    ZSTM.retry
-                  case Some(pool) =>
-                    ZSTM.succeed(
-                      acquireFrom(key, pool),
-                    )
+          activePools
+            .get(key)
+            .flatMap {
+              case Some(promise) =>
+                promise.await.map { pool =>
+                  acquireFrom(key, pool)
                 }
-              } else {
-                createdPools
-                  .put(key)
-                  .as {
-                    for {
-                      pool <- createPool(key)
-                      _    <- activePools.put(key, pool).commit
-                      item <- acquireFrom(key, pool)
-                    } yield item
-                  }
-              }
+              case None          =>
+                TPromise.make[Nothing, ZPool[Err, Item]].flatMap { promise =>
+                  activePools
+                    .put(key, promise)
+                    .as {
+                      for {
+                        pool <- createPool(key)
+                        _    <- promise.succeed(pool).commit
+                        item <- acquireFrom(key, pool)
+                      } yield item
+                    }
+                }
             }
             .commit
         }.flatten
@@ -151,9 +144,15 @@ object ZKeyedPool {
             .flatMap {
               case None      => ZSTM.succeed(ZIO.unit)
               case Some(key) =>
-                activePools.get(key).map {
-                  case None       => ZIO.unit
-                  case Some(pool) => pool.invalidate(item)
+                activePools.get(key).flatMap {
+                  case None              => ZSTM.succeed(ZIO.unit)
+                  case Some(poolPromise) =>
+                    poolPromise.poll.map {
+                      case None              => ZIO.unit
+                      case Some(Left(_))     => ZIO.unit
+                      case Some(Right(pool)) => pool.invalidate(item)
+                    }
+
                 }
             }
             .commit
@@ -161,19 +160,11 @@ object ZKeyedPool {
       }
 
     private def acquireFrom(key: Key, pool: ZPool[Err, Item]): ZIO[Scope, Err, Item] =
-      for {
-        promise <- Promise.make[Nothing, Item]
-        _       <- Scope.addFinalizer(removeFromAcquiredItems(promise))
-        item    <- pool.get
-        _       <- (promise.succeed(item) *> acquiredItems.put(item, key).commit).uninterruptible
-      } yield item
-
-    private def removeFromAcquiredItems(promise: Promise[Nothing, Item]): ZIO[Any, Nothing, Unit] =
-      promise.poll.flatMap {
-        case Some(getValue) =>
-          getValue.flatMap(acquiredItems.delete(_).commit)
-        case None           =>
-          ZIO.unit
-      }.uninterruptible
+      ZIO.uninterruptibleMask { restore =>
+        restore(pool.get).tap { item =>
+          Scope.addFinalizer(acquiredItems.delete(item).commit) *>
+            acquiredItems.put(item, key).commit
+        }
+      }
   }
 }
