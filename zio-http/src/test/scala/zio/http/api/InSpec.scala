@@ -65,7 +65,7 @@ object InSpec extends ZIOSpecDefault {
     for {
       response <- service.toHttpApp(request).mapError(_.get)
       body     <- response.body.asString.orDie
-    } yield assertTrue(body == expected)
+    } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }
 
   def parseResponse(response: Response): UIO[String] =
