@@ -1,9 +1,9 @@
 package zio.http
 
+import zio.Chunk
 import zio.http.model._
 import zio.test.Assertion._
 import zio.test._
-import zio.{Chunk, http}
 
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets._

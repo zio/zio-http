@@ -5,7 +5,7 @@ import zio.http._
 import zio.http.model._
 import zio.http.socket.SocketApp
 import zio.test.ZIOSpecDefault
-import zio.{Scope, ZIO, http}
+import zio.{Scope, ZIO}
 
 /**
  * Should be used only when e2e tests needs to be written. Typically we would

@@ -1,6 +1,7 @@
 package zio.http
 
-import zio.http.headers.HeaderExtension
+import zio.http.model._
+import zio.http.model.headers._
 
 import java.net.InetAddress
 
