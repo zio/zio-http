@@ -26,6 +26,13 @@ sealed trait Scheme { self =>
     case _            => false
   }
 
+  def port: Int = self match {
+    case Scheme.HTTP  => 80
+    case Scheme.HTTPS => 443
+    case Scheme.WS    => 80
+    case Scheme.WSS   => 443
+  }
+
   def toJHttpScheme: Option[HttpScheme] = self match {
     case Scheme.HTTP  => Option(HttpScheme.HTTP)
     case Scheme.HTTPS => Option(HttpScheme.HTTPS)

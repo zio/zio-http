@@ -21,7 +21,7 @@ import zio.http.netty.{NettyRuntime, _}
 import zio.http.service._
 import zio.http.socket.SocketApp
 
-import java.net.InetSocketAddress
+import java.net.{InetSocketAddress, URI}
 
 trait Client { self =>
 
@@ -94,6 +94,22 @@ trait Client { self =>
 
   def ssl(ssl: ClientSSLOptions): Client =
     copy(sslOption = Some(ssl))
+
+  final def uri(uri: URI): Client =
+    copy(
+      hostOption = Option(uri.getHost),
+      pathPrefix = pathPrefix ++ Path.decode(uri.getRawPath),
+      portOption = Option(uri.getPort).filter(_ != -1).orElse(Scheme.decode(uri.getScheme).map(_.port)),
+      queries = queries ++ QueryParams.decode(uri.getRawQuery),
+    )
+
+  final def url(url: URL): Client =
+    copy(
+      hostOption = url.host,
+      pathPrefix = pathPrefix ++ url.path,
+      portOption = url.port,
+      queries = queries ++ url.queryParams,
+    )
 
   protected def requestInternal(
     body: Body,
