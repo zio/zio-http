@@ -61,7 +61,7 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
   private[api] final case class WithDoc[A](in: In[A], doc: Doc)                   extends In[A]
   private[api] final case class Transform[X, A](api: In[X], f: X => A, g: A => X) extends In[A]
 
-  private[api] final case class Combine[A1, A2, B1, B2, A, B](
+  private[api] final case class Combine[A1, A2, A](
     left: In[A1],
     right: In[A2],
     inputCombiner: Combiner.WithOut[A1, A2, A],
