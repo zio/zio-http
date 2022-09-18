@@ -217,38 +217,40 @@ object Client {
       onResponse: Promise[Throwable, Response],
       clientConfig: ClientConfig,
     )(implicit unsafe: Unsafe): ZIO[Any, Throwable, Unit] = {
-
-      try {
-        req.url.kind match {
-          case location: Location.Absolute =>
-            for {
-              channelScope <- Scope.make
-              channel      <-
-                connectionPool
-                  .get(
+      req.url.kind match {
+        case location: Location.Absolute =>
+          for {
+            onComplete   <- Promise.make[Throwable, Unit]
+            channelScope <- Scope.make
+            _            <- ZIO.uninterruptibleMask { restore =>
+              for {
+                channel      <-
+                  restore {
+                    connectionPool
+                      .get(
+                        location,
+                        clientConfig.proxy,
+                        clientConfig.ssl.getOrElse(ClientSSLOptions.DefaultSSL),
+                      )
+                      .provideEnvironment(ZEnvironment(channelScope))
+                  }
+                resetChannel <- ZIO.attempt {
+                  requestOnChannel(
+                    channel,
                     location,
-                    clientConfig.proxy,
-                    clientConfig.ssl.getOrElse(ClientSSLOptions.DefaultSSL),
+                    req,
+                    jReq,
+                    onResponse,
+                    onComplete,
+                    clientConfig.useAggregator,
+                    () => clientConfig.socketApp.getOrElse(SocketApp()),
                   )
-                  .provideEnvironment(ZEnvironment(channelScope))
-              onComplete   <- Promise.make[Throwable, Unit]
-              release      <- ZIO.attempt {
-                requestOnChannel(
-                  channel,
-                  location,
-                  req,
-                  jReq,
-                  onResponse,
-                  onComplete,
-                  clientConfig.useAggregator,
-                  () => clientConfig.socketApp.getOrElse(SocketApp()),
-                )
-              }
-              _            <- onComplete.await.exit.flatMap { exit =>
-                {
-                  release
-                    .tapError(onResponse.fail)
-                    .catchAll(_ => ZIO.succeed(false))
+                }.tapErrorCause(cause => channelScope.close(Exit.failCause(cause)))
+                // If request registration failed we release the channel immediately.
+                // Otherwise we wait for completion signal from netty in a background fiber:
+                _            <- onComplete.await.exit.flatMap { exit =>
+                  resetChannel
+                    .catchAll(_ => ZIO.succeed(false)) // In case resetting the channel fails we cannot reuse it
                     .flatMap { channelIsReusable =>
                       connectionPool
                         .invalidate(channel)
@@ -257,18 +259,19 @@ object Client {
                     .flatMap { _ =>
                       channelScope.close(exit)
                     }
-                }.uninterruptible
-              }.forkDaemon
-            } yield ()
-          case Location.Relative           =>
-            throw new IllegalArgumentException("Absolute URL is required")
+                    .uninterruptible
+                }.forkDaemon
+              } yield ()
+            }
+          } yield ()
+        case Location.Relative           =>
+          ZIO.fail(throw new IllegalArgumentException("Absolute URL is required"))
+      }
+    }.tapError { _ =>
+      ZIO.attempt {
+        if (jReq.refCnt() > 0) {
+          jReq.release(jReq.refCnt()): Unit
         }
-      } catch {
-        case err: Throwable =>
-          if (jReq.refCnt() > 0) {
-            jReq.release(jReq.refCnt()): Unit
-          }
-          throw err
       }
     }
 

@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http.internal
 
 import zio._
 import zio.stm.{TMap, TPromise, ZSTM}

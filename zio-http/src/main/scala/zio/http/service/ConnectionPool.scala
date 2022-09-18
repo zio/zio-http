@@ -1,16 +1,12 @@
 package zio.http.service
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.HttpClientCodec
 import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.URL.Location
+import zio.http.internal.ZKeyedPool
 import zio.http.netty.NettyFutureExecutor
 import zio.http.netty.client.ClientSSLHandler
 import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
