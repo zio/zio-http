@@ -124,11 +124,13 @@ object ZKeyedPool {
                   activePools
                     .put(key, promise)
                     .as {
-                      for {
-                        pool <- createPool(key)
-                        _    <- promise.succeed(pool).commit
-                        item <- acquireFrom(key, pool)
-                      } yield item
+                      ZIO.uninterruptibleMask { restore =>
+                        for {
+                          pool <- createPool(key)
+                          _    <- promise.succeed(pool).commit
+                          item <- restore(acquireFrom(key, pool))
+                        } yield item
+                      }
                     }
                 }
             }
