@@ -1,7 +1,7 @@
 package zio.http.middleware
 
-import zio.http.{Http, Middleware, Request, Response}
 import zio._
+import zio.http.{Http, Middleware, Request, Response}
 import zio.metrics.{Metric, MetricKeyType, MetricLabel}
 
 private[zio] trait Metrics {
