@@ -21,7 +21,7 @@ object BodySpec extends ZIOSpecDefault {
             test("success") {
               check(Gen.string) { payload =>
                 val stringBuffer    = payload.getBytes(HTTP_CHARSET)
-                val responseContent = ZStream.fromIterable(stringBuffer)
+                val responseContent = ZStream.fromIterable(stringBuffer, chunkSize = 2)
                 val res             = Body.fromStream(responseContent).asString(HTTP_CHARSET)
                 assertZIO(res)(equalTo(payload))
               }

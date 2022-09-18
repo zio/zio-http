@@ -44,7 +44,7 @@ object ClientSpec extends HttpRunnableSpec {
     },
     test("streaming content to server") {
       val app    = Http.collectZIO[Request] { case req => req.body.asString.map(Response.text(_)) }
-      val stream = ZStream.fromIterable(List("a", "b", "c"))
+      val stream = ZStream.fromIterable(List("a", "b", "c"), chunkSize = 1)
       val res    = app.deploy.body
         .run(method = Method.POST, body = Body.fromStream(stream))
         .flatMap(_.asString)

@@ -63,7 +63,9 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            Body.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
+            Body.fromStream(
+              ZStream.fromIterable(list, chunkSize = 2).map(b => Chunk.fromArray(b.getBytes())).flattenChunks,
+            ),
             Body.fromString(list.mkString("")),
             Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
             Body.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
@@ -99,7 +101,9 @@ object HttpGen {
       cnt  <- Gen
         .fromIterable(
           List(
-            Body.fromStream(ZStream.fromIterable(list).map(b => Chunk.fromArray(b.getBytes())).flattenChunks),
+            Body.fromStream(
+              ZStream.fromIterable(list, chunkSize = 2).map(b => Chunk.fromArray(b.getBytes())).flattenChunks,
+            ),
             Body.fromString(list.mkString("")),
             Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
             Body.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
