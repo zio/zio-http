@@ -14,7 +14,6 @@ import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio._
 import zio.http.model._
-import zio.http.model.headers.Headers
 import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.netty.client._
 import zio.http.netty.{NettyRuntime, _}
