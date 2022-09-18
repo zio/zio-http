@@ -8,7 +8,7 @@ import zio.http.model.headers.Headers
 import zio.http.model.{Method, Version}
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, sequential, timeout}
+import zio.test.TestAspect.{diagnose, ignore, sequential, timeout}
 import zio.test._
 
 object ConnectionPoolSpec extends HttpRunnableSpec {
@@ -115,7 +115,7 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
           "with keep-alive"    -> keepAliveHeader,
         ),
       ),
-    )
+    ) @@ ignore
 
   override def spec = {
     suite("ConnectionPoolSpec") {

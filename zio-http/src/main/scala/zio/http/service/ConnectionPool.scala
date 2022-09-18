@@ -27,6 +27,8 @@ trait ConnectionPool {
     proxy: Option[Proxy],
     sslOptions: ClientSSLOptions,
   ): ZIO[Scope, Throwable, JChannel]
+
+  def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit]
 }
 
 object ConnectionPool {
@@ -92,6 +94,9 @@ object ConnectionPool {
       sslOptions: ClientSSLOptions,
     ): ZIO[Scope, Throwable, JChannel] =
       createChannel(channelFactory, eventLoopGroup, location, proxy, sslOptions)
+
+    override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
+      ZIO.unit
   }
 
   case class PoolKey(location: Location.Absolute, proxy: Option[Proxy], sslOptions: ClientSSLOptions)
@@ -114,9 +119,10 @@ object ConnectionPool {
             )
             .forkDaemon,
         )
-  }
 
-  // TODO: these should be scoped layers and not getting scope from outside
+    override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
+      pool.invalidate(channel)
+  }
 
   val disabled: ZLayer[EventLoopGroup with ChannelFactory, Nothing, ConnectionPool] =
     ZLayer {

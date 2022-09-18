@@ -15,12 +15,6 @@ final class ClientInboundStreamingHandler(
 
   private implicit val unsafeClass: Unsafe = Unsafe.unsafe
 
-  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-    if (ctx.channel().isActive && ctx.channel().isRegistered) {
-      writeRequest(req, ctx): Unit
-    }
-  }
-
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
     writeRequest(req, ctx): Unit
   }

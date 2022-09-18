@@ -244,10 +244,20 @@ object Client {
                   () => clientConfig.socketApp.getOrElse(SocketApp()),
                 )
               }
-              // TODO: cleanup, ensure channel is always released, invalidate channel in pool in case of error
               _            <- onComplete.await.exit.flatMap { exit =>
-                (release.catchAll(onResponse.fail) *>
-                  channelScope.close(exit)).uninterruptible
+                {
+                  release
+                    .tapError(onResponse.fail)
+                    .catchAll(_ => ZIO.succeed(false))
+                    .flatMap { channelIsReusable =>
+                      connectionPool
+                        .invalidate(channel)
+                        .when(!channelIsReusable || exit.isFailure)
+                    }
+                    .flatMap { _ =>
+                      channelScope.close(exit)
+                    }
+                }.uninterruptible
               }.forkDaemon
             } yield ()
           case Location.Relative           =>
@@ -271,7 +281,7 @@ object Client {
       onComplete: Promise[Throwable, Unit],
       useAggregator: Boolean,
       createSocketApp: () => SocketApp[Any],
-    ): ZIO[Any, Throwable, Unit] = {
+    ): ZIO[Any, Throwable, Boolean] = {
       log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
 
       val pipeline                              = channel.pipeline()
@@ -285,13 +295,8 @@ object Client {
         pipeline.addLast(HTTP_OBJECT_AGGREGATOR, httpObjectAggregator)
         pipeline.addLast(CLIENT_INBOUND_HANDLER, clientInbound)
 
-        if (!location.scheme.isWebSocket) {
-          // NOTE: _something_ seems to remove the HttpObjectAggregator on websocket upgrade but not clear what
-          toRemove.add(httpObjectAggregator)
-
-          // NOTE: in case of websocket connections the handler removes itself (refactor?)
-          toRemove.add(clientInbound)
-        }
+        toRemove.add(httpObjectAggregator)
+        toRemove.add(clientInbound)
       } else {
         val flowControl   = new FlowControlHandler()
         val clientInbound = new ClientInboundStreamingHandler(rtm, req, onResponse, onComplete)
@@ -322,13 +327,22 @@ object Client {
 
         toRemove.add(webSocketClientProtocol)
         toRemove.add(webSocket)
-      }
 
-      val frozenToRemove = toRemove.toSet
-      ZIO.attempt {
-        frozenToRemove.foreach(pipeline.remove)
+        pipeline.fireChannelRegistered()
+        pipeline.fireChannelActive()
 
-        // TODO: upgrade to websocket removes the HttpClientCodec from the pipeline, re-add it or mark the channel invalid?
+        ZIO.succeed(false) // channel becomes invalid - reuse of websocket channels not supported currently
+      } else {
+
+        pipeline.fireChannelRegistered()
+        pipeline.fireChannelActive()
+
+        val frozenToRemove = toRemove.toSet
+
+        ZIO.attempt {
+          frozenToRemove.foreach(pipeline.remove)
+          true // channel can be reused
+        }
       }
     }
   }
