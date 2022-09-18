@@ -3,6 +3,7 @@ package zio.http.api.internal
 import zio._
 
 import zio.http._
+import zio.http.model.Headers
 import zio.http.api._
 
 import zio.schema._
@@ -34,8 +35,8 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
     path
   }
 
-  private def encodeQuery(inputs: Array[Any]): Map[String, List[String]] = {
-    var queryParams = Map.empty[String, List[String]]
+  private def encodeQuery(inputs: Array[Any]): QueryParams = {
+    var queryParams = QueryParams.empty
 
     var i = 0
     while (i < inputs.length) {
@@ -44,9 +45,7 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
 
       val value = query.textCodec.encode(input)
 
-      queryParams =
-        if (queryParams.contains(query.name)) queryParams.updated(query.name, value :: queryParams(query.name))
-        else queryParams.updated(query.name, value :: Nil)
+      queryParams = queryParams.add(query.name, value)
 
       i = i + 1
     }

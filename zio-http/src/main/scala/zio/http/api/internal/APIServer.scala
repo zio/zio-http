@@ -2,6 +2,7 @@ package zio.http.api.internal
 
 import zio._
 import zio.http._
+import zio.http.model.Headers
 import zio.http.api._
 
 import zio.schema._
@@ -38,7 +39,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
     }
   }
 
-  private def decodeQuery(queryParams: Map[String, List[String]], inputs: Array[Any]): Unit = {
+  private def decodeQuery(queryParams: QueryParams, inputs: Array[Any]): Unit = {
     var i = 0
     while (i < flattened.queries.length) {
       val query = flattened.queries(i).asInstanceOf[In.Query[Any]]

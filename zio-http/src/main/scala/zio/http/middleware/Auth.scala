@@ -4,9 +4,8 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zio.ZIO
 import zio.http._
 import zio.http.middleware.Auth.Credentials
-import zio.http.model.Status
-import zio.http.model.headers.Headers
-import zio.http.model.headers.Headers.{BasicSchemeName, BearerSchemeName}
+import zio.http.model.{Headers, Status}
+import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
 
 private[zio] trait Auth {
 

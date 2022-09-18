@@ -3,7 +3,6 @@ package zio.http.internal
 import zio.http.URL.Location
 import zio.http._
 import zio.http.model._
-import zio.http.model.headers.Headers
 import zio.http.socket.SocketApp
 import zio.test.ZIOSpecDefault
 import zio.{Scope, ZIO, http}

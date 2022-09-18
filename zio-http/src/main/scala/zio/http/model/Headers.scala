@@ -1,7 +1,8 @@
-package zio.http.model.headers
+package zio.http.model
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
 import zio.http.model._
+import zio.http.model.headers._
 
 import scala.jdk.CollectionConverters._
 
@@ -26,6 +27,10 @@ sealed trait Headers extends HeaderExtension[Headers] with HeaderIterable {
     if (cond) self ++ other else self
 
   private[http] def encode: HttpHeaders
+
+  // TODO: Make this fast and work on CharSequence
+  final def get(key: String): Option[String] =
+    collect { case Header(k, v) if k.toString() == key => v.toString() }.headOption
 
   override final def headers: Headers = self
 

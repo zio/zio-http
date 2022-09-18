@@ -6,7 +6,7 @@ import zio.ZIO.attemptBlocking
 import zio._
 import zio.http.html._
 import zio.http.model._
-import zio.http.model.headers.{HeaderModifier, Headers}
+import zio.http.model.headers.HeaderModifier
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 

@@ -1,6 +1,6 @@
 package zio.http.api
 
-import zio.http.Method
+import zio.http.model.Method
 
 import zio._
 import zio.schema._

@@ -10,7 +10,7 @@ import java.net.URI
 
 import zio.NonEmptyChunk
 import zio.http.api.Doc
-import zio.http.Status
+import zio.http.model.Status
 
 import scala.util.matching.Regex
 
