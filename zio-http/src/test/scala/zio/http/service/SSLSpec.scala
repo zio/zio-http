@@ -5,7 +5,6 @@ import io.netty.handler.ssl.SslContextBuilder
 import zio.http._
 import zio.http.model._
 import zio.http.netty.client.ClientSSLHandler._
-import zio.http.netty.server.ServerSSLHandler.{ServerSSLOptions, ctxFromCert}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
@@ -13,11 +12,8 @@ import zio.{Scope, ZIO, durationInt}
 
 object SSLSpec extends ZIOSpecDefault {
 
-  val serverSSL = ctxFromCert(
-    getClass().getClassLoader().getResourceAsStream("server.crt"),
-    getClass().getClassLoader().getResourceAsStream("server.key"),
-  )
-  val config    = ServerConfig.default.port(8073).ssl(ServerSSLOptions(serverSSL))
+  val sslConfig = SSLConfig.fromResource("server.crt", "server.key")
+  val config    = ServerConfig.default.port(8073).ssl(sslConfig)
 
   val clientSSL1 =
     SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt")).build()
