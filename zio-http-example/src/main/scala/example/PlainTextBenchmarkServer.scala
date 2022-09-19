@@ -49,11 +49,11 @@ object Main extends ZIOAppDefault {
     .flowControl(false)
     .objectAggregator(-1)
 
-  private val configLayer  = ServerConfig.live(config)
-  
+  private val configLayer = ServerConfig.live(config)
+
   private val errorHandler = Some((_: Throwable) => ZIO.unit)
-  
-  val run: UIO[ExitCode]   =
+
+  val run: UIO[ExitCode] =
     app
       .flatMap(http => Server.serve(http, errorHandler).provide(configLayer, Server.live))
       .exitCode
