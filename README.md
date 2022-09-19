@@ -8,8 +8,8 @@ Check out the full documentation here: [Documentation]
 
 ![Continuous Integration](https://github.com/zio/zio-http/workflows/Continuous%20Integration/badge.svg)
 [![Discord Chat](https://img.shields.io/discord/629491597070827530.svg?logo=discord)](https://discord.com/channels/629491597070827530/819703129267372113)
-[![Sonatype Nexus (Releases)](https://img.shields.io/nexus/r/dev.zio/zio-http_2.13?server=https%3A%2F%2Fs01.oss.sonatype.org)](https://oss.sonatype.org/content/repositories/releases/dev/zio/zio-http_2.13/)
-[![Sonatype Nexus (Snapshots)](https://img.shields.io/nexus/s/dev.zio/zio-http_2.13?server=https%3A%2F%2Fs01.oss.sonatype.org)](https://s01.oss.sonatype.org/content/repositories/snapshots/dev/zio/zio-http_2.13/)
+[![Sonatype Nexus (Releases)](https://img.shields.io/nexus/r/dev.zio/zio-http_2.13?server=https%3A%2F%2Foss.sonatype.org)](https://oss.sonatype.org/content/repositories/releases/dev/zio/zio-http_2.13/)
+[![Sonatype Nexus (Snapshots)](https://img.shields.io/nexus/s/dev.zio/zio-http_2.13?server=https%3A%2F%2Foss.sonatype.org)](https://oss.sonatype.org/content/repositories/snapshots/dev/zio/zio-http_2.13/)
 [![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/zio/zio-http.svg)](http://isitmaintained.com/project/zio/zio-http "Average time to resolve an issue")
 [![Open in Visual Studio Code](https://open.vscode.dev/badges/open-in-vscode.svg)](https://open.vscode.dev/zio/zio-http)
 
