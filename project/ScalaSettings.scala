@@ -33,7 +33,7 @@ trait ScalaSettings {
     // "-Wunused:linted",
 
     "-Ybackend-parallelism",
-    "8",                                         // Enable paralellisation — change to desired number!
+    "8",                                         // Enable parallelisation — change to desired number!
     "-Ycache-plugin-class-loader:last-modified", // Enables caching of classloaders for compiler plugins
     "-Ycache-macro-class-loader:last-modified",  // and macro definitions. This can lead to performance improvements.
 
