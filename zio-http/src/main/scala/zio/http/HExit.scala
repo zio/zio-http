@@ -1,7 +1,7 @@
 package zio.http
 
-import zio.ZIO
 import zio.http.HExit.Effect
+import zio.{Trace, ZIO}
 
 /**
  * Every `HttpApp` evaluates to an `HExit`. This domain is needed for improved
@@ -11,27 +11,27 @@ import zio.http.HExit.Effect
  */
 sealed trait HExit[-R, +E, +A] { self =>
 
-  def >>=[R1 <: R, E1 >: E, B](ab: A => HExit[R1, E1, B]): HExit[R1, E1, B] =
+  def >>=[R1 <: R, E1 >: E, B](ab: A => HExit[R1, E1, B])(implicit trace: Trace): HExit[R1, E1, B] =
     self.flatMap(ab)
 
-  def <>[R1 <: R, E1, A1 >: A](other: HExit[R1, E1, A1]): HExit[R1, E1, A1] =
+  def <>[R1 <: R, E1, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
     self orElse other
 
-  def <+>[R1 <: R, E1 >: E, A1 >: A](other: HExit[R1, E1, A1]): HExit[R1, E1, A1] =
+  def <+>[R1 <: R, E1 >: E, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
     this defaultWith other
 
-  def *>[R1 <: R, E1 >: E, B](other: HExit[R1, E1, B]): HExit[R1, E1, B] =
+  def *>[R1 <: R, E1 >: E, B](other: HExit[R1, E1, B])(implicit trace: Trace): HExit[R1, E1, B] =
     self.flatMap(_ => other)
 
-  def as[B](b: B): HExit[R, E, B] = self.map(_ => b)
+  def as[B](b: B)(implicit trace: Trace): HExit[R, E, B] = self.map(_ => b)
 
-  def defaultWith[R1 <: R, E1 >: E, A1 >: A](other: HExit[R1, E1, A1]): HExit[R1, E1, A1] =
+  def defaultWith[R1 <: R, E1 >: E, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
     self.foldExit(HExit.fail, HExit.die, HExit.succeed, other)
 
-  def flatMap[R1 <: R, E1 >: E, B](ab: A => HExit[R1, E1, B]): HExit[R1, E1, B] =
+  def flatMap[R1 <: R, E1 >: E, B](ab: A => HExit[R1, E1, B])(implicit trace: Trace): HExit[R1, E1, B] =
     self.foldExit(HExit.fail, HExit.die, ab, HExit.empty)
 
-  def flatten[R1 <: R, E1 >: E, A1](implicit ev: A <:< HExit[R1, E1, A1]): HExit[R1, E1, A1] =
+  def flatten[R1 <: R, E1 >: E, A1](implicit ev: A <:< HExit[R1, E1, A1], trace: Trace): HExit[R1, E1, A1] =
     self.flatMap(identity(_))
 
   def foldExit[R1 <: R, E1, B1](
@@ -39,7 +39,7 @@ sealed trait HExit[-R, +E, +A] { self =>
     defect: Throwable => HExit[R1, E1, B1],
     success: A => HExit[R1, E1, B1],
     empty: HExit[R1, E1, B1],
-  ): HExit[R1, E1, B1] =
+  )(implicit trace: Trace): HExit[R1, E1, B1] =
     self match {
       case HExit.Success(a)  => success(a)
       case HExit.Failure(e)  => failure(e)
@@ -63,12 +63,12 @@ sealed trait HExit[-R, +E, +A] { self =>
       case HExit.Empty       => empty
     }
 
-  def map[B](ab: A => B): HExit[R, E, B] = self.flatMap(a => HExit.succeed(ab(a)))
+  def map[B](ab: A => B)(implicit trace: Trace): HExit[R, E, B] = self.flatMap(a => HExit.succeed(ab(a)))
 
-  def orElse[R1 <: R, E1, A1 >: A](other: HExit[R1, E1, A1]): HExit[R1, E1, A1] =
+  def orElse[R1 <: R, E1, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
     self.foldExit(_ => other, HExit.die, HExit.succeed, HExit.empty)
 
-  def toZIO: ZIO[R, Option[E], A] = self match {
+  def toZIO(implicit trace: Trace): ZIO[R, Option[E], A] = self match {
     case HExit.Success(a)  => ZIO.succeed(a)
     case HExit.Failure(e)  => ZIO.fail(Option(e))
     case HExit.Die(e)      => ZIO.die(e)
@@ -84,7 +84,7 @@ object HExit {
 
   def fail[E](e: E): HExit[Any, E, Nothing] = Failure(e)
 
-  def fromZIO[R, E, A](z: ZIO[R, E, A]): HExit[R, E, A] = Effect(z.mapError(Option(_)))
+  def fromZIO[R, E, A](z: ZIO[R, E, A])(implicit trace: Trace): HExit[R, E, A] = Effect(z.mapError(Option(_)))
 
   def succeed[A](a: A): HExit[Any, Nothing, A] = Success(a)
 

@@ -10,7 +10,7 @@ import zio.http.netty._
 import zio.http.netty.client.ClientResponseStreamHandler
 import zio.http.service.{CLIENT_INBOUND_HANDLER, CLIENT_STREAMING_BODY_HANDLER}
 import zio.http.socket.{SocketApp, WebSocketFrame}
-import zio.{Cause, Task, Unsafe, ZIO}
+import zio.{Cause, Task, Trace, Unsafe, ZIO}
 
 import java.io.IOException
 
@@ -37,7 +37,7 @@ final case class Response private (
    * detect the changes and encode the response again, however it will turn out
    * to be counter productive.
    */
-  def freeze: Task[Response] =
+  def freeze(implicit trace: Trace): Task[Response] =
     for {
       encoded <- encode()
     } yield self.copy(attribute = self.attribute.withEncodedResponse(encoded, self))
@@ -73,7 +73,7 @@ final case class Response private (
    */
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
-  private[zio] def close: Task[Unit] = self.attribute.channel match {
+  private[zio] def close(implicit trace: Trace): Task[Unit] = self.attribute.channel match {
     case Some(channel) => NettyFutureExecutor.executed(channel.close())
     case None          => ZIO.refailCause(Cause.fail(new IOException("Channel context isn't available")))
   }
@@ -84,7 +84,7 @@ final case class Response private (
    * FullHttpResponse if the complete data is available. Otherwise, it would
    * create a DefaultHttpResponse without any content.
    */
-  private[zio] def encode(): Task[HttpResponse] = for {
+  private[zio] def encode()(implicit trace: Trace): Task[HttpResponse] = for {
     content <- if (body.isComplete) body.asChunk.map(Some(_)) else ZIO.succeed(None)
     res     <-
       ZIO.attempt {
@@ -126,13 +126,13 @@ object Response {
    */
   def fromSocket[R](
     http: Http[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
-  ): ZIO[R, Nothing, Response] =
+  )(implicit trace: Trace): ZIO[R, Nothing, Response] =
     fromSocketApp(http.toSocketApp)
 
   /**
    * Creates a new response for the provided socket app
    */
-  def fromSocketApp[R](app: SocketApp[R]): ZIO[R, Nothing, Response] = {
+  def fromSocketApp[R](app: SocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
       Response(
         Status.SwitchingProtocols,

@@ -20,7 +20,7 @@ private[zio] final case class NettyDriver(
   serverConfig: ServerConfig,
 ) extends Driver { self =>
 
-  def start: RIO[Scope, Int] =
+  def start(implicit trace: Trace): RIO[Scope, Int] =
     for {
       serverBootstrap <- ZIO.attempt(new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup))
       chf             <- ZIO.attempt(serverBootstrap.childHandler(channelInitializer).bind(serverConfig.address))
@@ -29,7 +29,7 @@ private[zio] final case class NettyDriver(
       port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield port
 
-  def setErrorCallback(newCallback: Option[Server.ErrorCallback]): UIO[Unit] = ZIO.succeed {
+  def setErrorCallback(newCallback: Option[Server.ErrorCallback])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
     var loop = true
     while (loop) {
       val oldCallback = errorCallbackRef.get()
@@ -37,7 +37,7 @@ private[zio] final case class NettyDriver(
     }
   }
 
-  def addApp(newApp: HttpApp[Any, Throwable]): UIO[Unit] = ZIO.succeed {
+  def addApp(newApp: HttpApp[Any, Throwable])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
     var loop = true
     while (loop) {
       val oldApp = appRef.get()

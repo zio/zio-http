@@ -28,7 +28,7 @@ private[zio] trait Web
   final def addCookie(cookie: Cookie[Response]): HttpMiddleware[Any, Nothing] =
     self.withSetCookie(cookie)
 
-  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]]): HttpMiddleware[R, E] =
+  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]])(implicit trace: Trace): HttpMiddleware[R, E] =
     patchZIO(_ => cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c))))
 
   /**
@@ -40,7 +40,7 @@ private[zio] trait Web
   /**
    * Add log status, method, url and time taken from req to res
    */
-  final def debug: HttpMiddleware[Any, IOException] =
+  final def debug(implicit trace: Trace): HttpMiddleware[Any, IOException] =
     interceptZIOPatch(req => Clock.nanoTime.map(start => (req.method, req.url, start))) {
       case (response, (method, url, start)) =>
         for {
@@ -111,7 +111,7 @@ private[zio] trait Web
   /**
    * Creates a middleware that produces a Patch for the Response effectfully.
    */
-  final def patchZIO[R, E](f: Response => ZIO[R, Option[E], Patch]): HttpMiddleware[R, E] =
+  final def patchZIO[R, E](f: Response => ZIO[R, Option[E], Patch])(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.interceptZIOPatch(_ => ZIO.unit)((res, _) => f(res))
 
   /**
@@ -134,14 +134,14 @@ private[zio] trait Web
   /**
    * Runs the effect after the middleware is applied
    */
-  final def runAfter[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
+  final def runAfter[R, E](effect: ZIO[R, E, Any])(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.interceptZIO[Request, Response](_ => ZIO.unit)((res, _) => effect.mapBoth(Option(_), _ => res))
 
   /**
    * Runs the effect before the request is passed on to the HttpApp on which the
    * middleware is applied.
    */
-  final def runBefore[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
+  final def runBefore[R, E](effect: ZIO[R, E, Any])(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.interceptZIOPatch(_ => effect.mapError(Option(_)).unit)((_, _) => ZIO.succeed(Patch.empty))
 
   /**
@@ -239,7 +239,9 @@ object Web {
   }
 
   final case class PartialInterceptZIOPatch[R, E, S](req: Request => ZIO[R, Option[E], S]) extends AnyVal {
-    def apply[R1 <: R, E1 >: E](res: (Response, S) => ZIO[R1, Option[E1], Patch]): HttpMiddleware[R1, E1] =
+    def apply[R1 <: R, E1 >: E](
+      res: (Response, S) => ZIO[R1, Option[E1], Patch],
+    )(implicit trace: Trace): HttpMiddleware[R1, E1] =
       Middleware
         .interceptZIO[Request, Response](req(_))((response, state) =>
           res(response, state).map(patch => patch(response)),

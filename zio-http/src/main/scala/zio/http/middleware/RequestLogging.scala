@@ -3,7 +3,7 @@ package zio.http.middleware
 import zio.http._
 import zio.http.model.Headers.Header
 import zio.http.model.Status
-import zio.{Clock, LogAnnotation, LogLevel, ZIO}
+import zio.{Clock, LogAnnotation, LogLevel, Trace, ZIO}
 
 import java.nio.charset.{Charset, StandardCharsets}
 
@@ -17,7 +17,7 @@ private[zio] trait RequestLogging {
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
-  ): HttpMiddleware[Any, Throwable] =
+  )(implicit trace: Trace): HttpMiddleware[Any, Throwable] =
     Middleware.interceptZIOPatch { request =>
       Clock.nanoTime.map(start => (request, start))
     } { case (response, (request, start)) =>

@@ -79,7 +79,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   /**
    * Preprocesses the incoming value for the outgoing Http.
    */
-  final def contramap[AOut0](f: AOut0 => AOut): Middleware[R, E, AIn, BIn, AOut0, BOut] =
+  final def contramap[AOut0](f: AOut0 => AOut)(implicit trace: Trace): Middleware[R, E, AIn, BIn, AOut0, BOut] =
     self.contramapZIO[AOut0](a => ZIO.succeed(f(a)))
 
   /**
@@ -91,7 +91,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   /**
    * Delays the production of Http output for the specified duration
    */
-  final def delay(duration: Duration): Middleware[R, E, AIn, BIn, AOut, BOut] =
+  final def delay(duration: Duration)(implicit trace: Trace): Middleware[R, E, AIn, BIn, AOut, BOut] =
     self.mapZIO(b => ZIO.succeed(b).delay(duration))
 
   /**
@@ -122,7 +122,9 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   /**
    * Transforms the output type of the current middleware using effect function.
    */
-  final def mapZIO[R1 <: R, E1 >: E, BOut0](f: BOut => ZIO[R1, E1, BOut0]): Middleware[R1, E1, AIn, BIn, AOut, BOut0] =
+  final def mapZIO[R1 <: R, E1 >: E, BOut0](f: BOut => ZIO[R1, E1, BOut0])(implicit
+    trace: Trace,
+  ): Middleware[R1, E1, AIn, BIn, AOut, BOut0] =
     self.flatMap(b => Middleware.fromHttp(Http.fromZIO(f(b))))
 
   /**
@@ -148,10 +150,14 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
         self(http) race other(http)
     }
 
-  final def runAfter[R1 <: R, E1 >: E](effect: ZIO[R1, E1, Any]): Middleware[R1, E1, AIn, BIn, AOut, BOut] =
+  final def runAfter[R1 <: R, E1 >: E](effect: ZIO[R1, E1, Any])(implicit
+    trace: Trace,
+  ): Middleware[R1, E1, AIn, BIn, AOut, BOut] =
     self.mapZIO(bOut => effect.as(bOut))
 
-  final def runBefore[R1 <: R, E1 >: E](effect: ZIO[R1, E1, Any]): Middleware[R1, E1, AIn, BIn, AOut, BOut] =
+  final def runBefore[R1 <: R, E1 >: E](effect: ZIO[R1, E1, Any])(implicit
+    trace: Trace,
+  ): Middleware[R1, E1, AIn, BIn, AOut, BOut] =
     self.contramapZIO(b => effect.as(b))
 
   /**
@@ -159,6 +165,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    */
   final def when[AOut0 <: AOut](cond: AOut0 => Boolean)(implicit
     ev: IsMono[AIn, BIn, AOut0, BOut],
+    trace: Trace,
   ): Middleware[R, E, AIn, BIn, AOut0, BOut] = self.whenZIO(a => ZIO.succeed(cond(a)))
 
   /**
@@ -167,7 +174,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    */
   final def whenZIO[R1 <: R, E1 >: E, AOut0 <: AOut](
     cond: AOut0 => ZIO[R1, E1, Boolean],
-  )(implicit ev: IsMono[AIn, BIn, AOut0, BOut]): Middleware[R1, E1, AIn, BIn, AOut0, BOut] = {
+  )(implicit ev: IsMono[AIn, BIn, AOut0, BOut], trace: Trace): Middleware[R1, E1, AIn, BIn, AOut0, BOut] = {
     Middleware.ifThenElseZIO[AOut0](cond(_))(
       isTrue = _ => self,
       isFalse = _ => Middleware.identity[AIn, BIn, AOut, BOut],
@@ -181,7 +188,7 @@ object Middleware extends Web {
    * Creates a middleware which can allow or disallow access to an http based on
    * the predicate
    */
-  def allow[A, B](cond: A => Boolean): Middleware[Any, Nothing, A, B, A, B] =
+  def allow[A, B](cond: A => Boolean)(implicit trace: Trace): Middleware[Any, Nothing, A, B, A, B] =
     allowZIO(a => ZIO.succeed(cond(a)))
 
   /**
@@ -294,7 +301,7 @@ object Middleware extends Web {
   def transformZIO[AOut, BIn]: PartialMonoZIO[AOut, BIn] = new PartialMonoZIO[AOut, BIn]({})
 
   final class PartialAllowZIO[A, B](val unit: Unit) extends AnyVal {
-    def apply[R, E](cond: A => ZIO[R, E, Boolean]): MonoMiddleware[R, E, A, B] =
+    def apply[R, E](cond: A => ZIO[R, E, Boolean])(implicit trace: Trace): MonoMiddleware[R, E, A, B] =
       Middleware.ifThenElseZIO[A](cond(_))(
         isTrue = _ => Middleware.identity[A, B],
         isFalse = _ => Middleware.empty,
@@ -305,7 +312,7 @@ object Middleware extends Web {
     def apply[AIn, BOut](
       in: AOut => AIn,
       out: BIn => BOut,
-    ): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
+    )(implicit trace: Trace): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
       Middleware.transformZIO[AOut, BIn](a => ZIO.succeed(in(a)), b => ZIO.succeed(out(b)))
   }
 
@@ -313,7 +320,7 @@ object Middleware extends Web {
     def apply[R, E, AIn, BOut](
       in: AOut => ZIO[R, E, AIn],
       out: BIn => ZIO[R, E, BOut],
-    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+    )(implicit trace: Trace): Middleware[R, E, AIn, BIn, AOut, BOut] =
       new Middleware[R, E, AIn, BIn, AOut, BOut] {
         override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] =
           http.contramapZIO(in).mapZIO(out)
@@ -330,12 +337,14 @@ object Middleware extends Web {
   final class PartialCollectZIO[AOut](val unit: Unit) extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
       f: PartialFunction[AOut, ZIO[R, E, Middleware[R, E, AIn, BIn, AOut, BOut]]],
-    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+    )(implicit trace: Trace): Middleware[R, E, AIn, BIn, AOut, BOut] =
       Middleware.fromHttp(Http.collectZIO[AOut] { case a if f.isDefinedAt(a) => f(a) }).flatten
   }
 
   final class PartialIntercept[A, B](val unit: Unit) extends AnyVal {
-    def apply[S, BOut](incoming: A => S)(outgoing: (B, S) => BOut): Middleware[Any, Nothing, A, B, A, BOut] =
+    def apply[S, BOut](incoming: A => S)(outgoing: (B, S) => BOut)(implicit
+      trace: Trace,
+    ): Middleware[Any, Nothing, A, B, A, BOut] =
       interceptZIO[A, B](a => ZIO.succeed(incoming(a)))((b, s) => ZIO.succeed(outgoing(b, s)))
   }
 
@@ -349,7 +358,7 @@ object Middleware extends Web {
   final class PartialInterceptOutgoingZIO[-R, +E, A, +S, B](val incoming: A => ZIO[R, Option[E], S]) extends AnyVal {
     def apply[R1 <: R, E1 >: E, BOut](
       outgoing: (B, S) => ZIO[R1, Option[E1], BOut],
-    ): Middleware[R1, E1, A, B, A, BOut] =
+    )(implicit trace: Trace): Middleware[R1, E1, A, B, A, BOut] =
       new Middleware[R1, E1, A, B, A, BOut] {
         override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, A, B]): Http[R2, E2, A, BOut] =
           Http.fromOptionFunction[A] { a =>
@@ -366,7 +375,7 @@ object Middleware extends Web {
     def apply[E, AIn, BOut](
       decoder: AOut => Either[E, AIn],
       encoder: BIn => Either[E, BOut],
-    ): Middleware[Any, E, AIn, BIn, AOut, BOut] =
+    )(implicit trace: Trace): Middleware[Any, E, AIn, BIn, AOut, BOut] =
       Middleware.identity.mapZIO((b: BIn) => ZIO.fromEither(encoder(b))).contramapZIO(a => ZIO.fromEither(decoder(a)))
   }
 
@@ -384,7 +393,7 @@ object Middleware extends Web {
     def apply[R, E, AIn, BIn, BOut](cond: AOut => ZIO[R, E, Boolean])(
       isTrue: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
       isFalse: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
-    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+    )(implicit trace: Trace): Middleware[R, E, AIn, BIn, AOut, BOut] =
       Middleware
         .fromHttp(Http.fromFunctionZIO[AOut] { a => cond(a).map(b => if (b) isTrue(a) else isFalse(a)) })
         .flatten
@@ -394,7 +403,7 @@ object Middleware extends Web {
     def apply[R, E, AIn, BOut](
       decoder: AOut => ZIO[R, E, AIn],
       encoder: BIn => ZIO[R, E, BOut],
-    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+    )(implicit trace: Trace): Middleware[R, E, AIn, BIn, AOut, BOut] =
       Middleware.identity.mapZIO(encoder).contramapZIO(decoder)
   }
 
@@ -412,7 +421,9 @@ object Middleware extends Web {
   final class PartialContraMapZIO[-R, +E, +AIn, -BIn, -AOut, +BOut, AOut0](
     val self: Middleware[R, E, AIn, BIn, AOut, BOut],
   ) extends AnyVal {
-    def apply[R1 <: R, E1 >: E](f: AOut0 => ZIO[R1, E1, AOut]): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
+    def apply[R1 <: R, E1 >: E](
+      f: AOut0 => ZIO[R1, E1, AOut],
+    )(implicit trace: Trace): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
       new Middleware[R1, E1, AIn, BIn, AOut0, BOut] {
         override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn, BIn]): Http[R2, E2, AOut0, BOut] =
           self(http).contramapZIO(a => f(a))

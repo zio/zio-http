@@ -3,9 +3,9 @@ package zio.http
 import zio._
 
 trait Driver {
-  def start: RIO[Scope, Int]
+  def start(implicit trace: Trace): RIO[Scope, Int]
 
-  def setErrorCallback(newCallback: Option[Server.ErrorCallback]): UIO[Unit]
+  def setErrorCallback(newCallback: Option[Server.ErrorCallback])(implicit trace: Trace): UIO[Unit]
 
-  def addApp(newApp: HttpApp[Any, Throwable]): UIO[Unit]
+  def addApp(newApp: HttpApp[Any, Throwable])(implicit trace: Trace): UIO[Unit]
 }

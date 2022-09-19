@@ -73,7 +73,7 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
     if (inputs.length == 0) Body.empty
     else Body.fromChunk(inputJsonEncoder(inputs(0)))
 
-  def execute(client: Client, input: I): ZIO[Any, Throwable, O] = {
+  def execute(client: Client, input: I)(implicit trace: Trace): ZIO[Any, Throwable, O] = {
     val inputs = deconstructor(input)
 
     val route   = encodeRoute(inputs.routes)

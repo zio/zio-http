@@ -4,7 +4,6 @@ import io.netty.util.concurrent.{Future, GenericFutureListener}
 import zio._
 
 import java.util.concurrent.CancellationException
-
 private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
 
   /**
@@ -13,7 +12,7 @@ private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
    * future fails with a CancellationException (cause: Throwable) - if the
    * future fails with any other Exception
    */
-  def execute: Task[Option[A]] = {
+  def execute(implicit trace: Trace): Task[Option[A]] = {
     var handler: GenericFutureListener[Future[A]] = { _ => {} }
     ZIO
       .async[Any, Throwable, Option[A]](cb => {
@@ -29,18 +28,21 @@ private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
       .onInterrupt(ZIO.succeed(jFuture.removeListener(handler)))
   }
 
-  def scoped: ZIO[Scope, Throwable, Option[A]] = {
+  def scoped(implicit trace: Trace): ZIO[Scope, Throwable, Option[A]] = {
     execute.withFinalizer(_ => cancel(true))
   }
 
   // Cancels the future
-  def cancel(interruptIfRunning: Boolean = false): UIO[Boolean] = ZIO.succeed(jFuture.cancel(interruptIfRunning))
+  def cancel(interruptIfRunning: Boolean = false)(implicit trace: Trace): UIO[Boolean] =
+    ZIO.succeed(jFuture.cancel(interruptIfRunning))
 }
 
 object NettyFutureExecutor {
-  def make[A](jFuture: => Future[A]): Task[NettyFutureExecutor[A]] = ZIO.attempt(new NettyFutureExecutor(jFuture))
+  def make[A](jFuture: => Future[A])(implicit trace: Trace): Task[NettyFutureExecutor[A]] =
+    ZIO.attempt(new NettyFutureExecutor(jFuture))
 
-  def executed[A](jFuture: => Future[A]): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
+  def executed[A](jFuture: => Future[A])(implicit trace: Trace): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
 
-  def scoped[A](jFuture: => Future[A]): ZIO[Scope, Throwable, Unit] = make(jFuture).flatMap(_.scoped.unit)
+  def scoped[A](jFuture: => Future[A])(implicit trace: Trace): ZIO[Scope, Throwable, Unit] =
+    make(jFuture).flatMap(_.scoped.unit)
 }

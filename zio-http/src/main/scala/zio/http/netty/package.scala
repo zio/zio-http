@@ -133,7 +133,7 @@ package object netty {
       jRequest: HttpRequest,
       time: service.ServerTime,
       runtime: NettyRuntime,
-    ): ZIO[Any, Throwable, Unit] = {
+    )(implicit trace: Trace): ZIO[Any, Throwable, Unit] = {
 
       for {
         response <- exit.toZIO.unrefine { case error => Option(error) }.catchAll {

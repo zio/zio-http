@@ -19,7 +19,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   private val constructor = Mechanic.makeConstructor(api.input).asInstanceOf[Mechanic.Constructor[I]]
   private val flattened   = Mechanic.flatten(api.input)
 
-  def handle(routeInputs: Chunk[Any], request: Request): ZIO[R, E, Response] = {
+  def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
     val inputsBuilder = flattened.makeInputsBuilder()
 
     // TODO: Bounds checking
@@ -28,7 +28,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
     decodeQuery(request.url.queryParams, inputsBuilder.queries)
     decodeHeaders(request.headers, inputsBuilder.headers)
 
-    decodeBody(request.body, inputsBuilder.inputBodies).flatMap { _ =>
+    decodeBody(request.body, inputsBuilder.inputBodies) *> {
       val input: I = constructor(inputsBuilder)
 
       handler(input).map { output =>
@@ -69,7 +69,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
     }
   }
 
-  private def decodeBody(body: Body, inputs: Array[Any]): UIO[Unit] =
+  private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): UIO[Unit] =
     body.asChunk.orDie.map { chunk =>
       if (inputs.length == 0) ()
       else {

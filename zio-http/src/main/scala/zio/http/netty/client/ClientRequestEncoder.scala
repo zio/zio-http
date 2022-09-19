@@ -2,15 +2,15 @@ package zio.http.netty.client
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
-import zio.Task
 import zio.http.Request
+import zio.{Task, Trace}
 
 trait ClientRequestEncoder {
 
   /**
    * Converts client params to JFullHttpRequest
    */
-  def encode(req: Request): Task[FullHttpRequest] =
+  def encode(req: Request)(implicit trace: Trace): Task[FullHttpRequest] =
     req.body.asChunk.map { chunk =>
       val content  = Unpooled.wrappedBuffer(chunk.toArray)
       val method   = req.method.toJava

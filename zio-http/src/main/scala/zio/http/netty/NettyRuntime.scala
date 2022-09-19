@@ -6,7 +6,6 @@ import zio._
 import zio.http.service.Log
 
 import scala.jdk.CollectionConverters._
-
 private[zio] trait NettyRuntime { self =>
 
   private val log = Log.withTags("NettyRuntime")
@@ -70,7 +69,7 @@ object NettyRuntime {
   /**
    * Creates a runtime that uses a separate thread pool for ZIO operations.
    */
-  def usingDedicatedThreadPool = ZLayer.fromZIO {
+  def usingDedicatedThreadPool(implicit trace: Trace) = ZLayer.fromZIO {
     ZIO
       .runtime[Any]
       .map(rtm =>
@@ -85,7 +84,7 @@ object NettyRuntime {
    * event loop. This should be the preferred way of creating the runtime for
    * the server.
    */
-  def usingSharedThreadPool =
+  def usingSharedThreadPool(implicit trace: Trace) =
     ZLayer.fromZIO {
       for {
         elg      <- ZIO.service[EventLoopGroup]
