@@ -142,11 +142,11 @@ object Headers extends HeaderConstructors {
       toJHeaders.entries().asScala.map(e => Header(e.getKey, e.getValue)).iterator
 
     private[http] override def getUnsafe(key: String): String = {
-      val iterator = toJHeaders.iteratorAsString()
+      val iterator = toJHeaders.iteratorCharSequence()
       while (iterator.hasNext) {
         val entry = iterator.next()
         if (entry.getKey == key) {
-          return entry.getValue
+          return entry.getValue.toString
         }
       }
 
