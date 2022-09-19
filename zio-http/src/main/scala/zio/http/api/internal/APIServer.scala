@@ -8,7 +8,7 @@ import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledAPI[R, E, I, O]) {
+private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledAPI[R, E, I, O, _]) {
   private val api     = handledApi.api
   private val handler = handledApi.handler
 

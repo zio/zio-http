@@ -85,8 +85,8 @@ final case class API[Input, Output](
    * convert an API into a service, you must specify a function which handles
    * the input, and returns the output.
    */
-  def handle[R, E](f: Input => ZIO[R, E, Output]): Service.WithAllIds[R, E, Id] =
-    Service.HandledAPI(self, f).withAllIds[Id]
+  def handle[R, E](f: Input => ZIO[R, E, Output]): Service[R, E, Id] =
+    Service.HandledAPI[R, E, Input, Output, Id](self, f).withAllIds[Id]
 
   /**
    * Changes the identity of the API to the specified singleton string type.

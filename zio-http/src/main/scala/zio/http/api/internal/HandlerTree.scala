@@ -8,7 +8,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 sealed trait HandlerTree[-R, +E] { self =>
   import HandlerTree._
 
-  def add[R1 <: R, E1 >: E](handledAPI: Service.HandledAPI[R1, E1, _, _]): HandlerTree[R1, E1] =
+  def add[R1 <: R, E1 >: E](handledAPI: Service.HandledAPI[R1, E1, _, _, _]): HandlerTree[R1, E1] =
     merge(HandlerTree.single(handledAPI))
 
   def generateError(request: Request): String = s"The path ${request.path} does not match any route"
@@ -46,7 +46,7 @@ object HandlerTree {
   val empty: HandlerTree[Any, Nothing] =
     Branch(Map.empty)
 
-  def single[R, E](handledAPI: Service.HandledAPI[R, E, _, _]): HandlerTree[R, E] = {
+  def single[R, E](handledAPI: Service.HandledAPI[R, E, _, _, _]): HandlerTree[R, E] = {
     val routeCodecs =
       Mechanic.flatten(handledAPI.api.input).routes
 
@@ -55,13 +55,13 @@ object HandlerTree {
     }
   }
 
-  def fromService[R, E](service: Service[R, E]): HandlerTree[R, E] =
+  def fromService[R, E](service: Service[R, E, _]): HandlerTree[R, E] =
     fromIterable(Service.flatten(service))
 
-  def fromIterable[R, E](handledAPIs: Iterable[Service.HandledAPI[R, E, _, _]]): HandlerTree[R, E] =
+  def fromIterable[R, E](handledAPIs: Iterable[Service.HandledAPI[R, E, _, _, _]]): HandlerTree[R, E] =
     handledAPIs.foldLeft[HandlerTree[R, E]](empty)(_ add _)
 
-  private final case class Leaf[-R, +E](handledApi: Service.HandledAPI[R, E, _, _]) extends HandlerTree[R, E]
+  private final case class Leaf[-R, +E](handledApi: Service.HandledAPI[R, E, _, _, _]) extends HandlerTree[R, E]
 
   private final case class Branch[-R, +E](
     children: Map[Option[TextCodec[_]], HandlerTree[R, E]],
