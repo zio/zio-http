@@ -29,7 +29,7 @@ private[zio] final case class NettyDriver(
       port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield port
 
-  def setErrorCallback(newCallback: Option[Server.ErrorCallback]): UIO[Unit] = ZIO.succeed {
+  def setErrorCallback(newCallback: Option[Server.ErrorCallback]): Unit = {
     var loop = true
     while (loop) {
       val oldCallback = errorCallbackRef.get()
@@ -37,7 +37,7 @@ private[zio] final case class NettyDriver(
     }
   }
 
-  def addApp(newApp: HttpApp[Any, Throwable]): UIO[Unit] = ZIO.succeed {
+  def addApp(newApp: HttpApp[Any, Throwable]): Unit = {
     var loop = true
     while (loop) {
       val oldApp = appRef.get()

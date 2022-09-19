@@ -7,9 +7,9 @@ import java.util.concurrent.atomic.AtomicReference
 trait Driver {
   def start: RIO[Scope, Int]
 
-  def setErrorCallback(newCallback: Option[Server.ErrorCallback]): UIO[Unit]
+  def setErrorCallback(newCallback: Option[Server.ErrorCallback]): Unit
 
-  def addApp(newApp: HttpApp[Any, Throwable]): UIO[Unit]
+  def addApp(newApp: HttpApp[Any, Throwable]): Unit
 }
 
 object Driver {

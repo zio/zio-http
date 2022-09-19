@@ -47,7 +47,7 @@ object Server {
     bindPort: Int,
   ) extends Server {
     override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] =
-      ZIO.environment[R].flatMap { env =>
+      ZIO.environment[R].map { env =>
         driver.addApp(
           if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
           else httpApp.provideEnvironment(env),
@@ -60,7 +60,7 @@ object Server {
     private def setErrorCallback(errorCallback: Option[ErrorCallback]): UIO[Unit] = {
       ZIO
         .environment[Any]
-        .flatMap(_ => driver.setErrorCallback(errorCallback))
+        .map(_ => driver.setErrorCallback(errorCallback))
         .unless(errorCallback.isEmpty)
         .map(_.getOrElse(()))
     }
