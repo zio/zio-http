@@ -118,7 +118,7 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
             "with keep-alive"    -> keepAliveHeader,
           ),
         ),
-      ).provideSome[Scope with ClientConfig with EventLoopGroup with ChannelFactory with NettyRuntime](
+      ).provideSomeShared[Scope with ClientConfig with EventLoopGroup with ChannelFactory with NettyRuntime](
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         severTestLayer,
@@ -140,7 +140,7 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
             "with keep-alive"    -> keepAliveHeader,
           ),
         ),
-      ).provideSome[Scope with ClientConfig with EventLoopGroup with ChannelFactory with NettyRuntime](
+      ).provideSomeShared[Scope with ClientConfig with EventLoopGroup with ChannelFactory with NettyRuntime](
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         severTestLayer,
@@ -151,7 +151,7 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
 
   override def spec: Spec[Any, Throwable] = {
     connectionPoolSpec
-      .provide(
+      .provideShared(
         ClientConfig.default,
         Scope.default,
       ) @@ timeout(30.seconds) @@ diagnose(30.seconds) @@ sequential
