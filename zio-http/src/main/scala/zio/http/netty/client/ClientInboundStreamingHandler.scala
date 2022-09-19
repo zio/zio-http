@@ -4,13 +4,15 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zio.http.netty.NettyRuntime
 import zio.http.{Request, Response}
-import zio.{Promise, Unsafe}
+import zio.{Promise, Trace, Unsafe}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 final class ClientInboundStreamingHandler(
   val rtm: NettyRuntime,
   req: Request,
   promise: Promise[Throwable, Response],
-) extends SimpleChannelInboundHandler[HttpObject](false) {
+)(implicit trace: Trace)
+    extends SimpleChannelInboundHandler[HttpObject](false) {
 
   private implicit val unsafeClass: Unsafe = Unsafe.unsafe
 

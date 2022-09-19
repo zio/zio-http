@@ -1,6 +1,7 @@
 package zio.http.model.headers
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * List of commonly use HeaderNames. They are provided to reduce bugs caused by

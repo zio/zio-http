@@ -1,6 +1,7 @@
 package zio.http.model
 
 import io.netty.handler.codec.http.HttpMethod
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 sealed trait Method { self =>
   lazy val toJava: HttpMethod     = Method.asHttpMethod(self)

@@ -10,6 +10,7 @@ import zio.http.model._
 import zio.http.model.headers._
 
 import java.io.{IOException, PrintWriter, StringWriter}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * Middlewares on an HttpApp
@@ -34,7 +35,7 @@ private[zio] trait Web
   /**
    * Beautify the error response.
    */
-  final def beautifyErrors: HttpMiddleware[Any, Nothing] =
+  final def beautifyErrors(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
     Middleware.intercept[Request, Response](identity)((res, req) => Web.updateErrorResponse(res, req))
 
   /**
@@ -54,7 +55,7 @@ private[zio] trait Web
   /**
    * Removes the trailing slash from the path.
    */
-  final def dropTrailingSlash: HttpMiddleware[Any, Nothing] =
+  final def dropTrailingSlash(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
     Middleware.identity[Request, Response].contramap[Request](_.dropTrailingSlash).when(_.url.queryParams.isEmpty)
 
   /**
@@ -88,7 +89,7 @@ private[zio] trait Web
    */
   final def ifRequestThenElseZIO[R, E](
     cond: Request => ZIO[R, E, Boolean],
-  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E])(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.ifThenElseZIO[Request](cond)(_ => left, _ => right)
 
   /**
@@ -105,7 +106,7 @@ private[zio] trait Web
   /**
    * Creates a middleware that produces a Patch for the Response
    */
-  final def patch[R, E](f: Response => Patch): HttpMiddleware[R, E] =
+  final def patch[R, E](f: Response => Patch)(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.interceptPatch(_ => ())((res, _) => f(res))
 
   /**
@@ -125,7 +126,7 @@ private[zio] trait Web
   /**
    * Permanent redirect if the trailing slash is present in the request URL.
    */
-  final def redirectTrailingSlash(permanent: Boolean): HttpMiddleware[Any, Nothing] =
+  final def redirectTrailingSlash(permanent: Boolean)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
     Middleware.ifThenElse[Request](_.url.path.trailingSlash)(
       req => redirect(req.dropTrailingSlash.url, permanent).when(_.url.queryParams.isEmpty),
       _ => Middleware.identity,
@@ -148,12 +149,13 @@ private[zio] trait Web
    * Creates a new middleware that always sets the response status to the
    * provided value
    */
-  final def setStatus(status: Status): HttpMiddleware[Any, Nothing] = patch(_ => Patch.setStatus(status))
+  final def setStatus(status: Status)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
+    patch(_ => Patch.setStatus(status))
 
   /**
    * Creates a middleware for signing cookies
    */
-  final def signCookies(secret: String): HttpMiddleware[Any, Nothing] =
+  final def signCookies(secret: String)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
     updateHeaders {
       case h if h.header(HeaderNames.setCookie).isDefined =>
         Cookie
@@ -168,7 +170,7 @@ private[zio] trait Web
   /**
    * Times out the application with a 408 status code.
    */
-  final def timeout(duration: Duration): HttpMiddleware[Any, Nothing] =
+  final def timeout(duration: Duration)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
     Middleware
       .identity[Request, Response]
       .race(Middleware.fromHttp(Http.status(Status.RequestTimeout).delayAfter(duration)))
@@ -176,31 +178,37 @@ private[zio] trait Web
   /**
    * Updates the provided list of headers to the response
    */
-  final override def updateHeaders(update: Headers => Headers): HttpMiddleware[Any, Nothing] =
+  final override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
     Middleware.updateResponse(_.updateHeaders(update))
 
   /**
    * Creates a middleware that updates the response produced
    */
-  final def updateResponse[R, E](f: Response => Response): HttpMiddleware[R, E] =
+  final def updateResponse[R, E](f: Response => Response)(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.intercept[Request, Response](_ => ())((res, _) => f(res))
 
   /**
    * Applies the middleware only when the condition for the headers are true
    */
-  final def whenHeader[R, E](cond: Headers => Boolean, middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  final def whenHeader[R, E](cond: Headers => Boolean, middleware: HttpMiddleware[R, E])(implicit
+    trace: Trace,
+  ): HttpMiddleware[R, E] =
     middleware.when(req => cond(req.headers))
 
   /**
    * Applies the middleware only if status matches the condition
    */
-  final def whenStatus[R, E](cond: Status => Boolean)(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  final def whenStatus[R, E](cond: Status => Boolean)(middleware: HttpMiddleware[R, E])(implicit
+    trace: Trace,
+  ): HttpMiddleware[R, E] =
     whenResponse(respon => cond(respon.status))(middleware)
 
   /**
    * Applies the middleware only if the condition function evaluates to true
    */
-  final def whenRequest[R, E](cond: Request => Boolean)(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  final def whenRequest[R, E](cond: Request => Boolean)(middleware: HttpMiddleware[R, E])(implicit
+    trace: Trace,
+  ): HttpMiddleware[R, E] =
     middleware.when(cond)
 
   /**
@@ -209,7 +217,7 @@ private[zio] trait Web
    */
   final def whenRequestZIO[R, E](
     cond: Request => ZIO[R, E, Boolean],
-  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  )(middleware: HttpMiddleware[R, E])(implicit trace: Trace): HttpMiddleware[R, E] =
     middleware.whenZIO(cond)
 
   /**
@@ -217,7 +225,7 @@ private[zio] trait Web
    */
   def whenResponse[R, E](
     cond: Response => Boolean,
-  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  )(middleware: HttpMiddleware[R, E])(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.identity[Request, Response].flatMap(response => middleware.when(_ => cond(response)))
 
   /**
@@ -226,14 +234,14 @@ private[zio] trait Web
    */
   def whenResponseZIO[R, E](
     cond: Response => ZIO[R, E, Boolean],
-  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  )(middleware: HttpMiddleware[R, E])(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.identity[Request, Response].flatMap(response => middleware.whenZIO(_ => cond(response)))
 }
 
 object Web {
 
   final case class PartialInterceptPatch[S](req: Request => S) extends AnyVal {
-    def apply(res: (Response, S) => Patch): HttpMiddleware[Any, Nothing] = {
+    def apply(res: (Response, S) => Patch)(implicit trace: Trace): HttpMiddleware[Any, Nothing] = {
       Middleware.intercept[Request, Response](req(_))((response, state) => res(response, state)(response))
     }
   }

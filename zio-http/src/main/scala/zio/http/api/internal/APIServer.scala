@@ -6,6 +6,7 @@ import zio.http.api._
 import zio.http.model.Headers
 import zio.schema._
 import zio.schema.codec._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledAPI[R, E, I, O]) {
   private val api     = handledApi.api

@@ -1,5 +1,7 @@
 package zio.http.html
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 /**
  * Light weight DOM implementation that can be rendered as a html string.
  *

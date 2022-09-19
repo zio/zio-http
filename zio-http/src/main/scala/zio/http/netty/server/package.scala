@@ -3,6 +3,7 @@ package zio.http.netty
 import zio.http._
 
 import java.util.concurrent.atomic.AtomicReference
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 package object server {
 

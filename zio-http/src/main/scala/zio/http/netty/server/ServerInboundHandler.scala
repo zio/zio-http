@@ -7,6 +7,7 @@ import zio._
 import zio.http._
 import zio.http.netty.{NettyRuntime, _}
 import zio.logging.Logger
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 @Sharable
 private[zio] final case class ServerInboundHandler(

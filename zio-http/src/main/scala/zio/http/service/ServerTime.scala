@@ -4,6 +4,7 @@ import io.netty.util.AsciiString
 
 import java.text.SimpleDateFormat
 import java.util.Date
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 private[zio] final class ServerTime(minDuration: Long) {
 

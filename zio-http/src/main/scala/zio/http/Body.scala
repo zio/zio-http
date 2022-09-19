@@ -11,6 +11,7 @@ import zio.stream.ZStream
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * Holds Body that needs to be written on the HttpChannel

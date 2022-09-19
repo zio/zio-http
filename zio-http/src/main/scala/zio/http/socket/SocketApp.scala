@@ -3,6 +3,8 @@ package zio.http.socket
 import zio._
 import zio.http._
 import zio.http.model.Headers
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 final case class SocketApp[-R](
   decoder: SocketDecoder = SocketDecoder.default,
   protocol: SocketProtocol = SocketProtocol.default,

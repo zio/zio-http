@@ -1,6 +1,7 @@
 package zio.http.api
 
 import zio.Chunk
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A collection of individual [[zio.http.api.API]]s.

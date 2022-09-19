@@ -1,5 +1,7 @@
 package zio.http.model
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 final case class MediaType(
   mainType: String,
   subType: String,

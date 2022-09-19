@@ -1,4 +1,5 @@
 package zio.http.model.headers
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A trait that provides a ton of powerful operators when extended. Any type

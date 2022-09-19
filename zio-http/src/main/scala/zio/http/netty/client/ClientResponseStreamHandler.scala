@@ -5,6 +5,7 @@ import io.netty.channel._
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zio.Chunk
 import zio.http.Body.UnsafeAsync
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 final class ClientResponseStreamHandler(val callback: UnsafeAsync)
     extends SimpleChannelInboundHandler[HttpContent](false) { self =>

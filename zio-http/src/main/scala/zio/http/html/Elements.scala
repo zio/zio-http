@@ -1,6 +1,7 @@
 package zio.http.html
 
 import zio.http.html.Element.PartialElement
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 trait Elements {
   final def a: PartialElement = PartialElement("a")

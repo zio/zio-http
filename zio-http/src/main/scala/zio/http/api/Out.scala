@@ -2,6 +2,7 @@ package zio.http.api
 
 import zio.schema.Schema
 import zio.stream.ZStream
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A [[zio.http.api.Out]] describes the output of an HTTP endpoint. Outputs may

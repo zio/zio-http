@@ -1,5 +1,7 @@
 package zio.http.model
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 private[zio] trait MimeDB {
   private[zio] lazy val allMediaTypes: List[MediaType] =
     Nil ++ x_shader.all ++ x_conference.all ++ video.all ++ text.all ++ multipart.all ++ model.all ++ message.all ++ image.all ++ font.all ++ chemical.all ++ audio.all ++ application.all

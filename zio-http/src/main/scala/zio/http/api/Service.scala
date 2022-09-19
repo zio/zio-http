@@ -3,6 +3,7 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.model.HttpError
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * Represents a collection of API endpoints that all have handlers.
@@ -21,7 +22,7 @@ sealed trait Service[-R, +E] { self =>
    * Converts this service into a [[zio.http.HttpApp]], which can then be served
    * via [[zio.http.Server.serve]].
    */
-  def toHttpApp: HttpApp[R, E] = {
+  def toHttpApp(implicit trace: Trace): HttpApp[R, E] = {
     import zio.http.api.internal._
 
     val handlerTree     = HandlerTree.fromService(self)

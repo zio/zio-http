@@ -1,6 +1,7 @@
 package zio.http
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 trait Driver {
   def start(implicit trace: Trace): RIO[Scope, Int]

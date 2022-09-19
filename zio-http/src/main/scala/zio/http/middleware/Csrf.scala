@@ -5,6 +5,7 @@ import zio.http.model._
 import zio.{Trace, ZIO}
 
 import java.util.UUID
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 private[zio] trait Csrf {
 
@@ -34,7 +35,7 @@ private[zio] trait Csrf {
    *
    * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
-  def csrfValidate(tokenName: String = "x-csrf-token"): HttpMiddleware[Any, Nothing] = {
+  def csrfValidate(tokenName: String = "x-csrf-token")(implicit trace: Trace): HttpMiddleware[Any, Nothing] = {
     Middleware.whenHeader(
       headers => {
         (headers.headerValue(tokenName), headers.cookieValue(tokenName)) match {

@@ -1,5 +1,7 @@
 package zio.http.api
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 /**
  * A combiner is a type class responsible for combining invariant type
  * parameters. It is used to compose the inputs of the [[zio.http.api.In]] data

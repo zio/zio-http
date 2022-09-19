@@ -8,6 +8,7 @@ import zio.http.netty._
 import zio.http.service.Ctx
 
 import java.io.IOException
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 trait Request extends HeaderExtension[Request] { self =>
 

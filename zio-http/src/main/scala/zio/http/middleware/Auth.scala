@@ -6,6 +6,7 @@ import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http.model.{Headers, Status}
 import zio.{Trace, ZIO}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 private[zio] trait Auth {
 
@@ -80,7 +81,7 @@ private[zio] trait Auth {
     verify: Headers => ZIO[R, E, Boolean],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  ): HttpMiddleware[R, E] =
+  )(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.ifThenElseZIO[Request](req => verify(req.headers))(
       _ => Middleware.identity,
       _ => Middleware.fromHttp(Http.status(responseStatus).addHeaders(responseHeaders)),

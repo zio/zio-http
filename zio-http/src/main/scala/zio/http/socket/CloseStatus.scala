@@ -1,6 +1,7 @@
 package zio.http.socket
 
 import io.netty.handler.codec.http.websocketx.WebSocketCloseStatus
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 sealed abstract class CloseStatus(val asJava: WebSocketCloseStatus)
 object CloseStatus {

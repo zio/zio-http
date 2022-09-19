@@ -8,6 +8,7 @@ import zio._
 import zio.http.model._
 
 import scala.annotation.tailrec
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 package object netty {
   import server._

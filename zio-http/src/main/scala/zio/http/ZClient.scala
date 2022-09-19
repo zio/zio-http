@@ -21,6 +21,7 @@ import zio.http.service._
 import zio.http.socket.SocketApp
 
 import java.net.{InetSocketAddress, URI}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 trait ZClient[-Env, -In, +Err, +Out] { self =>
 

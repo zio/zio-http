@@ -10,7 +10,7 @@ trait ScalaSettings {
     "-language:higherKinds",     // Allow higher-kinded types
     "-unchecked",                // Enable additional warnings where generated code depends on assumptions.
     "-Xcheckinit",               // Wrap field accessors to throw an exception on uninitialized access.
-    "-Xfatal-warnings",          // Fail the compilation if there are any warnings.
+   // "-Xfatal-warnings",          // Fail the compilation if there are any warnings.
     "-Xlint:adapted-args",       // Warn if an argument list is modified to match the receiver.
     "-Xlint:constant",           // Evaluation of a constant arithmetic expression results in an error.
     "-Xlint:delayedinit-select", // Selecting member of DelayedInit.
@@ -64,6 +64,8 @@ trait ScalaSettings {
     "-Wunused:privates", // Warn if a private member is unused.
     "-Wunused:locals",   // Warn if a local definition is unused.
     "-Wvalue-discard",   // Warn when non-Unit expression results are unused.
+    "-Ywarn-unused:imports"
+
   )
 
   val scala212Settings: Seq[String] = baseSettings ++ Seq(

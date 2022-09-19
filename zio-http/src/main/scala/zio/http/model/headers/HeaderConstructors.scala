@@ -7,6 +7,7 @@ import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http.model._
 
 import java.util.Base64
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * Contains a list of helpful methods that can create `Headers`.

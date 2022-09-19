@@ -3,6 +3,7 @@ package zio.http.model
 import io.netty.handler.codec.http.HttpScheme
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import zio.Unsafe
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 sealed trait Scheme { self =>
   def encode: String = self match {

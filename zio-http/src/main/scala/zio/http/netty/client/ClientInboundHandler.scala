@@ -5,6 +5,7 @@ import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zio._
 import zio.http.Response
 import zio.http.netty.NettyRuntime
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * Handles HTTP response
@@ -14,7 +15,8 @@ final class ClientInboundHandler(
   jReq: FullHttpRequest,
   promise: Promise[Throwable, Response],
   isWebSocket: Boolean,
-) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
+)(implicit trace: Trace)
+    extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {

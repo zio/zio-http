@@ -1,6 +1,7 @@
 package zio.http.socket
 
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * Frame decoder configuration

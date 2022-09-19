@@ -6,6 +6,8 @@ import zio._
 import zio.http.service.Log
 
 import scala.jdk.CollectionConverters._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 private[zio] trait NettyRuntime { self =>
 
   private val log = Log.withTags("NettyRuntime")
