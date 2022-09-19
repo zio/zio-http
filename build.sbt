@@ -29,7 +29,12 @@ ThisBuild / githubWorkflowAddedJobs      :=
       name = "Publish Documentation",
       steps = List(
         WorkflowStep.Use(UseRef.Public("actions", "checkout", s"v2")),
-        WorkflowStep.Use(UseRef.Public("actions", "setup-node", s"v2")),
+        WorkflowStep.Use(
+          UseRef.Public("actions", "setup-node", s"v3"),
+          Map(
+            "node-version" -> "16.15.1",
+          ),
+        ),
         WorkflowStep.Run(
           env = Map("GIT_PASS" -> "${{secrets.ACTIONS_PAT}}", "GIT_USER" -> "${{secrets.GIT_USER}}"),
           commands = List(
