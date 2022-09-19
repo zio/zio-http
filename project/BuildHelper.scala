@@ -38,8 +38,8 @@ object BuildHelper extends ScalaSettings {
       organization           := "dev.zio",
       organizationName       := "zio",
       licenses += ("MIT License", new URL("https://github.com/zio/zio-http/blob/master/LICENSE")),
-      sonatypeCredentialHost := "s01.oss.sonatype.org",
-      sonatypeRepository     := "https://s01.oss.sonatype.org/service/local",
+      sonatypeCredentialHost := "oss.sonatype.org",
+      sonatypeRepository     := "https://oss.sonatype.org/service/local",
       sonatypeProfileName    := "dev.zio",
     )
     val skipSettings    = Seq(
