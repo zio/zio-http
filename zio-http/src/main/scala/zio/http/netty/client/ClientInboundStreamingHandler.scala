@@ -32,7 +32,7 @@ final class ClientInboundStreamingHandler(
                 response,
               ),
             )
-        }(unsafeClass)
+        }(unsafeClass, trace)
       case content: HttpContent   =>
         ctx.fireChannelRead(content): Unit
 
@@ -41,7 +41,7 @@ final class ClientInboundStreamingHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    rtm.run(ctx)(promise.fail(error).uninterruptible)(unsafeClass)
+    rtm.run(ctx)(promise.fail(error).uninterruptible)(unsafeClass, trace)
   }
 
   private def encodeRequest(req: Request): HttpRequest = {
@@ -69,7 +69,7 @@ final class ClientInboundStreamingHandler(
 
   private def writeRequest(msg: Request, ctx: ChannelHandlerContext): Unit = {
     ctx.write(encodeRequest(msg))
-    rtm.run(ctx)(msg.body.write(ctx).unit)(Unsafe.unsafe)
+    rtm.run(ctx)(msg.body.write(ctx).unit)(Unsafe.unsafe, trace)
   }
 
 }

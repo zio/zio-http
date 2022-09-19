@@ -1,6 +1,7 @@
 package zio.http.model
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
+import zio.Trace
 import zio.http.model.headers._
 
 import scala.jdk.CollectionConverters._
@@ -38,7 +39,7 @@ sealed trait Headers extends HeaderExtension[Headers] with HeaderIterable {
 
   final def modify(f: Header => Header): Headers = Headers.FromIterable(self.map(f))
 
-  override final def updateHeaders(update: Headers => Headers): Headers = update(self)
+  override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Headers = update(self)
 
   final def when(cond: Boolean): Headers = if (cond) self else Headers.EmptyHeaders
 

@@ -665,7 +665,7 @@ object Http {
     /**
      * Updates the response headers using the provided function
      */
-    override def updateHeaders(update: Headers => Headers): HttpApp[R, E] = http.map(_.updateHeaders(update))
+    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): HttpApp[R, E] = http.map(_.updateHeaders(update))
 
     /**
      * Applies Http based on the path

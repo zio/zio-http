@@ -20,7 +20,7 @@ private[zio] final class WebSocketAppHandler(
   zExec: NettyRuntime,
   app: SocketApp[Any],
   isClient: Boolean,
-) extends SimpleChannelInboundHandler[JWebSocketFrame] {
+)(implicit trace: Trace) extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
   private[zio] val log = if (isClient) WebSocketAppHandler.clientLog else WebSocketAppHandler.serverLog
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe

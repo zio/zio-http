@@ -99,6 +99,8 @@ private[zio] final case class ServerChannelInitializer(
 }
 
 object ServerChannelInitializer {
+  implicit val trace: Trace = Trace.empty
+
   private val log = Log.withTags("Server", "Channel")
 
   val layer = ZLayer.fromZIO {

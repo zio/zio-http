@@ -50,6 +50,8 @@ private[zio] final case class NettyDriver(
 
 object NettyDriver {
 
+  implicit val trace: Trace = Trace.empty
+
   private type Env = AppRef
     with ChannelFactory[ServerChannel]
     with ChannelInitializer[Channel]

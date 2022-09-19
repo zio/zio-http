@@ -16,7 +16,7 @@ private[zio] trait NettyRuntime { self =>
 
   def run(ctx: ChannelHandlerContext, interruptOnClose: Boolean = true)(
     program: ZIO[Any, Throwable, Any],
-  )(implicit unsafe: Unsafe): Unit = {
+  )(implicit unsafe: Unsafe, trace: Trace): Unit = {
     val rtm: Runtime[Any] = runtime(ctx)
 
     def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
@@ -62,7 +62,7 @@ private[zio] trait NettyRuntime { self =>
     }
   }
 
-  def runUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[Any, Throwable, Any])(implicit unsafe: Unsafe): Unit =
+  def runUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[Any, Throwable, Any])(implicit unsafe: Unsafe, trace: Trace): Unit =
     run(ctx, interruptOnClose = false)(program)
 }
 

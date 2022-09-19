@@ -54,6 +54,8 @@ object EventLoopGroups {
     ZIO.succeed(new DefaultEventLoopGroup()),
   )
 
+  implicit val trace: Trace= Trace.empty
+
   val fromConfig = ZLayer.fromZIO {
     ZIO.service[Config].flatMap { config =>
       config.channelType match {
