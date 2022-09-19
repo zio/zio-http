@@ -60,7 +60,7 @@ object InSpec extends ZIOSpecDefault {
     expected: String,
   ): ZIO[R, E, TestResult] = {
 
-    val request = Request(url = URL.fromString(url).toOption.get)
+    val request = Request.make(url = URL.fromString(url).toOption.get)
 
     for {
       response <- service.toHttpApp(request).mapError(_.get)

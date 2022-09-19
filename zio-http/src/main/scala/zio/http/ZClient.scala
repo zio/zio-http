@@ -519,7 +519,7 @@ object ZClient {
         host     <- ZIO.fromOption(hostOption).orElseFail(new IllegalArgumentException("Host is required"))
         port     <- ZIO.fromOption(portOption).orElseSucceed(sslConfig.fold(80)(_ => 443))
         response <- requestAsync(
-          Request(
+          Request.make(
             version = version,
             method = method,
             url =
@@ -552,7 +552,7 @@ object ZClient {
           } yield URL.Location.Absolute(scheme, host, port)
         }.orElseSucceed(URL.Location.Relative)
         res      <- requestAsync(
-          http.Request(
+          Request.make(
             version = version,
             Method.GET,
             url = URL(path, location).setQueryParams(queries),
@@ -700,7 +700,7 @@ object ZClient {
       uri      <- ZIO.fromEither(URL.fromString(url))
       response <- ZIO.serviceWithZIO[Client](
         _.request(
-          http.Request(
+          Request.make(
             version = Version.Http_1_1,
             method = method,
             url = uri,

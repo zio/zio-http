@@ -82,7 +82,7 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
     val headers = encodeHeaders(inputs.headers)
     val body    = encodeBody(inputs.inputBodies)
 
-    val request = Request(
+    val request = Request.make(
       method = api.method,
       url = apiRoot ++ URL(route, URL.Location.Relative, query),
       headers = headers,
