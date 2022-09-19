@@ -39,7 +39,7 @@ object APIExamples extends ZIOAppDefault {
           getUser ++ getUserPosts
         }
 
-      val executor = APIExecutor(client, registry)
+      val executor: APIExecutor[getUser.Id with getUserPosts.Id] = APIExecutor(client, registry)
 
       val x1 = getUser(42)
       val x2 = getUserPosts(42, "adam", 200)
