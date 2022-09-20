@@ -34,10 +34,10 @@ private[zio] final case class ServerInboundHandler(
         case _ => throw new IllegalArgumentException(s"Unsupported HTTP version: ${nettyHttpVersion}")
       }
 
-      val remoteAddress = ctx.channel().remoteAddress() match {
-        case m: InetSocketAddress => Some(m.getAddress)
-        case _                    => None
-      }
+      // val remoteAddress = ctx.channel().remoteAddress() match {
+      //   case m: InetSocketAddress => Some(m.getAddress)
+      //   case _                    => None
+      // }
 
       nettyReq match {
         case nettyReq: FullHttpRequest =>
@@ -47,7 +47,7 @@ private[zio] final case class ServerInboundHandler(
             Method.fromHttpMethod(nettyReq.method()),
             URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
             protocolVersion,
-            remoteAddress,
+            None,
           )
         case nettyReq: HttpRequest     =>
           val body = Body.fromAsync { async =>
@@ -59,7 +59,7 @@ private[zio] final case class ServerInboundHandler(
             Method.fromHttpMethod(nettyReq.method()),
             URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
             protocolVersion,
-            remoteAddress,
+            None,
           )
       }
 
