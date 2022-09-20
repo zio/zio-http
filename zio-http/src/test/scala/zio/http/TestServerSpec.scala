@@ -20,20 +20,18 @@ object TestServerSpec extends ZIOSpec[TestServer]{
 //      _ <- TestServer.feedRequests(
 //        Request()
 //      )
-      response <- // Http.fromFunctionZIO[Request] { params =>
+      response <-
         Client.request(
           Request(url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port)))
-        ).provideSome[Scope](Client.default)
-
-
+        )
+      _ <- // Http.fromFunctionZIO[Request] { params =>
+        Client.request(
+          Request(url = URL(Path.root / "users", Location.Absolute(Scheme.HTTP, "localhost", port)))
+        )
       _ <- ZIO.debug("Response: " + response)
-      // not connected to our server at all.
-      // Consult HttpRunnableSpec
-//      _ <- response(Request()).provideSome[Scope](Client.default)
-
       finalRequests <- TestServer.requests.debug
 
-    } yield assertTrue(originalRequests.length == 0) && assertTrue(finalRequests.length == 1)
-  }
+    } yield assertTrue(originalRequests.length == 0) && assertTrue(finalRequests.length == 2)
+  }.provideSome[Scope with TestServer](Client.default)
 
 }

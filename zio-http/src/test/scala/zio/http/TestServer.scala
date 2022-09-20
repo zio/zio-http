@@ -40,7 +40,7 @@ object TestServer {
         override def apply[R1 <: Any, E1 >: Nothing](http: Http[R1, E1, Request, Response]): Http[R1, E1, Request, Response] =
           Http.fromOptionFunction[Request] { req =>
             for {
-              _ <- requestsR.update(req :: _) // TODO decide if prepending is the right move
+              _ <- requestsR.update(_ :+ req)
               response <- http(req)
             } yield response
           }
