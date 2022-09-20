@@ -1,7 +1,6 @@
 package zio.http.internal
 
 import zio._
-import zio.stm.{TMap, TPromise, ZSTM}
 
 trait ZKeyedPool[+Err, -Key, Item] {
 
@@ -91,92 +90,37 @@ object ZKeyedPool {
     trace: Trace,
   ): ZIO[Env with Scope, Nothing, ZKeyedPool[Err, Key, Item]] =
     for {
-      activePools   <- TMap.empty[Key, TPromise[Nothing, ZPool[Err, Item]]].commit
-      acquiredItems <- TMap.empty[Item, Key].commit
-      env           <- ZIO.environment[Env]
-      createPool = (key: Key) =>
-        ttl(key) match {
-          case Some(timeToLive) =>
-            ZPool
-              .make(get(key), range(key), timeToLive)
-              .provideSomeEnvironment[Scope](_.union[Env](env))
-          case None             =>
-            ZPool
-              .make(get(key), range(key).end)
-              .provideSomeEnvironment[Scope](_.union[Env](env))
+      environment <- ZIO.environment[Env]
+      scope       <- ZIO.scope
+      activePools <- Ref.Synchronized.make(Map.empty[Key, ZPool[Err, Item]])
+      getOrCreatePool = (key: Key) =>
+        activePools.modifyZIO { map =>
+          map.get(key) match {
+            case Some(pool) => ZIO.succeedNow(pool -> map)
+            case None       =>
+              scope.extend(
+                ZPool
+                  .make(get(key).provideEnvironment(environment), range(key), ttl(key).getOrElse(Duration.Infinity))
+                  .map(pool => pool -> (map + (key -> pool))),
+              )
+          }
         }
-    } yield DefaultKeyedPool[Err, Key, Item](
-      createPool,
-      activePools,
-      acquiredItems,
-    )
+    } yield DefaultKeyedPool(activePools, getOrCreatePool)
 
   private final case class DefaultKeyedPool[Err, Key, Item](
-    createPool: Key => ZIO[Scope, Nothing, ZPool[Err, Item]],
-    activePools: TMap[Key, TPromise[Nothing, ZPool[Err, Item]]],
-    acquiredItems: TMap[Item, Key],
+    activePools: Ref.Synchronized[Map[Key, ZPool[Err, Item]]],
+    getOrCreatePool: Key => ZIO[Any, Nothing, ZPool[Err, Item]],
   ) extends ZKeyedPool[Err, Key, Item] {
 
     override def get(key: Key)(implicit trace: Trace): ZIO[Scope, Err, Item] =
-      ZIO.uninterruptibleMask { outerRestore =>
-        outerRestore {
-          activePools
-            .get(key)
-            .flatMap {
-              case Some(promise) =>
-                promise.await.map { pool =>
-                  acquireFrom(key, pool)
-                }
-              case None          =>
-                TPromise.make[Nothing, ZPool[Err, Item]].flatMap { promise =>
-                  activePools
-                    .put(key, promise)
-                    .as {
-                      outerRestore {
-                        ZIO.uninterruptibleMask { innerRestore =>
-                          for {
-                            pool <- createPool(key)
-                            _    <- promise.succeed(pool).commit
-                            item <- innerRestore(acquireFrom(key, pool))
-                          } yield item
-                        }
-                      }
-                    }
-                }
-            }
-            .commit
-        }.flatten
-      }
+      for {
+        pool <- getOrCreatePool(key)
+        item <- pool.get
+      } yield item
 
     override def invalidate(item: Item)(implicit trace: Trace): UIO[Unit] =
-      ZIO.uninterruptibleMask { restore =>
-        restore {
-          acquiredItems
-            .get(item)
-            .flatMap {
-              case None      => ZSTM.succeed(ZIO.unit)
-              case Some(key) =>
-                activePools.get(key).flatMap {
-                  case None              => ZSTM.succeed(ZIO.unit)
-                  case Some(poolPromise) =>
-                    poolPromise.poll.map {
-                      case None              => ZIO.unit
-                      case Some(Left(_))     => ZIO.unit
-                      case Some(Right(pool)) => pool.invalidate(item)
-                    }
-
-                }
-            }
-            .commit
-        }.flatten
-      }
-
-    private def acquireFrom(key: Key, pool: ZPool[Err, Item]): ZIO[Scope, Err, Item] =
-      ZIO.uninterruptibleMask { restore =>
-        restore(pool.get).tap { item =>
-          Scope.addFinalizer(acquiredItems.delete(item).commit) *>
-            acquiredItems.put(item, key).commit
-        }
+      activePools.get.flatMap { map =>
+        ZIO.foreachDiscard(map.values)(_.invalidate(item))
       }
   }
 }

@@ -9,7 +9,7 @@ import zio.http.netty.NettyRuntime
 import zio.http.netty.client.ConnectionPool
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, ignore, nonFlaky, sequential, timeout}
+import zio.test.TestAspect.{diagnose, nonFlaky, sequential, timeout}
 import zio.test._
 
 object ConnectionPoolSpec extends HttpRunnableSpec {
@@ -146,7 +146,7 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
         severTestLayer,
         Client.live,
         ConnectionPool.dynamic(4, 16, 100.millis),
-      ) @@ ignore, // TODO: there seems to be an issue in releasing dynamic ZPools
+      ),
     )
 
   override def spec: Spec[Any, Throwable] = {
