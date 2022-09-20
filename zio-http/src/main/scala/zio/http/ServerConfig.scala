@@ -109,7 +109,7 @@ final case class ServerConfig(
   def ssl(sslOptions: ServerSSLOptions): ServerConfig = self.copy(sslOption = Some(sslOptions))
 
   /**
-   * Configure the server to use a maximum of nThreads in to process requests.
+   * Configure the server to use a maximum of nThreads to process requests.
    */
   def maxThreads(nThreads: Int): ServerConfig = self.copy(nThreads = nThreads)
 }

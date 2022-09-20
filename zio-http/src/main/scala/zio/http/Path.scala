@@ -172,7 +172,7 @@ object Path {
   val empty: Path = new Path(Vector.empty)
 
   /**
-   * Represents a slash or a root path which is equivaltent to "/".
+   * Represents a slash or a root path which is equivalent to "/".
    */
   val root: Path = new Path(Vector(Segment.root))
 

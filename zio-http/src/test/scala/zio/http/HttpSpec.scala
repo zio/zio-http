@@ -261,7 +261,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
       },
     ),
     suite("tap")(
-      test("taps the successs") {
+      test("taps the success") {
         for {
           r <- Ref.make(0)
           app = Http.succeed(1).tap(v => Http.fromZIO(r.set(v)))
@@ -271,7 +271,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
       },
     ),
     suite("tapM")(
-      test("taps the successs") {
+      test("taps the success") {
         for {
           r <- Ref.make(0)
           app = Http.succeed(1).tapZIO(r.set)
