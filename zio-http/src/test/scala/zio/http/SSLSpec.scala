@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http
 
 import io.netty.handler.codec.DecoderException
 import zio.http._
