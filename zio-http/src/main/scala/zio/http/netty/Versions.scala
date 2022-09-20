@@ -6,7 +6,7 @@ import zio.http.model.Version
 
 object Versions {
   import Version._
-  def make(version: HttpVersion)(implicit unsafe: Unsafe): Version =
+  def make(version: HttpVersion)(implicit unsafe: Unsafe, trace: Trace): Version =
     version match {
       case HttpVersion.HTTP_1_0 => Http_1_0
       case HttpVersion.HTTP_1_1 => Http_1_1

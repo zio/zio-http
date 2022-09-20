@@ -10,7 +10,7 @@ import java.net.InetSocketAddress
 
 private[zio] object Requests {
 
-  def make(nettyReq: HttpRequest, ctx: ChannelHandlerContext)(implicit unsafe: Unsafe): Request = {
+  def make(nettyReq: HttpRequest, ctx: ChannelHandlerContext)(implicit unsafe: Unsafe, trace: Trace): Request = {
     val protocolVersion = Versions.make(nettyReq.protocolVersion())
 
     val remoteAddress = ctx.channel().remoteAddress() match {

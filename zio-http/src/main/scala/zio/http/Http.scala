@@ -672,7 +672,7 @@ object Http {
       http.whenPathEq(p.encode)(Unsafe.unsafe)
 
     /**
-     *  Applies Http based on the path as string
+     * Applies Http based on the path as string
      */
     def whenPathEq(p: String)(implicit unsafe: Unsafe): HttpApp[R, E] =
       http.when(_.url.toString.contentEquals(p))
@@ -720,7 +720,6 @@ object Http {
    */
   def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]]): Http[R, E, A, B] =
     i.reduce(_.defaultWith(_))
-
 
   /**
    * Returns an http app that dies with the specified `Throwable`. This method
@@ -1030,7 +1029,6 @@ object Http {
    * Creates an HTTP app which always responds with a 413 status code.
    */
   def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.RequestEntityTooLarge)
-
 
   // Ctor Help
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {

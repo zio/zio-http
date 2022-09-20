@@ -1,5 +1,6 @@
 package zio.http
 
+import zio.Trace
 import zio.http.model._
 import zio.http.model.headers._
 
@@ -35,7 +36,8 @@ final case class Request(
   /**
    * Updates the headers using the provided function
    */
-  override def updateHeaders(update: Headers => Headers): Request = self.copy(headers = update(self.headers))
+  override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Request =
+    self.copy(headers = update(self.headers))
 }
 
 object Request {
