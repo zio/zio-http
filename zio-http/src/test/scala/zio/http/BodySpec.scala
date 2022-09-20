@@ -29,7 +29,8 @@ object BodySpec extends ZIOSpecDefault {
           ),
           suite("fromFile")(
             test("failure") {
-              val res: URIO[Any, Either[Throwable, Chunk[Byte]]] = Body.fromFile(throw new Error("Failure")).asChunk.either
+              val res: URIO[Any, Either[Throwable, Chunk[Byte]]] =
+                Body.fromFile(throw new Error("Failure")).asChunk.either
               assertZIO(res)(isLeft(isSubtype[Error](anything)))
             },
             test("success") {
