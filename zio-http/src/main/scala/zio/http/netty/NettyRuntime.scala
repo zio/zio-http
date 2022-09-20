@@ -6,6 +6,7 @@ import zio._
 import zio.http.service.Log
 
 import scala.jdk.CollectionConverters._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait NettyRuntime { self =>
 
@@ -15,7 +16,7 @@ private[zio] trait NettyRuntime { self =>
 
   def run(ctx: ChannelHandlerContext, interruptOnClose: Boolean = true)(
     program: ZIO[Any, Throwable, Any],
-  )(implicit unsafe: Unsafe): Unit = {
+  )(implicit unsafe: Unsafe, trace: Trace): Unit = {
     val rtm: Runtime[Any] = runtime(ctx)
 
     def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
@@ -61,7 +62,9 @@ private[zio] trait NettyRuntime { self =>
     }
   }
 
-  def runUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[Any, Throwable, Any])(implicit unsafe: Unsafe): Unit =
+  def runUninterruptible(ctx: ChannelHandlerContext)(
+    program: ZIO[Any, Throwable, Any],
+  )(implicit unsafe: Unsafe, trace: Trace): Unit =
     run(ctx, interruptOnClose = false)(program)
 }
 
@@ -70,14 +73,17 @@ object NettyRuntime {
   /**
    * Creates a runtime that uses a separate thread pool for ZIO operations.
    */
-  def usingDedicatedThreadPool = ZLayer.fromZIO {
-    ZIO
-      .runtime[Any]
-      .map(rtm =>
-        new NettyRuntime {
-          def runtime(ctx: ChannelHandlerContext): Runtime[Any] = rtm
-        },
-      )
+  val usingDedicatedThreadPool = {
+    implicit val trace: Trace = Trace.empty
+    ZLayer.fromZIO {
+      ZIO
+        .runtime[Any]
+        .map(rtm =>
+          new NettyRuntime {
+            def runtime(ctx: ChannelHandlerContext): Runtime[Any] = rtm
+          },
+        )
+    }
   }
 
   /**
@@ -85,7 +91,8 @@ object NettyRuntime {
    * event loop. This should be the preferred way of creating the runtime for
    * the server.
    */
-  def usingSharedThreadPool =
+  val usingSharedThreadPool = {
+    implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
         elg      <- ZIO.service[EventLoopGroup]
@@ -106,5 +113,6 @@ object NettyRuntime {
         def runtime(ctx: ChannelHandlerContext): Runtime[Any] = provider(ctx)
       }
     }
+  }
 
 }

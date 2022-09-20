@@ -1,6 +1,7 @@
 package zio.http.html
 
 import scala.language.implicitConversions
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A view is a domain that used generate HTML.

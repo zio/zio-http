@@ -1,6 +1,7 @@
 package zio.http.api
 
 import zio.schema.Schema
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A [[zio.http.api.In]] represents an input to an API. In the HTTP protocol,
