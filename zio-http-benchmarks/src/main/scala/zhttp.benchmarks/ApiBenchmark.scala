@@ -28,6 +28,8 @@ class ApiBenchmark {
 
   import zio.http.api._
 
+  // # Small Data Request
+
   // API DSL
   val usersPosts =
     API
@@ -56,7 +58,7 @@ class ApiBenchmark {
   }
 
   val request: Request =
-    Request(url = URL.fromString("http://localhost:8080/users/1/posts/2?query=cool").toOption.get)
+    requestFromString("http://localhost:8080/users/1/posts/2?query=cool")
 
   def unsafeRun[E, A](zio: ZIO[Any, E, A]): Unit = Unsafe.unsafe { implicit unsafe =>
     Runtime.default.unsafe
@@ -75,4 +77,48 @@ class ApiBenchmark {
     unsafeRun {
       collectHttpApp(request).repeatN(REPEAT_N)
     }
+
+  // # Large Path
+
+  // API DSL
+  import In._
+
+  val largePathHttpApp = API
+    .get(In.literal("first") / int / "second" / int / "third" / int / "fourth" / int / "fifth" / int / "sixth" / int)
+    .handle { _ =>
+      ZIO.unit
+    }
+    .toHttpApp
+
+  val largePathRequest: Request =
+    requestFromString("http://localhost:8080/first/1/second/2/third/3/fourth/4/fifth/5/sixth/6")
+
+  // Collect DSL
+
+  val largePathCollectHttpApp = Http.collectZIO[Request] { //
+    case Method.GET -> !! / "first" / id1 / "second" / id2 / "third" / id3 / "fourth" / id4 / "fifth" / id5 / "sixth" / id6 =>
+      val _ = id1.toInt
+      val _ = id2.toInt
+      val _ = id3.toInt
+      val _ = id4.toInt
+      val _ = id5.toInt
+      val _ = id6.toInt
+      ZIO.unit
+  }
+
+  @Benchmark
+  def benchmarkLargePathZioApi(): Unit =
+    unsafeRun {
+      largePathHttpApp(largePathRequest).repeatN(REPEAT_N)
+    }
+
+  @Benchmark
+  def benchmarkLargePathZioCollect(): Unit =
+    unsafeRun {
+      largePathCollectHttpApp(largePathRequest).repeatN(REPEAT_N)
+    }
+
+  private def requestFromString(url: String): Request =
+    Request(url = URL.fromString(url).toOption.get)
+
 }
