@@ -27,7 +27,12 @@ private[zio] final case class ServerInboundHandler(
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
     def makeZioRequest(nettyReq: HttpRequest): Request = {
-      val protocolVersion = Versions.make(nettyReq.protocolVersion())
+      val nettyHttpVersion = nettyReq.protocolVersion()
+      val protocolVersion  = nettyHttpVersion match {
+        case HttpVersion.HTTP_1_0 => Version.Http_1_0
+        case HttpVersion.HTTP_1_1 => Version.Http_1_1
+        case _ => throw new IllegalArgumentException(s"Unsupported HTTP version: ${nettyHttpVersion}")
+      }
 
       val remoteAddress = ctx.channel().remoteAddress() match {
         case m: InetSocketAddress => Some(m.getAddress)
