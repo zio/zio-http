@@ -1,5 +1,6 @@
 package zio.http.api
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 private[api] trait QueryInputs {
 
   def query(name: String): In[String] =

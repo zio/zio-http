@@ -4,13 +4,15 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zio.http.netty.NettyRuntime
 import zio.http.{Request, Response}
-import zio.{Promise, Unsafe}
+import zio.{Promise, Trace, Unsafe}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final class ClientInboundStreamingHandler(
   val rtm: NettyRuntime,
   req: Request,
   promise: Promise[Throwable, Response],
-) extends SimpleChannelInboundHandler[HttpObject](false) {
+)(implicit trace: Trace)
+    extends SimpleChannelInboundHandler[HttpObject](false) {
 
   private implicit val unsafeClass: Unsafe = Unsafe.unsafe
 
@@ -30,7 +32,7 @@ final class ClientInboundStreamingHandler(
                 response,
               ),
             )
-        }(unsafeClass)
+        }(unsafeClass, trace)
       case content: HttpContent   =>
         ctx.fireChannelRead(content): Unit
 
@@ -39,7 +41,7 @@ final class ClientInboundStreamingHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    rtm.run(ctx)(promise.fail(error).uninterruptible)(unsafeClass)
+    rtm.run(ctx)(promise.fail(error).uninterruptible)(unsafeClass, trace)
   }
 
   private def encodeRequest(req: Request): HttpRequest = {
@@ -67,7 +69,7 @@ final class ClientInboundStreamingHandler(
 
   private def writeRequest(msg: Request, ctx: ChannelHandlerContext): Unit = {
     ctx.write(encodeRequest(msg))
-    rtm.run(ctx)(msg.body.write(ctx).unit)(Unsafe.unsafe)
+    rtm.run(ctx)(msg.body.write(ctx).unit)(Unsafe.unsafe, trace)
   }
 
 }

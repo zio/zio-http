@@ -1,8 +1,9 @@
 package zio.http.model.headers
 
-import zio.Duration
+import zio.{Duration, Trace}
 import zio.http._
 import zio.http.model._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Maintains a list of operators that modify the current Headers. Once modified,
@@ -32,7 +33,7 @@ trait HeaderModifier[+A] { self =>
    * Updates the current Headers with new one, using the provided update
    * function passed.
    */
-  def updateHeaders(update: Headers => Headers): A
+  def updateHeaders(update: Headers => Headers)(implicit trace: Trace): A
 
   final def withAccept(value: CharSequence): A =
     addHeaders(Headers.accept(value))

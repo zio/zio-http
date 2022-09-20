@@ -8,6 +8,7 @@ import zio._
 import zio.http.model._
 
 import scala.annotation.tailrec
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 package object netty {
   import server._
@@ -133,7 +134,7 @@ package object netty {
       jRequest: HttpRequest,
       time: service.ServerTime,
       runtime: NettyRuntime,
-    ): ZIO[Any, Throwable, Unit] = {
+    )(implicit trace: Trace): ZIO[Any, Throwable, Unit] = {
 
       for {
         response <- exit.toZIO.unrefine { case error => Option(error) }.catchAll {

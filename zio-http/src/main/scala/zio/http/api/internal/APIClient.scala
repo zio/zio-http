@@ -6,6 +6,7 @@ import zio.http.api._
 import zio.http.model.Headers
 import zio.schema._
 import zio.schema.codec._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
   private val optionSchema: Option[Schema[Any]]    = api.input.bodySchema.map(_.asInstanceOf[Schema[Any]])
@@ -73,7 +74,7 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
     if (inputs.length == 0) Body.empty
     else Body.fromChunk(inputJsonEncoder(inputs(0)))
 
-  def execute(client: Client, input: I): ZIO[Any, Throwable, O] = {
+  def execute(client: Client, input: I)(implicit trace: Trace): ZIO[Any, Throwable, O] = {
     val inputs = deconstructor(input)
 
     val route   = encodeRoute(inputs.routes)

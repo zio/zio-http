@@ -12,7 +12,7 @@ import zio.http.model.Status
 
 import java.net.URI
 import scala.util.matching.Regex
-
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 object OpenAPI {
 
   /**

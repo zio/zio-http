@@ -3,6 +3,7 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.api.internal.APIClient
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A [[zio.http.api.APIExecutor]] is responsible for taking a service
@@ -10,7 +11,7 @@ import zio.http.api.internal.APIClient
  * failing with some kind of RPC error.
  */
 trait APIExecutor[+Ids] {
-  def apply[Id, A, B](invocation: Invocation[Id, A, B])(implicit ev: Ids <:< Id): ZIO[Any, Throwable, B]
+  def apply[Id, A, B](invocation: Invocation[Id, A, B])(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B]
 }
 object APIExecutor      {
 
@@ -37,7 +38,9 @@ object APIExecutor      {
       )
     }
 
-    def apply[Id, A, B](invocation: Invocation[Id, A, B])(implicit ev: Nothing <:< Id): ZIO[Any, Throwable, B] = {
+    def apply[Id, A, B](
+      invocation: Invocation[Id, A, B],
+    )(implicit ev: Nothing <:< Id, trace: Trace): ZIO[Any, Throwable, B] = {
       val executor = metadata.get(invocation.api).asInstanceOf[APIClient[A, B]]
 
       executor.execute(client, invocation.input).asInstanceOf[ZIO[Any, Throwable, B]]

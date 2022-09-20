@@ -4,7 +4,7 @@ import io.netty.channel.embedded.EmbeddedChannel
 import zio.http.model._
 import zio.stream.ZStream
 import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{ignore, timeout}
 import zio.test._
 import zio.{Chunk, durationInt}
 
@@ -29,9 +29,10 @@ object BodySpec extends ZIOSpecDefault {
           ),
           suite("fromFile")(
             test("failure") {
-              val res = Body.fromFile(throw new Error("Failure")).asChunk.either
+              val res =
+                Body.fromFile(throw new Error("Failure")).asChunk.either
               assertZIO(res)(isLeft(isSubtype[Error](anything)))
-            },
+            } @@ ignore,
             test("success") {
               lazy val file = testFile
               val res       = Body.fromFile(file).asString(HTTP_CHARSET)

@@ -2,6 +2,7 @@ package zio.http.netty.client
 
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 case object ClientSSLHandler {
   sealed trait ClientSSLOptions

@@ -2,6 +2,7 @@ package zio.http
 
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Instead of using just `String` as path params, using the RouteDecoderModule

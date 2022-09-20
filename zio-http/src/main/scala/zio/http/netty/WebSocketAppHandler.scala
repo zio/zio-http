@@ -10,6 +10,7 @@ import zio.http.ChannelEvent.UserEvent
 import zio.http.service.Log
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.logging.Logger
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A generic SocketApp handler that can be used on both - the client and the
@@ -19,7 +20,8 @@ private[zio] final class WebSocketAppHandler(
   zExec: NettyRuntime,
   app: SocketApp[Any],
   isClient: Boolean,
-) extends SimpleChannelInboundHandler[JWebSocketFrame] {
+)(implicit trace: Trace)
+    extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
   private[zio] val log = if (isClient) WebSocketAppHandler.clientLog else WebSocketAppHandler.serverLog
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe

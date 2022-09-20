@@ -18,6 +18,7 @@ import zio.http.netty.server.ServerChannelInitializer.log
 import zio.http.service.Log
 import zio.http.service.logging.LogLevelTransform._
 import zio.logging.LogLevel
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Initializes the netty channel with default handlers
@@ -98,6 +99,8 @@ private[zio] final case class ServerChannelInitializer(
 }
 
 object ServerChannelInitializer {
+  implicit val trace: Trace = Trace.empty
+
   private val log = Log.withTags("Server", "Channel")
 
   val layer = ZLayer.fromZIO {
