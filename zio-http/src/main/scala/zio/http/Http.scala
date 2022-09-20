@@ -672,11 +672,10 @@ object Http {
       http.whenPathEq(p.encode)(Unsafe.unsafe)
 
     /**
-     * [1453] Applies Http based on the path as string
+     *  Applies Http based on the path as string
      */
     def whenPathEq(p: String)(implicit unsafe: Unsafe): HttpApp[R, E] =
       http.when(_.url.toString.contentEquals(p))
-    // http.when(_.unsafe.encode.uri().contentEquals(p))
   }
 
   /**
@@ -722,11 +721,6 @@ object Http {
   def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]]): Http[R, E, A, B] =
     i.reduce(_.defaultWith(_))
 
-  /**
-   * [1453] Provides access to the request's ChannelHandlerContext
-   */
-  // def context: Http[Any, Nothing, Request, ChannelHandlerContext] = ???
-  // Http.fromFunctionZIO[Request](request => ZIO.succeedUnsafe { implicit u => request.unsafe.context })
 
   /**
    * Returns an http app that dies with the specified `Throwable`. This method
@@ -989,18 +983,6 @@ object Http {
   def ok: HttpApp[Any, Nothing] = status(Status.Ok)
 
   /**
-   * Provides access to the request's remote address [1453] Moved to
-   * `zio.http.Request`
-   */
-  // def remoteAddress: Http[Any, IOException, Request, InetAddress] =
-  //   context flatMap { ctx =>
-  //     ctx.channel().remoteAddress() match {
-  //       case m: InetSocketAddress => Http.succeed(m.getAddress)
-  //       case _                    => Http.fail(new IOException("Unable to get remote address"))
-  //     }
-  //   }
-
-  /**
    * Creates an Http app which always responds with the same value.
    */
   def response(response: Response): Http[Any, Nothing, Any, Response] = Http.succeed(response)
@@ -1049,11 +1031,6 @@ object Http {
    */
   def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.RequestEntityTooLarge)
 
-  /**
-   * [1453] Provides low level access to an HttpApp to perform unsafe operations
-   * using the request's ChannelHandlerContext.
-   */
-  // def usingContext[R, E](f: ChannelHandlerContext => HttpApp[R, E]): HttpApp[R, E] = context.flatMap(f(_))
 
   // Ctor Help
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {
