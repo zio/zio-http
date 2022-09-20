@@ -1,4 +1,4 @@
-# Concrete Enity
+# Concrete Entity
 ```scala
 import zio.http._
 import zio.http.Server

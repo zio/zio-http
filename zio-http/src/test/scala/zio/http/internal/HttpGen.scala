@@ -159,7 +159,7 @@ object HttpGen {
       Status.Ok,
       Status.Created,
       Status.Accepted,
-      Status.NonAuthoritiveInformation,
+      Status.NonAuthoritativeInformation,
       Status.NoContent,
       Status.ResetContent,
       Status.PartialContent,
