@@ -24,6 +24,7 @@ private[zio] final case class ServerInboundHandler(
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
+  @inline
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
     def makeZioRequest(nettyReq: HttpRequest): Request = {
