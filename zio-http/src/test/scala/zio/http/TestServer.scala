@@ -1,6 +1,8 @@
 package zio.http
 
 import zio._
+import zio.http.Server.ErrorCallback
+import zio.http.middleware.HttpMiddleware
 import zio.internal.stacktracer.Tracer
 
 // TODO Add Trace to all signatures when closer to completion
@@ -12,11 +14,56 @@ trait TestServer extends Server {
 
 
 object TestServer {
+  def responses = ZIO.serviceWithZIO[TestServer](_.responses)
+  def requests = ZIO.serviceWithZIO[TestServer](_.requests)
+  def feedRequests(requests: Request*) = ZIO.serviceWithZIO[TestServer](_.feedRequests(requests:_*))
   class Test(
-            live: Server
-            )
+              //            live: HttpLive,
+              live: Server.ServerLive,
+              requestsR: Ref[List[Request]],
+              responsesR: Ref[List[Response]]
+            ) extends TestServer {
+    override def responses: ZIO[Any, Nothing, List[Response]] =
+      responsesR.get
 
-  def make: ZIO[Any, Nothing, TestServer] = ???
+    override def requests: ZIO[Any, Nothing, List[Request]] =
+      requestsR.get
+
+    override def feedRequests(responses: Request*): ZIO[Any, Nothing, Unit] =
+      requestsR.update(_ ++ responses)
+
+    val trackingMiddleware: HttpMiddleware[Any, Nothing] = {
+      new Middleware[Any, Nothing, Request, Response, Request, Response] {
+        /**
+         * Applies middleware on Http and returns new Http.
+         */
+        override def apply[R1 <: Any, E1 >: Nothing](http: Http[R1, E1, Request, Response]): Http[R1, E1, Request, Response] =
+          Http.fromOptionFunction[Request] { req =>
+            for {
+              _ <- requestsR.update(req :: _) // TODO decide if prepending is the right move
+              response <- http(req)
+            } yield response
+          }
+      }
+    }
+
+    override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] = {
+      live.install(httpApp @@ trackingMiddleware, errorCallback)
+//      ZIO.succeed(unsafe.print(line)(Unsafe.unsafe)) *>
+//      live.provide(Server.install(httpApp))
+//        .whenZIO(debugState.get) // TOOD Restore at some point
+//        .unit
+    }
+
+    override def port: RuntimeFlags = live.port
+  }
+
+  def make: ZIO[Any, Nothing, TestServer] =
+    for {
+      requests <- Ref.make(List.empty[Request])
+      responses <- Ref.make(List.empty[Response])
+      live = Server.ServerLiveHardcoded
+    } yield new Test(live, requests, responses)
 }
 
 trait HttpLive {

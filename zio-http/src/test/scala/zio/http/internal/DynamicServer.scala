@@ -19,6 +19,7 @@ sealed trait DynamicServer {
   def start: IO[Nothing, Server]
 }
 
+// TODO Reference this for testkit
 object DynamicServer {
 
   type Id = String
