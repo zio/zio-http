@@ -9,7 +9,7 @@ import zio.http.netty.NettyRuntime
 import zio.http.netty.client.ConnectionPool
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, ignore, nonFlaky, sequential, timeout}
+import zio.test.TestAspect.{ignore, nonFlaky, sequential, timeout}
 import zio.test._
 
 object ConnectionPoolSpec extends HttpRunnableSpec {
