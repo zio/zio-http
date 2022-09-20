@@ -19,7 +19,7 @@ import java.util.zip.ZipFile
 import scala.annotation.unused
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 /**
  * A functional domain to model Http apps using ZIO and that can work over any

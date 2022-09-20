@@ -1,7 +1,7 @@
 package zio.http
 
 import io.netty.channel.ChannelHandlerContext
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 /**
  * Immutable and type-safe representation of events that are triggered on a

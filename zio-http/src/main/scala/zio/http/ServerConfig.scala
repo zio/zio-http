@@ -8,7 +8,7 @@ import zio.http.netty.server.ServerSSLHandler.ServerSSLOptions
 import zio.http.netty.{ChannelType, EventLoopGroups}
 
 import java.net.{InetAddress, InetSocketAddress}
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 final case class ServerConfig(
   leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,

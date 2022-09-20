@@ -1,7 +1,7 @@
 package zio.http.service.logging
 
 import zio.logging.LogLevel
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 object LogLevelTransform {
   implicit class LogLevelWrapper(level: LogLevel) {

@@ -4,7 +4,7 @@ import io.netty.util.CharsetUtil
 import zio.http.model.headers._
 
 import java.nio.charset.Charset
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 package object model {
   type Header = Headers.Header

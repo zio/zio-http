@@ -5,7 +5,7 @@ import zio.http
 import zio.http._
 import zio.http.middleware.Cors.{CorsConfig, buildHeaders}
 import zio.http.model._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 private[zio] trait Cors {
 

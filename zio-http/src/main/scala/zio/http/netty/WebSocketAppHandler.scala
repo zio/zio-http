@@ -10,7 +10,7 @@ import zio.http.ChannelEvent.UserEvent
 import zio.http.service.Log
 import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.logging.Logger
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 /**
  * A generic SocketApp handler that can be used on both - the client and the

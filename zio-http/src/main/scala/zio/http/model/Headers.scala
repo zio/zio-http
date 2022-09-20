@@ -5,7 +5,7 @@ import zio.Trace
 import zio.http.model.headers._
 
 import scala.jdk.CollectionConverters._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 /**
  * Represents an immutable collection of headers. It extends HeaderExtensions

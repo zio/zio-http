@@ -10,7 +10,7 @@ import zio.http.model._
 import zio.http.model.headers._
 
 import java.io.{IOException, PrintWriter, StringWriter}
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 /**
  * Middlewares on an HttpApp

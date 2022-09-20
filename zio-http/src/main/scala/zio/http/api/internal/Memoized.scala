@@ -1,6 +1,6 @@
 package zio.http.api.internal
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 class Memoized[K, A] private (compute: K => A) { self =>
   private var map: Map[K, A] = Map()
 

@@ -1,7 +1,7 @@
 package zio.http
 
 import zio.http.model.Method
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 private[zio] trait RequestSyntax {
   object -> {

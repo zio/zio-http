@@ -7,7 +7,7 @@ import zio.http.model.Scheme
 
 import java.net.{MalformedURLException, URI}
 import scala.util.Try
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 final case class URL(
   path: Path,

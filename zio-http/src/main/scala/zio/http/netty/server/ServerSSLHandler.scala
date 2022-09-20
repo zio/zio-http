@@ -10,7 +10,7 @@ import io.netty.handler.ssl._
 import java.io.InputStream
 import java.security.KeyStore
 import javax.net.ssl.KeyManagerFactory
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 object ServerSSLHandler {
 

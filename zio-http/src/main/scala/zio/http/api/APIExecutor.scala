@@ -3,7 +3,7 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.api.internal.APIClient
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 /**
  * A [[zio.http.api.APIExecutor]] is responsible for taking a service

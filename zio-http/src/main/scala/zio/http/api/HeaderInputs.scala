@@ -2,7 +2,7 @@ package zio.http.api
 
 import zio.http.model.HeaderNames
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 private[api] trait HeaderInputs {
   def header[A](name: String, value: TextCodec[A]): In[A] =

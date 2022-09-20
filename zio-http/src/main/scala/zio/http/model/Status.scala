@@ -2,7 +2,7 @@ package zio.http.model
 
 import io.netty.handler.codec.http.HttpResponseStatus
 import zio.http._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 sealed trait Status extends Product with Serializable { self =>
 

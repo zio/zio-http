@@ -3,7 +3,7 @@ package zio.http.socket
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
 import zio.{Chunk, Unsafe}
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
   def isFinal: Boolean = true

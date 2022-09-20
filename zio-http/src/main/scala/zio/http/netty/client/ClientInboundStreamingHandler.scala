@@ -5,7 +5,7 @@ import io.netty.handler.codec.http._
 import zio.http.netty.NettyRuntime
 import zio.http.{Request, Response}
 import zio.{Promise, Trace, Unsafe}
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 final class ClientInboundStreamingHandler(
   val rtm: NettyRuntime,

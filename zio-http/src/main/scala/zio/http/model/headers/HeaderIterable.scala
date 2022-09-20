@@ -1,7 +1,7 @@
 package zio.http.model.headers
 
 import zio.http.model.Headers.Header
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 /**
  * A trait that provides a ton of powerful operators when extended. Any type

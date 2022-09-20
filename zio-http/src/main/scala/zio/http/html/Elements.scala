@@ -1,7 +1,7 @@
 package zio.http.html
 
 import zio.http.html.Element.PartialElement
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 trait Elements {
   final def a: PartialElement = PartialElement("a")

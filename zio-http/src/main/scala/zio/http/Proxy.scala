@@ -4,7 +4,7 @@ import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers
 
 import java.net.InetSocketAddress
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 /**
  * Represents the connection to the forward proxy before running the request

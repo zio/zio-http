@@ -5,7 +5,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zio.Chunk
 import zio.http.Body
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 private[zio] final class ServerAsyncBodyHandler(val async: Body.UnsafeAsync)
     extends SimpleChannelInboundHandler[HttpContent](true) {

@@ -1,7 +1,7 @@
 package zio.http.api
 
 import java.util.UUID
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 private[api] trait RouteInputs {
   def literal(string: String): In[Unit] =
     In.Route(TextCodec.constant(string))

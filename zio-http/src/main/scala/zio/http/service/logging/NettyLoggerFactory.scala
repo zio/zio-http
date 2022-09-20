@@ -3,7 +3,7 @@ package zio.http.service.logging
 import io.netty.util.internal.logging.{AbstractInternalLogger, InternalLogger, InternalLoggerFactory}
 import zio.http.service.logging.NettyLoggerFactory.Live
 import zio.logging.{LogLevel, Logger}
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 /**
  * Custom implementation that uses the zio-http logger's transport for logging

@@ -10,7 +10,7 @@ import zio.http.{Driver, Http, HttpApp, Server, ServerConfig}
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
 
 private[zio] final case class NettyDriver(
   appRef: AppRef,
