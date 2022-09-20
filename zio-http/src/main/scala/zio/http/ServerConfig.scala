@@ -4,7 +4,6 @@ import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOpt
 import io.netty.util.ResourceLeakDetector
 import zio.ZLayer
 import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
-import zio.http.netty.server.ServerSSLHandler.ServerSSLOptions
 import zio.http.netty.{ChannelType, EventLoopGroups}
 
 import java.net.{InetAddress, InetSocketAddress}
@@ -12,7 +11,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class ServerConfig(
   leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
-  sslOption: Option[ServerSSLOptions] = None,
+  sslOption: Option[SSLConfig] = None,
   address: InetSocketAddress = new InetSocketAddress(8080),
   acceptContinue: Boolean = false,
   keepAlive: Boolean = true,
@@ -107,7 +106,7 @@ final case class ServerConfig(
   /**
    * Configure the server with the following ssl options.
    */
-  def ssl(sslOptions: ServerSSLOptions): ServerConfig = self.copy(sslOption = Some(sslOptions))
+  def ssl(sslOptions: SSLConfig): ServerConfig = self.copy(sslOption = Some(sslOptions))
 
   /**
    * Configure the server to use a maximum of nThreads to process requests.
