@@ -12,6 +12,7 @@ trait Server {
 }
 
 object Server {
+  val tag: Tag[Server] = Tag[Server]
 
   type ErrorCallback = Throwable => ZIO[Any, Nothing, Unit]
   def serve[R](
@@ -42,7 +43,19 @@ object Server {
     } yield ServerLive(driver, port)
   }
 
-  private final case class ServerLive(
+  private[http] val DriverHardcoded =
+    new Driver {
+      override def start: RIO[Scope, Int] = ZIO.succeed(8080)
+
+      override def setErrorCallback(newCallback: Option[ErrorCallback]): UIO[Unit] = ???
+
+      override def addApp(newApp: HttpApp[Any, Throwable]): UIO[Unit] = ???
+    }
+
+  private[http] val ServerLiveHardcoded =
+    ServerLive(DriverHardcoded, 8080)
+
+  private[http] final case class ServerLive(
     driver: Driver,
     bindPort: Int,
   ) extends Server {
