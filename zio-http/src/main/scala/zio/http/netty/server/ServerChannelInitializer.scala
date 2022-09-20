@@ -18,6 +18,7 @@ import zio.http.netty.server.ServerChannelInitializer.log
 import zio.http.service.Log
 import zio.http.service.logging.LogLevelTransform._
 import zio.logging.LogLevel
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Initializes the netty channel with default handlers
@@ -36,9 +37,8 @@ private[zio] final case class ServerChannelInitializer(
     log.debug(s"Connection initialized: ${channel.remoteAddress()}")
     // SSL
     // Add SSL Handler if CTX is available
-    cfg.sslOption.map(_.sslContext).foreach { ctx =>
-      pipeline
-        .addFirst(Names.SSLHandler, new ServerSSLDecoder(ctx, cfg.sslOption.map(_.httpBehaviour).orNull, cfg))
+    cfg.sslOption.foreach { sslCfg =>
+      pipeline.addFirst(Names.SSLHandler, new ServerSSLDecoder(sslCfg, cfg))
     }
 
     // ServerCodec
@@ -98,6 +98,8 @@ private[zio] final case class ServerChannelInitializer(
 }
 
 object ServerChannelInitializer {
+  implicit val trace: Trace = Trace.empty
+
   private val log = Log.withTags("Server", "Channel")
 
   val layer = ZLayer.fromZIO {

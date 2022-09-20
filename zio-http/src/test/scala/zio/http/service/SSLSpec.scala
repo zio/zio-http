@@ -14,11 +14,8 @@ import zio.{Scope, ZIO, durationInt}
 
 object SSLSpec extends ZIOSpecDefault {
 
-  val serverSSL = ctxFromCert(
-    getClass().getClassLoader().getResourceAsStream("server.crt"),
-    getClass().getClassLoader().getResourceAsStream("server.key"),
-  )
-  val config    = ServerConfig.default.port(8073).ssl(ServerSSLOptions(serverSSL))
+  val sslConfig = SSLConfig.fromResource("server.crt", "server.key")
+  val config    = ServerConfig.default.port(8073).ssl(sslConfig)
 
   val clientSSL1 =
     SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt")).build()

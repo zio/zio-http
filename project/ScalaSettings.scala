@@ -34,7 +34,7 @@ trait ScalaSettings {
     // "-Wunused:linted",
 
     "-Ybackend-parallelism",
-    "8",                                         // Enable paralellisation — change to desired number!
+    "8",                                         // Enable parallelisation — change to desired number!
     "-Ycache-plugin-class-loader:last-modified", // Enables caching of classloaders for compiler plugins
     "-Ycache-macro-class-loader:last-modified",  // and macro definitions. This can lead to performance improvements.
 
@@ -43,6 +43,7 @@ trait ScalaSettings {
     //  "-Ywarn-infer-any",                 // Warn when a type argument is inferred to be `Any`.
     //  "-language:experimental.macros",   // Allow macro definition (besides implementation and application). Disabled, as this will significantly change in Scala 3
     //  "-language:implicitConversions",   // Allow definition of implicit functions called views. Disabled, as it might be dropped in Scala 3. Instead use extension methods (implemented as implicit class Wrapper(val inner: Foo) extends AnyVal {}
+    "-Wconf:cat=unused:info"               // log unused as info
   )
 
   val scala3Settings: Seq[String] = Seq("-Xignore-scala2-macros", "-noindent")
@@ -65,6 +66,8 @@ trait ScalaSettings {
     "-Wunused:privates", // Warn if a private member is unused.
     "-Wunused:locals",   // Warn if a local definition is unused.
     "-Wvalue-discard",   // Warn when non-Unit expression results are unused.
+    "-Ywarn-unused:imports"
+
   )
 
   val scala212Settings: Seq[String] = baseSettings ++ Seq(

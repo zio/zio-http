@@ -4,6 +4,7 @@ import zio.http.Path.Segment
 import zio.http.Path.Segment.Text
 
 import scala.collection.mutable
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Path is an immutable representation of a urls path. Internally it stores each
@@ -172,7 +173,7 @@ object Path {
   val empty: Path = new Path(Vector.empty)
 
   /**
-   * Represents a slash or a root path which is equivaltent to "/".
+   * Represents a slash or a root path which is equivalent to "/".
    */
   val root: Path = new Path(Vector(Segment.root))
 

@@ -7,6 +7,7 @@ import zio._
 import zio.http._
 import zio.http.netty.{NettyRuntime, _}
 import zio.logging.Logger
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -16,7 +17,8 @@ private[zio] final case class ServerInboundHandler(
   errCallbackRef: ErrorCallbackRef,
   runtime: NettyRuntime,
   time: service.ServerTime,
-) extends SimpleChannelInboundHandler[HttpObject](false) { self =>
+)(implicit trace: Trace)
+    extends SimpleChannelInboundHandler[HttpObject](false) { self =>
   import ServerInboundHandler.log
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
@@ -77,15 +79,18 @@ private[zio] final case class ServerInboundHandler(
 object ServerInboundHandler {
   val log: Logger = service.Log.withTags("Server", "Request")
 
-  def layer = ZLayer.fromZIO {
-    for {
-      appRef      <- ZIO.service[AppRef]
-      errCallback <- ZIO.service[ErrorCallbackRef]
-      rtm         <- ZIO.service[NettyRuntime]
-      config      <- ZIO.service[ServerConfig]
-      time        <- ZIO.service[service.ServerTime]
+  val layer = {
+    implicit val trace: Trace = Trace.empty
+    ZLayer.fromZIO {
+      for {
+        appRef      <- ZIO.service[AppRef]
+        errCallback <- ZIO.service[ErrorCallbackRef]
+        rtm         <- ZIO.service[NettyRuntime]
+        config      <- ZIO.service[ServerConfig]
+        time        <- ZIO.service[service.ServerTime]
 
-    } yield ServerInboundHandler(appRef, config, errCallback, rtm, time)
+      } yield ServerInboundHandler(appRef, config, errCallback, rtm, time)
+    }
   }
 
 }

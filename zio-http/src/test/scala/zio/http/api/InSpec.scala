@@ -55,7 +55,7 @@ object InSpec extends ZIOSpecDefault {
     ),
   )
 
-  def testApi[R, E](service: Service[R, E])(
+  def testApi[R, E](service: Service[R, E, _])(
     url: String,
     expected: String,
   ): ZIO[R, E, TestResult] = {

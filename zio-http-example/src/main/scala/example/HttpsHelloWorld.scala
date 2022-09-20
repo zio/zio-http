@@ -1,9 +1,8 @@
 package example
 
 import zio._
-import zio.http._
 import zio.http.model.Method
-import zio.http.netty.server.ServerSSLHandler._
+import zio.http.{SSLConfig, _}
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route
@@ -13,21 +12,23 @@ object HttpsHelloWorld extends ZIOAppDefault {
   }
 
   /**
-   * sslcontext can be created using SslContexBuilder. In this example an
-   * inbuilt API using keystore is used. For testing this example using curl,
-   * setup the certificate named "server.crt" from resources for the OS.
-   * Alternatively you can create the keystore and certificate using the
-   * following link
+   * In this example an inbuilt API using keystore is used. For testing this
+   * example using curl, setup the certificate named "server.crt" from resources
+   * for the OS. Alternatively you can create the keystore and certificate using
+   * the following link
    * https://medium.com/@maanadev/netty-with-https-tls-9bf699e07f01
    */
-  val sslctx = ctxFromCert(
-    getClass().getClassLoader().getResourceAsStream("server.crt"),
-    getClass().getClassLoader().getResourceAsStream("server.key"),
+
+  val sslConfig = SSLConfig.fromResource(
+    behaviour = SSLConfig.HttpBehaviour.Accept,
+    certPath = "server.crt",
+    keyPath = "server.key",
   )
 
-  private val config      = ServerConfig.default
+  private val config = ServerConfig.default
     .port(8090)
-    .ssl(ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept))
+    .ssl(sslConfig)
+
   private val configLayer = ServerConfig.live(config)
 
   override val run =

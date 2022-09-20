@@ -5,6 +5,7 @@ import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpUtil}
 import zio._
 import zio.http.Response
 import zio.http.netty.{NettyFutureExecutor, NettyRuntime}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Handles HTTP response
@@ -15,7 +16,8 @@ final class ClientInboundHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
   isWebSocket: Boolean,
-) extends SimpleChannelInboundHandler[FullHttpResponse](true) {
+)(implicit trace: Trace)
+    extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
@@ -38,7 +40,7 @@ final class ClientInboundHandler(
     // It allows to avoid loosing the message from pipeline in case the channel pipeline is closed due to an error.
     zExec.runUninterruptible(ctx) {
       onResponse.succeed(Response.unsafe.fromJResponse(ctx, msg))
-    }(unsafeClass)
+    }(unsafeClass, trace)
 
     if (isWebSocket) {
       ctx.fireChannelRead(msg.retain())
@@ -54,9 +56,9 @@ final class ClientInboundHandler(
           .as(ChannelState.Invalid)
           .exit
           .flatMap(onComplete.done(_)),
-      )(unsafeClass)
+      )(unsafeClass, trace)
     } else {
-      zExec.runUninterruptible(ctx)(onComplete.succeed(ChannelState.Reusable))(unsafeClass)
+      zExec.runUninterruptible(ctx)(onComplete.succeed(ChannelState.Reusable))(unsafeClass, trace)
     }
 
   }
@@ -64,7 +66,7 @@ final class ClientInboundHandler(
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
     zExec.runUninterruptible(ctx)(
       onResponse.fail(error) *> onComplete.fail(error),
-    )(unsafeClass)
+    )(unsafeClass, trace)
     releaseRequest()
   }
 

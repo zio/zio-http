@@ -2,6 +2,7 @@ package zio.http.model
 
 import io.netty.handler.codec.http.HttpResponseStatus
 import zio.http._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Status extends Product with Serializable { self =>
 
@@ -22,7 +23,7 @@ sealed trait Status extends Product with Serializable { self =>
     case Status.Ok                            => HttpResponseStatus.OK                              // 200
     case Status.Created                       => HttpResponseStatus.CREATED                         // 201
     case Status.Accepted                      => HttpResponseStatus.ACCEPTED                        // 202
-    case Status.NonAuthoritiveInformation     => HttpResponseStatus.NON_AUTHORITATIVE_INFORMATION   // 203
+    case Status.NonAuthoritativeInformation   => HttpResponseStatus.NON_AUTHORITATIVE_INFORMATION   // 203
     case Status.NoContent                     => HttpResponseStatus.NO_CONTENT                      // 204
     case Status.ResetContent                  => HttpResponseStatus.RESET_CONTENT                   // 205
     case Status.PartialContent                => HttpResponseStatus.PARTIAL_CONTENT                 // 206
@@ -98,7 +99,7 @@ object Status {
   case object Ok                                  extends Status
   case object Created                             extends Status
   case object Accepted                            extends Status
-  case object NonAuthoritiveInformation           extends Status
+  case object NonAuthoritativeInformation         extends Status
   case object NoContent                           extends Status
   case object ResetContent                        extends Status
   case object PartialContent                      extends Status
@@ -157,7 +158,7 @@ object Status {
     case HttpResponseStatus.OK                              => Status.Ok
     case HttpResponseStatus.CREATED                         => Status.Created
     case HttpResponseStatus.ACCEPTED                        => Status.Accepted
-    case HttpResponseStatus.NON_AUTHORITATIVE_INFORMATION   => Status.NonAuthoritiveInformation
+    case HttpResponseStatus.NON_AUTHORITATIVE_INFORMATION   => Status.NonAuthoritativeInformation
     case HttpResponseStatus.NO_CONTENT                      => Status.NoContent
     case HttpResponseStatus.RESET_CONTENT                   => Status.ResetContent
     case HttpResponseStatus.PARTIAL_CONTENT                 => Status.PartialContent

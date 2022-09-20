@@ -1,10 +1,11 @@
 package zio.http.middleware
 
-import zio.ZIO
 import zio.http._
 import zio.http.model._
+import zio.{Trace, ZIO}
 
 import java.util.UUID
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait Csrf {
 
@@ -21,7 +22,7 @@ private[zio] trait Csrf {
   final def csrfGenerate[R, E](
     tokenName: String = "x-csrf-token",
     tokenGen: ZIO[R, Nothing, String] = ZIO.succeed(UUID.randomUUID.toString),
-  ): HttpMiddleware[R, E] =
+  )(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
 
   /**
@@ -34,7 +35,7 @@ private[zio] trait Csrf {
    *
    * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
-  def csrfValidate(tokenName: String = "x-csrf-token"): HttpMiddleware[Any, Nothing] = {
+  def csrfValidate(tokenName: String = "x-csrf-token")(implicit trace: Trace): HttpMiddleware[Any, Nothing] = {
     Middleware.whenHeader(
       headers => {
         (headers.headerValue(tokenName), headers.cookieValue(tokenName)) match {

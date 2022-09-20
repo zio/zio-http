@@ -15,6 +15,7 @@ import zio.http.socket.SocketApp
 
 import java.net.URI
 import scala.collection.mutable
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait ZClient[-Env, -In, +Err, +Out] { self =>
 

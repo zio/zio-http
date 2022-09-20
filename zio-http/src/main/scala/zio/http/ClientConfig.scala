@@ -6,6 +6,7 @@ import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.netty.{ChannelFactories, EventLoopGroups, _}
 import zio.http.socket.SocketApp
 import zio.{Duration, Scope, ZLayer}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 case class ClientConfig(
   socketApp: Option[SocketApp[Any]] = None,

@@ -3,6 +3,7 @@ package zio.http.api.internal
 import zio.Chunk
 import zio.http.api.In._
 import zio.http.api._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] object Mechanic {
   type Constructor[+A]   = InputsBuilder => A
