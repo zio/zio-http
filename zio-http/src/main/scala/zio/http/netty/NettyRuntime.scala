@@ -73,14 +73,17 @@ object NettyRuntime {
   /**
    * Creates a runtime that uses a separate thread pool for ZIO operations.
    */
-  def usingDedicatedThreadPool(implicit trace: Trace) = ZLayer.fromZIO {
-    ZIO
-      .runtime[Any]
-      .map(rtm =>
-        new NettyRuntime {
-          def runtime(ctx: ChannelHandlerContext): Runtime[Any] = rtm
-        },
-      )
+  val usingDedicatedThreadPool = {
+    implicit val trace: Trace = Trace.empty
+    ZLayer.fromZIO {
+      ZIO
+        .runtime[Any]
+        .map(rtm =>
+          new NettyRuntime {
+            def runtime(ctx: ChannelHandlerContext): Runtime[Any] = rtm
+          },
+        )
+    }
   }
 
   /**
@@ -88,7 +91,8 @@ object NettyRuntime {
    * event loop. This should be the preferred way of creating the runtime for
    * the server.
    */
-  def usingSharedThreadPool(implicit trace: Trace) =
+  val usingSharedThreadPool = {
+    implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
         elg      <- ZIO.service[EventLoopGroup]
@@ -109,5 +113,6 @@ object NettyRuntime {
         def runtime(ctx: ChannelHandlerContext): Runtime[Any] = provider(ctx)
       }
     }
+  }
 
 }

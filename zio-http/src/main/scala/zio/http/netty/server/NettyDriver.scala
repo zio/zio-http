@@ -2,8 +2,10 @@ package zio.http.netty.server
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
+import io.netty.handler.codec.http.HttpObject
 import io.netty.util.ResourceLeakDetector
 import zio._
+import zio.http.Server.ErrorCallback
 import zio.http.netty._
 import zio.http.service.ServerTime
 import zio.http.{Driver, Http, HttpApp, Server, ServerConfig}
@@ -81,16 +83,32 @@ object NettyDriver {
     val ecb  = ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty))
     val time = ZLayer.succeed(ServerTime.make(1000 millis))
 
+    val serverChannelFactory: ZLayer[ServerConfig, Nothing, ChannelFactory[ServerChannel]] =
+      ChannelFactories.Server.fromConfig
+    val eventLoopGroup: ZLayer[Scope with ServerConfig, Nothing, EventLoopGroup]           = EventLoopGroups.fromConfig
+    val nettyRuntime: ZLayer[EventLoopGroup, Nothing, NettyRuntime] = NettyRuntime.usingSharedThreadPool
+    val serverChannelInitializer: ZLayer[ServerInboundHandler with ServerConfig, Nothing, ServerChannelInitializer] =
+      ServerChannelInitializer.layer
+    val serverInboundHandler: ZLayer[
+      ServerTime with ServerConfig with NettyRuntime with ErrorCallbackRef with AppRef,
+      Nothing,
+      ServerInboundHandler,
+    ] = ServerInboundHandler.layer
+
+    val serverLayers = app ++
+      serverChannelFactory ++
+      (
+        (
+          (time ++ app ++ ecb) ++
+            (eventLoopGroup >>> nettyRuntime) >>> serverInboundHandler
+        ) >>> serverChannelInitializer
+      ) ++
+      ecb ++
+      eventLoopGroup
+
     make
-      .provideSome[ServerConfig & Scope](
-        app,
-        ecb,
-        ChannelFactories.Server.fromConfig,
-        EventLoopGroups.fromConfig,
-        NettyRuntime.usingSharedThreadPool,
-        ServerChannelInitializer.layer,
-        ServerInboundHandler.layer,
-        time,
+      .provideSomeLayer[ServerConfig & Scope](
+        serverLayers,
       )
 
   }

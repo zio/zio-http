@@ -79,15 +79,18 @@ private[zio] final case class ServerInboundHandler(
 object ServerInboundHandler {
   val log: Logger = service.Log.withTags("Server", "Request")
 
-  def layer(implicit trace: Trace) = ZLayer.fromZIO {
-    for {
-      appRef      <- ZIO.service[AppRef]
-      errCallback <- ZIO.service[ErrorCallbackRef]
-      rtm         <- ZIO.service[NettyRuntime]
-      config      <- ZIO.service[ServerConfig]
-      time        <- ZIO.service[service.ServerTime]
+  val layer = {
+    implicit val trace: Trace = Trace.empty
+    ZLayer.fromZIO {
+      for {
+        appRef      <- ZIO.service[AppRef]
+        errCallback <- ZIO.service[ErrorCallbackRef]
+        rtm         <- ZIO.service[NettyRuntime]
+        config      <- ZIO.service[ServerConfig]
+        time        <- ZIO.service[service.ServerTime]
 
-    } yield ServerInboundHandler(appRef, config, errCallback, rtm, time)
+      } yield ServerInboundHandler(appRef, config, errCallback, rtm, time)
+    }
   }
 
 }

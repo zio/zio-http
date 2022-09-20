@@ -27,18 +27,20 @@ object ChannelFactories {
     def uring(implicit trace: Trace)  = serverChannel(new IOUringServerSocketChannel())
     def kqueue(implicit trace: Trace) = serverChannel(new KQueueServerSocketChannel())
 
-    implicit val trace: Trace = Trace.empty
-    val fromConfig            = ZLayer.fromZIO {
-      ZIO.service[ChannelType.Config].flatMap {
-        _.channelType match {
-          case ChannelType.NIO    => nio
-          case ChannelType.EPOLL  => epoll
-          case ChannelType.KQUEUE => kqueue
-          case ChannelType.URING  => uring
-          case ChannelType.AUTO   =>
-            if (Epoll.isAvailable) epoll
-            else if (KQueue.isAvailable) kqueue
-            else nio
+    val fromConfig = {
+      implicit val trace: Trace = Trace.empty
+      ZLayer.fromZIO {
+        ZIO.service[ChannelType.Config].flatMap {
+          _.channelType match {
+            case ChannelType.NIO    => nio
+            case ChannelType.EPOLL  => epoll
+            case ChannelType.KQUEUE => kqueue
+            case ChannelType.URING  => uring
+            case ChannelType.AUTO   =>
+              if (Epoll.isAvailable) epoll
+              else if (KQueue.isAvailable) kqueue
+              else nio
+          }
         }
       }
     }
