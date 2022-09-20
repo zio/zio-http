@@ -59,14 +59,16 @@ object Server {
     driver: Driver,
     bindPort: Int,
   ) extends Server {
-    override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] =
+    override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] = {
+      ZIO.debug("Hi") *>
       ZIO.environment[R].flatMap { env =>
         driver.addApp(
           if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
           else httpApp.provideEnvironment(env),
         )
 
-      } *> setErrorCallback(errorCallback)
+      } *> setErrorCallback(errorCallback) <* ZIO.debug("Installed live server? Port: " + bindPort)
+    }
 
     override def port: Int = bindPort
 

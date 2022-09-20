@@ -19,7 +19,7 @@ object TestServer {
   def feedRequests(requests: Request*) = ZIO.serviceWithZIO[TestServer](_.feedRequests(requests:_*))
   class Test(
               //            live: HttpLive,
-              live: Server.ServerLive,
+              live: Server,
               requestsR: Ref[List[Request]],
               responsesR: Ref[List[Response]]
             ) extends TestServer {
@@ -48,6 +48,7 @@ object TestServer {
     }
 
     override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] = {
+      ZIO.debug("TestServer.install") *>
       live.install(httpApp @@ trackingMiddleware, errorCallback)
 //      ZIO.succeed(unsafe.print(line)(Unsafe.unsafe)) *>
 //      live.provide(Server.install(httpApp))
@@ -58,12 +59,14 @@ object TestServer {
     override def port: RuntimeFlags = live.port
   }
 
-  def make: ZIO[Any, Nothing, TestServer] =
+
+  def make: ZLayer[Any, Nothing, TestServer] =
     for {
-      requests <- Ref.make(List.empty[Request])
-      responses <- Ref.make(List.empty[Response])
-      live = Server.ServerLiveHardcoded
-    } yield new Test(live, requests, responses)
+      requests <- ZLayer.fromZIO(Ref.make(List.empty[Request]))
+      responses <- ZLayer.fromZIO(Ref.make(List.empty[Response]))
+      live <- Server.default.orDie
+      //      live = Server.ServerLiveHardcoded
+    } yield ZEnvironment(new Test(live.get, requests.get, responses.get))
 }
 
 trait HttpLive {
