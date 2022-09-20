@@ -672,7 +672,7 @@ object Http {
       http.whenPathEq(p.encode)
 
     /**
-     * [1453] Applies Http based on the path as string
+     *  Applies Http based on the path as string
      */
     def whenPathEq(p: String): HttpApp[R, E] = {
       http.when { a =>
