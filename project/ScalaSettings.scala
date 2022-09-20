@@ -10,7 +10,7 @@ trait ScalaSettings {
     "-language:higherKinds",     // Allow higher-kinded types
     "-unchecked",                // Enable additional warnings where generated code depends on assumptions.
     "-Xcheckinit",               // Wrap field accessors to throw an exception on uninitialized access.
-   // "-Xfatal-warnings",          // Fail the compilation if there are any warnings.
+    "-Xfatal-warnings",          // Fail the compilation if there are any warnings.
     "-Xlint:adapted-args",       // Warn if an argument list is modified to match the receiver.
     "-Xlint:constant",           // Evaluation of a constant arithmetic expression results in an error.
     "-Xlint:delayedinit-select", // Selecting member of DelayedInit.
@@ -42,6 +42,7 @@ trait ScalaSettings {
     //  "-Ywarn-infer-any",                 // Warn when a type argument is inferred to be `Any`.
     //  "-language:experimental.macros",   // Allow macro definition (besides implementation and application). Disabled, as this will significantly change in Scala 3
     //  "-language:implicitConversions",   // Allow definition of implicit functions called views. Disabled, as it might be dropped in Scala 3. Instead use extension methods (implemented as implicit class Wrapper(val inner: Foo) extends AnyVal {}
+    "-Wconf:cat=unused:info"               // log unused as info
   )
 
   val scala3Settings: Seq[String] = Seq("-Xignore-scala2-macros", "-noindent")
