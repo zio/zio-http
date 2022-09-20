@@ -7,7 +7,7 @@ import zio.http.model.Cookie.SameSite
 import zio.http.service.Log
 
 import scala.jdk.CollectionConverters._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait CookieDecoder[A] {
   type Out

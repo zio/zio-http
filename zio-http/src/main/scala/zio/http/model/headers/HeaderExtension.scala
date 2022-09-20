@@ -1,5 +1,5 @@
 package zio.http.model.headers
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A trait that provides a ton of powerful operators when extended. Any type

@@ -3,7 +3,7 @@ package zio.http
 import zio.http.model._
 
 import scala.annotation.tailrec
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Models the set of operations that one would want to apply on a Response.

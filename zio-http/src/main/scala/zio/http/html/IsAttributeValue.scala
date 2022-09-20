@@ -1,7 +1,7 @@
 package zio.http.html
 
 import scala.language.implicitConversions
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Checks if the value A can be represented as a valid html attribute.

@@ -1,7 +1,7 @@
 package zio.http.api
 
 import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A collection of individual [[zio.http.api.API]]s.

@@ -2,7 +2,7 @@ package zio.http.model
 
 import io.netty.handler.codec.http.HttpVersion
 import zio.Unsafe
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Version { self =>
   def isHttp1_0: Boolean = self == Version.Http_1_0

@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 import zio.Chunk
 
 import scala.jdk.CollectionConverters._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class QueryParams private[http] (map: Map[String, Chunk[String]])
     extends scala.collection.Map[String, Chunk[String]] {

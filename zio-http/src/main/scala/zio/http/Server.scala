@@ -3,7 +3,7 @@ package zio.http
 import zio._
 import zio.http.Server.ErrorCallback
 import zio.http.netty.server._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait Server {
   def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback] = None)(implicit

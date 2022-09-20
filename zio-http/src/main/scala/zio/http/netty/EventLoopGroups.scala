@@ -8,7 +8,7 @@ import io.netty.incubator.channel.uring.IOUringEventLoopGroup
 import zio._
 
 import java.util.concurrent.Executor
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Simple wrapper over NioEventLoopGroup
@@ -54,7 +54,7 @@ object EventLoopGroups {
     ZIO.succeed(new DefaultEventLoopGroup()),
   )
 
-  implicit val trace: Trace= Trace.empty
+  implicit val trace: Trace = Trace.empty
 
   val fromConfig = ZLayer.fromZIO {
     ZIO.service[Config].flatMap { config =>

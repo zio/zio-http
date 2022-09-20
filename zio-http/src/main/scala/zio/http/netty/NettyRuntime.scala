@@ -6,7 +6,7 @@ import zio._
 import zio.http.service.Log
 
 import scala.jdk.CollectionConverters._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait NettyRuntime { self =>
 
@@ -62,7 +62,9 @@ private[zio] trait NettyRuntime { self =>
     }
   }
 
-  def runUninterruptible(ctx: ChannelHandlerContext)(program: ZIO[Any, Throwable, Any])(implicit unsafe: Unsafe, trace: Trace): Unit =
+  def runUninterruptible(ctx: ChannelHandlerContext)(
+    program: ZIO[Any, Throwable, Any],
+  )(implicit unsafe: Unsafe, trace: Trace): Unit =
     run(ctx, interruptOnClose = false)(program)
 }
 

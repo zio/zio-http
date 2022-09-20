@@ -11,7 +11,7 @@ import zio.http.service.ServerTime
 import java.nio.charset.Charset
 import java.util.{Base64, Date}
 import scala.util.control.NonFatal
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Maintains a list of operators that parse and extract data from the headers.

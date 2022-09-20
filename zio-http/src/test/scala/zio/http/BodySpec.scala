@@ -6,7 +6,7 @@ import zio.stream.ZStream
 import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
 import zio.test.TestAspect.timeout
 import zio.test._
-import zio.{Chunk, durationInt}
+import zio.{Chunk, URIO, durationInt}
 
 import java.io.File
 
@@ -29,7 +29,7 @@ object BodySpec extends ZIOSpecDefault {
           ),
           suite("fromFile")(
             test("failure") {
-              val res = Body.fromFile(throw new Error("Failure")).asChunk.either
+              val res: URIO[Any, Either[Throwable, Chunk[Byte]]] = Body.fromFile(throw new Error("Failure")).asChunk.either
               assertZIO(res)(isLeft(isSubtype[Error](anything)))
             },
             test("success") {

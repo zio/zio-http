@@ -1,6 +1,6 @@
 package zio.http.model
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class MediaType(
   mainType: String,

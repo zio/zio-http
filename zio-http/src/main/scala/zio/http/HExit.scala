@@ -2,7 +2,7 @@ package zio.http
 
 import zio.http.HExit.Effect
 import zio.{Trace, ZIO}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Every `HttpApp` evaluates to an `HExit`. This domain is needed for improved

@@ -3,7 +3,7 @@ package zio.http
 import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
 import zio.http.netty.NettyFutureExecutor
 import zio.{Task, Trace, UIO, ZIO}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * An immutable and type-safe representation of one or more netty channels. `A`

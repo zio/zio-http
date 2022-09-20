@@ -1,6 +1,6 @@
 package zio
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
   type HttpApp[-R, +E]                       = Http[R, E, Request, Response]
@@ -13,6 +13,6 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
   type Client = ZClient[Any, Body, Throwable, Response]
   def Client: ZClient.type = ZClient
 
-  implicit val trace: Trace = Trace.empty
+  implicit val trace: Trace                                        = Trace.empty
   private[http] val failNoStacktrace: ZIO[Any, None.type, Nothing] = ZIO.refailCause(Cause.fail(None))
 }

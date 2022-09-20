@@ -13,7 +13,7 @@ import zio.http.socket.{SocketApp, WebSocketFrame}
 import zio.{Cause, Task, Trace, Unsafe, ZIO}
 
 import java.io.IOException
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class Response private (
   status: Status,

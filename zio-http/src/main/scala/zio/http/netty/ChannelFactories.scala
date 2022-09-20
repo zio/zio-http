@@ -7,7 +7,7 @@ import io.netty.channel.kqueue._
 import io.netty.channel.socket.nio._
 import io.netty.incubator.channel.uring._
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 object ChannelFactories {
 
@@ -28,7 +28,7 @@ object ChannelFactories {
     def kqueue(implicit trace: Trace) = serverChannel(new KQueueServerSocketChannel())
 
     implicit val trace: Trace = Trace.empty
-    val fromConfig = ZLayer.fromZIO {
+    val fromConfig            = ZLayer.fromZIO {
       ZIO.service[ChannelType.Config].flatMap {
         _.channelType match {
           case ChannelType.NIO    => nio
@@ -52,7 +52,7 @@ object ChannelFactories {
     def embedded(implicit trace: Trace) = clientChannel(new EmbeddedChannel(false, false))
 
     implicit val trace: Trace = Trace.empty
-    val fromConfig = ZLayer.fromZIO {
+    val fromConfig            = ZLayer.fromZIO {
       ZIO.service[ChannelType.Config].flatMap {
         _.channelType match {
           case ChannelType.NIO    => nio

@@ -19,7 +19,7 @@ import java.util.zip.ZipFile
 import scala.annotation.unused
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A functional domain to model Http apps using ZIO and that can work over any
@@ -665,7 +665,8 @@ object Http {
     /**
      * Updates the response headers using the provided function
      */
-    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): HttpApp[R, E] = http.map(_.updateHeaders(update))
+    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): HttpApp[R, E] =
+      http.map(_.updateHeaders(update))
 
     /**
      * Applies Http based on the path

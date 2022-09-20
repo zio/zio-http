@@ -3,7 +3,7 @@ package zio.http.netty.server
 import io.netty.channel.{ChannelFutureListener, ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{DefaultHttpResponse, HttpMessage, HttpResponseStatus, HttpVersion}
 import zio.http.netty.server.ServerSSLHandler.SSLHttpBehaviour
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] class ServerHttpsHandler(httpBehaviour: SSLHttpBehaviour)
     extends SimpleChannelInboundHandler[HttpMessage] {

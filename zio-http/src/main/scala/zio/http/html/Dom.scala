@@ -1,6 +1,6 @@
 package zio.http.html
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Light weight DOM implementation that can be rendered as a html string.

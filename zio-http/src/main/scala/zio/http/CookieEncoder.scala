@@ -4,7 +4,7 @@ import io.netty.handler.codec.http.{cookie => jCookie}
 import zio.Unsafe
 import zio.http.model.Cookie
 import zio.http.model.Cookie.SameSite
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait CookieEncoder[A] {
   final def apply(a: Cookie[A])(implicit unsafe: Unsafe): String =

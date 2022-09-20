@@ -1,6 +1,6 @@
 package zio.http.model
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait MimeDB {
   private[zio] lazy val allMediaTypes: List[MediaType] =

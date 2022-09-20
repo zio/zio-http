@@ -4,7 +4,7 @@ import io.netty.util.AsciiString
 
 import java.text.SimpleDateFormat
 import java.util.Date
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] final class ServerTime(minDuration: Long) {
 

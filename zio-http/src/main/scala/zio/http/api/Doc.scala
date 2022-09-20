@@ -1,6 +1,6 @@
 package zio.http.api
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A `Doc` models documentation for an endpoint or input.

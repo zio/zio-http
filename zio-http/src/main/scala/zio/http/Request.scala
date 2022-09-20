@@ -8,7 +8,7 @@ import zio.http.netty._
 import zio.http.service.Ctx
 
 import java.io.IOException
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok RemoveUnused.imports;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait Request extends HeaderExtension[Request] { self =>
 
@@ -22,7 +22,8 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Updates the headers using the provided function
    */
-  final override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Request = self.copy(headers = update(self.headers))
+  final override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Request =
+    self.copy(headers = update(self.headers))
 
   /**
    * Add trailing slash to the path.
