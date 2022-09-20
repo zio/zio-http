@@ -91,24 +91,27 @@ object ZKeyedPool {
   ): ZIO[Env with Scope, Nothing, ZKeyedPool[Err, Key, Item]] =
     for {
       environment <- ZIO.environment[Env]
+      fiberId     <- ZIO.fiberId
       scope       <- ZIO.scope
-      activePools <- Ref.Synchronized.make(Map.empty[Key, ZPool[Err, Item]])
+      activePools <- Ref.Synchronized.make(Map.empty[Key, Promise[Nothing, ZPool[Err, Item]]])
       getOrCreatePool = (key: Key) =>
-        activePools.modifyZIO { map =>
+        activePools.modify { map =>
           map.get(key) match {
-            case Some(pool) => ZIO.succeedNow(pool -> map)
-            case None       =>
-              scope.extend(
-                ZPool
-                  .make(get(key).provideEnvironment(environment), range(key), ttl(key).getOrElse(Duration.Infinity))
-                  .map(pool => pool -> (map + (key -> pool))),
-              )
+            case Some(promise) => promise.await -> map
+            case None          =>
+              val promise = Promise.unsafe.make[Nothing, ZPool[Err, Item]](fiberId)(Unsafe.unsafe)
+              scope
+                .extend(
+                  ZPool
+                    .make(get(key).provideEnvironment(environment), range(key), ttl(key).getOrElse(Duration.Infinity)),
+                )
+                .intoPromise(promise) *> promise.await -> (map + (key -> promise))
           }
-        }
+        }.flatten
     } yield DefaultKeyedPool(activePools, getOrCreatePool)
 
   private final case class DefaultKeyedPool[Err, Key, Item](
-    activePools: Ref.Synchronized[Map[Key, ZPool[Err, Item]]],
+    activePools: Ref[Map[Key, Promise[Nothing, ZPool[Err, Item]]]],
     getOrCreatePool: Key => ZIO[Any, Nothing, ZPool[Err, Item]],
   ) extends ZKeyedPool[Err, Key, Item] {
 
@@ -120,7 +123,7 @@ object ZKeyedPool {
 
     override def invalidate(item: Item)(implicit trace: Trace): UIO[Unit] =
       activePools.get.flatMap { map =>
-        ZIO.foreachDiscard(map.values)(_.invalidate(item))
+        ZIO.foreachDiscard(map.values)(_.await.flatMap(_.invalidate(item)))
       }
   }
 }
