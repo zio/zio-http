@@ -120,7 +120,10 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def catchAll[R1 <: R, E1, A1 <: A, B1 >: B](f: E => Http[R1, E1, A1, B1])(implicit
     @unused ev: CanFail[E],
   ): Http[R1, E1, A1, B1] =
-    self.foldHttp(f, Http.die, Http.succeed, Http.empty)
+    self.foldHttp(f, Http.succeed, Http.empty)
+
+  final def catchAllCause[R1 <: R, E1, A1 <: A, B1 >: B](f: Cause[E] => Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self.foldCauseHttp(f, Http.succeed, Http.empty)
 
   /**
    * Recovers from all defects with provided function.
@@ -264,7 +267,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def either(implicit ev: CanFail[E]): Http[R, Nothing, A, Either[E, B]] =
     self.foldHttp(
       e => Http.succeed(Left(e)),
-      Http.die,
       b => Http.succeed(Right(b)),
       Http.empty,
     )
@@ -273,7 +275,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Creates a new Http app from another
    */
   final def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] = {
-    self.foldHttp(Http.fail, Http.die, f, Http.empty)
+    self.foldHttp(Http.fail, f, Http.empty)
   }
 
   /**
@@ -285,16 +287,23 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
     self.flatMap(scala.Predef.identity(_))
   }
 
+  final def foldCauseHttp[R1 <: R, E1, A1 <: A, C1](
+    failure: Cause[E] => Http[R1, E1, A1, C1],
+    success: B => Http[R1, E1, A1, C1],
+    empty: Http[R1, E1, A1, C1],
+  ): Http[R1, E1, A1, C1] =
+    Http.FoldHttp(self, failure, success, empty)
+
   /**
    * Folds over the http app by taking in two functions one for success and one
    * for failure respectively.
    */
   final def foldHttp[R1 <: R, A1 <: A, E1, B1](
     failure: E => Http[R1, E1, A1, B1],
-    defect: Throwable => Http[R1, E1, A1, B1],
     success: B => Http[R1, E1, A1, B1],
     empty: Http[R1, E1, A1, B1],
-  ): Http[R1, E1, A1, B1] = Http.FoldHttp(self, failure, defect, success, empty)
+  ): Http[R1, E1, A1, B1] =
+    foldCauseHttp(c => c.failureOrCause.fold(failure, Http.failCause(_)), success, empty)
 
   /**
    * Extracts the value of the provided header name.
@@ -316,7 +325,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Transforms the failure of the http app
    */
   final def mapError[E1](ee: E => E1): Http[R, E1, A, B] =
-    self.foldHttp(e => Http.fail(ee(e)), Http.die, Http.succeed, Http.empty)
+    self.foldHttp(e => Http.fail(ee(e)), Http.succeed, Http.empty)
 
   /**
    * Transforms the output of the http effectfully
@@ -349,7 +358,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final def option(implicit ev: CanFail[E]): Http[R, Nothing, A, Option[B]] =
     self.foldHttp(
       _ => Http.succeed(None),
-      Http.die,
       b => Http.succeed(Some(b)),
       Http.empty,
     )
@@ -363,7 +371,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
         case Some(e) => Http.fail(e)
         case None    => Http.succeed(None)
       },
-      Http.die,
       b => Http.succeed(Some(b)),
       Http.empty,
     )
@@ -380,7 +387,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * specified function to convert the `E` into a `Throwable`.
    */
   final def orDieWith(f: E => Throwable)(implicit ev: CanFail[E]): Http[R, Nothing, A, B] =
-    self.foldHttp(e => Http.die(f(e)), Http.die, Http.succeed, Http.empty)
+    self.foldHttp(e => Http.die(f(e)), Http.succeed, Http.empty)
 
   /**
    * Named alias for `<>`
@@ -457,14 +464,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * of this Http.
    */
   final def tapAll[R1 <: R, E1 >: E](
-    failure: E => Http[R1, E1, Any, Any],
-    defect: Throwable => Http[R1, E1, Any, Any],
+    failure: Cause[E] => Http[R1, E1, Any, Any],
     success: B => Http[R1, E1, Any, Any],
     empty: Http[R1, E1, Any, Any],
   ): Http[R1, E1, A, B] =
-    self.foldHttp(
-      e => failure(e) *> Http.fail(e),
-      d => defect(d) *> Http.die(d),
+    self.foldCauseHttp(
+      cause => failure(cause) *> Http.failCause(cause),
       x => success(x) *> Http.succeed(x),
       empty *> Http.empty,
     )
@@ -474,14 +479,12 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * empty value of this Http.
    */
   final def tapAllZIO[R1 <: R, E1 >: E](
-    failure: E => ZIO[R1, E1, Any],
-    defect: Throwable => ZIO[R1, E1, Any],
+    failure: Cause[E] => ZIO[R1, E1, Any],
     success: B => ZIO[R1, E1, Any],
     empty: ZIO[R1, E1, Any],
   )(implicit trace: Trace): Http[R1, E1, A, B] =
     tapAll(
-      e => Http.fromZIO(failure(e)),
-      d => Http.fromZIO(defect(d)),
+      cause => Http.fromZIO(failure(cause) *> ZIO.failCause(cause)),
       x => Http.fromZIO(success(x)),
       Http.fromZIO(empty),
     )
@@ -490,9 +493,8 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * Returns an Http that peeks at the failure of this Http.
    */
   final def tapError[R1 <: R, E1 >: E](f: E => Http[R1, E1, Any, Any]): Http[R1, E1, A, B] =
-    self.foldHttp(
-      e => f(e) *> Http.fail(e),
-      Http.die,
+    self.foldCauseHttp(
+      c => c.failureOrCause.fold(f(_) *> Http.failCause(c), _ => Http.failCause(c)),
       Http.succeed,
       Http.empty,
     )
@@ -537,12 +539,11 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    * function to convert the `E` into an `E1`.
    */
   final def unrefineWith[E1](pf: PartialFunction[Throwable, E1])(f: E => E1): Http[R, E1, A, B] =
-    self.foldHttp(
-      e => Http.fail(f(e)),
-      d => if (pf.isDefinedAt(d)) Http.fail(pf(d)) else Http.die(d),
-      Http.succeed,
-      Http.empty,
-    )
+    catchAllCause { cause =>
+      cause.find {
+        case Cause.Die(t, _) if pf.isDefinedAt(t) => pf(t)
+      }.fold(Http.failCause(cause.map(f)))(Http.fail(_))
+    }
 
   /**
    * Unwraps an Http that returns a ZIO of Http
@@ -579,29 +580,28 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   final private[zio] def execute(a: A)(implicit trace: Trace): HExit[R, E, B] =
     self match {
 
-      case Http.Empty                     => HExit.empty
-      case Http.Identity                  => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)                     => HExit.succeed(b)
-      case Fail(e)                        => HExit.fail(e)
-      case Die(e)                         => HExit.die(e)
-      case Attempt(a)                     =>
+      case Http.Empty                              => HExit.empty
+      case Http.Identity                           => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)                              => HExit.succeed(b)
+      case Fail(cause)                             => HExit.failCause(cause)
+      case Attempt(a)                              =>
         try { HExit.succeed(a()) }
         catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
-      case FromFunctionHExit(f)           =>
+      case FromFunctionHExit(f)                    =>
         try { f(a) }
         catch { case e: Throwable => HExit.die(e) }
-      case FromHExit(h)                   => h
-      case Chain(self, other)             => self.execute(a).flatMap(b => other.execute(b))
-      case Race(self, other)              =>
+      case FromHExit(h)                            => h
+      case Chain(self, other)                      => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)                       =>
         (self.execute(a), other.execute(a)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
             Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
           case (HExit.Effect(_), other)                  => other
           case (self, _)                                 => self
         }
-      case FoldHttp(self, ee, df, bb, dd) =>
+      case FoldHttp(self, failure, success, empty) =>
         try {
-          self.execute(a).foldExit(ee(_).execute(a), df(_).execute(a), bb(_).execute(a), dd.execute(a))
+          self.execute(a).foldExit(failure(_).execute(a), success(_).execute(a), empty.execute(a))
         } catch {
           case e: Throwable => HExit.die(e)
         }
@@ -625,7 +625,6 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
           case HExit.Empty            => other.execute(a)
           case exit: HExit.Success[_] => exit.asInstanceOf[HExit[R, E, B]]
           case exit: HExit.Failure[_] => exit.asInstanceOf[HExit[R, E, B]]
-          case exit: HExit.Die        => exit
           case exit @ HExit.Effect(_) => exit.defaultWith(other.execute(a)).asInstanceOf[HExit[R, E, B]]
         }
       }
@@ -737,7 +736,7 @@ object Http {
    * request and responding with 500 Internal Server Error.
    */
   def die(t: Throwable): UHttp[Any, Nothing] =
-    Http.Die(t)
+    failCause(Cause.die(t))
 
   /**
    * Returns an app that dies with a `RuntimeException` having the specified
@@ -765,7 +764,11 @@ object Http {
   /**
    * Creates an Http that always fails
    */
-  def fail[E](e: E): Http[Any, E, Any, Nothing] = Http.Fail(e)
+  def fail[E](e: E): Http[Any, E, Any, Nothing] =
+    failCause(Cause.fail(e))
+
+  def failCause[E](cause: Cause[E]): Http[Any, E, Any, Nothing] =
+    Http.Fail(cause)
 
   /**
    * Flattens an Http app of an Http app
@@ -1007,6 +1010,9 @@ object Http {
    */
   def responseZIO[R, E](res: ZIO[R, E, Response])(implicit trace: Trace): HttpApp[R, E] = Http.fromZIO(res)
 
+  def stackTrace(implicit trace: Trace): Http[Any, Nothing, Any, StackTrace] =
+    Http.fromZIO(ZIO.stackTrace)
+
   /**
    * Creates an HTTP app which always responds with the same status code and
    * empty data.
@@ -1052,7 +1058,7 @@ object Http {
 
   // Ctor Help
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, ZIO[R, E, B]]): Http[R, E, A, B] =
+    def apply[R, E, B](pf: PartialFunction[A, ZIO[R, E, B]])(implicit trace: Trace): Http[R, E, A, B] =
       Http.collect[A] { case a if pf.isDefinedAt(a) => Http.fromZIO(pf(a)) }.flatten
   }
 
@@ -1081,7 +1087,7 @@ object Http {
   }
 
   final class PartialFromOptionFunction[A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](f: A => ZIO[R, Option[E], B]): Http[R, E, A, B] = Http
+    def apply[R, E, B](f: A => ZIO[R, Option[E], B])(implicit trace: Trace): Http[R, E, A, B] = Http
       .collectZIO[A] { case a =>
         f(a)
           .map(Http.succeed)
@@ -1099,7 +1105,8 @@ object Http {
   }
 
   final class PartialFromFunctionZIO[A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](f: A => ZIO[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(a => HExit.fromZIO(f(a)))
+    def apply[R, E, B](f: A => ZIO[R, E, B])(implicit trace: Trace): Http[R, E, A, B] =
+      FromFunctionHExit(a => HExit.fromZIO(f(a)))
   }
 
   final class PartialFromFunctionHExit[A](val unit: Unit) extends AnyVal {
@@ -1110,9 +1117,7 @@ object Http {
 
   private final case class Race[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B]
 
-  private final case class Fail[E](e: E) extends Http[Any, E, Any, Nothing]
-
-  private final case class Die(t: Throwable) extends Http[Any, Nothing, Any, Nothing]
+  private final case class Fail[E](cause: Cause[E]) extends Http[Any, E, Any, Nothing]
 
   private final case class FromFunctionHExit[R, E, A, B](f: A => HExit[R, E, B]) extends Http[R, E, A, B]
 
@@ -1121,8 +1126,7 @@ object Http {
 
   private final case class FoldHttp[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
-    failure: E => Http[R, EE, A, BB],
-    defect: Throwable => Http[R, EE, A, BB],
+    failure: Cause[E] => Http[R, EE, A, BB],
     success: B => Http[R, EE, A, BB],
     empty: Http[R, EE, A, BB],
   ) extends Http[R, EE, A, BB]

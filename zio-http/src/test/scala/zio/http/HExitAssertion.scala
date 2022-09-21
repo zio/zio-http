@@ -5,8 +5,8 @@ import zio.test._
 private[zio] trait HExitAssertion {
   def isDie[R, E, A](ass: Assertion[Throwable]): Assertion[HExit[R, E, A]] =
     Assertion.assertion("isDie") {
-      case HExit.Die(t) => ass.test(t)
-      case _            => false
+      case HExit.Failure(cause) => cause.dieOption.fold(false)(ass.test)
+      case _                    => false
     }
 
   def isEffect[R, E, A]: Assertion[HExit[R, E, A]] =
@@ -29,8 +29,8 @@ private[zio] trait HExitAssertion {
 
   def isFailure[R, E, A](ass: Assertion[E]): Assertion[HExit[R, E, A]] =
     Assertion.assertion("isFailure") {
-      case HExit.Failure(e) => ass.test(e)
-      case _                => false
+      case HExit.Failure(cause) => cause.failureOption.fold(false)(ass.test)
+      case _                    => false
     }
 
   private[zio] implicit class HExitSyntax[R, E, A](result: HExit[R, E, A]) {

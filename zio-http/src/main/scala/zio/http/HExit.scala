@@ -1,7 +1,7 @@
 package zio.http
 
 import zio.http.HExit.Effect
-import zio.{Trace, ZIO}
+import zio.{Cause, Trace, ZIO}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
@@ -27,63 +27,62 @@ sealed trait HExit[-R, +E, +A] { self =>
   def as[B](b: B)(implicit trace: Trace): HExit[R, E, B] = self.map(_ => b)
 
   def defaultWith[R1 <: R, E1 >: E, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
-    self.foldExit(HExit.fail, HExit.die, HExit.succeed, other)
+    self.foldExit(HExit.failCause, HExit.succeed, other)
 
   def flatMap[R1 <: R, E1 >: E, B](ab: A => HExit[R1, E1, B])(implicit trace: Trace): HExit[R1, E1, B] =
-    self.foldExit(HExit.fail, HExit.die, ab, HExit.empty)
+    self.foldExit(HExit.failCause, ab, HExit.empty)
 
   def flatten[R1 <: R, E1 >: E, A1](implicit ev: A <:< HExit[R1, E1, A1], trace: Trace): HExit[R1, E1, A1] =
     self.flatMap(identity(_))
 
   def foldExit[R1 <: R, E1, B1](
-    failure: E => HExit[R1, E1, B1],
-    defect: Throwable => HExit[R1, E1, B1],
+    failure: Cause[E] => HExit[R1, E1, B1],
     success: A => HExit[R1, E1, B1],
     empty: HExit[R1, E1, B1],
   )(implicit trace: Trace): HExit[R1, E1, B1] =
     self match {
-      case HExit.Success(a)  => success(a)
-      case HExit.Failure(e)  => failure(e)
-      case HExit.Die(t)      => defect(t)
-      case HExit.Effect(zio) =>
+      case HExit.Success(a)     => success(a)
+      case HExit.Failure(cause) => failure(cause)
+      case HExit.Effect(zio)    =>
         Effect(
           zio.foldCauseZIO(
             cause =>
               cause.failureOrCause match {
-                case Left(Some(error)) => failure(error).toZIO
+                case Left(Some(error)) => failure(Cause.fail(error)).toZIO
                 case Left(None)        => empty.toZIO
                 case Right(other)      =>
                   other.dieOption match {
-                    case Some(t) => defect(t).toZIO
+                    case Some(t) => failure(Cause.die(t)).toZIO
                     case None    => ZIO.failCause(other)
                   }
               },
             a => success(a).toZIO,
           ),
         )
-      case HExit.Empty       => empty
+      case HExit.Empty          => empty
     }
 
   def map[B](ab: A => B)(implicit trace: Trace): HExit[R, E, B] = self.flatMap(a => HExit.succeed(ab(a)))
 
   def orElse[R1 <: R, E1, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
-    self.foldExit(_ => other, HExit.die, HExit.succeed, HExit.empty)
+    self.foldExit(_ => other, HExit.succeed, HExit.empty)
 
   def toZIO(implicit trace: Trace): ZIO[R, Option[E], A] = self match {
     case HExit.Success(a)  => ZIO.succeed(a)
-    case HExit.Failure(e)  => ZIO.fail(Option(e))
-    case HExit.Die(e)      => ZIO.die(e)
+    case HExit.Failure(e)  => ZIO.failCause(e.map(Some(_)))
     case HExit.Empty       => failNoStacktrace
     case HExit.Effect(zio) => zio
   }
 }
 
 object HExit {
-  def die(t: Throwable): HExit[Any, Nothing, Nothing] = Die(t)
+  def die(t: Throwable): HExit[Any, Nothing, Nothing] = failCause(Cause.die(t))
 
   def empty: HExit[Any, Nothing, Nothing] = Empty
 
-  def fail[E](e: E): HExit[Any, E, Nothing] = Failure(e)
+  def fail[E](e: E): HExit[Any, E, Nothing] = failCause(Cause.fail(e))
+
+  def failCause[E](cause: Cause[E]): HExit[Any, E, Nothing] = Failure(cause)
 
   def fromZIO[R, E, A](z: ZIO[R, E, A])(implicit trace: Trace): HExit[R, E, A] = Effect(z.mapError(Option(_)))
 
@@ -93,9 +92,7 @@ object HExit {
 
   final case class Success[A](a: A) extends HExit[Any, Nothing, A]
 
-  final case class Failure[E](e: E) extends HExit[Any, E, Nothing]
-
-  final case class Die(t: Throwable) extends HExit[Any, Nothing, Nothing]
+  final case class Failure[E](cause: Cause[E]) extends HExit[Any, E, Nothing]
 
   final case class Effect[R, E, A](z: ZIO[R, Option[E], A]) extends HExit[R, E, A]
 
