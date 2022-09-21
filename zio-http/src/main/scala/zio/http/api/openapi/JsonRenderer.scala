@@ -4,15 +4,11 @@ import zio.http.api.Doc
 import zio.http.model.Status
 
 import java.net.URI
-import scala.annotation.nowarn
 import scala.collection.immutable.Iterable
 
 private[openapi] object JsonRenderer {
 
-  def renderProduct(product: Product): String =
-    renderFields(product.productElementNames.zip(product.productIterator).toList)
-
-  def renderFields(fieldsIt: Iterable[(String, Any)]): String = {
+  def renderFields(fieldsIt: (String, Any)*): String = {
     if (fieldsIt.map(_._1).toSet.size != fieldsIt.size) {
       throw new IllegalArgumentException("Duplicate field names")
     } else {
@@ -23,9 +19,9 @@ private[openapi] object JsonRenderer {
     }
   }
 
-  @nowarn
   private def renderValue(value: Any): String = value match {
-    case o: OpenAPI                        => o.toJson
+    case Some(value)                       => renderValue(value)
+    case o: OpenAPIBase                        => o.toJson
     case s: Status                         => s.code.toString
     case s: String                         => s""""$s""""
     case n: Int                            => n.toString
@@ -39,7 +35,6 @@ private[openapi] object JsonRenderer {
     case (k, v)                            => s"{${renderKey(k)}:${renderValue(v)}}"
     case u: URI                            => s""""${u.toString}""""
     case p: Product if p.productArity == 0 => renderSingleton(p)
-    case p: Product                        => renderProduct(p)
     case other                             => s""""${other.toString}""""
   }
 
