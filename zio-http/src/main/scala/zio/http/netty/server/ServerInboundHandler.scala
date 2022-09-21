@@ -10,6 +10,9 @@ import zio.logging.Logger
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import java.net.InetSocketAddress
 import zio.http.model._
+import io.netty.util.AttributeKey
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
+import scala.annotation.tailrec
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -23,9 +26,85 @@ private[zio] final case class ServerInboundHandler(
   import ServerInboundHandler.log
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
+  private val isReadKey               = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
   @inline
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
+
+    def addAsyncBodyHandler(async: Body.UnsafeAsync): Unit = {
+      if (contentIsRead) throw new RuntimeException("Content is already read")
+      ctx
+        .channel()
+        .pipeline()
+        .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, new ServerAsyncBodyHandler(async)): Unit
+      setContentReadAttr(flag = true)
+    }
+
+    /**
+     * Enables auto-read if possible. Also performs the first read.
+     */
+    // def attemptAutoRead[R, E](config: ServerConfig): Unit = {
+    //   if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
+    //     ctx.channel().config().setAutoRead(true)
+    //     ctx.read(): Unit
+    //   }
+    // }
+
+    def attemptFastWrite(exit: HExit[Any, Throwable, Response], time: service.ServerTime): Boolean = {
+      exit match {
+        case HExit.Success(response) =>
+          response.attribute.encoded match {
+            case Some((oResponse, jResponse: FullHttpResponse)) if hasChanged(response, oResponse) =>
+              val djResponse = jResponse.retainedDuplicate()
+              setServerTime(time, response, djResponse)
+              ctx.writeAndFlush(djResponse, ctx.voidPromise()): Unit
+              // log.debug("Fast write performed")
+              true
+
+            case _ => false
+          }
+        case _                       => false
+      }
+    }
+
+    def attemptFullWrite(
+      exit: HExit[Any, Throwable, Response],
+      jRequest: HttpRequest,
+      time: service.ServerTime,
+      runtime: NettyRuntime,
+    ): ZIO[Any, Throwable, Unit] = {
+
+      for {
+        response <- exit.toZIO.unrefine { case error => Option(error) }.catchAll {
+          case None        => ZIO.succeed(HttpError.NotFound(jRequest.uri()).toResponse)
+          case Some(error) => ZIO.succeed(HttpError.InternalServerError(cause = Some(error)).toResponse)
+        }
+        _        <-
+          if (response.isWebSocket) ZIO.attempt(upgradeToWebSocket(jRequest, response, runtime))
+          else
+            for {
+              jResponse <- response.encode()
+              _         <- ZIO.attemptUnsafe(implicit u => setServerTime(time, response, jResponse))
+              _         <- ZIO.attempt(ctx.writeAndFlush(jResponse))
+              flushed <- if (!jResponse.isInstanceOf[FullHttpResponse]) response.body.write(ctx) else ZIO.succeed(true)
+              _       <- ZIO.attempt(ctx.flush()).when(!flushed)
+            } yield ()
+
+        _ <- ZIO.attemptUnsafe(implicit u => setContentReadAttr(false))
+      } yield () // log.debug("Full write performed")
+    }
+
+    def canHaveBody(jReq: HttpRequest): Boolean = {
+      jReq.method() == HttpMethod.TRACE ||
+      jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
+      jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
+    }
+
+    def contentIsRead: Boolean =
+      ctx.channel().attr(isReadKey).get()
+
+    def hasChanged(r1: Response, r2: Response): Boolean =
+      (r1.status eq r2.status) && (r1.body eq r2.body) && (r1.headers eq r2.headers)
 
     def makeZioRequest(nettyReq: HttpRequest): Request = {
       val nettyHttpVersion = nettyReq.protocolVersion()
@@ -52,7 +131,7 @@ private[zio] final case class ServerInboundHandler(
           )
         case nettyReq: HttpRequest     =>
           val body = Body.fromAsync { async =>
-            ctx.addAsyncBodyHandler(async)
+            addAsyncBodyHandler(async)
           }
           Request(
             body,
@@ -66,15 +145,50 @@ private[zio] final case class ServerInboundHandler(
 
     }
 
-    def canHaveBody(jReq: HttpRequest): Boolean = {
-      jReq.method() == HttpMethod.TRACE ||
-      jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
-      jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
-    }
-
     def releaseRequest(jReq: FullHttpRequest, cnt: Int = 1): Unit = {
       if (jReq.refCnt() > 0 && cnt > 0) {
         jReq.release(cnt): Unit
+      }
+    }
+
+    def setAutoRead(cond: Boolean): Unit = {
+      //   log.debug(s"Setting channel auto-read to: [${cond}]")
+      ctx.channel().config().setAutoRead(cond): Unit
+    }
+
+    def setContentReadAttr(flag: Boolean): Unit = {
+      ctx.channel().attr(isReadKey).set(flag)
+    }
+
+    def setServerTime(time: service.ServerTime, response: Response, jResponse: HttpResponse): Unit = {
+      if (response.attribute.serverTime)
+        jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet()): Unit
+    }
+
+    /**
+     * Checks if the response requires to switch protocol to websocket. Returns
+     * true if it can, otherwise returns false
+     */
+    @tailrec
+    def upgradeToWebSocket(jReq: HttpRequest, res: Response, runtime: NettyRuntime): Unit = {
+      val app = res.attribute.socketApp
+      jReq match {
+        case jReq: FullHttpRequest =>
+          // log.debug(s"Upgrading to WebSocket: [${jReq.uri()}]")
+          // log.debug(s"SocketApp: [${app.orNull}]")
+          ctx
+            .channel()
+            .pipeline()
+            .addLast(new WebSocketServerProtocolHandler(app.get.protocol.serverBuilder.build()))
+            .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, app.get, false))
+
+          val retained = jReq.retainedDuplicate()
+          ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }: Unit
+
+        case jReq: HttpRequest =>
+          val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
+          fullRequest.headers().setAll(jReq.headers())
+          upgradeToWebSocket(fullRequest, res, runtime)
       }
     }
 
@@ -85,11 +199,11 @@ private[zio] final case class ServerInboundHandler(
         val req  = makeZioRequest(jReq)
         val exit = appRef.get.execute(req)
 
-        if (ctx.attemptFastWrite(exit, time)) {
+        if (attemptFastWrite(exit, time)) {
           releaseRequest(jReq)
         } else
           runtime.run(ctx) {
-            ctx.attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed { releaseRequest(jReq) }
+            attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed { releaseRequest(jReq) }
           }
 
       case jReq: HttpRequest =>
@@ -97,10 +211,10 @@ private[zio] final case class ServerInboundHandler(
         val req  = makeZioRequest(jReq)
         val exit = appRef.get.execute(req)
 
-        if (!ctx.attemptFastWrite(exit, time)) {
-          if (canHaveBody(jReq)) ctx.setAutoRead(false)
+        if (!attemptFastWrite(exit, time)) {
+          if (canHaveBody(jReq)) setAutoRead(false)
           runtime.run(ctx) {
-            ctx.attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed(ctx.setAutoRead(true)(unsafe))
+            attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed(setAutoRead(true))
           }
         }
 
