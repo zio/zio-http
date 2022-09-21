@@ -37,7 +37,7 @@ private[zio] final case class ServerChannelInitializer(
     log.debug(s"Connection initialized: ${channel.remoteAddress()}")
     // SSL
     // Add SSL Handler if CTX is available
-    cfg.sslOption.foreach { sslCfg =>
+    cfg.sslConfig.foreach { sslCfg =>
       pipeline.addFirst(Names.SSLHandler, new ServerSSLDecoder(sslCfg, cfg))
     }
 

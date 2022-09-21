@@ -21,7 +21,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
       assertZIO(actual)(anything)
     },
-    test("respond Ok with sslOption") {
+    test("respond Ok with sslConfig") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
       assertZIO(actual)(anything)
     },
