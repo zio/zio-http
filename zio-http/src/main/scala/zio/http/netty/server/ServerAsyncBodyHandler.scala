@@ -12,17 +12,13 @@ private[zio] final class ServerAsyncBodyHandler(val async: Body.UnsafeAsync)
   self =>
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
-    println(">>>>>>>>>>> [BEGIN] ServerAsyncBodyHandler channelRead0")
     val isLast = msg.isInstanceOf[LastHttpContent]
     val chunk  = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
     async(ctx.channel(), chunk, isLast)
     if (isLast) ctx.channel().pipeline().remove(self): Unit
-    println(">>>>>>>>>>> [END] ServerAsyncBodyHandler channelRead0")
   }
 
   override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-    println(">>>>>>>>>>> [BEGIN] ServerAsyncBodyHandler handleAdded")
     ctx.read(): Unit
-    println(">>>>>>>>>>> [END] ServerAsyncBodyHandler handleAdded")
   }
 }
