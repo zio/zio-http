@@ -352,17 +352,13 @@ class ApiBenchmark {
 
   val broadCollectApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "users" / userId / "posts" / postId / "comments" / commentId                       =>
-      val _ = userId.toInt
-      val _ = postId.toInt
-      val _ = commentId.toInt
+      val _ = (userId.toInt, postId.toInt, commentId.toInt)
       ZIO.unit
     case Method.GET -> !! / "users" / userId / "posts" / postId / "comments"                                   =>
-      val _ = userId.toInt
-      val _ = postId.toInt
+      val _ = (userId.toInt, postId.toInt)
       ZIO.unit
     case Method.GET -> !! / "users" / userId / "posts" / postId                                                =>
-      val _ = userId.toInt
-      val _ = postId.toInt
+      val _ = (userId.toInt, postId.toInt)
       ZIO.unit
     case Method.GET -> !! / "users" / userId / "posts"                                                         =>
       val _ = userId.toInt
@@ -373,8 +369,7 @@ class ApiBenchmark {
     case Method.GET -> !! / "users"                                                                            =>
       ZIO.unit
     case Method.GET -> !! / "posts" / postId / "comments" / commentId                                          =>
-      val _ = postId.toInt
-      val _ = commentId.toInt
+      val _ = (postId.toInt, commentId.toInt)
       ZIO.unit
     case Method.GET -> !! / "posts" / postId / "comments"                                                      =>
       val _ = postId.toInt
@@ -393,19 +388,13 @@ class ApiBenchmark {
       val _ = userId.toInt
       ZIO.unit
     case Method.GET -> !! / "users" / userId / "comments" / commentId                                          =>
-      val _ = userId.toInt
-      val _ = commentId.toInt
+      val _ = (userId.toInt, commentId.toInt)
       ZIO.unit
     case Method.GET -> !! / "users" / userId / "posts" / postId / "comments" / commentId / "replies" / replyId =>
-      val _ = userId.toInt
-      val _ = postId.toInt
-      val _ = commentId.toInt
-      val _ = replyId.toInt
+      val _ = (userId.toInt, postId.toInt, commentId.toInt, replyId.toInt)
       ZIO.unit
     case Method.GET -> !! / "users" / userId / "posts" / postId / "comments" / commentId / "replies"           =>
-      val _ = userId.toInt
-      val _ = postId.toInt
-      val _ = commentId.toInt
+      val _ = (userId.toInt, postId.toInt, commentId.toInt)
       ZIO.unit
   }
 
