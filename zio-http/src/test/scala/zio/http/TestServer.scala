@@ -3,6 +3,7 @@ package zio.http
 import io.netty.handler.ssl.SslContextBuilder
 import zio._
 import zio.http.Server.ErrorCallback
+import zio.http.URL.Location
 import zio.http.middleware.HttpMiddleware
 import zio.http.model.{Headers, Method, Scheme, Version}
 import zio.http.netty.EventLoopGroups
@@ -58,7 +59,7 @@ object TestClient {
 
     override def pathPrefix: Path = live.pathPrefix
 
-    override def portOption: Option[RuntimeFlags] = live.portOption
+    override def portOption: Option[Int] = live.portOption
 
     override def queries: QueryParams = live.queries
 
@@ -66,7 +67,7 @@ object TestClient {
 
     override def sslOption: Option[ClientSSLHandler.ClientSSLOptions] = live.sslOption
 
-    override def requestInternal(body: Body, headers: Headers, hostOption: Option[String], method: Method, pathPrefix: Path, portOption: Option[RuntimeFlags], queries: QueryParams, sslOption: Option[ClientSSLHandler.ClientSSLOptions], version: Version)(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    override def requestInternal(body: Body, headers: Headers, hostOption: Option[String], method: Method, pathPrefix: Path, portOption: Option[Int], queries: QueryParams, sslOption: Option[ClientSSLHandler.ClientSSLOptions], version: Version)(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
 
         for {
           _ <- ZIO.debug("Eh?")
@@ -74,7 +75,7 @@ object TestClient {
           _ <- ZIO.debug("Any?")
           rez <- response match {
             case Left(value) =>
-              responsesR.update(interactions => (Request(), Response()) :: interactions) *>
+              responsesR.update(interactions => (Request(version=version, method=method, url=URL(pathPrefix, Location.Absolute(Scheme.HTTP, "localhost", port = portOption.getOrElse(-1))), headers=headers, body=body), Response()) :: interactions) *>
               ZIO.fail(value)
             case Right(value) =>
               responsesR.update(interactions => (Request(), value) :: interactions) *>
@@ -84,7 +85,7 @@ object TestClient {
         } yield rez
     }
 
-    override def socketInternal[Env1 <: Any](app: SocketApp[Env1], headers: Headers, hostOption: Option[String], pathPrefix: Path, portOption: Option[RuntimeFlags], queries: QueryParams, schemeOption: Option[Scheme], version: Version)(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] =
+    override def socketInternal[Env1 <: Any](app: SocketApp[Env1], headers: Headers, hostOption: Option[String], pathPrefix: Path, portOption: Option[Int], queries: QueryParams, schemeOption: Option[Scheme], version: Version)(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] =
       live.socketInternal(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
 
   }
@@ -155,7 +156,7 @@ object TestServer {
 //        .unit
     }
 
-    override def port: RuntimeFlags = live.port
+    override def port: Int = live.port
   }
 
 

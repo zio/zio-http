@@ -10,8 +10,10 @@ object TestClientSpec extends ZIOSpecDefault {
     test("test") {
       for {
         _ <- ZIO.serviceWithZIO[Client](_.request(Request(url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port = 8080))))).ignore
-        finalTraffic <- TestClient.interactions()
-      } yield assertTrue(finalTraffic.length == 1)
+        middleTraffic <- TestClient.interactions().debug
+        _ <- ZIO.serviceWithZIO[Client](_.request(Request(url = URL(Path.root / "users", Location.Absolute(Scheme.HTTP, "localhost", port = 8080))))).ignore
+        finalTraffic <- TestClient.interactions().debug
+      } yield assertTrue(middleTraffic.length == 1) && assertTrue(finalTraffic.length == 2)
     }
   ).provide(TestClient.make)
 
