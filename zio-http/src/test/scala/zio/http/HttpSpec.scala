@@ -305,7 +305,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = (Http.succeed(1): Http[Any, Any, Any, Int])
-            .tapAll(_ => Http.empty, _ => Http.empty, v => Http.fromZIO(r.set(v)), Http.empty)
+            .tapAll(_ => Http.empty, v => Http.fromZIO(r.set(v)), Http.empty)
           _   <- app.execute(()).toZIO
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -314,7 +314,11 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = (Http.fail(1): Http[Any, Int, Any, Any])
-            .tapAll(v => Http.fromZIO(r.set(v)), _ => Http.empty, _ => Http.empty, Http.empty)
+            .tapAll(
+              cause => cause.failureOption.fold[Http[Any, Nothing, Any, Unit]](Http.empty)(v => Http.fromZIO(r.set(v))),
+              _ => Http.empty,
+              Http.empty,
+            )
           _   <- app.execute(()).toZIO.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -324,7 +328,11 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = (Http.die(t): Http[Any, Any, Any, Any])
-            .tapAll(_ => Http.empty, _ => Http.fromZIO(r.set(1)), _ => Http.empty, Http.empty)
+            .tapAll(
+              cause => cause.dieOption.fold[Http[Any, Nothing, Any, Unit]](Http.empty)(v => Http.fromZIO(r.set(1))),
+              _ => Http.empty,
+              Http.empty,
+            )
           _   <- app.execute(()).toZIO.exit.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -333,7 +341,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = (Http.empty: Http[Any, Any, Any, Any])
-            .tapAll(_ => Http.empty, _ => Http.empty, _ => Http.empty, Http.fromZIO(r.set(1)))
+            .tapAll(_ => Http.empty, _ => Http.empty, Http.fromZIO(r.set(1)))
           _   <- app.execute(()).toZIO.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -343,7 +351,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
       test("taps the success") {
         for {
           r <- Ref.make(0)
-          app = (Http.succeed(1): Http[Any, Any, Any, Int]).tapAllZIO(_ => ZIO.unit, _ => ZIO.unit, r.set, ZIO.unit)
+          app = (Http.succeed(1): Http[Any, Any, Any, Int]).tapAllZIO(_ => ZIO.unit, r.set, ZIO.unit)
           _   <- app.execute(()).toZIO
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -351,7 +359,8 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
       test("taps the failure") {
         for {
           r <- Ref.make(0)
-          app = (Http.fail(1): Http[Any, Int, Any, Any]).tapAllZIO(r.set, _ => ZIO.unit, _ => ZIO.unit, ZIO.unit)
+          app = (Http.fail(1): Http[Any, Int, Any, Any])
+            .tapAllZIO(cause => cause.failureOption.fold(ZIO.unit)(r.set), _ => ZIO.unit, ZIO.unit)
           _   <- app.execute(()).toZIO.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -361,7 +370,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = (Http.die(t): Http[Any, Any, Any, Any])
-            .tapAllZIO(_ => ZIO.unit, _ => r.set(1), _ => ZIO.unit, ZIO.unit)
+            .tapAllZIO(cause => cause.dieOption.fold(ZIO.unit)(_ => r.set(1)), _ => ZIO.unit, ZIO.unit)
           _   <- app.execute(()).toZIO.exit.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -370,7 +379,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = (Http.empty: Http[Any, Any, Any, Any])
-            .tapAllZIO(_ => ZIO.unit, _ => ZIO.unit, _ => ZIO.unit, r.set(1))
+            .tapAllZIO(_ => ZIO.unit, _ => ZIO.unit, r.set(1))
           _   <- app.execute(()).toZIO.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
