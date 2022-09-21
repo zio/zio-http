@@ -13,6 +13,7 @@ import zio.http.model._
 import io.netty.util.AttributeKey
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import scala.annotation.tailrec
+import ServerInboundHandler.isReadKey
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -26,7 +27,6 @@ private[zio] final case class ServerInboundHandler(
   import ServerInboundHandler.log
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
-  private val isReadKey               = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
   @inline
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
@@ -207,7 +207,6 @@ private[zio] final case class ServerInboundHandler(
           }
 
       case jReq: HttpRequest =>
-        println(">>>>>>>>>>> [BEGIN] Handling HttpRequest")
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = makeZioRequest(jReq)
         val exit = appRef.get.execute(req)
@@ -218,12 +217,9 @@ private[zio] final case class ServerInboundHandler(
             attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed(setAutoRead(true))
           }
         }
-        println(">>>>>>>>>>> [END] Handling HttpRequest")
 
       case msg: HttpContent =>
-        println(">>>>>>>>>>> [BEGIN] Handling HttpContent")
         ctx.fireChannelRead(msg): Unit
-        println(">>>>>>>>>>> [END] Handling HttpContent")
 
       case _ =>
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
@@ -232,11 +228,21 @@ private[zio] final case class ServerInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    errCallbackRef.get().fold(super.exceptionCaught(ctx, cause))(f => runtime.run(ctx)(f(cause)))
+    // errCallbackRef.get().fold(super.exceptionCaught(ctx, cause))(f => runtime.run(ctx)(f(cause)))
+    errCallbackRef
+      .get()
+      .fold {
+        println(s">>>>>>>>>>> Netty Error occurred: ${cause} <<<<<<<<<<<<<")
+        cause.printStackTrace()
+
+      }(f => runtime.run(ctx)(f(cause)))
   }
 }
 
 object ServerInboundHandler {
+
+  private val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
+
   val log: Logger = service.Log.withTags("Server", "Request")
 
   val layer = {
