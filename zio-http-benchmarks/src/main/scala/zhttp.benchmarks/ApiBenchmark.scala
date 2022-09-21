@@ -25,6 +25,26 @@ import zio.{Scope => _, _}
 import java.util.concurrent.TimeUnit
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 
+// TODO: attempt the following optimizations
+//
+// BEFORE OPTIMIZATIONS
+// [info] ApiBenchmark.benchmarkBroadZioApi           thrpt    4  667.506 ± 575.568  ops/s <-----
+// [info] ApiBenchmark.benchmarkBroadZioCollect       thrpt    4  119.175 ±  30.864  ops/s
+//
+// [info] ApiBenchmark.benchmarkDeepPathZioApi        thrpt    4  433.606 ± 708.764  ops/s
+// [info] ApiBenchmark.benchmarkDeepPathZioCollect    thrpt    4  855.360 ± 342.678  ops/s
+//
+// - Change HandlerTree to use a Map for literal routes
+//
+// [info] ApiBenchmark.benchmarkBroadZioApi         thrpt    2  923.077          ops/s
+// [info] ApiBenchmark.benchmarkBroadZioCollect     thrpt    2  125.231          ops/s
+//
+// [info] ApiBenchmark.benchmarkDeepPathZioApi      thrpt    2  568.990          ops/s
+// [info] ApiBenchmark.benchmarkDeepPathZioCollect  thrpt    2  900.059          ops/s
+//
+// - Pre-compute the OptimizedAPIHandler (APIServer)
+// - Push handle method into lookup
+
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -124,41 +144,41 @@ class ApiBenchmark {
 
   val smallDataAkkaFunction = Route.toFunction(smallDataAkkaRoute)
 
-  @Benchmark
-  def benchmarkSmallDataZioApi(): Unit =
-    unsafeRun {
-      apiHttpApp(smallDataRequest).repeatN(REPEAT_N)
-    }
+//  @Benchmark
+//  def benchmarkSmallDataZioApi(): Unit =
+//    unsafeRun {
+//      apiHttpApp(smallDataRequest).repeatN(REPEAT_N)
+//    }
+//
+//  @Benchmark
+//  def benchmarkSmallDataZioCollect(): Unit =
+//    unsafeRun {
+//      collectHttpApp(smallDataRequest).repeatN(REPEAT_N)
+//    }
 
-  @Benchmark
-  def benchmarkSmallDataZioCollect(): Unit =
-    unsafeRun {
-      collectHttpApp(smallDataRequest).repeatN(REPEAT_N)
-    }
-
-  @Benchmark
-  def benchmarkSmallDataTapirAkka(): Unit = {
-    val _ =
-      Await.result(
-        repeatNFuture(REPEAT_N)(smallDataTapirAkkaFunction(smallDataRequestAkka)),
-        scala.concurrent.duration.Duration.Inf,
-      )
-  }
-
-  @Benchmark
-  def benchmarkSmallDataTapirHttp4s(): Unit =
-    unsafeRun {
-      usersPostsHttp4sRoute(smallDataRequestHttp4s).value.repeatN(REPEAT_N)
-    }
-
-  @Benchmark
-  def benchmarkSmallDataAkka(): Unit = {
-    val _ =
-      Await.result(
-        repeatNFuture(REPEAT_N)(smallDataAkkaFunction(smallDataRequestAkka)),
-        scala.concurrent.duration.Duration.Inf,
-      )
-  }
+//  @Benchmark
+//  def benchmarkSmallDataTapirAkka(): Unit = {
+//    val _ =
+//      Await.result(
+//        repeatNFuture(REPEAT_N)(smallDataTapirAkkaFunction(smallDataRequestAkka)),
+//        scala.concurrent.duration.Duration.Inf,
+//      )
+//  }
+//
+//  @Benchmark
+//  def benchmarkSmallDataTapirHttp4s(): Unit =
+//    unsafeRun {
+//      usersPostsHttp4sRoute(smallDataRequestHttp4s).value.repeatN(REPEAT_N)
+//    }
+//
+//  @Benchmark
+//  def benchmarkSmallDataAkka(): Unit = {
+//    val _ =
+//      Await.result(
+//        repeatNFuture(REPEAT_N)(smallDataAkkaFunction(smallDataRequestAkka)),
+//        scala.concurrent.duration.Duration.Inf,
+//      )
+//  }
 
   // # Deep Path
 
@@ -235,30 +255,31 @@ class ApiBenchmark {
     }
 
   @Benchmark
-  def benchmarkDeepPathZioCollect(): Unit  =
+  def benchmarkDeepPathZioCollect(): Unit =
     unsafeRun {
       deepPathCollectHttpApp(deepPathRequest).repeatN(REPEAT_N)
     }
-  @Benchmark
-  def benchmarkDeepPathTapirAkka(): Unit   = {
-    val _ = Await.result(
-      repeatNFuture(REPEAT_N)(deepPathTapirAkkaFunction(deepPathRequestAkka)),
-      scala.concurrent.duration.Duration.Inf,
-    )
-  }
-  @Benchmark
-  def benchmarkDeepPathTapirHttp4s(): Unit =
-    unsafeRun {
-      deepPathHttp4sRoute(deepPathRequestHttp4s).value.repeatN(REPEAT_N)
-    }
 
-  @Benchmark
-  def benchmarkDeepPathAkka(): Unit = {
-    val _ = Await.result(
-      repeatNFuture(REPEAT_N)(deepPathAkkaFunction(deepPathRequestAkka)),
-      scala.concurrent.duration.Duration.Inf,
-    )
-  }
+//  @Benchmark
+//  def benchmarkDeepPathTapirAkka(): Unit   = {
+//    val _ = Await.result(
+//      repeatNFuture(REPEAT_N)(deepPathTapirAkkaFunction(deepPathRequestAkka)),
+//      scala.concurrent.duration.Duration.Inf,
+//    )
+//  }
+//  @Benchmark
+//  def benchmarkDeepPathTapirHttp4s(): Unit =
+//    unsafeRun {
+//      deepPathHttp4sRoute(deepPathRequestHttp4s).value.repeatN(REPEAT_N)
+//    }
+//
+//  @Benchmark
+//  def benchmarkDeepPathAkka(): Unit = {
+//    val _ = Await.result(
+//      repeatNFuture(REPEAT_N)(deepPathAkkaFunction(deepPathRequestAkka)),
+//      scala.concurrent.duration.Duration.Inf,
+//    )
+//  }
 
   // # Broad Path
 
@@ -543,28 +564,28 @@ class ApiBenchmark {
       ZIO.foreachDiscard(broadZioRequests)(broadCollectApp(_))
     }
 
-  @Benchmark
-  def benchmarkBroadTapirAkka(): Unit = {
-    val _ = Await.result(
-      foreachDiscardFuture(broadAkkaRequests)(boardTapirAkkaFunction(_)),
-      scala.concurrent.duration.Duration.Inf,
-    )
-  }
-
-  @Benchmark
-  def benchmarkBroadTapirHttp4s(): Unit = {
-    val _ = unsafeRunResult {
-      ZIO.foreachDiscard(broadHttp4sRequests)(broadTapirHttp4sApp(_).value)
-    }
-  }
-
-  @Benchmark
-  def benchmarkBroadAkka(): Unit = {
-    val _ = Await.result(
-      foreachDiscardFuture(broadAkkaRequests)(broadAkkaFunction(_)),
-      scala.concurrent.duration.Duration.Inf,
-    )
-  }
+//  @Benchmark
+//  def benchmarkBroadTapirAkka(): Unit = {
+//    val _ = Await.result(
+//      foreachDiscardFuture(broadAkkaRequests)(boardTapirAkkaFunction(_)),
+//      scala.concurrent.duration.Duration.Inf,
+//    )
+//  }
+//
+//  @Benchmark
+//  def benchmarkBroadTapirHttp4s(): Unit = {
+//    val _ = unsafeRunResult {
+//      ZIO.foreachDiscard(broadHttp4sRequests)(broadTapirHttp4sApp(_).value)
+//    }
+//  }
+//
+//  @Benchmark
+//  def benchmarkBroadAkka(): Unit = {
+//    val _ = Await.result(
+//      foreachDiscardFuture(broadAkkaRequests)(broadAkkaFunction(_)),
+//      scala.concurrent.duration.Duration.Inf,
+//    )
+//  }
 
   private def httpRequestFromString(url: String): Request =
     Request(url = URL.fromString(url).toOption.get)

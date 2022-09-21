@@ -15,18 +15,12 @@ sealed trait HandlerTree[-R, +E] { self =>
 
   def merge[R1 <: R, E1 >: E](that: HandlerTree[R1, E1]): HandlerTree[R1, E1] =
     (self, that) match {
-      case (Branch(map1), Branch(map2)) =>
-        Branch(mergeWith(map1, map2)(_ merge _))
-
-      case (Branch(map1), Leaf(handler2)) =>
-        Branch(mergeWith(map1, Map(Option.empty[TextCodec[_]] -> Leaf(handler2)))(_ merge _))
-
-      case (Leaf(handler1), Branch(map2)) =>
-        Branch(mergeWith(Map(Option.empty[TextCodec[_]] -> Leaf(handler1)), map2)(_ merge _))
-
-      case (_, right) =>
-        right
-
+      case (Branch(constants1, parsers1, leaf), Branch(constants2, parsers2, leaf2)) =>
+        Branch(
+          mergeWith(constants1, constants2)(_ merge _),
+          mergeWith(parsers1, parsers2)(_ merge _),
+          leaf orElse leaf2,
+        )
     }
 
   def lookup(request: Request): Option[HandlerMatch[R, E, _, _]] =
@@ -44,15 +38,23 @@ sealed trait HandlerTree[-R, +E] { self =>
 object HandlerTree {
 
   val empty: HandlerTree[Any, Nothing] =
-    Branch(Map.empty)
+    Branch(Map.empty, Map.empty, None)
 
   def single[R, E](handledAPI: Service.HandledAPI[R, E, _, _, _]): HandlerTree[R, E] = {
     val routeCodecs =
       Mechanic.flatten(handledAPI.api.input).routes
 
-    routeCodecs.foldRight[HandlerTree[R, E]](Leaf(handledAPI)) { case (codec, acc) =>
-      Branch(Map(Some(codec) -> acc))
+    val result = routeCodecs.foldRight[HandlerTree[R, E]](Branch(Map.empty, Map.empty, Some(handledAPI))) {
+      case (codec, acc) =>
+        codec match {
+          case TextCodec.Constant(string) =>
+            Branch(Map(string -> acc), Map.empty, None)
+          case codec                      =>
+            Branch(Map.empty, Map(codec -> acc), None)
+        }
     }
+
+    result
   }
 
   def fromService[R, E](service: Service[R, E, _]): HandlerTree[R, E] =
@@ -61,39 +63,43 @@ object HandlerTree {
   def fromIterable[R, E](handledAPIs: Iterable[Service.HandledAPI[R, E, _, _, _]]): HandlerTree[R, E] =
     handledAPIs.foldLeft[HandlerTree[R, E]](empty)(_ add _)
 
-  private final case class Leaf[-R, +E](handledApi: Service.HandledAPI[R, E, _, _, _]) extends HandlerTree[R, E]
-
   private final case class Branch[-R, +E](
-    children: Map[Option[TextCodec[_]], HandlerTree[R, E]],
+    constants: Map[String, HandlerTree[R, E]],
+    parsers: Map[TextCodec[_], HandlerTree[R, E]],
+    leaf: Option[Service.HandledAPI[R, E, _, _, _]],
   ) extends HandlerTree[R, E]
 
-  // TODO: optimize (tailrec, etc.)
   private def lookup[R, E](
     segments: Vector[String],
     index: Int,
     current: HandlerTree[R, E],
     results: Chunk[Any],
-  ): Option[HandlerMatch[R, E, _, _]] =
+  ): Option[HandlerMatch[R, E, _, _]] = {
     current match {
-      case Leaf(handler) =>
-        if (index < segments.length) None
-        else Some(HandlerMatch(handler, results))
-      case Branch(map)   =>
+      case Branch(constants, parsers, leaf) =>
         if (index == segments.length)
-          map.get(None) match {
-            case Some(handlerTree) =>
-              lookup(segments, index, handlerTree, results)
-            case None              =>
+          leaf match {
+            case Some(handler) =>
+              Some(HandlerMatch(handler, results))
+            case None          =>
               None
           }
-        else
-          map.collectFirst { case (Some(codec), handler) =>
-            codec.decode(segments(index)) match {
-              case Some(value) =>
-                lookup(segments, index + 1, handler, results :+ value)
-              case None        =>
-                None
-            }
-          }.flatten
+        else {
+          constants.get(segments(index)) match {
+            case Some(handler) =>
+              lookup(segments, index + 1, handler, results :+ ())
+            case None          =>
+              parsers.collectFirst { case (codec, handler) =>
+                codec.decode(segments(index)) match {
+                  case Some(value) =>
+                    val newResults = results :+ value
+                    lookup(segments, index + 1, handler, newResults)
+                  case None        =>
+                    None
+                }
+              }.flatten
+          }
+        }
     }
+  }
 }

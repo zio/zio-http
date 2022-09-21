@@ -2,6 +2,7 @@ package zio.http.api
 
 import zio._
 import zio.http.api.In._
+import zio.http.api.internal.HandlerTree
 import zio.http.{Request, Response, URL}
 import zio.test._
 
@@ -61,7 +62,6 @@ object InSpec extends ZIOSpecDefault {
   ): ZIO[R, E, TestResult] = {
 
     val request = Request(url = URL.fromString(url).toOption.get)
-
     for {
       response <- service.toHttpApp(request).mapError(_.get)
       body     <- response.body.asString.orDie
