@@ -1,16 +1,16 @@
 package zio.http
 
 import io.netty.channel
-import io.netty.channel.{ChannelFactory, EventLoopGroup}
-import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
-import zio.http.netty.{ChannelFactories, EventLoopGroups, _}
+import io.netty.channel.{ChannelFactory, EventLoopGroup, _}
+import zio.ZLayer
+import zio.http.netty.{ChannelFactories, ChannelType, EventLoopGroups, NettyRuntime}
 import zio.http.socket.SocketApp
-import zio.{Duration, Scope, ZLayer}
+import zio.{Duration, Scope}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 case class ClientConfig(
   socketApp: Option[SocketApp[Any]] = None,
-  ssl: Option[ClientSSLOptions] = None,
+  ssl: Option[ClientSSLConfig] = None,
   proxy: Option[Proxy] = None,
   channelType: ChannelType = ChannelType.AUTO,
   nThreads: Int = 0,
@@ -18,7 +18,7 @@ case class ClientConfig(
   connectionPool: ConnectionPoolConfig = ConnectionPoolConfig.Disabled,
 ) extends EventLoopGroups.Config {
   self =>
-  def ssl(ssl: ClientSSLOptions): ClientConfig = self.copy(ssl = Some(ssl))
+  def ssl(ssl: ClientSSLConfig): ClientConfig = self.copy(ssl = Some(ssl))
 
   def socketApp(socketApp: SocketApp[Any]): ClientConfig = self.copy(socketApp = Some(socketApp))
 

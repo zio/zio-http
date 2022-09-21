@@ -13,10 +13,9 @@ import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.URL.Location
 import zio.http.internal.ZKeyedPool
 import zio.http.netty.NettyFutureExecutor
-import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
-import zio.http.{ClientConfig, ConnectionPoolConfig, Proxy, URL}
+import zio.http.{ClientConfig, ClientSSLConfig, ConnectionPoolConfig, Proxy, URL}
 import zio.logging.LogLevel
 import zio.{Duration, Scope, ZIO, ZLayer}
 
@@ -26,7 +25,7 @@ trait ConnectionPool {
   def get(
     location: URL.Location.Absolute,
     proxy: Option[Proxy],
-    sslOptions: ClientSSLOptions,
+    sslOptions: ClientSSLConfig,
   ): ZIO[Scope, Throwable, JChannel]
 
   def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit]
@@ -40,7 +39,7 @@ object ConnectionPool {
     eventLoopGroup: JEventLoopGroup,
     location: URL.Location.Absolute,
     proxy: Option[Proxy],
-    sslOptions: ClientSSLOptions,
+    sslOptions: ClientSSLConfig,
   ): ZIO[Any, Throwable, JChannel] = {
     val initializer = new ChannelInitializer[JChannel] {
       override def initChannel(ch: JChannel): Unit = {
@@ -64,7 +63,9 @@ object ConnectionPool {
         if (location.scheme.isSecure) {
           pipeline.addLast(
             SSL_HANDLER,
-            ClientSSLHandler.ssl(sslOptions).newHandler(ch.alloc, location.host, location.port),
+            ClientSSLConverter
+              .toNettySSLContext(sslOptions)
+              .newHandler(ch.alloc, location.host, location.port),
           )
         }
 
@@ -94,7 +95,7 @@ object ConnectionPool {
     override def get(
       location: Location.Absolute,
       proxy: Option[Proxy],
-      sslOptions: ClientSSLOptions,
+      sslOptions: ClientSSLConfig,
     ): ZIO[Scope, Throwable, JChannel] =
       createChannel(channelFactory, eventLoopGroup, location, proxy, sslOptions)
 
@@ -102,7 +103,7 @@ object ConnectionPool {
       ZIO.unit
   }
 
-  case class PoolKey(location: Location.Absolute, proxy: Option[Proxy], sslOptions: ClientSSLOptions)
+  case class PoolKey(location: Location.Absolute, proxy: Option[Proxy], sslOptions: ClientSSLConfig)
 
   private class ZioConnectionPool(
     pool: ZKeyedPool[Throwable, PoolKey, JChannel],
@@ -110,7 +111,7 @@ object ConnectionPool {
     override def get(
       location: Location.Absolute,
       proxy: Option[Proxy],
-      sslOptions: ClientSSLOptions,
+      sslOptions: ClientSSLConfig,
     ): ZIO[Scope, Throwable, JChannel] =
       ZIO.uninterruptibleMask { restore =>
         restore(
