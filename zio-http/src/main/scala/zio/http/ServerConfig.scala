@@ -11,7 +11,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class ServerConfig(
   leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
-  sslOption: Option[SSLConfig] = None,
+  sslConfig: Option[SSLConfig] = None,
   address: InetSocketAddress = new InetSocketAddress(8080),
   acceptContinue: Boolean = false,
   keepAlive: Boolean = true,
@@ -106,7 +106,7 @@ final case class ServerConfig(
   /**
    * Configure the server with the following ssl options.
    */
-  def ssl(sslOptions: SSLConfig): ServerConfig = self.copy(sslOption = Some(sslOptions))
+  def ssl(sslConfig: SSLConfig): ServerConfig = self.copy(sslConfig = Some(sslConfig))
 
   /**
    * Configure the server to use a maximum of nThreads to process requests.
