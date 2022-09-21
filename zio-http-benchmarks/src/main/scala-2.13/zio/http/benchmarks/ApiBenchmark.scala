@@ -21,7 +21,7 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.{Scope => _, _}
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 
 // TODO: attempt the following optimizations
 //
