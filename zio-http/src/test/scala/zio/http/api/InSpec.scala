@@ -2,7 +2,6 @@ package zio.http.api
 
 import zio._
 import zio.http.api.In._
-import zio.http.api.internal.HandlerTree
 import zio.http.{Request, Response, URL}
 import zio.test._
 
