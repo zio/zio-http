@@ -2,31 +2,28 @@ package zio.benchmarks
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.http.scaladsl.server.Route
+import io.circe.generic.auto._
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
+import org.http4s.{HttpRoutes, Request => Request4s}
 import org.openjdk.jmh.annotations._
+import sttp.tapir._
+import sttp.tapir.generic.auto._
+import sttp.tapir.json.circe._
+import sttp.tapir.server.akkahttp.AkkaHttpServerInterpreter
+import sttp.tapir.server.http4s.Http4sServerInterpreter
+import sttp.tapir.{path => tpath}
 import zio.http._
 import zio.http.api._
 import zio.http.model.Method
+import zio.interop.catz._
 import zio.json.{DeriveJsonCodec, EncoderOps, JsonCodec}
 import zio.schema.{DeriveSchema, Schema}
 import zio.{Scope => _, _}
-import sttp.tapir.server.akkahttp.AkkaHttpServerInterpreter
-import sttp.tapir.{path => tpath}
-import sttp.tapir.server.http4s.Http4sServerInterpreter
-import org.http4s.HttpRoutes
-
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
-import zio.interop.catz._
-import akka.http.scaladsl.server.Route
-import org.http4s.{Request => Request4s}
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-
-import sttp.tapir._
-import sttp.tapir.json.circe._
-import sttp.tapir.generic.auto._
-import io.circe.generic.auto._
 
 import java.util.concurrent.TimeUnit
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))
