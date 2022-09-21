@@ -137,6 +137,9 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   )
   .settings(stdSettings("zio-http-benchmarks"))
   .settings(publishSetting(false))
+  .settings(
+    crossScalaVersions --= List(ScalaDotty),
+  )
   .settings(libraryDependencies ++= Seq(zio))
 
 lazy val zioHttpLogging = (project in file("zio-http-logging"))
