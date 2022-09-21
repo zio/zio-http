@@ -45,7 +45,7 @@ class ApiBenchmark {
   // API DSL
   val usersPosts =
     API
-      .get(In.literal("users") / In.int / In.literal("posts") / In.int)
+      .get(In.literal("users") / In.int / "posts" / In.int)
       .in(In.query("query"))
       .out[ExampleData]
 
