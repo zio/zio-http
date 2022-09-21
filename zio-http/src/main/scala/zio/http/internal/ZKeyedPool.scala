@@ -2,6 +2,8 @@ package zio.http.internal
 
 import zio._
 
+import java.util.concurrent.ConcurrentHashMap
+
 trait ZKeyedPool[+Err, -Key, Item] {
 
   /**
@@ -93,37 +95,45 @@ object ZKeyedPool {
       environment <- ZIO.environment[Env]
       fiberId     <- ZIO.fiberId
       scope       <- ZIO.scope
-      activePools <- Ref.make(Map.empty[Key, Promise[Nothing, ZPool[Err, Item]]])
+      pools       <- ZIO.succeed(new ConcurrentHashMap[Key, Promise[Nothing, ZPool[Err, Item]]])
       getOrCreatePool = (key: Key) =>
-        activePools.modify { map =>
-          map.get(key) match {
-            case Some(promise) => promise.await -> map
-            case None          =>
-              val promise = Promise.unsafe.make[Nothing, ZPool[Err, Item]](fiberId)(Unsafe.unsafe)
-              scope
-                .extend(
-                  ZPool
-                    .make(get(key).provideEnvironment(environment), range(key), ttl(key).getOrElse(Duration.Infinity)),
-                )
-                .intoPromise(promise) *> promise.await -> (map + (key -> promise))
+        ZIO.suspendSucceed {
+          var promise = pools.get(key)
+          if (promise eq null) {
+            ZIO.uninterruptibleMask { restore =>
+              promise = Promise.unsafe.make[Nothing, ZPool[Err, Item]](fiberId)(Unsafe.unsafe)
+              val previous = pools.putIfAbsent(key, promise)
+              if (previous eq null) {
+                restore(
+                  scope
+                    .extend(
+                      ZPool
+                        .make(
+                          get(key).provideEnvironment(environment),
+                          range(key),
+                          ttl(key).getOrElse(Duration.Infinity),
+                        ),
+                    ),
+                ).exit.flatMap(promise.done) *> promise.await
+              } else {
+                restore(previous.await)
+              }
+            }
+          } else {
+            promise.await
           }
-        }.flatten
-    } yield DefaultKeyedPool(activePools, getOrCreatePool)
+        }
+    } yield DefaultKeyedPool(pools, getOrCreatePool)
 
   private final case class DefaultKeyedPool[Err, Key, Item](
-    activePools: Ref[Map[Key, Promise[Nothing, ZPool[Err, Item]]]],
+    pools: ConcurrentHashMap[Key, Promise[Nothing, ZPool[Err, Item]]],
     getOrCreatePool: Key => ZIO[Any, Nothing, ZPool[Err, Item]],
   ) extends ZKeyedPool[Err, Key, Item] {
 
     override def get(key: Key)(implicit trace: Trace): ZIO[Scope, Err, Item] =
-      for {
-        pool <- getOrCreatePool(key)
-        item <- pool.get
-      } yield item
+      getOrCreatePool(key).flatMap(_.get)
 
-    override def invalidate(item: Item)(implicit trace: Trace): UIO[Unit] =
-      activePools.get.flatMap { map =>
-        ZIO.foreachDiscard(map.values)(_.await.flatMap(_.invalidate(item)))
-      }
+    def invalidate(item: Item)(implicit trace: Trace): UIO[Unit] =
+      ZIO.foreachDiscard(Chunk.fromJavaIterable(pools.values))(_.await.flatMap(_.invalidate(item)))
   }
 }
