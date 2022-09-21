@@ -1,10 +1,8 @@
-package zio.http.service
+package zio.http
 
 import io.netty.handler.codec.DecoderException
-import io.netty.handler.ssl.SslContextBuilder
 import zio.http._
 import zio.http.model._
-import zio.http.netty.client.ClientSSLHandler._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
@@ -15,10 +13,8 @@ object SSLSpec extends ZIOSpecDefault {
   val sslConfig = SSLConfig.fromResource("server.crt", "server.key")
   val config    = ServerConfig.default.port(8073).ssl(sslConfig)
 
-  val clientSSL1 =
-    SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("server.crt")).build()
-  val clientSSL2 =
-    SslContextBuilder.forClient().trustManager(getClass().getClassLoader().getResourceAsStream("ss2.crt.pem")).build()
+  val clientSSL1 = ClientSSLConfig.FromCertResource("server.crt")
+  val clientSSL2 = ClientSSLConfig.FromCertResource("ss2.crt.pem")
 
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 
@@ -44,7 +40,7 @@ object SSLSpec extends ZIOSpecDefault {
           }.provide(
             Scope.default,
             Client.live,
-            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1))),
+            ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
           ),
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
@@ -56,14 +52,14 @@ object SSLSpec extends ZIOSpecDefault {
           }.provide(
             Scope.default,
             Client.live,
-            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL2))),
+            ClientConfig.live(ClientConfig.empty.ssl(clientSSL2)),
           ),
           test("succeed when client has default SSL") {
             val actual = Client
               .request("https://localhost:8073/success")
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
-          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.DefaultSSL))),
+          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLConfig.Default))),
           test("Https Redirect when client makes http request") {
             val actual = Client
               .request("http://localhost:8073/success")
@@ -72,7 +68,7 @@ object SSLSpec extends ZIOSpecDefault {
           }.provide(
             Scope.default,
             Client.live,
-            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1))),
+            ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
           ),
           test("Https request with a large payload should respond with 413") {
             check(payload) { payload =>
@@ -88,7 +84,7 @@ object SSLSpec extends ZIOSpecDefault {
           }.provide(
             Scope.default,
             Client.live,
-            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLOptions.CustomSSL(clientSSL1))),
+            ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
           ),
         ),
       ),

@@ -1,34 +1,21 @@
 package zio.http.service
 
 import io.netty.handler.codec.DecoderException
-import io.netty.handler.ssl.SslContextBuilder
 import zio.http.model.Status
-import zio.http.netty.client.ClientSSLHandler._
-import zio.http.{Client, ClientConfig}
+import zio.http.{Client, ClientConfig, ClientSSLConfig}
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}
 import zio.{Scope, durationInt}
 
-import java.io.InputStream
-import java.security.KeyStore
-import javax.net.ssl.TrustManagerFactory
-
 object ClientHttpsSpec extends ZIOSpecDefault {
 
-  val trustStore: KeyStore        = KeyStore.getInstance("JKS")
-  val trustStorePassword: String  = "changeit"
-  val trustStoreFile: InputStream = getClass().getClassLoader().getResourceAsStream("truststore.jks")
+  val sslConfig = ClientSSLConfig.FromTrustStoreResource(
+    trustStorePath = "truststore.jks",
+    trustStorePassword = "changeit",
+  )
 
-  val trustManagerFactory: TrustManagerFactory =
-    TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
-
-  trustStore.load(trustStoreFile, trustStorePassword.toCharArray)
-  trustManagerFactory.init(trustStore)
-
-  val sslOption: ClientSSLOptions =
-    ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
-  override def spec               = suite("Https Client request")(
+  override def spec = suite("Https Client request")(
     test("respond Ok") {
       val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
       assertZIO(actual)(anything)
@@ -53,7 +40,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
         .exit
       assertZIO(actual)(fails(isSubtype[DecoderException](anything)))
     },
-  ).provide(ClientConfig.live(ClientConfig.empty.ssl(sslOption)), Client.live, Scope.default) @@ timeout(
+  ).provide(ClientConfig.live(ClientConfig.empty.ssl(sslConfig)), Client.live, Scope.default) @@ timeout(
     30 seconds,
   ) @@ ignore
 }
