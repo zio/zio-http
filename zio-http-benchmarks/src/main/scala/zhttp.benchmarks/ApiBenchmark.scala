@@ -178,13 +178,7 @@ class ApiBenchmark {
 
   val deepPathCollectHttpApp = Http.collectZIO[Request] { //
     case Method.GET -> !! / "first" / id1 / "second" / id2 / "third" / id3 / "fourth" / id4 / "fifth" / id5 / "sixth" / id6 / "seventh" / id7 =>
-      val _ = id1.toInt
-      val _ = id2.toInt
-      val _ = id3.toInt
-      val _ = id4.toInt
-      val _ = id5.toInt
-      val _ = id6.toInt
-      val _ = id7.toInt
+      val _ = (id1.toInt, id2.toInt, id3.toInt, id4.toInt, id5.toInt, id6.toInt, id7.toInt)
       ZIO.unit
   }
 
