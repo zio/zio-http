@@ -33,6 +33,7 @@ private[zio] final case class ServerInboundHandler(
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
     def addAsyncBodyHandler(async: Body.UnsafeAsync): Unit = {
+      println(s">>>>>>>>>>>>>>>>>> Adding async body handler.")
       if (contentIsRead) throw new RuntimeException("Content is already read")
       ctx
         .channel()
@@ -187,6 +188,7 @@ private[zio] final case class ServerInboundHandler(
     log.debug(s"Message: [${msg.getClass.getName}]")
     msg match {
       case jReq: FullHttpRequest =>
+        println(">>>>>>>>>>> [BEGIN] Handling FullHttpRequest")
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = makeZioRequest(jReq)
         val exit = appRef.get.execute(req)
@@ -197,8 +199,10 @@ private[zio] final case class ServerInboundHandler(
           runtime.run(ctx) {
             attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed { releaseRequest(jReq) }
           }
+        println(">>>>>>>>>>> [END] Handling FullHttpRequest")
 
       case jReq: HttpRequest =>
+        println(">>>>>>>>>>> [BEGIN] Handling HttpRequest")
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = makeZioRequest(jReq)
         val exit = appRef.get.execute(req)
@@ -209,6 +213,7 @@ private[zio] final case class ServerInboundHandler(
             attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed(setAutoRead(true))
           }
         }
+        println(">>>>>>>>>>> [END] Handling HttpRequest")
 
       case msg: HttpContent =>
         ctx.fireChannelRead(msg): Unit
