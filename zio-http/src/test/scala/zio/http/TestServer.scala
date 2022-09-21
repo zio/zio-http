@@ -1,15 +1,79 @@
 package zio.http
 
+import io.netty.handler.ssl.SslContextBuilder
 import zio._
 import zio.http.Server.ErrorCallback
 import zio.http.middleware.HttpMiddleware
+import zio.http.model.{Headers, Scheme}
+import zio.http.netty.EventLoopGroups
+import zio.http.netty.client.ClientSSLHandler
+import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
+import zio.http.service.ClientHttpsSpec.trustManagerFactory
 import zio.internal.stacktracer.Tracer
+
+trait TestClient extends http.Client {
+  def feedResponses(responses: Response*): UIO[Unit]
+}
+object TestClient {
+  class Test(
+              live: http.Client,
+              responsesR: Ref[List[(Request, Response)]]
+            ) extends TestClient {
+    def feedResponses(responses: Response*): UIO[Unit] =
+      ???
+
+    //      this.responsesR.update(_ ++ responses)
+    def send(request: Request): ZIO[Clock, Throwable, Response] = {
+      for {
+        response <- live.request(request)
+        _ <- responsesR.update(x => x :+ (request, response))
+
+      } yield response
+      //      responses.flatMap(_.take)
+    }
+
+    override def headers: Headers = live.headers
+
+    override def hostOption: Option[String] = live.hostOption
+
+    override def pathPrefix: Path = live.pathPrefix
+
+    override def portOption: Option[RuntimeFlags] = live.portOption
+
+    override def queries: QueryParams = live.queries
+
+    override def schemeOption: Option[Scheme] = live.schemeOption
+
+    override def sslOption: Option[ClientSSLHandler.ClientSSLOptions] = live.sslOption
+
+//    override protected def requestInternal(body: Body, headers: Headers, hostOption: Option[String], method: Method, pathPrefix: Path, portOption: Option[RuntimeFlags], queries: QueryParams, sslOption: Option[ClientSSLHandler.ClientSSLOptions], version: Version)(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+//      live.requestInternal(body, headers, hostOption, method, pathPrefix, portOption, queries, sslOption, version)
+
+//    override protected def socketInternal[Env1 <: Any](app: SocketApp[Env1], headers: Headers, hostOption: Option[String], pathPrefix: Path, portOption: Option[RuntimeFlags], queries: QueryParams, schemeOption: Option[Scheme], version: Version)(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] =
+//      live.socketInternal(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
+  }
+
+  def make: ULayer[TestClient] = {
+
+    val sslOption: ClientSSLOptions = // TODO Need this?
+      ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
+    val configLayer: ZLayer[Any, Nothing, EventLoopGroups.Config] = ZLayer.succeed(ClientConfig.empty.ssl(sslOption))
+    for {
+      responses <- ZLayer.fromZIO(Ref.make(List.empty[(Request, Response)]))
+      live <- Scope.default >+> configLayer >>> Client.default.orDie
+      //      live = Server.ServerLiveHardcoded
+    } yield ZEnvironment(new Test(live.get, responses.get))
+  }
+}
 
 // TODO Add Trace to all signatures when closer to completion
 trait TestServer extends Server {
   def responses: ZIO[Any, Nothing, List[Response]]
   def requests: ZIO[Any, Nothing, List[Request]]
   def feedRequests(responses: Request*): ZIO[Any, Nothing, Unit]
+
+  // TODO What all do we want here?
+  def feedResponses(responses: Request*): ZIO[Any, Nothing, Unit] = ???
 }
 
 
@@ -29,8 +93,8 @@ object TestServer {
     override def requests: ZIO[Any, Nothing, List[Request]] =
       requestsR.get
 
-    override def feedRequests(responses: Request*): ZIO[Any, Nothing, Unit] =
-      requestsR.update(_ ++ responses)
+    override def feedRequests(requests: Request*): ZIO[Any, Nothing, Unit] =
+      requestsR.update(_ ++ requests)
 
     val trackingMiddleware: HttpMiddleware[Any, Nothing] = {
       new Middleware[Any, Nothing, Request, Response, Request, Response] {

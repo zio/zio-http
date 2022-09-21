@@ -49,9 +49,10 @@ object EventLoopGroups {
   //     kqueue(nThreads)
   //   else nio(nThreads)
 
+  // TODO Should this be a layer?
   def default: ZIO[Scope, Nothing, EventLoopGroup] = make(ZIO.succeed(new DefaultEventLoopGroup()))
 
-  val fromConfig = ZLayer.fromZIO {
+  val fromConfig: ZLayer[Scope with Config, Nothing, EventLoopGroup] = ZLayer.fromZIO {
     ZIO.service[Config].flatMap { config =>
       config.channelType match {
         case ChannelType.NIO    => nio(config.nThreads)

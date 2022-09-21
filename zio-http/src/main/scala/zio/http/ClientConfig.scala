@@ -1,6 +1,8 @@
 package zio.http
 
-import zio.ZLayer
+import io.netty.channel
+import io.netty.channel.{ChannelFactory, EventLoopGroup}
+import zio.{Scope, ZLayer}
 import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.netty.{ChannelFactories, EventLoopGroups, _}
 import zio.http.socket.SocketApp
@@ -30,11 +32,11 @@ case class ClientConfig(
 object ClientConfig {
   def empty: ClientConfig = ClientConfig()
 
-  def default = ZLayer.succeed(
+  def default: ZLayer[Any with Scope, Nothing, ClientConfig with EventLoopGroup with ChannelFactory[channel.Channel] with NettyRuntime] = ZLayer.succeed(
     empty,
   ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
 
-  def live(clientConfig: ClientConfig) =
+  def live(clientConfig: ClientConfig): ZLayer[Any with EventLoopGroups.Config with Scope, Nothing, ClientConfig with EventLoopGroup with ChannelFactory[channel.Channel] with NettyRuntime] =
     ZLayer.succeed(
       clientConfig,
     ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
