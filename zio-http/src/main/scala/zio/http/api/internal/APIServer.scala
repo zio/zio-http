@@ -3,6 +3,7 @@ package zio.http.api.internal
 import zio._
 import zio.http._
 import zio.http.api._
+import zio.http.api.internal.Mechanic.Constructor
 import zio.http.model.Headers
 import zio.schema._
 import zio.schema.codec._
@@ -17,8 +18,9 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
     JsonCodec.decode(optionSchema.getOrElse(Schema[Unit].asInstanceOf[Schema[Any]]))
   private val outputJsonEncoder: Any => Chunk[Byte]               =
     JsonCodec.encode(api.output.bodySchema.asInstanceOf[Schema[Any]])
-  private val constructor = Mechanic.makeConstructor(api.input).asInstanceOf[Mechanic.Constructor[I]]
-  private val flattened   = Mechanic.flatten(api.input)
+
+  private val constructor: Constructor[I]        = Mechanic.makeConstructor(api.input)
+  private val flattened: Mechanic.FlattenedAtoms = Mechanic.flatten(api.input)
 
   def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
     val inputsBuilder = flattened.makeInputsBuilder()

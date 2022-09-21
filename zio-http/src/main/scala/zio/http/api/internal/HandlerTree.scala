@@ -84,7 +84,7 @@ object HandlerTree {
             case None          =>
               None
           }
-        else {
+        else
           constants.get(segments(index)) match {
             case Some(handler) =>
               lookup(segments, index + 1, handler, results :+ ())
@@ -99,7 +99,6 @@ object HandlerTree {
                 }
               }.flatten
           }
-        }
     }
   }
 }

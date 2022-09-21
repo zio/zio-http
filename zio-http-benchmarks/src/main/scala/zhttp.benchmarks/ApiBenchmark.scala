@@ -42,8 +42,11 @@ import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 // [info] ApiBenchmark.benchmarkDeepPathZioApi      thrpt    2  568.990          ops/s
 // [info] ApiBenchmark.benchmarkDeepPathZioCollect  thrpt    2  900.059          ops/s
 //
-// - Pre-compute the OptimizedAPIHandler (APIServer)
-// - Push handle method into lookup
+// POSSIBLE MICRO-OPTIMIZATIONS (X means it didn't make much of a difference)
+// X Pre-compute the OptimizedAPIHandler (APIServer)
+// X  Push handle method into lookup
+// - Use array instead of appending to Chunk in HandleTree for result builder
+// - Use `FromFunctionHExit` instead of Http.collectZIO
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))
