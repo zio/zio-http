@@ -87,7 +87,7 @@ object HandlerTree {
         else
           constants.get(segments(index)) match {
             case Some(handler) =>
-              lookup(segments, index + 1, handler, results :+ ())
+              lookup(segments, index + 1, handler, results.appended(()))
             case None          =>
               parsers.collectFirst { case (codec, handler) =>
                 codec.decode(segments(index)) match {
