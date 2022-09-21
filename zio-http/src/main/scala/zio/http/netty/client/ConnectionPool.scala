@@ -11,13 +11,12 @@ import io.netty.handler.codec.http.HttpClientCodec
 import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.URL.Location
-import zio.http.internal.ZKeyedPool
 import zio.http.netty.NettyFutureExecutor
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
 import zio.http.{ClientConfig, ClientSSLConfig, ConnectionPoolConfig, Proxy, URL}
 import zio.logging.LogLevel
-import zio.{Duration, Scope, ZIO, ZLayer}
+import zio.{Duration, Scope, ZIO, ZKeyedPool, ZLayer}
 
 import java.net.InetSocketAddress
 
