@@ -27,6 +27,7 @@ private[zio] final case class ServerInboundHandler(
   import ServerInboundHandler.log
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
+  private val isReadKey               = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
   @inline
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
