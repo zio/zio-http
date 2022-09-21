@@ -229,9 +229,8 @@ class ApiBenchmark {
   val deepPathAkkaRoute =
     path(
       "first" / IntNumber / "second" / IntNumber / "third" / IntNumber / "fourth" / IntNumber / "fifth" / IntNumber / "sixth" / IntNumber / "seventh" / IntNumber,
-    ) { (id1, id2, id3, id4, id5, id6, id7) =>
+    ) { (_, _, _, _, _, _, _) =>
       get {
-        // ok
         complete(HttpResponse())
       }
     }
