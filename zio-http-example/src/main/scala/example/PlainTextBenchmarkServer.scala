@@ -11,7 +11,7 @@ import zio.http._
 object Main extends ZIOAppDefault {
 
   private val plainTextMessage: String = "Hello, World!"
-  private val jsonMessage: String      = """{"greetings": "Hello World!"}"""
+  private val jsonMessage: String      = """{"message": "Hello World!"}"""
 
   private val plaintextPath = "/plaintext"
   private val jsonPath      = "/json"
@@ -31,14 +31,10 @@ object Main extends ZIOAppDefault {
     .freeze
 
   private def plainTextApp(response: Response) =
-    Unsafe.unsafe { implicit u =>
-      Http.fromHExit(HExit.succeed(response)).whenPathEq(plaintextPath)
-    }
+    Http.fromHExit(HExit.succeed(response)).whenPathEq(plaintextPath)
 
   private def jsonApp(json: Response) =
-    Unsafe.unsafe { implicit u =>
-      Http.fromHExit(HExit.succeed(json)).whenPathEq(jsonPath)
-    }
+    Http.fromHExit(HExit.succeed(json)).whenPathEq(jsonPath)
 
   private def app = for {
     plainTextResponse <- frozenPlainTextResponse
