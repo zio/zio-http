@@ -10,8 +10,8 @@ import zio.http._
  */
 object Main extends ZIOAppDefault {
 
-  private val plainTextMessage: String = "Hello, World!"
-  private val jsonMessage: String      = """{"message": "Hello World!"}"""
+  private val plainTextMessage: String = "hello, world!"
+  private val jsonMessage: String      = """{"message": "hello, world!"}"""
 
   private val plaintextPath = "/plaintext"
   private val jsonPath      = "/json"
