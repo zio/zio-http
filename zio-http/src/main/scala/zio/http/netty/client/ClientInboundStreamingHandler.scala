@@ -68,7 +68,7 @@ final class ClientInboundStreamingHandler(
   }
 
   private def writeRequest(msg: Request, ctx: ChannelHandlerContext): Unit = {
-    ctx.write(encodeRequest(msg))
+    ctx.writeAndFlush(encodeRequest(msg))
     rtm.run(ctx)(msg.body.write(ctx).unit)(Unsafe.unsafe, trace)
   }
 
