@@ -14,6 +14,7 @@ import io.netty.util.AttributeKey
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import scala.annotation.tailrec
 import ServerInboundHandler.isReadKey
+import java.io.IOException
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -232,10 +233,15 @@ private[zio] final case class ServerInboundHandler(
     errCallbackRef
       .get()
       .fold {
-        println(s"""|>>>>>>>>>>> Netty Error occurred: ${cause} <<<<<<<<<<<<<
-                    | Channel Active? ${ctx.channel().isActive()}
-                    |========================================================
-        """.stripMargin)
+        cause match {
+          case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
+            log.info("Connection reset by peer")
+          case t => super.exceptionCaught(ctx, t)
+        }
+        // println(s"""|>>>>>>>>>>> Netty Error occurred: ${cause} <<<<<<<<<<<<<
+        //             | Channel Active? ${ctx.channel().isActive()}
+        //             |========================================================
+        // """.stripMargin)
         // cause.printStackTrace()
 
       }(f => runtime.run(ctx)(f(cause)))

@@ -669,12 +669,12 @@ object Http {
      * Applies Http based on the path
      */
     def whenPathEq(p: Path): HttpApp[R, E] =
-      http.whenPathEq(p.encode)(Unsafe.unsafe)
+      http.whenPathEq(p.encode)
 
     /**
      * Applies Http based on the path as string
      */
-    def whenPathEq(p: String)(implicit unsafe: Unsafe): HttpApp[R, E] = {
+    def whenPathEq(p: String): HttpApp[R, E] = {
       http.when { a =>
         a.url.path.encode.contentEquals(p)
       }
