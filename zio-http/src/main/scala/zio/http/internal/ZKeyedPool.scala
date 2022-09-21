@@ -93,7 +93,7 @@ object ZKeyedPool {
       environment <- ZIO.environment[Env]
       fiberId     <- ZIO.fiberId
       scope       <- ZIO.scope
-      activePools <- Ref.Synchronized.make(Map.empty[Key, Promise[Nothing, ZPool[Err, Item]]])
+      activePools <- Ref.make(Map.empty[Key, Promise[Nothing, ZPool[Err, Item]]])
       getOrCreatePool = (key: Key) =>
         activePools.modify { map =>
           map.get(key) match {
