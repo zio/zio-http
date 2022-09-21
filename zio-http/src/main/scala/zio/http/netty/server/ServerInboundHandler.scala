@@ -27,7 +27,6 @@ private[zio] final case class ServerInboundHandler(
   import ServerInboundHandler.log
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
-  private val isReadKey               = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
   @inline
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
@@ -199,7 +198,6 @@ private[zio] final case class ServerInboundHandler(
           }
 
       case jReq: HttpRequest =>
-        println(">>>>>>>>>>> [BEGIN] Handling HttpRequest")
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = makeZioRequest(jReq)
         val exit = appRef.get.execute(req)
@@ -210,7 +208,6 @@ private[zio] final case class ServerInboundHandler(
             attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed(setAutoRead(true))
           }
         }
-        println(">>>>>>>>>>> [END] Handling HttpRequest")
 
       case msg: HttpContent =>
         ctx.fireChannelRead(msg): Unit
