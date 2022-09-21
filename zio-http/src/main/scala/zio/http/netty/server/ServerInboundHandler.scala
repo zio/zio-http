@@ -40,7 +40,7 @@ private[zio] final case class ServerInboundHandler(
       setContentReadAttr(flag = true)
     }
 
-    /**
+    /*
      * Enables auto-read if possible. Also performs the first read.
      */
     // def attemptAutoRead[R, E](config: ServerConfig): Unit = {
@@ -165,7 +165,7 @@ private[zio] final case class ServerInboundHandler(
         jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet()): Unit
     }
 
-    /**
+    /*
      * Checks if the response requires to switch protocol to websocket. Returns
      * true if it can, otherwise returns false
      */
@@ -232,8 +232,11 @@ private[zio] final case class ServerInboundHandler(
     errCallbackRef
       .get()
       .fold {
-        println(s">>>>>>>>>>> Netty Error occurred: ${cause} <<<<<<<<<<<<<")
-        cause.printStackTrace()
+        println(s"""|>>>>>>>>>>> Netty Error occurred: ${cause} <<<<<<<<<<<<<
+                    | Channel Active? ${ctx.channel().isActive()}
+                    |========================================================
+        """.stripMargin)
+        // cause.printStackTrace()
 
       }(f => runtime.run(ctx)(f(cause)))
   }
