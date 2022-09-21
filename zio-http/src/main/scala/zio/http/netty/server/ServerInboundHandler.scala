@@ -32,6 +32,7 @@ private[zio] final case class ServerInboundHandler(
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
     def addAsyncBodyHandler(async: Body.UnsafeAsync): Unit = {
+      println(s">>>>>>>>>>>>>>>>>> Adding async body handler.")
       if (contentIsRead) throw new RuntimeException("Content is already read")
       ctx
         .channel()
@@ -152,7 +153,7 @@ private[zio] final case class ServerInboundHandler(
     }
 
     def setAutoRead(cond: Boolean): Unit = {
-      //   log.debug(s"Setting channel auto-read to: [${cond}]")
+      log.debug(s"Setting channel auto-read to: [${cond}]")
       ctx.channel().config().setAutoRead(cond): Unit
     }
 
@@ -174,8 +175,8 @@ private[zio] final case class ServerInboundHandler(
       val app = res.attribute.socketApp
       jReq match {
         case jReq: FullHttpRequest =>
-          // log.debug(s"Upgrading to WebSocket: [${jReq.uri()}]")
-          // log.debug(s"SocketApp: [${app.orNull}]")
+          log.debug(s"Upgrading to WebSocket: [${jReq.uri()}]")
+          log.debug(s"SocketApp: [${app.orNull}]")
           ctx
             .channel()
             .pipeline()
@@ -195,6 +196,7 @@ private[zio] final case class ServerInboundHandler(
     log.debug(s"Message: [${msg.getClass.getName}]")
     msg match {
       case jReq: FullHttpRequest =>
+        println(">>>>>>>>>>> [BEGIN] Handling FullHttpRequest")
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = makeZioRequest(jReq)
         val exit = appRef.get.execute(req)
@@ -205,8 +207,10 @@ private[zio] final case class ServerInboundHandler(
           runtime.run(ctx) {
             attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed { releaseRequest(jReq) }
           }
+        println(">>>>>>>>>>> [END] Handling FullHttpRequest")
 
       case jReq: HttpRequest =>
+        println(">>>>>>>>>>> [BEGIN] Handling HttpRequest")
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = makeZioRequest(jReq)
         val exit = appRef.get.execute(req)
@@ -217,8 +221,12 @@ private[zio] final case class ServerInboundHandler(
             attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed(setAutoRead(true))
           }
         }
+        println(">>>>>>>>>>> [END] Handling HttpRequest")
 
-      case msg: HttpContent => ctx.fireChannelRead(msg): Unit
+      case msg: HttpContent =>
+        println(">>>>>>>>>>> [BEGIN] Handling HttpContent")
+        ctx.fireChannelRead(msg): Unit
+        println(">>>>>>>>>>> [END] Handling HttpContent")
 
       case _ =>
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
