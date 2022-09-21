@@ -58,6 +58,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         pathPrefix: Path,
         portOption: Option[Int],
         queries: QueryParams,
+        schemeOption: Option[Scheme],
         sslOption: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env1, Err1, Out] =
@@ -70,6 +71,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             pathPrefix,
             portOption,
             queries,
+            schemeOption,
             sslOption,
             version,
           )
@@ -130,6 +132,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         pathPrefix: Path,
         portOption: Option[Int],
         queries: QueryParams,
+        schemeOption: Option[Scheme],
         sslOption: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env1, Err1, Out2] =
@@ -142,6 +145,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             pathPrefix,
             portOption,
             queries,
+            schemeOption,
             sslOption,
             version,
           )
@@ -201,6 +205,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         pathPrefix: Path,
         portOption: Option[Int],
         queries: QueryParams,
+        schemeOption: Option[Scheme],
         sslOption: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env, Err2, Out] =
@@ -213,6 +218,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             pathPrefix,
             portOption,
             queries,
+            schemeOption,
             sslOption,
             version,
           )
@@ -250,6 +256,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       pathPrefix / pathSuffix,
       portOption,
       queries,
+      schemeOption,
       sslOption,
       Version.Http_1_1,
     )
@@ -263,6 +270,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       pathPrefix ++ request.path,
       request.url.port,
       queries ++ request.url.queryParams,
+      request.url.scheme,
       sslOption,
       request.version,
     )
@@ -285,6 +293,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         pathPrefix: Path,
         portOption: Option[Int],
         queries: QueryParams,
+        schemeOption: Option[Scheme],
         sslOption: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env1, Err, Out] =
@@ -297,6 +306,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             pathPrefix,
             portOption,
             queries,
+            schemeOption,
             sslOption,
             version,
           )
@@ -388,6 +398,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     pathPrefix: Path,
     portOption: Option[Int],
     queries: QueryParams,
+    schemeOption: Option[Scheme],
     sslOption: Option[ClientSSLConfig],
     version: Version,
   )(implicit trace: Trace): ZIO[Env, Err, Out]
@@ -445,10 +456,22 @@ object ZClient {
       path: Path,
       portOption: Option[Int],
       queries: QueryParams,
+      schemeOption: Option[Scheme],
       sslOption: Option[ClientSSLConfig],
       version: Version,
     )(implicit trace: Trace): ZIO[Env, Err, Out] =
-      client.requestInternal(body, headers, hostOption, method, path, portOption, queries, sslOption, version)
+      client.requestInternal(
+        body,
+        headers,
+        hostOption,
+        method,
+        path,
+        portOption,
+        queries,
+        schemeOption,
+        sslOption,
+        version,
+      )
 
     protected def socketInternal[Env1 <: Env](
       app: SocketApp[Env1],
@@ -487,6 +510,7 @@ object ZClient {
       path: Path,
       portOption: Option[Int],
       queries: QueryParams,
+      schemeOption: Option[Scheme],
       sslOption: Option[ClientSSLConfig],
       version: Version,
     )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
@@ -498,7 +522,8 @@ object ZClient {
           Request(
             version = version,
             method = method,
-            url = URL(path, URL.Location.Absolute(Scheme.HTTP, host, port)).setQueryParams(queries),
+            url =
+              URL(path, URL.Location.Absolute(schemeOption.getOrElse(Scheme.HTTP), host, port)).setQueryParams(queries),
             headers = headers,
             body = body,
           ),
