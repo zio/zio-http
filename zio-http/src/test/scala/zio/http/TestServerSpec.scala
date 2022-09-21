@@ -32,6 +32,6 @@ object TestServerSpec extends ZIOSpec[TestServer]{
       finalRequests <- TestServer.requests.debug
 
     } yield assertTrue(originalRequests.length == 0) && assertTrue(finalRequests.length == 2)
-  }.provideSome[Scope with TestServer](Client.default)
+  }.provideSome[Scope with TestServer](ZLayer.succeed(ClientConfig()) >>> Client.default)
 
 }

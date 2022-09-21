@@ -4,21 +4,41 @@ import io.netty.handler.ssl.SslContextBuilder
 import zio._
 import zio.http.Server.ErrorCallback
 import zio.http.middleware.HttpMiddleware
-import zio.http.model.{Headers, Scheme}
+import zio.http.model.{Headers, Method, Scheme, Version}
 import zio.http.netty.EventLoopGroups
 import zio.http.netty.client.ClientSSLHandler
 import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
 import zio.http.service.ClientHttpsSpec.trustManagerFactory
+import zio.http.socket.SocketApp
 import zio.internal.stacktracer.Tracer
 
 trait TestClient extends http.Client {
   def feedResponses(responses: Response*): UIO[Unit]
+  def interactions(): UIO[List[(Request, Response)]]
+//  def request(
+//               request: Request,
+//             )(implicit trace: Trace): ZIO[Client, Throwable, Response]
 }
 object TestClient {
+  def interactions(): ZIO[TestClient, Nothing, List[(Request, Response)]] = ZIO.serviceWithZIO[TestClient](_.interactions())
   class Test(
               live: http.Client,
               responsesR: Ref[List[(Request, Response)]]
             ) extends TestClient {
+
+//    def request(
+//                 request: Request,
+//               )(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+//
+//      for {
+//        response <- live.request(request)
+//        _ <- responsesR.update(x => x :+ (request, response))
+//
+//      } yield response
+
+    def interactions(): UIO[List[(Request, Response)]] =
+      responsesR.get
+
     def feedResponses(responses: Response*): UIO[Unit] =
       ???
 
@@ -46,13 +66,28 @@ object TestClient {
 
     override def sslOption: Option[ClientSSLHandler.ClientSSLOptions] = live.sslOption
 
-//    override protected def requestInternal(body: Body, headers: Headers, hostOption: Option[String], method: Method, pathPrefix: Path, portOption: Option[RuntimeFlags], queries: QueryParams, sslOption: Option[ClientSSLHandler.ClientSSLOptions], version: Version)(implicit trace: Trace): ZIO[Any, Throwable, Response] =
-//      live.requestInternal(body, headers, hostOption, method, pathPrefix, portOption, queries, sslOption, version)
+    override def requestInternal(body: Body, headers: Headers, hostOption: Option[String], method: Method, pathPrefix: Path, portOption: Option[RuntimeFlags], queries: QueryParams, sslOption: Option[ClientSSLHandler.ClientSSLOptions], version: Version)(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
 
-//    override protected def socketInternal[Env1 <: Any](app: SocketApp[Env1], headers: Headers, hostOption: Option[String], pathPrefix: Path, portOption: Option[RuntimeFlags], queries: QueryParams, schemeOption: Option[Scheme], version: Version)(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] =
-//      live.socketInternal(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
+        for {
+          _ <- ZIO.debug("Eh?")
+          response <- live.requestInternal(body, headers, hostOption, method, pathPrefix, portOption, queries, sslOption, version).either
+          _ <- ZIO.debug("Any?")
+          rez <- response match {
+            case Left(value) =>
+              responsesR.update(interactions => (Request(), Response()) :: interactions) *>
+              ZIO.fail(value)
+            case Right(value) =>
+              responsesR.update(interactions => (Request(), value) :: interactions) *>
+              ZIO.succeed(value)
+          }
+//          _ <- responsesR.update(interactions => (Request(), response) :: interactions)
+        } yield rez
+    }
+
+    override def socketInternal[Env1 <: Any](app: SocketApp[Env1], headers: Headers, hostOption: Option[String], pathPrefix: Path, portOption: Option[RuntimeFlags], queries: QueryParams, schemeOption: Option[Scheme], version: Version)(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] =
+      live.socketInternal(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
+
   }
-
   def make: ULayer[TestClient] = {
 
     val sslOption: ClientSSLOptions = // TODO Need this?

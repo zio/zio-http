@@ -146,7 +146,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             version,
           )
           .flatMap(f)
-      protected def socketInternal[Env2 <: Env1](
+      def socketInternal[Env2 <: Env1](
         app: SocketApp[Env2],
         headers: Headers,
         hostOption: Option[String],
@@ -217,7 +217,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             version,
           )
           .refineOrDie(pf)
-      protected def socketInternal[Env1 <: Env](
+      def socketInternal[Env1 <: Env](
         app: SocketApp[Env1],
         headers: Headers,
         hostOption: Option[String],
@@ -380,7 +380,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       queries = queries ++ url.queryParams,
     )
 
-  protected def requestInternal(
+  // TODO Appropriate workaround visibility
+  def requestInternal(
     body: In,
     headers: Headers,
     hostOption: Option[String],
@@ -392,7 +393,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     version: Version,
   )(implicit trace: Trace): ZIO[Env, Err, Out]
 
-  protected def socketInternal[Env1 <: Env](
+  // TODO Appropriate workaround visibility
+  def socketInternal[Env1 <: Env](
     app: SocketApp[Env1],
     headers: Headers,
     hostOption: Option[String],
@@ -450,7 +452,7 @@ object ZClient {
     )(implicit trace: Trace): ZIO[Env, Err, Out] =
       client.requestInternal(body, headers, hostOption, method, path, portOption, queries, sslOption, version)
 
-    protected def socketInternal[Env1 <: Env](
+    def socketInternal[Env1 <: Env](
       app: SocketApp[Env1],
       headers: Headers,
       hostOption: Option[String],
@@ -507,7 +509,7 @@ object ZClient {
       } yield response
     }
 
-    protected override def socketInternal[R](
+    override def socketInternal[R](
       app: SocketApp[R],
       headers: Headers,
       hostOption: Option[String],
