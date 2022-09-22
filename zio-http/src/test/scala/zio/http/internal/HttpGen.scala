@@ -236,6 +236,6 @@ object HttpGen {
   } yield value
 
   def acceptEncoding: Gen[Any, Encoding] = {
-    Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(Encoding.MultipleEncodings)
+    Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(Encoding.MultipleEncodings.apply)
   }
 }
