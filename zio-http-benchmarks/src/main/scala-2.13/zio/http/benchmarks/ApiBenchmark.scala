@@ -1,19 +1,17 @@
-package zio.benchmarks
+package zio.http.benchmarks
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.http.scaladsl.server.Route
-import io.circe.generic.auto._
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import org.http4s.{HttpRoutes, Request => Request4s}
 import org.openjdk.jmh.annotations._
-import sttp.tapir._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.akkahttp.AkkaHttpServerInterpreter
 import sttp.tapir.server.http4s.Http4sServerInterpreter
-import sttp.tapir.{path => tpath}
+import sttp.tapir.{path => tpath, _}
 import zio.http._
 import zio.http.api._
 import zio.http.model.Method
@@ -235,17 +233,19 @@ class ApiBenchmark {
     }
 
   @Benchmark
-  def benchmarkDeepPathZioCollect(): Unit  =
+  def benchmarkDeepPathZioCollect(): Unit =
     unsafeRun {
       deepPathCollectHttpApp(deepPathRequest).repeatN(REPEAT_N)
     }
+
   @Benchmark
-  def benchmarkDeepPathTapirAkka(): Unit   = {
+  def benchmarkDeepPathTapirAkka(): Unit = {
     val _ = Await.result(
       repeatNFuture(REPEAT_N)(deepPathTapirAkkaFunction(deepPathRequestAkka)),
       scala.concurrent.duration.Duration.Inf,
     )
   }
+
   @Benchmark
   def benchmarkDeepPathTapirHttp4s(): Unit =
     unsafeRun {
