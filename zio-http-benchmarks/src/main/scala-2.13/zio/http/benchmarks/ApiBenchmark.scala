@@ -3,24 +3,20 @@ package zio.http.benchmarks
 //import akka.actor.ActorSystem
 //import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 //import akka.http.scaladsl.server.Route
+import cats.effect.unsafe.implicits.global
+import cats.effect.{IO => CIO}
+import cats.implicits.toTraverseOps
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import org.http4s.{HttpRoutes, Request => Request4s}
 import org.openjdk.jmh.annotations._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
-import cats.effect.{IO => CIO}
-import cats.effect.unsafe.implicits.global
-import cats.implicits.toTraverseOps
-//import scala.concurrent.ExecutionContext
-//import scala.concurrent.ExecutionContext.Implicits.global
-//import sttp.tapir.server.akkahttp.AkkaHttpServerInterpreter
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.{path => tpath, _}
 import zio.http._
 import zio.http.api._
 import zio.http.model.Method
-//import zio.interop.catz._
 import zio.json.{DeriveJsonCodec, EncoderOps, JsonCodec}
 import zio.schema.{DeriveSchema, Schema}
 import zio.{Scope => _, _}
