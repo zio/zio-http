@@ -61,7 +61,7 @@ jobs:
 
       - name: Check formatting
         if: matrix.scala == '2.13.9'
-        run: sbt ++2.13.8 fmtCheck
+        run: sbt ++2.13.9 fmtCheck
 
       - name: Check that workflows are up to date
         run: sbt ++${{ matrix.scala }} githubWorkflowCheck
@@ -71,7 +71,7 @@ jobs:
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
-        run: sbt ++2.13.8 doc
+        run: sbt ++2.13.9 doc
 
       - name: Compress target directories
         run: tar cf targets.tar target zio-http/target zio-http-logging/target zio-http-benchmarks/target zio-http-example/target project/target
@@ -134,12 +134,12 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (2.13.8)
+      - name: Download target directories (2.13.9)
         uses: actions/download-artifact@v2
         with:
-          name: target-${{ matrix.os }}-2.13.8-${{ matrix.java }}
+          name: target-${{ matrix.os }}-2.13.9-${{ matrix.java }}
 
-      - name: Inflate target directories (2.13.8)
+      - name: Inflate target directories (2.13.9)
         run: |
           tar xf targets.tar
           rm targets.tar
