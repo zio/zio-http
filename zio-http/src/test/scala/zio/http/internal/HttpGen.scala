@@ -6,6 +6,7 @@ import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
 import zio.http.model._
+import zio.http.model.headers.Structured.Encoding
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
@@ -218,4 +219,23 @@ object HttpGen {
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))
 
+  def acceptEncodingSingleValue(weight: Option[Double]): Gen[Any, Encoding] = Gen.fromIterable(
+    List(
+      Encoding.GZipEncoding(weight),
+      Encoding.DeflateEncoding(weight),
+      Encoding.BrEncoding(weight),
+      Encoding.IdentityEncoding(weight),
+      Encoding.CompressEncoding(weight),
+      Encoding.NoPreferenceEncoding(weight),
+    ),
+  )
+
+  def acceptEncodingSingleValueWithWeight: Gen[Any, Encoding] = for {
+    weight <- Gen.option(Gen.double(0.1, 1.0))
+    value  <- acceptEncodingSingleValue(weight)
+  } yield value
+
+  def acceptEncoding: Gen[Any, Encoding] = {
+    Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(Encoding.MultipleEncodings)
+  }
 }

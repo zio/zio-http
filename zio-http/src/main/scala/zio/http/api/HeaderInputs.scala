@@ -1,19 +1,19 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-
+import zio.http.model.headers.Structured.Encoding
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait HeaderInputs {
   def header[A](name: String, value: TextCodec[A]): In[A] =
     In.Header(name, value)
 
-  final val accept: In[String]                        = header(HeaderNames.accept.toString(), TextCodec.string)
-  final val acceptCharset: In[String]                 = header(HeaderNames.acceptCharset.toString(), TextCodec.string)
-  final val acceptEncoding: In[String]                = header(HeaderNames.acceptEncoding.toString(), TextCodec.string)
-  final val acceptLanguage: In[String]                = header(HeaderNames.acceptLanguage.toString(), TextCodec.string)
-  final val acceptRanges: In[String]                  = header(HeaderNames.acceptRanges.toString(), TextCodec.string)
-  final val acceptPatch: In[String]                   = header(HeaderNames.acceptPatch.toString(), TextCodec.string)
+  final val accept: In[String]           = header(HeaderNames.accept.toString(), TextCodec.string)
+  final val acceptCharset: In[String]    = header(HeaderNames.acceptCharset.toString(), TextCodec.string)
+  final val acceptEncoding: In[Encoding] = header(HeaderNames.acceptEncoding.toString(), TextCodec.encoding)
+  final val acceptLanguage: In[String]   = header(HeaderNames.acceptLanguage.toString(), TextCodec.string)
+  final val acceptRanges: In[String]     = header(HeaderNames.acceptRanges.toString(), TextCodec.string)
+  final val acceptPatch: In[String]      = header(HeaderNames.acceptPatch.toString(), TextCodec.string)
   final val accessControlAllowCredentials: In[String] =
     header(HeaderNames.accessControlAllowCredentials.toString(), TextCodec.string)
   final val accessControlAllowHeaders: In[String]     =
