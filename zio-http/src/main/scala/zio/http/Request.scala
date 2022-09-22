@@ -29,7 +29,6 @@ final case class Request(
 
   def updatePath(path: Path): Request = self.copy(url = self.url.copy(path = path))
 
-
   /**
    * Updates the headers using the provided function
    */

@@ -647,7 +647,7 @@ object Http {
     /**
      * Overwrites the path in the incoming request
      */
-    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.updatePath( path))
+    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.updatePath(path))
 
     /**
      * Sets the status in the response produced by the app
