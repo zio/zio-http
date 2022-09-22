@@ -1,7 +1,7 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.HeaderValue.Encoding
+import zio.http.model.headers.values.AcceptEncoding
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait HeaderInputs {
@@ -10,8 +10,8 @@ private[api] trait HeaderInputs {
 
   final val accept: In[String]                        = header(HeaderNames.accept.toString(), TextCodec.string)
   final val acceptCharset: In[String]                 = header(HeaderNames.acceptCharset.toString(), TextCodec.string)
-  final val acceptEncoding: In[Encoding]              = header(HeaderNames.acceptEncoding.toString(), TextCodec.string)
-    .transform[Encoding](Encoding.toEncoding, Encoding.fromEncoding)
+  final val acceptEncoding: In[AcceptEncoding]        = header(HeaderNames.acceptEncoding.toString(), TextCodec.string)
+    .transform[AcceptEncoding](AcceptEncoding.toEncoding, AcceptEncoding.fromEncoding)
   final val acceptLanguage: In[String]                = header(HeaderNames.acceptLanguage.toString(), TextCodec.string)
   final val acceptRanges: In[String]                  = header(HeaderNames.acceptRanges.toString(), TextCodec.string)
   final val acceptPatch: In[String]                   = header(HeaderNames.acceptPatch.toString(), TextCodec.string)

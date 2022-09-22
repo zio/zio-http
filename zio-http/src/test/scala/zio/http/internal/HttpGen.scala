@@ -5,8 +5,8 @@ import zio._
 import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
-import zio.http.model.HeaderValue.Encoding
 import zio.http.model._
+import zio.http.model.headers.values.AcceptEncoding
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
@@ -219,23 +219,23 @@ object HttpGen {
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))
 
-  def acceptEncodingSingleValue(weight: Option[Double]): Gen[Any, Encoding] = Gen.fromIterable(
+  def acceptEncodingSingleValue(weight: Option[Double]): Gen[Any, AcceptEncoding] = Gen.fromIterable(
     List(
-      Encoding.GZipEncoding(weight),
-      Encoding.DeflateEncoding(weight),
-      Encoding.BrEncoding(weight),
-      Encoding.IdentityEncoding(weight),
-      Encoding.CompressEncoding(weight),
-      Encoding.NoPreferenceEncoding(weight),
+      AcceptEncoding.GZipEncoding(weight),
+      AcceptEncoding.DeflateEncoding(weight),
+      AcceptEncoding.BrEncoding(weight),
+      AcceptEncoding.IdentityEncoding(weight),
+      AcceptEncoding.CompressEncoding(weight),
+      AcceptEncoding.NoPreferenceEncoding(weight),
     ),
   )
 
-  def acceptEncodingSingleValueWithWeight: Gen[Any, Encoding] = for {
+  def acceptEncodingSingleValueWithWeight: Gen[Any, AcceptEncoding] = for {
     weight <- Gen.option(Gen.double(0.1, 1.0))
     value  <- acceptEncodingSingleValue(weight)
   } yield value
 
-  def acceptEncoding: Gen[Any, Encoding] = {
-    Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(Encoding.MultipleEncodings.apply)
+  def acceptEncoding: Gen[Any, AcceptEncoding] = {
+    Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(AcceptEncoding.MultipleEncodings.apply)
   }
 }
