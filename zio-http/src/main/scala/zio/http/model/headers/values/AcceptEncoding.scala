@@ -5,71 +5,86 @@ import zio.Chunk
 import scala.util.Try
 
 sealed trait AcceptEncoding {
-  def raw: String
+  val raw: String
 }
 
 object AcceptEncoding {
   case object InvalidEncoding extends AcceptEncoding {
-    override def raw: String = "Invalid header value"
+    override val raw: String = "Invalid header value"
   }
 
   final case class BrEncoding(weight: Option[Double]) extends AcceptEncoding {
-    override def raw: String = "br"
+    override val raw: String = "br"
   }
 
   final case class CompressEncoding(weight: Option[Double]) extends AcceptEncoding {
-    override def raw: String = "compress"
+    override val raw: String = "compress"
   }
 
   final case class DeflateEncoding(weight: Option[Double]) extends AcceptEncoding {
-    override def raw: String = "deflate"
+    override val raw: String = "deflate"
   }
 
   final case class GZipEncoding(weight: Option[Double]) extends AcceptEncoding {
-    override def raw: String = "gzip"
+    override val raw: String = "gzip"
   }
 
   final case class IdentityEncoding(weight: Option[Double]) extends AcceptEncoding {
-    override def raw: String = "identity"
+    override val raw: String = "identity"
   }
 
   final case class MultipleEncodings(encodings: Chunk[AcceptEncoding]) extends AcceptEncoding {
-    override def raw: String = encodings.map(_.raw).mkString(",")
+    override val raw: String = encodings.map(_.raw).mkString(",")
   }
 
   final case class NoPreferenceEncoding(weight: Option[Double]) extends AcceptEncoding {
-    override def raw: String = "*"
+    override val raw: String = "*"
   }
 
-  private def identifyEncodingFull(raw: String): Option[AcceptEncoding] = {
-    raw.split(";q=") match {
-      case Array(encoding)         => identifyEncoding(encoding)
-      case Array(encoding, weight) => identifyEncoding(encoding, Try(weight.toDouble).toOption)
-      case _                       => None
+  private def identifyEncodingFull(raw: String): AcceptEncoding = {
+    val index = raw.indexOf(";q=")
+    if (index == -1)
+      identifyEncoding(raw)
+    else {
+      identifyEncoding(raw.substring(0, index), Try(raw.substring(index + 3).toDouble).toOption)
     }
   }
 
-  private def identifyEncoding(raw: String, weight: Option[Double] = None): Option[AcceptEncoding] = {
+  private def identifyEncoding(raw: String, weight: Option[Double] = None): AcceptEncoding = {
     raw match {
-      case "br"       => Some(BrEncoding(weight))
-      case "compress" => Some(CompressEncoding(weight))
-      case "deflate"  => Some(DeflateEncoding(weight))
-      case "gzip"     => Some(GZipEncoding(weight))
-      case "identity" => Some(IdentityEncoding(weight))
-      case "*"        => Some(NoPreferenceEncoding(weight))
-      case _          => None
+      case "br"       => BrEncoding(weight)
+      case "compress" => CompressEncoding(weight)
+      case "deflate"  => DeflateEncoding(weight)
+      case "gzip"     => GZipEncoding(weight)
+      case "identity" => IdentityEncoding(weight)
+      case "*"        => NoPreferenceEncoding(weight)
+      case _          => InvalidEncoding
     }
   }
 
   def toEncoding(value: String): AcceptEncoding = {
-    value.split(',').flatMap(identifyEncodingFull) match {
-      case ar @ Array(head, tail @ _*) =>
-        if (tail.isEmpty) head
-        else
-          MultipleEncodings(Chunk.fromArray(ar))
+    val index = value.indexOf(",")
 
-      case _ => InvalidEncoding
+    def loop(value: String, index: Int, acc: MultipleEncodings): MultipleEncodings = {
+      if (index == -1) acc.copy(encodings = acc.encodings ++ Chunk(identifyEncodingFull(value)))
+      else {
+        val valueChunk       = value.substring(0, index)
+        val remaining        = value.substring(index + 1)
+        val nextIndex        = remaining.indexOf(",")
+        val acceptedEncoding = Chunk(identifyEncodingFull(valueChunk))
+        loop(
+          remaining,
+          nextIndex,
+          acc.copy(encodings = acc.encodings ++ acceptedEncoding),
+        )
+      }
     }
+
+    if (index == -1)
+      identifyEncodingFull(value)
+    else
+      loop(value, index, MultipleEncodings(Chunk.empty[AcceptEncoding]))
+
   }
 
   def fromEncoding(encoding: AcceptEncoding): String = encoding match {

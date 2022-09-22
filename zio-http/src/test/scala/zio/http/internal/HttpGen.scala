@@ -227,6 +227,7 @@ object HttpGen {
       AcceptEncoding.IdentityEncoding(weight),
       AcceptEncoding.CompressEncoding(weight),
       AcceptEncoding.NoPreferenceEncoding(weight),
+      AcceptEncoding.InvalidEncoding,
     ),
   )
 
