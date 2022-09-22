@@ -12,6 +12,7 @@ case class ClientConfig(
   channelType: ChannelType = ChannelType.AUTO,
   nThreads: Int = 0,
   useAggregator: Boolean = true,
+  maxHeaderSize: Int = 8192,
 ) extends EventLoopGroups.Config {
   self =>
   def ssl(ssl: ClientSSLConfig): ClientConfig = self.copy(ssl = Some(ssl))
@@ -25,6 +26,12 @@ case class ClientConfig(
   def maxThreads(nThreads: Int): ClientConfig = self.copy(nThreads = nThreads)
 
   def useObjectAggregator(objectAggregator: Boolean): ClientConfig = self.copy(useAggregator = objectAggregator)
+
+  /**
+   * Configure the client to use `maxHeaderSize` value when encode/decode
+   * headers.
+   */
+  def maxHeaderSize(headerSize: Int): ClientConfig = self.copy(maxHeaderSize = headerSize)
 }
 
 object ClientConfig {

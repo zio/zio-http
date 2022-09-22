@@ -22,6 +22,7 @@ final case class ServerConfig(
   objectAggregator: Int = 1024 * 100,
   channelType: ChannelType = ChannelType.AUTO,
   nThreads: Int = 0,
+  maxHeaderSize: Int = 8192,
 ) extends EventLoopGroups.Config {
   self =>
   def useAggregator: Boolean = objectAggregator >= 0
@@ -112,6 +113,12 @@ final case class ServerConfig(
    * Configure the server to use a maximum of nThreads to process requests.
    */
   def maxThreads(nThreads: Int): ServerConfig = self.copy(nThreads = nThreads)
+
+  /**
+   * Configure the server to use `maxHeaderSize` value when encode/decode
+   * headers.
+   */
+  def maxHeaderSize(headerSize: Int): ServerConfig = self.copy(maxHeaderSize = headerSize)
 }
 
 object ServerConfig {
