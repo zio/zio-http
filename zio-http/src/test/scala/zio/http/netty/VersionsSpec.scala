@@ -11,8 +11,8 @@ object VersionsSpec extends ZIOSpecDefault {
       test("Should correctly convert from zio.http to Netty.") {
 
         assertTrue(
-          Versions.make(Version.Http_1_0) == HttpVersion.HTTP_1_0,
-          Versions.make(Version.Http_1_1) == HttpVersion.HTTP_1_1,
+          Versions.convertToZIOToNetty(Version.Http_1_0) == HttpVersion.HTTP_1_0,
+          Versions.convertToZIOToNetty(Version.Http_1_1) == HttpVersion.HTTP_1_1,
         )
       },
     )

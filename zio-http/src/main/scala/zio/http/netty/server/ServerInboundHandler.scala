@@ -8,7 +8,6 @@ import zio.http._
 import zio.http.netty.{NettyRuntime, _}
 import zio.logging.Logger
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-import java.net.InetSocketAddress
 import zio.http.model._
 import io.netty.util.AttributeKey
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
@@ -40,16 +39,6 @@ private[zio] final case class ServerInboundHandler(
         .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, new ServerAsyncBodyHandler(async)): Unit
       setContentReadAttr(flag = true)
     }
-
-    /*
-     * Enables auto-read if possible. Also performs the first read.
-     */
-    // def attemptAutoRead[R, E](config: ServerConfig): Unit = {
-    //   if (!config.useAggregator && !ctx.channel().config().isAutoRead) {
-    //     ctx.channel().config().setAutoRead(true)
-    //     ctx.read(): Unit
-    //   }
-    // }
 
     def attemptFastWrite(exit: HExit[Any, Throwable, Response], time: service.ServerTime): Boolean = {
       exit match {
@@ -92,7 +81,7 @@ private[zio] final case class ServerInboundHandler(
             } yield ()
 
         _ <- ZIO.attemptUnsafe(implicit u => setContentReadAttr(false))
-      } yield () // log.debug("Full write performed")
+      } yield log.debug("Full write performed")
     }
 
     def canHaveBody(jReq: HttpRequest): Boolean = {
@@ -115,6 +104,7 @@ private[zio] final case class ServerInboundHandler(
         case _ => throw new IllegalArgumentException(s"Unsupported HTTP version: ${nettyHttpVersion}")
       }
 
+      // TODO: We need to bring this back, probably not part of Request.
       // val remoteAddress = ctx.channel().remoteAddress() match {
       //   case m: InetSocketAddress => Some(m.getAddress)
       //   case _                    => None
@@ -229,7 +219,6 @@ private[zio] final case class ServerInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    // errCallbackRef.get().fold(super.exceptionCaught(ctx, cause))(f => runtime.run(ctx)(f(cause)))
     errCallbackRef
       .get()
       .fold {
@@ -238,12 +227,6 @@ private[zio] final case class ServerInboundHandler(
             log.info("Connection reset by peer")
           case t => super.exceptionCaught(ctx, t)
         }
-        // println(s"""|>>>>>>>>>>> Netty Error occurred: ${cause} <<<<<<<<<<<<<
-        //             | Channel Active? ${ctx.channel().isActive()}
-        //             |========================================================
-        // """.stripMargin)
-        // cause.printStackTrace()
-
       }(f => runtime.run(ctx)(f(cause)))
   }
 }

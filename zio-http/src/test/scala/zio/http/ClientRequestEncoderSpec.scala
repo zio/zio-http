@@ -94,7 +94,7 @@ object ClientRequestEncoderSpec extends ZIOSpecDefault with ClientRequestEncoder
     test("http version") {
       check(anyClientParam) { params =>
         val req = encode(params).map(i => i.protocolVersion())
-        assertZIO(req)(equalTo(Versions.make(params.version)))
+        assertZIO(req)(equalTo(Versions.convertToZIOToNetty(params.version)))
       }
     },
   )

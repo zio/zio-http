@@ -6,7 +6,7 @@ import zio.http.model.Version
 object Versions {
   import Version._
 
-  def make(version: Version): HttpVersion = version match {
+  def convertToZIOToNetty(version: Version): HttpVersion = version match {
     case Http_1_0 => HttpVersion.HTTP_1_0
     case Http_1_1 => HttpVersion.HTTP_1_1
   }

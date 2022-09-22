@@ -16,7 +16,7 @@ trait ClientRequestEncoder {
     req.body.asChunk.map { chunk =>
       val content  = Unpooled.wrappedBuffer(chunk.toArray)
       val method   = req.method.toJava
-      val jVersion = Versions.make(req.version)
+      val jVersion = Versions.convertToZIOToNetty(req.version)
 
       // As per the spec, the path should contain only the relative path.
       // Host and port information should be in the headers.

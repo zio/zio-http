@@ -42,16 +42,19 @@ final case class Request(
 
 object Request {
 
-  /**
-   * Constructor for Request that provides sane defaults.
-   */
-  def make(
-    version: Version = Version.`HTTP/1.1`,
-    method: Method = Method.GET,
-    url: URL = URL.root,
-    headers: Headers = Headers.empty,
-    body: Body = Body.empty,
-    remoteAddress: Option[InetAddress] = None,
-  ): Request =
-    Request(body, headers, method, url, version, remoteAddress)
+  def default(method: Method, url: URL, body: Body = Body.empty) =
+    Request(body, Headers.empty, method, url, Version.`HTTP/1.1`, Option.empty)
+
+  def delete(url: URL): Request = default(Method.DELETE, url)
+
+  def get(url: URL): Request = default(Method.GET, url)
+
+  def options(url: URL): Request = default(Method.OPTIONS, url)
+
+  def patch(body: Body, url: URL): Request = default(Method.PATCH, url, body)
+
+  def post(body: Body, url: URL): Request = default(Method.POST, url, body)
+
+  def put(body: Body, url: URL): Request = default(Method.PUT, url, body)
+
 }

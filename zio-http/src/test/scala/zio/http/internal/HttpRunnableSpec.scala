@@ -31,12 +31,13 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       addZioUserAgentHeader: Boolean = false,
     ): ZIO[R, Throwable, A] =
       app(
-        Request.make(
+        Request(
+          body,
+          headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
+          method,
           url = URL(path), // url set here is overridden later via `deploy` method
-          method = method,
-          headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
-          body = body,
-          version = version,
+          version,
+          None,
         ),
       ).catchAll {
         case Some(value) => ZIO.fail(value)
