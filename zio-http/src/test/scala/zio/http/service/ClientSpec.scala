@@ -4,10 +4,10 @@ import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model._
 import zio.stream.ZStream
-import zio.test.Assertion._
+import zio.test.Assertion.{isLeft, _}
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
-import zio.{Scope, durationInt}
+import zio.{Scope, ZIO, durationInt}
 
 import java.net.ConnectException
 
@@ -37,6 +37,20 @@ object ClientSpec extends HttpRunnableSpec {
       val app             = Http.text("zio user does not exist")
       val responseContent = app.deploy.body.mapZIO(_.asString).run()
       assertZIO(responseContent)(containsString("user"))
+    },
+    test("handle headers") {
+      val app = Http.collectZIO[Request] { case req =>
+        ZIO.attempt(Response.text(req.headerValue("Test").getOrElse("")))
+      }
+      val res = app.deploy.body
+        .mapZIO(_.asString)
+        .run(method = Method.POST, headers = Headers(List(Header("Test", "TestValue"))))
+      assertZIO(res)(equalTo("TestValue"))
+    },
+    test("handle zio agent") {
+      val app = Http.collectZIO[Request] { case req => ZIO.attempt(Response.text(req.headers.toString())) }
+      val res = app.deploy.body.mapZIO(_.asString).run(method = Method.POST, addZioUserAgentHeader = true)
+      assertZIO(res)(containsString("Zio-Http-Client"))
     },
     test("handle connection failure") {
       val res = Client.request("http://localhost:1").either

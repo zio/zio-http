@@ -6,6 +6,7 @@ import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
 import zio.http.model._
+import zio.http.model.headers.values.AcceptCharset
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
@@ -217,5 +218,16 @@ object HttpGen {
     kind        <- HttpGen.location
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))
+
+  def acceptCharset(): Gen[Any, AcceptCharset] = Gen.fromIterable(
+    List(
+      AcceptCharset.`UTF-8`,
+      AcceptCharset.`US-ASCII`,
+      AcceptCharset.`ISO-8859-1`,
+      AcceptCharset.`UTF-16`,
+      AcceptCharset.`UTF-16LE`,
+      AcceptCharset.`UTF-16BE`,
+    ),
+  )
 
 }
