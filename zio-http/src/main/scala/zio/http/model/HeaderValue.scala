@@ -1,15 +1,19 @@
-package zio.http.model.headers
+package zio.http.model
 
 import zio.Chunk
 
 import scala.util.Try
 
-object Structured {
+object HeaderValue {
 
   sealed trait Encoding {
     def raw: String
   }
-  object Encoding       {
+
+  object Encoding {
+    case object InvalidEncoding extends Encoding {
+      override def raw: String = "Invalid header value"
+    }
 
     final case class BrEncoding(weight: Option[Double]) extends Encoding {
       override def raw: String = "br"
@@ -39,8 +43,8 @@ object Structured {
       override def raw: String = "*"
     }
 
-    def identifyEncodingFull(raw: String): Option[Encoding] = {
-      raw.split(";=") match {
+    private def identifyEncodingFull(raw: String): Option[Encoding] = {
+      raw.split(";q=") match {
         case Array(encoding)         => identifyEncoding(encoding)
         case Array(encoding, weight) => identifyEncoding(encoding, Try(weight.toDouble).toOption)
         case _                       => None
@@ -59,15 +63,26 @@ object Structured {
       }
     }
 
-    def encodeValue(encoding: Encoding): String = encoding match {
-      case b @ Encoding.BrEncoding(weight)           => weight.fold(b.raw)(value => s"${b.raw};=$value")
-      case c @ Encoding.CompressEncoding(weight)     => weight.fold(c.raw)(value => s"${c.raw};=$value")
-      case d @ Encoding.DeflateEncoding(weight)      => weight.fold(d.raw)(value => s"${d.raw};=$value")
-      case g @ Encoding.GZipEncoding(weight)         => weight.fold(g.raw)(value => s"${g.raw};=$value")
-      case i @ Encoding.IdentityEncoding(weight)     => weight.fold(i.raw)(value => s"${i.raw};=$value")
-      case Encoding.MultipleEncodings(encodings)     => encodings.map(encodeValue).mkString(",")
-      case n @ Encoding.NoPreferenceEncoding(weight) => weight.fold(n.raw)(value => s"${n.raw};=$value")
+    def toEncoding(value: String): Encoding = {
+      value.split(",").flatMap(Encoding.identifyEncodingFull) match {
+        case ar @ Array(head, tail @ _*) =>
+          if (tail.isEmpty) head
+          else
+            MultipleEncodings(Chunk.fromArray(ar))
 
+        case _ => Encoding.InvalidEncoding
+      }
+    }
+
+    def fromEncoding(encoding: Encoding): String = encoding match {
+      case b @ Encoding.BrEncoding(weight)           => weight.fold(b.raw)(value => s"${b.raw};q=$value")
+      case c @ Encoding.CompressEncoding(weight)     => weight.fold(c.raw)(value => s"${c.raw};q=$value")
+      case d @ Encoding.DeflateEncoding(weight)      => weight.fold(d.raw)(value => s"${d.raw};q=$value")
+      case g @ Encoding.GZipEncoding(weight)         => weight.fold(g.raw)(value => s"${g.raw};q=$value")
+      case i @ Encoding.IdentityEncoding(weight)     => weight.fold(i.raw)(value => s"${i.raw};q=$value")
+      case Encoding.MultipleEncodings(encodings)     => encodings.map(fromEncoding).mkString(",")
+      case n @ Encoding.NoPreferenceEncoding(weight) => weight.fold(n.raw)(value => s"${n.raw};q=$value")
+      case InvalidEncoding                           => ""
     }
 
   }

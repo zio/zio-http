@@ -5,8 +5,8 @@ import zio._
 import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
+import zio.http.model.HeaderValue.Encoding
 import zio.http.model._
-import zio.http.model.headers.Structured.Encoding
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 

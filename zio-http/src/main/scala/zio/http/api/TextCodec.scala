@@ -1,9 +1,5 @@
 package zio.http.api
 
-import zio.Chunk
-import zio.http.model.headers.Structured.Encoding.MultipleEncodings
-import zio.http.model.headers.Structured.Encoding
-
 import java.util.UUID
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
@@ -34,8 +30,6 @@ object TextCodec {
   implicit val string: TextCodec[String] = StringCodec
 
   implicit val uuid: TextCodec[UUID] = UUIDCodec
-
-  implicit val encoding: TextCodec[Encoding] = EncodingCodec
 
   private val someUnit: Option[Unit] = Some(())
 
@@ -79,21 +73,6 @@ object TextCodec {
       }
 
     def encode(value: UUID): String = value.toString
-  }
-
-  case object EncodingCodec extends TextCodec[Encoding] {
-    override def decode(value: String): Option[Encoding] = {
-      value.split(",").flatMap(Encoding.identifyEncodingFull) match {
-        case ar @ Array(head, tail @ _*) =>
-          if (tail.isEmpty) Some(head)
-          else
-            Some(MultipleEncodings(Chunk.fromArray(ar)))
-
-        case _ => None
-      }
-    }
-
-    override def encode(value: Encoding): String = Encoding.encodeValue(value)
   }
 
 }
