@@ -124,23 +124,17 @@ lazy val zioHttp = (project in file("zio-http"))
 
 lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .enablePlugins(JmhPlugin)
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server"    % "1.1.0",
-      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"       % "1.1.0",
-      "dev.zio"                     %% "zio-interop-cats"       % "3.3.0",
-    ),
-  )
-  .dependsOn(
-    zioHttp,
-  )
   .settings(stdSettings("zio-http-benchmarks"))
   .settings(publishSetting(false))
   .settings(
-    crossScalaVersions --= List(ScalaDotty),
+    libraryDependencies ++= Seq(
+//      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.1.0",
+      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.1.0",
+//      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
+    ),
   )
-  .settings(libraryDependencies ++= Seq(zio))
+  .dependsOn(zioHttp)
 
 lazy val zioHttpLogging = (project in file("zio-http-logging"))
   .settings(stdSettings("zio-http-logging"))

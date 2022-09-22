@@ -1,40 +1,45 @@
 package zio.http.benchmarks
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.http.scaladsl.server.Route
+//import akka.actor.ActorSystem
+//import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+//import akka.http.scaladsl.server.Route
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import org.http4s.{HttpRoutes, Request => Request4s}
 import org.openjdk.jmh.annotations._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
-import sttp.tapir.server.akkahttp.AkkaHttpServerInterpreter
+import cats.effect.{IO => CIO}
+import cats.effect.unsafe.implicits.global
+import cats.implicits.toTraverseOps
+//import scala.concurrent.ExecutionContext
+//import scala.concurrent.ExecutionContext.Implicits.global
+//import sttp.tapir.server.akkahttp.AkkaHttpServerInterpreter
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.{path => tpath, _}
 import zio.http._
 import zio.http.api._
 import zio.http.model.Method
-import zio.interop.catz._
+//import zio.interop.catz._
 import zio.json.{DeriveJsonCodec, EncoderOps, JsonCodec}
 import zio.schema.{DeriveSchema, Schema}
 import zio.{Scope => _, _}
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+//import scala.concurrent.Future
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class ApiBenchmark {
-  implicit val actorSystem: ActorSystem     = ActorSystem("api-benchmark-actor-system")
-  implicit val ec: ExecutionContextExecutor = actorSystem.dispatcher
-
-  @TearDown
-  def shutdown(): Unit = {
-    println("\n\n Shutting down actor system \n\n")
-    val _ = actorSystem.terminate()
-  }
+//  implicit val actorSystem: ActorSystem     = ActorSystem("api-benchmark-actor-system")
+//  implicit val ec: ExecutionContextExecutor = actorSystem.dispatcher
+//
+//  @TearDown
+//  def shutdown(): Unit = {
+//    println("\n\n Shutting down actor system \n\n")
+//    val _ = actorSystem.terminate()
+//  }
 
   private val REPEAT_N = 1000
 
@@ -75,52 +80,52 @@ class ApiBenchmark {
       .in(query[String]("query"))
       .out(jsonBody[ExampleData])
 
-  private val handledUsersPostsEndpoint =
-    usersPostsEndpoint.serverLogic[Future] { case (userId, postId, query) =>
-      Future.successful(Right(ExampleData(userId, postId, query)))
-    }
+//  private val handledUsersPostsEndpoint =
+//    usersPostsEndpoint.serverLogic[Future] { case (userId, postId, query) =>
+//      Future.successful(Right(ExampleData(userId, postId, query)))
+//    }
 
-  val usersPostsRoute: Route =
-    AkkaHttpServerInterpreter().toRoute(handledUsersPostsEndpoint)
-
-  val smallDataTapirAkkaFunction: HttpRequest => Future[HttpResponse] = Route.toFunction(usersPostsRoute)
+//  val usersPostsRoute: Route =
+//    AkkaHttpServerInterpreter().toRoute(handledUsersPostsEndpoint)
+//
+//  val smallDataTapirAkkaFunction: HttpRequest => Future[HttpResponse] = Route.toFunction(usersPostsRoute)
 
   // Tapir Http4s DSL
 
   val handledUsersPostsEndpointHttp4s =
-    usersPostsEndpoint.serverLogic[Task] { case (userId, postId, query) =>
-      ZIO.succeed(Right(ExampleData(userId, postId, query)))
+    usersPostsEndpoint.serverLogic[CIO] { case (userId, postId, query) =>
+      CIO.pure(Right(ExampleData(userId, postId, query)))
     }
 
-  val usersPostsHttp4sRoute: HttpRoutes[Task] =
-    Http4sServerInterpreter[Task]().toRoutes(handledUsersPostsEndpointHttp4s)
+  val usersPostsHttp4sRoute: HttpRoutes[CIO] =
+    Http4sServerInterpreter[CIO]().toRoutes(handledUsersPostsEndpointHttp4s)
 
-  val (smallDataRequest, smallDataRequestAkka, smallDataRequestHttp4s) = requestsFromString(
+  val (smallDataRequest, _, smallDataRequestHttp4s) = requestsFromString(
     "http://localhost:8080/users/1/posts/2?query=cool",
   )
 
   // Akka Server
 
-  import akka.http.scaladsl.model._
-  import akka.http.scaladsl.server.Directives._
-
-  val smallDataAkkaRoute =
-    path("users" / IntNumber / "posts" / IntNumber) { (userId, postId) =>
-      get {
-        parameters("query") { query =>
-          complete(
-            HttpResponse(
-              entity = HttpEntity(
-                ContentTypes.`application/json`,
-                ExampleData(userId, postId, query).toJson,
-              ),
-            ),
-          )
-        }
-      }
-    }
-
-  val smallDataAkkaFunction = Route.toFunction(smallDataAkkaRoute)
+//  import akka.http.scaladsl.model._
+//  import akka.http.scaladsl.server.Directives._
+//
+//  val smallDataAkkaRoute =
+//    path("users" / IntNumber / "posts" / IntNumber) { (userId, postId) =>
+//      get {
+//        parameters("query") { query =>
+//          complete(
+//            HttpResponse(
+//              entity = HttpEntity(
+//                ContentTypes.`application/json`,
+//                ExampleData(userId, postId, query).toJson,
+//              ),
+//            ),
+//          )
+//        }
+//      }
+//    }
+//
+//  val smallDataAkkaFunction = Route.toFunction(smallDataAkkaRoute)
 
   @Benchmark
   def benchmarkSmallDataZioApi(): Unit =
@@ -134,29 +139,29 @@ class ApiBenchmark {
       collectHttpApp(smallDataRequest).repeatN(REPEAT_N)
     }
 
-  @Benchmark
-  def benchmarkSmallDataTapirAkka(): Unit = {
-    val _ =
-      Await.result(
-        repeatNFuture(REPEAT_N)(smallDataTapirAkkaFunction(smallDataRequestAkka)),
-        scala.concurrent.duration.Duration.Inf,
-      )
-  }
+//  @Benchmark
+//  def benchmarkSmallDataTapirAkka(): Unit = {
+//    val _ =
+//      Await.result(
+//        repeatNFuture(REPEAT_N)(smallDataTapirAkkaFunction(smallDataRequestAkka)),
+//        scala.concurrent.duration.Duration.Inf,
+//      )
+//  }
 
   @Benchmark
   def benchmarkSmallDataTapirHttp4s(): Unit =
-    unsafeRun {
-      usersPostsHttp4sRoute(smallDataRequestHttp4s).value.repeatN(REPEAT_N)
-    }
+    usersPostsHttp4sRoute(smallDataRequestHttp4s).value
+      .replicateA_(REPEAT_N)
+      .unsafeRunSync()
 
-  @Benchmark
-  def benchmarkSmallDataAkka(): Unit = {
-    val _ =
-      Await.result(
-        repeatNFuture(REPEAT_N)(smallDataAkkaFunction(smallDataRequestAkka)),
-        scala.concurrent.duration.Duration.Inf,
-      )
-  }
+//  @Benchmark
+//  def benchmarkSmallDataAkka(): Unit = {
+//    val _ =
+//      Await.result(
+//        repeatNFuture(REPEAT_N)(smallDataAkkaFunction(smallDataRequestAkka)),
+//        scala.concurrent.duration.Duration.Inf,
+//      )
+//  }
 
   // # Deep Path
 
@@ -189,25 +194,25 @@ class ApiBenchmark {
           tpath[Int] / "sixth" / tpath[Int] / "seventh" / tpath[Int],
       )
 
-  private val handledDeepPathEndpoint =
-    deepPathEndpoint.serverLogic[Future] { _ =>
-      Future.successful(Right(()))
-    }
+//  private val handledDeepPathEndpoint =
+//    deepPathEndpoint.serverLogic[Future] { _ =>
+//      Future.successful(Right(()))
+//    }
 
-  val deepPathRoute: Route =
-    AkkaHttpServerInterpreter().toRoute(handledDeepPathEndpoint)
-
-  val deepPathTapirAkkaFunction: HttpRequest => Future[HttpResponse] = Route.toFunction(deepPathRoute)
+//  val deepPathRoute: Route =
+//    AkkaHttpServerInterpreter().toRoute(handledDeepPathEndpoint)
+//
+//  val deepPathTapirAkkaFunction: HttpRequest => Future[HttpResponse] = Route.toFunction(deepPathRoute)
 
   // Tapir Http4s DSL
 
   val handledDeepPathEndpointHttp4s =
-    deepPathEndpoint.serverLogic[Task] { _ =>
-      ZIO.succeed(Right(()))
+    deepPathEndpoint.serverLogic[CIO] { _ =>
+      CIO.pure(Right(()))
     }
 
-  val deepPathHttp4sRoute: HttpRoutes[Task] =
-    Http4sServerInterpreter[Task]().toRoutes(handledDeepPathEndpointHttp4s)
+  val deepPathHttp4sRoute: HttpRoutes[CIO] =
+    Http4sServerInterpreter[CIO]().toRoutes(handledDeepPathEndpointHttp4s)
 
   val (deepPathRequest, deepPathRequestAkka, deepPathRequestHttp4s) = requestsFromString(
     "http://localhost:8080/first/1/second/2/third/3/fourth/4/fifth/5/sixth/6/seventh/7",
@@ -215,16 +220,16 @@ class ApiBenchmark {
 
   // Akka Server
 
-  val deepPathAkkaRoute =
-    path(
-      "first" / IntNumber / "second" / IntNumber / "third" / IntNumber / "fourth" / IntNumber / "fifth" / IntNumber / "sixth" / IntNumber / "seventh" / IntNumber,
-    ) { (_, _, _, _, _, _, _) =>
-      get {
-        complete(HttpResponse())
-      }
-    }
-
-  val deepPathAkkaFunction = Route.toFunction(deepPathAkkaRoute)
+//  val deepPathAkkaRoute =
+//    path(
+//      "first" / IntNumber / "second" / IntNumber / "third" / IntNumber / "fourth" / IntNumber / "fifth" / IntNumber / "sixth" / IntNumber / "seventh" / IntNumber,
+//    ) { (_, _, _, _, _, _, _) =>
+//      get {
+//        complete(HttpResponse())
+//      }
+//    }
+//
+//  val deepPathAkkaFunction = Route.toFunction(deepPathAkkaRoute)
 
   @Benchmark
   def benchmarkDeepPathZioApi(): Unit =
@@ -238,27 +243,27 @@ class ApiBenchmark {
       deepPathCollectHttpApp(deepPathRequest).repeatN(REPEAT_N)
     }
 
-  @Benchmark
-  def benchmarkDeepPathTapirAkka(): Unit = {
-    val _ = Await.result(
-      repeatNFuture(REPEAT_N)(deepPathTapirAkkaFunction(deepPathRequestAkka)),
-      scala.concurrent.duration.Duration.Inf,
-    )
-  }
+//  @Benchmark
+//  def benchmarkDeepPathTapirAkka(): Unit = {
+//    val _ = Await.result(
+//      repeatNFuture(REPEAT_N)(deepPathTapirAkkaFunction(deepPathRequestAkka)),
+//      scala.concurrent.duration.Duration.Inf,
+//    )
+//  }
 
   @Benchmark
   def benchmarkDeepPathTapirHttp4s(): Unit =
-    unsafeRun {
-      deepPathHttp4sRoute(deepPathRequestHttp4s).value.repeatN(REPEAT_N)
-    }
+    deepPathHttp4sRoute(deepPathRequestHttp4s).value
+      .replicateA_(REPEAT_N)
+      .unsafeRunSync()
 
-  @Benchmark
-  def benchmarkDeepPathAkka(): Unit = {
-    val _ = Await.result(
-      repeatNFuture(REPEAT_N)(deepPathAkkaFunction(deepPathRequestAkka)),
-      scala.concurrent.duration.Duration.Inf,
-    )
-  }
+//  @Benchmark
+//  def benchmarkDeepPathAkka(): Unit = {
+//    val _ = Await.result(
+//      repeatNFuture(REPEAT_N)(deepPathAkkaFunction(deepPathRequestAkka)),
+//      scala.concurrent.duration.Duration.Inf,
+//    )
+//  }
 
   // # Broad Path
 
@@ -420,85 +425,85 @@ class ApiBenchmark {
   val broadTapirUsersPostsCommentsRepliesId =
     endpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int] / "comments" / tpath[Int] / "replies" / tpath[Int])
 
-  val broadTapirAkkaApp =
-    AkkaHttpServerInterpreter()
-      .toRoute(
-        List(
-          broadTapirUsers.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirUsersId.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirUsersPosts.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirUsersPostsId.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirUsersPostsComments.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirUsersPostsCommentsId.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirPosts.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirPostsId.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirPostsComments.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirPostsCommentsId.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirComments.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirCommentsId.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirUsersComments.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirUsersCommentsId.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirUsersPostsCommentsReplies.serverLogic[Future](_ => Future.successful(Right(()))),
-          broadTapirUsersPostsCommentsRepliesId.serverLogic[Future](_ => Future.successful(Right(()))),
-        ),
-      )
-
-  val boardTapirAkkaFunction: HttpRequest => Future[HttpResponse] = Route.toFunction(broadTapirAkkaApp)
+//  val broadTapirAkkaApp =
+//    AkkaHttpServerInterpreter()
+//      .toRoute(
+//        List(
+//          broadTapirUsers.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirUsersId.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirUsersPosts.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirUsersPostsId.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirUsersPostsComments.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirUsersPostsCommentsId.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirPosts.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirPostsId.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirPostsComments.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirPostsCommentsId.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirComments.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirCommentsId.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirUsersComments.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirUsersCommentsId.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirUsersPostsCommentsReplies.serverLogic[Future](_ => Future.successful(Right(()))),
+//          broadTapirUsersPostsCommentsRepliesId.serverLogic[Future](_ => Future.successful(Right(()))),
+//        ),
+//      )
+//
+//  val boardTapirAkkaFunction: HttpRequest => Future[HttpResponse] = Route.toFunction(broadTapirAkkaApp)
 
   // Tapir Http4s DSL
 
   val broadTapirHttp4sApp =
-    Http4sServerInterpreter[Task]()
+    Http4sServerInterpreter[CIO]()
       .toRoutes(
         List(
-          broadTapirUsers.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirUsersId.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirUsersPosts.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirUsersPostsId.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirUsersPostsComments.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirUsersPostsCommentsId.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirPosts.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirPostsId.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirPostsComments.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirPostsCommentsId.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirComments.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirCommentsId.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirUsersComments.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirUsersCommentsId.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirUsersPostsCommentsReplies.serverLogic[Task](_ => ZIO.right(())),
-          broadTapirUsersPostsCommentsRepliesId.serverLogic[Task](_ => ZIO.right(())),
+          broadTapirUsers.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirUsersId.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirUsersPosts.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirUsersPostsId.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirUsersPostsComments.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirUsersPostsCommentsId.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirPosts.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirPostsId.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirPostsComments.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirPostsCommentsId.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirComments.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirCommentsId.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirUsersComments.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirUsersCommentsId.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirUsersPostsCommentsReplies.serverLogic[CIO](_ => CIO.pure(Right(()))),
+          broadTapirUsersPostsCommentsRepliesId.serverLogic[CIO](_ => CIO.pure(Right(()))),
         ),
       )
 
   // Akka
 
-  val broadAkkaRoute =
-    concat(
-      path("users") { get { complete(HttpResponse()) } },
-      path("users" / IntNumber) { _ => get { complete(HttpResponse()) } },
-      path("users" / IntNumber / "posts") { _ => get { complete(HttpResponse()) } },
-      path("users" / IntNumber / "posts" / IntNumber) { (_, _) => get { complete(HttpResponse()) } },
-      path("users" / IntNumber / "posts" / IntNumber / "comments") { (_, _) => get { complete(HttpResponse()) } },
-      path("users" / IntNumber / "posts" / IntNumber / "comments" / IntNumber) { (_, _, _) =>
-        get { complete(HttpResponse()) }
-      },
-      path("posts") { get { complete(HttpResponse()) } },
-      path("posts" / IntNumber) { _ => get { complete(HttpResponse()) } },
-      path("posts" / IntNumber / "comments") { _ => get { complete(HttpResponse()) } },
-      path("posts" / IntNumber / "comments" / IntNumber) { (_, _) => get { complete(HttpResponse()) } },
-      path("comments") { get { complete(HttpResponse()) } },
-      path("comments" / IntNumber) { _ => get { complete(HttpResponse()) } },
-      path("users" / IntNumber / "comments") { _ => get { complete(HttpResponse()) } },
-      path("users" / IntNumber / "comments" / IntNumber) { (_, _) => get { complete(HttpResponse()) } },
-      path("users" / IntNumber / "posts" / IntNumber / "comments" / IntNumber / "replies") { (_, _, _) =>
-        get { complete(HttpResponse()) }
-      },
-      path("users" / IntNumber / "posts" / IntNumber / "comments" / IntNumber / "replies" / IntNumber) { (_, _, _, _) =>
-        get { complete(HttpResponse()) }
-      },
-    )
-
-  val broadAkkaFunction: HttpRequest => Future[HttpResponse] = Route.toFunction(broadAkkaRoute)
+//  val broadAkkaRoute =
+//    concat(
+//      path("users") { get { complete(HttpResponse()) } },
+//      path("users" / IntNumber) { _ => get { complete(HttpResponse()) } },
+//      path("users" / IntNumber / "posts") { _ => get { complete(HttpResponse()) } },
+//      path("users" / IntNumber / "posts" / IntNumber) { (_, _) => get { complete(HttpResponse()) } },
+//      path("users" / IntNumber / "posts" / IntNumber / "comments") { (_, _) => get { complete(HttpResponse()) } },
+//      path("users" / IntNumber / "posts" / IntNumber / "comments" / IntNumber) { (_, _, _) =>
+//        get { complete(HttpResponse()) }
+//      },
+//      path("posts") { get { complete(HttpResponse()) } },
+//      path("posts" / IntNumber) { _ => get { complete(HttpResponse()) } },
+//      path("posts" / IntNumber / "comments") { _ => get { complete(HttpResponse()) } },
+//      path("posts" / IntNumber / "comments" / IntNumber) { (_, _) => get { complete(HttpResponse()) } },
+//      path("comments") { get { complete(HttpResponse()) } },
+//      path("comments" / IntNumber) { _ => get { complete(HttpResponse()) } },
+//      path("users" / IntNumber / "comments") { _ => get { complete(HttpResponse()) } },
+//      path("users" / IntNumber / "comments" / IntNumber) { (_, _) => get { complete(HttpResponse()) } },
+//      path("users" / IntNumber / "posts" / IntNumber / "comments" / IntNumber / "replies") { (_, _, _) =>
+//        get { complete(HttpResponse()) }
+//      },
+//      path("users" / IntNumber / "posts" / IntNumber / "comments" / IntNumber / "replies" / IntNumber) { (_, _, _, _) =>
+//        get { complete(HttpResponse()) }
+//      },
+//    )
+//
+//  val broadAkkaFunction: HttpRequest => Future[HttpResponse] = Route.toFunction(broadAkkaRoute)
 
   val requests = Vector(
     "http://localhost:8080/users",
@@ -527,9 +532,9 @@ class ApiBenchmark {
         })
     }
 
-  val broadZioRequests: Chunk[Request]            = randomRequests.map(requestsFromString(_)._1)
-  val broadAkkaRequests: Chunk[HttpRequest]       = randomRequests.map(requestsFromString(_)._2)
-  val broadHttp4sRequests: Chunk[Request4s[Task]] = randomRequests.map(requestsFromString(_)._3)
+  val broadZioRequests: Chunk[Request]           = randomRequests.map(requestsFromString(_)._1)
+//  val broadAkkaRequests: Chunk[HttpRequest]       = randomRequests.map(requestsFromString(_)._2)
+  val broadHttp4sRequests: Chunk[Request4s[CIO]] = randomRequests.map(requestsFromString(_)._3)
 
   @Benchmark
   def benchmarkBroadZioApi(): Unit =
@@ -543,40 +548,42 @@ class ApiBenchmark {
       ZIO.foreachDiscard(broadZioRequests)(broadCollectApp(_))
     }
 
-  @Benchmark
-  def benchmarkBroadTapirAkka(): Unit = {
-    val _ = Await.result(
-      foreachDiscardFuture(broadAkkaRequests)(boardTapirAkkaFunction(_)),
-      scala.concurrent.duration.Duration.Inf,
-    )
-  }
-
+//  @Benchmark
+//  def benchmarkBroadTapirAkka(): Unit = {
+//    val _ = Await.result(
+//      foreachDiscardFuture(broadAkkaRequests)(boardTapirAkkaFunction(_)),
+//      scala.concurrent.duration.Duration.Inf,
+//    )
+//  }
+//
   @Benchmark
   def benchmarkBroadTapirHttp4s(): Unit = {
-    val _ = unsafeRunResult {
-      ZIO.foreachDiscard(broadHttp4sRequests)(broadTapirHttp4sApp(_).value)
-    }
+    val _ = broadHttp4sRequests.toList.traverse(broadTapirHttp4sApp(_).value)
   }
-
-  @Benchmark
-  def benchmarkBroadAkka(): Unit = {
-    val _ = Await.result(
-      foreachDiscardFuture(broadAkkaRequests)(broadAkkaFunction(_)),
-      scala.concurrent.duration.Duration.Inf,
-    )
-  }
+//
+//  @Benchmark
+//  def benchmarkBroadAkka(): Unit = {
+//    val _ = Await.result(
+//      foreachDiscardFuture(broadAkkaRequests)(broadAkkaFunction(_)),
+//      scala.concurrent.duration.Duration.Inf,
+//    )
+//  }
 
   private def httpRequestFromString(url: String): Request =
     Request(url = URL.fromString(url).toOption.get)
 
-  private def akkaHttpRequestFromString(url: String): HttpRequest =
-    HttpRequest(uri = url)
+//  private def akkaHttpRequestFromString(url: String): HttpRequest =
+//    HttpRequest(uri = url)
 
-  private def http4sRequestFromString(url: String): Request4s[Task] =
-    Request4s[Task](uri = org.http4s.Uri.unsafeFromString(url))
+  private def http4sRequestFromString(url: String): Request4s[CIO] =
+    Request4s[CIO](uri = org.http4s.Uri.unsafeFromString(url))
 
-  private def requestsFromString(url: String): (Request, HttpRequest, Request4s[Task]) =
-    (httpRequestFromString(url), akkaHttpRequestFromString(url), http4sRequestFromString(url))
+  private def requestsFromString(url: String): (Request, Unit, Request4s[CIO]) =
+    (
+      httpRequestFromString(url),
+      (), // akkaHttpRequestFromString(url),
+      http4sRequestFromString(url),
+    )
 
   def unsafeRun[E, A](zio: ZIO[Any, E, A]): Unit = Unsafe.unsafe { implicit unsafe =>
     Runtime.default.unsafe
@@ -590,12 +597,14 @@ class ApiBenchmark {
       .getOrThrowFiberFailure()
   }
 
-  private def repeatNFuture[A](n: Int)(f: => Future[A]): Future[A] =
-    if (n == 0) f else f.flatMap(_ => repeatNFuture(n - 1)(f))
+//  private def repeatNFuture[A](n: Int)(f: => Future[A])(implicit ec: ExecutionContext): Future[A] =
+//    if (n == 0) f else f.flatMap(_ => repeatNFuture(n - 1)(f))
 
-  private def foreachDiscardFuture[A, B](values: Iterable[A])(f: A => Future[B]): Future[Unit] =
-    if (values.isEmpty) Future.unit
-    else values.tail.foldLeft(f(values.head))((future, a) => future.flatMap(_ => f(a))).flatMap(_ => Future.unit)
+//  private def foreachDiscardFuture[A, B](
+//    values: Iterable[A],
+//  )(f: A => Future[B])(implicit ec: ExecutionContext): Future[Unit] =
+//    if (values.isEmpty) Future.unit
+//    else values.tail.foldLeft(f(values.head))((future, a) => future.flatMap(_ => f(a))).flatMap(_ => Future.unit)
 
 }
 
