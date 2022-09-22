@@ -27,11 +27,8 @@ final case class Request(
 
   val path = url.path
 
-  def withMethod(method: Method): Request = self.copy(method = method)
+  def updatePath(path: Path): Request = self.copy(url = self.url.copy(path = path))
 
-  def withPath(path: Path): Request = self.copy(url = self.url.copy(path = path))
-
-  def withUrl(url: URL): Request = self.copy(url = url)
 
   /**
    * Updates the headers using the provided function

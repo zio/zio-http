@@ -642,12 +642,12 @@ object Http {
     /**
      * Overwrites the method in the incoming request
      */
-    def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.withMethod(method))
+    def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.copy(method = method))
 
     /**
      * Overwrites the path in the incoming request
      */
-    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.withPath(path))
+    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.updatePath( path))
 
     /**
      * Sets the status in the response produced by the app
@@ -657,7 +657,7 @@ object Http {
     /**
      * Overwrites the url in the incoming request
      */
-    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.withUrl(url))
+    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.copy(url = url))
 
     /**
      * Updates the response headers using the provided function
