@@ -62,7 +62,7 @@ object AcceptEncoding {
   }
 
   def toEncoding(value: String): AcceptEncoding = {
-    value.split(",").flatMap(identifyEncodingFull) match {
+    value.split(',').flatMap(identifyEncodingFull) match {
       case ar @ Array(head, tail @ _*) =>
         if (tail.isEmpty) head
         else
