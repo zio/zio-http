@@ -2,6 +2,8 @@ package zio.http.model.headers
 
 import zio.Chunk
 
+import scala.util.Try
+
 object Structured {
 
   sealed trait Encoding {
@@ -40,7 +42,7 @@ object Structured {
     def identifyEncodingFull(raw: String): Option[Encoding] = {
       raw.split(";=") match {
         case Array(encoding)         => identifyEncoding(encoding)
-        case Array(encoding, weight) => identifyEncoding(encoding, weight.toDoubleOption)
+        case Array(encoding, weight) => identifyEncoding(encoding, Try(weight.toDouble).toOption)
         case _                       => None
       }
     }
