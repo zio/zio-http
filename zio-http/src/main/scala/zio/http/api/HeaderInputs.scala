@@ -1,6 +1,7 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
+import zio.http.model.headers.values.CacheControl
 import zio.http.model.headers.values.Age
 import zio.http.model.headers.values.ContentLength
 
@@ -34,7 +35,9 @@ private[api] trait HeaderInputs {
   final val age: In[Age]      = header(HeaderNames.age.toString(), TextCodec.string).transform(Age.toAge, Age.fromAge)
   final val allow: In[String] = header(HeaderNames.allow.toString(), TextCodec.string)
   final val authorization: In[String]           = header(HeaderNames.authorization.toString(), TextCodec.string)
-  final val cacheControl: In[String]            = header(HeaderNames.cacheControl.toString(), TextCodec.string)
+  final val cacheControl: In[CacheControl]      =
+    header(HeaderNames.cacheControl.toString(), TextCodec.string)
+      .transform[CacheControl](CacheControl.toCacheControl, CacheControl.fromCacheControl)
   final val connection: In[String]              = header(HeaderNames.connection.toString(), TextCodec.string)
   final val contentBase: In[String]             = header(HeaderNames.contentBase.toString(), TextCodec.string)
   final val contentEncoding: In[String]         = header(HeaderNames.contentEncoding.toString(), TextCodec.string)
