@@ -1,10 +1,33 @@
 package zio.http.model.headers.values
 
+import zio.Chunk
+
+import scala.annotation.tailrec
+import scala.util.Try
+
+/**
+ * CacheControl header value.
+ */
 sealed trait CacheControl {
   val raw: String
 }
 
 object CacheControl {
+
+  /**
+   * The immutable response directive indicates that the response will not be
+   * updated while it's fresh
+   */
+  case object Immutable extends CacheControl {
+    override val raw: String = "immutable"
+  }
+
+  /**
+   * Signals an invalid value present in the header value.
+   */
+  final case object InvalidCacheControl extends CacheControl {
+    override val raw: String = "Invalid header value"
+  }
 
   /**
    * The max-age=N response directive indicates that the response remains fresh
@@ -34,12 +57,28 @@ object CacheControl {
   }
 
   /**
-   * The s-maxage response directive also indicates how long the response is
-   * fresh for (similar to max-age) — but it is specific to shared caches, and
-   * they will ignore max-age when it is present.
+   * The must-revalidate response directive indicates that the response can be
+   * stored in caches and can be reused while fresh. If the response becomes
+   * stale, it must be validated with the origin server before reuse.
    */
-  final case class SMaxAge(freshForSeconds: Int) extends CacheControl {
-    override val raw: String = "s-maxage"
+  case object MustRevalidate extends CacheControl {
+    override val raw: String = "must-revalidate"
+  }
+
+  /**
+   * The must-understand response directive indicates that a cache should store
+   * the response only if it understands the requirements for caching based on
+   * status code.
+   */
+  case object MustUnderstand extends CacheControl {
+    override val raw: String = "must-understand"
+  }
+
+  /**
+   * Maintains a chunk of CacheControl values.
+   */
+  final case class MultipleCacheControlValues(values: Chunk[CacheControl]) extends CacheControl {
+    override val raw: String = values.map(_.raw).mkString(",")
   }
 
   /**
@@ -83,12 +122,11 @@ object CacheControl {
   }
 
   /**
-   * The must-revalidate response directive indicates that the response can be
-   * stored in caches and can be reused while fresh. If the response becomes
-   * stale, it must be validated with the origin server before reuse.
+   * The private response directive indicates that the response can be stored
+   * only in a private cache
    */
-  case object MustRevalidate extends CacheControl {
-    override val raw: String = "must-revalidate"
+  case object Private extends CacheControl {
+    override val raw: String = "private"
   }
 
   /**
@@ -100,23 +138,6 @@ object CacheControl {
   }
 
   /**
-   * The must-understand response directive indicates that a cache should store
-   * the response only if it understands the requirements for caching based on
-   * status code.
-   */
-  case object MustUnderstand extends CacheControl {
-    override val raw: String = "must-understand"
-  }
-
-  /**
-   * The private response directive indicates that the response can be stored
-   * only in a private cache
-   */
-  case object Private extends CacheControl {
-    override val raw: String = "private"
-  }
-
-  /**
    * The public response directive indicates that the response can be stored in
    * a shared cache.
    */
@@ -125,19 +146,12 @@ object CacheControl {
   }
 
   /**
-   * The immutable response directive indicates that the response will not be
-   * updated while it's fresh
+   * The s-maxage response directive also indicates how long the response is
+   * fresh for (similar to max-age) — but it is specific to shared caches, and
+   * they will ignore max-age when it is present.
    */
-  case object Immutable extends CacheControl {
-    override val raw: String = "immutable"
-  }
-
-  /**
-   * The stale-while-revalidate response directive indicates that the cache
-   * could reuse a stale response while it revalidates it to a cache.
-   */
-  final case class StaleWhileRevalidate(seconds: Int) extends CacheControl {
-    override val raw: String = "stale-while-revalidate"
+  final case class SMaxAge(freshForSeconds: Int) extends CacheControl {
+    override val raw: String = "s-maxage"
   }
 
   /**
@@ -149,8 +163,90 @@ object CacheControl {
     override val raw: String = "stale-if-error"
   }
 
-  def fromCacheControl(value: CacheControl): String = ???
+  /**
+   * The stale-while-revalidate response directive indicates that the cache
+   * could reuse a stale response while it revalidates it to a cache.
+   */
+  final case class StaleWhileRevalidate(seconds: Int) extends CacheControl {
+    override val raw: String = "stale-while-revalidate"
+  }
 
-  def toCacheControl(value: String): CacheControl = ???
+  def fromCacheControl(value: CacheControl): String = {
+    value match {
+      case Immutable                          => Immutable.raw
+      case InvalidCacheControl                => ""
+      case m @ MaxAge(freshForSeconds)        => s"${m.raw}=$freshForSeconds"
+      case m @ MaxStale(staleWithinSeconds)   => s"${m.raw}=$staleWithinSeconds"
+      case m @ MinFresh(freshAtLeastSeconds)  => s"${m.raw}=$freshAtLeastSeconds"
+      case MustRevalidate                     => MustRevalidate.raw
+      case MustUnderstand                     => MustUnderstand.raw
+      case MultipleCacheControlValues(values) => values.map(fromCacheControl).mkString(",")
+      case NoCache                            => NoCache.raw
+      case NoStore                            => NoStore.raw
+      case NoTransform                        => NoTransform.raw
+      case OnlyIfCached                       => OnlyIfCached.raw
+      case Private                            => Private.raw
+      case ProxyRevalidate                    => ProxyRevalidate.raw
+      case Public                             => Public.raw
+      case s @ SMaxAge(freshForSeconds)       => s"${s.raw}=$freshForSeconds"
+      case s @ StaleIfError(seconds)          => s"${s.raw}=$seconds"
+      case s @ StaleWhileRevalidate(seconds)  => s"${s.raw}=$seconds"
+    }
+  }
+
+  def toCacheControl(value: String): CacheControl = {
+    val index = value.indexOf(",")
+
+    @tailrec def loop(value: String, index: Int, acc: MultipleCacheControlValues): MultipleCacheControlValues = {
+      if (index == -1) acc.copy(values = acc.values ++ Chunk(identifyCacheControl(value)))
+      else {
+        val valueChunk       = value.substring(0, index)
+        val remaining        = value.substring(index + 1)
+        val nextIndex        = remaining.indexOf(",")
+        val acceptedEncoding = Chunk(identifyCacheControl(valueChunk))
+        loop(
+          remaining,
+          nextIndex,
+          acc.copy(values = acc.values ++ acceptedEncoding),
+        )
+      }
+    }
+
+    if (index == -1)
+      identifyCacheControl(value)
+    else
+      loop(value, index, MultipleCacheControlValues(Chunk.empty[CacheControl]))
+  }
+
+  private def identifyCacheControl(value: String): CacheControl = {
+    val index = value.indexOf("=")
+    if (index == -1)
+      identifyCacheControlValue(value)
+    else
+      identifyCacheControlValue(value.substring(0, index), Try(value.substring(index + 1).toInt).toOption)
+
+  }
+
+  private def identifyCacheControlValue(value: String, seconds: Option[Int] = None): CacheControl = {
+    value match {
+      case "max-age"                => MaxAge(seconds.getOrElse(0))
+      case "max-stale"              => MaxStale(seconds.getOrElse(0))
+      case "min-fresh"              => MinFresh(seconds.getOrElse(0))
+      case "s-maxage"               => SMaxAge(seconds.getOrElse(0))
+      case NoCache.raw              => NoCache
+      case NoStore.raw              => NoStore
+      case NoTransform.raw          => NoTransform
+      case OnlyIfCached.raw         => OnlyIfCached
+      case MustRevalidate.raw       => MustRevalidate
+      case ProxyRevalidate.raw      => ProxyRevalidate
+      case MustUnderstand.raw       => MustUnderstand
+      case Private.raw              => Private
+      case Public.raw               => Public
+      case Immutable.raw            => Immutable
+      case "stale-while-revalidate" => StaleWhileRevalidate(seconds.getOrElse(0))
+      case "stale-if-error"         => StaleIfError(seconds.getOrElse(0))
+      case _                        => InvalidCacheControl
+    }
+  }
 
 }
