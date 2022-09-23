@@ -47,7 +47,7 @@ object ChannelFactories {
     def uring    = clientChannel(new IOUringSocketChannel())
     def embedded = clientChannel(new EmbeddedChannel(false, false))
 
-    val fromConfig: ZLayer[ChannelType.Config, Nothing, ChannelFactory[Channel]] = ZLayer.fromZIO {
+    val fromConfig = ZLayer.fromZIO {
       ZIO.service[ChannelType.Config].flatMap {
         _.channelType match {
           case ChannelType.NIO    => nio

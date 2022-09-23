@@ -35,8 +35,7 @@ object SSLSpec extends ZIOSpecDefault {
       } yield Response.text(body)
   }
 
-  override def spec = {
-    suite("SSL")(
+  override def spec = suite("SSL")(
     Server
       .serve(app)
       .as(
@@ -102,6 +101,5 @@ object SSLSpec extends ZIOSpecDefault {
     Server.live,
   ) @@
     timeout(5 second) @@ ignore
-  }
 
 }
