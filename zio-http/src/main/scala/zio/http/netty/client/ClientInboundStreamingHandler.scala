@@ -2,7 +2,7 @@ package zio.http.netty.client
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
-import zio.http.netty.NettyRuntime
+import zio.http.netty._
 import zio.http.{Request, Response}
 import zio.{Promise, Trace, Unsafe}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -46,7 +46,7 @@ final class ClientInboundStreamingHandler(
 
   private def encodeRequest(req: Request): HttpRequest = {
     val method   = req.method.toJava
-    val jVersion = req.version.toJava
+    val jVersion = Versions.convertToZIOToNetty(req.version)
 
     // As per the spec, the path should contain only the relative path.
     // Host and port information should be in the headers.
@@ -70,6 +70,7 @@ final class ClientInboundStreamingHandler(
   private def writeRequest(msg: Request, ctx: ChannelHandlerContext): Unit = {
     ctx.write(encodeRequest(msg))
     rtm.run(ctx)(msg.body.write(ctx).unit)(Unsafe.unsafe, trace)
+    ctx.flush(): Unit
   }
 
 }

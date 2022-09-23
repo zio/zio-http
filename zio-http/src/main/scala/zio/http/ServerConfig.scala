@@ -11,17 +11,18 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class ServerConfig(
   leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
-  sslOption: Option[SSLConfig] = None,
+  sslConfig: Option[SSLConfig] = None,
   address: InetSocketAddress = new InetSocketAddress(8080),
   acceptContinue: Boolean = false,
   keepAlive: Boolean = true,
   consolidateFlush: Boolean = false,
   flowControl: Boolean = true,
-  requestDecompression: (Boolean, Boolean) = (false, false),
+  requestDecompression: Decompression = Decompression.No,
   responseCompression: Option[ResponseCompressionConfig] = None,
   objectAggregator: Int = 1024 * 100,
   channelType: ChannelType = ChannelType.AUTO,
   nThreads: Int = 0,
+  maxHeaderSize: Int = 8192,
 ) extends EventLoopGroups.Config {
   self =>
   def useAggregator: Boolean = objectAggregator >= 0
@@ -92,8 +93,8 @@ final case class ServerConfig(
    * Http requests (@see <a href =
    * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentDecompressor.html">HttpContentDecompressor</a>).
    */
-  def requestDecompression(enabled: Boolean, strict: Boolean): ServerConfig =
-    self.copy(requestDecompression = (enabled, strict))
+  def requestDecompression(isStrict: Boolean): ServerConfig =
+    self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
 
   /**
    * Configure the new server with netty's HttpContentCompressor to compress
@@ -106,12 +107,18 @@ final case class ServerConfig(
   /**
    * Configure the server with the following ssl options.
    */
-  def ssl(sslOptions: SSLConfig): ServerConfig = self.copy(sslOption = Some(sslOptions))
+  def ssl(sslConfig: SSLConfig): ServerConfig = self.copy(sslConfig = Some(sslConfig))
 
   /**
    * Configure the server to use a maximum of nThreads to process requests.
    */
   def maxThreads(nThreads: Int): ServerConfig = self.copy(nThreads = nThreads)
+
+  /**
+   * Configure the server to use `maxHeaderSize` value when encode/decode
+   * headers.
+   */
+  def maxHeaderSize(headerSize: Int): ServerConfig = self.copy(maxHeaderSize = headerSize)
 }
 
 object ServerConfig {
