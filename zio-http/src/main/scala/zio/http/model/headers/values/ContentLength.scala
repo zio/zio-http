@@ -13,7 +13,7 @@ object ContentLength {
    * The Content-Length header indicates the size of the message body, in bytes,
    * sent to the recipient.
    */
-  final case class ContentLengthValue(seconds: Int) extends ContentLength
+  final case class ContentLengthValue(length: Int) extends ContentLength
 
   /**
    * The ContentLength header value is invalid.
