@@ -266,19 +266,39 @@ jobs:
           ./tfb  --test zio-http | tee result
           RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")
           RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")
-          echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
-          echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
+          echo ::set-output name=request_result_256::$(echo $RESULT_REQUEST)
+          echo ::set-output name=concurrency_result_256::$(echo $RESULT_CONCURRENCY)
+          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 1024 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")
+          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 1024 for plaintext" result) | grep -oiE "concurrency: [0-9]+")
+          echo ::set-output name=request_result_1024::$(echo $RESULT_REQUEST)
+          echo ::set-output name=concurrency_result_1024::$(echo $RESULT_CONCURRENCY)
+          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 4096 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")
+          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 4096 for plaintext" result) | grep -oiE "concurrency: [0-9]+")
+          echo ::set-output name=request_result_4096::$(echo $RESULT_REQUEST)
+          echo ::set-output name=concurrency_result_4096::$(echo $RESULT_CONCURRENCY)
+          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 16384 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")
+          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 16384 for plaintext" result) | grep -oiE "concurrency: [0-9]+")
+          echo ::set-output name=request_result_16384::$(echo $RESULT_REQUEST)
+          echo ::set-output name=concurrency_result_16384::$(echo $RESULT_CONCURRENCY)
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
         uses: peter-evans/commit-comment@v1
         with:
           sha: ${{github.event.pull_request.head.sha}}
           body: |
-
             **🚀 Performance Benchmark:**
 
-            ${{steps.result.outputs.concurrency_result}}
-            ${{steps.result.outputs.request_result}}
+            ${{steps.result.outputs.concurrency_result_256}}
+            ${{steps.result.outputs.request_result_256}}
+
+            ${{steps.result.outputs.concurrency_result_1024}}
+            ${{steps.result.outputs.request_result_1024}}
+
+            ${{steps.result.outputs.concurrency_result_4096}}
+            ${{steps.result.outputs.request_result_4096}}
+
+            ${{steps.result.outputs.concurrency_result_16384}}
+            ${{steps.result.outputs.request_result_16384}}
 
   Jmh_publish:
     name: Jmh Publish

@@ -2,6 +2,34 @@ import BuildHelper.Scala213
 import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowJob, WorkflowStep}
 
 object BenchmarkWorkFlow {
+  private val s = "$"
+
+  private def createBenchmarkResults(requestCounts: Int*): Seq[String] = {
+
+    requestCounts.flatMap { count =>
+      List(
+        s"""RESULT_REQUEST=${s}(echo ${s}(grep -B 1 -A 17 "Concurrency: $count for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")""",
+        s"""RESULT_CONCURRENCY=${s}(echo ${s}(grep -B 1 -A 17 "Concurrency: $count for plaintext" result) | grep -oiE "concurrency: [0-9]+")""",
+        s"""echo ::set-output name=request_result_$count::${s}(echo ${s}RESULT_REQUEST)""",
+        s"""echo ::set-output name=concurrency_result_$count::${s}(echo ${s}RESULT_CONCURRENCY)""",
+      )
+    }
+
+  }
+
+  private def makeBenchmarkReport(requestCounts: Int*): String = {
+
+    val header = "**\uD83D\uDE80 Performance Benchmark:**"
+
+    requestCounts.foldLeft(header) { (report, count) =>
+      s"""|$report
+          |
+          |${s}{{steps.result.outputs.concurrency_result_$count}}
+          |${s}{{steps.result.outputs.request_result_$count}}""".stripMargin
+    }
+
+  }
+
   def apply(): Seq[WorkflowJob] = Seq(
     WorkflowJob(
       runsOnExtraLabels = List("zio-http"),
@@ -40,11 +68,7 @@ object BenchmarkWorkFlow {
             "cd ./FrameworkBenchMarks",
             """sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt""",
             "./tfb  --test zio-http | tee result",
-            """RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")""",
-            """RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")""",
-            """echo ::set-output name=request_result::$(echo $RESULT_REQUEST)""",
-            """echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)""",
-          ),
+          ) ++ createBenchmarkResults(256, 1024, 4096, 16384),
         ),
         WorkflowStep.Use(
           ref = UseRef.Public("peter-evans", "commit-comment", "v1"),
@@ -53,15 +77,11 @@ object BenchmarkWorkFlow {
           ),
           params = Map(
             "sha"  -> "${{github.event.pull_request.head.sha}}",
-            "body" ->
-              """
-                |**\uD83D\uDE80 Performance Benchmark:**
-                |
-                |${{steps.result.outputs.concurrency_result}}
-                |${{steps.result.outputs.request_result}}""".stripMargin,
+            "body" -> makeBenchmarkReport(256, 1024, 4096, 16384),
           ),
         ),
       ),
     ),
-  )
+  ),
+
 }

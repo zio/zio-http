@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * I have peered into the cold void that is performance optimization. A mea
  * culpa for the sins of my naive bravado. The void stares back into me. I am
- * now a husk of more former self, a hallow driven more and more to increase
+ * now a husk of my former self, a hallow driven more and more to increase
  * performance. 2% here, 5% there, a sad existence I would wish on no one.
  *
  * So yeah, DON'T CHANGE ANYTHING HERE UNLESS YOU REALLY KNOW WHAT YOU ARE
