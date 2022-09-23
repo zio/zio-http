@@ -14,7 +14,7 @@ object TestServerSpec extends ZIOSpec[TestServer]{
   val bootstrap = TestServer.make
   def spec = test("use our test server"){
     for {
-      originalRequests <- TestServer.requests
+      originalRequests <- TestServer.interactions
       _ <- ZIO.serviceWithZIO[Server](_.install(Http.ok))
       port <- ZIO.serviceWith[Server](_.port)
 //      _ <- TestServer.feedRequests(
@@ -29,7 +29,7 @@ object TestServerSpec extends ZIOSpec[TestServer]{
           Request(url = URL(Path.root / "users", Location.Absolute(Scheme.HTTP, "localhost", port)))
         )
       _ <- ZIO.debug("Response: " + response)
-      finalRequests <- TestServer.requests.debug
+      finalRequests <- TestServer.interactions.debug
 
     } yield assertTrue(originalRequests.length == 0) && assertTrue(finalRequests.length == 2)
   }.provideSome[Scope with TestServer](ZLayer.succeed(ClientConfig()) >>> Client.default)

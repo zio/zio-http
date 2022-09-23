@@ -13,12 +13,7 @@ import zio.http.socket.SocketApp
 import TestClient.Interaction
 
 trait TestClient extends http.Client {
-  def feedResponses(responses: Response*): UIO[Unit]
-
   def interactions(): UIO[List[Interaction]]
-  //  def request(
-  //               request: Request,
-  //             )(implicit trace: Trace): ZIO[Client, Throwable, Response]
 }
 
 object TestClient {
@@ -31,30 +26,15 @@ object TestClient {
               responsesR: Ref[List[Interaction]]
             ) extends TestClient {
 
-    //    def request(
-    //                 request: Request,
-    //               )(implicit trace: Trace): ZIO[Client, Throwable, Response] =
-    //
-    //      for {
-    //        response <- live.request(request)
-    //        _ <- responsesR.update(x => x :+ (request, response))
-    //
-    //      } yield response
-
     def interactions(): UIO[List[Interaction]] =
       responsesR.get
 
-    def feedResponses(responses: Response*): UIO[Unit] =
-      ???
-
-    //      this.responsesR.update(_ ++ responses)
     def send(request: Request): ZIO[Clock, Throwable, Response] = {
       for {
         response <- live.request(request)
         _ <- responsesR.update(x => x :+ Interaction(request, response))
 
       } yield response
-      //      responses.flatMap(_.take)
     }
 
     override def headers: Headers = live.headers
@@ -83,7 +63,6 @@ object TestClient {
             responsesR.update(interactions => Interaction(Request(version = version, method = method, url = URL(pathPrefix, Location.Absolute(Scheme.HTTP, "localhost", port = portOption.getOrElse(-1))), headers = headers, body = body), value) :: interactions) *>
               ZIO.succeed(value)
         }
-        //          _ <- responsesR.update(interactions => (Request(), response) :: interactions)
       } yield rez
     }
 
@@ -92,15 +71,14 @@ object TestClient {
 
   }
 
-  def make: ULayer[TestClient] = {
+  def make: ZLayer[Any, Throwable, TestClient] = {
 
     val sslOption: ClientSSLOptions = // TODO Need this?
       ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
     val configLayer: ZLayer[Any, Nothing, EventLoopGroups.Config] = ZLayer.succeed(ClientConfig.empty.ssl(sslOption))
     for {
       responses <- ZLayer.fromZIO(Ref.make(List.empty[Interaction]))
-      live <- Scope.default >+> configLayer >>> Client.default.orDie
-      //      live = Server.ServerLiveHardcoded
+      live <- Scope.default >+> configLayer >>> Client.default
     } yield ZEnvironment(new Test(live.get, responses.get))
   }
 }
