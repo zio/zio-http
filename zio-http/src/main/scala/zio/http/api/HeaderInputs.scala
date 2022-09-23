@@ -1,7 +1,7 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-
+import zio.http.model.headers.values.ContentLength
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait HeaderInputs {
@@ -37,7 +37,8 @@ private[api] trait HeaderInputs {
   final val contentBase: In[String]                 = header(HeaderNames.contentBase.toString(), TextCodec.string)
   final val contentEncoding: In[String]             = header(HeaderNames.contentEncoding.toString(), TextCodec.string)
   final val contentLanguage: In[String]             = header(HeaderNames.contentLanguage.toString(), TextCodec.string)
-  final val contentLength: In[String]               = header(HeaderNames.contentLength.toString(), TextCodec.string)
+  final val contentLength: In[ContentLength]        = header(HeaderNames.contentLength.toString(), TextCodec.string)
+    .transform(ContentLength.toContentLength, ContentLength.fromContentLength)
   final val contentLocation: In[String]             = header(HeaderNames.contentLocation.toString(), TextCodec.string)
   final val contentTransferEncoding: In[String]     =
     header(HeaderNames.contentTransferEncoding.toString(), TextCodec.string)
