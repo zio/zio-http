@@ -1,6 +1,7 @@
 package zio.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import zio.Unsafe
 import zio.http.internal.HttpGen
 import zio.http.netty._
 import zio.http.netty.client._
@@ -92,6 +93,7 @@ object ClientRequestEncoderSpec extends ZIOSpecDefault with ClientRequestEncoder
       }
     },
     test("http version") {
+      implicit val unsafe = Unsafe.unsafe
       check(anyClientParam) { params =>
         val req = encode(params).map(i => i.protocolVersion())
         assertZIO(req)(equalTo(Versions.convertToZIOToNetty(params.version)))

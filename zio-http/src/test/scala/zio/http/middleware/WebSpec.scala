@@ -271,7 +271,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
             .error("Error !!!") @@ beautifyErrors) header "content-type"
           assertZIO(
             app(
-              Request.get(URL.empty).copy(headers = Headers.accept(HeaderValues.textHtml)),
+              Request.get(URL.empty).updateHeaders(_ => Headers.accept(HeaderValues.textHtml)),
             ),
           )(isSome(equalTo("text/html")))
         }

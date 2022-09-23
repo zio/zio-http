@@ -88,9 +88,7 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
         apiRoot ++ URL(route, URL.Location.Relative, query),
         body,
       )
-      .copy(
-        headers = headers,
-      )
+      .updateHeaders(_ => headers)
 
     client.request(request).flatMap { response =>
       response.body.asChunk.flatMap { response =>

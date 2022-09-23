@@ -31,7 +31,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       addZioUserAgentHeader: Boolean = false,
     ): ZIO[R, Throwable, A] =
       app(
-        Request(
+        Request.ClientRequest(
           body,
           headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
           method,
@@ -67,7 +67,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
           Client.request(
             params
               .addHeader(DynamicServer.APP_ID, id)
-              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+              .updateUrl(URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
           )
         }
       } yield response
@@ -82,7 +82,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
           Client.request(
             params
               .addHeader(DynamicServer.APP_ID, id)
-              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+              .updateUrl(URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
           )
         }
       } yield response

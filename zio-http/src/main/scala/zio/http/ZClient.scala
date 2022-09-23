@@ -525,10 +525,8 @@ object ZClient {
               URL(path, URL.Location.Absolute(schemeOption.getOrElse(Scheme.HTTP), host, port)).setQueryParams(queries),
               body,
             )
-            .copy(
-              version = version,
-              headers = headers,
-            ),
+            .updateHeaders(_ => headers)
+            .updateVersion(version),
           sslConfig.fold(settings)(settings.ssl),
         )
       } yield response
@@ -556,10 +554,8 @@ object ZClient {
         res      <- requestAsync(
           Request
             .get(URL(path, location))
-            .copy(
-              version = version,
-              headers = headers,
-            ),
+            .updateHeaders(_ => headers)
+            .updateVersion(version),
           clientConfig = settings.copy(socketApp = Some(app.provideEnvironment(env))),
         ).withFinalizer(_.close.orDie)
       } yield res
@@ -711,9 +707,7 @@ object ZClient {
         _.request(
           Request
             .default(method, uri, content)
-            .copy(
-              headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
-            ),
+            .updateHeaders(_ => headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader)),
         ),
       )
     } yield response

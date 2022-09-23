@@ -23,7 +23,7 @@ object GetBodyAsStringSpec extends ZIOSpecDefault {
               Body.fromChunk(Chunk.fromArray("abc".getBytes(charset))),
               URL(!!),
             )
-            .copy(headers = Headers.contentType(s"text/html; charset=$charset"))
+            .updateHeaders(_ => Headers.contentType(s"text/html; charset=$charset"))
 
           val encoded  = request.body.asString(request.charset)
           val expected = new String(Chunk.fromArray("abc".getBytes(charset)).toArray, charset)

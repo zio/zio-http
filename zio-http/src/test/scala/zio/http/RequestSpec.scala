@@ -9,7 +9,7 @@ object RequestSpec extends ZIOSpecDefault {
   def spec: Spec[TestEnvironment with Scope, Any] = suite("Result")(
     test("`#default`") {
       val body     = Body.fromString("foo")
-      val expected = Request(
+      val expected = Request.ClientRequest(
         body,
         Headers.empty,
         Method.POST,
@@ -22,7 +22,7 @@ object RequestSpec extends ZIOSpecDefault {
       assertTrue(actual == expected)
     },
     test("`#delete`") {
-      val expected = Request(
+      val expected = Request.ClientRequest(
         Body.empty,
         Headers.empty,
         Method.DELETE,
@@ -35,7 +35,7 @@ object RequestSpec extends ZIOSpecDefault {
       assertTrue(actual == expected)
     },
     test("`#get`") {
-      val expected = Request(
+      val expected = Request.ClientRequest(
         Body.empty,
         Headers.empty,
         Method.GET,
@@ -48,7 +48,7 @@ object RequestSpec extends ZIOSpecDefault {
       assertTrue(actual == expected)
     },
     test("`#options`") {
-      val expected = Request(
+      val expected = Request.ClientRequest(
         Body.empty,
         Headers.empty,
         Method.OPTIONS,
@@ -62,7 +62,7 @@ object RequestSpec extends ZIOSpecDefault {
     },
     test("`#patch`") {
       val body     = Body.fromString("foo")
-      val expected = Request(
+      val expected = Request.ClientRequest(
         body,
         Headers.empty,
         Method.PATCH,
@@ -76,7 +76,7 @@ object RequestSpec extends ZIOSpecDefault {
     },
     test("`#post`") {
       val body     = Body.fromString("foo")
-      val expected = Request(
+      val expected = Request.ClientRequest(
         body,
         Headers.empty,
         Method.POST,
@@ -90,7 +90,7 @@ object RequestSpec extends ZIOSpecDefault {
     },
     test("`#put`") {
       val body     = Body.fromString("foo")
-      val expected = Request(
+      val expected = Request.ClientRequest(
         body,
         Headers.empty,
         Method.PUT,

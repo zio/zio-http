@@ -15,9 +15,7 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     test("OPTIONS request") {
       val request = Request
         .options(URL(!! / "success"))
-        .copy(
-          headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
-        )
+        .updateHeaders(_ => Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"))
 
       val initialHeaders = Headers
         .accessControlAllowCredentials(true)
@@ -41,9 +39,7 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       val request =
         Request
           .get(URL(!! / "success"))
-          .copy(
-            headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
-          )
+          .updateHeaders(_ => Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"))
 
       val expected = Headers
         .accessControlExposeHeaders("*")
