@@ -553,7 +553,9 @@ class ApiBenchmark {
 //
   @Benchmark
   def benchmarkBroadTapirHttp4s(): Unit = {
-    val _ = foreachDiscardCIO(broadHttp4sRequests)(broadTapirHttp4sApp(_).value)
+    val _ = foreachDiscardCIO(broadHttp4sRequests) { req =>
+      broadTapirHttp4sApp(req).value
+    }.unsafeRunSync()
   }
 //
 //  @Benchmark
@@ -595,17 +597,16 @@ class ApiBenchmark {
 //  private def repeatNFuture[A](n: Int)(f: => Future[A])(implicit ec: ExecutionContext): Future[A] =
 //    if (n == 0) f else f.flatMap(_ => repeatNFuture(n - 1)(f))
 
-//  private def foreachDiscardFuture[A, B](
-//    values: Iterable[A],
-//  )(f: A => Future[B])(implicit ec: ExecutionContext): Future[Unit] =
-//    if (values.isEmpty) Future.unit
-//    else values.tail.foldLeft(f(values.head))((future, a) => future.flatMap(_ => f(a))).flatMap(_ => Future.unit)
-
   private def foreachDiscardCIO[A, B](
     values: Iterable[A],
-  )(f: A => CIO[B]): CIO[Unit] =
-    if (values.isEmpty) CIO.unit
-    else values.tail.foldLeft(f(values.head))((future, a) => future.flatMap(_ => f(a))).flatMap(_ => CIO.unit)
+  )(f: A => CIO[B]): CIO[Unit] = {
+    val list = values.toList
+    list.tail
+      .foldLeft[CIO[Any]](CIO.pure(list.head)) { (acc, a) =>
+        acc *> f(a)
+      }
+      .flatMap(_ => CIO.pure(()))
+  }
 
 }
 
