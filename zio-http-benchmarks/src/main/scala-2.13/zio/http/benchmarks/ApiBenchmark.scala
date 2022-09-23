@@ -3,24 +3,19 @@ package zio.http.benchmarks
 //import akka.actor.ActorSystem
 //import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 //import akka.http.scaladsl.server.Route
+import cats.effect.unsafe.implicits.global
+import cats.effect.{IO => CIO}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import org.http4s.{HttpRoutes, Request => Request4s}
 import org.openjdk.jmh.annotations._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
-import cats.effect.{IO => CIO}
-import cats.effect.unsafe.implicits.global
-import cats.implicits.toTraverseOps
-//import scala.concurrent.ExecutionContext
-//import scala.concurrent.ExecutionContext.Implicits.global
-//import sttp.tapir.server.akkahttp.AkkaHttpServerInterpreter
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.{path => tpath, _}
 import zio.http._
 import zio.http.api._
 import zio.http.model.Method
-//import zio.interop.catz._
 import zio.json.{DeriveJsonCodec, EncoderOps, JsonCodec}
 import zio.schema.{DeriveSchema, Schema}
 import zio.{Scope => _, _}
@@ -558,7 +553,9 @@ class ApiBenchmark {
 //
   @Benchmark
   def benchmarkBroadTapirHttp4s(): Unit = {
-    val _ = broadHttp4sRequests.toList.traverse(broadTapirHttp4sApp(_).value)
+    val _ = foreachDiscardCIO(broadHttp4sRequests) { req =>
+      broadTapirHttp4sApp(req).value
+    }.unsafeRunSync()
   }
 //
 //  @Benchmark
@@ -600,11 +597,16 @@ class ApiBenchmark {
 //  private def repeatNFuture[A](n: Int)(f: => Future[A])(implicit ec: ExecutionContext): Future[A] =
 //    if (n == 0) f else f.flatMap(_ => repeatNFuture(n - 1)(f))
 
-//  private def foreachDiscardFuture[A, B](
-//    values: Iterable[A],
-//  )(f: A => Future[B])(implicit ec: ExecutionContext): Future[Unit] =
-//    if (values.isEmpty) Future.unit
-//    else values.tail.foldLeft(f(values.head))((future, a) => future.flatMap(_ => f(a))).flatMap(_ => Future.unit)
+  private def foreachDiscardCIO[A, B](
+    values: Iterable[A],
+  )(f: A => CIO[B]): CIO[Unit] = {
+    val list = values.toList
+    list.tail
+      .foldLeft[CIO[Any]](CIO.pure(list.head)) { (acc, a) =>
+        acc *> f(a)
+      }
+      .flatMap(_ => CIO.pure(()))
+  }
 
 }
 
