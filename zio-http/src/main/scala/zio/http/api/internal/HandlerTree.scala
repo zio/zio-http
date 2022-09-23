@@ -28,15 +28,6 @@ case class HandlerTree[-R, +E](
         )
     }
 
-  // The size of longest path this handler tree can successfully parse.
-  lazy val longestPath: Int = {
-    val constantsLength = constants.values.map(_.longestPath).maxOption.map(_ + 1).getOrElse(0)
-    val parsersLength   = parsers.values.map(_.longestPath).maxOption.map(_ + 1).getOrElse(0)
-    val result          = constantsLength max parsersLength
-
-    result
-  }
-
   def lookup(request: Request): Option[HandlerMatch[R, E, _, _]] = {
     HandlerTree.lookup(request.path.segments.collect { case Path.Segment.Text(text) => text }, 0, self, Chunk.empty)
   }
