@@ -228,7 +228,8 @@ object CacheControl {
   }
 
   private def identifyCacheControlValue(value: String, seconds: Option[Int] = None): CacheControl = {
-    value match {
+    val valueNoSpace = value.stripLeading()
+    valueNoSpace match {
       case "max-age"                => MaxAge(seconds.getOrElse(0))
       case "max-stale"              => MaxStale(seconds.getOrElse(0))
       case "min-fresh"              => MinFresh(seconds.getOrElse(0))
