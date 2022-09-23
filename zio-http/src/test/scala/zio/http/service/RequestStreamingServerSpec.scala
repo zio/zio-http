@@ -12,7 +12,7 @@ import zio.{Scope, ZIO, durationInt}
 object RequestStreamingServerSpec extends HttpRunnableSpec {
 
   private val configAppWithRequestStreaming = ServerConfig.default
-    .requestDecompression(true, true)
+    .requestDecompression(true)
     .objectAggregator(-1)
 
   private val appWithReqStreaming = serve(DynamicServer.app)

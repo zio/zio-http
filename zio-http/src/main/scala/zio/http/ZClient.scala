@@ -637,6 +637,13 @@ object ZClient {
             // we always buffer the whole HTTP response we can letty Netty take care of this)
             pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, clientConfig.maxHeaderSize, 8192, true))
 
+            // HttpContentDecompressor
+            if (clientConfig.requestDecompression.enabled)
+              pipeline.addLast(
+                HTTP_REQUEST_DECOMPRESSION,
+                new HttpContentDecompressor(clientConfig.requestDecompression.strict),
+              )
+
             // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
             // This is also required to make WebSocketHandlers work
             if (clientConfig.useAggregator) {
@@ -739,9 +746,14 @@ object ZClient {
     }
   }
 
+  val fromConfig = {
+    implicit val trace = Trace.empty
+    EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool >>> live
+  }
+
   val default = {
     implicit val trace = Trace.empty
-    ClientConfig.default >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool >>> live
+    ClientConfig.default >>> fromConfig
   }
 
   val zioHttpVersion: CharSequence           = Client.getClass().getPackage().getImplementationVersion()
