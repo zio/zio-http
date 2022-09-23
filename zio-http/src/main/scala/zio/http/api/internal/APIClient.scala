@@ -22,10 +22,10 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
 
     var i = 0
     while (i < inputs.length) {
-      val route = flattened.routes(i).asInstanceOf[In.Route[Any]]
-      val input = inputs(i)
+      val textCodec = flattened.routes(i).asInstanceOf[TextCodec[Any]]
+      val input     = inputs(i)
 
-      val segment = route.textCodec.encode(input)
+      val segment = textCodec.encode(input)
 
       path = path / segment
       i = i + 1
