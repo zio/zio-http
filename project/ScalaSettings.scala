@@ -42,7 +42,8 @@ trait ScalaSettings {
     //  "-Ywarn-infer-any",                 // Warn when a type argument is inferred to be `Any`.
     //  "-language:experimental.macros",   // Allow macro definition (besides implementation and application). Disabled, as this will significantly change in Scala 3
     //  "-language:implicitConversions",   // Allow definition of implicit functions called views. Disabled, as it might be dropped in Scala 3. Instead use extension methods (implemented as implicit class Wrapper(val inner: Foo) extends AnyVal {}
-    "-Wconf:cat=unused:info"               // log unused as info
+    "-Wconf:cat=unused:info",               // log unused as info
+    "-opt:l:inline"
   )
 
   val scala3Settings: Seq[String] = Seq("-Xignore-scala2-macros", "-noindent")

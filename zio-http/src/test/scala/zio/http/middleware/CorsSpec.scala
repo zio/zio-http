@@ -13,11 +13,11 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
 
   override def spec = suite("CorsMiddlewares")(
     test("OPTIONS request") {
-      val request = Request(
-        method = Method.OPTIONS,
-        url = URL(!! / "success"),
-        headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
-      )
+      val request = Request
+        .options(URL(!! / "success"))
+        .copy(
+          headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
+        )
 
       val initialHeaders = Headers
         .accessControlAllowCredentials(true)
@@ -39,11 +39,11 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     },
     test("GET request") {
       val request =
-        Request(
-          method = Method.GET,
-          url = URL(!! / "success"),
-          headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
-        )
+        Request
+          .get(URL(!! / "success"))
+          .copy(
+            headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
+          )
 
       val expected = Headers
         .accessControlExposeHeaders("*")
