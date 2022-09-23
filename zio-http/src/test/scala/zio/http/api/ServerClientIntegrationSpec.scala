@@ -1,9 +1,9 @@
 package zio.http.api
 
-import zio.{Scope, ZIO, ZLayer}
 import zio.http.{Client, ClientConfig, Server, ServerConfig, URL}
 import zio.schema.{DeriveSchema, Schema}
 import zio.test.{ZIOSpecDefault, assertTrue}
+import zio.{Scope, ZIO, ZLayer}
 
 object ServerClientIntegrationSpec extends ZIOSpecDefault {
 
