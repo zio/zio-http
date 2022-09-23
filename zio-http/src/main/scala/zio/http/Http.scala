@@ -6,7 +6,7 @@ import zio.ZIO.attemptBlocking
 import zio._
 import zio.http.html._
 import zio.http.model._
-import zio.http.model.headers.HeaderModifier
+import zio.http.model.headers.HeaderModifierZIO
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
@@ -633,7 +633,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
 object Http {
 
-  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifier[HttpApp[R, E]] {
+  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifierZIO[HttpApp[R, E]] {
     self =>
 
     /**

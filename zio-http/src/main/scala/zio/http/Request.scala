@@ -22,7 +22,7 @@ trait Request extends HeaderExtension[Request] { self =>
   /**
    * Updates the headers using the provided function
    */
-  final override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Request =
+  final override def updateHeaders(update: Headers => Headers): Request =
     self.copy(headers = update(self.headers))
 
   /**

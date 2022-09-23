@@ -14,7 +14,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * NOTE: Add methods here that modify the current headers and returns an
  * instance of the same type.
  */
-trait HeaderModifier[+A] { self =>
+trait HeaderModifierZIO[+A] { self =>
 
   final def addHeader(header: Header): A = addHeaders(header)
 
@@ -33,7 +33,7 @@ trait HeaderModifier[+A] { self =>
    * Updates the current Headers with new one, using the provided update
    * function passed.
    */
-  def updateHeaders(update: Headers => Headers): A
+  def updateHeaders(update: Headers => Headers)(implicit trace: Trace): A
 
   final def withAccept(value: CharSequence): A =
     addHeaders(Headers.accept(value))

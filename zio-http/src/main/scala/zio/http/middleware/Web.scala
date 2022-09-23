@@ -20,7 +20,7 @@ private[zio] trait Web
     with Csrf
     with Auth
     with RequestLogging
-    with HeaderModifier[HttpMiddleware[Any, Nothing]] {
+    with HeaderModifierZIO[HttpMiddleware[Any, Nothing]] {
   self =>
 
   /**
@@ -178,7 +178,7 @@ private[zio] trait Web
   /**
    * Updates the provided list of headers to the response
    */
-  final override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
+  final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
     Middleware.updateResponse(_.updateHeaders(update))
 
   /**
