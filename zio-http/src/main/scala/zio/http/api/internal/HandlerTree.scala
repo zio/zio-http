@@ -3,10 +3,15 @@ package zio.http.api.internal
 import zio._
 import zio.http._
 import zio.http.api._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-sealed trait HandlerTree[-R, +E] { self =>
-  import HandlerTree._
+import scala.annotation.tailrec // scalafix:ok;
+
+case class HandlerTree[-R, +E](
+  constants: Map[String, HandlerTree[R, E]],
+  parsers: Map[TextCodec[_], HandlerTree[R, E]],
+  leaf: Option[Service.HandledAPI[R, E, _, _, _]],
+) { self =>
 
   def add[R1 <: R, E1 >: E](handledAPI: Service.HandledAPI[R1, E1, _, _, _]): HandlerTree[R1, E1] =
     merge(HandlerTree.single(handledAPI))
@@ -15,16 +20,26 @@ sealed trait HandlerTree[-R, +E] { self =>
 
   def merge[R1 <: R, E1 >: E](that: HandlerTree[R1, E1]): HandlerTree[R1, E1] =
     (self, that) match {
-      case (Branch(constants1, parsers1, leaf), Branch(constants2, parsers2, leaf2)) =>
-        Branch(
+      case (HandlerTree(constants1, parsers1, leaf), HandlerTree(constants2, parsers2, leaf2)) =>
+        HandlerTree(
           mergeWith(constants1, constants2)(_ merge _),
           mergeWith(parsers1, parsers2)(_ merge _),
           leaf orElse leaf2,
         )
     }
 
-  def lookup(request: Request): Option[HandlerMatch[R, E, _, _]] =
+  // The size of longest path this handler tree can successfully parse.
+  lazy val longestPath: Int = {
+    val constantsLength = constants.values.map(_.longestPath).maxOption.map(_ + 1).getOrElse(0)
+    val parsersLength   = parsers.values.map(_.longestPath).maxOption.map(_ + 1).getOrElse(0)
+    val result          = constantsLength max parsersLength
+
+    result
+  }
+
+  def lookup(request: Request): Option[HandlerMatch[R, E, _, _]] = {
     HandlerTree.lookup(request.path.segments.collect { case Path.Segment.Text(text) => text }, 0, self, Chunk.empty)
+  }
 
   private def mergeWith[K, V](left: Map[K, V], right: Map[K, V])(f: (V, V) => V): Map[K, V] =
     left.foldLeft(right) { case (acc, (k, v)) =>
@@ -38,23 +53,20 @@ sealed trait HandlerTree[-R, +E] { self =>
 object HandlerTree {
 
   val empty: HandlerTree[Any, Nothing] =
-    Branch(Map.empty, Map.empty, None)
+    HandlerTree(Map.empty, Map.empty, None)
 
   def single[R, E](handledAPI: Service.HandledAPI[R, E, _, _, _]): HandlerTree[R, E] = {
-    val routeCodecs =
-      Mechanic.flatten(handledAPI.api.input).routes
+    val routeCodecs = Mechanic.flatten(handledAPI.api.input).routes
 
-    val result = routeCodecs.foldRight[HandlerTree[R, E]](Branch(Map.empty, Map.empty, Some(handledAPI))) {
+    routeCodecs.foldRight[HandlerTree[R, E]](HandlerTree(Map.empty, Map.empty, Some(handledAPI))) { //
       case (codec, acc) =>
         codec match {
           case TextCodec.Constant(string) =>
-            Branch(Map(string -> acc), Map.empty, None)
+            HandlerTree(Map(string -> acc), Map.empty, None)
           case codec                      =>
-            Branch(Map.empty, Map(codec -> acc), None)
+            HandlerTree(Map.empty, Map(codec -> acc), None)
         }
     }
-
-    result
   }
 
   def fromService[R, E](service: Service[R, E, _]): HandlerTree[R, E] =
@@ -63,42 +75,49 @@ object HandlerTree {
   def fromIterable[R, E](handledAPIs: Iterable[Service.HandledAPI[R, E, _, _, _]]): HandlerTree[R, E] =
     handledAPIs.foldLeft[HandlerTree[R, E]](empty)(_ add _)
 
-  private final case class Branch[-R, +E](
-    constants: Map[String, HandlerTree[R, E]],
-    parsers: Map[TextCodec[_], HandlerTree[R, E]],
-    leaf: Option[Service.HandledAPI[R, E, _, _, _]],
-  ) extends HandlerTree[R, E]
-
+  @tailrec
   private def lookup[R, E](
     segments: Vector[String],
     index: Int,
     current: HandlerTree[R, E],
     results: Chunk[Any],
-  ): Option[HandlerMatch[R, E, _, _]] = {
-    current match {
-      case Branch(constants, parsers, leaf) =>
-        if (index == segments.length)
-          leaf match {
-            case Some(handler) =>
-              Some(HandlerMatch(handler, results))
-            case None          =>
+  ): Option[HandlerMatch[R, E, _, _]] =
+    if (index == segments.length) {
+      // If we've reached the end of the path, we should have a handler
+      // otherwise we don't have a match
+      current.leaf match {
+        case Some(handler) => Some(HandlerMatch(handler, results))
+        case None          => None
+      }
+    } else {
+      val segment = segments(index)
+      current.constants.get(segment) match {
+        // We can quickly check if we have a constant match
+        case Some(handler) =>
+          lookup(segments, index + 1, handler, results.:+(()))
+        case None          =>
+          // If we don't have a constant match, we need to check if we have a
+          // parser that matches.
+          firstSuccessfulCodec(segment, current.parsers) match {
+            case Some((result, handler)) =>
+              lookup(segments, index + 1, handler, results.:+(result))
+            case None                    =>
               None
           }
-        else
-          constants.get(segments(index)) match {
-            case Some(handler) =>
-              lookup(segments, index + 1, handler, results.appended(()))
-            case None          =>
-              parsers.collectFirst { case (codec, handler) =>
-                codec.decode(segments(index)) match {
-                  case Some(value) =>
-                    val newResults = results :+ value
-                    lookup(segments, index + 1, handler, newResults)
-                  case None        =>
-                    None
-                }
-              }.flatten
-          }
+      }
     }
-  }
+
+  private def firstSuccessfulCodec[R, E](
+    pathSegment: String,
+    parsers: Map[TextCodec[_], HandlerTree[R, E]],
+  ): Option[(Any, HandlerTree[R, E])] =
+    parsers.collectFirst { case (codec, handler) =>
+      codec.decode(pathSegment) match {
+        case Some(value) =>
+          Some((value, handler))
+        case None        =>
+          None
+      }
+    }.flatten
+
 }
