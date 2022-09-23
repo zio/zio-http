@@ -1,7 +1,11 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
+<<<<<<< HEAD
 import zio.http.model.headers.values.Age
+=======
+import zio.http.model.headers.values.ContentLength
+>>>>>>> implemented ContentLength header value
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait HeaderInputs {
@@ -30,16 +34,17 @@ private[api] trait HeaderInputs {
   final val accessControlRequestMethod: In[String]  =
     header(HeaderNames.accessControlRequestMethod.toString(), TextCodec.string)
   final val age: In[Age]      = header(HeaderNames.age.toString(), TextCodec.string).transform(Age.toAge, Age.fromAge)
-  final val allow: In[String] = header(HeaderNames.allow.toString(), TextCodec.string)
-  final val authorization: In[String]           = header(HeaderNames.authorization.toString(), TextCodec.string)
-  final val cacheControl: In[String]            = header(HeaderNames.cacheControl.toString(), TextCodec.string)
-  final val connection: In[String]              = header(HeaderNames.connection.toString(), TextCodec.string)
-  final val contentBase: In[String]             = header(HeaderNames.contentBase.toString(), TextCodec.string)
-  final val contentEncoding: In[String]         = header(HeaderNames.contentEncoding.toString(), TextCodec.string)
-  final val contentLanguage: In[String]         = header(HeaderNames.contentLanguage.toString(), TextCodec.string)
-  final val contentLength: In[String]           = header(HeaderNames.contentLength.toString(), TextCodec.string)
-  final val contentLocation: In[String]         = header(HeaderNames.contentLocation.toString(), TextCodec.string)
-  final val contentTransferEncoding: In[String] =
+  final val allow: In[String]                       = header(HeaderNames.allow.toString(), TextCodec.string)
+  final val authorization: In[String]               = header(HeaderNames.authorization.toString(), TextCodec.string)
+  final val cacheControl: In[String]                = header(HeaderNames.cacheControl.toString(), TextCodec.string)
+  final val connection: In[String]                  = header(HeaderNames.connection.toString(), TextCodec.string)
+  final val contentBase: In[String]                 = header(HeaderNames.contentBase.toString(), TextCodec.string)
+  final val contentEncoding: In[String]             = header(HeaderNames.contentEncoding.toString(), TextCodec.string)
+  final val contentLanguage: In[String]             = header(HeaderNames.contentLanguage.toString(), TextCodec.string)
+  final val contentLength: In[ContentLength]        = header(HeaderNames.contentLength.toString(), TextCodec.string)
+    .transform(ContentLength.toContentLength, ContentLength.fromContentLength)
+  final val contentLocation: In[String]             = header(HeaderNames.contentLocation.toString(), TextCodec.string)
+  final val contentTransferEncoding: In[String]     =
     header(HeaderNames.contentTransferEncoding.toString(), TextCodec.string)
   final val contentDisposition: In[String]      = header(HeaderNames.contentDisposition.toString(), TextCodec.string)
   final val contentMd5: In[String]              = header(HeaderNames.contentMd5.toString(), TextCodec.string)
