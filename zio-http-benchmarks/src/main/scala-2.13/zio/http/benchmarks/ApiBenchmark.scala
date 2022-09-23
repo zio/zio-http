@@ -23,6 +23,34 @@ import zio.{Scope => _, _}
 import java.util.concurrent.TimeUnit
 //import scala.concurrent.Future
 
+// Original
+//
+// [info] ApiBenchmark.benchmarkBroadTapirHttp4s      thrpt    2  115.028          ops/s
+// [info] ApiBenchmark.benchmarkBroadZioApi           thrpt    2  751.619          ops/s
+// [info] ApiBenchmark.benchmarkBroadZioCollect       thrpt    2  126.598          ops/s
+//
+// [info] ApiBenchmark.benchmarkDeepPathTapirHttp4s   thrpt    2   65.697          ops/s
+// [info] ApiBenchmark.benchmarkDeepPathZioApi        thrpt    2  565.441          ops/s
+// [info] ApiBenchmark.benchmarkDeepPathZioCollect    thrpt    2  956.824          ops/s
+//
+// [info] ApiBenchmark.benchmarkSmallDataTapirHttp4s  thrpt    2   92.525          ops/s
+// [info] ApiBenchmark.benchmarkSmallDataZioApi       thrpt    2  277.247          ops/s
+// [info] ApiBenchmark.benchmarkSmallDataZioCollect   thrpt    2  703.899          ops/s
+//
+// After Branch optimization
+//
+// [info] ApiBenchmark.benchmarkBroadTapirHttp4s      thrpt    2  118.398          ops/s
+// [info] ApiBenchmark.benchmarkBroadZioApi           thrpt    2  979.155          ops/s (up from 751)
+// [info] ApiBenchmark.benchmarkBroadZioCollect       thrpt    2  122.202          ops/s
+//
+// [info] ApiBenchmark.benchmarkDeepPathTapirHttp4s   thrpt    2   65.647          ops/s
+// [info] ApiBenchmark.benchmarkDeepPathZioApi        thrpt    2  563.393          ops/s
+// [info] ApiBenchmark.benchmarkDeepPathZioCollect    thrpt    2  977.179          ops/s
+//
+// [info] ApiBenchmark.benchmarkSmallDataTapirHttp4s  thrpt    2   91.951          ops/s
+// [info] ApiBenchmark.benchmarkSmallDataZioApi       thrpt    2  264.240          ops/s
+// [info] ApiBenchmark.benchmarkSmallDataZioCollect   thrpt    2  698.570          ops/s
+
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
