@@ -635,7 +635,7 @@ object ZClient {
             // This way, if the server closes the connection before the whole response has been sent,
             // we get an error. (We can also handle the channelInactive callback, but since for now
             // we always buffer the whole HTTP response we can letty Netty take care of this)
-            pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, 8192, 8192, true))
+            pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, clientConfig.maxHeaderSize, 8192, true))
 
             // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
             // This is also required to make WebSocketHandlers work
