@@ -1,10 +1,11 @@
-package zio.http.model.headers.values
+package zio.http.model.headers
 
 import zio.Scope
 import zio.http.internal.HttpGen
+import zio.http.model.headers.HeaderValues.AcceptCharset
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
 
-class AcceptCharsetSpec extends ZIOSpecDefault {
+object AcceptCharsetSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AcceptCharset suite")(
     suite("Encoding header value transformation should be symmetrical")(
       test("charset") {

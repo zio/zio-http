@@ -7,7 +7,7 @@ import zio.stream.ZStream
 import zio.test.Assertion.{isLeft, _}
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
-import zio.{Scope, ZIO, durationInt}
+import zio.{Scope, durationInt}
 
 import java.net.ConnectException
 

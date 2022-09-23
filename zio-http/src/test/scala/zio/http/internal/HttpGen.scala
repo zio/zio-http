@@ -6,7 +6,7 @@ import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
 import zio.http.model._
-import zio.http.model.headers.values.AcceptCharset
+import zio.http.model.headers.HeaderValues.AcceptCharset
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
@@ -221,12 +221,12 @@ object HttpGen {
 
   def acceptCharset(): Gen[Any, AcceptCharset] = Gen.fromIterable(
     List(
-      AcceptCharset.`UTF-8`,
-      AcceptCharset.`US-ASCII`,
-      AcceptCharset.`ISO-8859-1`,
-      AcceptCharset.`UTF-16`,
-      AcceptCharset.`UTF-16LE`,
-      AcceptCharset.`UTF-16BE`,
+      AcceptCharset.UTF_8,
+      AcceptCharset.US_ASCII,
+      AcceptCharset.ISO_8859_1,
+      AcceptCharset.UTF_16,
+      AcceptCharset.UTF_16LE,
+      AcceptCharset.UTF_16BE,
     ),
   )
 
