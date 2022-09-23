@@ -5,7 +5,6 @@ package zio.http.benchmarks
 //import akka.http.scaladsl.server.Route
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO => CIO}
-import cats.implicits.toTraverseOps
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import org.http4s.{HttpRoutes, Request => Request4s}
@@ -554,7 +553,7 @@ class ApiBenchmark {
 //
   @Benchmark
   def benchmarkBroadTapirHttp4s(): Unit = {
-    val _ = broadHttp4sRequests.toList.traverse(broadTapirHttp4sApp(_).value)
+    val _ = foreachDiscardCIO(broadHttp4sRequests)(broadTapirHttp4sApp(_).value)
   }
 //
 //  @Benchmark
@@ -601,6 +600,12 @@ class ApiBenchmark {
 //  )(f: A => Future[B])(implicit ec: ExecutionContext): Future[Unit] =
 //    if (values.isEmpty) Future.unit
 //    else values.tail.foldLeft(f(values.head))((future, a) => future.flatMap(_ => f(a))).flatMap(_ => Future.unit)
+
+  private def foreachDiscardCIO[A, B](
+    values: Iterable[A],
+  )(f: A => CIO[B]): CIO[Unit] =
+    if (values.isEmpty) CIO.unit
+    else values.tail.foldLeft(f(values.head))((future, a) => future.flatMap(_ => f(a))).flatMap(_ => CIO.unit)
 
 }
 
