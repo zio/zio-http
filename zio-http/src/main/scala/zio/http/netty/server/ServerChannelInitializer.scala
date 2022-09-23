@@ -50,8 +50,8 @@ private[zio] final case class ServerChannelInitializer(
     pipeline.addLast("encoder", new HttpResponseEncoder())
 
     // HttpContentDecompressor
-    if (cfg.requestDecompression._1)
-      pipeline.addLast(Names.HttpRequestDecompression, new HttpContentDecompressor(cfg.requestDecompression._2))
+    if (cfg.requestDecompression.enabled)
+      pipeline.addLast(Names.HttpRequestDecompression, new HttpContentDecompressor(cfg.requestDecompression.strict))
 
     cfg.responseCompression.foreach(ops => {
       pipeline.addLast(
