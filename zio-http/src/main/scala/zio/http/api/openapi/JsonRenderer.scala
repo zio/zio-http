@@ -1,57 +1,113 @@
 package zio.http.api.openapi
 
+import zio.NonEmptyChunk
 import zio.http.api.Doc
 import zio.http.model.Status
 
 import java.net.URI
-import scala.collection.immutable.Iterable
+import scala.language.implicitConversions // scalafix:ok;
 
 private[openapi] object JsonRenderer {
+  sealed trait Renderable[A] {
+    def render(a: A): String
+  }
 
-  def renderFields(fieldsIt: (String, Any)*): String = {
+  implicit class Renderer[T](t: T)(implicit val renderable: Renderable[T]) {
+    def render: String = renderable.render(t)
+
+    val skip: Boolean =
+      t.asInstanceOf[Any] match {
+        case None => true
+        case _    => false
+      }
+  }
+
+  def renderFields(fieldsIt: (String, Renderer[_])*): String = {
     if (fieldsIt.map(_._1).toSet.size != fieldsIt.size) {
       throw new IllegalArgumentException("Duplicate field names")
     } else {
       val fields = fieldsIt
-        .filterNot(_._2 == None) // We don't render empty fields
-        .map { case (name, value) => s""""$name":${renderValue(value)}""" }
+        .filterNot(_._2.skip)
+        .map { case (name, value) => s""""$name":${value.render}""" }
       s"{${fields.mkString(",")}}"
     }
   }
 
-  private def renderValue(value: Any): String = value match {
-    case Some(value)                       => renderValue(value)
-    case o: OpenAPIBase                        => o.toJson
-    case s: Status                         => s.code.toString
-    case s: String                         => s""""$s""""
-    case n: Int                            => n.toString
-    case n: Double                         => n.toString
-    case n: Long                           => n.toString
-    case n: Float                          => n.toString
-    case d: Doc                            => renderDoc(d)
-    case b: Boolean                        => b.toString
-    case m: Map[_, _]                      => renderMap(m)
-    case l: Iterable[Any]                  => renderIterable(l)
-    case (k, v)                            => s"{${renderKey(k)}:${renderValue(v)}}"
-    case u: URI                            => s""""${u.toString}""""
-    case p: Product if p.productArity == 0 => renderSingleton(p)
-    case other                             => s""""${other.toString}""""
+  private def renderKey[K](k: K)(implicit renderable: Renderable[K]) =
+    if (renderable.render(k).startsWith("\"") && renderable.render(k).endsWith("\"")) renderable.render(k)
+    else s""""${renderable.render(k)}""""
+
+  implicit def stringRenderable[T <: String]: Renderable[T] = new Renderable[T] {
+    def render(a: T): String = s""""$a""""
   }
 
-  private def renderDoc(d: Doc) =
-    // todo render markdown
-    s""""${d.toPlaintext(color = false)}"""".replace("\n", "<br/>")
+  implicit def intRenderable[T <: Int]: Renderable[T] = new Renderable[T] {
+    def render(a: T): String = a.toString
+  }
 
-  private def renderIterable(l: Iterable[_]) =
-    s"[${l.map(renderValue).mkString(",")}]"
+  implicit def Renderable[T <: Long]: Renderable[T] = new Renderable[T] {
+    def render(a: T): String = a.toString
+  }
 
-  private def renderMap(m: Map[_ <: Any, _ <: Any]) =
-    s"{${m.toList.map { case (k, v) => s"${renderKey(k)}:${renderValue(v)}" }.mkString(",")}}"
+  implicit def floatRenderable[T <: Float]: Renderable[T] = new Renderable[T] {
+    def render(a: T): String = a.toString
+  }
 
-  private def renderKey(k: Any) =
-    if (renderValue(k).startsWith("\"") && renderValue(k).endsWith("\"")) renderValue(k)
-    else s""""${renderValue(k)}""""
+  implicit def doubleRenderable[T <: Double]: Renderable[T] = new Renderable[T] {
+    def render(a: T): String = a.toString
+  }
 
-  private def renderSingleton(p: Product) =
-    s""""${p.productPrefix.updated(0, p.productPrefix.charAt(0).toLower)}""""
+  implicit def booleanRenderable[T <: Boolean]: Renderable[T] = new Renderable[T] {
+    def render(a: T): String = a.toString
+  }
+
+  implicit val uriRenderable: Renderable[URI] = new Renderable[URI] {
+    def render(a: URI): String = s""""${a.toString}""""
+  }
+
+  implicit val statusRenderable: Renderable[Status] = new Renderable[Status] {
+    def render(a: Status): String = a.code.toString
+  }
+
+  implicit val docRenderable: Renderable[Doc] = new Renderable[Doc] {
+    def render(a: Doc): String = s""""${a.toHTMLSnippet}""""
+  }
+
+  implicit def openapiBaseRenderable[T <: OpenAPIBase]: Renderable[T] = new Renderable[T] {
+    def render(a: T): String = a.toJson
+  }
+
+  implicit def optionRenderable[A](implicit renderable: Renderable[A]): Renderable[Option[A]] =
+    new Renderable[Option[A]] {
+      def render(a: Option[A]): String = a match {
+        case Some(value) => renderable.render(value)
+        case None        => "null"
+      }
+    }
+
+  implicit def nonEmptyChunkRenderable[A](implicit renderable: Renderable[A]): Renderable[NonEmptyChunk[A]] =
+    new Renderable[NonEmptyChunk[A]] {
+      def render(a: NonEmptyChunk[A]): String = s"[${a.map(renderable.render).mkString(",")}]"
+    }
+
+  implicit def setRenderable[A](implicit renderable: Renderable[A]): Renderable[Set[A]] =
+    new Renderable[Set[A]] {
+      def render(a: Set[A]): String = s"[${a.map(renderable.render).mkString(",")}]"
+    }
+
+  implicit def listRenderable[A](implicit renderable: Renderable[A]): Renderable[List[A]] =
+    new Renderable[List[A]] {
+      def render(a: List[A]): String = s"[${a.map(renderable.render).mkString(",")}]"
+    }
+
+  implicit def mapRenderable[K, V](implicit rK: Renderable[K], rV: Renderable[V]): Renderable[Map[K, V]] =
+    new Renderable[Map[K, V]] {
+      def render(a: Map[K, V]): String =
+        s"{${a.map { case (k, v) => s"${renderKey(k)}:${rV.render(v)}" }.mkString(",")}}"
+    }
+
+  implicit def tupleRenderable[A, B](implicit rA: Renderable[A], rB: Renderable[B]): Renderable[(A, B)] =
+    new Renderable[(A, B)] {
+      def render(a: (A, B)): String = s"{${renderKey(a._1)}:${rB.render(a._2)}}"
+    }
 }

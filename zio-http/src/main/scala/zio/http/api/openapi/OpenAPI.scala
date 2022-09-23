@@ -7,7 +7,7 @@
 package zio.http.api.openapi
 
 import zio.NonEmptyChunk
-import zio.http.api
+import zio.http.api.openapi.JsonRenderer._
 import zio.http.api.{Doc, openapi}
 import zio.http.model.Status
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -171,7 +171,8 @@ object OpenAPI {
    *   A map between a variable name and its value. The value is used for
    *   substitution in the server’s URL template.
    */
-  final case class Server(url: URI, description: Doc, variables: Map[String, ServerVariable]) extends openapi.OpenAPIBase {
+  final case class Server(url: URI, description: Doc, variables: Map[String, ServerVariable])
+      extends openapi.OpenAPIBase {
     override def toJson: String = JsonRenderer.renderFields(
       "url"         -> url,
       "description" -> description,
@@ -309,7 +310,7 @@ object OpenAPI {
    * documentation viewer but they will not know which operations and parameters
    * are available.
    *
-   * @param $ref
+   * @param ref
    *   Allows for an external definition of this path item. The referenced
    *   structure MUST be in the format of a Path Item Object. In case a Path
    *   Item Object field appears both in the defined object and the referenced
@@ -345,7 +346,7 @@ object OpenAPI {
    *   components/parameters.
    */
   final case class PathItem(
-    `$ref`: String,
+    ref: String,
     summary: String = "",
     description: Doc,
     get: Option[Operation],
@@ -360,7 +361,7 @@ object OpenAPI {
     parameters: Set[ParameterOrReference],
   ) extends openapi.OpenAPIBase {
     override def toJson: String = JsonRenderer.renderFields(
-      "$ref"        -> `$ref`,
+      s"$$ref"      -> ref,
       "summary"     -> summary,
       "description" -> description,
       "get"         -> get,
@@ -909,10 +910,9 @@ object OpenAPI {
     description: Doc,
     server: Option[Server],
   ) extends LinkOrReference {
+    // TODO: What to do with type `Any` fields?
     override def toJson: String = JsonRenderer.renderFields(
       "operationRef" -> operationRef,
-      "parameters"   -> parameters,
-      "requestBody"  -> requestBody,
       "description"  -> description,
       "server"       -> server,
     )
@@ -942,10 +942,10 @@ object OpenAPI {
    * A simple object to allow referencing other components in the specification,
    * internally and externally.
    *
-   * @param $ref
+   * @param ref
    *   The reference string.
    */
-  final case class Reference(`$ref`: String)
+  final case class Reference(ref: String)
       extends SchemaOrReference
       with ResponseOrReference
       with ParameterOrReference
@@ -955,7 +955,7 @@ object OpenAPI {
       with SecuritySchemeOrReference
       with LinkOrReference
       with CallbackOrReference {
-    override def toJson: String = JsonRenderer.renderFields("$ref" -> `$ref`)
+    override def toJson: String = JsonRenderer.renderFields(s"$$ref" -> ref)
   }
 
   sealed trait SchemaOrReference extends openapi.OpenAPIBase
@@ -1164,7 +1164,11 @@ object OpenAPI {
     }
 
     object ApiKey {
-      sealed trait In
+      sealed trait In extends openapi.OpenAPIBase {
+        self: Product =>
+        override def toJson: String =
+          s""""${self.productPrefix.updated(0, self.productPrefix.charAt(0).toLower)}""""
+      }
 
       object In {
         case object Query  extends In
@@ -1377,5 +1381,9 @@ object OpenAPI {
    *   MAY be empty if authorization does not require a specified scope. For
    *   other security scheme types, the List MUST be empty.
    */
-  final case class SecurityRequirement(securitySchemes: Map[String, List[String]])
+  final case class SecurityRequirement(securitySchemes: Map[String, List[String]]) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "securitySchemes" -> securitySchemes,
+    )
+  }
 }

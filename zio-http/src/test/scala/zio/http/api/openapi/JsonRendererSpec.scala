@@ -1,8 +1,10 @@
 package zio.http.api.openapi
 
 import zio.http.api.Doc
+import zio.http.api.openapi.JsonRenderer._
 import zio.http.api.openapi.OpenAPI.Parameter.{Definition, QueryParameter}
 import zio.http.api.openapi.OpenAPI.Schema.ResponseSchema
+import zio.http.api.openapi.OpenAPI.SecurityScheme.ApiKey
 import zio.http.api.openapi.OpenAPI.{Info, Operation, PathItem}
 import zio.http.model.Status
 import zio.test._
@@ -46,9 +48,9 @@ object JsonRendererSpec extends ZIOSpecDefault {
         val expected = """{"map":{"key":"value"},"otherMap":{"1":"value"}}"""
         assertTrue(rendered == expected)
       },
-      test("render singleton") {
-        val rendered = JsonRenderer.renderFields("type" -> Html)
-        val expected = """{"type":"html"}"""
+      test("render In") {
+        val rendered = JsonRenderer.renderFields("type" -> ApiKey.In.Query)
+        val expected = """{"type":"query"}"""
         assertTrue(rendered == expected)
       },
       test("render empty doc") {
@@ -58,7 +60,7 @@ object JsonRendererSpec extends ZIOSpecDefault {
       },
       test("render doc") {
         val rendered = JsonRenderer.renderFields("doc" -> Doc.p(Doc.Span.uri(new URI("https://google.com"))))
-        val expected = """{"doc":"https://google.com<br/>"}"""
+        val expected = """{"doc":"<p><a href="https://google.com">https://google.com</a></p>"}"""
         assertTrue(rendered == expected)
       },
       test("throw exception for duplicate keys") {
@@ -67,92 +69,94 @@ object JsonRendererSpec extends ZIOSpecDefault {
       },
       test("render OpenAPI") {
         val rendered =
-          OpenAPI.OpenAPI(
-            info = Info(
-              title = "title",
-              version = "version",
-              description = Doc.p("description"),
-              termsOfService = new URI("https://google.com"),
-              contact = None,
-              license = None,
-            ),
-            servers = List(OpenAPI.Server(new URI("https://google.com"), Doc.p("description"), Map.empty)),
-            paths = Map(
-              OpenAPI.Path.fromString("/test").get -> PathItem(
-                get = Some(
-                  Operation(
-                    responses = Map(
-                      Status.Ok -> OpenAPI.Response(
-                        description = Doc.p(Doc.Span.text("description")),
-                        content = Map(
-                          "application/json" -> OpenAPI.MediaType(
-                            schema = ResponseSchema(
-                              discriminator = None,
-                              xml = None,
-                              externalDocs = new URI("https://google.com"),
-                              example = "Example",
-                            ),
-                            examples = Map.empty,
-                            encoding = Map.empty,
-                          ),
-                        ),
-                        headers = Map.empty,
-                        links = Map.empty,
-                      ),
-                    ),
-                    tags = List("tag"),
-                    summary = "summary",
-                    description = Doc.p("description"),
-                    externalDocs = Some(OpenAPI.ExternalDoc(None, new URI("https://google.com"))),
-                    operationId = Some("operationId"),
-                    parameters = Set(
-                      QueryParameter(
-                        "name",
-                        Doc.p("description"),
-                        definition = Definition.Content("key", "mediaType"),
-                        examples = Map.empty,
-                      ),
-                    ),
-                    servers = List(OpenAPI.Server(new URI("https://google.com"), Doc.p("description"), Map.empty)),
-                    requestBody = None,
-                    callbacks = Map.empty,
-                    security = List.empty,
-                  ),
-                ),
-                `$ref` = "ref",
+          OpenAPI
+            .OpenAPI(
+              info = Info(
+                title = "title",
+                version = "version",
                 description = Doc.p("description"),
-                put = None,
-                post = None,
-                delete = None,
-                options = None,
-                head = None,
-                patch = None,
-                trace = None,
-                servers = List.empty,
-                parameters = Set.empty,
+                termsOfService = new URI("https://google.com"),
+                contact = None,
+                license = None,
               ),
-            ),
-            components = Some(
-              OpenAPI.Components(
-                schemas = Map.empty,
-                responses = Map.empty,
-                parameters = Map.empty,
-                examples = Map.empty,
-                requestBodies = Map.empty,
-                headers = Map.empty,
-                securitySchemes = Map.empty,
-                links = Map.empty,
-                callbacks = Map.empty,
+              servers = List(OpenAPI.Server(new URI("https://google.com"), Doc.p("description"), Map.empty)),
+              paths = Map(
+                OpenAPI.Path.fromString("/test").get -> PathItem(
+                  get = Some(
+                    Operation(
+                      responses = Map(
+                        Status.Ok -> OpenAPI.Response(
+                          description = Doc.p(Doc.Span.text("description")),
+                          content = Map(
+                            "application/json" -> OpenAPI.MediaType(
+                              schema = ResponseSchema(
+                                discriminator = None,
+                                xml = None,
+                                externalDocs = new URI("https://google.com"),
+                                example = "Example",
+                              ),
+                              examples = Map.empty,
+                              encoding = Map.empty,
+                            ),
+                          ),
+                          headers = Map.empty,
+                          links = Map.empty,
+                        ),
+                      ),
+                      tags = List("tag"),
+                      summary = "summary",
+                      description = Doc.p("description"),
+                      externalDocs = Some(OpenAPI.ExternalDoc(None, new URI("https://google.com"))),
+                      operationId = Some("operationId"),
+                      parameters = Set(
+                        QueryParameter(
+                          "name",
+                          Doc.p("description"),
+                          definition = Definition.Content("key", "mediaType"),
+                          examples = Map.empty,
+                        ),
+                      ),
+                      servers = List(OpenAPI.Server(new URI("https://google.com"), Doc.p("description"), Map.empty)),
+                      requestBody = None,
+                      callbacks = Map.empty,
+                      security = List.empty,
+                    ),
+                  ),
+                  ref = "ref",
+                  description = Doc.p("description"),
+                  put = None,
+                  post = None,
+                  delete = None,
+                  options = None,
+                  head = None,
+                  patch = None,
+                  trace = None,
+                  servers = List.empty,
+                  parameters = Set.empty,
+                ),
               ),
-            ),
-            security = List.empty,
-            tags = List.empty,
-            externalDocs = Some(OpenAPI.ExternalDoc(None, new URI("https://google.com"))),
-            openapi = "3.0.0",
-          ).toJson
+              components = Some(
+                OpenAPI.Components(
+                  schemas = Map.empty,
+                  responses = Map.empty,
+                  parameters = Map.empty,
+                  examples = Map.empty,
+                  requestBodies = Map.empty,
+                  headers = Map.empty,
+                  securitySchemes = Map.empty,
+                  links = Map.empty,
+                  callbacks = Map.empty,
+                ),
+              ),
+              security = List.empty,
+              tags = List.empty,
+              externalDocs = Some(OpenAPI.ExternalDoc(None, new URI("https://google.com"))),
+              openapi = "3.0.0",
+            )
+            .toJson
 
         val expected =
-          """{"openapi":"3.0.0","info":{"title":"title","description":"description<br/>","termsOfService":"https://google.com","version":"version"},"servers":[{"url":"https://google.com","description":"description<br/>","variables":{}}],"paths":{"/test":{"$ref":"ref","summary":"","description":"description<br/>","get":{"tags":["tag"],"summary":"summary","description":"description<br/>","externalDocs":{"url":"https://google.com"},"operationId":"operationId","parameters":[{"name":"name","in":"query","description":"description<br/>","required":true,"deprecated":false,"allowEmptyValue":false,"definition":{"key":"key","mediaType":"mediaType"},"explode":true,"examples":{}}],"responses":{"200":{"description":"description<br/>","headers":{},"content":{"application/json":{"schema":{"nullable":false,"readOnly":true,"writeOnly":false,"externalDocs":"https://google.com","example":"Example","deprecated":false},"examples":{},"encoding":{}}},"links":{}}},"callbacks":{},"deprecated":false,"security":[],"servers":[{"url":"https://google.com","description":"description<br/>","variables":{}}]},"servers":[],"parameters":[]}},"components":{"schemas":{},"responses":{},"parameters":{},"examples":{},"requestBodies":{},"headers":{},"securitySchemes":{},"links":{},"callbacks":{}},"security":[],"tags":[],"externalDocs":{"url":"https://google.com"}}"""
+          """{"openapi":"3.0.0","info":{"title":"title","description":"<p>description</p>","termsOfService":"https://google.com","version":"version"},"servers":[{"url":"https://google.com","description":"<p>description</p>","variables":{}}],"paths":{"/test":{"$ref":"ref","summary":"","description":"<p>description</p>","get":{"tags":["tag"],"summary":"summary","description":"<p>description</p>","externalDocs":{"url":"https://google.com"},"operationId":"operationId","parameters":[{"name":"name","in":"query","description":"<p>description</p>","required":true,"deprecated":false,"allowEmptyValue":false,"definition":{"key":"key","mediaType":"mediaType"},"explode":true,"examples":{}}],"responses":{"200":{"description":"<p>description</p>","headers":{},"content":{"application/json":{"schema":{"nullable":false,"readOnly":true,"writeOnly":false,"externalDocs":"https://google.com","example":"Example","deprecated":false},"examples":{},"encoding":{}}},"links":{}}},"callbacks":{},"deprecated":false,"security":[],"servers":[{"url":"https://google.com","description":"<p>description</p>","variables":{}}]},"servers":[],"parameters":[]}},"components":{"schemas":{},"responses":{},"parameters":{},"examples":{},"requestBodies":{},"headers":{},"securitySchemes":{},"links":{},"callbacks":{}},"security":[],"tags":[],"externalDocs":{"url":"https://google.com"}}"""
         assertTrue(rendered == expected)
       },
     )
