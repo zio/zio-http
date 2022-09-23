@@ -25,7 +25,7 @@ object CacheControl {
   /**
    * Signals an invalid value present in the header value.
    */
-  final case object InvalidCacheControl extends CacheControl {
+  case object InvalidCacheControl extends CacheControl {
     override val raw: String = "Invalid header value"
   }
 
