@@ -82,12 +82,15 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
     val headers = encodeHeaders(inputs.headers)
     val body    = encodeBody(inputs.inputBodies)
 
-    val request = Request(
-      method = api.method,
-      url = apiRoot ++ URL(route, URL.Location.Relative, query),
-      headers = headers,
-      body = body,
-    )
+    val request = Request
+      .default(
+        api.method,
+        apiRoot ++ URL(route, URL.Location.Relative, query),
+        body,
+      )
+      .copy(
+        headers = headers,
+      )
 
     client.request(request).flatMap { response =>
       response.body.asChunk.flatMap { response =>
