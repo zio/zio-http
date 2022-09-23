@@ -17,7 +17,7 @@ final case class ServerConfig(
   keepAlive: Boolean = true,
   consolidateFlush: Boolean = false,
   flowControl: Boolean = true,
-  requestDecompression: (Boolean, Boolean) = (false, false),
+  requestDecompression: Decompression = Decompression.No,
   responseCompression: Option[ResponseCompressionConfig] = None,
   objectAggregator: Int = 1024 * 100,
   channelType: ChannelType = ChannelType.AUTO,
@@ -93,8 +93,8 @@ final case class ServerConfig(
    * Http requests (@see <a href =
    * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentDecompressor.html">HttpContentDecompressor</a>).
    */
-  def requestDecompression(enabled: Boolean, strict: Boolean): ServerConfig =
-    self.copy(requestDecompression = (enabled, strict))
+  def requestDecompression(isStrict: Boolean): ServerConfig =
+    self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
 
   /**
    * Configure the new server with netty's HttpContentCompressor to compress

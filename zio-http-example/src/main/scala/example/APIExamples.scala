@@ -27,7 +27,7 @@ object APIExamples extends ZIOAppDefault {
 
   val app = services.toHttpApp
 
-  val request = Request(url = URL.fromString("/users/100/posts/200?name=adam").toOption.get)
+  val request = Request.get(url = URL.fromString("/users/100/posts/200?name=adam").toOption.get)
   println(s"Looking up $request")
 
   val run = app(request).debug
