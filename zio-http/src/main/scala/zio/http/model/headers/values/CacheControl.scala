@@ -149,4 +149,8 @@ object CacheControl {
     override val raw: String = "stale-if-error"
   }
 
+  def fromCacheControl(value: CacheControl): String = ???
+
+  def toCacheControl(value: String): CacheControl = ???
+
 }
