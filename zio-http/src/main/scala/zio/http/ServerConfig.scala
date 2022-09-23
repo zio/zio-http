@@ -2,7 +2,7 @@ package zio.http
 
 import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
 import io.netty.util.ResourceLeakDetector
-import zio.ZLayer
+import zio.{Trace, ZLayer}
 import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
 import zio.http.netty.{ChannelType, EventLoopGroups}
 
@@ -117,10 +117,13 @@ final case class ServerConfig(
 object ServerConfig {
   val default: ServerConfig = ServerConfig()
 
-  val live: ZLayer[Any, Nothing, ServerConfig] =
+  val live: ZLayer[Any, Nothing, ServerConfig] = {
+    implicit val trace = Trace.empty
     ZLayer.succeed(ServerConfig.default)
+  }
 
-  def live(config: ServerConfig): ZLayer[Any, Nothing, ServerConfig] = ZLayer.succeed(config)
+  def live(config: ServerConfig)(implicit trace: Trace): ZLayer[Any, Nothing, ServerConfig] =
+    ZLayer.succeed(config)
 
   def responseCompressionConfig(
     contentThreshold: Int = 0,

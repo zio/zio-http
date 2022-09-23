@@ -78,7 +78,10 @@ package object netty {
      * true if it can, otherwise returns false
      */
     @tailrec
-    def upgradeToWebSocket(jReq: HttpRequest, res: Response, runtime: NettyRuntime): Unit = {
+    def upgradeToWebSocket(jReq: HttpRequest, res: Response, runtime: NettyRuntime)(implicit
+      unsafe: Unsafe,
+      trace: Trace,
+    ): Unit = {
       val app = res.attribute.socketApp
       jReq match {
         case jReq: FullHttpRequest =>
@@ -134,7 +137,7 @@ package object netty {
       jRequest: HttpRequest,
       time: service.ServerTime,
       runtime: NettyRuntime,
-    )(implicit trace: Trace): ZIO[Any, Throwable, Unit] = {
+    )(implicit unsafe: Unsafe, trace: Trace): ZIO[Any, Throwable, Unit] = {
 
       for {
         response <- exit.toZIO.unrefine { case error => Option(error) }.catchAll {
@@ -146,13 +149,13 @@ package object netty {
           else
             for {
               jResponse <- response.encode()
-              _         <- ZIO.attemptUnsafe(implicit u => setServerTime(time, response, jResponse))
+              _         <- ZIO.attempt(setServerTime(time, response, jResponse))
               _         <- ZIO.attempt(ctx.writeAndFlush(jResponse))
               flushed <- if (!jResponse.isInstanceOf[FullHttpResponse]) response.body.write(ctx) else ZIO.succeed(true)
               _       <- ZIO.attempt(ctx.flush()).when(!flushed)
             } yield ()
 
-        _ <- ZIO.attemptUnsafe(implicit u => ctx.setContentReadAttr(false))
+        _ <- ZIO.attempt(ctx.setContentReadAttr(false))
       } yield () // log.debug("Full write performed")
     }
   }

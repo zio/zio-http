@@ -26,7 +26,7 @@ private[zio] trait Web
   /**
    * Sets cookie in response headers
    */
-  final def addCookie(cookie: Cookie[Response]): HttpMiddleware[Any, Nothing] =
+  final def addCookie(cookie: Cookie[Response])(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
     self.withSetCookie(cookie)
 
   final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]])(implicit trace: Trace): HttpMiddleware[R, E] =
@@ -63,7 +63,7 @@ private[zio] trait Web
    */
   final def ifHeaderThenElse[R, E](
     cond: Headers => Boolean,
-  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E])(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.ifThenElse[Request](req => cond(req.headers))(_ => left, _ => right)
 
   /**
@@ -71,7 +71,7 @@ private[zio] trait Web
    */
   final def ifMethodThenElse[R, E](
     cond: Method => Boolean,
-  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E])(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.ifThenElse[Request](req => cond(req.method))(_ => left, _ => right)
 
   /**
@@ -80,7 +80,7 @@ private[zio] trait Web
    */
   final def ifRequestThenElse[R, E](
     cond: Request => Boolean,
-  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E])(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.ifThenElse[Request](cond)(_ => left, _ => right)
 
   /**

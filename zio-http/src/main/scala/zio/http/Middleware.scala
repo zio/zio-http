@@ -24,7 +24,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
   /**
    * Applies middleware on Http and returns new Http.
    */
-  def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut]
+  def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit trace: Trace): Http[R1, E1, AOut, BOut]
 
   /**
    * Creates a new middleware that passes the output Http of the current
@@ -56,7 +56,9 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
   ): Middleware[R1, E1, AIn, BIn, AOut1, BOut1] =
     new Middleware[R1, E1, AIn, BIn, AOut1, BOut1] {
-      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn, BIn]): Http[R2, E2, AOut1, BOut1] =
+      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn, BIn])(implicit
+        trace: Trace,
+      ): Http[R2, E2, AOut1, BOut1] =
         other(self(http))
     }
 
@@ -102,7 +104,9 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     f: BOut => Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
     new Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] {
-      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn0, BIn0]): Http[R2, E2, AOut0, BOut0] =
+      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn0, BIn0])(implicit
+        trace: Trace,
+      ): Http[R2, E2, AOut0, BOut0] =
         self(http).flatMap(f(_)(http))
     }
 
@@ -111,6 +115,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
    */
   final def flatten[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](implicit
     ev: BOut <:< Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
+    trace: Trace,
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
     flatMap(identity(_))
 
@@ -135,7 +140,9 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     other: Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
   ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
     new Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] {
-      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn0, BIn0]): Http[R2, E2, AOut0, BOut0] =
+      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn0, BIn0])(implicit
+        trace: Trace,
+      ): Http[R2, E2, AOut0, BOut0] =
         self(http) <> other(http)
     }
 
@@ -147,7 +154,9 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
     other: Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1],
   ): Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1] =
     new Middleware[R1, E1, AIn1, BIn1, AOut1, BOut1] {
-      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn1, BIn1]): Http[R2, E2, AOut1, BOut1] =
+      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn1, BIn1])(implicit
+        trace: Trace,
+      ): Http[R2, E2, AOut1, BOut1] =
         self(http) race other(http)
     }
 
@@ -233,7 +242,9 @@ object Middleware extends Web {
    */
   def fail[E](e: E): Middleware[Any, E, Nothing, Any, Any, Nothing] =
     new Middleware[Any, E, Nothing, Any, Any, Nothing] {
-      override def apply[R1 <: Any, E1 >: E](http: Http[R1, E1, Nothing, Any]): Http[R1, E1, Any, Nothing] =
+      override def apply[R1 <: Any, E1 >: E](http: Http[R1, E1, Nothing, Any])(implicit
+        trace: Trace,
+      ): Http[R1, E1, Any, Nothing] =
         Http.fail(e)
     }
 
@@ -242,7 +253,9 @@ object Middleware extends Web {
    */
   def fromHttp[R, E, A, B](http: Http[R, E, A, B]): Middleware[R, E, Nothing, Any, A, B] =
     new Middleware[R, E, Nothing, Any, A, B] {
-      override def apply[R1 <: R, E1 >: E](other: Http[R1, E1, Nothing, Any]): Http[R1, E1, A, B] = http
+      override def apply[R1 <: R, E1 >: E](other: Http[R1, E1, Nothing, Any])(implicit
+        trace: Trace,
+      ): Http[R1, E1, A, B] = http
     }
 
   /**
@@ -323,7 +336,9 @@ object Middleware extends Web {
       out: BIn => ZIO[R, E, BOut],
     )(implicit trace: Trace): Middleware[R, E, AIn, BIn, AOut, BOut] =
       new Middleware[R, E, AIn, BIn, AOut, BOut] {
-        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] =
+        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http[R1, E1, AOut, BOut] =
           http.contramapZIO(in).mapZIO(out)
       }
   }
@@ -331,7 +346,7 @@ object Middleware extends Web {
   final class PartialCollect[AOut](val unit: Unit) extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
       f: PartialFunction[AOut, Middleware[R, E, AIn, BIn, AOut, BOut]],
-    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+    )(implicit trace: Trace): Middleware[R, E, AIn, BIn, AOut, BOut] =
       Middleware.fromHttp(Http.collect[AOut] { case a if f.isDefinedAt(a) => f(a) }).flatten
   }
 
@@ -361,7 +376,7 @@ object Middleware extends Web {
       outgoing: (B, S) => ZIO[R1, Option[E1], BOut],
     )(implicit trace: Trace): Middleware[R1, E1, A, B, A, BOut] =
       new Middleware[R1, E1, A, B, A, BOut] {
-        override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, A, B]): Http[R2, E2, A, BOut] =
+        override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, A, B])(implicit trace: Trace): Http[R2, E2, A, BOut] =
           Http.fromOptionFunction[A] { a =>
             for {
               s <- incoming(a)
@@ -384,7 +399,7 @@ object Middleware extends Web {
     def apply[R, E, AIn, BIn, BOut](cond: AOut => Boolean)(
       isTrue: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
       isFalse: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
-    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
+    )(implicit trace: Trace): Middleware[R, E, AIn, BIn, AOut, BOut] =
       Middleware
         .fromHttp(Http.fromFunction[AOut] { a => if (cond(a)) isTrue(a) else isFalse(a) })
         .flatten
@@ -414,7 +429,9 @@ object Middleware extends Web {
       encoder: Http[R, E, BIn, BOut],
     ): Middleware[R, E, AIn, BIn, AOut, BOut] =
       new Middleware[R, E, AIn, BIn, AOut, BOut] {
-        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn]): Http[R1, E1, AOut, BOut] =
+        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http[R1, E1, AOut, BOut] =
           decoder >>> http >>> encoder
       }
   }
@@ -424,15 +441,19 @@ object Middleware extends Web {
   ) extends AnyVal {
     def apply[R1 <: R, E1 >: E](
       f: AOut0 => ZIO[R1, E1, AOut],
-    )(implicit trace: Trace): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
+    ): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
       new Middleware[R1, E1, AIn, BIn, AOut0, BOut] {
-        override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn, BIn]): Http[R2, E2, AOut0, BOut] =
+        override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http[R2, E2, AOut0, BOut] =
           self(http).contramapZIO(a => f(a))
       }
   }
 
   private object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing] {
-    override def apply[R1 <: Any, E1 >: Nothing](http: Http[R1, E1, Nothing, Any]): Http[R1, E1, Any, Nothing] =
+    override def apply[R1 <: Any, E1 >: Nothing](http: Http[R1, E1, Nothing, Any])(implicit
+      trace: Trace,
+    ): Http[R1, E1, Any, Nothing] =
       http.asInstanceOf[Http[R1, E1, Any, Nothing]]
   }
 }

@@ -1,6 +1,7 @@
 package zio.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import zio.Trace
 import zio.http
 import zio.http._
 import zio.http.middleware.Cors.{CorsConfig, buildHeaders}
@@ -14,7 +15,7 @@ private[zio] trait Cors {
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
-  final def cors[R, E](config: CorsConfig = CorsConfig()): HttpMiddleware[R, E] = {
+  final def cors[R, E](config: CorsConfig = CorsConfig())(implicit trace: Trace): HttpMiddleware[R, E] = {
     def allowCORS(origin: Header, acrm: Method): Boolean                           =
       (config.anyOrigin, config.anyMethod, origin._2.toString, acrm) match {
         case (true, true, _, _)           => true

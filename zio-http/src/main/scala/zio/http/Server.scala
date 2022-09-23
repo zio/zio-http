@@ -30,19 +30,28 @@ object Server {
     ZIO.serviceWithZIO[Server](_.install(httpApp, errorCallback)) *> ZIO.service[Server].map(_.port)
   }
 
-  val default = ServerConfig.live >>> live
+  val default = {
+    implicit val trace = Trace.empty
+    ServerConfig.live >>> live
+  }
 
-  val live = NettyDriver.default >>> base
+  val live = {
+    implicit val trace = Trace.empty
+    NettyDriver.default >>> base
+  }
 
   val base: ZLayer[
     Driver,
     Throwable,
     Server,
-  ] = ZLayer.scoped {
-    for {
-      driver <- ZIO.service[Driver]
-      port   <- driver.start
-    } yield ServerLive(driver, port)
+  ] = {
+    implicit val trace = Trace.empty
+    ZLayer.scoped {
+      for {
+        driver <- ZIO.service[Driver]
+        port   <- driver.start
+      } yield ServerLive(driver, port)
+    }
   }
 
   private final case class ServerLive(

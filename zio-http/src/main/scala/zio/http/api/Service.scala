@@ -24,6 +24,8 @@ sealed trait Service[-R, +E, AllIds] { self =>
   def toHttpApp: HttpApp[R, E] = {
     import zio.http.api.internal._
 
+    implicit val trace = Trace.empty
+
     val handlerTree     = HandlerTree.fromService(self)
     val requestHandlers = Memoized[Service.HandledAPI[R, E, _, _, _], APIServer[R, E, _, _]] { handledApi =>
       APIServer(handledApi)

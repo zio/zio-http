@@ -21,7 +21,7 @@ private[zio] trait Csrf {
    */
   final def csrfGenerate[R, E](
     tokenName: String = "x-csrf-token",
-    tokenGen: ZIO[R, Nothing, String] = ZIO.succeed(UUID.randomUUID.toString),
+    tokenGen: ZIO[R, Nothing, String] = ZIO.succeed(UUID.randomUUID.toString)(Trace.empty),
   )(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
 

@@ -544,7 +544,7 @@ object ZClient {
         promise <- Promise.make[Throwable, Response]
         jReq    <- encode(request)
         _       <- NettyFutureExecutor
-          .executed(internalRequest(request, jReq, promise, clientConfig)(Unsafe.unsafe))
+          .executed(internalRequest(request, jReq, promise, clientConfig)(Unsafe.unsafe, trace))
           .catchAll(cause => promise.fail(cause))
         res     <- promise.await
       } yield res
@@ -559,7 +559,7 @@ object ZClient {
       jReq: FullHttpRequest,
       promise: Promise[Throwable, Response],
       clientConfig: ClientConfig,
-    )(implicit unsafe: Unsafe): JChannelFuture = {
+    )(implicit unsafe: Unsafe, trace: Trace): JChannelFuture = {
 
       try {
         val host = req.url.host.getOrElse {
