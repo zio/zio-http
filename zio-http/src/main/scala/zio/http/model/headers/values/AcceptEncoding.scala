@@ -2,6 +2,7 @@ package zio.http.model.headers.values
 
 import zio.Chunk
 
+import scala.annotation.tailrec
 import scala.util.Try
 
 sealed trait AcceptEncoding {
@@ -65,7 +66,7 @@ object AcceptEncoding {
   def toEncoding(value: String): AcceptEncoding = {
     val index = value.indexOf(",")
 
-    def loop(value: String, index: Int, acc: MultipleEncodings): MultipleEncodings = {
+    @tailrec def loop(value: String, index: Int, acc: MultipleEncodings): MultipleEncodings = {
       if (index == -1) acc.copy(encodings = acc.encodings ++ Chunk(identifyEncodingFull(value)))
       else {
         val valueChunk       = value.substring(0, index)
