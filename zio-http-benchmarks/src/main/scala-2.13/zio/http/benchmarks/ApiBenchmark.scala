@@ -567,7 +567,7 @@ class ApiBenchmark {
 //  }
 
   private def httpRequestFromString(url: String): Request =
-    Request(url = URL.fromString(url).toOption.get)
+    Request.get(url = URL.fromString(url).toOption.get)
 
 //  private def akkaHttpRequestFromString(url: String): HttpRequest =
 //    HttpRequest(uri = url)
