@@ -261,7 +261,6 @@ object ServerInboundHandler {
           Body.fromAsync { async =>
             addAsyncBodyHandler(async)
           }
-        case _                         => Body.empty // TODO: this needs to be communicated better.
       }
     }
 

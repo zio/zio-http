@@ -6,7 +6,7 @@ import zio.http.model.Version
 import zio.test._
 
 object VersionsSpec extends ZIOSpecDefault {
-  implicit val unsafe = Unsafe.unsafe
+  implicit val unsafe: Unsafe = Unsafe.unsafe
 
   def spec =
     suite("Versions")(
