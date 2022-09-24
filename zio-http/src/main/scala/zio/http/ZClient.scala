@@ -36,7 +36,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
 
   def schemeOption: Option[Scheme]
 
-  def sslOption: Option[ClientSSLConfig]
+  def sslConfig: Option[ClientSSLConfig]
 
   final def contramap[In2](f: In2 => In): ZClient[Env, In2, Err, Out] =
     contramapZIO(in => ZIO.succeedNow(f(in)))
@@ -49,7 +49,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def portOption: Option[Int]            = self.portOption
       def queries: QueryParams               = self.queries
       def schemeOption: Option[Scheme]       = self.schemeOption
-      def sslOption: Option[ClientSSLConfig] = self.sslOption
+      def sslConfig: Option[ClientSSLConfig] = self.sslConfig
       def requestInternal(
         body: In2,
         headers: Headers,
@@ -58,7 +58,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         pathPrefix: Path,
         portOption: Option[Int],
         queries: QueryParams,
-        sslOption: Option[ClientSSLConfig],
+        schemeOption: Option[Scheme],
+        sslConfig: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env1, Err1, Out] =
         f(body).flatMap { body =>
@@ -70,7 +71,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             pathPrefix,
             portOption,
             queries,
-            sslOption,
+            schemeOption,
+            sslConfig,
             version,
           )
         }
@@ -121,7 +123,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def portOption: Option[Int]            = self.portOption
       def queries: QueryParams               = self.queries
       def schemeOption: Option[Scheme]       = self.schemeOption
-      def sslOption: Option[ClientSSLConfig] = self.sslOption
+      def sslConfig: Option[ClientSSLConfig] = self.sslConfig
       def requestInternal(
         body: In,
         headers: Headers,
@@ -130,7 +132,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         pathPrefix: Path,
         portOption: Option[Int],
         queries: QueryParams,
-        sslOption: Option[ClientSSLConfig],
+        schemeOption: Option[Scheme],
+        sslConfig: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env1, Err1, Out2] =
         self
@@ -142,7 +145,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             pathPrefix,
             portOption,
             queries,
-            sslOption,
+            schemeOption,
+            sslConfig,
             version,
           )
           .flatMap(f)
@@ -192,7 +196,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def portOption: Option[Int]            = self.portOption
       def queries: QueryParams               = self.queries
       def schemeOption: Option[Scheme]       = self.schemeOption
-      def sslOption: Option[ClientSSLConfig] = self.sslOption
+      def sslConfig: Option[ClientSSLConfig] = self.sslConfig
       def requestInternal(
         body: In,
         headers: Headers,
@@ -201,7 +205,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         pathPrefix: Path,
         portOption: Option[Int],
         queries: QueryParams,
-        sslOption: Option[ClientSSLConfig],
+        schemeOption: Option[Scheme],
+        sslConfig: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env, Err2, Out] =
         self
@@ -213,7 +218,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             pathPrefix,
             portOption,
             queries,
-            sslOption,
+            schemeOption,
+            sslConfig,
             version,
           )
           .refineOrDie(pf)
@@ -250,7 +256,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       pathPrefix / pathSuffix,
       portOption,
       queries,
-      sslOption,
+      schemeOption,
+      sslConfig,
       Version.Http_1_1,
     )
 
@@ -263,7 +270,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       pathPrefix ++ request.path,
       request.url.port,
       queries ++ request.url.queryParams,
-      sslOption,
+      request.url.scheme,
+      sslConfig,
       request.version,
     )
   }
@@ -276,7 +284,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def portOption: Option[Int]            = self.portOption
       def queries: QueryParams               = self.queries
       def schemeOption: Option[Scheme]       = self.schemeOption
-      def sslOption: Option[ClientSSLConfig] = self.sslOption
+      def sslConfig: Option[ClientSSLConfig] = self.sslConfig
       def requestInternal(
         body: In,
         headers: Headers,
@@ -285,7 +293,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         pathPrefix: Path,
         portOption: Option[Int],
         queries: QueryParams,
-        sslOption: Option[ClientSSLConfig],
+        schemeOption: Option[Scheme],
+        sslConfig: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env1, Err, Out] =
         self
@@ -297,7 +306,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             pathPrefix,
             portOption,
             queries,
-            sslOption,
+            schemeOption,
+            sslConfig,
             version,
           )
           .retry(policy)
@@ -362,7 +372,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     } yield out
 
   final def ssl(ssl: ClientSSLConfig): ZClient[Env, In, Err, Out] =
-    copy(sslOption = Some(ssl))
+    copy(sslConfig = Some(ssl))
 
   final def uri(uri: URI): ZClient[Env, In, Err, Out] =
     copy(
@@ -388,7 +398,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     pathPrefix: Path,
     portOption: Option[Int],
     queries: QueryParams,
-    sslOption: Option[ClientSSLConfig],
+    schemeOption: Option[Scheme],
+    sslConfig: Option[ClientSSLConfig],
     version: Version,
   )(implicit trace: Trace): ZIO[Env, Err, Out]
 
@@ -410,7 +421,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     portOption: Option[Int] = portOption,
     queries: QueryParams = queries,
     schemeOption: Option[Scheme] = schemeOption,
-    sslOption: Option[ClientSSLConfig] = sslOption,
+    sslConfig: Option[ClientSSLConfig] = sslConfig,
   ): ZClient[Env, In, Err, Out] =
     ZClient.Proxy[Env, In, Err, Out](
       self,
@@ -420,7 +431,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       portOption,
       queries,
       schemeOption,
-      sslOption,
+      sslConfig,
     )
 }
 
@@ -434,7 +445,7 @@ object ZClient {
     portOption: Option[Int],
     queries: QueryParams,
     schemeOption: Option[Scheme],
-    sslOption: Option[ClientSSLConfig],
+    sslConfig: Option[ClientSSLConfig],
   ) extends ZClient[Env, In, Err, Out] {
 
     def requestInternal(
@@ -445,10 +456,22 @@ object ZClient {
       path: Path,
       portOption: Option[Int],
       queries: QueryParams,
-      sslOption: Option[ClientSSLConfig],
+      schemeOption: Option[Scheme],
+      sslConfig: Option[ClientSSLConfig],
       version: Version,
     )(implicit trace: Trace): ZIO[Env, Err, Out] =
-      client.requestInternal(body, headers, hostOption, method, path, portOption, queries, sslOption, version)
+      client.requestInternal(
+        body,
+        headers,
+        hostOption,
+        method,
+        path,
+        portOption,
+        queries,
+        schemeOption,
+        sslConfig,
+        version,
+      )
 
     protected def socketInternal[Env1 <: Env](
       app: SocketApp[Env1],
@@ -477,7 +500,7 @@ object ZClient {
     val portOption: Option[Int]            = None
     val queries: QueryParams               = QueryParams.empty
     val schemeOption: Option[Scheme]       = None
-    val sslOption: Option[ClientSSLConfig] = None
+    val sslConfig: Option[ClientSSLConfig] = None
 
     def requestInternal(
       body: Body,
@@ -487,22 +510,26 @@ object ZClient {
       path: Path,
       portOption: Option[Int],
       queries: QueryParams,
-      sslOption: Option[ClientSSLConfig],
+      schemeOption: Option[Scheme],
+      sslConfig: Option[ClientSSLConfig],
       version: Version,
     )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
 
       for {
         host     <- ZIO.fromOption(hostOption).orElseFail(new IllegalArgumentException("Host is required"))
-        port     <- ZIO.fromOption(portOption).orElseSucceed(sslOption.fold(80)(_ => 443))
+        port     <- ZIO.fromOption(portOption).orElseSucceed(sslConfig.fold(80)(_ => 443))
         response <- requestAsync(
-          Request(
-            version = version,
-            method = method,
-            url = URL(path, URL.Location.Absolute(Scheme.HTTP, host, port)).setQueryParams(queries),
-            headers = headers,
-            body = body,
-          ),
-          sslOption.fold(settings)(settings.ssl),
+          Request
+            .default(
+              method,
+              URL(path, URL.Location.Absolute(schemeOption.getOrElse(Scheme.HTTP), host, port)).setQueryParams(queries),
+              body,
+            )
+            .copy(
+              version = version,
+              headers = headers,
+            ),
+          sslConfig.fold(settings)(settings.ssl),
         )
       } yield response
     }
@@ -527,12 +554,12 @@ object ZClient {
           } yield URL.Location.Absolute(scheme, host, port)
         }.orElseSucceed(URL.Location.Relative)
         res      <- requestAsync(
-          http.Request(
-            version = version,
-            Method.GET,
-            url = URL(path, location).setQueryParams(queries),
-            headers,
-          ),
+          Request
+            .get(URL(path, location))
+            .copy(
+              version = version,
+              headers = headers,
+            ),
           clientConfig = settings.copy(socketApp = Some(app.provideEnvironment(env))),
         ).withFinalizer(_.close.orDie)
       } yield res
@@ -577,7 +604,7 @@ object ZClient {
           override def initChannel(ch: JChannel): Unit = {
 
             val pipeline  = ch.pipeline()
-            val sslOption = clientConfig.ssl.getOrElse(ClientSSLConfig.Default)
+            val sslConfig = clientConfig.ssl.getOrElse(ClientSSLConfig.Default)
 
             // Adding proxy handler
             if (isProxy) {
@@ -597,7 +624,7 @@ object ZClient {
               pipeline.addLast(
                 SSL_HANDLER,
                 ClientSSLConverter
-                  .toNettySSLContext(sslOption)
+                  .toNettySSLContext(sslConfig)
                   .newHandler(ch.alloc, host, port),
               )
 
@@ -610,7 +637,14 @@ object ZClient {
             // This way, if the server closes the connection before the whole response has been sent,
             // we get an error. (We can also handle the channelInactive callback, but since for now
             // we always buffer the whole HTTP response we can letty Netty take care of this)
-            pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, 8192, 8192, true))
+            pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, clientConfig.maxHeaderSize, 8192, true))
+
+            // HttpContentDecompressor
+            if (clientConfig.requestDecompression.enabled)
+              pipeline.addLast(
+                HTTP_REQUEST_DECOMPRESSION,
+                new HttpContentDecompressor(clientConfig.requestDecompression.strict),
+              )
 
             // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
             // This is also required to make WebSocketHandlers work
@@ -675,13 +709,11 @@ object ZClient {
       uri      <- ZIO.fromEither(URL.fromString(url))
       response <- ZIO.serviceWithZIO[Client](
         _.request(
-          http.Request(
-            version = Version.Http_1_1,
-            method = method,
-            url = uri,
-            headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
-            body = content,
-          ),
+          Request
+            .default(method, uri, content)
+            .copy(
+              headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
+            ),
         ),
       )
     } yield response
@@ -714,9 +746,14 @@ object ZClient {
     }
   }
 
+  val fromConfig = {
+    implicit val trace = Trace.empty
+    EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool >>> live
+  }
+
   val default = {
     implicit val trace = Trace.empty
-    ClientConfig.default >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool >>> live
+    ClientConfig.default >>> fromConfig
   }
 
   val zioHttpVersion: CharSequence           = Client.getClass().getPackage().getImplementationVersion()

@@ -23,7 +23,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   private val MaxSize = 1024 * 10
   val configApp       = ServerConfig.default
-    .requestDecompression(true, true)
+    .requestDecompression(true)
     .objectAggregator(MaxSize)
     .responseCompression()
 
