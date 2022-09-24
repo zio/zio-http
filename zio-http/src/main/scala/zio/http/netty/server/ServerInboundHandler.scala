@@ -69,6 +69,22 @@ private[zio] final case class ServerInboundHandler(
     HttpMethod.TRACE,
   )
 
+  private lazy val app = {
+    var app0 = appRef.get
+    while (app0 == null) {
+      app0 = appRef.get
+    }
+    app0
+  }
+
+  private lazy val errorCallback = {
+    var cb0 = errCallbackRef.get
+    while (cb0 == null) {
+      cb0 = errCallbackRef.get
+    }
+    cb0
+  }
+
   @inline
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
@@ -178,7 +194,7 @@ private[zio] final case class ServerInboundHandler(
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = NettyServerRequest(ctx, jReq)
-        val exit = appRef.get.execute(req)
+        val exit = app.execute(req)
 
         if (attemptFastWrite(exit, time)) {
           releaseRequest(jReq)
@@ -190,7 +206,7 @@ private[zio] final case class ServerInboundHandler(
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req  = NettyServerRequest(ctx, jReq)
-        val exit = appRef.get.execute(req)
+        val exit = app.execute(req)
 
         if (!attemptFastWrite(exit, time)) {
           if (canHaveBody(jReq)) setAutoRead(false)
@@ -209,15 +225,18 @@ private[zio] final case class ServerInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    errCallbackRef
-      .get()
-      .fold {
+    errorCallback match {
+      case Some(callback) => runtime.run(ctx)(callback(cause))
+      case None           =>
         cause match {
-          case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
+          case ioe: IOException
+              if ioe.getMessage.contentEquals(
+                "Connection reset by peer",
+              ) => // TODO: We REALLY need to figure out why this happens.
             log.info("Connection reset by peer")
           case t => super.exceptionCaught(ctx, t)
         }
-      }(f => runtime.run(ctx)(f(cause)))
+    }
   }
 }
 
