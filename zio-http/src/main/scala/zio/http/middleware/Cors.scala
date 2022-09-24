@@ -15,7 +15,7 @@ private[zio] trait Cors {
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
-  final def cors[R, E](config: CorsConfig = CorsConfig())(implicit trace: Trace): HttpMiddleware[R, E] = {
+  final def cors[R, E](config: CorsConfig = CorsConfig()): HttpMiddleware[R, E] = {
     def allowCORS(origin: Header, acrm: Method): Boolean                           =
       (config.anyOrigin, config.anyMethod, origin._2.toString, acrm) match {
         case (true, true, _, _)           => true
@@ -40,23 +40,31 @@ private[zio] trait Cors {
           Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS, config.allowCredentials.toString)
         }
     }
-    Middleware.collect[Request] { case req =>
-      (
-        req.method,
-        req.headers.header(HttpHeaderNames.ORIGIN),
-        req.headers.header(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
-      ) match {
-        case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
-          Middleware.succeed(
-            http.Response(
-              Status.NoContent,
-              headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
-            ),
-          )
-        case (_, Some(origin), _) if allowCORS(origin, req.method)                                                =>
-          Middleware.addHeaders(corsHeaders(origin, req.method, isPreflight = false))
-        case _ => Middleware.identity
-      }
+    new HttpMiddleware[R, E] {
+      def apply[R1 <: R, E1 >: E](
+        http: Http[R1, E1, Request, Response],
+      )(implicit trace: Trace): Http[R1, E1, Request, Response] =
+        Http
+          .collect[Request] { case req =>
+            (
+              req.method,
+              req.headers.header(HttpHeaderNames.ORIGIN),
+              req.headers.header(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
+            ) match {
+              case (Method.OPTIONS, Some(origin), Some(acrm))
+                  if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
+                Http.succeed(
+                  Response(
+                    Status.NoContent,
+                    headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
+                  ),
+                )
+              case (_, Some(origin), _) if allowCORS(origin, req.method) =>
+                http.addHeaders(corsHeaders(origin, req.method, isPreflight = false))
+              case _                                                     => http
+            }
+          }
+          .flatten
     }
   }
 }
