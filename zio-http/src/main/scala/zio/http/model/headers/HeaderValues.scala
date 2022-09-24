@@ -65,5 +65,3 @@ trait HeaderValues {
   final val webSocket: CharSequence                     = HttpHeaderValues.WEBSOCKET
   final val xmlHttpRequest: CharSequence                = HttpHeaderValues.XML_HTTP_REQUEST
 }
-
-object HeaderValues {}
