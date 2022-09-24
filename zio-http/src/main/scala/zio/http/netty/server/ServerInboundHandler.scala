@@ -216,16 +216,16 @@ object ServerInboundHandler {
   private[zio] final class NettyProxyRequest(ctx: ChannelHandlerContext, nettyReq: HttpRequest) extends Request {
     self =>
 
-    def urlRef: AtomicReference[URL] =
+    private lazy val urlRef: AtomicReference[URL] =
       new AtomicReference[URL](URL.fromString(nettyReq.uri()).getOrElse(URL.empty))
 
-    def methodRef: AtomicReference[Method] =
+    private lazy val methodRef: AtomicReference[Method] =
       new AtomicReference[Method](Method.fromHttpMethod(nettyReq.method()))
 
-    def headersRef: AtomicReference[Headers] =
+    private lazy val headersRef: AtomicReference[Headers] =
       new AtomicReference(Headers.make(nettyReq.headers()))
 
-    def versionRef: AtomicReference[Version] = new AtomicReference(
+    private lazy val versionRef: AtomicReference[Version] = new AtomicReference(
       {
 
         val nettyHttpVersion = nettyReq.protocolVersion()
