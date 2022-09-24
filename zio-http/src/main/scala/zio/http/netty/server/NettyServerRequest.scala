@@ -24,7 +24,10 @@ private[zio] sealed abstract class NettyServerRequest(
       case _                          => None
     }
 
-  override def headers: Headers = currentHeaders.getOrElse(Headers.make(nettyReq.headers()))
+  override def headers: Headers = currentHeaders match {
+    case None          => Headers.make(nettyReq.headers())
+    case Some(headers) => headers
+  }
 
   override def path: Path = url.path
 
@@ -49,17 +52,29 @@ private[zio] sealed abstract class NettyServerRequest(
     case PATCH        => NettyServerRequest.patch(ctx, nettyReq, currentHeaders, currentUrl, currentVersion)
   }
 
-  override def url: URL = currentUrl.getOrElse(URL.fromString(nettyReq.uri()).getOrElse(URL.empty))
+  override def url: URL = currentUrl match {
+    case None =>
+      URL.fromString(nettyReq.uri()) match {
+        case Left(_)    => URL.empty
+        case Right(url) => url
+      }
 
-  override def version: Version = currentVersion.getOrElse {
-    val nettyHttpVersion = nettyReq.protocolVersion()
-
-    nettyHttpVersion match {
-      case HttpVersion.HTTP_1_0 => Version.Http_1_0
-      case HttpVersion.HTTP_1_1 => Version.Http_1_1
-      case other                => Version.Unsupported(other.text())
-    }
+    case Some(url) => url
   }
+
+  override def version: Version =
+    currentVersion match {
+      case None          =>
+        val nettyHttpVersion = nettyReq.protocolVersion()
+
+        nettyHttpVersion match {
+          case HttpVersion.HTTP_1_0 => Version.Http_1_0
+          case HttpVersion.HTTP_1_1 => Version.Http_1_1
+          case other                => Version.Unsupported(other.text())
+        }
+      case Some(version) => version
+    }
+
 }
 
 private[zio] object NettyServerRequest {
