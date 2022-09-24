@@ -14,7 +14,6 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * Simple wrapper over NioEventLoopGroup
  */
 object EventLoopGroups {
-
   trait Config extends ChannelType.Config {
     def nThreads: Int
   }
@@ -42,13 +41,6 @@ object EventLoopGroups {
 
   def uring(nThread: Int, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(ZIO.succeed(new IOUringEventLoopGroup(nThread, executor)))
-
-  // def auto(nThreads: Int): ZIO[Scope, Nothing, EventLoopGroup] =
-  //   if (Epoll.isAvailable)
-  //     epoll(nThreads)
-  //   else if (KQueue.isAvailable)
-  //     kqueue(nThreads)
-  //   else nio(nThreads)
 
   def default(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] = make(
     ZIO.succeed(new DefaultEventLoopGroup()),

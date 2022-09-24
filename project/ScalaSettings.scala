@@ -42,12 +42,12 @@ trait ScalaSettings {
     //  "-Ywarn-infer-any",                 // Warn when a type argument is inferred to be `Any`.
     //  "-language:experimental.macros",   // Allow macro definition (besides implementation and application). Disabled, as this will significantly change in Scala 3
     //  "-language:implicitConversions",   // Allow definition of implicit functions called views. Disabled, as it might be dropped in Scala 3. Instead use extension methods (implemented as implicit class Wrapper(val inner: Foo) extends AnyVal {}
-    "-Wconf:cat=unused:info"               // log unused as info
+    "-Wconf:cat=unused:info",               // log unused as info
+    "-opt:l:inline"
   )
 
   val scala3Settings: Seq[String] = Seq("-Xignore-scala2-macros", "-noindent")
 
-  // RECOMMENDED SETTINGS: https://tpolecat.github.io/2017/04/25/scalac-flags.html
   val scala213Settings: Seq[String] = baseSettings ++ Seq(
     "-Xlint:nonlocal-return",    // A return statement used an exception for flow control.
     "-Xlint:implicit-not-found", // Check @implicitNotFound and @implicitAmbiguous messages.
@@ -65,14 +65,13 @@ trait ScalaSettings {
     "-Wunused:privates", // Warn if a private member is unused.
     "-Wunused:locals",   // Warn if a local definition is unused.
     "-Wvalue-discard",   // Warn when non-Unit expression results are unused.
-    "-Ywarn-unused:imports"
-
+    "-Ywarn-unused:imports",
   )
 
   val scala212Settings: Seq[String] = baseSettings ++ Seq(
     "-explaintypes",
     "-Yrangepos",
-    "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
+    "-Xlint:_,-missing-interpolator,-type-parameter-shadow,-infer-any",
     "-Ywarn-numeric-widen",
     "-Ywarn-macros:after",
     "-Ywarn-unused:-implicits",

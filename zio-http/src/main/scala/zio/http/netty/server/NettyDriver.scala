@@ -2,10 +2,8 @@ package zio.http.netty.server
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
-import io.netty.handler.codec.http.HttpObject
 import io.netty.util.ResourceLeakDetector
 import zio._
-import zio.http.Server.ErrorCallback
 import zio.http.netty._
 import zio.http.service.ServerTime
 import zio.http.{Driver, Http, HttpApp, Server, ServerConfig}
