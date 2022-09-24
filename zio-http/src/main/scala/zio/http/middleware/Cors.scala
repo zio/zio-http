@@ -2,7 +2,6 @@ package zio.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.Trace
-import zio.http
 import zio.http._
 import zio.http.middleware.Cors.{CorsConfig, buildHeaders}
 import zio.http.model._
