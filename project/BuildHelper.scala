@@ -70,23 +70,6 @@ object BuildHelper extends ScalaSettings {
       s"-DZIOHttpLogLevel=${Debug.ZIOHttpLogLevel}",
     ),
     ThisBuild / fork                       := true,
-    libraryDependencies ++= {
-       if (scalaVersion.value == Scala3)
-         Seq(
-           "com.github.ghik" % s"silencer-lib_$Scala213" % SilencerVersion % Provided
-         )
-       else
-         Seq(
-           "com.github.ghik" % "silencer-lib" % SilencerVersion % Provided cross CrossVersion.full,
-           compilerPlugin("com.github.ghik" % "silencer-plugin" % SilencerVersion cross CrossVersion.full)
-         )
-     },
-     scalacOptions ++= {
-       if (scalaVersion.value == Scala3)
-         Seq.empty
-       else
-         Seq("-P:silencer:globalFilters=[zio.stacktracer.TracingImplicits.disableAutoTrace]")
-     }
   )
 
   def runSettings(className: String = "example.HelloWorld") = Seq(
