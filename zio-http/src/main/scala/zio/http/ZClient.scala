@@ -20,7 +20,6 @@ import zio.http.service._
 import zio.http.socket.SocketApp
 
 import java.net.{InetSocketAddress, URI}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait ZClient[-Env, -In, +Err, +Out] { self =>
 

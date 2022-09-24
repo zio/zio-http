@@ -5,7 +5,6 @@ import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse}
 import zio._
 import zio.http.Response
 import zio.http.netty.NettyRuntime
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Handles HTTP response

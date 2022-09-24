@@ -4,7 +4,6 @@ import zio._
 import zio.http.model.Method
 import zio.schema._
 import zio.stream.ZStream
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * An [[zio.http.api.API]] represents an API endpoint for the HTTP protocol.

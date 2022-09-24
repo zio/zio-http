@@ -1,15 +1,5 @@
 package zio.http
 
-import io.netty.channel._
-import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import io.netty.util.AttributeKey
-import zio._
-import zio.http.model._
-
-import scala.annotation.tailrec
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-
 package object netty {
 
   private[zio] val AutoReleaseRequest = false

@@ -1,9 +1,8 @@
 package zio.http
 
-import zio.{Trace, ZLayer}
 import zio.http.netty.{ChannelFactories, EventLoopGroups, _}
 import zio.http.socket.SocketApp
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.{Trace, ZLayer}
 
 case class ClientConfig(
   socketApp: Option[SocketApp[Any]] = None,

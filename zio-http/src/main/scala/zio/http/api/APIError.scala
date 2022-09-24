@@ -1,6 +1,5 @@
 package zio.http.api
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 sealed trait APIError extends Exception {
   def message: String
 
