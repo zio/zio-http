@@ -6,6 +6,7 @@ import io.netty.handler.codec.http.websocketx.{
   WebSocketServerProtocolConfig,
 }
 import zio.Duration
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Server side websocket configuration

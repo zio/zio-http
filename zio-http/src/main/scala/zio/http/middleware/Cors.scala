@@ -1,10 +1,12 @@
 package zio.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import zio.Trace
+import zio.http
 import zio.http._
 import zio.http.middleware.Cors.{CorsConfig, buildHeaders}
 import zio.http.model._
-import zio.{Trace, http}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait Cors {
 

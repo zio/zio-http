@@ -3,8 +3,9 @@ package zio.http.netty.client
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
 import zio.http.Request
-import zio.http.netty._
 import zio.{Task, Trace}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.http.netty._
 
 trait ClientRequestEncoder {
 

@@ -7,6 +7,7 @@ import io.netty.channel.kqueue._
 import io.netty.channel.socket.nio._
 import io.netty.incubator.channel.uring._
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 object ChannelFactories {
 

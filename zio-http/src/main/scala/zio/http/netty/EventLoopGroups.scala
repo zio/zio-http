@@ -8,6 +8,7 @@ import io.netty.incubator.channel.uring.IOUringEventLoopGroup
 import zio._
 
 import java.util.concurrent.Executor
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Simple wrapper over NioEventLoopGroup

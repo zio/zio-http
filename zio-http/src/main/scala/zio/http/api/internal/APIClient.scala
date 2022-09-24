@@ -6,6 +6,7 @@ import zio.http.api._
 import zio.http.model.Headers
 import zio.schema._
 import zio.schema.codec._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
   private val optionSchema: Option[Schema[Any]]    = api.input.bodySchema.map(_.asInstanceOf[Schema[Any]])

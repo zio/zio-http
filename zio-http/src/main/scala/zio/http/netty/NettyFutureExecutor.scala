@@ -4,6 +4,7 @@ import io.netty.util.concurrent.{Future, GenericFutureListener}
 import zio._
 
 import java.util.concurrent.CancellationException
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
 

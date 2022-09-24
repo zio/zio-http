@@ -6,6 +6,7 @@ import zio.http.model.Status
 import zio.{Clock, LogAnnotation, LogLevel, Trace, ZIO}
 
 import java.nio.charset.{Charset, StandardCharsets}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait RequestLogging {
 
