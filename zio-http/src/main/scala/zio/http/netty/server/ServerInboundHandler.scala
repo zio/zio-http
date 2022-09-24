@@ -60,6 +60,15 @@ private[zio] final case class ServerInboundHandler(
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
+  private val bodyless = List(
+    HttpMethod.CONNECT,
+    HttpMethod.GET,
+    HttpMethod.HEAD,
+    HttpMethod.DELETE,
+    HttpMethod.OPTIONS,
+    HttpMethod.TRACE,
+  )
+
   @inline
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
@@ -108,9 +117,10 @@ private[zio] final case class ServerInboundHandler(
     }
 
     def canHaveBody(jReq: HttpRequest): Boolean = {
-      jReq.method() == HttpMethod.TRACE ||
-      jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
-      jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
+      !bodyless.contains(jReq.method()) && {
+        val contentLength = jReq.headers().get(HttpHeaderNames.CONTENT_LENGTH)
+        contentLength != null && contentLength != "0"
+      }
     }
 
     def hasChanged(r1: Response, r2: Response): Boolean =
@@ -167,7 +177,7 @@ private[zio] final case class ServerInboundHandler(
     msg match {
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
-        val req  = new ServerInboundHandler.NettyProxyRequest(ctx, jReq)
+        val req  = NettyServerRequest(ctx, jReq)
         val exit = appRef.get.execute(req)
 
         if (attemptFastWrite(exit, time)) {
@@ -179,7 +189,7 @@ private[zio] final case class ServerInboundHandler(
 
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
-        val req  = new ServerInboundHandler.NettyProxyRequest(ctx, jReq)
+        val req  = NettyServerRequest(ctx, jReq)
         val exit = appRef.get.execute(req)
 
         if (!attemptFastWrite(exit, time)) {
@@ -213,119 +223,125 @@ private[zio] final case class ServerInboundHandler(
 
 object ServerInboundHandler {
 
-  private[zio] final class NettyProxyRequest(ctx: ChannelHandlerContext, nettyReq: HttpRequest) extends Request {
-    self =>
+  // private[zio] final class NettyProxyRequest(ctx: ChannelHandlerContext, nettyReq: HttpRequest) extends Request {
+  //   self =>
 
-    private lazy val urlRef: AtomicReference[URL] =
-      new AtomicReference[URL](URL.fromString(nettyReq.uri()).getOrElse(URL.empty))
+  //   // private lazy val urlRef: AtomicReference[URL] =
+  //   //   new AtomicReference[URL](URL.fromString(nettyReq.uri()).getOrElse(URL.empty))
 
-    private lazy val methodRef: AtomicReference[Method] =
-      new AtomicReference[Method](Method.fromHttpMethod(nettyReq.method()))
+  //   // private lazy val methodRef: AtomicReference[Method] =
+  //   //   new AtomicReference[Method](Method.fromHttpMethod(nettyReq.method()))
 
-    private lazy val headersRef: AtomicReference[Headers] =
-      new AtomicReference(Headers.make(nettyReq.headers()))
+  //   // private lazy val headersRef: AtomicReference[Headers] =
+  //   //   new AtomicReference(Headers.make(nettyReq.headers()))
 
-    private lazy val versionRef: AtomicReference[Version] = new AtomicReference(
-      {
+  //   // private lazy val versionRef: AtomicReference[Version] = new AtomicReference(
+  //   //   {
 
-        val nettyHttpVersion = nettyReq.protocolVersion()
+  //   //     val nettyHttpVersion = nettyReq.protocolVersion()
 
-        nettyHttpVersion match {
-          case HttpVersion.HTTP_1_0 => Version.Http_1_0
-          case HttpVersion.HTTP_1_1 => Version.Http_1_1
-          case httpVersion          => Version.Unsupported(httpVersion.text())
-        }
-      },
-    )
+  //   //     nettyHttpVersion match {
+  //   //       case HttpVersion.HTTP_1_0 => Version.Http_1_0
+  //   //       case HttpVersion.HTTP_1_1 => Version.Http_1_1
+  //   //       case httpVersion          => Version.Unsupported(httpVersion.text())
+  //   //     }
+  //   //   },
+  //   // )
 
-    private def addAsyncBodyHandler(async: Body.UnsafeAsync): Unit = {
-      if (contentIsRead) throw new RuntimeException("Content is already read")
-      ctx
-        .channel()
-        .pipeline()
-        .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, new ServerAsyncBodyHandler(async)): Unit
-      setContentReadAttr(flag = true)
-    }
+  //   private def addAsyncBodyHandler(async: Body.UnsafeAsync): Unit = {
+  //     if (contentIsRead) throw new RuntimeException("Content is already read")
+  //     ctx
+  //       .channel()
+  //       .pipeline()
+  //       .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, new ServerAsyncBodyHandler(async)): Unit
+  //     setContentReadAttr(flag = true)
+  //   }
 
-    private def contentIsRead: Boolean =
-      ctx.channel().attr(isReadKey).get()
+  //   private def contentIsRead: Boolean =
+  //     ctx.channel().attr(isReadKey).get()
 
-    private def setContentReadAttr(flag: Boolean): Unit =
-      ctx.channel().attr(isReadKey).set(flag)
+  //   private def setContentReadAttr(flag: Boolean): Unit =
+  //     ctx.channel().attr(isReadKey).set(flag)
 
-    override def body: Body = {
-      nettyReq match {
-        case nettyReq: FullHttpRequest =>
-          Body.fromByteBuf(nettyReq.content())
-        case _: HttpRequest            =>
-          Body.fromAsync { async =>
-            addAsyncBodyHandler(async)
-          }
-      }
-    }
+  //   override def body: Body = {
+  //     nettyReq match {
+  //       case nettyReq: FullHttpRequest =>
+  //         Body.fromByteBuf(nettyReq.content())
+  //       case _: HttpRequest            =>
+  //         Body.fromAsync { async =>
+  //           addAsyncBodyHandler(async)
+  //         }
+  //     }
+  //   }
 
-    override def headers: Headers = headersRef.get()
+  //   override def headers: Headers = ??? // headersRef.get()
 
-    override def method: Method = methodRef.get
+  //   override def method: Method = ??? // methodRef.get
 
-    override def path: Path = url.path
+  //   override def path: Path = ??? // url.path
 
-    override def url: URL = urlRef.get
+  //   override def url: URL = ??? // urlRef.get
 
-    override def version: Version = {
-      val nettyHttpVersion = nettyReq.protocolVersion()
+  //   override def version: Version = {
+  //     val nettyHttpVersion = nettyReq.protocolVersion()
 
-      nettyHttpVersion match {
-        case HttpVersion.HTTP_1_0 => Version.Http_1_0
-        case HttpVersion.HTTP_1_1 => Version.Http_1_1
-        case other                => Version.Unsupported(other.text())
-      }
-    }
+  //     nettyHttpVersion match {
+  //       case HttpVersion.HTTP_1_0 => Version.Http_1_0
+  //       case HttpVersion.HTTP_1_1 => Version.Http_1_1
+  //       case other                => Version.Unsupported(other.text())
+  //     }
+  //   }
 
-    override def remoteAddress: Option[InetAddress] =
-      ctx.channel().remoteAddress() match {
-        case address: InetSocketAddress => Some(address.getAddress)
-        case _                          => None
-      }
+  //   override def remoteAddress: Option[InetAddress] =
+  //     ctx.channel().remoteAddress() match {
+  //       case address: InetSocketAddress => Some(address.getAddress)
+  //       case _                          => None
+  //     }
 
-    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Request = {
-      var loop = true
-      while (loop) {
-        val oldHeaders = headersRef.get()
-        if (headersRef.compareAndSet(oldHeaders, update(oldHeaders))) loop = false
-      }
-      self
-    }
+  //   override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Request = ???
+  //   //   {
+  //   //   var loop = true
+  //   //   while (loop) {
+  //   //     val oldHeaders = headersRef.get()
+  //   //     if (headersRef.compareAndSet(oldHeaders, update(oldHeaders))) loop = false
+  //   //   }
+  //   //   self
+  //   // }
 
-    override def updateMethod(newMethod: Method): Request = {
-      var loop = true
-      while (loop) {
-        val oldMethod = methodRef.get()
-        if (methodRef.compareAndSet(oldMethod, newMethod)) loop = false
-      }
-      self
-    }
+  //   override def updateMethod(newMethod: Method): Request = ???
 
-    override def updateUrl(newUrl: URL): Request = {
-      var loop = true
-      while (loop) {
-        val oldUrl = urlRef.get()
-        if (urlRef.compareAndSet(oldUrl, newUrl)) loop = false
-      }
-      self
-    }
+  //   //   {
+  //   //   var loop = true
+  //   //   while (loop) {
+  //   //     val oldMethod = methodRef.get()
+  //   //     if (methodRef.compareAndSet(oldMethod, newMethod)) loop = false
+  //   //   }
+  //   //   self
+  //   // }
 
-    override def updateVersion(newVersion: Version): Request = {
-      var loop = true
-      while (loop) {
-        val oldVersion = versionRef.get()
-        if (versionRef.compareAndSet(oldVersion, newVersion)) loop = false
-      }
-      self
-    }
-  }
+  //   override def updateUrl(newUrl: URL): Request = ???
+  //   //   {
+  //   //   var loop = true
+  //   //   while (loop) {
+  //   //     val oldUrl = urlRef.get()
+  //   //     if (urlRef.compareAndSet(oldUrl, newUrl)) loop = false
+  //   //   }
+  //   //   self
+  //   // }
 
-  private val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
+  //   override def updateVersion(newVersion: Version): Request = ???
+
+  //   //   {
+  //   //   var loop = true
+  //   //   while (loop) {
+  //   //     val oldVersion = versionRef.get()
+  //   //     if (versionRef.compareAndSet(oldVersion, newVersion)) loop = false
+  //   //   }
+  //   //   self
+  //   // }
+  // }
+
+  private[zio] val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
   val log: Logger = service.Log.withTags("Server", "Request")
 
