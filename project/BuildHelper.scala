@@ -6,10 +6,9 @@ import xerial.sbt.Sonatype.autoImport._
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.16"
   val Scala213         = "2.13.8"
-  val Scala3           = "3.2.0"
+  val ScalaDotty       = "3.2.0"
   val ScoverageVersion = "1.9.3"
   val JmhVersion       = "0.4.3"
-  val SilencerVersion  = "1.7.9"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -52,7 +51,7 @@ object BuildHelper extends ScalaSettings {
 
   def stdSettings(prjName: String) = Seq(
     name                                   := s"$prjName",
-    ThisBuild / crossScalaVersions         := Seq(Scala212, Scala213, Scala3),
+    ThisBuild / crossScalaVersions         := Seq(Scala212, Scala213, ScalaDotty),
     ThisBuild / scalaVersion               := Scala213,
     scalacOptions                          := stdOptions ++ extraOptions(scalaVersion.value),
     semanticdbVersion                      := scalafixSemanticdb.revision, // use Scalafix compatible version
