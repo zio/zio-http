@@ -13,8 +13,8 @@ object Main extends ZIOAppDefault {
   private val plainTextMessage: String = "hello, world!"
   private val jsonMessage: String      = """{"message": "hello, world!"}"""
 
-  private val plaintextPath = Path.decode("/plaintext")
-  private val jsonPath      = Path.decode("/json")
+  private val plaintextPath = "/plaintext"
+  private val jsonPath      = "/json"
 
   private val STATIC_SERVER_NAME = AsciiString.cached("zio-http")
 

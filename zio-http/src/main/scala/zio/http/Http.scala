@@ -670,16 +670,17 @@ object Http {
      */
     def whenPathEq(p: Path): HttpApp[R, E] =
       http.when(_.path == p)
-      // http.whenPathEq(p.encode)
 
     /**
      * Applies Http based on the path as string
      */
-    def whenPathEq(p: String): HttpApp[R, E] = {
-      http.when { a =>
-        a.url.path.encode.contentEquals(p)
-      }
-    }
+    def whenPathEq(p: String): HttpApp[R, E] = whenPathEq(Path.decode(p))
+      
+    //   {
+    //   http.when { a =>
+    //     a.url.path.encode.contentEquals(p)
+    //   }
+    // }
   }
 
   /**
