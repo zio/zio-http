@@ -10,7 +10,6 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  */
 trait HeaderNames {
   final val accept: CharSequence                        = HttpHeaderNames.ACCEPT
-  final val acceptCharset: CharSequence                 = HttpHeaderNames.ACCEPT_CHARSET
   final val acceptEncoding: CharSequence                = HttpHeaderNames.ACCEPT_ENCODING
   final val acceptLanguage: CharSequence                = HttpHeaderNames.ACCEPT_LANGUAGE
   final val acceptRanges: CharSequence                  = HttpHeaderNames.ACCEPT_RANGES
