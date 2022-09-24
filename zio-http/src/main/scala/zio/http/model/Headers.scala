@@ -1,11 +1,9 @@
 package zio.http.model
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zio.Trace
 import zio.http.model.headers._
 
 import scala.jdk.CollectionConverters._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Represents an immutable collection of headers. It extends HeaderExtensions

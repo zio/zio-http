@@ -2,11 +2,7 @@ package zio.http.netty.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
-import io.netty.handler.codec.http.HttpObjectDecoder.{
-  DEFAULT_MAX_CHUNK_SIZE,
-  DEFAULT_MAX_HEADER_SIZE,
-  DEFAULT_MAX_INITIAL_LINE_LENGTH,
-}
+import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
@@ -18,7 +14,6 @@ import zio.http.netty.server.ServerChannelInitializer.log
 import zio.http.service.Log
 import zio.http.service.logging.LogLevelTransform._
 import zio.logging.LogLevel
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Initializes the netty channel with default handlers

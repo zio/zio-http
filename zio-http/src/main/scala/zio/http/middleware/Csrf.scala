@@ -5,7 +5,6 @@ import zio.http.model._
 import zio.{Trace, ZIO}
 
 import java.util.UUID
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait Csrf {
 

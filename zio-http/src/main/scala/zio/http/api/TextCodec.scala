@@ -1,7 +1,6 @@
 package zio.http.api
 
 import java.util.UUID
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A [[zio.http.api.TextCodec]] defines a codec for a text fragment. The text

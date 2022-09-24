@@ -1,11 +1,7 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.headers.values.CacheControl
-import zio.http.model.headers.values.Age
-import zio.http.model.headers.values.ContentLength
-
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.http.model.headers.values.{Age, CacheControl, ContentLength}
 
 private[api] trait HeaderInputs {
   def header[A](name: String, value: TextCodec[A]): In[A] =

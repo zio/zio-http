@@ -3,7 +3,6 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.model.HttpError
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Represents a collection of API endpoints that all have handlers.

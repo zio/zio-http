@@ -6,7 +6,6 @@ import zio._
 import zio.http.service.Log
 
 import scala.jdk.CollectionConverters._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait NettyRuntime { self =>
 

@@ -3,17 +3,17 @@ package zio.http.netty.server
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
+import io.netty.util.AttributeKey
 import zio._
 import zio.http._
+import zio.http.model._
+import zio.http.netty.server.ServerInboundHandler.isReadKey
 import zio.http.netty.{NettyRuntime, _}
 import zio.logging.Logger
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-import zio.http.model._
-import io.netty.util.AttributeKey
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import scala.annotation.tailrec
-import ServerInboundHandler.isReadKey
+
 import java.io.IOException
+import scala.annotation.tailrec
 
 @Sharable
 private[zio] final case class ServerInboundHandler(

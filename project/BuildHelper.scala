@@ -6,9 +6,10 @@ import xerial.sbt.Sonatype.autoImport._
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.16"
   val Scala213         = "2.13.8"
-  val ScalaDotty       = "3.2.0"
+  val Scala3           = "3.2.0"
   val ScoverageVersion = "1.9.3"
   val JmhVersion       = "0.4.3"
+  val SilencerVersion  = "1.7.9"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -51,7 +52,7 @@ object BuildHelper extends ScalaSettings {
 
   def stdSettings(prjName: String) = Seq(
     name                                   := s"$prjName",
-    ThisBuild / crossScalaVersions         := Seq(Scala212, Scala213, ScalaDotty),
+    ThisBuild / crossScalaVersions         := Seq(Scala212, Scala213, Scala3),
     ThisBuild / scalaVersion               := Scala213,
     scalacOptions                          := stdOptions ++ extraOptions(scalaVersion.value),
     semanticdbVersion                      := scalafixSemanticdb.revision, // use Scalafix compatible version
@@ -69,6 +70,23 @@ object BuildHelper extends ScalaSettings {
       s"-DZIOHttpLogLevel=${Debug.ZIOHttpLogLevel}",
     ),
     ThisBuild / fork                       := true,
+    libraryDependencies ++= {
+      if (scalaVersion.value == Scala3)
+        Seq(
+          "com.github.ghik" % s"silencer-lib_$Scala213" % SilencerVersion % Provided
+        )
+      else
+        Seq(
+          "com.github.ghik" % "silencer-lib" % SilencerVersion % Provided cross CrossVersion.full,
+          compilerPlugin("com.github.ghik" % "silencer-plugin" % SilencerVersion cross CrossVersion.full)
+        )
+    },
+    scalacOptions ++= {
+      if (scalaVersion.value == Scala3)
+        Seq.empty
+      else
+        Seq("-P:silencer:globalFilters=[zio.stacktracer.TracingImplicits.disableAutoTrace]")
+    }
   )
 
   def runSettings(className: String = "example.HelloWorld") = Seq(

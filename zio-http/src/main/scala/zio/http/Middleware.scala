@@ -2,7 +2,6 @@ package zio.http
 
 import zio._
 import zio.http.middleware.{MonoMiddleware, Web}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Middlewares are essentially transformations that one can apply on any Http to
