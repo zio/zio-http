@@ -8,6 +8,7 @@ import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, shrinks, timeout}
 import zio.test.assertZIO
 import zio.{Scope, ZIO, durationInt}
+import zio.http.model.Method
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
 
@@ -34,7 +35,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
         _.body.asStream.runCount
           .map(bytesCount => Response.text(bytesCount.toString))
       }
-      val res     = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(content))
+      val res     = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(content), method = Method.POST)
       assertZIO(res)(equalTo(size.toString))
     },
     test("multiple body read") {
@@ -44,7 +45,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
           _ <- req.body.asChunk
         } yield Response.ok
       }
-      val res = app.deploy.status.run()
+      val res = app.deploy.status.run(method = Method.POST)
       assertZIO(res)(equalTo(Status.InternalServerError))
     },
   ) @@ timeout(10 seconds)

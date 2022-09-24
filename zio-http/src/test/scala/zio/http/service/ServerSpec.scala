@@ -95,21 +95,23 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo(Status.Ok))
         } +
           test("body is ok") {
-            val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString("ABC"))
+            val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString("ABC"), method = Method.POST)
             assertZIO(res)(equalTo("ABC"))
           } +
           test("empty string") {
-            val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(""))
+            val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(""), method = Method.POST)
             assertZIO(res)(equalTo(""))
           } +
           test("one char") {
-            val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString("1"))
+            val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString("1"), method = Method.POST)
             assertZIO(res)(equalTo("1"))
           } +
           test("data") {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
             val app        = Http.collect[Request] { case req => Response(body = req.body) }
-            val res        = app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromStream(dataStream))
+            val res        = app.deploy.body
+              .mapZIO(_.asChunk.map(_.length))
+              .run(body = Body.fromStream(dataStream), method = Method.POST)
             assertZIO(res)(equalTo(MaxSize))
           }
       } +
@@ -140,7 +142,7 @@ object ServerSpec extends HttpRunnableSpec {
           decompressor: ZPipeline[R, E, Byte, Byte],
         ) = for {
           compressed <- contentStream.via(compressor).runCollect
-          response   <- app.run(body = Body.fromChunk(compressed), headers = headers)
+          response   <- app.run(body = Body.fromChunk(compressed), headers = headers, method = Method.POST)
           body       <- response.body.asChunk.flatMap(ch => ZStream.fromChunk(ch).via(decompressor).runCollect)
         } yield new String(body.toArray, StandardCharsets.UTF_8)
 
@@ -170,6 +172,7 @@ object ServerSpec extends HttpRunnableSpec {
             val result = app.run(
               body = Body.fromString(body),
               headers = Headers.acceptEncoding(HeaderValues.br),
+              method = Method.POST,
             )
             assertZIO(result.flatMap(_.body.asString))(equalTo(body))
           } +
@@ -253,12 +256,13 @@ object ServerSpec extends HttpRunnableSpec {
         .deploy
         .body
         .mapZIO(_.asString)
-        .run(body = Body.fromString("abc"))
+        .run(body = Body.fromString("abc"), method = Method.POST)
       assertZIO(res)(equalTo("abc"))
     },
     test("file-streaming") {
       val path = getClass.getResource("/TestFile.txt").getPath
-      val res  = Http.fromStream(ZStream.fromPath(Paths.get(path))).deploy.body.mapZIO(_.asString).run()
+      val res  =
+        Http.fromStream(ZStream.fromPath(Paths.get(path))).deploy.body.mapZIO(_.asString).run(method = Method.POST)
       assertZIO(res)(equalTo("foo\nbar"))
     },
     suite("html")(
