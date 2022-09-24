@@ -29,7 +29,7 @@ trait Request extends HeaderExtension[Request] {
 
 object Request {
 
-  final case class ClientRequest(
+  private[zio] final case class ClientRequest(
     body: Body,
     headers: Headers,
     method: Method,
@@ -58,6 +58,15 @@ object Request {
     override def updateVersion(newVersion: Version): Request = self.copy(version = newVersion)
 
   }
+
+  def apply(
+    body: Body,
+    headers: Headers,
+    method: Method,
+    url: URL,
+    version: Version,
+    remoteAddress: Option[InetAddress],
+  ): Request = ClientRequest(body, headers, method, url, version, remoteAddress)
 
   def default(method: Method, url: URL, body: Body = Body.empty): Request =
     ClientRequest(body, Headers.empty, method, url, Version.`HTTP/1.1`, Option.empty)

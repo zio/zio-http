@@ -28,7 +28,7 @@ object HttpGen {
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       version <- httpVersion
-    } yield Request.ClientRequest(Body.fromFile(file), headers, method, url, version, None)
+    } yield Request(Body.fromFile(file), headers, method, url, version, None)
   }
 
   def genAbsoluteLocation: Gen[Sized, Location.Absolute] = for {
@@ -137,7 +137,7 @@ object HttpGen {
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
       version <- httpVersion
-    } yield Request.ClientRequest(data, headers, method, url, version, None)
+    } yield Request(data, headers, method, url, version, None)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Sized with R, Response] = {
     for {
