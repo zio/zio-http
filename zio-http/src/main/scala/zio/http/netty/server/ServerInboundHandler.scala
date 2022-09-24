@@ -229,11 +229,11 @@ private[zio] final case class ServerInboundHandler(
       case Some(callback) => runtime.run(ctx)(callback(cause))
       case None           =>
         cause match {
-          case ioe: IOException
-              if ioe.getMessage.contentEquals(
-                "Connection reset by peer",
-              ) => // TODO: We REALLY need to figure out why this happens.
-            log.info("Connection reset by peer")
+          // case ioe: IOException
+          //     if ioe.getMessage.contentEquals(
+          //       "Connection reset by peer",
+          //     ) => // TODO: We REALLY need to figure out why this happens.
+          //   log.info("Connection reset by peer")
           case t => super.exceptionCaught(ctx, t)
         }
     }
