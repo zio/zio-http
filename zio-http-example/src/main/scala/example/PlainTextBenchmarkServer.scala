@@ -43,7 +43,6 @@ object Main extends ZIOAppDefault {
 
   private val config = ServerConfig.default
     .port(8080)
-    .maxThreads(8)
     .leakDetection(LeakDetectionLevel.DISABLED)
     .consolidateFlush(true)
     .flowControl(false)
