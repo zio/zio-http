@@ -14,6 +14,7 @@ import java.net
 import java.nio.charset.Charset
 import java.nio.file.Paths
 import java.util.zip.ZipFile
+import scala.annotation.unused
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -43,9 +44,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Alias for flatmap
    */
-  final def >>=[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1])(implicit
-    trace: Trace,
-  ): Http[R1, E1, A1, C1] =
+  final def >>=[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.flatMap(f)
 
   /**
@@ -57,9 +56,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Runs self but if it fails, runs other, ignoring the result from self.
    */
-  final def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1])(implicit
-    trace: Trace,
-  ): Http[R1, E1, A1, B1] =
+  final def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     self orElse other
 
   /**
@@ -77,16 +74,14 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Alias for zipRight
    */
-  final def *>[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1])(implicit
-    trace: Trace,
-  ): Http[R1, E1, A1, C1] =
+  final def *>[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.zipRight(other)
 
   /**
    * Returns an http app that submerges the error case of an `Either` into the
    * `Http`. The inverse operation of `Http.either`.
    */
-  final def absolve[E1 >: E, C](implicit ev: B <:< Either[E1, C], trace: Trace): Http[R, E1, A, C] =
+  final def absolve[E1 >: E, C](implicit ev: B <:< Either[E1, C]): Http[R, E1, A, C] =
     self.flatMap(b =>
       ev(b) match {
         case Right(c) => Http.succeed(c)
@@ -108,21 +103,20 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Makes the app resolve with a constant value
    */
-  final def as[C](c: C)(implicit trace: Trace): Http[R, E, A, C] =
+  final def as[C](c: C): Http[R, E, A, C] =
     self *> Http.succeed(c)
 
   /**
    * Extracts body
    */
-  final def body(implicit eb: B <:< Response, trace: Trace): Http[R, E, A, Body] =
+  final def body(implicit eb: B <:< Response): Http[R, E, A, Body] =
     self.map(_.body)
 
   /**
    * Catches all the exceptions that the http app can fail with
    */
   final def catchAll[R1 <: R, E1, A1 <: A, B1 >: B](f: E => Http[R1, E1, A1, B1])(implicit
-    ev: CanFail[E],
-    trace: Trace,
+    @unused ev: CanFail[E],
   ): Http[R1, E1, A1, B1] =
     self.foldHttp(f, Http.succeed, Http.empty)
 
@@ -139,7 +133,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final def catchAllDefect[R2 <: R, E2 >: E, A2 <: A, B2 >: B](
     h: Throwable => Http[R2, E2, A2, B2],
-  )(implicit trace: Trace): Http[R2, E2, A2, B2] =
+  ): Http[R2, E2, A2, B2] =
     self.catchSomeDefect { case t => h(t) }
 
   /**
@@ -147,7 +141,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final def catchNonFatalOrDie[R2 <: R, E2 >: E, A2 <: A, B2 >: B](
     h: E => Http[R2, E2, A2, B2],
-  )(implicit ev1: CanFail[E], ev2: E <:< Throwable, trace: Trace): Http[R2, E2, A2, B2] =
+  )(implicit ev1: CanFail[E], ev2: E <:< Throwable): Http[R2, E2, A2, B2] =
     self.catchSome {
       case e @ NonFatal(_) => h(e)
       case e               => Http.die(e)
@@ -158,7 +152,6 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final def catchSome[R1 <: R, E1 >: E, A1 <: A, B1 >: B](f: PartialFunction[E, Http[R1, E1, A1, B1]])(implicit
     ev: CanFail[E],
-    trace: Trace,
   ): Http[R1, E1, A1, B1] =
     self.catchAll(e => f.applyOrElse(e, Http.fail[E1]))
 
@@ -172,7 +165,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final def catchSomeDefect[R1 <: R, E1 >: E, A1 <: A, B1 >: B](
     pf: PartialFunction[Throwable, Http[R1, E1, A1, B1]],
-  )(implicit trace: Trace): Http[R1, E1, A1, B1] =
+  ): Http[R1, E1, A1, B1] =
     unrefineWith(pf)(Http.fail).catchAll(e => e)
 
   /**
@@ -206,25 +199,24 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Extracts content-length from the response if available
    */
-  final def contentLength(implicit eb: B <:< Response, trace: Trace): Http[R, E, A, Option[Long]] =
+  final def contentLength(implicit eb: B <:< Response): Http[R, E, A, Option[Long]] =
     headers.map(_.contentLength)
 
   /**
    * Extracts the value of ContentType header
    */
-  final def contentType(implicit eb: B <:< Response, trace: Trace): Http[R, E, A, Option[CharSequence]] =
+  final def contentType(implicit eb: B <:< Response): Http[R, E, A, Option[CharSequence]] =
     headerValue(HttpHeaderNames.CONTENT_TYPE)
 
   /**
    * Like `collect` but is applied on the incoming type `A`.
    */
-  final def contraCollect[X](pf: PartialFunction[X, A])(implicit trace: Trace): Http[R, E, X, B] =
-    self.contraFlatMap[X](x =>
-      pf.lift(x) match {
-        case Some(value) => Http.succeed(value)
-        case None        => Http.empty
-      },
-    )
+  final def contraCollect[X](pf: PartialFunction[X, A]): Http[R, E, X, B] = self.contraFlatMap[X](x =>
+    pf.lift(x) match {
+      case Some(value) => Http.succeed(value)
+      case None        => Http.empty
+    },
+  )
 
   /**
    * Transforms the input of the http before passing it on to the current Http
@@ -234,7 +226,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Transforms the input of the http before passing it on to the current Http
    */
-  final def contramap[X](xa: X => A)(implicit trace: Trace): Http[R, E, X, B] = Http.identity[X].map(xa) >>> self
+  final def contramap[X](xa: X => A): Http[R, E, X, B] = Http.identity[X].map(xa) >>> self
 
   /**
    * Transforms the input of the http before giving it effectfully
@@ -270,7 +262,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * `Either`. The resulting app cannot fail, because the failure case has been
    * exposed as part of the `Either` success case.
    */
-  final def either(implicit ev: CanFail[E], trace: Trace): Http[R, Nothing, A, Either[E, B]] =
+  final def either(implicit ev: CanFail[E]): Http[R, Nothing, A, Either[E, B]] =
     self.foldHttp(
       e => Http.succeed(Left(e)),
       b => Http.succeed(Right(b)),
@@ -280,9 +272,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Creates a new Http app from another
    */
-  final def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](
-    f: B => Http[R1, E1, A1, C1],
-  )(implicit trace: Trace): Http[R1, E1, A1, C1] = {
+  final def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] = {
     self.foldHttp(Http.fail, f, Http.empty)
   }
 
@@ -291,7 +281,6 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final def flatten[R1 <: R, E1 >: E, A1 <: A, B1](implicit
     ev: B <:< Http[R1, E1, A1, B1],
-    trace: Trace,
   ): Http[R1, E1, A1, B1] = {
     self.flatMap(scala.Predef.identity(_))
   }
@@ -311,31 +300,29 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     failure: E => Http[R1, E1, A1, B1],
     success: B => Http[R1, E1, A1, B1],
     empty: Http[R1, E1, A1, B1],
-  )(implicit trace: Trace): Http[R1, E1, A1, B1] =
+  ): Http[R1, E1, A1, B1] =
     foldCauseHttp(c => c.failureOrCause.fold(failure, Http.failCause(_)), success, empty)
 
   /**
    * Extracts the value of the provided header name.
    */
-  final def headerValue(
-    name: CharSequence,
-  )(implicit eb: B <:< Response, trace: Trace): Http[R, E, A, Option[CharSequence]] =
+  final def headerValue(name: CharSequence)(implicit eb: B <:< Response): Http[R, E, A, Option[CharSequence]] =
     headers.map(_.headerValue(name))
 
   /**
    * Extracts the `Headers` from the type `B` if possible
    */
-  final def headers(implicit eb: B <:< Response, trace: Trace): Http[R, E, A, Headers] = self.map(_.headers)
+  final def headers(implicit eb: B <:< Response): Http[R, E, A, Headers] = self.map(_.headers)
 
   /**
    * Transforms the output of the http app
    */
-  final def map[C](bc: B => C)(implicit trace: Trace): Http[R, E, A, C] = self.flatMap(b => Http.succeed(bc(b)))
+  final def map[C](bc: B => C): Http[R, E, A, C] = self.flatMap(b => Http.succeed(bc(b)))
 
   /**
    * Transforms the failure of the http app
    */
-  final def mapError[E1](ee: E => E1)(implicit trace: Trace): Http[R, E1, A, B] =
+  final def mapError[E1](ee: E => E1): Http[R, E1, A, B] =
     self.foldHttp(e => Http.fail(ee(e)), Http.succeed, Http.empty)
 
   /**
@@ -348,7 +335,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Returns a new Http where the error channel has been merged into the success
    * channel to their common combined type.
    */
-  final def merge[E1 >: E, B1 >: B](implicit ev: E1 =:= B1, trace: Trace): Http[R, Nothing, A, B1] =
+  final def merge[E1 >: E, B1 >: B](implicit ev: E1 =:= B1): Http[R, Nothing, A, B1] =
     self.catchAll(Http.succeed(_))
 
   /**
@@ -366,7 +353,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Executes this app, skipping the error but returning optionally the success.
    */
-  final def option(implicit ev: CanFail[E], trace: Trace): Http[R, Nothing, A, Option[B]] =
+  final def option(implicit ev: CanFail[E]): Http[R, Nothing, A, Option[B]] =
     self.foldHttp(
       _ => Http.succeed(None),
       b => Http.succeed(Some(b)),
@@ -376,7 +363,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Converts an option on errors into an option on values.
    */
-  final def optional[E1](implicit ev: E <:< Option[E1], trace: Trace): Http[R, E1, A, Option[B]] =
+  final def optional[E1](implicit ev: E <:< Option[E1]): Http[R, E1, A, Option[B]] =
     self.foldHttp(
       ev(_) match {
         case Some(e) => Http.fail(e)
@@ -390,22 +377,20 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Translates app failure into death of the app, making all failures unchecked
    * and not a part of the type of the app.
    */
-  final def orDie(implicit ev1: E <:< Throwable, ev2: CanFail[E], trace: Trace): Http[R, Nothing, A, B] =
+  final def orDie(implicit ev1: E <:< Throwable, ev2: CanFail[E]): Http[R, Nothing, A, B] =
     orDieWith(ev1)
 
   /**
    * Keeps none of the errors, and terminates the http app with them, using the
    * specified function to convert the `E` into a `Throwable`.
    */
-  final def orDieWith(f: E => Throwable)(implicit ev: CanFail[E], trace: Trace): Http[R, Nothing, A, B] =
+  final def orDieWith(f: E => Throwable)(implicit ev: CanFail[E]): Http[R, Nothing, A, B] =
     self.foldHttp(e => Http.die(f(e)), Http.succeed, Http.empty)
 
   /**
    * Named alias for `<>`
    */
-  final def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1])(implicit
-    trace: Trace,
-  ): Http[R1, E1, A1, B1] =
+  final def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     self.catchAll(_ => other)
 
   /**
@@ -449,7 +434,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final def refineOrDie[E1](
     pf: PartialFunction[E, E1],
-  )(implicit ev1: E <:< Throwable, ev2: CanFail[E], trace: Trace): Http[R, E1, A, B] =
+  )(implicit ev1: E <:< Throwable, ev2: CanFail[E]): Http[R, E1, A, B] =
     refineOrDieWith(pf)(ev1)
 
   /**
@@ -458,19 +443,18 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final def refineOrDieWith[E1](pf: PartialFunction[E, E1])(f: E => Throwable)(implicit
     ev: CanFail[E],
-    trace: Trace,
   ): Http[R, E1, A, B] =
     self.catchAll(err => (pf lift err).fold[Http[R, E1, A, B]](Http.die(f(err)))(Http.fail))
 
   /**
    * Extracts `Status` from the type `B` is possible.
    */
-  final def status(implicit ev: B <:< Response, trace: Trace): Http[R, E, A, Status] = self.map(_.status)
+  final def status(implicit ev: B <:< Response): Http[R, E, A, Status] = self.map(_.status)
 
   /**
    * Returns an Http that peeks at the success of this Http.
    */
-  final def tap[R1 <: R, E1 >: E, A1 <: A](f: B => Http[R1, E1, Any, Any])(implicit trace: Trace): Http[R1, E1, A, B] =
+  final def tap[R1 <: R, E1 >: E, A1 <: A](f: B => Http[R1, E1, Any, Any]): Http[R1, E1, A, B] =
     self.flatMap(v => f(v).as(v))
 
   /**
@@ -481,7 +465,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     failure: Cause[E] => Http[R1, E1, Any, Any],
     success: B => Http[R1, E1, Any, Any],
     empty: Http[R1, E1, Any, Any],
-  )(implicit trace: Trace): Http[R1, E1, A, B] =
+  ): Http[R1, E1, A, B] =
     self.foldCauseHttp(
       cause => failure(cause) *> Http.failCause(cause),
       x => success(x) *> Http.succeed(x),
@@ -506,7 +490,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Returns an Http that peeks at the failure of this Http.
    */
-  final def tapError[R1 <: R, E1 >: E](f: E => Http[R1, E1, Any, Any])(implicit trace: Trace): Http[R1, E1, A, B] =
+  final def tapError[R1 <: R, E1 >: E](f: E => Http[R1, E1, Any, Any]): Http[R1, E1, A, B] =
     self.foldCauseHttp(
       c => c.failureOrCause.fold(f(_) *> Http.failCause(c), _ => Http.failCause(c)),
       Http.succeed,
@@ -539,20 +523,20 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Takes some defects and converts them into failures.
    */
-  final def unrefine[E1 >: E](pf: PartialFunction[Throwable, E1])(implicit trace: Trace): Http[R, E1, A, B] =
+  final def unrefine[E1 >: E](pf: PartialFunction[Throwable, E1]): Http[R, E1, A, B] =
     unrefineWith(pf)(e => e)
 
   /**
    * Takes some defects and converts them into failures.
    */
-  final def unrefineTo[E1 >: E: ClassTag](implicit trace: Trace): Http[R, E1, A, B] =
+  final def unrefineTo[E1 >: E: ClassTag]: Http[R, E1, A, B] =
     unrefine { case e: E1 => e }
 
   /**
    * Takes some defects and converts them into failures, using the specified
    * function to convert the `E` into an `E1`.
    */
-  final def unrefineWith[E1](pf: PartialFunction[Throwable, E1])(f: E => E1)(implicit trace: Trace): Http[R, E1, A, B] =
+  final def unrefineWith[E1](pf: PartialFunction[Throwable, E1])(f: E => E1): Http[R, E1, A, B] =
     catchAllCause { cause =>
       cause.find {
         case Cause.Die(t, _) if pf.isDefinedAt(t) => pf(t)
@@ -580,9 +564,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Combines the two apps and returns the result of the one on the right
    */
-  final def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1])(implicit
-    trace: Trace,
-  ): Http[R1, E1, A1, C1] =
+  final def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.flatMap(_ => other)
 
   /**
@@ -655,28 +637,27 @@ object Http {
     /**
      * Patches the response produced by the app
      */
-    def patch(patch: Patch)(implicit trace: Trace): HttpApp[R, E] = http.map(patch(_))
+    def patch(patch: Patch): HttpApp[R, E] = http.map(patch(_))
 
     /**
      * Overwrites the method in the incoming request
      */
-    def setMethod(method: Method)(implicit trace: Trace): HttpApp[R, E] =
-      http.contramap[Request](_.copy(method = method))
+    def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.copy(method = method))
 
     /**
      * Overwrites the path in the incoming request
      */
-    def setPath(path: Path)(implicit trace: Trace): HttpApp[R, E] = http.contramap[Request](_.updatePath(path))
+    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.updatePath(path))
 
     /**
      * Sets the status in the response produced by the app
      */
-    def setStatus(status: Status)(implicit trace: Trace): HttpApp[R, E] = patch(Patch.setStatus(status))
+    def setStatus(status: Status): HttpApp[R, E] = patch(Patch.setStatus(status))
 
     /**
      * Overwrites the url in the incoming request
      */
-    def setUrl(url: URL)(implicit trace: Trace): HttpApp[R, E] = http.contramap[Request](_.copy(url = url))
+    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.copy(url = url))
 
     /**
      * Updates the response headers using the provided function
@@ -749,7 +730,7 @@ object Http {
    * the code. Terminating an http app leads to aborting handling of an HTTP
    * request and responding with 500 Internal Server Error.
    */
-  def die(t: Throwable)(implicit trace: Trace): UHttp[Any, Nothing] =
+  def die(t: Throwable): UHttp[Any, Nothing] =
     failCause(Cause.die(t))
 
   /**
@@ -757,7 +738,7 @@ object Http {
    * text message. This method can be used for terminating a HTTP request
    * because a defect has been detected in the code.
    */
-  def dieMessage(message: => String)(implicit trace: Trace): UHttp[Any, Nothing] =
+  def dieMessage(message: => String): UHttp[Any, Nothing] =
     die(new RuntimeException(message))
 
   /**
@@ -778,16 +759,16 @@ object Http {
   /**
    * Creates an Http that always fails
    */
-  def fail[E](e: E)(implicit trace: Trace): Http[Any, E, Any, Nothing] =
+  def fail[E](e: E): Http[Any, E, Any, Nothing] =
     failCause(Cause.fail(e))
 
-  def failCause[E](cause: Cause[E])(implicit trace: Trace): Http[Any, E, Any, Nothing] =
+  def failCause[E](cause: Cause[E]): Http[Any, E, Any, Nothing] =
     Http.Fail(cause)
 
   /**
    * Flattens an Http app of an Http app
    */
-  def flatten[R, E, A, B](http: Http[R, E, A, Http[R, E, A, B]])(implicit trace: Trace): Http[R, E, A, B] =
+  def flatten[R, E, A, B](http: Http[R, E, A, Http[R, E, A, B]]): Http[R, E, A, B] =
     http.flatten
 
   /**
@@ -810,7 +791,7 @@ object Http {
   /**
    * Lifts an `Either` into a `Http` value.
    */
-  def fromEither[E, A](v: Either[E, A])(implicit trace: Trace): Http[Any, E, Any, A] =
+  def fromEither[E, A](v: Either[E, A]): Http[Any, E, Any, A] =
     v.fold(Http.fail, Http.succeed)
 
   /**
@@ -868,7 +849,7 @@ object Http {
   /**
    * Lifts an `Option` into a `Http` value.
    */
-  def fromOption[A](v: Option[A])(implicit trace: Trace): Http[Any, Option[Nothing], Any, A] =
+  def fromOption[A](v: Option[A]): Http[Any, Option[Nothing], Any, A] =
     v.fold[Http[Any, Option[Nothing], Any, A]](Http.fail(None))(Http.succeed)
 
   /**
@@ -995,7 +976,7 @@ object Http {
   /**
    * Creates an Http app that fails with a NotFound exception.
    */
-  def notFound(implicit trace: Trace): HttpApp[Any, Nothing] =
+  def notFound: HttpApp[Any, Nothing] =
     Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.path.encode))).flatten
 
   /**
@@ -1068,7 +1049,7 @@ object Http {
   }
 
   final case class PartialCollectHttp[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]])(implicit trace: Trace): Http[R, E, A, B] =
+    def apply[R, E, B](pf: PartialFunction[A, Http[R, E, A, B]]): Http[R, E, A, B] =
       Http.collect[A](pf).flatten
   }
 
@@ -1078,7 +1059,7 @@ object Http {
   }
 
   final case class PartialContraFlatMap[-R, +E, -A, +B, X](self: Http[R, E, A, B]) extends AnyVal {
-    def apply[R1 <: R, E1 >: E](xa: X => Http[R1, E1, Any, A])(implicit trace: Trace): Http[R1, E1, X, B] =
+    def apply[R1 <: R, E1 >: E](xa: X => Http[R1, E1, Any, A]): Http[R1, E1, X, B] =
       Http.identity[X].flatMap(xa) >>> self
   }
 
@@ -1097,7 +1078,7 @@ object Http {
   }
 
   final class PartialFromFunction[A](val unit: Unit) extends AnyVal {
-    def apply[B](f: A => B)(implicit trace: Trace): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
+    def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
   }
 
   final class PartialFromFunctionZIO[A](val unit: Unit) extends AnyVal {
