@@ -1,14 +1,10 @@
 package zio.http
 
 import zio.{UIO, http}
-import io.netty.handler.ssl.SslContextBuilder
 import zio._
 import zio.http.URL.Location
 import zio.http.model.{Headers, Method, Scheme, Version}
-import zio.http.netty.EventLoopGroups
 import zio.http.netty.client.ClientSSLHandler
-import zio.http.netty.client.ClientSSLHandler.ClientSSLOptions
-import zio.http.service.ClientHttpsSpec.trustManagerFactory
 import zio.http.socket.SocketApp
 import TestClient.Interaction
 
@@ -72,13 +68,9 @@ object TestClient {
   }
 
   def make: ZLayer[Any, Throwable, TestClient] = {
-
-    val sslOption: ClientSSLOptions = // TODO Need this?
-      ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
-    val configLayer: ZLayer[Any, Nothing, EventLoopGroups.Config] = ZLayer.succeed(ClientConfig.empty.ssl(sslOption))
     for {
       responses <- ZLayer.fromZIO(Ref.make(List.empty[Interaction]))
-      live <- Scope.default >+> configLayer >>> Client.default
+      live <- Scope.default >+> ZLayer.succeed(ClientConfig.empty) >>> Client.default
     } yield ZEnvironment(new Test(live.get, responses.get))
   }
 }
