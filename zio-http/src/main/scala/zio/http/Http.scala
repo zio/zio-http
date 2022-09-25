@@ -5,7 +5,7 @@ import zio.ZIO.attemptBlocking
 import zio._
 import zio.http.html._
 import zio.http.model._
-import zio.http.model.headers.HeaderModifier
+import zio.http.model.headers.HeaderModifierZIO
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
@@ -23,7 +23,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * A functional domain to model Http apps using ZIO and that can work over any
  * kind of request and response types.
  */
-sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
+sealed trait Http[-R, +E, -A, +B] { self =>
 
   import Http._
 
@@ -32,7 +32,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
-  ): Http[R1, E1, A2, B2] = mid(self)
+  )(implicit trace: Trace): Http[R1, E1, A2, B2] = mid(self)
 
   /**
    * Combines two Http instances into a middleware that works a codec for
@@ -98,7 +98,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Consumes the input and executes the Http.
    */
-  final def apply(a: A): ZIO[R, Option[E], B] = execute(a).toZIO
+  final def apply(a: A)(implicit trace: Trace): ZIO[R, Option[E], B] = execute(a).toZIO
 
   /**
    * Makes the app resolve with a constant value
@@ -631,7 +631,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
 object Http {
 
-  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifier[HttpApp[R, E]] {
+  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifierZIO[HttpApp[R, E]] {
     self =>
 
     /**
