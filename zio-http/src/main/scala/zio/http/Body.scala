@@ -134,7 +134,7 @@ object Body {
               len    <- ZIO.attemptBlocking(fs.read(buffer)).mapError(Some(_))
               bytes  <-
                 if (len > 0) ZIO.succeed(Chunk.fromArray(buffer.slice(0, len)))
-                else failNoStacktrace
+                else ZIO.fail(None)
             } yield bytes
           }
           .ensuring(ZIO.succeed(fs.close()))

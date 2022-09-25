@@ -66,7 +66,7 @@ final case class Response private (
   /**
    * Updates the headers using the provided function
    */
-  override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+  override def updateHeaders(update: Headers => Headers): Response =
     self.copy(headers = update(self.headers))
 
   /**

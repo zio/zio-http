@@ -209,7 +209,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         assert(actual)(isSuccess(equalTo("C")))
       },
       test("should resolve second") {
-        val a      = Http.fromHExit(HExit.Effect(failNoStacktrace))
+        val a      = Http.fromHExit(HExit.Effect(ZIO.fail(None)))
         val b      = Http.succeed(2)
         val actual = (a ++ b).execute(()).toZIO.either
         assertZIO(actual)(isRight)
