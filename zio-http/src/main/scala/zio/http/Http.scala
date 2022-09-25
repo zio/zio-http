@@ -51,7 +51,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Pipes the output of one app into the other
    */
-  final def >>>[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C])(implicit trace: Trace): Http[R1, E1, A, C] =
+  final def >>>[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C]): Http[R1, E1, A, C] =
     self andThen other
 
   /**
@@ -65,15 +65,13 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Composes one Http app with another.
    */
-  final def <<<[R1 <: R, E1 >: E, A1 <: A, X](other: Http[R1, E1, X, A1])(implicit trace: Trace): Http[R1, E1, X, B] =
+  final def <<<[R1 <: R, E1 >: E, A1 <: A, X](other: Http[R1, E1, X, A1]): Http[R1, E1, X, B] =
     self compose other
 
   /**
    * Combines two Http into one.
    */
-  final def ++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1])(implicit
-    trace: Trace,
-  ): Http[R1, E1, A1, B1] =
+  final def ++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     self defaultWith other
 
   /**
@@ -99,10 +97,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Named alias for `>>>`
    */
-  final def andThen[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C])(implicit
-    trace: Trace,
-  ): Http[R1, E1, A, C] =
-    Http.Chain(self, other, trace)
+  final def andThen[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C]): Http[R1, E1, A, C] =
+    Http.Chain(self, other)
 
   /**
    * Consumes the input and executes the Http.
@@ -130,9 +126,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   ): Http[R1, E1, A1, B1] =
     self.foldHttp(f, Http.succeed, Http.empty)
 
-  final def catchAllCause[R1 <: R, E1, A1 <: A, B1 >: B](f: Cause[E] => Http[R1, E1, A1, B1])(implicit
-    trace: Trace,
-  ): Http[R1, E1, A1, B1] =
+  final def catchAllCause[R1 <: R, E1, A1 <: A, B1 >: B](f: Cause[E] => Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     self.foldCauseHttp(f, Http.succeed, Http.empty)
 
   /**
@@ -191,7 +185,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Collects some of the results of the http and converts it to another type.
    */
-  final def collect[B1 >: B, C](pf: PartialFunction[B1, C])(implicit trace: Trace): Http[R, E, A, C] =
+  final def collect[B1 >: B, C](pf: PartialFunction[B1, C]): Http[R, E, A, C] =
     self >>> Http.collect(pf)
 
   /**
@@ -206,9 +200,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Named alias for `<<<`
    */
-  final def compose[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, C1, A1])(implicit
-    trace: Trace,
-  ): Http[R1, E1, C1, B] =
+  final def compose[R1 <: R, E1 >: E, A1 <: A, C1](other: Http[R1, E1, C1, A1]): Http[R1, E1, C1, B] =
     other andThen self
 
   /**
@@ -253,10 +245,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Named alias for `++`
    */
-  final def defaultWith[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1])(implicit
-    trace: Trace,
-  ): Http[R1, E1, A1, B1] =
-    Http.Combine(self, other, trace)
+  final def defaultWith[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    Http.Combine(self, other)
 
   /**
    * Delays production of output B for the specified duration of time
@@ -310,8 +300,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     failure: Cause[E] => Http[R1, E1, A1, C1],
     success: B => Http[R1, E1, A1, C1],
     empty: Http[R1, E1, A1, C1],
-  )(implicit trace: Trace): Http[R1, E1, A1, C1] =
-    Http.FoldHttp(self, failure, success, empty, trace)
+  ): Http[R1, E1, A1, C1] =
+    Http.FoldHttp(self, failure, success, empty)
 
   /**
    * Folds over the http app by taking in two functions one for success and one
@@ -366,7 +356,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
-  )(implicit trace: Trace): Http[R1, E1, A2, B2] = Http.RunMiddleware(self, mid, trace)
+  ): Http[R1, E1, A2, B2] = Http.RunMiddleware(self, mid)
 
   /**
    * Narrows the type of the input
@@ -451,10 +441,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Performs a race between two apps
    */
-  final def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1])(implicit
-    trace: Trace,
-  ): Http[R1, E1, A1, B1] =
-    Http.Race(self, other, trace)
+  final def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    Http.Race(self, other)
 
   /**
    * Keeps some of the errors, and terminates the http app with the rest.
@@ -548,8 +536,6 @@ sealed trait Http[-R, +E, -A, +B] { self =>
       },
     )
 
-  def trace: Trace
-
   /**
    * Takes some defects and converts them into failures.
    */
@@ -582,8 +568,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Applies Http based only if the condition function evaluates to true
    */
-  final def when[A2 <: A](f: A2 => Boolean)(implicit trace: Trace): Http[R, E, A2, B] =
-    Http.When(f, self, trace)
+  final def when[A2 <: A](f: A2 => Boolean): Http[R, E, A2, B] =
+    Http.When(f, self)
 
   /**
    * Widens the type of the output
@@ -610,54 +596,52 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   final private[zio] def execute(a: A)(implicit trace: Trace): HExit[R, E, B] =
     self match {
 
-      case Http.Empty                => HExit.empty
-      case Http.Identity             => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)                => HExit.succeed(b)
-      case Fail(cause)               => HExit.failCause(cause)
-      case Attempt(a, _)             =>
+      case Http.Empty                              => HExit.empty
+      case Http.Identity                           => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)                              => HExit.succeed(b)
+      case Fail(cause)                             => HExit.failCause(cause)
+      case Attempt(a)                              =>
         try { HExit.succeed(a()) }
         catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
-      case FromFunctionHExit(f, _)   =>
+      case FromFunctionHExit(f)                    =>
         try { f(a) }
         catch { case e: Throwable => HExit.die(e) }
-      case FromHExit(h, _)           => h
-      case Chain(self, other, trace) => self.execute(a)(trace).flatMap(b => other.execute(b)(trace))(trace)
-      case Race(self, other, trace)  =>
-        (self.execute(a)(trace), other.execute(a)(trace)) match {
+      case FromHExit(h)                            => h
+      case Chain(self, other)                      => self.execute(a).flatMap(b => other.execute(b))
+      case Race(self, other)                       =>
+        (self.execute(a), other.execute(a)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
-            Http.fromOptionFunction[Any](_ => self.raceFirst(other)(trace))(trace).execute(a)(trace)
+            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
           case (HExit.Effect(_), other)                  => other
           case (self, _)                                 => self
         }
-      case FoldHttp(self, failure, success, empty, trace) =>
+      case FoldHttp(self, failure, success, empty) =>
         try {
-          self
-            .execute(a)(trace)
-            .foldExit(failure(_).execute(a)(trace), success(_).execute(a)(trace), empty.execute(a)(trace))(trace)
+          self.execute(a).foldExit(failure(_).execute(a), success(_).execute(a), empty.execute(a))
         } catch {
           case e: Throwable => HExit.die(e)
         }
 
-      case RunMiddleware(app, mid, trace) =>
+      case RunMiddleware(app, mid) =>
         try {
-          mid(app)(trace).execute(a)(trace)
+          mid(app).execute(a)
         } catch {
           case e: Throwable => HExit.die(e)
         }
 
-      case When(f, other, trace) =>
+      case When(f, other) =>
         try {
-          if (f(a)) other.execute(a)(trace) else HExit.empty
+          if (f(a)) other.execute(a) else HExit.empty
         } catch {
           case e: Throwable => HExit.die(e)
         }
 
-      case Combine(self, other, trace) => {
-        self.execute(a)(trace) match {
-          case HExit.Empty            => other.execute(a)(trace)
+      case Combine(self, other) => {
+        self.execute(a) match {
+          case HExit.Empty            => other.execute(a)
           case exit: HExit.Success[_] => exit.asInstanceOf[HExit[R, E, B]]
           case exit: HExit.Failure[_] => exit.asInstanceOf[HExit[R, E, B]]
-          case exit @ HExit.Effect(_) => exit.defaultWith(other.execute(a)(trace))(trace).asInstanceOf[HExit[R, E, B]]
+          case exit @ HExit.Effect(_) => exit.defaultWith(other.execute(a)).asInstanceOf[HExit[R, E, B]]
         }
       }
     }
@@ -703,13 +687,13 @@ object Http {
     /**
      * Applies Http based on the path
      */
-    def whenPathEq(p: Path)(implicit trace: Trace): HttpApp[R, E] =
+    def whenPathEq(p: Path): HttpApp[R, E] =
       http.whenPathEq(p.encode)
 
     /**
      * Applies Http based on the path as string
      */
-    def whenPathEq(p: String)(implicit trace: Trace): HttpApp[R, E] = {
+    def whenPathEq(p: String): HttpApp[R, E] = {
       http.when { a =>
         a.url.path.encode.contentEquals(p)
       }
@@ -725,7 +709,7 @@ object Http {
    * Attempts to create an Http that succeeds with the provided value, capturing
    * all exceptions on it's way.
    */
-  def attempt[A](a: => A)(implicit trace: Trace): Http[Any, Throwable, Any, A] = Attempt(() => a, trace)
+  def attempt[A](a: => A): Http[Any, Throwable, Any, A] = Attempt(() => a)
 
   /**
    * Creates an HTTP app which always responds with a 400 status code.
@@ -756,7 +740,7 @@ object Http {
   /**
    * Combines multiple Http apps into one
    */
-  def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]])(implicit trace: Trace): Http[R, E, A, B] =
+  def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]]): Http[R, E, A, B] =
     i.reduce(_.defaultWith(_))
 
   /**
@@ -879,7 +863,7 @@ object Http {
   /**
    * Creates a Http from HExit[R,E,B]
    */
-  def fromHExit[R, E, B](h: HExit[R, E, B])(implicit trace: Trace): Http[R, E, Any, B] = FromHExit(h, trace)
+  def fromHExit[R, E, B](h: HExit[R, E, B]): Http[R, E, Any, B] = FromHExit(h)
 
   /**
    * Lifts an `Option` into a `Http` value.
@@ -1075,14 +1059,11 @@ object Http {
   }
 
   final case class PartialCollect[A](unit: Unit) extends AnyVal {
-    def apply[B](pf: PartialFunction[A, B])(implicit trace: Trace): Http[Any, Nothing, A, B] = {
-      FromFunctionHExit(
-        pf.lift(_) match {
-          case Some(value) => HExit.succeed(value)
-          case None        => HExit.Empty
-        },
-        trace,
-      )
+    def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] = {
+      FromFunctionHExit(pf.lift(_) match {
+        case Some(value) => HExit.succeed(value)
+        case None        => HExit.Empty
+      })
     }
   }
 
@@ -1092,8 +1073,8 @@ object Http {
   }
 
   final case class PartialCollectHExit[A](unit: Unit) extends AnyVal {
-    def apply[R, E, B](pf: PartialFunction[A, HExit[R, E, B]])(implicit trace: Trace): Http[R, E, A, B] =
-      FromFunctionHExit(a => if (pf.isDefinedAt(a)) pf(a) else HExit.empty, trace)
+    def apply[R, E, B](pf: PartialFunction[A, HExit[R, E, B]]): Http[R, E, A, B] =
+      FromFunctionHExit(a => if (pf.isDefinedAt(a)) pf(a) else HExit.empty)
   }
 
   final case class PartialContraFlatMap[-R, +E, -A, +B, X](self: Http[R, E, A, B]) extends AnyVal {
@@ -1121,27 +1102,22 @@ object Http {
 
   final class PartialFromFunctionZIO[A](val unit: Unit) extends AnyVal {
     def apply[R, E, B](f: A => ZIO[R, E, B])(implicit trace: Trace): Http[R, E, A, B] =
-      FromFunctionHExit(a => HExit.fromZIO(f(a)), trace)
+      FromFunctionHExit(a => HExit.fromZIO(f(a)))
   }
 
   final class PartialFromFunctionHExit[A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](f: A => HExit[R, E, B])(implicit trace: Trace): Http[R, E, A, B] = FromFunctionHExit(f, trace)
+    def apply[R, E, B](f: A => HExit[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(f)
   }
 
-  private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B] {
-    def trace: Trace = Trace.empty
-  }
+  private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B]
 
-  private final case class Race[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B], trace: Trace)
-      extends Http[R, E, A, B]
+  private final case class Race[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B]
 
-  private final case class Fail[E](cause: Cause[E]) extends Http[Any, E, Any, Nothing] {
-    def trace: Trace = Trace.empty
-  }
+  private final case class Fail[E](cause: Cause[E]) extends Http[Any, E, Any, Nothing]
 
-  private final case class FromFunctionHExit[R, E, A, B](f: A => HExit[R, E, B], trace: Trace) extends Http[R, E, A, B]
+  private final case class FromFunctionHExit[R, E, A, B](f: A => HExit[R, E, B]) extends Http[R, E, A, B]
 
-  private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C], trace: Trace)
+  private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
       extends Http[R, E, A, C]
 
   private final case class FoldHttp[R, E, EE, A, B, BB](
@@ -1149,33 +1125,25 @@ object Http {
     failure: Cause[E] => Http[R, EE, A, BB],
     success: B => Http[R, EE, A, BB],
     empty: Http[R, EE, A, BB],
-    trace: Trace,
   ) extends Http[R, EE, A, BB]
 
   private final case class RunMiddleware[R, E, A1, B1, A2, B2](
     http: Http[R, E, A1, B1],
     mid: Middleware[R, E, A1, B1, A2, B2],
-    trace: Trace,
   ) extends Http[R, E, A2, B2]
 
-  private case class Attempt[A](a: () => A, trace: Trace) extends Http[Any, Nothing, Any, A]
+  private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
 
   private final case class Combine[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
     other: Http[R, EE, A, BB],
-    trace: Trace,
   ) extends Http[R, EE, A, BB]
 
-  private final case class FromHExit[R, E, B](h: HExit[R, E, B], trace: Trace) extends Http[R, E, Any, B]
+  private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http[R, E, Any, B]
 
-  private final case class When[R, E, A, B](f: A => Boolean, other: Http[R, E, A, B], trace: Trace)
-      extends Http[R, E, A, B]
+  private final case class When[R, E, A, B](f: A => Boolean, other: Http[R, E, A, B]) extends Http[R, E, A, B]
 
-  private case object Empty extends Http[Any, Nothing, Any, Nothing] {
-    override def trace: Trace = Trace.empty
-  }
+  private case object Empty extends Http[Any, Nothing, Any, Nothing]
 
-  private case object Identity extends Http[Any, Nothing, Any, Nothing] {
-    override def trace: Trace = Trace.empty
-  }
+  private case object Identity extends Http[Any, Nothing, Any, Nothing]
 }
