@@ -381,7 +381,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     )
 
   // TODO Appropriate workaround visibility
-  def requestInternal(
+  protected[http] def requestInternal(
     body: In,
     headers: Headers,
     hostOption: Option[String],
@@ -394,7 +394,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
   )(implicit trace: Trace): ZIO[Env, Err, Out]
 
   // TODO Appropriate workaround visibility
-  def socketInternal[Env1 <: Env](
+  protected[http] def socketInternal[Env1 <: Env](
     app: SocketApp[Env1],
     headers: Headers,
     hostOption: Option[String],

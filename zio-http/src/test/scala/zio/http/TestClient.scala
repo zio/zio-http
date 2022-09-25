@@ -20,7 +20,7 @@ object TestClient {
   class Test(
               live: http.Client,
               responsesR: Ref[List[Interaction]]
-            ) extends TestClient {
+            ) extends TestClient with Client{
 
     def interactions(): UIO[List[Interaction]] =
       responsesR.get
@@ -47,7 +47,7 @@ object TestClient {
 
     override def sslOption: Option[ClientSSLHandler.ClientSSLOptions] = live.sslOption
 
-    override def requestInternal(body: Body, headers: Headers, hostOption: Option[String], method: Method, pathPrefix: Path, portOption: Option[Int], queries: QueryParams, sslOption: Option[ClientSSLHandler.ClientSSLOptions], version: Version)(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    override protected[http] def requestInternal(body: Body, headers: Headers, hostOption: Option[String], method: Method, pathPrefix: Path, portOption: Option[Int], queries: QueryParams, sslOption: Option[ClientSSLHandler.ClientSSLOptions], version: Version)(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
 
       for {
         response <- live.requestInternal(body, headers, hostOption, method, pathPrefix, portOption, queries, sslOption, version).either
@@ -62,8 +62,9 @@ object TestClient {
       } yield rez
     }
 
-    override def socketInternal[Env1 <: Any](app: SocketApp[Env1], headers: Headers, hostOption: Option[String], pathPrefix: Path, portOption: Option[Int], queries: QueryParams, schemeOption: Option[Scheme], version: Version)(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] =
+    override protected[http] def socketInternal[Env1](app: SocketApp[Env1], headers: Headers, hostOption: Option[String], pathPrefix: Path, portOption: Option[Int], queries: QueryParams, schemeOption: Option[Scheme], version: Version)(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
       live.socketInternal(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
+    }
 
   }
 
