@@ -2,11 +2,7 @@ package zio.http.netty.server
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
-import io.netty.handler.codec.http.HttpObjectDecoder.{
-  DEFAULT_MAX_CHUNK_SIZE,
-  DEFAULT_MAX_HEADER_SIZE,
-  DEFAULT_MAX_INITIAL_LINE_LENGTH,
-}
+import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
@@ -26,7 +22,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 @Sharable
 private[zio] final case class ServerChannelInitializer(
   cfg: ServerConfig,
-  reqHandler: ChannelInboundHandler,
+  reqHandler: ServerInboundHandler,
   enableNettyLogging: Boolean = false,
 ) extends ChannelInitializer[Channel] {
 
@@ -90,7 +86,7 @@ private[zio] final case class ServerChannelInitializer(
 
     // RequestHandler
     // Always add ZIO Http Request Handler
-    pipeline.addLast(Names.HttpRequestHandler, reqHandler)
+    pipeline.addLast(Names.HttpRequestHandler, reqHandler.create())
     // TODO: find a different approach if (cfg.channelInitializer != null) { cfg.channelInitializer(pipeline) }
     ()
   }
@@ -105,7 +101,11 @@ object ServerChannelInitializer {
   val layer = ZLayer.fromZIO {
     for {
       cfg     <- ZIO.service[ServerConfig]
-      handler <- ZIO.service[SimpleChannelInboundHandler[HttpObject]]
-    } yield ServerChannelInitializer(cfg, handler, false) // TODO add Netty logging flag to ServerConfig.
+      handler <- ZIO.service[ServerInboundHandler]
+    } yield ServerChannelInitializer(
+      cfg,
+      handler,
+      enableNettyLogging = false,
+    ) // TODO add Netty logging flag to ServerConfig.
   }
 }
