@@ -15,21 +15,18 @@ object WebSocketAdvanced extends ZIOAppDefault {
   val messageSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
     Http.collectZIO[(WebSocketChannel, String)] {
       case (ch, "end") => ch.close()
-      case (ch, text) if text.contains("end") => ch.close()
 
       // Send a "bar" if the server sends a "foo"
       case (ch, "foo") => ch.writeAndFlush(WebSocketFrame.text("bar"))
-      case (ch, text) if text.contains("bar") => ch.writeAndFlush(WebSocketFrame.text("Bar message: " + text))
 
       // Send a "foo" if the server sends a "bar"
-      case (ch, text) if text.contains("foo") => ch.writeAndFlush(WebSocketFrame.text("Foo message: " + text))
+      case (ch, "bar") => ch.writeAndFlush(WebSocketFrame.text("foo"))
 
       // Echo the same message 10 times if it's not "foo" or "bar"
       // Improve performance by writing multiple frames at once
       // And flushing it on the channel only once.
       case (ch, text) =>
-        println("Unrecognized message: " + text)
-        (ch.write(WebSocketFrame.text(text)) *> ZIO.sleep(100.millis) *> ch.flush).repeatN(10) *> ch.writeAndFlush(WebSocketFrame.text("Ok. Done Spamming!"))
+        ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
   val channelSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
