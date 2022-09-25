@@ -48,12 +48,15 @@ object Main extends ZIOAppDefault {
     .consolidateFlush(true)
     .flowControl(false)
     .objectAggregator(-1)
+    
 
   private val configLayer = ServerConfig.live(config)
 
+  val errorCallback = (t: Throwable) => ZIO.unit
+
   val run: UIO[ExitCode] =
     app
-      .flatMap(Server.serve(_).provide(configLayer, Server.live))
+      .flatMap(Server.serve(_, Some(errorCallback)).provide(configLayer, Server.live))
       .exitCode
 
 }

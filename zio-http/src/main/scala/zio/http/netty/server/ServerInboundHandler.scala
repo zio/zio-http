@@ -122,13 +122,13 @@ private[zio] final case class ServerInboundHandler(
           else
             for {
               jResponse <- response.encode()
-              _         <- ZIO.attemptUnsafe(implicit u => setServerTime(time, response, jResponse))
+              _         <- ZIO.attempt(setServerTime(time, response, jResponse))
               _         <- ZIO.attempt(ctx.writeAndFlush(jResponse))
               flushed <- if (!jResponse.isInstanceOf[FullHttpResponse]) response.body.write(ctx) else ZIO.succeed(true)
               _       <- ZIO.attempt(ctx.flush()).when(!flushed)
             } yield ()
 
-        _ <- ZIO.attemptUnsafe(implicit u => setContentReadAttr(false))
+        _ <- ZIO.attempt(setContentReadAttr(false))
       } yield log.debug("Full write performed")
     }
 

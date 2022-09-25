@@ -1,8 +1,8 @@
-ZIO_HTTP="zio/zio-http.git#$1"
-
 if [ -z "$1" ]; then
-    echo "You must supply the commit SHA to run benchmarks against."
-    exit 1
+    COMMIT_SHA=$(git rev-parse --short HEAD)
+    ZIO_HTTP="zio/zio-http.git#$COMMIT_SHA"
+else
+    ZIO_HTTP="zio/zio-http.git#$1"
 fi
 
 if [ ! -e "/var/run/docker.sock" ]; then
