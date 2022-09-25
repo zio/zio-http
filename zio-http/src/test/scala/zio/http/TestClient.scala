@@ -20,7 +20,7 @@ object TestClient {
   class Test(
               live: http.Client,
               responsesR: Ref[List[Interaction]]
-            ) extends TestClient with Client{
+            ) extends TestClient {
 
     def interactions(): UIO[List[Interaction]] =
       responsesR.get
@@ -48,9 +48,9 @@ object TestClient {
     override def sslOption: Option[ClientSSLHandler.ClientSSLOptions] = live.sslOption
 
     override protected[http] def requestInternal(body: Body, headers: Headers, hostOption: Option[String], method: Method, pathPrefix: Path, portOption: Option[Int], queries: QueryParams, sslOption: Option[ClientSSLHandler.ClientSSLOptions], version: Version)(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
-
       for {
         response <- live.requestInternal(body, headers, hostOption, method, pathPrefix, portOption, queries, sslOption, version).either
+        // TODO Clean this up
         rez <- response match {
           case Left(value) =>
             responsesR.update(interactions => Interaction(Request(version = version, method = method, url = URL(pathPrefix, Location.Absolute(Scheme.HTTP, "localhost", port = portOption.getOrElse(-1))), headers = headers, body = body), Response()) :: interactions) *>
@@ -68,10 +68,10 @@ object TestClient {
 
   }
 
-  def make: ZLayer[Any, Throwable, TestClient] = {
+  def make: ZLayer[Scope, Throwable, TestClient] = {
     for {
       responses <- ZLayer.fromZIO(Ref.make(List.empty[Interaction]))
-      live <- Scope.default >+> ZLayer.succeed(ClientConfig.empty) >>> Client.default
+      live <- Client.default
     } yield ZEnvironment(new Test(live.get, responses.get))
   }
 }

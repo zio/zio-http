@@ -15,6 +15,6 @@ object TestClientSpec extends ZIOSpecDefault {
         finalTraffic <- TestClient.interactions().debug
       } yield assertTrue(middleTraffic.length == 1) && assertTrue(finalTraffic.length == 2)
     }
-  ).provide(TestClient.make)
+  ).provideSome[Scope](TestClient.make)
 
 }

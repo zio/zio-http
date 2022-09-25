@@ -104,7 +104,6 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       } yield response
   }
 
-  // TODO Reference this for testkit
   def serve[R](
     app: HttpApp[R, Throwable],
   ): ZIO[R with DynamicServer with Server, Nothing, Int] =
