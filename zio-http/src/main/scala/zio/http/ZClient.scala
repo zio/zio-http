@@ -50,7 +50,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def queries: QueryParams                = self.queries
       def schemeOption: Option[Scheme]        = self.schemeOption
       def sslOption: Option[ClientSSLOptions] = self.sslOption
-      def requestInternal(
+      protected[http] def requestInternal(
         body: In2,
         headers: Headers,
         hostOption: Option[String],
@@ -74,7 +74,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             version,
           )
         }
-      def socketInternal[Env2 <: Env1](
+      protected[http] def socketInternal[Env2 <: Env1](
         app: SocketApp[Env2],
         headers: Headers,
         hostOption: Option[String],
@@ -122,7 +122,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def queries: QueryParams                = self.queries
       def schemeOption: Option[Scheme]        = self.schemeOption
       def sslOption: Option[ClientSSLOptions] = self.sslOption
-      def requestInternal(
+      protected[http] def requestInternal(
         body: In,
         headers: Headers,
         hostOption: Option[String],
@@ -146,7 +146,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             version,
           )
           .flatMap(f)
-      def socketInternal[Env2 <: Env1](
+      protected[http] def socketInternal[Env2 <: Env1](
         app: SocketApp[Env2],
         headers: Headers,
         hostOption: Option[String],
@@ -439,7 +439,7 @@ object ZClient {
     sslOption: Option[ClientSSLOptions],
   ) extends ZClient[Env, In, Err, Out] {
 
-    def requestInternal(
+    protected[http] def requestInternal(
       body: In,
       headers: Headers,
       hostOption: Option[String],
@@ -452,7 +452,7 @@ object ZClient {
     )(implicit trace: Trace): ZIO[Env, Err, Out] =
       client.requestInternal(body, headers, hostOption, method, path, portOption, queries, sslOption, version)
 
-    def socketInternal[Env1 <: Env](
+    protected[http] def socketInternal[Env1 <: Env](
       app: SocketApp[Env1],
       headers: Headers,
       hostOption: Option[String],
@@ -481,7 +481,7 @@ object ZClient {
     val schemeOption: Option[Scheme]        = None
     val sslOption: Option[ClientSSLOptions] = None
 
-    def requestInternal(
+    protected[http] def requestInternal(
       body: Body,
       headers: Headers,
       hostOption: Option[String],
@@ -509,7 +509,7 @@ object ZClient {
       } yield response
     }
 
-    override def socketInternal[R](
+    protected[http] override def socketInternal[R](
       app: SocketApp[R],
       headers: Headers,
       hostOption: Option[String],
