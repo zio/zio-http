@@ -10,7 +10,8 @@ object TestServerSpec extends ZIOSpecDefault{
   def spec = test("use our test server"){
     for {
       _ <- ZIO.serviceWithZIO[TestServer[Unit]](_.addHandler {
-        case _: Request => Response.ok
+        case r: Request if r.url.toString.contains("user") => Response.ok
+//        case r: Request if r.url.toString.contains("broken") => Response(Status.BadRequest)
       })
 
 //      _ <- ZIO.serviceWithZIO[Driver](_.start)
@@ -18,7 +19,16 @@ object TestServerSpec extends ZIOSpecDefault{
       port <- ZIO.serviceWith[Server](_.port)
       _ <-
         Client.request(
-          Request(url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port)))
+          Request(url = URL(Path.root / "broken", Location.Absolute(Scheme.HTTP, "localhost", port)))
+        ).debug
+
+      _ <- ZIO.serviceWithZIO[TestServer[Unit]](_.addHandler {
+//        case r: Request if r.url.toString.contains("user") => Response.ok
+                case r: Request if r.url.toString.contains("broken") => Response(Status.Created)
+      })
+      _ <-
+        Client.request(
+          Request(url = URL(Path.root / "broken", Location.Absolute(Scheme.HTTP, "localhost", port)))
         ).debug
 //      _ <-
 //        Client.request(
