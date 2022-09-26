@@ -1,8 +1,13 @@
 package zio.http
 
 import zio._
+import zio.http.Server.ErrorCallback
 
-final case class TestServer[State](state: Ref[State], routes: Ref[PartialFunction[(State, Request), (State, Response)]]) {
+final case class TestServer[State](
+                                    state: Ref[State],
+                                    routes: Ref[PartialFunction[(State, Request), (State, Response)]],
+                                    driver: Driver
+                                  ) extends Server {
 
   def addHandler(
                    request: Request,
@@ -23,24 +28,33 @@ final case class TestServer[State](state: Ref[State], routes: Ref[PartialFunctio
 
   def addHandlerState(
                    pf: PartialFunction[(State, Request), (State, Response)]
-                 ): ZIO[Any, Nothing, Unit] =
+                 ): ZIO[Any, Nothing, Unit] = {
+    val whatIGot: Http[Any, Nothing, (State, Request), (State, Response)] = Http.fromFunction(pf)
+    val whatINeed: Http[Any, Nothing, Request, Response] = ???
+    val app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(whatINeed)
+    driver.addApp(app)
     routes.update(_.orElse(pf))
+  }
 
+  override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] = ???
+
+  override def port: Int = ???
 }
 
 object TestServer {
 
-  val make: UIO[TestServer[Unit]] =
+  val make: ZIO[Driver, Nothing, TestServer[Unit]] =
     make(())
 
-  def make[State](initial: State): UIO[TestServer[State]] =
+  def make[State](initial: State): ZIO[Driver, Nothing, TestServer[State]] =
     for {
+      driver <- ZIO.service[Driver]
       state  <- Ref.make(initial)
-      routes <- Ref.make[PartialFunction[(State, Request), (State, Response)]]()
-    } yield TestServer(state, routes)
+      routes <- Ref.make[PartialFunction[(State, Request), (State, Response)]](empty)
+    } yield TestServer(state, routes, driver)
 
   private def empty[State]: PartialFunction[(State, Request), (State, Response)] =
     {
-      case x if false => ???
+      case _ if false => ???
     }
 }

@@ -1,29 +1,39 @@
 package zio.http
 
 import zio._
-import zio.test._
-
 import zio.http.URL.Location
 import zio.http.model._
+import zio.http.netty.server.NettyDriver
+import zio.test._
 
-object TestServerSpec extends ZIOSpec[TestServerOld]{
-  val bootstrap = TestServerOld.make
+object TestServerSpec extends ZIOSpecDefault{
   def spec = test("use our test server"){
     for {
-      originalRequests <- TestServerOld.interactions
-      _ <- ZIO.serviceWithZIO[Server](_.install(Http.ok))
+      _ <- ZIO.serviceWithZIO[TestServer[Unit]](_.addHandler {
+        case _: Request => Response.ok
+      })
+
+      _ <- ZIO.serviceWithZIO[Driver](_.start)
+//      _ <- ZIO.serviceWithZIO[Server](_.install(Http.ok))
       port <- ZIO.serviceWith[Server](_.port)
       _ <-
         Client.request(
           Request(url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port)))
         )
-      _ <-
-        Client.request(
-          Request(url = URL(Path.root / "users", Location.Absolute(Scheme.HTTP, "localhost", port)))
-        )
-      finalRequests <- TestServerOld.interactions
+//      _ <-
+//        Client.request(
+//          Request(url = URL(Path.root / "users", Location.Absolute(Scheme.HTTP, "localhost", port)))
+//        )
+//      finalRequests <- TestServerOld.interactions
 
-    } yield assertTrue(originalRequests.length == 0) && assertTrue(finalRequests.length == 2)
-  }.provideSome[Scope with TestServerOld](ZLayer.succeed(ClientConfig()) >>> Client.default)
+    } yield assertCompletes
+  }.provideSome[Scope](
+//    ZLayer.succeed(ClientConfig()),
+    ServerConfig.live,
+    ZLayer.fromZIO(TestServer.make),
+    Client.default,
+    NettyDriver.default,
+//    ZLayer.fromZIO(TestServer.make)
+  )
 
 }
