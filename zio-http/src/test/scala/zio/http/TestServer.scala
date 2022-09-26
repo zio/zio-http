@@ -27,13 +27,17 @@ final case class TestServer[State](
   }
 
   def addHandlerState(
-                   pf: PartialFunction[(State, Request), (State, Response)]
-                 ): ZIO[Any, Nothing, Unit] = {
-    val whatIGot: Http[Any, Nothing, (State, Request), (State, Response)] = Http.fromFunction(pf)
-    val whatINeed: Http[Any, Nothing, Request, Response] = ???
-    val app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(whatINeed)
-    driver.addApp(app)
-    routes.update(_.orElse(pf))
+                       pf: PartialFunction[(State, Request), (State, Response)]
+                     ): ZIO[Any, Nothing, Unit] = {
+    val func =
+      (request: Request) =>
+        for {
+          state1 <- state.get
+          res =  pf((state1, request))
+          _ <- state.set(res._1)
+        } yield res._2
+    val app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(func)
+    routes.update(_.orElse(pf)) *> driver.addApp(app)
   }
 
   override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] = ???
