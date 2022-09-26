@@ -12,7 +12,4 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
   type Client = ZClient[Any, Body, Throwable, Response]
   def Client: ZClient.type = ZClient
-
-  implicit val trace: Trace                                        = Trace.empty
-  private[http] val failNoStacktrace: ZIO[Any, None.type, Nothing] = ZIO.refailCause(Cause.fail(None))
 }

@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.ZLayer
+import zio.{Trace, ZLayer}
 import zio.http.netty.{ChannelFactories, EventLoopGroups, _}
 import zio.http.socket.SocketApp
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -41,11 +41,14 @@ case class ClientConfig(
 object ClientConfig {
   def empty: ClientConfig = ClientConfig()
 
-  def default = ZLayer.succeed(
-    empty,
-  ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
+  val default = {
+    implicit val trace = Trace.empty
+    ZLayer.succeed(
+      empty,
+    ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
+  }
 
-  def live(clientConfig: ClientConfig) =
+  def live(clientConfig: ClientConfig)(implicit trace: Trace) =
     ZLayer.succeed(
       clientConfig,
     ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool

@@ -30,12 +30,12 @@ object DynamicServer {
       for {
         id  <- req.headerValue(APP_ID) match {
           case Some(id) => ZIO.succeed(id)
-          case None     => failNoStacktrace
+          case None     => ZIO.fail(None)
         }
         app <- get(id)
         res <- app match {
           case Some(app) => app(req)
-          case None      => failNoStacktrace
+          case None      => ZIO.fail(None)
         }
       } yield res
     }
