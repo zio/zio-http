@@ -6,7 +6,8 @@ import zio.http.Server.ErrorCallback
 final case class TestServer[State](
                                     state: Ref[State],
                                     routes: Ref[PartialFunction[(State, Request), (State, Response)]],
-                                    driver: Driver
+                                    driver: Driver,
+                                    bindPort: Int,
                                   ) extends Server {
 
   def addHandler(
@@ -29,33 +30,45 @@ final case class TestServer[State](
   def addHandlerState(
                        pf: PartialFunction[(State, Request), (State, Response)]
                      ): ZIO[Any, Nothing, Unit] = {
-    val func =
+    val func2 =
       (request: Request) =>
-        for {
-          state1 <- state.get
-          res =  pf((state1, request))
-          _ <- state.set(res._1)
-        } yield res._2
-    val app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(func)
+          state.modify(state1 => pf((state1, request)).swap)
+
+    val app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(func2)
     routes.update(_.orElse(pf)) *> driver.addApp(app)
   }
 
-  override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] = ???
+  override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] =
+    ZIO.environment[R].flatMap { env =>
+      driver.addApp(
+        if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
+        else httpApp.provideEnvironment(env),
+      )
 
-  override def port: Int = ???
+    } *> setErrorCallback(errorCallback)
+
+  private def setErrorCallback(errorCallback: Option[ErrorCallback]): UIO[Unit] = {
+    ZIO
+      .environment[Any]
+      .flatMap(_ => driver.setErrorCallback(errorCallback))
+      .unless(errorCallback.isEmpty)
+      .map(_.getOrElse(()))
+  }
+  override def port: Int = bindPort
 }
 
 object TestServer {
 
-  val make: ZIO[Driver, Nothing, TestServer[Unit]] =
+  val make: ZIO[Driver with Scope, Throwable, TestServer[Unit]] =
     make(())
 
-  def make[State](initial: State): ZIO[Driver, Nothing, TestServer[State]] =
+  def make[State](initial: State): ZIO[Driver with Scope, Throwable, TestServer[State]] =
     for {
       driver <- ZIO.service[Driver]
+      port   <- driver.start
       state  <- Ref.make(initial)
       routes <- Ref.make[PartialFunction[(State, Request), (State, Response)]](empty)
-    } yield TestServer(state, routes, driver)
+    } yield TestServer(state, routes, driver, port)
 
   private def empty[State]: PartialFunction[(State, Request), (State, Response)] =
     {
