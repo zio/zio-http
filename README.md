@@ -1,5 +1,6 @@
 # ZIO Http
 
+
 ZIO Http is a scala library for building http apps. It is powered by [ZIO] and [netty] and aims at being the defacto solution for writing, highly scalable and [performant](#benchmarks) web applications using idiomatic scala.
 
 Check out the full documentation here: [Documentation]
@@ -20,8 +21,10 @@ Check out the full documentation here: [Documentation]
 
 - [ZIO Http](#zio-http)
 - [Getting Started](#getting-started)
+      - [Examples](#examples)
+      - [Steps to run an example](#steps-to-run-an-example)
 - [Installation](#installation)
-- [Documentation](https://zio.github.io/zio-http/)
+- [Watch Mode](#watch-mode)
 
 # Getting Started
 
