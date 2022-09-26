@@ -43,9 +43,6 @@ trait HeaderModifierZIO[+A] { self =>
   final def withAccept(value: CharSequence)(implicit trace: Trace): A =
     addHeaders(Headers.accept(value))
 
-  final def withAcceptCharset(value: CharSequence)(implicit trace: Trace): A =
-    addHeaders(Headers.acceptCharset(value))
-
   final def withAcceptEncoding(value: CharSequence)(implicit trace: Trace): A =
     addHeaders(Headers.acceptEncoding(value))
 

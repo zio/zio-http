@@ -12,7 +12,6 @@ private[api] trait HeaderInputs {
     In.Header(name, value)
 
   final val accept: In[String]                        = header(HeaderNames.accept.toString(), TextCodec.string)
-  final val acceptCharset: In[String]                 = header(HeaderNames.acceptCharset.toString(), TextCodec.string)
   final val acceptEncoding: In[String]                = header(HeaderNames.acceptEncoding.toString(), TextCodec.string)
   final val acceptLanguage: In[String]                = header(HeaderNames.acceptLanguage.toString(), TextCodec.string)
   final val acceptRanges: In[String]                  = header(HeaderNames.acceptRanges.toString(), TextCodec.string)

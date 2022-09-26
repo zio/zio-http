@@ -329,14 +329,14 @@ object Web {
           htmlResponse
           response.copy(
             body = htmlResponse,
-            headers = Headers(HeaderNames.contentType, HeaderValues.textHtml),
+            headers = Headers(HeaderNames.contentType, model.HeaderValues.textHtml),
           )
         case _                                                         =>
           request.userAgent match {
             case Some(userAgent) if userAgent.toString.contains("curl") =>
               response.copy(
                 body = textResponse,
-                headers = Headers(HeaderNames.contentType, HeaderValues.textPlain),
+                headers = Headers(HeaderNames.contentType, model.HeaderValues.textPlain),
               )
             case _                                                      => response
           }

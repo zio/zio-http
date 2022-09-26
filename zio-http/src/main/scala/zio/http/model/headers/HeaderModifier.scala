@@ -38,9 +38,6 @@ trait HeaderModifier[+A] { self =>
   final def withAccept(value: CharSequence): A =
     addHeaders(Headers.accept(value))
 
-  final def withAcceptCharset(value: CharSequence): A =
-    addHeaders(Headers.acceptCharset(value))
-
   final def withAcceptEncoding(value: CharSequence): A =
     addHeaders(Headers.acceptEncoding(value))
 
