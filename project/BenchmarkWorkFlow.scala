@@ -23,6 +23,7 @@ object BenchmarkWorkFlow {
           UseRef.Public("actions", "checkout", s"v2"),
           Map(
             "path" -> "zio-http",
+            "ref" -> "${{github.event.pull_request.head.ref}}"
           ),
         ),
         WorkflowStep.Use(
