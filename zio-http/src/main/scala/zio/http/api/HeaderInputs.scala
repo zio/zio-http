@@ -1,6 +1,7 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
+import zio.http.model.headers.HeaderValue.Host
 import zio.http.model.headers.values.{Age, CacheControl, ContentLength, Origin}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
@@ -55,7 +56,8 @@ private[api] trait HeaderInputs {
   final val expect: In[String]                  = header(HeaderNames.expect.toString(), TextCodec.string)
   final val expires: In[String]                 = header(HeaderNames.expires.toString(), TextCodec.string)
   final val from: In[String]                    = header(HeaderNames.from.toString(), TextCodec.string)
-  final val host: In[String]                    = header(HeaderNames.host.toString(), TextCodec.string)
+  final val host: In[Host]                      = header(HeaderNames.host.toString(), TextCodec.string)
+    .transform(Host.toHost, Host.fromHost)
   final val ifMatch: In[String]                 = header(HeaderNames.ifMatch.toString(), TextCodec.string)
   final val ifModifiedSince: In[String]         = header(HeaderNames.ifModifiedSince.toString(), TextCodec.string)
   final val ifNoneMatch: In[String]             = header(HeaderNames.ifNoneMatch.toString(), TextCodec.string)
