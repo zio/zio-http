@@ -10,7 +10,7 @@ final case class TestServer[State](
   bindPort: Int,
 ) extends Server {
 
-  def addHandlerExact(
+  def addRequestResponse(
     expectedRequest: Request,
     response: Response,
   ): ZIO[Any, Nothing, Unit] = {
@@ -44,7 +44,9 @@ final case class TestServer[State](
     routes.update(_.orElse(pf)) *> driver.addApp(app)
   }
 
-  override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback]): URIO[R, Unit] =
+  override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
+    trace: zio.Trace,
+  ): URIO[R, Unit] =
     ZIO.environment[R].flatMap { env =>
       driver.addApp(
         if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
@@ -69,11 +71,11 @@ object TestServer {
   ): ZIO[TestServer[State], Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer[State]](_.addHandlerState(pf))
 
-  def addHandlerExact[State: Tag](
+  def addRequestResponse[State: Tag](
     request: Request,
     response: Response,
   ): ZIO[TestServer[State], Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer[State]](_.addHandlerExact(request, response))
+    ZIO.serviceWithZIO[TestServer[State]](_.addRequestResponse(request, response))
 
   def addHandler[T: Tag](pf: PartialFunction[Request, Response]): ZIO[TestServer[T], Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer[T]](_.addHandler {

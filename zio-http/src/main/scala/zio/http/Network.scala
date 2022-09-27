@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.{Scope, Task, ULayer, ZIO, ZLayer}
+import zio.{Task, ULayer, ZIO, ZLayer}
 
 private[http] trait Network {
   def findOpenPort: Task[Int]
@@ -14,9 +14,9 @@ private[http] object Network {
 
   case object NetworkLive extends Network {
 
-    def findOpenPort: Task[Int] =
+    def findOpenPort: Task[Int] = {
       ZIO
-        .acquireRelease(
+        .acquireReleaseWith(
           ZIO.logDebug(s"Attempting to find an open network port...") *>
             ZIO.attemptBlocking(new java.net.ServerSocket(0)),
         )(socket =>
@@ -24,10 +24,8 @@ private[http] object Network {
             s"Successfully closed socket bound on ${socket.getLocalPort}.",
           ),
         )
-        .map(_.getLocalPort)
+        .apply(x => ZIO.succeed(x.getLocalPort))
         .tap(p => ZIO.logDebug(s"An open port was found on $p."))
-        // Providing the default scope here guarantees that the 'release' function is invoked
-        // and the socket is closed immediately after the call to `map` .
-        .provide(Scope.default)
+    }
   }
 }

@@ -132,13 +132,12 @@ object ServerConfig {
   def live(config: ServerConfig): ZLayer[Any, Nothing, ServerConfig] =
     ZLayer.succeed(config)
 
-  private[http] val liveOnOpenPort: ZLayer[Network, Any, ServerConfig] = {
+  private[http] def liveOnOpenPort(implicit trace: Trace): ZLayer[Network, Any, ServerConfig] =
     ZLayer.fromZIO(
       for {
         port <- Network.findOpenPort
       } yield ServerConfig.default.port(port),
     )
-  }
 
   def live(config: ServerConfig)(implicit trace: Trace): ZLayer[Any, Nothing, ServerConfig] =
     ZLayer.succeed(config)

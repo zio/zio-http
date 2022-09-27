@@ -2,6 +2,7 @@ package zio.http
 
 import zio._
 import zio.http.URL.Location
+import zio.http.model.Method.GET
 import zio.http.model.Status.NotFound
 import zio.http.model._
 import zio.http.netty.server.NettyDriver
@@ -30,19 +31,19 @@ object TestServerSpec extends ZIOSpecDefault {
     ),
     test("with state") {
       for {
-        port <- ZIO.serviceWith[Server](_.port)
-        testRequest = Request(url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port)))
-        _         <- TestServer.addHandlerState[Int] { case (state, _: Request) =>
+        port        <- ZIO.serviceWith[Server](_.port)
+        testRequest <- requestToCorrectPort
+        _           <- TestServer.addHandlerState[Int] { case (state, _: Request) =>
           if (state > 0)
             (state + 1, Response(Status.InternalServerError))
           else
             (state + 1, Response(Status.Ok))
         }
-        response1 <-
+        response1   <-
           Client.request(
             testRequest,
           )
-        response2 <-
+        response2   <-
           Client.request(
             testRequest,
           )
@@ -55,7 +56,7 @@ object TestServerSpec extends ZIOSpecDefault {
       test("matches") {
         for {
           testRequest   <- requestToCorrectPort
-          _             <- TestServer.addHandlerExact[Unit](testRequest, Response(Status.Ok))
+          _             <- TestServer.addRequestResponse[Unit](testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest,
@@ -66,7 +67,7 @@ object TestServerSpec extends ZIOSpecDefault {
       test("matches, ignoring additional headers") {
         for {
           testRequest   <- requestToCorrectPort
-          _             <- TestServer.addHandlerExact[Unit](testRequest, Response(Status.Ok))
+          _             <- TestServer.addRequestResponse[Unit](testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest.addHeaders(Headers.contentLanguage("French")),
@@ -77,7 +78,7 @@ object TestServerSpec extends ZIOSpecDefault {
       test("does not match different path") {
         for {
           testRequest   <- requestToCorrectPort
-          _             <- TestServer.addHandlerExact[Unit](testRequest, Response(Status.Ok))
+          _             <- TestServer.addRequestResponse[Unit](testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest.copy(url = testRequest.url.setPath(Path.root / "unhandled")),
@@ -87,7 +88,7 @@ object TestServerSpec extends ZIOSpecDefault {
       test("does not match different headers") {
         for {
           testRequest   <- requestToCorrectPort
-          _             <- TestServer.addHandlerExact[Unit](testRequest, Response(Status.Ok))
+          _             <- TestServer.addRequestResponse[Unit](testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest.copy(headers = Headers.cacheControl("cache")),
@@ -108,7 +109,8 @@ object TestServerSpec extends ZIOSpecDefault {
   private def requestToCorrectPort =
     for {
       port <- ZIO.serviceWith[Server](_.port)
-    } yield Request(url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port)))
+    } yield Request
+      .default(method = GET, url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port)))
       .addHeaders(Headers.accept("text"))
 
 }
