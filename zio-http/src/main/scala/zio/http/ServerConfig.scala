@@ -122,6 +122,14 @@ object ServerConfig {
 
   def live(config: ServerConfig): ZLayer[Any, Nothing, ServerConfig] = ZLayer.succeed(config)
 
+  val liveOnOpenPort: ZLayer[Any, Any, ServerConfig] = {
+    ZLayer.fromZIO(
+      for {
+        port <- NetworkLive.findOpenPort
+      } yield ServerConfig.default.port(port)
+    )
+  }
+
   def responseCompressionConfig(
     contentThreshold: Int = 0,
     options: IndexedSeq[CompressionOptions] = IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()),
@@ -205,3 +213,4 @@ object ServerConfig {
     private case object Deflate extends CompressionType
   }
 }
+

@@ -27,7 +27,7 @@ object TestServerSpec extends ZIOSpecDefault{
 
     } yield assertTrue(initialResponse.status == NotFound) && assertTrue(finalResponse.status == Status.Ok)
   }.provideSome[Scope](
-    ServerConfig.live,
+    ServerConfig.liveOnOpenPort,
     ZLayer.fromZIO(TestServer.make),
     Client.default,
     NettyDriver.default,
@@ -61,11 +61,11 @@ object TestServerSpec extends ZIOSpecDefault{
       assertTrue(response2.status == Status.Ok) &&
       assertTrue(response3.status == Status.InternalServerError)
     }.provideSome[Scope](
-    ServerConfig.live.map(x=> ZEnvironment(x.get.port(8090))),
-    ZLayer.fromZIO(TestServer.make(0)),
-    Client.default,
-    NettyDriver.default,
-  ),
+      ServerConfig.liveOnOpenPort,
+      ZLayer.fromZIO(TestServer.make(0)),
+      Client.default,
+      NettyDriver.default,
+    ),
     test("Exact Request=>Response version"){
       for {
         port <- ZIO.serviceWith[Server](_.port)
@@ -82,7 +82,7 @@ object TestServerSpec extends ZIOSpecDefault{
 
       } yield assertTrue(initialResponse.status == NotFound) && assertTrue(finalResponse.status == Status.Ok)
     }.provideSome[Scope](
-      ServerConfig.live.map(x=> ZEnvironment(x.get.port(8091))),
+      ServerConfig.liveOnOpenPort,
       ZLayer.fromZIO(TestServer.make),
       Client.default,
       NettyDriver.default,
