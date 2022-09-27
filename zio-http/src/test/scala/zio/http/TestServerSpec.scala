@@ -66,6 +66,27 @@ object TestServerSpec extends ZIOSpecDefault{
     Client.default,
     NettyDriver.default,
   ),
+    test("Exact Request=>Response version"){
+      for {
+        port <- ZIO.serviceWith[Server](_.port)
+        testRequest = Request(url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port)))
+        initialResponse <-
+          Client.request(
+            testRequest
+          )
+        _ <- TestServer.addHandlerExact[Unit](testRequest, Response(Status.Ok))
+        finalResponse <-
+          Client.request(
+            testRequest
+          )
+
+      } yield assertTrue(initialResponse.status == NotFound) && assertTrue(finalResponse.status == Status.Ok)
+    }.provideSome[Scope](
+      ServerConfig.live.map(x=> ZEnvironment(x.get.port(8091))),
+      ZLayer.fromZIO(TestServer.make),
+      Client.default,
+      NettyDriver.default,
+    ),
   )
 
 }
