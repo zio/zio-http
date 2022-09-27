@@ -40,14 +40,11 @@ final case class TestServer[State](
     copy(routes = routes.orElse(pf))
 
   def install(implicit
-                 trace: zio.Trace,
+    trace: zio.Trace,
   ): UIO[Unit] =
-        driver.addApp(
-          Http.fromFunctionZIO(
-            (request: Request) => state.modify(state1 => routes((state1, request)).swap)
-          )
-        )
-
+    driver.addApp(
+      Http.fromFunctionZIO((request: Request) => state.modify(state1 => routes((state1, request)).swap)),
+    )
 
   override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
     trace: zio.Trace,
