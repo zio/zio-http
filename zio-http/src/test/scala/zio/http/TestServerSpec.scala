@@ -2,48 +2,70 @@ package zio.http
 
 import zio._
 import zio.http.URL.Location
+import zio.http.model.Status.NotFound
 import zio.http.model._
 import zio.http.netty.server.NettyDriver
 import zio.test._
 
 object TestServerSpec extends ZIOSpecDefault{
-  def spec = test("use our test server"){
+  def spec = suite("TestServerSpec")(
+  test("basic no state"){
     for {
-      _ <- ZIO.serviceWithZIO[TestServer[Unit]](_.addHandler {
-        case r: Request if r.url.toString.contains("user") => Response.ok
-//        case r: Request if r.url.toString.contains("broken") => Response(Status.BadRequest)
-      })
-
-//      _ <- ZIO.serviceWithZIO[Driver](_.start)
-//      _ <- ZIO.serviceWithZIO[Server](_.install(Http.ok))
       port <- ZIO.serviceWith[Server](_.port)
-      _ <-
+      testRequest = Request(url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port)))
+      initialResponse <-
         Client.request(
-          Request(url = URL(Path.root / "broken", Location.Absolute(Scheme.HTTP, "localhost", port)))
-        ).debug
-
-      _ <- ZIO.serviceWithZIO[TestServer[Unit]](_.addHandler {
-//        case r: Request if r.url.toString.contains("user") => Response.ok
-                case r: Request if r.url.toString.contains("broken") => Response(Status.Created)
-      })
-      _ <-
+          testRequest
+        )
+      _ <- TestServer.addHandler[Unit] {
+                case _: Request  => Response(Status.Ok)
+      }
+      finalResponse <-
         Client.request(
-          Request(url = URL(Path.root / "broken", Location.Absolute(Scheme.HTTP, "localhost", port)))
-        ).debug
-//      _ <-
-//        Client.request(
-//          Request(url = URL(Path.root / "users", Location.Absolute(Scheme.HTTP, "localhost", port)))
-//        )
-//      finalRequests <- TestServerOld.interactions
+          testRequest
+        )
 
-    } yield assertCompletes
+    } yield assertTrue(initialResponse.status == NotFound) && assertTrue(finalResponse.status == Status.Ok)
   }.provideSome[Scope](
-//    ZLayer.succeed(ClientConfig()),
     ServerConfig.live,
     ZLayer.fromZIO(TestServer.make),
     Client.default,
     NettyDriver.default,
-//    ZLayer.fromZIO(TestServer.make)
+  ),
+    test("with state"){
+      for {
+        port <- ZIO.serviceWith[Server](_.port)
+        testRequest = Request(url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port)))
+        _ <- TestServer.addHandlerState[Int] {
+          case (state, _: Request)  =>
+            if (state > 1)
+              (state + 1, Response(Status.InternalServerError))
+            else
+              (state + 1, Response(Status.Ok))
+        }
+
+        response1 <-
+          Client.request(
+            testRequest
+          )
+        response2 <-
+          Client.request(
+            testRequest
+          )
+        response3 <-
+          Client.request(
+            testRequest
+          )
+
+      } yield assertTrue(response1.status == Status.Ok) &&
+      assertTrue(response2.status == Status.Ok) &&
+      assertTrue(response3.status == Status.InternalServerError)
+    }.provideSome[Scope](
+    ServerConfig.live.map(x=> ZEnvironment(x.get.port(8090))),
+    ZLayer.fromZIO(TestServer.make(0)),
+    Client.default,
+    NettyDriver.default,
+  ),
   )
 
 }

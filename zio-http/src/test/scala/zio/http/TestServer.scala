@@ -58,6 +58,15 @@ final case class TestServer[State](
 }
 
 object TestServer {
+  def addHandlerState[State: Tag](
+                       pf: PartialFunction[(State, Request), (State, Response)]
+                     ): ZIO[TestServer[State], Nothing, Unit] =
+    ZIO.serviceWithZIO[TestServer[State]](_.addHandlerState (pf))
+
+  def addHandler[T: Tag](pf: PartialFunction[Request, Response]): ZIO[TestServer[T], Nothing, Unit] =
+    ZIO.serviceWithZIO[TestServer[T]](_.addHandler {
+      pf
+    })
 
   val make: ZIO[Driver with Scope, Throwable, TestServer[Unit]] =
     make(())
@@ -65,7 +74,7 @@ object TestServer {
   def make[State](initial: State): ZIO[Driver with Scope, Throwable, TestServer[State]] =
     for {
       driver <- ZIO.service[Driver]
-      port   <- driver.start
+      port   <- driver.start // TODO Should we be calling start here? Or is it better elsewhere?
       state  <- Ref.make(initial)
       routes <- Ref.make[PartialFunction[(State, Request), (State, Response)]](empty)
     } yield TestServer(state, routes, driver, port)
