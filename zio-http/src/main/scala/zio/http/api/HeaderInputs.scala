@@ -1,8 +1,8 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.headers.values.{Age, CacheControl, ContentLength, Origin}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.http.model.headers.HeaderValue.MaxForwards
+import zio.http.model.headers.values.{Age, CacheControl, ContentLength, Origin} // scalafix:ok;
 
 private[api] trait HeaderInputs {
   def header[A](name: String, value: TextCodec[A]): In[A] =
@@ -63,7 +63,8 @@ private[api] trait HeaderInputs {
   final val ifUnmodifiedSince: In[String]       = header(HeaderNames.ifUnmodifiedSince.toString(), TextCodec.string)
   final val lastModified: In[String]            = header(HeaderNames.lastModified.toString(), TextCodec.string)
   final val location: In[String]                = header(HeaderNames.location.toString(), TextCodec.string)
-  final val maxForwards: In[String]             = header(HeaderNames.maxForwards.toString(), TextCodec.string)
+  final val maxForwards: In[MaxForwards]        = header(HeaderNames.maxForwards.toString(), TextCodec.string)
+    .transform(MaxForwards.toMaxForwards, MaxForwards.fromMaxForwards)
   final val origin: In[Origin]                  =
     header(HeaderNames.origin.toString(), TextCodec.string)
       .transform(Origin.toOrigin, Origin.fromOrigin)
