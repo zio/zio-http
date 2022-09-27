@@ -129,7 +129,7 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.1.0",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.1.1",
       "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.1.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
     ),
