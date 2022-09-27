@@ -45,6 +45,7 @@ sealed trait Service[-R, +E, AllIds] { self =>
   private[api] def withAllIds[AllIds0]: Service[R, E, AllIds0] =
     self.asInstanceOf[Service[R, E, AllIds0]]
 }
+
 object Service {
   final case class HandledAPI[-R, +E, In0, Out0, Id](
     api: API.WithId[In0, Out0, Id],

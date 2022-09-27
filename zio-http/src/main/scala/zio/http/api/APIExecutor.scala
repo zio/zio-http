@@ -13,7 +13,8 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 trait APIExecutor[+Ids] {
   def apply[Id, A, B](invocation: Invocation[Id, A, B])(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B]
 }
-object APIExecutor      {
+
+object APIExecutor {
 
   /**
    * The default constructor creates a typed executor, which requires a service
