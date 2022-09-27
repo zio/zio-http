@@ -18,11 +18,11 @@ private[http] object Network {
       ZIO
         .acquireRelease(
           ZIO.logDebug(s"Attempting to find an open network port...") *>
-            ZIO.attemptBlocking(new java.net.ServerSocket(0))
+            ZIO.attemptBlocking(new java.net.ServerSocket(0)),
         )(socket =>
           ZIO.attemptBlocking(socket.close()).ignoreLogged <* ZIO.logDebug(
-            s"Successfully closed socket bound on ${socket.getLocalPort}."
-          )
+            s"Successfully closed socket bound on ${socket.getLocalPort}.",
+          ),
         )
         .map(_.getLocalPort)
         .tap(p => ZIO.logDebug(s"An open port was found on $p."))

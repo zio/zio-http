@@ -5,25 +5,26 @@ import zio.http.Server.ErrorCallback
 //import zio.http.model.Status
 
 final case class TestServer[State](
-                                    state: Ref[State],
-                                    routes: Ref[PartialFunction[(State, Request), (State, Response)]],
-                                    driver: Driver,
-                                    bindPort: Int,
-                                  ) extends Server {
+  state: Ref[State],
+  routes: Ref[PartialFunction[(State, Request), (State, Response)]],
+  driver: Driver,
+  bindPort: Int,
+) extends Server {
 
   def addHandlerExact(
-                       expectedRequest: Request,
-                       response: Response
-                 ): ZIO[Any, Nothing, Unit] = {
+    expectedRequest: Request,
+    response: Response,
+  ): ZIO[Any, Nothing, Unit] = {
     val handler: PartialFunction[(State, Request), (State, Response)] = {
       // The way that the Client breaks apart and re-assembles the request prevents a straightforward
       //    expectedRequest == realRequest
       // here, so this
       case (state, realRequest) if {
-        expectedRequest.url.relative == realRequest.url &&
-          expectedRequest.method == realRequest.method &&
-          expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
-      } => (state, response)
+            expectedRequest.url.relative == realRequest.url &&
+            expectedRequest.method == realRequest.method &&
+            expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
+          } =>
+        (state, response)
 
 //      case (state, other) =>
 //        (state, Response.apply(Status.NotFound))
@@ -40,11 +41,10 @@ final case class TestServer[State](
   }
 
   def addHandlerState(
-                       pf: PartialFunction[(State, Request), (State, Response)]
-                     ): ZIO[Any, Nothing, Unit] = {
+    pf: PartialFunction[(State, Request), (State, Response)],
+  ): ZIO[Any, Nothing, Unit] = {
     val func =
-      (request: Request) =>
-          state.modify(state1 => pf((state1, request)).swap)
+      (request: Request) => state.modify(state1 => pf((state1, request)).swap)
 
     val app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(func)
     routes.update(_.orElse(pf)) *> driver.addApp(app)
@@ -66,19 +66,19 @@ final case class TestServer[State](
       .unless(errorCallback.isEmpty)
       .map(_.getOrElse(()))
   }
-  override def port: Int = bindPort
+  override def port: Int                                                        = bindPort
 }
 
 object TestServer {
   def addHandlerState[State: Tag](
-                       pf: PartialFunction[(State, Request), (State, Response)]
-                     ): ZIO[TestServer[State], Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer[State]](_.addHandlerState (pf))
+    pf: PartialFunction[(State, Request), (State, Response)],
+  ): ZIO[TestServer[State], Nothing, Unit] =
+    ZIO.serviceWithZIO[TestServer[State]](_.addHandlerState(pf))
 
   def addHandlerExact[State: Tag](
-                  request: Request,
-                  response: Response
-                ): ZIO[TestServer[State], Nothing, Unit] =
+    request: Request,
+    response: Response,
+  ): ZIO[TestServer[State], Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer[State]](_.addHandlerExact(request, response))
 
   def addHandler[T: Tag](pf: PartialFunction[Request, Response]): ZIO[TestServer[T], Nothing, Unit] =
@@ -97,8 +97,7 @@ object TestServer {
       routes <- Ref.make[PartialFunction[(State, Request), (State, Response)]](empty)
     } yield TestServer(state, routes, driver, port)
 
-  private def empty[State]: PartialFunction[(State, Request), (State, Response)] =
-    {
-      case _ if false => ???
-    }
+  private def empty[State]: PartialFunction[(State, Request), (State, Response)] = {
+    case _ if false => ???
+  }
 }

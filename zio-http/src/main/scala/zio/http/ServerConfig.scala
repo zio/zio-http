@@ -127,7 +127,7 @@ object ServerConfig {
     ZLayer.fromZIO(
       for {
         port <- Network.findOpenPort
-      } yield ServerConfig.default.port(port)
+      } yield ServerConfig.default.port(port),
     )
   }
 
@@ -214,4 +214,3 @@ object ServerConfig {
     private case object Deflate extends CompressionType
   }
 }
-
