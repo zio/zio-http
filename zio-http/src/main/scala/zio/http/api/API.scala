@@ -133,7 +133,7 @@ object API {
    * definition of the API.
    */
   def delete[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.GET, route, Out.unit, Doc.empty)
+    API(Method.DELETE, route, Out.unit, Doc.empty)
 
   /**
    * Constructs an API for a GET endpoint, given the specified input. It is not

@@ -3,9 +3,8 @@ package zio.http.api.internal
 import zio._
 import zio.http._
 import zio.http.api._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import scala.annotation.tailrec // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import scala.annotation.tailrec
 
 case class HandlerTree[-R, +E](
   constants: Map[String, HandlerTree[R, E]],
@@ -29,7 +28,8 @@ case class HandlerTree[-R, +E](
     }
 
   def lookup(request: Request): Option[HandlerMatch[R, E, _, _]] = {
-    HandlerTree.lookup(request.path.segments.collect { case Path.Segment.Text(text) => text }, 0, self, Chunk.empty)
+    val segments = request.path.segments.collect { case Path.Segment.Text(text) => text }
+    HandlerTree.lookup(segments, 0, self, Chunk.empty)
   }
 
   private def mergeWith[K, V](left: Map[K, V], right: Map[K, V])(f: (V, V) => V): Map[K, V] =
