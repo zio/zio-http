@@ -83,7 +83,7 @@ sealed trait Doc { self =>
       case x                         => x
     }
 
-  def toHTML: String = {
+  def toHTMLSnippet: String = {
 
     val w = new StringBuilder
 
@@ -146,76 +146,7 @@ sealed trait Doc { self =>
         render(right)
     }
 
-    val css =
-      """<style>
-        h1 {
-            color: rgb(36, 41, 46);
-            font-weight: 600;
-            line-height: 1.25;
-            margin-bottom: 16px;
-            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;
-        }
-
-        h2 {
-            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;
-            font-size: 24px;
-            letter-spacing: 0px;
-            word-spacing: 2px;
-            color: rgb(36, 41, 46);
-            font-weight: 600;
-        }
-
-        h3 {
-            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;
-            font-size: 21px;
-            letter-spacing: 0px;
-            word-spacing: 2px;
-            color: rgb(36, 41, 46);
-            font-weight: 700;
-        }
-
-        p {
-            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;
-            color: #24292e;
-        }
-
-        .error {
-            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;
-            color: #24292e;
-        }
-
-        a {
-            border: 0;
-            color: rgb(189, 39, 26);
-            text-decoration: none;
-            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;
-            font-size: inherit;
-            font-size: 100%;
-            margin: 0;
-            padding: 0;
-            vertical-align: baseline;
-        }
-
-        a:hover {
-            color: rgb(0, 0, 0);
-        }
-
-        pre {
-          background-color: rgba(27, 31, 35, .05);
-        }
-
-        code {
-            border-radius: 3px;
-            color: rgb(36, 41, 46);
-            font-family: SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-            font-size: 85%;
-            margin: 0;
-        }
-    </style>"""
-
-    w.append(s"<html><head>$css</head><body>")
     render(this)
-    w.append("</body></html>")
 
     w.toString()
   }
