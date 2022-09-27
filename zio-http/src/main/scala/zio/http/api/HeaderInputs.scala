@@ -1,10 +1,7 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.headers.values.CacheControl
-import zio.http.model.headers.values.Age
-import zio.http.model.headers.values.ContentLength
-
+import zio.http.model.headers.values.{Age, CacheControl, ContentLength, Origin}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait HeaderInputs {
@@ -67,7 +64,9 @@ private[api] trait HeaderInputs {
   final val lastModified: In[String]            = header(HeaderNames.lastModified.toString(), TextCodec.string)
   final val location: In[String]                = header(HeaderNames.location.toString(), TextCodec.string)
   final val maxForwards: In[String]             = header(HeaderNames.maxForwards.toString(), TextCodec.string)
-  final val origin: In[String]                  = header(HeaderNames.origin.toString(), TextCodec.string)
+  final val origin: In[Origin]                  =
+    header(HeaderNames.origin.toString(), TextCodec.string)
+      .transform(Origin.toOrigin, Origin.fromOrigin)
   final val pragma: In[String]                  = header(HeaderNames.pragma.toString(), TextCodec.string)
   final val proxyAuthenticate: In[String]       = header(HeaderNames.proxyAuthenticate.toString(), TextCodec.string)
   final val proxyAuthorization: In[String]      = header(HeaderNames.proxyAuthorization.toString(), TextCodec.string)
