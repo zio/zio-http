@@ -123,7 +123,7 @@ object ServerConfig {
   def live(config: ServerConfig): ZLayer[Any, Nothing, ServerConfig] =
     ZLayer.succeed(config)
 
-  val liveOnOpenPort: ZLayer[Network, Any, ServerConfig] = {
+  private[http] val liveOnOpenPort: ZLayer[Network, Any, ServerConfig] = {
     ZLayer.fromZIO(
       for {
         port <- Network.findOpenPort
