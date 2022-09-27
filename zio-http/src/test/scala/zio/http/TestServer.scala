@@ -5,7 +5,7 @@ import zio.http.Server.ErrorCallback
 
 final case class TestServer[State](
   state: Ref[State],
-  routes: Ref[PartialFunction[(State, Request), (State, Response)]],
+  routes: PartialFunction[(State, Request), (State, Response)],
   driver: Driver,
   bindPort: Int,
 ) extends Server {
@@ -13,7 +13,7 @@ final case class TestServer[State](
   def addRequestResponse(
     expectedRequest: Request,
     response: Response,
-  ): ZIO[Any, Nothing, Unit] = {
+  ): TestServer[State] = {
     val handler: PartialFunction[(State, Request), (State, Response)] = {
       case (state, realRequest) if {
             // The way that the Client breaks apart and re-assembles the request prevents a straightforward
@@ -27,7 +27,7 @@ final case class TestServer[State](
     addHandlerState(handler)
   }
 
-  def addHandler(pf: PartialFunction[Request, Response]): ZIO[Any, Nothing, Unit] = {
+  def addHandler(pf: PartialFunction[Request, Response]): TestServer[State] = {
     val handler: PartialFunction[(State, Request), (State, Response)] = {
       case (state, request) if pf.isDefinedAt(request) => (state, pf(request))
     }
@@ -36,13 +36,18 @@ final case class TestServer[State](
 
   def addHandlerState(
     pf: PartialFunction[(State, Request), (State, Response)],
-  ): ZIO[Any, Nothing, Unit] = {
-    val func =
-      (request: Request) => state.modify(state1 => pf((state1, request)).swap)
+  ): TestServer[State] =
+    copy(routes = routes.orElse(pf))
 
-    val app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(func)
-    routes.update(_.orElse(pf)) *> driver.addApp(app)
-  }
+  def install(implicit
+                 trace: zio.Trace,
+  ): UIO[Unit] =
+        driver.addApp(
+          Http.fromFunctionZIO(
+            (request: Request) => state.modify(state1 => routes((state1, request)).swap)
+          )
+        )
+
 
   override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
     trace: zio.Trace,
@@ -51,7 +56,13 @@ final case class TestServer[State](
       driver.addApp(
         if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
         else httpApp.provideEnvironment(env),
-      )
+      ) *> {
+        val func =
+          (request: Request) => state.modify(state1 => routes((state1, request)).swap)
+
+        val app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(func)
+        driver.addApp(app)
+      }
 
     } *> setErrorCallback(errorCallback)
 
@@ -66,21 +77,6 @@ final case class TestServer[State](
 }
 
 object TestServer {
-  def addHandlerState[State: Tag](
-    pf: PartialFunction[(State, Request), (State, Response)],
-  ): ZIO[TestServer[State], Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer[State]](_.addHandlerState(pf))
-
-  def addRequestResponse[State: Tag](
-    request: Request,
-    response: Response,
-  ): ZIO[TestServer[State], Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer[State]](_.addRequestResponse(request, response))
-
-  def addHandler[T: Tag](pf: PartialFunction[Request, Response]): ZIO[TestServer[T], Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer[T]](_.addHandler {
-      pf
-    })
 
   val make: ZIO[Driver with Scope, Throwable, TestServer[Unit]] =
     make(())
@@ -90,8 +86,7 @@ object TestServer {
       driver <- ZIO.service[Driver]
       port   <- driver.start
       state  <- Ref.make(initial)
-      routes <- Ref.make[PartialFunction[(State, Request), (State, Response)]](empty)
-    } yield TestServer(state, routes, driver, port)
+    } yield TestServer(state, empty, driver, port)
 
   private def empty[State]: PartialFunction[(State, Request), (State, Response)] = {
     case _ if false => ???
