@@ -120,12 +120,13 @@ object ServerConfig {
   val live: ZLayer[Any, Nothing, ServerConfig] =
     ZLayer.succeed(ServerConfig.default)
 
-  def live(config: ServerConfig): ZLayer[Any, Nothing, ServerConfig] = ZLayer.succeed(config)
+  def live(config: ServerConfig): ZLayer[Any, Nothing, ServerConfig] =
+    ZLayer.succeed(config)
 
-  val liveOnOpenPort: ZLayer[Any, Any, ServerConfig] = {
+  val liveOnOpenPort: ZLayer[Network, Any, ServerConfig] = {
     ZLayer.fromZIO(
       for {
-        port <- NetworkLive.findOpenPort
+        port <- Network.findOpenPort
       } yield ServerConfig.default.port(port)
     )
   }

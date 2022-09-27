@@ -2,6 +2,7 @@ package zio.http
 
 import zio._
 import zio.http.Server.ErrorCallback
+//import zio.http.model.Status
 
 final case class TestServer[State](
                                     state: Ref[State],
@@ -15,10 +16,17 @@ final case class TestServer[State](
                        response: Response
                  ): ZIO[Any, Nothing, Unit] = {
     val handler: PartialFunction[(State, Request), (State, Response)] = {
+      // The way that the Client breaks apart and re-assembles the request prevents a straightforward
+      //    expectedRequest == realRequest
+      // here, so this
       case (state, realRequest) if {
         expectedRequest.url.relative == realRequest.url &&
-          expectedRequest.method == realRequest.method
+          expectedRequest.method == realRequest.method &&
+          expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
       } => (state, response)
+
+//      case (state, other) =>
+//        (state, Response.apply(Status.NotFound))
 
     }
     addHandlerState(handler)
