@@ -26,11 +26,8 @@ object TestServerSpec extends ZIOSpecDefault{
         )
 
     } yield assertTrue(initialResponse.status == NotFound) && assertTrue(finalResponse.status == Status.Ok)
-  }.provideSome[Scope](
-    ServerConfig.liveOnOpenPort,
+  }.provideSome[Scope with Client with Driver](
     ZLayer.fromZIO(TestServer.make),
-    Client.default,
-    NettyDriver.default,
   ),
     test("with state"){
       for {
@@ -60,11 +57,8 @@ object TestServerSpec extends ZIOSpecDefault{
       } yield assertTrue(response1.status == Status.Ok) &&
       assertTrue(response2.status == Status.Ok) &&
       assertTrue(response3.status == Status.InternalServerError)
-    }.provideSome[Scope](
-      ServerConfig.liveOnOpenPort,
+    }.provideSome[Scope with Client with Driver](
       ZLayer.fromZIO(TestServer.make(0)),
-      Client.default,
-      NettyDriver.default,
     ),
     test("Exact Request=>Response version"){
       for {
@@ -81,12 +75,13 @@ object TestServerSpec extends ZIOSpecDefault{
           )
 
       } yield assertTrue(initialResponse.status == NotFound) && assertTrue(finalResponse.status == Status.Ok)
-    }.provideSome[Scope](
-      ServerConfig.liveOnOpenPort,
+    }.provideSome[Scope with Client with Driver](
       ZLayer.fromZIO(TestServer.make),
+    ),
+  ).provideSome[Scope](
+      ServerConfig.liveOnOpenPort,
       Client.default,
       NettyDriver.default,
-    ),
-  )
+    )
 
 }
