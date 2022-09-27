@@ -50,7 +50,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def queries: QueryParams                = self.queries
       def schemeOption: Option[Scheme]        = self.schemeOption
       def sslOption: Option[ClientSSLOptions] = self.sslOption
-      protected[http] def requestInternal(
+      def requestInternal(
         body: In2,
         headers: Headers,
         hostOption: Option[String],
@@ -74,7 +74,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             version,
           )
         }
-      protected[http] def socketInternal[Env2 <: Env1](
+      def socketInternal[Env2 <: Env1](
         app: SocketApp[Env2],
         headers: Headers,
         hostOption: Option[String],
@@ -122,7 +122,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def queries: QueryParams                = self.queries
       def schemeOption: Option[Scheme]        = self.schemeOption
       def sslOption: Option[ClientSSLOptions] = self.sslOption
-      protected[http] def requestInternal(
+      def requestInternal(
         body: In,
         headers: Headers,
         hostOption: Option[String],
@@ -146,7 +146,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             version,
           )
           .flatMap(f)
-      protected[http] def socketInternal[Env2 <: Env1](
+      protected def socketInternal[Env2 <: Env1](
         app: SocketApp[Env2],
         headers: Headers,
         hostOption: Option[String],
@@ -217,7 +217,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             version,
           )
           .refineOrDie(pf)
-      def socketInternal[Env1 <: Env](
+      protected def socketInternal[Env1 <: Env](
         app: SocketApp[Env1],
         headers: Headers,
         hostOption: Option[String],
@@ -380,8 +380,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       queries = queries ++ url.queryParams,
     )
 
-  // TODO Appropriate workaround visibility
-  protected[http] def requestInternal(
+  protected def requestInternal(
     body: In,
     headers: Headers,
     hostOption: Option[String],
@@ -393,8 +392,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     version: Version,
   )(implicit trace: Trace): ZIO[Env, Err, Out]
 
-  // TODO Appropriate workaround visibility
-  protected[http] def socketInternal[Env1 <: Env](
+  protected def socketInternal[Env1 <: Env](
     app: SocketApp[Env1],
     headers: Headers,
     hostOption: Option[String],
@@ -439,7 +437,7 @@ object ZClient {
     sslOption: Option[ClientSSLOptions],
   ) extends ZClient[Env, In, Err, Out] {
 
-    protected[http] def requestInternal(
+    def requestInternal(
       body: In,
       headers: Headers,
       hostOption: Option[String],
@@ -452,7 +450,7 @@ object ZClient {
     )(implicit trace: Trace): ZIO[Env, Err, Out] =
       client.requestInternal(body, headers, hostOption, method, path, portOption, queries, sslOption, version)
 
-    protected[http] def socketInternal[Env1 <: Env](
+    protected def socketInternal[Env1 <: Env](
       app: SocketApp[Env1],
       headers: Headers,
       hostOption: Option[String],
@@ -481,7 +479,7 @@ object ZClient {
     val schemeOption: Option[Scheme]        = None
     val sslOption: Option[ClientSSLOptions] = None
 
-    protected[http] def requestInternal(
+    def requestInternal(
       body: Body,
       headers: Headers,
       hostOption: Option[String],
@@ -509,7 +507,7 @@ object ZClient {
       } yield response
     }
 
-    protected[http] override def socketInternal[R](
+    protected override def socketInternal[R](
       app: SocketApp[R],
       headers: Headers,
       hostOption: Option[String],
@@ -710,7 +708,7 @@ object ZClient {
     }
   }
 
-  val default: ZLayer[Any with Scope, Throwable, Client] = {
+  val default = {
     implicit val trace = Trace.empty
     ClientConfig.default >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool >>> live
   }
