@@ -270,7 +270,7 @@ jobs:
           echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
-        uses: peter-evans/commit-comment@v1
+        uses: peter-evans/commit-comment@v2
         with:
           sha: ${{github.event.pull_request.head.sha}}
           body: |
@@ -319,7 +319,7 @@ jobs:
            echo ::set-output name=body::$(echo $body)
 
       
-      - uses: peter-evans/commit-comment@v1
+      - uses: peter-evans/commit-comment@v2
         with:
           sha: ${{github.sha}}
           body: |
