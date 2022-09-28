@@ -6,7 +6,7 @@ import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
 import zio.http.model._
-import zio.http.model.headers.values.AcceptEncoding
+import zio.http.model.headers.values._
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
@@ -238,5 +238,37 @@ object HttpGen {
 
   def acceptEncoding: Gen[Any, AcceptEncoding] = {
     Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(AcceptEncoding.MultipleEncodings.apply)
+
+  def cacheControlSingleValue(seconds: Int): Gen[Any, CacheControl] =
+    Gen.fromIterable(
+      List(
+        CacheControl.Immutable,
+        CacheControl.InvalidCacheControl,
+        CacheControl.MaxAge(seconds),
+        CacheControl.MaxStale(seconds),
+        CacheControl.MinFresh(seconds),
+        CacheControl.MustRevalidate,
+        CacheControl.MustUnderstand,
+        CacheControl.NoCache,
+        CacheControl.NoStore,
+        CacheControl.NoTransform,
+        CacheControl.OnlyIfCached,
+        CacheControl.Private,
+        CacheControl.ProxyRevalidate,
+        CacheControl.Public,
+        CacheControl.SMaxAge(seconds),
+        CacheControl.StaleIfError(seconds),
+        CacheControl.StaleWhileRevalidate(seconds),
+      ),
+    )
+
+  def cacheControlSingleValueWithSeconds: Gen[Any, CacheControl] = for {
+    duration <- Gen.int(0, 1000000)
+    value    <- cacheControlSingleValue(duration)
+  } yield value
+
+  def cacheControl: Gen[Any, CacheControl] = {
+    Gen.chunkOfBounded(1, 10)(cacheControlSingleValueWithSeconds).map(CacheControl.MultipleCacheControlValues.apply)
+
   }
 }

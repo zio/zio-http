@@ -23,6 +23,8 @@ sealed trait In[Input] {
   def /[Input2](that: In[Input2])(implicit combiner: Combiner[Input, Input2]): In[combiner.Out] =
     self ++ that
 
+  def /(that: String): In[Input] = self ++ In.literal(that)
+
   def bodySchema: Option[Schema[_]] =
     self match {
       case Route(_)                => None

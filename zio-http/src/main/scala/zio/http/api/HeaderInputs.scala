@@ -1,8 +1,8 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.headers.values.AcceptEncoding
-import zio.http.model.headers.values.Age
+import zio.http.model.headers.values._
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait HeaderInputs {
@@ -10,7 +10,6 @@ private[api] trait HeaderInputs {
     In.Header(name, value)
 
   final val accept: In[String]                        = header(HeaderNames.accept.toString(), TextCodec.string)
-  final val acceptCharset: In[String]                 = header(HeaderNames.acceptCharset.toString(), TextCodec.string)
   final val acceptEncoding: In[AcceptEncoding]        = header(HeaderNames.acceptEncoding.toString(), TextCodec.string)
     .transform[AcceptEncoding](AcceptEncoding.toEncoding, AcceptEncoding.fromEncoding)
   final val acceptLanguage: In[String]                = header(HeaderNames.acceptLanguage.toString(), TextCodec.string)
@@ -34,12 +33,15 @@ private[api] trait HeaderInputs {
   final val age: In[Age]      = header(HeaderNames.age.toString(), TextCodec.string).transform(Age.toAge, Age.fromAge)
   final val allow: In[String] = header(HeaderNames.allow.toString(), TextCodec.string)
   final val authorization: In[String]           = header(HeaderNames.authorization.toString(), TextCodec.string)
-  final val cacheControl: In[String]            = header(HeaderNames.cacheControl.toString(), TextCodec.string)
+  final val cacheControl: In[CacheControl]      =
+    header(HeaderNames.cacheControl.toString(), TextCodec.string)
+      .transform[CacheControl](CacheControl.toCacheControl, CacheControl.fromCacheControl)
   final val connection: In[String]              = header(HeaderNames.connection.toString(), TextCodec.string)
   final val contentBase: In[String]             = header(HeaderNames.contentBase.toString(), TextCodec.string)
   final val contentEncoding: In[String]         = header(HeaderNames.contentEncoding.toString(), TextCodec.string)
   final val contentLanguage: In[String]         = header(HeaderNames.contentLanguage.toString(), TextCodec.string)
-  final val contentLength: In[String]           = header(HeaderNames.contentLength.toString(), TextCodec.string)
+  final val contentLength: In[ContentLength]    = header(HeaderNames.contentLength.toString(), TextCodec.string)
+    .transform(ContentLength.toContentLength, ContentLength.fromContentLength)
   final val contentLocation: In[String]         = header(HeaderNames.contentLocation.toString(), TextCodec.string)
   final val contentTransferEncoding: In[String] =
     header(HeaderNames.contentTransferEncoding.toString(), TextCodec.string)
@@ -64,7 +66,9 @@ private[api] trait HeaderInputs {
   final val lastModified: In[String]            = header(HeaderNames.lastModified.toString(), TextCodec.string)
   final val location: In[String]                = header(HeaderNames.location.toString(), TextCodec.string)
   final val maxForwards: In[String]             = header(HeaderNames.maxForwards.toString(), TextCodec.string)
-  final val origin: In[String]                  = header(HeaderNames.origin.toString(), TextCodec.string)
+  final val origin: In[Origin]                  =
+    header(HeaderNames.origin.toString(), TextCodec.string)
+      .transform(Origin.toOrigin, Origin.fromOrigin)
   final val pragma: In[String]                  = header(HeaderNames.pragma.toString(), TextCodec.string)
   final val proxyAuthenticate: In[String]       = header(HeaderNames.proxyAuthenticate.toString(), TextCodec.string)
   final val proxyAuthorization: In[String]      = header(HeaderNames.proxyAuthorization.toString(), TextCodec.string)

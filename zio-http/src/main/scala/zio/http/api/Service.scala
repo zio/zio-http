@@ -29,20 +29,23 @@ sealed trait Service[-R, +E, AllIds] { self =>
       APIServer(handledApi)
     }
 
-    Http.collectZIO[Request].apply[R, E, Response] { case request =>
-      val handler = handlerTree.lookup(request)
+    Http
+      .collectZIO[Request]
+      .apply[R, E, Response] { case request =>
+        val handler = handlerTree.lookup(request)
 
-      handler match {
-        case None => ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
-        case Some(handlerMatch) =>
-          requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)
-      }
-    }
+        handler match {
+          case None => ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
+          case Some(handlerMatch) =>
+            requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)(Trace.empty)
+        }
+      }(Trace.empty)
   }
 
   private[api] def withAllIds[AllIds0]: Service[R, E, AllIds0] =
     self.asInstanceOf[Service[R, E, AllIds0]]
 }
+
 object Service {
   final case class HandledAPI[-R, +E, In0, Out0, Id](
     api: API.WithId[In0, Out0, Id],

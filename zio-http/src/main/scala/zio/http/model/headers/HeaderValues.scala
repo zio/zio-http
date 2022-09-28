@@ -1,6 +1,7 @@
 package zio.http.model.headers
 
 import io.netty.handler.codec.http.HttpHeaderValues
+import zio.Chunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**

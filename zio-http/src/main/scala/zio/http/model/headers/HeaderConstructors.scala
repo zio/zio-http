@@ -19,9 +19,6 @@ trait HeaderConstructors {
   final def accept(value: CharSequence): Headers =
     Headers(HeaderNames.accept, value)
 
-  final def acceptCharset(value: CharSequence): Headers =
-    Headers(HeaderNames.acceptCharset, value)
-
   final def acceptEncoding(value: CharSequence): Headers =
     Headers(HeaderNames.acceptEncoding, value)
 

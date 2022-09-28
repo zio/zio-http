@@ -70,7 +70,7 @@ sealed trait HExit[-R, +E, +A] { self =>
   def toZIO(implicit trace: Trace): ZIO[R, Option[E], A] = self match {
     case HExit.Success(a)  => ZIO.succeed(a)
     case HExit.Failure(e)  => ZIO.failCause(e.map(Some(_)))
-    case HExit.Empty       => failNoStacktrace
+    case HExit.Empty       => ZIO.fail(None)
     case HExit.Effect(zio) => zio
   }
 }
