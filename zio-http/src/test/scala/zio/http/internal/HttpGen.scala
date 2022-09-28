@@ -236,7 +236,7 @@ object HttpGen {
     value  <- acceptEncodingSingleValue(weight)
   } yield value
 
-  def acceptEncoding: Gen[Any, AcceptEncoding] = {
+  def acceptEncoding: Gen[Any, AcceptEncoding] =
     Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(AcceptEncoding.MultipleEncodings.apply)
 
   def cacheControlSingleValue(seconds: Int): Gen[Any, CacheControl] =
@@ -267,8 +267,7 @@ object HttpGen {
     value    <- cacheControlSingleValue(duration)
   } yield value
 
-  def cacheControl: Gen[Any, CacheControl] = {
+  def cacheControl: Gen[Any, CacheControl] =
     Gen.chunkOfBounded(1, 10)(cacheControlSingleValueWithSeconds).map(CacheControl.MultipleCacheControlValues.apply)
 
-  }
 }
