@@ -15,7 +15,8 @@ object Allow {
 
   def toAllow(value: String): Allow = {
     @tailrec def loop(index: Int, value: String, acc: Allow): Allow = {
-      if (index == -1) acc.copy(methods = acc.methods ++ Chunk(Method.fromString(value.trim)))
+      if (value.isEmpty) Allow(Chunk.empty)
+      else if (index == -1) acc.copy(methods = acc.methods ++ Chunk(Method.fromString(value.trim)))
       else {
         val valueChunk     = value.substring(0, index)
         val valueRemaining = value.substring(index + 1)
