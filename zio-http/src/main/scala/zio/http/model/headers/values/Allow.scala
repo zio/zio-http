@@ -1,13 +1,12 @@
 package zio.http.model.headers.values
 
 import zio.Chunk
-import zio.http.model.Method
 
 import scala.annotation.tailrec
 
 /**
- * The Allow header must be sent if the server responds with a 405 Method Not Allowed status code to indicate
- * which request methods can be used.
+ * The Allow header must be sent if the server responds with a 405 Method Not
+ * Allowed status code to indicate which request methods can be used.
  */
 sealed trait Allow {
   val raw: String
@@ -63,13 +62,24 @@ object Allow {
       case _           => InvalidAllowMethod
     }
 
-  def toAllow(value: String): Allow =
-    if (value.isEmpty) AllowMethods(Chunk.empty)
-    else AllowMethods(
-      value
-        .split(',')
-        .foldLeft(Chunk.empty[Allow])((acc, value) => acc :+ parseAllowMethod(value.trim))
-    )
+  def toAllow(value: String): Allow = {
+    @tailrec def loop(index: Int, value: String, acc: AllowMethods): Allow = {
+      if (value.isEmpty) AllowMethods(Chunk.empty)
+      else if (index == -1) acc.copy(methods = acc.methods ++ Chunk(parseAllowMethod(value.trim)))
+      else {
+        val valueChunk     = value.substring(0, index)
+        val valueRemaining = value.substring(index + 1)
+        val newIndex       = valueRemaining.indexOf(',')
+        loop(
+          newIndex,
+          valueRemaining,
+          acc.copy(methods = acc.methods ++ Chunk(parseAllowMethod(valueChunk.trim))),
+        )
+      }
+    }
+
+    loop(value.indexOf(','), value, AllowMethods(Chunk.empty))
+  }
 
   def fromAllow(allow: Allow): String = allow match {
     case AllowMethods(methods) => methods.map(fromAllow).filter(_.nonEmpty).mkString(", ")
