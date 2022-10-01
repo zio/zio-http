@@ -3,6 +3,7 @@ package zio.http.api.internal
 import zio.Chunk
 import zio.http.api.In._
 import zio.http.api._
+import zio.http.model.Headers
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] object Mechanic {
@@ -139,15 +140,15 @@ private[api] object Mechanic {
     inputBodies: Chunk[InputBody[_]],
   ) { self =>
     def append(atom: Atom[_]) = atom match {
-      case route: Route[_]         => copy(routes = routes :+ route.textCodec)
-      case query: Query[_]         => copy(queries = queries :+ query)
-      case header: Header[_]       => copy(headers = headers :+ header)
-      case inputBody: InputBody[_] => copy(inputBodies = inputBodies :+ inputBody)
-      case _: IndexedAtom[_]       => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
+      case route: Route[_]          => copy(routes = routes :+ route.textCodec)
+      case query: Query[_]          => copy(queries = queries :+ query)
+      case header: Header[_]        => copy(headers = headers :+ header)
+      case inputBody: InputBody[_]  => copy(inputBodies = inputBodies :+ inputBody)
+      case _: IndexedAtom[_] => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
     }
 
     def makeInputsBuilder(): InputsBuilder = {
-      Mechanic.InputsBuilder.make(routes.length, queries.length, headers.length, inputBodies.length)
+      Mechanic.InputsBuilder.make(routes.length, queries.length, headers.length, inputBodies.length, 2)
     }
   }
 
@@ -160,6 +161,7 @@ private[api] object Mechanic {
     queries: Array[Any],
     headers: Array[Any],
     inputBodies: Array[Any],
+    responseHeaders: Array[Any]
   ) { self =>
     def setRoute(index: Int, value: Any): Unit =
       routes(index) = value
@@ -174,12 +176,13 @@ private[api] object Mechanic {
       inputBodies(index) = value
   }
   private[api] object InputsBuilder  {
-    def make(routes: Int, queries: Int, headers: Int, bodies: Int): InputsBuilder =
+    def make(routes: Int, queries: Int, headers: Int, bodies: Int, responseHeaders: Int): InputsBuilder =
       InputsBuilder(
         routes = new Array(routes),
         queries = new Array(queries),
         headers = new Array(headers),
         inputBodies = new Array(bodies),
+        responseHeaders = new Array(responseHeaders)
       )
   }
 

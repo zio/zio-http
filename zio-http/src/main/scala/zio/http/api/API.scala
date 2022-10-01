@@ -1,7 +1,7 @@
 package zio.http.api
 
 import zio._
-import zio.http.model.Method
+import zio.http.model.{Header, Headers, Method}
 import zio.schema._
 import zio.stream.ZStream
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -11,6 +11,10 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * Every `API` has an input, which comes from a combination of the HTTP path,
  * query string parameters, and headers, and an output, which is the data
  * computed by the handler of the API.
+ *
+ * MiddlewareInput : Example: A subset of `In[Input]` that doesn't give access
+ * to `Input` MiddlwareOutput: Example: A subset of `Out[Output]` that doesn't
+ * give access to `Output` Input: Example: Int Output: Example: User
  *
  * As [[zio.http.api.API]] is a purely declarative encoding of an endpoint, it
  * is possible to use this model to generate a [[zio.http.HttpApp]] (by
@@ -23,6 +27,8 @@ final case class API[Input, Output](
   input: In[Input],
   output: Out[Output],
   doc: Doc,
+  // TODO; New type parmaeters to add for API that represent the out type of a middleware which is typically Response
+  middlewareSpec: MiddlewareSpec[Unit] = MiddlewareSpec.addHeader("test", "value"),
 ) { self =>
   type Id
 

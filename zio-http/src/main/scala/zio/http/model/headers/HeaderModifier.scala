@@ -18,7 +18,7 @@ trait HeaderModifier[+A] { self =>
 
   final def addHeader(header: Header): A = addHeaders(header)
 
-  final def addHeader(name: CharSequence, value: CharSequence): A = addHeaders(Headers(name, value))
+  final def addHeader(name: CharSequence, value: CharSequence): A = addHeaders(Headers.apply(name, value))
 
   final def addHeaders(headers: Headers): A = updateHeaders(_ ++ headers)
 

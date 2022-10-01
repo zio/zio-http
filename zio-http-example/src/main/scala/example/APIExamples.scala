@@ -7,11 +7,11 @@ object APIExamples extends ZIOAppDefault {
   import In._
 
   val getUser =
-    API.get(literal("users") / int)
+    API.get(literal("users") / int).out[Int]
 
   val getUsersService =
     getUser.handle[Any, Nothing] { case (id: Int) =>
-      ZIO.debug(s"API1 RESULT parsed: users/$id")
+      ZIO.succeedNow(1)
     }
 
   val getUserPosts =
@@ -27,7 +27,7 @@ object APIExamples extends ZIOAppDefault {
 
   val app = services.toHttpApp
 
-  val request = Request(url = URL.fromString("/users/100/posts/200?name=adam").toOption.get)
+  val request = Request(url = URL.fromString("/users/1").toOption.get)
   println(s"Looking up $request")
 
   val run = app(request).debug

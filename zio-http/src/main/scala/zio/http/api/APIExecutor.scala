@@ -23,7 +23,7 @@ object APIExecutor      {
     untyped(client, registry)
 
   /**
-   * An alternate constructor can be used to create an untyped executor, which
+   * An alternate constructor can be used to create an untyAPped executor, which
    * can attempt to execute any service, and which may fail at runtime if it
    * does not know the location of a service.
    */

@@ -16,5 +16,5 @@ object Debug {
   /**
    * Sets the main application to execute in the example project.
    */
-  val Main = "example.HelloWorld"
+  val Main = "example.HelloWorldWithMiddlewares"
 }

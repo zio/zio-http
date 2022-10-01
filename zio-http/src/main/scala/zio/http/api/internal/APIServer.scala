@@ -3,7 +3,7 @@ package zio.http.api.internal
 import zio._
 import zio.http._
 import zio.http.api._
-import zio.http.model.Headers
+import zio.http.model.{Header, Headers}
 import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -17,7 +17,8 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
     JsonCodec.decode(optionSchema.getOrElse(Schema[Unit].asInstanceOf[Schema[Any]]))
   private val outputJsonEncoder: Any => Chunk[Byte]               =
     JsonCodec.encode(api.output.bodySchema.asInstanceOf[Schema[Any]])
-  private val constructor = Mechanic.makeConstructor(api.input).asInstanceOf[Mechanic.Constructor[I]]
+
+  private val constructor = Mechanic.makeConstructor(api.input)//.asInstanceOf[Mechanic.Constructor[I]]
   private val flattened   = Mechanic.flatten(api.input)
 
   def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
@@ -29,13 +30,24 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
     decodeQuery(request.url.queryParams, inputsBuilder.queries)
     decodeHeaders(request.headers, inputsBuilder.headers)
 
+
     decodeBody(request.body, inputsBuilder.inputBodies) *> {
       val input: I = constructor(inputsBuilder)
 
       handler(input).map { output =>
         val body = outputJsonEncoder(output)
-        Response(body = Body.fromChunk(body))
+        Response(body = Body.fromChunk(body), headers = getHeaders(api.middlewareSpec.middlewareOut))
       }
+    }
+  }
+
+  private def getHeaders(middlewareSpec: Out[Unit]): Headers = {
+    import zio.http.model._
+
+    middlewareSpec match {
+      case Out.AddHeader(key, value) => Headers(List(Header.apply(key, value)))
+      // ???
+      case _ => throw new Exception("To be fixed later")
     }
   }
 

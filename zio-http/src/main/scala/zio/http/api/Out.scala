@@ -21,16 +21,26 @@ object Out               {
 
   def value[A](implicit schema: Schema[A]): Out[A] = Value(schema)
 
-  final case class Value[Output](schema: Schema[Output])    extends Out[Output]                           {
+  final case class Value[Output](schema: Schema[Output]) extends Out[Output] {
     type Atom = Output
     type Type = Output
 
     override def bodySchema: Schema[Output] = schema
   }
+
+  final case class AddHeader(key: String, value: String) extends Out[Unit] {
+    type Atom = Unit
+    type Type = Unit
+
+    override def bodySchema: Schema[Unit] = Schema[Unit]
+
+  }
+
   final case class Stream[Element](schema: Schema[Element]) extends Out[ZStream[Any, Throwable, Element]] {
     type Atom = Element
     type Type = ZStream[Any, Throwable, Element]
 
     override def bodySchema: Schema[Element] = schema
   }
+
 }
