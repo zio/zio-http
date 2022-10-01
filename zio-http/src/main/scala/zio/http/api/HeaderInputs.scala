@@ -1,7 +1,8 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.headers.values.{Accept, Age, Allow, CacheControl, ContentLength, Origin}
+import zio.http.model.headers.values.{Accept, Age, Allow, CacheControl, ContentLength, Origin, DNT}
+import zio.http.model.headers.values.{Age, CacheControl, ContentLength, Origin}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait HeaderInputs {
@@ -54,7 +55,8 @@ private[api] trait HeaderInputs {
   final val contentType: In[String]             = header(HeaderNames.contentType.toString(), TextCodec.string)
   final val cookie: In[String]                  = header(HeaderNames.cookie.toString(), TextCodec.string)
   final val date: In[String]                    = header(HeaderNames.date.toString(), TextCodec.string)
-  final val dnt: In[String]                     = header(HeaderNames.dnt.toString(), TextCodec.string)
+  final val dnt: In[DNT]                        = header(HeaderNames.dnt.toString(), TextCodec.string)
+    .transform(DNT.toDNT, DNT.fromDNT)
   final val etag: In[String]                    = header(HeaderNames.etag.toString(), TextCodec.string)
   final val expect: In[String]                  = header(HeaderNames.expect.toString(), TextCodec.string)
   final val expires: In[String]                 = header(HeaderNames.expires.toString(), TextCodec.string)
