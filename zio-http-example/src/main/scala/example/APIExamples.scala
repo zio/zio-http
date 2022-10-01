@@ -30,7 +30,7 @@ object APIExamples extends ZIOAppDefault {
   val request = Request(url = URL.fromString("/users/1").toOption.get)
   println(s"Looking up $request")
 
-  val run = app(request).debug
+  val run = Server.serve(app).provide(Server.default)
 
   object Client {
     def example(client: Client) = {

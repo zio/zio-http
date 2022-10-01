@@ -22,6 +22,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   private val flattened   = Mechanic.flatten(api.input)
 
   def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
+    println("why not?????")
     val inputsBuilder = flattened.makeInputsBuilder()
 
     // TODO: Bounds checking
@@ -35,6 +36,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
       val input: I = constructor(inputsBuilder)
 
       handler(input).map { output =>
+        println(getHeaders(api.middlewareSpec.middlewareOut))
         val body = outputJsonEncoder(output)
         Response(body = Body.fromChunk(body), headers = getHeaders(api.middlewareSpec.middlewareOut))
       }
