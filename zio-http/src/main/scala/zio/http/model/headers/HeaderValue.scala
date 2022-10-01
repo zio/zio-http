@@ -10,10 +10,10 @@ object HeaderValue {
 
     def toDNT(value: String): DNT = {
       value match {
-        case null => NotSpecifiedDNTValue
-        case "1"  => TrackingNotAllowedDNTValue
-        case "0"  => TrackingAllowedDNTValue
-        case _    => InvalidDNTValue
+        case "null" => NotSpecifiedDNTValue
+        case "1"    => TrackingNotAllowedDNTValue
+        case "0"    => TrackingAllowedDNTValue
+        case _      => InvalidDNTValue
       }
     }
 

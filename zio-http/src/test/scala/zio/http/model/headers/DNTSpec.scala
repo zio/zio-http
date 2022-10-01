@@ -16,19 +16,19 @@ object DNTSpec extends ZIOSpecDefault {
     test("parse DNT headers") {
       assertTrue(DNT.toDNT("1") == TrackingAllowedDNTValue)
       assertTrue(DNT.toDNT("0") == TrackingNotAllowedDNTValue)
-      assertTrue(DNT.toDNT(null) == NotSpecifiedDNTValue)
+      assertTrue(DNT.toDNT("null") == NotSpecifiedDNTValue)
       assertTrue(DNT.toDNT("test") == InvalidDNTValue)
     },
     test("encode DNT to String") {
       assertTrue(DNT.fromDNT(TrackingAllowedDNTValue) == "1")
       assertTrue(DNT.fromDNT(TrackingNotAllowedDNTValue) == "0")
-      assertTrue(DNT.fromDNT(NotSpecifiedDNTValue) == null)
+      assertTrue(DNT.fromDNT(NotSpecifiedDNTValue) == "null")
       assertTrue(DNT.fromDNT(InvalidDNTValue) == "")
     },
     test("parsing and encoding is symmetrical") {
       assertTrue(DNT.fromDNT(DNT.toDNT("1")) == "1")
       assertTrue(DNT.fromDNT(DNT.toDNT("0")) == "0")
-      assertTrue(DNT.fromDNT(DNT.toDNT(null)) == null)
+      assertTrue(DNT.fromDNT(DNT.toDNT("null")) == "null")
       assertTrue(DNT.fromDNT(DNT.toDNT("")) == "")
     },
   )
