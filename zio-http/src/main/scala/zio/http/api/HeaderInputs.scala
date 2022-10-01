@@ -1,6 +1,8 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
+import zio.http.model.headers.HeaderValue.ContentMD5
+import zio.http.model.headers.values.{Age, CacheControl, ContentLength, Origin}
 import zio.http.model.headers.values.{Accept, Age, Allow, CacheControl, ContentLength, Origin}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
@@ -48,7 +50,8 @@ private[api] trait HeaderInputs {
   final val contentTransferEncoding: In[String] =
     header(HeaderNames.contentTransferEncoding.toString(), TextCodec.string)
   final val contentDisposition: In[String]      = header(HeaderNames.contentDisposition.toString(), TextCodec.string)
-  final val contentMd5: In[String]              = header(HeaderNames.contentMd5.toString(), TextCodec.string)
+  final val contentMd5: In[ContentMD5]          = header(HeaderNames.contentMd5.toString(), TextCodec.string)
+    .transform(ContentMD5.toContentMD5, ContentMD5.fromContentMD5)
   final val contentRange: In[String]            = header(HeaderNames.contentRange.toString(), TextCodec.string)
   final val contentSecurityPolicy: In[String]   = header(HeaderNames.contentSecurityPolicy.toString(), TextCodec.string)
   final val contentType: In[String]             = header(HeaderNames.contentType.toString(), TextCodec.string)
