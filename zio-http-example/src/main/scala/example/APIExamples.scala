@@ -24,7 +24,7 @@ object APIExamples extends ZIOAppDefault {
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 
-  val services = getUsersService ++ getUserPostsService
+  val services = (getUsersService ++ getUserPostsService)
 
   val app = services.toHttpApp
 
