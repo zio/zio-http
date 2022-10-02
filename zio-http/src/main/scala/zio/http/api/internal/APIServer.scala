@@ -18,11 +18,10 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   private val outputJsonEncoder: Any => Chunk[Byte]               =
     JsonCodec.encode(api.output.bodySchema.asInstanceOf[Schema[Any]])
 
-  private val constructor = Mechanic.makeConstructor(api.input)//.asInstanceOf[Mechanic.Constructor[I]]
+  private val constructor = Mechanic.makeConstructor(api.input) // .asInstanceOf[Mechanic.Constructor[I]]
   private val flattened   = Mechanic.flatten(api.input)
 
   def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
-    println("why not?????")
     val inputsBuilder = flattened.makeInputsBuilder()
 
     // TODO: Bounds checking
@@ -30,7 +29,6 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
 
     decodeQuery(request.url.queryParams, inputsBuilder.queries)
     decodeHeaders(request.headers, inputsBuilder.headers)
-
 
     decodeBody(request.body, inputsBuilder.inputBodies) *> {
       val input: I = constructor(inputsBuilder)
@@ -48,8 +46,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
 
     middlewareSpec match {
       case Out.AddHeader(key, value) => Headers(List(Header.apply(key, value)))
-      // ???
-      case _ => throw new Exception("To be fixed later")
+      case _                         => Headers.empty
     }
   }
 

@@ -27,10 +27,13 @@ final case class API[Input, Output](
   input: In[Input],
   output: Out[Output],
   doc: Doc,
-  // TODO; New type parmaeters to add for API that represent the out type of a middleware which is typically Response
-  middlewareSpec: MiddlewareSpec[Unit] = MiddlewareSpec.addHeader("test", "value"),
+  // TODO; New type paramters MiddlewareIn and MiddlewareOut
+  middlewareSpec: MiddlewareSpec[Unit],
 ) { self =>
   type Id
+
+  def @@(mid: MiddlewareSpec[Unit]): API[Input, Output] =
+    copy(middlewareSpec = mid)
 
   /**
    * Combines this API and another group of APIs.
