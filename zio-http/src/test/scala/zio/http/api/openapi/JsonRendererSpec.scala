@@ -1,7 +1,6 @@
 package zio.http.api.openapi
 
 import zio.http.api.Doc
-import zio.http.api.openapi.JsonRenderer._
 import zio.http.api.openapi.OpenAPI.Parameter.{Definition, QueryParameter}
 import zio.http.api.openapi.OpenAPI.Schema.ResponseSchema
 import zio.http.api.openapi.OpenAPI.SecurityScheme.ApiKey
@@ -61,6 +60,17 @@ object JsonRendererSpec extends ZIOSpecDefault {
       test("render doc") {
         val rendered = JsonRenderer.renderFields("doc" -> Doc.p(Doc.Span.uri(new URI("https://google.com"))))
         val expected = """{"doc":"<p><a href="https://google.com">https://google.com</a></p>"}"""
+        assertTrue(rendered == expected)
+      },
+      test("render LiteralOrExpression") {
+        val rendered = JsonRenderer.renderFields(
+          "string"     -> (OpenAPI.LiteralOrExpression.StringLiteral("string"): OpenAPI.LiteralOrExpression),
+          "number"     -> (OpenAPI.LiteralOrExpression.NumberLiteral(1): OpenAPI.LiteralOrExpression),
+          "decimal"    -> (OpenAPI.LiteralOrExpression.DecimalLiteral(1.0): OpenAPI.LiteralOrExpression),
+          "boolean"    -> (OpenAPI.LiteralOrExpression.BooleanLiteral(true): OpenAPI.LiteralOrExpression),
+          "expression" -> OpenAPI.LiteralOrExpression.expression("expression"),
+        )
+        val expected = """{"string":"string","number":1,"decimal":1.0,"boolean":true,"expression":"expression"}"""
         assertTrue(rendered == expected)
       },
       test("throw exception for duplicate keys") {

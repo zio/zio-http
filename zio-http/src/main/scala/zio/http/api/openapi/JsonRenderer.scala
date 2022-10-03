@@ -2,6 +2,7 @@ package zio.http.api.openapi
 
 import zio.NonEmptyChunk
 import zio.http.api.Doc
+import zio.http.api.openapi.OpenAPI.LiteralOrExpression
 import zio.http.model.Status
 
 import java.net.URI
@@ -109,5 +110,16 @@ private[openapi] object JsonRenderer {
   implicit def tupleRenderable[A, B](implicit rA: Renderable[A], rB: Renderable[B]): Renderable[(A, B)] =
     new Renderable[(A, B)] {
       def render(a: (A, B)): String = s"{${renderKey(a._1)}:${rB.render(a._2)}}"
+    }
+
+  implicit def literalOrExpressionRenderable: Renderable[LiteralOrExpression] =
+    new Renderable[LiteralOrExpression] {
+      def render(a: LiteralOrExpression): String = a match {
+        case LiteralOrExpression.NumberLiteral(value)  => implicitly[Renderable[Long]].render(value)
+        case LiteralOrExpression.DecimalLiteral(value) => implicitly[Renderable[Double]].render(value)
+        case LiteralOrExpression.StringLiteral(value)  => implicitly[Renderable[String]].render(value)
+        case LiteralOrExpression.BooleanLiteral(value) => implicitly[Renderable[Boolean]].render(value)
+        case LiteralOrExpression.Expression(value)     => implicitly[Renderable[String]].render(value)
+      }
     }
 }
