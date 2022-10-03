@@ -59,16 +59,4 @@ object Service {
       case api @ HandledAPI(_, _) => Chunk(api.asInstanceOf[HandledAPI[R, E, _, _, _]])
       case Concat(left, right)    => flatten(left) ++ flatten(right)
     }
-
-  def applyMiddleware[R, E](
-    service: Service[R, E, _],
-    mid: MiddlewareSpec[Unit],
-  ): Service[R, E, _] = {
-    service match {
-      case api: Service.HandledAPI[R, E, _, _, _] =>
-        Service.HandledAPI(api.api @@ mid, api.handler)
-      case concat: Service.Concat[R, E, _, _]     =>
-        Service.Concat(applyMiddleware(concat.left, mid), applyMiddleware(concat.right, mid))
-    }
-  }
 }

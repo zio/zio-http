@@ -28,12 +28,12 @@ final case class API[Input, Output](
   output: Out[Output],
   doc: Doc,
   // TODO; New type paramters MiddlewareIn and MiddlewareOut
-  middlewareSpec: MiddlewareSpec[Unit],
+  middlewareSpec: Option[MiddlewareSpec[Unit]],
 ) { self =>
   type Id
 
-  def @@(mid: MiddlewareSpec[Unit]): API.WithId[Input, Output, Id] =
-    copy(middlewareSpec = mid)
+  def @@(mid: MiddlewareSpec[Unit]): API[Input, Output] =
+    copy(middlewareSpec = Some(mid))
 
   /**
    * Combines this API and another group of APIs.
@@ -142,7 +142,7 @@ object API {
    * definition of the API.
    */
   def delete[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.GET, route, Out.unit, Doc.empty, MiddlewareSpec.empty)
+    API(Method.GET, route, Out.unit, Doc.empty, None)
 
   /**
    * Constructs an API for a GET endpoint, given the specified input. It is not
@@ -151,7 +151,7 @@ object API {
    * definition of the API.
    */
   def get[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.GET, route, Out.unit, Doc.empty, MiddlewareSpec.empty)
+    API(Method.GET, route, Out.unit, Doc.empty, None)
 
   /**
    * Constructs an API for a POST endpoint, given the specified input. It is not
@@ -160,7 +160,7 @@ object API {
    * definition of the API.
    */
   def post[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.POST, route, Out.unit, Doc.empty, MiddlewareSpec.empty)
+    API(Method.POST, route, Out.unit, Doc.empty, None)
 
   /**
    * Constructs an API for a PUT endpoint, given the specified input. It is not
@@ -169,5 +169,5 @@ object API {
    * definition of the API.
    */
   def put[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.PUT, route, Out.unit, Doc.empty, MiddlewareSpec.empty)
+    API(Method.PUT, route, Out.unit, Doc.empty, None)
 }

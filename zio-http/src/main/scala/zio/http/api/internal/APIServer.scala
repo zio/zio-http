@@ -18,7 +18,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   private val outputJsonEncoder: Any => Chunk[Byte]               =
     JsonCodec.encode(api.output.bodySchema.asInstanceOf[Schema[Any]])
 
-  private val constructor = Mechanic.makeConstructor(api.input) // .asInstanceOf[Mechanic.Constructor[I]]
+  private val constructor = Mechanic.makeConstructor(api.input).asInstanceOf[Mechanic.Constructor[I]]
   private val flattened   = Mechanic.flatten(api.input)
 
   def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
@@ -34,19 +34,25 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
       val input: I = constructor(inputsBuilder)
 
       handler(input).map { output =>
-        println(getHeaders(api.middlewareSpec.middlewareOut))
         val body = outputJsonEncoder(output)
-        Response(body = Body.fromChunk(body), headers = getHeaders(api.middlewareSpec.middlewareOut))
+        Response(
+          body = Body.fromChunk(body),
+          headers = api.middlewareSpec.map(mid => getHeaders(mid.spec)).getOrElse(Headers.empty),
+        )
       }
     }
   }
 
-  private def getHeaders(middlewareSpec: Out[Unit]): Headers = {
+  private def getHeaders(middlewareSpec: In[Unit]): Headers = {
     import zio.http.model._
 
     middlewareSpec match {
-      case Out.AddHeader(key, value) => Headers(List(Header.apply(key, value)))
-      case _                         => Headers.empty
+      case In.Header(key, value) =>
+        value match {
+          case TextCodec.Constant(v) => Headers(List(Header.apply(key, v)))
+          case _                     => Headers.empty
+        }
+      case _                     => Headers.empty
     }
   }
 

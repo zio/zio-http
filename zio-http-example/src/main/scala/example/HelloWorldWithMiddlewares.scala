@@ -25,10 +25,15 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
       withHeader = Patch.addHeader("X-Time", currentMilliseconds.toString)
     } yield withHeader,
   )
-
   val middlewares: HttpMiddleware[Any, IOException] =
-    // add static header
-    Middleware.addHeader("X-Environment", "Dev")
+    // print debug info about request and response
+    Middleware.debug ++
+      // close connection if request takes more than 3 seconds
+      Middleware.timeout(3 seconds) ++
+      // add static header
+      Middleware.addHeader("X-Environment", "Dev") ++
+      // add dynamic header
+      serverTime
 
   // Run it like any simple app
   val run = Server.serve(app @@ middlewares).provide(Server.default)

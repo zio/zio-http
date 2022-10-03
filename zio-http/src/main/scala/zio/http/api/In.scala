@@ -1,6 +1,5 @@
 package zio.http.api
 
-import zio.http.model.Headers
 import zio.schema.Schema
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
@@ -61,7 +60,6 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
   private[api] final case class Query[A](name: String, textCodec: TextCodec[A])   extends Atom[A]
   private[api] final case class Header[A](name: String, textCodec: TextCodec[A])  extends Atom[A]
   private[api] final case class IndexedAtom[A](atom: Atom[A], index: Int)         extends Atom[A]
-  // A new type parameter will be added for type safety
   private[api] final case class WithDoc[A](in: In[A], doc: Doc)                   extends In[A]
   private[api] final case class Transform[X, A](api: In[X], f: X => A, g: A => X) extends In[A]
 

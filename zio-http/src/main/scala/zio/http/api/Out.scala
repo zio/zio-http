@@ -1,5 +1,6 @@
 package zio.http.api
 
+import zio.ZIO
 import zio.schema.Schema
 import zio.stream.ZStream
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -14,7 +15,7 @@ sealed trait Out[Output] {
 
   def bodySchema: Schema[Atom]
 }
-object Out               {
+object Out                   {
   def stream[A](implicit schema: Schema[A]): Out[ZStream[Any, Throwable, A]] = Stream(schema)
 
   val unit: Out[Unit] = value[Unit]
@@ -28,13 +29,6 @@ object Out               {
     override def bodySchema: Schema[Output] = schema
   }
 
-  final case class AddHeader(key: String, value: String) extends Out[Unit] {
-    type Atom = Unit
-    type Type = Unit
-
-    override def bodySchema: Schema[Unit] = Schema[Unit]
-
-  }
 
   final case class Stream[Element](schema: Schema[Element]) extends Out[ZStream[Any, Throwable, Element]] {
     type Atom = Element
