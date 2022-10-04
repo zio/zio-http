@@ -63,14 +63,13 @@ final case class TestServer[State](
 
     } *> setErrorCallback(errorCallback)
 
-  private def setErrorCallback(errorCallback: Option[ErrorCallback]): UIO[Unit] = {
-    ZIO
-      .environment[Any]
-      .flatMap(_ => driver.setErrorCallback(errorCallback))
+  private def setErrorCallback(errorCallback: Option[ErrorCallback]): UIO[Unit] =
+    driver
+      .setErrorCallback(errorCallback)
       .unless(errorCallback.isEmpty)
       .map(_.getOrElse(()))
-  }
-  override def port: Int                                                        = bindPort
+
+  override def port: Int = bindPort
 }
 
 object TestServer {
