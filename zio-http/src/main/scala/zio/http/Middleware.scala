@@ -1,6 +1,7 @@
 package zio.http
 
 import zio._
+import zio.http.api.{In, MiddlewareSpec}
 import zio.http.middleware.{MonoMiddleware, Web}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
@@ -184,7 +185,6 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
 }
 
 object Middleware extends Web {
-
   /**
    * Creates a middleware which can allow or disallow access to an http based on
    * the predicate

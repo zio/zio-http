@@ -37,7 +37,6 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
         val body = outputJsonEncoder(output)
         Response(
           body = Body.fromChunk(body),
-          headers = api.middlewareSpec.map(mid => getHeaders(mid.spec)).getOrElse(Headers.empty),
         )
       }
     }

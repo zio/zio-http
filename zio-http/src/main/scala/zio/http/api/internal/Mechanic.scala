@@ -140,10 +140,11 @@ private[api] object Mechanic {
     inputBodies: Chunk[InputBody[_]],
   ) { self =>
     def append(atom: Atom[_]) = atom match {
-      case route: Route[_]          => copy(routes = routes :+ route.textCodec)
-      case query: Query[_]          => copy(queries = queries :+ query)
-      case header: Header[_]        => copy(headers = headers :+ header)
-      case inputBody: InputBody[_]  => copy(inputBodies = inputBodies :+ inputBody)
+      case route: Route[_]                         => copy(routes = routes :+ route.textCodec)
+      case query: Query[_]                         => copy(queries = queries :+ query)
+      case header: Header[_]                       => copy(headers = headers :+ header)
+      case inputBody: InputBody[_]                 => copy(inputBodies = inputBodies :+ inputBody)
+      case basicAuthenticate: BasicAuthenticate[_] => self
       case _: IndexedAtom[_] => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
     }
 
@@ -161,7 +162,7 @@ private[api] object Mechanic {
     queries: Array[Any],
     headers: Array[Any],
     inputBodies: Array[Any],
-    responseHeaders: Array[Any]
+    responseHeaders: Array[Any],
   ) { self =>
     def setRoute(index: Int, value: Any): Unit =
       routes(index) = value
@@ -182,7 +183,7 @@ private[api] object Mechanic {
         queries = new Array(queries),
         headers = new Array(headers),
         inputBodies = new Array(bodies),
-        responseHeaders = new Array(responseHeaders)
+        responseHeaders = new Array(responseHeaders),
       )
   }
 
@@ -194,21 +195,23 @@ private[api] object Mechanic {
   ) {
     def increment(atom: Atom[_]): AtomIndices = {
       atom match {
-        case _: Route[_]       => copy(route = route + 1)
-        case _: Query[_]       => copy(query = query + 1)
-        case _: Header[_]      => copy(header = header + 1)
-        case _: InputBody[_]   => copy(inputBody = inputBody + 1)
-        case _: IndexedAtom[_] => throw new RuntimeException("IndexedAtom should not be passed to increment")
+        case _: Route[_]             => copy(route = route + 1)
+        case _: Query[_]             => copy(query = query + 1)
+        case _: Header[_]            => copy(header = header + 1)
+        case _: InputBody[_]         => copy(inputBody = inputBody + 1)
+        case _: BasicAuthenticate[_] => this
+        case _: IndexedAtom[_]       => throw new RuntimeException("IndexedAtom should not be passed to increment")
       }
     }
 
     def get(atom: Atom[_]): Int =
       atom match {
-        case _: Route[_]       => route
-        case _: Query[_]       => query
-        case _: Header[_]      => header
-        case _: InputBody[_]   => inputBody
-        case _: IndexedAtom[_] => throw new RuntimeException("IndexedAtom should not be passed to get")
+        case _: Route[_]             => route
+        case _: Query[_]             => query
+        case _: Header[_]            => header
+        case _: InputBody[_]         => inputBody
+        case _: BasicAuthenticate[_] => throw new RuntimeException("Cannot get authentication info")
+        case _: IndexedAtom[_]       => throw new RuntimeException("IndexedAtom should not be passed to get")
       }
   }
 }

@@ -1,5 +1,7 @@
 package zio.http.api
 
+import sun.text.normalizer.ICUBinary.Authenticate
+import zio.http.model.Headers
 import zio.schema.Schema
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
@@ -31,6 +33,7 @@ sealed trait In[Input] {
       case InputBody(schema)       => Some(schema)
       case Query(_, _)             => None
       case Header(_, _)            => None
+      case BasicAuthenticate(_, _) => None
       case IndexedAtom(atom, _)    => atom.bodySchema
       case Transform(in, _, _)     => in.bodySchema
       case WithDoc(in, _)          => in.bodySchema
@@ -55,13 +58,14 @@ sealed trait In[Input] {
 object In extends RouteInputs with QueryInputs with HeaderInputs {
   private[api] sealed trait Atom[Input0] extends In[Input0]
 
-  private[api] final case class Route[A](textCodec: TextCodec[A])                 extends Atom[A]
-  private[api] final case class InputBody[A](input: Schema[A])                    extends Atom[A]
-  private[api] final case class Query[A](name: String, textCodec: TextCodec[A])   extends Atom[A]
-  private[api] final case class Header[A](name: String, textCodec: TextCodec[A])  extends Atom[A]
-  private[api] final case class IndexedAtom[A](atom: Atom[A], index: Int)         extends Atom[A]
-  private[api] final case class WithDoc[A](in: In[A], doc: Doc)                   extends In[A]
-  private[api] final case class Transform[X, A](api: In[X], f: X => A, g: A => X) extends In[A]
+  private[api] final case class Route[A](textCodec: TextCodec[A])                     extends Atom[A]
+  private[api] final case class InputBody[A](input: Schema[A])                        extends Atom[A]
+  private[api] final case class Query[A](name: String, textCodec: TextCodec[A])       extends Atom[A]
+  private[api] final case class Header[A](name: String, textCodec: TextCodec[A])      extends Atom[A]
+  private[api] final case class BasicAuthenticate[A](uname: String, password: String) extends Atom[A]
+  private[api] final case class IndexedAtom[A](atom: Atom[A], index: Int)             extends Atom[A]
+  private[api] final case class WithDoc[A](in: In[A], doc: Doc)                       extends In[A]
+  private[api] final case class Transform[X, A](api: In[X], f: X => A, g: A => X)     extends In[A]
 
   private[api] final case class Combine[A1, A2, A](
     left: In[A1],
