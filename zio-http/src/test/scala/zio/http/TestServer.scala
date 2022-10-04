@@ -16,6 +16,7 @@ import zio.http.Server.ErrorCallback
  * @param bindPort
  *   Port for HTTP interactions
  * @tparam State
+ *   The type of state that will be mutated
  */
 final case class TestServer[State](
   state: Ref[State],
@@ -57,6 +58,22 @@ final case class TestServer[State](
     addHandlerState(handler)
   }
 
+  /**
+   * Define stateless behavior for the Server.
+   *
+   * @param pf
+   *   The stateless behavior
+   *
+   * @return
+   *   The TestSever with new behavior.
+   *
+   * @example
+   *   {{{
+   *   ZIO.serviceWithZIO[TestServer[Unit]](_.addHandler { case _: Request =>
+   *       Response(Status.Ok)
+   *   }
+   *   }}}
+   */
   def addHandler(pf: PartialFunction[Request, Response]): TestServer[State] = {
     val handler: PartialFunction[(State, Request), (State, Response)] = {
       case (state, request) if pf.isDefinedAt(request) => (state, pf(request))
@@ -64,6 +81,23 @@ final case class TestServer[State](
     addHandlerState(handler)
   }
 
+  /**
+   * Define stateful behavior for Server
+   * @param pf
+   *   Stateful behavior
+   * @return
+   *   The TestSever with new behavior.
+   *
+   * @example
+   *   {{{
+   * ZIO.serviceWithZIO[TestServer[Int]](_.addHandlerState { case (state, _: Request) =>
+   *   if (state > 0)
+   *     (state + 1, Response(Status.InternalServerError))
+   *   else
+   *     (state + 1, Response(Status.Ok))
+   * }
+   *   }}}
+   */
   def addHandlerState(
     pf: PartialFunction[(State, Request), (State, Response)],
   ): TestServer[State] =
@@ -114,6 +148,7 @@ object TestServer {
       state  <- Ref.make(initial)
     } yield TestServer(state, empty, driver, port)
 
+  // Ensures that we blow up quickly if we execute a test against a TestServer with no behavior defined.
   private def empty[State]: PartialFunction[(State, Request), (State, Response)] = {
     case _ if false => ???
   }
