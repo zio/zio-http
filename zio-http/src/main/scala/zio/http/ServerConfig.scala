@@ -129,7 +129,7 @@ object ServerConfig {
     ZLayer.succeed(ServerConfig.default)
   }
 
-  def live(config: ServerConfig): ZLayer[Any, Nothing, ServerConfig] =
+  def live(config: ServerConfig)(implicit trace: Trace): ZLayer[Any, Nothing, ServerConfig] =
     ZLayer.succeed(config)
 
   private[http] def liveOnOpenPort(implicit trace: Trace): ZLayer[Network, Any, ServerConfig] =
@@ -138,9 +138,6 @@ object ServerConfig {
         port <- Network.findOpenPort
       } yield ServerConfig.default.port(port),
     )
-
-  def live(config: ServerConfig)(implicit trace: Trace): ZLayer[Any, Nothing, ServerConfig] =
-    ZLayer.succeed(config)
 
   def responseCompressionConfig(
     contentThreshold: Int = 0,
