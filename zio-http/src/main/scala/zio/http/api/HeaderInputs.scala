@@ -1,7 +1,7 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.headers.values.{Age, CacheControl, ContentLength, Origin}
+import zio.http.model.headers.values.{Age, Allow, CacheControl, ContentLength, Origin}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait HeaderInputs {
@@ -28,8 +28,10 @@ private[api] trait HeaderInputs {
     header(HeaderNames.accessControlRequestHeaders.toString(), TextCodec.string)
   final val accessControlRequestMethod: In[String]  =
     header(HeaderNames.accessControlRequestMethod.toString(), TextCodec.string)
-  final val age: In[Age]      = header(HeaderNames.age.toString(), TextCodec.string).transform(Age.toAge, Age.fromAge)
-  final val allow: In[String] = header(HeaderNames.allow.toString(), TextCodec.string)
+  final val age: In[Age]     = header(HeaderNames.age.toString(), TextCodec.string).transform(Age.toAge, Age.fromAge)
+  final val allow: In[Allow] =
+    header(HeaderNames.allow.toString(), TextCodec.string)
+      .transform[Allow](Allow.toAllow, Allow.fromAllow)
   final val authorization: In[String]           = header(HeaderNames.authorization.toString(), TextCodec.string)
   final val cacheControl: In[CacheControl]      =
     header(HeaderNames.cacheControl.toString(), TextCodec.string)
