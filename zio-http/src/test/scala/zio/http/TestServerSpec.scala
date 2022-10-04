@@ -1,8 +1,6 @@
 package zio.http
 
 import zio._
-import zio.http.URL.Location
-import zio.http.model.Method.GET
 import zio.http.model.Status.NotFound
 import zio.http.model._
 import zio.http.netty.server.NettyDriver
@@ -109,7 +107,7 @@ object TestServerSpec extends ZIOSpecDefault {
     for {
       port <- ZIO.serviceWith[Server](_.port)
     } yield Request
-      .default(method = GET, url = URL(Path.root, Location.Absolute(Scheme.HTTP, "localhost", port)))
+      .get(url = URL.root.setPort(port))
       .addHeaders(Headers.accept("text"))
 
 }

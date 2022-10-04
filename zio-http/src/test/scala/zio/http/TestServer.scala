@@ -3,13 +3,43 @@ package zio.http
 import zio._
 import zio.http.Server.ErrorCallback
 
+/**
+ * Enables tests that make calls against "localhost" with user-specified
+ * Behavior/Responses.
+ *
+ * @param state
+ *   State that can be consulted by our behavior PartialFunction
+ * @param behavior
+ *   Describes how the Server should behave during your test
+ * @param driver
+ *   The web driver that accepts our Server behavior
+ * @param bindPort
+ *   Port for HTTP interactions
+ * @tparam State
+ */
 final case class TestServer[State](
   state: Ref[State],
-  routes: PartialFunction[(State, Request), (State, Response)],
+  behavior: PartialFunction[(State, Request), (State, Response)],
   driver: Driver,
   bindPort: Int,
 ) extends Server {
 
+  /**
+   * Define 1-1 mappings between incoming Requests and outgoing Responses
+   *
+   * @param expectedRequest
+   *   Request that will trigger the provided Response
+   * @param response
+   *   Response that the Server will send
+   *
+   * @example
+   *   {{{ ZIO.serviceWithZIO[TestServer[Unit]]( _.addRequestResponse(
+   *   Request.get(url = URL.root.setPort(port = ???)), Response(Status.Ok)
+   *   ).install ) }}}
+   *
+   * @return
+   *   The TestSever with new behavior.
+   */
   def addRequestResponse(
     expectedRequest: Request,
     response: Response,
@@ -37,13 +67,13 @@ final case class TestServer[State](
   def addHandlerState(
     pf: PartialFunction[(State, Request), (State, Response)],
   ): TestServer[State] =
-    copy(routes = routes.orElse(pf))
+    copy(behavior = behavior.orElse(pf))
 
   def install(implicit
     trace: zio.Trace,
   ): UIO[Unit] =
     driver.addApp(
-      Http.fromFunctionZIO((request: Request) => state.modify(state1 => routes((state1, request)).swap)),
+      Http.fromFunctionZIO((request: Request) => state.modify(state1 => behavior((state1, request)).swap)),
     )
 
   override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
@@ -55,7 +85,7 @@ final case class TestServer[State](
         else httpApp.provideEnvironment(env),
       ) *> {
         val func =
-          (request: Request) => state.modify(state1 => routes((state1, request)).swap)
+          (request: Request) => state.modify(state1 => behavior((state1, request)).swap)
 
         val app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(func)
         driver.addApp(app)
