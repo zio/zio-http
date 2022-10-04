@@ -132,6 +132,13 @@ object ServerConfig {
   def live(config: ServerConfig)(implicit trace: Trace): ZLayer[Any, Nothing, ServerConfig] =
     ZLayer.succeed(config)
 
+  private[http] def liveOnOpenPort(implicit trace: Trace): ZLayer[Network, Any, ServerConfig] =
+    ZLayer.fromZIO(
+      for {
+        port <- Network.findOpenPort
+      } yield ServerConfig.default.port(port),
+    )
+
   def responseCompressionConfig(
     contentThreshold: Int = 0,
     options: IndexedSeq[CompressionOptions] = IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()),
