@@ -5,6 +5,7 @@ import zio.http.api.Doc
 import zio.http.model.Status
 
 import java.net.URI
+import java.util.Base64
 import scala.language.implicitConversions // scalafix:ok;
 
 private[openapi] object JsonRenderer {
@@ -70,7 +71,7 @@ private[openapi] object JsonRenderer {
   }
 
   implicit val docRenderable: Renderable[Doc] = new Renderable[Doc] {
-    def render(a: Doc): String = s""""${a.toHTMLSnippet}""""
+    def render(a: Doc): String = s""""${Base64.getEncoder.encodeToString(a.toCommonMark.getBytes)}""""
   }
 
   implicit def openapiBaseRenderable[T <: OpenAPIBase]: Renderable[T] = new Renderable[T] {
