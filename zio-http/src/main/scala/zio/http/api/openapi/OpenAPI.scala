@@ -10,7 +10,6 @@ import zio.NonEmptyChunk
 import zio.http.api.openapi.JsonRenderer._
 import zio.http.api.{Doc, openapi}
 import zio.http.model.Status
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 import java.net.URI
 import scala.util.matching.Regex
@@ -840,7 +839,12 @@ object OpenAPI {
    *   responses.
    */
   final case class Callback(expressions: Map[String, PathItem]) extends CallbackOrReference {
-    override def toJson: String = JsonRenderer.renderFields("expressions" -> expressions)
+    override def toJson: String = {
+      val toRender = expressions.foldLeft(List.empty[(String, Renderer[PathItem])]) { case (acc, (k, v)) =>
+        (k, v: Renderer[PathItem]) :: acc
+      }
+      JsonRenderer.renderFields(toRender: _*)
+    }
   }
 
   sealed trait ExampleOrReference extends openapi.OpenAPIBase
@@ -905,17 +909,41 @@ object OpenAPI {
    */
   final case class Link(
     operationRef: URI,
-    parameters: Map[String, Any],
-    requestBody: Any,
+    parameters: Map[String, LiteralOrExpression],
+    requestBody: LiteralOrExpression,
     description: Doc,
     server: Option[Server],
   ) extends LinkOrReference {
-    // TODO: What to do with type `Any` fields?
     override def toJson: String = JsonRenderer.renderFields(
       "operationRef" -> operationRef,
+      "parameters"   -> parameters,
+      "requestBody"  -> requestBody,
       "description"  -> description,
       "server"       -> server,
     )
+  }
+
+  sealed trait LiteralOrExpression
+  object LiteralOrExpression {
+    final case class NumberLiteral(value: Long)                   extends LiteralOrExpression
+    final case class DecimalLiteral(value: Double)                extends LiteralOrExpression
+    final case class StringLiteral(value: String)                 extends LiteralOrExpression
+    final case class BooleanLiteral(value: Boolean)               extends LiteralOrExpression
+    sealed abstract case class Expression private (value: String) extends LiteralOrExpression
+
+    object Expression {
+      private[openapi] def create(value: String): Expression = new Expression(value) {}
+    }
+
+    // TODO: maybe one could make a regex to validate the expression. For now just accept anything
+    // https://swagger.io/specification/#runtime-expressions
+    val ExpressionRegex: Regex = """.*""".r
+
+    def expression(value: String): Option[LiteralOrExpression] =
+      value match {
+        case ExpressionRegex() => Some(Expression.create(value))
+        case _                 => None
+      }
   }
 
   /**
