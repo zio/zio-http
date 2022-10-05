@@ -77,7 +77,9 @@ final case class TestServer(
    *    }
    *   }}}
    */
-  def addHandler(
+def addHandler[R](
+      pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
+  ): ZIO[R, Nothing, Unit] = {
     pf: PartialFunction[Request, ZIO[Any, Nothing, Response]],
   ): ZIO[Any, Nothing, Unit] = {
     for {
