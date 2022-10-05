@@ -17,7 +17,7 @@ import zio.http.Server.ErrorCallback
 final case class TestServer(
   behavior: Ref[PartialFunction[Request, ZIO[Any, Nothing, Response]]],
   driver: Driver,
-  bindPort: RuntimeFlags,
+  bindPort: Int,
 ) extends Server {
 
   /**
@@ -80,8 +80,6 @@ final case class TestServer(
 def addHandler[R](
       pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
   ): ZIO[R, Nothing, Unit] = {
-    pf: PartialFunction[Request, ZIO[Any, Nothing, Response]],
-  ): ZIO[Any, Nothing, Unit] = {
     for {
       newBehavior <- behavior.updateAndGet(_.orElse(pf))
       app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(newBehavior)
