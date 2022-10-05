@@ -7,18 +7,12 @@ import zio.http.Server.ErrorCallback
  * Enables tests that make calls against "localhost" with user-specified
  * Behavior/Responses.
  *
- * @param behavior
- *   Describes how the Server should behave during your test
  * @param driver
  *   The web driver that accepts our Server behavior
  * @param bindPort
  *   Port for HTTP interactions
  */
-final case class TestServer(
-  behavior: Ref[PartialFunction[Request, ZIO[Any, Throwable, Response]]],
-  driver: Driver,
-  bindPort: Int,
-) extends Server {
+final case class TestServer(driver: Driver, bindPort: Int) extends Server {
 
   /**
    * Define 1-1 mappings between incoming Requests and outgoing Responses
@@ -41,7 +35,7 @@ final case class TestServer(
     response: Response,
   ): ZIO[Any, Nothing, Unit] = {
     val handler: PartialFunction[Request, ZIO[Any, Nothing, Response]] = {
-      case (realRequest) if {
+      case realRequest if {
             // The way that the Client breaks apart and re-assembles the request prevents a straightforward
             //    expectedRequest == realRequest
             expectedRequest.url.relative == realRequest.url &&
@@ -83,23 +77,11 @@ def addHandler[R](
 
     for {
       r <- ZIO.environment[R]
-      newBehavior <- behavior.updateAndGet(_.orElse(pf.andThen(_.provideEnvironment(r))))
+      newBehavior = pf.andThen(_.provideEnvironment(r))
       app: HttpApp[Any, Throwable] = Http.fromFunctionZIO(newBehavior)
       _ <- driver.addApp(app)
     } yield ()
   }
-
-  def install(implicit
-    trace: zio.Trace,
-  ): UIO[Unit] =
-    driver.addApp(
-      Http.fromFunctionZIO((request: Request) =>
-        for {
-          behavior1 <- behavior.get
-          response  <- behavior1(request)
-        } yield response,
-      ),
-    )
 
   override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
     trace: zio.Trace,
@@ -108,13 +90,7 @@ def addHandler[R](
       driver.addApp(
         if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
         else httpApp.provideEnvironment(env),
-      ) *> {
-        for {
-          behavior1 <- behavior.get
-          app = Http.fromFunctionZIO(behavior1)
-          _ <- driver.addApp(app)
-        } yield ()
-      }
+      )
     } *> setErrorCallback(errorCallback)
 
   private def setErrorCallback(errorCallback: Option[ErrorCallback]): UIO[Unit] =
@@ -143,13 +119,8 @@ object TestServer {
       for {
         driver <- ZIO.service[Driver]
         port <- driver.start
-        routes <- Ref.make[PartialFunction[Request, ZIO[Any, Throwable, Response]]](empty)
-      } yield TestServer(routes, driver, port)
+      } yield TestServer(driver, port)
     }
   }
 
-  // Ensures that we blow up quickly if we execute a test against a TestServer with no behavior defined.
-  private def empty: PartialFunction[Request, ZIO[Any, Nothing, Response]] = {
-    case _ if false => ???
-  }
 }
