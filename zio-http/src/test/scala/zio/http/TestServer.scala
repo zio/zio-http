@@ -71,17 +71,15 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
    *    }
    *   }}}
    */
-def addHandler[R](
-      pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
-  ): ZIO[R, Nothing, Unit] = {
-
+  def addHandler[R](
+    pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
+  ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      newBehavior = pf.andThen(_.provideEnvironment(r))
-      app: HttpApp[Any, Throwable] = Http.fromFunctionZIO(newBehavior)
+      behavior                     = pf.andThen(_.provideEnvironment(r))
+      app: HttpApp[Any, Throwable] = Http.fromFunctionZIO(behavior)
       _ <- driver.addApp(app)
     } yield ()
-  }
 
   override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
     trace: zio.Trace,
@@ -114,13 +112,12 @@ object TestServer {
   ): ZIO[TestServer, Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer](_.addRequestResponse(request, response))
 
-  val layer: ZLayer[Driver, Throwable, TestServer] = {
+  val layer: ZLayer[Driver, Throwable, TestServer] =
     ZLayer.scoped {
       for {
         driver <- ZIO.service[Driver]
-        port <- driver.start
+        port   <- driver.start
       } yield TestServer(driver, port)
     }
-  }
 
 }
