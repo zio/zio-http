@@ -53,7 +53,7 @@ sealed trait Service[-R, +E, AllIds] { self =>
     self.asInstanceOf[Service[R, E, AllIds0]]
 }
 object Service {
-  // How to integrate middlewarespec's handlers in here ? 
+  // How to integrate middlewarespec's handlers in here ?
   final case class HandledAPI[-R, +E, In0, Out0, Id](
     api: API.WithId[In0, Out0, Id],
     handler: In0 => ZIO[R, E, Out0],
