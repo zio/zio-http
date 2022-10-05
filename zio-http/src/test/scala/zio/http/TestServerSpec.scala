@@ -16,7 +16,7 @@ object TestServerSpec extends ZIOSpecDefault {
           Client.request(
             testRequest,
           )
-        _               <- TestServer.addHandler[Unit] { case _: Request =>
+        _               <- TestServer.addHandler { case _: Request =>
           ZIO.succeed(Response(Status.Ok))
         }
         finalResponse   <-
@@ -29,10 +29,9 @@ object TestServerSpec extends ZIOSpecDefault {
     ),
     test("with state") {
       for {
-        port        <- ZIO.serviceWith[Server](_.port)
         state <- Ref.make(0)
         testRequest <- requestToCorrectPort
-        _           <- TestServer.addHandlerState[Int] { case (_: Request) =>
+        _           <- TestServer.addHandlerState { case (_: Request) =>
           for {
             curState <- state.getAndUpdate(_ + 1)
           } yield {
@@ -53,13 +52,13 @@ object TestServerSpec extends ZIOSpecDefault {
       } yield assertTrue(response1.status == Status.Ok) &&
         assertTrue(response2.status == Status.InternalServerError)
     }.provideSome[Scope with Client with Driver](
-      ZLayer.fromZIO(TestServer.layer(0)),
+      ZLayer.fromZIO(TestServer.layer),
     ),
     suite("Exact Request=>Response version")(
       test("matches") {
         for {
           testRequest   <- requestToCorrectPort
-          _             <- TestServer.addRequestResponse[Unit](testRequest, Response(Status.Ok))
+          _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest,
@@ -70,7 +69,7 @@ object TestServerSpec extends ZIOSpecDefault {
       test("matches, ignoring additional headers") {
         for {
           testRequest   <- requestToCorrectPort
-          _             <- TestServer.addRequestResponse[Unit](testRequest, Response(Status.Ok))
+          _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest.addHeaders(Headers.contentLanguage("French")),
@@ -81,7 +80,7 @@ object TestServerSpec extends ZIOSpecDefault {
       test("does not match different path") {
         for {
           testRequest   <- requestToCorrectPort
-          _             <- TestServer.addRequestResponse[Unit](testRequest, Response(Status.Ok))
+          _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest.copy(url = testRequest.url.setPath(Path.root / "unhandled")),
@@ -91,7 +90,7 @@ object TestServerSpec extends ZIOSpecDefault {
       test("does not match different headers") {
         for {
           testRequest   <- requestToCorrectPort
-          _             <- TestServer.addRequestResponse[Unit](testRequest, Response(Status.Ok))
+          _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest.copy(headers = Headers.cacheControl("cache")),

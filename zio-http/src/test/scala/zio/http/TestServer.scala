@@ -18,12 +18,10 @@ import zio.http.Server.ErrorCallback
  * @tparam State
  *   The type of state that will be mutated
  */
-final case class TestServer[State](
-  state: Ref[State],
-  behavior: Ref[PartialFunction[Request, ZIO[Any, Nothing, Response]]],
-  driver: Driver,
-  bindPort: Int,
-) extends Server {
+final case class TestServer(
+                                    behavior: Ref[PartialFunction[Request, ZIO[Any, Nothing, Response]]],
+                                    driver: Driver,
+                                    bindPort: RuntimeFlags) extends Server {
 
   /**
    * Define 1-1 mappings between incoming Requests and outgoing Responses
@@ -143,35 +141,31 @@ final case class TestServer[State](
 }
 
 object TestServer {
-  def addHandlerState[State: Tag](
+  def addHandlerState(
     pf: PartialFunction[Request, ZIO[Any, Nothing, Response]],
-  ): ZIO[TestServer[State], Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer[State]](_.addHandlerState(pf))
+  ): ZIO[TestServer, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestServer](_.addHandlerState(pf))
 
-  def addRequestResponse[State: Tag](
+  def addRequestResponse(
     request: Request,
     response: Response,
-  ): ZIO[TestServer[State], Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer[State]](_.addRequestResponse(request, response))
+  ): ZIO[TestServer, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestServer](_.addRequestResponse(request, response))
 
-  def addHandler[T: Tag](pf: PartialFunction[Request, ZIO[Any, Nothing, Response]]): ZIO[TestServer[T], Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer[T]](_.addHandler {
+  def addHandler(pf: PartialFunction[Request, ZIO[Any, Nothing, Response]]): ZIO[TestServer, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestServer](_.addHandler {
       pf
     })
 
-  val layer: ZIO[Driver with Scope, Throwable, TestServer[Unit]] =
-    layer(())
-
-  def layer[State](initial: State): ZIO[Driver with Scope, Throwable, TestServer[State]] =
+  val layer: ZIO[Driver with Scope, Throwable, TestServer] =
     for {
       driver <- ZIO.service[Driver]
       port   <- driver.start
-      state  <- Ref.make(initial)
       routes <- Ref.make[PartialFunction[Request, ZIO[Any, Nothing, Response]]](empty)
-    } yield TestServer(state, routes, driver, port)
+    } yield TestServer(routes, driver, port)
 
   // Ensures that we blow up quickly if we execute a test against a TestServer with no behavior defined.
-  private def empty[State]: PartialFunction[Request, ZIO[Any, Nothing, Response]] = {
+  private def empty: PartialFunction[Request, ZIO[Any, Nothing, Response]] = {
     case _ if false => ???
   }
 }
