@@ -15,9 +15,10 @@ import zio.http.Server.ErrorCallback
  *   Port for HTTP interactions
  */
 final case class TestServer(
-                                    behavior: Ref[PartialFunction[Request, ZIO[Any, Nothing, Response]]],
-                                    driver: Driver,
-                                    bindPort: RuntimeFlags) extends Server {
+  behavior: Ref[PartialFunction[Request, ZIO[Any, Nothing, Response]]],
+  driver: Driver,
+  bindPort: RuntimeFlags,
+) extends Server {
 
   /**
    * Define 1-1 mappings between incoming Requests and outgoing Responses
@@ -29,7 +30,7 @@ final case class TestServer(
    *
    * @example
    *   {{{
-     *   TestServer.addRequestResponse(Request.get(url = URL.root.setPort(port = ???)), Response(Status.Ok))
+   *   TestServer.addRequestResponse(Request.get(url = URL.root.setPort(port = ???)), Response(Status.Ok))
    *   }}}
    *
    * @return
@@ -60,7 +61,7 @@ final case class TestServer(
    *   The TestSever with new behavior.
    *
    * @example
-   * {{{
+   *   {{{
    *  for {
    *    state <- Ref.make(0)
    *    testRequest <- requestToCorrectPort
@@ -74,7 +75,7 @@ final case class TestServer(
    *          Response(Status.Ok)
    *      }
    *    }
-   * }}}
+   *   }}}
    */
   def addHandler(
     pf: PartialFunction[Request, ZIO[Any, Nothing, Response]],
@@ -82,7 +83,7 @@ final case class TestServer(
     for {
       newBehavior <- behavior.updateAndGet(_.orElse(pf))
       app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(newBehavior)
-      _ <-  driver.addApp(app)
+      _ <- driver.addApp(app)
     } yield ()
   }
 
@@ -93,8 +94,8 @@ final case class TestServer(
       Http.fromFunctionZIO((request: Request) =>
         for {
           behavior1 <- behavior.get
-          response <- behavior1(request)
-        } yield response
+          response  <- behavior1(request)
+        } yield response,
       ),
     )
 
@@ -125,8 +126,8 @@ final case class TestServer(
 
 object TestServer {
   def addHandler(
-                       pf: PartialFunction[Request, ZIO[Any, Nothing, Response]],
-                     ): ZIO[TestServer, Nothing, Unit] =
+    pf: PartialFunction[Request, ZIO[Any, Nothing, Response]],
+  ): ZIO[TestServer, Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer](_.addHandler(pf))
 
   def addRequestResponse(

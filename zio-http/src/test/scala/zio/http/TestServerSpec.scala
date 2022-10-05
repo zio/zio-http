@@ -10,7 +10,7 @@ object TestServerSpec extends ZIOSpecDefault {
   def spec = suite("TestServerSpec")(
     test("with state") { // Now that the handlers are effects, this isn't *strictly* necessary, but it gives
       for {
-        state <- Ref.make(0)
+        state       <- Ref.make(0)
         testRequest <- requestToCorrectPort
         _           <- TestServer.addHandler { case (_: Request) =>
           for {
