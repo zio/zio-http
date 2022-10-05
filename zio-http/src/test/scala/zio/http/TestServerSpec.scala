@@ -32,8 +32,8 @@ object TestServerSpec extends ZIOSpecDefault {
           )
       } yield assertTrue(response1.status == Status.Ok) &&
         assertTrue(response2.status == Status.InternalServerError)
-    }.provideSome[Scope with Client with Driver](
-      ZLayer.fromZIO(TestServer.layer),
+    }.provideSome[Client with Driver](
+      TestServer.layer,
     ),
     suite("Exact Request=>Response version")(
       test("matches") {
@@ -79,8 +79,8 @@ object TestServerSpec extends ZIOSpecDefault {
         } yield assertTrue(finalResponse.status == Status.InternalServerError)
       },
     )
-      .provideSome[Scope with Client with Driver](
-        ZLayer.fromZIO(TestServer.layer),
+      .provideSome[Client with Driver](
+        TestServer.layer,
       ),
   ).provideSome[Scope](
     ServerConfig.liveOnOpenPort,

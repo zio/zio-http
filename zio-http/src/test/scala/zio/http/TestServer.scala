@@ -15,7 +15,7 @@ import zio.http.Server.ErrorCallback
  *   Port for HTTP interactions
  */
 final case class TestServer(
-  behavior: Ref[PartialFunction[Request, ZIO[Any, Nothing, Response]]],
+  behavior: Ref[PartialFunction[Request, ZIO[Any, Throwable, Response]]],
   driver: Driver,
   bindPort: Int,
 ) extends Server {
@@ -80,9 +80,11 @@ final case class TestServer(
 def addHandler[R](
       pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
   ): ZIO[R, Nothing, Unit] = {
+
     for {
-      newBehavior <- behavior.updateAndGet(_.orElse(pf))
-      app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(newBehavior)
+      r <- ZIO.environment[R]
+      newBehavior <- behavior.updateAndGet(_.orElse(pf.andThen(_.provideEnvironment(r))))
+      app: HttpApp[Any, Throwable] = Http.fromFunctionZIO(newBehavior)
       _ <- driver.addApp(app)
     } yield ()
   }
@@ -125,9 +127,9 @@ def addHandler[R](
 }
 
 object TestServer {
-  def addHandler(
-    pf: PartialFunction[Request, ZIO[Any, Nothing, Response]],
-  ): ZIO[TestServer, Nothing, Unit] =
+  def addHandler[R](
+    pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
+  ): ZIO[R with TestServer, Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer](_.addHandler(pf))
 
   def addRequestResponse(
@@ -136,12 +138,15 @@ object TestServer {
   ): ZIO[TestServer, Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer](_.addRequestResponse(request, response))
 
-  val layer: ZIO[Driver with Scope, Throwable, TestServer] =
-    for {
-      driver <- ZIO.service[Driver]
-      port   <- driver.start
-      routes <- Ref.make[PartialFunction[Request, ZIO[Any, Nothing, Response]]](empty)
-    } yield TestServer(routes, driver, port)
+  val layer: ZLayer[Driver, Throwable, TestServer] = {
+    ZLayer.scoped {
+      for {
+        driver <- ZIO.service[Driver]
+        port <- driver.start
+        routes <- Ref.make[PartialFunction[Request, ZIO[Any, Throwable, Response]]](empty)
+      } yield TestServer(routes, driver, port)
+    }
+  }
 
   // Ensures that we blow up quickly if we execute a test against a TestServer with no behavior defined.
   private def empty: PartialFunction[Request, ZIO[Any, Nothing, Response]] = {
