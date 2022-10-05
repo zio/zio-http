@@ -8,7 +8,7 @@ import zio.test._
 object TestServerSpec extends ZIOSpecDefault {
 
   def spec = suite("TestServerSpec")(
-    test("with state") { // Now that the handlers are effects, this isn't *strictly* necessary, but it gives
+    test("with state") {
       for {
         state       <- Ref.make(0)
         testRequest <- requestToCorrectPort
