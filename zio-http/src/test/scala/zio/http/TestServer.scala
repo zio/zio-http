@@ -172,10 +172,10 @@ object TestServer {
       pf
     })
 
-  val make: ZIO[Driver with Scope, Throwable, TestServer[Unit]] =
-    make(())
+  val layer: ZIO[Driver with Scope, Throwable, TestServer[Unit]] =
+    layer(())
 
-  def make[State](initial: State): ZIO[Driver with Scope, Throwable, TestServer[State]] =
+  def layer[State](initial: State): ZIO[Driver with Scope, Throwable, TestServer[State]] =
     for {
       driver <- ZIO.service[Driver]
       port   <- driver.start

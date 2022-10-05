@@ -25,7 +25,7 @@ object TestServerSpec extends ZIOSpecDefault {
           )
       } yield assertTrue(initialResponse.status == NotFound) && assertTrue(finalResponse.status == Status.Ok)
     }.provideSome[Scope with Client with Driver](
-      ZLayer.fromZIO(TestServer.make),
+      ZLayer.fromZIO(TestServer.layer),
     ),
     test("with state") {
       for {
@@ -48,7 +48,7 @@ object TestServerSpec extends ZIOSpecDefault {
       } yield assertTrue(response1.status == Status.Ok) &&
         assertTrue(response2.status == Status.InternalServerError)
     }.provideSome[Scope with Client with Driver](
-      ZLayer.fromZIO(TestServer.make(0)),
+      ZLayer.fromZIO(TestServer.layer(0)),
     ),
     suite("Exact Request=>Response version")(
       test("matches") {
@@ -95,7 +95,7 @@ object TestServerSpec extends ZIOSpecDefault {
       },
     )
       .provideSome[Scope with Client with Driver](
-        ZLayer.fromZIO(TestServer.make),
+        ZLayer.fromZIO(TestServer.layer),
       ),
   ).provideSome[Scope](
     Network.live,
