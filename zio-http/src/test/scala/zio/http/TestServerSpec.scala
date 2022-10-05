@@ -1,7 +1,6 @@
 package zio.http
 
 import zio._
-import zio.http.model.Status.NotFound
 import zio.http.model._
 import zio.http.netty.server.NettyDriver
 import zio.test._
@@ -9,29 +8,11 @@ import zio.test._
 object TestServerSpec extends ZIOSpecDefault {
 
   def spec = suite("TestServerSpec")(
-    test("stateless") {
-      for {
-        testRequest     <- requestToCorrectPort
-        initialResponse <-
-          Client.request(
-            testRequest,
-          )
-        _               <- TestServer.addHandler { case _: Request =>
-          ZIO.succeed(Response(Status.Ok))
-        }
-        finalResponse   <-
-          Client.request(
-            testRequest,
-          )
-      } yield assertTrue(initialResponse.status == NotFound) && assertTrue(finalResponse.status == Status.Ok)
-    }.provideSome[Scope with Client with Driver](
-      ZLayer.fromZIO(TestServer.layer),
-    ),
-    test("with state") {
+    test("with state") { // Now that the handlers are effects, this isn't *strictly* necessary, but it gives
       for {
         state <- Ref.make(0)
         testRequest <- requestToCorrectPort
-        _           <- TestServer.addHandlerState { case (_: Request) =>
+        _           <- TestServer.addHandler { case (_: Request) =>
           for {
             curState <- state.getAndUpdate(_ + 1)
           } yield {
@@ -102,7 +83,6 @@ object TestServerSpec extends ZIOSpecDefault {
         ZLayer.fromZIO(TestServer.layer),
       ),
   ).provideSome[Scope](
-    Network.live,
     ServerConfig.liveOnOpenPort,
     Client.default,
     NettyDriver.default,

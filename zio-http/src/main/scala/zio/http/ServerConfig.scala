@@ -132,7 +132,7 @@ object ServerConfig {
   def live(config: ServerConfig)(implicit trace: Trace): ZLayer[Any, Nothing, ServerConfig] =
     ZLayer.succeed(config)
 
-  private[http] def liveOnOpenPort(implicit trace: Trace): ZLayer[Network, Any, ServerConfig] =
+  private[http] def liveOnOpenPort(implicit trace: Trace): ZLayer[Any, Any, ServerConfig] =
     ZLayer.succeed(
       ServerConfig.default.port(0),
     )

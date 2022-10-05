@@ -7,16 +7,12 @@ import zio.http.Server.ErrorCallback
  * Enables tests that make calls against "localhost" with user-specified
  * Behavior/Responses.
  *
- * @param state
- *   State that can be consulted by our behavior PartialFunction
  * @param behavior
  *   Describes how the Server should behave during your test
  * @param driver
  *   The web driver that accepts our Server behavior
  * @param bindPort
  *   Port for HTTP interactions
- * @tparam State
- *   The type of state that will be mutated
  */
 final case class TestServer(
                                     behavior: Ref[PartialFunction[Request, ZIO[Any, Nothing, Response]]],
@@ -32,9 +28,9 @@ final case class TestServer(
    *   Response that the Server will send
    *
    * @example
-   *   {{{ ZIO.serviceWithZIO[TestServer[Unit]]( _.addRequestResponse(
-   *   Request.get(url = URL.root.setPort(port = ???)), Response(Status.Ok)
-   *   ).install ) }}}
+   *   {{{
+     *   TestServer.addRequestResponse(Request.get(url = URL.root.setPort(port = ???)), Response(Status.Ok))
+   *   }}}
    *
    * @return
    *   The TestSever with new behavior.
@@ -53,47 +49,34 @@ final case class TestServer(
           } =>
         ZIO.succeed(response)
     }
-    addHandlerState(handler)
+    addHandler(handler)
   }
 
   /**
-   * Define stateless behavior for the Server.
-   *
+   * Add new behavior to Server
    * @param pf
-   *   The stateless behavior
-   *
+   *   New behavior
    * @return
    *   The TestSever with new behavior.
    *
    * @example
-   *   {{{
-   *   ZIO.serviceWithZIO[TestServer[Unit]](_.addHandler { case _: Request =>
-   *       Response(Status.Ok)
-   *   }
-   *   }}}
+   * {{{
+   *  for {
+   *    state <- Ref.make(0)
+   *    testRequest <- requestToCorrectPort
+   *    _           <- TestServer.addHandler{ case (_: Request) =>
+   *      for {
+   *        curState <- state.getAndUpdate(_ + 1)
+   *      } yield {
+   *        if (curState > 0)
+   *          Response(Status.InternalServerError)
+   *        else
+   *          Response(Status.Ok)
+   *      }
+   *    }
+   * }}}
    */
-  def addHandler(pf: PartialFunction[Request, ZIO[Any, Nothing, Response]]): ZIO[Any, Nothing, Unit] = {
-    addHandlerState(pf)
-  }
-
-  /**
-   * Define stateful behavior for Server
-   * @param pf
-   *   Stateful behavior
-   * @return
-   *   The TestSever with new behavior.
-   *
-   * @example
-   *   {{{
-   * ZIO.serviceWithZIO[TestServer[Int]](_.addHandlerState { case (state, _: Request) =>
-   *   if (state > 0)
-   *     (state + 1, Response(Status.InternalServerError))
-   *   else
-   *     (state + 1, Response(Status.Ok))
-   * }
-   *   }}}
-   */
-  def addHandlerState(
+  def addHandler(
     pf: PartialFunction[Request, ZIO[Any, Nothing, Response]],
   ): ZIO[Any, Nothing, Unit] = {
     for {
@@ -141,21 +124,16 @@ final case class TestServer(
 }
 
 object TestServer {
-  def addHandlerState(
-    pf: PartialFunction[Request, ZIO[Any, Nothing, Response]],
-  ): ZIO[TestServer, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer](_.addHandlerState(pf))
+  def addHandler(
+                       pf: PartialFunction[Request, ZIO[Any, Nothing, Response]],
+                     ): ZIO[TestServer, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestServer](_.addHandler(pf))
 
   def addRequestResponse(
     request: Request,
     response: Response,
   ): ZIO[TestServer, Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer](_.addRequestResponse(request, response))
-
-  def addHandler(pf: PartialFunction[Request, ZIO[Any, Nothing, Response]]): ZIO[TestServer, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestServer](_.addHandler {
-      pf
-    })
 
   val layer: ZIO[Driver with Scope, Throwable, TestServer] =
     for {
