@@ -17,7 +17,7 @@ object TestServerSpec extends ZIOSpecDefault {
             testRequest,
           )
         _               <- TestServer.addHandler[Unit] { case _: Request =>
-          Response(Status.Ok)
+          ZIO.succeed(Response(Status.Ok))
         }
         finalResponse   <-
           Client.request(
@@ -30,12 +30,17 @@ object TestServerSpec extends ZIOSpecDefault {
     test("with state") {
       for {
         port        <- ZIO.serviceWith[Server](_.port)
+        state <- Ref.make(0)
         testRequest <- requestToCorrectPort
-        _           <- TestServer.addHandlerState[Int] { case (state, _: Request) =>
-          if (state > 0)
-            (state + 1, Response(Status.InternalServerError))
-          else
-            (state + 1, Response(Status.Ok))
+        _           <- TestServer.addHandlerState[Int] { case (_: Request) =>
+          for {
+            curState <- state.getAndUpdate(_ + 1)
+          } yield {
+            if (curState > 0)
+              Response(Status.InternalServerError)
+            else
+              Response(Status.Ok)
+          }
         }
         response1   <-
           Client.request(
