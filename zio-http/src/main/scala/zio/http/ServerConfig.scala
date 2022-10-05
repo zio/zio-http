@@ -1,6 +1,6 @@
 package zio.http
 
-import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
+import io.netty.handler.codec.compression.{StandardCompressionOptions, CompressionOptions => JCompressionOptions}
 import io.netty.util.ResourceLeakDetector
 import zio.{Trace, ZLayer}
 import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
@@ -133,10 +133,8 @@ object ServerConfig {
     ZLayer.succeed(config)
 
   private[http] def liveOnOpenPort(implicit trace: Trace): ZLayer[Network, Any, ServerConfig] =
-    ZLayer.fromZIO(
-      for {
-        port <- Network.findOpenPort
-      } yield ServerConfig.default.port(port),
+    ZLayer.succeed(
+      ServerConfig.default.port(0),
     )
 
   def responseCompressionConfig(
