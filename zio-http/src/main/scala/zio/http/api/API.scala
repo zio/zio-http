@@ -25,15 +25,16 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 final case class API[Input, Output](
   method: Method,
   input: In[Input],
-  output: Out[Output],
+  output: Out[Output], // In[In.BodyType, Output]
   doc: Doc,
   // TODO; New type paramters MiddlewareIn and MiddlewareOut
-  middlewareSpec: Option[MiddlewareSpec[Unit]],
+  middlewareSpec: MiddlewareSpec[Unit, Unit],
 ) { self =>
   type Id
 
-  def @@(mid: MiddlewareSpec[Unit]): API[Input, Output] =
-    copy(middlewareSpec = Some(mid))
+  // TODO; Use combine
+  def @@(mid: MiddlewareSpec[Unit, Unit]): API[Input, Output] =
+    copy(middlewareSpec = mid)
 
   /**
    * Combines this API and another group of APIs.

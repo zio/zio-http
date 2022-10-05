@@ -15,7 +15,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  *
  * Here Raw represents the original components that was used to create `Input`
  */
-sealed trait In[Input] {
+sealed trait In[-AtomTypes, Input] {
   self =>
   import zio.http.api.In._
 
@@ -24,7 +24,9 @@ sealed trait In[Input] {
   def ++[Input2](that: In[Input2])(implicit combiner: Combiner[Input, Input2]): In[combiner.Out] =
     In.Combine(self, that, combiner)
 
-  def /[Input2](that: In[Input2])(implicit combiner: Combiner[Input, Input2]): In[combiner.Out] =
+  def /[Input2](
+    that: In[In.RouteType, Input2],
+  )(implicit combiner: Combiner[Input, Input2], ev: AtomTypes =:= In.RouteType): In[In.RouteType, combiner.Out] =
     self ++ that
 
   def bodySchema: Option[Schema[_]] =
@@ -33,7 +35,6 @@ sealed trait In[Input] {
       case InputBody(schema)       => Some(schema)
       case Query(_, _)             => None
       case Header(_, _)            => None
-      case BasicAuthenticate(_, _) => None
       case IndexedAtom(atom, _)    => atom.bodySchema
       case Transform(in, _, _)     => in.bodySchema
       case WithDoc(in, _)          => in.bodySchema
@@ -56,20 +57,32 @@ sealed trait In[Input] {
 }
 
 object In extends RouteInputs with QueryInputs with HeaderInputs {
-  private[api] sealed trait Atom[Input0] extends In[Input0]
 
-  private[api] final case class Route[A](textCodec: TextCodec[A])                     extends Atom[A]
-  private[api] final case class InputBody[A](input: Schema[A])                        extends Atom[A]
-  private[api] final case class Query[A](name: String, textCodec: TextCodec[A])       extends Atom[A]
-  private[api] final case class Header[A](name: String, textCodec: TextCodec[A])      extends Atom[A]
-  private[api] final case class BasicAuthenticate[A](uname: String, password: String) extends Atom[A]
-  private[api] final case class IndexedAtom[A](atom: Atom[A], index: Int)             extends Atom[A]
-  private[api] final case class WithDoc[A](in: In[A], doc: Doc)                       extends In[A]
-  private[api] final case class Transform[X, A](api: In[X], f: X => A, g: A => X)     extends In[A]
+  type RouteType
+  type BodyType
+  type QueryType
+  type HeaderType
 
-  private[api] final case class Combine[A1, A2, A](
-    left: In[A1],
-    right: In[A2],
+  def empty: In[Any, Unit] =
+    Empty
+
+  private[api] sealed trait Atom[-AtomTypes, Input0] extends In[AtomTypes, Input0]
+
+  private[api] case object Empty                                                 extends Atom[Any, Unit]
+  private[api] final case class Route[A](textCodec: TextCodec[A])                extends Atom[RouteType, A]
+  // TODO; Rename to Body
+  private[api] final case class InputBody[A](input: Schema[A])                   extends Atom[BodyType, A]
+  // private[api] final case class BodyStream[A](element: Schema[A])                   extends Atom[BodyType, ZStream[Any, Throwable, A]] // and delete Out
+  private[api] final case class Query[A](name: String, textCodec: TextCodec[A])  extends Atom[QueryType, A]
+  private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[HeaderType, A]
+  private[api] final case class IndexedAtom[AtomType, A](atom: Atom[AtomType, A], index: Int) extends Atom[AtomType, A]
+  private[api] final case class WithDoc[AtomType, A](in: In[AtomType, A], doc: Doc)           extends In[AtomType, A]
+  private[api] final case class Transform[AtomType, X, A](api: In[AtomType, X], f: X => A, g: A => X)
+      extends In[AtomType, A]
+
+  private[api] final case class Combine[AtomType1, AtomType2, A1, A2, A](
+    left: In[AtomType1, A1],
+    right: In[AtomType2, A2],
     inputCombiner: Combiner.WithOut[A1, A2, A],
-  ) extends In[A]
+  ) extends In[AtomType1 with AtomType2, A]
 }
