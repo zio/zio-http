@@ -1,7 +1,6 @@
 package zio.http
 
 import zio._
-import zio.http.model.Status.NotFound
 import zio.http.model._
 import zio.http.netty.server.NettyDriver
 import zio.test._
@@ -9,33 +8,20 @@ import zio.test._
 object TestServerSpec extends ZIOSpecDefault {
 
   def spec = suite("TestServerSpec")(
-    test("stateless") {
-      for {
-        testRequest     <- requestToCorrectPort
-        initialResponse <-
-          Client.request(
-            testRequest,
-          )
-        _               <- ZIO.serviceWithZIO[TestServer[Unit]](_.addHandler { case _: Request =>
-          Response(Status.Ok)
-        }.install)
-        finalResponse   <-
-          Client.request(
-            testRequest,
-          )
-      } yield assertTrue(initialResponse.status == NotFound) && assertTrue(finalResponse.status == Status.Ok)
-    }.provideSome[Scope with Client with Driver](
-      ZLayer.fromZIO(TestServer.make),
-    ),
     test("with state") {
       for {
+        state       <- Ref.make(0)
         testRequest <- requestToCorrectPort
-        _           <- ZIO.serviceWithZIO[TestServer[Int]](_.addHandlerState { case (state, _: Request) =>
-          if (state > 0)
-            (state + 1, Response(Status.InternalServerError))
-          else
-            (state + 1, Response(Status.Ok))
-        }.install)
+        _           <- TestServer.addHandler { case (_: Request) =>
+          for {
+            curState <- state.getAndUpdate(_ + 1)
+          } yield {
+            if (curState > 0)
+              Response(Status.InternalServerError)
+            else
+              Response(Status.Ok)
+          }
+        }
         response1   <-
           Client.request(
             testRequest,
@@ -46,14 +32,14 @@ object TestServerSpec extends ZIOSpecDefault {
           )
       } yield assertTrue(response1.status == Status.Ok) &&
         assertTrue(response2.status == Status.InternalServerError)
-    }.provideSome[Scope with Client with Driver](
-      ZLayer.fromZIO(TestServer.make(0)),
+    }.provideSome[Client with Driver](
+      TestServer.layer,
     ),
     suite("Exact Request=>Response version")(
       test("matches") {
         for {
-          testRequest <- requestToCorrectPort
-          _ <- ZIO.serviceWithZIO[TestServer[Unit]](_.addRequestResponse(testRequest, Response(Status.Ok)).install)
+          testRequest   <- requestToCorrectPort
+          _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest,
@@ -63,8 +49,8 @@ object TestServerSpec extends ZIOSpecDefault {
       },
       test("matches, ignoring additional headers") {
         for {
-          testRequest <- requestToCorrectPort
-          _ <- ZIO.serviceWithZIO[TestServer[Unit]](_.addRequestResponse(testRequest, Response(Status.Ok)).install)
+          testRequest   <- requestToCorrectPort
+          _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest.addHeaders(Headers.contentLanguage("French")),
@@ -74,8 +60,8 @@ object TestServerSpec extends ZIOSpecDefault {
       },
       test("does not match different path") {
         for {
-          testRequest <- requestToCorrectPort
-          _ <- ZIO.serviceWithZIO[TestServer[Unit]](_.addRequestResponse(testRequest, Response(Status.Ok)).install)
+          testRequest   <- requestToCorrectPort
+          _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest.copy(url = testRequest.url.setPath(Path.root / "unhandled")),
@@ -84,8 +70,8 @@ object TestServerSpec extends ZIOSpecDefault {
       },
       test("does not match different headers") {
         for {
-          testRequest <- requestToCorrectPort
-          _ <- ZIO.serviceWithZIO[TestServer[Unit]](_.addRequestResponse(testRequest, Response(Status.Ok)).install)
+          testRequest   <- requestToCorrectPort
+          _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
               testRequest.copy(headers = Headers.cacheControl("cache")),
@@ -93,11 +79,10 @@ object TestServerSpec extends ZIOSpecDefault {
         } yield assertTrue(finalResponse.status == Status.InternalServerError)
       },
     )
-      .provideSome[Scope with Client with Driver](
-        ZLayer.fromZIO(TestServer.make),
+      .provideSome[Client with Driver](
+        TestServer.layer,
       ),
   ).provideSome[Scope](
-    Network.live,
     ServerConfig.liveOnOpenPort,
     Client.default,
     NettyDriver.default,
