@@ -3,7 +3,10 @@ package zio.http.api
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.ZIO
 import zio.http.middleware.Auth
+import zio.http.middleware.Auth.Credentials
 import zio.http.model.{HeaderNames, Headers}
+
+import java.util.Base64
 
 final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   middlewareIn: In[In.HeaderType with In.QueryType, MiddlewareIn],
@@ -18,15 +21,19 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   ): MiddlewareSpec[inCombiner.Out, outCombiner.Out] =
     MiddlewareSpec(self.middlewareIn ++ that.middlewareIn, self.middlewareOut ++ that.middlewareOut)
 
-  def mapIn[MiddlewareIn2](f: In[MiddlewareIn] => In[MiddlewareIn2]): MiddlewareSpec[MiddlewareIn2, MiddlewareOut] =
+  def mapIn[MiddlewareIn2](
+    f: In[In.HeaderType with In.QueryType, MiddlewareIn] => In[In.HeaderType with In.QueryType, MiddlewareIn2],
+  ): MiddlewareSpec[MiddlewareIn2, MiddlewareOut] =
     copy(middlewareIn = f(middlewareIn))
 
-  def mapOut[MiddlewareOut2](f: In[MiddlewareOut] => In[MiddlewareOut2]): MiddlewareSpec[MiddlewareIn, MiddlewareOut2] =
+  def mapOut[MiddlewareOut2](
+    f: In[In.HeaderType with In.QueryType, MiddlewareOut] => In[In.HeaderType with In.QueryType, MiddlewareOut2],
+  ): MiddlewareSpec[MiddlewareIn, MiddlewareOut2] =
     copy(middlewareOut = f(middlewareOut))
 
   def mapBoth[MiddlewareIn2, MiddlewareOut2](
-    f: In[MiddlewareIn] => In[MiddlewareIn2],
-    g: In[MiddlewareOut] => In[MiddlewareOut2],
+    f: In[In.HeaderType with In.QueryType, MiddlewareIn] => In[In.HeaderType with In.QueryType, MiddlewareIn2],
+    g: In[In.HeaderType with In.QueryType, MiddlewareOut] => In[In.HeaderType with In.QueryType, MiddlewareOut2],
   ): MiddlewareSpec[MiddlewareIn2, MiddlewareOut2] =
     mapIn(f).mapOut(g)
 
@@ -45,25 +52,27 @@ object MiddlewareSpec {
 
   // FIXME
   // Parse string to Credentials
+  // Use or TransformOrFail
   val auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
-      .mapIn(_.transform(s => Auth.Credentials(???, ???), c => s"${c.uname}:${c.upassword}"))
+      .mapIn(_.transform(s => decodeHttpBasic(s).get, c => s"${c.uname}:${c.upassword}"))
 
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
     MiddlewareSpec(In.header(name, TextCodec.string), In.empty)
 
-//  private[api] def toMiddleware(in: In[Unit]) =
-//    in match {
-//      case atom: In.Atom[_] =>
-//        atom match {
-//          case In.BasicAuthenticate(a, b) => Middleware.basicAuth(a, b)
-//          case In.Header(name, value)     =>
-//            value match {
-//              case TextCodec.Constant(value) => Middleware.addHeader(name, value)
-//              case _                         => Middleware.empty
-//            }
-//          case _                          => Middleware.empty
-//        }
-//      case _                => Middleware.empty
-//    }
+  private def decodeHttpBasic(encoded: String): Option[Credentials] = {
+    val decoded    = new String(Base64.getDecoder.decode(encoded))
+    val colonIndex = decoded.indexOf(":")
+    if (colonIndex == -1)
+      None
+    else {
+      val username = decoded.substring(0, colonIndex)
+      val password =
+        if (colonIndex == decoded.length - 1)
+          ""
+        else
+          decoded.substring(colonIndex + 1)
+      Some(Credentials(username, password))
+    }
+  }
 }

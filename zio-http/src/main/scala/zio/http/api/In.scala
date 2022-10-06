@@ -52,7 +52,7 @@ sealed trait In[-AtomTypes, Input] {
    * used in encoding, for example, when a client calls the endpoint on the
    * server.
    */
-  def transform[Input2](f: Input => Input2, g: Input2 => Input): In[Input2] =
+  def transform[Input2](f: Input => Input2, g: Input2 => Input): In[AtomTypes, Input2] =
     In.Transform(self, f, g)
 }
 
