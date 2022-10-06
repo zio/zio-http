@@ -7,23 +7,12 @@ import zio.http.Server.ErrorCallback
  * Enables tests that make calls against "localhost" with user-specified
  * Behavior/Responses.
  *
- * @param state
- *   State that can be consulted by our behavior PartialFunction
- * @param behavior
- *   Describes how the Server should behave during your test
  * @param driver
  *   The web driver that accepts our Server behavior
  * @param bindPort
  *   Port for HTTP interactions
- * @tparam State
- *   The type of state that will be mutated
  */
-final case class TestServer[State](
-  state: Ref[State],
-  behavior: PartialFunction[(State, Request), (State, Response)],
-  driver: Driver,
-  bindPort: Int,
-) extends Server {
+final case class TestServer(driver: Driver, bindPort: Int) extends Server {
 
   /**
    * Define 1-1 mappings between incoming Requests and outgoing Responses
@@ -34,9 +23,9 @@ final case class TestServer[State](
    *   Response that the Server will send
    *
    * @example
-   *   {{{ ZIO.serviceWithZIO[TestServer[Unit]]( _.addRequestResponse(
-   *   Request.get(url = URL.root.setPort(port = ???)), Response(Status.Ok)
-   *   ).install ) }}}
+   *   {{{
+   *   TestServer.addRequestResponse(Request.get(url = URL.root.setPort(port = ???)), Response(Status.Ok))
+   *   }}}
    *
    * @return
    *   The TestSever with new behavior.
@@ -44,71 +33,53 @@ final case class TestServer[State](
   def addRequestResponse(
     expectedRequest: Request,
     response: Response,
-  ): TestServer[State] = {
-    val handler: PartialFunction[(State, Request), (State, Response)] = {
-      case (state, realRequest) if {
+  ): ZIO[Any, Nothing, Unit] = {
+    val handler: PartialFunction[Request, ZIO[Any, Nothing, Response]] = {
+      case realRequest if {
             // The way that the Client breaks apart and re-assembles the request prevents a straightforward
             //    expectedRequest == realRequest
             expectedRequest.url.relative == realRequest.url &&
             expectedRequest.method == realRequest.method &&
             expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
           } =>
-        (state, response)
+        ZIO.succeed(response)
     }
-    addHandlerState(handler)
+    addHandler(handler)
   }
 
   /**
-   * Define stateless behavior for the Server.
-   *
+   * Add new behavior to Server
    * @param pf
-   *   The stateless behavior
-   *
+   *   New behavior
    * @return
    *   The TestSever with new behavior.
    *
    * @example
    *   {{{
-   *   ZIO.serviceWithZIO[TestServer[Unit]](_.addHandler { case _: Request =>
-   *       Response(Status.Ok)
-   *   }
+   *  for {
+   *    state <- Ref.make(0)
+   *    testRequest <- requestToCorrectPort
+   *    _           <- TestServer.addHandler{ case (_: Request) =>
+   *      for {
+   *        curState <- state.getAndUpdate(_ + 1)
+   *      } yield {
+   *        if (curState > 0)
+   *          Response(Status.InternalServerError)
+   *        else
+   *          Response(Status.Ok)
+   *      }
+   *    }
    *   }}}
    */
-  def addHandler(pf: PartialFunction[Request, Response]): TestServer[State] = {
-    val handler: PartialFunction[(State, Request), (State, Response)] = {
-      case (state, request) if pf.isDefinedAt(request) => (state, pf(request))
-    }
-    addHandlerState(handler)
-  }
-
-  /**
-   * Define stateful behavior for Server
-   * @param pf
-   *   Stateful behavior
-   * @return
-   *   The TestSever with new behavior.
-   *
-   * @example
-   *   {{{
-   * ZIO.serviceWithZIO[TestServer[Int]](_.addHandlerState { case (state, _: Request) =>
-   *   if (state > 0)
-   *     (state + 1, Response(Status.InternalServerError))
-   *   else
-   *     (state + 1, Response(Status.Ok))
-   * }
-   *   }}}
-   */
-  def addHandlerState(
-    pf: PartialFunction[(State, Request), (State, Response)],
-  ): TestServer[State] =
-    copy(behavior = behavior.orElse(pf))
-
-  def install(implicit
-    trace: zio.Trace,
-  ): UIO[Unit] =
-    driver.addApp(
-      Http.fromFunctionZIO((request: Request) => state.modify(state1 => behavior((state1, request)).swap)),
-    )
+  def addHandler[R](
+    pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
+  ): ZIO[R, Nothing, Unit] =
+    for {
+      r <- ZIO.environment[R]
+      behavior                     = pf.andThen(_.provideEnvironment(r))
+      app: HttpApp[Any, Throwable] = Http.fromFunctionZIO(behavior)
+      _ <- driver.addApp(app)
+    } yield ()
 
   override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
     trace: zio.Trace,
@@ -117,14 +88,7 @@ final case class TestServer[State](
       driver.addApp(
         if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
         else httpApp.provideEnvironment(env),
-      ) *> {
-        val func =
-          (request: Request) => state.modify(state1 => behavior((state1, request)).swap)
-
-        val app: HttpApp[Any, Nothing] = Http.fromFunctionZIO(func)
-        driver.addApp(app)
-      }
-
+      )
     } *> setErrorCallback(errorCallback)
 
   private def setErrorCallback(errorCallback: Option[ErrorCallback]): UIO[Unit] =
@@ -137,19 +101,23 @@ final case class TestServer[State](
 }
 
 object TestServer {
+  def addHandler[R](
+    pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
+  ): ZIO[R with TestServer, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestServer](_.addHandler(pf))
 
-  val make: ZIO[Driver with Scope, Throwable, TestServer[Unit]] =
-    make(())
+  def addRequestResponse(
+    request: Request,
+    response: Response,
+  ): ZIO[TestServer, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestServer](_.addRequestResponse(request, response))
 
-  def make[State](initial: State): ZIO[Driver with Scope, Throwable, TestServer[State]] =
-    for {
-      driver <- ZIO.service[Driver]
-      port   <- driver.start
-      state  <- Ref.make(initial)
-    } yield TestServer(state, empty, driver, port)
+  val layer: ZLayer[Driver, Throwable, TestServer] =
+    ZLayer.scoped {
+      for {
+        driver <- ZIO.service[Driver]
+        port   <- driver.start
+      } yield TestServer(driver, port)
+    }
 
-  // Ensures that we blow up quickly if we execute a test against a TestServer with no behavior defined.
-  private def empty[State]: PartialFunction[(State, Request), (State, Response)] = {
-    case _ if false => ???
-  }
 }
