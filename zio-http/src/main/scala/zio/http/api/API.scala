@@ -24,11 +24,10 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  */
 final case class API[Input, Output](
   method: Method,
-  input: In[Input],
-  output: Out[Output], // In[In.BodyType, Output]
+  input: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, Input],
+  output: In[In.BodyType, Output],
   doc: Doc,
-  // TODO; New type paramters MiddlewareIn and MiddlewareOut
-  middlewareSpec: MiddlewareSpec[Unit, Unit],
+  middlewareSpec: MiddlewareSpec[In.HeaderType with In.QueryType, Unit],
 ) { self =>
   type Id
 

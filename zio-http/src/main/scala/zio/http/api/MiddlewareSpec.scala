@@ -1,10 +1,9 @@
 package zio.http.api
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zio.ZIO
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
-import zio.http.model.{HeaderNames, Headers}
+import zio.http.model.{HeaderNames}
 
 import java.util.Base64
 
@@ -50,12 +49,14 @@ object MiddlewareSpec {
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(In.empty, In.header(key, TextCodec.constant(value)))
 
-  // FIXME
-  // Parse string to Credentials
-  // Use or TransformOrFail
   val auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
-      .mapIn(_.transform(s => decodeHttpBasic(s).get, c => s"${c.uname}:${c.upassword}"))
+      .mapIn(
+        _.transformOrFailLeft(
+          s => decodeHttpBasic(s).fold(Left("Failed to decode headers"): Either[String, Credentials])(Right(_)),
+          c => s"${c.uname}:${c.upassword}",
+        ),
+      )
 
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
     MiddlewareSpec(In.header(name, TextCodec.string), In.empty)

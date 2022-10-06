@@ -19,10 +19,11 @@ sealed trait In[-AtomTypes, Input] {
   self =>
   import zio.http.api.In._
 
-  def ??(doc: Doc): In[Input] = In.WithDoc(self, doc)
+  def ??(doc: Doc): In[AtomTypes, Input] = In.WithDoc(self, doc)
 
-  def ++[Input2](that: In[Input2])(implicit combiner: Combiner[Input, Input2]): In[combiner.Out] =
-    In.Combine(self, that, combiner)
+  // TODO should we allow different inputs between `this` and `that`?
+  def ++[Input2](that: In[AtomTypes, Input2])(implicit combiner: Combiner[Input, Input2]): In[AtomTypes, combiner.Out] =
+    In.Combine[AtomTypes, AtomTypes, Input, Input2, combiner.Out](self, that, combiner)
 
   def /[Input2](
     that: In[In.RouteType, Input2],
@@ -31,14 +32,14 @@ sealed trait In[-AtomTypes, Input] {
 
   def bodySchema: Option[Schema[_]] =
     self match {
-      case Route(_)                => None
-      case InputBody(schema)       => Some(schema)
-      case Query(_, _)             => None
-      case Header(_, _)            => None
-      case IndexedAtom(atom, _)    => atom.bodySchema
-      case Transform(in, _, _)     => in.bodySchema
-      case WithDoc(in, _)          => in.bodySchema
-      case Combine(left, right, _) => left.bodySchema orElse right.bodySchema
+      case Route(_)                  => None
+      case InputBody(schema)         => Some(schema)
+      case Query(_, _)               => None
+      case Header(_, _)              => None
+      case IndexedAtom(atom, _)      => atom.bodySchema
+      case TransformOrFail(in, _, _) => in.bodySchema
+      case WithDoc(in, _)            => in.bodySchema
+      case Combine(left, right, _)   => left.bodySchema orElse right.bodySchema
     }
 
   /**
@@ -53,7 +54,14 @@ sealed trait In[-AtomTypes, Input] {
    * server.
    */
   def transform[Input2](f: Input => Input2, g: Input2 => Input): In[AtomTypes, Input2] =
-    In.Transform(self, f, g)
+    In.TransformOrFail[AtomTypes, Input, Input2](self, in => Right(f(in)), output => Right(g(output)))
+
+  def transformOrFailLeft[Input2](f: Input => Either[String, Input2], g: Input2 => Input): In[AtomTypes, Input2] =
+    In.TransformOrFail[AtomTypes, Input, Input2](self, f, output => Right(g(output)))
+
+  def transformOrFailRight[Input2](f: Input => Input2, g: Input2 => Either[String, Input]): In[AtomTypes, Input2] =
+    In.TransformOrFail[AtomTypes, Input, Input2](self, in => Right(f(in)), g)
+
 }
 
 object In extends RouteInputs with QueryInputs with HeaderInputs {
@@ -77,8 +85,11 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
   private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[HeaderType, A]
   private[api] final case class IndexedAtom[AtomType, A](atom: Atom[AtomType, A], index: Int) extends Atom[AtomType, A]
   private[api] final case class WithDoc[AtomType, A](in: In[AtomType, A], doc: Doc)           extends In[AtomType, A]
-  private[api] final case class Transform[AtomType, X, A](api: In[AtomType, X], f: X => A, g: A => X)
-      extends In[AtomType, A]
+  private[api] final case class TransformOrFail[AtomType, X, A](
+    api: In[AtomType, X],
+    f: X => Either[String, A],
+    g: A => Either[String, X],
+  ) extends In[AtomType, A]
 
   private[api] final case class Combine[AtomType1, AtomType2, A1, A2, A](
     left: In[AtomType1, A1],
