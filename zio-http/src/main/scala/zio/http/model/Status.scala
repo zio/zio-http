@@ -208,68 +208,68 @@ object Status {
   final case class Custom(override val code: Int) extends Status
 
   def fromHttpResponseStatus(jStatus: HttpResponseStatus): Status = (jStatus: @unchecked) match {
-    case HttpResponseStatus.CONTINUE => Status.Continue
-    case HttpResponseStatus.SWITCHING_PROTOCOLS => Status.SwitchingProtocols
-    case HttpResponseStatus.PROCESSING => Status.Processing
-    case HttpResponseStatus.OK => Status.Ok
-    case HttpResponseStatus.CREATED => Status.Created
-    case HttpResponseStatus.ACCEPTED => Status.Accepted
-    case HttpResponseStatus.NON_AUTHORITATIVE_INFORMATION => Status.NonAuthoritativeInformation
-    case HttpResponseStatus.NO_CONTENT => Status.NoContent
-    case HttpResponseStatus.RESET_CONTENT => Status.ResetContent
-    case HttpResponseStatus.PARTIAL_CONTENT => Status.PartialContent
-    case HttpResponseStatus.MULTI_STATUS => Status.MultiStatus
-    case HttpResponseStatus.MULTIPLE_CHOICES => Status.MultipleChoices
-    case HttpResponseStatus.MOVED_PERMANENTLY => Status.MovedPermanently
-    case HttpResponseStatus.FOUND => Status.Found
-    case HttpResponseStatus.SEE_OTHER => Status.SeeOther
-    case HttpResponseStatus.NOT_MODIFIED => Status.NotModified
-    case HttpResponseStatus.USE_PROXY => Status.UseProxy
-    case HttpResponseStatus.TEMPORARY_REDIRECT => Status.TemporaryRedirect
-    case HttpResponseStatus.PERMANENT_REDIRECT => Status.PermanentRedirect
-    case HttpResponseStatus.BAD_REQUEST => Status.BadRequest
-    case HttpResponseStatus.UNAUTHORIZED => Status.Unauthorized
-    case HttpResponseStatus.PAYMENT_REQUIRED => Status.PaymentRequired
-    case HttpResponseStatus.FORBIDDEN => Status.Forbidden
-    case HttpResponseStatus.NOT_FOUND => Status.NotFound
-    case HttpResponseStatus.METHOD_NOT_ALLOWED => Status.MethodNotAllowed
-    case HttpResponseStatus.NOT_ACCEPTABLE => Status.NotAcceptable
-    case HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED => Status.ProxyAuthenticationRequired
-    case HttpResponseStatus.REQUEST_TIMEOUT => Status.RequestTimeout
-    case HttpResponseStatus.CONFLICT => Status.Conflict
-    case HttpResponseStatus.GONE => Status.Gone
-    case HttpResponseStatus.LENGTH_REQUIRED => Status.LengthRequired
-    case HttpResponseStatus.PRECONDITION_FAILED => Status.PreconditionFailed
-    case HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE => Status.RequestEntityTooLarge
-    case HttpResponseStatus.REQUEST_URI_TOO_LONG => Status.RequestUriTooLong
-    case HttpResponseStatus.UNSUPPORTED_MEDIA_TYPE => Status.UnsupportedMediaType
+    case HttpResponseStatus.CONTINUE                        => Status.Continue
+    case HttpResponseStatus.SWITCHING_PROTOCOLS             => Status.SwitchingProtocols
+    case HttpResponseStatus.PROCESSING                      => Status.Processing
+    case HttpResponseStatus.OK                              => Status.Ok
+    case HttpResponseStatus.CREATED                         => Status.Created
+    case HttpResponseStatus.ACCEPTED                        => Status.Accepted
+    case HttpResponseStatus.NON_AUTHORITATIVE_INFORMATION   => Status.NonAuthoritativeInformation
+    case HttpResponseStatus.NO_CONTENT                      => Status.NoContent
+    case HttpResponseStatus.RESET_CONTENT                   => Status.ResetContent
+    case HttpResponseStatus.PARTIAL_CONTENT                 => Status.PartialContent
+    case HttpResponseStatus.MULTI_STATUS                    => Status.MultiStatus
+    case HttpResponseStatus.MULTIPLE_CHOICES                => Status.MultipleChoices
+    case HttpResponseStatus.MOVED_PERMANENTLY               => Status.MovedPermanently
+    case HttpResponseStatus.FOUND                           => Status.Found
+    case HttpResponseStatus.SEE_OTHER                       => Status.SeeOther
+    case HttpResponseStatus.NOT_MODIFIED                    => Status.NotModified
+    case HttpResponseStatus.USE_PROXY                       => Status.UseProxy
+    case HttpResponseStatus.TEMPORARY_REDIRECT              => Status.TemporaryRedirect
+    case HttpResponseStatus.PERMANENT_REDIRECT              => Status.PermanentRedirect
+    case HttpResponseStatus.BAD_REQUEST                     => Status.BadRequest
+    case HttpResponseStatus.UNAUTHORIZED                    => Status.Unauthorized
+    case HttpResponseStatus.PAYMENT_REQUIRED                => Status.PaymentRequired
+    case HttpResponseStatus.FORBIDDEN                       => Status.Forbidden
+    case HttpResponseStatus.NOT_FOUND                       => Status.NotFound
+    case HttpResponseStatus.METHOD_NOT_ALLOWED              => Status.MethodNotAllowed
+    case HttpResponseStatus.NOT_ACCEPTABLE                  => Status.NotAcceptable
+    case HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED   => Status.ProxyAuthenticationRequired
+    case HttpResponseStatus.REQUEST_TIMEOUT                 => Status.RequestTimeout
+    case HttpResponseStatus.CONFLICT                        => Status.Conflict
+    case HttpResponseStatus.GONE                            => Status.Gone
+    case HttpResponseStatus.LENGTH_REQUIRED                 => Status.LengthRequired
+    case HttpResponseStatus.PRECONDITION_FAILED             => Status.PreconditionFailed
+    case HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE        => Status.RequestEntityTooLarge
+    case HttpResponseStatus.REQUEST_URI_TOO_LONG            => Status.RequestUriTooLong
+    case HttpResponseStatus.UNSUPPORTED_MEDIA_TYPE          => Status.UnsupportedMediaType
     case HttpResponseStatus.REQUESTED_RANGE_NOT_SATISFIABLE => Status.RequestedRangeNotSatisfiable
-    case HttpResponseStatus.EXPECTATION_FAILED => Status.ExpectationFailed
-    case HttpResponseStatus.MISDIRECTED_REQUEST => Status.MisdirectedRequest
-    case HttpResponseStatus.UNPROCESSABLE_ENTITY => Status.UnprocessableEntity
-    case HttpResponseStatus.LOCKED => Status.Locked
-    case HttpResponseStatus.FAILED_DEPENDENCY => Status.FailedDependency
-    case HttpResponseStatus.UNORDERED_COLLECTION => Status.UnorderedCollection
-    case HttpResponseStatus.UPGRADE_REQUIRED => Status.UpgradeRequired
-    case HttpResponseStatus.PRECONDITION_REQUIRED => Status.PreconditionRequired
-    case HttpResponseStatus.TOO_MANY_REQUESTS => Status.TooManyRequests
+    case HttpResponseStatus.EXPECTATION_FAILED              => Status.ExpectationFailed
+    case HttpResponseStatus.MISDIRECTED_REQUEST             => Status.MisdirectedRequest
+    case HttpResponseStatus.UNPROCESSABLE_ENTITY            => Status.UnprocessableEntity
+    case HttpResponseStatus.LOCKED                          => Status.Locked
+    case HttpResponseStatus.FAILED_DEPENDENCY               => Status.FailedDependency
+    case HttpResponseStatus.UNORDERED_COLLECTION            => Status.UnorderedCollection
+    case HttpResponseStatus.UPGRADE_REQUIRED                => Status.UpgradeRequired
+    case HttpResponseStatus.PRECONDITION_REQUIRED           => Status.PreconditionRequired
+    case HttpResponseStatus.TOO_MANY_REQUESTS               => Status.TooManyRequests
     case HttpResponseStatus.REQUEST_HEADER_FIELDS_TOO_LARGE => Status.RequestHeaderFieldsTooLarge
-    case HttpResponseStatus.INTERNAL_SERVER_ERROR => Status.InternalServerError
-    case HttpResponseStatus.NOT_IMPLEMENTED => Status.NotImplemented
-    case HttpResponseStatus.BAD_GATEWAY => Status.BadGateway
-    case HttpResponseStatus.SERVICE_UNAVAILABLE => Status.ServiceUnavailable
-    case HttpResponseStatus.GATEWAY_TIMEOUT => Status.GatewayTimeout
-    case HttpResponseStatus.HTTP_VERSION_NOT_SUPPORTED => Status.HttpVersionNotSupported
-    case HttpResponseStatus.VARIANT_ALSO_NEGOTIATES => Status.VariantAlsoNegotiates
-    case HttpResponseStatus.INSUFFICIENT_STORAGE => Status.InsufficientStorage
-    case HttpResponseStatus.NOT_EXTENDED => Status.NotExtended
+    case HttpResponseStatus.INTERNAL_SERVER_ERROR           => Status.InternalServerError
+    case HttpResponseStatus.NOT_IMPLEMENTED                 => Status.NotImplemented
+    case HttpResponseStatus.BAD_GATEWAY                     => Status.BadGateway
+    case HttpResponseStatus.SERVICE_UNAVAILABLE             => Status.ServiceUnavailable
+    case HttpResponseStatus.GATEWAY_TIMEOUT                 => Status.GatewayTimeout
+    case HttpResponseStatus.HTTP_VERSION_NOT_SUPPORTED      => Status.HttpVersionNotSupported
+    case HttpResponseStatus.VARIANT_ALSO_NEGOTIATES         => Status.VariantAlsoNegotiates
+    case HttpResponseStatus.INSUFFICIENT_STORAGE            => Status.InsufficientStorage
+    case HttpResponseStatus.NOT_EXTENDED                    => Status.NotExtended
     case HttpResponseStatus.NETWORK_AUTHENTICATION_REQUIRED => Status.NetworkAuthenticationRequired
-    case status => Status.Custom(status.code)
+    case status                                             => Status.Custom(status.code)
   }
 
   def fromInt(code: Int): Option[Status] = {
 
-    if (code <  100 || code > 599) {
+    if (code < 100 || code > 599) {
       None
     } else {
 
@@ -330,7 +330,7 @@ object Status {
         case 507 => Status.InsufficientStorage
         case 510 => Status.NotExtended
         case 511 => Status.NetworkAuthenticationRequired
-        case _ => Status.Custom(code)
+        case _   => Status.Custom(code)
 
       }
       Some(status)
