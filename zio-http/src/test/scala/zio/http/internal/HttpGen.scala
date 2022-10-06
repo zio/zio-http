@@ -6,7 +6,7 @@ import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
 import zio.http.model._
-import zio.http.model.headers.values.{Allow, CacheControl}
+import zio.http.model.headers.values.{Allow, CacheControl, Connection}
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
@@ -267,4 +267,13 @@ object HttpGen {
 
   def allowHeader: Gen[Any, Allow] =
     Gen.chunkOfBounded(1, 9)(allowHeaderSingleValue).map(Allow.AllowMethods.apply)
+
+  def connectionHeader: Gen[Any, Connection] =
+    Gen.fromIterable(
+      List(
+        Connection.Close,
+        Connection.KeepAlive,
+        Connection.InvalidConnection,
+      ),
+    )
 }
