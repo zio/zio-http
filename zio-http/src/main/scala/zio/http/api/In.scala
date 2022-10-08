@@ -28,19 +28,10 @@ sealed trait In[-AtomTypes, Input] {
   def /[Input2](
     that: In[In.RouteType, Input2],
   )(implicit combiner: Combiner[Input, Input2], ev: AtomTypes =:= In.RouteType): In[In.RouteType, combiner.Out] =
-    self ++ that
+    self.asInstanceOf[In[In.RouteType, Input]] ++ that
 
   def bodySchema: Option[Schema[_]] =
-    self match {
-      case Route(_)                  => None
-      case InputBody(schema)         => Some(schema)
-      case Query(_, _)               => None
-      case Header(_, _)              => None
-      case IndexedAtom(atom, _)      => atom.bodySchema
-      case TransformOrFail(in, _, _) => in.bodySchema
-      case WithDoc(in, _)            => in.bodySchema
-      case Combine(left, right, _)   => left.bodySchema orElse right.bodySchema
-    }
+    In.bodySchema(self)
 
   /**
    * Transforms the type parameter of this `In` from `Input` to `Input2`. Due to
@@ -96,4 +87,17 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
     right: In[AtomType2, A2],
     inputCombiner: Combiner.WithOut[A1, A2, A],
   ) extends In[AtomType1 with AtomType2, A]
+
+  private[api] def bodySchema[AtomTypes, Input](in: In[AtomTypes, Input]): Option[Schema[_]] = {
+    in match {
+      case Route(_)                  => None
+      case InputBody(schema)         => Some(schema)
+      case Query(_, _)               => None
+      case Header(_, _)              => None
+      case IndexedAtom(atom, _)      => bodySchema(atom)
+      case TransformOrFail(in, _, _) => bodySchema(in)
+      case WithDoc(in, _)            => bodySchema(in)
+      case Combine(left, right, _)   => bodySchema(left) orElse bodySchema(right)
+    }
+  }
 }

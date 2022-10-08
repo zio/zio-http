@@ -22,17 +22,17 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * generate a type-safe Scala client for the endpoint, and possibly, to generate
  * client libraries in other programming languages.
  */
-final case class API[Input, Output](
+final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
   method: Method,
   input: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, Input],
   output: In[In.BodyType, Output],
   doc: Doc,
-  middlewareSpec: MiddlewareSpec[In.HeaderType with In.QueryType, Unit],
+  middlewareSpec: MiddlewareSpec[MiddlewareIn, MiddlewareOut],
 ) { self =>
   type Id
 
   // TODO; Use combine
-  def @@(mid: MiddlewareSpec[Unit, Unit]): API[Input, Output] =
+  def @@[MI, MO](mid: MiddlewareSpec[MI, MO]): API[MI, MO, Input, Output] =
     copy(middlewareSpec = mid)
 
   /**
@@ -43,7 +43,7 @@ final case class API[Input, Output](
   /**
    * Combines this API with another API.
    */
-  def ++(that: API[_, _]): APIs[Id with that.Id] = APIs(self).++[that.Id](APIs(that))
+  def ++(that: API[_, _, _, _]): APIs[Id with that.Id] = APIs(self).++[that.Id](APIs(that))
 
   def apply(input: Input): Invocation[Id, Input, Output] =
     Invocation(self, input)
@@ -133,7 +133,7 @@ final case class API[Input, Output](
 }
 
 object API {
-  type WithId[I, O, X] = API[I, O] { type Id = X }
+  type WithId[MI, MO, I, O, X] = API[MI, MO, I, O] { type Id = X }
 
   /**
    * Constructs an API for a DELETE endpoint, given the specified input. It is
@@ -141,8 +141,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def delete[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.GET, route, Out.unit, Doc.empty, None)
+  def delete[Input](route: In[In.RouteType, Input]): API[Unit, Unit, Input, Unit] =
+    API(Method.GET, route, In.empty, Doc.empty, MiddlewareSpec.empty)
 
   /**
    * Constructs an API for a GET endpoint, given the specified input. It is not
@@ -150,8 +150,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def get[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.GET, route, Out.unit, Doc.empty, None)
+  def get[Input](route: In[In.RouteType, Input]): API[Unit, Unit, Input, Unit] =
+    API(Method.GET, route, In.empty, Doc.empty, MiddlewareSpec.empty)
 
   /**
    * Constructs an API for a POST endpoint, given the specified input. It is not
@@ -159,8 +159,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def post[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.POST, route, Out.unit, Doc.empty, None)
+  def post[Input](route: In[In.RouteType, Input]): API[Unit, Unit, Input, Unit] =
+    API(Method.POST, route, In.empty, Doc.empty, MiddlewareSpec.empty)
 
   /**
    * Constructs an API for a PUT endpoint, given the specified input. It is not
@@ -168,6 +168,6 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def put[Input](route: In[Input]): API[Input, Unit] =
-    API(Method.PUT, route, Out.unit, Doc.empty, None)
+  def put[Input](route: In[In.RouteType, Input]): API[Unit, Unit, Input, Unit] =
+    API(Method.PUT, route, In.empty, Doc.empty, MiddlewareSpec.empty)
 }
