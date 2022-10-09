@@ -93,62 +93,118 @@ sealed trait Status extends Product with Serializable { self =>
 }
 
 object Status {
-  case object Continue                            extends Status
-  case object SwitchingProtocols                  extends Status
-  case object Processing                          extends Status
-  case object Ok                                  extends Status
-  case object Created                             extends Status
-  case object Accepted                            extends Status
-  case object NonAuthoritativeInformation         extends Status
-  case object NoContent                           extends Status
-  case object ResetContent                        extends Status
-  case object PartialContent                      extends Status
-  case object MultiStatus                         extends Status
-  case object MultipleChoices                     extends Status
-  case object MovedPermanently                    extends Status
-  case object Found                               extends Status
-  case object SeeOther                            extends Status
-  case object NotModified                         extends Status
-  case object UseProxy                            extends Status
-  case object TemporaryRedirect                   extends Status
-  case object PermanentRedirect                   extends Status
-  case object BadRequest                          extends Status
-  case object Unauthorized                        extends Status
-  case object PaymentRequired                     extends Status
-  case object Forbidden                           extends Status
-  case object NotFound                            extends Status
-  case object MethodNotAllowed                    extends Status
-  case object NotAcceptable                       extends Status
-  case object ProxyAuthenticationRequired         extends Status
-  case object RequestTimeout                      extends Status
-  case object Conflict                            extends Status
-  case object Gone                                extends Status
-  case object LengthRequired                      extends Status
-  case object PreconditionFailed                  extends Status
-  case object RequestEntityTooLarge               extends Status
-  case object RequestUriTooLong                   extends Status
-  case object UnsupportedMediaType                extends Status
-  case object RequestedRangeNotSatisfiable        extends Status
-  case object ExpectationFailed                   extends Status
-  case object MisdirectedRequest                  extends Status
-  case object UnprocessableEntity                 extends Status
-  case object Locked                              extends Status
-  case object FailedDependency                    extends Status
-  case object UnorderedCollection                 extends Status
-  case object UpgradeRequired                     extends Status
-  case object PreconditionRequired                extends Status
-  case object TooManyRequests                     extends Status
-  case object RequestHeaderFieldsTooLarge         extends Status
-  case object InternalServerError                 extends Status
-  case object NotImplemented                      extends Status
-  case object BadGateway                          extends Status
-  case object ServiceUnavailable                  extends Status
-  case object GatewayTimeout                      extends Status
-  case object HttpVersionNotSupported             extends Status
-  case object VariantAlsoNegotiates               extends Status
-  case object InsufficientStorage                 extends Status
-  case object NotExtended                         extends Status
-  case object NetworkAuthenticationRequired       extends Status
+  case object Continue extends Status
+
+  case object SwitchingProtocols extends Status
+
+  case object Processing extends Status
+
+  case object Ok extends Status
+
+  case object Created extends Status
+
+  case object Accepted extends Status
+
+  case object NonAuthoritativeInformation extends Status
+
+  case object NoContent extends Status
+
+  case object ResetContent extends Status
+
+  case object PartialContent extends Status
+
+  case object MultiStatus extends Status
+
+  case object MultipleChoices extends Status
+
+  case object MovedPermanently extends Status
+
+  case object Found extends Status
+
+  case object SeeOther extends Status
+
+  case object NotModified extends Status
+
+  case object UseProxy extends Status
+
+  case object TemporaryRedirect extends Status
+
+  case object PermanentRedirect extends Status
+
+  case object BadRequest extends Status
+
+  case object Unauthorized extends Status
+
+  case object PaymentRequired extends Status
+
+  case object Forbidden extends Status
+
+  case object NotFound extends Status
+
+  case object MethodNotAllowed extends Status
+
+  case object NotAcceptable extends Status
+
+  case object ProxyAuthenticationRequired extends Status
+
+  case object RequestTimeout extends Status
+
+  case object Conflict extends Status
+
+  case object Gone extends Status
+
+  case object LengthRequired extends Status
+
+  case object PreconditionFailed extends Status
+
+  case object RequestEntityTooLarge extends Status
+
+  case object RequestUriTooLong extends Status
+
+  case object UnsupportedMediaType extends Status
+
+  case object RequestedRangeNotSatisfiable extends Status
+
+  case object ExpectationFailed extends Status
+
+  case object MisdirectedRequest extends Status
+
+  case object UnprocessableEntity extends Status
+
+  case object Locked extends Status
+
+  case object FailedDependency extends Status
+
+  case object UnorderedCollection extends Status
+
+  case object UpgradeRequired extends Status
+
+  case object PreconditionRequired extends Status
+
+  case object TooManyRequests extends Status
+
+  case object RequestHeaderFieldsTooLarge extends Status
+
+  case object InternalServerError extends Status
+
+  case object NotImplemented extends Status
+
+  case object BadGateway extends Status
+
+  case object ServiceUnavailable extends Status
+
+  case object GatewayTimeout extends Status
+
+  case object HttpVersionNotSupported extends Status
+
+  case object VariantAlsoNegotiates extends Status
+
+  case object InsufficientStorage extends Status
+
+  case object NotExtended extends Status
+
+  case object NetworkAuthenticationRequired extends Status
+
   final case class Custom(override val code: Int) extends Status
 
   def fromHttpResponseStatus(jStatus: HttpResponseStatus): Status = (jStatus: @unchecked) match {
@@ -209,5 +265,75 @@ object Status {
     case HttpResponseStatus.NOT_EXTENDED                    => Status.NotExtended
     case HttpResponseStatus.NETWORK_AUTHENTICATION_REQUIRED => Status.NetworkAuthenticationRequired
     case status                                             => Status.Custom(status.code)
+  }
+
+  def fromInt(code: Int): Option[Status] = {
+
+    if (code < 100 || code > 599) {
+      None
+    } else {
+
+      val status = code match {
+        case 100 => Status.Continue
+        case 101 => Status.SwitchingProtocols
+        case 102 => Status.Processing
+        case 200 => Status.Ok
+        case 201 => Status.Created
+        case 202 => Status.Accepted
+        case 203 => Status.NonAuthoritativeInformation
+        case 204 => Status.NoContent
+        case 205 => Status.ResetContent
+        case 206 => Status.PartialContent
+        case 207 => Status.MultiStatus
+        case 300 => Status.MultipleChoices
+        case 301 => Status.MovedPermanently
+        case 302 => Status.Found
+        case 303 => Status.SeeOther
+        case 304 => Status.NotModified
+        case 305 => Status.UseProxy
+        case 307 => Status.TemporaryRedirect
+        case 308 => Status.PermanentRedirect
+        case 400 => Status.BadRequest
+        case 401 => Status.Unauthorized
+        case 402 => Status.PaymentRequired
+        case 403 => Status.Forbidden
+        case 404 => Status.NotFound
+        case 405 => Status.MethodNotAllowed
+        case 406 => Status.NotAcceptable
+        case 407 => Status.ProxyAuthenticationRequired
+        case 408 => Status.RequestTimeout
+        case 409 => Status.Conflict
+        case 410 => Status.Gone
+        case 411 => Status.LengthRequired
+        case 412 => Status.PreconditionFailed
+        case 413 => Status.RequestEntityTooLarge
+        case 414 => Status.RequestUriTooLong
+        case 415 => Status.UnsupportedMediaType
+        case 416 => Status.RequestedRangeNotSatisfiable
+        case 417 => Status.ExpectationFailed
+        case 421 => Status.MisdirectedRequest
+        case 422 => Status.UnprocessableEntity
+        case 423 => Status.Locked
+        case 424 => Status.FailedDependency
+        case 425 => Status.UnorderedCollection
+        case 426 => Status.UpgradeRequired
+        case 428 => Status.PreconditionRequired
+        case 429 => Status.TooManyRequests
+        case 431 => Status.RequestHeaderFieldsTooLarge
+        case 500 => Status.InternalServerError
+        case 501 => Status.NotImplemented
+        case 502 => Status.BadGateway
+        case 503 => Status.ServiceUnavailable
+        case 504 => Status.GatewayTimeout
+        case 505 => Status.HttpVersionNotSupported
+        case 506 => Status.VariantAlsoNegotiates
+        case 507 => Status.InsufficientStorage
+        case 510 => Status.NotExtended
+        case 511 => Status.NetworkAuthenticationRequired
+        case _   => Status.Custom(code)
+
+      }
+      Some(status)
+    }
   }
 }

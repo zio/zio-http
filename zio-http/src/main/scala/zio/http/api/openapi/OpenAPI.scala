@@ -7,12 +7,18 @@
 package zio.http.api.openapi
 
 import zio.NonEmptyChunk
-import zio.http.api.Doc
+import zio.http.api.openapi.JsonRenderer._
+import zio.http.api.{Doc, openapi}
 import zio.http.model.Status
 
 import java.net.URI
 import scala.util.matching.Regex
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
+private[openapi] sealed trait OpenAPIBase {
+  self =>
+  def toJson: String
+}
+
 object OpenAPI {
 
   /**
@@ -58,8 +64,33 @@ object OpenAPI {
     components: Option[Components],
     security: List[SecurityRequirement],
     tags: List[Tag],
-    externalDocs: Doc,
-  )
+    externalDocs: Option[ExternalDoc],
+  ) extends OpenAPIBase {
+    def toJson: String =
+      JsonRenderer.renderFields(
+        "openapi"      -> openapi,
+        "info"         -> info,
+        "servers"      -> servers,
+        "paths"        -> paths,
+        "components"   -> components,
+        "security"     -> security,
+        "tags"         -> tags,
+        "externalDocs" -> externalDocs,
+      )
+  }
+
+  /**
+   * Allows referencing an external resource for extended documentation.
+   *
+   * @param description
+   *   A short description of the target documentation. CommonMark syntax MAY be
+   *   used for rich text representation.
+   * @param url
+   *   The URL for the target documentation.
+   */
+  final case class ExternalDoc(description: Option[Doc], url: URI) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields("description" -> description, "url" -> url)
+  }
 
   /**
    * The object provides metadata about the API. The metadata MAY be used by the
@@ -87,7 +118,16 @@ object OpenAPI {
     contact: Option[Contact],
     license: Option[License],
     version: String,
-  )
+  ) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "title"          -> title,
+      "description"    -> description,
+      "termsOfService" -> termsOfService,
+      "contact"        -> contact,
+      "license"        -> license,
+      "version"        -> version,
+    )
+  }
 
   /**
    * Contact information for the exposed API.
@@ -100,7 +140,9 @@ object OpenAPI {
    *   The email address of the contact person/organization. MUST be in the
    *   format of an email address.
    */
-  final case class Contact(name: Option[String], url: Option[URI], email: String)
+  final case class Contact(name: Option[String], url: Option[URI], email: String) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields("name" -> name, "url" -> url, "email" -> email)
+  }
 
   /**
    * License information for the exposed API.
@@ -110,7 +152,9 @@ object OpenAPI {
    * @param url
    *   A URL to the license used for the API.
    */
-  final case class License(name: String, url: Option[URI])
+  final case class License(name: String, url: Option[URI]) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields("name" -> name, "url" -> url)
+  }
 
   /**
    * An object representing a Server.
@@ -127,6 +171,13 @@ object OpenAPI {
    *   substitution in the server’s URL template.
    */
   final case class Server(url: URI, description: Doc, variables: Map[String, ServerVariable])
+      extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "url"         -> url,
+      "description" -> description,
+      "variables"   -> variables,
+    )
+  }
 
   /**
    * An object representing a Server Variable for server URL template
@@ -145,6 +196,13 @@ object OpenAPI {
    *   A description for the server variable.
    */
   final case class ServerVariable(`enum`: NonEmptyChunk[String], default: String, description: Doc)
+      extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "enum"        -> `enum`,
+      "default"     -> default,
+      "description" -> description,
+    )
+  }
 
   /**
    * Holds a set of reusable objects for different aspects of the OAS. All
@@ -181,9 +239,23 @@ object OpenAPI {
     securitySchemes: Map[Key, SecuritySchemeOrReference],
     links: Map[Key, LinkOrReference],
     callbacks: Map[Key, CallbackOrReference],
-  )
+  ) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "schemas"         -> schemas,
+      "responses"       -> responses,
+      "parameters"      -> parameters,
+      "examples"        -> examples,
+      "requestBodies"   -> requestBodies,
+      "headers"         -> headers,
+      "securitySchemes" -> securitySchemes,
+      "links"           -> links,
+      "callbacks"       -> callbacks,
+    )
+  }
 
-  sealed abstract case class Key private (name: String)
+  sealed abstract case class Key private (name: String) extends openapi.OpenAPIBase {
+    override def toJson: String = name
+  }
 
   object Key {
 
@@ -217,10 +289,13 @@ object OpenAPI {
    * @param name
    *   The field name of the relative path MUST begin with a forward slash (/).
    */
-  sealed abstract case class Path private (name: String)
+  sealed abstract case class Path private (name: String) extends openapi.OpenAPIBase {
+    override def toJson: String = name
+  }
 
   object Path {
-    val validPath: Regex = "^/[a-zA-Z0-9.\\-_]+$.".r
+    // todo maybe not the best regex, but the old one was not working at all
+    val validPath: Regex = "/[a-zA-Z0-9\\-_\\{\\}]+".r
 
     def fromString(name: String): Option[Path] = name match {
       case validPath() => Some(new Path(name) {})
@@ -283,7 +358,23 @@ object OpenAPI {
     trace: Option[Operation],
     servers: List[Server],
     parameters: Set[ParameterOrReference],
-  )
+  ) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      s"$$ref"      -> ref,
+      "summary"     -> summary,
+      "description" -> description,
+      "get"         -> get,
+      "put"         -> put,
+      "post"        -> post,
+      "delete"      -> delete,
+      "options"     -> options,
+      "head"        -> head,
+      "patch"       -> patch,
+      "trace"       -> trace,
+      "servers"     -> servers,
+      "parameters"  -> parameters,
+    )
+  }
 
   /**
    * Describes a single API operation on a path.
@@ -343,7 +434,7 @@ object OpenAPI {
     tags: List[String],
     summary: String = "",
     description: Doc,
-    externalDocs: Option[URI],
+    externalDocs: Option[ExternalDoc],
     operationId: Option[String],
     parameters: Set[ParameterOrReference],
     requestBody: Option[RequestBodyOrReference],
@@ -352,9 +443,24 @@ object OpenAPI {
     deprecated: Boolean = false,
     security: List[SecurityRequirement],
     servers: List[Server],
-  )
+  ) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "tags"         -> tags,
+      "summary"      -> summary,
+      "description"  -> description,
+      "externalDocs" -> externalDocs,
+      "operationId"  -> operationId,
+      "parameters"   -> parameters,
+      "requestBody"  -> requestBody,
+      "responses"    -> responses,
+      "callbacks"    -> callbacks,
+      "deprecated"   -> deprecated,
+      "security"     -> security,
+      "servers"      -> servers,
+    )
+  }
 
-  sealed trait ParameterOrReference
+  sealed trait ParameterOrReference extends openapi.OpenAPIBase
 
   /**
    * Describes a single operation parameter.
@@ -377,26 +483,52 @@ object OpenAPI {
       case p: Parameter.QueryParameter if name == p.name && in == p.in => true
       case _                                                           => false
     }
+
+    override def toJson: String =
+      JsonRenderer.renderFields(
+        "name"            -> name,
+        "in"              -> in,
+        "description"     -> description,
+        "required"        -> required,
+        "deprecated"      -> deprecated,
+        "allowEmptyValue" -> allowEmptyValue,
+        "definition"      -> definition,
+        "explode"         -> explode,
+        "examples"        -> examples,
+      )
   }
 
   object Parameter {
     sealed trait Definition extends SchemaOrReference
 
     object Definition {
-      final case class Content(key: String, mediaType: String) extends Definition
+      final case class Content(key: String, mediaType: String) extends Definition {
+        override def toJson: String = JsonRenderer.renderFields(
+          "key"       -> key,
+          "mediaType" -> mediaType,
+        )
+      }
     }
 
     sealed trait PathStyle
 
     sealed trait QueryStyle
 
-    case object Matrix         extends PathStyle
-    case object Label          extends PathStyle
-    case object Simple         extends PathStyle
-    case object Form           extends QueryStyle
-    case object SpaceDelimited extends QueryStyle
-    case object PipeDelimited  extends QueryStyle
-    case object DeepObject     extends QueryStyle
+    object QueryStyle {
+      case object Matrix extends PathStyle
+
+      case object Label extends PathStyle
+
+      case object Simple extends PathStyle
+
+      case object Form extends QueryStyle
+
+      case object SpaceDelimited extends QueryStyle
+
+      case object PipeDelimited extends QueryStyle
+
+      case object DeepObject extends QueryStyle
+    }
 
     /**
      * Parameters that are appended to the URL. For example, in /items?id=###,
@@ -423,7 +555,7 @@ object OpenAPI {
       allowEmptyValue: Boolean = false,
       definition: Definition,
       allowReserved: Boolean = false,
-      style: QueryStyle = Form,
+      style: QueryStyle = QueryStyle.Form,
       explode: Boolean = true,
       examples: Map[String, ExampleOrReference],
     ) extends Parameter {
@@ -494,7 +626,7 @@ object OpenAPI {
       deprecated: Boolean = false,
       allowEmptyValue: Boolean = false,
       definition: Definition,
-      style: PathStyle = Simple,
+      style: PathStyle = QueryStyle.Simple,
       explode: Boolean = false,
       examples: Map[String, ExampleOrReference],
     ) extends Parameter {
@@ -535,7 +667,7 @@ object OpenAPI {
     }
   }
 
-  sealed trait HeaderOrReference
+  sealed trait HeaderOrReference extends openapi.OpenAPIBase
 
   final case class Header(
     description: Doc,
@@ -543,9 +675,17 @@ object OpenAPI {
     deprecate: Boolean = false,
     allowEmptyValue: Boolean = false,
     content: (String, MediaType),
-  ) extends HeaderOrReference
+  ) extends HeaderOrReference {
+    override def toJson: String = JsonRenderer.renderFields(
+      "description"     -> description,
+      "required"        -> required,
+      "deprecated"      -> deprecate,
+      "allowEmptyValue" -> allowEmptyValue,
+      "content"         -> content,
+    )
+  }
 
-  sealed trait RequestBodyOrReference
+  sealed trait RequestBodyOrReference extends openapi.OpenAPIBase
 
   /**
    * Describes a single request body.
@@ -561,7 +701,13 @@ object OpenAPI {
    *   Determines if the request body is required in the request.
    */
   final case class RequestBody(description: Doc, content: Map[String, MediaType], required: Boolean = false)
-      extends ResponseOrReference
+      extends ResponseOrReference {
+    override def toJson: String = JsonRenderer.renderFields(
+      "description" -> description,
+      "content"     -> content,
+      "required"    -> required,
+    )
+  }
 
   /**
    * Each Media Type Object provides schema and examples for the media type
@@ -584,7 +730,13 @@ object OpenAPI {
     schema: SchemaOrReference,
     examples: Map[String, ExampleOrReference],
     encoding: Map[String, Encoding],
-  )
+  ) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "schema"   -> schema,
+      "examples" -> examples,
+      "encoding" -> encoding,
+    )
+  }
 
   /**
    * A single encoding definition applied to a single schema property.
@@ -618,7 +770,15 @@ object OpenAPI {
     style: String = "form",
     explode: Boolean,
     allowReserved: Boolean = false,
-  )
+  ) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "contentType"   -> contentType,
+      "headers"       -> headers,
+      "style"         -> style,
+      "explode"       -> explode,
+      "allowReserved" -> allowReserved,
+    )
+  }
 
   /**
    * A container for the expected responses of an operation. The container maps
@@ -628,7 +788,7 @@ object OpenAPI {
    */
   type Responses = Map[Status, ResponseOrReference]
 
-  sealed trait ResponseOrReference
+  sealed trait ResponseOrReference extends openapi.OpenAPIBase
 
   /**
    * Describes a single response from an API Operation, including design-time,
@@ -655,9 +815,16 @@ object OpenAPI {
     headers: Map[String, HeaderOrReference],
     content: Map[String, MediaType],
     links: Map[String, LinkOrReference],
-  ) extends ResponseOrReference
+  ) extends ResponseOrReference {
+    override def toJson: String = JsonRenderer.renderFields(
+      "description" -> description,
+      "headers"     -> headers,
+      "content"     -> content,
+      "links"       -> links,
+    )
+  }
 
-  sealed trait CallbackOrReference
+  sealed trait CallbackOrReference extends openapi.OpenAPIBase
 
   /**
    * A map of possible out-of band callbacks related to the parent operation.
@@ -671,9 +838,16 @@ object OpenAPI {
    *   A Path Item Object used to define a callback request and expected
    *   responses.
    */
-  final case class Callback(expressions: Map[String, PathItem]) extends CallbackOrReference
+  final case class Callback(expressions: Map[String, PathItem]) extends CallbackOrReference {
+    override def toJson: String = {
+      val toRender = expressions.foldLeft(List.empty[(String, Renderer[PathItem])]) { case (acc, (k, v)) =>
+        (k, v: Renderer[PathItem]) :: acc
+      }
+      JsonRenderer.renderFields(toRender: _*)
+    }
+  }
 
-  sealed trait ExampleOrReference
+  sealed trait ExampleOrReference extends openapi.OpenAPIBase
 
   /**
    * In all cases, the example value is expected to be compatible with the type
@@ -690,9 +864,15 @@ object OpenAPI {
    *   reference examples that cannot easily be included in JSON or YAML
    *   documents.
    */
-  final case class Example(summary: String = "", description: Doc, externalValue: URI) extends ExampleOrReference
+  final case class Example(summary: String = "", description: Doc, externalValue: URI) extends ExampleOrReference {
+    override def toJson: String = JsonRenderer.renderFields(
+      "summary"       -> summary,
+      "description"   -> description,
+      "externalValue" -> externalValue,
+    )
+  }
 
-  sealed trait LinkOrReference
+  sealed trait LinkOrReference extends openapi.OpenAPIBase
 
   /**
    * The Link object represents a possible design-time link for a response. The
@@ -729,11 +909,42 @@ object OpenAPI {
    */
   final case class Link(
     operationRef: URI,
-    parameters: Map[String, Any],
-    requestBody: Any,
+    parameters: Map[String, LiteralOrExpression],
+    requestBody: LiteralOrExpression,
     description: Doc,
     server: Option[Server],
-  ) extends LinkOrReference
+  ) extends LinkOrReference {
+    override def toJson: String = JsonRenderer.renderFields(
+      "operationRef" -> operationRef,
+      "parameters"   -> parameters,
+      "requestBody"  -> requestBody,
+      "description"  -> description,
+      "server"       -> server,
+    )
+  }
+
+  sealed trait LiteralOrExpression
+  object LiteralOrExpression {
+    final case class NumberLiteral(value: Long)                   extends LiteralOrExpression
+    final case class DecimalLiteral(value: Double)                extends LiteralOrExpression
+    final case class StringLiteral(value: String)                 extends LiteralOrExpression
+    final case class BooleanLiteral(value: Boolean)               extends LiteralOrExpression
+    sealed abstract case class Expression private (value: String) extends LiteralOrExpression
+
+    object Expression {
+      private[openapi] def create(value: String): Expression = new Expression(value) {}
+    }
+
+    // TODO: maybe one could make a regex to validate the expression. For now just accept anything
+    // https://swagger.io/specification/#runtime-expressions
+    val ExpressionRegex: Regex = """.*""".r
+
+    def expression(value: String): Option[LiteralOrExpression] =
+      value match {
+        case ExpressionRegex() => Some(Expression.create(value))
+        case _                 => None
+      }
+  }
 
   /**
    * Adds metadata to a single tag that is used by the Operation Object. It is
@@ -747,7 +958,13 @@ object OpenAPI {
    * @param externalDocs
    *   Additional external documentation for this tag.
    */
-  final case class Tag(name: String, description: Doc, externalDocs: URI)
+  final case class Tag(name: String, description: Doc, externalDocs: URI) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "name"         -> name,
+      "description"  -> description,
+      "externalDocs" -> externalDocs,
+    )
+  }
 
   /**
    * A simple object to allow referencing other components in the specification,
@@ -765,11 +982,13 @@ object OpenAPI {
       with HeaderOrReference
       with SecuritySchemeOrReference
       with LinkOrReference
-      with CallbackOrReference
+      with CallbackOrReference {
+    override def toJson: String = JsonRenderer.renderFields(s"$$ref" -> ref)
+  }
 
-  sealed trait SchemaOrReference
+  sealed trait SchemaOrReference extends openapi.OpenAPIBase
 
-  sealed trait Schema extends SchemaOrReference {
+  sealed trait Schema extends openapi.OpenAPIBase with SchemaOrReference {
     def nullable: Boolean
     def discriminator: Option[Discriminator]
     def readOnly: Boolean
@@ -778,6 +997,18 @@ object OpenAPI {
     def externalDocs: URI
     def example: String
     def deprecated: Boolean
+
+    override def toJson: String =
+      JsonRenderer.renderFields(
+        "nullable"      -> nullable,
+        "discriminator" -> discriminator,
+        "readOnly"      -> readOnly,
+        "writeOnly"     -> writeOnly,
+        "xml"           -> xml,
+        "externalDocs"  -> externalDocs,
+        "example"       -> example,
+        "deprecated"    -> deprecated,
+      )
   }
 
   object Schema {
@@ -886,7 +1117,12 @@ object OpenAPI {
    *   An object to hold mappings between payload values and schema names or
    *   references.
    */
-  final case class Discriminator(propertyName: String, mapping: Map[String, String])
+  final case class Discriminator(propertyName: String, mapping: Map[String, String]) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "propertyName" -> propertyName,
+      "mapping"      -> mapping,
+    )
+  }
 
   /**
    * A metadata object that allows for more fine-tuned XML model definitions.
@@ -914,8 +1150,17 @@ object OpenAPI {
    *   type being array (outside the items).
    */
   final case class XML(name: String, namespace: URI, prefix: String, attribute: Boolean = false, wrapped: Boolean)
+      extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "name"      -> name,
+      "namespace" -> namespace,
+      "prefix"    -> prefix,
+      "attribute" -> attribute,
+      "wrapped"   -> wrapped,
+    )
+  }
 
-  sealed trait SecuritySchemeOrReference
+  sealed trait SecuritySchemeOrReference extends openapi.OpenAPIBase
 
   sealed trait SecurityScheme extends SecuritySchemeOrReference {
     def `type`: String
@@ -936,10 +1181,22 @@ object OpenAPI {
      */
     final case class ApiKey(description: Doc, name: String, in: ApiKey.In) extends SecurityScheme {
       override def `type`: String = "apiKey"
+
+      override def toJson: String =
+        JsonRenderer.renderFields(
+          "type"        -> `type`,
+          "description" -> description,
+          "name"        -> name,
+          "in"          -> in,
+        )
     }
 
     object ApiKey {
-      sealed trait In
+      sealed trait In extends openapi.OpenAPIBase {
+        self: Product =>
+        override def toJson: String =
+          s""""${self.productPrefix.updated(0, self.productPrefix.charAt(0).toLower)}""""
+      }
 
       object In {
         case object Query  extends In
@@ -962,6 +1219,14 @@ object OpenAPI {
      */
     final case class Http(description: Doc, scheme: String, bearerFormat: Option[String]) extends SecurityScheme {
       override def `type`: String = "http"
+
+      override def toJson: String =
+        JsonRenderer.renderFields(
+          "type"         -> `type`,
+          "description"  -> description,
+          "scheme"       -> scheme,
+          "bearerFormat" -> bearerFormat,
+        )
     }
 
     /**
@@ -973,6 +1238,13 @@ object OpenAPI {
      */
     final case class OAuth2(description: Doc, flows: OAuthFlows) extends SecurityScheme {
       override def `type`: String = "oauth2"
+
+      override def toJson: String =
+        JsonRenderer.renderFields(
+          "type"        -> `type`,
+          "description" -> description,
+          "flows"       -> flows,
+        )
     }
 
     /**
@@ -983,6 +1255,13 @@ object OpenAPI {
      */
     final case class OpenIdConnect(description: Doc, openIdConnectUrl: URI) extends SecurityScheme {
       override def `type`: String = "openIdConnect"
+
+      override def toJson: String =
+        JsonRenderer.renderFields(
+          "type"             -> `type`,
+          "description"      -> description,
+          "openIdConnectUrl" -> openIdConnectUrl,
+        )
     }
   }
 
@@ -1005,9 +1284,16 @@ object OpenAPI {
     password: Option[OAuthFlow.Password],
     clientCredentials: Option[OAuthFlow.ClientCredentials],
     authorizationCode: Option[OAuthFlow.AuthorizationCode],
-  )
+  ) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "implicit"          -> `implicit`,
+      "password"          -> password,
+      "clientCredentials" -> clientCredentials,
+      "authorizationCode" -> authorizationCode,
+    )
+  }
 
-  sealed trait OAuthFlow {
+  sealed trait OAuthFlow extends openapi.OpenAPIBase {
     def refreshUrl: Option[URI]
     def scopes: Map[String, String]
   }
@@ -1026,7 +1312,13 @@ object OpenAPI {
      *   scope name and a short description for it. The map MAY be empty.
      */
     final case class Implicit(authorizationUrl: URI, refreshUrl: Option[URI], scopes: Map[String, String])
-        extends OAuthFlow
+        extends OAuthFlow {
+      override def toJson: String = JsonRenderer.renderFields(
+        "authorizationUrl" -> authorizationUrl,
+        "refreshUrl"       -> refreshUrl,
+        "scopes"           -> scopes,
+      )
+    }
 
     /**
      * Configuration for the OAuth Authorization Code flow. Previously called
@@ -1047,7 +1339,14 @@ object OpenAPI {
       refreshUrl: Option[URI],
       scopes: Map[String, String],
       tokenUrl: URI,
-    ) extends OAuthFlow
+    ) extends OAuthFlow {
+      override def toJson: String = JsonRenderer.renderFields(
+        "authorizationUrl" -> authorizationUrl,
+        "refreshUrl"       -> refreshUrl,
+        "scopes"           -> scopes,
+        "tokenUrl"         -> tokenUrl,
+      )
+    }
 
     /**
      * Configuration for the OAuth Resource Owner Password flow.
@@ -1060,7 +1359,13 @@ object OpenAPI {
      * @param tokenUrl
      *   The token URL to be used for this flow.
      */
-    final case class Password(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI) extends OAuthFlow
+    final case class Password(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI) extends OAuthFlow {
+      override def toJson: String = JsonRenderer.renderFields(
+        "refreshUrl" -> refreshUrl,
+        "scopes"     -> scopes,
+        "tokenUrl"   -> tokenUrl,
+      )
+    }
 
     /**
      * Configuration for the OAuth Client Credentials flow. Previously called
@@ -1075,7 +1380,13 @@ object OpenAPI {
      *   The token URL to be used for this flow.
      */
     final case class ClientCredentials(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI)
-        extends OAuthFlow
+        extends OAuthFlow {
+      override def toJson: String = JsonRenderer.renderFields(
+        "refreshUrl" -> refreshUrl,
+        "scopes"     -> scopes,
+        "tokenUrl"   -> tokenUrl,
+      )
+    }
   }
 
   /**
@@ -1098,5 +1409,9 @@ object OpenAPI {
    *   MAY be empty if authorization does not require a specified scope. For
    *   other security scheme types, the List MUST be empty.
    */
-  final case class SecurityRequirement(securitySchemes: Map[String, List[String]])
+  final case class SecurityRequirement(securitySchemes: Map[String, List[String]]) extends openapi.OpenAPIBase {
+    override def toJson: String = JsonRenderer.renderFields(
+      "securitySchemes" -> securitySchemes,
+    )
+  }
 }

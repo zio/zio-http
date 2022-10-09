@@ -22,10 +22,10 @@ private[api] final case class APIClient[MI, MO, I, O](apiRoot: URL, api: API[MI,
 
     var i = 0
     while (i < inputs.length) {
-      val route = flattened.routes(i).asInstanceOf[In.Route[Any]]
-      val input = inputs(i)
+      val textCodec = flattened.routes(i).asInstanceOf[TextCodec[Any]]
+      val input     = inputs(i)
 
-      val segment = route.textCodec.encode(input)
+      val segment = textCodec.encode(input)
 
       path = path / segment
       i = i + 1
@@ -82,12 +82,15 @@ private[api] final case class APIClient[MI, MO, I, O](apiRoot: URL, api: API[MI,
     val headers = encodeHeaders(inputs.headers)
     val body    = encodeBody(inputs.inputBodies)
 
-    val request = Request(
-      method = api.method,
-      url = apiRoot ++ URL(route, URL.Location.Relative, query),
-      headers = headers,
-      body = body,
-    )
+    val request = Request
+      .default(
+        api.method,
+        apiRoot ++ URL(route, URL.Location.Relative, query),
+        body,
+      )
+      .copy(
+        headers = headers,
+      )
 
     client.request(request).flatMap { response =>
       response.body.asChunk.flatMap { response =>

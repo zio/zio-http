@@ -4,7 +4,7 @@ import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model._
 import zio.stream.ZStream
-import zio.test.Assertion._
+import zio.test.Assertion.{isLeft, _}
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
 import zio.{Scope, durationInt}

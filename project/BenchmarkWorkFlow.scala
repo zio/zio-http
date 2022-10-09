@@ -28,7 +28,7 @@ object BenchmarkWorkFlow {
         WorkflowStep.Use(
           UseRef.Public("actions", "checkout", s"v2"),
           Map(
-            "repository" -> "dream11/FrameworkBenchmarks",
+            "repository" -> "zio/FrameworkBenchmarks",
             "path"       -> "FrameworkBenchMarks",
           ),
         ),

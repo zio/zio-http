@@ -29,29 +29,23 @@ sealed trait Service[-R, +E, AllIds] { self =>
       APIServer(handledApi)
     }
 
-    Http.collectHttp[Request].apply[R, E, Response] { case request =>
-      val handler = handlerTree.lookup(request)
+    Http
+      .collectZIO[Request]
+      .apply[R, E, Response] { case request =>
+        val handler = handlerTree.lookup(request)
 
-      handler match {
-        case None               =>
-          Http.fromZIO(ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request)))))
-
-        case Some(handlerMatch) =>
-          val http: HttpApp[R, E] =
-            Http.fromFunctionZIO(requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, _))
-
-          handlerMatch.handledApi.api.middlewareSpec match {
-            case Some(value) => value.toMiddleware.apply(http)
-            case None        => http
-          }
-
-      }
-    }
+        handler match {
+          case None => ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
+          case Some(handlerMatch) =>
+            requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)(Trace.empty)
+        }
+      }(Trace.empty)
   }
 
   private[api] def withAllIds[AllIds0]: Service[R, E, AllIds0] =
     self.asInstanceOf[Service[R, E, AllIds0]]
 }
+
 object Service {
   // How to integrate middlewarespec's handlers in here ?
   final case class HandledAPI[-R, +E, In0, Out0, Id](

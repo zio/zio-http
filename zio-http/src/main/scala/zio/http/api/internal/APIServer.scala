@@ -3,7 +3,8 @@ package zio.http.api.internal
 import zio._
 import zio.http._
 import zio.http.api._
-import zio.http.model.{Header, Headers}
+import zio.http.api.internal.Mechanic.Constructor
+import zio.http.model.Headers
 import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -18,8 +19,10 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   private val outputJsonEncoder: Any => Chunk[Byte]               =
     JsonCodec.encode(api.output.bodySchema.asInstanceOf[Schema[Any]])
 
-  private val constructor = Mechanic.makeConstructor(api.input).asInstanceOf[Mechanic.Constructor[I]]
-  private val flattened   = Mechanic.flatten(api.input)
+  private val constructor: Constructor[I]        = Mechanic.makeConstructor(api.input)
+  private val flattened: Mechanic.FlattenedAtoms = Mechanic.flatten(api.input)
+
+  private val hasOutput = api.output != Out.unit
 
   def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
     val inputsBuilder = flattened.makeInputsBuilder()
@@ -34,10 +37,10 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
       val input: I = constructor(inputsBuilder)
 
       handler(input).map { output =>
-        val body = outputJsonEncoder(output)
-        Response(
-          body = Body.fromChunk(body),
-        )
+        val body =
+          if (hasOutput) Body.fromChunk(outputJsonEncoder(output))
+          else Body.empty
+        Response(body = body)
       }
     }
   }
@@ -74,10 +77,10 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   }
 
   private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): UIO[Unit] =
-    body.asChunk.orDie.map { chunk =>
-      if (inputs.length == 0) ()
-      else {
+    if (inputs.isEmpty)
+      ZIO.unit
+    else
+      body.asChunk.orDie.map { chunk =>
         inputs(0) = bodyJsonDecoder(chunk).getOrElse(throw APIError.MalformedRequestBody(api))
       }
-    }
 }
