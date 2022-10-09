@@ -10,7 +10,7 @@ private[api] object Mechanic {
   type Constructor[+A]   = InputsBuilder => A
   type Deconstructor[-A] = A => InputsBuilder
 
-  def flatten(in: In[_]): FlattenedAtoms = {
+  def flatten(in: In[_, _]): FlattenedAtoms = {
     var result = FlattenedAtoms.empty
     flattenedAtoms(in).foreach { atom =>
       result = result.append(atom)
@@ -18,36 +18,40 @@ private[api] object Mechanic {
     result
   }
 
-  private def flattenedAtoms(in: In[_]): Chunk[Atom[_]] =
+  private def flattenedAtoms(in: In[_, _]): Chunk[Atom[_, _]] =
     in match {
-      case Combine(left, right, _) => flattenedAtoms(left) ++ flattenedAtoms(right)
-      case atom: Atom[_]           => Chunk(atom)
-      case map: Transform[_, _]    => flattenedAtoms(map.api)
-      case WithDoc(api, _)         => flattenedAtoms(api)
+      case Combine(left, right, _)       => flattenedAtoms(left) ++ flattenedAtoms(right)
+      case atom: Atom[_, _]              => Chunk(atom)
+      case map: TransformOrFail[_, _, _] => flattenedAtoms(map.api)
+      case WithDoc(api, _)               => flattenedAtoms(api)
     }
 
-  private def indexed[A](api: In[A]): In[A] =
+  private def indexed[R, A](api: In[R, A]): In[R, A] =
     indexedImpl(api, AtomIndices())._1
 
-  private def indexedImpl[A](api: In[A], indices: AtomIndices): (In[A], AtomIndices) =
-    api.asInstanceOf[In[_]] match {
+  private def indexedImpl[R, A](api: In[R, A], indices: AtomIndices): (In[R, A], AtomIndices) =
+    api.asInstanceOf[In[_, _]] match {
       case Combine(left, right, inputCombiner) =>
         val (left2, leftIndices)   = indexedImpl(left, indices)
         val (right2, rightIndices) = indexedImpl(right, leftIndices)
-        (Combine(left2, right2, inputCombiner).asInstanceOf[In[A]], rightIndices)
-      case atom: Atom[_]                       =>
-        (IndexedAtom(atom, indices.get(atom)).asInstanceOf[In[A]], indices.increment(atom))
-      case Transform(api, f, g)                =>
+        (Combine(left2, right2, inputCombiner).asInstanceOf[In[R, A]], rightIndices)
+      case atom: Atom[_, _]                    =>
+        (IndexedAtom(atom, indices.get(atom)).asInstanceOf[In[R, A]], indices.increment(atom))
+      case TransformOrFail(api, f, g)          =>
         val (api2, resultIndices) = indexedImpl(api, indices)
-        (Transform(api2, f, g).asInstanceOf[In[A]], resultIndices)
+        (TransformOrFail(api2, f, g).asInstanceOf[In[R, A]], resultIndices)
 
-      case WithDoc(api, _) => indexedImpl(api.asInstanceOf[In[A]], indices)
+      case WithDoc(api, _) => indexedImpl(api.asInstanceOf[In[R, A]], indices)
     }
 
-  def makeConstructor[A](api: In[A]): Constructor[A] =
+  def makeConstructor[A](
+    api: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, A],
+  ): Constructor[A] =
     makeConstructorLoop(indexed(api))
 
-  def makeDeconstructor[A](api: In[A]): Deconstructor[A] = {
+  def makeDeconstructor[A](
+    api: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, A],
+  ): Deconstructor[A] = {
     val flattened = flatten(api)
 
     val deconstructor = makeDeconstructorLoop(indexed(api))
@@ -59,7 +63,9 @@ private[api] object Mechanic {
     }
   }
 
-  private def makeConstructorLoop[A](api: In[A]): Constructor[A] = {
+  private def makeConstructorLoop[A](
+    api: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, A],
+  ): Constructor[A] = {
     def coerce(any: Any): A = any.asInstanceOf[A]
 
     api match {
@@ -83,18 +89,24 @@ private[api] object Mechanic {
       case IndexedAtom(_: InputBody[_], index) =>
         results => coerce(results.inputBodies(index))
 
-      case transform: Transform[_, A] =>
+      case transform: TransformOrFail[_, _, A] =>
         val threaded = makeConstructorLoop(transform.api)
-        results => transform.f(threaded(results))
+        results =>
+          transform.f(threaded(results)) match {
+            case Left(value)  => throw new RuntimeException(value)
+            case Right(value) => value
+          }
 
       case WithDoc(api, _) => makeConstructorLoop(api)
 
-      case atom: Atom[_] =>
+      case atom: Atom[_, _] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
     }
   }
 
-  private def makeDeconstructorLoop[A](api: In[A]): (A, InputsBuilder) => Unit = {
+  private def makeDeconstructorLoop[A](
+    api: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, A],
+  ): (A, InputsBuilder) => Unit = {
     api match {
       case Combine(left, right, inputCombiner) =>
         val leftDeconstructor  = makeDeconstructorLoop(left)
@@ -119,14 +131,21 @@ private[api] object Mechanic {
       case IndexedAtom(_: InputBody[_], index) =>
         (input, inputsBuilder) => inputsBuilder.setInputBody(index, input)
 
-      case transform: Transform[_, A] =>
+      case transform: TransformOrFail[_, _, A] =>
         val deconstructor = makeDeconstructorLoop(transform.api)
 
-        (input, inputsBuilder) => deconstructor(transform.g(input), inputsBuilder)
+        (input, inputsBuilder) =>
+          deconstructor(
+            transform.g(input) match {
+              case Left(value)  => throw new RuntimeException(value)
+              case Right(value) => value
+            },
+            inputsBuilder,
+          )
 
       case WithDoc(api, _) => makeDeconstructorLoop(api)
 
-      case atom: Atom[_] =>
+      case atom: Atom[_, _] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
     }
   }
@@ -139,13 +158,12 @@ private[api] object Mechanic {
     headers: Chunk[Header[_]],
     inputBodies: Chunk[InputBody[_]],
   ) { self =>
-    def append(atom: Atom[_]) = atom match {
-      case route: Route[_]                         => copy(routes = routes :+ route.textCodec)
-      case query: Query[_]                         => copy(queries = queries :+ query)
-      case header: Header[_]                       => copy(headers = headers :+ header)
-      case inputBody: InputBody[_]                 => copy(inputBodies = inputBodies :+ inputBody)
-      case basicAuthenticate: BasicAuthenticate[_] => self
-      case _: IndexedAtom[_] => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
+    def append(atom: Atom[_, _]) = atom match {
+      case route: Route[_]         => copy(routes = routes :+ route.textCodec)
+      case query: Query[_]         => copy(queries = queries :+ query)
+      case header: Header[_]       => copy(headers = headers :+ header)
+      case inputBody: InputBody[_] => copy(inputBodies = inputBodies :+ inputBody)
+      case _: IndexedAtom[_, _]    => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
     }
 
     def makeInputsBuilder(): InputsBuilder = {
@@ -193,25 +211,23 @@ private[api] object Mechanic {
     header: Int = 0,
     inputBody: Int = 0,
   ) {
-    def increment(atom: Atom[_]): AtomIndices = {
+    def increment(atom: Atom[_, _]): AtomIndices = {
       atom match {
-        case _: Route[_]             => copy(route = route + 1)
-        case _: Query[_]             => copy(query = query + 1)
-        case _: Header[_]            => copy(header = header + 1)
-        case _: InputBody[_]         => copy(inputBody = inputBody + 1)
-        case _: BasicAuthenticate[_] => this
-        case _: IndexedAtom[_]       => throw new RuntimeException("IndexedAtom should not be passed to increment")
+        case _: Route[_]          => copy(route = route + 1)
+        case _: Query[_]          => copy(query = query + 1)
+        case _: Header[_]         => copy(header = header + 1)
+        case _: InputBody[_]      => copy(inputBody = inputBody + 1)
+        case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to increment")
       }
     }
 
-    def get(atom: Atom[_]): Int =
+    def get(atom: Atom[_, _]): Int =
       atom match {
-        case _: Route[_]             => route
-        case _: Query[_]             => query
-        case _: Header[_]            => header
-        case _: InputBody[_]         => inputBody
-        case _: BasicAuthenticate[_] => throw new RuntimeException("Cannot get authentication info")
-        case _: IndexedAtom[_]       => throw new RuntimeException("IndexedAtom should not be passed to get")
+        case _: Route[_]          => route
+        case _: Query[_]          => query
+        case _: Header[_]         => header
+        case _: InputBody[_]      => inputBody
+        case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to get")
       }
   }
 }

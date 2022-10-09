@@ -42,19 +42,6 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
     }
   }
 
-  private def getHeaders(middlewareSpec: In[Unit]): Headers = {
-    import zio.http.model._
-
-    middlewareSpec match {
-      case In.Header(key, value) =>
-        value match {
-          case TextCodec.Constant(v) => Headers(List(Header.apply(key, v)))
-          case _                     => Headers.empty
-        }
-      case _                     => Headers.empty
-    }
-  }
-
   private def decodeQuery(queryParams: QueryParams, inputs: Array[Any]): Unit = {
     var i = 0
     while (i < flattened.queries.length) {
