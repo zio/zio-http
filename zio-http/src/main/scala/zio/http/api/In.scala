@@ -1,5 +1,6 @@
 package zio.http.api
 
+import zio.stream.ZStream
 import sun.text.normalizer.ICUBinary.Authenticate
 import zio.http.model.Headers
 import zio.schema.Schema
@@ -67,11 +68,12 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
 
   private[api] sealed trait Atom[-AtomTypes, Input0] extends In[AtomTypes, Input0]
 
-  private[api] case object Empty                                                 extends Atom[Any, Unit]
-  private[api] final case class Route[A](textCodec: TextCodec[A])                extends Atom[RouteType, A]
+  private[api] case object Empty                                  extends Atom[Any, Unit]
+  private[api] final case class Route[A](textCodec: TextCodec[A]) extends Atom[RouteType, A]
   // TODO; Rename to Body
-  private[api] final case class InputBody[A](input: Schema[A])                   extends Atom[BodyType, A]
-  // private[api] final case class BodyStream[A](element: Schema[A])                   extends Atom[BodyType, ZStream[Any, Throwable, A]] // and delete Out
+  private[api] final case class InputBody[A](input: Schema[A])    extends Atom[BodyType, A]
+  private[api] final case class BodyStream[A](element: Schema[A])
+      extends Atom[BodyType, ZStream[Any, Throwable, A]] // and delete Out
   private[api] final case class Query[A](name: String, textCodec: TextCodec[A])  extends Atom[QueryType, A]
   private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[HeaderType, A]
   private[api] final case class IndexedAtom[AtomType, A](atom: Atom[AtomType, A], index: Int) extends Atom[AtomType, A]

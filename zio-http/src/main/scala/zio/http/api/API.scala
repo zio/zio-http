@@ -86,7 +86,7 @@ final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
    * Returns a new API that is derived from this one, but which includes
    * additional documentation that will be included in OpenAPI generation.
    */
-  def ??(that: Doc): API[Input, Output] = copy(doc = self.doc + that)
+  def ??(that: Doc): API[MiddlewareIn, MiddlewareOut, Input, Output] = copy(doc = self.doc + that)
 
   /**
    * Converts this API, which is an abstract description of an endpoint, into a
@@ -102,9 +102,9 @@ final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
    * Currently this is only used to "prettify" type signatures and, assuming
    * each API is uniquely identified, has no effect on behavior.
    */
-  def id[I <: String with Singleton](i: I): API.WithId[Input, Output, I] = {
+  def id[I <: String with Singleton](i: I): API.WithId[MiddlewareIn, MiddlewareOut, Input, Output, I] = {
     val _ = i
-    self.asInstanceOf[API.WithId[Input, Output, I]]
+    self.asInstanceOf[API.WithId[MiddlewareIn, MiddlewareOut, Input, Output, I]]
   }
 
   /**
@@ -112,24 +112,26 @@ final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
    * the HTTP path not yet consumed, the query string parameters, or the HTTP
    * headers of the request.
    */
-  def in[Input2](in2: In[Input2])(implicit combiner: Combiner[Input, Input2]): API.WithId[combiner.Out, Output, Id] =
+  def in[Input2](in2: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, Input2])(implicit
+    combiner: Combiner[Input, Input2],
+  ): API.WithId[MiddlewareIn, MiddlewareOut, combiner.Out, Output, Id] =
     copy(input = self.input ++ in2).withId[Id]
 
   /**
    * Changes the output type of the endpoint to the specified output type.
    */
-  def out[Output2: Schema]: API.WithId[Input, Output2, Id] =
-    copy(output = Out.Value(implicitly[Schema[Output2]])).withId[Id]
+  def out[Output2: Schema]: API.WithId[MiddlewareIn, MiddlewareOut, Input, Output2, Id] =
+    copy(output = In.InputBody(implicitly[Schema[Output2]])).withId[Id]
 
   /**
    * Changes the output type of the endpoint to be a stream of the specified
    * output type.
    */
-  def outStream[Output2: Schema]: API.WithId[Input, ZStream[Any, Throwable, Output2], Id] =
-    copy(output = Out.Stream(implicitly[Schema[Output2]])).withId[Id]
+  def outStream[Output2: Schema]: API.WithId[MiddlewareIn, MiddlewareOut, Input, ZStream[Any, Throwable, Output2], Id] =
+    copy(output = In.BodyStream(implicitly[Schema[Output2]])).withId[Id]
 
-  private def withId[I]: API.WithId[Input, Output, I] =
-    self.asInstanceOf[API.WithId[Input, Output, I]]
+  private def withId[I]: API.WithId[MiddlewareIn, MiddlewareOut, Input, Output, I] =
+    self.asInstanceOf[API.WithId[MiddlewareIn, MiddlewareOut, Input, Output, I]]
 }
 
 object API {
