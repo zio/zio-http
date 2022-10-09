@@ -1,8 +1,8 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.headers.values.{Accept, Age, Allow, CacheControl, ContentLength, Origin, DNT}
-import zio.http.model.headers.values.{Age, CacheControl, ContentLength, Origin}
+import zio.http.model.headers.HeaderValue.DNT
+import zio.http.model.headers.values.{Accept, Age, Allow, CacheControl, ContentLength, Origin}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait HeaderInputs {
