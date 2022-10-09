@@ -11,7 +11,9 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * failing with some kind of RPC error.
  */
 trait APIExecutor[+Ids] {
-  def apply[Id, A, B](invocation: Invocation[Id, A, B])(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B]
+  def apply[MI, MO, Id, A, B](
+    invocation: Invocation[MI, MO, Id, A, B],
+  )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B]
 }
 
 object APIExecutor {
@@ -32,17 +34,18 @@ object APIExecutor {
     UntypedServiceExecutor(client, locator)
 
   private final case class UntypedServiceExecutor(client: Client, locator: APILocator) extends APIExecutor[Nothing] {
-    val metadata = zio.http.api.internal.Memoized[API[_, _], APIClient[Any, Any]] { (api: API[_, _]) =>
-      APIClient(
-        locator.locate(api).getOrElse(throw APIError.NotFound(s"Could not locate API", api)),
-        api.asInstanceOf[API[Any, Any]],
-      )
+    val metadata = zio.http.api.internal.Memoized[API[_, _, _, _], APIClient[Any, Any, Any, Any]] {
+      (api: API[_, _, _, _]) =>
+        APIClient(
+          locator.locate(api).getOrElse(throw APIError.NotFound(s"Could not locate API", api)),
+          api.asInstanceOf[API[Any, Any, Any, Any]],
+        )
     }
 
-    def apply[Id, A, B](
-      invocation: Invocation[Id, A, B],
+    def apply[MI, MO, Id, A, B](
+      invocation: Invocation[MI, MO, Id, A, B],
     )(implicit ev: Nothing <:< Id, trace: Trace): ZIO[Any, Throwable, B] = {
-      val executor = metadata.get(invocation.api).asInstanceOf[APIClient[A, B]]
+      val executor = metadata.get(invocation.api).asInstanceOf[APIClient[MI, MO, A, B]]
 
       executor.execute(client, invocation.input).asInstanceOf[ZIO[Any, Throwable, B]]
     }

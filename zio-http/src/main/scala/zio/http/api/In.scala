@@ -31,7 +31,10 @@ sealed trait In[-AtomTypes, Input] {
   )(implicit combiner: Combiner[Input, Input2], ev: AtomTypes =:= In.RouteType): In[In.RouteType, combiner.Out] =
     self.asInstanceOf[In[In.RouteType, Input]] ++ that
 
-  def /(that: String): In[Input] = self ++ In.literal(that)
+  def /(
+    that: String,
+  )(implicit combiner: Combiner[Input, Unit], ev: AtomTypes =:= In.RouteType) =
+    self / [Unit] In.literal(that)
 
   def bodySchema: Option[Schema[_]] =
     In.bodySchema(self)

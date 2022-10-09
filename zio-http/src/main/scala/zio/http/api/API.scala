@@ -45,41 +45,47 @@ final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
    */
   def ++(that: API[_, _, _, _]): APIs[Id with that.Id] = APIs(self).++[that.Id](APIs(that))
 
-  def apply(input: Input): Invocation[Id, Input, Output] =
+  def apply(input: Input): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
     Invocation(self, input)
 
-  def apply[A, B](a: A, b: B)(implicit ev: (A, B) <:< Input): Invocation[Id, Input, Output] =
+  def apply[A, B](a: A, b: B)(implicit
+    ev: (A, B) <:< Input,
+  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
     Invocation(self, ev((a, b)))
 
-  def apply[A, B, C](a: A, b: B, c: C)(implicit ev: (A, B, C) <:< Input): Invocation[Id, Input, Output] =
+  def apply[A, B, C](a: A, b: B, c: C)(implicit
+    ev: (A, B, C) <:< Input,
+  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
     Invocation(self, ev((a, b, c)))
 
-  def apply[A, B, C, D](a: A, b: B, c: C, d: D)(implicit ev: (A, B, C, D) <:< Input): Invocation[Id, Input, Output] =
+  def apply[A, B, C, D](a: A, b: B, c: C, d: D)(implicit
+    ev: (A, B, C, D) <:< Input,
+  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
     Invocation(self, ev((a, b, c, d)))
 
   def apply[A, B, C, D, E](a: A, b: B, c: C, d: D, e: E)(implicit
     ev: (A, B, C, D, E) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
     Invocation(self, ev((a, b, c, d, e)))
 
   def apply[A, B, C, D, E, F](a: A, b: B, c: C, d: D, e: E, f: F)(implicit
     ev: (A, B, C, D, E, F) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f)))
 
   def apply[A, B, C, D, E, F, G](a: A, b: B, c: C, d: D, e: E, f: F, g: G)(implicit
     ev: (A, B, C, D, E, F, G) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g)))
 
   def apply[A, B, C, D, E, F, G, H](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H)(implicit
     ev: (A, B, C, D, E, F, G, H) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g, h)))
 
   def apply[A, B, C, D, E, F, G, H, I](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I)(implicit
     ev: (A, B, C, D, E, F, G, H, I) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g, h, i)))
 
   /**
@@ -95,7 +101,7 @@ final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
    * the input, and returns the output.
    */
   def handle[R, E](f: Input => ZIO[R, E, Output]): Service[R, E, Id] =
-    Service.HandledAPI[R, E, Input, Output, Id](self, f).withAllIds[Id]
+    Service.HandledAPI[MiddlewareIn, MiddlewareOut, R, E, Input, Output, Id](self, f).withAllIds[Id]
 
   /**
    * Changes the identity of the API to the specified singleton string type.

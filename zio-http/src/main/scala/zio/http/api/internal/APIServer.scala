@@ -9,7 +9,7 @@ import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledAPI[R, E, I, O, _]) {
+private[api] final case class APIServer[MI, MO, R, E, I, O](handledApi: Service.HandledAPI[MI, MO, R, E, I, O, _]) {
   private val api     = handledApi.api
   private val handler = handledApi.handler
 
@@ -22,7 +22,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   private val constructor: Constructor[I]        = Mechanic.makeConstructor(api.input)
   private val flattened: Mechanic.FlattenedAtoms = Mechanic.flatten(api.input)
 
-  private val hasOutput = api.output != Out.unit
+  private val hasOutput = api.output != In.empty
 
   def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
     val inputsBuilder = flattened.makeInputsBuilder()
