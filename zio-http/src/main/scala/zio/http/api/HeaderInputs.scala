@@ -2,7 +2,8 @@ package zio.http.api
 
 import zio.http.model.HeaderNames
 import zio.http.model.headers.HeaderValue.ETag
-import zio.http.model.headers.values._ // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.http.model.headers.values._                   // scalafix:ok;
 
 private[api] trait HeaderInputs {
   def header[A](name: String, value: TextCodec[A]): In[A] =
