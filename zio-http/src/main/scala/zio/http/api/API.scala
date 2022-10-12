@@ -31,6 +31,14 @@ final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
 ) { self =>
   type Id
 
+  // APIs -- a set of individual APIs
+  // 1. Convert to "Service" -- a purely declarative description of our API endpoints
+  // 2. Add middleware spec -- describe the middleware used for ALL endpoints in the service
+  // 3. Two paths from here:
+  //   a. Convert to a Service (ServiceServer??) by providing a handler for EVERY endpoint + middleware server
+  //   b. Convert to an APIExecutor (ServiceClient??) by providing APILocator + Client + middleware client
+  //
+
   // TODO; Use combine
   def @@[MI, MO](mid: MiddlewareSpec[MI, MO]): API[MI, MO, Input, Output] =
     copy(middlewareSpec = mid)
