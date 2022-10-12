@@ -3,7 +3,7 @@ package zio.http.api
 import zio.ZIO
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
-import zio.http.model.{HeaderNames}
+import zio.http.model.HeaderNames
 
 import java.util.Base64
 

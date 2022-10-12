@@ -17,14 +17,15 @@ object APIExamples extends ZIOAppDefault {
 
   val getUserPosts =
     API
-      .get(literal("users") / int / literal("posts") / query("name") / int)
+      .get(literal("users") / int / literal("posts") / int)
+      .in(query("name"))
 
   val getUserPostsService =
     getUserPosts.handle[Any, Nothing] { case (id1, query, id2) =>
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 
-  val services = (getUsersService ++ getUserPostsService)
+  val services = getUsersService ++ getUserPostsService
 
   val app = services.toHttpApp
 
@@ -43,7 +44,7 @@ object APIExamples extends ZIOAppDefault {
       val executor: APIExecutor[getUser.Id with getUserPosts.Id] = APIExecutor(client, registry)
 
       val x1 = getUser(42)
-      val x2 = getUserPosts(42, "adam", 200)
+      val x2 = getUserPosts(42, 200, "adam")
 
       val result1 = executor(x1)
       val result2 = executor(x2)

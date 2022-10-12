@@ -1,7 +1,6 @@
 package zio.http.api
 
 import zio.stream.ZStream
-import sun.text.normalizer.ICUBinary.Authenticate
 import zio.http.model.Headers
 import zio.schema.Schema
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -18,22 +17,23 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  */
 sealed trait In[-AtomTypes, Input] {
   self =>
-  import zio.http.api.In._
 
   def ??(doc: Doc): In[AtomTypes, Input] = In.WithDoc(self, doc)
 
   // TODO should we allow different inputs between `this` and `that`?
-  def ++[Input2](that: In[AtomTypes, Input2])(implicit combiner: Combiner[Input, Input2]): In[AtomTypes, combiner.Out] =
-    In.Combine[AtomTypes, AtomTypes, Input, Input2, combiner.Out](self, that, combiner)
+  def ++[AtomTypes1 <: AtomTypes, Input2](that: In[AtomTypes1, Input2])(implicit
+    combiner: Combiner[Input, Input2],
+  ): In[AtomTypes1, combiner.Out] =
+    In.Combine[AtomTypes1, AtomTypes1, Input, Input2, combiner.Out](self, that, combiner)
 
   def /[Input2](
     that: In[In.RouteType, Input2],
-  )(implicit combiner: Combiner[Input, Input2], ev: AtomTypes =:= In.RouteType): In[In.RouteType, combiner.Out] =
+  )(implicit combiner: Combiner[Input, Input2], ev: In.RouteType <:< AtomTypes): In[In.RouteType, combiner.Out] =
     self.asInstanceOf[In[In.RouteType, Input]] ++ that
 
   def /(
     that: String,
-  )(implicit combiner: Combiner[Input, Unit], ev: AtomTypes =:= In.RouteType) =
+  )(implicit combiner: Combiner[Input, Unit], ev: In.RouteType <:< AtomTypes) =
     self / [Unit] In.literal(that)
 
   def bodySchema: Option[Schema[_]] =
@@ -97,8 +97,10 @@ object In extends RouteInputs with QueryInputs with HeaderInputs {
 
   private[api] def bodySchema[AtomTypes, Input](in: In[AtomTypes, Input]): Option[Schema[_]] = {
     in match {
+      case Empty                     => None
       case Route(_)                  => None
       case InputBody(schema)         => Some(schema)
+      case BodyStream(elementSchema) => Some(elementSchema)
       case Query(_, _)               => None
       case Header(_, _)              => None
       case IndexedAtom(atom, _)      => bodySchema(atom)

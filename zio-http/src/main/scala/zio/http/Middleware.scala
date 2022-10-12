@@ -201,6 +201,7 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
 }
 
 object Middleware extends Web {
+
   /**
    * Creates a middleware which can allow or disallow access to an http based on
    * the predicate

@@ -159,10 +159,12 @@ private[api] object Mechanic {
     inputBodies: Chunk[InputBody[_]],
   ) { self =>
     def append(atom: Atom[_, _]) = atom match {
-      case route: Route[_]         => copy(routes = routes :+ route.textCodec)
-      case query: Query[_]         => copy(queries = queries :+ query)
-      case header: Header[_]       => copy(headers = headers :+ header)
-      case inputBody: InputBody[_] => copy(inputBodies = inputBodies :+ inputBody)
+      case Empty                   => self
+      case route: Route[_]         => self.copy(routes = routes :+ route.textCodec)
+      case query: Query[_]         => self.copy(queries = queries :+ query)
+      case header: Header[_]       => self.copy(headers = headers :+ header)
+      case inputBody: InputBody[_] => self.copy(inputBodies = inputBodies :+ inputBody)
+      case _: BodyStream[_]        => self // TODO: Support body streams
       case _: IndexedAtom[_, _]    => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
     }
 
@@ -210,23 +212,27 @@ private[api] object Mechanic {
     query: Int = 0,
     header: Int = 0,
     inputBody: Int = 0,
-  ) {
+  ) { self =>
     def increment(atom: Atom[_, _]): AtomIndices = {
       atom match {
-        case _: Route[_]          => copy(route = route + 1)
-        case _: Query[_]          => copy(query = query + 1)
-        case _: Header[_]         => copy(header = header + 1)
-        case _: InputBody[_]      => copy(inputBody = inputBody + 1)
+        case _: Empty.type        => self
+        case _: Route[_]          => self.copy(route = route + 1)
+        case _: Query[_]          => self.copy(query = query + 1)
+        case _: Header[_]         => self.copy(header = header + 1)
+        case _: InputBody[_]      => self.copy(inputBody = inputBody + 1)
+        case _: BodyStream[_]     => self // TODO: Support body streams
         case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to increment")
       }
     }
 
     def get(atom: Atom[_, _]): Int =
       atom match {
+        case Empty                => throw new RuntimeException("Empty should not be passed to get")
         case _: Route[_]          => route
         case _: Query[_]          => query
         case _: Header[_]         => header
         case _: InputBody[_]      => inputBody
+        case _: BodyStream[_]     => throw new RuntimeException("FIXME: Support BodyStream")
         case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to get")
       }
   }
