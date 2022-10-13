@@ -1,6 +1,5 @@
 package zio.http.api
 
-import zio.ZIO
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.HeaderNames
@@ -11,9 +10,6 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   middlewareIn: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn],
   middlewareOut: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareOut],
 ) { self =>
-  def toMiddleware[R, E](f: MiddlewareIn => ZIO[R, E, MiddlewareOut]): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
-    Middleware.HandlerZIO(self, f)
-
   def ++[MiddlewareIn2, MiddlewareOut2](that: MiddlewareSpec[MiddlewareIn2, MiddlewareOut2])(implicit
     inCombiner: Combiner[MiddlewareIn, MiddlewareIn2],
     outCombiner: Combiner[MiddlewareOut, MiddlewareOut2],
