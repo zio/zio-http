@@ -1,7 +1,7 @@
 package zio.http.api
 
 import zio._
-import zio.http._
+import zio.http.{Client, Request, Response, Server, URL}
 import zio.http.middleware.Auth
 
 object APIExamples extends ZIOAppDefault {
@@ -27,9 +27,9 @@ object APIExamples extends ZIOAppDefault {
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 
-  val serviceSpec = getUser ++ getUserPosts
+  val serviceSpec = (getUser ++ getUserPosts).middleware(MiddlewareSpec.auth)
 
-  val app = serviceSpec.toHttpApp(getUsersService ++ getUserPostsService)
+  val app = serviceSpec.toHttpApp(getUsersService ++ getUserPostsService, Middleware.fromFunction(_ => ()))
 
   val request = Request.get(url = URL.fromString("/users/1").toOption.get)
   println(s"Looking up $request")
@@ -39,7 +39,7 @@ object APIExamples extends ZIOAppDefault {
   object Client {
     def example(client: Client) = {
       val registry =
-        APIRegistry(URL.fromString("http://localhost:8080").getOrElse(???), serviceSpec.middleware(MiddlewareSpec.auth))
+        APIRegistry(URL.fromString("http://localhost:8080").getOrElse(???), serviceSpec)
 
       val executor: APIExecutor[Any, Any, getUser.Id with getUserPosts.Id] = 
         APIExecutor(client, registry, ZIO.succeed(Auth.Credentials("user", "pass")))
