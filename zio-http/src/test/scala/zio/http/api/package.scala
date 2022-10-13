@@ -3,5 +3,5 @@ package zio.http
 import scala.language.implicitConversions
 
 package object api {
-  implicit def stringToIn(s: String): In[In.RouteType, Unit] = In.literal(s)
+  implicit def stringToIn(s: String): HttpCodec[CodecType.Route, Unit] = In.literal(s)
 }

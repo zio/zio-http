@@ -12,9 +12,9 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * query string parameters, and headers, and an output, which is the data
  * computed by the handler of the API.
  *
- * MiddlewareInput : Example: A subset of `In[Input]` that doesn't give access
- * to `Input` MiddlwareOutput: Example: A subset of `Out[Output]` that doesn't
- * give access to `Output` Input: Example: Int Output: Example: User
+ * MiddlewareInput : Example: A subset of `HttpCodec[Input]` that doesn't give
+ * access to `Input` MiddlwareOutput: Example: A subset of `Out[Output]` that
+ * doesn't give access to `Output` Input: Example: Int Output: Example: User
  *
  * As [[zio.http.api.API]] is a purely declarative encoding of an endpoint, it
  * is possible to use this model to generate a [[zio.http.HttpApp]] (by
@@ -24,11 +24,19 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  */
 final case class API[Input, Output](
   method: Method,
-  input: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, Input],
-  output: In[In.BodyType, Output],
+  input: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, Input],
+  output: HttpCodec[CodecType.Body, Output],
   doc: Doc,
 ) { self =>
   type Id
+
+  // HttpCodec[CodecType.Route, ...]
+  // type HeaderCodec[A] = HttpCodec[CodecType.Header, A]
+  // object HeaderCodec { }
+  // type RouteCodec[A] = HttpCodec[CodecType.Route, A]
+  // type QueryCodec[A] = HttpCodec[CodecType.Query, A]
+  // HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, Input]
+  // HttpCodec[CodecType.Body, Output]
 
   // APIs -- a set of individual APIs
   // 1. Convert to "Service" -- a purely declarative description of our API endpoints
@@ -121,7 +129,9 @@ final case class API[Input, Output](
    * the HTTP path not yet consumed, the query string parameters, or the HTTP
    * headers of the request.
    */
-  def in[Input2](in2: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, Input2])(implicit
+  def in[Input2](
+    in2: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, Input2],
+  )(implicit
     combiner: Combiner[Input, Input2],
   ): API.WithId[combiner.Out, Output, Id] =
     copy(input = self.input ++ in2).withId[Id]
@@ -152,7 +162,7 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def delete[Input](route: In[In.RouteType, Input]): API[Input, Unit] =
+  def delete[Input](route: HttpCodec[CodecType.Route, Input]): API[Input, Unit] =
     API(Method.DELETE, route, In.empty, Doc.empty)
 
   /**
@@ -161,7 +171,7 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def get[Input](route: In[In.RouteType, Input]): API[Input, Unit] =
+  def get[Input](route: HttpCodec[CodecType.Route, Input]): API[Input, Unit] =
     API(Method.GET, route, In.empty, Doc.empty)
 
   /**
@@ -170,7 +180,7 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def post[Input](route: In[In.RouteType, Input]): API[Input, Unit] =
+  def post[Input](route: HttpCodec[CodecType.Route, Input]): API[Input, Unit] =
     API(Method.POST, route, In.empty, Doc.empty)
 
   /**
@@ -179,6 +189,6 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def put[Input](route: In[In.RouteType, Input]): API[Input, Unit] =
+  def put[Input](route: HttpCodec[CodecType.Route, Input]): API[Input, Unit] =
     API(Method.PUT, route, In.empty, Doc.empty)
 }

@@ -8,8 +8,8 @@ import zio.http.model.HeaderNames
 import java.util.Base64
 
 final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
-  middlewareIn: In[In.HeaderType with In.QueryType, MiddlewareIn],
-  middlewareOut: In[In.HeaderType with In.QueryType, MiddlewareOut],
+  middlewareIn: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn],
+  middlewareOut: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareOut],
 ) { self =>
   def toMiddleware[R, E](f: MiddlewareIn => ZIO[R, E, MiddlewareOut]): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
     Middleware.HandlerZIO(self, f)
@@ -21,18 +21,30 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
     MiddlewareSpec(self.middlewareIn ++ that.middlewareIn, self.middlewareOut ++ that.middlewareOut)
 
   def mapIn[MiddlewareIn2](
-    f: In[In.HeaderType with In.QueryType, MiddlewareIn] => In[In.HeaderType with In.QueryType, MiddlewareIn2],
+    f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn] => HttpCodec[
+      CodecType.Header with CodecType.Query,
+      MiddlewareIn2,
+    ],
   ): MiddlewareSpec[MiddlewareIn2, MiddlewareOut] =
     copy(middlewareIn = f(middlewareIn))
 
   def mapOut[MiddlewareOut2](
-    f: In[In.HeaderType with In.QueryType, MiddlewareOut] => In[In.HeaderType with In.QueryType, MiddlewareOut2],
+    f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareOut] => HttpCodec[
+      CodecType.Header with CodecType.Query,
+      MiddlewareOut2,
+    ],
   ): MiddlewareSpec[MiddlewareIn, MiddlewareOut2] =
     copy(middlewareOut = f(middlewareOut))
 
   def mapBoth[MiddlewareIn2, MiddlewareOut2](
-    f: In[In.HeaderType with In.QueryType, MiddlewareIn] => In[In.HeaderType with In.QueryType, MiddlewareIn2],
-    g: In[In.HeaderType with In.QueryType, MiddlewareOut] => In[In.HeaderType with In.QueryType, MiddlewareOut2],
+    f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn] => HttpCodec[
+      CodecType.Header with CodecType.Query,
+      MiddlewareIn2,
+    ],
+    g: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareOut] => HttpCodec[
+      CodecType.Header with CodecType.Query,
+      MiddlewareOut2,
+    ],
   ): MiddlewareSpec[MiddlewareIn2, MiddlewareOut2] =
     mapIn(f).mapOut(g)
 

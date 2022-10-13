@@ -15,25 +15,28 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  *
  * Here Raw represents the original components that was used to create `Input`
  */
-sealed trait In[-AtomTypes, Input] {
+sealed trait HttpCodec[-AtomTypes, Input] {
   self =>
 
-  def ??(doc: Doc): In[AtomTypes, Input] = In.WithDoc(self, doc)
+  def ??(doc: Doc): HttpCodec[AtomTypes, Input] = In.WithDoc(self, doc)
 
   // TODO should we allow different inputs between `this` and `that`?
-  def ++[AtomTypes1 <: AtomTypes, Input2](that: In[AtomTypes1, Input2])(implicit
+  def ++[AtomTypes1 <: AtomTypes, Input2](that: HttpCodec[AtomTypes1, Input2])(implicit
     combiner: Combiner[Input, Input2],
-  ): In[AtomTypes1, combiner.Out] =
+  ): HttpCodec[AtomTypes1, combiner.Out] =
     In.Combine[AtomTypes1, AtomTypes1, Input, Input2, combiner.Out](self, that, combiner)
 
   def /[Input2](
-    that: In[In.RouteType, Input2],
-  )(implicit combiner: Combiner[Input, Input2], ev: In.RouteType <:< AtomTypes): In[In.RouteType, combiner.Out] =
-    self.asInstanceOf[In[In.RouteType, Input]] ++ that
+    that: HttpCodec[CodecType.Route, Input2],
+  )(implicit
+    combiner: Combiner[Input, Input2],
+    ev: CodecType.Route <:< AtomTypes,
+  ): HttpCodec[CodecType.Route, combiner.Out] =
+    self.asInstanceOf[HttpCodec[CodecType.Route, Input]] ++ that
 
   def /(
     that: String,
-  )(implicit combiner: Combiner[Input, Unit], ev: In.RouteType <:< AtomTypes) =
+  )(implicit combiner: Combiner[Input, Unit], ev: CodecType.Route <:< AtomTypes) =
     self / [Unit] In.literal(that)
 
   def bodySchema: Option[Schema[_]] =
@@ -50,52 +53,53 @@ sealed trait In[-AtomTypes, Input] {
    * used in encoding, for example, when a client calls the endpoint on the
    * server.
    */
-  def transform[Input2](f: Input => Input2, g: Input2 => Input): In[AtomTypes, Input2] =
+  def transform[Input2](f: Input => Input2, g: Input2 => Input): HttpCodec[AtomTypes, Input2] =
     In.TransformOrFail[AtomTypes, Input, Input2](self, in => Right(f(in)), output => Right(g(output)))
 
-  def transformOrFailLeft[Input2](f: Input => Either[String, Input2], g: Input2 => Input): In[AtomTypes, Input2] =
+  def transformOrFailLeft[Input2](
+    f: Input => Either[String, Input2],
+    g: Input2 => Input,
+  ): HttpCodec[AtomTypes, Input2] =
     In.TransformOrFail[AtomTypes, Input, Input2](self, f, output => Right(g(output)))
 
-  def transformOrFailRight[Input2](f: Input => Input2, g: Input2 => Either[String, Input]): In[AtomTypes, Input2] =
+  def transformOrFailRight[Input2](
+    f: Input => Input2,
+    g: Input2 => Either[String, Input],
+  ): HttpCodec[AtomTypes, Input2] =
     In.TransformOrFail[AtomTypes, Input, Input2](self, in => Right(f(in)), g)
 
 }
 
 object In extends RouteInputs with QueryInputs with HeaderInputs {
-
-  type RouteType
-  type BodyType
-  type QueryType
-  type HeaderType
-
-  def empty: In[Any, Unit] =
+  def empty: HttpCodec[Any, Unit] =
     Empty
 
-  private[api] sealed trait Atom[-AtomTypes, Input0] extends In[AtomTypes, Input0]
+  private[api] sealed trait Atom[-AtomTypes, Input0] extends HttpCodec[AtomTypes, Input0]
 
   private[api] case object Empty                                  extends Atom[Any, Unit]
-  private[api] final case class Route[A](textCodec: TextCodec[A]) extends Atom[RouteType, A]
+  private[api] final case class Route[A](textCodec: TextCodec[A]) extends Atom[CodecType.Route, A]
   // TODO; Rename to Body
-  private[api] final case class InputBody[A](input: Schema[A])    extends Atom[BodyType, A]
+  private[api] final case class InputBody[A](input: Schema[A])    extends Atom[CodecType.Body, A]
   private[api] final case class BodyStream[A](element: Schema[A])
-      extends Atom[BodyType, ZStream[Any, Throwable, A]] // and delete Out
-  private[api] final case class Query[A](name: String, textCodec: TextCodec[A])  extends Atom[QueryType, A]
-  private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[HeaderType, A]
+      extends Atom[CodecType.Body, ZStream[Any, Throwable, A]] // and delete Out
+  private[api] final case class Query[A](name: String, textCodec: TextCodec[A])  extends Atom[CodecType.Query, A]
+  private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[CodecType.Header, A]
   private[api] final case class IndexedAtom[AtomType, A](atom: Atom[AtomType, A], index: Int) extends Atom[AtomType, A]
-  private[api] final case class WithDoc[AtomType, A](in: In[AtomType, A], doc: Doc)           extends In[AtomType, A]
+  private[api] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)
+      extends HttpCodec[AtomType, A]
   private[api] final case class TransformOrFail[AtomType, X, A](
-    api: In[AtomType, X],
+    api: HttpCodec[AtomType, X],
     f: X => Either[String, A],
     g: A => Either[String, X],
-  ) extends In[AtomType, A]
+  ) extends HttpCodec[AtomType, A]
 
   private[api] final case class Combine[AtomType1, AtomType2, A1, A2, A](
-    left: In[AtomType1, A1],
-    right: In[AtomType2, A2],
+    left: HttpCodec[AtomType1, A1],
+    right: HttpCodec[AtomType2, A2],
     inputCombiner: Combiner.WithOut[A1, A2, A],
-  ) extends In[AtomType1 with AtomType2, A]
+  ) extends HttpCodec[AtomType1 with AtomType2, A]
 
-  private[api] def bodySchema[AtomTypes, Input](in: In[AtomTypes, Input]): Option[Schema[_]] = {
+  private[api] def bodySchema[AtomTypes, Input](in: HttpCodec[AtomTypes, Input]): Option[Schema[_]] = {
     in match {
       case Empty                     => None
       case Route(_)                  => None

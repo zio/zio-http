@@ -10,7 +10,7 @@ private[api] object Mechanic {
   type Constructor[+A]   = InputsBuilder => A
   type Deconstructor[-A] = A => InputsBuilder
 
-  def flatten(in: In[_, _]): FlattenedAtoms = {
+  def flatten(in: HttpCodec[_, _]): FlattenedAtoms = {
     var result = FlattenedAtoms.empty
     flattenedAtoms(in).foreach { atom =>
       result = result.append(atom)
@@ -18,7 +18,7 @@ private[api] object Mechanic {
     result
   }
 
-  private def flattenedAtoms(in: In[_, _]): Chunk[Atom[_, _]] =
+  private def flattenedAtoms(in: HttpCodec[_, _]): Chunk[Atom[_, _]] =
     in match {
       case Combine(left, right, _)       => flattenedAtoms(left) ++ flattenedAtoms(right)
       case atom: Atom[_, _]              => Chunk(atom)
@@ -26,31 +26,31 @@ private[api] object Mechanic {
       case WithDoc(api, _)               => flattenedAtoms(api)
     }
 
-  private def indexed[R, A](api: In[R, A]): In[R, A] =
+  private def indexed[R, A](api: HttpCodec[R, A]): HttpCodec[R, A] =
     indexedImpl(api, AtomIndices())._1
 
-  private def indexedImpl[R, A](api: In[R, A], indices: AtomIndices): (In[R, A], AtomIndices) =
-    api.asInstanceOf[In[_, _]] match {
+  private def indexedImpl[R, A](api: HttpCodec[R, A], indices: AtomIndices): (HttpCodec[R, A], AtomIndices) =
+    api.asInstanceOf[HttpCodec[_, _]] match {
       case Combine(left, right, inputCombiner) =>
         val (left2, leftIndices)   = indexedImpl(left, indices)
         val (right2, rightIndices) = indexedImpl(right, leftIndices)
-        (Combine(left2, right2, inputCombiner).asInstanceOf[In[R, A]], rightIndices)
+        (Combine(left2, right2, inputCombiner).asInstanceOf[HttpCodec[R, A]], rightIndices)
       case atom: Atom[_, _]                    =>
-        (IndexedAtom(atom, indices.get(atom)).asInstanceOf[In[R, A]], indices.increment(atom))
+        (IndexedAtom(atom, indices.get(atom)).asInstanceOf[HttpCodec[R, A]], indices.increment(atom))
       case TransformOrFail(api, f, g)          =>
         val (api2, resultIndices) = indexedImpl(api, indices)
-        (TransformOrFail(api2, f, g).asInstanceOf[In[R, A]], resultIndices)
+        (TransformOrFail(api2, f, g).asInstanceOf[HttpCodec[R, A]], resultIndices)
 
-      case WithDoc(api, _) => indexedImpl(api.asInstanceOf[In[R, A]], indices)
+      case WithDoc(api, _) => indexedImpl(api.asInstanceOf[HttpCodec[R, A]], indices)
     }
 
   def makeConstructor[A](
-    api: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, A],
+    api: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, A],
   ): Constructor[A] =
     makeConstructorLoop(indexed(api))
 
   def makeDeconstructor[A](
-    api: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, A],
+    api: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, A],
   ): Deconstructor[A] = {
     val flattened = flatten(api)
 
@@ -64,7 +64,7 @@ private[api] object Mechanic {
   }
 
   private def makeConstructorLoop[A](
-    api: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, A],
+    api: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, A],
   ): Constructor[A] = {
     def coerce(any: Any): A = any.asInstanceOf[A]
 
@@ -105,7 +105,7 @@ private[api] object Mechanic {
   }
 
   private def makeDeconstructorLoop[A](
-    api: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, A],
+    api: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, A],
   ): (A, InputsBuilder) => Unit = {
     api match {
       case Combine(left, right, inputCombiner) =>

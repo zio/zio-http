@@ -4,15 +4,15 @@ import java.util.UUID
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait RouteInputs {
-  def literal(string: String): In[In.RouteType, Unit] =
+  def literal(string: String): HttpCodec[CodecType.Route, Unit] =
     In.Route(TextCodec.constant(string))
 
-  val int: In[In.RouteType, Int] =
+  val int: HttpCodec[CodecType.Route, Int] =
     In.Route(TextCodec.int)
 
-  val string: In[In.RouteType, String] =
+  val string: HttpCodec[CodecType.Route, String] =
     In.Route(TextCodec.string)
 
-  val uuid: In[In.RouteType, UUID] =
+  val uuid: HttpCodec[CodecType.Route, UUID] =
     In.Route(TextCodec.uuid)
 }
