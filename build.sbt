@@ -138,7 +138,7 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
 
 lazy val zioHttpLogging = (project in file("zio-http-logging"))
   .settings(stdSettings("zio-http-logging"))
-  .settings(publishSetting(true)) // TODO Discuss in PR
+  .settings(publishSetting(false))
   .settings(
     libraryDependencies ++= {
       if (isScala3(scalaVersion.value)) Seq.empty
@@ -168,4 +168,4 @@ lazy val zioHttpTestKit = (project in file("zio-http-testkit"))
       `zio-test-sbt`,
     ),
   )
-  .dependsOn(zioHttp)
+  .dependsOn(zioHttp, zioHttpLogging)
