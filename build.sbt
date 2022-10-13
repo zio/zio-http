@@ -138,7 +138,7 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
 
 lazy val zioHttpLogging = (project in file("zio-http-logging"))
   .settings(stdSettings("zio-http-logging"))
-  .settings(publishSetting(false))
+  .settings(publishSetting(true)) // TODO Discuss in PR
   .settings(
     libraryDependencies ++= {
       if (isScala3(scalaVersion.value)) Seq.empty
@@ -155,4 +155,17 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
+  .dependsOn(zioHttp)
+
+lazy val zioHttpTestKit = (project in file("zio-http-testkit"))
+  .settings(stdSettings("zio-http-testkit"))
+  .settings(publishSetting(true))
+  .settings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= netty ++ Seq(
+      `zio`,
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
+  )
   .dependsOn(zioHttp)
