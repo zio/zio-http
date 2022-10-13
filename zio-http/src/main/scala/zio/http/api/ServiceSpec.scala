@@ -54,6 +54,10 @@ object ServiceSpec                        {
     mo: Combiner.WithOut[MO1, MO2, MO3],
   ) extends ServiceSpec[MI3, MO3, AllIds]
 
+  def apply[A <: API[_, _]](api: A): ServiceSpec[Unit, Unit, api.Id] = Single(
+    api.asInstanceOf[API.WithId[api.Id, Any, Any]],
+  )
+
   def empty: ServiceSpec[Unit, Unit, Any] = Empty
 
   private def apisOf(self: ServiceSpec[_, _, _]): Chunk[API[_, _]] =

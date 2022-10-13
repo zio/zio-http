@@ -9,8 +9,8 @@ final case class APIRegistry[+Ids] private (private val map: Map[API[_, _], URL]
   def register(api: API[_, _], address: URL): APIRegistry[Ids with api.Id] =
     copy(map = map + (api -> address)).withIds[Ids with api.Id]
 
-  def registerAll[Ids2](address: URL)(apis: APIs[Ids2]): APIRegistry[Ids with Ids2] =
-    apis.flatten
+  def registerAll[Ids2](address: URL)(apis: ServiceSpec[_, _, Ids2]): APIRegistry[Ids with Ids2] =
+    apis.apis
       .foldLeft[APIRegistry[_]](self) { case (registry, api) =>
         registry.register(api, address)
       }

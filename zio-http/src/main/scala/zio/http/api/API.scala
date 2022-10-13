@@ -30,31 +30,10 @@ final case class API[Input, Output](
 ) { self =>
   type Id
 
-  // RouteCodec[...]
-  // type HeaderCodec[A] = HeaderCodec[A]
-  // object HeaderCodec { }
-  // type RouteCodec[A] = RouteCodec[A]
-  // type QueryCodec[A] = QueryCodec[A]
-  // HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, Input]
-  // BodyCodec[Output]
-
-  // APIs -- a set of individual APIs
-  // 1. Convert to "Service" -- a purely declarative description of our API endpoints
-  // 2. Add middleware spec -- describe the middleware used for ALL endpoints in the service
-  // 3. Two paths from here:
-  //   a. Convert to a Service (ServiceServer??) by providing a handler for EVERY endpoint + middleware server
-  //   b. Convert to an APIExecutor (ServiceClient??) by providing APILocator + Client + middleware client
-  //
-
-  /**
-   * Combines this API and another group of APIs.
-   */
-  def ++[Ids](that: APIs[Ids]): APIs[Id with Ids] = APIs(self).++[Ids](that)
-
   /**
    * Combines this API with another API.
    */
-  def ++(that: API[_, _]): APIs[Id with that.Id] = APIs(self).++[that.Id](APIs(that))
+  def ++(that: API[_, _]): ServiceSpec[Unit, Unit, Id with that.Id] = ServiceSpec(self).++[that.Id](ServiceSpec(that))
 
   def apply(input: Input): Invocation[Id, Input, Output] =
     Invocation(self, input)

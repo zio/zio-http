@@ -4,7 +4,8 @@ import zio._
 import zio.http._
 
 object APIExamples extends ZIOAppDefault {
-  import HttpCodec._
+  import RouteCodec._
+  import QueryCodec._
 
   // MiddlewareSpec can be added at the service level as well
   val getUser =
@@ -25,9 +26,9 @@ object APIExamples extends ZIOAppDefault {
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 
-  val services = getUsersService ++ getUserPostsService
+  val serviceSpec = getUser ++ getUserPosts
 
-  val app = services.toHttpApp
+  val app = serviceSpec.toHttpApp(getUsersService ++ getUserPostsService)
 
   val request = Request.get(url = URL.fromString("/users/1").toOption.get)
   println(s"Looking up $request")
@@ -38,7 +39,7 @@ object APIExamples extends ZIOAppDefault {
     def example(client: Client) = {
       val registry =
         APIRegistry.empty.registerAll(URL.fromString("http://localhost:8080").getOrElse(???)) {
-          getUser ++ getUserPosts
+          serviceSpec
         }
 
       val executor: APIExecutor[getUser.Id with getUserPosts.Id] = APIExecutor(client, registry)

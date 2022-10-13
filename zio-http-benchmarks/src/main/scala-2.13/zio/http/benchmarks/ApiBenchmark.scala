@@ -87,8 +87,8 @@ class ApiBenchmark {
   // API DSL
   val usersPosts =
     API
-      .get(HttpCodec.literal("users") / HttpCodec.int / "posts" / HttpCodec.int)
-      .in(HttpCodec.query("query"))
+      .get(RouteCodec.literal("users") / RouteCodec.int / "posts" / RouteCodec.int)
+      .in(QueryCodec.query("query"))
       .out[ExampleData]
 
   val handledUsersPosts =
@@ -208,8 +208,8 @@ class ApiBenchmark {
 
   val deepPathHttpApp = API
     .get(
-      HttpCodec.literal("first") /
-        HttpCodec.int / "second" / HttpCodec.int / "third" / HttpCodec.int / "fourth" / HttpCodec.int / "fifth" / HttpCodec.int / "sixth" / HttpCodec.int / "seventh" / HttpCodec.int,
+      RouteCodec.literal("first") /
+        RouteCodec.int / "second" / RouteCodec.int / "third" / RouteCodec.int / "fourth" / RouteCodec.int / "fifth" / RouteCodec.int / "sixth" / RouteCodec.int / "seventh" / RouteCodec.int,
     )
     .handle { _ =>
       ZIO.unit
@@ -325,36 +325,36 @@ class ApiBenchmark {
 
   // API DSL
 
-  val broadUsers                       = API.get(HttpCodec.literal("users")).handle { _ => ZIO.unit }
-  val broadUsersId                     = API.get(HttpCodec.literal("users") / HttpCodec.int).handle { _ => ZIO.unit }
+  val broadUsers                       = API.get(RouteCodec.literal("users")).handle { _ => ZIO.unit }
+  val broadUsersId                     = API.get(RouteCodec.literal("users") / RouteCodec.int).handle { _ => ZIO.unit }
   val boardUsersPosts                  =
-    API.get(HttpCodec.literal("users") / HttpCodec.int / HttpCodec.literal("posts")).handle { _ => ZIO.unit }
+    API.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts")).handle { _ => ZIO.unit }
   val boardUsersPostsId                =
-    API.get(HttpCodec.literal("users") / HttpCodec.int / HttpCodec.literal("posts") / HttpCodec.int).handle { _ => ZIO.unit }
+    API.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int).handle { _ => ZIO.unit }
   val boardUsersPostsComments          =
-    API.get(HttpCodec.literal("users") / HttpCodec.int / HttpCodec.literal("posts") / HttpCodec.int / HttpCodec.literal("comments")).handle { _ =>
+    API.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments")).handle { _ =>
       ZIO.unit
     }
   val boardUsersPostsCommentsId        =
-    API.get(HttpCodec.literal("users") / HttpCodec.int / HttpCodec.literal("posts") / HttpCodec.int / HttpCodec.literal("comments") / HttpCodec.int).handle { _ =>
+    API.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int).handle { _ =>
       ZIO.unit
     }
-  val broadPosts                       = API.get(HttpCodec.literal("posts")).handle { _ => ZIO.unit }
-  val broadPostsId                     = API.get(HttpCodec.literal("posts") / HttpCodec.int).handle { _ => ZIO.unit }
+  val broadPosts                       = API.get(RouteCodec.literal("posts")).handle { _ => ZIO.unit }
+  val broadPostsId                     = API.get(RouteCodec.literal("posts") / RouteCodec.int).handle { _ => ZIO.unit }
   val boardPostsComments               =
-    API.get(HttpCodec.literal("posts") / HttpCodec.int / HttpCodec.literal("comments")).handle { _ => ZIO.unit }
+    API.get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments")).handle { _ => ZIO.unit }
   val boardPostsCommentsId             =
-    API.get(HttpCodec.literal("posts") / HttpCodec.int / HttpCodec.literal("comments") / HttpCodec.int).handle { _ => ZIO.unit }
-  val broadComments                    = API.get(HttpCodec.literal("comments")).handle { _ => ZIO.unit }
-  val broadCommentsId                  = API.get(HttpCodec.literal("comments") / HttpCodec.int).handle { _ => ZIO.unit }
+    API.get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int).handle { _ => ZIO.unit }
+  val broadComments                    = API.get(RouteCodec.literal("comments")).handle { _ => ZIO.unit }
+  val broadCommentsId                  = API.get(RouteCodec.literal("comments") / RouteCodec.int).handle { _ => ZIO.unit }
   val broadUsersComments               =
-    API.get(HttpCodec.literal("users") / HttpCodec.int / HttpCodec.literal("comments")).handle { _ => ZIO.unit }
+    API.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments")).handle { _ => ZIO.unit }
   val broadUsersCommentsId             =
-    API.get(HttpCodec.literal("users") / HttpCodec.int / HttpCodec.literal("comments") / HttpCodec.int).handle { _ => ZIO.unit }
+    API.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int).handle { _ => ZIO.unit }
   val boardUsersPostsCommentsReplies   =
     API
       .get(
-        HttpCodec.literal("users") / HttpCodec.int / HttpCodec.literal("posts") / HttpCodec.int / HttpCodec.literal("comments") / HttpCodec.int / HttpCodec.literal(
+        RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int / RouteCodec.literal(
           "replies",
         ),
       )
@@ -364,9 +364,9 @@ class ApiBenchmark {
   val boardUsersPostsCommentsRepliesId =
     API
       .get(
-        HttpCodec.literal("users") / HttpCodec.int / HttpCodec.literal("posts") / HttpCodec.int / HttpCodec.literal("comments") / HttpCodec.int / HttpCodec.literal(
+        RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int / RouteCodec.literal(
           "replies",
-        ) / HttpCodec.int,
+        ) / RouteCodec.int,
       )
       .handle { _ =>
         ZIO.unit
