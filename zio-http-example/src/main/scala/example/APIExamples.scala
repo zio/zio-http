@@ -4,11 +4,11 @@ import zio._
 import zio.http._
 
 object APIExamples extends ZIOAppDefault {
-  import In._
+  import HttpCodec._
 
   // MiddlewareSpec can be added at the service level as well
   val getUser =
-    API.get(literal("users") / int).out[Int] @@ MiddlewareSpec.addHeader("key", "value")
+    API.get(literal("users") / int).out[Int]
 
   val getUsersService =
     getUser.handle[Any, Nothing] { case (id: Int) =>

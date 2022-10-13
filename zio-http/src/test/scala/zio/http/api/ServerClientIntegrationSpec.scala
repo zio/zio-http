@@ -5,7 +5,10 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.test.{ZIOSpecDefault, assertTrue}
 import zio.{Scope, ZIO, ZLayer}
 
+import scala.language.implicitConversions
+
 object ServerClientIntegrationSpec extends ZIOSpecDefault {
+  implicit def stringToIn(s: String): RouteCodec[Unit] = HttpCodec.literal(s)
 
   trait PostsService {
     def getPost(userId: Int, postId: Int): ZIO[Any, Throwable, Post]
@@ -17,7 +20,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Post] = DeriveSchema.gen[Post]
   }
 
-  val usersPostAPI     = API.get("users" / In.int / "posts" / In.int).out[Post]
+  val usersPostAPI     = API.get("users" / HttpCodec.int / "posts" / HttpCodec.int).out[Post]
   val usersPostHandler = usersPostAPI.handle { case (userId, postId) =>
     ZIO.succeed(Post(postId, "title", "body", userId))
   }

@@ -53,13 +53,13 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
 object MiddlewareSpec {
 
   def none: MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(In.empty, In.empty)
+    MiddlewareSpec(HttpCodec.empty, HttpCodec.empty)
 
   /**
    * Add specified header to the response
    */
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(In.empty, In.header(key, TextCodec.constant(value)))
+    MiddlewareSpec(HttpCodec.empty, HttpCodec.header(key, TextCodec.constant(value)))
 
   val auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
@@ -71,7 +71,7 @@ object MiddlewareSpec {
       )
 
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
-    MiddlewareSpec(In.header(name, TextCodec.string), In.empty)
+    MiddlewareSpec(HttpCodec.header(name, TextCodec.string), HttpCodec.empty)
 
   private def decodeHttpBasic(encoded: String): Option[Credentials] = {
     val decoded    = new String(Base64.getDecoder.decode(encoded))

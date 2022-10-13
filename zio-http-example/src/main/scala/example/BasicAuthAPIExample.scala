@@ -5,7 +5,7 @@ import zio.http._
 
 object BasicAuthAPIExample extends ZIOAppDefault {
 
-  import In._
+  import HttpCodec._
 
   // MiddlewareSpec can be added at the service level as well
   val getUser =

@@ -25,18 +25,18 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 final case class API[Input, Output](
   method: Method,
   input: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, Input],
-  output: HttpCodec[CodecType.Body, Output],
+  output: BodyCodec[Output],
   doc: Doc,
 ) { self =>
   type Id
 
-  // HttpCodec[CodecType.Route, ...]
-  // type HeaderCodec[A] = HttpCodec[CodecType.Header, A]
+  // RouteCodec[...]
+  // type HeaderCodec[A] = HeaderCodec[A]
   // object HeaderCodec { }
-  // type RouteCodec[A] = HttpCodec[CodecType.Route, A]
-  // type QueryCodec[A] = HttpCodec[CodecType.Query, A]
+  // type RouteCodec[A] = RouteCodec[A]
+  // type QueryCodec[A] = QueryCodec[A]
   // HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, Input]
-  // HttpCodec[CodecType.Body, Output]
+  // BodyCodec[Output]
 
   // APIs -- a set of individual APIs
   // 1. Convert to "Service" -- a purely declarative description of our API endpoints
@@ -140,14 +140,14 @@ final case class API[Input, Output](
    * Changes the output type of the endpoint to the specified output type.
    */
   def out[Output2: Schema]: API.WithId[Input, Output2, Id] =
-    copy(output = In.InputBody(implicitly[Schema[Output2]])).withId[Id]
+    copy(output = HttpCodec.InputBody(implicitly[Schema[Output2]])).withId[Id]
 
   /**
    * Changes the output type of the endpoint to be a stream of the specified
    * output type.
    */
   def outStream[Output2: Schema]: API.WithId[Input, ZStream[Any, Throwable, Output2], Id] =
-    copy(output = In.BodyStream(implicitly[Schema[Output2]])).withId[Id]
+    copy(output = HttpCodec.BodyStream(implicitly[Schema[Output2]])).withId[Id]
 
   private def withId[I]: API.WithId[Input, Output, I] =
     self.asInstanceOf[API.WithId[Input, Output, I]]
@@ -162,8 +162,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def delete[Input](route: HttpCodec[CodecType.Route, Input]): API[Input, Unit] =
-    API(Method.DELETE, route, In.empty, Doc.empty)
+  def delete[Input](route: RouteCodec[Input]): API[Input, Unit] =
+    API(Method.DELETE, route, HttpCodec.empty, Doc.empty)
 
   /**
    * Constructs an API for a GET endpoint, given the specified input. It is not
@@ -171,8 +171,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def get[Input](route: HttpCodec[CodecType.Route, Input]): API[Input, Unit] =
-    API(Method.GET, route, In.empty, Doc.empty)
+  def get[Input](route: RouteCodec[Input]): API[Input, Unit] =
+    API(Method.GET, route, HttpCodec.empty, Doc.empty)
 
   /**
    * Constructs an API for a POST endpoint, given the specified input. It is not
@@ -180,8 +180,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def post[Input](route: HttpCodec[CodecType.Route, Input]): API[Input, Unit] =
-    API(Method.POST, route, In.empty, Doc.empty)
+  def post[Input](route: RouteCodec[Input]): API[Input, Unit] =
+    API(Method.POST, route, HttpCodec.empty, Doc.empty)
 
   /**
    * Constructs an API for a PUT endpoint, given the specified input. It is not
@@ -189,6 +189,6 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def put[Input](route: HttpCodec[CodecType.Route, Input]): API[Input, Unit] =
-    API(Method.PUT, route, In.empty, Doc.empty)
+  def put[Input](route: RouteCodec[Input]): API[Input, Unit] =
+    API(Method.PUT, route, HttpCodec.empty, Doc.empty)
 }

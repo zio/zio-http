@@ -18,29 +18,29 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 sealed trait HttpCodec[-AtomTypes, Input] {
   self =>
 
-  def ??(doc: Doc): HttpCodec[AtomTypes, Input] = In.WithDoc(self, doc)
+  def ??(doc: Doc): HttpCodec[AtomTypes, Input] = HttpCodec.WithDoc(self, doc)
 
   // TODO should we allow different inputs between `this` and `that`?
   def ++[AtomTypes1 <: AtomTypes, Input2](that: HttpCodec[AtomTypes1, Input2])(implicit
     combiner: Combiner[Input, Input2],
   ): HttpCodec[AtomTypes1, combiner.Out] =
-    In.Combine[AtomTypes1, AtomTypes1, Input, Input2, combiner.Out](self, that, combiner)
+    HttpCodec.Combine[AtomTypes1, AtomTypes1, Input, Input2, combiner.Out](self, that, combiner)
 
   def /[Input2](
-    that: HttpCodec[CodecType.Route, Input2],
+    that: RouteCodec[Input2],
   )(implicit
     combiner: Combiner[Input, Input2],
     ev: CodecType.Route <:< AtomTypes,
-  ): HttpCodec[CodecType.Route, combiner.Out] =
-    self.asInstanceOf[HttpCodec[CodecType.Route, Input]] ++ that
+  ): RouteCodec[combiner.Out] =
+    self.asInstanceOf[RouteCodec[Input]] ++ that
 
   def /(
     that: String,
   )(implicit combiner: Combiner[Input, Unit], ev: CodecType.Route <:< AtomTypes) =
-    self / [Unit] In.literal(that)
+    self / [Unit] HttpCodec.literal(that)
 
   def bodySchema: Option[Schema[_]] =
-    In.bodySchema(self)
+    HttpCodec.bodySchema(self)
 
   /**
    * Transforms the type parameter of this `In` from `Input` to `Input2`. Due to
@@ -54,23 +54,23 @@ sealed trait HttpCodec[-AtomTypes, Input] {
    * server.
    */
   def transform[Input2](f: Input => Input2, g: Input2 => Input): HttpCodec[AtomTypes, Input2] =
-    In.TransformOrFail[AtomTypes, Input, Input2](self, in => Right(f(in)), output => Right(g(output)))
+    HttpCodec.TransformOrFail[AtomTypes, Input, Input2](self, in => Right(f(in)), output => Right(g(output)))
 
   def transformOrFailLeft[Input2](
     f: Input => Either[String, Input2],
     g: Input2 => Input,
   ): HttpCodec[AtomTypes, Input2] =
-    In.TransformOrFail[AtomTypes, Input, Input2](self, f, output => Right(g(output)))
+    HttpCodec.TransformOrFail[AtomTypes, Input, Input2](self, f, output => Right(g(output)))
 
   def transformOrFailRight[Input2](
     f: Input => Input2,
     g: Input2 => Either[String, Input],
   ): HttpCodec[AtomTypes, Input2] =
-    In.TransformOrFail[AtomTypes, Input, Input2](self, in => Right(f(in)), g)
+    HttpCodec.TransformOrFail[AtomTypes, Input, Input2](self, in => Right(f(in)), g)
 
 }
 
-object In extends RouteInputs with QueryInputs with HeaderInputs {
+object HttpCodec extends RouteInputs with QueryInputs with HeaderInputs {
   def empty: HttpCodec[Any, Unit] =
     Empty
 

@@ -39,7 +39,7 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
 
     var i = 0
     while (i < inputs.length) {
-      val query = flattened.queries(i).asInstanceOf[In.Query[Any]]
+      val query = flattened.queries(i).asInstanceOf[HttpCodec.Query[Any]]
       val input = inputs(i)
 
       val value = query.textCodec.encode(input)
@@ -57,7 +57,7 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
 
     var i = 0
     while (i < inputs.length) {
-      val header = flattened.headers(i).asInstanceOf[In.Header[Any]]
+      val header = flattened.headers(i).asInstanceOf[HttpCodec.Header[Any]]
       val input  = inputs(i)
 
       val value = header.textCodec.encode(input)
