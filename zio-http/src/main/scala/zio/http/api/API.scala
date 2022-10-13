@@ -22,12 +22,11 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * generate a type-safe Scala client for the endpoint, and possibly, to generate
  * client libraries in other programming languages.
  */
-final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
+final case class API[Input, Output](
   method: Method,
   input: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, Input],
   output: In[In.BodyType, Output],
   doc: Doc,
-  middlewareSpec: MiddlewareSpec[MiddlewareIn, MiddlewareOut],
 ) { self =>
   type Id
 
@@ -39,10 +38,6 @@ final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
   //   b. Convert to an APIExecutor (ServiceClient??) by providing APILocator + Client + middleware client
   //
 
-  // TODO; Use combine
-  def @@[MI, MO](mid: MiddlewareSpec[MI, MO]): API[MI, MO, Input, Output] =
-    copy(middlewareSpec = mid)
-
   /**
    * Combines this API and another group of APIs.
    */
@@ -51,56 +46,56 @@ final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
   /**
    * Combines this API with another API.
    */
-  def ++(that: API[_, _, _, _]): APIs[Id with that.Id] = APIs(self).++[that.Id](APIs(that))
+  def ++(that: API[_, _]): APIs[Id with that.Id] = APIs(self).++[that.Id](APIs(that))
 
-  def apply(input: Input): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
+  def apply(input: Input): Invocation[Id, Input, Output] =
     Invocation(self, input)
 
   def apply[A, B](a: A, b: B)(implicit
     ev: (A, B) <:< Input,
-  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
+  ): Invocation[Id, Input, Output] =
     Invocation(self, ev((a, b)))
 
   def apply[A, B, C](a: A, b: B, c: C)(implicit
     ev: (A, B, C) <:< Input,
-  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
+  ): Invocation[Id, Input, Output] =
     Invocation(self, ev((a, b, c)))
 
   def apply[A, B, C, D](a: A, b: B, c: C, d: D)(implicit
     ev: (A, B, C, D) <:< Input,
-  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
+  ): Invocation[Id, Input, Output] =
     Invocation(self, ev((a, b, c, d)))
 
   def apply[A, B, C, D, E](a: A, b: B, c: C, d: D, e: E)(implicit
     ev: (A, B, C, D, E) <:< Input,
-  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
+  ): Invocation[Id, Input, Output] =
     Invocation(self, ev((a, b, c, d, e)))
 
   def apply[A, B, C, D, E, F](a: A, b: B, c: C, d: D, e: E, f: F)(implicit
     ev: (A, B, C, D, E, F) <:< Input,
-  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
+  ): Invocation[Id, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f)))
 
   def apply[A, B, C, D, E, F, G](a: A, b: B, c: C, d: D, e: E, f: F, g: G)(implicit
     ev: (A, B, C, D, E, F, G) <:< Input,
-  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
+  ): Invocation[Id, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g)))
 
   def apply[A, B, C, D, E, F, G, H](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H)(implicit
     ev: (A, B, C, D, E, F, G, H) <:< Input,
-  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
+  ): Invocation[Id, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g, h)))
 
   def apply[A, B, C, D, E, F, G, H, I](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I)(implicit
     ev: (A, B, C, D, E, F, G, H, I) <:< Input,
-  ): Invocation[MiddlewareIn, MiddlewareOut, Id, Input, Output] =
+  ): Invocation[Id, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g, h, i)))
 
   /**
    * Returns a new API that is derived from this one, but which includes
    * additional documentation that will be included in OpenAPI generation.
    */
-  def ??(that: Doc): API[MiddlewareIn, MiddlewareOut, Input, Output] = copy(doc = self.doc + that)
+  def ??(that: Doc): API[Input, Output] = copy(doc = self.doc + that)
 
   /**
    * Converts this API, which is an abstract description of an endpoint, into a
@@ -109,16 +104,16 @@ final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
    * the input, and returns the output.
    */
   def handle[R, E](f: Input => ZIO[R, E, Output]): Service[R, E, Id] =
-    Service.HandledAPI[MiddlewareIn, MiddlewareOut, R, E, Input, Output, Id](self, f).withAllIds[Id]
+    Service.HandledAPI[R, E, Input, Output, Id](self, f).withAllIds[Id]
 
   /**
    * Changes the identity of the API to the specified singleton string type.
    * Currently this is only used to "prettify" type signatures and, assuming
    * each API is uniquely identified, has no effect on behavior.
    */
-  def id[I <: String with Singleton](i: I): API.WithId[MiddlewareIn, MiddlewareOut, Input, Output, I] = {
+  def id[I <: String with Singleton](i: I): API.WithId[Input, Output, I] = {
     val _ = i
-    self.asInstanceOf[API.WithId[MiddlewareIn, MiddlewareOut, Input, Output, I]]
+    self.asInstanceOf[API.WithId[Input, Output, I]]
   }
 
   /**
@@ -128,28 +123,28 @@ final case class API[MiddlewareIn, MiddlewareOut, Input, Output](
    */
   def in[Input2](in2: In[In.RouteType with In.HeaderType with In.BodyType with In.QueryType, Input2])(implicit
     combiner: Combiner[Input, Input2],
-  ): API.WithId[MiddlewareIn, MiddlewareOut, combiner.Out, Output, Id] =
+  ): API.WithId[combiner.Out, Output, Id] =
     copy(input = self.input ++ in2).withId[Id]
 
   /**
    * Changes the output type of the endpoint to the specified output type.
    */
-  def out[Output2: Schema]: API.WithId[MiddlewareIn, MiddlewareOut, Input, Output2, Id] =
+  def out[Output2: Schema]: API.WithId[Input, Output2, Id] =
     copy(output = In.InputBody(implicitly[Schema[Output2]])).withId[Id]
 
   /**
    * Changes the output type of the endpoint to be a stream of the specified
    * output type.
    */
-  def outStream[Output2: Schema]: API.WithId[MiddlewareIn, MiddlewareOut, Input, ZStream[Any, Throwable, Output2], Id] =
+  def outStream[Output2: Schema]: API.WithId[Input, ZStream[Any, Throwable, Output2], Id] =
     copy(output = In.BodyStream(implicitly[Schema[Output2]])).withId[Id]
 
-  private def withId[I]: API.WithId[MiddlewareIn, MiddlewareOut, Input, Output, I] =
-    self.asInstanceOf[API.WithId[MiddlewareIn, MiddlewareOut, Input, Output, I]]
+  private def withId[I]: API.WithId[Input, Output, I] =
+    self.asInstanceOf[API.WithId[Input, Output, I]]
 }
 
 object API {
-  type WithId[MI, MO, I, O, X] = API[MI, MO, I, O] { type Id = X }
+  type WithId[I, O, X] = API[I, O] { type Id = X }
 
   /**
    * Constructs an API for a DELETE endpoint, given the specified input. It is
@@ -157,8 +152,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def delete[Input](route: In[In.RouteType, Input]): API[Unit, Unit, Input, Unit] =
-    API(Method.DELETE, route, In.empty, Doc.empty, MiddlewareSpec.empty)
+  def delete[Input](route: In[In.RouteType, Input]): API[Input, Unit] =
+    API(Method.DELETE, route, In.empty, Doc.empty)
 
   /**
    * Constructs an API for a GET endpoint, given the specified input. It is not
@@ -166,8 +161,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def get[Input](route: In[In.RouteType, Input]): API[Unit, Unit, Input, Unit] =
-    API(Method.GET, route, In.empty, Doc.empty, MiddlewareSpec.empty)
+  def get[Input](route: In[In.RouteType, Input]): API[Input, Unit] =
+    API(Method.GET, route, In.empty, Doc.empty)
 
   /**
    * Constructs an API for a POST endpoint, given the specified input. It is not
@@ -175,8 +170,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def post[Input](route: In[In.RouteType, Input]): API[Unit, Unit, Input, Unit] =
-    API(Method.POST, route, In.empty, Doc.empty, MiddlewareSpec.empty)
+  def post[Input](route: In[In.RouteType, Input]): API[Input, Unit] =
+    API(Method.POST, route, In.empty, Doc.empty)
 
   /**
    * Constructs an API for a PUT endpoint, given the specified input. It is not
@@ -184,6 +179,6 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def put[Input](route: In[In.RouteType, Input]): API[Unit, Unit, Input, Unit] =
-    API(Method.PUT, route, In.empty, Doc.empty, MiddlewareSpec.empty)
+  def put[Input](route: In[In.RouteType, Input]): API[Input, Unit] =
+    API(Method.PUT, route, In.empty, Doc.empty)
 }

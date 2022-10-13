@@ -9,7 +9,7 @@ import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[api] final case class APIServer[MI, MO, R, E, I, O](handledApi: Service.HandledAPI[MI, MO, R, E, I, O, _]) {
+private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledAPI[R, E, I, O, _]) {
   private val api     = handledApi.api
   private val handler = handledApi.handler
 

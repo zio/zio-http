@@ -6,6 +6,8 @@ import zio.ZIO
 sealed trait Middleware[-R, +E, I, O]
 
 object Middleware {
+  val none: Middleware[Any, Nothing, Unit, Unit] = Handler(MiddlewareSpec.none, _ => ())
+
   final case class HandlerZIO[-R, +E, I, O](spec: MiddlewareSpec[I, O], handler: I => ZIO[R, E, O])
       extends Middleware[R, E, I, O]
 

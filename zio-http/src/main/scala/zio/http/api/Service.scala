@@ -25,7 +25,7 @@ sealed trait Service[-R, +E, AllIds] { self =>
     import zio.http.api.internal._
 
     val handlerTree     = HandlerTree.fromService(self)
-    val requestHandlers = Memoized[Service.HandledAPI[_, _, R, E, _, _, _], APIServer[_, _, R, E, _, _]] { handledApi =>
+    val requestHandlers = Memoized[Service.HandledAPI[R, E, _, _, _], APIServer[R, E, _, _]] { handledApi =>
       APIServer(handledApi)
     }
 
@@ -48,19 +48,19 @@ sealed trait Service[-R, +E, AllIds] { self =>
 
 object Service {
   // How to integrate middlewarespec's handlers in here ?
-  final case class HandledAPI[MI, MO, -R, +E, In0, Out0, Id](
-    api: API.WithId[MI, MO, In0, Out0, Id],
+  final case class HandledAPI[-R, +E, In0, Out0, Id](
+    api: API.WithId[In0, Out0, Id],
     handler: In0 => ZIO[R, E, Out0],
   ) extends Service[R, E, Id] { self =>
-    def flatten: Iterable[Service.HandledAPI[MI, MO, R, E, _, _, Id]] = Chunk(self)
+    def flatten: Iterable[Service.HandledAPI[R, E, _, _, Id]] = Chunk(self)
   }
 
   final case class Concat[-R, +E, Ids1, Ids2](left: Service[R, E, Ids1], right: Service[R, E, Ids2])
       extends Service[R, E, Ids1 with Ids2]
 
-  def flatten[R, E](service: Service[R, E, _]): Chunk[Service.HandledAPI[_, _, R, E, _, _, _]] =
+  def flatten[R, E](service: Service[R, E, _]): Chunk[Service.HandledAPI[R, E, _, _, _]] =
     service match {
-      case api @ HandledAPI(_, _) => Chunk(api.asInstanceOf[HandledAPI[_, _, R, E, _, _, _]])
+      case api @ HandledAPI(_, _) => Chunk(api.asInstanceOf[HandledAPI[R, E, _, _, _]])
       case Concat(left, right)    => flatten(left) ++ flatten(right)
     }
 }

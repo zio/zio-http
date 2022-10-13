@@ -40,7 +40,7 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
 
 object MiddlewareSpec {
 
-  def empty: MiddlewareSpec[Unit, Unit] =
+  def none: MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(In.empty, In.empty)
 
   /**
