@@ -17,7 +17,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   private val bodyJsonDecoder: Chunk[Byte] => Either[String, Any] =
     JsonCodec.decode(optionSchema.getOrElse(Schema[Unit].asInstanceOf[Schema[Any]]))
   private val outputJsonEncoder: Any => Chunk[Byte]               =
-    JsonCodec.encode(api.output.bodySchema.asInstanceOf[Schema[Any]])
+    JsonCodec.encode(api.output.bodySchema.get.asInstanceOf[Schema[Any]])
 
   private val constructor: Constructor[I]        = Mechanic.makeConstructor(api.input)
   private val flattened: Mechanic.FlattenedAtoms = Mechanic.flatten(api.input)

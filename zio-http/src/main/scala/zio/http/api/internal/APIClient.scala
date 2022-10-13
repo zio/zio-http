@@ -13,7 +13,7 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
   private val inputJsonEncoder: Any => Chunk[Byte] =
     JsonCodec.encode(optionSchema.getOrElse(Schema[Unit].asInstanceOf[Schema[Any]]))
   private val outputJsonDecoder: Chunk[Byte] => Either[String, Any] =
-    JsonCodec.decode(api.output.bodySchema.asInstanceOf[Schema[Any]])
+    JsonCodec.decode(api.output.bodySchema.get.asInstanceOf[Schema[Any]])
   private val deconstructor = Mechanic.makeDeconstructor(api.input).asInstanceOf[Mechanic.Deconstructor[Any]]
   private val flattened     = Mechanic.flatten(api.input)
 
