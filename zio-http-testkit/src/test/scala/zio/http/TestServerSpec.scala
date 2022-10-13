@@ -1,8 +1,8 @@
 package zio.http
 
-import zio.http.model.{Headers, Status}
-import zio.http.netty.server.NettyDriver
 import zio._
+import zio.http.model._
+import zio.http.netty.server.NettyDriver
 import zio.test._
 
 object TestServerSpec extends ZIOSpecDefault {
