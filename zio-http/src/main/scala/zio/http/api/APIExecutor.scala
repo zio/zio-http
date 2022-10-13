@@ -10,10 +10,22 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * invocation, and executing this invocation, returning the final result, or
  * failing with some kind of RPC error.
  */
-trait APIExecutor[+Ids] {
-  def apply[MI, MO, Id, A, B](
+trait APIExecutor[+MI, +MO, +Ids] { self =>
+  def apply[Id, A, B](
     invocation: Invocation[Id, A, B],
   )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B]
+
+  def middlewareInput(implicit trace: Trace): Task[MI]
+
+  def mapMiddlewareInput[MI2](f: MI => MI2): APIExecutor[MI2, MO, Ids] =
+    new APIExecutor[MI2, MO, Ids] {
+      def apply[Id, A, B](
+        invocation: Invocation[Id, A, B],
+      )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B] =
+        self.apply(invocation)
+
+      def middlewareInput(implicit trace: Trace): Task[MI2] = self.middlewareInput.map(f)
+    }
 }
 
 object APIExecutor {
@@ -22,18 +34,19 @@ object APIExecutor {
    * The default constructor creates a typed executor, which requires a service
    * registry, which keeps track of the locations of all services.
    */
-  def apply[Ids](client: Client, registry: APIRegistry[Ids]): APIExecutor[Ids] =
-    untyped(client, registry)
+  def apply[MI, MO, Ids](client: Client, registry: APIRegistry[MI, MO, Ids], mi: Task[MI]): APIExecutor[Any, Any, Ids] =
+    UntypedServiceExecutor(client, registry, mi)
 
   /**
    * An alternate constructor can be used to create an untyped executor, which
    * can attempt to execute any service, and which may fail at runtime if it
    * does not know the location of a service.
    */
-  def untyped(client: Client, locator: APILocator): APIExecutor[Nothing] =
-    UntypedServiceExecutor(client, locator)
+  def untyped(client: Client, locator: APILocator): APIExecutor[Any, Any, Nothing] =
+    UntypedServiceExecutor(client, locator, ZIO.unit)
 
-  private final case class UntypedServiceExecutor(client: Client, locator: APILocator) extends APIExecutor[Nothing] {
+  private final case class UntypedServiceExecutor[MI](client: Client, locator: APILocator, middlewareInput0: Task[MI])
+      extends APIExecutor[MI, Any, Nothing] {
     val metadata = zio.http.api.internal.Memoized[API[_, _], APIClient[Any, Any]] { (api: API[_, _]) =>
       APIClient(
         locator.locate(api).getOrElse(throw APIError.NotFound(s"Could not locate API", api)),
@@ -41,12 +54,14 @@ object APIExecutor {
       )
     }
 
-    def apply[MI, MO, Id, A, B](
+    def apply[Id, A, B](
       invocation: Invocation[Id, A, B],
     )(implicit ev: Nothing <:< Id, trace: Trace): ZIO[Any, Throwable, B] = {
       val executor = metadata.get(invocation.api).asInstanceOf[APIClient[A, B]]
 
       executor.execute(client, invocation.input).asInstanceOf[ZIO[Any, Throwable, B]]
     }
+
+    def middlewareInput(implicit trace: Trace): Task[MI] = middlewareInput0
   }
 }

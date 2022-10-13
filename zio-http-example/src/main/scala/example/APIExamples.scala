@@ -2,6 +2,7 @@ package zio.http.api
 
 import zio._
 import zio.http._
+import zio.http.middleware.Auth
 
 object APIExamples extends ZIOAppDefault {
   import RouteCodec._
@@ -38,11 +39,10 @@ object APIExamples extends ZIOAppDefault {
   object Client {
     def example(client: Client) = {
       val registry =
-        APIRegistry.empty.registerAll(URL.fromString("http://localhost:8080").getOrElse(???)) {
-          serviceSpec
-        }
+        APIRegistry(URL.fromString("http://localhost:8080").getOrElse(???), serviceSpec.middleware(MiddlewareSpec.auth))
 
-      val executor: APIExecutor[getUser.Id with getUserPosts.Id] = APIExecutor(client, registry)
+      val executor: APIExecutor[Any, Any, getUser.Id with getUserPosts.Id] = 
+        APIExecutor(client, registry, ZIO.succeed(Auth.Credentials("user", "pass")))
 
       val x1 = getUser(42)
       val x2 = getUserPosts(42, 200, "adam")
