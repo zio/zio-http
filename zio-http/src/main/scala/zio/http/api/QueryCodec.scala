@@ -1,8 +1,8 @@
 package zio.http.api
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-private[api] trait QueryInputs {
 
+object QueryCodec {
   def query(name: String): QueryCodec[String] =
     HttpCodec.Query(name, TextCodec.string)
 
@@ -14,5 +14,4 @@ private[api] trait QueryInputs {
 
   def queryAs[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
     HttpCodec.Query(name, codec)
-
 }

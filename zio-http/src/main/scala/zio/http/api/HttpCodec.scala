@@ -37,7 +37,7 @@ sealed trait HttpCodec[-AtomTypes, Input] {
   def /(
     that: String,
   )(implicit combiner: Combiner[Input, Unit], ev: CodecType.Route <:< AtomTypes) =
-    self / [Unit] HttpCodec.literal(that)
+    self / [Unit] RouteCodec.literal(that)
 
   def bodySchema: Option[Schema[_]] =
     HttpCodec.bodySchema(self)
@@ -70,7 +70,7 @@ sealed trait HttpCodec[-AtomTypes, Input] {
 
 }
 
-object HttpCodec extends RouteInputs with QueryInputs with HeaderInputs {
+object HttpCodec {
   def empty: HttpCodec[Any, Unit] =
     Empty
 

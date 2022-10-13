@@ -59,7 +59,7 @@ object MiddlewareSpec {
    * Add specified header to the response
    */
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(HttpCodec.empty, HttpCodec.header(key, TextCodec.constant(value)))
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
 
   val auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
@@ -71,7 +71,7 @@ object MiddlewareSpec {
       )
 
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
-    MiddlewareSpec(HttpCodec.header(name, TextCodec.string), HttpCodec.empty)
+    MiddlewareSpec(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty)
 
   private def decodeHttpBasic(encoded: String): Option[Credentials] = {
     val decoded    = new String(Base64.getDecoder.decode(encoded))
