@@ -1,6 +1,6 @@
 package zio.http.model.headers.values
 
-import zio.{Chunk, IO, ZIO}
+import zio.Chunk
 
 import scala.annotation.tailrec
 import scala.util.Try
@@ -48,7 +48,7 @@ object AcceptLanguage {
         )
       }
     }
-    if (!validCharacters.matches(value)) InvalidAcceptLanguageValue
+    if (validCharacters.findFirstIn(value).isEmpty) InvalidAcceptLanguageValue
     else if (value.isEmpty) InvalidAcceptLanguageValue
     else if (value == "*") AnyLanguage
     else loop(value.indexOf(','), value, AcceptedLanguages(Chunk.empty))
