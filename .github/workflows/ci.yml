@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.16, 2.13.8, 3.2.0]
+        scala: [2.12.16, 2.13.10, 3.2.0]
         java: [graal_21.1.0@11, temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -60,7 +60,7 @@ jobs:
           key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
 
       - name: Check formatting
-        if: matrix.scala == '2.13.8'
+        if: matrix.scala == '2.13.10'
         run: sbt ++2.13.8 fmtCheck
 
       - name: Check that workflows are up to date
@@ -89,7 +89,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.8]
+        scala: [2.13.10]
         java: [graal_21.1.0@11]
     runs-on: ${{ matrix.os }}
     steps:
@@ -204,7 +204,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.8]
+        scala: [2.13.10]
         java: [temurin@11]
     runs-on: ${{ matrix.os }}
     steps:
@@ -237,7 +237,7 @@ jobs:
     strategy:
       matrix:
         os: [centos]
-        scala: [2.13.8]
+        scala: [2.13.10]
         java: [temurin@11]
     runs-on: [ "${{ matrix.os }}", zio-http ]
     steps:
@@ -286,7 +286,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.8]
+        scala: [2.13.10]
         java: [temurin@11]
     runs-on: ${{ matrix.os }}
     steps:
