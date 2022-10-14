@@ -67,14 +67,12 @@ object Server {
 
     override def port: Int = bindPort
 
-    private def setErrorCallback(errorCallback: Option[ErrorCallback])(implicit trace: Trace): UIO[Unit] = {
-      ({
-        ZIO
-          .environment[Any]
-      } *> driver.setErrorCallback(errorCallback))
+    private def setErrorCallback(errorCallback: Option[ErrorCallback])(implicit trace: Trace): UIO[Unit] =
+      driver
+        .setErrorCallback(errorCallback)
         .unless(errorCallback.isEmpty)
         .map(_.getOrElse(()))
-    }
+
   }
 
 }

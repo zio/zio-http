@@ -270,4 +270,20 @@ object HttpGen {
   def cacheControl: Gen[Any, CacheControl] =
     Gen.chunkOfBounded(1, 10)(cacheControlSingleValueWithSeconds).map(CacheControl.MultipleCacheControlValues.apply)
 
+  def allowHeaderSingleValue: Gen[Any, Allow] = Gen.fromIterable(
+    List(
+      Allow.OPTIONS,
+      Allow.GET,
+      Allow.HEAD,
+      Allow.POST,
+      Allow.PUT,
+      Allow.PATCH,
+      Allow.DELETE,
+      Allow.TRACE,
+      Allow.CONNECT,
+    ),
+  )
+
+  def allowHeader: Gen[Any, Allow] =
+    Gen.chunkOfBounded(1, 9)(allowHeaderSingleValue).map(Allow.AllowMethods.apply)
 }

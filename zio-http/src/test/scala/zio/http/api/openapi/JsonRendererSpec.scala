@@ -1,7 +1,6 @@
 package zio.http.api.openapi
 
 import zio.http.api.Doc
-import zio.http.api.openapi.JsonRenderer._
 import zio.http.api.openapi.OpenAPI.Parameter.{Definition, QueryParameter}
 import zio.http.api.openapi.OpenAPI.Schema.ResponseSchema
 import zio.http.api.openapi.OpenAPI.SecurityScheme.ApiKey
@@ -60,7 +59,18 @@ object JsonRendererSpec extends ZIOSpecDefault {
       },
       test("render doc") {
         val rendered = JsonRenderer.renderFields("doc" -> Doc.p(Doc.Span.uri(new URI("https://google.com"))))
-        val expected = """{"doc":"<p><a href="https://google.com">https://google.com</a></p>"}"""
+        val expected = """{"doc":"W2h0dHBzOi8vZ29vZ2xlLmNvbV0oaHR0cHM6Ly9nb29nbGUuY29tKQoK"}"""
+        assertTrue(rendered == expected)
+      },
+      test("render LiteralOrExpression") {
+        val rendered = JsonRenderer.renderFields(
+          "string"     -> (OpenAPI.LiteralOrExpression.StringLiteral("string"): OpenAPI.LiteralOrExpression),
+          "number"     -> (OpenAPI.LiteralOrExpression.NumberLiteral(1): OpenAPI.LiteralOrExpression),
+          "decimal"    -> (OpenAPI.LiteralOrExpression.DecimalLiteral(1.0): OpenAPI.LiteralOrExpression),
+          "boolean"    -> (OpenAPI.LiteralOrExpression.BooleanLiteral(true): OpenAPI.LiteralOrExpression),
+          "expression" -> OpenAPI.LiteralOrExpression.expression("expression"),
+        )
+        val expected = """{"string":"string","number":1,"decimal":1.0,"boolean":true,"expression":"expression"}"""
         assertTrue(rendered == expected)
       },
       test("throw exception for duplicate keys") {
@@ -156,7 +166,7 @@ object JsonRendererSpec extends ZIOSpecDefault {
             .toJson
 
         val expected =
-          """{"openapi":"3.0.0","info":{"title":"title","description":"<p>description</p>","termsOfService":"https://google.com","version":"version"},"servers":[{"url":"https://google.com","description":"<p>description</p>","variables":{}}],"paths":{"/test":{"$ref":"ref","summary":"","description":"<p>description</p>","get":{"tags":["tag"],"summary":"summary","description":"<p>description</p>","externalDocs":{"url":"https://google.com"},"operationId":"operationId","parameters":[{"name":"name","in":"query","description":"<p>description</p>","required":true,"deprecated":false,"allowEmptyValue":false,"definition":{"key":"key","mediaType":"mediaType"},"explode":true,"examples":{}}],"responses":{"200":{"description":"<p>description</p>","headers":{},"content":{"application/json":{"schema":{"nullable":false,"readOnly":true,"writeOnly":false,"externalDocs":"https://google.com","example":"Example","deprecated":false},"examples":{},"encoding":{}}},"links":{}}},"callbacks":{},"deprecated":false,"security":[],"servers":[{"url":"https://google.com","description":"<p>description</p>","variables":{}}]},"servers":[],"parameters":[]}},"components":{"schemas":{},"responses":{},"parameters":{},"examples":{},"requestBodies":{},"headers":{},"securitySchemes":{},"links":{},"callbacks":{}},"security":[],"tags":[],"externalDocs":{"url":"https://google.com"}}"""
+          """{"openapi":"3.0.0","info":{"title":"title","description":"ZGVzY3JpcHRpb24KCg==","termsOfService":"https://google.com","version":"version"},"servers":[{"url":"https://google.com","description":"ZGVzY3JpcHRpb24KCg==","variables":{}}],"paths":{"/test":{"$ref":"ref","summary":"","description":"ZGVzY3JpcHRpb24KCg==","get":{"tags":["tag"],"summary":"summary","description":"ZGVzY3JpcHRpb24KCg==","externalDocs":{"url":"https://google.com"},"operationId":"operationId","parameters":[{"name":"name","in":"query","description":"ZGVzY3JpcHRpb24KCg==","required":true,"deprecated":false,"allowEmptyValue":false,"definition":{"key":"key","mediaType":"mediaType"},"explode":true,"examples":{}}],"responses":{"200":{"description":"ZGVzY3JpcHRpb24KCg==","headers":{},"content":{"application/json":{"schema":{"nullable":false,"readOnly":true,"writeOnly":false,"externalDocs":"https://google.com","example":"Example","deprecated":false},"examples":{},"encoding":{}}},"links":{}}},"callbacks":{},"deprecated":false,"security":[],"servers":[{"url":"https://google.com","description":"ZGVzY3JpcHRpb24KCg==","variables":{}}]},"servers":[],"parameters":[]}},"components":{"schemas":{},"responses":{},"parameters":{},"examples":{},"requestBodies":{},"headers":{},"securitySchemes":{},"links":{},"callbacks":{}},"security":[],"tags":[],"externalDocs":{"url":"https://google.com"}}"""
         assertTrue(rendered == expected)
       },
     )
