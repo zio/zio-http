@@ -1,8 +1,7 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.headers.values._
-import zio.http.model.headers.HeaderValue.Host
+import zio.http.model.headers.values._                   // scalafix:ok;
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HeaderCodecs {
