@@ -14,7 +14,7 @@ object APIExamples extends ZIOAppDefault {
 
   val getUsersService =
     getUser.handle[Any, Nothing] { case (id: Int) =>
-      ZIO.succeedNow(1)
+      ZIO.succeedNow(id)
     }
 
   val getUserPosts =
