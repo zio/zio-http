@@ -4,8 +4,8 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A combiner is a type class responsible for combining invariant type
- * parameters. It is used to compose the inputs of the [[zio.http.api.In]] data
- * type.
+ * parameters. It is used to compose the parameters of the
+ * [[zio.http.api.HttpCodec]] data type.
  */
 sealed trait Combiner[L, R] {
   type Out

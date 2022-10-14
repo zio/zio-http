@@ -7,14 +7,15 @@ import zio.schema.Schema
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
- * A [[zio.http.api.In]] represents an input to an API. In the HTTP protocol,
- * these inputs may come from the unconsumed portion of the HTTP path, the query
- * string parameters, the request headers, or the request body.
+ * A [[zio.http.api.HttpCodec]] represents a codec for a part of an HTTP
+ * request. In the HTTP protocol, these parts may be the unconsumed portion of
+ * the HTTP path (a route codec), the query string parameters (a query codec),
+ * the request headers (a header codec), or the request body (a body codec).
  *
- * An `In` is a purely declarative description of an input, and therefore, it
- * can be used to generate documentation, clients, and client libraries.
+ * A `HttpCodec` is a purely declarative description of an input, and therefore,
+ * it can be used to generate documentation, clients, and client libraries.
  *
- * Here Raw represents the original components that was used to create `Input`
+ * HttpCodecs are a bit like invertible multi-channel parsers.
  */
 sealed trait HttpCodec[-AtomTypes, Input] {
   self =>
