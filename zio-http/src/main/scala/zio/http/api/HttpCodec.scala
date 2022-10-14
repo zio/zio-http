@@ -1,5 +1,7 @@
 package zio.http.api
 
+import scala.language.implicitConversions
+
 import zio.stream.ZStream
 import zio.http.model.Headers
 import zio.schema.Schema
@@ -20,7 +22,6 @@ sealed trait HttpCodec[-AtomTypes, Input] {
 
   def ??(doc: Doc): HttpCodec[AtomTypes, Input] = HttpCodec.WithDoc(self, doc)
 
-  // TODO should we allow different inputs between `this` and `that`?
   def ++[AtomTypes1 <: AtomTypes, Input2](that: HttpCodec[AtomTypes1, Input2])(implicit
     combiner: Combiner[Input, Input2],
   ): HttpCodec[AtomTypes1, combiner.Out] =
@@ -32,12 +33,10 @@ sealed trait HttpCodec[-AtomTypes, Input] {
     combiner: Combiner[Input, Input2],
     ev: CodecType.Route <:< AtomTypes,
   ): RouteCodec[combiner.Out] =
-    self.asInstanceOf[RouteCodec[Input]] ++ that
+    self.asRoute ++ that
 
-  def /(
-    that: String,
-  )(implicit combiner: Combiner[Input, Unit], ev: CodecType.Route <:< AtomTypes) =
-    self / [Unit] RouteCodec.literal(that)
+  def asRoute(implicit ev: CodecType.Route <:< AtomTypes): RouteCodec[Input] =
+    self.asInstanceOf[RouteCodec[Input]]
 
   def bodySchema: Option[Schema[_]] =
     HttpCodec.bodySchema(self)
@@ -71,6 +70,8 @@ sealed trait HttpCodec[-AtomTypes, Input] {
 }
 
 object HttpCodec {
+  implicit def stringToLiteral(s: String): RouteCodec[Unit] = RouteCodec.literal(s)
+
   def empty: HttpCodec[Any, Unit] =
     Empty
 
