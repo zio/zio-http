@@ -96,7 +96,7 @@ object AcceptEncoding {
     }
   }
 
-  def toEncoding(value: String): AcceptEncoding = {
+  def toAcceptEncoding(value: String): AcceptEncoding = {
     val index = value.indexOf(",")
 
     @tailrec def loop(value: String, index: Int, acc: MultipleEncodings): MultipleEncodings = {
@@ -121,13 +121,13 @@ object AcceptEncoding {
 
   }
 
-  def fromEncoding(encoding: AcceptEncoding): String = encoding match {
+  def fromAcceptEncoding(encoding: AcceptEncoding): String = encoding match {
     case b @ BrEncoding(weight)           => weight.fold(b.raw)(value => s"${b.raw};q=$value")
     case c @ CompressEncoding(weight)     => weight.fold(c.raw)(value => s"${c.raw};q=$value")
     case d @ DeflateEncoding(weight)      => weight.fold(d.raw)(value => s"${d.raw};q=$value")
     case g @ GZipEncoding(weight)         => weight.fold(g.raw)(value => s"${g.raw};q=$value")
     case i @ IdentityEncoding(weight)     => weight.fold(i.raw)(value => s"${i.raw};q=$value")
-    case MultipleEncodings(encodings)     => encodings.map(fromEncoding).mkString(",")
+    case MultipleEncodings(encodings)     => encodings.map(fromAcceptEncoding).mkString(",")
     case n @ NoPreferenceEncoding(weight) => weight.fold(n.raw)(value => s"${n.raw};q=$value")
     case InvalidEncoding                  => ""
   }

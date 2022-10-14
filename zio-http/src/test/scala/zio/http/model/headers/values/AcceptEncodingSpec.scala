@@ -9,12 +9,12 @@ object AcceptEncodingSpec extends ZIOSpecDefault {
     suite("Encoding header value transformation should be symmetrical")(
       test("single value") {
         check(HttpGen.acceptEncodingSingleValueWithWeight) { value =>
-          assertTrue(AcceptEncoding.toEncoding(AcceptEncoding.fromEncoding(value)) == value)
+          assertTrue(AcceptEncoding.toAcceptEncoding(AcceptEncoding.fromAcceptEncoding(value)) == value)
         }
       },
       test("multiple values") {
         check(HttpGen.acceptEncoding) { value =>
-          assertTrue(AcceptEncoding.toEncoding(AcceptEncoding.fromEncoding(value)) == value)
+          assertTrue(AcceptEncoding.toAcceptEncoding(AcceptEncoding.fromAcceptEncoding(value)) == value)
         }
       },
     ),
