@@ -2,6 +2,7 @@ package zio.http.api
 
 import zio.http.model.HeaderNames
 import zio.http.model.headers.values._
+import zio.http.model.headers.HeaderValue.Host
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HeaderCodecs {
@@ -79,7 +80,8 @@ trait HeaderCodecs {
   final val expect: HeaderCodec[String]                        = header(HeaderNames.expect.toString(), TextCodec.string)
   final val expires: HeaderCodec[String]                 = header(HeaderNames.expires.toString(), TextCodec.string)
   final val from: HeaderCodec[String]                    = header(HeaderNames.from.toString(), TextCodec.string)
-  final val host: HeaderCodec[String]                    = header(HeaderNames.host.toString(), TextCodec.string)
+  final val host: HeaderCodec[Host]                      = header(HeaderNames.host.toString(), TextCodec.string)
+    .transform(Host.toHost(_), Host.fromHost(_))
   final val ifMatch: HeaderCodec[String]                 = header(HeaderNames.ifMatch.toString(), TextCodec.string)
   final val ifModifiedSince: HeaderCodec[String]         =
     header(HeaderNames.ifModifiedSince.toString(), TextCodec.string)
