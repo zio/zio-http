@@ -1,7 +1,7 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.headers.values.{Accept, AcceptEncoding, Age, Allow, CacheControl, ContentLength, Origin}
+import zio.http.model.headers.values._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HeaderCodecs {
@@ -14,8 +14,9 @@ trait HeaderCodecs {
   final val acceptEncoding: HeaderCodec[AcceptEncoding]        =
     header(HeaderNames.acceptEncoding.toString(), TextCodec.string)
       .transform(AcceptEncoding.toAcceptEncoding, AcceptEncoding.fromAcceptEncoding)
-  final val acceptLanguage: HeaderCodec[String]                =
+  final val acceptLanguage: HeaderCodec[AcceptLanguage]                =
     header(HeaderNames.acceptLanguage.toString(), TextCodec.string)
+      .transform(AcceptLanguage.toAcceptLanguage, AcceptLanguage.fromAcceptLanguage)
   final val acceptRanges: HeaderCodec[String]                  =
     header(HeaderNames.acceptRanges.toString(), TextCodec.string)
   final val acceptPatch: HeaderCodec[String]                   =
