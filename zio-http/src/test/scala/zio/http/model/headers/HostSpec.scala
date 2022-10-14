@@ -1,8 +1,8 @@
 package zio.http.model.headers
 
 import zio.http.internal.HttpGen
-import zio.http.model.headers.HeaderValue.Host
-import zio.http.model.headers.HeaderValue.Host.{HostValue, InvalidHostValue}
+import zio.http.model.headers.values.Host
+import zio.http.model.headers.values.Host.{HostValue, InvalidHostValue}
 import zio.test._
 
 object HostSpec extends ZIOSpecDefault {
