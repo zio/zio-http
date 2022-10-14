@@ -17,12 +17,12 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   private val bodyJsonDecoder: Chunk[Byte] => Either[String, Any] =
     JsonCodec.decode(optionSchema.getOrElse(Schema[Unit].asInstanceOf[Schema[Any]]))
   private val outputJsonEncoder: Any => Chunk[Byte]               =
-    JsonCodec.encode(api.output.bodySchema.asInstanceOf[Schema[Any]])
+    JsonCodec.encode(api.output.bodySchema.get.asInstanceOf[Schema[Any]])
 
   private val constructor: Constructor[I]        = Mechanic.makeConstructor(api.input)
   private val flattened: Mechanic.FlattenedAtoms = Mechanic.flatten(api.input)
 
-  private val hasOutput = api.output != Out.unit
+  private val hasOutput = api.output != HttpCodec.empty
 
   def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
     val inputsBuilder = flattened.makeInputsBuilder()
@@ -48,7 +48,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   private def decodeQuery(queryParams: QueryParams, inputs: Array[Any]): Unit = {
     var i = 0
     while (i < flattened.queries.length) {
-      val query = flattened.queries(i).asInstanceOf[In.Query[Any]]
+      val query = flattened.queries(i).asInstanceOf[HttpCodec.Query[Any]]
 
       val value = queryParams
         .getOrElse(query.name, Nil)
@@ -65,7 +65,7 @@ private[api] final case class APIServer[R, E, I, O](handledApi: Service.HandledA
   private def decodeHeaders(headers: Headers, inputs: Array[Any]): Unit = {
     var i = 0
     while (i < flattened.headers.length) {
-      val header = flattened.headers(i).asInstanceOf[In.Header[Any]]
+      val header = flattened.headers(i).asInstanceOf[HttpCodec.Header[Any]]
 
       val value = headers.get(header.name).getOrElse(throw APIError.MissingHeader(header.name))
 
