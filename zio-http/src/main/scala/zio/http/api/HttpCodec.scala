@@ -3,7 +3,6 @@ package zio.http.api
 import scala.language.implicitConversions
 
 import zio.stream.ZStream
-import zio.http.model.Headers
 import zio.schema.Schema
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
@@ -69,7 +68,7 @@ sealed trait HttpCodec[-AtomTypes, Input] {
 
 }
 
-object HttpCodec {
+object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
   implicit def stringToLiteral(s: String): RouteCodec[Unit] = RouteCodec.literal(s)
 
   def empty: HttpCodec[Any, Unit] =

@@ -4,7 +4,7 @@ import zio.http.model.HeaderNames
 import zio.http.model.headers.values.{Accept, Age, Allow, CacheControl, ContentLength, Origin}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-object HeaderCodec {
+trait HeaderCodecs {
   def header[A](name: String, value: TextCodec[A]): HeaderCodec[A] =
     HttpCodec.Header(name, value)
 
