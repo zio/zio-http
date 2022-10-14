@@ -14,7 +14,7 @@ trait HeaderCodecs {
   final val acceptEncoding: HeaderCodec[AcceptEncoding]        =
     header(HeaderNames.acceptEncoding.toString(), TextCodec.string)
       .transform(AcceptEncoding.toAcceptEncoding, AcceptEncoding.fromAcceptEncoding)
-  final val acceptLanguage: HeaderCodec[AcceptLanguage]                =
+  final val acceptLanguage: HeaderCodec[AcceptLanguage]        =
     header(HeaderNames.acceptLanguage.toString(), TextCodec.string)
       .transform(AcceptLanguage.toAcceptLanguage, AcceptLanguage.fromAcceptLanguage)
   final val acceptRanges: HeaderCodec[String]                  =

@@ -7,7 +7,8 @@ import scala.util.Try
 import scala.util.matching.Regex
 
 /**
- * The Accept-Language request HTTP header indicates the natural language and locale that the client prefers.
+ * The Accept-Language request HTTP header indicates the natural language and
+ * locale that the client prefers.
  */
 sealed trait AcceptLanguage
 
@@ -28,18 +29,18 @@ object AcceptLanguage {
         case None    => ""
       }
       s"$language$weightString"
-    case AcceptedLanguages(languages) => languages.map(fromAcceptLanguage).mkString(",")
-    case AnyLanguage => "*"
-    case InvalidAcceptLanguageValue => ""
+    case AcceptedLanguages(languages)       => languages.map(fromAcceptLanguage).mkString(",")
+    case AnyLanguage                        => "*"
+    case InvalidAcceptLanguageValue         => ""
   }
 
   def toAcceptLanguage(value: String): AcceptLanguage = {
     @tailrec def loop(index: Int, value: String, acc: AcceptedLanguages): AcceptedLanguages = {
       if (index == -1) acc.copy(languages = acc.languages ++ Chunk(parseAcceptedLanguage(value.trim)))
       else {
-        val valueChunk = value.substring(0, index)
+        val valueChunk     = value.substring(0, index)
         val valueRemaining = value.substring(index + 1)
-        val newIndex = valueRemaining.indexOf(',')
+        val newIndex       = valueRemaining.indexOf(',')
         loop(
           newIndex,
           valueRemaining,
@@ -54,7 +55,7 @@ object AcceptLanguage {
   }
 
   /**
-   * The only allowed characters in the header are  0-9, A-Z, a-z, space or *,-.;=
+   * Allowed characters in the header are 0-9, A-Z, a-z, space or *,-.;=
    */
   private val validCharacters: Regex = "^[0-9a-zA-Z *,\\-.;=]+$".r
 
@@ -62,12 +63,11 @@ object AcceptLanguage {
     val weightIndex = value.indexOf(";q=")
     if (weightIndex != -1) {
       val language = value.substring(0, weightIndex)
-      val weight = value.substring(weightIndex + 3)
+      val weight   = value.substring(weightIndex + 3)
       AcceptedLanguage(
         language,
-        Try(weight.toDouble)
-          .toOption
-          .filter(w => w >= 0.0 && w <= 1.0)
+        Try(weight.toDouble).toOption
+          .filter(w => w >= 0.0 && w <= 1.0),
       )
     } else AcceptedLanguage(value, None)
   }

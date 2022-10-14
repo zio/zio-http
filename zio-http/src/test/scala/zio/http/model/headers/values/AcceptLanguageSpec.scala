@@ -30,7 +30,7 @@ object AcceptLanguageSpec extends ZIOSpecDefault {
   private def acceptLanguageWithWeightStr: Gen[Any, String] =
     for {
       acceptLang <- acceptLanguageStr
-      weight <- Gen.double(0.0, 1.0)
+      weight     <- Gen.double(0.0, 1.0)
     } yield s"$acceptLang;q=$weight"
 
 }
