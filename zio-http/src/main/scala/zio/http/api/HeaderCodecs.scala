@@ -2,7 +2,6 @@ package zio.http.api
 
 import zio.http.model.HeaderNames
 import zio.http.model.headers.values._
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HeaderCodecs {
@@ -48,36 +47,36 @@ trait HeaderCodecs {
   final val cacheControl: HeaderCodec[CacheControl]            =
     header(HeaderNames.cacheControl.toString(), TextCodec.string)
       .transform[CacheControl](CacheControl.toCacheControl, CacheControl.fromCacheControl)
-  final val connection: HeaderCodec[Connection] = header(HeaderNames.connection.toString(), TextCodec.string)
+  final val connection: HeaderCodec[Connection]          = header(HeaderNames.connection.toString(), TextCodec.string)
     .transform[Connection](Connection.toConnection, Connection.fromConnection)
-  final val contentBase: HeaderCodec[String]                   =
+  final val contentBase: HeaderCodec[String]             =
     header(HeaderNames.contentBase.toString(), TextCodec.string)
-  final val contentEncoding: HeaderCodec[String]               =
+  final val contentEncoding: HeaderCodec[String]         =
     header(HeaderNames.contentEncoding.toString(), TextCodec.string)
-  final val contentLanguage: HeaderCodec[String]               =
+  final val contentLanguage: HeaderCodec[String]         =
     header(HeaderNames.contentLanguage.toString(), TextCodec.string)
-  final val contentLength: HeaderCodec[ContentLength]          =
+  final val contentLength: HeaderCodec[ContentLength]    =
     header(HeaderNames.contentLength.toString(), TextCodec.string)
       .transform(ContentLength.toContentLength, ContentLength.fromContentLength)
-  final val contentLocation: HeaderCodec[String]               =
+  final val contentLocation: HeaderCodec[String]         =
     header(HeaderNames.contentLocation.toString(), TextCodec.string)
-  final val contentTransferEncoding: HeaderCodec[String]       =
+  final val contentTransferEncoding: HeaderCodec[String] =
     header(HeaderNames.contentTransferEncoding.toString(), TextCodec.string)
-  final val contentDisposition: HeaderCodec[String]            =
+  final val contentDisposition: HeaderCodec[String]      =
     header(HeaderNames.contentDisposition.toString(), TextCodec.string)
-  final val contentMd5: HeaderCodec[String]                    =
+  final val contentMd5: HeaderCodec[String]              =
     header(HeaderNames.contentMd5.toString(), TextCodec.string)
-  final val contentRange: HeaderCodec[String]                  =
+  final val contentRange: HeaderCodec[String]            =
     header(HeaderNames.contentRange.toString(), TextCodec.string)
-  final val contentSecurityPolicy: HeaderCodec[String]         =
+  final val contentSecurityPolicy: HeaderCodec[String]   =
     header(HeaderNames.contentSecurityPolicy.toString(), TextCodec.string)
-  final val contentType: HeaderCodec[String]                   =
+  final val contentType: HeaderCodec[String]             =
     header(HeaderNames.contentType.toString(), TextCodec.string)
-  final val cookie: HeaderCodec[String]                        = header(HeaderNames.cookie.toString(), TextCodec.string)
-  final val date: HeaderCodec[String]                          = header(HeaderNames.date.toString(), TextCodec.string)
-  final val dnt: HeaderCodec[String]                           = header(HeaderNames.dnt.toString(), TextCodec.string)
-  final val etag: HeaderCodec[String]                          = header(HeaderNames.etag.toString(), TextCodec.string)
-  final val expect: HeaderCodec[String]                        = header(HeaderNames.expect.toString(), TextCodec.string)
+  final val cookie: HeaderCodec[String]                  = header(HeaderNames.cookie.toString(), TextCodec.string)
+  final val date: HeaderCodec[String]                    = header(HeaderNames.date.toString(), TextCodec.string)
+  final val dnt: HeaderCodec[String]                     = header(HeaderNames.dnt.toString(), TextCodec.string)
+  final val etag: HeaderCodec[String]                    = header(HeaderNames.etag.toString(), TextCodec.string)
+  final val expect: HeaderCodec[String]                  = header(HeaderNames.expect.toString(), TextCodec.string)
   final val expires: HeaderCodec[String]                 = header(HeaderNames.expires.toString(), TextCodec.string)
   final val from: HeaderCodec[String]                    = header(HeaderNames.from.toString(), TextCodec.string)
   final val host: HeaderCodec[String]                    = header(HeaderNames.host.toString(), TextCodec.string)
