@@ -1,7 +1,7 @@
 package zio.http.api
 
 import zio.http.model.HeaderNames
-import zio.http.model.headers.values.{Accept, AcceptEncoding, Age, Allow, CacheControl, ContentLength, Origin}
+import zio.http.model.headers.values.{Accept, AcceptEncoding, Age, Allow, CacheControl, Connection, ContentLength, Origin}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HeaderCodecs {
@@ -46,8 +46,8 @@ trait HeaderCodecs {
   final val cacheControl: HeaderCodec[CacheControl]            =
     header(HeaderNames.cacheControl.toString(), TextCodec.string)
       .transform[CacheControl](CacheControl.toCacheControl, CacheControl.fromCacheControl)
-  final val connection: HeaderCodec[String]                    =
-    header(HeaderNames.connection.toString(), TextCodec.string)
+  final val connection: HeaderCodec[Connection] = header(HeaderNames.connection.toString(), TextCodec.string)
+    .transform[Connection](Connection.toConnection, Connection.fromConnection)
   final val contentBase: HeaderCodec[String]                   =
     header(HeaderNames.contentBase.toString(), TextCodec.string)
   final val contentEncoding: HeaderCodec[String]               =

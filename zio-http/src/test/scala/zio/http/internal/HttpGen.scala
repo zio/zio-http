@@ -286,4 +286,8 @@ object HttpGen {
 
   def allowHeader: Gen[Any, Allow] =
     Gen.chunkOfBounded(1, 9)(allowHeaderSingleValue).map(Allow.AllowMethods.apply)
+
+  def connectionHeader: Gen[Any, Connection] =
+    Gen.elements(Connection.Close, Connection.KeepAlive, Connection.InvalidConnection)
+
 }
