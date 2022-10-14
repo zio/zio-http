@@ -119,7 +119,7 @@ final case class API[Input, Output](
    * Changes the output type of the endpoint to the specified output type.
    */
   def out[Output2: Schema]: API.WithId[Input, Output2, Id] =
-    copy(output = HttpCodec.InputBody(implicitly[Schema[Output2]])).withId[Id]
+    copy(output = HttpCodec.Body(implicitly[Schema[Output2]])).withId[Id]
 
   /**
    * Changes the output type of the endpoint to be a stream of the specified

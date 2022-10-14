@@ -80,13 +80,13 @@ private[api] object Mechanic {
           inputCombiner.combine(leftValue, rightValue)
         }
 
-      case IndexedAtom(_: Route[_], index)     =>
+      case IndexedAtom(_: Route[_], index)  =>
         results => coerce(results.routes(index))
-      case IndexedAtom(_: Header[_], index)    =>
+      case IndexedAtom(_: Header[_], index) =>
         results => coerce(results.headers(index))
-      case IndexedAtom(_: Query[_], index)     =>
+      case IndexedAtom(_: Query[_], index)  =>
         results => coerce(results.queries(index))
-      case IndexedAtom(_: InputBody[_], index) =>
+      case IndexedAtom(_: Body[_], index)   =>
         results => coerce(results.inputBodies(index))
 
       case transform: TransformOrFail[_, _, A] =>
@@ -128,7 +128,7 @@ private[api] object Mechanic {
       case IndexedAtom(_: Query[_], index) =>
         (input, inputsBuilder) => inputsBuilder.setQuery(index, input)
 
-      case IndexedAtom(_: InputBody[_], index) =>
+      case IndexedAtom(_: Body[_], index) =>
         (input, inputsBuilder) => inputsBuilder.setInputBody(index, input)
 
       case transform: TransformOrFail[_, _, A] =>
@@ -156,16 +156,16 @@ private[api] object Mechanic {
     routes: Chunk[TextCodec[_]],
     queries: Chunk[Query[_]],
     headers: Chunk[Header[_]],
-    inputBodies: Chunk[InputBody[_]],
+    inputBodies: Chunk[Body[_]],
   ) { self =>
     def append(atom: Atom[_, _]) = atom match {
-      case Empty                   => self
-      case route: Route[_]         => self.copy(routes = routes :+ route.textCodec)
-      case query: Query[_]         => self.copy(queries = queries :+ query)
-      case header: Header[_]       => self.copy(headers = headers :+ header)
-      case inputBody: InputBody[_] => self.copy(inputBodies = inputBodies :+ inputBody)
-      case _: BodyStream[_]        => self // TODO: Support body streams
-      case _: IndexedAtom[_, _]    => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
+      case Empty                => self
+      case route: Route[_]      => self.copy(routes = routes :+ route.textCodec)
+      case query: Query[_]      => self.copy(queries = queries :+ query)
+      case header: Header[_]    => self.copy(headers = headers :+ header)
+      case inputBody: Body[_]   => self.copy(inputBodies = inputBodies :+ inputBody)
+      case _: BodyStream[_]     => self // TODO: Support body streams
+      case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
     }
 
     def makeInputsBuilder(): InputsBuilder = {
@@ -219,7 +219,7 @@ private[api] object Mechanic {
         case _: Route[_]          => self.copy(route = route + 1)
         case _: Query[_]          => self.copy(query = query + 1)
         case _: Header[_]         => self.copy(header = header + 1)
-        case _: InputBody[_]      => self.copy(inputBody = inputBody + 1)
+        case _: Body[_]           => self.copy(inputBody = inputBody + 1)
         case _: BodyStream[_]     => self // TODO: Support body streams
         case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to increment")
       }
@@ -231,7 +231,7 @@ private[api] object Mechanic {
         case _: Route[_]          => route
         case _: Query[_]          => query
         case _: Header[_]         => header
-        case _: InputBody[_]      => inputBody
+        case _: Body[_]           => inputBody
         case _: BodyStream[_]     => throw new RuntimeException("FIXME: Support BodyStream")
         case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to get")
       }
