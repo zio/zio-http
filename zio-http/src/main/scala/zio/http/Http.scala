@@ -1,18 +1,16 @@
 package zio.http
 
-import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.ZIO.attemptBlocking
 import zio._
 import zio.http.html._
 import zio.http.model._
-import zio.http.model.headers.HeaderModifier
+import zio.http.model.headers.HeaderModifierZIO
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
-import java.io.{File, FileNotFoundException, IOException}
+import java.io.{File, FileNotFoundException}
 import java.net
-import java.net.{InetAddress, InetSocketAddress}
 import java.nio.charset.Charset
 import java.nio.file.Paths
 import java.util.zip.ZipFile
@@ -25,7 +23,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * A functional domain to model Http apps using ZIO and that can work over any
  * kind of request and response types.
  */
-sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
+sealed trait Http[-R, +E, -A, +B] { self =>
 
   import Http._
 
@@ -34,7 +32,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
    */
   final def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
-  ): Http[R1, E1, A2, B2] = mid(self)
+  )(implicit trace: Trace): Http[R1, E1, A2, B2] = mid(self)
 
   /**
    * Combines two Http instances into a middleware that works a codec for
@@ -100,7 +98,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
   /**
    * Consumes the input and executes the Http.
    */
-  final def apply(a: A): ZIO[R, Option[E], B] = execute(a).toZIO
+  final def apply(a: A)(implicit trace: Trace): ZIO[R, Option[E], B] = execute(a).toZIO
 
   /**
    * Makes the app resolve with a constant value
@@ -633,7 +631,7 @@ sealed trait Http[-R, +E, -A, +B] extends (A => ZIO[R, Option[E], B]) { self =>
 
 object Http {
 
-  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifier[HttpApp[R, E]] {
+  implicit final class HttpAppSyntax[-R, +E](val http: HttpApp[R, E]) extends HeaderModifierZIO[HttpApp[R, E]] {
     self =>
 
     /**
@@ -644,12 +642,12 @@ object Http {
     /**
      * Overwrites the method in the incoming request
      */
-    def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.setMethod(method))
+    def setMethod(method: Method): HttpApp[R, E] = http.contramap[Request](_.copy(method = method))
 
     /**
      * Overwrites the path in the incoming request
      */
-    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.setPath(path))
+    def setPath(path: Path): HttpApp[R, E] = http.contramap[Request](_.updatePath(path))
 
     /**
      * Sets the status in the response produced by the app
@@ -659,7 +657,7 @@ object Http {
     /**
      * Overwrites the url in the incoming request
      */
-    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.setUrl(url))
+    def setUrl(url: URL): HttpApp[R, E] = http.contramap[Request](_.copy(url = url))
 
     /**
      * Updates the response headers using the provided function
@@ -671,13 +669,16 @@ object Http {
      * Applies Http based on the path
      */
     def whenPathEq(p: Path): HttpApp[R, E] =
-      http.whenPathEq(p.encode)(Unsafe.unsafe)
+      http.whenPathEq(p.encode)
 
     /**
      * Applies Http based on the path as string
      */
-    def whenPathEq(p: String)(implicit unsafe: Unsafe): HttpApp[R, E] =
-      http.when(_.unsafe.encode.uri().contentEquals(p))
+    def whenPathEq(p: String): HttpApp[R, E] = {
+      http.when { a =>
+        a.url.path.encode.contentEquals(p)
+      }
+    }
   }
 
   /**
@@ -722,12 +723,6 @@ object Http {
    */
   def combine[R, E, A, B](i: Iterable[Http[R, E, A, B]]): Http[R, E, A, B] =
     i.reduce(_.defaultWith(_))
-
-  /**
-   * Provides access to the request's ChannelHandlerContext
-   */
-  def context(implicit trace: Trace): Http[Any, Nothing, Request, ChannelHandlerContext] =
-    Http.fromFunctionZIO[Request](request => ZIO.succeedUnsafe { implicit u => request.unsafe.context })
 
   /**
    * Returns an http app that dies with the specified `Throwable`. This method
@@ -990,17 +985,6 @@ object Http {
   def ok: HttpApp[Any, Nothing] = status(Status.Ok)
 
   /**
-   * Provides access to the request's remote address
-   */
-  def remoteAddress(implicit trace: Trace): Http[Any, IOException, Request, InetAddress] =
-    context flatMap { ctx =>
-      ctx.channel().remoteAddress() match {
-        case m: InetSocketAddress => Http.succeed(m.getAddress)
-        case _                    => Http.fail(new IOException("Unable to get remote address"))
-      }
-    }
-
-  /**
    * Creates an Http app which always responds with the same value.
    */
   def response(response: Response): Http[Any, Nothing, Any, Response] = Http.succeed(response)
@@ -1048,13 +1032,6 @@ object Http {
    * Creates an HTTP app which always responds with a 413 status code.
    */
   def tooLarge: HttpApp[Any, Nothing] = Http.status(Status.RequestEntityTooLarge)
-
-  /**
-   * Provides low level access to an HttpApp to perform unsafe operations using
-   * the request's ChannelHandlerContext.
-   */
-  def usingContext[R, E](f: ChannelHandlerContext => HttpApp[R, E])(implicit trace: Trace): HttpApp[R, E] =
-    context.flatMap(f(_))
 
   // Ctor Help
   final case class PartialCollectZIO[A](unit: Unit) extends AnyVal {

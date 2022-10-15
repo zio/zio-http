@@ -1,8 +1,8 @@
 package zio.http
 
-import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
+import io.netty.handler.codec.compression.{StandardCompressionOptions, CompressionOptions => JCompressionOptions}
 import io.netty.util.ResourceLeakDetector
-import zio.ZLayer
+import zio.{Trace, ZLayer}
 import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
 import zio.http.netty.{ChannelType, EventLoopGroups}
 
@@ -17,11 +17,12 @@ final case class ServerConfig(
   keepAlive: Boolean = true,
   consolidateFlush: Boolean = false,
   flowControl: Boolean = true,
-  requestDecompression: (Boolean, Boolean) = (false, false),
+  requestDecompression: Decompression = Decompression.No,
   responseCompression: Option[ResponseCompressionConfig] = None,
   objectAggregator: Int = 1024 * 100,
   channelType: ChannelType = ChannelType.AUTO,
   nThreads: Int = 0,
+  maxHeaderSize: Int = 8192,
 ) extends EventLoopGroups.Config {
   self =>
   def useAggregator: Boolean = objectAggregator >= 0
@@ -92,8 +93,8 @@ final case class ServerConfig(
    * Http requests (@see <a href =
    * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentDecompressor.html">HttpContentDecompressor</a>).
    */
-  def requestDecompression(enabled: Boolean, strict: Boolean): ServerConfig =
-    self.copy(requestDecompression = (enabled, strict))
+  def requestDecompression(isStrict: Boolean): ServerConfig =
+    self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
 
   /**
    * Configure the new server with netty's HttpContentCompressor to compress
@@ -112,15 +113,29 @@ final case class ServerConfig(
    * Configure the server to use a maximum of nThreads to process requests.
    */
   def maxThreads(nThreads: Int): ServerConfig = self.copy(nThreads = nThreads)
+
+  /**
+   * Configure the server to use `maxHeaderSize` value when encode/decode
+   * headers.
+   */
+  def maxHeaderSize(headerSize: Int): ServerConfig = self.copy(maxHeaderSize = headerSize)
 }
 
 object ServerConfig {
   val default: ServerConfig = ServerConfig()
 
-  val live: ZLayer[Any, Nothing, ServerConfig] =
+  val live: ZLayer[Any, Nothing, ServerConfig] = {
+    implicit val trace = Trace.empty
     ZLayer.succeed(ServerConfig.default)
+  }
 
-  def live(config: ServerConfig): ZLayer[Any, Nothing, ServerConfig] = ZLayer.succeed(config)
+  def live(config: ServerConfig)(implicit trace: Trace): ZLayer[Any, Nothing, ServerConfig] =
+    ZLayer.succeed(config)
+
+  private[http] def liveOnOpenPort(implicit trace: Trace): ZLayer[Any, Any, ServerConfig] =
+    ZLayer.succeed(
+      ServerConfig.default.port(0),
+    )
 
   def responseCompressionConfig(
     contentThreshold: Int = 0,

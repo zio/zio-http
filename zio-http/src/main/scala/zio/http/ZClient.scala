@@ -513,14 +513,16 @@ object ZClient {
         host     <- ZIO.fromOption(hostOption).orElseFail(new IllegalArgumentException("Host is required"))
         port     <- ZIO.fromOption(portOption).orElseSucceed(sslConfig.fold(80)(_ => 443))
         response <- requestAsync(
-          Request(
-            version = version,
-            method = method,
-            url =
+          Request
+            .default(
+              method,
               URL(path, URL.Location.Absolute(schemeOption.getOrElse(Scheme.HTTP), host, port)).setQueryParams(queries),
-            headers = headers,
-            body = body,
-          ),
+              body,
+            )
+            .copy(
+              version = version,
+              headers = headers,
+            ),
           sslConfig.fold(settings)(settings.ssl),
         )
       } yield response
@@ -546,21 +548,23 @@ object ZClient {
           } yield URL.Location.Absolute(scheme, host, port)
         }.orElseSucceed(URL.Location.Relative)
         res      <- requestAsync(
-          Request(
-            version = version,
-            Method.GET,
-            url = URL(path, location).setQueryParams(queries),
-            headers,
-          ),
+          Request
+            .get(URL(path, location))
+            .copy(
+              version = version,
+              headers = headers,
+            ),
           clientConfig = settings.copy(socketApp = Some(app.provideEnvironment(env))),
         ).withFinalizer(_.close.orDie)
       } yield res
 
-    private def requestAsync(request: Request, clientConfig: ClientConfig): ZIO[Any, Throwable, Response] =
+    private def requestAsync(request: Request, clientConfig: ClientConfig)(implicit
+      trace: Trace,
+    ): ZIO[Any, Throwable, Response] =
       for {
         onResponse <- Promise.make[Throwable, Response]
         jReq       <- encode(request)
-        _          <- internalRequest(request, jReq, onResponse, clientConfig)(Unsafe.unsafe)
+        _          <- internalRequest(request, jReq, onResponse, clientConfig)(Unsafe.unsafe, trace)
           .catchAll(cause => onResponse.fail(cause))
         res        <- onResponse.await
       } yield res
@@ -573,7 +577,7 @@ object ZClient {
       jReq: FullHttpRequest,
       onResponse: Promise[Throwable, Response],
       clientConfig: ClientConfig,
-    )(implicit unsafe: Unsafe): ZIO[Any, Throwable, Unit] = {
+    )(implicit unsafe: Unsafe, trace: Trace): ZIO[Any, Throwable, Unit] = {
       req.url.kind match {
         case location: Location.Absolute =>
           for {
@@ -588,6 +592,8 @@ object ZClient {
                         location,
                         clientConfig.proxy,
                         clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
+                        clientConfig.maxHeaderSize,
+                        clientConfig.requestDecompression,
                       )
                       .provideEnvironment(ZEnvironment(channelScope))
                   }
@@ -648,7 +654,7 @@ object ZClient {
       onComplete: Promise[Throwable, ChannelState],
       useAggregator: Boolean,
       createSocketApp: () => SocketApp[Any],
-    ): ZIO[Any, Throwable, ChannelState] = {
+    )(implicit trace: Trace): ZIO[Any, Throwable, ChannelState] = {
       log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
 
       val pipeline                              = channel.pipeline()
@@ -727,13 +733,11 @@ object ZClient {
       uri      <- ZIO.fromEither(URL.fromString(url))
       response <- ZIO.serviceWithZIO[Client](
         _.request(
-          Request(
-            version = Version.Http_1_1,
-            method = method,
-            url = uri,
-            headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
-            body = content,
-          ),
+          Request
+            .default(method, uri, content)
+            .copy(
+              headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
+            ),
         ),
       )
     } yield response
@@ -765,9 +769,18 @@ object ZClient {
     }
   }
 
-  val default = {
+  val fromConfig: ZLayer[
+    Scope with EventLoopGroups.Config with ChannelType.Config with ConnectionPool with ClientConfig,
+    Throwable,
+    Client,
+  ] = {
     implicit val trace = Trace.empty
-    ClientConfig.default >+> ConnectionPool.disabled >+> NettyRuntime.usingDedicatedThreadPool >>> live
+    EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool >>> live
+  }
+
+  val default: ZLayer[Scope, Throwable, Client] = {
+    implicit val trace = Trace.empty
+    ClientConfig.default >+> ConnectionPool.disabled >>> live
   }
 
   val zioHttpVersion: CharSequence           = Client.getClass().getPackage().getImplementationVersion()

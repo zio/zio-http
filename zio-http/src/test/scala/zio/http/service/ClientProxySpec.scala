@@ -23,7 +23,7 @@ object ClientProxySpec extends HttpRunnableSpec {
           proxyUrl        <- ZIO.fromEither(URL.fromString("http://localhost:0001"))
           out             <- Client
             .request(
-              Request(url = serverUrl),
+              Request.get(url = serverUrl),
             )
             .provideSome(
               Scope.default,
@@ -43,7 +43,7 @@ object ClientProxySpec extends HttpRunnableSpec {
           proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
           out <- Client
             .request(
-              Request(url = url),
+              Request.get(url = url),
             )
             .provideSome(
               Scope.default,
@@ -73,7 +73,7 @@ object ClientProxySpec extends HttpRunnableSpec {
             .withCredentials(Credentials("test", "test"))
           out <- Client
             .request(
-              Request(url = url),
+              Request.get(url = url),
             )
             .provideSome(
               Scope.default,

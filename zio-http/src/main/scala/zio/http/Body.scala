@@ -51,7 +51,7 @@ object Body {
   /**
    * Helper to create empty Body
    */
-  def empty: Body = new Body {
+  val empty: Body = new Body {
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]]              = ZIO.succeed(Chunk.empty[Byte])
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = ZStream.empty
     override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean]          = ZIO.succeed(false)
@@ -134,7 +134,7 @@ object Body {
               len    <- ZIO.attemptBlocking(fs.read(buffer)).mapError(Some(_))
               bytes  <-
                 if (len > 0) ZIO.succeed(Chunk.fromArray(buffer.slice(0, len)))
-                else failNoStacktrace
+                else ZIO.fail(None)
             } yield bytes
           }
           .ensuring(ZIO.succeed(fs.close()))

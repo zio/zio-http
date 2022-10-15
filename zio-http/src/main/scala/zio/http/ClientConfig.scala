@@ -2,10 +2,9 @@ package zio.http
 
 import io.netty.channel
 import io.netty.channel.{ChannelFactory, EventLoopGroup, _}
-import zio.ZLayer
+import zio.{Duration, Scope, Trace, ZLayer}
 import zio.http.netty.{ChannelFactories, ChannelType, EventLoopGroups, NettyRuntime}
 import zio.http.socket.SocketApp
-import zio.{Duration, Scope}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 case class ClientConfig(
@@ -16,6 +15,8 @@ case class ClientConfig(
   nThreads: Int = 0,
   useAggregator: Boolean = true,
   connectionPool: ConnectionPoolConfig = ConnectionPoolConfig.Disabled,
+  maxHeaderSize: Int = 8192,
+  requestDecompression: Decompression = Decompression.No,
 ) extends EventLoopGroups.Config {
   self =>
   def ssl(ssl: ClientSSLConfig): ClientConfig = self.copy(ssl = Some(ssl))
@@ -35,21 +36,35 @@ case class ClientConfig(
 
   def withDynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): ClientConfig =
     self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
+
+  /**
+   * Configure the client to use `maxHeaderSize` value when encode/decode
+   * headers.
+   */
+  def maxHeaderSize(headerSize: Int): ClientConfig = self.copy(maxHeaderSize = headerSize)
+
+  def requestDecompression(isStrict: Boolean): ClientConfig =
+    self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
 }
 
 object ClientConfig {
   def empty: ClientConfig = ClientConfig()
 
-  def default: ZLayer[
+  val default: ZLayer[
     Scope,
     Nothing,
     ClientConfig with EventLoopGroup with ChannelFactory[channel.Channel] with NettyRuntime,
-  ] = ZLayer.succeed(
-    empty,
-  ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
+  ] = {
+    implicit val trace: Trace = Trace.empty
+    ZLayer.succeed(
+      empty,
+    ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
+  }
 
   def live(
     clientConfig: ClientConfig,
+  )(implicit
+    trace: Trace,
   ): ZLayer[Scope, Nothing, ClientConfig with EventLoopGroup with ChannelFactory[channel.Channel] with NettyRuntime] =
     ZLayer.succeed(
       clientConfig,

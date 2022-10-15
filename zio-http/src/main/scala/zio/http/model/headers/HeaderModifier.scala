@@ -18,7 +18,7 @@ trait HeaderModifier[+A] { self =>
 
   final def addHeader(header: Header): A = addHeaders(header)
 
-  final def addHeader(name: CharSequence, value: CharSequence): A = addHeaders(Headers(name, value))
+  final def addHeader(name: CharSequence, value: CharSequence): A = addHeaders(Headers.apply(name, value))
 
   final def addHeaders(headers: Headers): A = updateHeaders(_ ++ headers)
 
@@ -33,13 +33,10 @@ trait HeaderModifier[+A] { self =>
    * Updates the current Headers with new one, using the provided update
    * function passed.
    */
-  def updateHeaders(update: Headers => Headers)(implicit trace: Trace): A
+  def updateHeaders(update: Headers => Headers): A
 
   final def withAccept(value: CharSequence): A =
     addHeaders(Headers.accept(value))
-
-  final def withAcceptCharset(value: CharSequence): A =
-    addHeaders(Headers.acceptCharset(value))
 
   final def withAcceptEncoding(value: CharSequence): A =
     addHeaders(Headers.acceptEncoding(value))

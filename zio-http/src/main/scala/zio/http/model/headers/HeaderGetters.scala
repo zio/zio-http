@@ -24,9 +24,6 @@ trait HeaderGetters[+A] { self =>
   final def accept: Option[CharSequence] =
     headerValue(HeaderNames.accept)
 
-  final def acceptCharset: Option[CharSequence] =
-    headerValue(HeaderNames.acceptCharset)
-
   final def acceptEncoding: Option[CharSequence] =
     headerValue(HeaderNames.acceptEncoding)
 

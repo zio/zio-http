@@ -1,20 +1,15 @@
 package zio.http.netty.client
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
-import io.netty.handler.codec.http.HttpClientCodec
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
+import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.URL.Location
+import zio.http._
 import zio.http.netty.NettyFutureExecutor
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
-import zio.http.{ClientConfig, ClientSSLConfig, ConnectionPoolConfig, Proxy, URL}
 import zio.logging.LogLevel
 import zio.{Duration, Scope, ZIO, ZKeyedPool, ZLayer}
 
@@ -25,6 +20,8 @@ trait ConnectionPool {
     location: URL.Location.Absolute,
     proxy: Option[Proxy],
     sslOptions: ClientSSLConfig,
+    maxHeaderSize: Int,
+    decompression: Decompression,
   ): ZIO[Scope, Throwable, JChannel]
 
   def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit]
@@ -39,6 +36,8 @@ object ConnectionPool {
     location: URL.Location.Absolute,
     proxy: Option[Proxy],
     sslOptions: ClientSSLConfig,
+    maxHeaderSize: Int,
+    decompression: Decompression,
   ): ZIO[Any, Throwable, JChannel] = {
     val initializer = new ChannelInitializer[JChannel] {
       override def initChannel(ch: JChannel): Unit = {
@@ -68,7 +67,23 @@ object ConnectionPool {
           )
         }
 
-        pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, 8192, 8192, true))
+        // Adding default client channel handlers
+        // Defaults from netty:
+        //   maxInitialLineLength=4096
+        //   maxHeaderSize=8192
+        //   maxChunkSize=8192
+        // and we add: failOnMissingResponse=true
+        // This way, if the server closes the connection before the whole response has been sent,
+        // we get an error. (We can also handle the channelInactive callback, but since for now
+        // we always buffer the whole HTTP response we can letty Netty take care of this)
+        pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, maxHeaderSize, 8192, true))
+
+        // HttpContentDecompressor
+        if (decompression.enabled)
+          pipeline.addLast(
+            HTTP_REQUEST_DECOMPRESSION,
+            new HttpContentDecompressor(decompression.strict),
+          )
 
         ()
       }
@@ -95,14 +110,22 @@ object ConnectionPool {
       location: Location.Absolute,
       proxy: Option[Proxy],
       sslOptions: ClientSSLConfig,
+      maxHeaderSize: Int,
+      decompression: Decompression,
     ): ZIO[Scope, Throwable, JChannel] =
-      createChannel(channelFactory, eventLoopGroup, location, proxy, sslOptions)
+      createChannel(channelFactory, eventLoopGroup, location, proxy, sslOptions, maxHeaderSize, decompression)
 
     override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
       ZIO.unit
   }
 
-  case class PoolKey(location: Location.Absolute, proxy: Option[Proxy], sslOptions: ClientSSLConfig)
+  case class PoolKey(
+    location: Location.Absolute,
+    proxy: Option[Proxy],
+    sslOptions: ClientSSLConfig,
+    maxHeaderSize: Int,
+    decompression: Decompression,
+  )
 
   private class ZioConnectionPool(
     pool: ZKeyedPool[Throwable, PoolKey, JChannel],
@@ -111,11 +134,13 @@ object ConnectionPool {
       location: Location.Absolute,
       proxy: Option[Proxy],
       sslOptions: ClientSSLConfig,
+      maxHeaderSize: Int,
+      decompression: Decompression,
     ): ZIO[Scope, Throwable, JChannel] =
       ZIO.uninterruptibleMask { restore =>
         restore(
           pool
-            .get(PoolKey(location, proxy, sslOptions)),
+            .get(PoolKey(location, proxy, sslOptions, maxHeaderSize, decompression)),
         ).tap { channel =>
           restore(
             NettyFutureExecutor.executed(channel.closeFuture()),
@@ -207,7 +232,16 @@ object ConnectionPool {
       channelFactory <- ZIO.service[ChannelFactory]
       eventLoopGroup <- ZIO.service[EventLoopGroup]
       keyedPool      <- ZKeyedPool.make(
-        (key: PoolKey) => createChannel(channelFactory, eventLoopGroup, key.location, key.proxy, key.sslOptions),
+        (key: PoolKey) =>
+          createChannel(
+            channelFactory,
+            eventLoopGroup,
+            key.location,
+            key.proxy,
+            key.sslOptions,
+            key.maxHeaderSize,
+            key.decompression,
+          ),
         (key: PoolKey) => size(key.location),
       )
     } yield new ZioConnectionPool(keyedPool)
@@ -228,7 +262,16 @@ object ConnectionPool {
       channelFactory <- ZIO.service[ChannelFactory]
       eventLoopGroup <- ZIO.service[EventLoopGroup]
       keyedPool      <- ZKeyedPool.make(
-        (key: PoolKey) => createChannel(channelFactory, eventLoopGroup, key.location, key.proxy, key.sslOptions),
+        (key: PoolKey) =>
+          createChannel(
+            channelFactory,
+            eventLoopGroup,
+            key.location,
+            key.proxy,
+            key.sslOptions,
+            key.maxHeaderSize,
+            key.decompression,
+          ),
         (key: PoolKey) => min(key.location) to max(key.location),
         (key: PoolKey) => ttl(key.location),
       )

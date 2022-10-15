@@ -99,6 +99,7 @@ lazy val root = (project in file("."))
     zioHttpBenchmarks,
     zioHttpLogging,
     zioHttpExample,
+    zioHttpTestkit
   )
 
 lazy val zioHttp = (project in file("zio-http"))
@@ -127,10 +128,17 @@ lazy val zioHttp = (project in file("zio-http"))
 
 lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .enablePlugins(JmhPlugin)
-  .dependsOn(zioHttp)
   .settings(stdSettings("zio-http-benchmarks"))
   .settings(publishSetting(false))
-  .settings(libraryDependencies ++= Seq(zio))
+  .settings(
+    libraryDependencies ++= Seq(
+//      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.1.1",
+      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.1.1",
+//      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
+    ),
+  )
+  .dependsOn(zioHttp)
 
 lazy val zioHttpLogging = (project in file("zio-http-logging"))
   .settings(stdSettings("zio-http-logging"))
@@ -152,3 +160,16 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
   .dependsOn(zioHttp)
+
+lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
+  .settings(stdSettings("zio-http-testkit"))
+  .settings(publishSetting(true))
+  .settings(
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= netty ++ Seq(
+      `zio`,
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
+  )
+  .dependsOn(zioHttp, zioHttpLogging)

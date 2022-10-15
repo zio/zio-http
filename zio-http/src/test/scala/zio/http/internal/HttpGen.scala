@@ -6,6 +6,7 @@ import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
 import zio.http.model._
+import zio.http.model.headers.values._
 import zio.stream.ZStream
 import zio.test.{Gen, Sized}
 
@@ -28,7 +29,7 @@ object HttpGen {
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       version <- httpVersion
-    } yield Request(version, method, url, headers, body = Body.fromFile(file))
+    } yield Request(Body.fromFile(file), headers, method, url, version, None)
   }
 
   def genAbsoluteLocation: Gen[Sized, Location.Absolute] = for {
@@ -127,7 +128,7 @@ object HttpGen {
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
     data    <- HttpGen.body(Gen.listOf(Gen.alphaNumericString))
-  } yield Request(version, method, url, headers, data)
+  } yield Request(data, headers, method, url, version, None)
 
   def requestGen[R](
     dataGen: Gen[R, Body],
@@ -141,7 +142,7 @@ object HttpGen {
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
       version <- httpVersion
-    } yield Request(version, method, url, headers, body = data)
+    } yield Request(data, headers, method, url, version, None)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Sized with R, Response] = {
     for {
@@ -221,5 +222,76 @@ object HttpGen {
     kind        <- HttpGen.location
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))
+
+  def acceptEncodingSingleValue(weight: Option[Double]): Gen[Any, AcceptEncoding] = Gen.fromIterable(
+    List(
+      AcceptEncoding.GZipEncoding(weight),
+      AcceptEncoding.DeflateEncoding(weight),
+      AcceptEncoding.BrEncoding(weight),
+      AcceptEncoding.IdentityEncoding(weight),
+      AcceptEncoding.CompressEncoding(weight),
+      AcceptEncoding.NoPreferenceEncoding(weight),
+      AcceptEncoding.InvalidEncoding,
+    ),
+  )
+
+  def acceptEncodingSingleValueWithWeight: Gen[Any, AcceptEncoding] = for {
+    weight <- Gen.option(Gen.double(0.1, 1.0))
+    value  <- acceptEncodingSingleValue(weight)
+  } yield value
+
+  def acceptEncoding: Gen[Any, AcceptEncoding] =
+    Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(AcceptEncoding.MultipleEncodings.apply)
+
+  def cacheControlSingleValue(seconds: Int): Gen[Any, CacheControl] =
+    Gen.fromIterable(
+      List(
+        CacheControl.Immutable,
+        CacheControl.InvalidCacheControl,
+        CacheControl.MaxAge(seconds),
+        CacheControl.MaxStale(seconds),
+        CacheControl.MinFresh(seconds),
+        CacheControl.MustRevalidate,
+        CacheControl.MustUnderstand,
+        CacheControl.NoCache,
+        CacheControl.NoStore,
+        CacheControl.NoTransform,
+        CacheControl.OnlyIfCached,
+        CacheControl.Private,
+        CacheControl.ProxyRevalidate,
+        CacheControl.Public,
+        CacheControl.SMaxAge(seconds),
+        CacheControl.StaleIfError(seconds),
+        CacheControl.StaleWhileRevalidate(seconds),
+      ),
+    )
+
+  def cacheControlSingleValueWithSeconds: Gen[Any, CacheControl] = for {
+    duration <- Gen.int(0, 1000000)
+    value    <- cacheControlSingleValue(duration)
+  } yield value
+
+  def cacheControl: Gen[Any, CacheControl] =
+    Gen.chunkOfBounded(1, 10)(cacheControlSingleValueWithSeconds).map(CacheControl.MultipleCacheControlValues.apply)
+
+  def allowHeaderSingleValue: Gen[Any, Allow] = Gen.fromIterable(
+    List(
+      Allow.OPTIONS,
+      Allow.GET,
+      Allow.HEAD,
+      Allow.POST,
+      Allow.PUT,
+      Allow.PATCH,
+      Allow.DELETE,
+      Allow.TRACE,
+      Allow.CONNECT,
+    ),
+  )
+
+  def allowHeader: Gen[Any, Allow] =
+    Gen.chunkOfBounded(1, 9)(allowHeaderSingleValue).map(Allow.AllowMethods.apply)
+
+  def connectionHeader: Gen[Any, Connection] =
+    Gen.elements(Connection.Close, Connection.KeepAlive, Connection.InvalidConnection)
 
 }
