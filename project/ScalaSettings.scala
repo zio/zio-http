@@ -61,12 +61,12 @@ trait ScalaSettings {
     "-Wmacros:after",    // Lints code before and after applying a macro
     "-Wnumeric-widen",   // Warn when numerics are widened.
     "-Woctal-literal",   // Warn on obsolete octal syntax.
-    "-Wunused:imports",  // Warn if an import selector is not referenced.
+//    "-Wunused:imports",  // Warn if an import selector is not referenced.
     "-Wunused:patvars",  // Warn if a variable bound in a pattern is unused.
     "-Wunused:privates", // Warn if a private member is unused.
     "-Wunused:locals",   // Warn if a local definition is unused.
     "-Wvalue-discard",   // Warn when non-Unit expression results are unused.
-    "-Ywarn-unused:imports",
+//    "-Ywarn-unused:imports",
   )
 
   val scala212Settings: Seq[String] = baseSettings ++ Seq(
