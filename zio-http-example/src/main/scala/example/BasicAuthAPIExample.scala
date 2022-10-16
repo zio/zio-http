@@ -22,7 +22,7 @@ object BasicAuthAPIExample extends ZIOAppDefault {
 
   val authMiddlewareHandler =
     authMiddleware.implement(credentials =>
-      ZIO.succeed(if (credentials.uname == "admin") ZIO.fail("Currently do not allow non-admins") else ZIO.unit),
+      if (credentials.uname == "admin") ZIO.fail("Currently do not allow non-admins") else ZIO.unit,
     )
 
   val serviceSpec = getUser.toServiceSpec.middleware(authMiddleware)
