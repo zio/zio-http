@@ -63,6 +63,10 @@ You can checkout more examples in the [example](https://github.com/zio/zio-http/
 3. Send curl request for defined `http Routes`, for eg : `curl -i "http://localhost:8090/text"` for `example.HelloWorld`.
 
 # Installation
+ZIO HTTP releases are not available in any widely known public repository. It is therefore needed to download the source code and compile it your self ;)
+
+Download source code: https://github.com/zio/zio-http/releases/tag/v2.0.0-RC11
+Open the project with sbt and do a `publishLocal` in order to have to artifacts in your local repository
 
 Setup via `build.sbt`
 
