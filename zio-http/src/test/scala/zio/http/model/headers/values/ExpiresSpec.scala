@@ -4,8 +4,8 @@ import zio.Scope
 import zio.http.model.headers.values.Expires.ValidExpires
 import zio.test._
 
-import java.time.{ZoneId, ZonedDateTime}
 import java.time.format.DateTimeFormatter
+import java.time.{ZoneId, ZonedDateTime}
 
 object ExpiresSpec extends ZIOSpecDefault {
 
