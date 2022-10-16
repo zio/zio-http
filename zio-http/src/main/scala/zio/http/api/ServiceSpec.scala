@@ -62,8 +62,13 @@ object ServiceSpec                        {
       case AddMiddleware(a, _, _, _) => apisOf(a)
     }
 
-  private def middlewareSpecOf[MI2, MO2](self: ServiceSpec[MI2, MO2, _]): MiddlewareSpec[MI2, MO2] = {
+  private def middlewareSpecOf[MI2, MO2](self: ServiceSpec[MI2, MO2, _]): MiddlewareSpec[_, _] = {
     // FIXME
-    ???
+    self match {
+      case Empty                                   => MiddlewareSpec.none
+      case Single(_)                               => MiddlewareSpec.none
+      case Concat(left, right)                     => middlewareSpecOf(left).++(middlewareSpecOf(right))
+      case AddMiddleware(_, middlewareSpec0, _, _) => middlewareSpec0
+    }
   }
 }

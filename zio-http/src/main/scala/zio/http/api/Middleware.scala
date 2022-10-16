@@ -8,7 +8,8 @@ import zio.{Exit, ZIO}
  * intercepting parts of the request, and appending to the response.
  */
 sealed trait Middleware[-R, +E, -I, +O] { self => }
-object Middleware                       {
+
+object Middleware {
   def bypass(f: Request => Response): Middleware[Any, Nothing, Any, Nothing] = Bypass(f)
 
   def bypassZIO[R, E](f: Request => ZIO[R, E, Response]): Middleware[R, E, Any, Nothing] = BypassZIO(f)
