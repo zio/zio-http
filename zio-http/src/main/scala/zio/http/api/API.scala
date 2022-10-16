@@ -130,7 +130,7 @@ final case class API[Input, Output](
   /**
    * Convert API to a ServiceSpec.
    */
-  def serviceSpec: ServiceSpec[Unit, Unit, API[Input, Output]#Id] =
+  def serviceSpec: ServiceSpec[Unit, Unit, Id] =
     ServiceSpec(self).middleware(MiddlewareSpec.none)
 
   /**
