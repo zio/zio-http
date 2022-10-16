@@ -1,14 +1,13 @@
 package zio.http.model.headers
 
 import zio.Scope
-import zio.http.model.headers.HeaderValue.DNT
-import zio.http.model.headers.HeaderValue.DNT.{
+import zio.http.model.headers.values.DNT
+import zio.http.model.headers.values.DNT.{
   InvalidDNTValue,
   NotSpecifiedDNTValue,
   TrackingAllowedDNTValue,
   TrackingNotAllowedDNTValue,
 }
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault}
 import zio.test._
 
 object DNTSpec extends ZIOSpecDefault {
