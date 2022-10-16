@@ -26,19 +26,19 @@ private[logging] trait LoggerTransport { self =>
   final def toLogger: Logger = Logger(List(self))
 
   def copy(
-      format: LogFormat = LogFormat.inlineMinimal,
-      level: LogLevel = LogLevel.Error,
-      filter: String => Boolean = _ => true,
-      tags: List[String] = Nil,
-    ): LoggerTransport
+    format: LogFormat = LogFormat.inlineMinimal,
+    level: LogLevel = LogLevel.Error,
+    filter: String => Boolean = _ => true,
+    tags: List[String] = Nil,
+  ): LoggerTransport
 
   def tags: List[String]
   def addTags(tags: Iterable[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
 
   def withFilter(filter: String => Boolean): LoggerTransport = self.copy(filter = filter)
-  def withFormat(format: LogFormat): LoggerTransport = self.copy(format = format)
-  def withLevel(level: LogLevel): LoggerTransport = self.copy(level = level)
-  def withTags(tags: List[String]): LoggerTransport = self.copy(tags = tags)
+  def withFormat(format: LogFormat): LoggerTransport         = self.copy(format = format)
+  def withLevel(level: LogLevel): LoggerTransport            = self.copy(level = level)
+  def withTags(tags: List[String]): LoggerTransport          = self.copy(tags = tags)
 
   val level: LogLevel
 
