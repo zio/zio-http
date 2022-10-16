@@ -128,6 +128,12 @@ final case class API[Input, Output](
     ServiceSpec(self).middleware(middlewareSpec)
 
   /**
+   * Convert API to a ServiceSpec.
+   */
+  def serviceSpec: ServiceSpec[Unit, Unit, API[Input, Output]#Id] =
+    ServiceSpec(self).middleware(MiddlewareSpec.none)
+
+  /**
    * Changes the output type of the endpoint to the specified output type.
    */
   def out[Output2: Schema]: API.WithId[Input, Output2, Id] =

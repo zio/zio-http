@@ -27,7 +27,7 @@ object APIExamples extends ZIOAppDefault {
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 
-  val serviceSpec = (getUser ++ getUserPosts).middleware(MiddlewareSpec.auth)
+  val serviceSpec = (getUser ++ getUserPosts).middleware(MiddlewareSpec.basicAuth("admin", "admin"))
 
   val app = serviceSpec.toHttpApp(getUsersService ++ getUserPostsService, Middleware.fromFunction(_ => ()))
 
