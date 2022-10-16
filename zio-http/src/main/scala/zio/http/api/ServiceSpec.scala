@@ -14,7 +14,8 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
   )(implicit mi: Combiner[MI, MI2], mo: Combiner[MO, MO2]): ServiceSpec[mi.Out, mo.Out, AllIds] =
     ServiceSpec.AddMiddleware[MI, MI2, mi.Out, MO, MO2, mo.Out, AllIds](self, ms, mi, mo)
 
-  final def middlewareSpec: MiddlewareSpec[MI, MO] = ServiceSpec.middlewareSpecOf(self)
+  final def middlewareSpec: MiddlewareSpec[_, _] =
+    ServiceSpec.middlewareSpecOf(self)
 
   final def toHttpApp[AllIds1 <: AllIds, R, E](
     service: Service[R, E, AllIds1],

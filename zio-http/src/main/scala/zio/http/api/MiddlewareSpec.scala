@@ -1,5 +1,6 @@
 package zio.http.api
 
+import zio.ZIO
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.HeaderNames
@@ -15,6 +16,9 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
     outCombiner: Combiner[MiddlewareOut, MiddlewareOut2],
   ): MiddlewareSpec[inCombiner.Out, outCombiner.Out] =
     MiddlewareSpec(self.middlewareIn ++ that.middlewareIn, self.middlewareOut ++ that.middlewareOut)
+
+  def handle[R, E](f: MiddlewareIn => ZIO[R, E, MiddlewareOut]): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
+    Middleware.HandlerZIO[R, E, MiddlewareIn, MiddlewareOut](f)
 
   def mapIn[MiddlewareIn2](
     f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn] => HttpCodec[
@@ -57,11 +61,14 @@ object MiddlewareSpec {
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
 
-  val auth: MiddlewareSpec[Auth.Credentials, Unit] =
+  def basicAuth(u: String, p: String): MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
       .mapIn(
         _.transformOrFailLeft(
-          s => decodeHttpBasic(s).fold(Left("Failed to decode headers"): Either[String, Credentials])(Right(_)),
+          s =>
+            decodeHttpBasic(s).fold(Left("Failed to decode headers"): Either[String, Credentials])(value =>
+              if (value.uname == u && value.upassword == p) Right(value) else Left("Failed to authenticate"),
+            ),
           c => s"${c.uname}:${c.upassword}",
         ),
       )

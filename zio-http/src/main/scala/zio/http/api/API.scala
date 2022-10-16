@@ -33,7 +33,8 @@ final case class API[Input, Output](
   /**
    * Combines this API with another API.
    */
-  def ++(that: API[_, _]): ServiceSpec[Unit, Unit, Id with that.Id] = ServiceSpec(self).++[that.Id](ServiceSpec(that))
+  def ++(that: API[_, _]): ServiceSpec[Unit, Unit, Id with that.Id] =
+    ServiceSpec(self).++[that.Id](ServiceSpec(that))
 
   def apply(input: Input): Invocation[Id, Input, Output] =
     Invocation(self, input)
@@ -114,6 +115,17 @@ final case class API[Input, Output](
     combiner: Combiner[Input, Input2],
   ): API.WithId[combiner.Out, Output, Id] =
     copy(input = self.input ++ in2).withId[Id]
+
+  /**
+   * Add a middleware spec into the API. Note that once you add the middleware,
+   * it returns a ServiceSpec (instead of API) disallowing it compose with any
+   * other APIs.
+   *
+   * If you have more than 1 API endpoints, compose them all together using
+   * `++`, and add `MiddlewareSpec` once and for all.
+   */
+  def middleware[MI, MO](middlewareSpec: MiddlewareSpec[MI, MO]): ServiceSpec[MI, MO, Id] =
+    ServiceSpec(self).middleware(middlewareSpec)
 
   /**
    * Changes the output type of the endpoint to the specified output type.
