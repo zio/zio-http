@@ -29,7 +29,7 @@ object Expires {
     override def value: String = formatter.format(date)
   }
 
-  final case object InvalidExpires extends Expires {
+  case object InvalidExpires extends Expires {
     override def value: String = "0"
   }
 
