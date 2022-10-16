@@ -23,6 +23,9 @@ object Html {
 
   implicit def fromDomElement(element: Dom): Html = Html.Single(element)
 
+  implicit def fromOption(maybeElement: Option[Dom]): Html =
+    maybeElement.fold(Html.Empty: Html)(Html.Single.apply)
+
   implicit def fromUnit(unit: Unit): Html = Html.Empty
 
   private[zio] case class Single(element: Dom) extends Html

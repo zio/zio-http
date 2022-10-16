@@ -74,4 +74,5 @@ object TextCodec {
 
     def encode(value: UUID): String = value.toString
   }
+
 }

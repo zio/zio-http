@@ -50,6 +50,12 @@ case object HtmlSpec extends ZIOSpecDefault {
           val view: Html = {}
           assert(view.encode)(equalTo(""))
         },
+        test("from option") {
+          val some: Html = Some(div("ok"))
+          val none: Html = None
+          assert(some.encode)(equalTo("""<div>ok</div>""")) &&
+          assert(none.encode)(equalTo(""))
+        },
       ),
     )
   }

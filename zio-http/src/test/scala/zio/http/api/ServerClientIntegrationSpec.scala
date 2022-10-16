@@ -5,7 +5,10 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.test.{ZIOSpecDefault, assertTrue}
 import zio.{Scope, ZIO, ZLayer}
 
+import scala.language.implicitConversions
+
 object ServerClientIntegrationSpec extends ZIOSpecDefault {
+  implicit def stringToIn(s: String): RouteCodec[Unit] = RouteCodec.literal(s)
 
   trait PostsService {
     def getPost(userId: Int, postId: Int): ZIO[Any, Throwable, Post]
@@ -17,17 +20,16 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Post] = DeriveSchema.gen[Post]
   }
 
-  val usersPostAPI     = API.get("users" / In.int / "posts" / In.int).out[Post]
+  val usersPostAPI     = API.get("users" / RouteCodec.int / "posts" / RouteCodec.int).out[Post]
   val usersPostHandler = usersPostAPI.handle { case (userId, postId) =>
     ZIO.succeed(Post(postId, "title", "body", userId))
   }
 
   // TODO: [Ergonomics] Need to make it easy to create an APIExecutor layer
   def makeExecutor(client: Client) = {
-    val registry = APIRegistry.empty.registerAll(URL.fromString("http://localhost:8080").getOrElse(???)) {
-      usersPostAPI ++ usersPostAPI
-    }
-    APIExecutor(client, registry)
+    val registry = APIRegistry(URL.fromString("http://localhost:8080").getOrElse(???), usersPostAPI ++ usersPostAPI)
+
+    APIExecutor(client, registry, ZIO.unit)
   }
 
   val executorLayer = ZLayer.fromFunction(makeExecutor _)
@@ -38,7 +40,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         for {
           _        <- Server.install(usersPostHandler.toHttpApp)
           _        <- ZIO.debug("Installed server")
-          executor <- ZIO.service[APIExecutor[usersPostAPI.Id]]
+          executor <- ZIO.service[APIExecutor[Any, Any, usersPostAPI.Id]]
           // QUESTION: Do we want to encode `E` in an API?
           // The result of `executor.apply` could be ApiError[E], a sealed trait of the user error E or
           // some network error Throwable. Is that worth it?
