@@ -17,7 +17,7 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   ): MiddlewareSpec[inCombiner.Out, outCombiner.Out] =
     MiddlewareSpec(self.middlewareIn ++ that.middlewareIn, self.middlewareOut ++ that.middlewareOut)
 
-  def handle[R, E](f: MiddlewareIn => ZIO[R, E, MiddlewareOut]): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
+  def implement[R, E](f: MiddlewareIn => ZIO[R, E, MiddlewareOut]): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
     Middleware.HandlerZIO[R, E, MiddlewareIn, MiddlewareOut](f)
 
   def mapIn[MiddlewareIn2](
@@ -61,14 +61,11 @@ object MiddlewareSpec {
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
 
-  def basicAuth(u: String, p: String): MiddlewareSpec[Auth.Credentials, Unit] =
+  def auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
       .mapIn(
         _.transformOrFailLeft(
-          s =>
-            decodeHttpBasic(s).fold(Left("Failed to decode headers"): Either[String, Credentials])(value =>
-              if (value.uname == u && value.upassword == p) Right(value) else Left("Failed to authenticate"),
-            ),
+          s => decodeHttpBasic(s).fold(Left("Failed to decode headers"): Either[String, Credentials])(Right(_)),
           c => s"${c.uname}:${c.upassword}",
         ),
       )

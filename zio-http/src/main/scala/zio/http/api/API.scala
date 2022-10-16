@@ -117,20 +117,9 @@ final case class API[Input, Output](
     copy(input = self.input ++ in2).withId[Id]
 
   /**
-   * Add a middleware spec into the API. Note that once you add the middleware,
-   * it returns a ServiceSpec (instead of API) disallowing it compose with any
-   * other APIs.
-   *
-   * If you have more than 1 API endpoints, compose them all together using
-   * `++`, and add `MiddlewareSpec` once and for all.
-   */
-  def middleware[MI, MO](middlewareSpec: MiddlewareSpec[MI, MO]): ServiceSpec[MI, MO, Id] =
-    ServiceSpec(self).middleware(middlewareSpec)
-
-  /**
    * Convert API to a ServiceSpec.
    */
-  def serviceSpec: ServiceSpec[Unit, Unit, Id] =
+  def toServiceSpec: ServiceSpec[Unit, Unit, Id] =
     ServiceSpec(self).middleware(MiddlewareSpec.none)
 
   /**

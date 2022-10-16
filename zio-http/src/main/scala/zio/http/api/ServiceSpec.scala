@@ -35,8 +35,8 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
     self.asInstanceOf[ServiceSpec[MI, MO2, AllIds]]
 }
 object ServiceSpec                        {
-  private case object Empty                                            extends ServiceSpec[Unit, Unit, Any]
-  private final case class Single[Id, C, D](api: API.WithId[Id, C, D]) extends ServiceSpec[Unit, Unit, Id]
+  private case object Empty                                      extends ServiceSpec[Unit, Unit, Any]
+  private final case class Single[Id](api: API.WithId[Id, _, _]) extends ServiceSpec[Unit, Unit, Id]
   private final case class Concat[MI, MO, AllIds1, AllIds2](
     left: ServiceSpec[MI, MO, AllIds1],
     right: ServiceSpec[MI, MO, AllIds2],
@@ -63,7 +63,7 @@ object ServiceSpec                        {
     }
 
   private def middlewareSpecOf[MI2, MO2](self: ServiceSpec[MI2, MO2, _]): MiddlewareSpec[_, _] = {
-    // FIXME
+    // FIXME: this is only WIP
     self match {
       case Empty                                   => MiddlewareSpec.none
       case Single(_)                               => MiddlewareSpec.none

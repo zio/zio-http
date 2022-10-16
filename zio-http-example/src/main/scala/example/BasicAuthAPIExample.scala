@@ -18,12 +18,14 @@ object BasicAuthAPIExample extends ZIOAppDefault {
     }
 
   val authMiddleware: MiddlewareSpec[Auth.Credentials, Unit] =
-    MiddlewareSpec.basicAuth("admin", "admin")
+    MiddlewareSpec.auth
 
   val authMiddlewareHandler =
-    authMiddleware.handle(_ => ZIO.succeed(()))
+    authMiddleware.implement(credentials =>
+      ZIO.succeed(if (credentials.uname == "admin") ZIO.fail("Currently do not allow non-admins") else ZIO.unit),
+    )
 
-  val serviceSpec = getUser.middleware(authMiddleware)
+  val serviceSpec = getUser.toServiceSpec.middleware(authMiddleware)
 
   val app = serviceSpec.toHttpApp(getUserHandler, authMiddlewareHandler)
 
