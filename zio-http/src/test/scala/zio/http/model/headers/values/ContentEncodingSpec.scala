@@ -50,9 +50,6 @@ object ContentEncodingSpec extends ZIOSpecDefault {
               ),
             ),
           ) == ContentEncoding.DeflateEncoding,
-        ) &&
-        assertTrue(
-          ContentEncoding.fromContentEncoding(MultipleEncodings(Chunk())) == ContentEncoding.InvalidEncoding.encoding,
         )
       },
     ),
