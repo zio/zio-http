@@ -66,9 +66,16 @@ You can checkout more examples in the [example](https://github.com/zio/zio-http/
 
 Setup via `build.sbt`
 
+**Stable**
 ```scala
-libraryDependencies += "dev.zio" %% "zio-http"      % "[version]"
+libraryDependencies += "io.d11" %% "zhttp" % "[version]"
 ```
+
+**Snapshot**
+```scala
+libraryDependencies += "dev.zio" %% "zio-http" % "[version]"
+```
+
 
 **NOTE:** ZIO Http is compatible with `ZIO 1.x` and `ZIO 2.x`.
 
