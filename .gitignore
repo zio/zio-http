@@ -34,3 +34,4 @@ node_modules/
 web/.DS_Store
 
 project/.bloop
+profiling/src/main/scala/Main.scala
