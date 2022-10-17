@@ -32,7 +32,8 @@ object ExpiresSpec extends ZIOSpecDefault {
         assertTrue(
           Expires
             .toExpires(Expires.fromExpires(ValidExpires(date.withZoneSameLocal(zone))))
-            .value == date.withZoneSameLocal(zone).format(formatter),
+            .value
+            .format(formatter) == date.withZoneSameLocal(zone).format(formatter),
         )
       }
     },

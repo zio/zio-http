@@ -1,10 +1,10 @@
 package zio.http.model.headers.values
 
-import java.time.ZonedDateTime
+import java.time._
 import java.time.format.DateTimeFormatter
 
 sealed trait Expires {
-  def value: String
+  def value: ZonedDateTime
 }
 
 /**
@@ -26,11 +26,12 @@ object Expires {
   private val formatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
   final case class ValidExpires(date: ZonedDateTime) extends Expires {
-    override def value: String = formatter.format(date)
+    override def value: ZonedDateTime = date
   }
 
   case object InvalidExpires extends Expires {
-    override def value: String = "0"
+    override def value: ZonedDateTime = ZonedDateTime.of(0, 0, 0, 0, 0, 0, 0, ZoneId.systemDefault())
+
   }
 
   def toExpires(date: String): Expires =
@@ -40,5 +41,8 @@ object Expires {
       case _: Exception => InvalidExpires
     }
 
-  def fromExpires(expires: Expires): String = expires.value
+  def fromExpires(expires: Expires): String = expires match {
+    case ValidExpires(date) => formatter.format(date)
+    case _                  => "0"
+  }
 }
