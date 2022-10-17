@@ -66,12 +66,12 @@ You can checkout more examples in the [example](https://github.com/zio/zio-http/
 
 Setup via `build.sbt`
 
-**Stable**
+### Stable
 ```scala
 libraryDependencies += "io.d11" %% "zhttp" % "[version]"
 ```
 
-**Snapshot**
+### Snapshot
 ```scala
 libraryDependencies += "dev.zio" %% "zio-http" % "[version]"
 ```
