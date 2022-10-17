@@ -35,7 +35,7 @@ object AccessControlMaxAge {
   }
 
   def fromAccessControlMaxAge(accessControlMaxAge: AccessControlMaxAge): String = {
-    accessControlMaxAge.seconds.toSeconds.toString
+    accessControlMaxAge.seconds.getSeconds().toString
   }
 
   def toAccessControlMaxAge(seconds: String): AccessControlMaxAge = {
