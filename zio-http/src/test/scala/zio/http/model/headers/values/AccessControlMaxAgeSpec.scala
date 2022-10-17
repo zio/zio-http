@@ -9,14 +9,14 @@ import scala.concurrent.duration.{Duration, SECONDS}
 object AccessControlMaxAgeSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Acc header suite")(
     test("parsing of invalid AccessControlMaxAge values returns default") {
-      assertTrue(toAccessControlMaxAge("") == AccessControlMaxAge.ValidAccessControlMaxAge()) &&
-      assertTrue(toAccessControlMaxAge("any string") == AccessControlMaxAge.ValidAccessControlMaxAge()) &&
-      assertTrue(toAccessControlMaxAge("-1") == AccessControlMaxAge.ValidAccessControlMaxAge())
+      assertTrue(toAccessControlMaxAge("") == AccessControlMaxAge.InValidAccessControlMaxAge) &&
+      assertTrue(toAccessControlMaxAge("any string") == AccessControlMaxAge.InValidAccessControlMaxAge) &&
+      assertTrue(toAccessControlMaxAge("-1") == AccessControlMaxAge.InValidAccessControlMaxAge)
     },
     test("parsing of valid AccessControlMaxAge values") {
       check(Gen.long(0, 1000000)) { long =>
         assertTrue(
-          toAccessControlMaxAge(long.toString).seconds == fromAccessControlMaxAge(
+          toAccessControlMaxAge(long.toString).seconds.toSeconds.toString == fromAccessControlMaxAge(
             ValidAccessControlMaxAge(Duration(long, SECONDS)),
           ),
         )
@@ -25,7 +25,9 @@ object AccessControlMaxAgeSpec extends ZIOSpecDefault {
     test("parsing of negative seconds AccessControlMaxAge values returns default") {
       check(Gen.long(-1000000, -1)) { long =>
         assertTrue(
-          toAccessControlMaxAge(long.toString).seconds == fromAccessControlMaxAge(ValidAccessControlMaxAge()),
+          toAccessControlMaxAge(long.toString).seconds.toSeconds.toString == fromAccessControlMaxAge(
+            ValidAccessControlMaxAge(),
+          ),
         )
       }
     },

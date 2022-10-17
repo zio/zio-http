@@ -15,7 +15,7 @@ import scala.util.Try
  * caps at 2 hours (7200 seconds). The default value is 5 seconds.
  */
 sealed trait AccessControlMaxAge {
-  val seconds: String
+  val seconds: Duration
 }
 
 object AccessControlMaxAge {
@@ -26,17 +26,21 @@ object AccessControlMaxAge {
    */
   final case class ValidAccessControlMaxAge(private val duration: FiniteDuration = Duration(5, SECONDS))
       extends AccessControlMaxAge {
-    override val seconds: String = duration.toSeconds.toString
+    override val seconds: Duration = duration
+  }
+
+  case object InValidAccessControlMaxAge extends AccessControlMaxAge {
+    override val seconds: Duration = Duration(5, SECONDS)
   }
 
   def fromAccessControlMaxAge(accessControlMaxAge: AccessControlMaxAge): String = {
-    accessControlMaxAge.seconds
+    accessControlMaxAge.seconds.toSeconds.toString
   }
 
   def toAccessControlMaxAge(seconds: String): AccessControlMaxAge = {
     Try(seconds.toLong).fold(
-      _ => ValidAccessControlMaxAge(),
-      long => if (long > 0) ValidAccessControlMaxAge(Duration(long, SECONDS)) else ValidAccessControlMaxAge(),
+      _ => InValidAccessControlMaxAge,
+      long => if (long > -1) ValidAccessControlMaxAge(Duration(long, SECONDS)) else InValidAccessControlMaxAge,
     )
   }
 }
