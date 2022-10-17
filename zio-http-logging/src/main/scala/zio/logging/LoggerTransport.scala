@@ -25,19 +25,28 @@ private[logging] trait LoggerTransport { self =>
    */
   final def toLogger: Logger = Logger(List(self))
 
-  def addTags(tags: Iterable[String]): LoggerTransport
-  def withFilter(filter: String => Boolean): LoggerTransport
-  def withFormat(format: LogFormat): LoggerTransport
-  def withLevel(level: LogLevel): LoggerTransport
-  def withTags(tags: List[String]): LoggerTransport
+  def copy(
+    format: LogFormat = LogFormat.inlineMinimal,
+    level: LogLevel = LogLevel.Error,
+    filter: String => Boolean = _ => true,
+    tags: List[String] = Nil,
+  ): LoggerTransport
+
+  def tags: List[String]
+  def addTags(tags: Iterable[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
+
+  def withFilter(filter: String => Boolean): LoggerTransport = self.copy(filter = filter)
+  def withFormat(format: LogFormat): LoggerTransport         = self.copy(format = format)
+  def withLevel(level: LogLevel): LoggerTransport            = self.copy(level = level)
+  def withTags(tags: List[String]): LoggerTransport          = self.copy(tags = tags)
 
   val level: LogLevel
 
-  private[zio] val isDebugEnabled: Boolean
-  private[zio] val isErrorEnabled: Boolean
-  private[zio] val isInfoEnabled: Boolean
-  private[zio] val isTraceEnabled: Boolean
-  private[zio] val isWarnEnabled: Boolean
+  private[zio] val isDebugEnabled: Boolean = self.level <= LogLevel.Debug
+  private[zio] val isErrorEnabled: Boolean = self.level <= LogLevel.Error
+  private[zio] val isInfoEnabled: Boolean  = self.level <= LogLevel.Info
+  private[zio] val isTraceEnabled: Boolean = self.level <= LogLevel.Trace
+  private[zio] val isWarnEnabled: Boolean  = self.level <= LogLevel.Warn
 }
 
 object LoggerTransport {
@@ -45,15 +54,9 @@ object LoggerTransport {
     format: LogFormat = LogFormat.inlineMinimal,
     val level: LogLevel = LogLevel.Error,
     filter: String => Boolean = _ => true,
-    tags: List[String] = Nil,
+    val tags: List[String] = Nil,
   ) extends LoggerTransport {
     self =>
-
-    final private[zio] val isDebugEnabled: Boolean = self.level <= LogLevel.Debug
-    final private[zio] val isErrorEnabled: Boolean = self.level <= LogLevel.Error
-    final private[zio] val isInfoEnabled: Boolean  = self.level <= LogLevel.Info
-    final private[zio] val isTraceEnabled: Boolean = self.level <= LogLevel.Trace
-    final private[zio] val isWarnEnabled: Boolean  = self.level <= LogLevel.Warn
 
     final private def buildLines(
       msg: String,
@@ -90,8 +93,6 @@ object LoggerTransport {
 
     protected def run(charSequence: CharSequence): Unit
 
-    final def addTags(tags: Iterable[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
-
     final def copy(
       format: LogFormat = self.format,
       level: LogLevel = self.level,
@@ -115,14 +116,6 @@ object LoggerTransport {
           if (filter(formatted)) run(formatted)
         }
       }
-
-    final def withFilter(filter: String => Boolean): LoggerTransport = self.copy(filter = filter)
-
-    final def withFormat(format: LogFormat): LoggerTransport = self.copy(format = format)
-
-    final def withLevel(level: LogLevel): LoggerTransport = self.copy(level = level)
-
-    final def withTags(tags: List[String]): LoggerTransport = self.copy(tags = tags)
   }
 
   private[logging] class ZioLoggerTransport(
@@ -130,17 +123,9 @@ object LoggerTransport {
     format: LogFormat = LogFormat.inlineMinimal,
     val level: LogLevel = LogLevel.Error,
     filter: String => Boolean = _ => true,
-    tags: List[String] = Nil,
+    val tags: List[String] = Nil,
   ) extends LoggerTransport {
     self =>
-
-    final private[zio] val isDebugEnabled: Boolean = self.level <= LogLevel.Debug
-    final private[zio] val isErrorEnabled: Boolean = self.level <= LogLevel.Error
-    final private[zio] val isInfoEnabled: Boolean  = self.level <= LogLevel.Info
-    final private[zio] val isTraceEnabled: Boolean = self.level <= LogLevel.Trace
-    final private[zio] val isWarnEnabled: Boolean  = self.level <= LogLevel.Warn
-
-    final def addTags(tags: Iterable[String]): LoggerTransport = self.copy(tags = self.tags ++ tags)
 
     final def copy(
       format: LogFormat = self.format,
@@ -182,14 +167,6 @@ object LoggerTransport {
         }
       }
     }
-
-    final def withFilter(filter: String => Boolean): LoggerTransport = self.copy(filter = filter)
-
-    final def withFormat(format: LogFormat): LoggerTransport = self.copy(format = format)
-
-    final def withLevel(level: LogLevel): LoggerTransport = self.copy(level = level)
-
-    final def withTags(tags: List[String]): LoggerTransport = self.copy(tags = tags)
 
     private def toZioLogLevel(level: LogLevel): _root_.zio.LogLevel =
       level match {

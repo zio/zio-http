@@ -344,6 +344,12 @@ trait Attributes {
 
   final def wrapAttr: PartialAttribute[String] = PartialAttribute("wrap")
 
+  final def xmlnsAttr: PartialAttribute[String] = PartialAttribute("xmlns")
+
+  final def cellpaddingAttr: PartialAttribute[String] = PartialAttribute("cellpadding")
+
+  final def cellspacingAttr: PartialAttribute[String] = PartialAttribute("cellspacing")
+
 }
 
 object Attributes {
