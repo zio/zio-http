@@ -1,7 +1,8 @@
 package zio.http.model.headers.values
 
-import scala.concurrent.duration.{Duration, FiniteDuration, SECONDS}
 import scala.util.Try
+
+import java.time.Duration
 
 /**
  * The Access-Control-Max-Age response header indicates how long the results of
@@ -24,13 +25,13 @@ object AccessControlMaxAge {
    * Valid AccessControlMaxAge with an unsigned non-negative negative for
    * seconds
    */
-  final case class ValidAccessControlMaxAge(private val duration: FiniteDuration = Duration(5, SECONDS))
+  final case class ValidAccessControlMaxAge(private val duration: Duration = Duration.ofSeconds(5))
       extends AccessControlMaxAge {
     override val seconds: Duration = duration
   }
 
-  case object InValidAccessControlMaxAge extends AccessControlMaxAge {
-    override val seconds: Duration = Duration(5, SECONDS)
+  case object InvalidAccessControlMaxAge extends AccessControlMaxAge {
+    override val seconds: Duration = Duration.ofSeconds(5)
   }
 
   def fromAccessControlMaxAge(accessControlMaxAge: AccessControlMaxAge): String = {
@@ -39,8 +40,8 @@ object AccessControlMaxAge {
 
   def toAccessControlMaxAge(seconds: String): AccessControlMaxAge = {
     Try(seconds.toLong).fold(
-      _ => InValidAccessControlMaxAge,
-      long => if (long > -1) ValidAccessControlMaxAge(Duration(long, SECONDS)) else InValidAccessControlMaxAge,
+      _ => InvalidAccessControlMaxAge,
+      long => if (long > -1) ValidAccessControlMaxAge(Duration.ofSeconds(long)) else InvalidAccessControlMaxAge,
     )
   }
 }
