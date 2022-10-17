@@ -26,7 +26,7 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
     service: Service[R, E, AllIds1],
     midddleware: Middleware[R, E, MI, MO],
   ): HttpApp[R, E] =
-    service.toHttpApp @@ ServiceSpec.toHttpMiddleware(midddleware)
+    service.toHttpApp
 
   final def withMI[MI2](implicit ev: MI =:= MI2): ServiceSpec[MI2, MO, AllIds] =
     self.asInstanceOf[ServiceSpec[MI2, MO, AllIds]]
@@ -109,7 +109,7 @@ object ServiceSpec                        {
           }
 
         val interceptFn = loop(middlewareSpec.middlewareIn) // FIXME handle middlewareOut
-        zio.http.Middleware.interceptZIO[Request, Response](interceptFn)((a, _) => ZIO.succeed(a))
+        zio.http.Middleware.interceptZIO[Request, Response](interceptFn)((a, r) => ZIO.succeed(a))
 
       case concat: Middleware.Concat[R, E, i1, o1, i2, o2, i3, o3] =>
         toHttpMiddleware(concat.left) ++ toHttpMiddleware(concat.right)

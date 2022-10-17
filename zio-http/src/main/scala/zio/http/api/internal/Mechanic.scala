@@ -45,12 +45,12 @@ private[api] object Mechanic {
     }
 
   def makeConstructor[A](
-    api: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, A],
+    api: HttpCodec[CodecType.RequestType, A],
   ): Constructor[A] =
     makeConstructorLoop(indexed(api))
 
   def makeDeconstructor[A](
-    api: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, A],
+    api: HttpCodec[CodecType.RequestType, A],
   ): Deconstructor[A] = {
     val flattened = flatten(api)
 
@@ -64,7 +64,7 @@ private[api] object Mechanic {
   }
 
   private def makeConstructorLoop[A](
-    api: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, A],
+    api: HttpCodec[CodecType.RequestType, A],
   ): Constructor[A] = {
     def coerce(any: Any): A = any.asInstanceOf[A]
 
@@ -105,7 +105,7 @@ private[api] object Mechanic {
   }
 
   private def makeDeconstructorLoop[A](
-    api: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, A],
+    api: HttpCodec[CodecType.RequestType, A],
   ): (A, InputsBuilder) => Unit = {
     api match {
       case Combine(left, right, inputCombiner) =>
@@ -131,6 +131,9 @@ private[api] object Mechanic {
       case IndexedAtom(_: Body[_], index) =>
         (input, inputsBuilder) => inputsBuilder.setInputBody(index, input)
 
+      case IndexedAtom(_: Method[_], index) =>
+        (input, inputsBuilder) => inputsBuilder.setMethod(index, input)
+
       case transform: TransformOrFail[_, _, A] =>
         val deconstructor = makeDeconstructorLoop(transform.api)
 
@@ -153,6 +156,7 @@ private[api] object Mechanic {
   // Private Helper Classes
 
   private[api] final case class FlattenedAtoms(
+    methods: Chunk[TextCodec[_]],
     routes: Chunk[TextCodec[_]],
     queries: Chunk[Query[_]],
     headers: Chunk[Header[_]],
@@ -161,6 +165,7 @@ private[api] object Mechanic {
     def append(atom: Atom[_, _]) = atom match {
       case Empty                => self
       case route: Route[_]      => self.copy(routes = routes :+ route.textCodec)
+      case method: Method[_]    => self.copy(methods = methods :+ method.methodCodec)
       case query: Query[_]      => self.copy(queries = queries :+ query)
       case header: Header[_]    => self.copy(headers = headers :+ header)
       case inputBody: Body[_]   => self.copy(inputBodies = inputBodies :+ inputBody)
@@ -169,12 +174,12 @@ private[api] object Mechanic {
     }
 
     def makeInputsBuilder(): InputsBuilder = {
-      Mechanic.InputsBuilder.make(routes.length, queries.length, headers.length, inputBodies.length, 2)
+      Mechanic.InputsBuilder.make(routes.length, queries.length, headers.length, inputBodies.length, methods.length)
     }
   }
 
   private[api] object FlattenedAtoms {
-    val empty = FlattenedAtoms(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
+    val empty = FlattenedAtoms(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
   }
 
   private[api] final case class InputsBuilder(
@@ -182,7 +187,7 @@ private[api] object Mechanic {
     queries: Array[Any],
     headers: Array[Any],
     inputBodies: Array[Any],
-    responseHeaders: Array[Any],
+    methods: Array[Any],
   ) { self =>
     def setRoute(index: Int, value: Any): Unit =
       routes(index) = value
@@ -195,19 +200,23 @@ private[api] object Mechanic {
 
     def setInputBody(index: Int, value: Any): Unit =
       inputBodies(index) = value
+
+    def setMethod(index: Int, value: Any): Unit =
+      methods(index) = value
   }
   private[api] object InputsBuilder  {
-    def make(routes: Int, queries: Int, headers: Int, bodies: Int, responseHeaders: Int): InputsBuilder =
+    def make(routes: Int, queries: Int, headers: Int, bodies: Int, methods: Int): InputsBuilder =
       InputsBuilder(
         routes = new Array(routes),
         queries = new Array(queries),
         headers = new Array(headers),
         inputBodies = new Array(bodies),
-        responseHeaders = new Array(responseHeaders),
+        methods = new Array(methods),
       )
   }
 
   private final case class AtomIndices(
+    method: Int = 0,
     route: Int = 0,
     query: Int = 0,
     header: Int = 0,
@@ -217,6 +226,7 @@ private[api] object Mechanic {
       atom match {
         case _: Empty.type        => self
         case _: Route[_]          => self.copy(route = route + 1)
+        case _: Method[_]         => self.copy(method = method + 1)
         case _: Query[_]          => self.copy(query = query + 1)
         case _: Header[_]         => self.copy(header = header + 1)
         case _: Body[_]           => self.copy(inputBody = inputBody + 1)
@@ -232,6 +242,7 @@ private[api] object Mechanic {
         case _: Query[_]          => query
         case _: Header[_]         => header
         case _: Body[_]           => inputBody
+        case _: Method[_]         => method
         case _: BodyStream[_]     => throw new RuntimeException("FIXME: Support BodyStream")
         case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to get")
       }

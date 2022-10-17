@@ -13,19 +13,25 @@ object BasicAuthAPIExample extends ZIOAppDefault {
     API.get(literal("users") / int).out[Int]
 
   val getUserHandler =
-    getUser.handle[Any, Nothing] { case (id: Int) =>
+    getUser.implement { case (id: Int) =>
       ZIO.succeed(id)
     }
 
-  val authMiddleware: MiddlewareSpec[Auth.Credentials, Unit] =
-    MiddlewareSpec.auth
+  val authMiddleware = MiddlewareSpec.auth
+  val correlationId  = MiddlewareSpec.addCorrelationId
+
+  val middleware: MiddlewareSpec[Auth.Credentials, String] =
+    MiddlewareSpec.auth ++ MiddlewareSpec.addCorrelationId
 
   val authMiddlewareHandler =
     authMiddleware.implement(_ => ZIO.unit)
 
-  val serviceSpec = getUser.toServiceSpec.middleware(authMiddleware)
+  val correlationIdHandler =
+    correlationId.implement(_ => ZIO.succeed("qdbasdjkansdad"))
 
-  val app = serviceSpec.toHttpApp(getUserHandler, authMiddlewareHandler)
+  val serviceSpec = getUser.toServiceSpec.middleware(middleware)
+
+  val app = serviceSpec.toHttpApp(getUserHandler, authMiddlewareHandler ++ correlationIdHandler)
 
   val run = Server.serve(app).provide(Server.default)
 

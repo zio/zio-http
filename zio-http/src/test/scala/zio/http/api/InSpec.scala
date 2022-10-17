@@ -15,14 +15,14 @@ object InSpec extends ZIOSpecDefault {
           API
             .get(literal("users") / int)
             .out[String]
-            .handle { userId =>
+            .implement { userId =>
               ZIO.succeed(s"route(users, $userId)")
             } ++
             API
               .get(literal("users") / int / literal("posts") / int)
               .in(query("name"))
               .out[String]
-              .handle { case (userId, postId, name) =>
+              .implement { case (userId, postId, name) =>
                 ZIO.succeed(s"route(users, $userId, posts, $postId) query(name=$name)")
               },
         ) _
@@ -34,7 +34,7 @@ object InSpec extends ZIOSpecDefault {
           API
             .get(literal("users") / int)
             .out[String]
-            .handle { userId =>
+            .implement { userId =>
               ZIO.succeed(s"route(users, $userId)")
             } ++
             API
@@ -43,7 +43,7 @@ object InSpec extends ZIOSpecDefault {
               .in(literal("posts") / int)
               .in(query("age"))
               .out[String]
-              .handle { case (userId, name, postId, age) =>
+              .implement { case (userId, name, postId, age) =>
                 ZIO.succeed(s"route(users, $userId, posts, $postId) query(name=$name, age=$age)")
               },
         ) _
@@ -54,13 +54,13 @@ object InSpec extends ZIOSpecDefault {
         )
       },
       test("broad api") {
-        val broadUsers   = API.get(RouteCodec.literal("users")).out[String].handle { _ => ZIO.succeed("route(users)") }
+        val broadUsers   = API.get(RouteCodec.literal("users")).out[String].implement { _ => ZIO.succeed("route(users)") }
         val broadUsersId =
-          API.get(RouteCodec.literal("users") / RouteCodec.int).out[String].handle { userId =>
+          API.get(RouteCodec.literal("users") / RouteCodec.int).out[String].implement { userId =>
             ZIO.succeed(s"route(users, $userId)")
           }
         val boardUsersPosts         =
-          API.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts")).out[String].handle {
+          API.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts")).out[String].implement {
             userId =>
               ZIO.succeed(s"route(users, $userId, posts)")
           }
@@ -68,7 +68,7 @@ object InSpec extends ZIOSpecDefault {
           API
             .get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int)
             .out[String]
-            .handle { case (userId, postId) =>
+            .implement { case (userId, postId) =>
               ZIO.succeed(s"route(users, $userId, posts, $postId)")
             }
         val boardUsersPostsComments =
@@ -78,7 +78,7 @@ object InSpec extends ZIOSpecDefault {
                 .literal("comments"),
             )
             .out[String]
-            .handle { case (userId, postId) =>
+            .implement { case (userId, postId) =>
               ZIO.succeed(s"route(users, $userId, posts, $postId, comments)")
             }
 
@@ -89,15 +89,15 @@ object InSpec extends ZIOSpecDefault {
                 .literal("comments") / RouteCodec.int,
             )
             .out[String]
-            .handle { case (userId, postId, commentId) =>
+            .implement { case (userId, postId, commentId) =>
               ZIO.succeed(s"route(users, $userId, posts, $postId, comments, $commentId)")
             }
-        val broadPosts   = API.get(RouteCodec.literal("posts")).out[String].handle { _ => ZIO.succeed("route(posts)") }
-        val broadPostsId = API.get(RouteCodec.literal("posts") / RouteCodec.int).out[String].handle { postId =>
+        val broadPosts   = API.get(RouteCodec.literal("posts")).out[String].implement { _ => ZIO.succeed("route(posts)") }
+        val broadPostsId = API.get(RouteCodec.literal("posts") / RouteCodec.int).out[String].implement { postId =>
           ZIO.succeed(s"route(posts, $postId)")
         }
         val boardPostsComments   =
-          API.get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments")).out[String].handle {
+          API.get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments")).out[String].implement {
             postId =>
               ZIO.succeed(s"route(posts, $postId, comments)")
           }
@@ -105,16 +105,16 @@ object InSpec extends ZIOSpecDefault {
           API
             .get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int)
             .out[String]
-            .handle { case (postId, commentId) =>
+            .implement { case (postId, commentId) =>
               ZIO.succeed(s"route(posts, $postId, comments, $commentId)")
             }
         val broadComments        =
-          API.get(RouteCodec.literal("comments")).out[String].handle { _ => ZIO.succeed("route(comments)") }
-        val broadCommentsId = API.get(RouteCodec.literal("comments") / RouteCodec.int).out[String].handle { commentId =>
+          API.get(RouteCodec.literal("comments")).out[String].implement { _ => ZIO.succeed("route(comments)") }
+        val broadCommentsId = API.get(RouteCodec.literal("comments") / RouteCodec.int).out[String].implement { commentId =>
           ZIO.succeed(s"route(comments, $commentId)")
         }
         val broadUsersComments               =
-          API.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments")).out[String].handle {
+          API.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments")).out[String].implement {
             userId =>
               ZIO.succeed(s"route(users, $userId, comments)")
           }
@@ -122,7 +122,7 @@ object InSpec extends ZIOSpecDefault {
           API
             .get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int)
             .out[String]
-            .handle { case (userId, commentId) =>
+            .implement { case (userId, commentId) =>
               ZIO.succeed(s"route(users, $userId, comments, $commentId)")
             }
         val boardUsersPostsCommentsReplies   =
@@ -135,7 +135,7 @@ object InSpec extends ZIOSpecDefault {
                 ),
             )
             .out[String]
-            .handle { case (userId, postId, commentId) =>
+            .implement { case (userId, postId, commentId) =>
               ZIO.succeed(s"route(users, $userId, posts, $postId, comments, $commentId, replies)")
             }
         val boardUsersPostsCommentsRepliesId =
@@ -148,7 +148,7 @@ object InSpec extends ZIOSpecDefault {
                 ) / RouteCodec.int,
             )
             .out[String]
-            .handle { case (userId, postId, commentId, replyId) =>
+            .implement { case (userId, postId, commentId, replyId) =>
               ZIO.succeed(s"route(users, $userId, posts, $postId, comments, $commentId, replies, $replyId)")
             }
 

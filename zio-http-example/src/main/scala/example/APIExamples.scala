@@ -13,7 +13,7 @@ object APIExamples extends ZIOAppDefault {
     API.get(literal("users") / int).out[Int]
 
   val getUsersService =
-    getUser.handle[Any, Nothing] { case (id: Int) =>
+    getUser.implement[Any, Nothing] { case (id: Int) =>
       ZIO.succeedNow(id)
     }
 
@@ -23,7 +23,7 @@ object APIExamples extends ZIOAppDefault {
       .in(query("name"))
 
   val getUserPostsService =
-    getUserPosts.handle[Any, Nothing] { case (id1, query, id2) =>
+    getUserPosts.implement[Any, Nothing] { case (id1, query, id2) =>
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 
