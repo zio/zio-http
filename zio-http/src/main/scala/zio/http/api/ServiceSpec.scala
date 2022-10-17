@@ -80,7 +80,7 @@ object ServiceSpec                        {
           in: HttpCodec[CodecType.Header with CodecType.Query, I1],
         ): Request => ZIO[R, Option[E], Any] =
           in match {
-            case atom: HttpCodec.Atom[_, _] =>
+            case atom: HttpCodec.Atom[CodecType.Header with CodecType.Query, _] =>
               atom match {
                 case HttpCodec.Header(name, codec) =>
                   (request: Request) =>
@@ -93,32 +93,27 @@ object ServiceSpec                        {
                     handler(codec.decode(request.url.queryParams.get(key).head.head).get.asInstanceOf[I])
                       .mapError(Some(_))
 
-                case _ => throw new Exception("cannot happen")
-
+                case _ => throw new Exception("cannot happen") // Can't we get a compile time safety here?
               }
 
-            case HttpCodec.WithDoc(in, doc)                    => ???
-            case HttpCodec.TransformOrFail(api, f, g)          =>
-              request => {
-                val result = loop(api)(request).map(o => {
-                  f(o).getOrElse(throw new Exception("baam"))
-                })
-                result
-              }
-            case HttpCodec.Combine(left, right, inputCombiner) => ???
+            case HttpCodec.WithDoc(in, doc)           =>
+              loop(in)
+            case HttpCodec.TransformOrFail(api, f, g) =>
+              request => loop(api)(request).map(o => f(o).getOrElse(throw new Exception("uh oh!"))) // FIXME
+
+            case HttpCodec.Combine(left, right, inputCombiner) =>
+              request =>
+                loop(left)(request).zip(loop(right)(request)).map { a =>
+                  inputCombiner.combine(a._1, a._2)
+                }
           }
 
         val interceptFn = loop(middlewareSpec.middlewareIn) // FIXME handle middlewareOut
         zio.http.Middleware.interceptZIO[Request, Response](interceptFn)((a, _) => ZIO.succeed(a))
 
-      case concat: Middleware.Concat[R, E, i1, o1, i2, o2, i3, o3]           =>
+      case concat: Middleware.Concat[R, E, i1, o1, i2, o2, i3, o3] =>
         toHttpMiddleware(concat.left) ++ toHttpMiddleware(concat.right)
-      case Middleware.Handler(middlewareSpec, handler)                       => http.Middleware.empty
-      case Middleware.BypassZIO(middlewareSpec, execute)                     => ???
-      case Middleware.Bypass(middlewareSpec, execute)                        => ???
-      case Middleware.IfThenElse(middlewareSpec, predicate, ifTrue, ifFalse) => ???
-      case Middleware.Intercept(middlewareSpec, incoming, outgoing)          => ???
-      case Middleware.InterceptZIO(middlewareSpec, incoming, outgoing)       => ???
+      case Middleware.Handler(middlewareSpec, handler)             => http.Middleware.empty // TODO
     }
   }
 

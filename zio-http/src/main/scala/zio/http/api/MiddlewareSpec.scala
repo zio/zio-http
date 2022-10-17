@@ -66,7 +66,6 @@ object MiddlewareSpec {
       .mapIn(
         _.transformOrFailLeft(
           s => {
-            println("going to decoded")
             decodeHttpBasic(s).fold(Left("Failed to decode headers"): Either[String, Credentials])(Right(_))
           },
           c => s"${c.uname}:${c.upassword}",
