@@ -16,7 +16,7 @@ object AccessControlMaxAgeSpec extends ZIOSpecDefault {
     test("parsing of valid AccessControlMaxAge values") {
       check(Gen.long(0, 1000000)) { long =>
         assertTrue(
-          toAccessControlMaxAge(long.toString).seconds.toSeconds.toString == fromAccessControlMaxAge(
+          toAccessControlMaxAge(long.toString).seconds.getSeconds().toString == fromAccessControlMaxAge(
             ValidAccessControlMaxAge(Duration.ofSeconds(long)),
           ),
         )
@@ -25,7 +25,7 @@ object AccessControlMaxAgeSpec extends ZIOSpecDefault {
     test("parsing of negative seconds AccessControlMaxAge values returns default") {
       check(Gen.long(-1000000, -1)) { long =>
         assertTrue(
-          toAccessControlMaxAge(long.toString).seconds.toSeconds.toString == fromAccessControlMaxAge(
+          toAccessControlMaxAge(long.toString).seconds.getSeconds().toString == fromAccessControlMaxAge(
             ValidAccessControlMaxAge(),
           ),
         )
