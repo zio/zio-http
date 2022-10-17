@@ -1,8 +1,7 @@
 package zio.http.model.headers.values
 
-import scala.util.Try
-
 import java.time.Duration
+import scala.util.Try
 
 /**
  * The Access-Control-Max-Age response header indicates how long the results of
