@@ -27,9 +27,16 @@ object APIExamples extends ZIOAppDefault {
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 
-  val serviceSpec = (getUser ++ getUserPosts).middleware(MiddlewareSpec.auth)
+  val middleware =
+    MiddlewareSpec.auth
 
-  val app = serviceSpec.toHttpApp(getUsersService ++ getUserPostsService, Middleware.fromFunction(_ => ()))
+  // just like api.handle
+  val middlewareImpl =
+    middleware.implement(_ => ZIO.unit)
+
+  val serviceSpec = (getUser ++ getUserPosts).middleware(middleware)
+
+  val app = serviceSpec.toHttpApp(getUsersService ++ getUserPostsService, middlewareImpl)
 
   val request = Request.get(url = URL.fromString("/users/1").toOption.get)
   println(s"Looking up $request")

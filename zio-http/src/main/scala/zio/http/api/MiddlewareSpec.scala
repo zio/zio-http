@@ -18,7 +18,7 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
     MiddlewareSpec(self.middlewareIn ++ that.middlewareIn, self.middlewareOut ++ that.middlewareOut)
 
   def implement[R, E](f: MiddlewareIn => ZIO[R, E, MiddlewareOut]): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
-    Middleware.HandlerZIO[R, E, MiddlewareIn, MiddlewareOut](f)
+    Middleware.HandlerZIO[R, E, MiddlewareIn, MiddlewareOut](self, f)
 
   def mapIn[MiddlewareIn2](
     f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn] => HttpCodec[
@@ -65,7 +65,10 @@ object MiddlewareSpec {
     requireHeader(HeaderNames.wwwAuthenticate.toString)
       .mapIn(
         _.transformOrFailLeft(
-          s => decodeHttpBasic(s).fold(Left("Failed to decode headers"): Either[String, Credentials])(Right(_)),
+          s => {
+            println("going to decoded")
+            decodeHttpBasic(s).fold(Left("Failed to decode headers"): Either[String, Credentials])(Right(_))
+          },
           c => s"${c.uname}:${c.upassword}",
         ),
       )
