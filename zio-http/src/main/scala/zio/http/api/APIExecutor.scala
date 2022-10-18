@@ -47,11 +47,12 @@ object APIExecutor {
 
   private final case class UntypedServiceExecutor[MI](client: Client, locator: APILocator, middlewareInput0: Task[MI])
       extends APIExecutor[MI, Any, Nothing] {
-    val metadata = zio.http.api.internal.Memoized[EndpointSpec[_, _], APIClient[Any, Any]] { (api: EndpointSpec[_, _]) =>
-      APIClient(
-        locator.locate(api).getOrElse(throw APIError.NotFound(s"Could not locate API", api)),
-        api.asInstanceOf[EndpointSpec[Any, Any]],
-      )
+    val metadata = zio.http.api.internal.Memoized[EndpointSpec[_, _], APIClient[Any, Any]] {
+      (api: EndpointSpec[_, _]) =>
+        APIClient(
+          locator.locate(api).getOrElse(throw APIError.NotFound(s"Could not locate API", api)),
+          api.asInstanceOf[EndpointSpec[Any, Any]],
+        )
     }
 
     def apply[Id, A, B](

@@ -8,20 +8,20 @@ import zio.stream.ZStream
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
- * An [[zio.http.api.EndpointSpec]] represents an API endpoint for the HTTP protocol.
- * Every `API` has an input, which comes from a combination of the HTTP path,
- * query string parameters, and headers, and an output, which is the data
- * computed by the handler of the API.
+ * An [[zio.http.api.EndpointSpec]] represents an API endpoint for the HTTP
+ * protocol. Every `API` has an input, which comes from a combination of the
+ * HTTP path, query string parameters, and headers, and an output, which is the
+ * data computed by the handler of the API.
  *
  * MiddlewareInput : Example: A subset of `HttpCodec[Input]` that doesn't give
  * access to `Input` MiddlwareOutput: Example: A subset of `Out[Output]` that
  * doesn't give access to `Output` Input: Example: Int Output: Example: User
  *
- * As [[zio.http.api.EndpointSpec]] is a purely declarative encoding of an endpoint, it
- * is possible to use this model to generate a [[zio.http.HttpApp]] (by
- * supplying a handler for the endpoint), to generate OpenAPI documentation, to
- * generate a type-safe Scala client for the endpoint, and possibly, to generate
- * client libraries in other programming languages.
+ * As [[zio.http.api.EndpointSpec]] is a purely declarative encoding of an
+ * endpoint, it is possible to use this model to generate a [[zio.http.HttpApp]]
+ * (by supplying a handler for the endpoint), to generate OpenAPI documentation,
+ * to generate a type-safe Scala client for the endpoint, and possibly, to
+ * generate client libraries in other programming languages.
  */
 final case class EndpointSpec[Input, Output](
   input: HttpCodec[
@@ -32,12 +32,6 @@ final case class EndpointSpec[Input, Output](
   doc: Doc,
 ) { self =>
   type Id
-
-  /**
-   * Combines this API with another API.
-   */
-  def ++(that: EndpointSpec[_, _]): ServiceSpec[Unit, Unit, Id with that.Id] =
-    ServiceSpec(self).++[that.Id](ServiceSpec(that))
 
   def apply(input: Input): Invocation[Id, Input, Output] =
     Invocation(self, input)
@@ -94,8 +88,8 @@ final case class EndpointSpec[Input, Output](
    * convert an API into a service, you must specify a function which handles
    * the input, and returns the output.
    */
-  def implement[R, E](f: Input => ZIO[R, E, Output]): Service[R, E, Id] =
-    Service.HandledAPI[R, E, Input, Output, Id](self, f).withAllIds[Id]
+  def implement[R, E](f: Input => ZIO[R, E, Output]): Endpoints[R, E, Id] =
+    Endpoints.HandledEndpoint[R, E, Input, Output, Id](self, f).withAllIds[Id]
 
   /**
    * Changes the identity of the API to the specified singleton string type.

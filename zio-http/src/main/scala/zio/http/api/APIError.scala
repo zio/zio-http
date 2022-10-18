@@ -8,7 +8,7 @@ sealed trait APIError extends Exception {
 }
 
 object APIError {
-  sealed trait ClientError                                                extends APIError
+  sealed trait ClientError                                                         extends APIError
   final case class NotFound(message: String, api: EndpointSpec[_, _])              extends ClientError
   final case class MalformedResponseBody(message: String, api: EndpointSpec[_, _]) extends ClientError
 
@@ -25,7 +25,7 @@ object APIError {
   final case class MalformedQueryParam(queryParamName: String, textCodec: TextCodec[_]) extends ServerError {
     def message = s"Malformed query parameter $queryParamName failed to decode using $textCodec"
   }
-  final case class MalformedRequestBody(api: EndpointSpec[_, _])                                 extends ServerError {
+  final case class MalformedRequestBody(api: EndpointSpec[_, _])                        extends ServerError {
     def message = s"Malformed request body failed to decode using ${api.input.bodySchema}"
   }
 }

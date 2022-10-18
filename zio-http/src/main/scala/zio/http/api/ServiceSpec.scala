@@ -18,12 +18,12 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
     ServiceSpec.middlewareSpecOf(self)
 
   final def toHttpApp[AllIds1 <: AllIds, R, E](
-    service: Service[R, E, AllIds1],
+    service: Endpoints[R, E, AllIds1],
   )(implicit ev1: MI =:= Unit, ev2: MO =:= Unit): HttpApp[R, E] =
     self.withMI[Unit].withMO[Unit].toHttpApp(service, Middleware.none)
 
   final def toHttpApp[AllIds1 <: AllIds, R, E](
-    service: Service[R, E, AllIds1],
+    service: Endpoints[R, E, AllIds1],
     midddleware: Middleware[R, E, MI, MO],
   ): HttpApp[R, E] =
     service.toHttpApp @@ ServiceSpec.toHttpMiddleware(midddleware)
@@ -35,7 +35,7 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
     self.asInstanceOf[ServiceSpec[MI, MO2, AllIds]]
 }
 object ServiceSpec                        {
-  private case object Empty                                      extends ServiceSpec[Unit, Unit, Any]
+  private case object Empty                                               extends ServiceSpec[Unit, Unit, Any]
   private final case class Single[Id](api: EndpointSpec.WithId[Id, _, _]) extends ServiceSpec[Unit, Unit, Id]
   private final case class Concat[MI, MO, AllIds1, AllIds2](
     left: ServiceSpec[MI, MO, AllIds1],
