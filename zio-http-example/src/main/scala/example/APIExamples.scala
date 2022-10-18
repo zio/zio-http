@@ -9,21 +9,21 @@ object APIExamples extends ZIOAppDefault {
   import QueryCodec._
 
   // MiddlewareSpec can be added at the service level as well
-  val getUserEndpointSpec =
+  val getUsers =
     EndpointSpec.get(literal("users") / int).out[Int]
 
   val getUserEndpoint =
-    getUserEndpointSpec.implement[Any, Nothing] { case (id: Int) =>
+    getUsers.implement[Any, Nothing] { case (id: Int) =>
       ZIO.succeedNow(id)
     }
 
-  val getUserPostsEndpointSpec =
+  val getUserPosts =
     EndpointSpec
       .get(literal("users") / int / literal("posts") / int)
       .in(query("name"))
 
   val getUserPostEndpoint =
-    getUserPostsEndpointSpec.implement[Any, Nothing] { case (id1, query, id2) =>
+    getUserPosts.implement[Any, Nothing] { case (id1, query, id2) =>
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 
@@ -35,7 +35,7 @@ object APIExamples extends ZIOAppDefault {
     middlewareSpec.implement(_ => ZIO.unit)
 
   val serviceSpec =
-    (getUserEndpointSpec.toServiceSpec ++ getUserPostsEndpointSpec.toServiceSpec).middleware(middlewareSpec)
+    (getUsers.toServiceSpec ++ getUserPosts.toServiceSpec).middleware(middlewareSpec)
 
   val app = serviceSpec.toHttpApp(getUserEndpoint ++ getUserPostEndpoint, middleware)
 
@@ -47,13 +47,13 @@ object APIExamples extends ZIOAppDefault {
   object Client {
     def example(client: Client) = {
       val registry =
-        APIRegistry(URL.fromString("http://localhost:8080").getOrElse(???), serviceSpec)
+        EndpointRegistry(URL.fromString("http://localhost:8080").getOrElse(???), serviceSpec)
 
-      val executor: APIExecutor[Any, Any, getUserEndpointSpec.Id with getUserPostsEndpointSpec.Id] =
+      val executor: APIExecutor[Any, Any, getUsers.Id with getUserPosts.Id] =
         APIExecutor(client, registry, ZIO.succeed(Auth.Credentials("user", "pass")))
 
-      val x1 = getUserEndpointSpec(42)
-      val x2 = getUserPostsEndpointSpec(42, 200, "adam")
+      val x1 = getUsers(42)
+      val x2 = getUserPosts(42, 200, "adam")
 
       val result1 = executor(x1)
       val result2 = executor(x2)

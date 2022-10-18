@@ -34,7 +34,11 @@ object APIExecutor {
    * The default constructor creates a typed executor, which requires a service
    * registry, which keeps track of the locations of all services.
    */
-  def apply[MI, MO, Ids](client: Client, registry: APIRegistry[MI, MO, Ids], mi: Task[MI]): APIExecutor[Any, Any, Ids] =
+  def apply[MI, MO, Ids](
+    client: Client,
+    registry: EndpointRegistry[MI, MO, Ids],
+    mi: Task[MI],
+  ): APIExecutor[Any, Any, Ids] =
     UntypedServiceExecutor(client, registry, mi)
 
   /**

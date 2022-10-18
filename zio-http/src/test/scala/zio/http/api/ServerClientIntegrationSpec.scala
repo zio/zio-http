@@ -28,7 +28,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
 
   // TODO: [Ergonomics] Need to make it easy to create an APIExecutor layer
   def makeExecutor(client: Client) = {
-    val registry = APIRegistry(
+    val registry = EndpointRegistry(
       URL.fromString("http://localhost:8080").getOrElse(???),
       usersPostAPI.toServiceSpec ++ usersPostAPI.toServiceSpec,
     )
