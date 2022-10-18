@@ -74,12 +74,15 @@ trait HeaderCodecs {
     header(HeaderNames.contentType.toString(), TextCodec.string)
   final val cookie: HeaderCodec[String]                  = header(HeaderNames.cookie.toString(), TextCodec.string)
   final val date: HeaderCodec[String]                    = header(HeaderNames.date.toString(), TextCodec.string)
-  final val dnt: HeaderCodec[String]                     = header(HeaderNames.dnt.toString(), TextCodec.string)
+  final val dnt: HeaderCodec[DNT]                        = header(HeaderNames.dnt.toString(), TextCodec.string)
+    .transform(DNT.toDNT(_), DNT.fromDNT(_))
   final val etag: HeaderCodec[String]                    = header(HeaderNames.etag.toString(), TextCodec.string)
   final val expect: HeaderCodec[String]                  = header(HeaderNames.expect.toString(), TextCodec.string)
-  final val expires: HeaderCodec[String]                 = header(HeaderNames.expires.toString(), TextCodec.string)
+  final val expires: HeaderCodec[Expires]                =
+    header(HeaderNames.expires.toString(), TextCodec.string).transform[Expires](Expires.toExpires, Expires.fromExpires)
   final val from: HeaderCodec[String]                    = header(HeaderNames.from.toString(), TextCodec.string)
-  final val host: HeaderCodec[String]                    = header(HeaderNames.host.toString(), TextCodec.string)
+  final val host: HeaderCodec[Host]                      = header(HeaderNames.host.toString(), TextCodec.string)
+    .transform(Host.toHost(_), Host.fromHost(_))
   final val ifMatch: HeaderCodec[String]                 = header(HeaderNames.ifMatch.toString(), TextCodec.string)
   final val ifModifiedSince: HeaderCodec[String]         =
     header(HeaderNames.ifModifiedSince.toString(), TextCodec.string)

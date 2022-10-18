@@ -290,4 +290,14 @@ object HttpGen {
   def connectionHeader: Gen[Any, Connection] =
     Gen.elements(Connection.Close, Connection.KeepAlive, Connection.InvalidConnection)
 
+  def allowContentEncodingSingleValue: Gen[Any, ContentEncoding] = Gen.fromIterable(
+    List(
+      ContentEncoding.BrEncoding,
+      ContentEncoding.CompressEncoding,
+      ContentEncoding.GZipEncoding,
+      ContentEncoding.MultipleEncodings(Chunk(ContentEncoding.BrEncoding, ContentEncoding.CompressEncoding)),
+      ContentEncoding.DeflateEncoding,
+      ContentEncoding.InvalidEncoding,
+    ),
+  )
 }
