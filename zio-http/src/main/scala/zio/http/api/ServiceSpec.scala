@@ -114,6 +114,7 @@ object ServiceSpec                        {
       case concat: Middleware.Concat[R, E, i1, o1, i2, o2, i3, o3] =>
         toHttpMiddleware(concat.left) ++ toHttpMiddleware(concat.right)
       case Middleware.Handler(middlewareSpec, handler)             => http.Middleware.empty // TODO
+      case peek: Middleware.PeekRequest[R, E, i, o]                => toHttpMiddleware(middleware)
     }
   }
 

@@ -161,6 +161,7 @@ private[api] object Mechanic {
     queries: Chunk[Query[_]],
     headers: Chunk[Header[_]],
     inputBodies: Chunk[Body[_]],
+    statuses: Chunk[TextCodec[_]],
   ) { self =>
     def append(atom: Atom[_, _]) = atom match {
       case Empty                => self
@@ -169,6 +170,7 @@ private[api] object Mechanic {
       case query: Query[_]      => self.copy(queries = queries :+ query)
       case header: Header[_]    => self.copy(headers = headers :+ header)
       case inputBody: Body[_]   => self.copy(inputBodies = inputBodies :+ inputBody)
+      case status: Status[_]    => self.copy(statuses = statuses :+ status.textCodec)
       case _: BodyStream[_]     => self // TODO: Support body streams
       case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
     }
@@ -179,7 +181,7 @@ private[api] object Mechanic {
   }
 
   private[api] object FlattenedAtoms {
-    val empty = FlattenedAtoms(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
+    val empty = FlattenedAtoms(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
   }
 
   private[api] final case class InputsBuilder(
@@ -221,6 +223,7 @@ private[api] object Mechanic {
     query: Int = 0,
     header: Int = 0,
     inputBody: Int = 0,
+    status: Int = 0,
   ) { self =>
     def increment(atom: Atom[_, _]): AtomIndices = {
       atom match {
@@ -230,6 +233,7 @@ private[api] object Mechanic {
         case _: Query[_]          => self.copy(query = query + 1)
         case _: Header[_]         => self.copy(header = header + 1)
         case _: Body[_]           => self.copy(inputBody = inputBody + 1)
+        case _: Status[_]         => self.copy(status = status + 1)
         case _: BodyStream[_]     => self // TODO: Support body streams
         case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to increment")
       }
@@ -243,6 +247,7 @@ private[api] object Mechanic {
         case _: Header[_]         => header
         case _: Body[_]           => inputBody
         case _: Method[_]         => method
+        case _: Status[_]         => status
         case _: BodyStream[_]     => throw new RuntimeException("FIXME: Support BodyStream")
         case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to get")
       }
