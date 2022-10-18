@@ -2,9 +2,8 @@ package zio.http.api
 
 import zio.ZIO
 import zio.http.Response
-import zio.http.middleware.{Auth, HttpMiddleware}
+import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
-import zio.http.model.Cookie.Type
 import zio.http.model.{Cookie, HeaderNames}
 
 import java.util.Base64

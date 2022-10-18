@@ -1,9 +1,8 @@
 package zio.http.api
 
+import zio.ZIO
 import zio.http._
-import zio.http.middleware.HttpMiddleware
 import zio.http.model.Cookie
-import zio.{Exit, ZIO}
 
 /**
  * A `Middleware` represents the implementation of a `MiddlewareSpec`,

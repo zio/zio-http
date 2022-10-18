@@ -1,7 +1,7 @@
 package zio.http.api
 
-import zio.{Chunk, Trace, ZIO, http}
-import zio.http.{HExit, Http, HttpApp, Request, Response}
+import zio.http.{HttpApp, Request, Response}
+import zio.{Chunk, ZIO, http}
 
 sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
   final def ++[AllIds2](that: ServiceSpec[MI, MO, AllIds2]): ServiceSpec[MI, MO, AllIds with AllIds2] =
