@@ -83,7 +83,9 @@ object NettyDriver {
 
   val default: ZLayer[ServerConfig, Throwable, Driver] = ZLayer.scoped {
     // val app  = ZLayer.succeed(new AtomicReference[HttpApp[Any, Throwable]](Http.empty))
-    val app  = ZLayer.succeed(new AtomicReference[(HttpApp[Any, Throwable], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)))
+    val app  = ZLayer.succeed(
+      new AtomicReference[(HttpApp[Any, Throwable], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
+    )
     val ecb  = ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty))
     val time = ZLayer.succeed(ServerTime.make(1000 millis))
 

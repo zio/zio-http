@@ -68,7 +68,7 @@ object Server {
       // // )
 
       // }
-        // *> setErrorCallback(errorCallback)
+      // *> setErrorCallback(errorCallback)
       ZIO.environment[R].flatMap(driver.addApp(httpApp, _)) *> setErrorCallback(errorCallback)
 
     }
