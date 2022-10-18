@@ -50,8 +50,8 @@ sealed trait Service[-R, +E, AllIds] { self =>
 object Service {
   // How to integrate middlewarespec's handlers in here ?
   final case class HandledAPI[-R, +E, In0, Out0, Id](
-    api: API.WithId[In0, Out0, Id],
-    handler: In0 => ZIO[R, E, Out0],
+                                                      api: EndpointSpec.WithId[In0, Out0, Id],
+                                                      handler: In0 => ZIO[R, E, Out0],
   ) extends Service[R, E, Id] { self =>
     def flatten: Iterable[Service.HandledAPI[R, E, _, _, Id]] = Chunk(self)
   }

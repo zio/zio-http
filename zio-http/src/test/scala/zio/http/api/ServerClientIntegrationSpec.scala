@@ -21,7 +21,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Post] = DeriveSchema.gen[Post]
   }
 
-  val usersPostAPI     = API.get("users" / RouteCodec.int / "posts" / RouteCodec.int).out[Post]
+  val usersPostAPI     = EndpointSpec.get("users" / RouteCodec.int / "posts" / RouteCodec.int).out[Post]
   val usersPostHandler = usersPostAPI.implement { case (userId, postId) =>
     ZIO.succeed(Post(postId, "title", "body", userId))
   }

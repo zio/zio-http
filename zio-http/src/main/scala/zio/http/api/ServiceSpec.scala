@@ -7,7 +7,7 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
   final def ++[AllIds2](that: ServiceSpec[MI, MO, AllIds2]): ServiceSpec[MI, MO, AllIds with AllIds2] =
     ServiceSpec.Concat[MI, MO, AllIds, AllIds2](self, that)
 
-  final def apis: Chunk[API[_, _]] = ServiceSpec.apisOf(self)
+  final def apis: Chunk[EndpointSpec[_, _]] = ServiceSpec.apisOf(self)
 
   final def middleware[MI2, MO2](
     ms: MiddlewareSpec[MI2, MO2],
@@ -36,7 +36,7 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
 }
 object ServiceSpec                        {
   private case object Empty                                      extends ServiceSpec[Unit, Unit, Any]
-  private final case class Single[Id](api: API.WithId[Id, _, _]) extends ServiceSpec[Unit, Unit, Id]
+  private final case class Single[Id](api: EndpointSpec.WithId[Id, _, _]) extends ServiceSpec[Unit, Unit, Id]
   private final case class Concat[MI, MO, AllIds1, AllIds2](
     left: ServiceSpec[MI, MO, AllIds1],
     right: ServiceSpec[MI, MO, AllIds2],
@@ -48,12 +48,12 @@ object ServiceSpec                        {
     mo: Combiner.WithOut[MO1, MO2, MO3],
   ) extends ServiceSpec[MI3, MO3, AllIds]
 
-  def apply[A <: API[_, _]](api: A): ServiceSpec[Unit, Unit, api.Id] =
-    Single(api.asInstanceOf[API.WithId[api.Id, Any, Any]])
+  def apply[A <: EndpointSpec[_, _]](api: A): ServiceSpec[Unit, Unit, api.Id] =
+    Single(api.asInstanceOf[EndpointSpec.WithId[api.Id, Any, Any]])
 
   def empty: ServiceSpec[Unit, Unit, Any] = Empty
 
-  private def apisOf(self: ServiceSpec[_, _, _]): Chunk[API[_, _]] =
+  private def apisOf(self: ServiceSpec[_, _, _]): Chunk[EndpointSpec[_, _]] =
     self match {
       case Empty                     => Chunk.empty
       case Concat(a, b)              => apisOf(a) ++ apisOf(b)
