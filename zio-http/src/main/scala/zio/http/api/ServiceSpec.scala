@@ -1,6 +1,6 @@
 package zio.http.api
 
-import zio.http.{HttpApp, Request, Response}
+import zio.http.{Http, HttpApp, Request, Response}
 import zio.{Chunk, ZIO, http}
 
 sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
@@ -26,7 +26,7 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
     service: Endpoints[R, E, AllIds1],
     midddleware: Middleware[R, E, MI, MO],
   ): HttpApp[R, E] =
-    service.toHttpApp @@ ServiceSpec.toHttpMiddleware(midddleware)
+    ServiceSpec.toHttpMiddleware(midddleware)(service.toHttpApp)
 
   final def withMI[MI2](implicit ev: MI =:= MI2): ServiceSpec[MI2, MO, AllIds] =
     self.asInstanceOf[ServiceSpec[MI2, MO, AllIds]]
@@ -73,7 +73,7 @@ object ServiceSpec                        {
 
   def toHttpMiddleware[R, E, I, O](
     middleware: Middleware[R, E, I, O],
-  ): http.Middleware[R, E, Request, Response, Request, Response] = {
+  ): HttpApp[R, E] => HttpApp[R, E] = {
     middleware match {
       // Type safety issues
       // If both in and out exists, handler should only be applied to `in`
@@ -126,22 +126,29 @@ object ServiceSpec                        {
           }
         }
 
-        val interceptFn = loop(middlewareSpec.middlewareIn) // FIXME handle middlewareOut
+        val interceptFn =
+          loop(middlewareSpec.middlewareIn) // FIXME Also handle middlewareOut
 
-        zio.http.Middleware.interceptZIO[Request, Response](request =>
-          interceptFn(request).flatMap {
-            case Some(value) => handler(value).mapError(Some(_))
-            case None        =>
-              ZIO.succeed(
-                (),
-              ) // FIXME: For HttpCodec.Empty cases handle this case better. Currently works since the output value of handler is ignored here.
-          },
-        )((a, _) => ZIO.succeed(a))
+        http =>
+          Http.fromOptionFunction[Request] { a =>
+            for {
+              input <- interceptFn(a)
+
+              _ <- input match {
+                case Some(value) =>
+                  handler(value).mapError(Some(_))
+                case None        =>
+                  ZIO.unit // Handle HttpCodec.Empty properly in loop
+              } // FIXME:  MiddlewareOut to be implemented (only proof)  output will have to be used to form the final out
+
+              b <- http(a)
+            } yield b
+          }
 
       case concat: Middleware.Concat[R, E, _, _, _, _, _, _] =>
-        toHttpMiddleware(concat.left) ++ toHttpMiddleware(concat.right)
-      case Middleware.Handler(_, _)                          => http.Middleware.empty // TODO
-      case peek: Middleware.PeekRequest[_, _, _, _]          => toHttpMiddleware(peek.middleware)
+        http => toHttpMiddleware(concat.right)(toHttpMiddleware(concat.left)(http))
+      case Middleware.Handler(_, _)                 => identity // FIXME: Reuse what's implemented for HandlerZIO
+      case peek: Middleware.PeekRequest[_, _, _, _] => toHttpMiddleware(peek.middleware)
     }
   }
 
