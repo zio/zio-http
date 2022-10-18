@@ -10,16 +10,16 @@ object APIExamples extends ZIOAppDefault {
 
   // MiddlewareSpec can be added at the service level as well
   val getUsers =
-    EndpointSpec.get(literal("users") / int).out[Int]
+    EndpointSpec.get("users" / int).out[Int]
 
   val getUserEndpoint =
-    getUsers.implement[Any, Nothing] { case (id: Int) =>
-      ZIO.succeedNow(id)
+    getUsers.implement { id: Int =>
+      ZIO.succeed(id)
     }
 
   val getUserPosts =
     EndpointSpec
-      .get(literal("users") / int / literal("posts") / int)
+      .get("users" / int / "posts" / int)
       .in(query("name"))
 
   val getUserPostEndpoint =
