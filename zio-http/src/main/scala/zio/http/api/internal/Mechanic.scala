@@ -80,15 +80,16 @@ private[api] object Mechanic {
           inputCombiner.combine(leftValue, rightValue)
         }
 
-      case IndexedAtom(_: Route[_], index)  =>
+      case IndexedAtom(_: Route[_], index)     =>
         results => coerce(results.routes(index))
-      case IndexedAtom(_: Header[_], index) =>
+      case IndexedAtom(_: Header[_], index)    =>
         results => coerce(results.headers(index))
-      case IndexedAtom(_: Query[_], index)  =>
+      case IndexedAtom(_: Query[_], index)     =>
         results => coerce(results.queries(index))
-      case IndexedAtom(_: Body[_], index)   =>
+      case IndexedAtom(_: Body[_], index)      =>
         results => coerce(results.inputBodies(index))
-
+      case IndexedAtom(_: Method[_], index)    =>
+        results => coerce(results.methods(index))
       case transform: TransformOrFail[_, _, A] =>
         val threaded = makeConstructorLoop(transform.api)
         results =>

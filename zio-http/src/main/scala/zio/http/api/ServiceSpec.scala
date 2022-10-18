@@ -26,7 +26,7 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
     service: Service[R, E, AllIds1],
     midddleware: Middleware[R, E, MI, MO],
   ): HttpApp[R, E] =
-    service.toHttpApp
+    service.toHttpApp @@ ServiceSpec.toHttpMiddleware(midddleware)
 
   final def withMI[MI2](implicit ev: MI =:= MI2): ServiceSpec[MI2, MO, AllIds] =
     self.asInstanceOf[ServiceSpec[MI2, MO, AllIds]]
@@ -81,33 +81,47 @@ object ServiceSpec                        {
       case Middleware.HandlerZIO(middlewareSpec, handler) =>
         def loop[I1](
           in: HttpCodec[CodecType.Header with CodecType.Query, I1],
-        ): Request => ZIO[R, Option[E], I1] = {
+        ): Request => ZIO[R, Option[E], Option[I1]] = {
 
           in match {
             case atom: HttpCodec.Atom[CodecType.Header with CodecType.Query, _] =>
               atom match {
                 case HttpCodec.Header(name, codec) =>
-                  (request: Request) => ZIO.fromOption(request.headers.get(name).flatMap(codec.decode))
+                  (request: Request) => ZIO.fromOption(request.headers.get(name).flatMap(codec.decode)).map(Some(_))
 
                 case HttpCodec.Query(key, codec) =>
                   (request: Request) =>
-                    ZIO.fromOption(
-                      request.url.queryParams.get(key).flatMap(_.headOption).flatMap(codec.decode),
-                    )
+                    ZIO
+                      .fromOption(
+                        request.url.queryParams.get(key).flatMap(_.headOption).flatMap(codec.decode),
+                      )
+                      .map(Some(_))
 
-                case _ => _ => ZIO.fail(None)
+                case HttpCodec.Empty =>
+                  _ => ZIO.succeed(None)
+
+                case _ =>
+                  _ => ZIO.fail(None)
               }
 
             case HttpCodec.WithDoc(in, _) =>
               loop(in)
 
-            case HttpCodec.TransformOrFail(api, f, g) =>
-              request => loop(api)(request).map(o => f(o).getOrElse(throw new Exception("uh oh!"))) // FIXME
+            case HttpCodec.TransformOrFail(api, f, _) =>
+              request =>
+                loop(api)(request).map(
+                  _.map(value =>
+                    f(value).getOrElse(throw new Exception("Failed to transform the input retrieved in middleware")),
+                  ),
+                )
 
             case HttpCodec.Combine(left, right, inputCombiner) =>
               request =>
                 loop(left)(request).zip(loop(right)(request)).map { a =>
-                  inputCombiner.combine(a._1, a._2)
+                  for {
+                    a1 <- a._1
+                    a2 <- a._2
+                  } yield inputCombiner.combine(a1, a2)
                 }
           }
         }
@@ -115,7 +129,13 @@ object ServiceSpec                        {
         val interceptFn = loop(middlewareSpec.middlewareIn) // FIXME handle middlewareOut
 
         zio.http.Middleware.interceptZIO[Request, Response](request =>
-          interceptFn(request).flatMap(handler(_).mapError(Some(_))),
+          interceptFn(request).flatMap {
+            case Some(value) => handler(value).mapError(Some(_))
+            case None        =>
+              ZIO.succeed(
+                (),
+              ) // FIXME: For HttpCodec.Empty cases handle this case better. Currently works since the output value of handler is ignored here.
+          },
         )((a, _) => ZIO.succeed(a))
 
       case concat: Middleware.Concat[R, E, _, _, _, _, _, _] =>

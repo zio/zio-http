@@ -6,8 +6,6 @@ import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.{Cookie, HeaderNames}
 
-import java.util.Base64
-
 final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   middlewareIn: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn],
   middlewareOut: HttpCodec[CodecType.Header, MiddlewareOut],
@@ -78,9 +76,7 @@ object MiddlewareSpec {
     requireHeader(HeaderNames.wwwAuthenticate.toString)
       .mapIn(
         _.transformOrFailLeft(
-          s => {
-            decodeHttpBasic(s).fold(Left("Failed to decode headers"): Either[String, Credentials])(Right(_))
-          },
+          s => decodeHttpBasic(s).fold(Left("Failed to decode headers"): Either[String, Credentials])(Right(_)),
           c => s"${c.uname}:${c.upassword}",
         ),
       )
@@ -89,17 +85,16 @@ object MiddlewareSpec {
     MiddlewareSpec(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty)
 
   private def decodeHttpBasic(encoded: String): Option[Credentials] = {
-    val decoded    = new String(Base64.getDecoder.decode(encoded))
-    val colonIndex = decoded.indexOf(":")
+    val colonIndex = encoded.indexOf(":")
     if (colonIndex == -1)
       None
     else {
-      val username = decoded.substring(0, colonIndex)
+      val username = encoded.substring(0, colonIndex)
       val password =
-        if (colonIndex == decoded.length - 1)
+        if (colonIndex == encoded.length - 1)
           ""
         else
-          decoded.substring(colonIndex + 1)
+          encoded.substring(colonIndex + 1)
       Some(Credentials(username, password))
     }
   }

@@ -2,6 +2,7 @@ package zio.http.api
 
 import zio._
 import zio.http._
+import zio.http.middleware.Auth
 
 object BasicAuthAPIExample extends ZIOAppDefault {
 
@@ -11,35 +12,32 @@ object BasicAuthAPIExample extends ZIOAppDefault {
   val getUser =
     API.get(literal("users") / int).out[Int]
 
-  val getUserHandler =
+  val getUserImpl =
     getUser.implement { case (id: Int) =>
-      println(s"trying to find ${id}")
       ZIO.succeed(id)
     }
 
-//  val authMiddleware = MiddlewareSpec.auth
-//  val correlationId  = MiddlewareSpec.addCorrelationId
+  val authMiddleware = MiddlewareSpec.auth
+  val correlationId  = MiddlewareSpec.addCorrelationId
 
-//  val middleware: MiddlewareSpec[Auth.Credentials, String] =
-//    MiddlewareSpec.auth ++ MiddlewareSpec.addCorrelationId
-//
-//  val authMiddlewareHandler: api.Middleware[Any, Nothing, Auth.Credentials, Unit] =
-//    authMiddleware.implement(_ => ZIO.unit)
-//
-//  val correlationIdHandler: api.Middleware[Any, Nothing, Unit, String] =
-//    correlationId.implement(_ => ZIO.succeed("xyz"))
+  val middleware: MiddlewareSpec[Auth.Credentials, String] =
+    MiddlewareSpec.auth ++ MiddlewareSpec.addCorrelationId
 
-//  val x: api.Middleware[Any, Nothing, Auth.Credentials, String] = {
-//    // FIXME: Discuss Can also be implemented through  `middleware.implement(cred => ZIO.succeed(cred.uname))` in
-//    // which correlation id becomes username. Do we support this?
-//    authMiddlewareHandler ++ correlationIdHandler
-//  }
+  val authMiddlewareHandler: api.Middleware[Any, Nothing, Auth.Credentials, Unit] =
+    authMiddleware.implement(_ => ZIO.unit)
 
-  val serviceSpec = getUser.toServiceSpec // .middleware(middleware)
+  val correlationIdHandler: api.Middleware[Any, Nothing, Unit, String] =
+    correlationId.implement(_ => ZIO.succeed("xyz"))
 
-  val app = serviceSpec.toHttpApp(getUserHandler /*, authMiddlewareHandler ++ correlationIdHandler*/ )
+  val middlewareImpl: api.Middleware[Any, Nothing, Auth.Credentials, String] = {
+    // FIXME: Discuss Can also be implemented through  `middleware.implement(cred => ZIO.succeed(cred.uname))` in
+    // which correlation id becomes username. Do we support this?
+    authMiddlewareHandler ++ correlationIdHandler
+  }
 
-  println(app)
+  val serviceSpec = getUser.toServiceSpec.middleware(middleware)
+
+  val app = serviceSpec.toHttpApp(getUserImpl, middlewareImpl)
 
   val run = Server.serve(app).provide(Server.default)
 
