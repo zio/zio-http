@@ -1,4 +1,4 @@
-FROM hseeberger/scala-sbt:11.0.12_1.5.5_2.13.6
+FROM hseeberger/scala-sbt:11.0.12_1.5.5_3.1.0
 
 RUN wget https://www.yourkit.com/download/docker/YourKit-JavaProfiler-2022.9-docker.zip -P /tmp/ && \
   unzip /tmp/YourKit-JavaProfiler-2022.9-docker.zip -d /usr/local && \
