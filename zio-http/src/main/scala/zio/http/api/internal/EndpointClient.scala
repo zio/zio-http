@@ -8,7 +8,7 @@ import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
+private[api] final case class EndpointClient[I, O](apiRoot: URL, api: EndpointSpec[I, O]) {
   private val optionSchema: Option[Schema[Any]]    = api.input.bodySchema.map(_.asInstanceOf[Schema[Any]])
   private val inputJsonEncoder: Any => Chunk[Byte] =
     JsonCodec.encode(optionSchema.getOrElse(Schema[Unit].asInstanceOf[Schema[Any]]))
@@ -70,6 +70,15 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
     headers
   }
 
+  private def encodeMethod(inputs: Array[Any]): zio.http.model.Method = {
+    if (flattened.methods.nonEmpty) {
+      val method = flattened.methods.head.asInstanceOf[TextCodec[Any]]
+      zio.http.model.Method.fromString(method.encode(inputs(0)))
+    } else {
+      zio.http.model.Method.GET
+    }
+  }
+
   private def encodeBody(inputs: Array[Any]): Body =
     if (inputs.length == 0) Body.empty
     else Body.fromChunk(inputJsonEncoder(inputs(0)))
@@ -81,10 +90,11 @@ private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
     val query   = encodeQuery(inputs.queries)
     val headers = encodeHeaders(inputs.headers)
     val body    = encodeBody(inputs.inputBodies)
+    val method  = encodeMethod(inputs.methods)
 
     val request = Request
       .default(
-        api.method,
+        method,
         apiRoot ++ URL(route, URL.Location.Relative, query),
         body,
       )

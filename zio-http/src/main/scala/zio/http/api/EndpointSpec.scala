@@ -1,39 +1,37 @@
 package zio.http.api
 
 import zio._
+import zio.http.api.CodecType.Route
 import zio.http.model.{Header, Headers, Method}
 import zio.schema._
 import zio.stream.ZStream
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
- * An [[zio.http.api.API]] represents an API endpoint for the HTTP protocol.
- * Every `API` has an input, which comes from a combination of the HTTP path,
- * query string parameters, and headers, and an output, which is the data
- * computed by the handler of the API.
+ * An [[zio.http.api.EndpointSpec]] represents an API endpoint for the HTTP
+ * protocol. Every `API` has an input, which comes from a combination of the
+ * HTTP path, query string parameters, and headers, and an output, which is the
+ * data computed by the handler of the API.
  *
  * MiddlewareInput : Example: A subset of `HttpCodec[Input]` that doesn't give
  * access to `Input` MiddlwareOutput: Example: A subset of `Out[Output]` that
  * doesn't give access to `Output` Input: Example: Int Output: Example: User
  *
- * As [[zio.http.api.API]] is a purely declarative encoding of an endpoint, it
- * is possible to use this model to generate a [[zio.http.HttpApp]] (by
- * supplying a handler for the endpoint), to generate OpenAPI documentation, to
- * generate a type-safe Scala client for the endpoint, and possibly, to generate
- * client libraries in other programming languages.
+ * As [[zio.http.api.EndpointSpec]] is a purely declarative encoding of an
+ * endpoint, it is possible to use this model to generate a [[zio.http.HttpApp]]
+ * (by supplying a handler for the endpoint), to generate OpenAPI documentation,
+ * to generate a type-safe Scala client for the endpoint, and possibly, to
+ * generate client libraries in other programming languages.
  */
-final case class API[Input, Output](
-  method: Method,
-  input: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, Input],
-  output: BodyCodec[Output],
+final case class EndpointSpec[Input, Output](
+  input: HttpCodec[
+    CodecType.RequestType,
+    Input,
+  ],
+  output: HttpCodec[CodecType.ResponseType, Output],
   doc: Doc,
 ) { self =>
   type Id
-
-  /**
-   * Combines this API with another API.
-   */
-  def ++(that: API[_, _]): ServiceSpec[Unit, Unit, Id with that.Id] = ServiceSpec(self).++[that.Id](ServiceSpec(that))
 
   def apply(input: Input): Invocation[Id, Input, Output] =
     Invocation(self, input)
@@ -82,7 +80,7 @@ final case class API[Input, Output](
    * Returns a new API that is derived from this one, but which includes
    * additional documentation that will be included in OpenAPI generation.
    */
-  def ??(that: Doc): API[Input, Output] = copy(doc = self.doc + that)
+  def ??(that: Doc): EndpointSpec[Input, Output] = copy(doc = self.doc + that)
 
   /**
    * Converts this API, which is an abstract description of an endpoint, into a
@@ -90,17 +88,17 @@ final case class API[Input, Output](
    * convert an API into a service, you must specify a function which handles
    * the input, and returns the output.
    */
-  def handle[R, E](f: Input => ZIO[R, E, Output]): Service[R, E, Id] =
-    Service.HandledAPI[R, E, Input, Output, Id](self, f).withAllIds[Id]
+  def implement[R, E](f: Input => ZIO[R, E, Output]): Endpoints[R, E, Id] =
+    Endpoints.HandledEndpoint[R, E, Input, Output, Id](self, f).withAllIds[Id]
 
   /**
    * Changes the identity of the API to the specified singleton string type.
    * Currently this is only used to "prettify" type signatures and, assuming
    * each API is uniquely identified, has no effect on behavior.
    */
-  def id[I <: String with Singleton](i: I): API.WithId[Input, Output, I] = {
+  def id[I <: String with Singleton](i: I): EndpointSpec.WithId[Input, Output, I] = {
     val _ = i
-    self.asInstanceOf[API.WithId[Input, Output, I]]
+    self.asInstanceOf[EndpointSpec.WithId[Input, Output, I]]
   }
 
   /**
@@ -109,31 +107,42 @@ final case class API[Input, Output](
    * headers of the request.
    */
   def in[Input2](
-    in2: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, Input2],
+    in2: HttpCodec[CodecType.RequestType, Input2],
   )(implicit
     combiner: Combiner[Input, Input2],
-  ): API.WithId[combiner.Out, Output, Id] =
+  ): EndpointSpec.WithId[combiner.Out, Output, Id] =
     copy(input = self.input ++ in2).withId[Id]
+
+  /**
+   * Convert API to a ServiceSpec.
+   */
+  def toServiceSpec: ServiceSpec[Unit, Unit, Id] =
+    ServiceSpec(self).middleware(MiddlewareSpec.none)
 
   /**
    * Changes the output type of the endpoint to the specified output type.
    */
-  def out[Output2: Schema]: API.WithId[Input, Output2, Id] =
+  def out[Output2: Schema]: EndpointSpec.WithId[Input, Output2, Id] =
     copy(output = HttpCodec.Body(implicitly[Schema[Output2]])).withId[Id]
+
+  def out[Output2](out2: HttpCodec[CodecType.ResponseType, Output2])(implicit
+    combiner: Combiner[Output, Output2],
+  ): EndpointSpec.WithId[Input, combiner.Out, Id] =
+    copy(output = output ++ out2).withId[Id]
 
   /**
    * Changes the output type of the endpoint to be a stream of the specified
    * output type.
    */
-  def outStream[Output2: Schema]: API.WithId[Input, ZStream[Any, Throwable, Output2], Id] =
+  def outStream[Output2: Schema]: EndpointSpec.WithId[Input, ZStream[Any, Throwable, Output2], Id] =
     copy(output = HttpCodec.BodyStream(implicitly[Schema[Output2]])).withId[Id]
 
-  private def withId[I]: API.WithId[Input, Output, I] =
-    self.asInstanceOf[API.WithId[Input, Output, I]]
+  private def withId[I]: EndpointSpec.WithId[Input, Output, I] =
+    self.asInstanceOf[EndpointSpec.WithId[Input, Output, I]]
 }
 
-object API {
-  type WithId[I, O, X] = API[I, O] { type Id = X }
+object EndpointSpec {
+  type WithId[I, O, X] = EndpointSpec[I, O] { type Id = X }
 
   /**
    * Constructs an API for a DELETE endpoint, given the specified input. It is
@@ -141,8 +150,9 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def delete[Input](route: RouteCodec[Input]): API[Input, Unit] =
-    API(Method.DELETE, route, HttpCodec.empty, Doc.empty)
+  def delete[Input](route: RouteCodec[Input]): EndpointSpec[Input, Unit] = {
+    EndpointSpec(route ++ MethodCodec.delete, HttpCodec.empty, Doc.empty)
+  }
 
   /**
    * Constructs an API for a GET endpoint, given the specified input. It is not
@@ -150,8 +160,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def get[Input](route: RouteCodec[Input]): API[Input, Unit] =
-    API(Method.GET, route, HttpCodec.empty, Doc.empty)
+  def get[Input](route: RouteCodec[Input]): EndpointSpec[Input, Unit] =
+    EndpointSpec(route ++ MethodCodec.get, HttpCodec.empty, Doc.empty)
 
   /**
    * Constructs an API for a POST endpoint, given the specified input. It is not
@@ -159,8 +169,8 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def post[Input](route: RouteCodec[Input]): API[Input, Unit] =
-    API(Method.POST, route, HttpCodec.empty, Doc.empty)
+  def post[Input](route: RouteCodec[Input]): EndpointSpec[Input, Unit] =
+    EndpointSpec(route ++ MethodCodec.post, HttpCodec.empty, Doc.empty)
 
   /**
    * Constructs an API for a PUT endpoint, given the specified input. It is not
@@ -168,6 +178,6 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def put[Input](route: RouteCodec[Input]): API[Input, Unit] =
-    API(Method.PUT, route, HttpCodec.empty, Doc.empty)
+  def put[Input](route: RouteCodec[Input]): EndpointSpec[Input, Unit] =
+    EndpointSpec(route ++ MethodCodec.put, HttpCodec.empty, Doc.empty)
 }

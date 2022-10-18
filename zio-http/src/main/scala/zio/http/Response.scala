@@ -7,10 +7,10 @@ import zio.http.html._
 import zio.http.model._
 import zio.http.model.headers.HeaderExtension
 import zio.http.netty._
-import zio.http.netty.client.ClientResponseStreamHandler
+import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
 import zio.http.service.{CLIENT_INBOUND_HANDLER, CLIENT_STREAMING_BODY_HANDLER}
 import zio.http.socket.{SocketApp, WebSocketFrame}
-import zio.{Cause, Task, Trace, Unsafe, ZIO}
+import zio.{Cause, Promise, Task, Trace, Unsafe, ZIO}
 
 import java.io.IOException
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -210,8 +210,15 @@ object Response {
       Response(status, headers, data, attribute = Attribute(channel = Some(ctx)), None)
     }
 
-    final def fromStreamingJResponse(ctx: ChannelHandlerContext, jRes: HttpResponse)(implicit
+    final def fromStreamingJResponse(
+      ctx: ChannelHandlerContext,
+      jRes: HttpResponse,
+      zExec: NettyRuntime,
+      onComplete: Promise[Throwable, ChannelState],
+      keepAlive: Boolean,
+    )(implicit
       unsafe: Unsafe,
+      trace: Trace,
     ): Response = {
       val status  = Status.fromHttpResponseStatus(jRes.status())
       val headers = Headers.decode(jRes.headers())
@@ -221,7 +228,7 @@ object Response {
           .addAfter(
             CLIENT_INBOUND_HANDLER,
             CLIENT_STREAMING_BODY_HANDLER,
-            new ClientResponseStreamHandler(callback),
+            new ClientResponseStreamHandler(callback, zExec, onComplete, keepAlive),
           ): Unit
       }
       Response(status, headers, data, attribute = Attribute(channel = Some(ctx)), None)

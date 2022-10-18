@@ -10,7 +10,8 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 final class ClientInboundStreamingHandler(
   val rtm: NettyRuntime,
   req: Request,
-  promise: Promise[Throwable, Response],
+  onResponse: Promise[Throwable, Response],
+  onComplete: Promise[Throwable, ChannelState],
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) {
 
@@ -25,11 +26,14 @@ final class ClientInboundStreamingHandler(
       case response: HttpResponse =>
         ctx.channel().config().setAutoRead(false)
         rtm.runUninterruptible(ctx) {
-          promise
+          onResponse
             .succeed(
               Response.unsafe.fromStreamingJResponse(
                 ctx,
                 response,
+                rtm,
+                onComplete,
+                HttpUtil.isKeepAlive(response),
               ),
             )
         }(unsafeClass, trace)
@@ -41,7 +45,9 @@ final class ClientInboundStreamingHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    rtm.run(ctx)(promise.fail(error).uninterruptible)(unsafeClass, trace)
+    rtm.runUninterruptible(ctx)(
+      onResponse.fail(error) *> onComplete.fail(error),
+    )(unsafeClass, trace)
   }
 
   private def encodeRequest(req: Request): HttpRequest = {
