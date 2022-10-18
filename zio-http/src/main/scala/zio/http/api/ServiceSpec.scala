@@ -1,13 +1,13 @@
 package zio.http.api
 
-import zio.http.{HttpApp, Request, Response}
+import zio.http.{Http, HttpApp, Request, Response}
 import zio.{Chunk, ZIO, http}
 
 sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
   final def ++[AllIds2](that: ServiceSpec[MI, MO, AllIds2]): ServiceSpec[MI, MO, AllIds with AllIds2] =
     ServiceSpec.Concat[MI, MO, AllIds, AllIds2](self, that)
 
-  final def apis: Chunk[API[_, _]] = ServiceSpec.apisOf(self)
+  final def apis: Chunk[EndpointSpec[_, _]] = ServiceSpec.apisOf(self)
 
   final def middleware[MI2, MO2](
     ms: MiddlewareSpec[MI2, MO2],
@@ -18,15 +18,15 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
     ServiceSpec.middlewareSpecOf(self)
 
   final def toHttpApp[AllIds1 <: AllIds, R, E](
-    service: Service[R, E, AllIds1],
+    service: Endpoints[R, E, AllIds1],
   )(implicit ev1: MI =:= Unit, ev2: MO =:= Unit): HttpApp[R, E] =
     self.withMI[Unit].withMO[Unit].toHttpApp(service, Middleware.none)
 
   final def toHttpApp[AllIds1 <: AllIds, R, E](
-    service: Service[R, E, AllIds1],
+    service: Endpoints[R, E, AllIds1],
     midddleware: Middleware[R, E, MI, MO],
   ): HttpApp[R, E] =
-    service.toHttpApp @@ ServiceSpec.toHttpMiddleware(midddleware)
+    ServiceSpec.toHttpMiddleware(midddleware)(service.toHttpApp)
 
   final def withMI[MI2](implicit ev: MI =:= MI2): ServiceSpec[MI2, MO, AllIds] =
     self.asInstanceOf[ServiceSpec[MI2, MO, AllIds]]
@@ -35,8 +35,8 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
     self.asInstanceOf[ServiceSpec[MI, MO2, AllIds]]
 }
 object ServiceSpec                        {
-  private case object Empty                                      extends ServiceSpec[Unit, Unit, Any]
-  private final case class Single[Id](api: API.WithId[Id, _, _]) extends ServiceSpec[Unit, Unit, Id]
+  private case object Empty                                               extends ServiceSpec[Unit, Unit, Any]
+  private final case class Single[Id](api: EndpointSpec.WithId[Id, _, _]) extends ServiceSpec[Unit, Unit, Id]
   private final case class Concat[MI, MO, AllIds1, AllIds2](
     left: ServiceSpec[MI, MO, AllIds1],
     right: ServiceSpec[MI, MO, AllIds2],
@@ -48,12 +48,12 @@ object ServiceSpec                        {
     mo: Combiner.WithOut[MO1, MO2, MO3],
   ) extends ServiceSpec[MI3, MO3, AllIds]
 
-  def apply[A <: API[_, _]](api: A): ServiceSpec[Unit, Unit, api.Id] =
-    Single(api.asInstanceOf[API.WithId[api.Id, Any, Any]])
+  def apply[A <: EndpointSpec[_, _]](api: A): ServiceSpec[Unit, Unit, api.Id] =
+    Single(api.asInstanceOf[EndpointSpec.WithId[api.Id, Any, Any]])
 
   def empty: ServiceSpec[Unit, Unit, Any] = Empty
 
-  private def apisOf(self: ServiceSpec[_, _, _]): Chunk[API[_, _]] =
+  private def apisOf(self: ServiceSpec[_, _, _]): Chunk[EndpointSpec[_, _]] =
     self match {
       case Empty                     => Chunk.empty
       case Concat(a, b)              => apisOf(a) ++ apisOf(b)
@@ -73,7 +73,7 @@ object ServiceSpec                        {
 
   def toHttpMiddleware[R, E, I, O](
     middleware: Middleware[R, E, I, O],
-  ): http.Middleware[R, E, Request, Response, Request, Response] = {
+  ): HttpApp[R, E] => HttpApp[R, E] = {
     middleware match {
       // Type safety issues
       // If both in and out exists, handler should only be applied to `in`
@@ -126,22 +126,29 @@ object ServiceSpec                        {
           }
         }
 
-        val interceptFn = loop(middlewareSpec.middlewareIn) // FIXME handle middlewareOut
+        val interceptFn =
+          loop(middlewareSpec.middlewareIn) // FIXME Also handle middlewareOut
 
-        zio.http.Middleware.interceptZIO[Request, Response](request =>
-          interceptFn(request).flatMap {
-            case Some(value) => handler(value).mapError(Some(_))
-            case None        =>
-              ZIO.succeed(
-                (),
-              ) // FIXME: For HttpCodec.Empty cases handle this case better. Currently works since the output value of handler is ignored here.
-          },
-        )((a, _) => ZIO.succeed(a))
+        http =>
+          Http.fromOptionFunction[Request] { a =>
+            for {
+              input <- interceptFn(a)
+
+              _ <- input match {
+                case Some(value) =>
+                  handler(value).mapError(Some(_))
+                case None        =>
+                  ZIO.unit // Handle HttpCodec.Empty properly in loop
+              } // FIXME:  MiddlewareOut to be implemented (only proof)  output will have to be used to form the final out
+
+              b <- http(a)
+            } yield b
+          }
 
       case concat: Middleware.Concat[R, E, _, _, _, _, _, _] =>
-        toHttpMiddleware(concat.left) ++ toHttpMiddleware(concat.right)
-      case Middleware.Handler(_, _)                          => http.Middleware.empty // TODO
-      case peek: Middleware.PeekRequest[_, _, _, _]          => toHttpMiddleware(peek.middleware)
+        http => toHttpMiddleware(concat.right)(toHttpMiddleware(concat.left)(http))
+      case Middleware.Handler(_, _)                 => identity // FIXME: Reuse what's implemented for HandlerZIO
+      case peek: Middleware.PeekRequest[_, _, _, _] => toHttpMiddleware(peek.middleware)
     }
   }
 

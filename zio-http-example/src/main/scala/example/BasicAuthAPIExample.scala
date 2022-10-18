@@ -10,7 +10,7 @@ object BasicAuthAPIExample extends ZIOAppDefault {
 
   // MiddlewareSpec can be added at the service level as well
   val getUser =
-    API.get(literal("users") / int).out[Int]
+    EndpointSpec.get(literal("users") / int).out[Int]
 
   val getUserImpl =
     getUser.implement { case (id: Int) =>

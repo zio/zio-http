@@ -8,7 +8,7 @@ import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[api] final case class APIClient[I, O](apiRoot: URL, api: API[I, O]) {
+private[api] final case class EndpointClient[I, O](apiRoot: URL, api: EndpointSpec[I, O]) {
   private val optionSchema: Option[Schema[Any]]    = api.input.bodySchema.map(_.asInstanceOf[Schema[Any]])
   private val inputJsonEncoder: Any => Chunk[Byte] =
     JsonCodec.encode(optionSchema.getOrElse(Schema[Unit].asInstanceOf[Schema[Any]]))
