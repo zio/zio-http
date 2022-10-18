@@ -3,6 +3,7 @@ package example
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zio._
 import zio.http.model.Headers
+import zio.http.netty.client.ConnectionPool
 import zio.http.{Client, ClientConfig}
 
 object ClientWithDecompression extends ZIOAppDefault {
@@ -15,6 +16,7 @@ object ClientWithDecompression extends ZIOAppDefault {
   } yield ()
 
   val config       = ClientConfig.empty.requestDecompression(true)
-  override val run = program.provide(ClientConfig.live(config), Client.fromConfig, Scope.default)
+  override val run =
+    program.provide(ClientConfig.live(config), ConnectionPool.disabled, Client.fromConfig, Scope.default)
 
 }

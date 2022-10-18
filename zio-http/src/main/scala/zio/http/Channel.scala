@@ -32,6 +32,7 @@ final case class Channel[-A](
    */
   def awaitClose(implicit trace: Trace): UIO[Unit] = ZIO.async[Any, Nothing, Unit] { register =>
     channel.closeFuture().addListener((_: JChannelFuture) => register(ZIO.unit))
+    ()
   }
 
   /**

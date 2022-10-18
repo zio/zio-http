@@ -2,6 +2,7 @@ package example
 
 import zio._
 import zio.http.model.Headers
+import zio.http.netty.client.ConnectionPool
 import zio.http.{Client, ClientConfig, ClientSSLConfig}
 
 object HttpsClient extends ZIOAppDefault {
@@ -21,6 +22,6 @@ object HttpsClient extends ZIOAppDefault {
     _    <- Console.printLine(data)
   } yield ()
 
-  val run = program.provide(ClientConfig.live(clientConfig), Client.live, Scope.default)
+  val run = program.provide(ClientConfig.live(clientConfig), Client.live, ConnectionPool.disabled, Scope.default)
 
 }

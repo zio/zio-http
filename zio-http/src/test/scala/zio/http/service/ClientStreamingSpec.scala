@@ -3,6 +3,7 @@ package zio.http.service
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.Method
+import zio.http.netty.client.ConnectionPool
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
@@ -14,7 +15,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
   def clientStreamingSpec = suite("ClientStreamingSpec")(
     test("streaming content from server - extended") {
       val app    = Http.collect[Request] { case req => Response(body = Body.fromStream(req.body.asStream)) }
-      val stream = ZStream.fromIterable(List("This ", "is ", "a ", "longer ", "text."))
+      val stream = ZStream.fromIterable(List("This ", "is ", "a ", "longer ", "text."), chunkSize = 1)
       val res    = app.deployChunked.body
         .run(method = Method.POST, body = Body.fromStream(stream))
         .flatMap(_.asString)
@@ -28,6 +29,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
     Scope.default,
     DynamicServer.live,
     severTestLayer,
+    ConnectionPool.disabled,
     Client.live,
     ClientConfig.live(ClientConfig.empty.useObjectAggregator(false)),
   ) @@

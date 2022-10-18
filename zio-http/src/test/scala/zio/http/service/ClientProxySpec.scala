@@ -4,6 +4,7 @@ import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Auth.Credentials
 import zio.http.model._
+import zio.http.netty.client.ConnectionPool
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
@@ -24,7 +25,12 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request.get(url = serverUrl),
             )
-            .provideSome(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))))
+            .provideSome(
+              Scope.default,
+              ConnectionPool.disabled,
+              Client.live,
+              ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))),
+            )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
     },
@@ -39,7 +45,12 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request.get(url = url),
             )
-            .provideSome(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.proxy(proxy)))
+            .provideSome(
+              Scope.default,
+              ConnectionPool.disabled,
+              Client.live,
+              ClientConfig.live(ClientConfig.empty.proxy(proxy)),
+            )
         } yield out
       assertZIO(res.either)(isRight)
     },
@@ -64,7 +75,12 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request.get(url = url),
             )
-            .provideSome(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.proxy(proxy)))
+            .provideSome(
+              Scope.default,
+              ConnectionPool.disabled,
+              Client.live,
+              ClientConfig.live(ClientConfig.empty.proxy(proxy)),
+            )
         } yield out
       assertZIO(res.either)(isRight)
     },

@@ -42,7 +42,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   )
 
   override def spec = {
-    suite("ServerConfigSpec") {
+    suite("KeepAliveSpec") {
       appKeepAliveEnabled.as(List(keepAliveSpec))
     }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@ timeout(
       30.seconds,

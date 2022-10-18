@@ -1,5 +1,6 @@
 package zio.http.api
 
+import zio.http.netty.client.ConnectionPool
 import zio.http.{Client, ClientConfig, Server, ServerConfig, URL}
 import zio.schema.{DeriveSchema, Schema}
 import zio.test.{ZIOSpecDefault, assertTrue}
@@ -52,6 +53,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       Server.live,
       ServerConfig.live,
       Client.live,
+      ConnectionPool.disabled,
       executorLayer,
       // TODO: [Ergonomics] Server.default is a value and ClientConfig.default is a Layer
       ClientConfig.default,

@@ -3,6 +3,7 @@ package zio.http
 import io.netty.handler.codec.DecoderException
 import zio.http._
 import zio.http.model._
+import zio.http.netty.client.ConnectionPool
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
@@ -39,6 +40,7 @@ object SSLSpec extends ZIOSpecDefault {
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
             Scope.default,
+            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
           ),
@@ -51,6 +53,7 @@ object SSLSpec extends ZIOSpecDefault {
             assertZIO(actual)(equalTo("DecoderException"))
           }.provide(
             Scope.default,
+            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL2)),
           ),
@@ -59,7 +62,12 @@ object SSLSpec extends ZIOSpecDefault {
               .request("https://localhost:8073/success")
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
-          }.provide(Scope.default, Client.live, ClientConfig.live(ClientConfig.empty.ssl(ClientSSLConfig.Default))),
+          }.provide(
+            Scope.default,
+            ConnectionPool.disabled,
+            Client.live,
+            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLConfig.Default)),
+          ),
           test("Https Redirect when client makes http request") {
             val actual = Client
               .request("http://localhost:8073/success")
@@ -67,6 +75,7 @@ object SSLSpec extends ZIOSpecDefault {
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
           }.provide(
             Scope.default,
+            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
           ),
@@ -83,6 +92,7 @@ object SSLSpec extends ZIOSpecDefault {
             }
           }.provide(
             Scope.default,
+            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
           ),
