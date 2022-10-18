@@ -12,7 +12,7 @@ import org.openjdk.jmh.annotations._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.http4s.Http4sServerInterpreter
-import sttp.tapir.{path => tpath, _}
+import sttp.tapir.{path => tpath, Endpoint => TEndpoint, endpoint => tendpoint, _}
 import zio.http._
 import zio.http.api._
 import zio.http.model.Method
@@ -113,8 +113,8 @@ class ApiBenchmark {
 
   // Tapir Akka DSL
 
-  val usersPostsEndpoint: Endpoint[Unit, (Int, Int, String), Unit, ExampleData, Any] =
-    endpoint
+  val usersPostsEndpoint: TEndpoint[Unit, (Int, Int, String), Unit, ExampleData, Any] =
+    tendpoint
       .in("users" / tpath[Int] / "posts" / tpath[Int])
       .in(query[String]("query"))
       .out(jsonBody[ExampleData])
@@ -226,8 +226,8 @@ class ApiBenchmark {
 
   // Tapir Akka DSL
 
-  val deepPathEndpoint: Endpoint[Unit, (Int, Int, Int, Int, Int, Int, Int), Unit, Unit, Any] =
-    endpoint
+  val deepPathEndpoint: TEndpoint[Unit, (Int, Int, Int, Int, Int, Int, Int), Unit, Unit, Any] =
+    tendpoint
       .in(
         "first" / tpath[Int] / "second" / tpath[Int] / "third" / tpath[Int] / "fourth" / tpath[Int] / "fifth" /
           tpath[Int] / "sixth" / tpath[Int] / "seventh" / tpath[Int],
@@ -325,13 +325,13 @@ class ApiBenchmark {
 
   // API DSL
 
-  val broadUsers        = EndpointSpec.get(RouteCodec.literal("users")).implement { _ => ZIO.unit }
-  val broadUsersId      = EndpointSpec.get(RouteCodec.literal("users") / RouteCodec.int).implement { _ => ZIO.unit }
-  val boardUsersPosts   =
+  val broadUsers                = EndpointSpec.get(RouteCodec.literal("users")).implement { _ => ZIO.unit }
+  val broadUsersId              = EndpointSpec.get(RouteCodec.literal("users") / RouteCodec.int).implement { _ => ZIO.unit }
+  val boardUsersPosts           =
     EndpointSpec.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts")).implement { _ =>
       ZIO.unit
     }
-  val boardUsersPostsId =
+  val boardUsersPostsId         =
     EndpointSpec
       .get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int)
       .implement { _ =>
@@ -356,24 +356,24 @@ class ApiBenchmark {
         ZIO.unit
       }
   val broadPosts                = EndpointSpec.get(RouteCodec.literal("posts")).implement { _ => ZIO.unit }
-  val broadPostsId         = EndpointSpec.get(RouteCodec.literal("posts") / RouteCodec.int).implement { _ => ZIO.unit }
-  val boardPostsComments   =
+  val broadPostsId              = EndpointSpec.get(RouteCodec.literal("posts") / RouteCodec.int).implement { _ => ZIO.unit }
+  val boardPostsComments        =
     EndpointSpec.get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments")).implement { _ =>
       ZIO.unit
     }
-  val boardPostsCommentsId =
+  val boardPostsCommentsId      =
     EndpointSpec
       .get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int)
       .implement { _ =>
         ZIO.unit
       }
-  val broadComments        = EndpointSpec.get(RouteCodec.literal("comments")).implement { _ => ZIO.unit }
-  val broadCommentsId    = EndpointSpec.get(RouteCodec.literal("comments") / RouteCodec.int).implement { _ => ZIO.unit }
-  val broadUsersComments =
+  val broadComments             = EndpointSpec.get(RouteCodec.literal("comments")).implement { _ => ZIO.unit }
+  val broadCommentsId      = EndpointSpec.get(RouteCodec.literal("comments") / RouteCodec.int).implement { _ => ZIO.unit }
+  val broadUsersComments   =
     EndpointSpec.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments")).implement { _ =>
       ZIO.unit
     }
-  val broadUsersCommentsId             =
+  val broadUsersCommentsId =
     EndpointSpec
       .get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int)
       .implement { _ =>
@@ -474,25 +474,25 @@ class ApiBenchmark {
 
   // Tapir Akka DSL
 
-  val broadTapirUsers                       = endpoint.get.in("users")
-  val broadTapirUsersId                     = endpoint.get.in("users" / tpath[Int])
-  val broadTapirUsersPosts                  = endpoint.get.in("users" / tpath[Int] / "posts")
-  val broadTapirUsersPostsId                = endpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int])
-  val broadTapirUsersPostsComments          = endpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int] / "comments")
+  val broadTapirUsers                       = tendpoint.get.in("users")
+  val broadTapirUsersId                     = tendpoint.get.in("users" / tpath[Int])
+  val broadTapirUsersPosts                  = tendpoint.get.in("users" / tpath[Int] / "posts")
+  val broadTapirUsersPostsId                = tendpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int])
+  val broadTapirUsersPostsComments          = tendpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int] / "comments")
   val broadTapirUsersPostsCommentsId        =
-    endpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int] / "comments" / tpath[Int])
-  val broadTapirPosts                       = endpoint.get.in("posts")
-  val broadTapirPostsId                     = endpoint.get.in("posts" / tpath[Int])
-  val broadTapirPostsComments               = endpoint.get.in("posts" / tpath[Int] / "comments")
-  val broadTapirPostsCommentsId             = endpoint.get.in("posts" / tpath[Int] / "comments" / tpath[Int])
-  val broadTapirComments                    = endpoint.get.in("comments")
-  val broadTapirCommentsId                  = endpoint.get.in("comments" / tpath[Int])
-  val broadTapirUsersComments               = endpoint.get.in("users" / tpath[Int] / "comments")
-  val broadTapirUsersCommentsId             = endpoint.get.in("users" / tpath[Int] / "comments" / tpath[Int])
+    tendpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int] / "comments" / tpath[Int])
+  val broadTapirPosts                       = tendpoint.get.in("posts")
+  val broadTapirPostsId                     = tendpoint.get.in("posts" / tpath[Int])
+  val broadTapirPostsComments               = tendpoint.get.in("posts" / tpath[Int] / "comments")
+  val broadTapirPostsCommentsId             = tendpoint.get.in("posts" / tpath[Int] / "comments" / tpath[Int])
+  val broadTapirComments                    = tendpoint.get.in("comments")
+  val broadTapirCommentsId                  = tendpoint.get.in("comments" / tpath[Int])
+  val broadTapirUsersComments               = tendpoint.get.in("users" / tpath[Int] / "comments")
+  val broadTapirUsersCommentsId             = tendpoint.get.in("users" / tpath[Int] / "comments" / tpath[Int])
   val broadTapirUsersPostsCommentsReplies   =
-    endpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int] / "comments" / tpath[Int] / "replies")
+    tendpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int] / "comments" / tpath[Int] / "replies")
   val broadTapirUsersPostsCommentsRepliesId =
-    endpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int] / "comments" / tpath[Int] / "replies" / tpath[Int])
+    tendpoint.get.in("users" / tpath[Int] / "posts" / tpath[Int] / "comments" / tpath[Int] / "replies" / tpath[Int])
 
 //  val broadTapirAkkaApp =
 //    AkkaHttpServerInterpreter()

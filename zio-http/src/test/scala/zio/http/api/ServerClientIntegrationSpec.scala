@@ -9,8 +9,6 @@ import zio.{Scope, ZIO, ZLayer}
 import scala.language.implicitConversions
 
 object ServerClientIntegrationSpec extends ZIOSpecDefault {
-  implicit def stringToIn(s: String): RouteCodec[Unit] = RouteCodec.literal(s)
-
   trait PostsService {
     def getPost(userId: Int, postId: Int): ZIO[Any, Throwable, Post]
   }
@@ -21,10 +19,13 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Post] = DeriveSchema.gen[Post]
   }
 
-  val usersPostAPI     = EndpointSpec.get("users" / RouteCodec.int / "posts" / RouteCodec.int).out[Post]
-  val usersPostHandler = usersPostAPI.implement { case (userId, postId) =>
-    ZIO.succeed(Post(postId, "title", "body", userId))
-  }
+  val usersPostAPI =
+    EndpointSpec.get("users" / RouteCodec.int / "posts" / RouteCodec.int).out[Post]
+
+  val usersPostHandler =
+    usersPostAPI.implement { case (userId, postId) =>
+      ZIO.succeed(Post(postId, "title", "body", userId))
+    }
 
   // TODO: [Ergonomics] Need to make it easy to create an EndpointExecutor layer
   def makeExecutor(client: Client) = {
