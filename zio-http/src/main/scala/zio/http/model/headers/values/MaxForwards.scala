@@ -1,5 +1,7 @@
 package zio.http.model.headers.values
 
+import scala.util.{Success, Try}
+
 /**
  * Max-Forwards header value
  */
