@@ -77,7 +77,7 @@ object ServiceSpec                        {
     middleware match {
       // Type safety issues
       // If both in and out exists, handler should only be applied to `in`
-      // If only either of them exist, handler should't be applied to the one that is none
+      // If only either of them exist, handler shouldn't be applied to the one that is none
       case Middleware.HandlerZIO(middlewareSpec, handler) =>
         def loop[I1](
           in: HttpCodec[CodecType.Header with CodecType.Query, I1],
@@ -121,7 +121,7 @@ object ServiceSpec                        {
       case concat: Middleware.Concat[R, E, _, _, _, _, _, _] =>
         toHttpMiddleware(concat.left) ++ toHttpMiddleware(concat.right)
       case Middleware.Handler(_, _)                          => http.Middleware.empty // TODO
-      case peek: Middleware.PeekRequest[R, E, _, _]          => toHttpMiddleware(peek.middleware)
+      case peek: Middleware.PeekRequest[_, _, _, _]          => toHttpMiddleware(peek.middleware)
     }
   }
 

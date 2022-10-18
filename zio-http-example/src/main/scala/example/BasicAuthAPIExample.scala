@@ -2,7 +2,6 @@ package zio.http.api
 
 import zio._
 import zio.http._
-import zio.http.middleware.Auth
 
 object BasicAuthAPIExample extends ZIOAppDefault {
 
@@ -14,30 +13,33 @@ object BasicAuthAPIExample extends ZIOAppDefault {
 
   val getUserHandler =
     getUser.implement { case (id: Int) =>
+      println(s"trying to find ${id}")
       ZIO.succeed(id)
     }
 
-  val authMiddleware = MiddlewareSpec.auth
-  val correlationId  = MiddlewareSpec.addCorrelationId
+//  val authMiddleware = MiddlewareSpec.auth
+//  val correlationId  = MiddlewareSpec.addCorrelationId
 
-  val middleware: MiddlewareSpec[Auth.Credentials, String] =
-    MiddlewareSpec.auth ++ MiddlewareSpec.addCorrelationId
+//  val middleware: MiddlewareSpec[Auth.Credentials, String] =
+//    MiddlewareSpec.auth ++ MiddlewareSpec.addCorrelationId
+//
+//  val authMiddlewareHandler: api.Middleware[Any, Nothing, Auth.Credentials, Unit] =
+//    authMiddleware.implement(_ => ZIO.unit)
+//
+//  val correlationIdHandler: api.Middleware[Any, Nothing, Unit, String] =
+//    correlationId.implement(_ => ZIO.succeed("xyz"))
 
-  val authMiddlewareHandler: api.Middleware[Any, Nothing, Auth.Credentials, Unit] =
-    authMiddleware.implement(_ => ZIO.unit)
+//  val x: api.Middleware[Any, Nothing, Auth.Credentials, String] = {
+//    // FIXME: Discuss Can also be implemented through  `middleware.implement(cred => ZIO.succeed(cred.uname))` in
+//    // which correlation id becomes username. Do we support this?
+//    authMiddlewareHandler ++ correlationIdHandler
+//  }
 
-  val correlationIdHandler: api.Middleware[Any, Nothing, Unit, String] =
-    correlationId.implement(_ => ZIO.succeed("xyz"))
+  val serviceSpec = getUser.toServiceSpec // .middleware(middleware)
 
-  val x: api.Middleware[Any, Nothing, Auth.Credentials, String] = {
-    // FIXME: Discuss Can also be implemented through  `middleware.implement(cred => ZIO.succeed(cred.uname))` in
-    // which correlation id becomes username. Do we support this?
-    authMiddlewareHandler ++ correlationIdHandler
-  }
+  val app = serviceSpec.toHttpApp(getUserHandler /*, authMiddlewareHandler ++ correlationIdHandler*/ )
 
-  val serviceSpec = getUser.toServiceSpec.middleware(middleware)
-
-  val app = serviceSpec.toHttpApp(getUserHandler, authMiddlewareHandler ++ correlationIdHandler)
+  println(app)
 
   val run = Server.serve(app).provide(Server.default)
 
