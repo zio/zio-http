@@ -56,14 +56,22 @@ object Server {
   ) extends Server {
     override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
       trace: Trace,
-    ): URIO[R, Unit] =
-      ZIO.environment[R].flatMap { env =>
-        driver.addApp(
-          if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
-          else httpApp.provideEnvironment(env),
-        )
+    ): URIO[R, Unit] = {
 
-      } *> setErrorCallback(errorCallback)
+      // ZIO.environment[R].flatMap { env =>
+      //   httpApp.provideEnvironment(env).flatMap { app =>
+      //     driver.install(app, errorCallback)
+      //   }
+      // // driver.addApp(
+      // //   if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
+      // //   else httpApp.provideEnvironment(env)
+      // // )
+
+      // }
+        // *> setErrorCallback(errorCallback)
+      ZIO.environment[R].flatMap(driver.addApp(httpApp, _)) *> setErrorCallback(errorCallback)
+
+    }
 
     override def port: Int = bindPort
 

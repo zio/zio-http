@@ -38,11 +38,16 @@ private[zio] final case class NettyDriver(
     }
   }
 
-  def addApp(newApp: HttpApp[Any, Throwable])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
+  def addApp[R](newApp: HttpApp[R, Throwable], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
     var loop = true
     while (loop) {
-      val oldApp = appRef.get()
-      if (appRef.compareAndSet(oldApp, newApp ++ oldApp)) loop = false
+      val oldAppAndEnv     = appRef.get()
+      val (oldApp, oldEnv) = oldAppAndEnv
+      val updatedApp       = (oldApp ++ newApp).asInstanceOf[HttpApp[Any, Throwable]]
+      val updatedEnv       = oldEnv.unionAll(env)
+      val updatedAppAndEnv = (updatedApp, updatedEnv)
+
+      if (appRef.compareAndSet(oldAppAndEnv, updatedAppAndEnv)) loop = false
     }
   }
 
@@ -77,7 +82,8 @@ object NettyDriver {
     )
 
   val default: ZLayer[ServerConfig, Throwable, Driver] = ZLayer.scoped {
-    val app  = ZLayer.succeed(new AtomicReference[HttpApp[Any, Throwable]](Http.empty))
+    // val app  = ZLayer.succeed(new AtomicReference[HttpApp[Any, Throwable]](Http.empty))
+    val app  = ZLayer.succeed(new AtomicReference[(HttpApp[Any, Throwable], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)))
     val ecb  = ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty))
     val time = ZLayer.succeed(ServerTime.make(1000 millis))
 
