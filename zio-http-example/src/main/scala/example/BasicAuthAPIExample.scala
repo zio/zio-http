@@ -23,11 +23,17 @@ object BasicAuthAPIExample extends ZIOAppDefault {
   val middleware: MiddlewareSpec[Auth.Credentials, String] =
     MiddlewareSpec.auth ++ MiddlewareSpec.addCorrelationId
 
-  val authMiddlewareHandler =
+  val authMiddlewareHandler: api.Middleware[Any, Nothing, Auth.Credentials, Unit] =
     authMiddleware.implement(_ => ZIO.unit)
 
-  val correlationIdHandler =
-    correlationId.implement(_ => ZIO.succeed("qdbasdjkansdad"))
+  val correlationIdHandler: api.Middleware[Any, Nothing, Unit, String] =
+    correlationId.implement(_ => ZIO.succeed("xyz"))
+
+  val x: api.Middleware[Any, Nothing, Auth.Credentials, String] = {
+    // FIXME: Discuss Can also be implemented through  `middleware.implement(cred => ZIO.succeed(cred.uname))` in
+    // which correlation id becomes username. Do we support this?
+    authMiddlewareHandler ++ correlationIdHandler
+  }
 
   val serviceSpec = getUser.toServiceSpec.middleware(middleware)
 

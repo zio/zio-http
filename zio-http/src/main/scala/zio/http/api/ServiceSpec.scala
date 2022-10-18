@@ -75,6 +75,9 @@ object ServiceSpec                        {
     middleware: Middleware[R, E, I, O],
   ): http.Middleware[R, E, Request, Response, Request, Response] = {
     middleware match {
+      // Type safety issues
+      // If both in and out exists, handler should only be applied to `in`
+      // If only either of them exist, handler should't be applied to the one that is none
       case Middleware.HandlerZIO(middlewareSpec, handler) =>
         def loop[I1](
           in: HttpCodec[CodecType.Header with CodecType.Query, I1],
