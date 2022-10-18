@@ -25,8 +25,8 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
     import zio.http.api.internal._
 
     val handlerTree     = HandlerTree.fromService(self)
-    val requestHandlers = Memoized[Endpoints.HandledEndpoint[R, E, _, _, _], APIServer[R, E, _, _]] { handledApi =>
-      APIServer(handledApi)
+    val requestHandlers = Memoized[Endpoints.HandledEndpoint[R, E, _, _, _], EndpointServer[R, E, _, _]] { handledApi =>
+      EndpointServer(handledApi)
     }
 
     Http

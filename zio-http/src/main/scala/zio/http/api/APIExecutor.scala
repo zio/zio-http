@@ -2,7 +2,7 @@ package zio.http.api
 
 import zio._
 import zio.http._
-import zio.http.api.internal.APIClient
+import zio.http.api.internal.EndpointClient
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
@@ -51,9 +51,9 @@ object APIExecutor {
 
   private final case class UntypedServiceExecutor[MI](client: Client, locator: APILocator, middlewareInput0: Task[MI])
       extends APIExecutor[MI, Any, Nothing] {
-    val metadata = zio.http.api.internal.Memoized[EndpointSpec[_, _], APIClient[Any, Any]] {
+    val metadata = zio.http.api.internal.Memoized[EndpointSpec[_, _], EndpointClient[Any, Any]] {
       (api: EndpointSpec[_, _]) =>
-        APIClient(
+        EndpointClient(
           locator.locate(api).getOrElse(throw APIError.NotFound(s"Could not locate API", api)),
           api.asInstanceOf[EndpointSpec[Any, Any]],
         )
@@ -62,7 +62,7 @@ object APIExecutor {
     def apply[Id, A, B](
       invocation: Invocation[Id, A, B],
     )(implicit ev: Nothing <:< Id, trace: Trace): ZIO[Any, Throwable, B] = {
-      val executor = metadata.get(invocation.api).asInstanceOf[APIClient[A, B]]
+      val executor = metadata.get(invocation.api).asInstanceOf[EndpointClient[A, B]]
 
       executor.execute(client, invocation.input).asInstanceOf[ZIO[Any, Throwable, B]]
     }

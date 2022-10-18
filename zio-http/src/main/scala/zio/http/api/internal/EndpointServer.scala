@@ -9,9 +9,9 @@ import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[api] final case class APIServer[R, E, I, O](handledApi: Endpoints.HandledEndpoint[R, E, I, O, _]) {
-  private val api     = handledApi.endpointSpec
-  private val handler = handledApi.handler
+private[api] final case class EndpointServer[R, E, I, O](handledEndpoint: Endpoints.HandledEndpoint[R, E, I, O, _]) {
+  private val api     = handledEndpoint.endpointSpec
+  private val handler = handledEndpoint.handler
 
   private val optionSchema: Option[Schema[Any]] = api.input.bodySchema.map(_.asInstanceOf[Schema[Any]])
   private val bodyJsonDecoder: Chunk[Byte] => Either[String, Any] =
