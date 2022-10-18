@@ -54,7 +54,7 @@ private[zio] trait Metrics {
 
       def apply[R1 <: Any, E1 >: Nothing](
         http: Http[R1, E1, Request, Response],
-      ): Http[R1, E1, Request, Response] =
+      )(implicit trace: Trace): Http[R1, E1, Request, Response] =
         Http.fromOptionFunction[Request] { req =>
           val requestLabels = labelsForRequest(req)
 
