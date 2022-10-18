@@ -1,6 +1,7 @@
 package zio.http.api
 
 import zio._
+import zio.http.api.CodecType.Route
 import zio.http.model.{Header, Headers, Method}
 import zio.schema._
 import zio.stream.ZStream
@@ -23,9 +24,11 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * client libraries in other programming languages.
  */
 final case class API[Input, Output](
-  method: Method,
-  input: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, Input],
-  output: BodyCodec[Output],
+  input: HttpCodec[
+    CodecType.RequestType,
+    Input,
+  ],
+  output: HttpCodec[CodecType.ResponseType, Output],
   doc: Doc,
 ) { self =>
   type Id
@@ -33,7 +36,8 @@ final case class API[Input, Output](
   /**
    * Combines this API with another API.
    */
-  def ++(that: API[_, _]): ServiceSpec[Unit, Unit, Id with that.Id] = ServiceSpec(self).++[that.Id](ServiceSpec(that))
+  def ++(that: API[_, _]): ServiceSpec[Unit, Unit, Id with that.Id] =
+    ServiceSpec(self).++[that.Id](ServiceSpec(that))
 
   def apply(input: Input): Invocation[Id, Input, Output] =
     Invocation(self, input)
@@ -90,7 +94,7 @@ final case class API[Input, Output](
    * convert an API into a service, you must specify a function which handles
    * the input, and returns the output.
    */
-  def handle[R, E](f: Input => ZIO[R, E, Output]): Service[R, E, Id] =
+  def implement[R, E](f: Input => ZIO[R, E, Output]): Service[R, E, Id] =
     Service.HandledAPI[R, E, Input, Output, Id](self, f).withAllIds[Id]
 
   /**
@@ -109,17 +113,28 @@ final case class API[Input, Output](
    * headers of the request.
    */
   def in[Input2](
-    in2: HttpCodec[CodecType.Route with CodecType.Header with CodecType.Body with CodecType.Query, Input2],
+    in2: HttpCodec[CodecType.RequestType, Input2],
   )(implicit
     combiner: Combiner[Input, Input2],
   ): API.WithId[combiner.Out, Output, Id] =
     copy(input = self.input ++ in2).withId[Id]
 
   /**
+   * Convert API to a ServiceSpec.
+   */
+  def toServiceSpec: ServiceSpec[Unit, Unit, Id] =
+    ServiceSpec(self).middleware(MiddlewareSpec.none)
+
+  /**
    * Changes the output type of the endpoint to the specified output type.
    */
   def out[Output2: Schema]: API.WithId[Input, Output2, Id] =
     copy(output = HttpCodec.Body(implicitly[Schema[Output2]])).withId[Id]
+
+  def out[Output2](out2: HttpCodec[CodecType.ResponseType, Output2])(implicit
+    combiner: Combiner[Output, Output2],
+  ): API.WithId[Input, combiner.Out, Id] =
+    copy(output = output ++ out2).withId[Id]
 
   /**
    * Changes the output type of the endpoint to be a stream of the specified
@@ -141,8 +156,9 @@ object API {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def delete[Input](route: RouteCodec[Input]): API[Input, Unit] =
-    API(Method.DELETE, route, HttpCodec.empty, Doc.empty)
+  def delete[Input](route: RouteCodec[Input]): API[Input, Unit] = {
+    API(route ++ MethodCodec.delete, HttpCodec.empty, Doc.empty)
+  }
 
   /**
    * Constructs an API for a GET endpoint, given the specified input. It is not
@@ -151,7 +167,7 @@ object API {
    * definition of the API.
    */
   def get[Input](route: RouteCodec[Input]): API[Input, Unit] =
-    API(Method.GET, route, HttpCodec.empty, Doc.empty)
+    API(route ++ MethodCodec.get, HttpCodec.empty, Doc.empty)
 
   /**
    * Constructs an API for a POST endpoint, given the specified input. It is not
@@ -160,7 +176,7 @@ object API {
    * definition of the API.
    */
   def post[Input](route: RouteCodec[Input]): API[Input, Unit] =
-    API(Method.POST, route, HttpCodec.empty, Doc.empty)
+    API(route ++ MethodCodec.post, HttpCodec.empty, Doc.empty)
 
   /**
    * Constructs an API for a PUT endpoint, given the specified input. It is not
@@ -169,5 +185,5 @@ object API {
    * definition of the API.
    */
   def put[Input](route: RouteCodec[Input]): API[Input, Unit] =
-    API(Method.PUT, route, HttpCodec.empty, Doc.empty)
+    API(route ++ MethodCodec.put, HttpCodec.empty, Doc.empty)
 }

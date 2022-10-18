@@ -35,7 +35,8 @@ sealed trait Service[-R, +E, AllIds] { self =>
         val handler = handlerTree.lookup(request)
 
         handler match {
-          case None => ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
+          case None               =>
+            ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
           case Some(handlerMatch) =>
             requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)(Trace.empty)
         }

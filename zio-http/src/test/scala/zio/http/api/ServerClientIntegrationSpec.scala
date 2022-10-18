@@ -22,7 +22,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
   }
 
   val usersPostAPI     = API.get("users" / RouteCodec.int / "posts" / RouteCodec.int).out[Post]
-  val usersPostHandler = usersPostAPI.handle { case (userId, postId) =>
+  val usersPostHandler = usersPostAPI.implement { case (userId, postId) =>
     ZIO.succeed(Post(postId, "title", "body", userId))
   }
 

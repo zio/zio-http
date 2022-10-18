@@ -4,7 +4,7 @@ import zio._
 import zio.http._
 import zio.http.api._
 import zio.http.api.internal.Mechanic.Constructor
-import zio.http.model.Headers
+import zio.http.model.{Headers}
 import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;

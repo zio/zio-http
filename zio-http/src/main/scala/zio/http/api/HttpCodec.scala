@@ -1,7 +1,8 @@
 package zio.http.api
 
-import scala.language.implicitConversions
+import zio.http.URL
 
+import scala.language.implicitConversions
 import zio.stream.ZStream
 import zio.schema.Schema
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -55,6 +56,12 @@ sealed trait HttpCodec[-AtomTypes, Input] {
   def transform[Input2](f: Input => Input2, g: Input2 => Input): HttpCodec[AtomTypes, Input2] =
     HttpCodec.TransformOrFail[AtomTypes, Input, Input2](self, in => Right(f(in)), output => Right(g(output)))
 
+  def transformOrFail[Input2](
+    f: Input => Either[String, Input2],
+    g: Input2 => Either[String, Input],
+  ): HttpCodec[AtomTypes, Input2] =
+    HttpCodec.TransformOrFail[AtomTypes, Input, Input2](self, f, g)
+
   def transformOrFailLeft[Input2](
     f: Input => Either[String, Input2],
     g: Input2 => Input,
@@ -77,12 +84,14 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
 
   private[api] sealed trait Atom[-AtomTypes, Input0] extends HttpCodec[AtomTypes, Input0]
 
-  private[api] case object Empty                                  extends Atom[Any, Unit]
-  private[api] final case class Route[A](textCodec: TextCodec[A]) extends Atom[CodecType.Route, A]
-  private[api] final case class Body[A](input: Schema[A])         extends Atom[CodecType.Body, A]
+  private[api] case object Empty                                   extends Atom[Any, Unit]
+  private[api] final case class Status[A](textCodec: TextCodec[A]) extends Atom[CodecType.Status, A]
+  private[api] final case class Route[A](textCodec: TextCodec[A])  extends Atom[CodecType.Route, A]
+  private[api] final case class Body[A](input: Schema[A])          extends Atom[CodecType.Body, A]
   private[api] final case class BodyStream[A](element: Schema[A])
       extends Atom[CodecType.Body, ZStream[Any, Throwable, A]] // and delete Out
   private[api] final case class Query[A](name: String, textCodec: TextCodec[A])  extends Atom[CodecType.Query, A]
+  private[api] final case class Method[A](methodCodec: TextCodec[A])             extends Atom[CodecType.Method, A]
   private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[CodecType.Header, A]
   private[api] final case class IndexedAtom[AtomType, A](atom: Atom[AtomType, A], index: Int) extends Atom[AtomType, A]
   private[api] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)
