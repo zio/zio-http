@@ -3,12 +3,6 @@ package zio.http.api
 import zio.http.URL
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-/**
- * @param map
- * @tparam MI
- * @tparam MO
- * @tparam Ids
- */
 final case class EndpointRegistry[-MI, +MO, +EP] private (private val map: Map[EndpointSpec[_, _], URL])
     extends APILocator  { self =>
   def locate(api: EndpointSpec[_, _]): Option[URL] = map.get(api)

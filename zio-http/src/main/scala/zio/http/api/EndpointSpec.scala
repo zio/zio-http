@@ -128,6 +128,7 @@ final case class EndpointSpec[Input, Output](
 }
 
 object EndpointSpec {
+
   /**
    * Constructs an API for a DELETE endpoint, given the specified input. It is
    * not necessary to specify the full input to the endpoint upfront, as the
