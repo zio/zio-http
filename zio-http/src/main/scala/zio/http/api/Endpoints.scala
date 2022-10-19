@@ -8,14 +8,16 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 /**
  * Represents a collection of API endpoints that all have handlers.
  */
-sealed trait Endpoints[-R, +E, -APIs] { self =>
+sealed trait Endpoints[-R, +E, EndpointSpecs] { self =>
 
   /**
    * Combines this service and the specified service into a single service,
    * which contains all endpoints and their associated handlers.
    */
-  def ++[R1 <: R, E1 >: E, APIs2](that: Endpoints[R1, E1, APIs2]): Endpoints[R1, E1, APIs with APIs2] =
-    Endpoints.Concat(self, that)
+  def ++[R1 <: R, E1 >: E, EndpointSpecs2](
+    that: Endpoints[R1, E1, EndpointSpecs2],
+  ): Endpoints[R1, E1, EndpointSpecs with EndpointSpecs2] =
+    Endpoints.Concat[R1, E1, EndpointSpecs, EndpointSpecs2](self, that)
 
   /**
    * Converts this service into a [[zio.http.HttpApp]], which can then be served
