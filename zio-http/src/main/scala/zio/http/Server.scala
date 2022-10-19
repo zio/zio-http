@@ -56,9 +56,8 @@ object Server {
   ) extends Server {
     override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
       trace: Trace,
-    ): URIO[R, Unit] = 
+    ): URIO[R, Unit] =
       ZIO.environment[R].flatMap(driver.addApp(httpApp, _)) *> setErrorCallback(errorCallback)
-
 
     override def port: Int = bindPort
 
