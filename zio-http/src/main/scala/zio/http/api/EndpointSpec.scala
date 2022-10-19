@@ -99,7 +99,7 @@ final case class EndpointSpec[Input, Output](
     in2: HttpCodec[CodecType.RequestType, Input2],
   )(implicit
     combiner: Combiner[Input, Input2],
-  ): EndpointSpec.WithId[combiner.Out, Output] =
+  ): EndpointSpec[combiner.Out, Output] =
     copy(input = self.input ++ in2)
 
   /**
@@ -111,25 +111,23 @@ final case class EndpointSpec[Input, Output](
   /**
    * Changes the output type of the endpoint to the specified output type.
    */
-  def out[Output2: Schema]: EndpointSpec.WithId[Input, Output2] =
+  def out[Output2: Schema]: EndpointSpec[Input, Output2] =
     copy(output = HttpCodec.Body(implicitly[Schema[Output2]]))
 
   def out[Output2](out2: HttpCodec[CodecType.ResponseType, Output2])(implicit
     combiner: Combiner[Output, Output2],
-  ): EndpointSpec.WithId[Input, combiner.Out] =
+  ): EndpointSpec[Input, combiner.Out] =
     copy(output = output ++ out2)
 
   /**
    * Changes the output type of the endpoint to be a stream of the specified
    * output type.
    */
-  def outStream[Output2: Schema]: EndpointSpec.WithId[Input, ZStream[Any, Throwable, Output2]] =
+  def outStream[Output2: Schema]: EndpointSpec[Input, ZStream[Any, Throwable, Output2]] =
     copy(output = HttpCodec.BodyStream(implicitly[Schema[Output2]]))
 }
 
 object EndpointSpec {
-  type WithId[I, O] = EndpointSpec[I, O]
-
   /**
    * Constructs an API for a DELETE endpoint, given the specified input. It is
    * not necessary to specify the full input to the endpoint upfront, as the
