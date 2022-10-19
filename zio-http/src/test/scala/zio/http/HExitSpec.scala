@@ -3,7 +3,7 @@ package zio.http
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{ZIO, durationInt}
+import zio.{Ref, ZIO, durationInt}
 
 object HExitSpec extends ZIOSpecDefault with HExitAssertion {
   def spec: Spec[Environment, Any] = {
@@ -61,7 +61,41 @@ object HExitSpec extends ZIOSpecDefault with HExitAssertion {
         },
         test("reversed") {
           empty <+> (empty <+> (empty <+> succeed(1))) === isSuccess(equalTo(1))
-        },
+        } +
+          suite("lazyness") {
+            def raise[R, E, A](): HExit[Any, E, A] = throw new Exception("should be lazily evaluated")
+            def combine[R, E, A](
+              a: => HExit[R, E, A],
+              b: => HExit[R, E, A],
+              combineOps: (=> HExit[R, E, A], => HExit[R, E, A]) => HExit[R, E, A],
+            ) =
+              combineOps(a, b)
+
+            test("<>") {
+              var count     = 0
+              val increment = fromZIO(ZIO.succeed { count += 1 })
+              val test      = combine[Any, Any, Any](increment, raise(), _.<>(_)).toZIO
+              assertZIO(test.as(count))(equalTo(1))
+            } +
+              test("<+>") {
+                var count     = 0
+                val increment = fromZIO(ZIO.succeed { count += 1 })
+                val test      = combine[Any, Any, Any](increment, raise(), _.<+>(_)).toZIO
+                assertZIO(test.as(count))(equalTo(1))
+              } +
+              test("defaultWith") {
+                var count     = 0
+                val increment = fromZIO(ZIO.succeed { count += 1 })
+                val test      = combine[Any, Any, Any](increment, raise(), _.defaultWith(_)).toZIO
+                assertZIO(test.as(count))(equalTo(1))
+              } +
+              test("orElse") {
+                var count     = 0
+                val increment = fromZIO(ZIO.succeed { count += 1 })
+                val test      = combine[Any, Any, Any](increment, raise(), _.orElse(_)).toZIO
+                assertZIO(test.as(count))(equalTo(1))
+              }
+          },
       ),
     ) @@ timeout(5 second)
   }

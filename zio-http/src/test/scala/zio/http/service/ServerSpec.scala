@@ -55,6 +55,20 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(isSome(equalTo("0")))
         }
     } +
+      suite("side effect/lazyness") {
+        test("Should not execute side effect if the first app matches") {
+          var counter = 0
+          val app     = Http.collectZIO[Request] { case _ =>
+            counter += 1
+            ZIO.unit
+          } ++ Http.collectZIO[Request] { case _ =>
+            counter += 2
+            ZIO.unit
+          }
+          val effect  = app(Request.default(method = Method.GET, url = URL.empty))
+          assertZIO(effect.as(counter))(equalTo(1))
+        }
+      } +
       suite("error") {
         val app = Http.fail(new Error("SERVER_ERROR"))
         test("status is 500") {

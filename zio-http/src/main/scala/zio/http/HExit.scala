@@ -15,10 +15,10 @@ sealed trait HExit[-R, +E, +A] { self =>
   def >>=[R1 <: R, E1 >: E, B](ab: A => HExit[R1, E1, B])(implicit trace: Trace): HExit[R1, E1, B] =
     self.flatMap(ab)
 
-  def <>[R1 <: R, E1, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
+  def <>[R1 <: R, E1, A1 >: A](other: => HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
     self orElse other
 
-  def <+>[R1 <: R, E1 >: E, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
+  def <+>[R1 <: R, E1 >: E, A1 >: A](other: => HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
     this defaultWith other
 
   def *>[R1 <: R, E1 >: E, B](other: HExit[R1, E1, B])(implicit trace: Trace): HExit[R1, E1, B] =
@@ -26,7 +26,7 @@ sealed trait HExit[-R, +E, +A] { self =>
 
   def as[B](b: B)(implicit trace: Trace): HExit[R, E, B] = self.map(_ => b)
 
-  def defaultWith[R1 <: R, E1 >: E, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
+  def defaultWith[R1 <: R, E1 >: E, A1 >: A](other: => HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
     self.foldExit(HExit.failCause, HExit.succeed, other)
 
   def flatMap[R1 <: R, E1 >: E, B](ab: A => HExit[R1, E1, B])(implicit trace: Trace): HExit[R1, E1, B] =
@@ -38,7 +38,7 @@ sealed trait HExit[-R, +E, +A] { self =>
   def foldExit[R1 <: R, E1, B1](
     failure: Cause[E] => HExit[R1, E1, B1],
     success: A => HExit[R1, E1, B1],
-    empty: HExit[R1, E1, B1],
+    empty: => HExit[R1, E1, B1],
   )(implicit trace: Trace): HExit[R1, E1, B1] =
     self match {
       case HExit.Success(a)     => success(a)
@@ -64,7 +64,7 @@ sealed trait HExit[-R, +E, +A] { self =>
 
   def map[B](ab: A => B)(implicit trace: Trace): HExit[R, E, B] = self.flatMap(a => HExit.succeed(ab(a)))
 
-  def orElse[R1 <: R, E1, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
+  def orElse[R1 <: R, E1, A1 >: A](other: => HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
     self.foldExit(_ => other, HExit.succeed, HExit.empty)
 
   def toZIO(implicit trace: Trace): ZIO[R, Option[E], A] = self match {
