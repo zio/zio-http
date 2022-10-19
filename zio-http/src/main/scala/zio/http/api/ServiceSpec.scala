@@ -19,7 +19,7 @@ sealed trait ServiceSpec[MI, MO, EndPointSpecs] { self =>
   final def middlewareSpec: MiddlewareSpec[_, _] =
     ServiceSpec.middlewareSpecOf(self)
 
-  final def toHttpApp[EndPointSpecs1 <: EndPointSpecs, R, E](
+  final def toHttpApp[EndPointSpecs1 <: EndPointSpecs, R, E, T](
     service: Endpoints[R, E, EndPointSpecs1],
   )(implicit ev1: MI =:= Unit, ev2: MO =:= Unit): HttpApp[R, E] =
     self.withMI[Unit].withMO[Unit].toHttpApp(service, Middleware.none)
@@ -38,8 +38,8 @@ sealed trait ServiceSpec[MI, MO, EndPointSpecs] { self =>
 }
 
 object ServiceSpec {
-  private case object Empty                                        extends ServiceSpec[Unit, Unit, Any]
-  private final case class Single[A <: EndpointSpec[_, _]](api: A) extends ServiceSpec[Unit, Unit, A]
+  private case object Empty                                   extends ServiceSpec[Unit, Unit, Any]
+  private final case class Single[A](api: EndpointSpec[_, _]) extends ServiceSpec[Unit, Unit, A]
   private final case class Concat[MI, MO, AllIds1, AllIds2](
     left: ServiceSpec[MI, MO, AllIds1],
     right: ServiceSpec[MI, MO, AllIds2],
@@ -51,7 +51,7 @@ object ServiceSpec {
     mo: Combiner.WithOut[MO1, MO2, MO3],
   ) extends ServiceSpec[MI3, MO3, AllIds]
 
-  def apply[A <: EndpointSpec[_, _]](api: A): ServiceSpec[Unit, Unit, A] =
+  def apply[A](api: EndpointSpec[_, _]): ServiceSpec[Unit, Unit, A] =
     Single(api)
 
   def empty: ServiceSpec[Unit, Unit, Any] = Empty

@@ -87,8 +87,8 @@ final case class EndpointSpec[Input, Output](
    * convert an API into a service, you must specify a function which handles
    * the input, and returns the output.
    */
-  def implement[R, E](f: Input => ZIO[R, E, Output]): Endpoints[R, E, EndpointSpec[Input, Output]] =
-    Endpoints.HandledEndpoint[R, E, Input, Output](self, f)
+  def implement[R, E](f: Input => ZIO[R, E, Output]): Endpoints[R, E, this.type] =
+    Endpoints.HandledEndpoint[R, E, Input, Output, this.type](self, f)
 
   /**
    * Adds a new element of input to the API, which can come from the portion of
@@ -105,8 +105,8 @@ final case class EndpointSpec[Input, Output](
   /**
    * Convert API to a ServiceSpec.
    */
-  def toServiceSpec: ServiceSpec[Unit, Unit, EndpointSpec[Input, Output]] =
-    ServiceSpec(self).middleware(MiddlewareSpec.none)
+  def toServiceSpec: ServiceSpec[Unit, Unit, this.type] =
+    ServiceSpec[this.type](self).middleware(MiddlewareSpec.none)
 
   /**
    * Changes the output type of the endpoint to the specified output type.
