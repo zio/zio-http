@@ -32,47 +32,47 @@ final case class EndpointSpec[Input, Output](
   doc: Doc,
 ) { self =>
 
-  def apply(input: Input): Invocation[Input, Output] =
+  def apply(input: Input): Invocation[this.type, Input, Output] =
     Invocation(self, input)
 
   def apply[A, B](a: A, b: B)(implicit
     ev: (A, B) <:< Input,
-  ): Invocation[Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b)))
 
   def apply[A, B, C](a: A, b: B, c: C)(implicit
     ev: (A, B, C) <:< Input,
-  ): Invocation[Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c)))
 
   def apply[A, B, C, D](a: A, b: B, c: C, d: D)(implicit
     ev: (A, B, C, D) <:< Input,
-  ): Invocation[Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d)))
 
   def apply[A, B, C, D, E](a: A, b: B, c: C, d: D, e: E)(implicit
     ev: (A, B, C, D, E) <:< Input,
-  ): Invocation[Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d, e)))
 
   def apply[A, B, C, D, E, F](a: A, b: B, c: C, d: D, e: E, f: F)(implicit
     ev: (A, B, C, D, E, F) <:< Input,
-  ): Invocation[Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f)))
 
   def apply[A, B, C, D, E, F, G](a: A, b: B, c: C, d: D, e: E, f: F, g: G)(implicit
     ev: (A, B, C, D, E, F, G) <:< Input,
-  ): Invocation[Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g)))
 
   def apply[A, B, C, D, E, F, G, H](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H)(implicit
     ev: (A, B, C, D, E, F, G, H) <:< Input,
-  ): Invocation[Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g, h)))
 
   def apply[A, B, C, D, E, F, G, H, I](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I)(implicit
     ev: (A, B, C, D, E, F, G, H, I) <:< Input,
-  ): Invocation[Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g, h, i)))
 
   /**
