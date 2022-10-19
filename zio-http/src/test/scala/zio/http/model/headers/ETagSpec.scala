@@ -1,9 +1,8 @@
 package zio.http.model.headers
 
 import zio.Scope
-import zio.http.model.headers.HeaderValue.ETag
-import zio.http.model.headers.HeaderValue.ETag.{InvalidETagValue, StrongETagValue, WeakETagValue}
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault}
+import zio.http.model.headers.values.ETag
+import zio.http.model.headers.values.ETag.{InvalidETagValue, StrongETagValue, WeakETagValue}
 import zio.test._
 
 object ETagSpec extends ZIOSpecDefault {
