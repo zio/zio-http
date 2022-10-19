@@ -11,17 +11,17 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * failing with some kind of RPC error.
  */
 trait APIExecutor[+MI, +MO, +Ids] { self =>
-  def apply[Id, A, B](
-    invocation: Invocation[Id, A, B],
-  )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B]
+  def apply[A, B](
+    invocation: Invocation[A, B],
+  )(implicit trace: Trace): ZIO[Any, Throwable, B]
 
   def middlewareInput(implicit trace: Trace): Task[MI]
 
   def mapMiddlewareInput[MI2](f: MI => MI2): APIExecutor[MI2, MO, Ids] =
     new APIExecutor[MI2, MO, Ids] {
-      def apply[Id, A, B](
-        invocation: Invocation[Id, A, B],
-      )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B] =
+      def apply[A, B](
+        invocation: Invocation[A, B],
+      )(implicit trace: Trace): ZIO[Any, Throwable, B] =
         self.apply(invocation)
 
       def middlewareInput(implicit trace: Trace): Task[MI2] = self.middlewareInput.map(f)
@@ -59,9 +59,9 @@ object APIExecutor {
         )
     }
 
-    def apply[Id, A, B](
-      invocation: Invocation[Id, A, B],
-    )(implicit ev: Nothing <:< Id, trace: Trace): ZIO[Any, Throwable, B] = {
+    def apply[A, B](
+      invocation: Invocation[A, B],
+    )(implicit trace: Trace): ZIO[Any, Throwable, B] = {
       val executor = metadata.get(invocation.api).asInstanceOf[EndpointClient[A, B]]
 
       executor.execute(client, invocation.input).asInstanceOf[ZIO[Any, Throwable, B]]

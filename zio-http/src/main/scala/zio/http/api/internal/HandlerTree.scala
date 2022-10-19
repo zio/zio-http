@@ -9,10 +9,10 @@ import scala.annotation.tailrec
 case class HandlerTree[-R, +E](
   constants: Map[String, HandlerTree[R, E]],
   parsers: Map[TextCodec[_], HandlerTree[R, E]],
-  leaf: Option[Endpoints.HandledEndpoint[R, E, _, _, _]],
+  leaf: Option[Endpoints.HandledEndpoint[R, E, _, _]],
 ) { self =>
 
-  def add[R1 <: R, E1 >: E](handledAPI: Endpoints.HandledEndpoint[R1, E1, _, _, _]): HandlerTree[R1, E1] =
+  def add[R1 <: R, E1 >: E](handledAPI: Endpoints.HandledEndpoint[R1, E1, _, _]): HandlerTree[R1, E1] =
     merge(HandlerTree.single(handledAPI))
 
   def generateError(request: Request): String = s"The path ${request.path} does not match any route"
@@ -46,7 +46,7 @@ object HandlerTree {
   val empty: HandlerTree[Any, Nothing] =
     HandlerTree(Map.empty, Map.empty, None)
 
-  def single[R, E](handledAPI: Endpoints.HandledEndpoint[R, E, _, _, _]): HandlerTree[R, E] = {
+  def single[R, E](handledAPI: Endpoints.HandledEndpoint[R, E, _, _]): HandlerTree[R, E] = {
     val routeCodecs = Mechanic.flatten(handledAPI.endpointSpec.input).routes
 
     routeCodecs.foldRight[HandlerTree[R, E]](HandlerTree(Map.empty, Map.empty, Some(handledAPI))) { //
@@ -63,7 +63,7 @@ object HandlerTree {
   def fromService[R, E](service: Endpoints[R, E, _]): HandlerTree[R, E] =
     fromIterable(Endpoints.flatten(service))
 
-  def fromIterable[R, E](handledAPIs: Iterable[Endpoints.HandledEndpoint[R, E, _, _, _]]): HandlerTree[R, E] =
+  def fromIterable[R, E](handledAPIs: Iterable[Endpoints.HandledEndpoint[R, E, _, _]]): HandlerTree[R, E] =
     handledAPIs.foldLeft[HandlerTree[R, E]](empty)(_ add _)
 
   @tailrec

@@ -35,8 +35,8 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
     self.asInstanceOf[ServiceSpec[MI, MO2, AllIds]]
 }
 object ServiceSpec                        {
-  private case object Empty                                               extends ServiceSpec[Unit, Unit, Any]
-  private final case class Single[Id](api: EndpointSpec.WithId[Id, _, _]) extends ServiceSpec[Unit, Unit, Id]
+  private case object Empty                                        extends ServiceSpec[Unit, Unit, Any]
+  private final case class Single[A <: EndpointSpec[_, _]](api: A) extends ServiceSpec[Unit, Unit, A]
   private final case class Concat[MI, MO, AllIds1, AllIds2](
     left: ServiceSpec[MI, MO, AllIds1],
     right: ServiceSpec[MI, MO, AllIds2],
@@ -48,8 +48,8 @@ object ServiceSpec                        {
     mo: Combiner.WithOut[MO1, MO2, MO3],
   ) extends ServiceSpec[MI3, MO3, AllIds]
 
-  def apply[A <: EndpointSpec[_, _]](api: A): ServiceSpec[Unit, Unit, api.Id] =
-    Single(api.asInstanceOf[EndpointSpec.WithId[api.Id, Any, Any]])
+  def apply[A <: EndpointSpec[_, _]](api: A): ServiceSpec[Unit, Unit, A] =
+    Single(api)
 
   def empty: ServiceSpec[Unit, Unit, Any] = Empty
 
