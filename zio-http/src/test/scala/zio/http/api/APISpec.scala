@@ -6,9 +6,9 @@ import zio.http.api.RouteCodec._
 import zio.http.{Request, Response, URL}
 import zio.test._
 
-object InSpec extends ZIOSpecDefault {
+object APISpec extends ZIOSpecDefault {
 
-  def spec = suite("InSpec")(
+  def spec = suite("APISpec")(
     suite("handler")(
       test("simple request") {
         val testRoutes = testApi(

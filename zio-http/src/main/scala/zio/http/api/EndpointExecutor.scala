@@ -6,19 +6,19 @@ import zio.http.api.internal.EndpointClient
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
- * A [[zio.http.api.APIExecutor]] is responsible for taking a service
+ * A [[zio.http.api.EndpointExecutor]] is responsible for taking a service
  * invocation, and executing this invocation, returning the final result, or
  * failing with some kind of RPC error.
  */
-trait APIExecutor[+MI, +MO, +Ids] { self =>
+trait EndpointExecutor[+MI, +MO, +Ids] { self =>
   def apply[Id, A, B](
     invocation: Invocation[Id, A, B],
   )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B]
 
   def middlewareInput(implicit trace: Trace): Task[MI]
 
-  def mapMiddlewareInput[MI2](f: MI => MI2): APIExecutor[MI2, MO, Ids] =
-    new APIExecutor[MI2, MO, Ids] {
+  def mapMiddlewareInput[MI2](f: MI => MI2): EndpointExecutor[MI2, MO, Ids] =
+    new EndpointExecutor[MI2, MO, Ids] {
       def apply[Id, A, B](
         invocation: Invocation[Id, A, B],
       )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B] =
@@ -28,7 +28,7 @@ trait APIExecutor[+MI, +MO, +Ids] { self =>
     }
 }
 
-object APIExecutor {
+object EndpointExecutor {
 
   /**
    * The default constructor creates a typed executor, which requires a service
@@ -38,7 +38,7 @@ object APIExecutor {
     client: Client,
     registry: EndpointRegistry[MI, MO, Ids],
     mi: Task[MI],
-  ): APIExecutor[Any, Any, Ids] =
+  ): EndpointExecutor[Any, Any, Ids] =
     UntypedServiceExecutor(client, registry, mi)
 
   /**
@@ -46,15 +46,18 @@ object APIExecutor {
    * can attempt to execute any service, and which may fail at runtime if it
    * does not know the location of a service.
    */
-  def untyped(client: Client, locator: APILocator): APIExecutor[Any, Any, Nothing] =
+  def untyped(client: Client, locator: EndpointLocator): EndpointExecutor[Any, Any, Nothing] =
     UntypedServiceExecutor(client, locator, ZIO.unit)
 
-  private final case class UntypedServiceExecutor[MI](client: Client, locator: APILocator, middlewareInput0: Task[MI])
-      extends APIExecutor[MI, Any, Nothing] {
+  private final case class UntypedServiceExecutor[MI](
+    client: Client,
+    locator: EndpointLocator,
+    middlewareInput0: Task[MI],
+  ) extends EndpointExecutor[MI, Any, Nothing] {
     val metadata = zio.http.api.internal.Memoized[EndpointSpec[_, _], EndpointClient[Any, Any]] {
       (api: EndpointSpec[_, _]) =>
         EndpointClient(
-          locator.locate(api).getOrElse(throw APIError.NotFound(s"Could not locate API", api)),
+          locator.locate(api).getOrElse(throw EndpointError.NotFound(s"Could not locate API", api)),
           api.asInstanceOf[EndpointSpec[Any, Any]],
         )
     }

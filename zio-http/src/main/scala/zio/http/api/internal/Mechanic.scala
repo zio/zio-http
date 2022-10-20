@@ -87,7 +87,7 @@ private[api] object Mechanic {
       case IndexedAtom(_: Query[_], index)     =>
         results => coerce(results.queries(index))
       case IndexedAtom(_: Body[_], index)      =>
-        results => coerce(results.inputBodies(index))
+        results => coerce(results.bodies(index))
       case IndexedAtom(_: Method[_], index)    =>
         results => coerce(results.methods(index))
       case transform: TransformOrFail[_, _, A] =>
@@ -161,7 +161,7 @@ private[api] object Mechanic {
     routes: Chunk[TextCodec[_]],
     queries: Chunk[Query[_]],
     headers: Chunk[Header[_]],
-    inputBodies: Chunk[Body[_]],
+    bodies: Chunk[Body[_]],
     statuses: Chunk[TextCodec[_]],
   ) { self =>
     def append(atom: Atom[_, _]) = atom match {
@@ -170,14 +170,14 @@ private[api] object Mechanic {
       case method: Method[_]    => self.copy(methods = methods :+ method.methodCodec)
       case query: Query[_]      => self.copy(queries = queries :+ query)
       case header: Header[_]    => self.copy(headers = headers :+ header)
-      case inputBody: Body[_]   => self.copy(inputBodies = inputBodies :+ inputBody)
+      case inputBody: Body[_]   => self.copy(bodies = bodies :+ inputBody)
       case status: Status[_]    => self.copy(statuses = statuses :+ status.textCodec)
       case _: BodyStream[_]     => self // TODO: Support body streams
       case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
     }
 
     def makeInputsBuilder(): InputsBuilder = {
-      Mechanic.InputsBuilder.make(routes.length, queries.length, headers.length, inputBodies.length, methods.length)
+      Mechanic.InputsBuilder.make(routes.length, queries.length, headers.length, bodies.length, methods.length)
     }
   }
 
@@ -189,7 +189,7 @@ private[api] object Mechanic {
     routes: Array[Any],
     queries: Array[Any],
     headers: Array[Any],
-    inputBodies: Array[Any],
+    bodies: Array[Any],
     methods: Array[Any],
   ) { self =>
     def setRoute(index: Int, value: Any): Unit =
@@ -202,7 +202,7 @@ private[api] object Mechanic {
       headers(index) = value
 
     def setInputBody(index: Int, value: Any): Unit =
-      inputBodies(index) = value
+      bodies(index) = value
 
     def setMethod(index: Int, value: Any): Unit =
       methods(index) = value
@@ -213,7 +213,7 @@ private[api] object Mechanic {
         routes = new Array(routes),
         queries = new Array(queries),
         headers = new Array(headers),
-        inputBodies = new Array(bodies),
+        bodies = new Array(bodies),
         methods = new Array(methods),
       )
   }

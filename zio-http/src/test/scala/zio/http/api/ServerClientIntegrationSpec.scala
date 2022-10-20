@@ -26,14 +26,14 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     ZIO.succeed(Post(postId, "title", "body", userId))
   }
 
-  // TODO: [Ergonomics] Need to make it easy to create an APIExecutor layer
+  // TODO: [Ergonomics] Need to make it easy to create an EndpointExecutor layer
   def makeExecutor(client: Client) = {
     val registry = EndpointRegistry(
       URL.fromString("http://localhost:8080").getOrElse(???),
       usersPostAPI.toServiceSpec ++ usersPostAPI.toServiceSpec,
     )
 
-    APIExecutor(client, registry, ZIO.unit)
+    EndpointExecutor(client, registry, ZIO.unit)
   }
 
   val executorLayer = ZLayer.fromFunction(makeExecutor _)
@@ -44,7 +44,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         for {
           _        <- Server.install(usersPostHandler.toHttpApp)
           _        <- ZIO.debug("Installed server")
-          executor <- ZIO.service[APIExecutor[Any, Any, usersPostAPI.Id]]
+          executor <- ZIO.service[EndpointExecutor[Any, Any, usersPostAPI.Id]]
           // QUESTION: Do we want to encode `E` in an API?
           // The result of `executor.apply` could be ApiError[E], a sealed trait of the user error E or
           // some network error Throwable. Is that worth it?
