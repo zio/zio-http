@@ -42,7 +42,7 @@ sealed trait BodyCodec[A] { self =>
   def schema: Schema[Element]
 }
 object BodyCodec {
-  final case object Empty extends BodyCodec[Unit] {
+  case object Empty extends BodyCodec[Unit] {
     type Element = Unit
 
     def decodeFromBody(body: Body, codec: Codec): IO[Throwable, Unit] = ZIO.unit
