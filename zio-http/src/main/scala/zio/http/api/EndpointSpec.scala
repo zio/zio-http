@@ -91,16 +91,6 @@ final case class EndpointSpec[Input, Output](
     Endpoints.HandledEndpoint[R, E, Input, Output, this.type](self, f)
 
   /**
-   * Changes the identity of the API to the specified singleton string type.
-   * Currently this is only used to "prettify" type signatures and, assuming
-   * each API is uniquely identified, has no effect on behavior.
-   */
-  def id[I <: String with Singleton](i: I): EndpointSpec[Input, Output] = {
-    val _ = i
-    self.asInstanceOf[EndpointSpec[Input, Output]]
-  }
-
-  /**
    * Adds a new element of input to the API, which can come from the portion of
    * the HTTP path not yet consumed, the query string parameters, or the HTTP
    * headers of the request.
@@ -116,7 +106,7 @@ final case class EndpointSpec[Input, Output](
    * Convert API to a ServiceSpec.
    */
   def toServiceSpec: ServiceSpec[Unit, Unit, this.type] =
-    ServiceSpec[this.type](self).middleware(MiddlewareSpec.none)
+    ServiceSpec(self).middleware(MiddlewareSpec.none)
 
   /**
    * Changes the output type of the endpoint to the specified output type.
@@ -138,6 +128,7 @@ final case class EndpointSpec[Input, Output](
 }
 
 object EndpointSpec {
+
   /**
    * Constructs an API for a DELETE endpoint, given the specified input. It is
    * not necessary to specify the full input to the endpoint upfront, as the

@@ -48,7 +48,7 @@ object ServiceSpec                        {
     mo: Combiner.WithOut[MO1, MO2, MO3],
   ) extends ServiceSpec[MI3, MO3, AllIds]
 
-  def apply[Id](api: EndpointSpec[_, _]): ServiceSpec[Unit, Unit, Id] =
+  def apply(api: EndpointSpec[_, _]): ServiceSpec[Unit, Unit, api.type] =
     Single(api.asInstanceOf[EndpointSpec[Any, Any]])
 
   def empty: ServiceSpec[Unit, Unit, Any] = Empty
