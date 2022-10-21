@@ -50,7 +50,7 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
 object Endpoints {
   // How to integrate middlewarespec's handlers in here ?
   final case class HandledEndpoint[-R, +E, In0, Out0, Id](
-    endpointSpec: EndpointSpec.WithId[In0, Out0, Id],
+    endpointSpec: EndpointSpec[In0, Out0],
     handler: In0 => ZIO[R, E, Out0],
   ) extends Endpoints[R, E, Id] { self =>
     def flatten: Iterable[Endpoints.HandledEndpoint[R, E, _, _, Id]] = Chunk(self)

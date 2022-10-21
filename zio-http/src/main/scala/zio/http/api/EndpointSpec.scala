@@ -31,49 +31,48 @@ final case class EndpointSpec[Input, Output](
   output: HttpCodec[CodecType.ResponseType, Output],
   doc: Doc,
 ) { self =>
-  type Id
 
-  def apply(input: Input): Invocation[Id, Input, Output] =
+  def apply(input: Input): Invocation[this.type, Input, Output] =
     Invocation(self, input)
 
   def apply[A, B](a: A, b: B)(implicit
     ev: (A, B) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b)))
 
   def apply[A, B, C](a: A, b: B, c: C)(implicit
     ev: (A, B, C) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c)))
 
   def apply[A, B, C, D](a: A, b: B, c: C, d: D)(implicit
     ev: (A, B, C, D) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d)))
 
   def apply[A, B, C, D, E](a: A, b: B, c: C, d: D, e: E)(implicit
     ev: (A, B, C, D, E) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d, e)))
 
   def apply[A, B, C, D, E, F](a: A, b: B, c: C, d: D, e: E, f: F)(implicit
     ev: (A, B, C, D, E, F) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f)))
 
   def apply[A, B, C, D, E, F, G](a: A, b: B, c: C, d: D, e: E, f: F, g: G)(implicit
     ev: (A, B, C, D, E, F, G) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g)))
 
   def apply[A, B, C, D, E, F, G, H](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H)(implicit
     ev: (A, B, C, D, E, F, G, H) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g, h)))
 
   def apply[A, B, C, D, E, F, G, H, I](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I)(implicit
     ev: (A, B, C, D, E, F, G, H, I) <:< Input,
-  ): Invocation[Id, Input, Output] =
+  ): Invocation[this.type, Input, Output] =
     Invocation(self, ev((a, b, c, d, e, f, g, h, i)))
 
   /**
@@ -88,23 +87,13 @@ final case class EndpointSpec[Input, Output](
    * convert an API into a service, you must specify a function which handles
    * the input, and returns the output.
    */
-  def implement[R, E](f: Input => ZIO[R, E, Output]): Endpoints[R, E, Id] =
-    Endpoints.HandledEndpoint[R, E, Input, Output, Id](self, f).withAllIds[Id]
+  def implement[R, E](f: Input => ZIO[R, E, Output]): Endpoints[R, E, this.type] =
+    Endpoints.HandledEndpoint[R, E, Input, Output, this.type](self, f)
 
   def header[A](codec: HeaderCodec[A])(implicit
     combiner: Combiner[Input, A],
   ): EndpointSpec[combiner.Out, Output] =
     copy(input = self.input ++ codec)
-
-  /**
-   * Changes the identity of the API to the specified singleton string type.
-   * Currently this is only used to "prettify" type signatures and, assuming
-   * each API is uniquely identified, has no effect on behavior.
-   */
-  def id[I <: String with Singleton](i: I): EndpointSpec.WithId[Input, Output, I] = {
-    val _ = i
-    self.asInstanceOf[EndpointSpec.WithId[Input, Output, I]]
-  }
 
   /**
    * Adds a new element of input to the API, which can come from the portion of
@@ -115,32 +104,32 @@ final case class EndpointSpec[Input, Output](
     in2: HttpCodec[CodecType.RequestType, Input2],
   )(implicit
     combiner: Combiner[Input, Input2],
-  ): EndpointSpec.WithId[combiner.Out, Output, Id] =
-    copy(input = self.input ++ in2).withId[Id]
+  ): EndpointSpec[combiner.Out, Output] =
+    copy(input = self.input ++ in2)
 
   /**
    * Convert API to a ServiceSpec.
    */
-  def toServiceSpec: ServiceSpec[Unit, Unit, Id] =
+  def toServiceSpec: ServiceSpec[Unit, Unit, this.type] =
     ServiceSpec(self).middleware(MiddlewareSpec.none)
 
   /**
    * Changes the output type of the endpoint to the specified output type.
    */
-  def out[Output2: Schema]: EndpointSpec.WithId[Input, Output2, Id] =
-    copy(output = HttpCodec.Body(implicitly[Schema[Output2]])).withId[Id]
+  def out[Output2: Schema]: EndpointSpec[Input, Output2] =
+    copy(output = HttpCodec.Body(implicitly[Schema[Output2]]))
 
   def out[Output2](out2: HttpCodec[CodecType.ResponseType, Output2])(implicit
     combiner: Combiner[Output, Output2],
-  ): EndpointSpec.WithId[Input, combiner.Out, Id] =
-    copy(output = output ++ out2).withId[Id]
+  ): EndpointSpec[Input, combiner.Out] =
+    copy(output = output ++ out2)
 
   /**
    * Changes the output type of the endpoint to be a stream of the specified
    * output type.
    */
-  def outStream[Output2: Schema]: EndpointSpec.WithId[Input, ZStream[Any, Throwable, Output2], Id] =
-    copy(output = HttpCodec.BodyStream(implicitly[Schema[Output2]])).withId[Id]
+  def outStream[Output2: Schema]: EndpointSpec[Input, ZStream[Any, Throwable, Output2]] =
+    copy(output = HttpCodec.BodyStream(implicitly[Schema[Output2]]))
 
   def query[A](codec: QueryCodec[A])(implicit
     combiner: Combiner[Input, A],
@@ -151,13 +140,9 @@ final case class EndpointSpec[Input, Output](
     combiner: Combiner[Input, A],
   ): EndpointSpec[combiner.Out, Output] =
     copy(input = self.input ++ codec)
-
-  private def withId[I]: EndpointSpec.WithId[Input, Output, I] =
-    self.asInstanceOf[EndpointSpec.WithId[Input, Output, I]]
 }
 
 object EndpointSpec {
-  type WithId[I, O, X] = EndpointSpec[I, O] { type Id = X }
 
   /**
    * Constructs an API for a DELETE endpoint, given the specified input. It is
