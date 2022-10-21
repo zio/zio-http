@@ -17,11 +17,11 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * access to `Input` MiddlewareOutput: Example: A subset of `Out[Output]` that
  * doesn't give access to `Output` Input: Example: Int Output: Example: User
  *
- * As [[zio.http.api.EndpointSpec]] is a purely declarative encoding of an endpoint,
- * it is possible to use this model to generate a [[zio.http.HttpApp]] (by
- * supplying a handler for the endpoint), to generate OpenAPI documentation, to
- * generate a type-safe Scala client for the endpoint, and possibly, to generate
- * client libraries in other programming languages.
+ * As [[zio.http.api.EndpointSpec]] is a purely declarative encoding of an
+ * endpoint, it is possible to use this model to generate a [[zio.http.HttpApp]]
+ * (by supplying a handler for the endpoint), to generate OpenAPI documentation,
+ * to generate a type-safe Scala client for the endpoint, and possibly, to
+ * generate client libraries in other programming languages.
  */
 final case class EndpointSpec[Input, Output](
   input: HttpCodec[CodecType.RequestType, Input],
