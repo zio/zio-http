@@ -91,6 +91,11 @@ final case class EndpointSpec[Input, Output](
   def implement[R, E](f: Input => ZIO[R, E, Output]): Endpoints[R, E, Id] =
     Endpoints.HandledEndpoint[R, E, Input, Output, Id](self, f).withAllIds[Id]
 
+  def header[A](codec: HeaderCodec[A])(implicit
+    combiner: Combiner[Input, A],
+  ): EndpointSpec[combiner.Out, Output] =
+    copy(input = self.input ++ codec)
+
   /**
    * Changes the identity of the API to the specified singleton string type.
    * Currently this is only used to "prettify" type signatures and, assuming
@@ -136,6 +141,16 @@ final case class EndpointSpec[Input, Output](
    */
   def outStream[Output2: Schema]: EndpointSpec.WithId[Input, ZStream[Any, Throwable, Output2], Id] =
     copy(output = HttpCodec.BodyStream(implicitly[Schema[Output2]])).withId[Id]
+
+  def query[A](codec: QueryCodec[A])(implicit
+    combiner: Combiner[Input, A],
+  ): EndpointSpec[combiner.Out, Output] =
+    copy(input = self.input ++ codec)
+
+  def route[A](codec: RouteCodec[A])(implicit
+    combiner: Combiner[Input, A],
+  ): EndpointSpec[combiner.Out, Output] =
+    copy(input = self.input ++ codec)
 
   private def withId[I]: EndpointSpec.WithId[Input, Output, I] =
     self.asInstanceOf[EndpointSpec.WithId[Input, Output, I]]
