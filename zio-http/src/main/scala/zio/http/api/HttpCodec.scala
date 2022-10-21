@@ -26,7 +26,7 @@ import zio.schema.codec.Codec
  */
 sealed trait HttpCodec[-AtomTypes, Value] {
   self =>
-  private val encoderDecoder = zio.http.api.internal.EncoderDecoder(self)
+  private lazy val encoderDecoder = zio.http.api.internal.EncoderDecoder(self)
 
   def ??(doc: Doc): HttpCodec[AtomTypes, Value] = HttpCodec.WithDoc(self, doc)
 

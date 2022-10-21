@@ -25,9 +25,7 @@ final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpCodec[AtomType
     decodeMethod(method, inputsBuilder.methods)
     decodeHeaders(headers, inputsBuilder.headers)
 
-    decodeBody(body, inputsBuilder.bodies).map { _ =>
-      constructor(inputsBuilder)
-    }
+    decodeBody(body, inputsBuilder.bodies).as(constructor(inputsBuilder))
   }
 
   def encode(codec: Codec)(value: Value): (URL, Status, Method, Headers, Body) = {
