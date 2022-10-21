@@ -49,7 +49,7 @@ object APIExamples extends ZIOAppDefault {
       val registry =
         EndpointRegistry(URL.fromString("http://localhost:8080").getOrElse(???), serviceSpec)
 
-      val executor: EndpointExecutor[Any, Any, getUsers.Id with getUserPosts.Id] =
+      val executor: EndpointExecutor[Any, Any, getUsers.type with getUserPosts.type] =
         EndpointExecutor(client, registry, ZIO.succeed(Auth.Credentials("user", "pass")))
 
       val x1 = getUsers(42)

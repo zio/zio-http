@@ -44,7 +44,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         for {
           _        <- Server.install(usersPostHandler.toHttpApp)
           _        <- ZIO.debug("Installed server")
-          executor <- ZIO.service[EndpointExecutor[Any, Any, usersPostAPI.Id]]
+          executor <- ZIO.service[EndpointExecutor[Any, Any, usersPostAPI.type]]
           // QUESTION: Do we want to encode `E` in an API?
           // The result of `executor.apply` could be ApiError[E], a sealed trait of the user error E or
           // some network error Throwable. Is that worth it?
