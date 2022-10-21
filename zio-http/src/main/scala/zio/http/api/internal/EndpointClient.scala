@@ -9,11 +9,11 @@ import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] final case class EndpointClient[I, O](apiRoot: URL, api: EndpointSpec[I, O]) {
-  private val optionSchema: Option[Schema[Any]]    = api.input.bodySchema.map(_.asInstanceOf[Schema[Any]])
-  private val inputJsonEncoder: Any => Chunk[Byte] =
-    JsonCodec.encode(optionSchema.getOrElse(Schema[Unit].asInstanceOf[Schema[Any]]))
-  private val outputJsonDecoder: Chunk[Byte] => Either[String, Any] =
-    JsonCodec.decode(api.output.bodySchema.get.asInstanceOf[Schema[Any]])
+  private val inputCodecs        = BodyCodec.findAll(api.input)
+  private val outputCodecs       = BodyCodec.findAll(api.output)
+  private val inputJsonEncoders  = inputCodecs.map(bodyCodec => bodyCodec.erase.encodeToBody(_, JsonCodec))
+  private val outputJsonDecoders = outputCodecs.map(bodyCodec => bodyCodec.decodeFromBody(_, JsonCodec))
+
   private val deconstructor = Mechanic.makeDeconstructor(api.input).asInstanceOf[Mechanic.Deconstructor[Any]]
   private val flattened     = Mechanic.flatten(api.input)
 
@@ -80,8 +80,12 @@ private[api] final case class EndpointClient[I, O](apiRoot: URL, api: EndpointSp
   }
 
   private def encodeBody(inputs: Array[Any]): Body =
-    if (inputs.length == 0) Body.empty
-    else Body.fromChunk(inputJsonEncoder(inputs(0)))
+    if (inputJsonEncoders.length == 0) Body.empty
+    else if (inputJsonEncoders.length == 1) {
+      val encoder = inputJsonEncoders(0)
+
+      encoder(inputs(0))
+    } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
 
   def execute(client: Client, input: I)(implicit trace: Trace): ZIO[Any, Throwable, O] = {
     val inputs = deconstructor(input)
@@ -89,7 +93,7 @@ private[api] final case class EndpointClient[I, O](apiRoot: URL, api: EndpointSp
     val route   = encodeRoute(inputs.routes)
     val query   = encodeQuery(inputs.queries)
     val headers = encodeHeaders(inputs.headers)
-    val body    = encodeBody(inputs.inputBodies)
+    val body    = encodeBody(inputs.bodies)
     val method  = encodeMethod(inputs.methods)
 
     val request = Request
@@ -103,11 +107,13 @@ private[api] final case class EndpointClient[I, O](apiRoot: URL, api: EndpointSp
       )
 
     client.request(request).flatMap { response =>
-      response.body.asChunk.flatMap { response =>
-        outputJsonDecoder(response) match {
-          case Left(error)  => ZIO.die(APIError.MalformedResponseBody(s"Could not decode response: $error", api))
-          case Right(value) => ZIO.succeed(value.asInstanceOf[O])
-        }
+      if (outputJsonDecoders.length == 0) ZIO.succeed(().asInstanceOf[O])
+      else {
+        val decoder = outputJsonDecoders(0)
+
+        decoder(response.body)
+          .catchAll(error => ZIO.die(EndpointError.MalformedResponseBody(s"Could not decode response: $error", api)))
+          .map(_.asInstanceOf[O])
       }
     }
   }

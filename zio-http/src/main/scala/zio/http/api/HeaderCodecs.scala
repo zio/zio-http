@@ -80,7 +80,8 @@ trait HeaderCodecs {
   final val date: HeaderCodec[String]                    = header(HeaderNames.date.toString(), TextCodec.string)
   final val dnt: HeaderCodec[DNT]                        = header(HeaderNames.dnt.toString(), TextCodec.string)
     .transform(DNT.toDNT(_), DNT.fromDNT(_))
-  final val etag: HeaderCodec[String]                    = header(HeaderNames.etag.toString(), TextCodec.string)
+  final val etag: HeaderCodec[ETag]                      = header(HeaderNames.etag.toString(), TextCodec.string)
+    .transform(ETag.toETag(_), ETag.fromETag(_))
   final val expect: HeaderCodec[String]                  = header(HeaderNames.expect.toString(), TextCodec.string)
   final val expires: HeaderCodec[Expires]                =
     header(HeaderNames.expires.toString(), TextCodec.string).transform[Expires](Expires.toExpires, Expires.fromExpires)
@@ -98,8 +99,9 @@ trait HeaderCodecs {
   final val lastModified: HeaderCodec[String]            =
     header(HeaderNames.lastModified.toString(), TextCodec.string)
   final val location: HeaderCodec[String]                = header(HeaderNames.location.toString(), TextCodec.string)
-  final val maxForwards: HeaderCodec[String]             =
+  final val maxForwards: HeaderCodec[MaxForwards]        =
     header(HeaderNames.maxForwards.toString(), TextCodec.string)
+      .transform(MaxForwards.toMaxForwards(_), MaxForwards.fromMaxForwards(_))
   final val origin: HeaderCodec[Origin]                  =
     header(HeaderNames.origin.toString(), TextCodec.string)
       .transform(Origin.toOrigin, Origin.fromOrigin)

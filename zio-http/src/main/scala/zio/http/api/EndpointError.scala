@@ -1,18 +1,18 @@
 package zio.http.api
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-sealed trait APIError extends Exception {
+sealed trait EndpointError extends Exception {
   def message: String
 
   override def getMessage: String = message
 }
 
-object APIError {
-  sealed trait ClientError                                                         extends APIError
+object EndpointError {
+  sealed trait ClientError                                                         extends EndpointError
   final case class NotFound(message: String, api: EndpointSpec[_, _])              extends ClientError
   final case class MalformedResponseBody(message: String, api: EndpointSpec[_, _]) extends ClientError
 
-  sealed trait ServerError                                                              extends APIError
+  sealed trait ServerError                                                              extends EndpointError
   final case class MissingHeader(headerName: String)                                    extends ServerError {
     def message = s"Missing header $headerName"
   }
@@ -26,6 +26,6 @@ object APIError {
     def message = s"Malformed query parameter $queryParamName failed to decode using $textCodec"
   }
   final case class MalformedRequestBody(api: EndpointSpec[_, _])                        extends ServerError {
-    def message = s"Malformed request body failed to decode using ${api.input.bodySchema}"
+    def message = s"Malformed request body failed to decode"
   }
 }

@@ -8,5 +8,5 @@ trait Driver {
 
   def setErrorCallback(newCallback: Option[Server.ErrorCallback])(implicit trace: Trace): UIO[Unit]
 
-  def addApp(newApp: HttpApp[Any, Throwable])(implicit trace: Trace): UIO[Unit]
+  def addApp[R](newApp: HttpApp[R, Throwable], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
 }
