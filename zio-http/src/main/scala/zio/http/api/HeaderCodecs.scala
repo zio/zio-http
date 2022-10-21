@@ -128,7 +128,8 @@ trait HeaderCodecs {
     header(HeaderNames.secWebSocketAccept.toString(), TextCodec.string)
   final val secWebSocketExtensions: HeaderCodec[String]  =
     header(HeaderNames.secWebSocketExtensions.toString(), TextCodec.string)
-  final val server: HeaderCodec[String]                  = header(HeaderNames.server.toString(), TextCodec.string)
+  final val server: HeaderCodec[Server]                  =
+    header(HeaderNames.server.toString(), TextCodec.string).transform(Server.toServer, Server.fromServer)
   final val setCookie: HeaderCodec[String]               = header(HeaderNames.setCookie.toString(), TextCodec.string)
   final val te: HeaderCodec[String]                      = header(HeaderNames.te.toString(), TextCodec.string)
   final val trailer: HeaderCodec[String]                 = header(HeaderNames.trailer.toString(), TextCodec.string)
