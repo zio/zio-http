@@ -57,11 +57,34 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   final def asRoute(implicit ev: CodecType.Route <:< AtomTypes): RouteCodec[Value] =
     self.asInstanceOf[RouteCodec[Value]]
 
-  final def decode(codec: Codec)(url: URL, status: Status, method: Method, headers: Headers, body: Body): Task[Value] =
+  final def decodeRequest(codec: Codec)(request: Request)(implicit trace: Trace): Task[Value] =
+    decode(codec)(request.url, Status.Ok, request.method, request.headers, request.body)
+
+  final def decodeResponse(codec: Codec)(response: Response)(implicit trace: Trace): Task[Value] =
+    decode(codec)(URL.empty, response.status, Method.GET, response.headers, response.body)
+
+  private final def decode(codec: Codec)(url: URL, status: Status, method: Method, headers: Headers, body: Body)(
+    implicit trace: Trace,
+  ): Task[Value] =
     encoderDecoder.decode(codec)(url, status, method, headers, body)
 
-  final def encode(codec: Codec)(value: Value): (URL, Status, Method, Headers, Body) =
-    encoderDecoder.encode(codec)(value)
+  final def encodeRequest[Z](codec: Codec)(value: Value): Request =
+    encodeWith(codec)(value)((url, status, method, headers, body) =>
+      Request(
+        url = url,
+        method = method,
+        headers = headers,
+        body = body,
+        version = Version.Http_1_1,
+        remoteAddress = None,
+      ),
+    )
+
+  final def encodeResponse[Z](codec: Codec)(value: Value): Response =
+    encodeWith(codec)(value)((url, status, method, headers, body) => Response(headers = headers, body = body))
+
+  private final def encodeWith[Z](codec: Codec)(value: Value)(f: (URL, Status, Method, Headers, Body) => Z): Z =
+    encoderDecoder.encodeWith(codec)(value)(f)
 
   /**
    * Transforms the type parameter of this HttpCodec from `Value` to `Value2`.
@@ -105,15 +128,27 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
 
   private[api] sealed trait Atom[-AtomTypes, Value0] extends HttpCodec[AtomTypes, Value0]
 
-  private[api] case object Empty                                                 extends Atom[Any, Unit]
-  private[api] final case class Status[A](textCodec: TextCodec[A])               extends Atom[CodecType.Status, A]
-  private[api] final case class Route[A](textCodec: TextCodec[A])                extends Atom[CodecType.Route, A]
-  private[api] final case class Body[A](schema: Schema[A])                       extends Atom[CodecType.Body, A]
+  private[api] case object Empty                                   extends Atom[Any, Unit]
+  private[api] final case class Status[A](textCodec: TextCodec[A]) extends Atom[CodecType.Status, A] { self =>
+    def erase: Status[Any] = self.asInstanceOf[Status[Any]]
+  }
+  private[api] final case class Route[A](textCodec: TextCodec[A])  extends Atom[CodecType.Route, A]  { self =>
+    def erase: Route[Any] = self.asInstanceOf[Route[Any]]
+  }
+  private[api] final case class Body[A](schema: Schema[A])         extends Atom[CodecType.Body, A]
   private[api] final case class BodyStream[A](schema: Schema[A])
       extends Atom[CodecType.Body, ZStream[Any, Throwable, A]]
-  private[api] final case class Query[A](name: String, textCodec: TextCodec[A])  extends Atom[CodecType.Query, A]
-  private[api] final case class Method[A](methodCodec: TextCodec[A])             extends Atom[CodecType.Method, A]
-  private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[CodecType.Header, A]
+  private[api] final case class Query[A](name: String, textCodec: TextCodec[A]) extends Atom[CodecType.Query, A] {
+    self =>
+    def erase: Query[Any] = self.asInstanceOf[Query[Any]]
+  }
+  private[api] final case class Method[A](methodCodec: TextCodec[A]) extends Atom[CodecType.Method, A] { self =>
+    def erase: Method[Any] = self.asInstanceOf[Method[Any]]
+  }
+  private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[CodecType.Header, A] {
+    self =>
+    def erase: Header[Any] = self.asInstanceOf[Header[Any]]
+  }
   private[api] final case class IndexedAtom[AtomType, A](atom: Atom[AtomType, A], index: Int) extends Atom[AtomType, A]
   private[api] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)
       extends HttpCodec[AtomType, A]

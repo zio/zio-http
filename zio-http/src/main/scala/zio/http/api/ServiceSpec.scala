@@ -74,6 +74,7 @@ object ServiceSpec                        {
   def toHttpMiddleware[R, E, I, O](
     middleware: Middleware[R, E, I, O],
   ): HttpApp[R, E] => HttpApp[R, E] = {
+
     middleware match {
       // Type safety issues
       // If both in and out exists, handler should only be applied to `in`
@@ -147,8 +148,7 @@ object ServiceSpec                        {
 
       case concat: Middleware.Concat[R, E, _, _, _, _, _, _] =>
         http => toHttpMiddleware(concat.right)(toHttpMiddleware(concat.left)(http))
-      case Middleware.Handler(_, _)                 => identity // FIXME: Reuse what's implemented for HandlerZIO
-      case peek: Middleware.PeekRequest[_, _, _, _] => toHttpMiddleware(peek.middleware)
+      case Middleware.Handler(_, _) => identity // FIXME: Reuse what's implemented for HandlerZIO
     }
   }
 

@@ -14,10 +14,12 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * decoding from a given text fragment. Finally, unlike ordinary parsers, text
  * codecs are fully invertible, and can therefore be used in client generation.
  */
-sealed trait TextCodec[A] {
+sealed trait TextCodec[A] { self =>
   def decode(value: String): Option[A]
 
   def encode(value: A): String
+
+  private[api] final def erase: TextCodec[Any] = self.asInstanceOf[TextCodec[Any]]
 }
 
 object TextCodec {
