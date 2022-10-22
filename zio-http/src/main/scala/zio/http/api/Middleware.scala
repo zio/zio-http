@@ -80,13 +80,16 @@ object Middleware {
 
       case concat: Middleware.Concat[R, E, _, _, _, _, _, _] =>
         http => toHttpMiddleware(concat.right)(toHttpMiddleware(concat.left)(http))
-      case Middleware.Handler(spec, handler)                 =>
+
+      case Middleware.Handler(spec, handler) =>
         applyHandler(spec)(
           i => ZIO.succeed(handler(i)),
           input => { optionalState = Some(input) },
           optionalState.getOrElse(().asInstanceOf[I]),
-        ) // FIXME: Reuse what's implemented for HandlerZIO
-      case peek: Middleware.PeekRequest[_, _, _, _]          => toHttpMiddleware(peek.middleware)
+        )
+
+      case peek: Middleware.PeekRequest[_, _, _, _] =>
+        toHttpMiddleware(peek.middleware)
     }
   }
 
@@ -99,6 +102,7 @@ object Middleware {
       http => {
         val incomingFunction =
           loopMiddlewareIn(middlewareSpec.middlewareIn)
+
         Http.fromOptionFunction[Request] { request =>
           for {
             input <- incomingFunction(request)
@@ -177,7 +181,7 @@ object Middleware {
   private[api] def loopMiddlewareOut[R, E, I, O](
     out: HttpCodec[CodecType.ResponseType, O],
     handler: I => ZIO[R, E, O],
-  ): (Response, I) => ZIO[R, E, Response] =
+  ): (Response, I) => ZIO[R, E, Response] = {
     out match {
       case atom: HttpCodec.Atom[CodecType.ResponseType, O] =>
         atom match {
@@ -220,4 +224,5 @@ object Middleware {
             loopMiddlewareOut(right, handler)(response, status),
           )
     }
+  }
 }

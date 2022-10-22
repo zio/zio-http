@@ -20,8 +20,8 @@ object BasicAuthAPIExample extends ZIOAppDefault {
   val authMiddleware = MiddlewareSpec.auth
   val correlationId  = MiddlewareSpec.addCorrelationId
 
-  val middleware: MiddlewareSpec[Auth.Credentials, Int] =
-    MiddlewareSpec.auth ++ MiddlewareSpec.addCorrelationId.mapOut(out => out.transform[Int](_.toInt, _.toString))
+  val middleware: MiddlewareSpec[Auth.Credentials, String] =
+    MiddlewareSpec.auth ++ MiddlewareSpec.addCorrelationId
 
   val authMiddlewareHandler: api.Middleware[Any, Nothing, Auth.Credentials, Unit] =
     authMiddleware.implement(_ => ZIO.unit)
