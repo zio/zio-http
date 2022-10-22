@@ -72,7 +72,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     encodeWith(codec)(value)((url, status, method, headers, body) =>
       Request(
         url = url,
-        method = method,
+        method = method.getOrElse(Method.GET),
         headers = headers,
         body = body,
         version = Version.Http_1_1,
@@ -83,7 +83,14 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   final def encodeResponse[Z](codec: Codec)(value: Value): Response =
     encodeWith(codec)(value)((url, status, method, headers, body) => Response(headers = headers, body = body))
 
-  private final def encodeWith[Z](codec: Codec)(value: Value)(f: (URL, Status, Method, Headers, Body) => Z): Z =
+  final def encodeResponsePatch[Z](value: Value): Response.Patch =
+    encodeWith(zio.schema.codec.JsonCodec)(value)((url, status, method, headers, body) =>
+      Response.Patch(addHeaders = headers, setStatus = status),
+    )
+
+  private final def encodeWith[Z](codec: Codec)(value: Value)(
+    f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
+  ): Z =
     encoderDecoder.encodeWith(codec)(value)(f)
 
   /**

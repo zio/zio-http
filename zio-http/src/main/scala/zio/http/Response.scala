@@ -46,6 +46,9 @@ final case class Response private (
   def isWebSocket: Boolean =
     self.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && self.attribute.socketApp.nonEmpty
 
+  def patch(p: Response.Patch): Response =
+    copy(headers = self.headers ++ p.addHeaders, status = p.setStatus.getOrElse(self.status))
+
   /**
    * Sets the response attributes
    */
@@ -112,6 +115,11 @@ final case class Response private (
 }
 
 object Response {
+  final case class Patch(addHeaders: Headers, setStatus: Option[Status]) { self =>
+    def ++(that: Patch): Patch =
+      Patch(self.addHeaders ++ that.addHeaders, self.setStatus.orElse(that.setStatus))
+  }
+
   def apply[R, E](
     status: Status = Status.Ok,
     headers: Headers = Headers.empty,

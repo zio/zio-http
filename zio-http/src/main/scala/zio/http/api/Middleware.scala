@@ -4,6 +4,8 @@ import zio._
 import zio.http._
 import zio.http.model.Cookie
 
+import zio.schema.codec.JsonCodec
+
 /**
  * A `Middleware` represents the implementation of a `MiddlewareSpec`,
  * intercepting parts of the request, and appending to the response.
@@ -11,22 +13,37 @@ import zio.http.model.Cookie
 sealed trait Middleware[-R, +E, I, O] { self =>
   type State
 
+  /**
+   * Processes an incoming request, whose relevant parts are encoded into `I`,
+   * the middleware input, and then returns an effect that will produce both
+   * state, together with a decision about whether to continue or abort the
+   * handling of the request.
+   */
   def incoming(in: I): ZIO[R, E, Middleware.Control[State]]
 
+  /**
+   * Processes an outgoing response together with the middleware state,
+   * returning an effect that will produce `O`, which will in turn be used to
+   * modify the response.
+   */
   def outgoing(state: State, response: Response): ZIO[R, E, O]
 
+  /**
+   * Applies the middleware to an `HttpApp`, returning a new `HttpApp` with the
+   * middleware fully installed.
+   */
   def apply[R1 <: R, E1 >: E](httpApp: HttpApp[R1, E1]): HttpApp[R1, E1] =
     Http.fromOptionFunction[Request] { request =>
       for {
-        in       <- spec.middlewareIn.decodeRequest(null)(request).orDie
+        in       <- spec.middlewareIn.decodeRequest(JsonCodec)(request).orDie
         control  <- incoming(in).mapError(Some(_))
         response <- control match {
           case Middleware.Control.Continue(state)     =>
             for {
               response1 <- httpApp(request)
               mo        <- outgoing(state, response1).mapError(Some(_))
-              response2 = spec.middlewareOut.encodeResponse(null)(mo)
-            } yield response2
+              patch = spec.middlewareOut.encodeResponsePatch(mo)
+            } yield response1.patch(patch)
           case Middleware.Control.Abort(state, patch) =>
             outgoing(state, patch(Response.ok)).mapError(Some(_)).map(spec.middlewareOut.encodeResponse(null)(_))
         }
