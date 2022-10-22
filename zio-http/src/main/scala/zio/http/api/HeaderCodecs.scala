@@ -19,8 +19,9 @@ trait HeaderCodecs {
       .transform(AcceptLanguage.toAcceptLanguage, AcceptLanguage.fromAcceptLanguage)
   final val acceptRanges: HeaderCodec[String]                     =
     header(HeaderNames.acceptRanges.toString(), TextCodec.string)
-  final val acceptPatch: HeaderCodec[String]                      =
+  final val acceptPatch: HeaderCodec[AcceptPatch]                 =
     header(HeaderNames.acceptPatch.toString(), TextCodec.string)
+      .transform(AcceptPatch.toAcceptPatch, AcceptPatch.fromAcceptPatch)
   final val accessControlAllowCredentials: HeaderCodec[String]    =
     header(HeaderNames.accessControlAllowCredentials.toString(), TextCodec.string)
   final val accessControlAllowHeaders: HeaderCodec[String]        =
