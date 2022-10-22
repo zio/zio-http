@@ -17,7 +17,7 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
     MiddlewareSpec(self.middlewareIn ++ that.middlewareIn, self.middlewareOut ++ that.middlewareOut)
 
   def implement[R, E](f: MiddlewareIn => ZIO[R, E, MiddlewareOut]): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
-    Middleware.HandlerZIO[R, E, MiddlewareIn, MiddlewareOut](self, f)
+    Middleware.fromFunctionZIO[R, E, MiddlewareIn, MiddlewareOut](self, f)
 
   def mapIn[MiddlewareIn2](
     f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn] => HttpCodec[
