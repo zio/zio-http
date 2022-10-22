@@ -43,12 +43,6 @@ object Middleware {
   ): Middleware[R, E, A, B] =
     HandlerZIO(middlewareSpec, f)
 
-  def fromFunctionZIOWithRequest[R, E, A, B](
-    middlewareSpec: MiddlewareSpec[A, B],
-    f: A => ZIO[R, E, B],
-  ): Middleware[R, E, A, B] =
-    HandlerZIO(middlewareSpec, f)
-
   val none: Middleware[Any, Nothing, Unit, Unit] =
     fromFunction(MiddlewareSpec.none, _ => ())
 
