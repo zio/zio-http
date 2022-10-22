@@ -3,7 +3,7 @@ package zio.http
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{Ref, ZIO, durationInt}
+import zio.{ZIO, durationInt}
 
 object HExitSpec extends ZIOSpecDefault with HExitAssertion {
   def spec: Spec[Environment, Any] = {
