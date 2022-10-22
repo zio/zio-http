@@ -1,4 +1,4 @@
-package zio.http.model.headers
+package zio.http.model.headers.values
 
 import zio.Scope
 import zio.http.model.headers.values.DNT
