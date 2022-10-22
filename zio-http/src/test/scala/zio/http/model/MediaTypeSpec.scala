@@ -11,11 +11,13 @@ object MediaTypeSpec extends ZIOSpecDefault with MimeDB {
       assertTrue(MediaType.parseCustomMediaType("custom/mime").contains(MediaType("custom", "mime")))
     },
     test("optional parameter parsing") {
-      assertTrue(MediaType.forContentType("application/json;p1=1;p2=2;p3=\"quoted\"")
-        .contains(
-          application.`json`.copy(parameters = Map("p1" -> "1", "p2" -> "2", "p3" -> "\"quoted\""))
-        )
+      assertTrue(
+        MediaType
+          .forContentType("application/json;p1=1;p2=2;p3=\"quoted\"")
+          .contains(
+            application.`json`.copy(parameters = Map("p1" -> "1", "p2" -> "2", "p3" -> "\"quoted\"")),
+          ),
       )
-    }
+    },
   )
 }

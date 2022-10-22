@@ -10,12 +10,12 @@ object AcceptPatchSpec extends ZIOSpecDefault with MimeDB {
     test("AcceptPatch header transformation must be symmetrical") {
       assertTrue(
         AcceptPatch.toAcceptPatch(AcceptPatch.fromAcceptPatch(AcceptPatchValue(Chunk(text.`html`))))
-          == AcceptPatchValue(Chunk(text.`html`))
+          == AcceptPatchValue(Chunk(text.`html`)),
       )
     },
     test("invalid values parsing") {
       assertTrue(AcceptPatch.toAcceptPatch("invalidString") == InvalidAcceptPatchValue) &&
-        assertTrue(AcceptPatch.toAcceptPatch("") == InvalidAcceptPatchValue)
+      assertTrue(AcceptPatch.toAcceptPatch("") == InvalidAcceptPatchValue)
     },
   )
 }

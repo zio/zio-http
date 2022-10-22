@@ -14,17 +14,17 @@ object AcceptSpec extends ZIOSpecDefault with MimeDB {
     },
     test("parsing of valid Accept values") {
       assertTrue(
-        Accept.toAccept("text/html") == AcceptValue(Chunk(MediaTypeWithQFactor(text.`html`, None)))
+        Accept.toAccept("text/html") == AcceptValue(Chunk(MediaTypeWithQFactor(text.`html`, None))),
       ) &&
       assertTrue(
         Accept.toAccept("text/html;q=0.8") ==
           AcceptValue(Chunk(MediaTypeWithQFactor(text.`html`.withQFactor(0.8), Some(0.8)))),
       ) &&
       assertTrue(
-        Accept.toAccept("text/*") == AcceptValue(Chunk(MediaTypeWithQFactor(MediaType("text", "*"), None)))
+        Accept.toAccept("text/*") == AcceptValue(Chunk(MediaTypeWithQFactor(MediaType("text", "*"), None))),
       ) &&
       assertTrue(
-        Accept.toAccept("*/*") == AcceptValue(Chunk(MediaTypeWithQFactor(MediaType("*", "*"), None)))
+        Accept.toAccept("*/*") == AcceptValue(Chunk(MediaTypeWithQFactor(MediaType("*", "*"), None))),
       ) &&
       assertTrue(
         Accept.toAccept("*/*;q=0.1") ==

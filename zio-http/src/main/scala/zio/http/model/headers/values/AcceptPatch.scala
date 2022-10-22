@@ -4,8 +4,8 @@ import zio.Chunk
 import zio.http.model.MediaType
 
 /**
- * The Accept-Patch response HTTP header advertises which media-type the server is able to understand
- * in a PATCH request.
+ * The Accept-Patch response HTTP header advertises which media-type the server
+ * is able to understand in a PATCH request.
  */
 sealed trait AcceptPatch
 
@@ -31,9 +31,9 @@ object AcceptPatch {
               .getOrElse(
                 MediaType
                   .parseCustomMediaType(mediaTypeStr)
-                  .orNull
-              )
-          )
+                  .orNull,
+              ),
+          ),
       )
       if (parsedMediaTypes.length == parsedMediaTypes.count(_ != null))
         AcceptPatchValue(parsedMediaTypes)
