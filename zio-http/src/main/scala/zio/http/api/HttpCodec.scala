@@ -72,6 +72,19 @@ sealed trait HttpCodec[-AtomTypes, Input] {
   ): HttpCodec[AtomTypes, Input2] =
     HttpCodec.TransformOrFail[AtomTypes, Input, Input2](self, in => Right(f(in)), g)
 
+  private[api] def isEmpty: Boolean =
+    self match {
+      case atom: HttpCodec.Atom[_, _]                                         =>
+        atom match {
+          case HttpCodec.Empty => true
+          case _               => false
+        }
+      case HttpCodec.WithDoc(in, _)                                           => in.isEmpty
+      case HttpCodec.TransformOrFail(api, _, _)                               => api.isEmpty
+      case HttpCodec.Combine(left, right, _) if left.isEmpty && right.isEmpty => true
+      case HttpCodec.Combine(_, _, _)                                         => false
+    }
+
 }
 
 object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
