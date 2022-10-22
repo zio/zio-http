@@ -53,15 +53,16 @@ object BodyCodec {
   }
 
   final case class Single[A](schema: Schema[A]) extends BodyCodec[A] {
-    def decodeFromBody(body: Body, codec: Codec): IO[Throwable, A] =
-      body.asChunk.flatMap(chunk =>
-        ZIO.fromEither(codec.decode(schema)(chunk)).mapError(message => new IOException(message)),
-      )
-
-    def encodeToBody(value: A, codec: Codec): Body = {
-      val chunk = codec.encode(schema)(value)
-      Body.fromChunk(chunk)
+    def decodeFromBody(body: Body, codec: Codec): IO[Throwable, A] = {
+      if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
+      else
+        body.asChunk.flatMap { chunk =>
+          ZIO.fromEither(codec.decode(schema)(chunk)).mapError(message => new IOException(message))
+        }
     }
+
+    def encodeToBody(value: A, codec: Codec): Body =
+      Body.fromChunk(codec.encode(schema)(value))
 
     type Element = A
   }

@@ -3,7 +3,6 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.model.Cookie
-
 import zio.schema.codec.JsonCodec
 
 /**

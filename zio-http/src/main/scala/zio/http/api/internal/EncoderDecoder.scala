@@ -46,29 +46,43 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
   }
 
   private def decodeRoutes(path: Path, inputs: Array[Any]): Unit = {
-    var i = 0
+    assert(flattened.routes.length == inputs.length)
+
+    var i        = 0
+    var j        = 0
+    val segments = path.segments
     while (i < inputs.length) {
-      val segment   = path.segments(i) // TODO: Validation
       val textCodec = flattened.routes(i).erase
 
-      inputs(i) = textCodec.decode(path.toString).getOrElse(EndpointError.MalformedRoute(path, segment, textCodec))
+      if (j >= segments.length) throw EndpointError.PathTooShort(path, textCodec)
+      else {
+        val segment = segments(j)
 
-      i = i + 1
+        if (segment.text.length != 0) {
+          val textCodec = flattened.routes(i).erase
+
+          inputs(i) =
+            textCodec.decode(segment.text).getOrElse(throw EndpointError.MalformedRoute(path, segment, textCodec))
+
+          i = i + 1
+        }
+        j = j + 1
+      }
     }
   }
 
   private def decodeQuery(queryParams: QueryParams, inputs: Array[Any]): Unit = {
-    var i = 0
-    while (i < flattened.queries.length) {
-      val query = flattened.queries(i).erase
+    var i       = 0
+    val queries = flattened.queries
+    while (i < queries.length) {
+      val query = queries(i).erase
 
-      val value = queryParams
+      inputs(i) = queryParams
         .getOrElse(query.name, Nil)
-        .headOption
-        .getOrElse(throw EndpointError.MissingQueryParam(query.name))
-
-      inputs(i) =
-        query.textCodec.decode(value).getOrElse(throw EndpointError.MalformedQueryParam(query.name, query.textCodec))
+        .collectFirst(query.textCodec)
+        .getOrElse(
+          throw EndpointError.MissingQueryParam(query.name),
+        ) // TODO: Preserve failure messages in case of no matches
 
       i = i + 1
     }
@@ -79,7 +93,7 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
     while (i < inputs.length) {
       val textCodec = flattened.statuses(i).erase
 
-      inputs(i) = textCodec.decode(status.code.toString()).getOrElse(EndpointError.MalformedStatus("200", textCodec))
+      inputs(i) = textCodec.decode(status.text).getOrElse(throw EndpointError.MalformedStatus("200", textCodec))
 
       i = i + 1
     }
@@ -91,7 +105,7 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
       val textCodec = flattened.methods(i)
 
       inputs(i) =
-        textCodec.decode(method.toString()).getOrElse(EndpointError.MalformedMethod(method.toString(), textCodec))
+        textCodec.decode(method.text).getOrElse(throw EndpointError.MalformedMethod(method.toString(), textCodec))
 
       i = i + 1
     }
@@ -114,9 +128,7 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
   private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] =
     if (jsonDecoders.length == 0) ZIO.unit
     else if (jsonDecoders.length == 1) {
-      val decoder = jsonDecoders(0)
-
-      decoder(body).map { result => inputs(0) = result }
+      jsonDecoders(0)(body).map { result => inputs(0) = result }
     } else {
       ZIO.foreachDiscard(jsonDecoders.zipWithIndex) { case (decoder, index) =>
         decoder(body).map { result => inputs(index) = result }
@@ -195,11 +207,12 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
     }
   }
 
-  private def encodeBody(inputs: Array[Any]): Body =
+  private def encodeBody(inputs: Array[Any]): Body = {
     if (jsonEncoders.length == 0) Body.empty
     else if (jsonEncoders.length == 1) {
       val encoder = jsonEncoders(0)
 
       encoder(inputs(0))
     } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
+  }
 }
