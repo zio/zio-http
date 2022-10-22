@@ -3,6 +3,10 @@ package zio.http.model.headers.values
 import zio.Chunk
 import zio.http.model.MediaType
 
+/**
+ * The Accept-Patch response HTTP header advertises which media-type the server is able to understand
+ * in a PATCH request.
+ */
 sealed trait AcceptPatch
 
 object AcceptPatch {
