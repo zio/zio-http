@@ -4,7 +4,10 @@ import io.netty.handler.codec.http.HttpMethod
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Method { self =>
-  lazy val toJava: HttpMethod     = Method.asHttpMethod(self)
+  lazy val toJava: HttpMethod = Method.asHttpMethod(self)
+
+  val text: String = toJava.asciiName().toString()
+
   override def toString(): String = Method.asHttpMethod(self).name()
 }
 

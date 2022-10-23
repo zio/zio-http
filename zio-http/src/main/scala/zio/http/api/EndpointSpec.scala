@@ -90,6 +90,11 @@ final case class EndpointSpec[Input, Output](
   def implement[R, E](f: Input => ZIO[R, E, Output]): Endpoints[R, E, this.type] =
     Endpoints.HandledEndpoint[R, E, Input, Output, this.type](self, f)
 
+  def header[A](codec: HeaderCodec[A])(implicit
+    combiner: Combiner[Input, A],
+  ): EndpointSpec[combiner.Out, Output] =
+    copy(input = self.input ++ codec)
+
   /**
    * Adds a new element of input to the API, which can come from the portion of
    * the HTTP path not yet consumed, the query string parameters, or the HTTP
@@ -125,6 +130,16 @@ final case class EndpointSpec[Input, Output](
    */
   def outStream[Output2: Schema]: EndpointSpec[Input, ZStream[Any, Throwable, Output2]] =
     copy(output = HttpCodec.BodyStream(implicitly[Schema[Output2]]))
+
+  def query[A](codec: QueryCodec[A])(implicit
+    combiner: Combiner[Input, A],
+  ): EndpointSpec[combiner.Out, Output] =
+    copy(input = self.input ++ codec)
+
+  def route[A](codec: RouteCodec[A])(implicit
+    combiner: Combiner[Input, A],
+  ): EndpointSpec[combiner.Out, Output] =
+    copy(input = self.input ++ codec)
 }
 
 object EndpointSpec {

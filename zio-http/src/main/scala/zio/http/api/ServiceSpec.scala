@@ -24,9 +24,9 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
 
   final def toHttpApp[AllIds1 <: AllIds, R, E](
     service: Endpoints[R, E, AllIds1],
-    midddleware: Middleware[R, E, MI, MO],
+    middleware: Middleware[R, E, MI, MO],
   ): HttpApp[R, E] =
-    ServiceSpec.toHttpMiddleware(midddleware)(service.toHttpApp)
+    middleware(service.toHttpApp)
 
   final def withMI[MI2](implicit ev: MI =:= MI2): ServiceSpec[MI2, MO, AllIds] =
     self.asInstanceOf[ServiceSpec[MI2, MO, AllIds]]
@@ -70,86 +70,4 @@ object ServiceSpec                        {
       case AddMiddleware(_, middlewareSpec0, _, _) => middlewareSpec0
     }
   }
-
-  def toHttpMiddleware[R, E, I, O](
-    middleware: Middleware[R, E, I, O],
-  ): HttpApp[R, E] => HttpApp[R, E] = {
-    middleware match {
-      // Type safety issues
-      // If both in and out exists, handler should only be applied to `in`
-      // If only either of them exist, handler shouldn't be applied to the one that is none
-      case Middleware.HandlerZIO(middlewareSpec, handler) =>
-        def loop[I1](
-          in: HttpCodec[CodecType.Header with CodecType.Query, I1],
-        ): Request => ZIO[R, Option[E], Option[I1]] = {
-
-          in match {
-            case atom: HttpCodec.Atom[CodecType.Header with CodecType.Query, _] =>
-              atom match {
-                case HttpCodec.Header(name, codec) =>
-                  (request: Request) => ZIO.fromOption(request.headers.get(name).flatMap(codec.decode)).map(Some(_))
-
-                case HttpCodec.Query(key, codec) =>
-                  (request: Request) =>
-                    ZIO
-                      .fromOption(
-                        request.url.queryParams.get(key).flatMap(_.headOption).flatMap(codec.decode),
-                      )
-                      .map(Some(_))
-
-                case HttpCodec.Empty =>
-                  _ => ZIO.succeed(None)
-
-                case _ =>
-                  _ => ZIO.fail(None)
-              }
-
-            case HttpCodec.WithDoc(in, _) =>
-              loop(in)
-
-            case HttpCodec.TransformOrFail(api, f, _) =>
-              request =>
-                loop(api)(request).map(
-                  _.map(value =>
-                    f(value).getOrElse(throw new Exception("Failed to transform the input retrieved in middleware")),
-                  ),
-                )
-
-            case HttpCodec.Combine(left, right, inputCombiner) =>
-              request =>
-                loop(left)(request).zip(loop(right)(request)).map { a =>
-                  for {
-                    a1 <- a._1
-                    a2 <- a._2
-                  } yield inputCombiner.combine(a1, a2)
-                }
-          }
-        }
-
-        val interceptFn =
-          loop(middlewareSpec.middlewareIn) // FIXME Also handle middlewareOut
-
-        http =>
-          Http.fromOptionFunction[Request] { a =>
-            for {
-              input <- interceptFn(a)
-
-              _ <- input match {
-                case Some(value) =>
-                  handler(value).mapError(Some(_))
-                case None        =>
-                  ZIO.unit // Handle HttpCodec.Empty properly in loop
-              } // FIXME:  MiddlewareOut to be implemented (only proof)  output will have to be used to form the final out
-
-              b <- http(a)
-            } yield b
-          }
-
-      case concat: Middleware.Concat[R, E, _, _, _, _, _, _] =>
-        http => toHttpMiddleware(concat.right)(toHttpMiddleware(concat.left)(http))
-      case Middleware.Handler(_, _)                 => identity // FIXME: Reuse what's implemented for HandlerZIO
-      case peek: Middleware.PeekRequest[_, _, _, _] => toHttpMiddleware(peek.middleware)
-    }
-  }
-
 }

@@ -12,7 +12,7 @@ import java.io.IOException
  * A BodyCodec encapsulates the logic necessary to both encode and decode bodies
  * for a media type, using ZIO Schema codecs and schemas.
  */
-sealed trait BodyCodec[A] { self =>
+private[api] sealed trait BodyCodec[A] { self =>
 
   /**
    * The element type, described by the schema. This could be the type of the
@@ -53,15 +53,16 @@ object BodyCodec {
   }
 
   final case class Single[A](schema: Schema[A]) extends BodyCodec[A] {
-    def decodeFromBody(body: Body, codec: Codec): IO[Throwable, A] =
-      body.asChunk.flatMap(chunk =>
-        ZIO.fromEither(codec.decode(schema)(chunk)).mapError(message => new IOException(message)),
-      )
-
-    def encodeToBody(value: A, codec: Codec): Body = {
-      val chunk = codec.encode(schema)(value)
-      Body.fromChunk(chunk)
+    def decodeFromBody(body: Body, codec: Codec): IO[Throwable, A] = {
+      if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
+      else
+        body.asChunk.flatMap { chunk =>
+          ZIO.fromEither(codec.decode(schema)(chunk)).mapError(message => new IOException(message))
+        }
     }
+
+    def encodeToBody(value: A, codec: Codec): Body =
+      Body.fromChunk(codec.encode(schema)(value))
 
     type Element = A
   }
@@ -74,24 +75,5 @@ object BodyCodec {
       Body.fromStream(value >>> codec.encoder(schema))
 
     type Element = E
-  }
-
-  def findAll(codec: zio.http.api.HttpCodec[_, _]): Chunk[BodyCodec[_]] = {
-    import zio.http.api.HttpCodec
-
-    codec match {
-      case HttpCodec.Empty                     => Chunk.empty
-      case HttpCodec.Status(_)                 => Chunk.empty
-      case HttpCodec.Route(_)                  => Chunk.empty
-      case HttpCodec.Body(schema)              => Chunk(BodyCodec.Single(schema))
-      case HttpCodec.BodyStream(elementSchema) => Chunk(BodyCodec.Multiple(elementSchema))
-      case HttpCodec.Query(_, _)               => Chunk.empty
-      case HttpCodec.Method(_)                 => Chunk.empty
-      case HttpCodec.Header(_, _)              => Chunk.empty
-      case HttpCodec.IndexedAtom(atom, _)      => findAll(atom)
-      case HttpCodec.WithDoc(in, _)            => findAll(in)
-      case HttpCodec.TransformOrFail(in, _, _) => findAll(in)
-      case HttpCodec.Combine(left, right, _)   => findAll(left) ++ findAll(right)
-    }
   }
 }

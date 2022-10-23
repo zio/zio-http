@@ -81,6 +81,8 @@ sealed trait Status extends Product with Serializable { self =>
    */
   def code: Int = self.asJava.code()
 
+  val text: String = code.toString()
+
   /**
    * Returns an HttpApp[Any, Nothing] that responses with this http status code.
    */

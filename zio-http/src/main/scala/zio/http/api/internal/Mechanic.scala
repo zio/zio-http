@@ -10,7 +10,7 @@ private[api] object Mechanic {
   type Constructor[+A]   = InputsBuilder => A
   type Deconstructor[-A] = A => InputsBuilder
 
-  def flatten(in: HttpCodec[_, _]): FlattenedAtoms = {
+  def flatten[R, A](in: HttpCodec[R, A]): FlattenedAtoms = {
     var result = FlattenedAtoms.empty
     flattenedAtoms(in).foreach { atom =>
       result = result.append(atom)
@@ -18,7 +18,7 @@ private[api] object Mechanic {
     result
   }
 
-  private def flattenedAtoms(in: HttpCodec[_, _]): Chunk[Atom[_, _]] =
+  private def flattenedAtoms[R, A](in: HttpCodec[R, A]): Chunk[Atom[_, _]] =
     in match {
       case Combine(left, right, _)       => flattenedAtoms(left) ++ flattenedAtoms(right)
       case atom: Atom[_, _]              => Chunk(atom)
@@ -44,13 +44,13 @@ private[api] object Mechanic {
       case WithDoc(api, _) => indexedImpl(api.asInstanceOf[HttpCodec[R, A]], indices)
     }
 
-  def makeConstructor[A](
-    api: HttpCodec[CodecType.RequestType, A],
+  def makeConstructor[R, A](
+    api: HttpCodec[R, A],
   ): Constructor[A] =
     makeConstructorLoop(indexed(api))
 
-  def makeDeconstructor[A](
-    api: HttpCodec[CodecType.RequestType, A],
+  def makeDeconstructor[R, A](
+    api: HttpCodec[R, A],
   ): Deconstructor[A] = {
     val flattened = flatten(api)
 
@@ -64,7 +64,7 @@ private[api] object Mechanic {
   }
 
   private def makeConstructorLoop[A](
-    api: HttpCodec[CodecType.RequestType, A],
+    api: HttpCodec[Nothing, A],
   ): Constructor[A] = {
     def coerce(any: Any): A = any.asInstanceOf[A]
 
@@ -105,8 +105,8 @@ private[api] object Mechanic {
     }
   }
 
-  private def makeDeconstructorLoop[A](
-    api: HttpCodec[CodecType.RequestType, A],
+  private def makeDeconstructorLoop[R, A](
+    api: HttpCodec[R, A],
   ): (A, InputsBuilder) => Unit = {
     api match {
       case Combine(left, right, inputCombiner) =>
@@ -121,19 +121,22 @@ private[api] object Mechanic {
         }
 
       case IndexedAtom(_: Route[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.setRoute(index, input)
+        (input, inputsBuilder) => inputsBuilder.routes(index) = input
 
       case IndexedAtom(_: Header[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.setHeader(index, input)
+        (input, inputsBuilder) => inputsBuilder.headers(index) = input
 
       case IndexedAtom(_: Query[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.setQuery(index, input)
+        (input, inputsBuilder) => inputsBuilder.queries(index) = input
 
       case IndexedAtom(_: Body[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.setInputBody(index, input)
+        (input, inputsBuilder) => inputsBuilder.bodies(index) = input
 
       case IndexedAtom(_: Method[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.setMethod(index, input)
+        (input, inputsBuilder) => inputsBuilder.methods(index) = input
+
+      case IndexedAtom(_: Status[_], index) =>
+        (input, inputsBuilder) => inputsBuilder.statuses(index) = input
 
       case transform: TransformOrFail[_, _, A] =>
         val deconstructor = makeDeconstructorLoop(transform.api)
@@ -161,23 +164,30 @@ private[api] object Mechanic {
     routes: Chunk[TextCodec[_]],
     queries: Chunk[Query[_]],
     headers: Chunk[Header[_]],
-    bodies: Chunk[Body[_]],
+    bodies: Chunk[internal.BodyCodec[_]],
     statuses: Chunk[TextCodec[_]],
   ) { self =>
     def append(atom: Atom[_, _]) = atom match {
-      case Empty                => self
-      case route: Route[_]      => self.copy(routes = routes :+ route.textCodec)
-      case method: Method[_]    => self.copy(methods = methods :+ method.methodCodec)
-      case query: Query[_]      => self.copy(queries = queries :+ query)
-      case header: Header[_]    => self.copy(headers = headers :+ header)
-      case inputBody: Body[_]   => self.copy(bodies = bodies :+ inputBody)
-      case status: Status[_]    => self.copy(statuses = statuses :+ status.textCodec)
-      case _: BodyStream[_]     => self // TODO: Support body streams
-      case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
+      case Empty                 => self
+      case route: Route[_]       => self.copy(routes = routes :+ route.textCodec)
+      case method: Method[_]     => self.copy(methods = methods :+ method.methodCodec)
+      case query: Query[_]       => self.copy(queries = queries :+ query)
+      case header: Header[_]     => self.copy(headers = headers :+ header)
+      case body: Body[_]         => self.copy(bodies = bodies :+ BodyCodec.Single(body.schema))
+      case status: Status[_]     => self.copy(statuses = statuses :+ status.textCodec)
+      case stream: BodyStream[_] => self.copy(bodies = bodies :+ BodyCodec.Multiple(stream.schema))
+      case _: IndexedAtom[_, _]  => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
     }
 
     def makeInputsBuilder(): InputsBuilder = {
-      Mechanic.InputsBuilder.make(routes.length, queries.length, headers.length, bodies.length, methods.length)
+      Mechanic.InputsBuilder.make(
+        routes.length,
+        queries.length,
+        headers.length,
+        bodies.length,
+        methods.length,
+        statuses.length,
+      )
     }
   }
 
@@ -191,30 +201,17 @@ private[api] object Mechanic {
     headers: Array[Any],
     bodies: Array[Any],
     methods: Array[Any],
-  ) { self =>
-    def setRoute(index: Int, value: Any): Unit =
-      routes(index) = value
-
-    def setQuery(index: Int, value: Any): Unit =
-      queries(index) = value
-
-    def setHeader(index: Int, value: Any): Unit =
-      headers(index) = value
-
-    def setInputBody(index: Int, value: Any): Unit =
-      bodies(index) = value
-
-    def setMethod(index: Int, value: Any): Unit =
-      methods(index) = value
-  }
+    statuses: Array[Any],
+  ) { self => }
   private[api] object InputsBuilder  {
-    def make(routes: Int, queries: Int, headers: Int, bodies: Int, methods: Int): InputsBuilder =
+    def make(routes: Int, queries: Int, headers: Int, bodies: Int, methods: Int, statuses: Int): InputsBuilder =
       InputsBuilder(
         routes = new Array(routes),
         queries = new Array(queries),
         headers = new Array(headers),
         bodies = new Array(bodies),
         methods = new Array(methods),
+        statuses = new Array(statuses),
       )
   }
 

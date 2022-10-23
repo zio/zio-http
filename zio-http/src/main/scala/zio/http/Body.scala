@@ -56,6 +56,8 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = ZStream.empty
     override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean]          = ZIO.succeed(false)
     override def isComplete: Boolean                                            = true
+
+    override def toString(): String = "Body.empty"
   }
 
   /**
@@ -72,6 +74,8 @@ object Body {
 
     override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean] =
       ZIO.attempt(ctx.write(Unpooled.wrappedBuffer(asciiString.array())): Unit).as(false)
+
+    override def toString(): String = s"Body.fromAsciiString($asciiString)"
   }
 
   /**
@@ -89,6 +93,8 @@ object Body {
 
     override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean] =
       ZIO.attempt(ctx.write(byteBuf): Unit).as(false)
+
+    override def toString(): String = s"Body.fromByteBuf($byteBuf)"
   }
 
   /**
@@ -110,6 +116,8 @@ object Body {
 
     override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean] =
       ZIO.attempt(ctx.write(Unpooled.wrappedBuffer(data.toArray))).as(false)
+
+    override def toString(): String = s"Body.fromChunk($data)"
   }
 
   /**

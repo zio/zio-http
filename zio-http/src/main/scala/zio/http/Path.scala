@@ -199,7 +199,9 @@ object Path {
     else Path(path.split("/", -1).toVector.map(Segment(_)))
   }
 
-  sealed trait Segment extends Product with Serializable
+  sealed trait Segment extends Product with Serializable {
+    def text: String
+  }
 
   object Segment {
     def apply(text: String): Segment = text match {
@@ -211,7 +213,9 @@ object Path {
 
     final case class Text(text: String) extends Segment
 
-    case object Root extends Segment
+    case object Root extends Segment {
+      def text = ""
+    }
   }
 
 }
