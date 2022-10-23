@@ -30,7 +30,8 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
   def ??(doc: Doc): HttpCodec[AtomTypes, Value] = HttpCodec.WithDoc(self, doc)
 
-  def optional: HttpCodec[AtomTypes, Option[Value]] = HttpCodec.Optional(self)
+  def optional(implicit ev: CodecType.Header <:< AtomTypes): HttpCodec[AtomTypes, Option[Value]] =
+    HttpCodec.Optional(self)
 
   def ++[AtomTypes1 <: AtomTypes, Value2](that: HttpCodec[AtomTypes1, Value2])(implicit
     combiner: Combiner[Value, Value2],
