@@ -24,7 +24,7 @@ private[api] object Mechanic {
       case atom: Atom[_, _]              => Chunk(atom)
       case map: TransformOrFail[_, _, _] => flattenedAtoms(map.api)
       case WithDoc(api, _)               => flattenedAtoms(api)
-      case optional: Optional[_, _]      => flattenedAtoms(optional.optional)
+      case optional: Optional[_, _]      => flattenedAtoms(optional.in)
     }
 
   private def indexed[R, A](api: HttpCodec[R, A]): HttpCodec[R, A] =
@@ -80,8 +80,9 @@ private[api] object Mechanic {
         results => {
           val leftValue  = leftThread(results)
           val rightValue = rightThread(results)
-
-          inputCombiner.combine(leftValue, rightValue)
+          if (leftValue == Undefined) Undefined.asInstanceOf[A]
+          else if (rightValue == Undefined) Undefined.asInstanceOf[A]
+          else inputCombiner.combine(leftValue, rightValue)
         }
 
       case IndexedAtom(_: Route[_], index)     =>
@@ -89,6 +90,7 @@ private[api] object Mechanic {
       case IndexedAtom(_: Header[_], index)    =>
         results => {
           val headerValue = results.headers(index)
+
           headerValue match {
             case header1: EndpointError.MissingHeader =>
               throw header1
@@ -112,10 +114,13 @@ private[api] object Mechanic {
 
       case WithDoc(api, _)          => makeConstructorLoop(api)
       case optional: Optional[_, _] =>
-        try { results =>
-          coerce(Some(makeConstructor(optional.optional)(results)))
-        } catch {
-          case _: Exception => _ => coerce(None)
+        val threaded = makeConstructorLoop(optional.in)
+
+        results => {
+          val value = threaded(results)
+          if (value == Undefined) {
+            None.asInstanceOf[A]
+          } else Some(value).asInstanceOf[A]
         }
 
       case atom: Atom[_, _] =>

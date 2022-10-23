@@ -2,6 +2,7 @@ package zio.http.api
 
 import zio.{Duration, ZIO}
 import zio.http.Response
+import zio.http.api.Middleware.Control
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.{Cookie, HeaderNames}
@@ -18,6 +19,16 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
 
   def implement[R, E](f: MiddlewareIn => ZIO[R, E, MiddlewareOut]): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
     Middleware.fromFunctionZIO[R, E, MiddlewareIn, MiddlewareOut](self)(f)
+
+  def implement[S](incoming: MiddlewareIn => Control[S])(
+    outgoing: (S, Response) => MiddlewareOut,
+  ): Middleware[Any, Nothing, MiddlewareIn, MiddlewareOut] =
+    Middleware.intercept[S, Any, Nothing, MiddlewareIn, MiddlewareOut](self)(incoming)(outgoing)
+
+  def implementZIO[R, E, S](incoming: MiddlewareIn => ZIO[R, E, Control[S]])(
+    outgoing: (S, Response) => ZIO[R, E, MiddlewareOut],
+  ): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
+    Middleware.interceptZIO[S](self)(incoming)(outgoing)
 
   def mapIn[MiddlewareIn2](
     f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn] => HttpCodec[
@@ -54,7 +65,6 @@ object MiddlewareSpec {
   def none: MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(HttpCodec.empty, HttpCodec.empty)
 
-
   def addCookie: MiddlewareSpec[Unit, Cookie[Response]] =
     MiddlewareSpec(
       HttpCodec.empty,
@@ -63,7 +73,6 @@ object MiddlewareSpec {
         _.encode(false).left.map(_.getMessage),
       ),
     )
-
 
   /**
    * Add specified header to the response

@@ -30,8 +30,10 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
   def ??(doc: Doc): HttpCodec[AtomTypes, Value] = HttpCodec.WithDoc(self, doc)
 
-  def optional(implicit ev: CodecType.Header <:< AtomTypes): HttpCodec[AtomTypes, Option[Value]] =
-    HttpCodec.Optional(self)
+  def optional(implicit
+    ev: CodecType.Header with CodecType.Query <:< AtomTypes,
+  ): HttpCodec[AtomTypes, Option[Value]] =
+    HttpCodec.Optional(HttpCodec.updateOptional(self))
 
   def ++[AtomTypes1 <: AtomTypes, Value2](that: HttpCodec[AtomTypes1, Value2])(implicit
     combiner: Combiner[Value, Value2],
@@ -148,7 +150,8 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
   private[api] final case class Body[A](schema: Schema[A])         extends Atom[CodecType.Body, A]
   private[api] final case class BodyStream[A](schema: Schema[A])
       extends Atom[CodecType.Body, ZStream[Any, Throwable, A]]
-  private[api] final case class Query[A](name: String, textCodec: TextCodec[A]) extends Atom[CodecType.Query, A] {
+  private[api] final case class Query[A](name: String, textCodec: TextCodec[A], optional: Boolean)
+      extends Atom[CodecType.Query, A] {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
   }
@@ -157,10 +160,15 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
     def erase: Method[Any] = self.asInstanceOf[Method[Any]]
   }
 
-  private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[CodecType.Header, A] {
+  private[api] final case class Header[A](name: String, textCodec: TextCodec[A], optional: Boolean)
+      extends Atom[CodecType.Header, A] {
     self =>
     def erase: Header[Any] = self.asInstanceOf[Header[Any]]
   }
+
+  // Fallback(left: HttpCodec[A], right: HttpCodec[B]) extends HttpCodec[AtomTypes, Either[A, B]]]
+  // A ++ (B || C) : HttpCodec[(A, Either[B, C])]
+  // (A ++ B).map2(Left(_))  ||  (A ++ C).map2(Right(_)) : HttpCodec[Either[(A, B), (A, C)]]
 
   private[api] final case class Optional[AtomType, A](in: HttpCodec[AtomType, A])
       extends HttpCodec[AtomType, Option[A]] {
@@ -184,4 +192,31 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
     right: HttpCodec[AtomType2, A2],
     inputCombiner: Combiner.WithOut[A1, A2, A],
   ) extends HttpCodec[AtomType1 with AtomType2, A]
+
+  private[api] def updateOptional[AtomTypes, A](api: HttpCodec[AtomTypes, A]): HttpCodec[AtomTypes, A] = {
+    def loop[B](api: HttpCodec[AtomTypes, B]): HttpCodec[AtomTypes, B] =
+      api match {
+        case atom: HttpCodec.Atom[AtomTypes, B]            =>
+          atom match {
+            case HttpCodec.Header(name, textCodec, _)   => HttpCodec.Header(name, textCodec, optional = true)
+            case HttpCodec.Query(name, codec, _)        => HttpCodec.Query(name, codec, optional = true)
+            case body @ HttpCodec.Body(_)               => body
+            case empty @ HttpCodec.Empty                => empty
+            case method @ HttpCodec.Method(_)           => method
+            case route @ HttpCodec.Route(_)             => route
+            case status @ HttpCodec.Status(_)           => status
+            case bodyStream @ HttpCodec.BodyStream(_)   => bodyStream
+            case i: HttpCodec.IndexedAtom[AtomTypes, B] =>
+              val result: HttpCodec[AtomTypes, B] = loop[B](i.atom)
+              HttpCodec.IndexedAtom[AtomTypes, B](result.asInstanceOf[Atom[AtomTypes, B]], i.index)
+          }
+        case HttpCodec.WithDoc(in, doc)                    => HttpCodec.WithDoc(updateOptional(in), doc)
+        case HttpCodec.TransformOrFail(api, f, g)          => HttpCodec.TransformOrFail(updateOptional(api), f, g)
+        case optional: HttpCodec.Optional[AtomTypes, _]    => HttpCodec.Optional(updateOptional(optional.in))
+        case HttpCodec.Combine(left, right, inputCombiner) =>
+          HttpCodec.Combine(loop(left), loop(right), inputCombiner)
+      }
+
+    loop(api)
+  }
 }

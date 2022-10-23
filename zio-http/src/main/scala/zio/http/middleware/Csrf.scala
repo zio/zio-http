@@ -47,27 +47,26 @@ private[zio] trait Csrf {
    */
   def csrfValidate(
     tokenName: String = "x-csrf-token",
-  )(implicit trace: Trace): api.Middleware[Any, Nothing, (Option[String], Option[String]), Unit] = {
+  )(implicit trace: Trace): api.Middleware[Any, Nothing, Option[(String, String)], Unit] = {
     val cookie: HeaderCodec[String] =
       HeaderCodec.cookie
 
     val tokenHeader =
       HeaderCodec.header(tokenName, TextCodec.string)
 
-    val middleware: MiddlewareSpec[(Option[String], Option[String]), Unit] =
+    val middleware: MiddlewareSpec[Option[(String, String)], Unit] =
       MiddlewareSpec(
-        cookie.optional ++ tokenHeader.optional,
+        (cookie ++ tokenHeader).optional,
         HttpCodec.empty,
       )
 
-    api.Middleware.intercept(middleware) {
-      case state @ (Some(headerValue), Some(cookieValue)) if headerValue != cookieValue =>
-        Control.Continue(state)
+    middleware.implement[Option[(String, String)]] {
+      case state @ (Some((headerValue, cookieValue))) if headerValue != cookieValue =>
+        Control.Continue[Option[(String, String)]](state)
 
       case state =>
         Control.Abort(state, _ => Response.status(Status.Forbidden))
 
-    }((_, response) => response)
-
+    }((_, _) => ())
   }
 }

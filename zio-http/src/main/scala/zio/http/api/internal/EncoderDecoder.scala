@@ -116,12 +116,15 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
     while (i < flattened.headers.length) {
       val header = flattened.headers(i).erase
 
-      val value = headers.get(header.name).toRight(EndpointError.MissingHeader(header.name))
+      headers.get(header.name) match {
+        case Some(value) =>
+          inputs(i) =
+            header.textCodec.decode(value).getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
 
-      inputs(i) = value match {
-        case Left(missingHeader) => missingHeader
-        case Right(value)        =>
-          header.textCodec.decode(value).getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
+        case None =>
+          if (header.optional) {
+            inputs(i) = Undefined
+          } else throw EndpointError.MissingHeader(header.name)
       }
 
       i = i + 1
