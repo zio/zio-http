@@ -6,9 +6,9 @@ import zio.http._
 import zio.http.model.Method
 
 object CSRF extends ZIOAppDefault {
-  val privateApp = Http.collect[Request] { case Method.GET -> !! / "unsafeEndpoint" =>
+  val privateApp = csrfValidate().apply(Http.collect[Request] { case Method.GET -> !! / "unsafeEndpoint" =>
     Response.text("secure info")
-  } @@ csrfValidate() // Check for matching csrf header and cookie
+  }) // Check for matching csrf header and cookie
 
   val publicApp = Http.collect[Request] { case Method.GET -> !! / "safeEndpoint" =>
     Response.text("hello")
