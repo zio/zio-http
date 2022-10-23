@@ -78,18 +78,13 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
       r <- ZIO.environment[R]
       behavior                     = pf.andThen(_.provideEnvironment(r))
       app: HttpApp[Any, Throwable] = Http.fromFunctionZIO(behavior)
-      _ <- driver.addApp(app)
+      _ <- driver.addApp(app, r)
     } yield ()
 
   override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
     trace: zio.Trace,
   ): URIO[R, Unit] =
-    ZIO.environment[R].flatMap { env =>
-      driver.addApp(
-        if (env == ZEnvironment.empty) httpApp.asInstanceOf[HttpApp[Any, Throwable]]
-        else httpApp.provideEnvironment(env),
-      )
-    } *> setErrorCallback(errorCallback)
+    ZIO.environment[R].flatMap(driver.addApp(httpApp, _)) *> setErrorCallback(errorCallback)
 
   private def setErrorCallback(errorCallback: Option[ErrorCallback]): UIO[Unit] =
     driver

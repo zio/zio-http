@@ -9,27 +9,35 @@ object APIExamples extends ZIOAppDefault {
   import QueryCodec._
 
   // MiddlewareSpec can be added at the service level as well
-  val getUser =
-    API.get(literal("users") / int).out[Int]
+  val getUsers =
+    EndpointSpec.get(literal("users") / int).out[Int]
 
-  val getUsersService =
-    getUser.handle[Any, Nothing] { case (id: Int) =>
+  val getUserEndpoint =
+    getUsers.implement[Any, Nothing] { case (id: Int) =>
       ZIO.succeedNow(id)
     }
 
   val getUserPosts =
-    API
+    EndpointSpec
       .get(literal("users") / int / literal("posts") / int)
       .in(query("name"))
 
-  val getUserPostsService =
-    getUserPosts.handle[Any, Nothing] { case (id1, query, id2) =>
+  val getUserPostEndpoint =
+    getUserPosts.implement[Any, Nothing] { case (id1, query, id2) =>
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 
-  val serviceSpec = (getUser ++ getUserPosts).middleware(MiddlewareSpec.auth)
+  val middlewareSpec =
+    MiddlewareSpec.auth
 
-  val app = serviceSpec.toHttpApp(getUsersService ++ getUserPostsService, Middleware.fromFunction(_ => ()))
+  // just like api.handle
+  val middleware =
+    middlewareSpec.implement(_ => ZIO.unit)
+
+  val serviceSpec =
+    (getUsers.toServiceSpec ++ getUserPosts.toServiceSpec).middleware(middlewareSpec)
+
+  val app = serviceSpec.toHttpApp(getUserEndpoint ++ getUserPostEndpoint, middleware)
 
   val request = Request.get(url = URL.fromString("/users/1").toOption.get)
   println(s"Looking up $request")
@@ -39,12 +47,12 @@ object APIExamples extends ZIOAppDefault {
   object Client {
     def example(client: Client) = {
       val registry =
-        APIRegistry(URL.fromString("http://localhost:8080").getOrElse(???), serviceSpec)
+        EndpointRegistry(URL.fromString("http://localhost:8080").getOrElse(???), serviceSpec)
 
-      val executor: APIExecutor[Any, Any, getUser.Id with getUserPosts.Id] =
-        APIExecutor(client, registry, ZIO.succeed(Auth.Credentials("user", "pass")))
+      val executor: EndpointExecutor[Any, Any, getUsers.type with getUserPosts.type] =
+        EndpointExecutor(client, registry, ZIO.succeed(Auth.Credentials("user", "pass")))
 
-      val x1 = getUser(42)
+      val x1 = getUsers(42)
       val x2 = getUserPosts(42, 200, "adam")
 
       val result1 = executor(x1)

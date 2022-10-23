@@ -187,25 +187,29 @@ private[zio] final case class ServerInboundHandler(
     msg match {
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
-        val req  = makeZioRequest(jReq)
-        val exit = appRef.get.execute(req)
+        val req         = makeZioRequest(jReq)
+        val (http, env) = appRef.get
+        val exit        = http.execute(req)
 
         if (attemptFastWrite(exit, time)) {
           releaseRequest(jReq)
         } else
           runtime.run(ctx) {
-            attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed { releaseRequest(jReq) }
+            (attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed { releaseRequest(jReq) })
+              .provideEnvironment(env)
           }
 
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
-        val req  = makeZioRequest(jReq)
-        val exit = appRef.get.execute(req)
+        val req         = makeZioRequest(jReq)
+        val (http, env) = appRef.get
+        val exit        = http.execute(req)
 
         if (!attemptFastWrite(exit, time)) {
           if (canHaveBody(jReq)) setAutoRead(false)
           runtime.run(ctx) {
-            attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed(setAutoRead(true))
+            (attemptFullWrite(exit, jReq, time, runtime) ensuring ZIO.succeed(setAutoRead(true)))
+              .provideEnvironment(env)
           }
         }
 

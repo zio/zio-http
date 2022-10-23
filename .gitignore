@@ -32,5 +32,6 @@ node_modules/
 .bsp/
 .DS_Store
 web/.DS_Store
-
+project/metals.sbt
 project/.bloop
+profiling/src/main/scala/Main.scala

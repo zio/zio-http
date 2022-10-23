@@ -1,5 +1,6 @@
 package zio.http.api
 
+import zio.http.netty.client.ConnectionPool
 import zio.http.{Client, ClientConfig, Server, ServerConfig, URL}
 import zio.schema.{DeriveSchema, Schema}
 import zio.test.{ZIOSpecDefault, assertTrue}
@@ -20,16 +21,19 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Post] = DeriveSchema.gen[Post]
   }
 
-  val usersPostAPI     = API.get("users" / RouteCodec.int / "posts" / RouteCodec.int).out[Post]
-  val usersPostHandler = usersPostAPI.handle { case (userId, postId) =>
+  val usersPostAPI     = EndpointSpec.get("users" / RouteCodec.int / "posts" / RouteCodec.int).out[Post]
+  val usersPostHandler = usersPostAPI.implement { case (userId, postId) =>
     ZIO.succeed(Post(postId, "title", "body", userId))
   }
 
-  // TODO: [Ergonomics] Need to make it easy to create an APIExecutor layer
+  // TODO: [Ergonomics] Need to make it easy to create an EndpointExecutor layer
   def makeExecutor(client: Client) = {
-    val registry = APIRegistry(URL.fromString("http://localhost:8080").getOrElse(???), usersPostAPI ++ usersPostAPI)
+    val registry = EndpointRegistry(
+      URL.fromString("http://localhost:8080").getOrElse(???),
+      usersPostAPI.toServiceSpec ++ usersPostAPI.toServiceSpec,
+    )
 
-    APIExecutor(client, registry, ZIO.unit)
+    EndpointExecutor(client, registry, ZIO.unit)
   }
 
   val executorLayer = ZLayer.fromFunction(makeExecutor _)
@@ -40,7 +44,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         for {
           _        <- Server.install(usersPostHandler.toHttpApp)
           _        <- ZIO.debug("Installed server")
-          executor <- ZIO.service[APIExecutor[Any, Any, usersPostAPI.Id]]
+          executor <- ZIO.service[EndpointExecutor[Any, Any, usersPostAPI.type]]
           // QUESTION: Do we want to encode `E` in an API?
           // The result of `executor.apply` could be ApiError[E], a sealed trait of the user error E or
           // some network error Throwable. Is that worth it?
@@ -52,6 +56,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       Server.live,
       ServerConfig.live,
       Client.live,
+      ConnectionPool.disabled,
       executorLayer,
       // TODO: [Ergonomics] Server.default is a value and ClientConfig.default is a Layer
       ClientConfig.default,

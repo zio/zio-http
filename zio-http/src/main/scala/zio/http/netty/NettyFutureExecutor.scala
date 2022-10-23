@@ -26,6 +26,7 @@ private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
           }
         }
         jFuture.addListener(handler)
+        ()
       })
       .onInterrupt(ZIO.succeed(jFuture.removeListener(handler)))
   }

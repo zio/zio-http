@@ -8,7 +8,7 @@ import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.{Headers, Status}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{nonFlaky, timeout}
+import zio.test.TestAspect.{diagnose, nonFlaky, timeout}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
 object WebSocketSpec extends HttpRunnableSpec {
@@ -110,7 +110,7 @@ object WebSocketSpec extends HttpRunnableSpec {
     }
   }
     .provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
-    timeout(30 seconds)
+    timeout(30 seconds) @@ diagnose(30.seconds)
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
     def add(a: A, isDone: Boolean = false): UIO[Unit] = ref.update(_ :+ a) <* promise.succeed(()).when(isDone)
