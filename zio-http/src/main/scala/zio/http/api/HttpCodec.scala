@@ -30,6 +30,8 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
   def ??(doc: Doc): HttpCodec[AtomTypes, Value] = HttpCodec.WithDoc(self, doc)
 
+  def optional: HttpCodec[AtomTypes, Option[Value]] = HttpCodec.Optional(self)
+
   def ++[AtomTypes1 <: AtomTypes, Value2](that: HttpCodec[AtomTypes1, Value2])(implicit
     combiner: Combiner[Value, Value2],
   ): HttpCodec[AtomTypes1, combiner.Out] =
@@ -149,16 +151,27 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
   }
+
   private[api] final case class Method[A](methodCodec: TextCodec[A]) extends Atom[CodecType.Method, A] { self =>
     def erase: Method[Any] = self.asInstanceOf[Method[Any]]
   }
+
   private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[CodecType.Header, A] {
     self =>
     def erase: Header[Any] = self.asInstanceOf[Header[Any]]
   }
+
+  private[api] final case class Optional[AtomType, A](in: HttpCodec[AtomType, A])
+      extends HttpCodec[AtomType, Option[A]] {
+    self =>
+    def erase: Header[Any] = self.asInstanceOf[Header[Any]]
+  }
+
   private[api] final case class IndexedAtom[AtomType, A](atom: Atom[AtomType, A], index: Int) extends Atom[AtomType, A]
+
   private[api] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)
       extends HttpCodec[AtomType, A]
+
   private[api] final case class TransformOrFail[AtomType, X, A](
     api: HttpCodec[AtomType, X],
     f: X => Either[String, A],

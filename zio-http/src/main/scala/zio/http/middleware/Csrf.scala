@@ -1,6 +1,8 @@
 package zio.http.middleware
 
 import zio.http._
+import zio.http.api.Middleware.Control
+import zio.http.api.{HeaderCodec, HttpCodec, MiddlewareSpec, TextCodec}
 import zio.http.model._
 import zio.{Trace, ZIO}
 
@@ -25,6 +27,14 @@ private[zio] trait Csrf {
   )(implicit trace: Trace): HttpMiddleware[R, E] =
     Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
 
+  // TODO; Remove csrfGenerate and rename csrfGenerate_ to csrfGenerate
+  final def csrfGenerate_[R, E](
+    tokenName: String = "x-csrf-token",
+    tokenGen: ZIO[R, Nothing, String] = ZIO.succeed(UUID.randomUUID.toString)(Trace.empty),
+  )(implicit trace: Trace): api.Middleware[R, Nothing, Unit, Cookie[Response]] = {
+    api.Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
+  }
+
   /**
    * Validates the CSRF token appearing in the request headers. Typically the
    * token should be set using the `csrfGenerate` middleware.
@@ -35,15 +45,28 @@ private[zio] trait Csrf {
    *
    * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
-  def csrfValidate(tokenName: String = "x-csrf-token")(implicit trace: Trace): HttpMiddleware[Any, Nothing] = {
-    Middleware.whenHeader(
-      headers => {
-        (headers.headerValue(tokenName), headers.cookieValue(tokenName)) match {
-          case (Some(headerValue), Some(cookieValue)) => headerValue != cookieValue
-          case _                                      => true
-        }
-      },
-      Middleware.succeed(Response.status(Status.Forbidden)),
-    )
+  def csrfValidate(
+    tokenName: String = "x-csrf-token",
+  )(implicit trace: Trace): api.Middleware[Any, Nothing, (Option[String], Option[String]), Unit] = {
+    val cookie: HeaderCodec[String] =
+      HeaderCodec.cookie
+
+    val tokenHeader =
+      HeaderCodec.header(tokenName, TextCodec.string)
+
+    val middleware: MiddlewareSpec[(Option[String], Option[String]), Unit] =
+      MiddlewareSpec(
+        cookie.optional ++ tokenHeader.optional,
+        HttpCodec.empty,
+      )
+
+    api.Middleware.intercept(middleware) {
+      case state @ (Some(headerValue), Some(cookieValue)) if headerValue == cookieValue =>
+        Control.Continue(state)
+
+      case r =>
+        Control.Continue(r)
+    }((_, response) => response)
+
   }
 }

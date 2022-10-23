@@ -93,14 +93,16 @@ object Middleware {
   def addCookie(cookie: Cookie[Response]): Middleware[Any, Nothing, Unit, Cookie[Response]] =
     fromFunction(MiddlewareSpec.addCookie, _ => cookie)
 
+  def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]]): Middleware[R, E, Unit, Cookie[Response]] =
+    fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
+
   def fromFunction[A, B](
     spec: MiddlewareSpec[A, B],
     f: A => B,
   ): Middleware[Any, Nothing, A, B] =
     intercept(spec)((a: A) => Control.Continue(a))((a, _) => f(a))
 
-  def fromFunctionZIO[R, E, A, B](
-    spec: MiddlewareSpec[A, B],
+  def fromFunctionZIO[R, E, A, B](spec: MiddlewareSpec[A, B])(
     f: A => ZIO[R, E, B],
   ): Middleware[R, E, A, B] =
     interceptZIO(spec)((a: A) => ZIO.succeedNow(Control.Continue(a)))((a, _) => f(a))
