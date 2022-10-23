@@ -24,7 +24,7 @@ object EndpointError {
     def message = s"Expected to find ${textCodec} but found pre-mature end to the path ${path}"
   }
   final case class MalformedRoute(path: Path, segment: Path.Segment, textCodec: TextCodec[_]) extends ServerError {
-    def message = s"Malformed route \"${segment.text}\" of ${path} failed to decode using $textCodec"
+    def message = "Malformed route \"" + segment.text + "\" of " + s"${path} failed to decode using $textCodec"
   }
   final case class MalformedStatus(status: String, textCodec: TextCodec[_])                   extends ServerError {
     def message = s"Malformed status $status failed to decode using $textCodec"
