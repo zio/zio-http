@@ -61,11 +61,12 @@ private[zio] trait Csrf {
       )
 
     api.Middleware.intercept(middleware) {
-      case state @ (Some(headerValue), Some(cookieValue)) if headerValue == cookieValue =>
+      case state @ (Some(headerValue), Some(cookieValue)) if headerValue != cookieValue =>
         Control.Continue(state)
 
-      case r =>
-        Control.Continue(r)
+      case state =>
+        Control.Abort(state, _ => Response.status(Status.Forbidden))
+
     }((_, response) => response)
 
   }
