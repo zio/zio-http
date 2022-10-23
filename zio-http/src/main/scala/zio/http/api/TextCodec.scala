@@ -48,7 +48,7 @@ object TextCodec {
 
     def apply(value: String): Unit = if (value == string) () else throw new MatchError(value)
 
-    def describe: String = s"the constant string \"${string}\""
+    def describe: String = "the constant string \"" + string + "\""
 
     def encode(value: Unit): String = string
 
