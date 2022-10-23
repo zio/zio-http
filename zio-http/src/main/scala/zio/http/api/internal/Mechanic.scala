@@ -24,6 +24,7 @@ private[api] object Mechanic {
       case atom: Atom[_, _]              => Chunk(atom)
       case map: TransformOrFail[_, _, _] => flattenedAtoms(map.api)
       case WithDoc(api, _)               => flattenedAtoms(api)
+      case optional: Optional[_, _]      => flattenedAtoms(optional.optional)
     }
 
   private def indexed[R, A](api: HttpCodec[R, A]): HttpCodec[R, A] =
@@ -42,6 +43,9 @@ private[api] object Mechanic {
         (TransformOrFail(api2, f, g).asInstanceOf[HttpCodec[R, A]], resultIndices)
 
       case WithDoc(api, _) => indexedImpl(api.asInstanceOf[HttpCodec[R, A]], indices)
+      case Optional(_)     =>
+        val (api2, resultIndices) = indexedImpl(api, indices)
+        (Optional(api2).asInstanceOf[HttpCodec[R, A]], resultIndices)
     }
 
   def makeConstructor[R, A](
@@ -83,7 +87,15 @@ private[api] object Mechanic {
       case IndexedAtom(_: Route[_], index)     =>
         results => coerce(results.routes(index))
       case IndexedAtom(_: Header[_], index)    =>
-        results => coerce(results.headers(index))
+        results => {
+          val headerValue = results.headers(index)
+          headerValue match {
+            case header1: EndpointError.MissingHeader =>
+              throw header1
+            case any                                  =>
+              coerce(any)
+          }
+        }
       case IndexedAtom(_: Query[_], index)     =>
         results => coerce(results.queries(index))
       case IndexedAtom(_: Body[_], index)      =>
@@ -98,7 +110,13 @@ private[api] object Mechanic {
             case Right(value) => value
           }
 
-      case WithDoc(api, _) => makeConstructorLoop(api)
+      case WithDoc(api, _)          => makeConstructorLoop(api)
+      case optional: Optional[_, _] =>
+        try { results =>
+          coerce(Some(makeConstructor(optional.optional)(results)))
+        } catch {
+          case _: Exception => _ => coerce(None)
+        }
 
       case atom: Atom[_, _] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
