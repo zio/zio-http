@@ -143,6 +143,10 @@ private[api] object Mechanic {
           rightDeconstructor(right, inputsBuilder)
         }
 
+      case optional: Optional[_, A] =>
+        val deconstructor = makeDeconstructorLoop(optional.in)
+        (input, inputsBuilder) => deconstructor(input, inputsBuilder)
+
       case IndexedAtom(_: Route[_], index) =>
         (input, inputsBuilder) => inputsBuilder.routes(index) = input
 
