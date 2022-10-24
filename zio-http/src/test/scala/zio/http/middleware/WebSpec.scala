@@ -261,21 +261,39 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         }
       },
     ),
-    suite("prettify error") {
+    suite("prettify error")(
       test("should not add anything to the body  as request do not have an accept header") {
         val app = (Http.error("Error !!!") @@ beautifyErrors) header "content-type"
         assertZIO(app(Request.get(URL.empty)))(isNone)
-      } +
-        test("should return a html body as the request has accept header set to text/html.") {
-          val app = (Http
-            .error("Error !!!") @@ beautifyErrors) header "content-type"
-          assertZIO(
-            app(
-              Request.get(URL.empty).copy(headers = Headers.accept(HeaderValues.textHtml)),
-            ),
-          )(isSome(equalTo("text/html")))
-        }
-    },
+      },
+      test("should return a html body as the request has accept header set to text/html.") {
+        val app = (Http
+          .error("Error !!!") @@ beautifyErrors) header "content-type"
+        assertZIO(
+          app(
+            Request.get(URL.empty).copy(headers = Headers.accept(HeaderValues.textHtml)),
+          ),
+        )(isSome(equalTo("text/html")))
+      },
+      test("should return a plain body as the request has accept header set to */*.") {
+        val app = (Http
+          .error("Error !!!") @@ beautifyErrors) header "content-type"
+        assertZIO(
+          app(
+            Request.get(URL.empty).copy(headers = Headers.accept("*/*")),
+          ),
+        )(isSome(equalTo("text/plain")))
+      },
+      test("should not add anything to the body as the request has accept header set to application/json.") {
+        val app = (Http
+          .error("Error !!!") @@ beautifyErrors) header "content-type"
+        assertZIO(
+          app(
+            Request.get(URL.empty).copy(headers = Headers.accept(HeaderValues.applicationJson)),
+          ),
+        )(isNone)
+      },
+    ),
   )
 
   private def cond(flg: Boolean) = (_: Any) => flg
