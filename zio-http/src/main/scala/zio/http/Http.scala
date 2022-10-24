@@ -72,7 +72,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     self compose other
 
   /**
-   * Combines two Http into one. "Combine" with what semantics?
+   * Combines two Http into one.
    */
   final def ++[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
     self defaultWith other
