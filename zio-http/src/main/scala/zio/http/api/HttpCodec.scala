@@ -203,7 +203,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
               HttpCodec.IndexedAtom(result.asInstanceOf[Atom[AtomTypes, B]], i.index)
           }
 
-        case empty @ HttpCodec.Empty                       => empty
+        case empty: HttpCodec.Empty.type                   => empty
         case HttpCodec.WithDoc(in, doc)                    => HttpCodec.WithDoc(updateOptional(in), doc)
         case HttpCodec.TransformOrFail(api, f, g)          => HttpCodec.TransformOrFail(updateOptional(api), f, g)
         case optional: HttpCodec.Optional[_, _]            => HttpCodec.Optional(updateOptional(optional.in))
