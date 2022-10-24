@@ -77,12 +77,19 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
     while (i < queries.length) {
       val query = queries(i).erase
 
-      inputs(i) = queryParams
-        .getOrElse(query.name, Nil)
-        .collectFirst(query.textCodec)
-        .getOrElse(
-          throw EndpointError.MissingQueryParam(query.name),
-        ) // TODO: Preserve failure messages in case of no matches
+      val queryParamValue =
+        queryParams
+          .getOrElse(query.name, Nil)
+          .collectFirst(query.textCodec)
+
+      queryParamValue match {
+        case Some(value) =>
+          inputs(i) = value
+        case None        =>
+          if (query.optional) {
+            inputs(i) = Undefined
+          } else throw EndpointError.MissingQueryParam(query.name)
+      }
 
       i = i + 1
     }
@@ -116,10 +123,16 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
     while (i < flattened.headers.length) {
       val header = flattened.headers(i).erase
 
-      val value = headers.get(header.name).getOrElse(throw EndpointError.MissingHeader(header.name))
+      headers.get(header.name) match {
+        case Some(value) =>
+          inputs(i) =
+            header.textCodec.decode(value).getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
 
-      inputs(i) =
-        header.textCodec.decode(value).getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
+        case None =>
+          if (header.optional) {
+            inputs(i) = Undefined
+          } else throw EndpointError.MissingHeader(header.name)
+      }
 
       i = i + 1
     }

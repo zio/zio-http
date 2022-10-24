@@ -2,7 +2,7 @@ package zio.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.ZIO.attemptBlocking
-import zio._
+import zio.{http, _}
 import zio.http.html._
 import zio.http.model._
 import zio.http.model.headers.HeaderModifierZIO
@@ -27,12 +27,18 @@ sealed trait Http[-R, +E, -A, +B] { self =>
 
   import Http._
 
-  /**
-   * Attaches the provided middleware to the Http app
-   */
   final def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
   )(implicit trace: Trace): Http[R1, E1, A2, B2] = mid(self)
+
+  /**
+   * Attaches the provided middleware to the Http app TODO; Rename to @@ once
+   * http.Middleware is removed
+   */
+  def withMiddleware[R1 <: R, A1 <: A, I, O](
+    mid: api.Middleware[R1, I, O],
+  )(implicit trace: Trace, ev1: A1 <:< Request, ev2: B <:< http.Response): HttpApp[R1, E] =
+    mid(self.asInstanceOf[Http[R, E, Request, Response]])
 
   /**
    * Combines two Http instances into a middleware that works a codec for

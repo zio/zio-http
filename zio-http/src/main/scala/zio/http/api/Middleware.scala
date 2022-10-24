@@ -2,8 +2,11 @@ package zio.http.api
 
 import zio._
 import zio.http._
-import zio.http.model.Cookie
+import zio.http.api.MiddlewareSpec.CsrfValidate
+import zio.http.model.{Cookie, Status}
 import zio.schema.codec.JsonCodec
+
+import java.util.UUID
 
 /**
  * A `Middleware` represents the implementation of a `MiddlewareSpec`,
@@ -45,7 +48,11 @@ sealed trait Middleware[-R, I, O] { self =>
               patch = spec.middlewareOut.encodeResponsePatch(mo)
             } yield response1.patch(patch)
           case Middleware.Control.Abort(state, patch) =>
-            outgoing(state, patch(Response.ok)).map(spec.middlewareOut.encodeResponse(JsonCodec)(_))
+            val response = patch(Response.ok)
+
+            outgoing(state, response)
+              .map(out => response.patch(spec.middlewareOut.encodeResponsePatch(out)))
+
         }
       } yield response
     }
@@ -92,22 +99,61 @@ object Middleware {
    * Sets cookie in response headers
    */
   def addCookie(cookie: Cookie[Response]): Middleware[Any, Unit, Cookie[Response]] =
-    fromFunction(MiddlewareSpec.addCookie, _ => cookie)
+    fromFunction(MiddlewareSpec.addCookie)(_ => cookie)
 
-  def fromFunction[A, B](
-    spec: MiddlewareSpec[A, B],
+  def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie[Response]]): Middleware[R, Unit, Cookie[Response]] =
+    fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
+
+  /**
+   * Generates a new CSRF token that can be validated using the csrfValidate
+   * middleware.
+   *
+   * CSRF middlewares: To prevent Cross-site request forgery attacks. This
+   * middleware is modeled after the double submit cookie pattern. Used in
+   * conjunction with [[#csrfValidate]] middleware.
+   *
+   * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
+   */
+  final def csrfGenerate[R, E](
+    tokenName: String = "x-csrf-token",
+    tokenGen: ZIO[R, Nothing, String] = ZIO.succeed(UUID.randomUUID.toString)(Trace.empty),
+  )(implicit trace: Trace): api.Middleware[R, Unit, Cookie[Response]] = {
+    api.Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
+  }
+
+  /**
+   * Validates the CSRF token appearing in the request headers. Typically the
+   * token should be set using the `csrfGenerate` middleware.
+   *
+   * CSRF middlewares : To prevent Cross-site request forgery attacks. This
+   * middleware is modeled after the double submit cookie pattern. Used in
+   * conjunction with [[#csrfGenerate]] middleware
+   *
+   * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
+   */
+  def csrfValidate(tokenName: String = "x-csrf-token"): Middleware[Any, CsrfValidate, Unit] =
+    MiddlewareSpec
+      .csrfValidate(tokenName)
+      .implement {
+        case state @ CsrfValidate(Some(cookieValue), Some(tokenValue)) if cookieValue.content == tokenValue =>
+          ZIO.succeedNow(Control.Continue(state))
+
+        case state =>
+          ZIO.succeedNow(Control.Abort(state, _ => Response.status(Status.Forbidden)))
+      }((_, _) => ZIO.unit)
+
+  def fromFunction[A, B](spec: MiddlewareSpec[A, B])(
     f: A => B,
   ): Middleware[Any, A, B] =
     intercept(spec)((a: A) => Control.Continue(a))((a, _) => f(a))
 
-  def fromFunctionZIO[R, A, B](
-    spec: MiddlewareSpec[A, B],
+  def fromFunctionZIO[R, A, B](spec: MiddlewareSpec[A, B])(
     f: A => ZIO[R, Nothing, B],
   ): Middleware[R, A, B] =
     interceptZIO(spec)((a: A) => ZIO.succeedNow(Control.Continue(a)))((a, _) => f(a))
 
   val none: Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.none, _ => ())
+    fromFunction(MiddlewareSpec.none)(_ => ())
 
   class Interceptor1[S](val dummy: Boolean = true) extends AnyVal {
     def apply[R, I, O](spec: MiddlewareSpec[I, O])(

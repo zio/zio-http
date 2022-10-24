@@ -17,7 +17,6 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  */
 private[zio] trait Web
     extends Cors
-    with Csrf
     with Auth
     with RequestLogging
     with Metrics
