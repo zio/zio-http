@@ -134,13 +134,13 @@ object Middleware {
   def csrfValidate(tokenName: String = "x-csrf-token"): Middleware[Any, CsrfValidate, Unit] =
     MiddlewareSpec
       .csrfValidate(tokenName)
-      .implementIncoming {
+      .implement {
         case state @ CsrfValidate(Some(cookieValue), Some(tokenValue)) if cookieValue.content == tokenValue =>
           ZIO.succeedNow(Control.Continue(state))
 
         case state =>
           ZIO.succeedNow(Control.Abort(state, _ => Response.status(Status.Forbidden)))
-      }
+      }((_, _) => ZIO.unit)
 
   def fromFunction[A, B](spec: MiddlewareSpec[A, B])(
     f: A => B,
