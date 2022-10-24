@@ -189,23 +189,24 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
   private[api] def updateOptional[AtomTypes, A](api: HttpCodec[AtomTypes, A]): HttpCodec[AtomTypes, A] = {
     def loop[B](api: HttpCodec[AtomTypes, B]): HttpCodec[AtomTypes, B] =
       api match {
-        case atom: HttpCodec.Atom[AtomTypes, B]            =>
+        case atom: HttpCodec.Atom[AtomTypes, B] =>
           atom match {
-            case HttpCodec.Header(name, textCodec, _)   => HttpCodec.Header(name, textCodec, optional = true)
-            case HttpCodec.Query(name, codec, _)        => HttpCodec.Query(name, codec, optional = true)
-            case body @ HttpCodec.Body(_)               => body
-            case method @ HttpCodec.Method(_)           => method
-            case route @ HttpCodec.Route(_)             => route
-            case status @ HttpCodec.Status(_)           => status
-            case bodyStream @ HttpCodec.BodyStream(_)   => bodyStream
-            case i: HttpCodec.IndexedAtom[AtomTypes, B] =>
-              val result: HttpCodec[AtomTypes, B] = loop[B](i.atom)
-              HttpCodec.IndexedAtom[AtomTypes, B](result.asInstanceOf[Atom[AtomTypes, B]], i.index)
+            case HttpCodec.Header(name, textCodec, _) => HttpCodec.Header(name, textCodec, optional = true)
+            case HttpCodec.Query(name, codec, _)      => HttpCodec.Query(name, codec, optional = true)
+            case body: HttpCodec.Body[_]              => body
+            case method: HttpCodec.Method[_]          => method
+            case route: HttpCodec.Route[_]            => route
+            case status: HttpCodec.Status[_]          => status
+            case bodyStream: HttpCodec.BodyStream[_]  => bodyStream
+            case i: HttpCodec.IndexedAtom[_, _]       =>
+              val result: HttpCodec[_, _] = loop(i.atom)
+              HttpCodec.IndexedAtom(result.asInstanceOf[Atom[AtomTypes, B]], i.index)
           }
+
         case empty @ HttpCodec.Empty                       => empty
         case HttpCodec.WithDoc(in, doc)                    => HttpCodec.WithDoc(updateOptional(in), doc)
         case HttpCodec.TransformOrFail(api, f, g)          => HttpCodec.TransformOrFail(updateOptional(api), f, g)
-        case optional: HttpCodec.Optional[AtomTypes, _]    => HttpCodec.Optional(updateOptional(optional.in))
+        case optional: HttpCodec.Optional[_, _]            => HttpCodec.Optional(updateOptional(optional.in))
         case HttpCodec.Combine(left, right, inputCombiner) =>
           HttpCodec.Combine(loop(left), loop(right), inputCombiner)
       }
