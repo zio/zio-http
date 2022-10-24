@@ -99,9 +99,9 @@ object Middleware {
    * Sets cookie in response headers
    */
   def addCookie(cookie: Cookie[Response]): Middleware[Any, Unit, Cookie[Response]] =
-    fromFunction(MiddlewareSpec.addCookie, _ => cookie)
+    fromFunction(MiddlewareSpec.addCookie)(_ => cookie)
 
-  def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]]): Middleware[R, E, Unit, Cookie[Response]] =
+  def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie[Response]]): Middleware[R, Unit, Cookie[Response]] =
     fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
 
   /**
@@ -117,7 +117,7 @@ object Middleware {
   final def csrfGenerate[R, E](
     tokenName: String = "x-csrf-token",
     tokenGen: ZIO[R, Nothing, String] = ZIO.succeed(UUID.randomUUID.toString)(Trace.empty),
-  )(implicit trace: Trace): api.Middleware[R, Nothing, Unit, Cookie[Response]] = {
+  )(implicit trace: Trace): api.Middleware[R, Unit, Cookie[Response]] = {
     api.Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
   }
 
@@ -131,31 +131,29 @@ object Middleware {
    *
    * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
    */
-  def csrfValidate(tokenName: String = "x-csrf-token"): Middleware[Any, Nothing, CsrfValidate, Unit] =
+  def csrfValidate(tokenName: String = "x-csrf-token"): Middleware[Any, CsrfValidate, Unit] =
     MiddlewareSpec
       .csrfValidate(tokenName)
-      .implement {
+      .implementIncoming {
         case state @ CsrfValidate(Some(cookieValue), Some(tokenValue)) if cookieValue.content == tokenValue =>
-          Control.Continue(state)
+          ZIO.succeedNow(Control.Continue(state))
 
         case state =>
-          Control.Abort(state, _ => Response.status(Status.Forbidden))
-      }((_, _) => ())
+          ZIO.succeedNow(Control.Abort(state, _ => Response.status(Status.Forbidden)))
+      }
 
-  def fromFunction[A, B](
-    spec: MiddlewareSpec[A, B],
+  def fromFunction[A, B](spec: MiddlewareSpec[A, B])(
     f: A => B,
   ): Middleware[Any, A, B] =
     intercept(spec)((a: A) => Control.Continue(a))((a, _) => f(a))
 
-  def fromFunctionZIO[R, A, B](
-    spec: MiddlewareSpec[A, B],
+  def fromFunctionZIO[R, A, B](spec: MiddlewareSpec[A, B])(
     f: A => ZIO[R, Nothing, B],
   ): Middleware[R, A, B] =
     interceptZIO(spec)((a: A) => ZIO.succeedNow(Control.Continue(a)))((a, _) => f(a))
 
   val none: Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.none, _ => ())
+    fromFunction(MiddlewareSpec.none)(_ => ())
 
   class Interceptor1[S](val dummy: Boolean = true) extends AnyVal {
     def apply[R, I, O](spec: MiddlewareSpec[I, O])(

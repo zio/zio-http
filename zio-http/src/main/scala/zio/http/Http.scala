@@ -35,10 +35,10 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Attaches the provided middleware to the Http app TODO; Rename to @@ once
    * http.Middleware is removed
    */
-  def withMiddleware[R1 <: R, E1 >: E, A1 <: A, I, O](
-    mid: api.Middleware[R1, E1, I, O],
-  )(implicit trace: Trace, ev1: A1 <:< Request, ev2: B <:< http.Response): HttpApp[R1, E1] =
-    mid(self.asInstanceOf[Http[R, E1, Request, Response]])
+  def withMiddleware[R1 <: R, A1 <: A, I, O](
+    mid: api.Middleware[R1, I, O],
+  )(implicit trace: Trace, ev1: A1 <:< Request, ev2: B <:< http.Response): HttpApp[R1, E] =
+    mid(self.asInstanceOf[Http[R, E, Request, Response]])
 
   /**
    * Combines two Http instances into a middleware that works a codec for

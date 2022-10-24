@@ -28,24 +28,12 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   def implementIncoming[R](
     incoming: MiddlewareIn => ZIO[R, Nothing, MiddlewareOut],
   ): Middleware[R, MiddlewareIn, MiddlewareOut] =
-    Middleware.fromFunctionZIO(self, incoming)
+    Middleware.fromFunctionZIO(self)(incoming)
 
   def implementIncomingControl[R](
     incoming: MiddlewareIn => ZIO[R, Nothing, Middleware.Control[MiddlewareOut]],
   ): Middleware[R, MiddlewareIn, MiddlewareOut] =
     implement[R, MiddlewareOut](in => incoming(in))((out, _) => ZIO.succeedNow(out))
-  def implement[R, E](f: MiddlewareIn => ZIO[R, E, MiddlewareOut]): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
-    Middleware.fromFunctionZIO[R, E, MiddlewareIn, MiddlewareOut](self)(f)
-
-  def implement[S](incoming: MiddlewareIn => Control[S])(
-    outgoing: (S, Response) => MiddlewareOut,
-  ): Middleware[Any, Nothing, MiddlewareIn, MiddlewareOut] =
-    Middleware.intercept[S, Any, Nothing, MiddlewareIn, MiddlewareOut](self)(incoming)(outgoing)
-
-  def implementZIO[R, E, S](incoming: MiddlewareIn => ZIO[R, E, Control[S]])(
-    outgoing: (S, Response) => ZIO[R, E, MiddlewareOut],
-  ): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
-    Middleware.interceptZIO[S](self)(incoming)(outgoing)
 
   def mapIn[MiddlewareIn2](
     f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn] => HttpCodec[
