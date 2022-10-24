@@ -25,7 +25,7 @@ object TestClientSpec extends ZIOSpecDefault {
       suite("addHandler")(
         test("all")(
           for {
-            _        <- TestClient.addHandler(_ => ZIO.succeed(Response.ok))
+            _        <- TestClient.addHandler{case _ => ZIO.succeed(Response.ok)}
             response <- Client.request(Request.get(URL.root))
           } yield assertTrue(response.status == Status.Ok),
         ),
