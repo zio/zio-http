@@ -32,7 +32,7 @@ object APIExamples extends ZIOAppDefault {
 
   // just like api.handle
   val middleware =
-    middlewareSpec.implement(_ => ZIO.unit)
+    middlewareSpec.implementIncoming(_ => ZIO.unit)
 
   val serviceSpec =
     (getUsers.toServiceSpec ++ getUserPosts.toServiceSpec).middleware(middlewareSpec)
