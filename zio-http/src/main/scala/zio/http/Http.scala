@@ -32,7 +32,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   )(implicit trace: Trace): Http[R1, E1, A2, B2] = mid(self)
 
   /**
-   * Attaches the provided middleware to the Http app
+   * Attaches the provided middleware to the Http app TODO; Rename to @@ once
+   * http.Middleware is removed
    */
   def withMiddleware[R1 <: R, E1 >: E, A1 <: A, I, O](
     mid: api.Middleware[R1, E1, I, O],

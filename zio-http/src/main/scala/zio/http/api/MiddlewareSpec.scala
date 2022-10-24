@@ -1,11 +1,11 @@
 package zio.http.api
 
-import zio.http.{Request, Response, api}
 import zio.http.api.Middleware.Control
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.headers.HeaderGetters
 import zio.http.model.{Cookie, HeaderNames, Headers}
+import zio.http.{Request, Response, api}
 import zio.{Duration, Trace, ZIO}
 
 import java.util.UUID
@@ -92,7 +92,6 @@ object MiddlewareSpec {
       ),
     )
   }
-
 
   def csrfValidate(tokenName: String): MiddlewareSpec[CsrfValidate, Unit] = {
     val cookie: MiddlewareSpec[Option[Cookie[Request]], Unit] =
