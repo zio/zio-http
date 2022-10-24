@@ -9,51 +9,52 @@ import zio.schema.codec.JsonCodec
  * A `Middleware` represents the implementation of a `MiddlewareSpec`,
  * intercepting parts of the request, and appending to the response.
  */
-sealed trait Middleware[-R, +E, I, O] { self =>
+sealed trait Middleware[-R, I, O] { self =>
   type State
 
   /**
    * Processes an incoming request, whose relevant parts are encoded into `I`,
    * the middleware input, and then returns an effect that will produce both
-   * state, together with a decision about whether to continue or abort the
-   * handling of the request.
+   * middleware-specific state (which will be passed to the outgoing handlerr),
+   * together with a decision about whether to continue or abort the handling of
+   * the request.
    */
-  def incoming(in: I): ZIO[R, E, Middleware.Control[State]]
+  def incoming(in: I): ZIO[R, Nothing, Middleware.Control[State]]
 
   /**
-   * Processes an outgoing response together with the middleware state,
-   * returning an effect that will produce `O`, which will in turn be used to
-   * modify the response.
+   * Processes an outgoing response together with the middleware state (produced
+   * by the incoming handler), returning an effect that will produce `O`, which
+   * will in turn be used to patch the response.
    */
-  def outgoing(state: State, response: Response): ZIO[R, E, O]
+  def outgoing(state: State, response: Response): ZIO[R, Nothing, O]
 
   /**
    * Applies the middleware to an `HttpApp`, returning a new `HttpApp` with the
    * middleware fully installed.
    */
-  def apply[R1 <: R, E1 >: E](httpApp: HttpApp[R1, E1]): HttpApp[R1, E1] =
+  def apply[R1 <: R, E](httpApp: HttpApp[R1, E]): HttpApp[R1, E] =
     Http.fromOptionFunction[Request] { request =>
       for {
         in       <- spec.middlewareIn.decodeRequest(JsonCodec)(request).orDie
-        control  <- incoming(in).mapError(Some(_))
+        control  <- incoming(in)
         response <- control match {
           case Middleware.Control.Continue(state)     =>
             for {
               response1 <- httpApp(request)
-              mo        <- outgoing(state, response1).mapError(Some(_))
+              mo        <- outgoing(state, response1)
               patch = spec.middlewareOut.encodeResponsePatch(mo)
             } yield response1.patch(patch)
           case Middleware.Control.Abort(state, patch) =>
-            outgoing(state, patch(Response.ok)).mapError(Some(_)).map(spec.middlewareOut.encodeResponse(null)(_))
+            outgoing(state, patch(Response.ok)).map(spec.middlewareOut.encodeResponse(JsonCodec)(_))
         }
       } yield response
     }
 
-  def ++[R1 <: R, E1 >: E, I2, O2](that: Middleware[R1, E1, I2, O2])(implicit
+  def ++[R1 <: R, I2, O2](that: Middleware[R1, I2, O2])(implicit
     inCombiner: Combiner[I, I2],
     outCombiner: Combiner[O, O2],
-  ): Middleware[R1, E1, inCombiner.Out, outCombiner.Out] =
-    Middleware.Concat[R1, E1, I, O, I2, O2, inCombiner.Out, outCombiner.Out](self, that, inCombiner, outCombiner)
+  ): Middleware[R1, inCombiner.Out, outCombiner.Out] =
+    Middleware.Concat[R1, I, O, I2, O2, inCombiner.Out, outCombiner.Out](self, that, inCombiner, outCombiner)
 
   def spec: MiddlewareSpec[I, O]
 }
@@ -80,9 +81,9 @@ object Middleware {
     final case class Abort[State](state: State, patch: Response => Response) extends Control[State]
   }
 
-  def intercept[S, R, E, I, O](spec: MiddlewareSpec[I, O])(incoming: I => Control[S])(
+  def intercept[S, R, I, O](spec: MiddlewareSpec[I, O])(incoming: I => Control[S])(
     outgoing: (S, Response) => O,
-  ): Middleware[R, E, I, O] =
+  ): Middleware[R, I, O] =
     interceptZIO(spec)(i => ZIO.succeedNow(incoming(i)))((s, r) => ZIO.succeedNow(outgoing(s, r)))
 
   def interceptZIO[S]: Interceptor1[S] = new Interceptor1[S]
@@ -90,56 +91,56 @@ object Middleware {
   /**
    * Sets cookie in response headers
    */
-  def addCookie(cookie: Cookie[Response]): Middleware[Any, Nothing, Unit, Cookie[Response]] =
+  def addCookie(cookie: Cookie[Response]): Middleware[Any, Unit, Cookie[Response]] =
     fromFunction(MiddlewareSpec.addCookie, _ => cookie)
 
   def fromFunction[A, B](
     spec: MiddlewareSpec[A, B],
     f: A => B,
-  ): Middleware[Any, Nothing, A, B] =
+  ): Middleware[Any, A, B] =
     intercept(spec)((a: A) => Control.Continue(a))((a, _) => f(a))
 
-  def fromFunctionZIO[R, E, A, B](
+  def fromFunctionZIO[R, A, B](
     spec: MiddlewareSpec[A, B],
-    f: A => ZIO[R, E, B],
-  ): Middleware[R, E, A, B] =
+    f: A => ZIO[R, Nothing, B],
+  ): Middleware[R, A, B] =
     interceptZIO(spec)((a: A) => ZIO.succeedNow(Control.Continue(a)))((a, _) => f(a))
 
-  val none: Middleware[Any, Nothing, Unit, Unit] =
+  val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none, _ => ())
 
   class Interceptor1[S](val dummy: Boolean = true) extends AnyVal {
-    def apply[R, E, I, O](spec: MiddlewareSpec[I, O])(
-      incoming: I => ZIO[R, E, Control[S]],
-    ): Interceptor2[S, R, E, I, O] =
-      new Interceptor2[S, R, E, I, O](spec, incoming)
+    def apply[R, I, O](spec: MiddlewareSpec[I, O])(
+      incoming: I => ZIO[R, Nothing, Control[S]],
+    ): Interceptor2[S, R, I, O] =
+      new Interceptor2[S, R, I, O](spec, incoming)
   }
 
-  class Interceptor2[S, R, E, I, O](spec: MiddlewareSpec[I, O], incoming: I => ZIO[R, E, Control[S]]) {
-    def apply[R1 <: R, E1 >: E](outgoing: (S, Response) => ZIO[R1, E1, O]): Middleware[R1, E1, I, O] =
+  class Interceptor2[S, R, I, O](spec: MiddlewareSpec[I, O], incoming: I => ZIO[R, Nothing, Control[S]]) {
+    def apply[R1 <: R, E](outgoing: (S, Response) => ZIO[R1, Nothing, O]): Middleware[R1, I, O] =
       InterceptZIO(spec, incoming, outgoing)
   }
 
-  private[api] final case class InterceptZIO[S, R, E, I, O](
+  private[api] final case class InterceptZIO[S, R, I, O](
     spec: MiddlewareSpec[I, O],
-    incoming0: I => ZIO[R, E, Control[S]],
-    outgoing0: (S, Response) => ZIO[R, E, O],
-  ) extends Middleware[R, E, I, O] {
+    incoming0: I => ZIO[R, Nothing, Control[S]],
+    outgoing0: (S, Response) => ZIO[R, Nothing, O],
+  ) extends Middleware[R, I, O] {
     type State = S
 
-    def incoming(in: I): ZIO[R, E, Middleware.Control[State]] = incoming0(in)
+    def incoming(in: I): ZIO[R, Nothing, Middleware.Control[State]] = incoming0(in)
 
-    def outgoing(state: State, response: Response): ZIO[R, E, O] = outgoing0(state, response)
+    def outgoing(state: State, response: Response): ZIO[R, Nothing, O] = outgoing0(state, response)
   }
-  private[api] final case class Concat[-R, +E, I1, O1, I2, O2, I3, O3](
-    left: Middleware[R, E, I1, O1],
-    right: Middleware[R, E, I2, O2],
+  private[api] final case class Concat[-R, I1, O1, I2, O2, I3, O3](
+    left: Middleware[R, I1, O1],
+    right: Middleware[R, I2, O2],
     inCombiner: Combiner.WithOut[I1, I2, I3],
     outCombiner: Combiner.WithOut[O1, O2, O3],
-  ) extends Middleware[R, E, I3, O3] {
+  ) extends Middleware[R, I3, O3] {
     type State = (left.State, right.State)
 
-    def incoming(in: I3): ZIO[R, E, Middleware.Control[State]] = {
+    def incoming(in: I3): ZIO[R, Nothing, Middleware.Control[State]] = {
       val (l, r) = inCombiner.separate(in)
 
       for {
@@ -148,7 +149,7 @@ object Middleware {
       } yield leftControl ++ rightControl
     }
 
-    def outgoing(state: State, response: Response): ZIO[R, E, O3] =
+    def outgoing(state: State, response: Response): ZIO[R, Nothing, O3] =
       for {
         l <- left.outgoing(state._1, response)
         r <- right.outgoing(state._2, response)

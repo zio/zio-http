@@ -16,8 +16,20 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   ): MiddlewareSpec[inCombiner.Out, outCombiner.Out] =
     MiddlewareSpec(self.middlewareIn ++ that.middlewareIn, self.middlewareOut ++ that.middlewareOut)
 
-  def implement[R, E](f: MiddlewareIn => ZIO[R, E, MiddlewareOut]): Middleware[R, E, MiddlewareIn, MiddlewareOut] =
-    Middleware.fromFunctionZIO[R, E, MiddlewareIn, MiddlewareOut](self, f)
+  def implement[R, S](
+    incoming: MiddlewareIn => ZIO[R, Nothing, Middleware.Control[S]],
+  ): Middleware.Interceptor2[S, R, MiddlewareIn, MiddlewareOut] =
+    Middleware.interceptZIO(self)(incoming)
+
+  def implementIncoming[R](
+    incoming: MiddlewareIn => ZIO[R, Nothing, MiddlewareOut],
+  ): Middleware[R, MiddlewareIn, MiddlewareOut] =
+    Middleware.fromFunctionZIO(self, incoming)
+
+  def implementIncomingControl[R](
+    incoming: MiddlewareIn => ZIO[R, Nothing, Middleware.Control[MiddlewareOut]],
+  ): Middleware[R, MiddlewareIn, MiddlewareOut] =
+    implement[R, MiddlewareOut](in => incoming(in))((out, _) => ZIO.succeedNow(out))
 
   def mapIn[MiddlewareIn2](
     f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn] => HttpCodec[

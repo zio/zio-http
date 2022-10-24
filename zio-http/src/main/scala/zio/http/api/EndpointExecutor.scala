@@ -6,7 +6,7 @@ import zio.http.api.internal.EndpointClient
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
- * A [[zio.http.api.EndpointExecutor]] is responsible for taking a service
+ * A [[zio.http.api.EndpointExecutor]] is responsible for taking an endpoint
  * invocation, and executing this invocation, returning the final result, or
  * failing with some kind of RPC error.
  */
