@@ -140,7 +140,6 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
 
   private[api] sealed trait Atom[-AtomTypes, Value0] extends HttpCodec[AtomTypes, Value0]
 
-  private[api] case object Empty                                   extends Atom[Any, Unit]
   private[api] final case class Status[A](textCodec: TextCodec[A]) extends Atom[CodecType.Status, A] { self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
   }
@@ -166,15 +165,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
     def erase: Header[Any] = self.asInstanceOf[Header[Any]]
   }
 
-  // Fallback(left: HttpCodec[A], right: HttpCodec[B]) extends HttpCodec[AtomTypes, Either[A, B]]]
-  // A ++ (B || C) : HttpCodec[(A, Either[B, C])]
-  // (A ++ B).map2(Left(_))  ||  (A ++ C).map2(Right(_)) : HttpCodec[Either[(A, B), (A, C)]]
-
-  private[api] final case class Optional[AtomType, A](in: HttpCodec[AtomType, A])
-      extends HttpCodec[AtomType, Option[A]] {
-    self =>
-    def erase: Header[Any] = self.asInstanceOf[Header[Any]]
-  }
+  private[api] final case class Optional[AtomType, A](in: HttpCodec[AtomType, A]) extends HttpCodec[AtomType, Option[A]]
 
   private[api] final case class IndexedAtom[AtomType, A](atom: Atom[AtomType, A], index: Int) extends Atom[AtomType, A]
 
@@ -186,6 +177,8 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
     f: X => Either[String, A],
     g: A => Either[String, X],
   ) extends HttpCodec[AtomType, A]
+
+  private[api] case object Empty extends HttpCodec[Any, Unit]
 
   private[api] final case class Combine[AtomType1, AtomType2, A1, A2, A](
     left: HttpCodec[AtomType1, A1],
@@ -201,7 +194,6 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
             case HttpCodec.Header(name, textCodec, _)   => HttpCodec.Header(name, textCodec, optional = true)
             case HttpCodec.Query(name, codec, _)        => HttpCodec.Query(name, codec, optional = true)
             case body @ HttpCodec.Body(_)               => body
-            case empty @ HttpCodec.Empty                => empty
             case method @ HttpCodec.Method(_)           => method
             case route @ HttpCodec.Route(_)             => route
             case status @ HttpCodec.Status(_)           => status
@@ -210,6 +202,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
               val result: HttpCodec[AtomTypes, B] = loop[B](i.atom)
               HttpCodec.IndexedAtom[AtomTypes, B](result.asInstanceOf[Atom[AtomTypes, B]], i.index)
           }
+        case empty @ HttpCodec.Empty                       => empty
         case HttpCodec.WithDoc(in, doc)                    => HttpCodec.WithDoc(updateOptional(in), doc)
         case HttpCodec.TransformOrFail(api, f, g)          => HttpCodec.TransformOrFail(updateOptional(api), f, g)
         case optional: HttpCodec.Optional[AtomTypes, _]    => HttpCodec.Optional(updateOptional(optional.in))

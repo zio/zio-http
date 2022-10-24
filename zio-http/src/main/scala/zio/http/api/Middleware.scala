@@ -2,8 +2,11 @@ package zio.http.api
 
 import zio._
 import zio.http._
-import zio.http.model.Cookie
+import zio.http.api.MiddlewareSpec.CsrfValidate
+import zio.http.model.{Cookie, Status}
 import zio.schema.codec.JsonCodec
+
+import java.util.UUID
 
 /**
  * A `Middleware` represents the implementation of a `MiddlewareSpec`,
@@ -44,7 +47,12 @@ sealed trait Middleware[-R, +E, I, O] { self =>
               patch = spec.middlewareOut.encodeResponsePatch(mo)
             } yield response1.patch(patch)
           case Middleware.Control.Abort(state, patch) =>
-            outgoing(state, patch(Response.ok)).mapError(Some(_)).map(spec.middlewareOut.encodeResponse(null)(_))
+            val response = patch(Response.ok)
+
+            outgoing(state, response)
+              .mapError(Some(_))
+              .map(out => response.patch(spec.middlewareOut.encodeResponsePatch(out)))
+
         }
       } yield response
     }
@@ -80,12 +88,8 @@ object Middleware {
     final case class Abort[State](state: State, patch: Response => Response) extends Control[State]
   }
 
-  def intercept[S, R, E, I, O](spec: MiddlewareSpec[I, O])(incoming: I => Control[S])(
-    outgoing: (S, Response) => O,
-  ): Middleware[R, E, I, O] =
-    interceptZIO(spec)(i => ZIO.succeedNow(incoming(i)))((s, r) => ZIO.succeedNow(outgoing(s, r)))
-
-  def interceptZIO[S]: Interceptor1[S] = new Interceptor1[S]
+  val none: Middleware[Any, Nothing, Unit, Unit] =
+    fromFunction(MiddlewareSpec.none, _ => ())
 
   /**
    * Sets cookie in response headers
@@ -95,6 +99,44 @@ object Middleware {
 
   def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]]): Middleware[R, E, Unit, Cookie[Response]] =
     fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
+
+  /**
+   * Generates a new CSRF token that can be validated using the csrfValidate
+   * middleware.
+   *
+   * CSRF middlewares: To prevent Cross-site request forgery attacks. This
+   * middleware is modeled after the double submit cookie pattern. Used in
+   * conjunction with [[#csrfValidate]] middleware.
+   *
+   * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
+   */
+  final def csrfGenerate[R, E](
+    tokenName: String = "x-csrf-token",
+    tokenGen: ZIO[R, Nothing, String] = ZIO.succeed(UUID.randomUUID.toString)(Trace.empty),
+  )(implicit trace: Trace): api.Middleware[R, Nothing, Unit, Cookie[Response]] = {
+    api.Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
+  }
+
+  /**
+   * Validates the CSRF token appearing in the request headers. Typically the
+   * token should be set using the `csrfGenerate` middleware.
+   *
+   * CSRF middlewares : To prevent Cross-site request forgery attacks. This
+   * middleware is modeled after the double submit cookie pattern. Used in
+   * conjunction with [[#csrfGenerate]] middleware
+   *
+   * https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#double-submit-cookie
+   */
+  def csrfValidate(tokenName: String = "x-csrf-token"): Middleware[Any, Nothing, CsrfValidate, Unit] =
+    MiddlewareSpec
+      .csrfValidate(tokenName)
+      .implement {
+        case state @ CsrfValidate(Some(cookieValue), Some(tokenValue)) if cookieValue.content == tokenValue =>
+          Control.Continue(state)
+
+        case state =>
+          Control.Abort(state, _ => Response.status(Status.Forbidden))
+      }((_, _) => ())
 
   def fromFunction[A, B](
     spec: MiddlewareSpec[A, B],
@@ -107,8 +149,12 @@ object Middleware {
   ): Middleware[R, E, A, B] =
     interceptZIO(spec)((a: A) => ZIO.succeedNow(Control.Continue(a)))((a, _) => f(a))
 
-  val none: Middleware[Any, Nothing, Unit, Unit] =
-    fromFunction(MiddlewareSpec.none, _ => ())
+  def intercept[S, R, E, I, O](spec: MiddlewareSpec[I, O])(incoming: I => Control[S])(
+    outgoing: (S, Response) => O,
+  ): Middleware[R, E, I, O] =
+    interceptZIO(spec)(i => ZIO.succeedNow(incoming(i)))((s, r) => ZIO.succeedNow(outgoing(s, r)))
+
+  def interceptZIO[S]: Interceptor1[S] = new Interceptor1[S]
 
   class Interceptor1[S](val dummy: Boolean = true) extends AnyVal {
     def apply[R, E, I, O](spec: MiddlewareSpec[I, O])(

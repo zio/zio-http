@@ -1,11 +1,14 @@
 package zio.http.api
 
-import zio.http.Response
+import zio.http.{Request, Response, api}
 import zio.http.api.Middleware.Control
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
-import zio.http.model.{Cookie, HeaderNames}
-import zio.{Duration, ZIO}
+import zio.http.model.headers.HeaderGetters
+import zio.http.model.{Cookie, HeaderNames, Headers}
+import zio.{Duration, Trace, ZIO}
+
+import java.util.UUID
 
 final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   middlewareIn: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn],
@@ -62,8 +65,51 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
 
 object MiddlewareSpec {
 
+  final case class CsrfValidate(cookieOption: Option[Cookie[Request]], tokenValue: Option[String])
+
   def none: MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(HttpCodec.empty, HttpCodec.empty)
+
+  def cookieOption(cookieName: String): MiddlewareSpec[Option[Cookie[Request]], Unit] = {
+    requireHeader("cookie")
+      .mapIn(
+        _.transformOrFail[Option[Cookie[Request]]](
+          // FIXME: Unable to document this. How to make sure the lookup key in cookie key-value pairs is documented?
+          str => Cookie.decode[Request](str).map(list => list.find(_.name == cookieName)).left.map(_.getMessage),
+          value => value.map(cookie => cookie.encode(validate = false)).getOrElse(Right("")).left.map(_.getMessage),
+        ),
+      )
+  }
+
+  def cookie(tokenName: String): MiddlewareSpec[Cookie[Request], Unit] = {
+    cookieOption(tokenName).mapIn(
+      _.transformOrFailLeft(
+        {
+          case None      => Left("")
+          case Some(opt) => Right(opt)
+        },
+        value => Some(value),
+      ),
+    )
+  }
+
+
+  def csrfValidate(tokenName: String): MiddlewareSpec[CsrfValidate, Unit] = {
+    val cookie: MiddlewareSpec[Option[Cookie[Request]], Unit] =
+      MiddlewareSpec.cookieOption(tokenName)
+
+    val tokenHeader =
+      MiddlewareSpec.requireHeader(tokenName)
+
+    (cookie ++ tokenHeader.mapIn(_.optional)).mapIn(
+      _.transform(
+        { case (a, b) =>
+          CsrfValidate(a, b)
+        },
+        value => (value.cookieOption, value.tokenValue),
+      ),
+    )
+  }
 
   def addCookie: MiddlewareSpec[Unit, Cookie[Response]] =
     MiddlewareSpec(
@@ -80,8 +126,10 @@ object MiddlewareSpec {
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
 
-  def addCorrelationId: MiddlewareSpec[Unit, String] =
+  def addCorrelationId: MiddlewareSpec[Unit, String] = {
+
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
+  }
 
   def auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)

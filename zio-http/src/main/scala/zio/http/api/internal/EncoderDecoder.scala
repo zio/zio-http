@@ -77,12 +77,19 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
     while (i < queries.length) {
       val query = queries(i).erase
 
-      inputs(i) = queryParams
-        .getOrElse(query.name, Nil)
-        .collectFirst(query.textCodec)
-        .getOrElse(
-          throw EndpointError.MissingQueryParam(query.name),
-        ) // TODO: Preserve failure messages in case of no matches
+      val queryParamValue =
+        queryParams
+          .getOrElse(query.name, Nil)
+          .collectFirst(query.textCodec)
+
+      queryParamValue match {
+        case Some(value) =>
+          inputs(i) = value
+        case None        =>
+          if (query.optional) {
+            inputs(i) = Undefined
+          } else throw EndpointError.MissingQueryParam(query.name)
+      }
 
       i = i + 1
     }
