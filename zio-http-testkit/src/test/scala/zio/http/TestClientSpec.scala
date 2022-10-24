@@ -1,14 +1,14 @@
 package zio.http
 
 import zio._
-import zio.http.model.Status
+import zio.http.model.{Method, Status}
 import zio.test._
 
 object TestClientSpec extends ZIOSpecDefault {
   def spec =
     suite("TestClient")(
-      suite("Happy Paths")(
-        test("addRequestResponse"){
+      suite("addRequestResponse")(
+        test("New behavior does not overwrite old"){
           val request = Request.get(URL.root)
           val request2 = Request.get(URL(Path.decode("users")))
           for {
@@ -21,9 +21,17 @@ object TestClientSpec extends ZIOSpecDefault {
           } yield assertTrue(goodResponse.status == Status.Ok) && assertTrue(badResponse.status == Status.NotFound) &&
                   assertTrue(goodResponse2.status == Status.Ok) && assertTrue(badResponse2.status == Status.Ok)
         },
-        test("addHandler")(
+      ),
+      suite("addHandler")(
+        test("all")(
           for {
-            _               <- TestClient.addHandler(request => ZIO.succeed(Response.ok))
+            _               <- TestClient.addHandler(_ => ZIO.succeed(Response.ok))
+            response <- Client.request(Request.get(URL.root))
+          } yield assertTrue(response.status == Status.Ok),
+        ),
+        test("partial")(
+          for {
+            _               <- TestClient.addHandler{case request  if request.method == Method.GET => ZIO.succeed(Response.ok)}
             response <- Client.request(Request.get(URL.root))
           } yield assertTrue(response.status == Status.Ok),
         ),

@@ -4,7 +4,22 @@ import zio._
 import zio.http.model.{Headers, Method, Scheme, Status, Version}
 import zio.http.socket.SocketApp
 
+/**
+ * Enables tests that use a client without needing a live Server
+ *
+ * @param behavior Contains the user-specified behavior that takes the place of the usual Server
+ */
 case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Client {
+  /**
+   * Adds an exact 1-1 behavior
+   * @param expectedRequest The request that will trigger the response
+   * @param response The response to be returned when a user submits the response
+   *
+   * @example
+   * {{{
+   *    TestClient.addRequestResponse(Request.get(URL.root), Response.ok)
+   * }}}
+   */
   def addRequestResponse(
                           expectedRequest: Request,
                           response: Response,
@@ -23,18 +38,27 @@ case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Client {
     addHandler(handler)
   }
 
+  /**
+   * Adds a flexible handler for requests that are submitted by test cases
+   * @param handler New behavior to be added to the TestClient
+   * @tparam R Environment of the new handler's effect.
+   *
+   * @example
+   * {{{
+   *    TestClient.addHandler{case request  if request.method == Method.GET => ZIO.succeed(Response.ok)}
+   * }}}
+   */
   def addHandler[R](
-    pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
+                     handler: PartialFunction[Request, ZIO[R, Throwable, Response]],
   ): ZIO[R, Nothing, Unit] =
     for {
       r                <- ZIO.environment[R]
       previousBehavior <- behavior.get
-      newBehavior                  = pf.andThen(_.provideEnvironment(r))
+      newBehavior                  = handler.andThen(_.provideEnvironment(r))
       app: HttpApp[Any, Throwable] = Http.collectZIO(newBehavior)
       _ <- behavior.set(previousBehavior ++ app)
     } yield ()
 
-  // TODO Use these in request/socket methods?
   val headers: Headers                   = Headers.empty
   val hostOption: Option[String]         = None
   val pathPrefix: Path                   = Path.empty
@@ -60,8 +84,8 @@ case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Client {
       request = Request(body = body, headers = headers, method = method, url = URL(pathPrefix, kind = URL.Location.Relative), version = version, remoteAddress = None)
       response <- currentBehavior(request)
         .catchAll {
-          case Some(value) => ZIO.succeed(Response.status(Status.BadRequest))
-          case None => ZIO.succeed(Response.status(Status.NotFound)) // new Exception("Unhandled request: " + request)
+          case Some(value) => ZIO.succeed(Response(status = Status.BadRequest, body = Body.fromString(value.toString)))
+          case None => ZIO.succeed(Response.status(Status.NotFound))
         }
     } yield  response
 
@@ -78,16 +102,36 @@ case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Client {
 }
 
 object TestClient {
+  /**
+   * Adds an exact 1-1 behavior
+   * @param expectedRequest The request that will trigger the response
+   * @param response The response to be returned when a user submits the response
+   *
+   * @example
+   * {{{
+   *    TestClient.addRequestResponse(Request.get(URL.root), Response.ok)
+   * }}}
+   */
   def addRequestResponse(
                           request: Request,
                           response: Response,
                         ): ZIO[TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.addRequestResponse(request, response))
 
+  /**
+   * Adds a flexible handler for requests that are submitted by test cases
+   * @param handler New behavior to be added to the TestClient
+   * @tparam R Environment of the new handler's effect.
+   *
+   * @example
+   * {{{
+   *    TestClient.addHandler{case request  if request.method == Method.GET => ZIO.succeed(Response.ok)}
+   * }}}
+   */
   def addHandler[R](
-    pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
+                     handler: PartialFunction[Request, ZIO[R, Throwable, Response]],
   ): ZIO[R with TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addHandler(pf))
+    ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
   val layer: ZLayer[Any, Throwable, TestClient] =
     ZLayer.scoped {
