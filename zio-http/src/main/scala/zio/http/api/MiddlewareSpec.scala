@@ -1,11 +1,11 @@
 package zio.http.api
 
-import zio.{Duration, ZIO}
 import zio.http.Response
 import zio.http.api.Middleware.Control
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.{Cookie, HeaderNames}
+import zio.{Duration, ZIO}
 
 final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   middlewareIn: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn],
