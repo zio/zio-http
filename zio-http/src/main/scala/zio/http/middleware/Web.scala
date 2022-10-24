@@ -325,21 +325,17 @@ object Web {
 
     if (response.status.isError) {
       request.accept match {
-        case Some(value) if HttpHeaderValues.TEXT_HTML.contains(value) =>
-          htmlResponse
+        case Some(value) if value.toString.contains(HttpHeaderValues.TEXT_HTML) =>
           response.copy(
             body = htmlResponse,
             headers = Headers(HeaderNames.contentType, model.HeaderValues.textHtml),
           )
-        case _                                                         =>
-          request.userAgent match {
-            case Some(userAgent) if userAgent.toString.contains("curl") =>
-              response.copy(
-                body = textResponse,
-                headers = Headers(HeaderNames.contentType, model.HeaderValues.textPlain),
-              )
-            case _                                                      => response
-          }
+        case Some(value) if value.toString.equals("*/*")                        =>
+          response.copy(
+            body = textResponse,
+            headers = Headers(HeaderNames.contentType, model.HeaderValues.textPlain),
+          )
+        case _                                                                  => response
       }
 
     } else
