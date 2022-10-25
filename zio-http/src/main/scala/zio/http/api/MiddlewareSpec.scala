@@ -85,16 +85,14 @@ object MiddlewareSpec {
     requireHeader(HeaderNames.cookie.toString()).optionalIn
       .mapIn(
         _.transformOrFail(
-          optionalCookieList =>
-            optionalCookieList match {
-              case Some(cookieList) => readCookie(cookieList, cookieName)
-              case None             => Right(None)
-            },
-          optCookie =>
-            optCookie match {
-              case None         => Right(None)
-              case Some(cookie) => writeCookie(cookie).map(Some(_))
-            },
+          {
+            case Some(cookieList) => readCookie(cookieList, cookieName)
+            case None             => Right(None)
+          },
+          {
+            case None         => Right(None)
+            case Some(cookie) => writeCookie(cookie).map(Some(_))
+          },
         ),
       )
 
