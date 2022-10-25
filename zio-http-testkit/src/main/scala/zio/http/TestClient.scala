@@ -151,7 +151,7 @@ object TestClient {
   ): ZIO[R with TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
-  val layer: ZLayer[Any, Throwable, TestClient] =
+  val layer: ZLayer[Any, Nothing, TestClient] =
     ZLayer.scoped {
       for {
         behavior <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
