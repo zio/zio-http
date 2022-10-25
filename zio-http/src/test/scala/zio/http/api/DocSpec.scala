@@ -16,14 +16,18 @@ object DocSpec extends ZIOSpecDefault {
           + Doc.p(Span.uri(java.net.URI.create("https://www.google.com")))
           + Doc.p(Span.error("This is an error"))
           + Doc.p(Span.code("ZIO.succeed(1)"))
-          + Doc.p(Span.strong("This is strong"))
-          + Doc.p(Span.weak("This is weak"))
+          + Doc.p(Span.bold("This is strong"))
+          + Doc.p(Span.italic("This is italic"))
           + Doc.descriptionList(
             Doc.Span.text("This is a description list item") -> Doc.p("This is the description"),
           )
-          + Doc.enumeration(
+          + Doc.orderedListing(
             Doc.p("This is an enumeration item"),
-            Doc.p("This is another enumeration item"),
+            Doc.p("This is another enumeration item") +
+              Doc.unorderedListing(
+                Doc.p("This is a nested enumeration item"),
+                Doc.p("This is another nested enumeration item"),
+              ),
           )
       ).toCommonMark
       val expected   = """# Awesome Test!
@@ -46,16 +50,15 @@ object DocSpec extends ZIOSpecDefault {
                        |
                        |**This is strong**
                        |
-                       |<span style="font-weight:lighter">This is weak</span>
+                       |*This is italic*
                        |
                        |This is a description list item:
                        |This is the description
                        |
-                       |- This is an enumeration item
-                       |
-                       |- This is another enumeration item
-                       |
-                       |""".stripMargin
+                       |1. This is an enumeration item
+                       |2. This is another enumeration item
+                       |  -   This is a nested enumeration item
+                       |  -   This is another nested enumeration item""".stripMargin
       assertTrue(complexDoc == expected)
     },
   )
