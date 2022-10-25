@@ -13,7 +13,7 @@ object APIExamples extends ZIOAppDefault {
     EndpointSpec.get("users" / int).out[Int]
 
   val getUserEndpoint =
-    getUsers.implement { id: Int =>
+    getUsers.implement { id =>
       ZIO.succeed(id)
     }
 
