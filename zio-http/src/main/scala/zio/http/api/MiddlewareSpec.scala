@@ -102,8 +102,8 @@ object MiddlewareSpec {
     cookieOption(cookieName).mapIn(
       _.transformOrFailLeft(
         {
-          case None      => Left(s"cookieName ${cookieName} not present")
-          case Some(opt) => Right(opt)
+          case None         => Left(s"Cookie ${cookieName} not found")
+          case Some(cookie) => Right(cookie)
         },
         value => Some(value),
       ),
