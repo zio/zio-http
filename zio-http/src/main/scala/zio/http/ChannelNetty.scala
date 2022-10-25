@@ -6,9 +6,9 @@ import zio.{Task, Trace, UIO, ZIO}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class ChannelNetty[-A](
-  private val channel: JChannel,
-  private val convert: A => Any,
-) extends Channel[A] {
+                                   private val channel: JChannel,
+                                   private val convert: A => Any,
+                                 ) extends Channel[A] {
   self =>
 
   private def foreach[S](await: Boolean)(run: JChannel => JChannelFuture)(implicit trace: Trace): Task[Unit] = {
@@ -16,8 +16,7 @@ final case class ChannelNetty[-A](
     else ZIO.attempt(run(channel): Unit)
   }
 
-  override def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] =
-    ZIO.succeed(channel.config.setAutoRead(flag): Unit)
+  override def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] = ZIO.succeed(channel.config.setAutoRead(flag): Unit)
 
   override def awaitClose(implicit trace: Trace): UIO[Unit] = ZIO.async[Any, Nothing, Unit] { register =>
     channel.closeFuture().addListener((_: JChannelFuture) => register(ZIO.unit))
