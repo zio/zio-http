@@ -63,6 +63,15 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   ): MiddlewareSpec[MiddlewareIn2, MiddlewareOut2] =
     mapIn(f).mapOut(g)
 
+  def optional: MiddlewareSpec[Option[MiddlewareIn], Option[MiddlewareOut]] =
+    self.optionalIn.optionalOut
+
+  def optionalIn: MiddlewareSpec[Option[MiddlewareIn], MiddlewareOut] =
+    self.mapIn(_.optional)
+
+  def optionalOut: MiddlewareSpec[MiddlewareIn, Option[MiddlewareOut]] =
+    self.mapOut(_.optional)
+
 }
 
 object MiddlewareSpec {
@@ -72,22 +81,28 @@ object MiddlewareSpec {
   def none: MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(HttpCodec.empty, HttpCodec.empty)
 
-  def cookieOption(cookieName: String): MiddlewareSpec[Option[Cookie[Request]], Unit] = {
-    requireHeader("cookie")
+  def cookieOption(cookieName: String): MiddlewareSpec[Option[Cookie[Request]], Unit] =
+    requireHeader(HeaderNames.cookie.toString()).optionalIn
       .mapIn(
-        _.transformOrFail[Option[Cookie[Request]]](
-          // FIXME: Unable to document this. How to make sure the lookup key in cookie key-value pairs is documented?
-          str => Cookie.decode[Request](str).map(list => list.find(_.name == cookieName)).left.map(_.getMessage),
-          value => value.map(cookie => cookie.encode(validate = false)).getOrElse(Right("")).left.map(_.getMessage),
+        _.transformOrFail(
+          optionalCookieList =>
+            optionalCookieList match {
+              case Some(cookieList) => readCookie(cookieList, cookieName)
+              case None             => Right(None)
+            },
+          optCookie =>
+            optCookie match {
+              case None         => Right(None)
+              case Some(cookie) => writeCookie(cookie).map(Some(_))
+            },
         ),
       )
-  }
 
-  def cookie(tokenName: String): MiddlewareSpec[Cookie[Request], Unit] = {
-    cookieOption(tokenName).mapIn(
+  def cookie(cookieName: String): MiddlewareSpec[Cookie[Request], Unit] = {
+    cookieOption(cookieName).mapIn(
       _.transformOrFailLeft(
         {
-          case None      => Left("")
+          case None      => Left(s"cookieName ${cookieName} not present")
           case Some(opt) => Right(opt)
         },
         value => Some(value),
@@ -144,7 +159,7 @@ object MiddlewareSpec {
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
     MiddlewareSpec(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty)
 
-  private def decodeHttpBasic(encoded: String): Option[Credentials] = {
+  private[api] def decodeHttpBasic(encoded: String): Option[Credentials] = {
     val colonIndex = encoded.indexOf(":")
     if (colonIndex == -1)
       None
@@ -158,4 +173,21 @@ object MiddlewareSpec {
       Some(Credentials(username, password))
     }
   }
+
+  private[api] def readCookie(
+    cookieList: String,
+    cookieName: String,
+  ): Either[String, Option[Cookie[Request]]] =
+    Cookie
+      .decode[Request](cookieList)
+      .map(list => list.find(_.name == cookieName))
+      .left
+      .map(_.getMessage)
+
+  private[api] def writeCookie(cookieRequest: Cookie[Request]): Either[String, String] =
+    cookieRequest
+      .encode(validate = false)
+      .left
+      .map(_.getMessage)
+
 }
