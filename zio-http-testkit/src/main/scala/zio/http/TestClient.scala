@@ -11,7 +11,7 @@ import zio.http.socket.SocketApp
  *   Contains the user-specified behavior that takes the place of the usual
  *   Server
  */
-case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Client {
+final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Client {
 
   /**
    * Adds an exact 1-1 behavior
