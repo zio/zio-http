@@ -1,7 +1,7 @@
 package zio.http.service
 
 import io.netty.channel.embedded.EmbeddedChannel
-import zio.http.Channel
+import zio.http.{ChannelNetty, ChannelT}
 import zio.test.TestAspect.timeout
 import zio.test.{TestClock, ZIOSpecDefault, assertTrue}
 import zio.{UIO, ZIO, durationInt}
@@ -59,7 +59,7 @@ object ChannelSpec extends ZIOSpecDefault {
 
   final class EmbeddedTestChannel[A] {
     val jChannel: EmbeddedChannel = new EmbeddedChannel()
-    val channel: Channel[A]       = Channel.make[A](jChannel)
+    val channel: Channel[A]       = ChannelNetty.make[A](jChannel)
 
     def inboundMessages: util.Queue[A]  = jChannel.inboundMessages.asInstanceOf[java.util.Queue[A]]
     def outboundMessages: util.Queue[A] = jChannel.outboundMessages.asInstanceOf[java.util.Queue[A]]
