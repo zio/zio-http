@@ -117,7 +117,8 @@ private[api] object TextCodec {
     def encode(value: UUID): String = value.toString
 
     // TODO: Make faster by hand-writing validation:
-    def isDefinedAt(value: String): Boolean = decode(value).isDefined
+    def isDefinedAt(value: String): Boolean =
+      value == "1" || value == "0" || value == "true" || value == "false"
 
     override def toString(): String = "TextCodec.uuid"
   }
