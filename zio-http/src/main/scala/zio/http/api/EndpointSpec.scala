@@ -14,7 +14,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * data computed by the handler of the API.
  *
  * MiddlewareInput : Example: A subset of `HttpCodec[Input]` that doesn't give
- * access to `Input` MiddlwareOutput: Example: A subset of `Out[Output]` that
+ * access to `Input` MiddlewareOutput: Example: A subset of `Out[Output]` that
  * doesn't give access to `Output` Input: Example: Int Output: Example: User
  *
  * As [[zio.http.api.EndpointSpec]] is a purely declarative encoding of an
@@ -24,10 +24,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * generate client libraries in other programming languages.
  */
 final case class EndpointSpec[Input, Output](
-  input: HttpCodec[
-    CodecType.RequestType,
-    Input,
-  ],
+  input: HttpCodec[CodecType.RequestType, Input],
   output: HttpCodec[CodecType.ResponseType, Output],
   doc: Doc,
 ) { self =>
