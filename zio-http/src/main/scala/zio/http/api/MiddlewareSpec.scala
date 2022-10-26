@@ -1,6 +1,7 @@
 package zio.http.api
 
 import zio.http.api.Middleware.Control
+import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.headers.HeaderGetters

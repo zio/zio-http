@@ -1,5 +1,6 @@
 package zio.http.api
 
+import zio.http.api.internal.TextCodec
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait QueryCodecs {

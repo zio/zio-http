@@ -1,4 +1,4 @@
-package zio.http.api
+package zio.http.api.internal
 
 import java.util.UUID
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -15,7 +15,7 @@ import scala.util.control.NonFatal
  * decoding from a given text fragment. Finally, unlike ordinary parsers, text
  * codecs are fully invertible, and can therefore be used in client generation.
  */
-sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
+private[api] sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
   def apply(value: String): A
 
   // TODO: Implement this using `isDefinedAt` and `apply` but only after all
@@ -33,7 +33,7 @@ sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
   private[api] final def erase: TextCodec[Any] = self.asInstanceOf[TextCodec[Any]]
 }
 
-object TextCodec {
+private[api] object TextCodec {
   implicit val boolean: TextCodec[Boolean] = BooleanCodec
 
   def constant(string: String): TextCodec[Unit] = Constant(string)

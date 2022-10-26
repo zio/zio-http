@@ -2,6 +2,7 @@ package zio.http.api
 
 import zio.http.model.HeaderNames
 import zio.http.model.headers.values._
+import zio.http.api.internal.TextCodec
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HeaderCodecs {
