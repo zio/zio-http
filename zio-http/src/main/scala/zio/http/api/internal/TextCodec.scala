@@ -83,8 +83,9 @@ private[api] object TextCodec {
           defined = false
           i = value.length
         }
+        i += 1
       }
-      defined
+      defined && i >= 1
     }
 
     override def toString(): String = "TextCodec.int"
