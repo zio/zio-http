@@ -6,7 +6,7 @@ import zio.http.api.internal.TextCodec
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HeaderCodecs {
-  def header[A](name: String, value: TextCodec[A]): HeaderCodec[A] =
+  private[api] def header[A](name: String, value: TextCodec[A]): HeaderCodec[A] =
     HttpCodec.Header(name, value, optional = false)
 
   final val accept: HeaderCodec[Accept]                           =
