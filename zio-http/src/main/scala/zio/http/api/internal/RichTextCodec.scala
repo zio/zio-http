@@ -8,7 +8,7 @@ import scala.collection.immutable.BitSet
 import scala.util.control.NoStackTrace
 
 /**
- * A [[RichTextCodec]] is a more compositional version of [[TextCodec]], which
+ * A `RichTextCodec is a more compositional version of `TextCodec`, which
  * has similar power to traditional parser combinators / pretty printers.
  * Although slower than the simpler text codecs, they can be utilized to parse
  * structured information in HTTP headers, which in turn allows generating much
