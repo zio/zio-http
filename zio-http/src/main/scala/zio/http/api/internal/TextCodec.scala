@@ -128,10 +128,7 @@ private[api] object TextCodec {
           count += 1
         else if (char == 45) {
           if (
-            group > 4 ||
-            (group == 0 && count != 8) ||
-            ((group == 1 || group == 2 || group == 3) && count != 4) ||
-            (group == 4 && count != 12)
+            group > 4 || (group == 0 && count != 8) || ((group == 1 || group == 2 || group == 3) && count != 4) || (group == 4 && count != 12)
           ) {
             defined = false
             i = value.length

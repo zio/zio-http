@@ -2,8 +2,7 @@ package zio.http.api.internal
 
 import zio.Scope
 import zio.http.api.internal.TextCodec.UUIDCodec
-import zio.test.{Gen, Spec, TestEnvironment, ZIOSpecDefault, checkN}
-import zio.test.assertTrue
+import zio.test._
 
 import java.util.UUID
 
