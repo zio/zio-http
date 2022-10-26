@@ -26,9 +26,6 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
    *   {{{
    *   TestServer.addRequestResponse(Request.get(url = URL.root.setPort(port = ???)), Response(Status.Ok))
    *   }}}
-   *
-   * @return
-   *   The TestSever with new behavior.
    */
   def addRequestResponse(
     expectedRequest: Request,
@@ -51,8 +48,6 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
    * Add new behavior to Server
    * @param pf
    *   New behavior
-   * @return
-   *   The TestSever with new behavior.
    *
    * @example
    *   {{{
