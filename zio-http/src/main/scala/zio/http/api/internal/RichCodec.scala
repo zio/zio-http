@@ -46,7 +46,7 @@ sealed trait RichTextCodec[A] { self =>
     RichTextCodec.Alt(self, RichTextCodec.defer(that))
 
   final def asType[B](implicit ev: A =:= B): RichTextCodec[B] =
-    ev.liftCo(self)
+    self.asInstanceOf[RichTextCodec[B]]
 
   final def collectOrFail(failure: String)(pf: PartialFunction[A, A]): RichTextCodec[A] =
     transformOrFailLeft[A](
