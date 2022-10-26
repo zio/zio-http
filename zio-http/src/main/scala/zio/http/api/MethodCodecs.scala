@@ -1,6 +1,7 @@
 package zio.http.api
 
 import zio.http.api.CodecType.Method
+import zio.http.api.internal.TextCodec
 
 private[api] trait MethodCodecs {
   def method(method: zio.http.model.Method): HttpCodec[CodecType.Method, Unit] =
