@@ -46,6 +46,9 @@ object WebSocketAdvanced extends ZIOAppDefault {
       case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete))  =>
         ch.writeAndFlush(WebSocketFrame.text("Greetings!"))
 
+      case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeTimeout))  =>
+        ch.write("Should this be possible?")
+
       // Log when the channel is getting closed
       case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
         Console.printLine("Closing channel with status: " + status + " and reason: " + reason)

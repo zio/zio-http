@@ -111,7 +111,7 @@ object TestClientSpec extends ZIOSpecDefault {
               .withProtocol(protocol) // Setup websocket protocol config
           for {
             _ <- TestClient.addSocketApp(socketAppServer)
-            client <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(socketAppClient))
+            response <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(socketAppClient))
 //            _ <- client.
           } yield assertCompletes
         }
