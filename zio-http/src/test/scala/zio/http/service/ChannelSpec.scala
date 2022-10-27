@@ -1,7 +1,7 @@
 package zio.http.service
 
 import io.netty.channel.embedded.EmbeddedChannel
-import zio.http.{ChannelNetty, ChannelT}
+import zio.http.{Channel, ChannelNetty}
 import zio.test.TestAspect.timeout
 import zio.test.{TestClock, ZIOSpecDefault, assertTrue}
 import zio.{UIO, ZIO, durationInt}
