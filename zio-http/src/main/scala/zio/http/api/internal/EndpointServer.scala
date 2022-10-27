@@ -14,9 +14,9 @@ private[api] final case class EndpointServer[R, E, I, O](handledEndpoint: Endpoi
   private val handler = handledEndpoint.handler
 
   def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
-    api.input.decodeRequest(JsonCodec)(request).debug("request").orDie.flatMap { value =>
+    api.input.decodeRequest(request).debug("request").orDie.flatMap { value =>
       handler(value).map { output =>
-        api.output.encodeResponse(JsonCodec)(output)
+        api.output.encodeResponse(output)
       }
     }
   }

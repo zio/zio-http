@@ -38,7 +38,7 @@ sealed trait Middleware[-R, I, O] { self =>
   def apply[R1 <: R, E](httpApp: HttpApp[R1, E]): HttpApp[R1, E] =
     Http.fromOptionFunction[Request] { request =>
       for {
-        in       <- spec.middlewareIn.decodeRequest(JsonCodec)(request).orDie
+        in       <- spec.middlewareIn.decodeRequest(request).orDie
         control  <- incoming(in)
         response <- control match {
           case Middleware.Control.Continue(state)     =>
