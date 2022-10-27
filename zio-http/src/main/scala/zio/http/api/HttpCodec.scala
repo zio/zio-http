@@ -63,19 +63,19 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   final def asRoute(implicit ev: CodecType.Route <:< AtomTypes): RouteCodec[Value] =
     self.asInstanceOf[RouteCodec[Value]]
 
-  final def decodeRequest(codec: Codec)(request: Request)(implicit trace: Trace): Task[Value] =
-    decode(codec)(request.url, Status.Ok, request.method, request.headers, request.body)
+  final def decodeRequest(request: Request)(implicit trace: Trace): Task[Value] =
+    decode(request.url, Status.Ok, request.method, request.headers, request.body)
 
-  final def decodeResponse(codec: Codec)(response: Response)(implicit trace: Trace): Task[Value] =
-    decode(codec)(URL.empty, response.status, Method.GET, response.headers, response.body)
+  final def decodeResponse(response: Response)(implicit trace: Trace): Task[Value] =
+    decode(URL.empty, response.status, Method.GET, response.headers, response.body)
 
-  private final def decode(codec: Codec)(url: URL, status: Status, method: Method, headers: Headers, body: Body)(
-    implicit trace: Trace,
+  private final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
+    trace: Trace,
   ): Task[Value] =
-    encoderDecoder.decode(codec)(url, status, method, headers, body)
+    encoderDecoder.decode(url, status, method, headers, body)
 
-  final def encodeRequest[Z](codec: Codec)(value: Value): Request =
-    encodeWith(codec)(value)((url, status, method, headers, body) =>
+  final def encodeRequest(value: Value): Request =
+    encodeWith(value)((url, status, method, headers, body) =>
       Request(
         url = url,
         method = method.getOrElse(Method.GET),
@@ -86,18 +86,16 @@ sealed trait HttpCodec[-AtomTypes, Value] {
       ),
     )
 
-  final def encodeResponse[Z](codec: Codec)(value: Value): Response =
-    encodeWith(codec)(value)((url, status, method, headers, body) => Response(headers = headers, body = body))
+  final def encodeResponse[Z](value: Value): Response =
+    encodeWith(value)((url, status, method, headers, body) => Response(headers = headers, body = body))
 
   final def encodeResponsePatch[Z](value: Value): Response.Patch =
-    encodeWith(zio.schema.codec.JsonCodec)(value)((url, status, method, headers, body) =>
-      Response.Patch(addHeaders = headers, setStatus = status),
-    )
+    encodeWith(value)((url, status, method, headers, body) => Response.Patch(addHeaders = headers, setStatus = status))
 
-  private final def encodeWith[Z](codec: Codec)(value: Value)(
+  private final def encodeWith[Z](value: Value)(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z =
-    encoderDecoder.encodeWith(codec)(value)(f)
+    encoderDecoder.encodeWith(value)(f)
 
   /**
    * Transforms the type parameter of this HttpCodec from `Value` to `Value2`.

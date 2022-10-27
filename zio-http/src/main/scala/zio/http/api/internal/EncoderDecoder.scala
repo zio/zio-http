@@ -17,9 +17,9 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
   private val jsonEncoders = flattened.bodies.map(bodyCodec => bodyCodec.erase.encodeToBody(_, JsonCodec))
   private val jsonDecoders = flattened.bodies.map(bodyCodec => bodyCodec.decodeFromBody(_, JsonCodec))
 
-  def decode(
-    codec: Codec,
-  )(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit trace: Trace): Task[Value] = {
+  def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
+    trace: Trace,
+  ): Task[Value] = {
     val inputsBuilder = flattened.makeInputsBuilder()
 
     decodeRoutes(url.path, inputsBuilder.routes)
@@ -30,9 +30,7 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
     decodeBody(body, inputsBuilder.bodies).as(constructor(inputsBuilder))
   }
 
-  final def encodeWith[Z](
-    codec: Codec,
-  )(value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
+  final def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
     val inputs = deconstructor(value)
 
     val route   = encodeRoute(inputs.routes)
