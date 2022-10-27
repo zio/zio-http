@@ -80,12 +80,12 @@ sealed trait Doc { self =>
                 render(doc, indent + 1)
               case Sequence(left, right) =>
                 render(left, indent)
-                writer.delete(writer.length - 1, writer.length)
+                writer.deleteCharAt(writer.length - 1)
                 render(right, indent + 1)
               case _                     =>
                 render(doc, indent)
             }
-            writer.delete(writer.length - 1, writer.length)
+            writer.deleteCharAt(writer.length - 1)
           }
 
         case Doc.Sequence(left, right) =>
@@ -108,7 +108,7 @@ sealed trait Doc { self =>
       span match {
         case Span.Text(value)           => render(value.replace("\n", "<br/>"))
         case Span.Code(value)           => render(s"<code>${value.trim.replace("\n", "<br/>")}</code>")
-        case Span.Link(value, text)     => s"<a href=\"$value\">${text.getOrElse(value)}</a>"
+        case Span.Link(value, text)     => s"""<a href="${value}">${text.getOrElse(value)}</a>"""
         case Span.Bold(value)           =>
           s"${"<b>"}${renderSpan(value, indent).trim}${"</b>"}"
         case Span.Italic(value)         =>
@@ -184,6 +184,137 @@ sealed trait Doc { self =>
 
     render(this)
     writer.toString()
+  }
+
+  def toPlaintext(columnWidth: Int = 100, color: Boolean = true): String = {
+    val _ = color
+
+    val writer     = DocWriter(0, columnWidth)
+    var uppercase  = false
+    var styles     = List.empty[String]
+    var lastStyle  = Console.RESET
+    var printedSep = 0
+
+    def setStyle(style: String): Unit = styles = style :: styles
+
+    def currentStyle(): String = styles.headOption.getOrElse(Console.RESET)
+
+    def resetStyle(): Unit = styles = styles.drop(1)
+
+    def renderText(text: String): Unit =
+      renderSpan(Span.text(text))
+
+    def renderNewline(): Unit =
+      if (printedSep < 2) {
+        printedSep += 1
+        val _ = writer.append("\n")
+      }
+
+    def clearSep() = printedSep = 0
+
+    def renderHelpDoc(helpDoc: Doc): Unit =
+      helpDoc match {
+        case Empty                =>
+        case Doc.Header(value, _) =>
+          writer.unindent()
+          renderNewline()
+          uppercase = true
+          setStyle(Console.BOLD)
+          renderSpan(Span.text(value))
+          resetStyle()
+          uppercase = false
+          renderNewline()
+          renderNewline()
+          writer.indent(2)
+
+        case Doc.Paragraph(value) =>
+          renderSpan(value)
+          renderNewline()
+          renderNewline()
+
+        case Doc.DescriptionList(definitions) =>
+          definitions.zipWithIndex.foreach { case ((span, helpDoc), _) =>
+            setStyle(Console.BOLD)
+            renderSpan(span)
+            resetStyle()
+            renderNewline()
+            writer.indent(2)
+            renderHelpDoc(helpDoc)
+            writer.unindent()
+            renderNewline()
+          }
+
+        case Doc.Listing(elements, listingType) =>
+          elements.zipWithIndex.foreach { case (helpDoc, i) =>
+            if (listingType == ListingType.Ordered) renderText(s"${i + 1}. ") else renderText("- ")
+            helpDoc match {
+              case Doc.Listing(_, _)     =>
+                writer.indent(2)
+                renderHelpDoc(helpDoc)
+                writer.unindent()
+              case Sequence(left, right) =>
+                renderHelpDoc(left)
+                writer.deleteLastChar()
+                writer.indent(2)
+                renderHelpDoc(right)
+                writer.unindent()
+              case _                     =>
+                renderHelpDoc(helpDoc)
+                writer.deleteLastChar()
+            }
+          }
+          writer.unindent()
+
+        case Doc.Sequence(left, right) =>
+          renderHelpDoc(left)
+          renderHelpDoc(right)
+      }
+
+    def renderSpan(span: Span): Unit = {
+      clearSep()
+      val _ = span match {
+        case Span.Text(value) =>
+          if (color && (lastStyle != currentStyle())) {
+            writer.append(currentStyle())
+            lastStyle = currentStyle()
+          }
+
+          writer.append(if (uppercase) value.toUpperCase() else value)
+
+        case Span.Code(value) =>
+          setStyle(Console.WHITE)
+          writer.append(value)
+          resetStyle()
+
+        case Span.Error(value) =>
+          setStyle(Console.RED)
+          renderSpan(Span.text(value))
+          resetStyle()
+
+        case Span.Italic(value) =>
+          setStyle(Console.BOLD)
+          renderSpan(value)
+          resetStyle()
+
+        case Span.Bold(value) =>
+          setStyle(Console.BOLD)
+          renderSpan(value)
+          resetStyle()
+
+        case Span.Link(value, text) =>
+          setStyle(Console.UNDERLINED)
+          renderSpan(Span.text(text.map(t => s"[$t](${value.toASCIIString})").getOrElse(value.toASCIIString)))
+          resetStyle()
+
+        case Span.Sequence(left, right) =>
+          renderSpan(left)
+          renderSpan(right)
+      }
+    }
+
+    renderHelpDoc(this)
+
+    writer.toString() + (if (color) Console.RESET else "")
   }
 
 }
@@ -263,5 +394,97 @@ object Doc {
     def spans(span: Span, spans0: Span*): Span      = spans(span :: spans0.toList)
     def spans(spans: Iterable[Span]): Span          = spans.toList.foldLeft(empty)(_ + _)
 
+  }
+}
+
+private[api] class DocWriter(stringBuilder: StringBuilder, startOffset: Int, columnWidth: Int) { self =>
+  private var marginStack: List[Int] = List(self.startOffset)
+
+  def deleteLastChar(): Unit = stringBuilder.deleteCharAt(stringBuilder.length - 1)
+
+  def append(s: String): DocWriter = {
+    if (s.isEmpty) self
+    else
+      DocWriter.splitNewlines(s) match {
+        case None         =>
+          if (self.currentColumn + s.length > self.columnWidth) {
+            val remainder = self.columnWidth - self.currentColumn
+
+            val lastSpace = {
+              val lastSpace = s.take(remainder + 1).lastIndexOf(' ')
+
+              if (lastSpace == -1) remainder else lastSpace
+            }
+
+            val before = s.take(lastSpace)
+            val after  = s.drop(lastSpace).dropWhile(_ == ' ')
+
+            append(before)
+            append("\n")
+            append(after)
+          } else {
+            val padding = self.currentMargin - self.currentColumn
+            if (padding > 0) {
+              self.stringBuilder.append(DocWriter.margin(padding))
+              self.currentColumn += padding
+            }
+            self.stringBuilder.append(s)
+            self.currentColumn += s.length
+          }
+        case Some(pieces) =>
+          pieces.zipWithIndex.foreach { case (piece, _) =>
+            append(piece)
+
+            self.stringBuilder.append("\n")
+            self.currentColumn = 0
+          }
+      }
+
+    this
+  }
+
+  def currentMargin: Int = self.marginStack.sum
+
+  var currentColumn: Int = self.startOffset
+
+  def indent(adjust: Int): Unit = self.marginStack = adjust :: self.marginStack
+
+  override def toString(): String = stringBuilder.toString()
+
+  def unindent(): Unit = self.marginStack = self.marginStack.drop(1)
+}
+private[api] object DocWriter                                                                  {
+  private def margin(n: Int): String                  = if (n <= 0) "" else List.fill(n)(" ").mkString
+  def splitNewlines(s: String): Option[Array[String]] = {
+    val count = s.count(_ == '\n')
+
+    if (count == 0) None
+    else
+      Some {
+        val size = if (count == s.length) count else count + 1
+
+        val array = Array.ofDim[String](size)
+
+        var i = 0
+        var j = 0
+        while (i < s.length) {
+          val search   = s.indexOf('\n', i)
+          val endIndex = if (search == -1) s.length else search
+
+          array(j) = s.substring(i, endIndex)
+
+          i = endIndex + 1
+          j = j + 1
+        }
+        if (j < array.length) array(j) = ""
+
+        array
+      }
+  }
+
+  def apply(startOffset: Int, columnWidth: Int): DocWriter = {
+    val builder = new StringBuilder
+    builder.append(margin(startOffset))
+    new DocWriter(builder, startOffset, if (columnWidth <= 0) startOffset + 1 else columnWidth)
   }
 }
