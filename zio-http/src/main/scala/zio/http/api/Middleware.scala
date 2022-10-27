@@ -11,6 +11,7 @@ import zio.http.model.headers.values.Origin
 import zio.http.model.{Cookie, Headers, Method, Status}
 
 import java.util.{Base64, UUID}
+import zio.http.model.Headers
 
 /**
  * A `Middleware` represents the implementation of a `MiddlewareSpec`,
@@ -259,6 +260,13 @@ object Middleware {
       ZIO.unit
     }
   }
+
+  def addHeader(header: Headers.Header): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.addHeader(header))(_ => ())
+
+  def addHeaders(headers: Headers): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.addHeaders(headers))(_ => ()) 
+  
 
   /**
    * Generates a new CSRF token that can be validated using the csrfValidate

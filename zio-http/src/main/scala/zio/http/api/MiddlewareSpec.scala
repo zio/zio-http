@@ -5,7 +5,7 @@ import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName
-import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames}
+import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames, Headers}
 import zio.http.{Request, Response}
 
 import java.util.Base64
@@ -140,7 +140,14 @@ object MiddlewareSpec {
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
 
-  def addCorrelationId: MiddlewareSpec[Unit, String] =
+  
+  def addHeader(header: Headers.Header): MiddlewareSpec[Unit, Unit] =
+     addHeader(header.key.toString, header.value.toString)
+     
+  def addHeaders(headers: Headers): MiddlewareSpec[Unit, Unit] =
+    headers.headersAsList.map(addHeader(_)).reduce(_ ++ _)
+
+  def addCorrelationId: MiddlewareSpec[Unit, String] = 
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
 
   def withAuthorization(value: CharSequence): MiddlewareSpec[Unit, Unit] =
