@@ -7,7 +7,7 @@ import zio.http.model.Method
 import zio.http.socket._
 
 object WebSocketAdvanced extends ZIOAppDefault {
-  val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (ChannelT[WebSocketFrame], String)] =
+  val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
     Http.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
       (channel, message)
     }
