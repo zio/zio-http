@@ -18,7 +18,7 @@ object URLSpec extends ZIOSpecDefault {
             val actualEncoded   = actual.map(_.encode)
 
             assertTrue(actualEncoded == Right(expectedEncoded)) &&
-            assertTrue(actual == Right(expected))
+              assertTrue(actual == Right(expected))
           }
         },
         test("manual") {
@@ -60,6 +60,16 @@ object URLSpec extends ZIOSpecDefault {
         test("converts an url to a relative url") {
           val actual   = URL.fromString("http://abc.com/users?a=1&b=2").map(_.relative.normalize.encode)
           val expected = Right("/users?a=1&b=2")
+          assertTrue(actual == expected)
+        },
+      ),
+      suite("setPath")(
+        test("updates the path without needed to know the host") {
+          val host     = "http://abc.com"
+          val channels = "/channels"
+          val users    = "/users"
+          val actual   = URL.fromString(host + users).map(_.setPath(channels).normalize.encode)
+          val expected = Right(host + channels)
           assertTrue(actual == expected)
         },
       ),
