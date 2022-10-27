@@ -123,8 +123,9 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       _ <- channelRefServer.set(Some(testChannelServer))
       _ <- testChannelClient.initialize
       _ <- testChannelServer.initialize
-      _ <- eventLoop(testChannelClient, serverSocketBehavior.get) // TODO When/how to close?
-      _ <- eventLoop(testChannelServer, ZIO.succeed(app.provideEnvironment(env))) // TODO When/how to close?
+      _ <- eventLoop(testChannelClient, serverSocketBehavior.get).race(
+        eventLoop(testChannelServer, ZIO.succeed(app.provideEnvironment(env)))
+      )
       //      _ <- testChannelClient.write(W)
     } yield Response.ok
   }
@@ -138,8 +139,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
         _ <- state.set(Some(pendClientEvent))
         liveApp <- app
         _ <- liveApp.message.get.apply(pendClientEvent)
-      } yield pendClientEvent).repeatWhile(shoudlContinue)
-        .forkDaemon
+      } yield pendClientEvent).repeatWhileZIO(event => ZIO.succeed(shoudlContinue(event)).debug(s"Event: ${event.event}  Should continue"))
     } yield ()
   }
 
@@ -147,7 +147,11 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
   def shoudlContinue(event: WebSocketChannelEvent) =
     event.event match {
       case ChannelEvent.ExceptionCaught(cause) => false
-      case ChannelEvent.ChannelRead(message) => true
+      case ChannelEvent.ChannelRead(message) =>
+        message match {
+          case WebSocketFrame.Close(status, reason) => false
+          case _ => true
+        }
       case ChannelEvent.UserEventTriggered(userEvent) => userEvent match {
         case UserEvent.HandshakeTimeout => false
         case UserEvent.HandshakeComplete => true

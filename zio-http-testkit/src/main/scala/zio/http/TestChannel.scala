@@ -8,7 +8,14 @@ case class TestChannel(queue: Queue[WebSocketChannelEvent], responseChannel: UIO
 
   override def awaitClose(implicit trace: Trace): UIO[Unit] = ???
 
-  override def close(await: Boolean)(implicit trace: Trace): Task[Unit] = ???
+  override def close(await: Boolean)(implicit trace: Trace): Task[Unit] =
+    for {
+      responseC <- responseChannel
+      _ <- queue.offer(ChannelEvent( responseC, ChannelEvent.ChannelRead(
+        WebSocketFrame.Close(0, None)
+      ))).unit
+    } yield  ()
+
 
   override def contramap[A1](f: A1 => WebSocketFrame): Channel[A1] = ???
 
