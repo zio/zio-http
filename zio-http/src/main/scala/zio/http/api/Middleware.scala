@@ -104,6 +104,21 @@ object Middleware {
   def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie[Response]]): Middleware[R, Unit, Cookie[Response]] =
     fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
 
+  def withAccept(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withAccept(value))(_ => ())
+
+  def withAcceptEncoding(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withAcceptEncoding(value))(_ => ())
+
+  def withAcceptLanguage(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withAcceptLanguage(value))(_ => ())
+
+  def withAcceptPatch(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withAcceptPatch(value))(_ => ())
+
+  def withAcceptRanges(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withAcceptRanges(value))(_ => ())
+
   /**
    * Generates a new CSRF token that can be validated using the csrfValidate
    * middleware.
