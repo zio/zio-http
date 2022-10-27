@@ -126,6 +126,13 @@ object MiddlewareSpec {
     )
   }
 
+  def requestLogging(): MiddlewareSpec[String, Unit] = {
+    MiddlewareSpec(
+      HeaderCodec.userAgent,
+      HttpCodec.empty,
+    )
+  }
+
   def addCookie: MiddlewareSpec[Unit, Cookie[Response]] =
     MiddlewareSpec(
       HttpCodec.empty,

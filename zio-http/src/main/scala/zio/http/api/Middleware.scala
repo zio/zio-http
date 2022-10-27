@@ -142,6 +142,19 @@ object Middleware {
           ZIO.succeedNow(Control.Abort(state, _ => Response.status(Status.Forbidden)))
       }((_, _) => ZIO.unit)
 
+  def requestLogging(): Middleware[Any, String, Unit] =
+    MiddlewareSpec
+      .requestLogging()
+      .implement { case agent =>
+        ZIO.succeedNow(Control.Continue(agent))
+      }((agent, response) =>
+        for {
+          _ <- ZIO.unit
+          _ <- Console.printLine(s"$agent requested: $response").orDie
+          // TODO: if we could get the actual request here, we could pull over the existing logging logic from `RequestLogging.scala`
+        } yield (),
+      )
+
   def fromFunction[A, B](spec: MiddlewareSpec[A, B])(
     f: A => B,
   ): Middleware[Any, A, B] =
