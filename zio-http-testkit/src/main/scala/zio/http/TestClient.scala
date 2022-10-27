@@ -114,8 +114,11 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], socketBehavi
   )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
     for {
       currentSocketBehavior <- socketBehavior.get
-      testChannelClient = new TestChannel[WebSocketFrame]
-      testChannelServer = new TestChannel[WebSocketFrame]
+      channelRefServer <- Ref.make(Option.empty[TestChannel])
+      channelRef <- Ref.make(Option.empty[TestChannel])
+      testChannelClient <- TestChannel.make(channelRefServer.get.some.orDieWith(_ => new RuntimeException))
+      testChannelServer <- TestChannel.make(ZIO.succeed(testChannelClient))
+      _ <- channelRefServer.set(Some(testChannelServer))
       _ <- ZIO.attempt(if(true)throw new Exception("Need to put stuff in here"))
     } yield Response.ok
   }

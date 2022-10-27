@@ -5,6 +5,7 @@ import zio.{Task, Trace, UIO}
  * An immutable and type-safe representation of one or more netty channels. `A`
  * represents the type of messages that can be written on the channel.
  */
+// TODO Remove all non-necessary methods here
 trait Channel[-A] {
 
   /**

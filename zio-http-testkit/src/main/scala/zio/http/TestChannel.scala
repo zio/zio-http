@@ -2,7 +2,7 @@ package zio.http
 import zio.http.socket.{WebSocketChannel, WebSocketChannelEvent, WebSocketFrame}
 import zio.{Queue, Task, Trace, UIO}
 
-case class TestChannel(queue: Queue[WebSocketChannelEvent]) extends WebSocketChannel {
+case class TestChannel(queue: Queue[WebSocketChannelEvent], responseChannel: UIO[WebSocketChannel]) extends WebSocketChannel {
   override def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] = ???
 
   override def awaitClose(implicit trace: Trace): UIO[Unit] = ???
@@ -17,17 +17,29 @@ case class TestChannel(queue: Queue[WebSocketChannelEvent]) extends WebSocketCha
 
   override def isAutoRead(implicit trace: Trace): UIO[Boolean] = ???
 
-  override def read(implicit trace: Trace): UIO[Unit] = ???
+  override def read(implicit trace: Trace): UIO[Unit] = {
+    for {
+      element <- queue.take
+    } yield ()
+  }
 
-  override def write(msg: WebSocketFrame, await: Boolean)(implicit trace: Trace): Task[Unit] = ???
+  def pending(implicit trace: Trace): UIO[WebSocketChannelEvent] =
+    for {
+      element <- queue.take
+    } yield element
 
-  override def writeAndFlush(msg: WebSocketFrame, await: Boolean)(implicit trace: Trace): Task[Unit] = ???
+  override def write(msg: WebSocketFrame, await: Boolean)(implicit trace: Trace): Task[Unit] = {
+    queue.offer(ChannelEvent(responseChannel, ChannelEvent.ChannelRead(msg))).unit
+  }
+
+  override def writeAndFlush(msg: WebSocketFrame, await: Boolean)(implicit trace: Trace): Task[Unit] =
+    queue.offer(ChannelEvent(responseChannel, ChannelEvent.ChannelRead(msg))).unit
 }
 
 object TestChannel {
   // TODO parameterize
-  def make =
+  def make(replyChannel: UIO[WebSocketChannel]) =
     for {
-      queue <- Queue.unbounded[ChannelEvent[WebSocketChannelEvent, WebSocketChannelEvent]]
-    } yield TestChannel(queue)
+      queue <- Queue.unbounded[WebSocketChannelEvent]
+    } yield TestChannel(queue, replyChannel)
 }
