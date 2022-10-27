@@ -9,6 +9,12 @@ import zio.test._
 object TestClientSpec extends ZIOSpecDefault {
   def spec =
     suite("TestClient")(
+      test("tracing")(
+        assertTrue(
+          List(1,2,3) == List(2,3,4)
+        )
+
+      ),
       suite("addRequestResponse")(
         test("New behavior does not overwrite old") {
           val request  = Request.get(URL.root)
@@ -66,41 +72,71 @@ object TestClientSpec extends ZIOSpecDefault {
               (channel, message)
             }
 
-          val messageSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
+          val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
             Http.collectZIO[(WebSocketChannel, String)] {
-              case (ch, text) if text.contains("end") =>
-                ZIO.debug("Closing channel!") *>
-                  ch.writeAndFlush(WebSocketFrame.text("Goodbye!"), await = true) *>
-                ch.close()
-              case (ch, text) =>
-                ZIO.debug("Keep going!") *>
-                  ch.writeAndFlush(WebSocketFrame.text("Received: " + text), await = true)
+              case (ch, text) if text.contains("Hi Client") =>
+                  ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
             }
 
-          val channelSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+          val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = Http.empty
+
+          val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
+            Http.collectZIO[(WebSocketChannel, String)] {
+              case (ch, text) if text.contains("Hi Server") =>
+                ch.close()
+            }
+
+          val channelSocketServer
+          : Http[Any, Throwable, WebSocketChannelEvent, Unit] =
             Http.collectZIO[WebSocketChannelEvent] {
               case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete))  =>
-                ch.writeAndFlush(WebSocketFrame.text("Greetings!"))
+                ch.writeAndFlush(WebSocketFrame.text("Hi Client"))
+
               case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
                 Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
             }
 
-          val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-            messageSocket ++ channelSocket
+          val httpSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+            messageSocketClient ++ channelSocketClient
+
+          val httpSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+            messageSocketServer ++ channelSocketServer
 
           val protocol = SocketProtocol.default.withSubProtocol(Some("json")) // Setup protocol settings
 
           val decoder = SocketDecoder.default.withExtensions(allowed = true) // Setup decoder settings
 
-          val socketApp: SocketApp[Any] = // Combine all channel handlers together
-            httpSocket.toSocketApp
+          val socketAppClient: SocketApp[Any] = // Combine all channel handlers together
+            httpSocketClient.toSocketApp
+              .withDecoder(decoder)   // Setup websocket decoder config
+              .withProtocol(protocol) // Setup websocket protocol config
+
+          val socketAppServer: SocketApp[Any] = // Combine all channel handlers together
+            httpSocketServer.toSocketApp
               .withDecoder(decoder)   // Setup websocket decoder config
               .withProtocol(protocol) // Setup websocket protocol config
           for {
-            _ <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(socketApp))
+            _ <- TestClient.addSocketApp(socketAppServer)
+            client <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(socketAppClient))
+//            _ <- client.
           } yield assertCompletes
         }
       )
     ).provide(TestClient.layer, Scope.default)
 
 }
+
+
+/*
+    Server
+      - SocketOpened
+        - write("Hi client")
+
+      - MessageReceived("Hi Server")
+        - close(channel)
+
+    Client
+      - MessageReceived
+        - write("Hi Server")
+
+ */

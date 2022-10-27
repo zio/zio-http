@@ -102,7 +102,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], socketBehavi
       }
     } yield response
 
-  override protected def socketInternal[Env1 <: Any](
+  override protected def socketInternal[Env1](
     app: SocketApp[Env1],
     headers: Headers,
     hostOption: Option[String],
@@ -119,16 +119,20 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], socketBehavi
     } yield Response.ok
   }
 
-  private def  loop[ServerR, ClientR](
-    serverApp: SocketApp[ServerR],
-    clientApp: SocketApp[ClientR],
-                   ) = for {
-    _ <- serverApp.message.get(ChannelEvent.ChannelRegistered)
-  }
+//  private def  loop[ServerR, ClientR](
+//    serverApp: SocketApp[ServerR],
+//    clientApp: SocketApp[ClientR],
+//                   ) = for {
+//    _ <- serverApp.message.get.apply(ChannelEvent.ChannelRegistered)
+//  } yield ???
 
   def addSocketApp[Env1](
                         app: SocketApp[Env1],
-                      ): ZIO[Any, Nothing, Unit] = ???
+                      ): ZIO[Env1, Nothing, Unit] =
+    for {
+      env <- ZIO.environment[Env1]
+      _ <- socketBehavior.set(app.provideEnvironment(env))
+    } yield ()
 }
 
 object TestClient {
@@ -167,6 +171,11 @@ object TestClient {
     handler: PartialFunction[Request, ZIO[R, Throwable, Response]],
   ): ZIO[R with TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
+
+  def addSocketApp[Env1](
+                          app: SocketApp[Env1],
+                        ): ZIO[TestClient with Env1, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClient](_.addSocketApp(app))
 
   val layer: ZLayer[Any, Nothing, TestClient] =
     ZLayer.scoped {
