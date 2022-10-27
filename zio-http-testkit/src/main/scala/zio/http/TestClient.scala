@@ -2,7 +2,7 @@ package zio.http
 
 import zio._
 import zio.http.model.{Headers, Method, Scheme, Status, Version}
-import zio.http.socket.SocketApp
+import zio.http.socket.{SocketApp, WebSocketFrame}
 
 /**
  * Enables tests that use a client without needing a live Server
@@ -11,7 +11,7 @@ import zio.http.socket.SocketApp
  *   Contains the user-specified behavior that takes the place of the usual
  *   Server
  */
-final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Client {
+final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], socketBehavior: Ref[SocketApp[Any]]) extends Client {
 
   /**
    * Adds an exact 1-1 behavior
@@ -111,8 +111,20 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Clie
     queries: QueryParams,
     schemeOption: Option[Scheme],
     version: Version,
-  )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] =
-    ZIO.fail(new Exception("Need to put stuff in here"))
+  )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
+    for {
+      currentSocketBehavior <- socketBehavior.get
+      testChannel = new TestChannel[WebSocketFrame]
+      _ <- ZIO.attempt(if(true)throw new Exception("Need to put stuff in here"))
+    } yield Response.ok
+  }
+
+  private def  loop[ServerR, ClientR](
+    serverApp: SocketApp[ServerR],
+    clientApp: SocketApp[ClientR],
+                   ) = for {
+    _ <- serverApp.message.get(ChannelEvent.ChannelRegistered)
+  }
 
   def addSocketApp[Env1](
                         app: SocketApp[Env1],
@@ -160,6 +172,7 @@ object TestClient {
     ZLayer.scoped {
       for {
         behavior <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
-      } yield TestClient(behavior)
+        socketBehavior <- Ref.make[SocketApp[Any]](SocketApp.apply(_ => ZIO.unit))
+      } yield TestClient(behavior, socketBehavior)
     }
 }
