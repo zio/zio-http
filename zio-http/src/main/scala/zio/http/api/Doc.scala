@@ -33,7 +33,7 @@ sealed trait Doc { self =>
       span match {
         case Span.Text(value)           => render(value)
         case Span.Code(value)           => render(s"```${value.trim}```")
-        case Span.URI(value)            => render(s"[$value]($value)")
+        case Span.Link(value, text)     => render(s"[${text.getOrElse(value)}]($value)")
         case Span.Bold(value)           =>
           s"${render("**")}${renderSpan(value, indent).trim}${render("**")}"
         case Span.Italic(value)         =>
@@ -98,8 +98,96 @@ sealed trait Doc { self =>
     render(this)
     writer.toString()
   }
+
+  def toHtmlSnippet: String = {
+    val writer = new StringBuilder
+
+    def renderSpan(span: Span, indent: Int): String = {
+      def render(s: String): String = ("  " * indent) + s
+
+      span match {
+        case Span.Text(value)           => render(value.replace("\n", "<br/>"))
+        case Span.Code(value)           => render(s"<code>${value.trim.replace("\n", "<br/>")}</code>")
+        case Span.Link(value, text)     => s"<a href=\"$value\">${text.getOrElse(value)}</a>"
+        case Span.Bold(value)           =>
+          s"${"<b>"}${renderSpan(value, indent).trim}${"</b>"}"
+        case Span.Italic(value)         =>
+          s"${"<i>"}${renderSpan(value, indent).trim}${"</i>"}"
+        case Span.Error(value)          =>
+          s"${s"""<span style="color:red">"""}${render(value).replace("\n", "<br/>")}${"</span>"}"
+        case Span.Sequence(left, right) =>
+          renderSpan(left, indent)
+          renderSpan(right, indent)
+      }
+    }
+
+    def render(doc: Doc, indent: Int = 0): Unit = {
+      def append(s: String, indent: Int = indent): Unit = {
+        writer.append("  " * indent).append(s)
+        ()
+      }
+      def newLine(): Unit                               = append("\n", 0)
+
+      doc match {
+
+        case Doc.Empty => ()
+
+        case Doc.Header(value, level) =>
+          append(s"<h$level>$value</h$level>\n\n")
+
+        case Doc.Paragraph(value) =>
+          newLine()
+          append(s"<p>")
+          newLine()
+          append(renderSpan(value, 0), indent + 1)
+          newLine()
+          append("</p>")
+          newLine()
+
+        case Doc.DescriptionList(definitions) =>
+          append("<dl>")
+          definitions.foreach { case (span, helpDoc) =>
+            newLine()
+            append("<dt>", indent + 1)
+            newLine()
+            append(renderSpan(span, indent + 2))
+            newLine()
+            append("</dt>", indent + 1)
+            newLine()
+            append("<dd>", indent + 1)
+            render(helpDoc, indent + 2)
+            append("</dd>", indent + 1)
+            newLine()
+          }
+          append("</dl>")
+          newLine()
+          newLine()
+
+        case Doc.Listing(elements, listingType) =>
+          if (listingType == ListingType.Ordered) append("<ol>") else append("<ul>")
+          newLine()
+          elements.foreach { doc =>
+            append("<li>", indent + 1)
+            render(doc, indent + 2)
+            append("</li>", indent + 1)
+            newLine()
+          }
+          if (listingType == ListingType.Ordered) append("</ol>") else append("</ul>")
+          newLine()
+
+        case Doc.Sequence(left, right) =>
+          render(left, indent)
+          render(right, indent)
+
+      }
+    }
+
+    render(this)
+    writer.toString()
+  }
+
 }
-object Doc       {
+object Doc {
   private[api] case object Empty                                                       extends Doc
   private[api] final case class Header(value: String, level: Int)                      extends Doc
   private[api] final case class Paragraph(value: Span)                                 extends Doc
@@ -149,30 +237,31 @@ object Doc       {
         case Span.Error(value)          => value.length
         case Span.Bold(value)           => value.size
         case Span.Italic(value)         => value.size
-        case Span.URI(value)            => value.toString.length
+        case Span.Link(value, _)        => value.toString.length
         case Span.Sequence(left, right) => left.size + right.size
       }
   }
   object Span       {
-    private[api] final case class Text(value: String)               extends Span
-    private[api] final case class Code(value: String)               extends Span
-    private[api] final case class Error(value: String)              extends Span
-    private[api] final case class Bold(value: Span)                 extends Span
-    private[api] final case class Italic(value: Span)               extends Span
-    private[api] final case class URI(value: java.net.URI)          extends Span
-    private[api] final case class Sequence(left: Span, right: Span) extends Span
+    private[api] final case class Text(value: String)                             extends Span
+    private[api] final case class Code(value: String)                             extends Span
+    private[api] final case class Error(value: String)                            extends Span
+    private[api] final case class Bold(value: Span)                               extends Span
+    private[api] final case class Italic(value: Span)                             extends Span
+    private[api] final case class Link(value: java.net.URI, text: Option[String]) extends Span
+    private[api] final case class Sequence(left: Span, right: Span)               extends Span
 
-    def code(t: String): Span                  = Span.Code(t)
-    def empty: Span                            = Span.text("")
-    def error(t: String): Span                 = Span.Error(t)
-    def bold(span: Span): Span                 = Span.Bold(span)
-    def bold(t: String): Span                  = Span.Bold(text(t))
-    def italic(span: Span): Span               = Span.Italic(span)
-    def italic(t: String): Span                = Span.Italic(text(t))
-    def text(t: String): Span                  = Span.Text(t)
-    def uri(uri: java.net.URI): Span           = Span.URI(uri)
-    def spans(span: Span, spans0: Span*): Span = spans(span :: spans0.toList)
-    def spans(spans: Iterable[Span]): Span     = spans.toList.foldLeft(empty)(_ + _)
+    def code(t: String): Span                       = Span.Code(t)
+    def empty: Span                                 = Span.text("")
+    def error(t: String): Span                      = Span.Error(t)
+    def bold(span: Span): Span                      = Span.Bold(span)
+    def bold(t: String): Span                       = Span.Bold(text(t))
+    def italic(span: Span): Span                    = Span.Italic(span)
+    def italic(t: String): Span                     = Span.Italic(text(t))
+    def text(t: String): Span                       = Span.Text(t)
+    def link(uri: java.net.URI): Span               = Span.Link(uri, None)
+    def link(uri: java.net.URI, text: String): Span = Span.Link(uri, Some(text))
+    def spans(span: Span, spans0: Span*): Span      = spans(span :: spans0.toList)
+    def spans(spans: Iterable[Span]): Span          = spans.toList.foldLeft(empty)(_ + _)
 
   }
 }
