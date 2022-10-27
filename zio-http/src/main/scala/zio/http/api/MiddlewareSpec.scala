@@ -162,16 +162,28 @@ object MiddlewareSpec {
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(HeaderNames.accept.toString, TextCodec.constant(value.toString)))
 
   def withAcceptEncoding(value: CharSequence): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(HeaderNames.acceptEncoding.toString, TextCodec.constant(value.toString)))
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.header(HeaderNames.acceptEncoding.toString, TextCodec.constant(value.toString)),
+    )
 
   def withAcceptLanguage(value: CharSequence): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(HeaderNames.acceptLanguage.toString, TextCodec.constant(value.toString)))
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.header(HeaderNames.acceptLanguage.toString, TextCodec.constant(value.toString)),
+    )
 
   def withAcceptPatch(value: CharSequence): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(HeaderNames.acceptPatch.toString, TextCodec.constant(value.toString)))
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.header(HeaderNames.acceptPatch.toString, TextCodec.constant(value.toString)),
+    )
 
   def withAcceptRanges(value: CharSequence): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(HeaderNames.acceptRanges.toString, TextCodec.constant(value.toString)))
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.header(HeaderNames.acceptRanges.toString, TextCodec.constant(value.toString)),
+    )
 
   private[api] def decodeHttpBasic(encoded: String): Option[Credentials] = {
     val colonIndex = encoded.indexOf(":")

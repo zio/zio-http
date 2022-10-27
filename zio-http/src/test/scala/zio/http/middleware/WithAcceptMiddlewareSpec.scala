@@ -7,9 +7,9 @@ import zio.test._
 
 object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val request = Request.get(URL.empty)
-  override def spec = suite("Header Middlewares")(
+  override def spec   = suite("Header Middlewares")(
     test("withAccept") {
-      val app     = Http.ok.withMiddleware(api.Middleware.withAccept("accept"))
+      val app      = Http.ok.withMiddleware(api.Middleware.withAccept("accept"))
       val expected = request.withAccept("accept").headersAsList
 
       for {
@@ -17,7 +17,7 @@ object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtension
       } yield assert(res.headersAsList)(hasSubset(expected))
     },
     test("withAcceptEncoding") {
-      val app     = Http.ok.withMiddleware(api.Middleware.withAcceptEncoding("acceptEncoding"))
+      val app      = Http.ok.withMiddleware(api.Middleware.withAcceptEncoding("acceptEncoding"))
       val expected = request.withAcceptEncoding("acceptEncoding").headersAsList
 
       for {
@@ -25,7 +25,7 @@ object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtension
       } yield assert(res.headers)(hasSubset(expected))
     },
     test("withAcceptLanguage") {
-      val app     = Http.ok.withMiddleware(api.Middleware.withAcceptLanguage("acceptLanguage"))
+      val app      = Http.ok.withMiddleware(api.Middleware.withAcceptLanguage("acceptLanguage"))
       val expected = request.withAcceptLanguage("acceptLanguage").headersAsList
 
       for {
@@ -33,7 +33,7 @@ object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtension
       } yield assert(res.headersAsList)(hasSubset(expected))
     },
     test("withAcceptPatch") {
-      val app     = Http.ok.withMiddleware(api.Middleware.withAcceptPatch("acceptPatch"))
+      val app      = Http.ok.withMiddleware(api.Middleware.withAcceptPatch("acceptPatch"))
       val expected = request.withAcceptPatch("acceptPatch").headersAsList
 
       for {
@@ -41,7 +41,7 @@ object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtension
       } yield assert(res.headersAsList)(hasSubset(expected))
     },
     test("withAcceptRanges") {
-      val app     = Http.ok.withMiddleware(api.Middleware.withAcceptRanges("acceptRanges"))
+      val app      = Http.ok.withMiddleware(api.Middleware.withAcceptRanges("acceptRanges"))
       val expected = request.withAcceptRanges("acceptRanges").headersAsList
 
       for {
