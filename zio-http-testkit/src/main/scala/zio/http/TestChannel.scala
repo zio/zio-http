@@ -1,8 +1,9 @@
 package zio.http
+import zio.http.ChannelEvent.{UserEvent, UserEventTriggered}
 import zio.http.socket.{WebSocketChannel, WebSocketChannelEvent, WebSocketFrame}
-import zio.{Queue, Task, Trace, UIO}
+import zio.{Queue, Ref, Task, Trace, UIO}
 
-case class TestChannel(queue: Queue[WebSocketChannelEvent], responseChannel: UIO[WebSocketChannel]) extends WebSocketChannel {
+case class TestChannel(queue: Queue[WebSocketChannelEvent], responseChannel: UIO[WebSocketChannel], isOpen: Ref[Boolean]) extends WebSocketChannel {
   override def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] = ???
 
   override def awaitClose(implicit trace: Trace): UIO[Unit] = ???
@@ -28,12 +29,25 @@ case class TestChannel(queue: Queue[WebSocketChannelEvent], responseChannel: UIO
       element <- queue.take
     } yield element
 
-  override def write(msg: WebSocketFrame, await: Boolean)(implicit trace: Trace): Task[Unit] = {
-    queue.offer(ChannelEvent(responseChannel, ChannelEvent.ChannelRead(msg))).unit
-  }
+  override def write(msg: WebSocketFrame, await: Boolean)(implicit trace: Trace): Task[Unit] =
+    for {
+      responseC <- responseChannel
+    _ <- queue.offer(ChannelEvent( responseC, ChannelEvent.ChannelRead(msg))).unit
+  } yield  ()
 
   override def writeAndFlush(msg: WebSocketFrame, await: Boolean)(implicit trace: Trace): Task[Unit] =
-    queue.offer(ChannelEvent(responseChannel, ChannelEvent.ChannelRead(msg))).unit
+    for {
+      responseC <- responseChannel
+      _ <- queue.offer(ChannelEvent( responseC, ChannelEvent.ChannelRead(msg))).unit
+    } yield  ()
+
+  val initialize = {
+    val handshakeComplete = UserEventTriggered(UserEvent.HandshakeComplete)
+    for {
+      responseC <- responseChannel
+      _ <- queue.offer(ChannelEvent(responseC, handshakeComplete))
+    } yield ()
+  }
 }
 
 object TestChannel {
@@ -41,5 +55,6 @@ object TestChannel {
   def make(replyChannel: UIO[WebSocketChannel]) =
     for {
       queue <- Queue.unbounded[WebSocketChannelEvent]
-    } yield TestChannel(queue, replyChannel)
+      isOpen <- Ref.make(true)
+    } yield TestChannel(queue, replyChannel, isOpen)
 }

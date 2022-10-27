@@ -1,8 +1,9 @@
 package zio.http
 
 import zio._
+import zio.http.ChannelEvent.UserEvent
 import zio.http.model.{Headers, Method, Scheme, Status, Version}
-import zio.http.socket.{SocketApp, WebSocketFrame}
+import zio.http.socket.{SocketApp, WebSocketChannelEvent, WebSocketFrame}
 
 /**
  * Enables tests that use a client without needing a live Server
@@ -11,7 +12,7 @@ import zio.http.socket.{SocketApp, WebSocketFrame}
  *   Contains the user-specified behavior that takes the place of the usual
  *   Server
  */
-final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], socketBehavior: Ref[SocketApp[Any]]) extends Client {
+final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocketBehavior: Ref[SocketApp[Any]]) extends Client {
 
   /**
    * Adds an exact 1-1 behavior
@@ -113,29 +114,54 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], socketBehavi
     version: Version,
   )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
     for {
-      currentSocketBehavior <- socketBehavior.get
+      env <- ZIO.environment[Env1]
+      currentSocketBehavior <- serverSocketBehavior.get
       channelRefServer <- Ref.make(Option.empty[TestChannel])
       channelRef <- Ref.make(Option.empty[TestChannel])
       testChannelClient <- TestChannel.make(channelRefServer.get.some.orDieWith(_ => new RuntimeException))
       testChannelServer <- TestChannel.make(ZIO.succeed(testChannelClient))
       _ <- channelRefServer.set(Some(testChannelServer))
-      _ <- ZIO.attempt(if(true)throw new Exception("Need to put stuff in here"))
+      _ <- testChannelClient.initialize
+      _ <- testChannelServer.initialize
+      _ <- eventLoop(testChannelClient, serverSocketBehavior.get) // TODO When/how to close?
+      _ <- eventLoop(testChannelServer, ZIO.succeed(app.provideEnvironment(env))) // TODO When/how to close?
+      //      _ <- testChannelClient.write(W)
     } yield Response.ok
   }
 
-//  private def  loop[ServerR, ClientR](
-//    serverApp: SocketApp[ServerR],
-//    clientApp: SocketApp[ClientR],
-//                   ) = for {
-//    _ <- serverApp.message.get.apply(ChannelEvent.ChannelRegistered)
-//  } yield ???
+
+  private def eventLoop(testChannelClient: TestChannel, app: UIO[SocketApp[Any]]) = {
+    for {
+      state <- Ref.make[Option[WebSocketChannelEvent]](None)
+      _ <- (for {
+        pendClientEvent <- testChannelClient.pending
+        _ <- state.set(Some(pendClientEvent))
+        liveApp <- app
+        _ <- liveApp.message.get.apply(pendClientEvent)
+      } yield pendClientEvent).repeatWhile(shoudlContinue)
+        .forkDaemon
+    } yield ()
+  }
+
+
+  def shoudlContinue(event: WebSocketChannelEvent) =
+    event.event match {
+      case ChannelEvent.ExceptionCaught(cause) => false
+      case ChannelEvent.ChannelRead(message) => true
+      case ChannelEvent.UserEventTriggered(userEvent) => userEvent match {
+        case UserEvent.HandshakeTimeout => false
+        case UserEvent.HandshakeComplete => true
+      }
+      case ChannelEvent.ChannelRegistered => true
+      case ChannelEvent.ChannelUnregistered => false
+    }
 
   def addSocketApp[Env1](
                         app: SocketApp[Env1],
                       ): ZIO[Env1, Nothing, Unit] =
     for {
       env <- ZIO.environment[Env1]
-      _ <- socketBehavior.set(app.provideEnvironment(env))
+      _ <- serverSocketBehavior.set(app.provideEnvironment(env))
     } yield ()
 }
 

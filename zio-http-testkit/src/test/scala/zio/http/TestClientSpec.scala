@@ -9,12 +9,6 @@ import zio.test._
 object TestClientSpec extends ZIOSpecDefault {
   def spec =
     suite("TestClient")(
-      test("tracing")(
-        assertTrue(
-          List(1,2,3) == List(2,3,4)
-        )
-
-      ),
       suite("addRequestResponse")(
         test("New behavior does not overwrite old") {
           val request  = Request.get(URL.root)
@@ -75,7 +69,7 @@ object TestClientSpec extends ZIOSpecDefault {
           val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
             Http.collectZIO[(WebSocketChannel, String)] {
               case (ch, text) if text.contains("Hi Client") =>
-                  ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
+                  ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true).debug("Client got message: " + text)
             }
 
           val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = Http.empty
@@ -83,7 +77,7 @@ object TestClientSpec extends ZIOSpecDefault {
           val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
             Http.collectZIO[(WebSocketChannel, String)] {
               case (ch, text) if text.contains("Hi Server") =>
-                ch.close()
+                ZIO.debug("Server got message: " + text) *> ch.close()
             }
 
           val channelSocketServer
