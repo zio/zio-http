@@ -3,6 +3,7 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.api.MiddlewareSpec.CsrfValidate
+import zio.http.model.headers.values.{Accept, AcceptEncoding}
 import zio.http.model.{Cookie, Status}
 import zio.schema.codec.JsonCodec
 
@@ -104,11 +105,11 @@ object Middleware {
   def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie[Response]]): Middleware[R, Unit, Cookie[Response]] =
     fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
 
-  def withAccept(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withAccept(value))(_ => ())
+  def withAccept(value: CharSequence): Middleware[Any, Unit, Accept] =
+    fromFunction(MiddlewareSpec.withAccept)(_ => Accept.toAccept(value.toString))
 
-  def withAcceptEncoding(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withAcceptEncoding(value))(_ => ())
+  def withAcceptEncoding(value: CharSequence): Middleware[Any, Unit, AcceptEncoding] =
+    fromFunction(MiddlewareSpec.withAcceptEncoding)(_ => AcceptEncoding.toAcceptEncoding(value.toString))
 
   def withAcceptLanguage(value: CharSequence): Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.withAcceptLanguage(value))(_ => ())

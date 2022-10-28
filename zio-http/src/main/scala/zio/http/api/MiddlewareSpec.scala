@@ -5,6 +5,7 @@ import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.headers.HeaderGetters
+import zio.http.model.headers.values.{Accept, AcceptEncoding}
 import zio.http.model.{Cookie, HeaderNames, Headers}
 import zio.http.{Request, Response, api}
 import zio.{Duration, Trace, ZIO}
@@ -158,13 +159,13 @@ object MiddlewareSpec {
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
     MiddlewareSpec(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty)
 
-  def withAccept(value: CharSequence): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(HeaderNames.accept.toString, TextCodec.constant(value.toString)))
+  def withAccept: MiddlewareSpec[Unit, Accept] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accept)
 
-  def withAcceptEncoding(value: CharSequence): MiddlewareSpec[Unit, Unit] =
+  def withAcceptEncoding: MiddlewareSpec[Unit, AcceptEncoding] =
     MiddlewareSpec(
       HttpCodec.empty,
-      HeaderCodec.header(HeaderNames.acceptEncoding.toString, TextCodec.constant(value.toString)),
+      HeaderCodec.acceptEncoding,
     )
 
   def withAcceptLanguage(value: CharSequence): MiddlewareSpec[Unit, Unit] =
