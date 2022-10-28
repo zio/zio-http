@@ -25,7 +25,7 @@ object WarningSpec extends ZIOSpecDefault {
       assertTrue(Warning.toWarning(missingCode) == InvalidWarning)
     },
     test("Rejects Missing Warning Agent") {
-      val missingAgent   = "110 \"Response is stale\""
+      val missingAgent = "110 \"Response is stale\""
       assertTrue(Warning.toWarning(missingAgent) == InvalidWarning)
     },
     test("Rejects Missing Warning Agent with date") {
@@ -47,10 +47,9 @@ object WarningSpec extends ZIOSpecDefault {
       assertTrue(encodedWarningwithDate == validWarningWithDate)
     },
     test("parsing and encoding is symmetrical for warning without Date") {
-      val encodedWarning       = Warning.fromWarning(Warning.toWarning(validWarning))
+      val encodedWarning = Warning.fromWarning(Warning.toWarning(validWarning))
       assertTrue(encodedWarning == validWarning)
     },
   )
-
 
 }

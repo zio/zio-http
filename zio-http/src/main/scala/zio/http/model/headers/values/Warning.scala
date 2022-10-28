@@ -20,7 +20,7 @@ object Warning {
      A warning has the following syntax: <warn-code> <warn-agent> <warn-text> [<warn-date>]
    */
   final case class WarningValue(code: Int, agent: String, text: String, date: Option[ZonedDateTime] = None)
-    extends Warning
+      extends Warning
 
   case object InvalidWarning extends Warning
 
