@@ -18,7 +18,7 @@ object URLSpec extends ZIOSpecDefault {
             val actualEncoded   = actual.map(_.encode)
 
             assertTrue(actualEncoded == Right(expectedEncoded)) &&
-              assertTrue(actual == Right(expected))
+            assertTrue(actual == Right(expected))
           }
         },
         test("manual") {
