@@ -44,6 +44,8 @@ trait Body { self =>
   def isComplete: Boolean
 
   def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean]
+
+  def length: Task[Long] = asChunk.map(_.length.toLong)
 }
 
 object Body {
@@ -157,6 +159,8 @@ object Body {
 
       true
     }
+
+    override def length: Task[Long] = ZIO.attempt(file.length())
   }
 
   /**
