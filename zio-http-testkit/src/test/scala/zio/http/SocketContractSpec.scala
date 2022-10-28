@@ -74,7 +74,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           } yield (server.port, p)
       )
 
-      ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort) @@ ignore,
+      ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
 
         contract("Test", {
           for {
