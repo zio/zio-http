@@ -56,8 +56,9 @@ trait HeaderCodecs {
       .transform[CacheControl](CacheControl.toCacheControl, CacheControl.fromCacheControl)
   final val connection: HeaderCodec[Connection]          = header(HeaderNames.connection.toString(), TextCodec.string)
     .transform[Connection](Connection.toConnection, Connection.fromConnection)
-  final val contentBase: HeaderCodec[String]             =
+  final val contentBase: HeaderCodec[ContentBase]             =
     header(HeaderNames.contentBase.toString(), TextCodec.string)
+      .transform(ContentBase.toContentBase, ContentBase.fromContentBase)
   final val contentEncoding: HeaderCodec[String]         =
     header(HeaderNames.contentEncoding.toString(), TextCodec.string)
   final val contentLanguage: HeaderCodec[String]         =

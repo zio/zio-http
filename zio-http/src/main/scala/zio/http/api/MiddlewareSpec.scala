@@ -133,6 +133,9 @@ object MiddlewareSpec {
   def withContentType: MiddlewareSpec[Unit, ContentType] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentType)
 
+  def withContentBase: MiddlewareSpec[Unit, ContentBase] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentBase)
+
   def addCookie: MiddlewareSpec[Unit, Cookie[Response]] =
     MiddlewareSpec(
       HttpCodec.empty,
