@@ -53,6 +53,8 @@ object HttpCodecSpec extends ZIOSpecDefault {
           val request = fullCodec.encodeRequest(42)
 
           assertTrue(request.path.toString() == "users/42")
+
+          // test comment
         }
     } +
       suite("HeaderCodec") {
