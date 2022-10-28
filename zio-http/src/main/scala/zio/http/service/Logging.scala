@@ -12,7 +12,7 @@ trait Logging {
   /**
    * Controls if you want to pipe netty logs into the zio-http logger.
    */
-  val EnableNettyLogging: Boolean = false
+  val EnableNettyLogging: Boolean = true
 
   /**
    * Name of the property that is used to read the log level from system
