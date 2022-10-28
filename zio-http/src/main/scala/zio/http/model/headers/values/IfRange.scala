@@ -24,8 +24,8 @@ object IfRange {
 
   def toIfRange(value: String): IfRange =
     value match {
-      case s""""$etag"""" => ETagValue(etag)
-      case dateTime       =>
+      case value if value.startsWith("\"") && value.endsWith("\"") => ETagValue(value.drop(1).dropRight(1))
+      case dateTime                                                =>
         Try(DateTimeValue(ZonedDateTime.from(webDateTimeFormatter.parse(dateTime))))
           .getOrElse(InvalidIfRangeValue)
     }
