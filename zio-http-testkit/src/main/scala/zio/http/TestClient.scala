@@ -132,7 +132,6 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
         otherChannel.close
       }
     } yield pendEvent).repeatWhileZIO(event => ZIO.succeed(shouldContinue(event)))
-//      .debug(s"$name Event: $event  Should continue"))
 
 
   def shouldContinue(event: ChannelEvent.Event[WebSocketFrame]) =

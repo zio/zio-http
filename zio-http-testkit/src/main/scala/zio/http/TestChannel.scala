@@ -3,7 +3,7 @@ import zio.http.ChannelEvent.{UserEvent, UserEventTriggered}
 import zio.http.socket.{WebSocketChannel, WebSocketFrame}
 import zio.{Queue, Ref, Task, Trace, UIO, ZIO}
 
-case class TestChannel(counterpartEvents: Queue[ChannelEvent.Event[WebSocketFrame]], isOpen: Ref[Boolean]) extends WebSocketChannel {
+case class TestChannel(counterpartEvents: Queue[ChannelEvent.Event[WebSocketFrame]]) extends WebSocketChannel {
   override def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] = ???
 
   override def awaitClose(implicit trace: Trace): UIO[Unit] = ???
@@ -40,6 +40,5 @@ object TestChannel {
     for {
       queue <- Queue.unbounded[ChannelEvent.Event[WebSocketFrame]]
       _ <- queue.offer(UserEventTriggered(UserEvent.HandshakeComplete))
-      isOpen <- Ref.make(true)
-    } yield TestChannel(queue, isOpen)
+    } yield TestChannel(queue)
 }

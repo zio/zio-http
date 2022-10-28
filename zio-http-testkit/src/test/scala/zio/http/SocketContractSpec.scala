@@ -6,7 +6,6 @@ import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEvent, UserE
 import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http.netty.server.NettyDriver
 import zio.http.socket.{SocketApp, SocketDecoder, SocketProtocol, WebSocketChannel, WebSocketChannelEvent, WebSocketFrame}
-import zio.test.TestAspect.ignore
 import zio.test._
 
 object SocketContractSpec extends ZIOSpecDefault {
@@ -47,8 +46,6 @@ object SocketContractSpec extends ZIOSpecDefault {
 
       case ChannelEvent(ch, other) =>
         Console.printLine("Server Other: " + other)
-//        *> p.fail(new Exception("Unexpected message: " + other)).unit // TODO Consider boolean result here
-
     }
 
   val protocol = SocketProtocol.default.withSubProtocol(Some("json"))
@@ -107,10 +104,10 @@ object SocketContractSpec extends ZIOSpecDefault {
         messageSocketClient ++ channelSocketClient
 
 
-      val socketAppClient: SocketApp[Any] = // Combine all channel handlers together
+      val socketAppClient: SocketApp[Any] =
         httpSocketClient.toSocketApp
-          .withDecoder(decoder)   // Setup websocket decoder config
-          .withProtocol(protocol) // Setup websocket protocol config
+          .withDecoder(decoder)
+          .withProtocol(protocol)
 
       for {
         portAndPromise <- serverSetup
@@ -119,20 +116,4 @@ object SocketContractSpec extends ZIOSpecDefault {
       } yield assertTrue(response.status == Status.SwitchingProtocols)
     }
 
-
 }
-
-
-/*
-    Server
-      - SocketOpened
-        - write("Hi client")
-
-      - MessageReceived("Hi Server")
-        - close(channel)
-
-    Client
-      - MessageReceived
-        - write("Hi Server")
-
- */

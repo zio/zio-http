@@ -53,13 +53,6 @@ object TestClientSpec extends ZIOSpecDefault {
         )
       ),
       suite("socket ops")(
-        /**
-         * Scenario:
-         *    TestClient.addSocketApp(app)
-         *      app will be standing in for live server behavior
-         *    Client.socket(app)
-         *    Apps should send messages back and forth until a predetermined end
-         */
         test("happy path") {
           val messageUnwrapper: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
             Http.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
@@ -86,9 +79,6 @@ object TestClientSpec extends ZIOSpecDefault {
             Http.collectZIO[WebSocketChannelEvent] {
               case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete))  =>
                 ch.writeAndFlush(WebSocketFrame.text(greetingToClient))
-
-              case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
-                ZIO.unit // TODO Remove this case entirely?
             }
 
           val httpSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
@@ -100,24 +90,9 @@ object TestClientSpec extends ZIOSpecDefault {
           for {
             _ <- TestClient.addSocketApp(httpSocketServer.toSocketApp)
             response <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(httpSocketClient.toSocketApp))
-          } yield assertCompletes
+          } yield assertTrue(response.status == Status.SwitchingProtocols)
         }
       )
     ).provide(TestClient.layer, Scope.default)
 
 }
-
-
-/*
-    Server
-      - SocketOpened
-        - write("Hi client")
-
-      - MessageReceived("Hi Server")
-        - close(channel)
-
-    Client
-      - MessageReceived
-        - write("Hi Server")
-
- */
