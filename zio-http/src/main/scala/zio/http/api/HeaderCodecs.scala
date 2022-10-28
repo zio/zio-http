@@ -10,155 +10,155 @@ trait HeaderCodecs {
     HttpCodec.Header(name, value, optional = false)
 
   final val accept: HeaderCodec[Accept]                           =
-    header(HeaderNames.accept.toString(), TextCodec.string)
+    header(HeaderNames.accept.toString, TextCodec.string)
       .transform(Accept.toAccept, Accept.fromAccept)
   final val acceptEncoding: HeaderCodec[AcceptEncoding]           =
-    header(HeaderNames.acceptEncoding.toString(), TextCodec.string)
+    header(HeaderNames.acceptEncoding.toString, TextCodec.string)
       .transform(AcceptEncoding.toAcceptEncoding, AcceptEncoding.fromAcceptEncoding)
   final val acceptLanguage: HeaderCodec[AcceptLanguage]           =
-    header(HeaderNames.acceptLanguage.toString(), TextCodec.string)
+    header(HeaderNames.acceptLanguage.toString, TextCodec.string)
       .transform(AcceptLanguage.toAcceptLanguage, AcceptLanguage.fromAcceptLanguage)
   final val acceptRanges: HeaderCodec[String]                     =
-    header(HeaderNames.acceptRanges.toString(), TextCodec.string)
+    header(HeaderNames.acceptRanges.toString, TextCodec.string)
   final val acceptPatch: HeaderCodec[AcceptPatch]                 =
-    header(HeaderNames.acceptPatch.toString(), TextCodec.string)
+    header(HeaderNames.acceptPatch.toString, TextCodec.string)
       .transform(AcceptPatch.toAcceptPatch, AcceptPatch.fromAcceptPatch)
   final val accessControlAllowCredentials: HeaderCodec[String]    =
-    header(HeaderNames.accessControlAllowCredentials.toString(), TextCodec.string)
+    header(HeaderNames.accessControlAllowCredentials.toString, TextCodec.string)
   final val accessControlAllowHeaders: HeaderCodec[String]        =
-    header(HeaderNames.accessControlAllowHeaders.toString(), TextCodec.string)
+    header(HeaderNames.accessControlAllowHeaders.toString, TextCodec.string)
   final val accessControlAllowMethods: HeaderCodec[String]        =
-    header(HeaderNames.accessControlAllowMethods.toString(), TextCodec.string)
+    header(HeaderNames.accessControlAllowMethods.toString, TextCodec.string)
   final val accessControlAllowOrigin: HeaderCodec[String]         =
-    header(HeaderNames.accessControlAllowOrigin.toString(), TextCodec.string)
+    header(HeaderNames.accessControlAllowOrigin.toString, TextCodec.string)
   final val accessControlExposeHeaders: HeaderCodec[String]       =
-    header(HeaderNames.accessControlExposeHeaders.toString(), TextCodec.string)
+    header(HeaderNames.accessControlExposeHeaders.toString, TextCodec.string)
   final val accessControlMaxAge: HeaderCodec[AccessControlMaxAge] =
-    header(HeaderNames.accessControlMaxAge.toString(), TextCodec.string)
+    header(HeaderNames.accessControlMaxAge.toString, TextCodec.string)
       .transform[AccessControlMaxAge](
         AccessControlMaxAge.toAccessControlMaxAge,
         AccessControlMaxAge.fromAccessControlMaxAge,
       )
   final val accessControlRequestHeaders: HeaderCodec[String]      =
-    header(HeaderNames.accessControlRequestHeaders.toString(), TextCodec.string)
+    header(HeaderNames.accessControlRequestHeaders.toString, TextCodec.string)
   final val accessControlRequestMethod: HeaderCodec[String]       =
-    header(HeaderNames.accessControlRequestMethod.toString(), TextCodec.string)
+    header(HeaderNames.accessControlRequestMethod.toString, TextCodec.string)
   final val age: HeaderCodec[Age]                                 =
-    header(HeaderNames.age.toString(), TextCodec.string).transform(Age.toAge, Age.fromAge)
+    header(HeaderNames.age.toString, TextCodec.string).transform(Age.toAge, Age.fromAge)
   final val allow: HeaderCodec[Allow]                             =
-    header(HeaderNames.allow.toString(), TextCodec.string)
+    header(HeaderNames.allow.toString, TextCodec.string)
       .transform[Allow](Allow.toAllow, Allow.fromAllow)
   final val authorization: HeaderCodec[String]                    =
-    header(HeaderNames.authorization.toString(), TextCodec.string)
+    header(HeaderNames.authorization.toString, TextCodec.string)
   final val cacheControl: HeaderCodec[CacheControl]               =
-    header(HeaderNames.cacheControl.toString(), TextCodec.string)
+    header(HeaderNames.cacheControl.toString, TextCodec.string)
       .transform[CacheControl](CacheControl.toCacheControl, CacheControl.fromCacheControl)
-  final val connection: HeaderCodec[Connection]          = header(HeaderNames.connection.toString(), TextCodec.string)
+  final val connection: HeaderCodec[Connection]          = header(HeaderNames.connection.toString, TextCodec.string)
     .transform[Connection](Connection.toConnection, Connection.fromConnection)
   final val contentBase: HeaderCodec[ContentBase]        =
-    header(HeaderNames.contentBase.toString(), TextCodec.string)
+    header(HeaderNames.contentBase.toString, TextCodec.string)
       .transform(ContentBase.toContentBase, ContentBase.fromContentBase)
   final val contentEncoding: HeaderCodec[String]         =
-    header(HeaderNames.contentEncoding.toString(), TextCodec.string)
+    header(HeaderNames.contentEncoding.toString, TextCodec.string)
   final val contentLanguage: HeaderCodec[String]         =
-    header(HeaderNames.contentLanguage.toString(), TextCodec.string)
+    header(HeaderNames.contentLanguage.toString, TextCodec.string)
   final val contentLength: HeaderCodec[ContentLength]    =
-    header(HeaderNames.contentLength.toString(), TextCodec.string)
+    header(HeaderNames.contentLength.toString, TextCodec.string)
       .transform(ContentLength.toContentLength, ContentLength.fromContentLength)
   final val contentLocation: HeaderCodec[String]         =
-    header(HeaderNames.contentLocation.toString(), TextCodec.string)
+    header(HeaderNames.contentLocation.toString, TextCodec.string)
   final val contentTransferEncoding: HeaderCodec[String] =
-    header(HeaderNames.contentTransferEncoding.toString(), TextCodec.string)
+    header(HeaderNames.contentTransferEncoding.toString, TextCodec.string)
   final val contentDisposition: HeaderCodec[ContentDisposition] =
-    header(HeaderNames.contentDisposition.toString(), TextCodec.string)
+    header(HeaderNames.contentDisposition.toString, TextCodec.string)
       .transform[ContentDisposition](
         ContentDisposition.toContentDisposition,
         ContentDisposition.fromContentDisposition,
       )
   final val contentMd5: HeaderCodec[String]                     =
-    header(HeaderNames.contentMd5.toString(), TextCodec.string)
+    header(HeaderNames.contentMd5.toString, TextCodec.string)
   final val contentRange: HeaderCodec[String]                   =
-    header(HeaderNames.contentRange.toString(), TextCodec.string)
+    header(HeaderNames.contentRange.toString, TextCodec.string)
   final val contentSecurityPolicy: HeaderCodec[String]          =
-    header(HeaderNames.contentSecurityPolicy.toString(), TextCodec.string)
+    header(HeaderNames.contentSecurityPolicy.toString, TextCodec.string)
   final val contentType: HeaderCodec[ContentType]               =
-    header(HeaderNames.contentType.toString(), TextCodec.string)
+    header(HeaderNames.contentType.toString, TextCodec.string)
       .transform(ContentType.toContentType, ContentType.fromContentType)
-  final val cookie: HeaderCodec[String]                  = header(HeaderNames.cookie.toString(), TextCodec.string)
-  final val date: HeaderCodec[String]                    = header(HeaderNames.date.toString(), TextCodec.string)
-  final val dnt: HeaderCodec[DNT]                        = header(HeaderNames.dnt.toString(), TextCodec.string)
-    .transform(DNT.toDNT(_), DNT.fromDNT(_))
-  final val etag: HeaderCodec[ETag]                      = header(HeaderNames.etag.toString(), TextCodec.string)
-    .transform(ETag.toETag(_), ETag.fromETag(_))
-  final val expect: HeaderCodec[String]                  = header(HeaderNames.expect.toString(), TextCodec.string)
+  final val cookie: HeaderCodec[String]                  = header(HeaderNames.cookie.toString, TextCodec.string)
+  final val date: HeaderCodec[String]                    = header(HeaderNames.date.toString, TextCodec.string)
+  final val dnt: HeaderCodec[DNT]                        = header(HeaderNames.dnt.toString, TextCodec.string)
+    .transform(DNT.toDNT, DNT.fromDNT)
+  final val etag: HeaderCodec[ETag]                      = header(HeaderNames.etag.toString, TextCodec.string)
+    .transform(ETag.toETag, ETag.fromETag)
+  final val expect: HeaderCodec[String]                  = header(HeaderNames.expect.toString, TextCodec.string)
   final val expires: HeaderCodec[Expires]                =
-    header(HeaderNames.expires.toString(), TextCodec.string).transform[Expires](Expires.toExpires, Expires.fromExpires)
-  final val from: HeaderCodec[String]                    = header(HeaderNames.from.toString(), TextCodec.string)
-  final val host: HeaderCodec[Host]                      = header(HeaderNames.host.toString(), TextCodec.string)
-    .transform(Host.toHost(_), Host.fromHost(_))
-  final val ifMatch: HeaderCodec[String]                 = header(HeaderNames.ifMatch.toString(), TextCodec.string)
+    header(HeaderNames.expires.toString, TextCodec.string).transform[Expires](Expires.toExpires, Expires.fromExpires)
+  final val from: HeaderCodec[String]                    = header(HeaderNames.from.toString, TextCodec.string)
+  final val host: HeaderCodec[Host]                      = header(HeaderNames.host.toString, TextCodec.string)
+    .transform(Host.toHost, Host.fromHost)
+  final val ifMatch: HeaderCodec[String]                 = header(HeaderNames.ifMatch.toString, TextCodec.string)
   final val ifModifiedSince: HeaderCodec[String]         =
-    header(HeaderNames.ifModifiedSince.toString(), TextCodec.string)
+    header(HeaderNames.ifModifiedSince.toString, TextCodec.string)
   final val ifNoneMatch: HeaderCodec[String]             =
-    header(HeaderNames.ifNoneMatch.toString(), TextCodec.string)
-  final val ifRange: HeaderCodec[String]                 = header(HeaderNames.ifRange.toString(), TextCodec.string)
+    header(HeaderNames.ifNoneMatch.toString, TextCodec.string)
+  final val ifRange: HeaderCodec[String]                 = header(HeaderNames.ifRange.toString, TextCodec.string)
   final val ifUnmodifiedSince: HeaderCodec[String]       =
-    header(HeaderNames.ifUnmodifiedSince.toString(), TextCodec.string)
+    header(HeaderNames.ifUnmodifiedSince.toString, TextCodec.string)
   final val lastModified: HeaderCodec[String]            =
-    header(HeaderNames.lastModified.toString(), TextCodec.string)
-  final val location: HeaderCodec[String]                = header(HeaderNames.location.toString(), TextCodec.string)
+    header(HeaderNames.lastModified.toString, TextCodec.string)
+  final val location: HeaderCodec[String]                = header(HeaderNames.location.toString, TextCodec.string)
   final val maxForwards: HeaderCodec[MaxForwards]        =
-    header(HeaderNames.maxForwards.toString(), TextCodec.string)
-      .transform(MaxForwards.toMaxForwards(_), MaxForwards.fromMaxForwards(_))
+    header(HeaderNames.maxForwards.toString, TextCodec.string)
+      .transform(MaxForwards.toMaxForwards, MaxForwards.fromMaxForwards)
   final val origin: HeaderCodec[Origin]                  =
-    header(HeaderNames.origin.toString(), TextCodec.string)
+    header(HeaderNames.origin.toString, TextCodec.string)
       .transform(Origin.toOrigin, Origin.fromOrigin)
-  final val pragma: HeaderCodec[String]                  = header(HeaderNames.pragma.toString(), TextCodec.string)
+  final val pragma: HeaderCodec[String]                  = header(HeaderNames.pragma.toString, TextCodec.string)
   final val proxyAuthenticate: HeaderCodec[String]       =
-    header(HeaderNames.proxyAuthenticate.toString(), TextCodec.string)
+    header(HeaderNames.proxyAuthenticate.toString, TextCodec.string)
   final val proxyAuthorization: HeaderCodec[String]      =
-    header(HeaderNames.proxyAuthorization.toString(), TextCodec.string)
-  final val range: HeaderCodec[String]                   = header(HeaderNames.range.toString(), TextCodec.string)
-  final val referer: HeaderCodec[String]                 = header(HeaderNames.referer.toString(), TextCodec.string)
+    header(HeaderNames.proxyAuthorization.toString, TextCodec.string)
+  final val range: HeaderCodec[String]                   = header(HeaderNames.range.toString, TextCodec.string)
+  final val referer: HeaderCodec[String]                 = header(HeaderNames.referer.toString, TextCodec.string)
   final val retryAfter: HeaderCodec[String]              =
-    header(HeaderNames.retryAfter.toString(), TextCodec.string)
+    header(HeaderNames.retryAfter.toString, TextCodec.string)
   final val secWebSocketLocation: HeaderCodec[String]    =
-    header(HeaderNames.secWebSocketLocation.toString(), TextCodec.string)
+    header(HeaderNames.secWebSocketLocation.toString, TextCodec.string)
   final val secWebSocketOrigin: HeaderCodec[String]      =
-    header(HeaderNames.secWebSocketOrigin.toString(), TextCodec.string)
+    header(HeaderNames.secWebSocketOrigin.toString, TextCodec.string)
   final val secWebSocketProtocol: HeaderCodec[String]    =
-    header(HeaderNames.secWebSocketProtocol.toString(), TextCodec.string)
+    header(HeaderNames.secWebSocketProtocol.toString, TextCodec.string)
   final val secWebSocketVersion: HeaderCodec[String]     =
-    header(HeaderNames.secWebSocketVersion.toString(), TextCodec.string)
+    header(HeaderNames.secWebSocketVersion.toString, TextCodec.string)
   final val secWebSocketKey: HeaderCodec[String]         =
-    header(HeaderNames.secWebSocketKey.toString(), TextCodec.string)
+    header(HeaderNames.secWebSocketKey.toString, TextCodec.string)
   final val secWebSocketAccept: HeaderCodec[String]      =
-    header(HeaderNames.secWebSocketAccept.toString(), TextCodec.string)
+    header(HeaderNames.secWebSocketAccept.toString, TextCodec.string)
   final val secWebSocketExtensions: HeaderCodec[String]  =
-    header(HeaderNames.secWebSocketExtensions.toString(), TextCodec.string)
-  final val server: HeaderCodec[String]                  = header(HeaderNames.server.toString(), TextCodec.string)
-  final val setCookie: HeaderCodec[String]               = header(HeaderNames.setCookie.toString(), TextCodec.string)
-  final val te: HeaderCodec[String]                      = header(HeaderNames.te.toString(), TextCodec.string)
-  final val trailer: HeaderCodec[String]                 = header(HeaderNames.trailer.toString(), TextCodec.string)
+    header(HeaderNames.secWebSocketExtensions.toString, TextCodec.string)
+  final val server: HeaderCodec[String]                  = header(HeaderNames.server.toString, TextCodec.string)
+  final val setCookie: HeaderCodec[String]               = header(HeaderNames.setCookie.toString, TextCodec.string)
+  final val te: HeaderCodec[String]                      = header(HeaderNames.te.toString, TextCodec.string)
+  final val trailer: HeaderCodec[String]                 = header(HeaderNames.trailer.toString, TextCodec.string)
   final val transferEncoding: HeaderCodec[String]        =
-    header(HeaderNames.transferEncoding.toString(), TextCodec.string)
-  final val upgrade: HeaderCodec[String]                 = header(HeaderNames.upgrade.toString(), TextCodec.string)
+    header(HeaderNames.transferEncoding.toString, TextCodec.string)
+  final val upgrade: HeaderCodec[String]                 = header(HeaderNames.upgrade.toString, TextCodec.string)
   final val upgradeInsecureRequests: HeaderCodec[String] =
-    header(HeaderNames.upgradeInsecureRequests.toString(), TextCodec.string)
-  final val userAgent: HeaderCodec[String]               = header(HeaderNames.userAgent.toString(), TextCodec.string)
-  final val vary: HeaderCodec[String]                    = header(HeaderNames.vary.toString(), TextCodec.string)
-  final val via: HeaderCodec[String]                     = header(HeaderNames.via.toString(), TextCodec.string)
-  final val warning: HeaderCodec[String]                 = header(HeaderNames.warning.toString(), TextCodec.string)
+    header(HeaderNames.upgradeInsecureRequests.toString, TextCodec.string)
+  final val userAgent: HeaderCodec[String]               = header(HeaderNames.userAgent.toString, TextCodec.string)
+  final val vary: HeaderCodec[String]                    = header(HeaderNames.vary.toString, TextCodec.string)
+  final val via: HeaderCodec[String]                     = header(HeaderNames.via.toString, TextCodec.string)
+  final val warning: HeaderCodec[String]                 = header(HeaderNames.warning.toString, TextCodec.string)
   final val webSocketLocation: HeaderCodec[String]       =
-    header(HeaderNames.webSocketLocation.toString(), TextCodec.string)
+    header(HeaderNames.webSocketLocation.toString, TextCodec.string)
   final val webSocketOrigin: HeaderCodec[String]         =
-    header(HeaderNames.webSocketOrigin.toString(), TextCodec.string)
+    header(HeaderNames.webSocketOrigin.toString, TextCodec.string)
   final val webSocketProtocol: HeaderCodec[String]       =
-    header(HeaderNames.webSocketProtocol.toString(), TextCodec.string)
+    header(HeaderNames.webSocketProtocol.toString, TextCodec.string)
   final val wwwAuthenticate: HeaderCodec[String]         =
-    header(HeaderNames.wwwAuthenticate.toString(), TextCodec.string)
+    header(HeaderNames.wwwAuthenticate.toString, TextCodec.string)
   final val xFrameOptions: HeaderCodec[String]           =
-    header(HeaderNames.xFrameOptions.toString(), TextCodec.string)
+    header(HeaderNames.xFrameOptions.toString, TextCodec.string)
   final val xRequestedWith: HeaderCodec[String]          =
-    header(HeaderNames.xRequestedWith.toString(), TextCodec.string)
+    header(HeaderNames.xRequestedWith.toString, TextCodec.string)
 }
