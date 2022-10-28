@@ -1,7 +1,8 @@
 package zio.http.api
 
 import zio.http._
-import zio.http.model.headers.values.ContentType
+import zio.http.api.Doc.Span.URI
+import zio.http.model.headers.values.{ContentBase, ContentType}
 import zio.test._
 
 object ContentMiddlewareSpec extends ZIOSpecDefault {
@@ -24,5 +25,13 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
             .apply(Request.get(URL.empty))
         } yield assertTrue(response.headers.contentType.contains(ContentType.`text/plain`.toStringValue))
       },
+      test("add content base header") {
+        for {
+          response <- api.Middleware
+            .withContentBase(ContentBase.toContentBase("http://localhost:8080"))
+            .apply(Http.succeed(response))
+            .apply(Request.get(URL.empty))
+        } yield assertTrue(response.headers.contentBase.contains("http://localhost:8080"))
+      }
     )
 }

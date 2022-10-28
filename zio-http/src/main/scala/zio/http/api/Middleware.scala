@@ -129,6 +129,18 @@ object Middleware {
     fromFunctionZIO(MiddlewareSpec.withContentType)(_ => contentType)
 
   /**
+   * Adds the content type header to the response based on a ZIO effect
+   */
+  def withContentBase(contentBase: ContentBase): Middleware[Any, Unit, ContentBase] =
+    fromFunction(MiddlewareSpec.withContentBase)(_ => contentBase)
+
+  /**
+   * Adds the content type header to the response based on a ZIO effect
+   */
+  def withContentBaseZIO[R](contentBase: ZIO[R, Nothing, ContentBase]): Middleware[R, Unit, ContentBase] =
+    fromFunctionZIO(MiddlewareSpec.withContentBase)(_ => contentBase)
+
+  /**
    * Generates a new CSRF token that can be validated using the csrfValidate
    * middleware.
    *
