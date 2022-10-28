@@ -71,19 +71,15 @@ object TestClientSpec extends ZIOSpecDefault {
             Http.collectZIO[(WebSocketChannel, String)] {
               case (ch, `greetingToClient`) =>
                   ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
-                    .debug("Client got message: " + greetingToClient)
             }
 
           val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-            Http.collectZIO[WebSocketChannelEvent] {
-              case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
-                Console.printLine("Closing Client channel with status: " + status + " and reason: " + reason)
-            }
+            Http.empty
 
           val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageUnwrapper >>>
             Http.collectZIO[(WebSocketChannel, String)] {
               case (ch, "Hi Server")  =>
-                ZIO.debug("Server got message: " + "Hi server") *> ch.close()
+                ch.close()
             }
 
           val channelSocketServer : Http[Any, Throwable, WebSocketChannelEvent, Unit] =
@@ -92,7 +88,7 @@ object TestClientSpec extends ZIOSpecDefault {
                 ch.writeAndFlush(WebSocketFrame.text(greetingToClient))
 
               case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
-                Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
+                ZIO.unit // TODO Remove this case entirely?
             }
 
           val httpSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =

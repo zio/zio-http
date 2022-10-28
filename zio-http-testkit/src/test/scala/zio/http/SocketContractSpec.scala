@@ -33,7 +33,6 @@ object SocketContractSpec extends ZIOSpecDefault {
   : Http[Any, Throwable, WebSocketChannelEvent, Unit] =
     Http.collectZIO[WebSocketChannelEvent] {
       case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete))  =>
-        ZIO.debug("Server got a complete handshake") *>
         ch.writeAndFlush(WebSocketFrame.text("Hi Client"))
 
       case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
