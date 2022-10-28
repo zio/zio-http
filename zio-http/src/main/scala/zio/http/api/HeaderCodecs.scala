@@ -1,8 +1,8 @@
 package zio.http.api
 
+import zio.http.api.internal.TextCodec
 import zio.http.model.HeaderNames
 import zio.http.model.headers.values._
-import zio.http.api.internal.TextCodec
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HeaderCodecs {
@@ -55,7 +55,7 @@ trait HeaderCodecs {
       .transform[CacheControl](CacheControl.toCacheControl, CacheControl.fromCacheControl)
   final val connection: HeaderCodec[Connection]          = header(HeaderNames.connection.toString(), TextCodec.string)
     .transform[Connection](Connection.toConnection, Connection.fromConnection)
-  final val contentBase: HeaderCodec[ContentBase]             =
+  final val contentBase: HeaderCodec[ContentBase]        =
     header(HeaderNames.contentBase.toString(), TextCodec.string)
       .transform(ContentBase.toContentBase, ContentBase.fromContentBase)
   final val contentEncoding: HeaderCodec[String]         =
@@ -69,15 +69,19 @@ trait HeaderCodecs {
     header(HeaderNames.contentLocation.toString(), TextCodec.string)
   final val contentTransferEncoding: HeaderCodec[String] =
     header(HeaderNames.contentTransferEncoding.toString(), TextCodec.string)
-  final val contentDisposition: HeaderCodec[String]      =
+  final val contentDisposition: HeaderCodec[ContentDisposition] =
     header(HeaderNames.contentDisposition.toString(), TextCodec.string)
-  final val contentMd5: HeaderCodec[String]              =
+      .transform[ContentDisposition](
+        ContentDisposition.toContentDisposition,
+        ContentDisposition.fromContentDisposition,
+      )
+  final val contentMd5: HeaderCodec[String]                     =
     header(HeaderNames.contentMd5.toString(), TextCodec.string)
-  final val contentRange: HeaderCodec[String]            =
+  final val contentRange: HeaderCodec[String]                   =
     header(HeaderNames.contentRange.toString(), TextCodec.string)
-  final val contentSecurityPolicy: HeaderCodec[String]   =
+  final val contentSecurityPolicy: HeaderCodec[String]          =
     header(HeaderNames.contentSecurityPolicy.toString(), TextCodec.string)
-  final val contentType: HeaderCodec[ContentType]        =
+  final val contentType: HeaderCodec[ContentType]               =
     header(HeaderNames.contentType.toString(), TextCodec.string)
       .transform(ContentType.toContentType, ContentType.fromContentType)
   final val cookie: HeaderCodec[String]                  = header(HeaderNames.cookie.toString(), TextCodec.string)
