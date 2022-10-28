@@ -63,6 +63,16 @@ object URLSpec extends ZIOSpecDefault {
           assertTrue(actual == expected)
         },
       ),
+      suite("setPath")(
+        test("updates the path without needed to know the host") {
+          val host     = "http://abc.com"
+          val channels = "/channels"
+          val users    = "/users"
+          val actual   = URL.fromString(host + users).map(_.setPath(channels).normalize.encode)
+          val expected = Right(host + channels)
+          assertTrue(actual == expected)
+        },
+      ),
       suite("builder")(
         test("creates a URL with all attributes set") {
           val builderUrl = URL.empty
