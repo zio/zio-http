@@ -12,12 +12,15 @@ import zio.stream.ZStream
 import java.io.FileInputStream
 import java.nio.charset.Charset
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import java.nio.file._
 
 /**
  * Holds Body that needs to be written on the HttpChannel
  */
-trait Body { self =>
-  final def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
+sealed trait Body extends Any { self =>
+
+  // final def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
+  def asArray(implicit trace: Trace): Task[Array[Byte]]
 
   /**
    * Decodes the content of request as CharSequence
@@ -43,28 +46,45 @@ trait Body { self =>
 
   def isComplete: Boolean
 
-  def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean]
+  private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte]
 }
 
 object Body {
 
+  sealed trait UnsafeWriteable extends Any with Body
+
   /**
    * Helper to create empty Body
    */
-  val empty: Body = new Body {
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]]              = ZIO.succeed(Chunk.empty[Byte])
+  val empty: Body = EmptyBody
+
+  private[zio] final object EmptyBody extends Body with UnsafeWriteable {
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(Array.empty)
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(Chunk.empty[Byte])
+
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = ZStream.empty
-    override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean]          = ZIO.succeed(false)
     override def isComplete: Boolean                                            = true
 
     override def toString(): String = "Body.empty"
+
+    private[zio] override def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = Chunk.empty
+
   }
 
   /**
    * Helper to create Body from AsciiString
    */
-  def fromAsciiString(asciiString: AsciiString): Body = new Body {
-    override def isComplete: Boolean = true
+  def fromAsciiString(asciiString: AsciiString): Body = AsciiStringBody(asciiString)
+
+  private[zio] final case class AsciiStringBody(asciiString: AsciiString)
+      extends AnyVal
+      with Body
+      with UnsafeWriteable {
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
+    override def isComplete: Boolean                               = true
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
       ZIO.succeed(Chunk.fromArray(asciiString.array()))
@@ -72,29 +92,35 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
-    override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean] =
-      ZIO.attempt(ctx.write(Unpooled.wrappedBuffer(asciiString.array())): Unit).as(false)
-
     override def toString(): String = s"Body.fromAsciiString($asciiString)"
+
+    private[zio] override def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = Chunk.fromArray(asciiString.array())
+
   }
 
   /**
    * Helper to create Body from ByteBuf
    */
-  def fromByteBuf(byteBuf: => ByteBuf): Body = new Body {
+  def fromByteBuf(byteBuf: => ByteBuf): Body = new ByteBufBody(byteBuf)
+
+  private[zio] final class ByteBufBody(byteBuf: => ByteBuf) extends Body with UnsafeWriteable {
+
+    def byteBufData = byteBuf
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(ByteBufUtil.getBytes(byteBuf))
+
     override def isComplete: Boolean = true
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.attempt {
-      Chunk.fromArray(ByteBufUtil.getBytes(byteBuf))
-    }
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asArray.map(Chunk.fromArray)
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
-    override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean] =
-      ZIO.attempt(ctx.write(byteBuf): Unit).as(false)
-
     override def toString(): String = s"Body.fromByteBuf($byteBuf)"
+
+    override private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] =
+      Chunk.fromArray(ByteBufUtil.getBytes(byteBuf))
+
   }
 
   /**
@@ -106,7 +132,12 @@ object Body {
   /**
    * Helper to create Body from chunk of bytes
    */
-  def fromChunk(data: Chunk[Byte]): Body = new Body {
+  def fromChunk(data: Chunk[Byte]): Body = new ChunkBody(data)
+
+  private[zio] final case class ChunkBody(data: Chunk[Byte]) extends AnyVal with Body with UnsafeWriteable {
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
+
     override def isComplete: Boolean = true
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(data)
@@ -114,20 +145,31 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
-    override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean] =
-      ZIO.attempt(ctx.write(Unpooled.wrappedBuffer(data.toArray))).as(false)
-
     override def toString(): String = s"Body.fromChunk($data)"
+
+    override private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = data
+
   }
 
   /**
    * Helper to create Body from contents of a file
    */
-  def fromFile(file: => java.io.File, chunkSize: Int = 1024 * 4): Body = new Body {
+  def fromFile(file: => java.io.File, chunkSize: Int = 1024 * 4): Body = new FileBody(file, chunkSize)
+
+  private[zio] final class FileBody(file: => java.io.File, chunkSize: Int = 1024 * 4)
+      extends Body
+      with UnsafeWriteable {
+
+    def fileData = file
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.attempt {
+      Files.readAllBytes(file.toPath)
+    }
+
     override def isComplete: Boolean = false
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
-      asStream.runCollect
+      asArray.map(Chunk.fromArray)
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap {
@@ -148,15 +190,12 @@ object Body {
           .ensuring(ZIO.succeed(fs.close()))
       }.flattenChunks
 
-    override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean] = ZIO.attempt {
-      // Write the content.
-      ctx.write(new DefaultFileRegion(file, 0, file.length()))
+    override private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = {
+      val bytes = Files.readAllBytes(file.toPath)
 
-      // Write the end marker.
-      ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
-
-      true
+      Chunk.fromArray(bytes)
     }
+
   }
 
   /**
@@ -170,19 +209,27 @@ object Body {
   /**
    * Helper to create Body from Stream of bytes
    */
-  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body = {
-    new Body {
-      override def isComplete: Boolean = false
+  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body = new StreamBody(stream)
 
-      override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = stream.runCollect
+  private[zio] final case class StreamBody(stream: ZStream[Any, Throwable, Byte]) extends AnyVal with Body {
 
-      override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
 
-      override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean] =
-        for {
-          _ <- stream.runForeachChunk(c => ZIO.succeed(ctx.writeAndFlush(Unpooled.wrappedBuffer(c.toArray))))
-          _ <- ZIO.attempt(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT))
-        } yield true
+    override def isComplete: Boolean = false
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = stream.runCollect
+
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
+
+    override private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = {
+      implicit val trace = Trace.empty
+      val rtm            = Runtime.default
+      val exit           = rtm.unsafe.run(asChunk)
+
+      exit match {
+        case Exit.Success(chunk) => chunk
+        case Exit.Failure(cause) => throw cause.squash
+      }
     }
   }
 
@@ -191,7 +238,17 @@ object Body {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): Body = fromCharSequence(text, charset)
 
-  private[zio] def fromAsync(unsafeAsync: UnsafeAsync => Unit): Body = new Body {
+  private[zio] def fromAsync(unsafeAsync: UnsafeAsync => Unit): Body = new AsyncBody(unsafeAsync)
+
+  private[zio] final case class AsyncBody(unsafeAsync: UnsafeAsync => Unit)
+      extends AnyVal
+      with Body
+      with UnsafeWriteable {
+
+    def async = unsafeAsync
+
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
+
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asStream.runCollect
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
@@ -207,14 +264,17 @@ object Body {
 
     override def isComplete: Boolean = false
 
-    override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean] =
-      ZIO
-        .attempt(unsafeAsync { (ctx, msg, isLast) =>
-          ctx.writeAndFlush(msg)
-          if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT): Unit
-          else ctx.read(): Unit
-        })
-        .as(true)
+    override private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = {
+      implicit val trace = Trace.empty
+      val rtm            = Runtime.default
+      val exit           = rtm.unsafe.run(asChunk)
+
+      exit match {
+        case Exit.Success(chunk) => chunk
+        case Exit.Failure(cause) => throw cause.squash
+      }
+    }
+
   }
 
   trait UnsafeAsync {

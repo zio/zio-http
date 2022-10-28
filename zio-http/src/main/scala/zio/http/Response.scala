@@ -14,13 +14,16 @@ import zio.{Cause, Promise, Task, Trace, Unsafe, ZIO}
 
 import java.io.IOException
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import java.util.concurrent.atomic.AtomicReference
 
-final case class Response private (
+sealed abstract case class Response private (
   status: Status,
   headers: Headers,
   body: Body,
   private[zio] val attribute: Response.Attribute,
   private[zio] val httpError: Option[HttpError],
+  private[zio] val encodedResponse: AtomicReference[Option[Response.EncodedResponse]],
+  frozen: Boolean = false,
 ) extends HeaderExtension[Response] { self =>
 
   /**
@@ -38,10 +41,7 @@ final case class Response private (
    * detect the changes and encode the response again, however it will turn out
    * to be counter productive.
    */
-  def freeze(implicit trace: Trace): Task[Response] =
-    for {
-      encoded <- encode()
-    } yield self.copy(attribute = self.attribute.withEncodedResponse(encoded, self))
+  def freeze: Response = self.copy(frozen = true)
 
   def isWebSocket: Boolean =
     self.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && self.attribute.socketApp.nonEmpty
@@ -77,44 +77,40 @@ final case class Response private (
    */
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
+  private[zio] def withEncodedResponse(updated: Option[Response.EncodedResponse]): Unit = {
+    var loop = true
+    while (loop) {
+      val current = self.encodedResponse.get()
+      loop = !encodedResponse.compareAndSet(current, updated)
+    }
+  }
+
   private[zio] def close(implicit trace: Trace): Task[Unit] = self.attribute.channel match {
     case Some(channel) => NettyFutureExecutor.executed(channel.close())
     case None          => ZIO.refailCause(Cause.fail(new IOException("Channel context isn't available")))
   }
 
-  /**
-   * Encodes the Response into a Netty HttpResponse. Sets default headers such
-   * as `content-length`. For performance reasons, it is possible that it uses a
-   * FullHttpResponse if the complete data is available. Otherwise, it would
-   * create a DefaultHttpResponse without any content.
-   */
-  private[zio] def encode()(implicit trace: Trace): Task[HttpResponse] = for {
-    content <- if (body.isComplete) body.asChunk.map(Some(_)) else ZIO.succeed(None)
-    res     <-
-      ZIO.attempt {
-        import io.netty.handler.codec.http._
-        val jHeaders         = self.headers.encode
-        val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
-        content.map(chunks => Unpooled.wrappedBuffer(chunks.toArray)) match {
-          case Some(jContent) =>
-            val jResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jContent, false)
+  def copy(
+    status: Status = self.status,
+    headers: Headers = self.headers,
+    body: Body = self.body,
+    frozen: Boolean = self.frozen,
+    attribute: Response.Attribute = self.attribute,
+    encodedResponse: AtomicReference[Option[Response.EncodedResponse]] = self.encodedResponse,
+  ): Response = {
+    // Reset cached encoded response if status, headers or body are being changed.
+    if (status != self.status || headers != self.headers || body != self.body) {
+      withEncodedResponse(Option.empty[Response.EncodedResponse])
+    }
+    new Response(status, headers, body, attribute, self.httpError, self.encodedResponse, frozen) {}
+  }
 
-            // TODO: Unit test for this
-            // Client can't handle chunked responses and currently treats them as a FullHttpResponse.
-            // Due to this client limitation it is not possible to write a unit-test for this.
-            // Alternative would be to use sttp client for this use-case.
-            if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
-            jResponse.headers().add(jHeaders)
-            jResponse
-          case None           =>
-            if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-            new DefaultHttpResponse(HttpVersion.HTTP_1_1, self.status.asJava, jHeaders)
-        }
-      }
-  } yield res
 }
 
 object Response {
+
+  trait EncodedResponse extends Any
+
   final case class Patch(addHeaders: Headers, setStatus: Option[Status]) { self =>
     def ++(that: Patch): Patch =
       Patch(self.addHeaders ++ that.addHeaders, self.setStatus.orElse(that.setStatus))
@@ -125,8 +121,9 @@ object Response {
     headers: Headers = Headers.empty,
     body: Body = Body.empty,
     httpError: Option[HttpError] = None,
+    encodedResponse: Option[Response.EncodedResponse] = None,
   ): Response =
-    Response(status, headers, body, Attribute.empty, httpError)
+    new Response(status, headers, body, Attribute.empty, httpError, new AtomicReference(None)) {}
 
   def fromHttpError(error: HttpError): Response = Response(status = error.status, httpError = Some(error))
 
@@ -143,13 +140,14 @@ object Response {
    */
   def fromSocketApp[R](app: SocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
-      Response(
+      new Response(
         Status.SwitchingProtocols,
         Headers.empty,
         Body.empty,
         Attribute(socketApp = Option(app.provideEnvironment(env))),
         None,
-      )
+        new AtomicReference(None),
+      ) {}
     }
 
   }
@@ -215,7 +213,14 @@ object Response {
       val headers      = Headers.decode(jRes.headers())
       val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
       val data         = Body.fromByteBuf(copiedBuffer)
-      Response(status, headers, data, attribute = Attribute(channel = Some(ctx)), None)
+      new Response(
+        status,
+        headers,
+        data,
+        attribute = Attribute(channel = Some(ctx)),
+        None,
+        new AtomicReference(None),
+      ) {}
     }
 
     final def fromStreamingJResponse(
@@ -239,7 +244,14 @@ object Response {
             new ClientResponseStreamHandler(callback, zExec, onComplete, keepAlive),
           ): Unit
       }
-      Response(status, headers, data, attribute = Attribute(channel = Some(ctx)), None)
+      new Response(
+        status,
+        headers,
+        data,
+        attribute = Attribute(channel = Some(ctx)),
+        None,
+        new AtomicReference(None),
+      ) {}
     }
   }
 
@@ -251,11 +263,9 @@ object Response {
     socketApp: Option[SocketApp[Any]] = None,
     memoize: Boolean = false,
     serverTime: Boolean = false,
-    encoded: Option[(Response, HttpResponse)] = None,
+    // encoded: Option[(Response, HttpResponse)] = None,
     channel: Option[ChannelHandlerContext] = None,
   ) { self =>
-    def withEncodedResponse(jResponse: HttpResponse, response: Response): Attribute =
-      self.copy(encoded = Some(response -> jResponse))
 
     def withMemoization: Attribute = self.copy(memoize = true)
 
