@@ -88,7 +88,7 @@ object SocketContractSpec extends ZIOSpecDefault {
 
       for {
         port <- serverSetup
-        response <- ZIO.serviceWithZIO[Client](_.socket(s"http://localhost:$port/", socketAppClient))
+        response <- ZIO.serviceWithZIO[Client](_.socket(s"ws://localhost:$port/", socketAppClient))
         //            _ <- client.
       } yield assertCompletes
     }
