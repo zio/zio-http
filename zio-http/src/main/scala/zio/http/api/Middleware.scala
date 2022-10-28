@@ -117,6 +117,18 @@ object Middleware {
     fromFunctionZIO(MiddlewareSpec.withContentLength)(_ => response.map(ContentLength.toContentLength))
 
   /**
+   * Adds the content type header to the response
+   */
+  def withContentType(contentType: ContentType): Middleware[Any, Unit, ContentType] =
+    fromFunction(MiddlewareSpec.withContentType)(_ => contentType)
+
+  /**
+   * Adds the content type header to the response based on a ZIO effect
+   */
+  def withContentTypeZIO[R](contentType: ZIO[R, Nothing, ContentType]): Middleware[R, Unit, ContentType] =
+    fromFunctionZIO(MiddlewareSpec.withContentType)(_ => contentType)
+
+  /**
    * Generates a new CSRF token that can be validated using the csrfValidate
    * middleware.
    *

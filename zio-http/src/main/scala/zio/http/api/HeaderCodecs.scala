@@ -77,8 +77,9 @@ trait HeaderCodecs {
     header(HeaderNames.contentRange.toString(), TextCodec.string)
   final val contentSecurityPolicy: HeaderCodec[String]   =
     header(HeaderNames.contentSecurityPolicy.toString(), TextCodec.string)
-  final val contentType: HeaderCodec[String]             =
+  final val contentType: HeaderCodec[ContentType]        =
     header(HeaderNames.contentType.toString(), TextCodec.string)
+      .transform(ContentType.toContentType, ContentType.fromContentType)
   final val cookie: HeaderCodec[String]                  = header(HeaderNames.cookie.toString(), TextCodec.string)
   final val date: HeaderCodec[String]                    = header(HeaderNames.date.toString(), TextCodec.string)
   final val dnt: HeaderCodec[DNT]                        = header(HeaderNames.dnt.toString(), TextCodec.string)
