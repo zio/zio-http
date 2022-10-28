@@ -173,5 +173,3 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
     ),
   )
   .dependsOn(zioHttp, zioHttpLogging)
-
-//libraryDependencies += "io.d11" %% "zhttp"      % "2.0.0-RC7"
