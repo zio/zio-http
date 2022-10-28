@@ -5,7 +5,7 @@ import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.headers.HeaderGetters
-import zio.http.model.headers.values.{Accept, AcceptEncoding, AcceptLanguage, AcceptPatch}
+import zio.http.model.headers.values.{Accept, AcceptEncoding, AcceptLanguage, AcceptPatch, AcceptRanges}
 import zio.http.model.{Cookie, HeaderNames, Headers}
 import zio.http.{Request, Response, api}
 import zio.{Duration, Trace, ZIO}
@@ -180,11 +180,11 @@ object MiddlewareSpec {
       HeaderCodec.acceptPatch,
     )
 
-//  def withAcceptRanges: MiddlewareSpec[Unit, String] =
-//    MiddlewareSpec(
-//      HttpCodec.empty,
-//      HeaderCodec.acceptRanges,
-//    )
+  def withAcceptRanges: MiddlewareSpec[Unit, AcceptRanges] =
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.acceptRanges,
+    )
 
   private[api] def decodeHttpBasic(encoded: String): Option[Credentials] = {
     val colonIndex = encoded.indexOf(":")

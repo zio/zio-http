@@ -7,7 +7,7 @@ import zio.test.Assertion.hasSubset
 import zio.test._
 
 object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtensions {
-  override def spec   = suite("WithAccept* Middleware")(
+  override def spec = suite("WithAccept* Middleware")(
     test("withAccept") {
       val app      = Http.ok.withMiddleware(api.Middleware.withAccept("application/json"))
       val expected = Headers.accept("application/json").headersAsList
@@ -40,14 +40,14 @@ object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtension
         res <- app(Request.get(URL.empty))
       } yield assert(res.headersAsList)(hasSubset(expected))
     },
-//    test("withAcceptRanges") {
-//      val app      = Http.ok.withMiddleware(api.Middleware.withAcceptRanges("acceptRanges"))
-//      val expected = request.withAcceptRanges("acceptRanges").headersAsList
-//
-//      for {
-//        res <- app(request)
-//      } yield assert(res.headersAsList)(hasSubset(expected))
-//    },
+    test("withAcceptRanges") {
+      val app      = Http.ok.withMiddleware(api.Middleware.withAcceptRanges("bytes"))
+      val expected = Headers.acceptRanges("bytes").headersAsList
+
+      for {
+        res <- app(Request.get(URL.empty))
+      } yield assert(res.headersAsList)(hasSubset(expected))
+    },
   )
 
 }
