@@ -61,30 +61,35 @@ object TestClientSpec extends ZIOSpecDefault {
          *    Apps should send messages back and forth until a predetermined end
          */
         test("happy path") {
-          val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
+          val messageUnwrapper: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
             Http.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
               (channel, message)
             }
 
-          val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
+          val greetingToClient = "Hi Client"
+          val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageUnwrapper >>>
             Http.collectZIO[(WebSocketChannel, String)] {
-              case (ch, text) if text.contains("Hi Client") =>
-                  ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true).debug("Client got message: " + text)
+              case (ch, `greetingToClient`) =>
+                  ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
+                    .debug("Client got message: " + greetingToClient)
             }
 
-          val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = Http.empty
-
-          val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
-            Http.collectZIO[(WebSocketChannel, String)] {
-              case (ch, text) if text.contains("Hi Server") =>
-                ZIO.debug("Server got message: " + text) *> ch.close()
+          val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+            Http.collectZIO[WebSocketChannelEvent] {
+              case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
+                Console.printLine("Closing Client channel with status: " + status + " and reason: " + reason)
             }
 
-          val channelSocketServer
-          : Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+          val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageUnwrapper >>>
+            Http.collectZIO[(WebSocketChannel, String)] {
+              case (ch, "Hi Server")  =>
+                ZIO.debug("Server got message: " + "Hi server") *> ch.close()
+            }
+
+          val channelSocketServer : Http[Any, Throwable, WebSocketChannelEvent, Unit] =
             Http.collectZIO[WebSocketChannelEvent] {
               case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete))  =>
-                ch.writeAndFlush(WebSocketFrame.text("Hi Client"))
+                ch.writeAndFlush(WebSocketFrame.text(greetingToClient))
 
               case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
                 Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
@@ -93,26 +98,14 @@ object TestClientSpec extends ZIOSpecDefault {
           val httpSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
             messageSocketClient ++ channelSocketClient
 
+          val decoder = SocketDecoder.default.withExtensions(allowed = true) // Setup decoder settings
+
           val httpSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
             messageSocketServer ++ channelSocketServer
 
-          val protocol = SocketProtocol.default.withSubProtocol(Some("json")) // Setup protocol settings
-
-          val decoder = SocketDecoder.default.withExtensions(allowed = true) // Setup decoder settings
-
-          val socketAppClient: SocketApp[Any] = // Combine all channel handlers together
-            httpSocketClient.toSocketApp
-              .withDecoder(decoder)   // Setup websocket decoder config
-              .withProtocol(protocol) // Setup websocket protocol config
-
-          val socketAppServer: SocketApp[Any] = // Combine all channel handlers together
-            httpSocketServer.toSocketApp
-              .withDecoder(decoder)   // Setup websocket decoder config
-              .withProtocol(protocol) // Setup websocket protocol config
           for {
-            _ <- TestClient.addSocketApp(socketAppServer)
-            response <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(socketAppClient))
-//            _ <- client.
+            _ <- TestClient.addSocketApp(httpSocketServer.toSocketApp)
+            response <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(httpSocketClient.toSocketApp))
           } yield assertCompletes
         }
       )
