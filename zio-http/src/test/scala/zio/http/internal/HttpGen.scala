@@ -304,4 +304,7 @@ object HttpGen {
       ContentEncoding.InvalidEncoding,
     ),
   )
+
+  def acceptRanges: Gen[Any, AcceptRanges] =
+    Gen.elements(AcceptRanges.Bytes, AcceptRanges.None, AcceptRanges.InvalidAcceptRanges)
 }
