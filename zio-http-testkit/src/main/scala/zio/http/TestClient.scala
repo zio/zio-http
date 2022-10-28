@@ -1,7 +1,7 @@
 package zio.http
 
 import zio._
-import zio.http.ChannelEvent.UserEvent
+import zio.http.ChannelEvent.{ChannelUnregistered, UserEvent}
 import zio.http.model.{Headers, Method, Scheme, Status, Version}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent, WebSocketFrame}
 
@@ -128,6 +128,9 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     (for {
       pendEvent <- channel.pending
       _ <- app.message.get.apply(ChannelEvent(otherChannel, pendEvent))
+      _ <- ZIO.when(pendEvent == ChannelUnregistered) {
+        otherChannel.close
+      }
     } yield pendEvent).repeatWhileZIO(event => ZIO.succeed(shoudlContinue(event))
       .debug(s"$name Event: ${event}  Should continue"))
 
