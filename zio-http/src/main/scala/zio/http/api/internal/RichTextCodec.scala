@@ -61,9 +61,47 @@ sealed trait RichTextCodec[A] { self =>
       a => a,
     )
 
-  final def encode(value: A): Either[Throwable, String]    = RichTextCodec.encode(value, self)
-  // TODO
-  final def decode(value: CharSequence): Either[String, A] = ???
+  final def encode(value: A): Either[Throwable, String] = RichTextCodec.encode(value, self)
+
+  private def parse(value: CharSequence): Either[String, (CharSequence, A)] =
+    this match {
+      case _: RichTextCodec.Empty.type =>
+        // A =:= Unit
+        Right((value, ().asInstanceOf[A]))
+
+      case ci: RichTextCodec.CharIn =>
+        // A =:= Char
+        if (value.length == 0 || !ci.set.contains(value.charAt(0).toInt))
+          Left(s"Not found: ${ci.set.toArray.map(_.toChar).mkString}")
+        else
+          Right((value.subSequence(1, value.length), value.charAt(0).asInstanceOf[A]))
+
+      case RichTextCodec.TransformOrFail(codec, to, _) =>
+        codec.parse(value).flatMap { case (rest, a0) => to(a0).map(a => (rest, a)) }
+
+      case alt: RichTextCodec.Alt[a, b] =>
+        // A =:= Either[a, b]
+        alt.left.parse(value) match {
+          case Right((rest, a)) => Right((rest, Left(a).asInstanceOf[A]))
+          case Left(errorLeft)  =>
+            alt.right.parse(value) match {
+              case Right((rest, b)) => Right((rest, Right(b).asInstanceOf[A]))
+              case Left(errorRight) => Left(s"($errorLeft, $errorRight)")
+            }
+        }
+
+      case RichTextCodec.Lazy(codec0) =>
+        codec0().parse(value)
+
+      case RichTextCodec.Zip(left, right, combiner) =>
+        for {
+          l <- left.parse(value)
+          r <- right.parse(l._1)
+        } yield (r._1, combiner.combine(l._2, r._2))
+    }
+
+  final def decode(value: CharSequence): Either[String, A] =
+    parse(value).map(_._2)
 
   // TODO
   final def describe: zio.http.api.Doc = ???
