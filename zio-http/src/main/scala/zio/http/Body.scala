@@ -1,17 +1,20 @@
 package zio.http
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{Channel => JChannel, DefaultFileRegion}
-import io.netty.handler.codec.http.LastHttpContent
+import io.netty.channel.{DefaultFileRegion, Channel => JChannel}
+import io.netty.handler.codec.http.{FullHttpRequest, LastHttpContent}
+import io.netty.handler.codec.http.multipart.{HttpPostMultipartRequestDecoder, InterfaceHttpData}
 import io.netty.util.AsciiString
 import zio._
-import zio.http.model.HTTP_CHARSET
+import zio.http.model.{HTTP_CHARSET, Multipart}
 import zio.http.service.Ctx
 import zio.stream.ZStream
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import scala.jdk.CollectionConverters._ // scalafix:ok;
 
 /**
  * Holds Body that needs to be written on the HttpChannel
@@ -44,6 +47,10 @@ trait Body { self =>
   def isComplete: Boolean
 
   def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean]
+
+  // TODO It looks that multipart/form-data can not be used together with chunked transfer.
+  // So I need to implement it only in fromFullHttpRequest. Is it correct?
+  def multipart(implicit trace: Trace): RIO[Scope, List[Multipart]] = ZIO.succeed(List.empty)
 }
 
 object Body {
@@ -95,6 +102,27 @@ object Body {
       ZIO.attempt(ctx.write(byteBuf): Unit).as(false)
 
     override def toString(): String = s"Body.fromByteBuf($byteBuf)"
+  }
+
+  def fromFullHttpRequest(request: FullHttpRequest): Body = new Body {
+    override def isComplete: Boolean = true
+
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.attempt {
+      Chunk.fromArray(ByteBufUtil.getBytes(request.content()))
+    }
+
+    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+      ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
+
+    override def write(ctx: Ctx)(implicit trace: Trace): Task[Boolean] =
+      ZIO.attempt(ctx.write(request.content()): Unit).as(false)
+
+    override def multipart(implicit trace: Trace): RIO[Scope, List[Multipart]] =
+      ZIO
+        .succeed(new HttpPostMultipartRequestDecoder(request))
+        .withFinalizer(decoder => ZIO.attempt(decoder.destroy()).orDie)
+        .map(_.getBodyHttpDatas.asScala.toList)
+        .flatMap(ZIO.foreach(_)(MultipartConverter.convert))
   }
 
   /**

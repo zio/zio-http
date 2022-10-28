@@ -113,7 +113,7 @@ private[zio] final case class ServerInboundHandler(
       nettyReq match {
         case nettyReq: FullHttpRequest =>
           Request(
-            Body.fromByteBuf(nettyReq.content()),
+            Body.fromFullHttpRequest(nettyReq),
             Headers.make(nettyReq.headers()),
             Method.fromHttpMethod(nettyReq.method()),
             URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
