@@ -3,8 +3,8 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.api.MiddlewareSpec.CsrfValidate
+import zio.http.model.headers.values._
 import zio.http.model.{Cookie, Status}
-import zio.schema.codec.JsonCodec
 
 import java.util.UUID
 
@@ -103,6 +103,18 @@ object Middleware {
 
   def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie[Response]]): Middleware[R, Unit, Cookie[Response]] =
     fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
+
+  /**
+   * Adds the content length header to the response
+   */
+  def withContentLength(length: Long): Middleware[Any, Unit, ContentLength] =
+    fromFunction(MiddlewareSpec.withContentLength)(_ => ContentLength.toContentLength(length))
+
+  /**
+   * Adds the content length header to the response based on a ZIO effect
+   */
+  def withContentLengthZIO[R](response: ZIO[R, Nothing, Long]): Middleware[R, Unit, ContentLength] =
+    fromFunctionZIO(MiddlewareSpec.withContentLength)(_ => response.map(ContentLength.toContentLength))
 
   /**
    * Generates a new CSRF token that can be validated using the csrfValidate

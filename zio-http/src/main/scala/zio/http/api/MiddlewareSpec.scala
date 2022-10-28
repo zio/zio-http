@@ -5,6 +5,7 @@ import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.headers.HeaderGetters
+import zio.http.model.headers.values._
 import zio.http.model.{Cookie, HeaderNames, Headers}
 import zio.http.{Request, Response, api}
 import zio.{Duration, Trace, ZIO}
@@ -125,6 +126,9 @@ object MiddlewareSpec {
       ),
     )
   }
+
+  def withContentLength: MiddlewareSpec[Unit, ContentLength] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentLength)
 
   def addCookie: MiddlewareSpec[Unit, Cookie[Response]] =
     MiddlewareSpec(
