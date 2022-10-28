@@ -74,7 +74,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           } yield (server.port, p)
       )
 
-      ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
+      ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort) @@ ignore,
 
         contract("Test", {
           for {
@@ -84,7 +84,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           } yield (0, p)
         }
         )
-        .provide(TestClient.layer, Scope.default) @@ ignore,
+        .provide(TestClient.layer, Scope.default),
     )
 
   def contract[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
@@ -124,6 +124,7 @@ object SocketContractSpec extends ZIOSpecDefault {
       for {
         portAndPromise <- serverSetup
         response <- ZIO.serviceWithZIO[Client](_.socket(s"ws://localhost:${portAndPromise._1}/", socketAppClient))
+        _ <- ZIO.debug("About to await")
         _ <- portAndPromise._2.await
         //            _ <- client.
       } yield assertTrue(response.status == Status.SwitchingProtocols)

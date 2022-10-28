@@ -116,36 +116,24 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     for {
       env <- ZIO.environment[Env1]
       currentSocketBehavior <- serverSocketBehavior.get
-      channelRefServer <- Ref.make(Option.empty[TestChannel])
-      channelRef <- Ref.make(Option.empty[TestChannel])
-      testChannelClient <- TestChannel.make(channelRefServer.get.some.orDieWith(_ => new RuntimeException))
-      testChannelServer <- TestChannel.make(ZIO.succeed(testChannelClient))
-      _ <- channelRefServer.set(Some(testChannelServer))
-      _ <- testChannelClient.initialize
-      _ <- testChannelServer.initialize
-      _ <- eventLoop(testChannelClient, serverSocketBehavior.get).race(
-        eventLoop(testChannelServer, ZIO.succeed(app.provideEnvironment(env)))
-      )
-      //      _ <- testChannelClient.write(W)
-    } yield Response.ok
+      testChannelClient <- TestChannel.make
+      testChannelServer <- TestChannel.make
+      _ <- eventLoop("Server", testChannelClient, currentSocketBehavior, testChannelServer).forkDaemon
+      _ <- eventLoop("Client", testChannelServer, app.provideEnvironment(env), testChannelClient).forkDaemon
+    } yield Response.status(Status.SwitchingProtocols)
   }
 
 
-  private def eventLoop(testChannelClient: TestChannel, app: UIO[SocketApp[Any]]) = {
-    for {
-      state <- Ref.make[Option[WebSocketChannelEvent]](None)
-      _ <- (for {
-        pendClientEvent <- testChannelClient.pending
-        _ <- state.set(Some(pendClientEvent))
-        liveApp <- app
-        _ <- liveApp.message.get.apply(pendClientEvent)
-      } yield pendClientEvent).repeatWhileZIO(event => ZIO.succeed(shoudlContinue(event)).debug(s"Event: ${event.event}  Should continue"))
-    } yield ()
-  }
+  private def eventLoop(name: String, channel: TestChannel, app: SocketApp[Any], otherChannel: TestChannel) =
+    (for {
+      pendEvent <- channel.pending
+      _ <- app.message.get.apply(ChannelEvent(otherChannel, pendEvent))
+    } yield pendEvent).repeatWhileZIO(event => ZIO.succeed(shoudlContinue(event))
+      .debug(s"$name Event: ${event}  Should continue"))
 
 
-  def shoudlContinue(event: WebSocketChannelEvent) =
-    event.event match {
+  def shoudlContinue(event: ChannelEvent.Event[WebSocketFrame]) =
+    event match {
       case ChannelEvent.ExceptionCaught(cause) => false
       case ChannelEvent.ChannelRead(message) =>
         message match {

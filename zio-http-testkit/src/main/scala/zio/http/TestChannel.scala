@@ -3,18 +3,16 @@ import zio.http.ChannelEvent.{UserEvent, UserEventTriggered}
 import zio.http.socket.{WebSocketChannel, WebSocketChannelEvent, WebSocketFrame}
 import zio.{Queue, Ref, Task, Trace, UIO}
 
-case class TestChannel(queue: Queue[WebSocketChannelEvent], responseChannel: UIO[WebSocketChannel], isOpen: Ref[Boolean]) extends WebSocketChannel {
+case class TestChannel(counterpartEvents: Queue[ChannelEvent.Event[WebSocketFrame]], isOpen: Ref[Boolean]) extends WebSocketChannel {
   override def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] = ???
 
   override def awaitClose(implicit trace: Trace): UIO[Unit] = ???
 
   override def close(await: Boolean)(implicit trace: Trace): Task[Unit] =
     for {
-      responseC <- responseChannel
-      _ <- queue.offer(ChannelEvent( responseC, ChannelEvent.ChannelRead(
-        WebSocketFrame.Close(0, None)
-      ))).unit
+      _ <- counterpartEvents.offer(ChannelEvent.ChannelUnregistered).unit
     } yield  ()
+
 
 
   override def contramap[A1](f: A1 => WebSocketFrame): Channel[A1] = ???
@@ -27,41 +25,40 @@ case class TestChannel(queue: Queue[WebSocketChannelEvent], responseChannel: UIO
 
   override def read(implicit trace: Trace): UIO[Unit] = {
     for {
-      element <- queue.take
+      element <- counterpartEvents.take
     } yield ()
   }
 
-  def pending(implicit trace: Trace): UIO[WebSocketChannelEvent] =
+  def pending(implicit trace: Trace): UIO[ChannelEvent.Event[WebSocketFrame]] =
     for {
-      element <- queue.take
+      element <- counterpartEvents.take
     } yield element
 
   override def write(msg: WebSocketFrame, await: Boolean)(implicit trace: Trace): Task[Unit] =
     for {
-      responseC <- responseChannel
-    _ <- queue.offer(ChannelEvent( responseC, ChannelEvent.ChannelRead(msg))).unit
+//      responseC <- responseChannel
+    _ <- counterpartEvents.offer(ChannelEvent.ChannelRead(msg)).unit
   } yield  ()
 
   override def writeAndFlush(msg: WebSocketFrame, await: Boolean)(implicit trace: Trace): Task[Unit] =
     for {
-      responseC <- responseChannel
-      _ <- queue.offer(ChannelEvent( responseC, ChannelEvent.ChannelRead(msg))).unit
+      _ <- counterpartEvents.offer(ChannelEvent.ChannelRead(msg)).unit
     } yield  ()
 
-  val initialize = {
-    val handshakeComplete = UserEventTriggered(UserEvent.HandshakeComplete)
+
+  val close = {
     for {
-      responseC <- responseChannel
-      _ <- queue.offer(ChannelEvent(responseC, handshakeComplete))
+      _ <- counterpartEvents.offer(ChannelEvent.ChannelUnregistered)
     } yield ()
   }
 }
 
 object TestChannel {
   // TODO parameterize
-  def make(replyChannel: UIO[WebSocketChannel]) =
+  def make =
     for {
-      queue <- Queue.unbounded[WebSocketChannelEvent]
+      queue <- Queue.unbounded[ChannelEvent.Event[WebSocketFrame]]
+      _ <- queue.offer(UserEventTriggered(UserEvent.HandshakeComplete))
       isOpen <- Ref.make(true)
-    } yield TestChannel(queue, replyChannel, isOpen)
+    } yield TestChannel(queue, isOpen)
 }
