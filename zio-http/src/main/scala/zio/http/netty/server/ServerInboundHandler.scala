@@ -162,7 +162,6 @@ private[zio] final case class ServerInboundHandler(
      */
     @tailrec
     def upgradeToWebSocket(jReq: HttpRequest, res: Response, runtime: NettyRuntime): Unit = {
-      println("Upgrading to WebSocket!")
       val app = res.attribute.socketApp
       jReq match {
         case jReq: FullHttpRequest =>
@@ -175,13 +174,11 @@ private[zio] final case class ServerInboundHandler(
             .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, app.get, false))
 
           val retained = jReq.retainedDuplicate()
-          println("jReq starting event loop: " + jReq)
           ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }: Unit
 
         case jReq: HttpRequest =>
           val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
           fullRequest.headers().setAll(jReq.headers())
-          println("jReq Recursing")
           upgradeToWebSocket(fullRequest, res, runtime)
       }
     }

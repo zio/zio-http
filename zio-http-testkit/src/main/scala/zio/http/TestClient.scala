@@ -3,7 +3,7 @@ package zio.http
 import zio._
 import zio.http.ChannelEvent.{ChannelUnregistered, UserEvent}
 import zio.http.model.{Headers, Method, Scheme, Status, Version}
-import zio.http.socket.{SocketApp, WebSocketChannelEvent, WebSocketFrame}
+import zio.http.socket.{SocketApp, WebSocketFrame}
 
 /**
  * Enables tests that use a client without needing a live Server
@@ -131,16 +131,16 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       _ <- ZIO.when(pendEvent == ChannelUnregistered) {
         otherChannel.close
       }
-    } yield pendEvent).repeatWhileZIO(event => ZIO.succeed(shoudlContinue(event))
-      .debug(s"$name Event: ${event}  Should continue"))
+    } yield pendEvent).repeatWhileZIO(event => ZIO.succeed(shouldContinue(event))
+      .debug(s"$name Event: $event  Should continue"))
 
 
-  def shoudlContinue(event: ChannelEvent.Event[WebSocketFrame]) =
+  def shouldContinue(event: ChannelEvent.Event[WebSocketFrame]) =
     event match {
-      case ChannelEvent.ExceptionCaught(cause) => false
+      case ChannelEvent.ExceptionCaught(_) => false
       case ChannelEvent.ChannelRead(message) =>
         message match {
-          case WebSocketFrame.Close(status, reason) => false
+          case WebSocketFrame.Close(_, _) => false
           case _ => true
         }
       case ChannelEvent.UserEventTriggered(userEvent) => userEvent match {
@@ -164,7 +164,7 @@ object TestClient {
 
   /**
    * Adds an exact 1-1 behavior
-   * @param expectedRequest
+   * @param request
    *   The request that will trigger the response
    * @param response
    *   The response to be returned when a user submits the response
