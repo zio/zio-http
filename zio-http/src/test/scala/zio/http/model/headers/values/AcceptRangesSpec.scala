@@ -19,6 +19,6 @@ object AcceptRangesSpec extends ZIOSpecDefault {
         check(HttpGen.acceptRanges) { acceptRanges =>
           assertTrue(AcceptRanges.to(AcceptRanges.from(acceptRanges)) == acceptRanges)
         }
-      }
+      },
     )
 }
