@@ -3,12 +3,13 @@ package zio.http.api.internal
 import zio.Chunk
 import zio.http.api.Combiner
 
+import java.lang.Integer.parseInt
 import java.lang.StringBuilder
 import scala.collection.immutable.BitSet
 import scala.util.control.NoStackTrace
 
 /**
- * A `RichTextCodec is a more compositional version of `TextCodec`, which has
+ * A `RichTextCodec` is a more compositional version of `TextCodec`, which has
  * similar power to traditional parser combinators / pretty printers. Although
  * slower than the simpler text codecs, they can be utilized to parse structured
  * information in HTTP headers, which in turn allows generating much better
@@ -60,9 +61,7 @@ sealed trait RichTextCodec[A] { self =>
       a => a,
     )
 
-  // TODO
-  final def encode(value: A): String = ???
-
+  final def encode(value: A): Either[Throwable, String]    = RichTextCodec.encode(value, self)
   // TODO
   final def decode(value: CharSequence): Either[String, A] = ???
 
@@ -138,12 +137,12 @@ object RichTextCodec {
   /**
    * A codec that describes a single specified character.
    */
-  def char(c: Char): RichTextCodec[Unit] = CharIn(BitSet(c.toInt)).unit(c)
+  def char(c: Char): RichTextCodec[Char] = CharIn(BitSet(c.toInt))
 
   /**
    * A codec that describes a digit character.
    */
-  val digit: RichTextCodec[Int] = filter(_.isDigit).transform(_.toInt, _.toChar)
+  val digit: RichTextCodec[Int] = filter(_.isDigit).transform[Int](c => parseInt(c.toString), x => x.toString.head)
 
   /**
    * A codec that describes nothing at all. Such codecs successfully decode even
@@ -156,7 +155,7 @@ object RichTextCodec {
    * predicate.
    */
   def filter(pred: Char => Boolean): RichTextCodec[Char] =
-    CharIn(BitSet((Char.MinValue to Char.MaxValue).map(_.toInt): _*))
+    CharIn(BitSet((Char.MinValue to Char.MaxValue).filter(pred).map(_.toInt): _*))
 
   /**
    * A codec that describes a letter character.
@@ -170,11 +169,11 @@ object RichTextCodec {
     def loop(list: List[Char]): RichTextCodec[Unit] =
       list match {
         case head :: tail =>
-          char(head) ~> loop(tail)
+          char(head).unit(head) ~> loop(tail)
         case Nil          => empty
       }
 
-    loop(lit.toString().toList).as(lit)
+    loop(lit.toList).as(lit)
   }
 
   /**
@@ -187,4 +186,30 @@ object RichTextCodec {
    * A codec that describes a single whitespace character.
    */
   lazy val whitespaceChar: RichTextCodec[Unit] = filter(_.isWhitespace).unit(' ')
+
+  private def encode[A](value: A, self: RichTextCodec[A]): Either[Throwable, String] = {
+    self match {
+      case RichTextCodec.Empty                           => Right("")
+      case RichTextCodec.CharIn(_)                       => { Right(value.asInstanceOf[Char].toString) }
+      case RichTextCodec.TransformOrFail(codec, _, from) =>
+        from(value) match {
+          case Left(err)     => Left(new Exception(err))
+          case Right(value2) =>
+            codec.encode(value2)
+        }
+      case RichTextCodec.Alt(left, right)                =>
+        value match {
+          case Left(a)  => left.encode(a)
+          case Right(b) => right.encode(b)
+        }
+      case RichTextCodec.Lazy(codec0)                    => codec0().encode(value)
+      case RichTextCodec.Zip(left, right, combiner)      => {
+        val (a, b) = combiner.separate(value)
+        for {
+          l <- left.encode(a)
+          r <- right.encode(b)
+        } yield l + r
+      }
+    }
+  }
 }
