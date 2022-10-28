@@ -540,13 +540,6 @@ object ZClient {
     )(implicit trace: Trace): ZIO[R with Scope, Throwable, Response] =
       for {
         env      <- ZIO.environment[R]
-        _ <-
-          ZIO.debug(
-            s"""
-               | $hostOption
-               | $portOption
-               | $schemeOption
-               |""".stripMargin)
         location <- ZIO.fromOption {
           for {
             host   <- hostOption

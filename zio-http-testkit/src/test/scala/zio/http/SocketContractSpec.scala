@@ -1,7 +1,7 @@
 package zio.http
 
 import zio._
-import zio.http.model.{Method, Status}
+import zio.http.model.Status
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEvent, UserEventTriggered}
 import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http.netty.server.NettyDriver
@@ -25,7 +25,7 @@ object SocketContractSpec extends ZIOSpecDefault {
     Http.collectZIO[(WebSocketChannel, String)] {
       case (ch, text) if text.contains("Hi Server") =>
         ZIO.debug("Server got message: " + text) *> ch.close()
-      case (ch, text) => // TODO remove
+      case (ch, text) => // TODO remove?
         ZIO.debug("Unrecognized message sent to server: " + text)
     }
 
@@ -52,14 +52,14 @@ object SocketContractSpec extends ZIOSpecDefault {
 
     }
 
-  val protocol = SocketProtocol.default.withSubProtocol(Some("json")) // Setup protocol settings
+  val protocol = SocketProtocol.default.withSubProtocol(Some("json"))
 
-  val decoder = SocketDecoder.default.withExtensions(allowed = true) // Setup decoder settings
+  val decoder = SocketDecoder.default.withExtensions(allowed = true)
 
-  def socketAppServer(p: Promise[Throwable, Unit]): SocketApp[Any] = // Combine all channel handlers together
+  def socketAppServer(p: Promise[Throwable, Unit]): SocketApp[Any] =
     (messageSocketServer ++ channelSocketServer(p)).toSocketApp
-      .withDecoder(decoder)   // Setup websocket decoder config
-      .withProtocol(protocol) // Setup websocket protocol config
+      .withDecoder(decoder)
+      .withProtocol(protocol)
 
   sys.props.put("ZIOHttpLogLevel", "DEBUG")
   def spec =
@@ -97,20 +97,12 @@ object SocketContractSpec extends ZIOSpecDefault {
 
       val channelSocketClient : Http[Any, Throwable, WebSocketChannelEvent, Unit] =
         Http.collectZIO[WebSocketChannelEvent] {
-//          case ChannelEvent(ch, ChannelRead(WebSocketFrame.Close(status, reason))) =>
-//            Console.printLine("Client Closing channel with status: " + status + " and reason: " + reason) *>
-//            ch.close()
-
           case ChannelEvent(_, ChannelUnregistered) =>
-//            p.succeed(()) *>
               Console.printLine("Client Channel unregistered")
 
           case ChannelEvent(ch, other) =>
             Console.printLine("Client received other event: " + other)
         }
-//            p.succeed(()) *>
-//              Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
-//        Http.empty
 
       val httpSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
         messageSocketClient ++ channelSocketClient
@@ -124,9 +116,7 @@ object SocketContractSpec extends ZIOSpecDefault {
       for {
         portAndPromise <- serverSetup
         response <- ZIO.serviceWithZIO[Client](_.socket(s"ws://localhost:${portAndPromise._1}/", socketAppClient))
-        _ <- ZIO.debug("About to await")
         _ <- portAndPromise._2.await
-        //            _ <- client.
       } yield assertTrue(response.status == Status.SwitchingProtocols)
     }
 
