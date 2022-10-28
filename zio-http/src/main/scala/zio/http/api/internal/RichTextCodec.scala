@@ -45,6 +45,9 @@ sealed trait RichTextCodec[A] { self =>
   final def |[B](that: => RichTextCodec[B]): RichTextCodec[Either[A, B]] =
     RichTextCodec.Alt(self, RichTextCodec.defer(that))
 
+  final def as[B](b: => B)(implicit ev: A =:= Unit): RichTextCodec[B] =
+    self.asType[Unit].transform(_ => b, _ => ())
+
   final def asType[B](implicit ev: A =:= B): RichTextCodec[B] =
     self.asInstanceOf[RichTextCodec[B]]
 
@@ -109,7 +112,7 @@ sealed trait RichTextCodec[A] { self =>
 }
 object RichTextCodec {
   private[internal] case object Empty                                        extends RichTextCodec[Unit]
-  private[internal] final case class CharIn(set: BitSet)                     extends RichTextCodec[Unit]
+  private[internal] final case class CharIn(set: BitSet)                     extends RichTextCodec[Char]
   private[internal] final case class TransformOrFail[A, B](
     codec: RichTextCodec[A],
     to: A => Either[String, B],
@@ -135,12 +138,12 @@ object RichTextCodec {
   /**
    * A codec that describes a single specified character.
    */
-  def char(c: Char): RichTextCodec[Unit] = CharIn(BitSet(c.toInt))
+  def char(c: Char): RichTextCodec[Unit] = CharIn(BitSet(c.toInt)).unit(c)
 
   /**
    * A codec that describes a digit character.
    */
-  val digit: RichTextCodec[Unit] = filter(_.isDigit)
+  val digit: RichTextCodec[Int] = filter(_.isDigit).transform(_.toInt, _.toChar)
 
   /**
    * A codec that describes nothing at all. Such codecs successfully decode even
@@ -152,21 +155,27 @@ object RichTextCodec {
    * Defines a new codec for a single character based on the specified
    * predicate.
    */
-  def filter(pred: Char => Boolean): RichTextCodec[Unit] =
+  def filter(pred: Char => Boolean): RichTextCodec[Char] =
     CharIn(BitSet((Char.MinValue to Char.MaxValue).map(_.toInt): _*))
 
   /**
    * A codec that describes a letter character.
    */
-  val letter: RichTextCodec[Unit] = filter(_.isLetter)
+  val letter: RichTextCodec[Char] = filter(_.isLetter)
 
   /**
    * A codec that describes a literal character sequence.
    */
-  def literal(lit: CharSequence): RichTextCodec[Unit] =
-    lit.toString().foldLeft(empty) { case (acc, c) =>
-      acc ~> char(c)
-    }
+  def literal(lit: String): RichTextCodec[String] = {
+    def loop(list: List[Char]): RichTextCodec[Unit] =
+      list match {
+        case head :: tail =>
+          char(head) ~> loop(tail)
+        case Nil          => empty
+      }
+
+    loop(lit.toString().toList).as(lit)
+  }
 
   /**
    * A codec that describes any number of whitespace characters.
@@ -177,5 +186,5 @@ object RichTextCodec {
   /**
    * A codec that describes a single whitespace character.
    */
-  lazy val whitespaceChar: RichTextCodec[Unit] = filter(_.isWhitespace)
+  lazy val whitespaceChar: RichTextCodec[Unit] = filter(_.isWhitespace).unit(' ')
 }
