@@ -18,8 +18,9 @@ trait HeaderCodecs {
   final val acceptLanguage: HeaderCodec[AcceptLanguage]           =
     header(HeaderNames.acceptLanguage.toString(), TextCodec.string)
       .transform(AcceptLanguage.toAcceptLanguage, AcceptLanguage.fromAcceptLanguage)
-  final val acceptRanges: HeaderCodec[String]                     =
+  final val acceptRanges: HeaderCodec[AcceptRanges]               =
     header(HeaderNames.acceptRanges.toString(), TextCodec.string)
+      .transform(AcceptRanges.to, AcceptRanges.from)
   final val acceptPatch: HeaderCodec[AcceptPatch]                 =
     header(HeaderNames.acceptPatch.toString(), TextCodec.string)
       .transform(AcceptPatch.toAcceptPatch, AcceptPatch.fromAcceptPatch)
@@ -97,7 +98,9 @@ trait HeaderCodecs {
     header(HeaderNames.ifModifiedSince.toString(), TextCodec.string)
   final val ifNoneMatch: HeaderCodec[String]             =
     header(HeaderNames.ifNoneMatch.toString(), TextCodec.string)
-  final val ifRange: HeaderCodec[String]                 = header(HeaderNames.ifRange.toString(), TextCodec.string)
+  final val ifRange: HeaderCodec[IfRange]                =
+    header(HeaderNames.ifRange.toString(), TextCodec.string)
+      .transform(IfRange.toIfRange, IfRange.fromIfRange)
   final val ifUnmodifiedSince: HeaderCodec[String]       =
     header(HeaderNames.ifUnmodifiedSince.toString(), TextCodec.string)
   final val lastModified: HeaderCodec[String]            =
