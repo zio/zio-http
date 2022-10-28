@@ -61,7 +61,7 @@ sealed trait RichTextCodec[A] { self =>
       a => a,
     )
 
-  final def encode(value: A): Either[Throwable, String]    = RichTextCodec.encode(value, self)
+  final def encode(value: A): Either[Throwable, String] = RichTextCodec.encode(value, self)
 
   private def parse(value: CharSequence): Either[String, (CharSequence, A)] =
     this match {
