@@ -350,7 +350,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     url: String,
     app: SocketApp[Env1],
     headers: Headers = Headers.empty,
-  )(implicit trace: Trace, unsafe: Unsafe): ZIO[Env1 with Scope, Err, Out] =
+  )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
     for {
       url <- ZIO.fromEither(URL.fromString(url)).orDie
       out <- socketInternal(
@@ -540,6 +540,13 @@ object ZClient {
     )(implicit trace: Trace): ZIO[R with Scope, Throwable, Response] =
       for {
         env      <- ZIO.environment[R]
+        _ <-
+          ZIO.debug(
+            s"""
+               | $hostOption
+               | $portOption
+               | $schemeOption
+               |""".stripMargin)
         location <- ZIO.fromOption {
           for {
             host   <- hostOption

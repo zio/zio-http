@@ -98,8 +98,6 @@ object TestClientSpec extends ZIOSpecDefault {
           val httpSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
             messageSocketClient ++ channelSocketClient
 
-          val decoder = SocketDecoder.default.withExtensions(allowed = true) // Setup decoder settings
-
           val httpSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
             messageSocketServer ++ channelSocketServer
 
