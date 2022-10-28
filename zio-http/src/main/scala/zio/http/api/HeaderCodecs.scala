@@ -84,7 +84,9 @@ trait HeaderCodecs {
     .transform(DNT.toDNT(_), DNT.fromDNT(_))
   final val etag: HeaderCodec[ETag]                      = header(HeaderNames.etag.toString(), TextCodec.string)
     .transform(ETag.toETag(_), ETag.fromETag(_))
-  final val expect: HeaderCodec[String]                  = header(HeaderNames.expect.toString(), TextCodec.string)
+  final val expect: HeaderCodec[Expect]                  =
+    header(HeaderNames.expect.toString(), TextCodec.string)
+      .transform(Expect.toExpect, Expect.fromExpect)
   final val expires: HeaderCodec[Expires]                =
     header(HeaderNames.expires.toString(), TextCodec.string).transform[Expires](Expires.toExpires, Expires.fromExpires)
   final val from: HeaderCodec[String]                    = header(HeaderNames.from.toString(), TextCodec.string)
