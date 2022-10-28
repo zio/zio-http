@@ -175,7 +175,7 @@ object RichTextCodec {
   /**
    * A codec that describes a single specified character.
    */
-  def char(c: Char): RichTextCodec[Unit] = CharIn(BitSet(c.toInt)).unit(c)
+  def char(c: Char): RichTextCodec[Char] = CharIn(BitSet(c.toInt))
 
   /**
    * A codec that describes a digit character.

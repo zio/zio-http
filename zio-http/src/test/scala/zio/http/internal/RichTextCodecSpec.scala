@@ -74,7 +74,7 @@ object RichTextCodecSpec extends ZIOSpecDefault {
           val codec = RichTextCodec.char(c)
           val result = codec.decode(str)
           if (str.nonEmpty && str(0) == c)
-            assertTrue(success(()) == result)
+            assertTrue(success(c) == result)
           else
             assertTrue(result.isLeft)
         }
@@ -86,7 +86,7 @@ object RichTextCodecSpec extends ZIOSpecDefault {
           assertTrue(codec.decode("123").isLeft)
       },
       test("zip decoder") {
-        val codec = RichTextCodec.char('a') ~> RichTextCodec.char('b')
+        val codec = RichTextCodec.char('a').unit('a') ~> RichTextCodec.char('b').unit('b')
         assertTrue(success(()) == codec.decode("ab...")) &&
           assertTrue(codec.decode("..ab..").isLeft)
       },
