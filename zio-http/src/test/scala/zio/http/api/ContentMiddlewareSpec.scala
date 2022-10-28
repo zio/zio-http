@@ -1,8 +1,7 @@
 package zio.http.api
 
 import zio.http._
-import zio.http.api.Doc.Span.URI
-import zio.http.model.headers.values.{ContentBase, ContentType}
+import zio.http.model.headers.values.{ContentBase, ContentDisposition, ContentType}
 import zio.test._
 
 object ContentMiddlewareSpec extends ZIOSpecDefault {
@@ -32,6 +31,14 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
             .apply(Http.succeed(response))
             .apply(Request.get(URL.empty))
         } yield assertTrue(response.headers.contentBase.contains("http://localhost:8080"))
-      }
+      },
+      test("add content disposition header") {
+        for {
+          response <- api.Middleware
+            .withContentDisposition(ContentDisposition.attachment("foo.txt"))
+            .apply(Http.succeed(response))
+            .apply(Request.get(URL.empty))
+        } yield assertTrue(response.headers.contentDisposition.contains("attachment; filename=foo.txt"))
+      },
     )
 }

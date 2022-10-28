@@ -105,6 +105,30 @@ object Middleware {
     fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
 
   /**
+   * Adds the content type header to the response based on a ZIO effect
+   */
+  def withContentBase(contentBase: ContentBase): Middleware[Any, Unit, ContentBase] =
+    fromFunction(MiddlewareSpec.withContentBase)(_ => contentBase)
+
+  /**
+   * Adds the content type header to the response based on a ZIO effect
+   */
+  def withContentBaseZIO[R](contentBase: ZIO[R, Nothing, ContentBase]): Middleware[R, Unit, ContentBase] =
+    fromFunctionZIO(MiddlewareSpec.withContentBase)(_ => contentBase)
+
+  /**
+   * Adds the content type header to the response based on a ZIO effect
+   */
+  def withContentDisposition(contentDisposition: ContentDisposition): Middleware[Any, Unit, ContentDisposition] =
+    fromFunction(MiddlewareSpec.withContentDisposition)(_ => contentDisposition)
+
+  /**
+   * Adds the content disposition header to the response based on a ZIO effect
+   */
+  def withContentDispositionZIO[R](contentDisposition: ZIO[R, Nothing, ContentDisposition]): Middleware[R, Unit, ContentDisposition] =
+    fromFunctionZIO(MiddlewareSpec.withContentDisposition)(_ => contentDisposition)
+
+  /**
    * Adds the content length header to the response
    */
   def withContentLength(length: Long): Middleware[Any, Unit, ContentLength] =
@@ -127,18 +151,6 @@ object Middleware {
    */
   def withContentTypeZIO[R](contentType: ZIO[R, Nothing, ContentType]): Middleware[R, Unit, ContentType] =
     fromFunctionZIO(MiddlewareSpec.withContentType)(_ => contentType)
-
-  /**
-   * Adds the content type header to the response based on a ZIO effect
-   */
-  def withContentBase(contentBase: ContentBase): Middleware[Any, Unit, ContentBase] =
-    fromFunction(MiddlewareSpec.withContentBase)(_ => contentBase)
-
-  /**
-   * Adds the content type header to the response based on a ZIO effect
-   */
-  def withContentBaseZIO[R](contentBase: ZIO[R, Nothing, ContentBase]): Middleware[R, Unit, ContentBase] =
-    fromFunctionZIO(MiddlewareSpec.withContentBase)(_ => contentBase)
 
   /**
    * Generates a new CSRF token that can be validated using the csrfValidate
