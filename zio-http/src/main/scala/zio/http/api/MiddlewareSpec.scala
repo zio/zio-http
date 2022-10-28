@@ -140,10 +140,9 @@ object MiddlewareSpec {
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
 
-  
   def addHeader(header: Headers.Header): MiddlewareSpec[Unit, Unit] =
-     addHeader(header.key.toString, header.value.toString)
-     
+    addHeader(header.key.toString, header.value.toString)
+
   def addHeaders(headers: Headers): MiddlewareSpec[Unit, Unit] =
     headers.headersAsList.map(addHeader(_)).reduce(_ ++ _)
 

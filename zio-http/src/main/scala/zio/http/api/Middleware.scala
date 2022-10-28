@@ -265,8 +265,7 @@ object Middleware {
     fromFunction(MiddlewareSpec.addHeader(header))(_ => ())
 
   def addHeaders(headers: Headers): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.addHeaders(headers))(_ => ()) 
-  
+    fromFunction(MiddlewareSpec.addHeaders(headers))(_ => ())
 
   /**
    * Generates a new CSRF token that can be validated using the csrfValidate

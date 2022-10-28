@@ -9,33 +9,37 @@ import zio.test._
 import zio.ZIO
 
 object AddHeaderSpec extends ZIOSpecDefault with HttpAppTestExtensions {
-  
-  private val acceptHeader = Headers.Header("Accept","text/html")
-  private val connectionHeader = Headers.Header("Connection","keep-alive")
 
-  private val appSingleHeader = Http.ok.withMiddleware(api.Middleware.addHeader(acceptHeader))
-  private val appHeadersList = Http.ok.withMiddleware(api.Middleware.addHeaders(Headers(acceptHeader,connectionHeader)))
+  private val acceptHeader     = Headers.Header("Accept", "text/html")
+  private val connectionHeader = Headers.Header("Connection", "keep-alive")
+
+  private val appAddingAcceptHeader = Http.ok.withMiddleware(api.Middleware.addHeader(acceptHeader))
+  private val appAddingHeadersList  =
+    Http.ok.withMiddleware(api.Middleware.addHeaders(Headers(acceptHeader, connectionHeader)))
+
   private val req = Request.get(URL.empty)
 
   override def spec = suite("addHeaders")(
-    test("Specified header is added") {
+    test("Specified header is added to empty request") {
 
       for {
-        response <- appSingleHeader(req)
-        _ <- ZIO.succeed(println(response.headersAsList))
+        response <- appAddingAcceptHeader(req)
       } yield assert(response.headersAsList)(contains(acceptHeader))
     },
-        test("Specified headers is added") {
+    test("Specified header is added to request with other headers in place") {
 
       for {
-        response <- appHeadersList(req)
-        _ <- ZIO.succeed(println(response.headersAsList))
-      } yield assert(response.headersAsList)(hasSubset(Headers(acceptHeader,connectionHeader)))
+        response <- appAddingAcceptHeader(req.copy(headers = Headers(headers = connectionHeader)))
+      } yield assert(response.headersAsList)(
+        hasSameElements(Headers(acceptHeader, connectionHeader)),
+      )
+    },
+    test("Specified list of headers is added") {
+
+      for {
+        response <- appAddingHeadersList(req)
+      } yield assert(response.headersAsList)(hasSubset(Headers(acceptHeader, connectionHeader)))
     },
   )
-
- 
-
-
 
 }
