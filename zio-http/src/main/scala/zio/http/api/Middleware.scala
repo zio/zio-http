@@ -3,7 +3,7 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.api.MiddlewareSpec.CsrfValidate
-import zio.http.model.headers.values.{Accept, AcceptEncoding}
+import zio.http.model.headers.values.{Accept, AcceptEncoding, AcceptLanguage, AcceptPatch}
 import zio.http.model.{Cookie, Status}
 import zio.schema.codec.JsonCodec
 
@@ -111,14 +111,14 @@ object Middleware {
   def withAcceptEncoding(value: CharSequence): Middleware[Any, Unit, AcceptEncoding] =
     fromFunction(MiddlewareSpec.withAcceptEncoding)(_ => AcceptEncoding.toAcceptEncoding(value.toString))
 
-  def withAcceptLanguage(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withAcceptLanguage(value))(_ => ())
+  def withAcceptLanguage(value: CharSequence): Middleware[Any, Unit, AcceptLanguage] =
+    fromFunction(MiddlewareSpec.withAcceptLanguage)(_ => AcceptLanguage.toAcceptLanguage(value.toString))
 
-  def withAcceptPatch(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withAcceptPatch(value))(_ => ())
+  def withAcceptPatch(value: CharSequence): Middleware[Any, Unit, AcceptPatch] =
+    fromFunction(MiddlewareSpec.withAcceptPatch)(_ => AcceptPatch.toAcceptPatch(value.toString))
 
-  def withAcceptRanges(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withAcceptRanges(value))(_ => ())
+//  def withAcceptRanges(value: CharSequence): Middleware[Any, Unit, String] =
+//    fromFunction(MiddlewareSpec.withAcceptRanges)(_ => ???)
 
   /**
    * Generates a new CSRF token that can be validated using the csrfValidate

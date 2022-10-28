@@ -5,7 +5,7 @@ import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.headers.HeaderGetters
-import zio.http.model.headers.values.{Accept, AcceptEncoding}
+import zio.http.model.headers.values.{Accept, AcceptEncoding, AcceptLanguage, AcceptPatch}
 import zio.http.model.{Cookie, HeaderNames, Headers}
 import zio.http.{Request, Response, api}
 import zio.{Duration, Trace, ZIO}
@@ -168,23 +168,23 @@ object MiddlewareSpec {
       HeaderCodec.acceptEncoding,
     )
 
-  def withAcceptLanguage(value: CharSequence): MiddlewareSpec[Unit, Unit] =
+  def withAcceptLanguage: MiddlewareSpec[Unit, AcceptLanguage] =
     MiddlewareSpec(
       HttpCodec.empty,
-      HeaderCodec.header(HeaderNames.acceptLanguage.toString, TextCodec.constant(value.toString)),
+      HeaderCodec.acceptLanguage,
     )
 
-  def withAcceptPatch(value: CharSequence): MiddlewareSpec[Unit, Unit] =
+  def withAcceptPatch: MiddlewareSpec[Unit, AcceptPatch] =
     MiddlewareSpec(
       HttpCodec.empty,
-      HeaderCodec.header(HeaderNames.acceptPatch.toString, TextCodec.constant(value.toString)),
+      HeaderCodec.acceptPatch,
     )
 
-  def withAcceptRanges(value: CharSequence): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(
-      HttpCodec.empty,
-      HeaderCodec.header(HeaderNames.acceptRanges.toString, TextCodec.constant(value.toString)),
-    )
+//  def withAcceptRanges: MiddlewareSpec[Unit, String] =
+//    MiddlewareSpec(
+//      HttpCodec.empty,
+//      HeaderCodec.acceptRanges,
+//    )
 
   private[api] def decodeHttpBasic(encoded: String): Option[Credentials] = {
     val colonIndex = encoded.indexOf(":")
