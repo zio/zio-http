@@ -7,8 +7,9 @@ import zio.http.model._
 import zio.test._
 
 object HttpCodecSpec extends ZIOSpecDefault {
-  val googleUrl = URL.fromString("http://google.com").toOption.get
-  val usersUrl  = URL.fromString("http://mywebservice.com/users").toOption.get
+  val googleUrl  = URL.fromString("http://google.com").toOption.get
+  val usersUrl   = URL.fromString("http://mywebservice.com/users").toOption.get
+  val usersIdUrl = URL.fromString("http://mywebservice.com/users/42").toOption.get
 
   val headerExample =
     Headers.contentType("application/json") ++ Headers("X-Trace-ID", "1234")
@@ -30,6 +31,28 @@ object HttpCodecSpec extends ZIOSpecDefault {
           val request = codec.encodeRequest(())
 
           assertTrue(request.path.toString() == "users")
+        } +
+        test("decode route with two path segments") {
+          val userCodec = RouteCodec.literal("users")
+          val intCodec  = RouteCodec.int
+
+          // /users/<int id>
+          val fullCodec = userCodec ++ intCodec
+
+          for {
+            result <- fullCodec.decodeRequest(Request.get(url = usersIdUrl))
+          } yield assertTrue(result == 42)
+        } +
+        test("encode route with two path segments") {
+          val userCodec = RouteCodec.literal("users")
+          val intCodec  = RouteCodec.int
+
+          // /users/<int id>
+          val fullCodec = userCodec ++ intCodec
+
+          val request = fullCodec.encodeRequest(42)
+
+          assertTrue(request.path.toString() == "users/42")
         }
     } +
       suite("HeaderCodec") {
