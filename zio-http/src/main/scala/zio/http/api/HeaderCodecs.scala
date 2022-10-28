@@ -97,7 +97,9 @@ trait HeaderCodecs {
     header(HeaderNames.ifModifiedSince.toString(), TextCodec.string)
   final val ifNoneMatch: HeaderCodec[String]             =
     header(HeaderNames.ifNoneMatch.toString(), TextCodec.string)
-  final val ifRange: HeaderCodec[String]                 = header(HeaderNames.ifRange.toString(), TextCodec.string)
+  final val ifRange: HeaderCodec[IfRange]                =
+    header(HeaderNames.ifRange.toString(), TextCodec.string)
+      .transform(IfRange.toIfRange, IfRange.fromIfRange)
   final val ifUnmodifiedSince: HeaderCodec[String]       =
     header(HeaderNames.ifUnmodifiedSince.toString(), TextCodec.string)
   final val lastModified: HeaderCodec[String]            =
