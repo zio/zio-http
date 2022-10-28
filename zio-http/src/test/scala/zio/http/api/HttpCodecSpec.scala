@@ -22,7 +22,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
 
         for {
           result <- codec.decodeRequest(Request.get(url = usersUrl))
-        } yield assertTrue(result == ())
+        } yield assertTrue(result == (()))
       } +
         test("encode route with one path segment") {
           val codec = RouteCodec.literal("users")
