@@ -71,7 +71,6 @@ trait HeaderCodecs {
   final val contentLocation: HeaderCodec[ContentLocation] =
     header(HeaderNames.contentLocation.toString, TextCodec.string)
       .transform(ContentLocation.toContentLocation, ContentLocation.fromContentLocation)
-      .transform(ContentLocation.toContentLocation, ContentLocation.fromContentLocation)
   final val contentTransferEncoding: HeaderCodec[ContentTransferEncoding] =
     header(HeaderNames.contentTransferEncoding.toString, TextCodec.string)
       .transform[ContentTransferEncoding](
@@ -90,7 +89,6 @@ trait HeaderCodecs {
   final val contentRange: HeaderCodec[ContentRange]                       =
     header(HeaderNames.contentRange.toString, TextCodec.string)
       .transform[ContentRange](ContentRange.toContentRange, ContentRange.fromContentRange)
-      .transform[ContentRange](ContentRange.toContentRange, ContentRange.fromContentRange)
   final val contentSecurityPolicy: HeaderCodec[ContentSecurityPolicy]     =
     header(HeaderNames.contentSecurityPolicy.toString, TextCodec.string)
       .transform[ContentSecurityPolicy](
@@ -99,7 +97,6 @@ trait HeaderCodecs {
       )
   final val contentType: HeaderCodec[ContentType]                         =
     header(HeaderNames.contentType.toString, TextCodec.string)
-      .transform(ContentType.toContentType, ContentType.fromContentType)
       .transform(ContentType.toContentType, ContentType.fromContentType)
   final val cookie: HeaderCodec[String]                  = header(HeaderNames.cookie.toString, TextCodec.string)
   final val date: HeaderCodec[String]                    = header(HeaderNames.date.toString, TextCodec.string)
