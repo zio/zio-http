@@ -3,7 +3,7 @@ package zio.http
 import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
 import io.netty.channel.{DefaultFileRegion, Channel => JChannel}
 import io.netty.handler.codec.http.{FullHttpRequest, LastHttpContent}
-import io.netty.handler.codec.http.multipart.{HttpPostMultipartRequestDecoder, InterfaceHttpData}
+import io.netty.handler.codec.http.multipart.HttpPostMultipartRequestDecoder
 import io.netty.util.AsciiString
 import zio._
 import zio.http.model.{HTTP_CHARSET, Multipart}

@@ -1,10 +1,10 @@
 package zio.http
 
 import io.netty.handler.codec.http.multipart._
-import zio.{RIO, Scope, ZIO}
 import zio.http.model.Multipart
 import zio.http.model.Multipart.{Attribute, FileUpload}
 import zio.stream.ZStream
+import zio.{RIO, Scope, ZIO}
 
 import java.nio.file.Paths
 
