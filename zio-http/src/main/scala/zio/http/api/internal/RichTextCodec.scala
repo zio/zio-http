@@ -5,7 +5,7 @@ import zio.http.api.Combiner
 
 import java.lang.Integer.parseInt
 import java.lang.StringBuilder
-import scala.collection.immutable.BitSet
+import scala.collection.immutable.{BitSet, ListMap}
 import scala.util.control.NoStackTrace
 
 /**
@@ -104,7 +104,132 @@ sealed trait RichTextCodec[A] { self =>
     parse(value).map(_._2)
 
   // TODO
-  final def describe: zio.http.api.Doc = ???
+  final def describe: zio.http.api.Doc = {
+    import zio.http.api.Doc
+    import zio.http.api.Doc._
+    import RichTextCodec._
+
+    // First we identify codecs that will be described as a reference to a separate description.
+    // A must for recursively used codcecs, nice for repeatedly used ones
+
+    // Merges two counts maps, adding the counts for equal keys
+    def mergeCounts[K](a: ListMap[K, Int], b: ListMap[K, Int]): ListMap[K, Int] =
+      b.foldLeft(a) { case (r, (key, count)) =>
+        r.get(key) match {
+          case None    => r + (key -> count)
+          case Some(n) => r + (key -> (count + n))
+        }
+      }
+
+    def countCodecs(counted: ListMap[RichTextCodec[_], Int], it: RichTextCodec[_]): ListMap[RichTextCodec[_], Int] =
+      counted.getOrElse(it, 0) match {
+        case n if n > 0 => counted + (it -> (n + 1))
+        case _          =>
+          it match {
+            case RichTextCodec.Empty                    => counted // We will refrence `empty` explicitly anyway
+            case CharIn(set) if set.sizeCompare(5) <= 0 =>
+              counted // we will not create references for single characters or for small groups of characters
+            case CharIn(_)                              => counted + (it -> 1)
+            case TransformOrFail(codec, _, _)           =>
+              val c = codec.asInstanceOf[RichTextCodec[_]]
+              mergeCounts(counted, countCodecs(counted + (c -> 1), c))
+            case Lazy(codec0)                           =>
+              val c = codec0().asInstanceOf[RichTextCodec[_]]
+              mergeCounts(counted, countCodecs(counted + (c -> 1), c))
+            case Alt(left, right)                       =>
+              val l = left.asInstanceOf[RichTextCodec[_]]
+              val r = right.asInstanceOf[RichTextCodec[_]]
+              mergeCounts(
+                counted,
+                mergeCounts(
+                  countCodecs(counted + (l -> 1), l),
+                  countCodecs(counted + (r -> 1), r),
+                ),
+              )
+            case Zip(left, right, _)                    =>
+              val l = left.asInstanceOf[RichTextCodec[_]]
+              val r = right.asInstanceOf[RichTextCodec[_]]
+              mergeCounts(
+                counted,
+                mergeCounts(
+                  countCodecs(counted + (l -> 1), l),
+                  countCodecs(counted + (r -> 1), r),
+                ),
+              )
+          }
+      }
+
+    val counts                                     = countCodecs(ListMap(self -> 0), self)
+    val references: ListMap[RichTextCodec[_], Int] = ListMap(counts.filter{
+      case (codec, count) =>
+        codec match {
+          case CharIn(set) if set == digitChars => false
+          case _ => count > 1
+        }
+      }.keysIterator.zipWithIndex.toList: _*)
+
+    def describeAsDefinition(it: RichTextCodec[_]): (Span, Doc) = {
+      Span.code(s"<${1 + references(it)}>") -> p(description(it))
+    }
+
+    def description(it: RichTextCodec[_]): Span = {
+
+      def refOrDesc(c: RichTextCodec[_]): Span = {
+        c match {
+          case CharIn(set) if set == digitChars => Span.code("<digit>")
+          case _ =>
+            references.get(c) match {
+              case Some(i) => Span.code(s"<${i + 1}>")
+              case _ => description(c)
+            }
+        }
+      }
+
+      it match {
+        case RichTextCodec.Empty          => Span.code("<empty>")
+        case CharIn(set)                  =>
+          set.size match {
+            case 0 => Span.code("<invalid>")
+            case 1 =>
+              // TODO - collapse sequence of chars to one span of a longer string
+              // TODO - display spaces visibly, when appropriate
+              Span.text(set.head.toChar.toString)
+            case _ =>
+              // TODO - Instead of enumerating the characters, try to optimise it by describing it a range (A-Z) or Unicode block
+              Span.code(" (") + set.toIndexedSeq
+                .map(c => Span.text(c.toChar.toString))
+                .reduce((a, b) => a + Span.code("|") + b) + Span.code(") ")
+          }
+        case TransformOrFail(codec, _, _) =>
+          refOrDesc(codec.asInstanceOf[RichTextCodec[_]])
+        case Alt(left, right)             =>
+          val l = left.asInstanceOf[RichTextCodec[_]]
+          val r = right.asInstanceOf[RichTextCodec[_]]
+          // TODO: When of the alternatives is `empty` mark the rest simply as optional
+          refOrDesc(l) + Span.code(" | ") + refOrDesc(r)
+        case Lazy(codec0)                 =>
+          refOrDesc(codec0().asInstanceOf[RichTextCodec[_]])
+        case Zip(left, right, _)          =>
+          val l = left.asInstanceOf[RichTextCodec[_]]
+          val r = right.asInstanceOf[RichTextCodec[_]]
+          (l, r) match {
+            case (CharIn(_), CharIn(_))                    => refOrDesc(l) + refOrDesc(r)
+            case (Alt(_, _), _) if !references.contains(l) =>
+              r match {
+                case Alt(_, _) if !references.contains(r) =>
+                  Span.code("(") + description(l) + Span.code(") (") + description(r) + Span.code(")")
+                case _                                    =>
+                  Span.code("(") + description(l) + Span.code(")") + refOrDesc(r)
+              }
+            case (_, Alt(_, _)) if !references.contains(r) =>
+              refOrDesc(l) + Span.code(" (") + description(r) + Span.code(")")
+            case _                                         => refOrDesc(l) + Span.space + refOrDesc(r)
+          }
+      }
+    }
+    references.get(self).map(_ => Doc.empty).getOrElse(p(description(self))) +
+    DescriptionList(references.map(r => describeAsDefinition(r._1)).toList)
+  }
 
   final def optional(default: A): RichTextCodec[Option[A]] =
     self.transform(a => Some(a), { case None => default; case Some(a) => a })
@@ -177,10 +302,12 @@ object RichTextCodec {
    */
   def char(c: Char): RichTextCodec[Char] = CharIn(BitSet(c.toInt))
 
+
+  private val digitChars = BitSet((Char.MinValue to Char.MaxValue).filter(_.isDigit).map(_.toInt): _*)
   /**
    * A codec that describes a digit character.
    */
-  val digit: RichTextCodec[Int] = filter(_.isDigit).transform[Int](c => parseInt(c.toString), x => x.toString.head)
+  val digit: RichTextCodec[Int] = CharIn(digitChars).transform[Int](c => parseInt(c.toString), x => x.toString.head)
 
   /**
    * A codec that describes nothing at all. Such codecs successfully decode even
