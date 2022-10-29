@@ -146,7 +146,7 @@ object MiddlewareSpec {
   def addHeaders(headers: Headers): MiddlewareSpec[Unit, Unit] =
     headers.headersAsList.map(addHeader(_)).reduce(_ ++ _)
 
-  def addCorrelationId: MiddlewareSpec[Unit, String] = 
+  def addCorrelationId: MiddlewareSpec[Unit, String] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
 
   def withAuthorization(value: CharSequence): MiddlewareSpec[Unit, Unit] =
