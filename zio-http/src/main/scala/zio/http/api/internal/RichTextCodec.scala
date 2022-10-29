@@ -1,10 +1,13 @@
 package zio.http.api.internal
 
+import jdk.jfr.Description
 import zio.Chunk
 import zio.http.api.Combiner
 
 import java.lang.Integer.parseInt
 import java.lang.StringBuilder
+import java.util.stream.DoubleStream.DoubleMapMultiConsumer
+import scala.annotation.tailrec
 import scala.collection.immutable.{BitSet, ListMap}
 import scala.util.control.NoStackTrace
 
@@ -103,132 +106,164 @@ sealed trait RichTextCodec[A] { self =>
   final def decode(value: CharSequence): Either[String, A] =
     parse(value).map(_._2)
 
-  // TODO
   final def describe: zio.http.api.Doc = {
     import zio.http.api.Doc
     import zio.http.api.Doc._
     import RichTextCodec._
 
-    // First we identify codecs that will be described as a reference to a separate description.
-    // A must for recursively used codcecs, nice for repeatedly used ones
-
     // Merges two counts maps, adding the counts for equal keys
-    def mergeCounts[K](a: ListMap[K, Int], b: ListMap[K, Int]): ListMap[K, Int] =
-      b.foldLeft(a) { case (r, (key, count)) =>
-        r.get(key) match {
-          case None    => r + (key -> count)
-          case Some(n) => r + (key -> (count + n))
+    def mergeMaps[K, V](a: ListMap[K, V], b: ListMap[K, V])(add: (V, V) => V): ListMap[K, V] =
+      b.foldLeft(a) { case (r, (k, va)) =>
+        r.get(k) match {
+          case None     => r + (k -> va)
+          case Some(vb) => r + (k -> add(va, vb))
         }
       }
 
-    def countCodecs(counted: ListMap[RichTextCodec[_], Int], it: RichTextCodec[_]): ListMap[RichTextCodec[_], Int] =
-      counted.getOrElse(it, 0) match {
-        case n if n > 0 => counted + (it -> (n + 1))
-        case _          =>
-          it match {
-            case RichTextCodec.Empty                    => counted // We will refrence `empty` explicitly anyway
-            case CharIn(set) if set.sizeCompare(5) <= 0 =>
-              counted // we will not create references for single characters or for small groups of characters
-            case CharIn(_)                              => counted + (it -> 1)
-            case TransformOrFail(codec, _, _)           =>
-              val c = codec.asInstanceOf[RichTextCodec[_]]
-              mergeCounts(counted, countCodecs(counted + (c -> 1), c))
-            case Lazy(codec0)                           =>
-              val c = codec0().asInstanceOf[RichTextCodec[_]]
-              mergeCounts(counted, countCodecs(counted + (c -> 1), c))
-            case Alt(left, right)                       =>
-              val l = left.asInstanceOf[RichTextCodec[_]]
-              val r = right.asInstanceOf[RichTextCodec[_]]
-              mergeCounts(
-                counted,
-                mergeCounts(
-                  countCodecs(counted + (l -> 1), l),
-                  countCodecs(counted + (r -> 1), r),
-                ),
-              )
-            case Zip(left, right, _)                    =>
-              val l = left.asInstanceOf[RichTextCodec[_]]
-              val r = right.asInstanceOf[RichTextCodec[_]]
-              mergeCounts(
-                counted,
-                mergeCounts(
-                  countCodecs(counted + (l -> 1), l),
-                  countCodecs(counted + (r -> 1), r),
-                ),
-              )
-          }
-      }
+    case class DescriptionAndCount(descr: DescriptionPart, count: Int)
+    type RefsMap = ListMap[RichTextCodec[_], DescriptionAndCount]
 
-    val counts                                     = countCodecs(ListMap(self -> 0), self)
-    val references: ListMap[RichTextCodec[_], Int] = ListMap(counts.filter{
-      case (codec, count) =>
-        codec match {
-          case CharIn(set) if set == digitChars => false
-          case _ => count > 1
-        }
-      }.keysIterator.zipWithIndex.toList: _*)
+    @tailrec
+    def descriptionPartToDescriptionList(
+                                          documented: List[(Span, Doc)],
+                                          refs: RefsMap,
+                                          refNames: Map[DescriptionPart, String],
+                                          toDescribe: DescriptionPart,
+                                          described: Set[DescriptionPart]
+    ): (Map[DescriptionPart, String], List[(Span, Doc)]) = {
+      def toSpans(
+                   refNames: Map[DescriptionPart, String],
+                   d: DescriptionPart,
+      ): (Map[DescriptionPart, String], List[Span]) = {
 
-    def describeAsDefinition(it: RichTextCodec[_]): (Span, Doc) = {
-      Span.code(s"<${1 + references(it)}>") -> p(description(it))
-    }
+        def merge(parts: (Map[DescriptionPart, String], List[Span])*): (Map[DescriptionPart, String], List[Span]) =
+          parts.reduce((a, b) => (a._1 ++ b._1, a._2 ++ b._2))
 
-    def description(it: RichTextCodec[_]): Span = {
+        def code(c: String) = (Map.empty[DescriptionPart, String], List(Span.code(c)))
 
-      def refOrDesc(c: RichTextCodec[_]): Span = {
-        c match {
-          case CharIn(set) if set == digitChars => Span.code("<digit>")
-          case _ =>
-            references.get(c) match {
-              case Some(i) => Span.code(s"<${i + 1}>")
-              case _ => description(c)
+        d match {
+          case DescriptionPart.Text(str)           => (refNames, List(Span.text(str)))
+          case DescriptionPart.CharRange(from, to) =>
+            (refNames, List(Span.text(from.toString), Span.code("-"), Span.text(to.toString)))
+          case DescriptionPart.CharRanges(ranges)  =>
+            (
+              refNames,
+              Span.code("[") :: (ranges.map(part => toSpans(refNames, part)._2).reduce((a, b) => a ++ b) :+ Span.code(
+                "]",
+              )),
+            )
+          case DescriptionPart.Sequence(seq)       =>
+            seq.map {
+              case part @ DescriptionPart.Alternatives(_) => merge(code("("), toSpans(refNames, part), code(")"))
+              case part                                   => toSpans(refNames, part)
+            }.reduce((a, b) => merge(a, (Map.empty, List(Span.space)), b))
+          case DescriptionPart.Named(name)         => (refNames, List(Span.code(s"<$name>")))
+          case DescriptionPart.Alternatives(alts)  =>
+            alts.map(part => toSpans(refNames, part)).reduce((a, b) => merge(a, code(" | "), b))
+          case DescriptionPart.Optional(part)      =>
+            part match {
+              case DescriptionPart.Sequence(_) | DescriptionPart.Alternatives(_) =>
+                merge(code("("), toSpans(refNames, part), code(")?"))
+              case _ => merge(toSpans(refNames, part), code("?"))
+            }
+          case DescriptionPart.Empty               => (refNames, List(Span.code("<empty>")))
+          case DescriptionPart.Ref(of)             =>
+            val DescriptionAndCount(descr, count) = refs(of)
+            if (count < 2) {
+              toSpans(refNames, descr)
+            } else {
+              refNames.get(descr) match {
+                case Some(name) => (refNames, List(Span.code(name)))
+                case None    =>
+                  val name = s"<${refNames.size}>"
+                  (refNames + (descr -> name), List(Span.code(name)))
+              }
             }
         }
       }
+      val myRef = refNames(toDescribe)
+      val (nextRefNames, spans) = toSpans(refNames, toDescribe)
+      val stillToDescribe: Map[DescriptionPart, String] = nextRefNames -- described - toDescribe
+      stillToDescribe.headOption match {
+        case None => (nextRefNames, documented :+ (Span.code(myRef), p(Span.spans(spans))))
+        case Some(next) => descriptionPartToDescriptionList(documented :+ (Span.code(myRef), p(Span.spans(spans))), refs, nextRefNames, next._1, described + toDescribe)
+      }
+    }
+
+    def description(refs: RefsMap, it: RichTextCodec[_]): (RefsMap, DescriptionPart) = {
+      def refOrDesc(c: RichTextCodec[_]): (RefsMap, DescriptionPart) = {
+        refs.get(c) match {
+          case Some(DescriptionAndCount(descr, count)) =>
+            val newRefs: RefsMap = refs + (c -> DescriptionAndCount(descr, count + 1))
+            (newRefs, DescriptionPart.Ref(c))
+          case _                                       =>
+            val (newRefs, descr) = description(refs + (c -> DescriptionAndCount(DescriptionPart.Empty, 1)), c)
+            (newRefs + (c -> DescriptionAndCount(descr, newRefs(c).count)), descr)
+        }
+      }
+
+      def mergeRefsMaps(lr: RefsMap, rr: RefsMap): RefsMap =
+        mergeMaps(lr, rr)((a, b) => DescriptionAndCount(a.descr, a.count + b.count))
 
       it match {
-        case RichTextCodec.Empty          => Span.code("<empty>")
+        case RichTextCodec.Empty          => (refs, DescriptionPart.Empty)
         case CharIn(set)                  =>
           set.size match {
-            case 0 => Span.code("<invalid>")
-            case 1 =>
-              // TODO - collapse sequence of chars to one span of a longer string
-              // TODO - display spaces visibly, when appropriate
-              Span.text(set.head.toChar.toString)
-            case _ =>
-              // TODO - Instead of enumerating the characters, try to optimise it by describing it a range (A-Z) or Unicode block
-              Span.code(" (") + set.toIndexedSeq
-                .map(c => Span.text(c.toChar.toString))
-                .reduce((a, b) => a + Span.code("|") + b) + Span.code(") ")
+            case 0                              => (refs, DescriptionPart.Named("invalid"))
+            case 1                              =>
+              (refs, DescriptionPart.Text(set.head.toChar.toString))
+            case _ if set == digitChars         => (refs, DescriptionPart.Named("digit"))
+            case _ if set == letterChars        => (refs, DescriptionPart.Named("letter"))
+            case _ if set == letterOrDigitChars => (refs, DescriptionPart.Named("letterOrDigit"))
+            case _ if set == whitespaceChars    => (refs, DescriptionPart.Named("whitespace"))
+            case _                              =>
+              // TODO: Charater ranges should be reported as eg. A-Z instead of A | B | C ... | Z
+              (refs, DescriptionPart.Alternatives(set.toList.map(c => DescriptionPart.Text(c.toChar.toString))))
           }
         case TransformOrFail(codec, _, _) =>
           refOrDesc(codec.asInstanceOf[RichTextCodec[_]])
         case Alt(left, right)             =>
-          val l = left.asInstanceOf[RichTextCodec[_]]
-          val r = right.asInstanceOf[RichTextCodec[_]]
-          // TODO: When of the alternatives is `empty` mark the rest simply as optional
-          refOrDesc(l) + Span.code(" | ") + refOrDesc(r)
+          val (lRefs, l) = refOrDesc(left.asInstanceOf[RichTextCodec[_]])
+          val (rRefs, r) = refOrDesc(right.asInstanceOf[RichTextCodec[_]])
+          val newRefs    = mergeRefsMaps(lRefs, rRefs)
+          (
+            newRefs,
+            (l, r) match {
+              case (DescriptionPart.Empty, DescriptionPart.Empty)                       => DescriptionPart.Empty
+              case (DescriptionPart.Empty, _)                                           => DescriptionPart.Optional(r)
+              case (_, DescriptionPart.Empty)                                           => DescriptionPart.Optional(l)
+              case (DescriptionPart.Alternatives(la), DescriptionPart.Alternatives(ra)) =>
+                DescriptionPart.Alternatives(la ++ ra)
+              case (DescriptionPart.Alternatives(la), _) => DescriptionPart.Alternatives(la :+ r)
+              case (_, DescriptionPart.Alternatives(ra)) => DescriptionPart.Alternatives(l :: ra)
+              case _                                     => DescriptionPart.Alternatives(List(l, r))
+            },
+          )
         case Lazy(codec0)                 =>
           refOrDesc(codec0().asInstanceOf[RichTextCodec[_]])
         case Zip(left, right, _)          =>
-          val l = left.asInstanceOf[RichTextCodec[_]]
-          val r = right.asInstanceOf[RichTextCodec[_]]
-          (l, r) match {
-            case (CharIn(_), CharIn(_))                    => refOrDesc(l) + refOrDesc(r)
-            case (Alt(_, _), _) if !references.contains(l) =>
-              r match {
-                case Alt(_, _) if !references.contains(r) =>
-                  Span.code("(") + description(l) + Span.code(") (") + description(r) + Span.code(")")
-                case _                                    =>
-                  Span.code("(") + description(l) + Span.code(")") + refOrDesc(r)
-              }
-            case (_, Alt(_, _)) if !references.contains(r) =>
-              refOrDesc(l) + Span.code(" (") + description(r) + Span.code(")")
-            case _                                         => refOrDesc(l) + Span.space + refOrDesc(r)
-          }
+          val (lRefs, l) = refOrDesc(left.asInstanceOf[RichTextCodec[_]])
+          val (rRefs, r) = refOrDesc(right.asInstanceOf[RichTextCodec[_]])
+          val newRefs    = mergeRefsMaps(lRefs, rRefs)
+          (
+            newRefs,
+            (l, r) match {
+              case (DescriptionPart.Empty, _)                                   => r
+              case (_, DescriptionPart.Empty)                                   => l
+              case (DescriptionPart.Text(lt), DescriptionPart.Text(rt))         => DescriptionPart.Text(lt + rt)
+              case (DescriptionPart.Sequence(ls), DescriptionPart.Sequence(rs)) => DescriptionPart.Sequence(ls ++ rs)
+              case (DescriptionPart.Sequence(ls), _)                            => DescriptionPart.Sequence(ls :+ r)
+              case (_, DescriptionPart.Sequence(rs))                            => DescriptionPart.Sequence(l :: rs)
+              case _                                                            => DescriptionPart.Sequence(List(l, r))
+            },
+          )
       }
     }
-    references.get(self).map(_ => Doc.empty).getOrElse(p(description(self))) +
-    DescriptionList(references.map(r => describeAsDefinition(r._1)).toList)
+    val (refs, descr) = description(ListMap.empty, self)
+
+    val (_, descriptions) = descriptionPartToDescriptionList(List.empty, refs, Map(descr -> "<main>"), descr, Set.empty)
+
+    descriptionList(descriptions :_*)
   }
 
   final def optional(default: A): RichTextCodec[Option[A]] =
@@ -302,8 +337,11 @@ object RichTextCodec {
    */
   def char(c: Char): RichTextCodec[Char] = CharIn(BitSet(c.toInt))
 
+  private val whitespaceChars    = BitSet((Char.MinValue to Char.MaxValue).filter(_.isWhitespace).map(_.toInt): _*)
+  private val letterChars        = BitSet((Char.MinValue to Char.MaxValue).filter(_.isLetter).map(_.toInt): _*)
+  private val digitChars         = BitSet((Char.MinValue to Char.MaxValue).filter(_.isDigit).map(_.toInt): _*)
+  private val letterOrDigitChars = BitSet((Char.MinValue to Char.MaxValue).filter(_.isLetterOrDigit).map(_.toInt): _*)
 
-  private val digitChars = BitSet((Char.MinValue to Char.MaxValue).filter(_.isDigit).map(_.toInt): _*)
   /**
    * A codec that describes a digit character.
    */
@@ -325,7 +363,12 @@ object RichTextCodec {
   /**
    * A codec that describes a letter character.
    */
-  val letter: RichTextCodec[Char] = filter(_.isLetter)
+  val letter: RichTextCodec[Char] = CharIn(letterChars)
+
+  /**
+   * A codec that describes a letter or digit character.
+   */
+  val letterOrDigit: RichTextCodec[Char] = CharIn(letterOrDigitChars)
 
   /**
    * A codec that describes a literal character sequence.
@@ -350,7 +393,7 @@ object RichTextCodec {
   /**
    * A codec that describes a single whitespace character.
    */
-  lazy val whitespaceChar: RichTextCodec[Unit] = filter(_.isWhitespace).unit(' ')
+  lazy val whitespaceChar: RichTextCodec[Unit] = CharIn(whitespaceChars).unit(' ')
 
   private def encode[A](value: A, self: RichTextCodec[A]): Either[Throwable, String] = {
     self match {
@@ -376,5 +419,18 @@ object RichTextCodec {
         } yield l + r
       }
     }
+  }
+
+  private sealed trait DescriptionPart
+  private object DescriptionPart {
+    case class Text(str: String)                         extends DescriptionPart
+    case class CharRange(from: Char, to: Char)           extends DescriptionPart
+    case class CharRanges(ranges: List[CharRange])       extends DescriptionPart
+    case class Sequence(seq: List[DescriptionPart])      extends DescriptionPart
+    case class Named(name: String)                       extends DescriptionPart
+    case class Ref(of: RichTextCodec[_])                 extends DescriptionPart
+    case class Alternatives(alts: List[DescriptionPart]) extends DescriptionPart
+    case class Optional(part: DescriptionPart)           extends DescriptionPart
+    case object Empty                                    extends DescriptionPart
   }
 }

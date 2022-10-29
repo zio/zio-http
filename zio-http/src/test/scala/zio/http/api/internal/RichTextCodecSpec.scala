@@ -11,37 +11,135 @@ object RichTextCodecSpec extends ZIOSpecDefault {
     test("single character") {
       val description = RichTextCodec.char('x').describe.toCommonMark
       val expected    =
-        """x
+        """```<main>```:
+          |x
           |
           |""".stripMargin
       assertTrue(description == expected)
     },
+    test("single character2") {
+      val description = RichTextCodec.char('x').repeat.describe.toCommonMark
+      val expected =
+        """```<main>```:
+          |x
+          |
+          |""".stripMargin
+      assertTrue(description == expected)
+    },
+
     test("digit") {
       val description = RichTextCodec.digit.describe.toCommonMark
       val expected    =
-        """```<digit>```
+        """```<main>```:
+          |```<digit>```
+          |
+          |""".stripMargin
+      assertTrue(description == expected)
+    },
+    test("letter") {
+      val description = RichTextCodec.letter.describe.toCommonMark
+      val expected    =
+        """```<main>```:
+          |```<letter>```
+          |
+          |""".stripMargin
+      assertTrue(description == expected)
+    },
+    test("whitespace") {
+      val description = RichTextCodec.whitespaceChar.describe.toCommonMark
+      val expected    =
+        """```<main>```:
+          |```<whitespace>```
           |
           |""".stripMargin
       assertTrue(description == expected)
     },
     test("literal") {
       val description = RichTextCodec.literal("test").describe.toCommonMark
-      val expected =
-        """test
+      val expected    =
+        """```<main>```:
+          |test
           |
           |""".stripMargin
       assertTrue(description == expected)
     },
     test("alternative characters") {
-      val codec = RichTextCodec.CharIn(BitSet('a', 'b'))
-      val descriptionDoc = codec.describe
-      println(descriptionDoc)
-      val description = descriptionDoc.toCommonMark
-      val expected =
-        """``` (```a```|```b```) ```
+      val codec       = RichTextCodec.CharIn(BitSet('a', 'b'))
+      val description = codec.describe.toCommonMark
+      val expected    =
+        """```<main>```:
+          |a``` | ```b
           |
           |""".stripMargin
       assertTrue(description == expected)
-    }
+    },
+    test("digits 0 to 9") {
+      val codec       = RichTextCodec.CharIn(BitSet(('0'.toInt to '9'.toInt): _*))
+      val description = codec.describe.toCommonMark
+      val expected    =
+        """```<main>```:
+          |0``` | ```1``` | ```2``` | ```3``` | ```4``` | ```5``` | ```6``` | ```7``` | ```8``` | ```9
+          |
+          |""".stripMargin
+      assertTrue(description == expected)
+    },
+    test("alternative literals") {
+      val codec       = RichTextCodec.literal("Hello") | RichTextCodec.literal("Hi")
+      val description = codec.describe.toCommonMark
+      val expected    =
+        """```<main>```:
+          |Hello``` | ```Hi
+          |
+          |""".stripMargin
+      assertTrue(description == expected)
+    },
+    test("sequence of alternatives") {
+      val codec       = (RichTextCodec.literal("Hello") | RichTextCodec.literal("Hi")) ~ (RichTextCodec.literal(
+        "ZIO",
+      ) | RichTextCodec.literal("HTTP"))
+      val description = codec.describe.toCommonMark
+      val expected    =
+        """```<main>```:
+          |```(```Hello``` | ```Hi```)``` ```(```ZIO``` | ```HTTP```)```
+          |
+          |""".stripMargin
+      assertTrue(description == expected)
+    },
+//    test ("whitespaces") {
+//      TODO - construction of RichTextCodec.whitespaces never ends / stack overflow
+//      val whitespaces = RichTextCodec.whitespaces
+//      val description = whitespaces.describe.toCommonMark
+//      val expected =
+//        """```<main>```:
+//          |<whitespace> <main>?
+//          |
+//          |""".stripMargin
+//      assertTrue(description == expected)
+//    },
+    test("integer") {
+      lazy val codec: RichTextCodec[_] = RichTextCodec.digit ~ (RichTextCodec.empty | RichTextCodec.defer(codec))
+      val description                  = codec.describe.toCommonMark
+      val expected =
+//        TODO
+//         This simple form would be nicer.
+//        """```<main>```:
+//          |```<digit>``` ```<main>``````)?```
+//          |
+//          |""".stripMargin
+//        Even nicer were repetition signs (* and +)
+//        """```<main>```:
+//          |```<digit>``````*```
+//          |
+//          |""".stripMargin
+//        But the following is still correct
+        """```<main>```:
+          |```<digit>``` ```(``````<digit>``` ```<1>``````)?```
+          |
+          |```<1>```:
+          |```(``````<digit>``` ```<1>``````)?```
+          |
+          |""".stripMargin
+      assertTrue(description == expected)
+    },
   )
 }
