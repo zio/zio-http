@@ -23,7 +23,7 @@ object SocketContractSpec extends ZIOSpecDefault {
     Http.collectZIO[(WebSocketChannel, String)] {
       case (ch, text) if text.contains("Hi Server") =>
         ZIO.debug("Server got message: " + text) *> ch.close()
-      case (ch, text)                               => // TODO remove?
+      case (_, text)                                => // TODO remove?
         ZIO.debug("Unrecognized message sent to server: " + text)
     }
 
@@ -41,7 +41,7 @@ object SocketContractSpec extends ZIOSpecDefault {
       case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("Hi Server")))    =>
         ch.write(WebSocketFrame.text("Hi Client"))
 
-      case ChannelEvent(ch, other) =>
+      case ChannelEvent(_, other) =>
         Console.printLine("Server Other: " + other)
     }
 
@@ -92,7 +92,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           case ChannelEvent(_, ChannelUnregistered) =>
             Console.printLine("Client Channel unregistered")
 
-          case ChannelEvent(ch, other) =>
+          case ChannelEvent(_, other) =>
             Console.printLine("Client received other event: " + other)
         }
 

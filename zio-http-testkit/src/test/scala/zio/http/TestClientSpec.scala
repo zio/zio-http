@@ -39,10 +39,11 @@ object TestClientSpec extends ZIOSpecDefault {
         ),
         test("addHandler advanced")(
           for {
-            // TODO Use state or something
-            _        <- TestClient.addHandler(request => ZIO.succeed(Response.ok))
-            response <- Client.request(Request.get(URL.root))
-          } yield assertTrue(response.status == Status.Ok),
+            requestCount <- Ref.make(0)
+            _            <- TestClient.addHandler { case _ => requestCount.update(_ + 1) *> ZIO.succeed(Response.ok) }
+            response     <- Client.request(Request.get(URL.root))
+            finalCount   <- requestCount.get
+          } yield assertTrue(response.status == Status.Ok) && assertTrue(finalCount == 1),
         ),
       ),
       suite("sad paths")(
