@@ -11,6 +11,7 @@ object ContentTransferEncoding {
   final case class XToken(token: String)     extends ContentTransferEncoding
   case object InvalidContentTransferEncoding extends ContentTransferEncoding
 
+  val XRegex                                                              = "x-(.*)".r
   def toContentTransferEncoding(s: CharSequence): ContentTransferEncoding =
     s.toString.toLowerCase match {
       case "7bit"             => SevenBit
@@ -18,7 +19,7 @@ object ContentTransferEncoding {
       case "binary"           => Binary
       case "quoted-printable" => QuotedPrintable
       case "base64"           => Base64
-      case s"x-$token"        => XToken(token)
+      case XRegex(token)      => XToken(token)
       case _                  => InvalidContentTransferEncoding
     }
 

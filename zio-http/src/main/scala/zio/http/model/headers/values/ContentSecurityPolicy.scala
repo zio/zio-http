@@ -132,6 +132,11 @@ object ContentSecurityPolicy {
       }
     }
 
+    private val NonceRegex  = "'nonce-(.*)'".r
+    private val Sha256Regex = "'sha256-(.*)'".r
+    private val Sha384Regex = "'sha384-(.*)'".r
+    private val Sha512Regex = "'sha512-(.*)'".r
+
     def fromString(s: String): Option[Source] = s match {
       case "'none'"           => Some(none)
       case "'self'"           => Some(Self)
@@ -141,10 +146,10 @@ object ContentSecurityPolicy {
       case "'unsafe-inline'"  => Some(UnsafeInline)
       case "'strict-dynamic'" => Some(StrictDynamic)
       case "'report-sample'"  => Some(ReportSample)
-      case s"'nonce-$nonce'"  => Some(Nonce(nonce))
-      case s"'sha256-$hash'"  => Some(Hash(HashAlgorithm.Sha256, hash))
-      case s"'sha384-$hash'"  => Some(Hash(HashAlgorithm.Sha384, hash))
-      case s"'sha512-$hash'"  => Some(Hash(HashAlgorithm.Sha512, hash))
+      case NonceRegex(nonce)  => Some(Nonce(nonce))
+      case Sha256Regex(hash)  => Some(Hash(HashAlgorithm.Sha256, hash))
+      case Sha384Regex(hash)  => Some(Hash(HashAlgorithm.Sha384, hash))
+      case Sha512Regex(hash)  => Some(Hash(HashAlgorithm.Sha512, hash))
       case s                  => Try(URI.create(s)).map(Host).toOption
     }
 
@@ -336,20 +341,30 @@ object ContentSecurityPolicy {
   def objectSrc(src: Source*): SourcePolicy  =
     SourcePolicy(SourcePolicyType.`object-src`, src.foldLeft[Source](Source.none)(_ && _))
 
+  private val PluginTypesRegex  = "plugin-types (.*)".r
+  private val ReferrerRegex     = "referrer (.*)".r
+  private val ReportToRegex     = "report-to (.*)".r
+  private val ReportUriRegex    = "report-uri (.*)".r
+  private val RequireSriRegex   = "require-sri-for (.*)".r
+  private val TrustedTypesRegex = "trusted-types (.*)".r
+  private val SandboxRegex      = "sandbox (.*)".r
+  private val PolicyRegex       = "([a-z-]+) (.*)".r
+
   def toContentSecurityPolicy(value: CharSequence): ContentSecurityPolicy =
     value.toString match {
-      case "block-all-mixed-content"         => ContentSecurityPolicy.BlockAllMixedContent
-      case s"plugin-types $types"            => ContentSecurityPolicy.PluginTypes(types)
-      case s"referrer $referrer"             => ReferrerPolicy.fromString(referrer).map(ContentSecurityPolicy.Referrer).getOrElse(InvalidContentSecurityPolicy)
-      case s"report-to $reportTo"            => ContentSecurityPolicy.ReportTo(reportTo)
-      case s"report-uri $uri"                => Try(new URI(uri)).map(ContentSecurityPolicy.ReportUri).getOrElse(InvalidContentSecurityPolicy)
-      case s"require-sri-for $requireSriFor" => RequireSriForValue.fromString(requireSriFor).map(ContentSecurityPolicy.RequireSriFor).getOrElse(InvalidContentSecurityPolicy)
-      case s"trusted-types $trustedTypes"    => TrustedTypesValue.fromString(trustedTypes).map(ContentSecurityPolicy.TrustedTypes).getOrElse(InvalidContentSecurityPolicy)
-      case s"sandbox $sandbox"               => SandboxValue.fromString(sandbox).map(ContentSecurityPolicy.Sandbox).getOrElse(InvalidContentSecurityPolicy)
-      case s"upgrade-insecure-requests"      => ContentSecurityPolicy.UpgradeInsecureRequests
-      case s"$policyType $policy"            => ContentSecurityPolicy.fromTypeAndPolicy(policyType, policy)
+      case "block-all-mixed-content"       => ContentSecurityPolicy.BlockAllMixedContent
+      case PluginTypesRegex(types)         => ContentSecurityPolicy.PluginTypes(types)
+      case ReferrerRegex(referrer)         => ReferrerPolicy.fromString(referrer).map(ContentSecurityPolicy.Referrer).getOrElse(InvalidContentSecurityPolicy)
+      case ReportToRegex(group)            => ContentSecurityPolicy.ReportTo(group)
+      case ReportUriRegex(uri)             => Try(new URI(uri)).map(ContentSecurityPolicy.ReportUri).getOrElse(InvalidContentSecurityPolicy)
+      case RequireSriRegex(value)          => RequireSriForValue.fromString(value).map(ContentSecurityPolicy.RequireSriFor).getOrElse(InvalidContentSecurityPolicy)
+      case TrustedTypesRegex(value)        => TrustedTypesValue.fromString(value).map(ContentSecurityPolicy.TrustedTypes).getOrElse(InvalidContentSecurityPolicy)
+      case SandboxRegex(sandbox)           => SandboxValue.fromString(sandbox).map(ContentSecurityPolicy.Sandbox).getOrElse(InvalidContentSecurityPolicy)
+      case "upgrade-insecure-requests"     => ContentSecurityPolicy.UpgradeInsecureRequests
+      case PolicyRegex(policyType, policy) => ContentSecurityPolicy.fromTypeAndPolicy(policyType, policy)
+
     }
-  def fromContentSecurityPolicy(csp: ContentSecurityPolicy): String       =
+  def fromContentSecurityPolicy(csp: ContentSecurityPolicy): String =
     csp match {
       case ContentSecurityPolicy.BlockAllMixedContent    => "block-all-mixed-content"
       case ContentSecurityPolicy.PluginTypes(types)      => s"plugin-types $types"
