@@ -7,6 +7,7 @@ import zio.http.model.headers.values._
 import zio.http.model.{Cookie, Status}
 
 import java.util.UUID
+import scala.annotation.meta.param
 
 /**
  * A `Middleware` represents the implementation of a `MiddlewareSpec`,
@@ -125,8 +126,34 @@ object Middleware {
   /**
    * Adds the content disposition header to the response based on a ZIO effect
    */
-  def withContentDispositionZIO[R](contentDisposition: ZIO[R, Nothing, ContentDisposition]): Middleware[R, Unit, ContentDisposition] =
+  def withContentDispositionZIO[R](
+    contentDisposition: ZIO[R, Nothing, ContentDisposition],
+  ): Middleware[R, Unit, ContentDisposition] =
     fromFunctionZIO(MiddlewareSpec.withContentDisposition)(_ => contentDisposition)
+
+  /**
+   * Adds the content encoding header to the response
+   */
+  def withContentEncoding(value: CharSequence): Middleware[Any, Unit, ContentEncoding] =
+    fromFunction(MiddlewareSpec.withContentEncoding)(_ => ContentEncoding.toContentEncoding(value))
+
+  /**
+   * Adds the content encoding header to the response based on a ZIO effect
+   */
+  def withContentEncodingZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentEncoding] =
+    fromFunctionZIO(MiddlewareSpec.withContentEncoding)(_ => value.map(ContentEncoding.toContentEncoding))
+
+  /**
+   * Adds the content language header to the response
+   */
+  def withContentLanguage(value: CharSequence): Middleware[Any, Unit, ContentLanguage] =
+    fromFunction(MiddlewareSpec.withContentLanguage)(_ => ContentLanguage.toContentLanguage(value))
+
+  /**
+   * Adds the content language header to the response based on a ZIO effect
+   */
+  def withContentLanguageZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentLanguage] =
+    fromFunctionZIO(MiddlewareSpec.withContentLanguage)(_ => value.map(ContentLanguage.toContentLanguage))
 
   /**
    * Adds the content length header to the response
@@ -139,6 +166,76 @@ object Middleware {
    */
   def withContentLengthZIO[R](response: ZIO[R, Nothing, Long]): Middleware[R, Unit, ContentLength] =
     fromFunctionZIO(MiddlewareSpec.withContentLength)(_ => response.map(ContentLength.toContentLength))
+
+  /**
+   * Adds the content location header to the response
+   */
+  def withContentLocation(value: CharSequence): Middleware[Any, Unit, ContentLocation] =
+    fromFunction(MiddlewareSpec.withContentLocation)(_ => ContentLocation.toContentLocation(value))
+
+  /**
+   * Adds the content location header to the response based on a ZIO effect
+   */
+  def withContentLocationZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentLocation] =
+    fromFunctionZIO(MiddlewareSpec.withContentLocation)(_ => value.map(ContentLocation.toContentLocation))
+
+  /**
+   * Adds the content md5 header to the response
+   */
+  def withContentMd5(value: CharSequence): Middleware[Any, Unit, ContentMd5] =
+    fromFunction(MiddlewareSpec.withContentMd5)(_ => ContentMd5.toContentMd5(value))
+
+  /**
+   * Adds the content md5 header to the response based on a ZIO effect
+   */
+  def withContentMd5ZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentMd5] =
+    fromFunctionZIO(MiddlewareSpec.withContentMd5)(_ => value.map(ContentMd5.toContentMd5))
+
+  /**
+   * Adds the content range header to the response
+   */
+  def withContentRange(value: CharSequence): Middleware[Any, Unit, ContentRange] =
+    fromFunction(MiddlewareSpec.withContentRange)(_ => ContentRange.toContentRange(value))
+
+  /**
+   * Adds the content range header to the response based on a ZIO effect
+   */
+  def withContentRangeZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentRange] =
+    fromFunctionZIO(MiddlewareSpec.withContentRange)(_ => value.map(ContentRange.toContentRange))
+
+  /**
+   * Adds the content type header to the response
+   */
+  def withContentSecurityPolicy(value: CharSequence): Middleware[Any, Unit, ContentSecurityPolicy] =
+    fromFunction(MiddlewareSpec.withContentSecurityPolicy)(_ => ContentSecurityPolicy.toContentSecurityPolicy(value))
+
+  /**
+   * Adds the content type header to the response based on a ZIO effect
+   */
+  def withContentSecurityPolicyZIO[R](
+    value: ZIO[R, Nothing, CharSequence],
+  ): Middleware[R, Unit, ContentSecurityPolicy] =
+    fromFunctionZIO(MiddlewareSpec.withContentSecurityPolicy)(_ =>
+      value.map(ContentSecurityPolicy.toContentSecurityPolicy),
+    )
+
+  /**
+   * Adds the content type header to the response
+   */
+  def withContentTransferEncoding(value: CharSequence): Middleware[Any, Unit, ContentTransferEncoding] =
+    fromFunction(MiddlewareSpec.withContentTransferEncoding)(_ =>
+      ContentTransferEncoding.toContentTransferEncoding(value),
+    )
+
+  /**
+   * Adds the content type header to the response based on a ZIO effect
+   */
+  def withContentTransferEncodingZIO[R](
+    value: ZIO[R, Nothing, CharSequence],
+  ): Middleware[R, Unit, ContentTransferEncoding] =
+    fromFunctionZIO(MiddlewareSpec.withContentTransferEncoding)(_ =>
+      value.map(ContentTransferEncoding.toContentTransferEncoding),
+    )
 
   /**
    * Adds the content type header to the response

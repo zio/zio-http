@@ -53,35 +53,48 @@ trait HeaderCodecs {
   final val cacheControl: HeaderCodec[CacheControl]               =
     header(HeaderNames.cacheControl.toString, TextCodec.string)
       .transform[CacheControl](CacheControl.toCacheControl, CacheControl.fromCacheControl)
-  final val connection: HeaderCodec[Connection]          = header(HeaderNames.connection.toString, TextCodec.string)
+  final val connection: HeaderCodec[Connection]           = header(HeaderNames.connection.toString, TextCodec.string)
     .transform[Connection](Connection.toConnection, Connection.fromConnection)
-  final val contentBase: HeaderCodec[ContentBase]        =
+  final val contentBase: HeaderCodec[ContentBase]         =
     header(HeaderNames.contentBase.toString, TextCodec.string)
       .transform(ContentBase.toContentBase, ContentBase.fromContentBase)
-  final val contentEncoding: HeaderCodec[String]         =
+  final val contentEncoding: HeaderCodec[ContentEncoding] =
     header(HeaderNames.contentEncoding.toString, TextCodec.string)
-  final val contentLanguage: HeaderCodec[String]         =
+      .transform[ContentEncoding](ContentEncoding.toContentEncoding, ContentEncoding.fromContentEncoding)
+  final val contentLanguage: HeaderCodec[ContentLanguage] =
     header(HeaderNames.contentLanguage.toString, TextCodec.string)
-  final val contentLength: HeaderCodec[ContentLength]    =
+      .transform[ContentLanguage](ContentLanguage.toContentLanguage, ContentLanguage.fromContentLanguage)
+  final val contentLength: HeaderCodec[ContentLength]     =
     header(HeaderNames.contentLength.toString, TextCodec.string)
       .transform(ContentLength.toContentLength, ContentLength.fromContentLength)
-  final val contentLocation: HeaderCodec[String]         =
+  final val contentLocation: HeaderCodec[ContentLocation] =
     header(HeaderNames.contentLocation.toString, TextCodec.string)
-  final val contentTransferEncoding: HeaderCodec[String] =
+      .transform(ContentLocation.toContentLocation, ContentLocation.fromContentLocation)
+  final val contentTransferEncoding: HeaderCodec[ContentTransferEncoding] =
     header(HeaderNames.contentTransferEncoding.toString, TextCodec.string)
-  final val contentDisposition: HeaderCodec[ContentDisposition] =
+      .transform[ContentTransferEncoding](
+        ContentTransferEncoding.toContentTransferEncoding,
+        ContentTransferEncoding.fromContentTransferEncoding,
+      )
+  final val contentDisposition: HeaderCodec[ContentDisposition]           =
     header(HeaderNames.contentDisposition.toString, TextCodec.string)
       .transform[ContentDisposition](
         ContentDisposition.toContentDisposition,
         ContentDisposition.fromContentDisposition,
       )
-  final val contentMd5: HeaderCodec[String]                     =
+  final val contentMd5: HeaderCodec[ContentMd5]                           =
     header(HeaderNames.contentMd5.toString, TextCodec.string)
-  final val contentRange: HeaderCodec[String]                   =
+      .transform[ContentMd5](ContentMd5.toContentMd5, ContentMd5.fromContentMd5)
+  final val contentRange: HeaderCodec[ContentRange]                       =
     header(HeaderNames.contentRange.toString, TextCodec.string)
-  final val contentSecurityPolicy: HeaderCodec[String]          =
+      .transform[ContentRange](ContentRange.toContentRange, ContentRange.fromContentRange)
+  final val contentSecurityPolicy: HeaderCodec[ContentSecurityPolicy]     =
     header(HeaderNames.contentSecurityPolicy.toString, TextCodec.string)
-  final val contentType: HeaderCodec[ContentType]               =
+      .transform[ContentSecurityPolicy](
+        ContentSecurityPolicy.toContentSecurityPolicy,
+        ContentSecurityPolicy.fromContentSecurityPolicy,
+      )
+  final val contentType: HeaderCodec[ContentType]                         =
     header(HeaderNames.contentType.toString, TextCodec.string)
       .transform(ContentType.toContentType, ContentType.fromContentType)
   final val cookie: HeaderCodec[String]                  = header(HeaderNames.cookie.toString, TextCodec.string)

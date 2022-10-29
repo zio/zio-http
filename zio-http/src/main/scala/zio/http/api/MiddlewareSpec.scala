@@ -1,16 +1,12 @@
 package zio.http.api
 
-import zio.http.api.Middleware.Control
+import zio.ZIO
 import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
-import zio.http.model.headers.HeaderGetters
 import zio.http.model.headers.values._
-import zio.http.model.{Cookie, HeaderNames, Headers}
-import zio.http.{Request, Response, api}
-import zio.{Duration, Trace, ZIO}
-
-import java.util.UUID
+import zio.http.model.{Cookie, HeaderNames}
+import zio.http.{Request, Response}
 
 final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   middlewareIn: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn],
@@ -133,10 +129,23 @@ object MiddlewareSpec {
   def withContentDisposition: MiddlewareSpec[Unit, ContentDisposition] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentDisposition)
 
-  def withContentLength: MiddlewareSpec[Unit, ContentLength] =
+  def withContentEncoding: MiddlewareSpec[Unit, ContentEncoding]                 =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentEncoding)
+  def withContentLanguage: MiddlewareSpec[Unit, ContentLanguage]                 =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentLanguage)
+  def withContentLength: MiddlewareSpec[Unit, ContentLength]                     =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentLength)
-
-  def withContentType: MiddlewareSpec[Unit, ContentType] =
+  def withContentLocation: MiddlewareSpec[Unit, ContentLocation]                 =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentLocation)
+  def withContentMd5: MiddlewareSpec[Unit, ContentMd5]                           =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentMd5)
+  def withContentRange: MiddlewareSpec[Unit, ContentRange]                       =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentRange)
+  def withContentSecurityPolicy: MiddlewareSpec[Unit, ContentSecurityPolicy]     =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentSecurityPolicy)
+  def withContentTransferEncoding: MiddlewareSpec[Unit, ContentTransferEncoding] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentTransferEncoding)
+  def withContentType: MiddlewareSpec[Unit, ContentType]                         =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentType)
 
   def addCookie: MiddlewareSpec[Unit, Cookie[Response]] =
