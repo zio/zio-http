@@ -5,15 +5,24 @@ import zio.http.socket.{WebSocketChannel, WebSocketFrame}
 
 case class TestChannel(counterpartEvents: Queue[ChannelEvent.Event[WebSocketFrame]]) extends WebSocketChannel {
 
-  override def awaitClose(implicit trace: Trace): UIO[Unit] = ???
+  // I think this really only matters for Netty. TODO Confirm.
+  override def awaitClose(implicit trace: Trace): UIO[Unit] =
+    close(true).orDie
 
   override def close(await: Boolean)(implicit trace: Trace): Task[Unit] =
     counterpartEvents.offer(ChannelEvent.ChannelUnregistered).unit
 
   override def contramap[A1](f: A1 => WebSocketFrame): ChannelForUserSocketApps[A1] = ???
 
-  override def flush(implicit trace: Trace): Task[Unit] = ???
+  override def flush(implicit trace: Trace): Task[Unit] =
+    // There's not queuing as would happen in a real Netty server, so this will always be a NoOp
+    ZIO.unit
 
+
+  // TODO Is this ID meaningful in a test?
+  //    We can either:
+  //    - Give it a random ID in `make`
+  //    - Hardcode it to "TestChannel"
   override def id(implicit trace: Trace): String = ???
 
   def pending(implicit trace: Trace): UIO[ChannelEvent.Event[WebSocketFrame]] =

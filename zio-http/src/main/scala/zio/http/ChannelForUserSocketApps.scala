@@ -24,6 +24,7 @@ trait ChannelForUserSocketApps[-A] {
    * Creates a new channel that can write a different type of message by using a
    * transformation function.
    */
+  // TODO I think we can delete this?
   def contramap[A1](f: A1 => A): ChannelForUserSocketApps[A1]
 
   /**
