@@ -228,10 +228,10 @@ object RichTextCodec {
           val tuple = set.foldLeft((Chunk.empty[(Int, Int)], (-1, -1))) { case ((acc, (min, max)), c) =>
             if (min == -1) (acc, (c, c))
             else if (c == max + 1) (acc, (min, c))
-            else (acc :+ (min, max), (c, c))
+            else (acc :+ ((min, max)), (c, c))
           }
 
-          val finalElement = if (tuple._2 == (-1, -1)) Chunk.empty else Chunk(tuple._2)
+          val finalElement = if (tuple._2 == ((-1, -1))) Chunk.empty else Chunk(tuple._2)
 
           val chunk = (tuple._1 ++ finalElement).map { case (min, max) =>
             if (min == max) min.toChar.toString()
