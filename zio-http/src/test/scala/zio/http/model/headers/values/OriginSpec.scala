@@ -18,6 +18,10 @@ object OriginSpec extends ZIOSpecDefault {
       assertTrue(Origin.toOrigin("http://:80") == InvalidOriginValue) &&
       assertTrue(Origin.toOrigin("host:80") == InvalidOriginValue)
     },
+    test("parsing of valid without a port ") {
+      assertTrue(Origin.toOrigin("http://domain") == OriginValue("http", "domain", Some(80))) &&
+      assertTrue(Origin.toOrigin("https://domain") == OriginValue("https", "domain", Some(443)))
+    },
     test("parsing of valid Origin values") {
       check(HttpGen.genAbsoluteURL) { url =>
         val justSchemeHostAndPort = url.copy(path = Path.empty, queryParams = QueryParams.empty, fragment = None)

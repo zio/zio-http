@@ -40,7 +40,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * method may only be called on header and query codecs.
    */
   def optional(implicit
-    ev: CodecType.Header with CodecType.Query <:< AtomTypes,
+    ev: CodecType.Header with CodecType.Query with CodecType.Method <:< AtomTypes,
   ): HttpCodec[AtomTypes, Option[Value]] =
     HttpCodec.Optional(HttpCodec.updateOptional(self))
 

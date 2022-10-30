@@ -1,18 +1,17 @@
 package zio.http.api
 
-import zio.http.api.Middleware.Control
+import zio.ZIO
 import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
-import zio.http.model.headers.HeaderGetters
-import zio.http.model.{Cookie, HeaderNames, Headers}
-import zio.http.{Request, Response, api}
-import zio.{Duration, Trace, ZIO}
+import zio.http.model.Headers.BasicSchemeName
+import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames}
+import zio.http.{Request, Response}
 
-import java.util.UUID
+import java.util.Base64
 
 final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
-  middlewareIn: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn],
+  middlewareIn: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, MiddlewareIn],
   middlewareOut: HttpCodec[CodecType.Header, MiddlewareOut],
 ) { self =>
   def ++[MiddlewareIn2, MiddlewareOut2](that: MiddlewareSpec[MiddlewareIn2, MiddlewareOut2])(implicit
@@ -37,8 +36,8 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
     implement[R, MiddlewareOut](in => incoming(in))((out, _) => ZIO.succeedNow(out))
 
   def mapIn[MiddlewareIn2](
-    f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn] => HttpCodec[
-      CodecType.Header with CodecType.Query,
+    f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, MiddlewareIn] => HttpCodec[
+      CodecType.Header with CodecType.Query with CodecType.Method,
       MiddlewareIn2,
     ],
   ): MiddlewareSpec[MiddlewareIn2, MiddlewareOut] =
@@ -53,8 +52,8 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
     copy(middlewareOut = f(middlewareOut))
 
   def mapBoth[MiddlewareIn2, MiddlewareOut2](
-    f: HttpCodec[CodecType.Header with CodecType.Query, MiddlewareIn] => HttpCodec[
-      CodecType.Header with CodecType.Query,
+    f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, MiddlewareIn] => HttpCodec[
+      CodecType.Header with CodecType.Query with CodecType.Method,
       MiddlewareIn2,
     ],
     g: HttpCodec[CodecType.Header, MiddlewareOut] => HttpCodec[
@@ -131,7 +130,7 @@ object MiddlewareSpec {
       HttpCodec.empty,
       HeaderCodec.cookie.transformOrFail(
         str => Cookie.decode[Response](str).left.map(_.getMessage),
-        _.encode(false).left.map(_.getMessage),
+        _.encode(validate = false).left.map(_.getMessage),
       ),
     )
 
@@ -141,9 +140,17 @@ object MiddlewareSpec {
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
 
-  def addCorrelationId: MiddlewareSpec[Unit, String] = {
-
+  def addCorrelationId: MiddlewareSpec[Unit, String] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
+
+  def withAuthorization(value: CharSequence): MiddlewareSpec[Unit, Unit] =
+    addHeader(HeaderNames.authorization.toString, value.toString)
+
+  def withBasicAuthorization(username: String, password: String): MiddlewareSpec[Unit, Unit] = {
+    val authString    = String.format("%s:%s", username, password)
+    val encodedAuthCB = new String(Base64.getEncoder.encode(authString.getBytes(HTTP_CHARSET)), HTTP_CHARSET)
+    val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB)
+    addHeader(HeaderNames.authorization.toString, value)
   }
 
   def auth: MiddlewareSpec[Auth.Credentials, Unit] =
@@ -154,6 +161,22 @@ object MiddlewareSpec {
           c => s"${c.uname}:${c.upassword}",
         ),
       )
+
+  def cors =
+    MiddlewareSpec(
+      middlewareIn = MethodCodec.method ++
+        HeaderCodec.origin.optional ++
+        HeaderCodec.accessControlRequestMethod.optional,
+      middlewareOut = HttpCodec.empty,
+    )
+
+  def customAuth[I](
+    headerCodec: HeaderCodec[I],
+  ): MiddlewareSpec[I, Unit] =
+    MiddlewareSpec(
+      headerCodec,
+      HttpCodec.empty,
+    )
 
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
     MiddlewareSpec(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty)
