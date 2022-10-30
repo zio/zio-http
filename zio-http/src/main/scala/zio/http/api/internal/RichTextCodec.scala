@@ -109,7 +109,7 @@ sealed trait RichTextCodec[A] { self =>
   final def optional(default: A): RichTextCodec[Option[A]] =
     self.transform(a => Some(a), { case None => default; case Some(a) => a })
 
-  final def repeat: RichTextCodec[Chunk[A]] =
+  final lazy val repeat: RichTextCodec[Chunk[A]] =
     (self ~ repeat).transformOrFailRight(
       t => Chunk(t._1) ++ t._2,
       c =>
