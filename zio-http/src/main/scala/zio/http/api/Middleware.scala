@@ -1,11 +1,19 @@
 package zio.http.api
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zio._
 import zio.http._
+import zio.http.api.MiddlewareSpec.{CsrfValidate, decodeHttpBasic}
+import zio.http.middleware.Auth
+import zio.http.middleware.Cors.CorsConfig
+import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName, Header}
+import zio.http.model.headers.values.Origin
+import zio.http.model.{Cookie, Headers, Method, Status}
 import zio.http.api.MiddlewareSpec.CsrfValidate
 import zio.http.model.headers.values._
 import zio.http.model.{Cookie, Status}
 
+import java.util.{Base64, UUID}
 import java.util.UUID
 import scala.annotation.meta.param
 
@@ -104,6 +112,158 @@ object Middleware {
 
   def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie[Response]]): Middleware[R, Unit, Cookie[Response]] =
     fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
+
+  /**
+   * Creates a middleware for basic authentication
+   */
+  final def basicAuth(f: Auth.Credentials => Boolean)(implicit trace: Trace): Middleware[Any, String, Unit] =
+    basicAuthZIO(credentials => ZIO.succeed(f(credentials)))
+
+  /**
+   * Creates a middleware for basic authentication that checks if the
+   * credentials are same as the ones given
+   */
+  final def basicAuth(u: String, p: String)(implicit trace: Trace): Middleware[Any, String, Unit] =
+    basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
+
+  /**
+   * Creates a middleware for basic authentication using an effectful
+   * verification function
+   */
+  def basicAuthZIO[R](f: Auth.Credentials => ZIO[R, Nothing, Boolean])(implicit
+    trace: Trace,
+  ): Middleware[R, String, Unit] =
+    customAuthZIO(HeaderCodec.authorization, Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName)) { encoded =>
+      val indexOfBasic = encoded.indexOf(BasicSchemeName)
+      if (indexOfBasic != 0 || encoded.length == BasicSchemeName.length) ZIO.succeed(false)
+      else {
+        // TODO: probably should be part of decodeHttpBasic
+        val readyForDecode = new String(Base64.getDecoder.decode(encoded.substring(BasicSchemeName.length + 1)))
+        decodeHttpBasic(readyForDecode) match {
+          case Some(credentials) => f(credentials)
+          case None              => ZIO.succeed(false)
+        }
+      }
+    }
+
+  /**
+   * Creates a middleware for bearer authentication that checks the token using
+   * the given function
+   *
+   * @param f
+   *   : function that validates the token string inside the Bearer Header
+   */
+  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): Middleware[Any, String, Unit] =
+    bearerAuthZIO(token => ZIO.succeed(f(token)))
+
+  /**
+   * Creates a middleware for bearer authentication that checks the token using
+   * the given effectful function
+   *
+   * @param f
+   *   : function that effectfully validates the token string inside the Bearer
+   *   Header
+   */
+  final def bearerAuthZIO[R](
+    f: String => ZIO[R, Nothing, Boolean],
+  )(implicit trace: Trace): Middleware[R, String, Unit] =
+    customAuthZIO(
+      HeaderCodec.authorization,
+      responseHeaders = Headers(HttpHeaderNames.WWW_AUTHENTICATE, BearerSchemeName),
+    ) { token =>
+      val indexOfBearer = token.indexOf(BearerSchemeName)
+      if (indexOfBearer != 0 || token.length == BearerSchemeName.length)
+        ZIO.succeed(false)
+      else
+        f(token.substring(BearerSchemeName.length + 1))
+    }
+
+  /**
+   * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app.
+   */
+  def customAuth[R, I](headerCodec: HeaderCodec[I])(
+    verify: I => Boolean,
+  ): Middleware[R, I, Unit] =
+    customAuthZIO(headerCodec)(header => ZIO.succeed(verify(header)))
+
+  /**
+   * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app using an effectful verification
+   * function.
+   */
+  def customAuthZIO[R, I](
+    headerCodec: HeaderCodec[I],
+    responseHeaders: Headers = Headers.empty,
+    responseStatus: Status = Status.Unauthorized,
+  )(verify: I => ZIO[R, Nothing, Boolean])(implicit trace: Trace): Middleware[R, I, Unit] =
+    MiddlewareSpec.customAuth(headerCodec).implementIncomingControl { in =>
+      verify(in).map {
+        case true  => Middleware.Control.Continue(())
+        case false => Middleware.Control.Abort((), _.copy(status = responseStatus, headers = responseHeaders))
+      }
+    }
+
+  /**
+   * Creates a middleware for Cross-Origin Resource Sharing (CORS).
+   *
+   * @see
+   *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+   */
+  def cors(config: CorsConfig = CorsConfig()) = {
+    def allowCORS(origin: Origin, method: Method): Boolean =
+      (config.anyOrigin, config.anyMethod, Origin.fromOrigin(origin), method) match {
+        case (true, true, _, _)           => true
+        case (true, false, _, acrm)       => config.allowedMethods.exists(_.contains(acrm))
+        case (false, true, origin, _)     => config.allowedOrigins(origin)
+        case (false, false, origin, acrm) =>
+          config.allowedMethods.exists(_.contains(acrm)) && config.allowedOrigins(origin)
+      }
+
+    def corsHeaders(origin: Origin, isPreflight: Boolean): Headers = {
+      def buildHeaders(headerName: String, values: Option[Set[String]]): Headers =
+        values match {
+          case Some(headerValues) =>
+            Headers(headerValues.toList.map(value => Header(headerName, value)))
+          case None               => Headers.empty
+        }
+
+      Headers.ifThenElse(isPreflight)(
+        onTrue = buildHeaders(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS.toString(), config.allowedHeaders),
+        onFalse = buildHeaders(HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(), config.exposedHeaders),
+      ) ++
+        Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(), Origin.fromOrigin(origin)) ++
+        buildHeaders(
+          HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS.toString(),
+          config.allowedMethods.map(_.map(_.toJava.name())),
+        ) ++
+        Headers.when(config.allowCredentials) {
+          Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS, config.allowCredentials.toString)
+        }
+    }
+
+    MiddlewareSpec.cors.implement {
+      case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm)) =>
+        ZIO
+          .succeed(
+            Middleware.Control.Abort(
+              (),
+              _.copy(status = Status.NoContent, headers = corsHeaders(origin, isPreflight = true)),
+            ),
+          )
+
+      case (method, Some(origin), _) if allowCORS(origin, method) =>
+        ZIO
+          .succeed(
+            Middleware.Control
+              .Abort((), _.copy(headers = corsHeaders(origin, isPreflight = false))),
+          )
+
+      case _ => ZIO.succeed(Middleware.Control.Continue(()))
+    } { case (_, _) =>
+      ZIO.unit
+    }
+  }
 
   /**
    * Adds the content type header to the response based on a ZIO effect
