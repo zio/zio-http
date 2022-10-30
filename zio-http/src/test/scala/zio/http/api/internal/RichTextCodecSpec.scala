@@ -17,15 +17,15 @@ object RichTextCodecSpec extends ZIOSpecDefault {
           |""".stripMargin
       assertTrue(description == expected)
     },
-    test("single character2") {
-      val description = RichTextCodec.char('x').repeat.describe.toCommonMark
-      val expected =
-        """```<main>```:
-          |x
-          |
-          |""".stripMargin
-      assertTrue(description == expected)
-    },
+//    test("single character2") {
+//      val description = RichTextCodec.char('x').repeat.describe.toCommonMark
+//      val expected =
+//        """```<main>```:
+//          |x
+//          |
+//          |""".stripMargin
+//      assertTrue(description == expected)
+//    },
 
     test("digit") {
       val description = RichTextCodec.digit.describe.toCommonMark
@@ -68,7 +68,7 @@ object RichTextCodecSpec extends ZIOSpecDefault {
       val description = codec.describe.toCommonMark
       val expected    =
         """```<main>```:
-          |a``` | ```b
+          |```[```ab```]```
           |
           |""".stripMargin
       assertTrue(description == expected)
@@ -78,7 +78,17 @@ object RichTextCodecSpec extends ZIOSpecDefault {
       val description = codec.describe.toCommonMark
       val expected    =
         """```<main>```:
-          |0``` | ```1``` | ```2``` | ```3``` | ```4``` | ```5``` | ```6``` | ```7``` | ```8``` | ```9
+          |```[```0```-```9```]```
+          |
+          |""".stripMargin
+      assertTrue(description == expected)
+    },
+    test("Latin alpha numerics") {
+      val codec = RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9')
+      val description = codec.describe.toCommonMark
+      val expected =
+        """```<main>```:
+          |```[```0```-```9A```-```Za```-```z```]```
           |
           |""".stripMargin
       assertTrue(description == expected)

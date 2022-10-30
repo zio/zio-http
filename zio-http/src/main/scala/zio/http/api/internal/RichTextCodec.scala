@@ -143,6 +143,10 @@ sealed trait RichTextCodec[A] { self =>
 
         d match {
           case DescriptionPart.Text(str)           => (refNames, List(Span.text(str)))
+          case DescriptionPart.CharRange(from, to) if from == to =>
+            (refNames, List(Span.text(from.toString)))
+          case DescriptionPart.CharRange(from, to) if from == to-1 =>
+            (refNames, List(Span.text(from.toString + to.toString)))
           case DescriptionPart.CharRange(from, to) =>
             (refNames, List(Span.text(from.toString), Span.code("-"), Span.text(to.toString)))
           case DescriptionPart.CharRanges(ranges)  =>
@@ -217,8 +221,14 @@ sealed trait RichTextCodec[A] { self =>
             case _ if set == letterOrDigitChars => (refs, DescriptionPart.Named("letterOrDigit"))
             case _ if set == whitespaceChars    => (refs, DescriptionPart.Named("whitespace"))
             case _                              =>
-              // TODO: Charater ranges should be reported as eg. A-Z instead of A | B | C ... | Z
-              (refs, DescriptionPart.Alternatives(set.toList.map(c => DescriptionPart.Text(c.toChar.toString))))
+              val ranges = set.iterator.foldLeft(List.empty[(Int, Int)]) {
+                case (Nil, c) => (c, c) :: Nil
+                case (ranges, c) if ranges.head._2 == c-1 => (ranges.head._1, c) :: ranges.tail
+                case (ranges, c) => (c, c) :: ranges
+              }
+              (refs, DescriptionPart.CharRanges(
+                ranges.reverse.map(r => DescriptionPart.CharRange(r._1.toChar, r._2.toChar))
+              ))
           }
         case TransformOrFail(codec, _, _) =>
           refOrDesc(codec.asInstanceOf[RichTextCodec[_]])
