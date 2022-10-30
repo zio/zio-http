@@ -1,12 +1,10 @@
 package zio.http.api.internal
 
-import jdk.jfr.Description
 import zio.Chunk
 import zio.http.api.Combiner
 
 import java.lang.Integer.parseInt
 import java.lang.StringBuilder
-import java.util.stream.DoubleStream.DoubleMapMultiConsumer
 import scala.annotation.tailrec
 import scala.collection.immutable.{BitSet, ListMap}
 import scala.util.control.NoStackTrace
@@ -38,7 +36,7 @@ sealed trait RichTextCodec[A] { self =>
    * Returns a new codec that is the sequential composition of this codec and
    * the specified codec, producing the values of both as a tuple.
    */
-  final def ~[B](that: RichTextCodec[B])(implicit combiner: Combiner[A, B]): RichTextCodec[combiner.Out] =
+  final def ~[B](that: => RichTextCodec[B])(implicit combiner: Combiner[A, B]): RichTextCodec[combiner.Out] =
     RichTextCodec.Zip(self, RichTextCodec.defer(that), combiner)
 
   /**
@@ -125,15 +123,15 @@ sealed trait RichTextCodec[A] { self =>
 
     @tailrec
     def descriptionPartToDescriptionList(
-                                          documented: List[(Span, Doc)],
-                                          refs: RefsMap,
-                                          refNames: Map[DescriptionPart, String],
-                                          toDescribe: DescriptionPart,
-                                          described: Set[DescriptionPart]
+      documented: List[(Span, Doc)],
+      refs: RefsMap,
+      refNames: Map[DescriptionPart, String],
+      toDescribe: DescriptionPart,
+      described: Set[DescriptionPart],
     ): (Map[DescriptionPart, String], List[(Span, Doc)]) = {
       def toSpans(
-                   refNames: Map[DescriptionPart, String],
-                   d: DescriptionPart,
+        refNames: Map[DescriptionPart, String],
+        d: DescriptionPart,
       ): (Map[DescriptionPart, String], List[Span]) = {
 
         def merge(parts: (Map[DescriptionPart, String], List[Span])*): (Map[DescriptionPart, String], List[Span]) =
@@ -142,55 +140,62 @@ sealed trait RichTextCodec[A] { self =>
         def code(c: String) = (Map.empty[DescriptionPart, String], List(Span.code(c)))
 
         d match {
-          case DescriptionPart.Text(str)           => (refNames, List(Span.text(str)))
-          case DescriptionPart.CharRange(from, to) if from == to =>
+          case DescriptionPart.Text(str)                             => (refNames, List(Span.text(str)))
+          case DescriptionPart.CharRange(from, to) if from == to     =>
             (refNames, List(Span.text(from.toString)))
-          case DescriptionPart.CharRange(from, to) if from == to-1 =>
+          case DescriptionPart.CharRange(from, to) if from == to - 1 =>
             (refNames, List(Span.text(from.toString + to.toString)))
-          case DescriptionPart.CharRange(from, to) =>
+          case DescriptionPart.CharRange(from, to)                   =>
             (refNames, List(Span.text(from.toString), Span.code("-"), Span.text(to.toString)))
-          case DescriptionPart.CharRanges(ranges)  =>
+          case DescriptionPart.CharRanges(ranges)                    =>
             (
               refNames,
               Span.code("[") :: (ranges.map(part => toSpans(refNames, part)._2).reduce((a, b) => a ++ b) :+ Span.code(
                 "]",
               )),
             )
-          case DescriptionPart.Sequence(seq)       =>
+          case DescriptionPart.Sequence(seq)                         =>
             seq.map {
               case part @ DescriptionPart.Alternatives(_) => merge(code("("), toSpans(refNames, part), code(")"))
               case part                                   => toSpans(refNames, part)
             }.reduce((a, b) => merge(a, (Map.empty, List(Span.space)), b))
-          case DescriptionPart.Named(name)         => (refNames, List(Span.code(s"<$name>")))
-          case DescriptionPart.Alternatives(alts)  =>
+          case DescriptionPart.Named(name)                           => (refNames, List(Span.code(s"<$name>")))
+          case DescriptionPart.Alternatives(alts)                    =>
             alts.map(part => toSpans(refNames, part)).reduce((a, b) => merge(a, code(" | "), b))
-          case DescriptionPart.Optional(part)      =>
+          case DescriptionPart.Optional(part)                        =>
             part match {
               case DescriptionPart.Sequence(_) | DescriptionPart.Alternatives(_) =>
                 merge(code("("), toSpans(refNames, part), code(")?"))
               case _ => merge(toSpans(refNames, part), code("?"))
             }
-          case DescriptionPart.Empty               => (refNames, List(Span.code("<empty>")))
-          case DescriptionPart.Ref(of)             =>
+          case DescriptionPart.Empty                                 => (refNames, List(Span.code("<empty>")))
+          case DescriptionPart.Ref(of)                               =>
             val DescriptionAndCount(descr, count) = refs(of)
             if (count < 2) {
               toSpans(refNames, descr)
             } else {
               refNames.get(descr) match {
                 case Some(name) => (refNames, List(Span.code(name)))
-                case None    =>
+                case None       =>
                   val name = s"<${refNames.size}>"
                   (refNames + (descr -> name), List(Span.code(name)))
               }
             }
         }
       }
-      val myRef = refNames(toDescribe)
-      val (nextRefNames, spans) = toSpans(refNames, toDescribe)
+      val myRef                                         = refNames(toDescribe)
+      val (nextRefNames, spans)                         = toSpans(refNames, toDescribe)
       val stillToDescribe: Map[DescriptionPart, String] = nextRefNames -- described - toDescribe
       stillToDescribe.headOption match {
-        case None => (nextRefNames, documented :+ (Span.code(myRef), p(Span.spans(spans))))
-        case Some(next) => descriptionPartToDescriptionList(documented :+ (Span.code(myRef), p(Span.spans(spans))), refs, nextRefNames, next._1, described + toDescribe)
+        case None       => (nextRefNames, documented :+ (Span.code(myRef), p(Span.spans(spans))))
+        case Some(next) =>
+          descriptionPartToDescriptionList(
+            documented :+ (Span.code(myRef), p(Span.spans(spans))),
+            refs,
+            nextRefNames,
+            next._1,
+            described + toDescribe,
+          )
       }
     }
 
@@ -222,13 +227,16 @@ sealed trait RichTextCodec[A] { self =>
             case _ if set == whitespaceChars    => (refs, DescriptionPart.Named("whitespace"))
             case _                              =>
               val ranges = set.iterator.foldLeft(List.empty[(Int, Int)]) {
-                case (Nil, c) => (c, c) :: Nil
-                case (ranges, c) if ranges.head._2 == c-1 => (ranges.head._1, c) :: ranges.tail
-                case (ranges, c) => (c, c) :: ranges
+                case (Nil, c)                               => (c, c) :: Nil
+                case (ranges, c) if ranges.head._2 == c - 1 => (ranges.head._1, c) :: ranges.tail
+                case (ranges, c)                            => (c, c) :: ranges
               }
-              (refs, DescriptionPart.CharRanges(
-                ranges.reverse.map(r => DescriptionPart.CharRange(r._1.toChar, r._2.toChar))
-              ))
+              (
+                refs,
+                DescriptionPart.CharRanges(
+                  ranges.reverse.map(r => DescriptionPart.CharRange(r._1.toChar, r._2.toChar)),
+                ),
+              )
           }
         case TransformOrFail(codec, _, _) =>
           refOrDesc(codec.asInstanceOf[RichTextCodec[_]])
@@ -269,17 +277,17 @@ sealed trait RichTextCodec[A] { self =>
           )
       }
     }
-    val (refs, descr) = description(ListMap.empty, self)
+    val (refs, descr)                                                                = description(ListMap.empty, self)
 
     val (_, descriptions) = descriptionPartToDescriptionList(List.empty, refs, Map(descr -> "<main>"), descr, Set.empty)
 
-    descriptionList(descriptions :_*)
+    descriptionList(descriptions: _*)
   }
 
   final def optional(default: A): RichTextCodec[Option[A]] =
     self.transform(a => Some(a), { case None => default; case Some(a) => a })
 
-  final def repeat: RichTextCodec[Chunk[A]] =
+  final lazy val repeat: RichTextCodec[Chunk[A]] =
     (self ~ repeat).transformOrFailRight(
       t => Chunk(t._1) ++ t._2,
       c =>
