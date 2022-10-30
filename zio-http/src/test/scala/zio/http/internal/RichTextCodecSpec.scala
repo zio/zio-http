@@ -11,6 +11,11 @@ object RichTextCodecSpec extends ZIOSpecDefault {
   def success[A](a: A): Either[String, A] = Right(a)
 
   override def spec = suite("Rich Text Codec Spec")(
+    test("repeat can be constructed") {
+      // Checks whether the call to repeat causes stack overflow
+      assertTrue(RichTextCodec.whitespaces != null)
+      assertTrue(RichTextCodec.char('x').repeat != null)
+    },
     test("encode empty spec") {
       assert(RichTextCodec.empty.encode(()))(equalTo(Right("")))
     },

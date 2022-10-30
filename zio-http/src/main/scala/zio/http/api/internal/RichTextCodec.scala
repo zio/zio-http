@@ -110,7 +110,7 @@ sealed trait RichTextCodec[A] { self =>
     self.transform(a => Some(a), { case None => default; case Some(a) => a })
 
   final def repeat: RichTextCodec[Chunk[A]] =
-    (self ~ repeat).transformOrFailRight(
+    (self ~ RichTextCodec.defer(repeat)).transformOrFailRight(
       t => Chunk(t._1) ++ t._2,
       c =>
         c.headOption match {
