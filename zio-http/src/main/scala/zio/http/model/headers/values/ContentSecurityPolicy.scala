@@ -150,7 +150,7 @@ object ContentSecurityPolicy {
       case Sha256Regex(hash)  => Some(Hash(HashAlgorithm.Sha256, hash))
       case Sha384Regex(hash)  => Some(Hash(HashAlgorithm.Sha384, hash))
       case Sha512Regex(hash)  => Some(Hash(HashAlgorithm.Sha512, hash))
-      case s                  => Try(URI.create(s)).map(Host).toOption
+      case s                  => Try(URI.create(s)).map(Host(_)).toOption
     }
 
     def toString(source: Source): String = source match {
@@ -354,12 +354,12 @@ object ContentSecurityPolicy {
     value.toString match {
       case "block-all-mixed-content"       => ContentSecurityPolicy.BlockAllMixedContent
       case PluginTypesRegex(types)         => ContentSecurityPolicy.PluginTypes(types)
-      case ReferrerRegex(referrer)         => ReferrerPolicy.fromString(referrer).map(ContentSecurityPolicy.Referrer).getOrElse(InvalidContentSecurityPolicy)
+      case ReferrerRegex(referrer)         => ReferrerPolicy.fromString(referrer).map(ContentSecurityPolicy.Referrer(_)).getOrElse(InvalidContentSecurityPolicy)
       case ReportToRegex(group)            => ContentSecurityPolicy.ReportTo(group)
-      case ReportUriRegex(uri)             => Try(new URI(uri)).map(ContentSecurityPolicy.ReportUri).getOrElse(InvalidContentSecurityPolicy)
-      case RequireSriRegex(value)          => RequireSriForValue.fromString(value).map(ContentSecurityPolicy.RequireSriFor).getOrElse(InvalidContentSecurityPolicy)
-      case TrustedTypesRegex(value)        => TrustedTypesValue.fromString(value).map(ContentSecurityPolicy.TrustedTypes).getOrElse(InvalidContentSecurityPolicy)
-      case SandboxRegex(sandbox)           => SandboxValue.fromString(sandbox).map(ContentSecurityPolicy.Sandbox).getOrElse(InvalidContentSecurityPolicy)
+      case ReportUriRegex(uri)             => Try(new URI(uri)).map(ContentSecurityPolicy.ReportUri(_)).getOrElse(InvalidContentSecurityPolicy)
+      case RequireSriRegex(value)          => RequireSriForValue.fromString(value).map(ContentSecurityPolicy.RequireSriFor(_)).getOrElse(InvalidContentSecurityPolicy)
+      case TrustedTypesRegex(value)        => TrustedTypesValue.fromString(value).map(ContentSecurityPolicy.TrustedTypes(_)).getOrElse(InvalidContentSecurityPolicy)
+      case SandboxRegex(sandbox)           => SandboxValue.fromString(sandbox).map(ContentSecurityPolicy.Sandbox(_)).getOrElse(InvalidContentSecurityPolicy)
       case "upgrade-insecure-requests"     => ContentSecurityPolicy.UpgradeInsecureRequests
       case PolicyRegex(policyType, policy) => ContentSecurityPolicy.fromTypeAndPolicy(policyType, policy)
 

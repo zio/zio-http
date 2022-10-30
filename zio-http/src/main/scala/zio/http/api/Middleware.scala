@@ -7,14 +7,10 @@ import zio.http.api.MiddlewareSpec.{CsrfValidate, decodeHttpBasic}
 import zio.http.middleware.Auth
 import zio.http.middleware.Cors.CorsConfig
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName, Header}
-import zio.http.model.headers.values.Origin
+import zio.http.model.headers.values.{Origin, _}
 import zio.http.model.{Cookie, Headers, Method, Status}
-import zio.http.api.MiddlewareSpec.CsrfValidate
-import zio.http.model.headers.values._
-import zio.http.model.{Cookie, Status}
 
 import java.util.{Base64, UUID}
-import java.util.UUID
 import scala.annotation.meta.param
 
 /**
