@@ -62,29 +62,29 @@ object TestClientSpec extends ZIOSpecDefault {
             }
 
           val greetingToClient                                                       = "Hi Client"
-          val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageUnwrapper >>>
+          val messageSocketClient: HttpSocket = messageUnwrapper >>>
             Http.collectZIO[(WebSocketChannel, String)] { case (ch, `greetingToClient`) =>
               ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
             }
 
-          val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+          val channelSocketClient: HttpSocket =
             Http.empty
 
-          val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageUnwrapper >>>
+          val messageSocketServer: HttpSocket = messageUnwrapper >>>
             Http.collectZIO[(WebSocketChannel, String)] { case (ch, "Hi Server") =>
               ch.close()
             }
 
-          val channelSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+          val channelSocketServer: HttpSocket =
             Http.collectZIO[WebSocketChannelEvent] {
               case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
                 ch.writeAndFlush(WebSocketFrame.text(greetingToClient))
             }
 
-          val httpSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+          val httpSocketClient: HttpSocket =
             messageSocketClient ++ channelSocketClient
 
-          val httpSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+          val httpSocketServer: HttpSocket =
             messageSocketServer ++ channelSocketServer
 
           for {

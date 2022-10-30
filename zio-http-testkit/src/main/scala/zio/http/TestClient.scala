@@ -65,7 +65,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       previousBehavior <- behavior.get
       newBehavior                  = handler.andThen(_.provideEnvironment(r))
       app: HttpApp[Any, Throwable] = Http.collectZIO(newBehavior)
-      _ <- behavior.set(previousBehavior ++ app)
+      _ <- behavior.set(previousBehavior.defaultWith(app))
     } yield ()
 
   val headers: Headers                   = Headers.empty
@@ -131,9 +131,9 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       _         <- ZIO.when(pendEvent == ChannelUnregistered) {
         otherChannel.close
       }
-    } yield pendEvent).repeatWhileZIO(event => ZIO.succeed(shouldContinue(event)))
+    } yield pendEvent).repeatWhile(event => shouldContinue(event))
 
-  def shouldContinue(event: ChannelEvent.Event[WebSocketFrame]) =
+  private def shouldContinue(event: ChannelEvent.Event[WebSocketFrame]) =
     event match {
       case ChannelEvent.ExceptionCaught(_)            => false
       case ChannelEvent.ChannelRead(message)          =>

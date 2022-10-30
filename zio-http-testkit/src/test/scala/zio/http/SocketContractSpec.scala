@@ -2,24 +2,19 @@ package zio.http
 
 import zio._
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEvent, UserEventTriggered}
-import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http.model.Status
 import zio.http.netty.server.NettyDriver
 import zio.http.socket._
 import zio.test._
 
 object SocketContractSpec extends ZIOSpecDefault {
-  val testServerConfig: ZLayer[Any, Nothing, ServerConfig] =
-    ZLayer.succeed(ServerConfig.default.port(0).leakDetection(LeakDetectionLevel.PARANOID))
-
-  val severTestLayer = testServerConfig >+> Server.live
 
   val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
     Http.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
       (channel, message)
     }
 
-  val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
+  val messageSocketServer: HttpSocket = messageFilter >>>
     Http.collectZIO[(WebSocketChannel, String)] {
       case (ch, text) if text.contains("Hi Server") =>
         ZIO.debug("Server got message: " + text) *> ch.close()
@@ -27,7 +22,7 @@ object SocketContractSpec extends ZIOSpecDefault {
         ZIO.debug("Unrecognized message sent to server: " + text)
     }
 
-  def channelSocketServer(p: Promise[Throwable, Unit]): Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+  def channelSocketServer(p: Promise[Throwable, Unit]): HttpSocket =
     Http.collectZIO[WebSocketChannelEvent] {
       case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
         ch.writeAndFlush(WebSocketFrame.text("Hi Client"))
@@ -50,11 +45,10 @@ object SocketContractSpec extends ZIOSpecDefault {
   val decoder = SocketDecoder.default.withExtensions(allowed = true)
 
   def socketAppServer(p: Promise[Throwable, Unit]): SocketApp[Any] =
-    (messageSocketServer ++ channelSocketServer(p)).toSocketApp
+    (messageSocketServer.defaultWith(channelSocketServer(p))).toSocketApp
       .withDecoder(decoder)
       .withProtocol(protocol)
 
-  sys.props.put("ZIOHttpLogLevel", "DEBUG")
   def spec =
     suite("SocketOps")(
       contract(
@@ -81,13 +75,13 @@ object SocketContractSpec extends ZIOSpecDefault {
 
   def contract[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
     test(name) {
-      val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
+      val messageSocketClient: HttpSocket = messageFilter >>>
         Http.collectZIO[(WebSocketChannel, String)] {
           case (ch, text) if text.contains("Hi Client") =>
             ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true).debug("Client got message: " + text)
         }
 
-      val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+      val channelSocketClient: HttpSocket =
         Http.collectZIO[WebSocketChannelEvent] {
           case ChannelEvent(_, ChannelUnregistered) =>
             Console.printLine("Client Channel unregistered")
@@ -96,8 +90,8 @@ object SocketContractSpec extends ZIOSpecDefault {
             Console.printLine("Client received other event: " + other)
         }
 
-      val httpSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-        messageSocketClient ++ channelSocketClient
+      val httpSocketClient: HttpSocket =
+        messageSocketClient.defaultWith(channelSocketClient)
 
       val socketAppClient: SocketApp[Any] =
         httpSocketClient.toSocketApp
