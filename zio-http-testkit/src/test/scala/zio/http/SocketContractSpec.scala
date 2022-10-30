@@ -9,7 +9,7 @@ import zio.test._
 
 object SocketContractSpec extends ZIOSpecDefault {
 
-  val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
+  val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (ChannelForUserSocketApps[WebSocketFrame], String)] =
     Http.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
       (channel, message)
     }

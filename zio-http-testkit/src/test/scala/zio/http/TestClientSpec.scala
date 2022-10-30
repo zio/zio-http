@@ -55,7 +55,7 @@ object TestClientSpec extends ZIOSpecDefault {
       ),
       suite("socket ops")(
         test("happy path") {
-          val messageUnwrapper: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
+          val messageUnwrapper: Http[Any, Nothing, WebSocketChannelEvent, (WebSocketChannel, String)] =
             Http.collect[WebSocketChannelEvent] {
               case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
                 (channel, message)

@@ -1,4 +1,5 @@
 package zio.http
+
 import zio.{Task, Trace, UIO}
 
 /**
@@ -6,14 +7,7 @@ import zio.{Task, Trace, UIO}
  * represents the type of messages that can be written on the channel.
  */
 // TODO Remove all netty-specific methods here and reduce footprint
-trait Channel[-A] {
-
-  /**
-   * When set to `true` (default) it will automatically read messages from the
-   * channel. When set to false, the channel will not read messages until `read`
-   * is called.
-   */
-  def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit]
+trait ChannelForUserSocketApps[-A] {
 
   /*
    * Provides a way to wait for the channel to be closed.
@@ -30,7 +24,7 @@ trait Channel[-A] {
    * Creates a new channel that can write a different type of message by using a
    * transformation function.
    */
-  def contramap[A1](f: A1 => A): Channel[A1]
+  def contramap[A1](f: A1 => A): ChannelForUserSocketApps[A1]
 
   /**
    * Flushes the pending write operations on the channel.
@@ -41,17 +35,6 @@ trait Channel[-A] {
    * Returns the globally unique identifier of this channel.
    */
   def id(implicit trace: Trace): String
-
-  /**
-   * Returns `true` if auto-read is set to true.
-   */
-  def isAutoRead(implicit trace: Trace): UIO[Boolean]
-
-  /**
-   * Schedules a read operation on the channel. This is not necessary if
-   * auto-read is enabled.
-   */
-  def read(implicit trace: Trace): UIO[Unit]
 
   /**
    * Schedules a write operation on the channel. The actual write only happens

@@ -8,26 +8,26 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * netty channel. `A` represents the inbound message type and `B` represents the
  * outbound message type that's allowed on the channel.
  */
-final case class ChannelEvent[-A, +B](channel: Channel[A], event: ChannelEvent.Event[B]) { self =>
+final case class ChannelEvent[-A, +B](channel: ChannelForUserSocketApps[A], event: ChannelEvent.Event[B]) { self =>
   def contramap[A1](f: A1 => A): ChannelEvent[A1, B] = copy(channel = channel.contramap(f))
   def map[B1](f: B => B1): ChannelEvent[A, B1]       = copy(event = event.map(f))
 }
 
 object ChannelEvent {
   def channelRead[B](ctx: ChannelHandlerContext, msg: B): ChannelEvent[Any, B] =
-    ChannelEvent(ChannelNetty.make(ctx.channel()), ChannelRead(msg))
+    ChannelEvent(ChannelForUserSocketAppsNetty.make(ctx.channel()), ChannelRead(msg))
 
   def channelRegistered(ctx: ChannelHandlerContext): ChannelEvent[Any, Nothing] =
-    ChannelEvent(ChannelNetty.make(ctx.channel()), ChannelRegistered)
+    ChannelEvent(ChannelForUserSocketAppsNetty.make(ctx.channel()), ChannelRegistered)
 
   def channelUnregistered(ctx: ChannelHandlerContext): ChannelEvent[Any, Nothing] =
-    ChannelEvent(ChannelNetty.make(ctx.channel()), ChannelUnregistered)
+    ChannelEvent(ChannelForUserSocketAppsNetty.make(ctx.channel()), ChannelUnregistered)
 
   def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): ChannelEvent[Any, Nothing] =
-    ChannelEvent(ChannelNetty.make(ctx.channel()), ExceptionCaught(cause))
+    ChannelEvent(ChannelForUserSocketAppsNetty.make(ctx.channel()), ExceptionCaught(cause))
 
   def userEventTriggered(ctx: ChannelHandlerContext, evt: UserEvent): ChannelEvent[Any, Nothing] =
-    ChannelEvent(ChannelNetty.make(ctx.channel()), UserEventTriggered(evt))
+    ChannelEvent(ChannelForUserSocketAppsNetty.make(ctx.channel()), UserEventTriggered(evt))
 
   /**
    * Immutable and type-safe representation of events that are triggered on a
