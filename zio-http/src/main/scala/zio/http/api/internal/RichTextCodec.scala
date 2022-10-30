@@ -35,7 +35,7 @@ sealed trait RichTextCodec[A] { self =>
    * Returns a new codec that is the sequential composition of this codec and
    * the specified codec, producing the values of both as a tuple.
    */
-  final def ~[B](that: RichTextCodec[B])(implicit combiner: Combiner[A, B]): RichTextCodec[combiner.Out] =
+  final def ~[B](that: => RichTextCodec[B])(implicit combiner: Combiner[A, B]): RichTextCodec[combiner.Out] =
     RichTextCodec.Zip(self, RichTextCodec.defer(that), combiner)
 
   /**
@@ -110,7 +110,7 @@ sealed trait RichTextCodec[A] { self =>
     self.transform(a => Some(a), { case None => default; case Some(a) => a })
 
   final def repeat: RichTextCodec[Chunk[A]] =
-    (self ~ RichTextCodec.defer(repeat)).transformOrFailRight(
+    (self ~ repeat).transformOrFailRight(
       t => Chunk(t._1) ++ t._2,
       c =>
         c.headOption match {
