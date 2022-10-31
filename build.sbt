@@ -92,7 +92,7 @@ ThisBuild / githubWorkflowBuildPostamble :=
   ).steps
 
 lazy val root = (project in file("."))
-  .settings(stdSettings("root"))
+  .settings(stdSettings("zio-http-root"))
   .settings(publishSetting(false))
   .aggregate(
     zioHttp,

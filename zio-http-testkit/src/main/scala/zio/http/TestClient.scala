@@ -1,8 +1,9 @@
 package zio.http
 
 import zio._
+import zio.http.ChannelEvent.{ChannelUnregistered, UserEvent}
 import zio.http.model.{Headers, Method, Scheme, Status, Version}
-import zio.http.socket.SocketApp
+import zio.http.socket.{SocketApp, WebSocketFrame}
 
 /**
  * Enables tests that use a client without needing a live Server
@@ -11,7 +12,8 @@ import zio.http.socket.SocketApp
  *   Contains the user-specified behavior that takes the place of the usual
  *   Server
  */
-final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Client {
+final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocketBehavior: Ref[SocketApp[Any]])
+    extends Client {
 
   /**
    * Adds an exact 1-1 behavior
@@ -102,7 +104,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Clie
       }
     } yield response
 
-  override protected def socketInternal[Env1 <: Any](
+  override protected def socketInternal[Env1](
     app: SocketApp[Env1],
     headers: Headers,
     hostOption: Option[String],
@@ -111,14 +113,57 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]]) extends Clie
     queries: QueryParams,
     schemeOption: Option[Scheme],
     version: Version,
-  )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = ???
+  )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
+    for {
+      env                   <- ZIO.environment[Env1]
+      currentSocketBehavior <- serverSocketBehavior.get
+      testChannelClient     <- TestChannel.make
+      testChannelServer     <- TestChannel.make
+      _ <- eventLoop("Server", testChannelClient, currentSocketBehavior, testChannelServer).forkDaemon
+      _ <- eventLoop("Client", testChannelServer, app.provideEnvironment(env), testChannelClient).forkDaemon
+    } yield Response.status(Status.SwitchingProtocols)
+  }
+
+  private def eventLoop(name: String, channel: TestChannel, app: SocketApp[Any], otherChannel: TestChannel) =
+    (for {
+      pendEvent <- channel.pending
+      _         <- app.message.get.apply(ChannelEvent(otherChannel, pendEvent))
+      _         <- ZIO.when(pendEvent == ChannelUnregistered) {
+        otherChannel.close
+      }
+    } yield pendEvent).repeatWhileZIO(event => ZIO.succeed(shouldContinue(event)))
+
+  def shouldContinue(event: ChannelEvent.Event[WebSocketFrame]) =
+    event match {
+      case ChannelEvent.ExceptionCaught(_)            => false
+      case ChannelEvent.ChannelRead(message)          =>
+        message match {
+          case WebSocketFrame.Close(_, _) => false
+          case _                          => true
+        }
+      case ChannelEvent.UserEventTriggered(userEvent) =>
+        userEvent match {
+          case UserEvent.HandshakeTimeout  => false
+          case UserEvent.HandshakeComplete => true
+        }
+      case ChannelEvent.ChannelRegistered             => true
+      case ChannelEvent.ChannelUnregistered           => false
+    }
+
+  def addSocketApp[Env1](
+    app: SocketApp[Env1],
+  ): ZIO[Env1, Nothing, Unit] =
+    for {
+      env <- ZIO.environment[Env1]
+      _   <- serverSocketBehavior.set(app.provideEnvironment(env))
+    } yield ()
 }
 
 object TestClient {
 
   /**
    * Adds an exact 1-1 behavior
-   * @param expectedRequest
+   * @param request
    *   The request that will trigger the response
    * @param response
    *   The response to be returned when a user submits the response
@@ -151,10 +196,16 @@ object TestClient {
   ): ZIO[R with TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
+  def addSocketApp[Env1](
+    app: SocketApp[Env1],
+  ): ZIO[TestClient with Env1, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClient](_.addSocketApp(app))
+
   val layer: ZLayer[Any, Nothing, TestClient] =
     ZLayer.scoped {
       for {
-        behavior <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
-      } yield TestClient(behavior)
+        behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
+        socketBehavior <- Ref.make[SocketApp[Any]](SocketApp.apply(_ => ZIO.unit))
+      } yield TestClient(behavior, socketBehavior)
     }
 }

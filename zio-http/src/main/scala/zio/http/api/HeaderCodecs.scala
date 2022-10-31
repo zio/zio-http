@@ -18,8 +18,9 @@ trait HeaderCodecs {
   final val acceptLanguage: HeaderCodec[AcceptLanguage]           =
     header(HeaderNames.acceptLanguage.toString(), TextCodec.string)
       .transform(AcceptLanguage.toAcceptLanguage, AcceptLanguage.fromAcceptLanguage)
-  final val acceptRanges: HeaderCodec[String]                     =
+  final val acceptRanges: HeaderCodec[AcceptRanges]               =
     header(HeaderNames.acceptRanges.toString(), TextCodec.string)
+      .transform(AcceptRanges.to, AcceptRanges.from)
   final val acceptPatch: HeaderCodec[AcceptPatch]                 =
     header(HeaderNames.acceptPatch.toString(), TextCodec.string)
       .transform(AcceptPatch.toAcceptPatch, AcceptPatch.fromAcceptPatch)
@@ -84,7 +85,9 @@ trait HeaderCodecs {
     .transform(DNT.toDNT(_), DNT.fromDNT(_))
   final val etag: HeaderCodec[ETag]                      = header(HeaderNames.etag.toString(), TextCodec.string)
     .transform(ETag.toETag(_), ETag.fromETag(_))
-  final val expect: HeaderCodec[String]                  = header(HeaderNames.expect.toString(), TextCodec.string)
+  final val expect: HeaderCodec[Expect]                  =
+    header(HeaderNames.expect.toString(), TextCodec.string)
+      .transform(Expect.toExpect, Expect.fromExpect)
   final val expires: HeaderCodec[Expires]                =
     header(HeaderNames.expires.toString(), TextCodec.string).transform[Expires](Expires.toExpires, Expires.fromExpires)
   final val from: HeaderCodec[String]                    = header(HeaderNames.from.toString(), TextCodec.string)
@@ -95,12 +98,15 @@ trait HeaderCodecs {
     header(HeaderNames.ifModifiedSince.toString(), TextCodec.string)
   final val ifNoneMatch: HeaderCodec[String]             =
     header(HeaderNames.ifNoneMatch.toString(), TextCodec.string)
-  final val ifRange: HeaderCodec[String]                 = header(HeaderNames.ifRange.toString(), TextCodec.string)
+  final val ifRange: HeaderCodec[IfRange]                =
+    header(HeaderNames.ifRange.toString(), TextCodec.string)
+      .transform(IfRange.toIfRange, IfRange.fromIfRange)
   final val ifUnmodifiedSince: HeaderCodec[String]       =
     header(HeaderNames.ifUnmodifiedSince.toString(), TextCodec.string)
   final val lastModified: HeaderCodec[String]            =
     header(HeaderNames.lastModified.toString(), TextCodec.string)
-  final val location: HeaderCodec[String]                = header(HeaderNames.location.toString(), TextCodec.string)
+  final val location: HeaderCodec[Location]              =
+    header(HeaderNames.location.toString(), TextCodec.string).transform(Location.toLocation, Location.fromLocation)
   final val maxForwards: HeaderCodec[MaxForwards]        =
     header(HeaderNames.maxForwards.toString(), TextCodec.string)
       .transform(MaxForwards.toMaxForwards(_), MaxForwards.fromMaxForwards(_))
@@ -134,10 +140,12 @@ trait HeaderCodecs {
   final val setCookie: HeaderCodec[String]               = header(HeaderNames.setCookie.toString(), TextCodec.string)
   final val te: HeaderCodec[String]                      = header(HeaderNames.te.toString(), TextCodec.string)
   final val trailer: HeaderCodec[String]                 = header(HeaderNames.trailer.toString(), TextCodec.string)
-  final val transferEncoding: HeaderCodec[String]        =
-    header(HeaderNames.transferEncoding.toString(), TextCodec.string)
-  final val upgrade: HeaderCodec[String]                 = header(HeaderNames.upgrade.toString(), TextCodec.string)
-  final val upgradeInsecureRequests: HeaderCodec[String] =
+  final val transferEncoding: HeaderCodec[TransferEncoding] = header(
+    HeaderNames.transferEncoding.toString(),
+    TextCodec.string,
+  ).transform(TransferEncoding.toTransferEncoding, TransferEncoding.fromTransferEncoding)
+  final val upgrade: HeaderCodec[String]                    = header(HeaderNames.upgrade.toString(), TextCodec.string)
+  final val upgradeInsecureRequests: HeaderCodec[String]    =
     header(HeaderNames.upgradeInsecureRequests.toString(), TextCodec.string)
   final val userAgent: HeaderCodec[String]               = header(HeaderNames.userAgent.toString(), TextCodec.string)
   final val vary: HeaderCodec[String]                    = header(HeaderNames.vary.toString(), TextCodec.string)
@@ -146,14 +154,14 @@ trait HeaderCodecs {
     header(HeaderNames.warning.toString(), TextCodec.string).transform[Warning](Warning.toWarning, Warning.fromWarning)
   final val webSocketLocation: HeaderCodec[String]       =
     header(HeaderNames.webSocketLocation.toString(), TextCodec.string)
-  final val webSocketOrigin: HeaderCodec[String]         =
+  final val webSocketOrigin: HeaderCodec[String]            =
     header(HeaderNames.webSocketOrigin.toString(), TextCodec.string)
-  final val webSocketProtocol: HeaderCodec[String]       =
+  final val webSocketProtocol: HeaderCodec[String]          =
     header(HeaderNames.webSocketProtocol.toString(), TextCodec.string)
-  final val wwwAuthenticate: HeaderCodec[String]         =
+  final val wwwAuthenticate: HeaderCodec[String]            =
     header(HeaderNames.wwwAuthenticate.toString(), TextCodec.string)
-  final val xFrameOptions: HeaderCodec[String]           =
+  final val xFrameOptions: HeaderCodec[String]              =
     header(HeaderNames.xFrameOptions.toString(), TextCodec.string)
-  final val xRequestedWith: HeaderCodec[String]          =
+  final val xRequestedWith: HeaderCodec[String]             =
     header(HeaderNames.xRequestedWith.toString(), TextCodec.string)
 }

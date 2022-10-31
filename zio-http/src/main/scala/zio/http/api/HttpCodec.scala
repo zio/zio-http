@@ -29,18 +29,34 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   self =>
   private lazy val encoderDecoder = zio.http.api.internal.EncoderDecoder(self)
 
+  /**
+   * Returns a new codec that is the same as this one, but has attached docs,
+   * which will render whenever docs are generated from the codec.
+   */
   def ??(doc: Doc): HttpCodec[AtomTypes, Value] = HttpCodec.WithDoc(self, doc)
 
+  /**
+   * Returns a new codec, where the value produced by this one is optional. This
+   * method may only be called on header and query codecs.
+   */
   def optional(implicit
-    ev: CodecType.Header with CodecType.Query <:< AtomTypes,
+    ev: CodecType.Header with CodecType.Query with CodecType.Method <:< AtomTypes,
   ): HttpCodec[AtomTypes, Option[Value]] =
     HttpCodec.Optional(HttpCodec.updateOptional(self))
 
+  /**
+   * Returns a new codec that is the composition of this codec and the specified
+   * codec. For codecs that include route codecs, the routes will be decoded
+   * sequentially from left to right.
+   */
   def ++[AtomTypes1 <: AtomTypes, Value2](that: HttpCodec[AtomTypes1, Value2])(implicit
     combiner: Combiner[Value, Value2],
   ): HttpCodec[AtomTypes1, combiner.Out] =
     HttpCodec.Combine[AtomTypes1, AtomTypes1, Value, Value2, combiner.Out](self, that, combiner)
 
+  /**
+   * Combines two query codecs into another query codec.
+   */
   def &[Value2](
     that: QueryCodec[Value2],
   )(implicit
@@ -49,6 +65,9 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   ): QueryCodec[combiner.Out] =
     self.asQuery ++ that
 
+  /**
+   * Combines two route codecs into another route codec.
+   */
   def /[Value2](
     that: RouteCodec[Value2],
   )(implicit
@@ -57,15 +76,29 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   ): RouteCodec[combiner.Out] =
     self.asRoute ++ that
 
+  /**
+   * Reinterprets this codec as a query codec assuming evidence that this
+   * interpretation is sound.
+   */
   final def asQuery(implicit ev: CodecType.Query <:< AtomTypes): QueryCodec[Value] =
     self.asInstanceOf[QueryCodec[Value]]
 
+  /**
+   * Reinterpets this codec as a route codec assuming evidence that this
+   * interpretation is sound.
+   */
   final def asRoute(implicit ev: CodecType.Route <:< AtomTypes): RouteCodec[Value] =
     self.asInstanceOf[RouteCodec[Value]]
 
+  /**
+   * Uses this codec to decode the Scala value from a request.
+   */
   final def decodeRequest(request: Request)(implicit trace: Trace): Task[Value] =
     decode(request.url, Status.Ok, request.method, request.headers, request.body)
 
+  /**
+   * Uses this codec to decode the Scala value from a response.
+   */
   final def decodeResponse(response: Response)(implicit trace: Trace): Task[Value] =
     decode(URL.empty, response.status, Method.GET, response.headers, response.body)
 
@@ -74,6 +107,9 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   ): Task[Value] =
     encoderDecoder.decode(url, status, method, headers, body)
 
+  /**
+   * Uses this codec to encode the Scala value into a request.
+   */
   final def encodeRequest(value: Value): Request =
     encodeWith(value)((url, status, method, headers, body) =>
       Request(
@@ -86,9 +122,15 @@ sealed trait HttpCodec[-AtomTypes, Value] {
       ),
     )
 
+  /**
+   * Uses this codec to encode the Scala value as a response.
+   */
   final def encodeResponse[Z](value: Value): Response =
     encodeWith(value)((url, status, method, headers, body) => Response(headers = headers, body = body))
 
+  /**
+   * Uses this codec to encode the Scala value as a response patch.
+   */
   final def encodeResponsePatch[Z](value: Value): Response.Patch =
     encodeWith(value)((url, status, method, headers, body) => Response.Patch(addHeaders = headers, setStatus = status))
 
@@ -129,6 +171,16 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, in => Right(f(in)), g)
 
+  /**
+   * Transforms the type parameter to `Unit` by specifying that all possible
+   * values that can be decoded from this `HttpCodec` are in fact equivalent to
+   * the provided canonical value.
+   *
+   * Note: You should NOT use this method on any codec which can decode
+   * semantically distinct values.
+   */
+  def unit(canonical: Value): HttpCodec[AtomTypes, Unit] =
+    self.transform(_ => (), _ => canonical)
 }
 
 object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
