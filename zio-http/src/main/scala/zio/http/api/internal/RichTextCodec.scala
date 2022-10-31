@@ -294,16 +294,21 @@ object RichTextCodec {
         case Lazy(codec0)                                       => isAltInParens(codec0())
       }
 
+    def explain(tagged: Tagged[_], namesSeen: Set[String]): PartialDescription = {
+      val pd = loop(tagged.codec, namesSeen + tagged.name, tagged)
+      pd.copy(description = s"<${tagged.name}> ::= ${pd.description}")
+    }
+
     def loop(
-      main: RichTextCodec[_],
-      explaining: RichTextCodec[_],
       codec: RichTextCodec[_],
       namesSeen: Set[String],
+      explaining: RichTextCodec[_],
+      seen: Boolean = false,
     ): PartialDescription = {
 
       cycles.get(codec) match {
-        case Some(tagged) if tagged != explaining => loop(main, explaining, tagged, namesSeen)
-        case _                                    =>
+        case Some(tagged) if explaining != tagged || seen => loop(tagged, namesSeen, explaining, seen)
+        case _                                            =>
           codec match {
             case Empty       => PartialDescription("")
             case CharIn(set) =>
@@ -327,21 +332,26 @@ object RichTextCodec {
                 else chunk.mkString("[", "", "]"),
               )
 
-            case Alt(left, right)             =>
-              val leftDescription  = loop(main, explaining, left, namesSeen)
+            case Alt(left, right)                                    =>
+              val leftDescription  = loop(left, namesSeen, explaining, cycles.contains(left))
               val rightDescription =
-                loop(main, explaining, right, namesSeen ++ leftDescription.taggedToDescribe.map(_.name))
+                loop(
+                  right,
+                  namesSeen ++ leftDescription.taggedToDescribe.map(_.name),
+                  explaining,
+                  cycles.contains(right),
+                )
               PartialDescription(
                 s"${leftDescription.description} | ${rightDescription.description}",
                 leftDescription.taggedToDescribe ++ rightDescription.taggedToDescribe,
               )
-            case Lazy(codec0)                 => loop(main, explaining, codec0(), namesSeen)
-            case Zip(left, right, _)          =>
+            case l @ Lazy(_)                                         => loop(l.codec, namesSeen, explaining, seen)
+            case Zip(left, right, _)                                 =>
               val l                = cycles.getOrElse(left, left)
               val r                = cycles.getOrElse(right, right)
-              val leftDescription  = loop(main, explaining, l, namesSeen)
+              val leftDescription  = loop(l, namesSeen, explaining, cycles.contains(l))
               val rightDescription =
-                loop(main, explaining, r, namesSeen ++ leftDescription.taggedToDescribe.map(_.name))
+                loop(r, namesSeen ++ leftDescription.taggedToDescribe.map(_.name), explaining, cycles.contains(r))
               val d                =
                 (isAltInParens(l), isAltInParens(r)) match {
                   case (false, false) => s"${leftDescription.description}${rightDescription.description}"
@@ -349,34 +359,31 @@ object RichTextCodec {
                   case (true, false)  => s"(${leftDescription.description})${rightDescription.description}"
                   case (true, true)   => s"(${leftDescription.description})(${rightDescription.description})"
                 }
-
               PartialDescription(d, leftDescription.taggedToDescribe ++ rightDescription.taggedToDescribe)
-            case TransformOrFail(codec, _, _) => loop(main, explaining, codec, namesSeen)
-            case t @ Tagged(name, c, false) if main == t && explaining != t =>
-              val pd = loop(main, t, c, namesSeen)
-              pd.copy(description = s"<$name> ::= ${pd.description}")
-            case t @ Tagged(name, _, false) if !namesSeen(name)             => PartialDescription(s"<$name>", List(t))
-            case Tagged(name, _, _)                                         => PartialDescription(s"<$name>")
+            case TransformOrFail(c, _, _)                            => loop(c, namesSeen, explaining, seen)
+            case t @ Tagged(_, c, false) if explaining == t && !seen =>
+              loop(c, namesSeen, explaining, true)
+            case t @ Tagged(name, _, false) if !namesSeen(name)      => PartialDescription(s"<$name>", List(t))
+            case Tagged(name, _, _)                                  => PartialDescription(s"<$name>")
           }
       }
     }
 
     val lines =
-      LazyList.unfold[String, (List[RichTextCodec[_]], Set[String])](
-        codec match {
-          case Tagged(name, c, false) => (List(c), Set(name))
-          case c                      => (List(c), cycles.get(c).map(t => Set(t.name)).getOrElse(Set.empty))
-        },
-      ) {
-        case (Nil, _)            => None
-        case (h :: t, namesSeen) =>
-          val partialDescription = loop(cycles.getOrElse(h, h), Empty, h, namesSeen)
+      LazyList
+        .unfold[String, (List[RichTextCodec[_]], Set[String])]((List(cycles.getOrElse(codec, codec)), Set.empty)) {
+          case (Nil, _)            => None
+          case (h :: t, namesSeen) =>
+            val (partialDescription, thisName) = h match {
+              case t @ Tagged(_, _, false) => (explain(t, namesSeen), Set(t.name))
+              case c                       => (loop(c, namesSeen, Empty), Set.empty[String])
+            }
 
-          Some(
-            partialDescription.description -> (t ++ partialDescription.taggedToDescribe,
-            namesSeen ++ partialDescription.taggedToDescribe.map(_.name)),
-          )
-      }
+            Some(
+              partialDescription.description -> (t ++ partialDescription.taggedToDescribe,
+              namesSeen ++ partialDescription.taggedToDescribe.map(_.name) ++ thisName),
+            )
+        }
 
     lines.mkString("\n")
   }

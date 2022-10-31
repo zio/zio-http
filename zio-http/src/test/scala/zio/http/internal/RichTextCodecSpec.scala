@@ -54,6 +54,15 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         assertTrue(textOf(codec.describe).get == "<letter>")
       },
       test("describe sequence of alternatives") {
+        val a     = RichTextCodec.char('a')
+        val b     = RichTextCodec.char('b')
+        val c     = RichTextCodec.char('c')
+        val d     = RichTextCodec.char('d')
+        val codec = (a | b) ~ (c | d)
+
+        assertTrue(textOf(codec.describe).get == "(a | b)(c | d)")
+      },
+      test("describe sequence of alternative literals") {
         val hello    = RichTextCodec.literal("hello")
         val hi       = RichTextCodec.literal("hi")
         val world    = RichTextCodec.literal("world")
@@ -88,6 +97,23 @@ object RichTextCodecSpec extends ZIOSpecDefault {
           textOf(decimal.describe).get ==
             """|<decimal> ::= <integer> | <integer>.<integer>
                |<integer> ::= [0-9]( | <integer>)""".stripMargin,
+        )
+      },
+      test("describe labelled mutual recursion") {
+        lazy val a: RichTextCodec[_] = (RichTextCodec.char('a') | b) @@ "a"
+        lazy val b: RichTextCodec[_] = (RichTextCodec.char('b') | a) @@ "b"
+        assertTrue(
+          textOf(a.describe).get ==
+            """<a> ::= a | <b>
+              |<b> ::= b | <a>""".stripMargin,
+        )
+      },
+      test("describe unlabelled mutual recursion") {
+        lazy val a: RichTextCodec[_] = RichTextCodec.char('a') | b
+        lazy val b: RichTextCodec[_] = RichTextCodec.char('b') | a
+        assertTrue(
+          textOf(a.describe).get ==
+            """<1> ::= a | b | <1>""".stripMargin,
         )
       },
     ),
