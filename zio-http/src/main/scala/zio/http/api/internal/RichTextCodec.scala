@@ -5,6 +5,7 @@ import zio.{Chunk, NonEmptyChunk}
 
 import java.lang.Integer.parseInt
 import java.lang.StringBuilder
+import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
 import scala.util.control.NoStackTrace
 
@@ -71,6 +72,17 @@ sealed trait RichTextCodec[A] { self =>
    * Constructs documentation for this rich text codec.
    */
   final def describe: Doc = Doc.p(Doc.Span.code(RichTextCodec.describe(self)))
+
+  /**
+   * Tags the codec with a label used in the documentation
+   */
+  final def @@(label: String): RichTextCodec.Tagged[A] = RichTextCodec.Tagged(label, self)
+
+  /**
+   * Tags the codec with a label used in the documentation. The label will be
+   * used but not explained
+   */
+  final def @!(label: String): RichTextCodec.Tagged[A] = RichTextCodec.Tagged(label, self, descriptionNotNeeded = true)
 
   /**
    * Encodes a value into a string, or if this is not possible, fails with an
@@ -144,6 +156,12 @@ object RichTextCodec {
     combiner: Combiner.WithOut[A, B, C],
   ) extends RichTextCodec[C]
 
+  private[internal] final case class Tagged[A](
+    name: String,
+    codec: RichTextCodec[A],
+    descriptionNotNeeded: Boolean = false,
+  ) extends RichTextCodec[A]
+
   /**
    * Returns a lazy codec, which can be used to define recursive codecs.
    */
@@ -177,7 +195,7 @@ object RichTextCodec {
   /**
    * A codec that describes a letter character.
    */
-  val letter: RichTextCodec[Char] = filter(_.isLetter)
+  val letter: RichTextCodec[Char] = filter(_.isLetter) @! "letter"
 
   /**
    * A codec that describes a literal character sequence.
@@ -219,36 +237,148 @@ object RichTextCodec {
   lazy val whitespaceChar: RichTextCodec[Unit] = filter(_.isWhitespace).unit(' ')
 
   private def describe[A](codec: RichTextCodec[A]): String = {
-    // TODO: Handle recursion by using intermediate form and
-    // detecting cycles.
-    def loop[X](codec: RichTextCodec[X]): String =
+    // Identifies cycles and names the anonymous cyclic ones
+    def findCycles(
+      seen: Set[RichTextCodec[_]],
+      lastAnonymous: Int,
+      tags: Map[RichTextCodec[_], Tagged[_]],
+      codec: RichTextCodec[_],
+    ): (Map[RichTextCodec[_], Tagged[_]], Int) = {
+      if (seen(codec)) {
+        (codec, tags.get(codec)) match {
+          case (_, Some(_))            => (tags, lastAnonymous)
+          case (Tagged(_, _, _), None) => (tags, lastAnonymous)
+          case (_, None)               => (Map(codec -> Tagged(s"${lastAnonymous + 1}", codec)), lastAnonymous + 1)
+        }
+      } else
+        codec match {
+          case Empty | CharIn(_)        => (tags, lastAnonymous)
+          case TransformOrFail(c, _, _) =>
+            val res = findCycles(seen + codec, lastAnonymous, tags, c)
+            (res._1 ++ res._1.get(c).map(t => codec -> t), res._2)
+          case Alt(left, right)         =>
+            val lc = findCycles(seen + codec, lastAnonymous, tags, left)
+            findCycles(seen + codec, lc._2, tags ++ lc._1, right)
+          case l @ Lazy(_)              =>
+            val res = findCycles(seen + codec, lastAnonymous, tags, l.codec)
+            (res._1 ++ res._1.get(l.codec).map(t => codec -> t), res._2)
+          case Zip(left, right, _)      =>
+            val lc = findCycles(seen + codec, lastAnonymous, tags, left)
+            findCycles(seen + codec, lc._2, tags ++ lc._1, right)
+          case t @ Tagged(_, c, _)      =>
+            @tailrec def addTag(
+              tags: Map[RichTextCodec[_], Tagged[_]],
+              c: RichTextCodec[_],
+            ): Map[RichTextCodec[_], Tagged[_]] =
+              c match {
+                case l @ Lazy(_)                  => addTag(tags + (c -> t), l.codec)
+                case TransformOrFail(codec, _, _) => addTag(tags + (c -> t), codec)
+                case _                            => tags + (c -> t)
+              }
+            findCycles(seen + codec, lastAnonymous, addTag(tags, c), c)
+        }
+    }
+
+    val (cycles, _) = findCycles(Set.empty, 0, Map.empty, codec)
+    final case class PartialDescription(
+      description: String,
+      taggedToDescribe: List[Tagged[_]] = Nil,
+    )
+
+    @tailrec
+    def isAltInParens(codec: RichTextCodec[_]): Boolean =
       codec match {
-        case Empty       => ""
-        case CharIn(set) =>
-          val tuple = set.foldLeft((Chunk.empty[(Int, Int)], (-1, -1))) { case ((acc, (min, max)), c) =>
-            if (min == -1) (acc, (c, c))
-            else if (c == max + 1) (acc, (min, c))
-            else (acc :+ ((min, max)), (c, c))
-          }
-
-          val finalElement = if (tuple._2 == ((-1, -1))) Chunk.empty else Chunk(tuple._2)
-
-          val chunk = (tuple._1 ++ finalElement).map { case (min, max) =>
-            if (min == max) min.toChar.toString()
-            else if (max == min + 1) s"[${min.toChar}${max.toChar}]"
-            else s"[${min.toChar}-${max.toChar}]"
-          }
-
-          if (chunk.length <= 1) chunk.mkString("")
-          else chunk.mkString("[", "", "]")
-
-        case Alt(left, right)             => s"${loop(left)} | ${loop(right)}"
-        case Lazy(codec0)                 => loop(codec0())
-        case Zip(left, right, _)          => s"${loop(left)}${loop(right)}"
-        case TransformOrFail(codec, _, _) => loop(codec)
+        case Alt(_, _)                                          => true
+        case Empty | CharIn(_) | Zip(_, _, _) | Tagged(_, _, _) => false
+        case TransformOrFail(codec, _, _)                       => isAltInParens(codec)
+        case Lazy(codec0)                                       => isAltInParens(codec0())
       }
 
-    loop(codec)
+    def loop(
+      main: RichTextCodec[_],
+      explaining: RichTextCodec[_],
+      codec: RichTextCodec[_],
+      namesSeen: Set[String],
+    ): PartialDescription = {
+
+      cycles.get(codec) match {
+        case Some(tagged) if tagged != explaining => loop(main, explaining, tagged, namesSeen)
+        case _                                    =>
+          codec match {
+            case Empty       => PartialDescription("")
+            case CharIn(set) =>
+              val firstChunk = if (set('-')) Chunk[(Int, Int)](('-', '-')) else Chunk.empty[(Int, Int)]
+              val tuple      = set.filterNot(_ == '-').foldLeft((firstChunk, (-1, -1))) { case ((acc, (min, max)), c) =>
+                if (min == -1) (acc, (c, c))
+                else if (c == max + 1) (acc, (min, c))
+                else (acc :+ ((min, max)), (c, c))
+              }
+
+              val finalElement = if (tuple._2 == ((-1, -1))) Chunk.empty else Chunk(tuple._2)
+
+              val chunk = (tuple._1 ++ finalElement).map { case (min, max) =>
+                if (min == max) min.toChar.toString
+                else if (max == min + 1) s"${min.toChar}${max.toChar}"
+                else s"${min.toChar}-${max.toChar}"
+              }
+              PartialDescription(
+                if (chunk.isEmpty) ""
+                else if (chunk.length == 1 && chunk.head.length == 1) chunk.mkString("")
+                else chunk.mkString("[", "", "]"),
+              )
+
+            case Alt(left, right)             =>
+              val leftDescription  = loop(main, explaining, left, namesSeen)
+              val rightDescription =
+                loop(main, explaining, right, namesSeen ++ leftDescription.taggedToDescribe.map(_.name))
+              PartialDescription(
+                s"${leftDescription.description} | ${rightDescription.description}",
+                leftDescription.taggedToDescribe ++ rightDescription.taggedToDescribe,
+              )
+            case Lazy(codec0)                 => loop(main, explaining, codec0(), namesSeen)
+            case Zip(left, right, _)          =>
+              val l                = cycles.getOrElse(left, left)
+              val r                = cycles.getOrElse(right, right)
+              val leftDescription  = loop(main, explaining, l, namesSeen)
+              val rightDescription =
+                loop(main, explaining, r, namesSeen ++ leftDescription.taggedToDescribe.map(_.name))
+              val d                =
+                (isAltInParens(l), isAltInParens(r)) match {
+                  case (false, false) => s"${leftDescription.description}${rightDescription.description}"
+                  case (false, true)  => s"${leftDescription.description}(${rightDescription.description})"
+                  case (true, false)  => s"(${leftDescription.description})${rightDescription.description}"
+                  case (true, true)   => s"(${leftDescription.description})(${rightDescription.description})"
+                }
+
+              PartialDescription(d, leftDescription.taggedToDescribe ++ rightDescription.taggedToDescribe)
+            case TransformOrFail(codec, _, _) => loop(main, explaining, codec, namesSeen)
+            case t @ Tagged(name, c, false) if main == t && explaining != t =>
+              val pd = loop(main, t, c, namesSeen)
+              pd.copy(description = s"<$name> ::= ${pd.description}")
+            case t @ Tagged(name, _, false) if !namesSeen(name)             => PartialDescription(s"<$name>", List(t))
+            case Tagged(name, _, _)                                         => PartialDescription(s"<$name>")
+          }
+      }
+    }
+
+    val lines =
+      LazyList.unfold[String, (List[RichTextCodec[_]], Set[String])](
+        codec match {
+          case Tagged(name, c, false) => (List(c), Set(name))
+          case c                      => (List(c), cycles.get(c).map(t => Set(t.name)).getOrElse(Set.empty))
+        },
+      ) {
+        case (Nil, _)            => None
+        case (h :: t, namesSeen) =>
+          val partialDescription = loop(cycles.getOrElse(h, h), Empty, h, namesSeen)
+
+          Some(
+            partialDescription.description -> (t ++ partialDescription.taggedToDescribe,
+            namesSeen ++ partialDescription.taggedToDescribe.map(_.name)),
+          )
+      }
+
+    lines.mkString("\n")
   }
 
   private def encode[A](value: A, self: RichTextCodec[A]): Either[String, String] = {
@@ -274,6 +404,7 @@ object RichTextCodec {
           r <- right.encode(b)
         } yield l + r
       }
+      case RichTextCodec.Tagged(_, codec, _)             => codec.encode(value)
     }
   }
 
@@ -309,6 +440,8 @@ object RichTextCodec {
           l <- parse(value, left)
           r <- parse(l._1, right)
         } yield (r._1, combiner.combine(l._2, r._2))
+
+      case RichTextCodec.Tagged(_, codec, _) => parse(value, codec)
     }
 
 }

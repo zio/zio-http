@@ -28,6 +28,16 @@ object RichTextCodecSpec extends ZIOSpecDefault {
 
         assertTrue(textOf(codec.describe).get == "[A-Z]")
       },
+      test("describe of char ranges") {
+        val codec = RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z')
+
+        assertTrue(textOf(codec.describe).get == "[A-Za-z]")
+      },
+      test("describe of char ranges containing the dash") {
+        // The dash should be the 1st character, to be distinguished from a range separator
+        val codec = RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c == '-' || c == '!')
+        assertTrue(textOf(codec.describe).get == "[-!A-Z]")
+      },
       test("describe of literal") {
         val codec = RichTextCodec.literal("hello")
 
@@ -37,6 +47,48 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         val codec = RichTextCodec.literalCI("hello")
 
         assertTrue(textOf(codec.describe).get == "[Hh][Ee][Ll][Ll][Oo]")
+      },
+      test("describe letter as a simple name") {
+        val codec = RichTextCodec.letter
+
+        assertTrue(textOf(codec.describe).get == "<letter>")
+      },
+      test("describe sequence of alternatives") {
+        val hello    = RichTextCodec.literal("hello")
+        val hi       = RichTextCodec.literal("hi")
+        val world    = RichTextCodec.literal("world")
+        val universe = RichTextCodec.literal("universe")
+        val codec    = (hello | hi) ~ (world | universe)
+
+        assertTrue(textOf(codec.describe).get == "(hello | hi)(world | universe)")
+      },
+      test("describe tagged (non recursive)") {
+        val greeting = (RichTextCodec.literal("hello") | RichTextCodec.literal("hi")) @@ "greeting"
+        val planet   = (RichTextCodec.literal("Earth") | RichTextCodec.literal("Mars")) @@ "planet"
+        val codec    = greeting ~ planet
+        assertTrue(
+          textOf(codec.describe).get ==
+            """<greeting><planet>
+              |<greeting> ::= hello | hi
+              |<planet> ::= Earth | Mars""".stripMargin,
+        )
+      },
+      test("describe simple recursion") {
+        val codec = RichTextCodec.char('x').repeat
+        assertTrue(textOf(codec.describe).get == "<1> ::= x<1> | ")
+      },
+      test("describe tagged simple recursion") {
+        val codec = RichTextCodec.char('x').repeat @@ "xs"
+        assertTrue(textOf(codec.describe).get == "<xs> ::= x<xs> | ")
+      },
+      test("describe tagged with recursion") {
+        lazy val integer: RichTextCodec[_] = (RichTextCodec.digit ~ (RichTextCodec.empty | integer)) @@ "integer"
+        val decimal                        = (integer | integer ~ RichTextCodec.char('.') ~ integer) @@ "decimal"
+        assertTrue(
+          textOf(decimal.describe).get ==
+            """|<decimal> ::= <integer> | <integer>.<integer>
+               |<integer> ::= [0-9]( | <integer>)""".stripMargin,
+        )
       },
     ),
     suite("encode spec")(
