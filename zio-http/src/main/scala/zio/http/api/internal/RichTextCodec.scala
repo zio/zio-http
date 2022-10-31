@@ -237,6 +237,67 @@ object RichTextCodec {
   lazy val whitespaceChar: RichTextCodec[Unit] = filter(_.isWhitespace).unit(' ')
 
   private def describe[A](codec: RichTextCodec[A]): String = {
+
+    sealed trait DocPart
+    object DocPart {
+
+      private val escapedChars: Map[Char, String] =
+        "“”[]\\\"".map(c => c -> s"\\$c").toMap ++ Map(
+          '\t' -> "\\t",
+          '\b' -> "\\b",
+          '\r' -> "\\r",
+          '\n' -> "\\n",
+          '\f' -> "\\f",
+        )
+
+      object Empty                                       extends DocPart {
+        override def toString: String = "«empty»"
+      }
+      final case class Literal(ranges: List[CharRanges]) extends DocPart {
+        override def toString: String = s"“${ranges.mkString}”"
+      }
+
+      final case class CharRange(from: Char, to: Char) extends DocPart {
+        override def toString: String = if (from == to) escapedChars.getOrElse(from, from.toString)
+        else if (from + 1 == to)
+          s"${escapedChars.getOrElse(from, from.toString)}${escapedChars.getOrElse(to, to.toString)}"
+        else s"${escapedChars.getOrElse(from, from.toString)}-${escapedChars.getOrElse(to, to.toString)}"
+      }
+
+      final case class CharRanges(ranges: List[CharRange]) extends DocPart {
+        override def toString: String = ranges match {
+          case CharRange(from, to) :: Nil if from == to => escapedChars.getOrElse(from, from.toString)
+          case _                                        => s"[${ranges.map(_.toString).mkString}]"
+        }
+      }
+
+      final case class Ref(name: String)              extends DocPart {
+        override def toString: String = s"«$name»"
+      }
+      final case class Sequence(parts: List[DocPart]) extends DocPart {
+
+        override def toString: String =
+          parts.map {
+            case a: Alternatives => s"($a)"
+            case p               => p.toString
+          }.mkString(" ")
+
+      }
+      final case class Alternatives(parts: List[DocPart])    extends DocPart {
+        override def toString: String = parts.map(_.toString).mkString(" | ")
+      }
+      final case class Optional(it: DocPart)                 extends DocPart {
+        override def toString: String =
+          it match {
+            case _: Alternatives | _: Sequence => s"($it)?"
+            case _                             => s"$it?"
+          }
+      }
+      final case class Defintion(name: String, doc: DocPart) extends DocPart {
+        override def toString: String = s"«$name» ⩴ $doc"
+      }
+    }
+
     // Identifies cycles and names the anonymous cyclic ones
     def findCycles(
       seen: Set[RichTextCodec[_]],
@@ -281,7 +342,7 @@ object RichTextCodec {
 
     val (cycles, _) = findCycles(Set.empty, 0, Map.empty, codec)
     final case class PartialDescription(
-      description: String,
+      description: DocPart,
       taggedToDescribe: List[Tagged[_]] = Nil,
     )
 
@@ -296,7 +357,7 @@ object RichTextCodec {
 
     def explain(tagged: Tagged[_], namesSeen: Set[String]): PartialDescription = {
       val pd = loop(tagged.codec, namesSeen + tagged.name, tagged)
-      pd.copy(description = s"<${tagged.name}> ::= ${pd.description}")
+      pd.copy(description = DocPart.Defintion(tagged.name, pd.description))
     }
 
     def loop(
@@ -310,7 +371,7 @@ object RichTextCodec {
         case Some(tagged) if explaining != tagged || seen => loop(tagged, namesSeen, explaining, seen)
         case _                                            =>
           codec match {
-            case Empty       => PartialDescription("")
+            case Empty       => PartialDescription(DocPart.Empty)
             case CharIn(set) =>
               val firstChunk = if (set('-')) Chunk[(Int, Int)](('-', '-')) else Chunk.empty[(Int, Int)]
               val tuple      = set.filterNot(_ == '-').foldLeft((firstChunk, (-1, -1))) { case ((acc, (min, max)), c) =>
@@ -321,15 +382,13 @@ object RichTextCodec {
 
               val finalElement = if (tuple._2 == ((-1, -1))) Chunk.empty else Chunk(tuple._2)
 
-              val chunk = (tuple._1 ++ finalElement).map { case (min, max) =>
-                if (min == max) min.toChar.toString
-                else if (max == min + 1) s"${min.toChar}${max.toChar}"
-                else s"${min.toChar}-${max.toChar}"
+              val chunk: Chunk[DocPart.CharRange] = (tuple._1 ++ finalElement).map { case (min, max) =>
+                DocPart.CharRange(min.toChar, max.toChar)
               }
               PartialDescription(
-                if (chunk.isEmpty) ""
-                else if (chunk.length == 1 && chunk.head.length == 1) chunk.mkString("")
-                else chunk.mkString("[", "", "]"),
+                DocPart.CharRanges(
+                  chunk.toList,
+                ),
               )
 
             case Alt(left, right)                                    =>
@@ -342,7 +401,22 @@ object RichTextCodec {
                   cycles.contains(right),
                 )
               PartialDescription(
-                s"${leftDescription.description} | ${rightDescription.description}",
+                (leftDescription.description, rightDescription.description) match {
+                  case (DocPart.Empty, DocPart.Empty)                   => DocPart.Empty
+                  case (DocPart.Empty, r @ DocPart.Optional(_))         => r
+                  case (l @ DocPart.Optional(_), DocPart.Empty)         => l
+                  case (DocPart.Empty, r: DocPart.CharRanges)           => DocPart.Optional(DocPart.Literal(List(r)))
+                  case (DocPart.Empty, r)                               => DocPart.Optional(r)
+                  case (l: DocPart.CharRanges, DocPart.Empty)           => DocPart.Optional(DocPart.Literal(List(l)))
+                  case (DocPart.CharRanges(lr), DocPart.CharRanges(rr)) => DocPart.CharRanges(lr ++ rr)
+                  case (l: DocPart.CharRanges, r) => DocPart.Alternatives(List(DocPart.Literal(List(l)), r))
+                  case (l, r: DocPart.CharRanges) => DocPart.Alternatives(List(l, DocPart.Literal(List(r))))
+                  case (l, DocPart.Empty)         => DocPart.Optional(l)
+                  case (DocPart.Alternatives(la), DocPart.Alternatives(ra)) => DocPart.Alternatives(la ++ ra)
+                  case (DocPart.Alternatives(la), r)                        => DocPart.Alternatives(la :+ r)
+                  case (l, DocPart.Alternatives(ra))                        => DocPart.Alternatives(l :: ra)
+                  case (l, r)                                               => DocPart.Alternatives(List(l, r))
+                },
                 leftDescription.taggedToDescribe ++ rightDescription.taggedToDescribe,
               )
             case l @ Lazy(_)                                         => loop(l.codec, namesSeen, explaining, seen)
@@ -353,18 +427,27 @@ object RichTextCodec {
               val rightDescription =
                 loop(r, namesSeen ++ leftDescription.taggedToDescribe.map(_.name), explaining, cycles.contains(r))
               val d                =
-                (isAltInParens(l), isAltInParens(r)) match {
-                  case (false, false) => s"${leftDescription.description}${rightDescription.description}"
-                  case (false, true)  => s"${leftDescription.description}(${rightDescription.description})"
-                  case (true, false)  => s"(${leftDescription.description})${rightDescription.description}"
-                  case (true, true)   => s"(${leftDescription.description})(${rightDescription.description})"
+                (leftDescription.description, rightDescription.description) match {
+                  case (DocPart.Empty, rs)                              => rs
+                  case (ls, DocPart.Empty)                              => ls
+                  case (DocPart.Literal(lt), DocPart.Literal(rt))       => DocPart.Literal(lt ++ rt)
+                  case (lr: DocPart.CharRanges, rr: DocPart.CharRanges) => DocPart.Literal(List(lr, rr))
+                  case (DocPart.Literal(lt), rr: DocPart.CharRanges)    => DocPart.Literal(lt :+ rr)
+                  case (lr: DocPart.CharRanges, DocPart.Literal(rt))    => DocPart.Literal(lr :: rt)
+                  case (lr: DocPart.CharRanges, rs) => DocPart.Sequence(List(DocPart.Literal(List(lr)), rs))
+                  case (ls, rr: DocPart.CharRanges) => DocPart.Sequence(List(ls, DocPart.Literal(List(rr))))
+                  case (DocPart.Sequence(lps), DocPart.Sequence(rps)) => DocPart.Sequence(lps ++ rps)
+                  case (DocPart.Sequence(lps), rs)                    => DocPart.Sequence(lps :+ rs)
+                  case (ls, DocPart.Sequence(rps))                    => DocPart.Sequence(ls :: rps)
+                  case (ls, rs)                                       => DocPart.Sequence(List(ls, rs))
+
                 }
               PartialDescription(d, leftDescription.taggedToDescribe ++ rightDescription.taggedToDescribe)
             case TransformOrFail(c, _, _)                            => loop(c, namesSeen, explaining, seen)
             case t @ Tagged(_, c, false) if explaining == t && !seen =>
               loop(c, namesSeen, explaining, true)
-            case t @ Tagged(name, _, false) if !namesSeen(name)      => PartialDescription(s"<$name>", List(t))
-            case Tagged(name, _, _)                                  => PartialDescription(s"<$name>")
+            case t @ Tagged(name, _, false) if !namesSeen(name)      => PartialDescription(DocPart.Ref(name), List(t))
+            case Tagged(name, _, _)                                  => PartialDescription(DocPart.Ref(name))
           }
       }
     }
@@ -380,8 +463,12 @@ object RichTextCodec {
             }
 
             Some(
-              partialDescription.description -> (t ++ partialDescription.taggedToDescribe,
-              namesSeen ++ partialDescription.taggedToDescribe.map(_.name) ++ thisName),
+              (partialDescription.description match {
+                case d: DocPart.CharRanges => DocPart.Literal(List(d))
+                case d                     => d
+              }).toString
+                -> (t ++ partialDescription.taggedToDescribe,
+                namesSeen ++ partialDescription.taggedToDescribe.map(_.name) ++ thisName),
             )
         }
 

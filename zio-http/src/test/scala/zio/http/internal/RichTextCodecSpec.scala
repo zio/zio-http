@@ -21,46 +21,56 @@ object RichTextCodecSpec extends ZIOSpecDefault {
       test("describe of specific char") {
         val codec = RichTextCodec.char('x')
 
-        assertTrue(textOf(codec.describe).get == "x")
+        assertTrue(textOf(codec.describe).get == "“x”")
       },
       test("describe of char range") {
         val codec = RichTextCodec.filter(c => c >= 'A' && c <= 'Z')
 
-        assertTrue(textOf(codec.describe).get == "[A-Z]")
+        assertTrue(textOf(codec.describe).get == "“[A-Z]”")
       },
       test("describe of char ranges") {
         val codec = RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z')
 
-        assertTrue(textOf(codec.describe).get == "[A-Za-z]")
+        assertTrue(textOf(codec.describe).get == "“[A-Za-z]”")
       },
       test("describe of char ranges containing the dash") {
         // The dash should be the 1st character, to be distinguished from a range separator
         val codec = RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c == '-' || c == '!')
-        assertTrue(textOf(codec.describe).get == "[-!A-Z]")
+        assertTrue(textOf(codec.describe).get == "“[-!A-Z]”")
       },
       test("describe of literal") {
         val codec = RichTextCodec.literal("hello")
 
-        assertTrue(textOf(codec.describe).get == "hello")
+        assertTrue(textOf(codec.describe).get == "“hello”")
+      },
+      test(label = "describe literal with special characters") {
+        val codec = RichTextCodec.literal("""[a-z"”]\""")
+
+        assertTrue(textOf(codec.describe).get == """“\[a-z\"\”\]\\”""")
+      },
+      test(label = "describe literal with new line characters") {
+        val codec = RichTextCodec.literal("\n")
+
+        assertTrue(textOf(codec.describe).get == """“\n”""")
       },
       test("describe of CI literal") {
         val codec = RichTextCodec.literalCI("hello")
 
-        assertTrue(textOf(codec.describe).get == "[Hh][Ee][Ll][Ll][Oo]")
+        assertTrue(textOf(codec.describe).get == "“[Hh][Ee][Ll][Ll][Oo]”")
       },
       test("describe letter as a simple name") {
         val codec = RichTextCodec.letter
 
-        assertTrue(textOf(codec.describe).get == "<letter>")
+        assertTrue(textOf(codec.describe).get == "«letter»")
       },
-      test("describe sequence of alternatives") {
+      test("describe sequence of char alternatives") {
         val a     = RichTextCodec.char('a')
         val b     = RichTextCodec.char('b')
         val c     = RichTextCodec.char('c')
         val d     = RichTextCodec.char('d')
         val codec = (a | b) ~ (c | d)
 
-        assertTrue(textOf(codec.describe).get == "(a | b)(c | d)")
+        assertTrue(textOf(codec.describe).get == "“[ab][cd]”")
       },
       test("describe sequence of alternative literals") {
         val hello    = RichTextCodec.literal("hello")
@@ -69,7 +79,16 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         val universe = RichTextCodec.literal("universe")
         val codec    = (hello | hi) ~ (world | universe)
 
-        assertTrue(textOf(codec.describe).get == "(hello | hi)(world | universe)")
+        assertTrue(textOf(codec.describe).get == "(“hello” | “hi”) (“world” | “universe”)")
+      },
+      test("describe sequence of alternative literals and chars") {
+        val a     = RichTextCodec.literal("a")
+        val bb    = RichTextCodec.literal("bb")
+        val cc    = RichTextCodec.literal("cc")
+        val d     = RichTextCodec.literal("d")
+        val codec = (a | bb) ~ (cc | d)
+
+        assertTrue(textOf(codec.describe).get == "(“a” | “bb”) (“cc” | “d”)")
       },
       test("describe tagged (non recursive)") {
         val greeting = (RichTextCodec.literal("hello") | RichTextCodec.literal("hi")) @@ "greeting"
@@ -77,26 +96,28 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         val codec    = greeting ~ planet
         assertTrue(
           textOf(codec.describe).get ==
-            """<greeting><planet>
-              |<greeting> ::= hello | hi
-              |<planet> ::= Earth | Mars""".stripMargin,
+            """«greeting» «planet»
+              |«greeting» ⩴ “hello” | “hi”
+              |«planet» ⩴ “Earth” | “Mars”""".stripMargin,
         )
       },
       test("describe simple recursion") {
         val codec = RichTextCodec.char('x').repeat
-        assertTrue(textOf(codec.describe).get == "<1> ::= x<1> | ")
+        // This would be perhaps nicer as «1» ⩴ “x”* or even without the label.
+        assertTrue(textOf(codec.describe).get == "«1» ⩴ (“x” «1»)?")
       },
       test("describe tagged simple recursion") {
         val codec = RichTextCodec.char('x').repeat @@ "xs"
-        assertTrue(textOf(codec.describe).get == "<xs> ::= x<xs> | ")
+        // This would be perhaps nicer as «xs» ⩴ “x”*
+        assertTrue(textOf(codec.describe).get == "«xs» ⩴ (“x” «xs»)?")
       },
       test("describe tagged with recursion") {
         lazy val integer: RichTextCodec[_] = (RichTextCodec.digit ~ (RichTextCodec.empty | integer)) @@ "integer"
         val decimal                        = (integer | integer ~ RichTextCodec.char('.') ~ integer) @@ "decimal"
         assertTrue(
           textOf(decimal.describe).get ==
-            """|<decimal> ::= <integer> | <integer>.<integer>
-               |<integer> ::= [0-9]( | <integer>)""".stripMargin,
+            """|«decimal» ⩴ «integer» | «integer» “.” «integer»
+               |«integer» ⩴ “[0-9]” «integer»?""".stripMargin,
         )
       },
       test("describe labelled mutual recursion") {
@@ -104,8 +125,8 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         lazy val b: RichTextCodec[_] = (RichTextCodec.char('b') | a) @@ "b"
         assertTrue(
           textOf(a.describe).get ==
-            """<a> ::= a | <b>
-              |<b> ::= b | <a>""".stripMargin,
+            """«a» ⩴ “a” | «b»
+              |«b» ⩴ “b” | «a»""".stripMargin,
         )
       },
       test("describe unlabelled mutual recursion") {
@@ -113,7 +134,7 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         lazy val b: RichTextCodec[_] = RichTextCodec.char('b') | a
         assertTrue(
           textOf(a.describe).get ==
-            """<1> ::= a | b | <1>""".stripMargin,
+            """«1» ⩴ “a” | “b” | «1»""".stripMargin,
         )
       },
     ),
