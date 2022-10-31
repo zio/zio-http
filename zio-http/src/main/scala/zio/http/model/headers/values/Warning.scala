@@ -116,9 +116,9 @@ object Warning {
           case None        => ""
         }
         if (formattedDate.isEmpty) {
-          s"$code $agent $text"
+          code.toString + " " + agent + " " + text
         } else {
-          s"$code $agent $text \"${formattedDate}\""
+          code.toString + " " + agent + " " + text + " " + '"' + formattedDate + '"'
         }
       }
       case InvalidWarning                        => ""
