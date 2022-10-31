@@ -1,6 +1,6 @@
 package zio.http.model.headers.values
 
-import java.time.{ZoneId, ZonedDateTime}
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import scala.util.Try
 
@@ -21,6 +21,9 @@ object Warning {
    */
   final case class WarningValue(code: Int, agent: String, text: String, date: Option[ZonedDateTime] = None)
       extends Warning
+
+  private val validCodes = List(110, 111, 112, 113, 199, 214, 299)
+  private val expectedDateFormat = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
   case object InvalidWarning extends Warning
 
@@ -56,12 +59,12 @@ object Warning {
     <warn-date>
     A date. This is optional. If more than one Warning header is sent, include a date that matches the Date header.
      */
+
     val dateStartIndex = warningString.indexOf("\"", descriptionEndIndex + 1)
     val dateEndIndex   = warningString.indexOf("\"", dateStartIndex + 1)
     val warningDate    = Try {
       val selectedDate   = warningString.substring(dateStartIndex + 1, dateEndIndex)
-      val expectedFormat = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
-      ZonedDateTime.parse(selectedDate, expectedFormat)
+      ZonedDateTime.parse(selectedDate, expectedDateFormat)
     }.toOption
 
     val fullWarning = WarningValue(warnCode, warnAgent, description, warningDate)
@@ -71,7 +74,6 @@ object Warning {
       Registry is available here: https://www.iana.org/assignments/http-warn-codes/http-warn-codes.xhtml
      */
     def isCodeValid(warningCode: Int): Boolean = {
-      val validCodes = List(110, 111, 112, 113, 199, 214, 299)
       if (validCodes.contains(warningCode)) true
       else false
     }
@@ -109,9 +111,8 @@ object Warning {
   def fromWarning(warning: Warning): String = {
     val warningString = warning match {
       case WarningValue(code, agent, text, date) => {
-        val expectedFormat = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
         val formattedDate  = date match {
-          case Some(value) => value.format(expectedFormat)
+          case Some(value) => value.format(expectedDateFormat)
           case None        => ""
         }
         if (formattedDate.isEmpty) {
