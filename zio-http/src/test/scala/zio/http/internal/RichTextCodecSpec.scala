@@ -1,7 +1,5 @@
 package zio.http.api.internal
 
-import zio.Scope
-import zio.http._
 import zio.http.api._
 import zio.test.Assertion.equalTo
 import zio.test._

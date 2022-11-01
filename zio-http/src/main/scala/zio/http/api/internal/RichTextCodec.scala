@@ -4,10 +4,8 @@ import zio.http.api.{Combiner, Doc}
 import zio.{Chunk, NonEmptyChunk}
 
 import java.lang.Integer.parseInt
-import java.lang.StringBuilder
 import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
-import scala.util.control.NoStackTrace
 
 /**
  * A `RichTextCodec` is a more compositional version of `TextCodec`, which has
@@ -448,34 +446,39 @@ object RichTextCodec {
               PartialDescription(d, leftDescription.taggedToDescribe ++ rightDescription.taggedToDescribe)
             case TransformOrFail(c, _, _)                            => loop(c, namesSeen, explaining, seen)
             case t @ Tagged(_, c, false) if explaining == t && !seen =>
-              loop(c, namesSeen, explaining, true)
+              loop(c, namesSeen, explaining, seen = true)
             case t @ Tagged(name, _, false) if !namesSeen(name)      => PartialDescription(DocPart.Ref(name), List(t))
             case Tagged(name, _, _)                                  => PartialDescription(DocPart.Ref(name))
           }
       }
     }
 
-    val lines =
-      LazyList
-        .unfold[String, (List[RichTextCodec[_]], Set[String])]((List(cycles.getOrElse(codec, codec)), Set.empty)) {
-          case (Nil, _)            => None
-          case (h :: t, namesSeen) =>
-            val (partialDescription, thisName) = h match {
-              case t @ Tagged(_, _, false) => (explain(t, namesSeen), Set(t.name))
-              case c                       => (loop(c, namesSeen, Empty), Set.empty[String])
-            }
+    @tailrec
+    def getLines(
+      linesRev: List[String],
+      codecsToDescribe: List[RichTextCodec[_]],
+      namesSeen: Set[String],
+    ): List[String] = {
+      codecsToDescribe match {
+        case Nil       => linesRev
+        case h :: tail =>
+          val (partialDescription, thisName) = h match {
+            case t @ Tagged(_, _, false) => (explain(t, namesSeen), Set(t.name))
+            case c                       => (loop(c, namesSeen, Empty), Set.empty[String])
+          }
+          val line                           = (partialDescription.description match {
+            case d: DocPart.CharRanges => DocPart.Literal(List(d))
+            case d                     => d
+          }).toString
 
-            Some(
-              (partialDescription.description match {
-                case d: DocPart.CharRanges => DocPart.Literal(List(d))
-                case d                     => d
-              }).toString
-                -> (t ++ partialDescription.taggedToDescribe,
-                namesSeen ++ partialDescription.taggedToDescribe.map(_.name) ++ thisName),
-            )
-        }
+          val stillToDescribe = tail ++ partialDescription.taggedToDescribe
+          val namesSeenNow    = namesSeen ++ partialDescription.taggedToDescribe.map(_.name) ++ thisName
 
-    lines.mkString("\n")
+          getLines(line :: linesRev, stillToDescribe, namesSeenNow)
+      }
+    }
+
+    getLines(Nil, List(cycles.getOrElse(codec, codec)), Set.empty).reverse.mkString("\n")
   }
 
   private def encode[A](value: A, self: RichTextCodec[A]): Either[String, String] = {
