@@ -76,15 +76,16 @@ sealed trait RichTextCodec[A] { self =>
   /**
    * Tags the codec with a label used in the documentation
    */
-  final def ??(label: String): RichTextCodec.Tagged[A] = tagged(label)
+  final def ??(label: String): RichTextCodec.Tagged[A]     = tagged(label)
   final def tagged(label: String): RichTextCodec.Tagged[A] = RichTextCodec.Tagged(label, self)
 
   /**
    * Tags the codec with a label used in the documentation. The label will be
    * used but not explained
    */
-  final def ?!(label: String): RichTextCodec.Tagged[A] = taggedUnexplained(label)
-  final def taggedUnexplained(label: String): RichTextCodec.Tagged[A] = RichTextCodec.Tagged(label, self, descriptionNotNeeded = true)
+  final def ?!(label: String): RichTextCodec.Tagged[A]                = taggedUnexplained(label)
+  final def taggedUnexplained(label: String): RichTextCodec.Tagged[A] =
+    RichTextCodec.Tagged(label, self, descriptionNotNeeded = true)
 
   /**
    * Encodes a value into a string, or if this is not possible, fails with an
