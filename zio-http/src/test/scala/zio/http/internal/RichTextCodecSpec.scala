@@ -91,8 +91,8 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         assertTrue(textOf(codec.describe).get == "(“a” | “bb”) (“cc” | “d”)")
       },
       test("describe tagged (non recursive)") {
-        val greeting = (RichTextCodec.literal("hello") | RichTextCodec.literal("hi")) @@ "greeting"
-        val planet   = (RichTextCodec.literal("Earth") | RichTextCodec.literal("Mars")) @@ "planet"
+        val greeting = (RichTextCodec.literal("hello") | RichTextCodec.literal("hi")) ?? "greeting"
+        val planet   = (RichTextCodec.literal("Earth") | RichTextCodec.literal("Mars")) ?? "planet"
         val codec    = greeting ~ planet
         assertTrue(
           textOf(codec.describe).get ==
@@ -107,13 +107,13 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         assertTrue(textOf(codec.describe).get == "«1» ⩴ (“x” «1»)?")
       },
       test("describe tagged simple recursion") {
-        val codec = RichTextCodec.char('x').repeat @@ "xs"
+        val codec = RichTextCodec.char('x').repeat ?? "xs"
         // This would be perhaps nicer as «xs» ⩴ “x”*
         assertTrue(textOf(codec.describe).get == "«xs» ⩴ (“x” «xs»)?")
       },
       test("describe tagged with recursion") {
-        lazy val integer: RichTextCodec[_] = (RichTextCodec.digit ~ (RichTextCodec.empty | integer)) @@ "integer"
-        val decimal                        = (integer | integer ~ RichTextCodec.char('.') ~ integer) @@ "decimal"
+        lazy val integer: RichTextCodec[_] = (RichTextCodec.digit ~ (RichTextCodec.empty | integer)) ?? "integer"
+        val decimal                        = (integer | integer ~ RichTextCodec.char('.') ~ integer) ?? "decimal"
         assertTrue(
           textOf(decimal.describe).get ==
             """|«decimal» ⩴ «integer» | «integer» “.” «integer»
@@ -121,8 +121,8 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         )
       },
       test("describe labelled mutual recursion") {
-        lazy val a: RichTextCodec[_] = (RichTextCodec.char('a') | b) @@ "a"
-        lazy val b: RichTextCodec[_] = (RichTextCodec.char('b') | a) @@ "b"
+        lazy val a: RichTextCodec[_] = (RichTextCodec.char('a') | b) ?? "a"
+        lazy val b: RichTextCodec[_] = (RichTextCodec.char('b') | a) ?? "b"
         assertTrue(
           textOf(a.describe).get ==
             """«a» ⩴ “a” | «b»
