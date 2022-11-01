@@ -49,11 +49,15 @@ object SocketContractSpec extends ZIOSpecDefault {
 
 
 
+  private val failServer: HttpSocket =
+    Http.collectZIO[WebSocketChannelEvent] {
+      case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
+        ZIO.fail(new Exception("Broken server"))
+    }
 
 
 
   val protocol = SocketProtocol.default.withSubProtocol(Some("json"))
-
   val decoder = SocketDecoder.default.withExtensions(allowed = true)
 
   def socketAppServer(p: Promise[Throwable, Unit]): SocketApp[Any] =
@@ -66,7 +70,7 @@ object SocketContractSpec extends ZIOSpecDefault {
   def spec =
     suite("SocketOps")(
       suite("Successful Multi-message application")(
-        contract(
+        happySocketApp(
           "Live",
           ZIO.serviceWithZIO[Server](server =>
             for {
@@ -76,7 +80,7 @@ object SocketContractSpec extends ZIOSpecDefault {
             } yield (server.port, p),
           ),
         ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
-        contract(
+        happySocketApp(
           "Test", {
             for {
               p <- Promise.make[Throwable, Unit]
@@ -86,10 +90,32 @@ object SocketContractSpec extends ZIOSpecDefault {
           },
         )
           .provide(TestClient.layer, Scope.default),
+      ),
+      suite("Application where server app fails")(
+        happySocketApp(
+          "Live",
+          ZIO.serviceWithZIO[Server](server =>
+            for {
+              p <- Promise.make[Throwable, Unit]
+              _ <- server.install(failServer.toSocketApp.toHttp)
+
+            } yield (server.port, p),
+          ),
+        ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
+        happySocketApp(
+          "Test", {
+            for {
+              p <- Promise.make[Throwable, Unit]
+              _ <- TestClient.addSocketApp(failServer.toSocketApp)
+
+            } yield (0, p)
+          },
+        )
+          .provide(TestClient.layer, Scope.default),
       )
     )
 
-  def contract[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
+  def happySocketApp[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
     test(name) {
       val messageSocketClient: HttpSocket = messageFilter >>>
         Http.collectZIO[(WebSocketChannel, String)] {
@@ -110,6 +136,29 @@ object SocketContractSpec extends ZIOSpecDefault {
 
       val httpSocketClient: HttpSocket =
         messageSocketClient.defaultWith(channelSocketClient)
+
+      val socketAppClient: SocketApp[Any] =
+        httpSocketClient.toSocketApp
+          .withDecoder(decoder)
+          .withProtocol(protocol)
+
+      for {
+        portAndPromise <- serverSetup
+        response       <- ZIO.serviceWithZIO[Client](_.socket(s"ws://localhost:${portAndPromise._1}/", socketAppClient))
+        _              <- portAndPromise._2.await
+      } yield assertTrue(response.status == Status.SwitchingProtocols)
+    }
+
+  def handlesAServerFailure[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
+    test(name) {
+      val messageSocketClient: HttpSocket = messageFilter >>>
+        Http.collectZIO[(WebSocketChannel, String)] {
+          case (ch, text) =>
+            ch.close(await = true)
+        }
+
+      val httpSocketClient: HttpSocket =
+        messageSocketClient
 
       val socketAppClient: SocketApp[Any] =
         httpSocketClient.toSocketApp
