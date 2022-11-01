@@ -24,7 +24,7 @@ trait ChannelForUserSocketApps[-A] {
    * Creates a new channel that can write a different type of message by using a
    * transformation function.
    */
-  // TODO I think we can delete this?
+//  @deprecated("TODO Confirm we can remove this", "1.0")
   def contramap[A1](f: A1 => A): ChannelForUserSocketApps[A1]
 
   /**
@@ -35,6 +35,7 @@ trait ChannelForUserSocketApps[-A] {
   /**
    * Returns the globally unique identifier of this channel.
    */
+  @deprecated("TODO Confirm we can remove this", "1.0")
   def id(implicit trace: Trace): String
 
   /**

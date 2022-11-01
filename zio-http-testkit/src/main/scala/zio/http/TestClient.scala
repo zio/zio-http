@@ -124,10 +124,19 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     } yield Response.status(Status.SwitchingProtocols)
   }
 
+  private val warnLongRunning =
+     ZIO.log("Socket Application is taking a long time to run. You might have logic that does not terminate.").delay(5.seconds).withClock(Clock.ClockLive) *> ZIO.never
+
   private def eventLoop(name: String, channel: TestChannel, app: SocketApp[Any], otherChannel: TestChannel) =
     (for {
-      pendEvent <- channel.pending
+//      pendEventF <- channel.pending.fork
+      pendEvent <- channel.pending race warnLongRunning
+
       _         <- app.message.get.apply(ChannelEvent(otherChannel, pendEvent))
+        // TODO By not signaling shutdown in response to this error, we might hang forever in our tests
+        .tapError(e => ZIO.debug("Should handle: " + e))
+//        .ignore
+//        .tapError(_ => otherChannel.close)
       _         <- ZIO.when(pendEvent == ChannelUnregistered) {
         otherChannel.close
       }

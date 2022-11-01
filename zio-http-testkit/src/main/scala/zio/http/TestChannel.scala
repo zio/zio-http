@@ -18,7 +18,6 @@ case class TestChannel(counterpartEvents: Queue[ChannelEvent.Event[WebSocketFram
     // There's not queuing as would happen in a real Netty server, so this will always be a NoOp
     ZIO.unit
 
-
   // TODO Is this ID meaningful in a test?
   //    We can either:
   //    - Give it a random ID in `make`

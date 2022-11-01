@@ -22,9 +22,13 @@ object SocketContractSpec extends ZIOSpecDefault {
         ZIO.debug("Unrecognized message sent to server: " + text)
     }
 
+
+
+
   def channelSocketServer(p: Promise[Throwable, Unit]): HttpSocket =
     Http.collectZIO[WebSocketChannelEvent] {
       case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
+        ch.write(WebSocketFrame.text("junk")) *>
         ch.writeAndFlush(WebSocketFrame.text("Hi Client"))
 
       case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
@@ -34,49 +38,63 @@ object SocketContractSpec extends ZIOSpecDefault {
         p.succeed(()) *>
           Console.printLine("Server Channel unregistered")
       case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("Hi Server")))    =>
-        ch.write(WebSocketFrame.text("Hi Client"))
+        // TODO Only use one of these?
+        p.succeed(()) *>
+          ch.close(true)
+//        ch.write(WebSocketFrame.text("Hi Client"))
 
       case ChannelEvent(_, other) =>
-        Console.printLine("Server Other: " + other)
+        Console.printLine("Server Unexpected: " + other)
     }
+
+
+
+
+
 
   val protocol = SocketProtocol.default.withSubProtocol(Some("json"))
 
   val decoder = SocketDecoder.default.withExtensions(allowed = true)
 
   def socketAppServer(p: Promise[Throwable, Unit]): SocketApp[Any] =
-    (messageSocketServer.defaultWith(channelSocketServer(p))).toSocketApp
+    messageSocketServer
+      .defaultWith(channelSocketServer(p))
+      .toSocketApp
       .withDecoder(decoder)
       .withProtocol(protocol)
 
   def spec =
     suite("SocketOps")(
-      contract(
-        "Live",
-        ZIO.serviceWithZIO[Server](server =>
-          for {
-            p <- Promise.make[Throwable, Unit]
-            _ <- server.install(socketAppServer(p).toHttp)
+      suite("Successful Multi-message application")(
+        contract(
+          "Live",
+          ZIO.serviceWithZIO[Server](server =>
+            for {
+              p <- Promise.make[Throwable, Unit]
+              _ <- server.install(socketAppServer(p).toHttp)
 
-          } yield (server.port, p),
-        ),
-      ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
-      contract(
-        "Test", {
-          for {
-            p <- Promise.make[Throwable, Unit]
-            _ <- TestClient.addSocketApp(socketAppServer(p))
+            } yield (server.port, p),
+          ),
+        ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
+        contract(
+          "Test", {
+            for {
+              p <- Promise.make[Throwable, Unit]
+              _ <- TestClient.addSocketApp(socketAppServer(p))
 
-          } yield (0, p)
-        },
+            } yield (0, p)
+          },
+        )
+          .provide(TestClient.layer, Scope.default),
       )
-        .provide(TestClient.layer, Scope.default),
     )
 
   def contract[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
     test(name) {
       val messageSocketClient: HttpSocket = messageFilter >>>
         Http.collectZIO[(WebSocketChannel, String)] {
+          case (ch, text) if text.contains("junk") =>
+            ZIO.fail(new Exception("boom"))
           case (ch, text) if text.contains("Hi Client") =>
             ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true).debug("Client got message: " + text)
         }
@@ -87,7 +105,7 @@ object SocketContractSpec extends ZIOSpecDefault {
             Console.printLine("Client Channel unregistered")
 
           case ChannelEvent(_, other) =>
-            Console.printLine("Client received other event: " + other)
+            Console.printLine("Client received Unexpected event: " + other)
         }
 
       val httpSocketClient: HttpSocket =

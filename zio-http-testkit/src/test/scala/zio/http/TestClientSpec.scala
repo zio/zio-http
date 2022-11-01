@@ -61,7 +61,7 @@ object TestClientSpec extends ZIOSpecDefault {
                 (channel, message)
             }
 
-          val greetingToClient                                                       = "Hi Client"
+          val greetingToClient                = "Hi Client"
           val messageSocketClient: HttpSocket = messageUnwrapper >>>
             Http.collectZIO[(WebSocketChannel, String)] { case (ch, `greetingToClient`) =>
               ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)

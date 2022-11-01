@@ -8,7 +8,8 @@ package object socket {
   type WebSocketChannel = ChannelForUserSocketApps[WebSocketFrame]
 
   /**
-   * A channel that allows websocket frames to be read and write to it. // TODO Lying comment?
+   * A channel that allows websocket frames to be read and write to it. // TODO
+   * Lying comment?
    */
   type WebSocketChannelEvent = ChannelEvent[WebSocketFrame, WebSocketFrame]
 }
