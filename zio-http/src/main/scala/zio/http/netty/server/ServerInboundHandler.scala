@@ -105,25 +105,19 @@ private[zio] final case class ServerInboundHandler(
     time: service.ServerTime,
   ): Boolean = {
 
-    def doEncode(jResponse: HttpResponse) = jResponse match {
-      case jResponse: FullHttpResponse =>
+    NettyResponseEncoder.encode(response) match {
+      case NettyResponseEncoder.NettyEncodedResponse(jResponse: FullHttpResponse) if response.frozen =>
         val djResponse = jResponse.retainedDuplicate()
         setServerTime(time, response, djResponse)
         ctx.writeAndFlush(djResponse, ctx.voidPromise())
         true
-      case jResponse                   =>
+      case NettyResponseEncoder.NettyEncodedResponse(jResponse) if response.frozen                   =>
         throw new IllegalArgumentException(
           s"The ${jResponse.getClass.getName} is not supported as a Netty response encoder.",
         )
+      case _                                                                                         => false
     }
 
-    val resp = response.encodedResponse.get
-    (response.frozen, resp) match {
-      case (true, Some(NettyResponseEncoder.NettyEncodedResponse(jResponse: FullHttpResponse))) => doEncode(jResponse)
-      case (true, None)                                                                         =>
-        doEncode(NettyResponseEncoder.encode(response).jResponse)
-      case _                                                                                    => false
-    }
   }
 
   private def attemptFullWrite(
@@ -162,14 +156,15 @@ private[zio] final case class ServerInboundHandler(
   ): Boolean = {
     exit match {
       case HExit.Success(response) =>
-        NettyResponseEncoder.encode(response) match {
-          case NettyResponseEncoder.NettyEncodedResponse(jResponse: FullHttpResponse) =>
-            val djResponse = jResponse.retainedDuplicate()
-            setServerTime(time, response, djResponse)
-            ctx.writeAndFlush(djResponse, ctx.voidPromise()): Unit
-            true
-          case _                                                                      => false
-        }
+        attemptFastWrite(ctx, response, time)
+      // NettyResponseEncoder.encode(response) match {
+      //   case NettyResponseEncoder.NettyEncodedResponse(jResponse: FullHttpResponse) =>
+      //     val djResponse = jResponse.retainedDuplicate()
+      //     setServerTime(time, response, djResponse)
+      //     ctx.writeAndFlush(djResponse, ctx.voidPromise()): Unit
+      //     true
+      //   case _                                                                      => false
+      // }
       case _                       => false
     }
   }
