@@ -29,7 +29,7 @@ object UUIDCodecSpec extends ZIOSpecDefault {
         assertTrue(!UUIDCodec.isDefinedAt("0000000Z-0000-0000-0000-000000000000"))
       },
       test("Should fail if UUID has two hyphens") {
-        assertTrue(!UUIDCodec.isDefinedAt("0000000Z--0000-0000-0000-000000000000"))
+        assertTrue(!UUIDCodec.isDefinedAt("00000000--0000-0000-0000-000000000000"))
       },
     )
 }

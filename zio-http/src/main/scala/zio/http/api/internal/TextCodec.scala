@@ -104,7 +104,8 @@ private[api] object TextCodec {
     def encode(value: Boolean): String = value.toString
 
     // TODO: Make faster by hand-writing validation:
-    def isDefinedAt(value: String): Boolean = value == "1" || value == "0" || value == "true" || value == "false"
+    def isDefinedAt(value: String): Boolean = value == "1" || value == "0" || value == "true" || value == "false" ||
+      value == "no" || value == "off" || value == "yes" || value == "on"
 
     override def toString(): String = "TextCodec.boolean"
   }
