@@ -121,14 +121,7 @@ private[zio] final case class ServerInboundHandler(
     (response.frozen, resp) match {
       case (true, Some(NettyResponseEncoder.NettyEncodedResponse(jResponse: FullHttpResponse))) => doEncode(jResponse)
       case (true, None)                                                                         =>
-        val encResponse = NettyResponseEncoder.encode(response)
-        encResponse match {
-          case NettyResponseEncoder.NettyEncodedResponse(jResponse) => doEncode(jResponse)
-          case other                                                =>
-            throw new IllegalArgumentException(
-              s"The ${other.getClass.getName} is not supported as a Netty response encoder.",
-            )
-        }
+        doEncode(NettyResponseEncoder.encode(response).jResponse)
       case _                                                                                    => false
     }
   }
@@ -146,7 +139,7 @@ private[zio] final case class ServerInboundHandler(
         if (response.isWebSocket) ZIO.attempt(upgradeToWebSocket(ctx, jRequest, response, runtime))
         else
           for {
-            jResponse <- ZIO.attempt {
+            jResponse <- ZIO.attemptUnsafe { implicit unsafe =>
               val jResponse = NettyResponseEncoder.encode(response).jResponse
               setServerTime(time, response, jResponse)
               ctx.writeAndFlush(jResponse)

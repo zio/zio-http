@@ -58,7 +58,7 @@ object Body {
    */
   val empty: Body = EmptyBody
 
-  private[zio] final object EmptyBody extends Body with UnsafeWriteable {
+  private[zio] object EmptyBody extends Body with UnsafeWriteable {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(Array.empty)
 
