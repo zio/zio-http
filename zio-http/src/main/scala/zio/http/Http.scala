@@ -6,7 +6,7 @@ import zio.{http, _}
 import zio.http.html._
 import zio.http.model._
 import zio.http.model.headers.HeaderModifierZIO
-import zio.http.socket.{SocketApp, WebSocketChannelEvent}
+import zio.http.socket.{SocketApp, SocketAppAction, SocketAppEvent, WebSocketChannelEvent}
 import zio.stream.ZStream
 
 import java.io.{File, FileNotFoundException}
@@ -518,12 +518,13 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Converts an Http into a websocket application
    */
-  final def toSocketApp(implicit a: WebSocketChannelEvent <:< A, e: E <:< Throwable, trace: Trace): SocketApp[R] =
-    SocketApp(event =>
-      self(event).catchAll {
+  final def toSocketApp(implicit a: SocketAppEvent <:< A, e: E <:< Throwable, b: B <:< SocketAppAction,  trace: Trace): SocketApp[R] =
+    SocketApp(message = event =>
+
+      Some(self(event).catchAll {
         case Some(value) => ZIO.fail(value)
-        case None        => ZIO.unit
-      },
+        case None        => ZIO.succeed(SocketAppAction.NoOp)
+      })
     )
 
   /**

@@ -3,12 +3,12 @@ package zio.http.netty
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import zio._
 import zio.http.ChannelEvent
 import zio.http.ChannelEvent.UserEvent
 import zio.http.service.Log
-import zio.http.socket.{SocketApp, WebSocketFrame}
+import zio.http.socket.{SocketApp, SocketAppEvent, SocketAppChannel, WebSocketFrame}
 import zio.logging.Logger
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
@@ -30,15 +30,31 @@ private[zio] final class WebSocketAppHandler(
     ctx: ChannelHandlerContext,
     event: ChannelEvent[JWebSocketFrame, JWebSocketFrame],
   ): Unit = {
-    log.debug(s"ChannelEvent: [${event.event}]")
-    app.message match {
-      case Some(f) =>
-        zExec.runUninterruptible(ctx)(
-          f(event.map(WebSocketFrame.unsafe.fromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)),
-        )
-      case None    => ()
+    log.debug(s"ChannelEvent: [${ event.event }]")
+    val webSocketFrameEvent = event.map(WebSocketFrame.unsafe.fromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)
+    val appChannel = SocketAppChannel(webSocketFrameEvent.channel)
+    toSocketAppEvent(appChannel, webSocketFrameEvent.event).foreach { appEvent =>
+      log.debug(s"SocketAppEvent: [$appEvent]")
+      app.message(appEvent).foreach { effect =>
+        zExec.runUninterruptible(ctx) {
+          for {
+            action <- effect
+            _ = log.debug(s"SocketAppAction: [$action]")
+            _ <- appChannel.action(action)
+          } yield ()
+        }
+      }
     }
   }
+
+  private def toSocketAppEvent(socketChannel: SocketAppChannel, event: ChannelEvent.Event[WebSocketFrame]): Option[SocketAppEvent] = event match {
+      case ChannelEvent.ChannelRead(msg) => Some(SocketAppEvent.FrameReceived(msg))
+      case ChannelEvent.UserEventTriggered(UserEvent.HandshakeComplete) => Some(SocketAppEvent.Connected(socketChannel))
+      case ChannelEvent.ChannelUnregistered => Some(SocketAppEvent.Disconnected)
+      case ChannelEvent.ExceptionCaught(cause) => Some(SocketAppEvent.Error(cause))
+      case ChannelEvent.ChannelRegistered => Some(SocketAppEvent.Disconnected)
+      case _ => None
+    }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
     dispatch(ctx, ChannelEvent.channelRead(ctx, msg))

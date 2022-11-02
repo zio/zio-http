@@ -130,13 +130,13 @@ object Response {
 
   def fromHttpError(error: HttpError): Response = Response(status = error.status, httpError = Some(error))
 
-  /**
-   * Creates a new response for the provided socket
-   */
-  def fromSocket[R](
-    http: Http[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
-  )(implicit trace: Trace): ZIO[R, Nothing, Response] =
-    fromSocketApp(http.toSocketApp)
+//  /**
+//   * Creates a new response for the provided socket
+//   */
+//  def fromSocket[R](
+//    http: Http[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
+//  )(implicit trace: Trace): ZIO[R, Nothing, Response] =
+//    fromSocketApp(http.toSocketApp)
 
   /**
    * Creates a new response for the provided socket app

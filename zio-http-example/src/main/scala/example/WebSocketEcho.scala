@@ -4,7 +4,7 @@ import zio._
 import zio.http.ChannelEvent.ChannelRead
 import zio.http._
 import zio.http.model.Method
-import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
+import zio.http.socket.{SocketApp, SocketAppAction, SocketAppEvent, WebSocketChannelEvent, WebSocketFrame}
 
 object WebSocketEcho extends ZIOAppDefault {
   private val socket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
@@ -19,10 +19,19 @@ object WebSocketEcho extends ZIOAppDefault {
         ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
+  private val socketApp = SocketApp {
+    case SocketAppEvent.FrameReceived(WebSocketFrame.Text("FOO")) =>
+      ZIO.succeed(SocketAppAction.SendFrame(WebSocketFrame.text("BAR")).withFlush)
+    case SocketAppEvent.FrameReceived(WebSocketFrame.Text("BAR")) =>
+      ZIO.succeed(SocketAppAction.SendFrame(WebSocketFrame.text("FOO")).withFlush)
+    case SocketAppEvent.FrameReceived(WebSocketFrame.Text(text)) =>
+      ZIO.succeed(SocketAppAction.Multiple(Seq.fill(10)(SocketAppAction.SendFrame(WebSocketFrame.text(text)))).withFlush)
+  }
+
   private val app: Http[Any, Nothing, Request, Response] =
     Http.collectZIO[Request] {
       case Method.GET -> !! / "greet" / name  => ZIO.succeed(Response.text(s"Greetings {$name}!"))
-      case Method.GET -> !! / "subscriptions" => socket.toSocketApp.toResponse
+      case Method.GET -> !! / "subscriptions" => socketApp.toResponse
     }
 
   override val run = Server.serve(app).provide(Server.default)
