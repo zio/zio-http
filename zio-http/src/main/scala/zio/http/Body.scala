@@ -46,7 +46,7 @@ sealed trait Body { self =>
 
   def isComplete: Boolean
 
-  private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte]
+  private[zio] def unsafeAsChunk(implicit unsafe: Unsafe): Chunk[Byte]
 }
 
 object Body {
@@ -69,7 +69,7 @@ object Body {
 
     override def toString(): String = "Body.empty"
 
-    private[zio] override def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = Chunk.empty
+    private[zio] override def unsafeAsChunk(implicit unsafe: Unsafe): Chunk[Byte] = Chunk.empty
 
   }
 
@@ -91,7 +91,7 @@ object Body {
 
     override def toString(): String = s"Body.fromAsciiString($asciiString)"
 
-    private[zio] override def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = Chunk.fromArray(asciiString.array())
+    private[zio] override def unsafeAsChunk(implicit unsafe: Unsafe): Chunk[Byte] = Chunk.fromArray(asciiString.array())
 
   }
 
@@ -115,7 +115,7 @@ object Body {
 
     override def toString(): String = s"Body.fromByteBuf($byteBuf)"
 
-    override private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] =
+    override private[zio] def unsafeAsChunk(implicit unsafe: Unsafe): Chunk[Byte] =
       Chunk.fromArray(ByteBufUtil.getBytes(byteBuf))
 
   }
@@ -144,7 +144,7 @@ object Body {
 
     override def toString(): String = s"Body.fromChunk($data)"
 
-    override private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = data
+    override private[zio] def unsafeAsChunk(implicit unsafe: Unsafe): Chunk[Byte] = data
 
   }
 
@@ -187,7 +187,7 @@ object Body {
           .ensuring(ZIO.succeed(fs.close()))
       }.flattenChunks
 
-    override private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = {
+    override private[zio] def unsafeAsChunk(implicit unsafe: Unsafe): Chunk[Byte] = {
       val bytes = Files.readAllBytes(file.toPath)
 
       Chunk.fromArray(bytes)
@@ -218,7 +218,7 @@ object Body {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
 
-    override private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = {
+    override private[zio] def unsafeAsChunk(implicit unsafe: Unsafe): Chunk[Byte] = {
       implicit val trace = Trace.empty
       val rtm            = Runtime.default
       val exit           = rtm.unsafe.run(asChunk)
@@ -258,7 +258,7 @@ object Body {
 
     override def isComplete: Boolean = false
 
-    override private[zio] def asChunkUnsafe(implicit unsafe: Unsafe): Chunk[Byte] = {
+    override private[zio] def unsafeAsChunk(implicit unsafe: Unsafe): Chunk[Byte] = {
       implicit val trace = Trace.empty
       val rtm            = Runtime.default
       val exit           = rtm.unsafe.run(asChunk)

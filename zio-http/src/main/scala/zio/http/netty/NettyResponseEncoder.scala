@@ -36,7 +36,7 @@ private[zio] object NettyResponseEncoder {
 
     if (body.isComplete) {
 
-      val jContent  = Unpooled.wrappedBuffer(body.asChunkUnsafe.toArray)
+      val jContent  = Unpooled.wrappedBuffer(body.unsafeAsChunk.toArray)
       val jResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, response.status.asJava, jContent, false)
 
       // TODO: Unit test for this
