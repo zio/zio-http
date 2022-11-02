@@ -17,7 +17,7 @@ import java.nio.file._
 /**
  * Holds Body that needs to be written on the HttpChannel
  */
-sealed trait Body extends Any { self =>
+sealed trait Body { self =>
 
   // final def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
   def asArray(implicit trace: Trace): Task[Array[Byte]]
@@ -51,7 +51,7 @@ sealed trait Body extends Any { self =>
 
 object Body {
 
-  sealed trait UnsafeWriteable extends Any with Body
+  sealed trait UnsafeWriteable extends Body
 
   /**
    * Helper to create empty Body
@@ -78,10 +78,7 @@ object Body {
    */
   def fromAsciiString(asciiString: AsciiString): Body = AsciiStringBody(asciiString)
 
-  private[zio] final case class AsciiStringBody(asciiString: AsciiString)
-      extends AnyVal
-      with Body
-      with UnsafeWriteable {
+  private[zio] final case class AsciiStringBody(asciiString: AsciiString) extends Body with UnsafeWriteable {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
     override def isComplete: Boolean                               = true
@@ -134,7 +131,7 @@ object Body {
    */
   def fromChunk(data: Chunk[Byte]): Body = new ChunkBody(data)
 
-  private[zio] final case class ChunkBody(data: Chunk[Byte]) extends AnyVal with Body with UnsafeWriteable {
+  private[zio] final case class ChunkBody(data: Chunk[Byte]) extends Body with UnsafeWriteable {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
 
@@ -211,7 +208,7 @@ object Body {
    */
   def fromStream(stream: ZStream[Any, Throwable, Byte]): Body = new StreamBody(stream)
 
-  private[zio] final case class StreamBody(stream: ZStream[Any, Throwable, Byte]) extends AnyVal with Body {
+  private[zio] final case class StreamBody(stream: ZStream[Any, Throwable, Byte]) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
 
@@ -240,10 +237,7 @@ object Body {
 
   private[zio] def fromAsync(unsafeAsync: UnsafeAsync => Unit): Body = new AsyncBody(unsafeAsync)
 
-  private[zio] final case class AsyncBody(unsafeAsync: UnsafeAsync => Unit)
-      extends AnyVal
-      with Body
-      with UnsafeWriteable {
+  private[zio] final case class AsyncBody(unsafeAsync: UnsafeAsync => Unit) extends Body with UnsafeWriteable {
 
     def async = unsafeAsync
 
