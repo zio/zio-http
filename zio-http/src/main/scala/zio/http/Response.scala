@@ -101,14 +101,12 @@ sealed abstract case class Response private (
     // if (status != self.status || headers != self.headers || body != self.body) {
     //   withEncodedResponse(Option.empty[Response.EncodedResponse])
     // }
-    new Response(status, headers, body, attribute, self.httpError,  frozen) {}
+    new Response(status, headers, body, attribute, self.httpError, frozen) {}
   }
 
 }
 
 object Response {
-
-  trait EncodedResponse extends Any
 
   final case class Patch(addHeaders: Headers, setStatus: Option[Status]) { self =>
     def ++(that: Patch): Patch =
@@ -120,7 +118,6 @@ object Response {
     headers: Headers = Headers.empty,
     body: Body = Body.empty,
     httpError: Option[HttpError] = None,
-    encodedResponse: Option[Response.EncodedResponse] = None,
   ): Response =
     new Response(status, headers, body, Attribute.empty, httpError) {}
 

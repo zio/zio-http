@@ -4,12 +4,9 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
 import zio._
 import zio.http._
+
 import scala.collection.concurrent.TrieMap
 private[zio] object NettyResponseEncoder {
-
-  private[zio] final case class NettyEncodedResponse(jResponse: HttpResponse)
-      extends AnyVal
-      with Response.EncodedResponse
 
   private val frozenCache = TrieMap.empty[Response, HttpResponse]
 
