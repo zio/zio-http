@@ -4,6 +4,10 @@ import zio._
 import zio.http.Server.ErrorCallback
 
 /**
+ * Why? TestClient allows us to abstract away all communication with a service.
+ */
+
+/**
  * Enables tests that make calls against "localhost" with user-specified
  * Behavior/Responses.
  *

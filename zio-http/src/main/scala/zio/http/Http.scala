@@ -59,10 +59,11 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   final def >>>[R1 <: R, E1 >: E, B1 >: B, C](other: Http[R1, E1, B1, C]): Http[R1, E1, A, C] =
     self andThen other
 
-
   // other: Http[R1, E1, B1, C]
   // TODO Delete this dead-end. Type inference won't save me on the call side
-  final def >>>+[R1 <: R, E1 >: E, B1 >: B, C](pf: PartialFunction[B1, ZIO[R1, E1, C]])(implicit trace: Trace): Http[R1, E1, A, C] =
+  final def >>>+[R1 <: R, E1 >: E, B1 >: B, C](pf: PartialFunction[B1, ZIO[R1, E1, C]])(implicit
+    trace: Trace,
+  ): Http[R1, E1, A, C] =
     self andThen Http.collectZIO[B1](pf)
 
   /**

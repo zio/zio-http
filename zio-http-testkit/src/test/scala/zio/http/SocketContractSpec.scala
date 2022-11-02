@@ -5,6 +5,7 @@ import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEvent, UserE
 import zio.http.model.Status
 import zio.http.netty.server.NettyDriver
 import zio.http.socket._
+import zio.test.TestAspect.ignore
 import zio.test._
 
 object SocketContractSpec extends ZIOSpecDefault {
@@ -22,14 +23,11 @@ object SocketContractSpec extends ZIOSpecDefault {
         ZIO.debug("Unrecognized message sent to server: " + text)
     }
 
-
-
-
   def channelSocketServer(p: Promise[Throwable, Unit]): HttpSocket =
     Http.collectZIO[WebSocketChannelEvent] {
       case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
         ch.write(WebSocketFrame.text("junk")) *>
-        ch.writeAndFlush(WebSocketFrame.text("Hi Client"))
+          ch.writeAndFlush(WebSocketFrame.text("Hi Client"))
 
       case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
         p.succeed(()) *>
@@ -47,18 +45,14 @@ object SocketContractSpec extends ZIOSpecDefault {
         Console.printLine("Server Unexpected: " + other)
     }
 
-
-
   private val failServer: HttpSocket =
-    Http.collectZIO[WebSocketChannelEvent] {
-      case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
-        ZIO.fail(new Exception("Broken server"))
+    Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
+      ZIO.fail(new Exception("Broken server"))
+//        ZIO.unit
     }
 
-
-
   val protocol = SocketProtocol.default.withSubProtocol(Some("json"))
-  val decoder = SocketDecoder.default.withExtensions(allowed = true)
+  val decoder  = SocketDecoder.default.withExtensions(allowed = true)
 
   def socketAppServer(p: Promise[Throwable, Unit]): SocketApp[Any] =
     messageSocketServer
@@ -92,7 +86,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           .provide(TestClient.layer, Scope.default),
       ),
       suite("Application where server app fails")(
-        happySocketApp(
+        handlesAServerFailure(
           "Live",
           ZIO.serviceWithZIO[Server](server =>
             for {
@@ -102,7 +96,7 @@ object SocketContractSpec extends ZIOSpecDefault {
             } yield (server.port, p),
           ),
         ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
-        happySocketApp(
+        handlesAServerFailure(
           "Test", {
             for {
               p <- Promise.make[Throwable, Unit]
@@ -111,15 +105,15 @@ object SocketContractSpec extends ZIOSpecDefault {
             } yield (0, p)
           },
         )
-          .provide(TestClient.layer, Scope.default),
-      )
+          .provide(TestClient.layer, Scope.default) @@ ignore,
+      ),
     )
 
   def happySocketApp[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
     test(name) {
       val messageSocketClient: HttpSocket = messageFilter >>>
         Http.collectZIO[(WebSocketChannel, String)] {
-          case (ch, text) if text.contains("junk") =>
+          case (ch, text) if text.contains("junk")      =>
             ZIO.fail(new Exception("boom"))
           case (ch, text) if text.contains("Hi Client") =>
             ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true).debug("Client got message: " + text)
@@ -151,23 +145,20 @@ object SocketContractSpec extends ZIOSpecDefault {
 
   def handlesAServerFailure[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
     test(name) {
-      val messageSocketClient: HttpSocket = messageFilter >>>
-        Http.collectZIO[(WebSocketChannel, String)] {
-          case (ch, text) =>
-            ch.close(await = true)
+      def channelSocketClient(p: Promise[Throwable, Unit]): HttpSocket =
+        Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, ChannelUnregistered) =>
+          Console.printLine("Server failed and killed socket. Should complete promise.") *>
+            p.succeed(()).unit
         }
 
-      val httpSocketClient: HttpSocket =
-        messageSocketClient
-
-      val socketAppClient: SocketApp[Any] =
-        httpSocketClient.toSocketApp
-          .withDecoder(decoder)
-          .withProtocol(protocol)
+      def socketAppClient(p: Promise[Throwable, Unit]): SocketApp[Any] =
+        channelSocketClient(p).toSocketApp
 
       for {
         portAndPromise <- serverSetup
-        response       <- ZIO.serviceWithZIO[Client](_.socket(s"ws://localhost:${portAndPromise._1}/", socketAppClient))
+        response       <- ZIO.serviceWithZIO[Client](
+          _.socket(s"ws://localhost:${portAndPromise._1}/", socketAppClient(portAndPromise._2)),
+        )
         _              <- portAndPromise._2.await
       } yield assertTrue(response.status == Status.SwitchingProtocols)
     }
