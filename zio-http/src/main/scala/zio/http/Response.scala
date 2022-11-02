@@ -22,7 +22,6 @@ sealed abstract case class Response private (
   body: Body,
   private[zio] val attribute: Response.Attribute,
   private[zio] val httpError: Option[HttpError],
-  private[zio] val encodedResponse: AtomicReference[Option[Response.EncodedResponse]],
   frozen: Boolean = false,
 ) extends HeaderExtension[Response] { self =>
 
@@ -77,13 +76,13 @@ sealed abstract case class Response private (
    */
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
-  private[zio] def withEncodedResponse(updated: Option[Response.EncodedResponse]): Unit = {
-    var loop = true
-    while (loop) {
-      val current = self.encodedResponse.get()
-      loop = !encodedResponse.compareAndSet(current, updated)
-    }
-  }
+  // private[zio] def withEncodedResponse(updated: Option[Response.EncodedResponse]): Unit = {
+  //   var loop = true
+  //   while (loop) {
+  //     val current = self.encodedResponse.get()
+  //     loop = !encodedResponse.compareAndSet(current, updated)
+  //   }
+  // }
 
   private[zio] def close(implicit trace: Trace): Task[Unit] = self.attribute.channel match {
     case Some(channel) => NettyFutureExecutor.executed(channel.close())
@@ -96,13 +95,13 @@ sealed abstract case class Response private (
     body: Body = self.body,
     frozen: Boolean = self.frozen,
     attribute: Response.Attribute = self.attribute,
-    encodedResponse: AtomicReference[Option[Response.EncodedResponse]] = self.encodedResponse,
+    // encodedResponse: AtomicReference[Option[Response.EncodedResponse]] = self.encodedResponse,
   ): Response = {
     // Reset cached encoded response if status, headers or body are being changed.
-    if (status != self.status || headers != self.headers || body != self.body) {
-      withEncodedResponse(Option.empty[Response.EncodedResponse])
-    }
-    new Response(status, headers, body, attribute, self.httpError, self.encodedResponse, frozen) {}
+    // if (status != self.status || headers != self.headers || body != self.body) {
+    //   withEncodedResponse(Option.empty[Response.EncodedResponse])
+    // }
+    new Response(status, headers, body, attribute, self.httpError,  frozen) {}
   }
 
 }
@@ -123,7 +122,7 @@ object Response {
     httpError: Option[HttpError] = None,
     encodedResponse: Option[Response.EncodedResponse] = None,
   ): Response =
-    new Response(status, headers, body, Attribute.empty, httpError, new AtomicReference(None)) {}
+    new Response(status, headers, body, Attribute.empty, httpError) {}
 
   def fromHttpError(error: HttpError): Response = Response(status = error.status, httpError = Some(error))
 
@@ -146,7 +145,6 @@ object Response {
         Body.empty,
         Attribute(socketApp = Option(app.provideEnvironment(env))),
         None,
-        new AtomicReference(None),
       ) {}
     }
 
@@ -219,7 +217,6 @@ object Response {
         data,
         attribute = Attribute(channel = Some(ctx)),
         None,
-        new AtomicReference(None),
       ) {}
     }
 
@@ -250,7 +247,6 @@ object Response {
         data,
         attribute = Attribute(channel = Some(ctx)),
         None,
-        new AtomicReference(None),
       ) {}
     }
   }
@@ -263,7 +259,6 @@ object Response {
     socketApp: Option[SocketApp[Any]] = None,
     memoize: Boolean = false,
     serverTime: Boolean = false,
-    // encoded: Option[(Response, HttpResponse)] = None,
     channel: Option[ChannelHandlerContext] = None,
   ) { self =>
 

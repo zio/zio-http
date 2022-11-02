@@ -4,27 +4,35 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
 import zio._
 import zio.http._
+import scala.collection.concurrent.TrieMap
 private[zio] object NettyResponseEncoder {
 
   private[zio] final case class NettyEncodedResponse(jResponse: HttpResponse)
       extends AnyVal
       with Response.EncodedResponse
 
-  def encode(response: Response)(implicit unsafe: Unsafe): NettyEncodedResponse = {
-    val encodedResponse = response.encodedResponse.get
+  private val frozenCache = TrieMap.empty[Response, HttpResponse]
 
-    (response.frozen, encodedResponse) match {
-      case (true, Some(encoded)) => encoded.asInstanceOf[NettyEncodedResponse]
+  def encode(response: Response)(implicit unsafe: Unsafe): HttpResponse = {
 
-      case (true, None) =>
-        val encoded = doEncode(response)
-        response.withEncodedResponse(Some(encoded))
-        encoded
-      case (false, _)   => doEncode(response)
+    if (response.frozen) {
+      val encodedResponse = frozenCache.get(response)
+
+      encodedResponse match {
+        case Some(encoded) => encoded
+
+        case None =>
+          val encoded = doEncode(response)
+          frozenCache.put(response, encoded)
+          encoded
+      }
+    } else {
+      doEncode(response)
     }
+
   }
 
-  private def doEncode(response: Response)(implicit unsafe: Unsafe): NettyEncodedResponse = {
+  private def doEncode(response: Response)(implicit unsafe: Unsafe): HttpResponse = {
     val body             = response.body
     val jHeaders         = response.headers.encode
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
@@ -40,12 +48,12 @@ private[zio] object NettyResponseEncoder {
       // Alternative would be to use sttp client for this use-case.
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.CONTENT_LENGTH, jContent.readableBytes())
       jResponse.headers().add(jHeaders)
-      NettyEncodedResponse(jResponse)
+      jResponse
 
     } else {
 
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-      NettyEncodedResponse(new DefaultHttpResponse(HttpVersion.HTTP_1_1, response.status.asJava, jHeaders))
+      new DefaultHttpResponse(HttpVersion.HTTP_1_1, response.status.asJava, jHeaders)
     }
 
   }

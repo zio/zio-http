@@ -106,16 +106,16 @@ private[zio] final case class ServerInboundHandler(
   ): Boolean = {
 
     NettyResponseEncoder.encode(response) match {
-      case NettyResponseEncoder.NettyEncodedResponse(jResponse: FullHttpResponse) if response.frozen =>
+      case jResponse: FullHttpResponse if response.frozen =>
         val djResponse = jResponse.retainedDuplicate()
         setServerTime(time, response, djResponse)
         ctx.writeAndFlush(djResponse, ctx.voidPromise())
         true
-      case NettyResponseEncoder.NettyEncodedResponse(jResponse) if response.frozen                   =>
+      case jResponse if response.frozen                   =>
         throw new IllegalArgumentException(
           s"The ${jResponse.getClass.getName} is not supported as a Netty response encoder.",
         )
-      case _                                                                                         => false
+      case _                                              => false
     }
 
   }
@@ -134,7 +134,7 @@ private[zio] final case class ServerInboundHandler(
         else
           for {
             jResponse <- ZIO.attemptUnsafe { implicit unsafe =>
-              val jResponse = NettyResponseEncoder.encode(response).jResponse
+              val jResponse = NettyResponseEncoder.encode(response)
               setServerTime(time, response, jResponse)
               ctx.writeAndFlush(jResponse)
               jResponse
@@ -157,14 +157,6 @@ private[zio] final case class ServerInboundHandler(
     exit match {
       case HExit.Success(response) =>
         attemptFastWrite(ctx, response, time)
-      // NettyResponseEncoder.encode(response) match {
-      //   case NettyResponseEncoder.NettyEncodedResponse(jResponse: FullHttpResponse) =>
-      //     val djResponse = jResponse.retainedDuplicate()
-      //     setServerTime(time, response, djResponse)
-      //     ctx.writeAndFlush(djResponse, ctx.voidPromise()): Unit
-      //     true
-      //   case _                                                                      => false
-      // }
       case _                       => false
     }
   }
