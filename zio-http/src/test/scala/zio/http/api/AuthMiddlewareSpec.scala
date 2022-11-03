@@ -20,20 +20,7 @@ object AuthMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val bearerAuth    = Middleware.bearerAuth { _ == bearerToken }
   private val bearerAuthZIO = Middleware.bearerAuthZIO { c => ZIO.succeed(c == bearerToken) }
 
-  private val allowApp = Http.ok
-    .withMiddleware(Middleware.customAuthZIO(HeaderCodec.authorization)(_ => ZIO.succeed(true)))
-    .status
-
-  private val notAllowApp = Http.ok
-    .withMiddleware(Middleware.customAuthZIO(HeaderCodec.authorization)(_ => ZIO.succeed(false)))
-    .status
-
-  private val basicAuthApp = Http.ok
-    .withMiddleware(Middleware.basicAuthZIO { cred =>
-      ZIO.succeed(cred.uname == "user" && cred.upassword == "password")
-    })
-    .status
-  override def spec        =
+  override def spec =
     suite("Auth Middleware Spec")(
       suite("basicAuth")(
         test("HttpApp is accepted if the basic authentication succeeds") {

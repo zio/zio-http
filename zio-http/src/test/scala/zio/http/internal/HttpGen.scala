@@ -307,4 +307,15 @@ object HttpGen {
 
   def acceptRanges: Gen[Any, AcceptRanges] =
     Gen.elements(AcceptRanges.Bytes, AcceptRanges.None, AcceptRanges.InvalidAcceptRanges)
+
+  def allowTransferEncodingSingleValue: Gen[Any, TransferEncoding] = Gen.fromIterable(
+    List(
+      TransferEncoding.ChunkedEncoding,
+      TransferEncoding.CompressEncoding,
+      TransferEncoding.GZipEncoding,
+      TransferEncoding.MultipleEncodings(Chunk(TransferEncoding.ChunkedEncoding, TransferEncoding.CompressEncoding)),
+      TransferEncoding.DeflateEncoding,
+      TransferEncoding.InvalidEncoding,
+    ),
+  )
 }
