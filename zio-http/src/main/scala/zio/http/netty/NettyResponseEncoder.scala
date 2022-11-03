@@ -6,9 +6,10 @@ import zio._
 import zio.http._
 
 import scala.collection.concurrent.TrieMap
+import java.util.concurrent.ConcurrentHashMap
 private[zio] object NettyResponseEncoder {
 
-  private val frozenCache = TrieMap.empty[Response, HttpResponse]
+  private val frozenCache = new ConcurrentHashMap[Response, HttpResponse]()
 
   def encode(response: Response): ZIO[Any, Throwable, HttpResponse] = {
     val body = response.body
@@ -26,13 +27,12 @@ private[zio] object NettyResponseEncoder {
     if (response.frozen) {
       val encodedResponse = frozenCache.get(response)
 
-      encodedResponse match {
-        case Some(encoded) => encoded
-
-        case None =>
-          val encoded = doEncode(response, bytes)
-          frozenCache.put(response, encoded)
-          encoded
+      if (encodedResponse != null)
+        encodedResponse
+      else {
+        val encoded = doEncode(response, bytes)
+        frozenCache.put(response, encoded)
+        encoded
       }
     } else {
       doEncode(response, bytes)
