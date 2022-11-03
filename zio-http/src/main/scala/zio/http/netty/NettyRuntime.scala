@@ -30,8 +30,8 @@ private[zio] trait NettyRuntime { self =>
       cause.failureOption.orElse(cause.dieOption) match {
         case None        => ()
         case Some(error) =>
-          log.error("HttpRuntimeException:" + cause.prettyPrint)
-          ctx.fireExceptionCaught(error)
+          log.error("HttpRuntimeException:" + cause.prettyPrint.split("\n").take(5).mkString("\n"))
+//          ctx.fireExceptionCaught(error)  // TODO Restore when finished
       }
       if (ctx.channel().isOpen) ctx.close(): Unit
     }

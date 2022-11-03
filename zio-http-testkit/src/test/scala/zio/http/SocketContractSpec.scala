@@ -10,138 +10,127 @@ import zio.test._
 
 object SocketContractSpec extends ZIOSpecDefault {
 
-  val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
+  private val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
     Http.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
       (channel, message)
-    }
-
-  val messageSocketServer: HttpSocket = messageFilter >>>
-    Http.collectZIO[(WebSocketChannel, String)] {
-      case (ch, text) if text.contains("Hi Server") =>
-        ZIO.debug("Server got message: " + text) *> ch.close()
-      case (_, text)                                => // TODO remove?
-        ZIO.debug("Unrecognized message sent to server: " + text)
-    }
-
-  def channelSocketServer(p: Promise[Throwable, Unit]): HttpSocket =
-    Http.collectZIO[WebSocketChannelEvent] {
-      case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
-        ch.write(WebSocketFrame.text("junk")) *>
-          ch.writeAndFlush(WebSocketFrame.text("Hi Client"))
-
-      case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
-        p.succeed(()) *>
-          Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
-      case ChannelEvent(_, ChannelUnregistered)                               =>
-        p.succeed(()) *>
-          Console.printLine("Server Channel unregistered")
-      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("Hi Server")))    =>
-        // TODO Only use one of these?
-        p.succeed(()) *>
-          ch.close(true)
-//        ch.write(WebSocketFrame.text("Hi Client"))
-
-      case ChannelEvent(_, other) =>
-        Console.printLine("Server Unexpected: " + other)
-    }
-
-  private val failServer: HttpSocket =
-    Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
-      ZIO.fail(new Exception("Broken server"))
-//        ZIO.unit
     }
 
   val protocol = SocketProtocol.default.withSubProtocol(Some("json"))
   val decoder  = SocketDecoder.default.withExtensions(allowed = true)
 
-  def socketAppServer(p: Promise[Throwable, Unit]): SocketApp[Any] =
-    messageSocketServer
-      .defaultWith(channelSocketServer(p))
-      .toSocketApp
-      .withDecoder(decoder)
-      .withProtocol(protocol)
-
   def spec =
     suite("SocketOps")(
-      suite("Successful Multi-message application")(
-        happySocketApp(
-          "Live",
-          ZIO.serviceWithZIO[Server](server =>
-            for {
-              p <- Promise.make[Throwable, Unit]
-              _ <- server.install(socketAppServer(p).toHttp)
+      {
+        val messageSocketClient: HttpSocket = messageFilter >>>
+          Http.collectZIO[(WebSocketChannel, String)] {
+            case (ch, text) if text.contains("Hi Client") =>
+              ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true).debug("Client got message: " + text)
+          }
 
-            } yield (server.port, p),
-          ),
-        ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
-        happySocketApp(
-          "Test", {
-            for {
-              p <- Promise.make[Throwable, Unit]
-              _ <- TestClient.addSocketApp(socketAppServer(p))
+        val channelSocketClient: HttpSocket =
+          Http.collectZIO[WebSocketChannelEvent] {
+            case ChannelEvent(_, ChannelUnregistered) =>
+              Console.printLine("Client Channel unregistered")
 
-            } yield (0, p)
-          },
-        )
-          .provide(TestClient.layer, Scope.default),
-      ),
-      suite("Application where server app fails")(
-        handlesAServerFailure(
-          "Live",
-          ZIO.serviceWithZIO[Server](server =>
-            for {
-              p <- Promise.make[Throwable, Unit]
-              _ <- server.install(failServer.toSocketApp.toHttp)
+            case ChannelEvent(_, other) =>
+              Console.printLine("Client received Unexpected event: " + other)
+          }
 
-            } yield (server.port, p),
-          ),
-        ).provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
-        handlesAServerFailure(
-          "Test", {
-            for {
-              p <- Promise.make[Throwable, Unit]
-              _ <- TestClient.addSocketApp(failServer.toSocketApp)
+        val socketAppClient: SocketApp[Any] =
+          messageSocketClient.defaultWith(channelSocketClient).toSocketApp
+            .withDecoder(decoder)
+            .withProtocol(protocol)
+        def channelSocketServer(p: Promise[Throwable, Unit]): HttpSocket =
+          Http.collectZIO[WebSocketChannelEvent] {
+            case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
+              ch.writeAndFlush(WebSocketFrame.text("Hi Client"))
 
-            } yield (0, p)
-          },
-        )
-          .provide(TestClient.layer, Scope.default) @@ ignore,
-      ),
+            case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
+              p.succeed(()) *>
+                Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
+            case ChannelEvent(_, ChannelUnregistered)                               =>
+              p.succeed(()) *>
+                Console.printLine("Server Channel unregistered")
+            case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("Hi Server")))    =>
+              // TODO Only use one of these?
+              p.succeed(()) *>
+                ch.close(true)
+
+            case ChannelEvent(_, other) =>
+              Console.printLine("Server Unexpected: " + other)
+          }
+
+        val messageSocketServer: HttpSocket = messageFilter >>>
+          Http.collectZIO[(WebSocketChannel, String)] {
+            case (ch, text) if text.contains("Hi Server") =>
+              ZIO.debug("Server got message: " + text) *> ch.close()
+            case (_, text)                                => // TODO remove?
+              ZIO.debug("Unrecognized message sent to server: " + text)
+          }
+
+        def socketAppServer(p: Promise[Throwable, Unit]): SocketApp[Any] =
+          messageSocketServer
+            .defaultWith(channelSocketServer(p))
+            .toSocketApp
+            .withDecoder(decoder)
+            .withProtocol(protocol)
+
+
+        contract("C: Successful Multi-message application", serverApp = socketAppServer, clientApp = _ => socketAppClient)
+      },
+      {
+        val failServer: HttpSocket =
+          Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
+            ZIO.fail(new Exception("Broken server"))
+          }
+
+        def channelSocketClient(p: Promise[Throwable, Unit]): HttpSocket =
+          Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, ChannelUnregistered) =>
+            Console.printLine("Server failed and killed socket. Should complete promise.") *>
+              p.succeed(()).unit
+          }
+
+        def socketAppClient(p: Promise[Throwable, Unit]): SocketApp[Any] =
+          channelSocketClient(p).toSocketApp
+
+        contract("C: Application where server app fails", serverApp = _ => failServer.toSocketApp, clientApp = socketAppClient(_))
+      },
     )
 
-  def happySocketApp[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
-    test(name) {
-      val messageSocketClient: HttpSocket = messageFilter >>>
-        Http.collectZIO[(WebSocketChannel, String)] {
-          case (ch, text) if text.contains("junk")      =>
-            ZIO.fail(new Exception("boom"))
-          case (ch, text) if text.contains("Hi Client") =>
-            ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true).debug("Client got message: " + text)
-        }
+  def contract[R](name: String, serverApp: Promise[Throwable, Unit] => SocketApp[Any], clientApp: Promise[Throwable, Unit] => SocketApp[Any]) = {
+    suite(name) (
+      test("Live") {
+        for {
+          portAndPromise <- liveServerSetup(serverApp)
+          response <- ZIO.serviceWithZIO[Client](_.socket(s"ws://localhost:${portAndPromise._1}/", clientApp(portAndPromise._2)))
+          _ <- portAndPromise._2.await.timeout(10.seconds)
+        } yield assertTrue(response.status == Status.SwitchingProtocols)
+      }.provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
+      test("Test") {
+        for {
+          portAndPromise <- testServerSetup(serverApp)
+          response <- ZIO.serviceWithZIO[Client](_.socket(s"ws://localhost:${portAndPromise._1}/", clientApp(portAndPromise._2)))
+          _ <- portAndPromise._2.await.timeout(10.seconds)
+        } yield assertTrue(response.status == Status.SwitchingProtocols)
+      }.provide(TestClient.layer, Scope.default)
+    )
+  }
 
-      val channelSocketClient: HttpSocket =
-        Http.collectZIO[WebSocketChannelEvent] {
-          case ChannelEvent(_, ChannelUnregistered) =>
-            Console.printLine("Client Channel unregistered")
-
-          case ChannelEvent(_, other) =>
-            Console.printLine("Client received Unexpected event: " + other)
-        }
-
-      val httpSocketClient: HttpSocket =
-        messageSocketClient.defaultWith(channelSocketClient)
-
-      val socketAppClient: SocketApp[Any] =
-        httpSocketClient.toSocketApp
-          .withDecoder(decoder)
-          .withProtocol(protocol)
-
+  private def liveServerSetup(serverApp: Promise[Throwable, Unit] => SocketApp[Any]) = {
+    ZIO.serviceWithZIO[Server](server =>
       for {
-        portAndPromise <- serverSetup
-        response       <- ZIO.serviceWithZIO[Client](_.socket(s"ws://localhost:${portAndPromise._1}/", socketAppClient))
-        _              <- portAndPromise._2.await
-      } yield assertTrue(response.status == Status.SwitchingProtocols)
-    }
+        p <- Promise.make[Throwable, Unit]
+        _ <- server.install(serverApp(p).toHttp)
+
+      } yield (server.port, p)
+    )
+  }
+
+  private def testServerSetup(serverApp: Promise[Throwable, Unit] => SocketApp[Any]) =
+    for {
+      p <- Promise.make[Throwable, Unit]
+      _ <- TestClient.addSocketApp(serverApp(p))
+    } yield (0, p)
 
   def handlesAServerFailure[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
     test(name) {
@@ -156,10 +145,12 @@ object SocketContractSpec extends ZIOSpecDefault {
 
       for {
         portAndPromise <- serverSetup
-        response       <- ZIO.serviceWithZIO[Client](
-          _.socket(s"ws://localhost:${portAndPromise._1}/", socketAppClient(portAndPromise._2)),
-        )
-        _              <- portAndPromise._2.await
+        response       <- ZIO.serviceWithZIO[Client] {
+          c =>
+            val x: ZIO[Any with Scope, Throwable, Response] = c.socket(s"ws://localhost:${portAndPromise._1}/", socketAppClient(portAndPromise._2))
+            x
+        }
+        _              <- portAndPromise._2.await.timeout(10.seconds)
       } yield assertTrue(response.status == Status.SwitchingProtocols)
     }
 

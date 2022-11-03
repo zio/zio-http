@@ -138,7 +138,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       _ <- app.message.get
         .apply(ChannelEvent(otherChannel, pendEvent))
         // TODO By not signaling shutdown in response to this error, we might hang forever in our tests
-        .tapError(e => ZIO.debug("Should handle: " + e))
+        .tapError(e => ZIO.debug("Should handle: " + e) *> otherChannel.close) // TODO Real Client is sending an unregistered event here. Is this an acceptable alternative?
 //        .ignore
 //        .tapError(_ => otherChannel.close)
       _ <- ZIO.when(pendEvent == ChannelUnregistered) {
