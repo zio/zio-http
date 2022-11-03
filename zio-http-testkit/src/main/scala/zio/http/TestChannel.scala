@@ -12,7 +12,7 @@ case class TestChannel(counterpartEvents: Queue[ChannelEvent.Event[WebSocketFram
   override def close(await: Boolean)(implicit trace: Trace): Task[Unit] =
     counterpartEvents.offer(ChannelEvent.ChannelUnregistered).unit
 
-  override def contramap[A1](f: A1 => WebSocketFrame): ChannelForUserSocketApps[A1] = ???
+  override def contramap[A1](f: A1 => WebSocketFrame): Channel[A1] = ???
 
   override def flush(implicit trace: Trace): Task[Unit] =
     // There's not queuing as would happen in a real Netty server, so this will always be a NoOp
@@ -35,6 +35,12 @@ case class TestChannel(counterpartEvents: Queue[ChannelEvent.Event[WebSocketFram
 
   val close: UIO[Boolean] =
     counterpartEvents.offer(ChannelEvent.ChannelUnregistered)
+
+  override def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] = ???
+
+  override def isAutoRead(implicit trace: Trace): UIO[Boolean] = ???
+
+  override def read(implicit trace: Trace): UIO[Unit] = ???
 }
 
 object TestChannel {
