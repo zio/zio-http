@@ -6,7 +6,6 @@ import zio._
 import zio.http._
 
 import java.util.concurrent.ConcurrentHashMap
-import scala.collection.concurrent.TrieMap
 
 private[zio] object NettyResponseEncoder {
 
