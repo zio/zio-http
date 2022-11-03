@@ -58,13 +58,16 @@ final class ClientInboundHandler(
           .flatMap(onComplete.done(_)),
       )(unsafeClass, trace)
     } else {
-      zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.Reusable))(unsafeClass, trace)
+      zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.Reusable))(
+        unsafeClass,
+        trace,
+      )
     }
 
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    zExec.runUninterruptible(ctx,NettyRuntime.noopEnsuring)(
+    zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
       onResponse.fail(error) *> onComplete.fail(error),
     )(unsafeClass, trace)
     releaseRequest()

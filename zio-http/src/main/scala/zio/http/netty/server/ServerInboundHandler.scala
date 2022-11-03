@@ -14,6 +14,13 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import scala.annotation.tailrec
 import ServerInboundHandler.isReadKey
 import java.io.IOException
+import zio.http.Body.ChunkBody
+import zio.http.Body.AsciiStringBody
+import zio.http.Body.FileBody
+import zio.http.Body.ByteBufBody
+import zio.http.Body.EmptyBody
+import zio.http.Body.StreamBody
+import zio.http.Body.AsyncBody
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -87,7 +94,7 @@ private[zio] final case class ServerInboundHandler(
             log.info("Connection reset by peer")
           case t => super.exceptionCaught(ctx, t)
         }
-      }(f => runtime.run(ctx, () => ())(f(cause)))
+      }(f => runtime.run(ctx, NettyRuntime.noopEnsuring)(f(cause)))
   }
 
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: Body.UnsafeAsync): Unit = {
@@ -105,17 +112,21 @@ private[zio] final case class ServerInboundHandler(
     time: service.ServerTime,
   ): Boolean = {
 
-    NettyResponseEncoder.encode(response) match {
-      case jResponse: FullHttpResponse if response.frozen =>
-        val djResponse = jResponse.retainedDuplicate()
-        setServerTime(time, response, djResponse)
-        ctx.writeAndFlush(djResponse, ctx.voidPromise())
-        true
-      case jResponse if response.frozen                   =>
-        throw new IllegalArgumentException(
-          s"The ${jResponse.getClass.getName} is not supported as a Netty response encoder.",
-        )
-      case _                                              => false
+    response.body match {
+      case body: Body.UnsafeBytes =>
+        NettyResponseEncoder.fastEncode(response, body.unsafeAsArray) match {
+          case jResponse: FullHttpResponse if response.frozen =>
+            val djResponse = jResponse.retainedDuplicate()
+            setServerTime(time, response, djResponse)
+            ctx.writeAndFlush(djResponse, ctx.voidPromise())
+            true
+          case jResponse if response.frozen                   =>
+            throw new IllegalArgumentException(
+              s"The ${jResponse.getClass.getName} is not supported as a Netty response encoder.",
+            )
+          case _                                              => false
+        }
+      case _                      => false
     }
 
   }
@@ -133,11 +144,10 @@ private[zio] final case class ServerInboundHandler(
         if (response.isWebSocket) ZIO.attempt(upgradeToWebSocket(ctx, jRequest, response, runtime))
         else
           for {
-            jResponse <- ZIO.attemptUnsafe { implicit unsafe =>
-              val jResponse = NettyResponseEncoder.encode(response)
+            jResponse <- NettyResponseEncoder.encode(response)
+            _         <- ZIO.attempt {
               setServerTime(time, response, jResponse)
               ctx.writeAndFlush(jResponse)
-              jResponse
             }
             flushed   <-
               if (!jResponse.isInstanceOf[FullHttpResponse]) NettyBodyWriter.write(response.body, ctx)

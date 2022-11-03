@@ -29,7 +29,10 @@ final class ClientResponseStreamHandler(
       ctx.channel().pipeline().remove(self)
 
       if (keepAlive)
-        zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.Reusable))(unsafeClass, trace)
+        zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.Reusable))(
+          unsafeClass,
+          trace,
+        )
       else {
         zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
           NettyFutureExecutor
