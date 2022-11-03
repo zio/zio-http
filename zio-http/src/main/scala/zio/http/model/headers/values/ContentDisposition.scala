@@ -13,18 +13,19 @@ object ContentDisposition {
   private val FormDataRegex           = """form-data; name="(.*)"; filename="(.*)"""".r
   private val FormDataNoFileNameRegex = """form-data; name="(.*)"""".r
 
-  def toContentDisposition(contentDisposition: String): ContentDisposition = {
-    if (contentDisposition.startsWith("attachment")) {
+  def toContentDisposition(contentDisposition: CharSequence): ContentDisposition = {
+    val asString = contentDisposition.toString
+    if (asString.startsWith("attachment")) {
       contentDisposition match {
         case AttachmentRegex(filename) => Attachment(Some(filename))
         case _                         => Attachment(None)
       }
-    } else if (contentDisposition.startsWith("inline")) {
+    } else if (asString.startsWith("inline")) {
       contentDisposition match {
         case InlineRegex(filename) => Inline(Some(filename))
         case _                     => Inline(None)
       }
-    } else if (contentDisposition.startsWith("form-data")) {
+    } else if (asString.startsWith("form-data")) {
       contentDisposition match {
         case FormDataRegex(name, filename) => FormData(name, Some(filename))
         case FormDataNoFileNameRegex(name) => FormData(name, None)

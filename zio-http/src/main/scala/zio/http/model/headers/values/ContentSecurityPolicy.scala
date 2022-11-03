@@ -362,6 +362,7 @@ object ContentSecurityPolicy {
       case SandboxRegex(sandbox)           => SandboxValue.fromString(sandbox).map(ContentSecurityPolicy.Sandbox(_)).getOrElse(InvalidContentSecurityPolicy)
       case "upgrade-insecure-requests"     => ContentSecurityPolicy.UpgradeInsecureRequests
       case PolicyRegex(policyType, policy) => ContentSecurityPolicy.fromTypeAndPolicy(policyType, policy)
+      case _                               => InvalidContentSecurityPolicy
 
     }
   def fromContentSecurityPolicy(csp: ContentSecurityPolicy): String =

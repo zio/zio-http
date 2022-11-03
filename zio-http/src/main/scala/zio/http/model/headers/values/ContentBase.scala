@@ -13,9 +13,9 @@ object ContentBase {
     case InvalidContentBase => ""
   }
 
-  def toContentBase(s: String): ContentBase =
+  def toContentBase(s: CharSequence): ContentBase =
     try {
-      BaseUri(new Uri(s))
+      BaseUri(new Uri(s.toString))
     } catch {
       case _: Throwable => InvalidContentBase
     }

@@ -7,11 +7,10 @@ import zio.http.api.MiddlewareSpec.{CsrfValidate, decodeHttpBasic}
 import zio.http.middleware.Auth
 import zio.http.middleware.Cors.CorsConfig
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName, Header}
-import zio.http.model.headers.values.{Origin, _}
+import zio.http.model.headers.values._
 import zio.http.model.{Cookie, Headers, Method, Status}
 
 import java.util.{Base64, UUID}
-import scala.annotation.meta.param
 
 /**
  * A `Middleware` represents the implementation of a `MiddlewareSpec`,
@@ -262,111 +261,270 @@ object Middleware {
   }
 
   /**
-   * Adds the content type header to the response based on a ZIO effect
+   * Adds the content base header to the response with the given value.
    */
-  def withContentBase(contentBase: ContentBase): Middleware[Any, Unit, ContentBase] =
-    fromFunction(MiddlewareSpec.withContentBase)(_ => contentBase)
+  def withContentBase(value: ContentBase): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentBase.mapOut(_.unit(value)))(identity)
 
   /**
-   * Adds the content type header to the response based on a ZIO effect
+   * Adds the content base header to the response with the given value, if it is
+   * valid. Else, it add an empty value.
    */
-  def withContentBaseZIO[R](contentBase: ZIO[R, Nothing, ContentBase]): Middleware[R, Unit, ContentBase] =
-    fromFunctionZIO(MiddlewareSpec.withContentBase)(_ => contentBase)
+  def withContentBase(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentBase.mapOut(_.unit(ContentBase.toContentBase(value))))(identity)
 
   /**
-   * Adds the content type header to the response based on a ZIO effect
+   * Adds the content base header to the response with the value computed by the
+   * given effect.
    */
-  def withContentDisposition(contentDisposition: ContentDisposition): Middleware[Any, Unit, ContentDisposition] =
-    fromFunction(MiddlewareSpec.withContentDisposition)(_ => contentDisposition)
+  def withContentBaseZIO[R, A](value: ZIO[R, Nothing, A])(implicit
+    ev: A <:< ContentBase,
+  ): Middleware[R, Unit, ContentBase] =
+    fromFunctionZIO(MiddlewareSpec.withContentBase)(_ => value.map(ev))
 
   /**
-   * Adds the content disposition header to the response based on a ZIO effect
+   * Adds the content base header to the response with the value computed by the
+   * given effect, if it is valid. Else, it add an empty value.
+   */
+  def withContentBaseZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentBase] =
+    fromFunctionZIO(MiddlewareSpec.withContentBase)(_ => value.map(ContentBase.toContentBase))
+
+  /**
+   * Adds the content disposition header to the response with the given value.
+   */
+  def withContentDisposition(value: ContentDisposition): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentDisposition.mapOut(_.unit(value)))(identity)
+
+  /**
+   * Adds the content disposition header to the response with the given value,
+   * if it is valid. Else, it adds an empty value.
+   */
+  def withContentDisposition(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withContentDisposition.mapOut(_.unit(ContentDisposition.toContentDisposition(value))),
+    )(identity)
+
+  /**
+   * Adds the content disposition header to the response with the value computed
+   * by the given effect.
+   */
+  def withContentDispositionZIO[R, A](value: ZIO[R, Nothing, A])(implicit
+    ev: A <:< ContentDisposition,
+  ): Middleware[R, Unit, ContentDisposition] =
+    fromFunctionZIO(MiddlewareSpec.withContentDisposition)(_ => value.map(ev))
+
+  /**
+   * Adds the content disposition header to the response with the value computed
+   * by the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentDispositionZIO[R](
-    contentDisposition: ZIO[R, Nothing, ContentDisposition],
+    value: ZIO[R, Nothing, CharSequence],
   ): Middleware[R, Unit, ContentDisposition] =
-    fromFunctionZIO(MiddlewareSpec.withContentDisposition)(_ => contentDisposition)
+    fromFunctionZIO(MiddlewareSpec.withContentDisposition)(_ => value.map(ContentDisposition.toContentDisposition))
 
   /**
-   * Adds the content encoding header to the response
+   * Adds the content encoding header to the response with the given value.
    */
-  def withContentEncoding(value: CharSequence): Middleware[Any, Unit, ContentEncoding] =
-    fromFunction(MiddlewareSpec.withContentEncoding)(_ => ContentEncoding.toContentEncoding(value))
+  def withContentEncoding(value: ContentEncoding): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentEncoding.mapOut(_.unit(value)))(identity)
 
   /**
-   * Adds the content encoding header to the response based on a ZIO effect
+   * Adds the content encoding header to the response with the given value, if
+   * it is valid. Else, it adds an empty value.
+   */
+  def withContentEncoding(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentEncoding.mapOut(_.unit(ContentEncoding.toContentEncoding(value))))(identity)
+
+  /**
+   * Adds the content encoding header to the response with the value computed by
+   * the given effect.
+   */
+  def withContentEncodingZIO[R, A](value: ZIO[R, Nothing, A])(implicit
+    ev: A <:< ContentEncoding,
+  ): Middleware[R, Unit, ContentEncoding] =
+    fromFunctionZIO(MiddlewareSpec.withContentEncoding)(_ => value.map(ev))
+
+  /**
+   * Adds the content encoding header to the response with the value computed by
+   * the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentEncodingZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentEncoding] =
     fromFunctionZIO(MiddlewareSpec.withContentEncoding)(_ => value.map(ContentEncoding.toContentEncoding))
 
   /**
-   * Adds the content language header to the response
+   * Adds the content language header to the response with the given value.
    */
-  def withContentLanguage(value: CharSequence): Middleware[Any, Unit, ContentLanguage] =
-    fromFunction(MiddlewareSpec.withContentLanguage)(_ => ContentLanguage.toContentLanguage(value))
+  def withContentLanguage(value: ContentLanguage): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentLanguage.mapOut(_.unit(value)))(identity)
 
   /**
-   * Adds the content language header to the response based on a ZIO effect
+   * Adds the content language header to the response with the given value, if
+   * it is valid. Else, it adds an empty value.
+   */
+  def withContentLanguage(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentLanguage.mapOut(_.unit(ContentLanguage.toContentLanguage(value))))(identity)
+
+  /**
+   * Adds the content language header to the response with the value computed by
+   * the given effect.
+   */
+  def withContentLanguageZIO[R, A](value: ZIO[R, Nothing, A])(implicit
+    ev: A <:< ContentLanguage,
+  ): Middleware[R, Unit, ContentLanguage] =
+    fromFunctionZIO(MiddlewareSpec.withContentLanguage)(_ => value.map(ev))
+
+  /**
+   * Adds the content language header to the response with the value computed by
+   * the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentLanguageZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentLanguage] =
     fromFunctionZIO(MiddlewareSpec.withContentLanguage)(_ => value.map(ContentLanguage.toContentLanguage))
 
   /**
-   * Adds the content length header to the response
+   * Adds the content length header to the response with the given value.
    */
-  def withContentLength(length: Long): Middleware[Any, Unit, ContentLength] =
-    fromFunction(MiddlewareSpec.withContentLength)(_ => ContentLength.toContentLength(length))
+  def withContentLength(value: ContentLength): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentLength.mapOut(_.unit(value)))(identity)
 
   /**
-   * Adds the content length header to the response based on a ZIO effect
+   * Adds the content length header to the response with the given value, if it
+   * is valid. Else, it adds an empty value.
    */
-  def withContentLengthZIO[R](response: ZIO[R, Nothing, Long]): Middleware[R, Unit, ContentLength] =
-    fromFunctionZIO(MiddlewareSpec.withContentLength)(_ => response.map(ContentLength.toContentLength))
+  def withContentLength(value: Long): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentLength.mapOut(_.unit(ContentLength.toContentLength(value))))(identity)
 
   /**
-   * Adds the content location header to the response
+   * Adds the content length header to the response with the value computed by
+   * the given effect.
    */
-  def withContentLocation(value: CharSequence): Middleware[Any, Unit, ContentLocation] =
-    fromFunction(MiddlewareSpec.withContentLocation)(_ => ContentLocation.toContentLocation(value))
+  def withContentLengthZIO[R, A](value: ZIO[R, Nothing, A])(implicit
+    ev: A <:< ContentLength,
+  ): Middleware[R, Unit, ContentLength] =
+    fromFunctionZIO(MiddlewareSpec.withContentLength)(_ => value.map(ev))
 
   /**
-   * Adds the content location header to the response based on a ZIO effect
+   * Adds the content length header to the response with the value computed by
+   * the given effect, if it is valid. Else, it adds an empty value.
+   */
+  def withContentLengthZIO[R](value: ZIO[R, Nothing, Long]): Middleware[R, Unit, ContentLength] =
+    fromFunctionZIO(MiddlewareSpec.withContentLength)(_ => value.map(ContentLength.toContentLength))
+
+  /**
+   * Adds the content location header to the response with the given value.
+   */
+  def withContentLocation(value: ContentLocation): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentLocation.mapOut(_.unit(value)))(identity)
+
+  /**
+   * Adds the content location header to the response with the given value, if
+   * it is valid. Else, it adds an empty value.
+   */
+  def withContentLocation(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentLocation.mapOut(_.unit(ContentLocation.toContentLocation(value))))(identity)
+
+  /**
+   * Adds the content location header to the response with the value computed by
+   * the given effect.
+   */
+  def withContentLocationZIO[R, A](value: ZIO[R, Nothing, A])(implicit
+    ev: A <:< ContentLocation,
+  ): Middleware[R, Unit, ContentLocation] =
+    fromFunctionZIO(MiddlewareSpec.withContentLocation)(_ => value.map(ev))
+
+  /**
+   * Adds the content location header to the response with the value computed by
+   * the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentLocationZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentLocation] =
     fromFunctionZIO(MiddlewareSpec.withContentLocation)(_ => value.map(ContentLocation.toContentLocation))
 
   /**
-   * Adds the content md5 header to the response
+   * Adds the content md5 header to the response with the given value.
    */
-  def withContentMd5(value: CharSequence): Middleware[Any, Unit, ContentMd5] =
-    fromFunction(MiddlewareSpec.withContentMd5)(_ => ContentMd5.toContentMd5(value))
+  def withContentMd5(value: ContentMd5): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentMd5.mapOut(_.unit(value)))(identity)
 
   /**
-   * Adds the content md5 header to the response based on a ZIO effect
+   * Adds the content md5 header to the response with the given value, if it is
+   * valid. Else, it adds an empty value.
+   */
+  def withContentMd5(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentMd5.mapOut(_.unit(ContentMd5.toContentMd5(value))))(identity)
+
+  /**
+   * Adds the content md5 header to the response with the value computed by the
+   * given effect.
+   */
+  def withContentMd5ZIO[R, A](value: ZIO[R, Nothing, A])(implicit
+    ev: A <:< ContentMd5,
+  ): Middleware[R, Unit, ContentMd5] =
+    fromFunctionZIO(MiddlewareSpec.withContentMd5)(_ => value.map(ev))
+
+  /**
+   * Adds the content md5 header to the response with the value computed by the
+   * given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentMd5ZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentMd5] =
     fromFunctionZIO(MiddlewareSpec.withContentMd5)(_ => value.map(ContentMd5.toContentMd5))
 
   /**
-   * Adds the content range header to the response
+   * Adds the content range header to the response with the given value.
    */
-  def withContentRange(value: CharSequence): Middleware[Any, Unit, ContentRange] =
-    fromFunction(MiddlewareSpec.withContentRange)(_ => ContentRange.toContentRange(value))
+  def withContentRange(value: ContentRange): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentRange.mapOut(_.unit(value)))(identity)
 
   /**
-   * Adds the content range header to the response based on a ZIO effect
+   * Adds the content range header to the response with the given value, if it
+   * is valid. Else, it adds an empty value.
+   */
+  def withContentRange(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentRange.mapOut(_.unit(ContentRange.toContentRange(value))))(identity)
+
+  /**
+   * Adds the content range header to the response with the value computed by
+   * the given effect.
+   */
+  def withContentRangeZIO[R, A](value: ZIO[R, Nothing, A])(implicit
+    ev: A <:< ContentRange,
+  ): Middleware[R, Unit, ContentRange] =
+    fromFunctionZIO(MiddlewareSpec.withContentRange)(_ => value.map(ev))
+
+  /**
+   * Adds the content range header to the response with the value computed by
+   * the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentRangeZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentRange] =
     fromFunctionZIO(MiddlewareSpec.withContentRange)(_ => value.map(ContentRange.toContentRange))
 
   /**
-   * Adds the content type header to the response
+   * Adds the content security policy header to the response with the given
+   * value.
    */
-  def withContentSecurityPolicy(value: CharSequence): Middleware[Any, Unit, ContentSecurityPolicy] =
-    fromFunction(MiddlewareSpec.withContentSecurityPolicy)(_ => ContentSecurityPolicy.toContentSecurityPolicy(value))
+
+  def withContentSecurityPolicy(value: ContentSecurityPolicy): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentSecurityPolicy.mapOut(_.unit(value)))(identity)
 
   /**
-   * Adds the content type header to the response based on a ZIO effect
+   * Adds the content security policy header to the response with the given
+   * value, if it is valid. Else, it adds an empty value.
+   */
+  def withContentSecurityPolicy(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withContentSecurityPolicy.mapOut(_.unit(ContentSecurityPolicy.toContentSecurityPolicy(value))),
+    )(identity)
+
+  /**
+   * Adds the content security policy header to the response with the value
+   * computed by the given effect.
+   */
+  def withContentSecurityPolicyZIO[R, A](value: ZIO[R, Nothing, A])(implicit
+    ev: A <:< ContentSecurityPolicy,
+  ): Middleware[R, Unit, ContentSecurityPolicy] =
+    fromFunctionZIO(MiddlewareSpec.withContentSecurityPolicy)(_ => value.map(ev))
+
+  /**
+   * Adds the content security policy header to the response with the value
+   * computed by the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentSecurityPolicyZIO[R](
     value: ZIO[R, Nothing, CharSequence],
@@ -376,15 +534,33 @@ object Middleware {
     )
 
   /**
-   * Adds the content type header to the response
+   * Adds the content transfer encoding header to the response with the given
+   * value.
    */
-  def withContentTransferEncoding(value: CharSequence): Middleware[Any, Unit, ContentTransferEncoding] =
-    fromFunction(MiddlewareSpec.withContentTransferEncoding)(_ =>
-      ContentTransferEncoding.toContentTransferEncoding(value),
-    )
+  def withContentTransferEncoding(value: ContentTransferEncoding): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentTransferEncoding.mapOut(_.unit(value)))(identity)
 
   /**
-   * Adds the content type header to the response based on a ZIO effect
+   * Adds the content transfer encoding header to the response with the given
+   * value, if it is valid. Else, it adds an empty value.
+   */
+  def withContentTransferEncoding(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withContentTransferEncoding.mapOut(
+        _.unit(ContentTransferEncoding.toContentTransferEncoding(value)),
+      ),
+    )(identity)
+
+  /**
+   * Adds the content transfer encoding header to the response with the value
+   */
+  def withContentTransferEncodingZIO[R, A](
+    value: ZIO[R, Nothing, A],
+  )(implicit ev: A <:< ContentTransferEncoding): Middleware[R, Unit, ContentTransferEncoding] =
+    fromFunctionZIO(MiddlewareSpec.withContentTransferEncoding)(_ => value.map(ev))
+
+  /**
+   * Adds the content transfer encoding header to the response with the value
    */
   def withContentTransferEncodingZIO[R](
     value: ZIO[R, Nothing, CharSequence],
@@ -394,16 +570,33 @@ object Middleware {
     )
 
   /**
-   * Adds the content type header to the response
+   * Adds the content type header to the response with the given value.
    */
-  def withContentType(contentType: ContentType): Middleware[Any, Unit, ContentType] =
-    fromFunction(MiddlewareSpec.withContentType)(_ => contentType)
+  def withContentType(value: ContentType): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentType.mapOut(_.unit(value)))(identity)
 
   /**
-   * Adds the content type header to the response based on a ZIO effect
+   * Adds the content type header to the response with the given value, if it is
+   * valid. Else, it adds an empty value.
    */
-  def withContentTypeZIO[R](contentType: ZIO[R, Nothing, ContentType]): Middleware[R, Unit, ContentType] =
-    fromFunctionZIO(MiddlewareSpec.withContentType)(_ => contentType)
+  def withContentType(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.withContentType.mapOut(_.unit(ContentType.toContentType(value))))(identity)
+
+  /**
+   * Adds the content type header to the response with the value computed by the
+   * given effect.
+   */
+  def withContentTypeZIO[R, A](value: ZIO[R, Nothing, A])(implicit
+    ev: A <:< ContentType,
+  ): Middleware[R, Unit, ContentType] =
+    fromFunctionZIO(MiddlewareSpec.withContentType)(_ => value.map(ev))
+
+  /**
+   * Adds the content type header to the response with the value computed by the
+   * given effect, if it is valid. Else, it adds an empty value.
+   */
+  def withContentTypeZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentType] =
+    fromFunctionZIO(MiddlewareSpec.withContentType)(_ => value.map(ContentType.toContentType))
 
   /**
    * Generates a new CSRF token that can be validated using the csrfValidate
