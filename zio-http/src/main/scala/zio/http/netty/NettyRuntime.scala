@@ -14,7 +14,7 @@ private[zio] trait NettyRuntime { self =>
 
   def runtime(ctx: ChannelHandlerContext): Runtime[Any]
 
-  def run(ctx: ChannelHandlerContext, ensured: () => Unit = () => (), interruptOnClose: Boolean = true)(
+  def run(ctx: ChannelHandlerContext, ensured: () => Unit, interruptOnClose: Boolean = true)(
     program: ZIO[Any, Throwable, Any],
   )(implicit unsafe: Unsafe, trace: Trace): Unit = {
     val rtm: Runtime[Any] = runtime(ctx)
@@ -64,13 +64,15 @@ private[zio] trait NettyRuntime { self =>
     }
   }
 
-  def runUninterruptible(ctx: ChannelHandlerContext, ensured: () => Unit = () => ())(
+  def runUninterruptible(ctx: ChannelHandlerContext, ensured: () => Unit)(
     program: ZIO[Any, Throwable, Any],
   )(implicit unsafe: Unsafe, trace: Trace): Unit =
     run(ctx, ensured, interruptOnClose = false)(program)
 }
 
-object NettyRuntime {
+private[zio] object NettyRuntime {
+
+  val noopEnsuring = () => ()
 
   /**
    * Creates a runtime that uses a separate thread pool for ZIO operations.
