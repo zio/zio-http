@@ -15,7 +15,7 @@ trait Channel[-A] {
    */
   def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit]
 
-  /*
+  /**
    * Provides a way to wait for the channel to be closed.
    */
   def awaitClose(implicit trace: Trace): UIO[Unit]
