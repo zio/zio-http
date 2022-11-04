@@ -15,9 +15,6 @@ object SocketContractSpec extends ZIOSpecDefault {
       (channel, message)
     }
 
-  private val protocol = SocketProtocol.default.withSubProtocol(Some("json"))
-  private val decoder  = SocketDecoder.default.withExtensions(allowed = true)
-
   private val warnOnUnrecognizedEvent = Http.collectZIO[WebSocketChannelEvent]{
     case other =>
       ZIO.fail(new Exception("Unexpected event: " + other))
@@ -34,9 +31,7 @@ object SocketContractSpec extends ZIOSpecDefault {
               p.succeed(()) *>
                 Console.printLine("Server Channel unregistered")
             case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("Hi Server")))    =>
-              p.succeed(()) *>
-                ch.close(true)
-
+                ch.close()
             case ChannelEvent(_, other) =>
               Console.printLine("Server Unexpected: " + other)
           }.defaultWith(warnOnUnrecognizedEvent)
@@ -49,7 +44,6 @@ object SocketContractSpec extends ZIOSpecDefault {
 
         messageSocketServer
           .defaultWith(channelSocketServer)
-
       } { p =>
         val messageSocketClient: HttpSocket = messageFilter >>>
           Http.collectZIO[(WebSocketChannel, String)] {
@@ -77,6 +71,19 @@ object SocketContractSpec extends ZIOSpecDefault {
         Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, ChannelUnregistered) =>
           Console.printLine("Server failed and killed socket. Should complete promise.") *>
             p.succeed(()).unit
+        }
+      },
+      contract("Application where client app fails")(p =>
+        Http.collectZIO[WebSocketChannelEvent] {
+          case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) => ZIO.unit
+          case ChannelEvent(ch, ChannelUnregistered) =>
+            Console.printLine("Client failed and killed socket. Should complete promise.") *>
+              p.succeed(()).unit
+        },
+      ) { p =>
+        Http.collectZIO[WebSocketChannelEvent] {
+          case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
+            ZIO.fail(new Exception("Broken client"))
         }
       },
     )
@@ -111,9 +118,6 @@ object SocketContractSpec extends ZIOSpecDefault {
       for {
         p <- Promise.make[Throwable, Unit]
         _ <- server.install(serverApp(p).toSocketApp.toHttp)
-        // TODO Handle these somewhere?
-        //                  .withDecoder(decoder)
-        //                  .withProtocol(protocol)
       } yield (server.port, p),
     )
   }
