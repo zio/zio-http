@@ -37,7 +37,7 @@ private[zio] final case class ServerInboundHandler(
 
   private lazy val (http, env) = appRef.get
 
-  private lazy val errCallback = errCallbackRef.get.orNull
+  // private lazy val errCallback = errCallbackRef.get.orNull
 
   @inline
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
@@ -88,15 +88,16 @@ private[zio] final case class ServerInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    if (errCallback != null) {
-      runtime.run(ctx, NettyRuntime.noopEnsuring)(errCallback(cause))
-    } else {
-      cause match {
-        case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
-          log.info("Connection reset by peer")
-        case t => super.exceptionCaught(ctx, t)
-      }
-    }
+    ()
+    // if (errCallback != null) {
+    //   runtime.run(ctx, NettyRuntime.noopEnsuring)(errCallback(cause))
+    // } else {
+    //   cause match {
+    //     case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
+    //       log.info("Connection reset by peer")
+    //     case t => super.exceptionCaught(ctx, t)
+    //   }
+    // }
   }
 
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: Body.UnsafeAsync): Unit = {
