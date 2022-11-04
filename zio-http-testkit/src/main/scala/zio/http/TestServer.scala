@@ -79,19 +79,26 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
   override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
     trace: zio.Trace,
   ): URIO[R, Unit] = {
-    ZIO.environment[R].flatMap(driver.addApp(
-      httpApp
-        // TODO Remove this if I can't get Netty errors reported more nicely
-        .tapErrorZIO(e => ZIO.debug("??? " + e))
-        .catchAll( error => Http.fromZIO(
-          ZIO.debug("Error: " + error.getMessage) *> ZIO.succeed(Response.ok)
-
-        ))
-        .catchAllDefect(error => Http.fromZIO(
-          ZIO.debug("Defect: " + error.getMessage) *> ZIO.succeed(Response.ok)
-
-        )), _
-    )) *> setErrorCallback(errorCallback) <*
+    ZIO
+      .environment[R]
+      .flatMap(
+        driver.addApp(
+          httpApp
+            // TODO Remove this if I can't get Netty errors reported more nicely
+            .tapErrorZIO(e => ZIO.debug("??? " + e))
+            .catchAll(error =>
+              Http.fromZIO(
+                ZIO.debug("Error: " + error.getMessage) *> ZIO.succeed(Response.ok),
+              ),
+            )
+            .catchAllDefect(error =>
+              Http.fromZIO(
+                ZIO.debug("Defect: " + error.getMessage) *> ZIO.succeed(Response.ok),
+              ),
+            ),
+          _,
+        ),
+      ) *> setErrorCallback(errorCallback) <*
       ZIO.debug("Installed app")
   }
 

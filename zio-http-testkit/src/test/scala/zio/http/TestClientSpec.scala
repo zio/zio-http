@@ -88,7 +88,7 @@ object TestClientSpec extends ZIOSpecDefault {
             messageSocketServer ++ channelSocketServer
 
           for {
-            _        <- TestClient.addSocketApp(httpSocketServer.toSocketApp)
+            _        <- TestClient.addSocketApp(httpSocketServer)
             response <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(httpSocketClient.toSocketApp))
           } yield assertTrue(response.status == Status.SwitchingProtocols)
         },
