@@ -132,26 +132,4 @@ object SocketContractSpec extends ZIOSpecDefault {
       _ <- TestClient.addSocketApp(serverApp(p))
     } yield (0, p)
 
-  def handlesAServerFailure[R](name: String, serverSetup: ZIO[R, Nothing, (Int, Promise[Throwable, Unit])]) =
-    test(name) {
-      def channelSocketClient(p: Promise[Throwable, Unit]): HttpSocket =
-        Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, ChannelUnregistered) =>
-          Console.printLine("Server failed and killed socket. Should complete promise.") *>
-            p.succeed(()).unit
-        }
-
-      def socketAppClient(p: Promise[Throwable, Unit]): SocketApp[Any] =
-        channelSocketClient(p).toSocketApp
-
-      for {
-        portAndPromise <- serverSetup
-        response       <- ZIO.serviceWithZIO[Client] {
-          c =>
-            val x: ZIO[Any with Scope, Throwable, Response] = c.socket(s"ws://localhost:${portAndPromise._1}/", socketAppClient(portAndPromise._2))
-            x
-        }
-        _              <- portAndPromise._2.await.timeout(10.seconds)
-      } yield assertTrue(response.status == Status.SwitchingProtocols)
-    }
-
 }
