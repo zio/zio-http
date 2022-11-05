@@ -127,7 +127,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
   private val warnLongRunning =
     ZIO
       .log("Socket Application is taking a long time to run. You might have logic that does not terminate.")
-      .delay(5.seconds)
+      .delay(15.seconds)
       .withClock(Clock.ClockLive) *> ZIO.never
 
   private def eventLoop(name: String, channel: TestChannel, app: SocketApp[Any], otherChannel: TestChannel) =
@@ -135,7 +135,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       pendEvent <- channel.pending race warnLongRunning
       _         <- app.message.get
         .apply(ChannelEvent(otherChannel, pendEvent))
-        .tapError(e => ZIO.debug("Should handle: " + e) *> otherChannel.close)
+        .tapError(e => ZIO.debug(s"Unexpected WebSocket $name error: " + e) *> otherChannel.close)
       _         <- ZIO.when(pendEvent == ChannelUnregistered) {
         otherChannel.close
       }

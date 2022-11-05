@@ -9,8 +9,6 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
   type RHttpApp[-R]    = HttpApp[R, Throwable]
   type EHttpApp        = HttpApp[Any, Throwable]
   type UHttp[-A, +B]   = Http[Any, Nothing, A, B]
-  // TODO Where should this live?
-  // TODO Should we parameterize the error type?
   type HttpSocket      = Http[Any, Throwable, WebSocketChannelEvent, Unit]
 
   type ResponseZIO[-R, +E]                   = ZIO[R, E, Response]

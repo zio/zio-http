@@ -4,8 +4,8 @@ import zio.http.ChannelEvent.{UserEvent, UserEventTriggered}
 import zio.http.socket.{WebSocketChannel, WebSocketFrame}
 
 case class TestChannel(counterpartEvents: Queue[ChannelEvent.Event[WebSocketFrame]]) extends WebSocketChannel {
+  override def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] = ???
 
-  // I think this really only matters for Netty. TODO Confirm.
   override def awaitClose(implicit trace: Trace): UIO[Unit] =
     close(true).orDie
 
@@ -24,6 +24,10 @@ case class TestChannel(counterpartEvents: Queue[ChannelEvent.Event[WebSocketFram
   //    - Hardcode it to "TestChannel"
   override def id(implicit trace: Trace): String = ???
 
+  override def isAutoRead(implicit trace: Trace): UIO[Boolean] = ???
+
+  override def read(implicit trace: Trace): UIO[Unit] = ???
+
   def pending(implicit trace: Trace): UIO[ChannelEvent.Event[WebSocketFrame]] =
     counterpartEvents.take
 
@@ -35,12 +39,6 @@ case class TestChannel(counterpartEvents: Queue[ChannelEvent.Event[WebSocketFram
 
   val close: UIO[Boolean] =
     counterpartEvents.offer(ChannelEvent.ChannelUnregistered)
-
-  override def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] = ???
-
-  override def isAutoRead(implicit trace: Trace): UIO[Boolean] = ???
-
-  override def read(implicit trace: Trace): UIO[Unit] = ???
 }
 
 object TestChannel {
