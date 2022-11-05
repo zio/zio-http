@@ -104,7 +104,6 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       }
     } yield response
 
-
   override protected def socketInternal[Env1](
     app: SocketApp[Env1],
     headers: Headers,
@@ -133,18 +132,11 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
 
   private def eventLoop(name: String, channel: TestChannel, app: SocketApp[Any], otherChannel: TestChannel) =
     (for {
-//      pendEventF <- channel.pending.fork
       pendEvent <- channel.pending race warnLongRunning
-
-      _ <- app.message.get
+      _         <- app.message.get
         .apply(ChannelEvent(otherChannel, pendEvent))
-        // TODO By not signaling shutdown in response to this error, we might hang forever in our tests
-        .tapError(e =>
-          ZIO.debug("Should handle: " + e) *> otherChannel.close,
-        ) // TODO Real Client is sending an unregistered event here. Is this an acceptable alternative?
-//        .ignore
-//        .tapError(_ => otherChannel.close)
-      _ <- ZIO.when(pendEvent == ChannelUnregistered) {
+        .tapError(e => ZIO.debug("Should handle: " + e) *> otherChannel.close)
+      _         <- ZIO.when(pendEvent == ChannelUnregistered) {
         otherChannel.close
       }
     } yield pendEvent).repeatWhile(event => shouldContinue(event))
@@ -166,12 +158,14 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       case ChannelEvent.ChannelUnregistered           => false
     }
 
-  def addSocketApp[Env1](
+  def installSocketApp[Env1](
     app: HttpSocket,
   ): ZIO[Env1, Nothing, Unit] =
     for {
       env <- ZIO.environment[Env1]
-      _   <- serverSocketBehavior.set(app.defaultWith(TestClient.warnOnUnrecognizedEvent).toSocketApp.provideEnvironment(env))
+      _   <- serverSocketBehavior.set(
+        app.defaultWith(TestClient.warnOnUnrecognizedEvent).toSocketApp.provideEnvironment(env),
+      )
     } yield ()
 }
 
@@ -212,10 +206,10 @@ object TestClient {
   ): ZIO[R with TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
-  def addSocketApp(
+  def installSocketApp(
     app: HttpSocket,
   ): ZIO[TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addSocketApp(app))
+    ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
 
   val layer: ZLayer[Any, Nothing, TestClient] =
     ZLayer.scoped {
@@ -225,9 +219,8 @@ object TestClient {
       } yield TestClient(behavior, socketBehavior)
     }
 
-  private val warnOnUnrecognizedEvent = Http.collectZIO[WebSocketChannelEvent]{
-    case other =>
-      ZIO.fail(new Exception("Unexpected event: " + other))
+  private val warnOnUnrecognizedEvent = Http.collectZIO[WebSocketChannelEvent] { case other =>
+    ZIO.fail(new Exception("Test Server received Unexpected event: " + other))
   }
 
 }
