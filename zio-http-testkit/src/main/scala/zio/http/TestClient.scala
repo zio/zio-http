@@ -159,7 +159,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     }
 
   def installSocketApp[Env1](
-    app: HttpSocket,
+    app: Http[Any, Throwable, WebSocketChannelEvent, Unit],
   ): ZIO[Env1, Nothing, Unit] =
     for {
       env <- ZIO.environment[Env1]
@@ -207,7 +207,7 @@ object TestClient {
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
   def installSocketApp(
-    app: HttpSocket,
+    app: Http[Any, Throwable, WebSocketChannelEvent, Unit],
   ): ZIO[TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
 
