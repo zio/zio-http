@@ -1,7 +1,6 @@
-package zio.http.model.headers
+package zio.http.model.headers.values
 
 import zio.http.internal.HttpGen
-import zio.http.model.headers.values.Host
 import zio.http.model.headers.values.Host.{HostValue, InvalidHostValue}
 import zio.test._
 

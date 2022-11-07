@@ -1,4 +1,4 @@
-package zio.http.api
+package zio.http.api.internal
 
 import java.util.UUID
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -15,14 +15,13 @@ import scala.util.control.NonFatal
  * decoding from a given text fragment. Finally, unlike ordinary parsers, text
  * codecs are fully invertible, and can therefore be used in client generation.
  */
-sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
+private[api] sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
   def apply(value: String): A
 
   // TODO: Implement this using `isDefinedAt` and `apply` but only after all
   // subtypes properly & performantly implement `isDefinedAt`.
   final def decode(value: String): Option[A] =
-    try Some(apply(value))
-    catch { case NonFatal(_) => None }
+    if (isDefinedAt(value)) Some(apply(value)) else None
 
   def describe: String
 
@@ -33,7 +32,7 @@ sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
   private[api] final def erase: TextCodec[Any] = self.asInstanceOf[TextCodec[Any]]
 }
 
-object TextCodec {
+private[api] object TextCodec {
   implicit val boolean: TextCodec[Boolean] = BooleanCodec
 
   def constant(string: String): TextCodec[Unit] = Constant(string)
@@ -84,8 +83,9 @@ object TextCodec {
           defined = false
           i = value.length
         }
+        i += 1
       }
-      defined
+      defined && i >= 1
     }
 
     override def toString(): String = "TextCodec.int"
@@ -104,7 +104,8 @@ object TextCodec {
     def encode(value: Boolean): String = value.toString
 
     // TODO: Make faster by hand-writing validation:
-    def isDefinedAt(value: String): Boolean = decode(value).isDefined
+    def isDefinedAt(value: String): Boolean = value == "1" || value == "0" || value == "true" || value == "false" ||
+      value == "no" || value == "off" || value == "yes" || value == "on"
 
     override def toString(): String = "TextCodec.boolean"
   }
@@ -117,7 +118,32 @@ object TextCodec {
     def encode(value: UUID): String = value.toString
 
     // TODO: Make faster by hand-writing validation:
-    def isDefinedAt(value: String): Boolean = decode(value).isDefined
+    def isDefinedAt(value: String): Boolean = {
+      var i       = 0
+      var defined = true
+      var group   = 0
+      var count   = 0
+      while (i < value.length) {
+        val char = value.charAt(i)
+        if ((char >= 48 && char <= 57) || (char >= 65 && char <= 70) || (char >= 97 && char <= 102))
+          count += 1
+        else if (char == 45) {
+          if (
+            group > 4 || (group == 0 && count != 8) || ((group == 1 || group == 2 || group == 3) && count != 4) || (group == 4 && count != 12)
+          ) {
+            defined = false
+            i = value.length
+          }
+          count = 0
+          group += 1
+        } else {
+          defined = false
+          i = value.length
+        }
+        i += 1
+      }
+      defined && i == 36
+    }
 
     override def toString(): String = "TextCodec.uuid"
   }

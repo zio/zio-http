@@ -24,6 +24,8 @@ private[api] object Mechanic {
       case atom: Atom[_, _]              => Chunk(atom)
       case map: TransformOrFail[_, _, _] => flattenedAtoms(map.api)
       case WithDoc(api, _)               => flattenedAtoms(api)
+      case optional: Optional[_, _]      => flattenedAtoms(optional.in)
+      case Empty                         => Chunk.empty
     }
 
   private def indexed[R, A](api: HttpCodec[R, A]): HttpCodec[R, A] =
@@ -41,7 +43,11 @@ private[api] object Mechanic {
         val (api2, resultIndices) = indexedImpl(api, indices)
         (TransformOrFail(api2, f, g).asInstanceOf[HttpCodec[R, A]], resultIndices)
 
-      case WithDoc(api, _) => indexedImpl(api.asInstanceOf[HttpCodec[R, A]], indices)
+      case WithDoc(api, _)     => indexedImpl(api.asInstanceOf[HttpCodec[R, A]], indices)
+      case Empty               => (Empty.asInstanceOf[HttpCodec[R, A]], indices)
+      case opt: Optional[_, _] =>
+        val (api2, resultIndices) = indexedImpl(opt.in, indices)
+        (Optional(api2).asInstanceOf[HttpCodec[R, A]], resultIndices)
     }
 
   def makeConstructor[R, A](
@@ -76,14 +82,24 @@ private[api] object Mechanic {
         results => {
           val leftValue  = leftThread(results)
           val rightValue = rightThread(results)
-
-          inputCombiner.combine(leftValue, rightValue)
+          if (leftValue == Undefined) Undefined.asInstanceOf[A]
+          else if (rightValue == Undefined) Undefined.asInstanceOf[A]
+          else inputCombiner.combine(leftValue, rightValue)
         }
 
       case IndexedAtom(_: Route[_], index)     =>
         results => coerce(results.routes(index))
       case IndexedAtom(_: Header[_], index)    =>
-        results => coerce(results.headers(index))
+        results => {
+          val headerValue = results.headers(index)
+
+          headerValue match {
+            case header1: EndpointError.MissingHeader =>
+              throw header1
+            case any                                  =>
+              coerce(any)
+          }
+        }
       case IndexedAtom(_: Query[_], index)     =>
         results => coerce(results.queries(index))
       case IndexedAtom(_: Body[_], index)      =>
@@ -98,7 +114,19 @@ private[api] object Mechanic {
             case Right(value) => value
           }
 
-      case WithDoc(api, _) => makeConstructorLoop(api)
+      case WithDoc(api, _)          => makeConstructorLoop(api)
+      case optional: Optional[_, _] =>
+        val threaded = makeConstructorLoop(optional.in)
+
+        results => {
+          val value = threaded(results)
+          if (value == Undefined) {
+            None.asInstanceOf[A]
+          } else Some(value).asInstanceOf[A]
+        }
+
+      case Empty =>
+        _ => coerce(())
 
       case atom: Atom[_, _] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
@@ -119,6 +147,10 @@ private[api] object Mechanic {
           leftDeconstructor(left, inputsBuilder)
           rightDeconstructor(right, inputsBuilder)
         }
+
+      case opt: Optional[_, _] =>
+        val deconstructor = makeDeconstructorLoop(opt.in).asInstanceOf[(A, InputsBuilder) => Unit]
+        (input, inputsBuilder) => deconstructor(input, inputsBuilder)
 
       case IndexedAtom(_: Route[_], index) =>
         (input, inputsBuilder) => inputsBuilder.routes(index) = input
@@ -152,6 +184,8 @@ private[api] object Mechanic {
 
       case WithDoc(api, _) => makeDeconstructorLoop(api)
 
+      case Empty => (_, _) => ()
+
       case atom: Atom[_, _] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
     }
@@ -168,7 +202,6 @@ private[api] object Mechanic {
     statuses: Chunk[TextCodec[_]],
   ) { self =>
     def append(atom: Atom[_, _]) = atom match {
-      case Empty                 => self
       case route: Route[_]       => self.copy(routes = routes :+ route.textCodec)
       case method: Method[_]     => self.copy(methods = methods :+ method.methodCodec)
       case query: Query[_]       => self.copy(queries = queries :+ query)
@@ -225,7 +258,6 @@ private[api] object Mechanic {
   ) { self =>
     def increment(atom: Atom[_, _]): AtomIndices = {
       atom match {
-        case _: Empty.type        => self
         case _: Route[_]          => self.copy(route = route + 1)
         case _: Method[_]         => self.copy(method = method + 1)
         case _: Query[_]          => self.copy(query = query + 1)
@@ -239,7 +271,6 @@ private[api] object Mechanic {
 
     def get(atom: Atom[_, _]): Int =
       atom match {
-        case Empty                => throw new RuntimeException("Empty should not be passed to get")
         case _: Route[_]          => route
         case _: Query[_]          => query
         case _: Header[_]         => header

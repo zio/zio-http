@@ -60,7 +60,8 @@ object Headers extends HeaderConstructors {
 
     override def _2: CharSequence = value
 
-    private[http] override def getUnsafe(key: String): String = if (key == _1) _2.toString else null
+    private[http] override def getUnsafe(key: String): String =
+      if (key == _1.toString) _2.toString else null
 
     override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
 
@@ -147,7 +148,7 @@ object Headers extends HeaderConstructors {
       val iterator = toJHeaders.iteratorCharSequence()
       while (iterator.hasNext) {
         val entry = iterator.next()
-        if (entry.getKey == key) {
+        if (entry.getKey.toString == key) {
           return entry.getValue.toString
         }
       }

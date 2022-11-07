@@ -17,9 +17,9 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
   private val jsonEncoders = flattened.bodies.map(bodyCodec => bodyCodec.erase.encodeToBody(_, JsonCodec))
   private val jsonDecoders = flattened.bodies.map(bodyCodec => bodyCodec.decodeFromBody(_, JsonCodec))
 
-  def decode(
-    codec: Codec,
-  )(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit trace: Trace): Task[Value] = {
+  def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
+    trace: Trace,
+  ): Task[Value] = {
     val inputsBuilder = flattened.makeInputsBuilder()
 
     decodeRoutes(url.path, inputsBuilder.routes)
@@ -30,9 +30,7 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
     decodeBody(body, inputsBuilder.bodies).as(constructor(inputsBuilder))
   }
 
-  final def encodeWith[Z](
-    codec: Codec,
-  )(value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
+  final def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
     val inputs = deconstructor(value)
 
     val route   = encodeRoute(inputs.routes)
@@ -77,12 +75,19 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
     while (i < queries.length) {
       val query = queries(i).erase
 
-      inputs(i) = queryParams
-        .getOrElse(query.name, Nil)
-        .collectFirst(query.textCodec)
-        .getOrElse(
-          throw EndpointError.MissingQueryParam(query.name),
-        ) // TODO: Preserve failure messages in case of no matches
+      val queryParamValue =
+        queryParams
+          .getOrElse(query.name, Nil)
+          .collectFirst(query.textCodec)
+
+      queryParamValue match {
+        case Some(value) =>
+          inputs(i) = value
+        case None        =>
+          if (query.optional) {
+            inputs(i) = Undefined
+          } else throw EndpointError.MissingQueryParam(query.name)
+      }
 
       i = i + 1
     }
@@ -116,10 +121,16 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
     while (i < flattened.headers.length) {
       val header = flattened.headers(i).erase
 
-      val value = headers.get(header.name).getOrElse(throw EndpointError.MissingHeader(header.name))
+      headers.get(header.name) match {
+        case Some(value) =>
+          inputs(i) =
+            header.textCodec.decode(value).getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
 
-      inputs(i) =
-        header.textCodec.decode(value).getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
+        case None =>
+          if (header.optional) {
+            inputs(i) = Undefined
+          } else throw EndpointError.MissingHeader(header.name)
+      }
 
       i = i + 1
     }

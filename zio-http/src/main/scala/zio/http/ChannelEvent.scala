@@ -15,19 +15,19 @@ final case class ChannelEvent[-A, +B](channel: Channel[A], event: ChannelEvent.E
 
 object ChannelEvent {
   def channelRead[B](ctx: ChannelHandlerContext, msg: B): ChannelEvent[Any, B] =
-    ChannelEvent(Channel.make(ctx.channel()), ChannelRead(msg))
+    ChannelEvent(ChannelNetty.make(ctx.channel()), ChannelRead(msg))
 
   def channelRegistered(ctx: ChannelHandlerContext): ChannelEvent[Any, Nothing] =
-    ChannelEvent(Channel.make(ctx.channel()), ChannelRegistered)
+    ChannelEvent(ChannelNetty.make(ctx.channel()), ChannelRegistered)
 
   def channelUnregistered(ctx: ChannelHandlerContext): ChannelEvent[Any, Nothing] =
-    ChannelEvent(Channel.make(ctx.channel()), ChannelUnregistered)
+    ChannelEvent(ChannelNetty.make(ctx.channel()), ChannelUnregistered)
 
   def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): ChannelEvent[Any, Nothing] =
-    ChannelEvent(Channel.make(ctx.channel()), ExceptionCaught(cause))
+    ChannelEvent(ChannelNetty.make(ctx.channel()), ExceptionCaught(cause))
 
   def userEventTriggered(ctx: ChannelHandlerContext, evt: UserEvent): ChannelEvent[Any, Nothing] =
-    ChannelEvent(Channel.make(ctx.channel()), UserEventTriggered(evt))
+    ChannelEvent(ChannelNetty.make(ctx.channel()), UserEventTriggered(evt))
 
   /**
    * Immutable and type-safe representation of events that are triggered on a
