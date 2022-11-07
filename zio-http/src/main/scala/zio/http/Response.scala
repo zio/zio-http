@@ -76,14 +76,6 @@ sealed abstract case class Response private (
    */
   def withServerTime: Response = self.copy(attribute = self.attribute.withServerTime)
 
-  // private[zio] def withEncodedResponse(updated: Option[Response.EncodedResponse]): Unit = {
-  //   var loop = true
-  //   while (loop) {
-  //     val current = self.encodedResponse.get()
-  //     loop = !encodedResponse.compareAndSet(current, updated)
-  //   }
-  // }
-
   private[zio] def close(implicit trace: Trace): Task[Unit] = self.attribute.channel match {
     case Some(channel) => NettyFutureExecutor.executed(channel.close())
     case None          => ZIO.refailCause(Cause.fail(new IOException("Channel context isn't available")))
@@ -95,12 +87,7 @@ sealed abstract case class Response private (
     body: Body = self.body,
     frozen: Boolean = self.frozen,
     attribute: Response.Attribute = self.attribute,
-    // encodedResponse: AtomicReference[Option[Response.EncodedResponse]] = self.encodedResponse,
   ): Response = {
-    // Reset cached encoded response if status, headers or body are being changed.
-    // if (status != self.status || headers != self.headers || body != self.body) {
-    //   withEncodedResponse(Option.empty[Response.EncodedResponse])
-    // }
     new Response(status, headers, body, attribute, self.httpError, frozen) {}
   }
 
