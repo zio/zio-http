@@ -15,7 +15,7 @@ import zio.http._
 import zio.http.netty.NettyFutureExecutor
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
-import zio.logging.LogLevel
+import zio.http.logging.LogLevel
 import zio.{Duration, Scope, ZIO, ZKeyedPool, ZLayer}
 
 import java.net.InetSocketAddress

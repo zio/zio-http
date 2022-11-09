@@ -1,4 +1,4 @@
-package zio.logging
+package zio.http.logging
 
 sealed abstract class LogLevel(val id: Int) extends Product with Serializable { self =>
   final def >(other: LogLevel): Boolean = self.id > other.id

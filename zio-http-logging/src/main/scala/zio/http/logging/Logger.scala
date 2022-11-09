@@ -1,7 +1,7 @@
-package zio.logging
+package zio.http.logging
 
-import zio.logging.Logger.SourcePos
-import zio.logging.macros.LoggerMacroExtensions
+import zio.http.logging.Logger.SourcePos
+import zio.http.logging.macros.LoggerMacroExtensions
 
 import java.nio.file.Path
 

@@ -35,16 +35,6 @@ object Server {
     ServerConfig.live >>> live
   }
 
-  def live(port: Int): ZLayer[Any, Throwable, Server] = {
-    implicit val trace = Trace.empty
-    ServerConfig.live(ServerConfig.default.port(port)) >>> live
-  }
-
-  def live(config: ServerConfig): ZLayer[Any, Throwable, Server] = {
-    implicit val trace = Trace.empty
-    ServerConfig.live(config) >>> live
-  }
-
   val live: ZLayer[ServerConfig, Throwable, Server] = {
     implicit val trace = Trace.empty
     NettyDriver.default >>> base

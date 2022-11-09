@@ -9,7 +9,7 @@ import zio.http.ChannelEvent
 import zio.http.ChannelEvent.UserEvent
 import zio.http.service.Log
 import zio.http.socket.{SocketApp, WebSocketFrame}
-import zio.logging.Logger
+import zio.http.logging.Logger
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
