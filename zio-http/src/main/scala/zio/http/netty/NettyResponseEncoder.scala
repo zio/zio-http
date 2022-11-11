@@ -24,18 +24,19 @@ private[zio] object NettyResponseEncoder {
   }
 
   def fastEncode(response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): HttpResponse =
-    if (response.frozen) {
-      val encodedResponse = frozenCache.get(response)
+    response match {
+      case _: Response.Frozen =>
+        val encodedResponse = frozenCache.get(response)
 
-      if (encodedResponse != null)
-        encodedResponse
-      else {
-        val encoded = doEncode(response, bytes)
-        frozenCache.put(response, encoded)
-        encoded
-      }
-    } else {
-      doEncode(response, bytes)
+        if (encodedResponse != null)
+          encodedResponse
+        else {
+          val encoded = doEncode(response, bytes)
+          frozenCache.put(response, encoded)
+          encoded
+        }
+
+      case _ => doEncode(response, bytes)
     }
 
   private def doEncode(response: Response, bytes: Array[Byte]): HttpResponse = {

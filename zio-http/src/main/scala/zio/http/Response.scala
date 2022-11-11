@@ -22,7 +22,6 @@ sealed abstract case class Response private (
   body: Body,
   private[zio] val attribute: Response.Attribute,
   private[zio] val httpError: Option[HttpError],
-  frozen: Boolean = false,
 ) extends HeaderExtension[Response] { self =>
 
   /**
@@ -40,7 +39,8 @@ sealed abstract case class Response private (
    * detect the changes and encode the response again, however it will turn out
    * to be counter productive.
    */
-  def freeze: Response = self.copy(frozen = true)
+  def freeze: Response = new Response(self.status, self.headers, self.body, self.attribute, self.httpError)
+    with Response.Frozen {}
 
   def isWebSocket: Boolean =
     self.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && self.attribute.socketApp.nonEmpty
@@ -51,7 +51,7 @@ sealed abstract case class Response private (
   /**
    * Sets the response attributes
    */
-  def setAttribute(attribute: Response.Attribute): Response =
+  final def setAttribute(attribute: Response.Attribute): Response =
     self.copy(attribute = attribute)
 
   /**
@@ -81,19 +81,23 @@ sealed abstract case class Response private (
     case None          => ZIO.refailCause(Cause.fail(new IOException("Channel context isn't available")))
   }
 
-  def copy(
+  final def copy(
     status: Status = self.status,
     headers: Headers = self.headers,
     body: Body = self.body,
-    frozen: Boolean = self.frozen,
     attribute: Response.Attribute = self.attribute,
-  ): Response = {
-    new Response(status, headers, body, attribute, self.httpError, frozen) {}
-  }
+  ): Response =
+    self match {
+      case _: Response.Frozen => new Response(status, headers, body, attribute, self.httpError) with Response.Frozen {}
+      case _                  => new Response(status, headers, body, attribute, self.httpError) {}
+
+    }
 
 }
 
 object Response {
+
+  sealed trait Frozen extends Response
 
   final case class Patch(addHeaders: Headers, setStatus: Option[Status]) { self =>
     def ++(that: Patch): Patch =

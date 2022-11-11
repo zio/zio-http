@@ -39,7 +39,6 @@ private[zio] final case class ServerInboundHandler(
 
   private lazy val errCallback = errCallbackRef.get.orNull
 
-  @inline
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
     log.debug(s"Message: [${msg.getClass.getName}]")
@@ -114,21 +113,20 @@ private[zio] final case class ServerInboundHandler(
     time: service.ServerTime,
   ): Boolean = {
 
-    response.body match {
-      case body: Body.UnsafeBytes =>
+    (response.body, response) match {
+      case (body: Body.UnsafeBytes, _: Response.Frozen) =>
         NettyResponseEncoder.fastEncode(response, body.unsafeAsArray) match {
-          case jResponse: FullHttpResponse if response.frozen =>
+          case jResponse: FullHttpResponse =>
             val djResponse = jResponse.retainedDuplicate()
             setServerTime(time, response, djResponse)
             ctx.writeAndFlush(djResponse, ctx.voidPromise())
             true
-          case jResponse if response.frozen                   =>
+          case jResponse                   =>
             throw new IllegalArgumentException(
               s"The ${jResponse.getClass.getName} is not supported as a Netty response encoder.",
             )
-          case _                                              => false
         }
-      case _                      => false
+      case _                                            => false
     }
 
   }
@@ -172,7 +170,8 @@ private[zio] final case class ServerInboundHandler(
       case _                       => false
     }
   }
-  private def makeZioRequest(ctx: ChannelHandlerContext, nettyReq: HttpRequest): Request     = {
+
+  private def makeZioRequest(ctx: ChannelHandlerContext, nettyReq: HttpRequest): Request = {
     val nettyHttpVersion = nettyReq.protocolVersion()
     val protocolVersion  = nettyHttpVersion match {
       case HttpVersion.HTTP_1_0 => Version.Http_1_0
