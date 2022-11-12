@@ -99,7 +99,7 @@ private[zio] final case class ServerInboundHandler(
   }
 
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: Body.UnsafeAsync): Unit = {
-    if (ctx.channel().attr(isReadKey).get()) throw new RuntimeException("Content is already read")
+    if (ctx.channel().attr(isReadKey).get()) throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
     ctx
       .channel()
       .pipeline()
@@ -123,7 +123,7 @@ private[zio] final case class ServerInboundHandler(
             true
           case jResponse if response.frozen                   =>
             throw new IllegalArgumentException(
-              s"The ${jResponse.getClass.getName} is not supported as a Netty response encoder.",
+              s"The ${jResponse.getClass.getName} was marked as 'frozen'.  However, zio-http only supports frozen responses when the response is of type 'FullHttpResponse'.",
             )
           case _                                              => false
         }
