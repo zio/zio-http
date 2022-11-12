@@ -99,7 +99,8 @@ private[zio] final case class ServerInboundHandler(
   }
 
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: Body.UnsafeAsync): Unit = {
-    if (ctx.channel().attr(isReadKey).get()) throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
+    if (ctx.channel().attr(isReadKey).get())
+      throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
     ctx
       .channel()
       .pipeline()
