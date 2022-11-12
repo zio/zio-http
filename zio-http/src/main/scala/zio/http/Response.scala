@@ -41,8 +41,10 @@ sealed trait Response extends HeaderExtension[Response] { self =>
     case _                        => None
   }
 
-  def isWebSocket: Boolean =
-    self.status.asJava.code() == Status.SwitchingProtocols.asJava.code() && self.socketApp.nonEmpty
+  def isWebSocket: Boolean = self match {
+    case _: SocketAppResponse => self.status.asJava.code() == Response.switchingProtocols
+    case _                    => false
+  }
 
   def patch(p: Response.Patch): Response =
     copy(headers = self.headers ++ p.addHeaders, status = p.setStatus.getOrElse(self.status))
@@ -221,13 +223,7 @@ object Response {
     status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     body: Body = Body.empty,
-    // httpError: Option[HttpError] = None,
   ): Response = new BasicResponse(body, headers, status)
-
-  //   httpError match {
-  //   case Some(err) => new ErrorResponse(body, headers, err, status)
-  //   case None      => new BasicResponse(body, headers, status)
-  // }
 
   def fromHttpError(error: HttpError): Response = new ErrorResponse(Body.empty, Headers.empty, error, error.status)
 
@@ -308,6 +304,8 @@ object Response {
       Headers(HeaderNames.contentType, HeaderValues.textPlain),
       Status.Ok,
     )
+
+  private val switchingProtocols = Status.SwitchingProtocols.asJava.code()
 
   private[zio] object unsafe {
     final def fromJResponse(ctx: ChannelHandlerContext, jRes: FullHttpResponse)(implicit
