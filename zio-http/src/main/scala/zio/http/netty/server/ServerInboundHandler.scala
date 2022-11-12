@@ -113,20 +113,21 @@ private[zio] final case class ServerInboundHandler(
     time: service.ServerTime,
   ): Boolean = {
 
-    (response.body, response) match {
-      case (body: Body.UnsafeBytes, _: Response.Frozen) =>
+    response.body match {
+      case body: Body.UnsafeBytes =>
         NettyResponseEncoder.fastEncode(response, body.unsafeAsArray) match {
-          case jResponse: FullHttpResponse =>
+          case jResponse: FullHttpResponse if response.frozen =>
             val djResponse = jResponse.retainedDuplicate()
             setServerTime(time, response, djResponse)
             ctx.writeAndFlush(djResponse, ctx.voidPromise())
             true
-          case jResponse                   =>
+          case jResponse if response.frozen                   =>
             throw new IllegalArgumentException(
               s"The ${jResponse.getClass.getName} is not supported as a Netty response encoder.",
             )
+          case _                                              => false
         }
-      case _                                            => false
+      case _                      => false
     }
 
   }
@@ -212,7 +213,7 @@ private[zio] final case class ServerInboundHandler(
   }
 
   private def setServerTime(time: service.ServerTime, response: Response, jResponse: HttpResponse): Unit = {
-    if (response.attribute.serverTime)
+    if (response.serverTime)
       jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet()): Unit
   }
 
@@ -227,7 +228,7 @@ private[zio] final case class ServerInboundHandler(
     res: Response,
     runtime: NettyRuntime,
   ): Unit = {
-    val app = res.attribute.socketApp
+    val app = res.socketApp
     jReq match {
       case jReq: FullHttpRequest =>
         log.debug(s"Upgrading to WebSocket: [${jReq.uri()}].  SocketApp: [${app.orNull}]")
