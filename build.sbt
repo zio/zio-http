@@ -38,14 +38,14 @@ ThisBuild / githubWorkflowAddedJobs      :=
           UseRef.Public("actions", "setup-node", "v3"),
           Map(
             "node-version" -> "16.x",
-            "registry-url" -> "https://registry.npmjs.org"
+            "registry-url" -> "https://registry.npmjs.org",
           ),
         ),
         WorkflowStep.Run(
           name = Some("Publishing Docs to NPM Registry"),
           env = Map("NODE_AUTH_TOKEN" -> "${{secrets.NPM_TOKEN}}"),
           commands = List(
-            "sbt publishToNpm"
+            "sbt publishToNpm",
           ),
         ),
       ),
@@ -135,8 +135,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.1.4",
-      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.1.4",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.2.1",
+      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.2.1",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
     ),
   )
