@@ -36,17 +36,17 @@ sealed trait Response extends HeaderExtension[Response] { self =>
 
   def headers: Headers
 
-  private[zio] def httpError: Option[HttpError] = self match {
+  private[zio] final def httpError: Option[HttpError] = self match {
     case Response.GetError(error) => Some(error)
     case _                        => None
   }
 
-  def isWebSocket: Boolean = self match {
+  final def isWebSocket: Boolean = self match {
     case _: SocketAppResponse => self.status.asJava.code() == Response.switchingProtocols
     case _                    => false
   }
 
-  def patch(p: Response.Patch): Response =
+  final def patch(p: Response.Patch): Response =
     copy(headers = self.headers ++ p.addHeaders, status = p.setStatus.getOrElse(self.status))
 
   private[zio] def serverTime: Boolean = false
@@ -137,12 +137,12 @@ object Response {
     val status: Status,
   ) extends Response { self =>
 
-    override def copy(status: Status, headers: Headers, body: Body): Response =
+    override final def copy(status: Status, headers: Headers, body: Body): Response =
       new SocketAppResponse(body, headers, socketApp0, status) with InternalState {
         override val parent: Response = self
       }
 
-    override def freeze: Response = new SocketAppResponse(body, headers, socketApp0, status) with InternalState {
+    override final def freeze: Response = new SocketAppResponse(body, headers, socketApp0, status) with InternalState {
 
       override val parent: Response = self
 
@@ -150,9 +150,9 @@ object Response {
 
     }
 
-    override def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
-    override def withServerTime: Response = new SocketAppResponse(body, headers, socketApp0, status)
+    override final def withServerTime: Response = new SocketAppResponse(body, headers, socketApp0, status)
       with InternalState {
 
       override val parent: Response = self
@@ -175,9 +175,10 @@ object Response {
       override def frozen: Boolean  = true
     }
 
-    override def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
-    override def withServerTime: Response = new ErrorResponse(body, headers, httpError0, status) with InternalState {
+    override final def withServerTime: Response = new ErrorResponse(body, headers, httpError0, status)
+      with InternalState {
 
       override val parent: Response = self
 
@@ -193,20 +194,21 @@ object Response {
     val status: Status,
   ) extends CloseableResponse { self =>
 
-    override def close(implicit trace: Trace): Task[Unit] = NettyFutureExecutor.executed(channelContext.close())
+    override final def close(implicit trace: Trace): Task[Unit] = NettyFutureExecutor.executed(channelContext.close())
 
-    override def copy(status: Status, headers: Headers, body: Body): Response =
+    override final def copy(status: Status, headers: Headers, body: Body): Response =
       new NettyResponse(body, channelContext, headers, status) with InternalState {
         override val parent: Response = self
       }
-    override def freeze: Response = new NettyResponse(body, channelContext, headers, status) with InternalState {
+
+    override final def freeze: Response = new NettyResponse(body, channelContext, headers, status) with InternalState {
       override val parent: Response = self
       override def frozen: Boolean  = true
     }
 
-    override def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
-    override def withServerTime: Response = new NettyResponse(body, channelContext, headers, status)
+    override final def withServerTime: Response = new NettyResponse(body, channelContext, headers, status)
       with InternalState {
       override val parent: Response = self
 
