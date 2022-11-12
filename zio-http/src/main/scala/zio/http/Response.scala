@@ -214,6 +214,44 @@ object Response {
     }
   }
 
+  object NettyResponse {
+
+    final def make(ctx: ChannelHandlerContext, jRes: FullHttpResponse)(implicit
+      unsafe: Unsafe,
+    ): Response = {
+      val status       = Status.fromHttpResponseStatus(jRes.status())
+      val headers      = Headers.decode(jRes.headers())
+      val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
+      val data         = Body.fromByteBuf(copiedBuffer)
+
+      new NettyResponse(data, ctx, headers, status)
+    }
+
+    final def make(
+      ctx: ChannelHandlerContext,
+      jRes: HttpResponse,
+      zExec: NettyRuntime,
+      onComplete: Promise[Throwable, ChannelState],
+      keepAlive: Boolean,
+    )(implicit
+      unsafe: Unsafe,
+      trace: Trace,
+    ): Response = {
+      val status  = Status.fromHttpResponseStatus(jRes.status())
+      val headers = Headers.decode(jRes.headers())
+      val data    = Body.fromAsync { callback =>
+        ctx
+          .pipeline()
+          .addAfter(
+            CLIENT_INBOUND_HANDLER,
+            CLIENT_STREAMING_BODY_HANDLER,
+            new ClientResponseStreamHandler(callback, zExec, onComplete, keepAlive),
+          ): Unit
+      }
+      new NettyResponse(data, ctx, headers, status)
+    }
+  }
+
   final case class Patch(addHeaders: Headers, setStatus: Option[Status]) { self =>
     def ++(that: Patch): Patch =
       Patch(self.addHeaders ++ that.addHeaders, self.setStatus.orElse(that.setStatus))
@@ -306,42 +344,5 @@ object Response {
     )
 
   private val switchingProtocols = Status.SwitchingProtocols.asJava.code()
-
-  private[zio] object unsafe {
-    final def fromJResponse(ctx: ChannelHandlerContext, jRes: FullHttpResponse)(implicit
-      unsafe: Unsafe,
-    ): Response = {
-      val status       = Status.fromHttpResponseStatus(jRes.status())
-      val headers      = Headers.decode(jRes.headers())
-      val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
-      val data         = Body.fromByteBuf(copiedBuffer)
-
-      new NettyResponse(data, ctx, headers, status)
-    }
-
-    final def fromStreamingJResponse(
-      ctx: ChannelHandlerContext,
-      jRes: HttpResponse,
-      zExec: NettyRuntime,
-      onComplete: Promise[Throwable, ChannelState],
-      keepAlive: Boolean,
-    )(implicit
-      unsafe: Unsafe,
-      trace: Trace,
-    ): Response = {
-      val status  = Status.fromHttpResponseStatus(jRes.status())
-      val headers = Headers.decode(jRes.headers())
-      val data    = Body.fromAsync { callback =>
-        ctx
-          .pipeline()
-          .addAfter(
-            CLIENT_INBOUND_HANDLER,
-            CLIENT_STREAMING_BODY_HANDLER,
-            new ClientResponseStreamHandler(callback, zExec, onComplete, keepAlive),
-          ): Unit
-      }
-      new NettyResponse(data, ctx, headers, status)
-    }
-  }
 
 }

@@ -39,7 +39,7 @@ final class ClientInboundHandler(
     // NOTE: The promise is made uninterruptible to be able to complete the promise in a error situation.
     // It allows to avoid loosing the message from pipeline in case the channel pipeline is closed due to an error.
     zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
-      onResponse.succeed(Response.unsafe.fromJResponse(ctx, msg))
+      onResponse.succeed(Response.NettyResponse.make(ctx, msg))
     }(unsafeClass, trace)
 
     if (isWebSocket) {

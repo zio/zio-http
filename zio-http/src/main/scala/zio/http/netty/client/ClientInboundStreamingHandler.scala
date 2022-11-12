@@ -28,7 +28,7 @@ final class ClientInboundStreamingHandler(
         rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
           onResponse
             .succeed(
-              Response.unsafe.fromStreamingJResponse(
+              Response.NettyResponse.make(
                 ctx,
                 response,
                 rtm,
