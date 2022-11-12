@@ -19,7 +19,6 @@ import java.nio.file._
  */
 sealed trait Body { self =>
 
-  // final def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
   def asArray(implicit trace: Trace): Task[Array[Byte]]
 
   /**

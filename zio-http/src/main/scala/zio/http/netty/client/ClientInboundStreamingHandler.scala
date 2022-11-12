@@ -75,7 +75,6 @@ final class ClientInboundStreamingHandler(
 
   private def writeRequest(msg: Request, ctx: ChannelHandlerContext): Unit = {
     ctx.write(encodeRequest(msg))
-    // rtm.run(ctx)(msg.body.write(ctx).unit)(Unsafe.unsafe, trace)
     rtm.run(ctx, NettyRuntime.noopEnsuring)(NettyBodyWriter.write(msg.body, ctx).unit)(Unsafe.unsafe, trace)
     ctx.flush(): Unit
   }
