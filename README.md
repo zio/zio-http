@@ -4,7 +4,7 @@ ZIO Http is a scala library for building http apps. It is powered by [ZIO] and [
 
 Check out the full documentation here: [Documentation]
 
-[Documentation]: https://zio.github.io/zio-http
+[Documentation]: https://zio.dev/zio-http
 
 ![Continuous Integration](https://github.com/zio/zio-http/workflows/Continuous%20Integration/badge.svg)
 [![Discord Chat](https://img.shields.io/discord/629491597070827530.svg?logo=discord)](https://discord.com/channels/629491597070827530/819703129267372113)
@@ -21,7 +21,7 @@ Check out the full documentation here: [Documentation]
 - [ZIO Http](#zio-http)
 - [Getting Started](#getting-started)
 - [Installation](#installation)
-- [Documentation](https://zio.github.io/zio-http/)
+- [Documentation](https://zio.dev/zio-http/)
 
 # Getting Started
 

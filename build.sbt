@@ -31,20 +31,21 @@ ThisBuild / githubWorkflowAddedJobs      :=
       id = "update_docs",
       name = "Publish Documentation",
       steps = List(
-        WorkflowStep.Use(UseRef.Public("actions", "checkout", s"v2")),
+        WorkflowStep
+          .Use(UseRef.Public("actions", "checkout", "v3.1.0"), Map("fetch-depth" -> "0")),
+        WorkflowStep.Use(name = Some("Setup Scala and Java"), ref = UseRef.Public("olafurpg", "setup-scala", "v13")),
         WorkflowStep.Use(
-          UseRef.Public("actions", "setup-node", s"v3"),
+          UseRef.Public("actions", "setup-node", "v3"),
           Map(
-            "node-version" -> "16.15.1",
+            "node-version" -> "16.x",
+            "registry-url" -> "https://registry.npmjs.org"
           ),
         ),
         WorkflowStep.Run(
-          env = Map("GIT_PASS" -> "${{secrets.ACTIONS_PAT}}", "GIT_USER" -> "${{secrets.GIT_USER}}"),
+          name = Some("Publishing Docs to NPM Registry"),
+          env = Map("NODE_AUTH_TOKEN" -> "${{secrets.NPM_TOKEN}}"),
           commands = List(
-            "cd ./docs/website",
-            "npm install",
-            "git config --global user.name \"${{secrets.GIT_USER}}\"",
-            "npm run deploy",
+            "sbt publishToNpm"
           ),
         ),
       ),
@@ -101,6 +102,7 @@ lazy val root = (project in file("."))
     zioHttpExample,
     zioHttpTestkit,
   )
+  .enablePlugins(WebsitePlugin)
 
 lazy val zioHttp = (project in file("zio-http"))
   .settings(stdSettings("zio-http"))
