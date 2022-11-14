@@ -1,7 +1,7 @@
-package zio.logging.macros
+package zio.http.logging.macros
 
-import zio.logging.Logger.SourcePos
-import zio.logging.{LogLevel, Logger}
+import zio.http.logging.Logger.SourcePos
+import zio.http.logging.{LogLevel, Logger}
 
 import scala.language.experimental.macros
 import scala.quoted._

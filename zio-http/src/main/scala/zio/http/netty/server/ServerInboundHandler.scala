@@ -6,7 +6,7 @@ import io.netty.handler.codec.http._
 import zio._
 import zio.http._
 import zio.http.netty.{NettyRuntime, _}
-import zio.logging.Logger
+import zio.http.logging.Logger
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import zio.http.model._
 import io.netty.util.AttributeKey

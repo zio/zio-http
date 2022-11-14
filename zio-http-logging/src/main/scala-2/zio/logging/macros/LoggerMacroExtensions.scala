@@ -1,6 +1,6 @@
-package zio.logging.macros
+package zio.http.logging.macros
 
-import zio.logging.macros.LoggerMacroImpl._
+import zio.http.logging.macros.LoggerMacroImpl._
 
 trait LoggerMacroExtensions { self =>
   import scala.language.experimental.macros
