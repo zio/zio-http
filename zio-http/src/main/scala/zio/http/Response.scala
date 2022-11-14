@@ -30,9 +30,45 @@ sealed trait Response extends HeaderExtension[Response] { self =>
     body: Body = self.body,
   ): Response
 
+  override def equals(o: Any): Boolean = {
+    if (o == null) return false
+
+    if (o.getClass() != self.getClass()) return false
+
+    val r = o.asInstanceOf[Response]
+
+    if (r.body != self.body) return false
+
+    if (r.headers != self.headers) return false
+
+    if (r.status != self.status) return false
+
+    if (r.frozen != self.frozen) return false
+
+    if (r.serverTime != self.serverTime) return false
+
+    if (r.socketApp != self.socketApp) return false
+
+    true
+  }
+
   def freeze: Response
 
   def frozen: Boolean = false
+
+  override lazy val hashCode: Int = {
+    val prime  = 31
+    var result = 1
+
+    result = prime * result + getClass().hashCode()
+    result = prime * result + body.hashCode
+    result = prime * result + headers.hashCode
+    result = prime * result + status.hashCode
+    result = prime * result + frozen.hashCode
+    result = prime * result + serverTime.hashCode
+    result = prime * result + socketApp.hashCode
+    result
+  }
 
   def headers: Headers
 

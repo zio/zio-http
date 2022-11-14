@@ -9,17 +9,21 @@ import java.util.concurrent.ConcurrentHashMap
 
 private[zio] object NettyResponseEncoder {
 
-  private val frozenCache = new ConcurrentHashMap[Response, HttpResponse]()
+  private val frozenCache    = new ConcurrentHashMap[Response, HttpResponse]()
+  private val frozenZioCache = new ConcurrentHashMap[Response, UIO[HttpResponse]]()
 
   def encode(response: Response): ZIO[Any, Throwable, HttpResponse] = {
     val body = response.body
-    if (body.isComplete)
-      body.asArray.flatMap(bytes => ZIO.attemptUnsafe(implicit unsafe => fastEncode(response, bytes)))
-    else {
+    if (body.isComplete) {
+      val cachedValue = frozenZioCache.get(response)
+      if (cachedValue != null) cachedValue
+      else
+        body.asArray.flatMap(bytes => ZIO.attemptUnsafe(implicit unsafe => fastEncode(response, bytes)))
+    } else {
       val jHeaders         = response.headers.encode
       val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-      ZIO.succeed(new DefaultHttpResponse(HttpVersion.HTTP_1_1, response.status.asJava, jHeaders))
+      ZIO.succeedNow(new DefaultHttpResponse(HttpVersion.HTTP_1_1, response.status.asJava, jHeaders))
     }
   }
 
@@ -30,7 +34,9 @@ private[zio] object NettyResponseEncoder {
       if (encodedResponse != null)
         encodedResponse
       else {
-        val encoded = doEncode(response, bytes)
+        val encoded    = doEncode(response, bytes)
+        val encodedZio = ZIO.succeedNow(encoded)
+        frozenZioCache.put(response, encodedZio)
         frozenCache.put(response, encoded)
         encoded
       }

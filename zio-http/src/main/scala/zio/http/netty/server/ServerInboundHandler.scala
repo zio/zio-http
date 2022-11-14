@@ -50,7 +50,7 @@ private[zio] final case class ServerInboundHandler(
 
         val releaseRequest = { () =>
           if (jReq.refCnt() > 0) {
-            jReq.release(): Unit
+            val _ = jReq.release()
           }
         }
 
@@ -73,12 +73,14 @@ private[zio] final case class ServerInboundHandler(
           )
             ctx.channel().config().setAutoRead(false)
 
-          writeResponse(ctx, env, exit, jReq)(() => ctx.channel().config().setAutoRead(true): Unit)
+          writeResponse(ctx, env, exit, jReq) { () =>
+            val _ = ctx.channel().config().setAutoRead(true)
+          }
 
         }
 
       case msg: HttpContent =>
-        ctx.fireChannelRead(msg): Unit
+        val _ = ctx.fireChannelRead(msg)
 
       case _ =>
         throw new IllegalStateException(s"Unexpected message type: ${msg.getClass.getName}")
@@ -214,8 +216,9 @@ private[zio] final case class ServerInboundHandler(
   }
 
   private def setServerTime(time: service.ServerTime, response: Response, jResponse: HttpResponse): Unit = {
-    if (response.serverTime)
-      jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet()): Unit
+    val _ =
+      if (response.serverTime)
+        jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
   }
 
   /*
@@ -240,7 +243,7 @@ private[zio] final case class ServerInboundHandler(
           .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, app.get, false))
 
         val retained = jReq.retainedDuplicate()
-        ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }: Unit
+        val _        = ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }
 
       case jReq: HttpRequest =>
         val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
@@ -258,8 +261,8 @@ private[zio] final case class ServerInboundHandler(
     runtime.run(ctx, ensured) {
       val pgm = for {
         response <- exit.toZIO.unrefine { case error => Option(error) }.catchAll {
-          case None        => ZIO.succeed(HttpError.NotFound(jReq.uri()).toResponse)
-          case Some(error) => ZIO.succeed(HttpError.InternalServerError(cause = Some(error)).toResponse)
+          case None        => ZIO.succeedNow(HttpError.NotFound(jReq.uri()).toResponse)
+          case Some(error) => ZIO.succeedNow(HttpError.InternalServerError(cause = Some(error)).toResponse)
         }
         done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
         result   <-
