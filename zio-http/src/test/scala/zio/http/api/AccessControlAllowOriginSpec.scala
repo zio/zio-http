@@ -36,7 +36,7 @@ object AccessControlAllowOriginSpec extends ZIOSpecDefault {
           } yield assertTrue(response.headers.accessControlAllowOrigin.contains("http://localhost:8080"))
         },
       ),
-      suite("valid values")(
+      suite("invalid values")(
         test("add invalid value allow control access origin") {
           for {
             response <- api.Middleware
