@@ -17,6 +17,7 @@ object Debug {
    * Sets the main application to execute in the example project.
    */
   // val Main = "zio.http.api.APIExamples"
-  val Main = "zio.http.api.BasicAuthAPIExample"
+  //val Main = "zio.http.api.BasicAuthAPIExample"
   // val Main = "example.BasicAuth"
+  val Main = "example.UnixSocketClient"
 }

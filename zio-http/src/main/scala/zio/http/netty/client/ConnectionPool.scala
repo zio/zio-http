@@ -1,18 +1,15 @@
 package zio.http.netty.client
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.unix.DomainSocketAddress
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.URL.Location
 import zio.http._
 import zio.http.logging.LogLevel
+import zio.http.model.Scheme
 import zio.http.netty.NettyFutureExecutor
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
@@ -94,11 +91,18 @@ object ConnectionPool {
       }
     }
 
+    val socketAddress = location match {
+      case URL.Location.Absolute(scheme, _, _, authority) if scheme == Scheme.`HTTP+UNIX` =>
+        new DomainSocketAddress(authority)
+      case URL.Location.Absolute(_, host, port, _)                                        =>
+        new InetSocketAddress(host, port)
+    }
+
     ZIO.attempt {
       new Bootstrap()
         .channelFactory(channelFactory)
         .group(eventLoopGroup)
-        .remoteAddress(new InetSocketAddress(location.host, location.port))
+        .remoteAddress(socketAddress)
         .handler(initializer)
         .connect()
     }.flatMap { channelFuture =>

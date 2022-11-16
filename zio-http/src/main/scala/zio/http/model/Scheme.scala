@@ -7,10 +7,11 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Scheme { self =>
   def encode: String = self match {
-    case Scheme.HTTP  => "http"
-    case Scheme.HTTPS => "https"
-    case Scheme.WS    => "ws"
-    case Scheme.WSS   => "wss"
+    case Scheme.HTTP        => "http"
+    case Scheme.HTTPS       => "https"
+    case Scheme.WS          => "ws"
+    case Scheme.WSS         => "wss"
+    case Scheme.`HTTP+UNIX` => "http+unix"
   }
 
   def isHttp: Boolean = !isWebSocket
@@ -28,10 +29,11 @@ sealed trait Scheme { self =>
   }
 
   def port: Int = self match {
-    case Scheme.HTTP  => 80
-    case Scheme.HTTPS => 443
-    case Scheme.WS    => 80
-    case Scheme.WSS   => 443
+    case Scheme.HTTP        => 80
+    case Scheme.HTTPS       => 443
+    case Scheme.WS          => 80
+    case Scheme.WSS         => 443
+    case Scheme.`HTTP+UNIX` => 80
   }
 
   def toJHttpScheme: Option[HttpScheme] = self match {
@@ -72,6 +74,7 @@ object Scheme       {
       if (scheme == null) null
       else
         scheme.length match {
+          case 9 => Scheme.`HTTP+UNIX`
           case 5 => Scheme.HTTPS
           case 4 => Scheme.HTTP
           case 3 => Scheme.WSS
@@ -88,4 +91,6 @@ object Scheme       {
   case object WS extends Scheme
 
   case object WSS extends Scheme
+
+  case object `HTTP+UNIX` extends Scheme
 }

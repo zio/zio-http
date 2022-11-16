@@ -15,6 +15,12 @@ object ChannelType {
 
   case object AUTO extends ChannelType
 
+  case object LOCAL extends ChannelType
+
+  case object EPOLL_UDS extends ChannelType
+
+  case object KQUEUE_UDS extends ChannelType
+
   trait Config {
     def channelType: ChannelType
   }

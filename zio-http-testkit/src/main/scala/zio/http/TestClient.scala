@@ -74,6 +74,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
   val portOption: Option[Int]            = None
   val queries: QueryParams               = QueryParams.empty
   val schemeOption: Option[Scheme]       = None
+  val authorityOption: Option[String]    = None
   val sslConfig: Option[ClientSSLConfig] = None
 
   override protected def requestInternal(
@@ -85,6 +86,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     portOption: Option[Int],
     queries: QueryParams,
     schemeOption: Option[Scheme],
+    authorityOption: Option[String],
     sslConfig: Option[ClientSSLConfig],
     version: Version,
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] =

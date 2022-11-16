@@ -14,10 +14,17 @@ final case class URL(
   kind: URL.Location = URL.Location.Relative,
   queryParams: QueryParams = QueryParams.empty,
   fragment: Option[Fragment] = None,
+  authority: Option[String] = None,
 ) { self =>
 
   def ++(that: URL): URL =
-    URL(self.path ++ that.path, self.kind, self.queryParams ++ that.queryParams, self.fragment.orElse(that.fragment))
+    URL(
+      self.path ++ that.path,
+      self.kind,
+      self.queryParams ++ that.queryParams,
+      self.fragment.orElse(that.fragment),
+      self.authority.orElse(that.authority),
+    )
 
   def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
 
@@ -31,8 +38,8 @@ final case class URL(
   }
 
   def isAbsolute: Boolean = self.kind match {
-    case Location.Absolute(_, _, _) => true
-    case Location.Relative          => false
+    case Location.Absolute(_, _, _, _) => true
+    case Location.Relative             => false
   }
 
   def isRelative: Boolean = !isAbsolute
@@ -54,8 +61,8 @@ final case class URL(
   }
 
   def scheme: Option[Scheme] = kind match {
-    case Location.Absolute(scheme, _, _) => Some(scheme)
-    case Location.Relative               => None
+    case Location.Absolute(scheme, _, _, _) => Some(scheme)
+    case Location.Relative                  => None
   }
 
   def setHost(host: String): URL = {
@@ -118,10 +125,12 @@ object URL {
   private def fromAbsoluteURI(uri: URI): Option[URL] = {
     for {
       scheme <- Scheme.decode(uri.getScheme)
-      host   <- Option(uri.getHost)
+      host   <- if (scheme == Scheme.`HTTP+UNIX`) Option("localhost") else Option(uri.getHost)
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
-      connection = URL.Location.Absolute(scheme, host, port)
+      connection =
+        if (scheme == Scheme.`HTTP+UNIX`) URL.Location.Absolute(scheme, host, port, uri.getAuthority)
+        else URL.Location.Absolute(scheme, host, port)
     } yield URL(Path.decode(path), connection, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
   }
 
@@ -132,6 +141,7 @@ object URL {
   private def portFromScheme(scheme: Scheme): Int = scheme match {
     case Scheme.HTTP | Scheme.WS   => 80
     case Scheme.HTTPS | Scheme.WSS => 443
+    case Scheme.`HTTP+UNIX`        => 80
   }
 
   def empty: URL = URL(!!)
@@ -147,8 +157,8 @@ object URL {
     }
 
     url.kind match {
-      case Location.Relative                     => path
-      case Location.Absolute(scheme, host, port) =>
+      case Location.Relative                        => path
+      case Location.Absolute(scheme, host, port, _) =>
         if (port == 80 || port == 443) s"${scheme.encode}://$host$path"
         else s"${scheme.encode}://$host:$port$path"
     }
@@ -177,7 +187,7 @@ object URL {
   case class Fragment private (raw: String, decoded: String)
 
   object Location {
-    final case class Absolute(scheme: Scheme, host: String, port: Int) extends Location
+    final case class Absolute(scheme: Scheme, host: String, port: Int, authority: String = "") extends Location
 
     case object Relative extends Location
   }

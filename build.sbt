@@ -38,14 +38,14 @@ ThisBuild / githubWorkflowAddedJobs      :=
           UseRef.Public("actions", "setup-node", "v3"),
           Map(
             "node-version" -> "16.x",
-            "registry-url" -> "https://registry.npmjs.org"
+            "registry-url" -> "https://registry.npmjs.org",
           ),
         ),
         WorkflowStep.Run(
           name = Some("Publishing Docs to NPM Registry"),
           env = Map("NODE_AUTH_TOKEN" -> "${{secrets.NPM_TOKEN}}"),
           commands = List(
-            "sbt publishToNpm"
+            "sbt publishToNpm",
           ),
         ),
       ),
@@ -160,7 +160,7 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
-  .settings(libraryDependencies ++= Seq(`jwt-core`))
+  .settings(libraryDependencies ++= Seq(`jwt-core`) ++ netty)
   .dependsOn(zioHttp)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))

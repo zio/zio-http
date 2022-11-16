@@ -30,6 +30,8 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
 
   def schemeOption: Option[Scheme]
 
+  def authorityOption: Option[String]
+
   def sslConfig: Option[ClientSSLConfig]
 
   final def contramap[In2](f: In2 => In): ZClient[Env, In2, Err, Out] =
@@ -43,6 +45,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def portOption: Option[Int]            = self.portOption
       def queries: QueryParams               = self.queries
       def schemeOption: Option[Scheme]       = self.schemeOption
+      def authorityOption: Option[String]    = self.authorityOption
       def sslConfig: Option[ClientSSLConfig] = self.sslConfig
       def requestInternal(
         body: In2,
@@ -53,6 +56,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         portOption: Option[Int],
         queries: QueryParams,
         schemeOption: Option[Scheme],
+        authorityOption: Option[String],
         sslConfig: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env1, Err1, Out] =
@@ -66,6 +70,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             portOption,
             queries,
             schemeOption,
+            authorityOption,
             sslConfig,
             version,
           )
@@ -101,7 +106,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     request(Method.GET, pathSuffix, body)
 
   final def header(key: String, value: String): ZClient[Env, In, Err, Out] =
-    copy(headers = headers ++ Headers.Header(key, value))
+    copy(headers = headers ++ Headers.Header(key, value), authorityOption = authorityOption)
 
   final def host(host: String): ZClient[Env, In, Err, Out] =
     copy(hostOption = Some(host))
@@ -117,6 +122,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def portOption: Option[Int]            = self.portOption
       def queries: QueryParams               = self.queries
       def schemeOption: Option[Scheme]       = self.schemeOption
+      def authorityOption: Option[String]    = self.authorityOption
       def sslConfig: Option[ClientSSLConfig] = self.sslConfig
       def requestInternal(
         body: In,
@@ -127,6 +133,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         portOption: Option[Int],
         queries: QueryParams,
         schemeOption: Option[Scheme],
+        authorityOption: Option[String],
         sslConfig: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env1, Err1, Out2] =
@@ -140,6 +147,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             portOption,
             queries,
             schemeOption,
+            authorityOption,
             sslConfig,
             version,
           )
@@ -190,6 +198,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def portOption: Option[Int]            = self.portOption
       def queries: QueryParams               = self.queries
       def schemeOption: Option[Scheme]       = self.schemeOption
+      def authorityOption: Option[String]    = self.authorityOption
       def sslConfig: Option[ClientSSLConfig] = self.sslConfig
       def requestInternal(
         body: In,
@@ -200,6 +209,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         portOption: Option[Int],
         queries: QueryParams,
         schemeOption: Option[Scheme],
+        authorityOption: Option[String],
         sslConfig: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env, Err2, Out] =
@@ -213,6 +223,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             portOption,
             queries,
             schemeOption,
+            authorityOption,
             sslConfig,
             version,
           )
@@ -251,11 +262,16 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       portOption,
       queries,
       schemeOption,
+      authorityOption,
       sslConfig,
       Version.Http_1_1,
     )
 
   final def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] = {
+    val authority = request.url.kind match {
+      case Location.Absolute(_, _, _, authority) => Some(authority)
+      case Location.Relative                     => Some("")
+    }
     requestInternal(
       ev(request.body),
       headers ++ request.headers,
@@ -265,6 +281,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       request.url.port,
       queries ++ request.url.queryParams,
       request.url.scheme,
+      authority,
       sslConfig,
       request.version,
     )
@@ -278,6 +295,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       def portOption: Option[Int]            = self.portOption
       def queries: QueryParams               = self.queries
       def schemeOption: Option[Scheme]       = self.schemeOption
+      def authorityOption: Option[String]    = self.authorityOption
       def sslConfig: Option[ClientSSLConfig] = self.sslConfig
       def requestInternal(
         body: In,
@@ -288,6 +306,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         portOption: Option[Int],
         queries: QueryParams,
         schemeOption: Option[Scheme],
+        authorityOption: Option[String],
         sslConfig: Option[ClientSSLConfig],
         version: Version,
       )(implicit trace: Trace): ZIO[Env1, Err, Out] =
@@ -301,6 +320,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
             portOption,
             queries,
             schemeOption,
+            authorityOption,
             sslConfig,
             version,
           )
@@ -374,6 +394,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       pathPrefix = pathPrefix ++ Path.decode(uri.getRawPath),
       portOption = Option(uri.getPort).filter(_ != -1).orElse(Scheme.decode(uri.getScheme).map(_.port)),
       queries = queries ++ QueryParams.decode(uri.getRawQuery),
+      authorityOption = Option(uri.getAuthority),
     )
 
   final def url(url: URL): ZClient[Env, In, Err, Out] =
@@ -382,6 +403,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       pathPrefix = pathPrefix ++ url.path,
       portOption = url.port,
       queries = queries ++ url.queryParams,
+      authorityOption = url.authority,
     )
 
   protected def requestInternal(
@@ -393,6 +415,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     portOption: Option[Int],
     queries: QueryParams,
     schemeOption: Option[Scheme],
+    authorityOption: Option[String],
     sslConfig: Option[ClientSSLConfig],
     version: Version,
   )(implicit trace: Trace): ZIO[Env, Err, Out]
@@ -415,6 +438,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     portOption: Option[Int] = portOption,
     queries: QueryParams = queries,
     schemeOption: Option[Scheme] = schemeOption,
+    authorityOption: Option[String] = authorityOption,
     sslConfig: Option[ClientSSLConfig] = sslConfig,
   ): ZClient[Env, In, Err, Out] =
     ZClient.Proxy[Env, In, Err, Out](
@@ -425,6 +449,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
       portOption,
       queries,
       schemeOption,
+      authorityOption,
       sslConfig,
     )
 }
@@ -439,6 +464,7 @@ object ZClient {
     portOption: Option[Int],
     queries: QueryParams,
     schemeOption: Option[Scheme],
+    authorityOption: Option[String],
     sslConfig: Option[ClientSSLConfig],
   ) extends ZClient[Env, In, Err, Out] {
 
@@ -451,6 +477,7 @@ object ZClient {
       portOption: Option[Int],
       queries: QueryParams,
       schemeOption: Option[Scheme],
+      authorityOption: Option[String],
       sslConfig: Option[ClientSSLConfig],
       version: Version,
     )(implicit trace: Trace): ZIO[Env, Err, Out] =
@@ -463,6 +490,7 @@ object ZClient {
         portOption,
         queries,
         schemeOption,
+        authorityOption,
         sslConfig,
         version,
       )
@@ -494,6 +522,7 @@ object ZClient {
     val portOption: Option[Int]            = None
     val queries: QueryParams               = QueryParams.empty
     val schemeOption: Option[Scheme]       = None
+    val authorityOption: Option[String]    = None
     val sslConfig: Option[ClientSSLConfig] = None
 
     def requestInternal(
@@ -505,6 +534,7 @@ object ZClient {
       portOption: Option[Int],
       queries: QueryParams,
       schemeOption: Option[Scheme],
+      authorityOption: Option[String],
       sslConfig: Option[ClientSSLConfig],
       version: Version,
     )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
@@ -516,7 +546,10 @@ object ZClient {
           Request
             .default(
               method,
-              URL(path, URL.Location.Absolute(schemeOption.getOrElse(Scheme.HTTP), host, port)).setQueryParams(queries),
+              URL(
+                path,
+                URL.Location.Absolute(schemeOption.getOrElse(Scheme.HTTP), host, port, authorityOption.getOrElse("")),
+              ).setQueryParams(queries),
               body,
             )
             .copy(

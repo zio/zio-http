@@ -36,7 +36,7 @@ object HttpGen {
     scheme <- Gen.fromIterable(List(Scheme.HTTP, Scheme.HTTPS))
     host   <- Gen.alphaNumericStringBounded(1, 5)
     port   <- Gen.int(0, 65536)
-  } yield URL.Location.Absolute(scheme, host, port)
+  } yield URL.Location.Absolute(scheme, host, port, "")
 
   def genRelativeURL = for {
     path        <- HttpGen.anyPath

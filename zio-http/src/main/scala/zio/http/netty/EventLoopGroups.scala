@@ -3,6 +3,7 @@ package zio.http.netty
 import io.netty.channel._
 import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}
 import io.netty.channel.kqueue.{KQueue, KQueueEventLoopGroup}
+import io.netty.channel.local.LocalEventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.incubator.channel.uring.IOUringEventLoopGroup
 import zio._
@@ -42,20 +43,29 @@ object EventLoopGroups {
   def uring(nThread: Int, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
     make(ZIO.succeed(new IOUringEventLoopGroup(nThread, executor)))
 
-  def default(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] = make(
-    ZIO.succeed(new DefaultEventLoopGroup()),
+  def default(nThread: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] = make(
+    ZIO.succeed(new DefaultEventLoopGroup(nThread)),
   )
+
+  def epollUnix(nThread: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+    make(ZIO.succeed(new EpollEventLoopGroup(nThread)))
+
+  def kqueueUnix(nThread: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+    make(ZIO.succeed(new KQueueEventLoopGroup(nThread)))
 
   implicit val trace: Trace = Trace.empty
 
   val fromConfig = ZLayer.fromZIO {
     ZIO.service[Config].flatMap { config =>
       config.channelType match {
-        case ChannelType.NIO    => nio(config.nThreads)
-        case ChannelType.EPOLL  => epoll(config.nThreads)
-        case ChannelType.KQUEUE => kqueue(config.nThreads)
-        case ChannelType.URING  => uring(config.nThreads)
-        case ChannelType.AUTO   =>
+        case ChannelType.NIO        => nio(config.nThreads)
+        case ChannelType.EPOLL      => epoll(config.nThreads)
+        case ChannelType.KQUEUE     => kqueue(config.nThreads)
+        case ChannelType.URING      => uring(config.nThreads)
+        case ChannelType.LOCAL      => default(config.nThreads)
+        case ChannelType.EPOLL_UDS  => epollUnix(config.nThreads)
+        case ChannelType.KQUEUE_UDS => kqueueUnix(config.nThreads)
+        case ChannelType.AUTO       =>
           if (Epoll.isAvailable)
             epoll(config.nThreads)
           else if (KQueue.isAvailable)
