@@ -1,30 +1,24 @@
 package zio.http.netty.client
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.unix.DomainSocketAddress
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
 import zio.http.URL.Location
 import zio.http._
 import zio.http.logging.LogLevel
-import zio.http.model.Scheme
 import zio.http.netty.NettyFutureExecutor
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
 import zio.{Duration, Scope, ZIO, ZKeyedPool, ZLayer}
 
-import java.net.InetSocketAddress
+import java.net.{InetSocketAddress, SocketAddress}
 
 trait ConnectionPool {
   def get(
     location: URL.Location.Absolute,
+    socketAddress: Option[SocketAddress],
     proxy: Option[Proxy],
     sslOptions: ClientSSLConfig,
     maxHeaderSize: Int,
@@ -40,11 +34,12 @@ object ConnectionPool {
   protected def createChannel(
     channelFactory: JChannelFactory[JChannel],
     eventLoopGroup: JEventLoopGroup,
-    location: URL.Location.Absolute,
+    socketAddress: SocketAddress,
     proxy: Option[Proxy],
     sslOptions: ClientSSLConfig,
     maxHeaderSize: Int,
     decompression: Decompression,
+    isSecure: Boolean,
   ): ZIO[Any, Throwable, JChannel] = {
     val initializer = new ChannelInitializer[JChannel] {
       override def initChannel(ch: JChannel): Unit = {
@@ -60,17 +55,21 @@ object ConnectionPool {
           case Some(proxy) =>
             pipeline.addLast(
               PROXY_HANDLER,
-              proxy.encode.getOrElse(new HttpProxyHandler(new InetSocketAddress(location.host, location.port))),
+              proxy.encode.getOrElse(new HttpProxyHandler(socketAddress)),
             )
           case None        =>
         }
 
-        if (location.scheme.isSecure) {
+        if (isSecure) {
+          val (host, port) = socketAddress match {
+            case address: InetSocketAddress => (address.getHostString, address.getPort)
+            case _                          => ("localhost", 80)
+          }
           pipeline.addLast(
             SSL_HANDLER,
             ClientSSLConverter
               .toNettySSLContext(sslOptions)
-              .newHandler(ch.alloc, location.host, location.port),
+              .newHandler(ch.alloc, host, port),
           )
         }
 
@@ -96,13 +95,6 @@ object ConnectionPool {
       }
     }
 
-    val socketAddress = location match {
-      case URL.Location.Absolute(scheme, _, _, authority) if scheme == Scheme.`HTTP+UNIX` =>
-        new DomainSocketAddress(authority)
-      case URL.Location.Absolute(_, host, port, _)                                        =>
-        new InetSocketAddress(host, port)
-    }
-
     ZIO.attempt {
       new Bootstrap()
         .channelFactory(channelFactory)
@@ -121,12 +113,22 @@ object ConnectionPool {
       extends ConnectionPool {
     override def get(
       location: Location.Absolute,
+      socketAddress: Option[SocketAddress],
       proxy: Option[Proxy],
       sslOptions: ClientSSLConfig,
       maxHeaderSize: Int,
       decompression: Decompression,
     ): ZIO[Scope, Throwable, JChannel] =
-      createChannel(channelFactory, eventLoopGroup, location, proxy, sslOptions, maxHeaderSize, decompression)
+      createChannel(
+        channelFactory,
+        eventLoopGroup,
+        socketAddress.getOrElse(new InetSocketAddress(location.host, location.port)),
+        proxy,
+        sslOptions,
+        maxHeaderSize,
+        decompression,
+        location.scheme.isSecure,
+      )
 
     override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
       ZIO.unit
@@ -145,6 +147,7 @@ object ConnectionPool {
   ) extends ConnectionPool {
     override def get(
       location: Location.Absolute,
+      socketAddress: Option[SocketAddress],
       proxy: Option[Proxy],
       sslOptions: ClientSSLConfig,
       maxHeaderSize: Int,
@@ -249,11 +252,12 @@ object ConnectionPool {
           createChannel(
             channelFactory,
             eventLoopGroup,
-            key.location,
+            new InetSocketAddress(key.location.host, key.location.port),
             key.proxy,
             key.sslOptions,
             key.maxHeaderSize,
             key.decompression,
+            key.location.scheme.isSecure,
           ),
         (key: PoolKey) => size(key.location),
       )
@@ -279,11 +283,12 @@ object ConnectionPool {
           createChannel(
             channelFactory,
             eventLoopGroup,
-            key.location,
+            new InetSocketAddress(key.location.host, key.location.port),
             key.proxy,
             key.sslOptions,
             key.maxHeaderSize,
             key.decompression,
+            key.location.scheme.isSecure,
           ),
         (key: PoolKey) => min(key.location) to max(key.location),
         (key: PoolKey) => ttl(key.location),

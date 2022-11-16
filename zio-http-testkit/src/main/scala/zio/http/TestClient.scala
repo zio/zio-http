@@ -1,5 +1,6 @@
 package zio.http
 
+import io.netty.channel.unix.DomainSocketAddress
 import zio._
 import zio.http.ChannelEvent.{ChannelUnregistered, UserEvent}
 import zio.http.model.{Headers, Method, Scheme, Status, Version}
@@ -68,14 +69,14 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       _ <- behavior.set(previousBehavior.defaultWith(app))
     } yield ()
 
-  val headers: Headers                   = Headers.empty
-  val hostOption: Option[String]         = None
-  val pathPrefix: Path                   = Path.empty
-  val portOption: Option[Int]            = None
-  val queries: QueryParams               = QueryParams.empty
-  val schemeOption: Option[Scheme]       = None
-  val authorityOption: Option[String]    = None
-  val sslConfig: Option[ClientSSLConfig] = None
+  val headers: Headers                              = Headers.empty
+  val hostOption: Option[String]                    = None
+  val pathPrefix: Path                              = Path.empty
+  val portOption: Option[Int]                       = None
+  val queries: QueryParams                          = QueryParams.empty
+  val schemeOption: Option[Scheme]                  = None
+  val unixSocketOption: Option[DomainSocketAddress] = None
+  val sslConfig: Option[ClientSSLConfig]            = None
 
   override protected def requestInternal(
     body: Body,
@@ -86,7 +87,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     portOption: Option[Int],
     queries: QueryParams,
     schemeOption: Option[Scheme],
-    authorityOption: Option[String],
+    unixSocketOption: Option[DomainSocketAddress],
     sslConfig: Option[ClientSSLConfig],
     version: Version,
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] =

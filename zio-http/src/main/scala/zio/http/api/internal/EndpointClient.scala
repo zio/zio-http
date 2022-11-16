@@ -13,6 +13,6 @@ private[api] final case class EndpointClient[I, O](apiRoot: URL, api: EndpointSp
     val request0 = api.input.encodeRequest(input)
     val request  = request0.copy(url = apiRoot ++ request0.url)
 
-    client.request(request).flatMap(api.output.decodeResponse(_))
+    client.request(request, None).flatMap(api.output.decodeResponse(_))
   }
 }
