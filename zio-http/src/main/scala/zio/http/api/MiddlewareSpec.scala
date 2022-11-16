@@ -5,9 +5,9 @@ import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName
+import zio.http.model.headers.values.AccessControlMaxAge
 import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames}
 import zio.http.{Request, Response}
-
 import java.util.Base64
 
 final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
@@ -152,6 +152,9 @@ object MiddlewareSpec {
     val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB)
     addHeader(HeaderNames.authorization.toString, value)
   }
+
+  def withAccessControlAllowMaxAge: MiddlewareSpec[Unit, AccessControlMaxAge] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlMaxAge)
 
   def auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
