@@ -1,18 +1,21 @@
 package zio.http
 
+import io.netty.channel.unix.DomainSocketAddress
 import io.netty.handler.codec.compression.{StandardCompressionOptions, CompressionOptions => JCompressionOptions}
 import io.netty.util.ResourceLeakDetector
 import zio.{Trace, ZLayer}
 import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
 import zio.http.netty.{ChannelType, EventLoopGroups}
 
-import java.net.{InetAddress, InetSocketAddress}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import java.net.{InetAddress, InetSocketAddress, SocketAddress}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import java.io.File // scalafix:ok;
 
 final case class ServerConfig(
   leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
   sslConfig: Option[SSLConfig] = None,
-  address: InetSocketAddress = new InetSocketAddress(8080),
+  address: SocketAddress = new InetSocketAddress(8080),
   acceptContinue: Boolean = false,
   keepAlive: Boolean = true,
   consolidateFlush: Boolean = false,
@@ -49,6 +52,12 @@ final case class ServerConfig(
    * Configure the server to listen on the provided InetSocketAddress.
    */
   def binding(inetSocketAddress: InetSocketAddress): ServerConfig = self.copy(address = inetSocketAddress)
+
+  def binding(unixSocketAddress: DomainSocketAddress): ServerConfig = self.copy(address = unixSocketAddress)
+
+  def binding(socketPath: String): ServerConfig = self.copy(address = new DomainSocketAddress(socketPath))
+
+  def binding(file: File): ServerConfig = self.copy(address = new DomainSocketAddress(file))
 
   /**
    * Configure the server to use FlushConsolidationHandler to control the flush

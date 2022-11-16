@@ -2,13 +2,15 @@ package zio.http.netty.server
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
+import io.netty.channel.local.LocalAddress
+import io.netty.channel.unix.DomainSocketAddress
 import io.netty.util.ResourceLeakDetector
 import zio._
 import zio.http.netty._
 import zio.http.service.ServerTime
 import zio.http.{Driver, Http, HttpApp, Server, ServerConfig}
 
-import java.net.InetSocketAddress
+import java.net.{InetSocketAddress, SocketAddress}
 import java.util.concurrent.atomic.AtomicReference
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
@@ -27,7 +29,12 @@ private[zio] final case class NettyDriver(
       chf             <- ZIO.attempt(serverBootstrap.childHandler(channelInitializer).bind(serverConfig.address))
       _               <- NettyFutureExecutor.scoped(chf)
       _    <- ZIO.succeed(ResourceLeakDetector.setLevel(serverConfig.leakDetectionLevel.jResourceLeakDetectionLevel))
-      port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
+      port <- ZIO.attempt {
+        chf.channel().localAddress() match {
+          case address: InetSocketAddress => address.getPort
+          case _                          => 80
+        }
+      }
     } yield port
 
   def setErrorCallback(newCallback: Option[Server.ErrorCallback])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
