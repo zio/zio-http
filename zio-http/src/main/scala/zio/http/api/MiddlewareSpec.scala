@@ -8,6 +8,7 @@ import zio.http.model.Headers.BasicSchemeName
 import zio.http.model.headers.values.AccessControlMaxAge
 import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames}
 import zio.http.{Request, Response}
+
 import java.util.Base64
 
 final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
