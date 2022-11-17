@@ -13,7 +13,7 @@ object Trailer {
   def toTrailer(value: String): Trailer =
     value.toLowerCase match {
       case headerRegex(value) => TrailerValue(value)
-      case _ => InvalidTrailerValue
+      case _                  => InvalidTrailerValue
     }
 
   def fromTrailer(trailer: Trailer): String =
