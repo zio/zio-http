@@ -4,7 +4,7 @@ package zio.http.model.headers.values
 sealed trait From
 
 object From {
-  //Regex that matches emails that are RFC 2821 and RFC 2822 compliant.
+  //Regex that does veery loose validation of email.
   lazy val emailRegex = "[^ ]+@[^ ]+[.][^ ]+".r
 
   /**
