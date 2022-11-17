@@ -142,7 +142,8 @@ trait HeaderCodecs {
   final val server: HeaderCodec[String]                  = header(HeaderNames.server.toString(), TextCodec.string)
   final val setCookie: HeaderCodec[String]               = header(HeaderNames.setCookie.toString(), TextCodec.string)
   final val te: HeaderCodec[String]                      = header(HeaderNames.te.toString(), TextCodec.string)
-  final val trailer: HeaderCodec[String]                 = header(HeaderNames.trailer.toString(), TextCodec.string)
+  final val trailer: HeaderCodec[Trailer]                 = header(HeaderNames.trailer.toString(), TextCodec.string)
+    .transform(Trailer.toTrailer, Trailer.fromTrailer)
   final val transferEncoding: HeaderCodec[TransferEncoding] = header(
     HeaderNames.transferEncoding.toString(),
     TextCodec.string,
