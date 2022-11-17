@@ -151,7 +151,8 @@ trait HeaderCodecs {
   final val upgradeInsecureRequests: HeaderCodec[String]    =
     header(HeaderNames.upgradeInsecureRequests.toString(), TextCodec.string)
   final val userAgent: HeaderCodec[String]                  = header(HeaderNames.userAgent.toString(), TextCodec.string)
-  final val vary: HeaderCodec[String]                       = header(HeaderNames.vary.toString(), TextCodec.string)
+  final val vary: HeaderCodec[Vary]                       = header(HeaderNames.vary.toString(), TextCodec.string)
+    .transform(Vary.toVary, Vary.fromVary)
   final val via: HeaderCodec[String]                        = header(HeaderNames.via.toString(), TextCodec.string)
   final val warning: HeaderCodec[String]                    = header(HeaderNames.warning.toString(), TextCodec.string)
   final val webSocketLocation: HeaderCodec[String]          =
