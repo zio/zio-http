@@ -9,10 +9,10 @@ object Vary {
   case object InvalidVaryValue                       extends Vary
 
   def toVary(value: String): Vary = {
-    value.toLowerCase().split(",").toList match {
-      case List("*")                                               => StarVary
-      case list if list.nonEmpty && list.find(_.isBlank).isDefined => HeadersVaryValue(list.map(_.trim))
-      case _                                                       => InvalidVaryValue
+    value.toLowerCase().split("[, ]+").toList match {
+      case List("*")                               => StarVary
+      case list if list.nonEmpty && value.nonEmpty => HeadersVaryValue(list.map(_.trim))
+      case _                                       => InvalidVaryValue
     }
   }
 

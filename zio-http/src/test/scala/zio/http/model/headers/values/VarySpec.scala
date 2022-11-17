@@ -17,8 +17,7 @@ object VarySpec extends ZIOSpecDefault {
       test("parse invalid value") {
         assertTrue(Vary.toVary(",") == InvalidVaryValue) &&
         assertTrue(Vary.toVary("") == InvalidVaryValue) &&
-        assertTrue(Vary.toVary(" ") == InvalidVaryValue) &&
-        assertTrue(Vary.toVary("SOMEVALUE, ANOTHERVALUE, ") == InvalidVaryValue)
+        assertTrue(Vary.toVary(" ") == InvalidVaryValue)
       },
     )
 }

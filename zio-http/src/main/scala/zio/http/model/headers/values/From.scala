@@ -10,7 +10,7 @@ object From {
   /**
    * The From Header value is invalid
    */
-  final case object InvalidFromValue extends From
+  case object InvalidFromValue extends From
 
   final case class FromValue(email: String) extends From
 
