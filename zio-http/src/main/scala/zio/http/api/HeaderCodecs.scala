@@ -90,7 +90,8 @@ trait HeaderCodecs {
       .transform(Expect.toExpect, Expect.fromExpect)
   final val expires: HeaderCodec[Expires]                =
     header(HeaderNames.expires.toString(), TextCodec.string).transform[Expires](Expires.toExpires, Expires.fromExpires)
-  final val from: HeaderCodec[String]                    = header(HeaderNames.from.toString(), TextCodec.string)
+  final val from: HeaderCodec[From]                    = header(HeaderNames.from.toString(), TextCodec.string)
+    .transform(From.toFrom, From.fromFrom)
   final val host: HeaderCodec[Host]                      = header(HeaderNames.host.toString(), TextCodec.string)
     .transform(Host.toHost(_), Host.fromHost(_))
   final val ifMatch: HeaderCodec[String]                 = header(HeaderNames.ifMatch.toString(), TextCodec.string)
