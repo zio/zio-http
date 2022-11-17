@@ -10,14 +10,14 @@ object TrailerSpec extends ZIOSpecDefault {
     suite("Trailer header suite")(
       test("parse valid value") {
         assertTrue(Trailer.toTrailer("Trailer") == TrailerValue("trailer")) &&
-          assertTrue(Trailer.toTrailer("Max-Forwards") == TrailerValue("max-forwards")) &&
-          assertTrue(Trailer.toTrailer("Cache-Control") == TrailerValue("cache-control")) &&
-          assertTrue(Trailer.toTrailer("Content-Type") == TrailerValue("content-type"))
+        assertTrue(Trailer.toTrailer("Max-Forwards") == TrailerValue("max-forwards")) &&
+        assertTrue(Trailer.toTrailer("Cache-Control") == TrailerValue("cache-control")) &&
+        assertTrue(Trailer.toTrailer("Content-Type") == TrailerValue("content-type"))
       },
       test("parse invalid value") {
         assertTrue(Trailer.toTrailer(" ") == InvalidTrailerValue) &&
-          assertTrue(Trailer.toTrailer("Some Value") == InvalidTrailerValue) &&
-          assertTrue(Trailer.toTrailer("Cache-Control ") == InvalidTrailerValue)
+        assertTrue(Trailer.toTrailer("Some Value") == InvalidTrailerValue) &&
+        assertTrue(Trailer.toTrailer("Cache-Control ") == InvalidTrailerValue)
       },
     )
 }
