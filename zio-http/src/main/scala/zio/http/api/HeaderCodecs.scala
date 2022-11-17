@@ -121,7 +121,8 @@ trait HeaderCodecs {
   final val proxyAuthorization: HeaderCodec[String]      =
     header(HeaderNames.proxyAuthorization.toString(), TextCodec.string)
   final val range: HeaderCodec[String]                   = header(HeaderNames.range.toString(), TextCodec.string)
-  final val referer: HeaderCodec[String]                 = header(HeaderNames.referer.toString(), TextCodec.string)
+  final val referer: HeaderCodec[Referer]                 = header(HeaderNames.referer.toString(), TextCodec.string)
+    .transform(Referer.toReferer, Referer.fromReferer)
   final val retryAfter: HeaderCodec[String]              =
     header(HeaderNames.retryAfter.toString(), TextCodec.string)
   final val secWebSocketLocation: HeaderCodec[String]    =
