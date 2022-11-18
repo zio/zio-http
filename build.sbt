@@ -144,7 +144,7 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
 
 lazy val zioHttpLogging = (project in file("zio-http-logging"))
   .settings(stdSettings("zio-http-logging"))
-  .settings(publishSetting(false))
+  .settings(publishSetting(true))
   .settings(
     libraryDependencies ++= {
       if (isScala3(scalaVersion.value)) Seq.empty

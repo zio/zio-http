@@ -316,6 +316,14 @@ object Middleware {
     )(identity)
   }
 
+  def withAccessControlAllowMaxAge(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowMaxAge.mapOut(
+        _.unit(AccessControlMaxAge.toAccessControlMaxAge(value.toString)),
+      ),
+    )(identity)
+  }
+
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
 

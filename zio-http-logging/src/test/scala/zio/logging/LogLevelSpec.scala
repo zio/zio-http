@@ -1,4 +1,4 @@
-package zio.logging
+package zio.http.logging
 
 import zio.test._
 

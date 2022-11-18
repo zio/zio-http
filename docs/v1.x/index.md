@@ -17,11 +17,7 @@ Before we dive in, make sure that you have the following on your computer:
 To use zio-http, add the following dependencies in your project:
 
 ```scala
-val ZIOHttpVersion = "1.0.0.0-RC27"
-
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-http" % ZIOHttpVersion,
-)
+libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 ```
 
 ## Using Dream11's g8 template

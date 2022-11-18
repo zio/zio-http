@@ -1,7 +1,7 @@
-package zio.logging.macros
+package zio.http.logging.macros
 
-import zio.logging.Logger
-import zio.logging.macros.LoggerMacroImpl._
+import zio.http.logging.Logger
+import zio.http.logging.macros.LoggerMacroImpl._
 
 /**
  * Core Logger class.
