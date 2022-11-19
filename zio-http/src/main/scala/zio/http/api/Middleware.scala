@@ -316,6 +316,14 @@ object Middleware {
     )(identity)
   }
 
+  def withConnection(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withConnection.mapOut(
+        _.unit(Connection.toConnection(value.toString)),
+      ),
+    )(identity)
+  }
+
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
 
