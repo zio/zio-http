@@ -316,6 +316,14 @@ object Middleware {
     )(identity)
   }
 
+  def withExpires(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withExpires.mapOut(
+        _.unit(Expires.toExpires(value.toString)),
+      ),
+    )(identity)
+  }
+
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
 
