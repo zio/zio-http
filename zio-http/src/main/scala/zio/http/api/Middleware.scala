@@ -316,6 +316,14 @@ object Middleware {
     )(identity)
   }
 
+  def withReferer(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withReferer.mapOut(
+        _.unit(Referer.toReferer(value.toString)),
+      ),
+    )(identity)
+  }
+
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
 
