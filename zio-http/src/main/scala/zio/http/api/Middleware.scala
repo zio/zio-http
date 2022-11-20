@@ -316,6 +316,14 @@ object Middleware {
     )(identity)
   }
 
+  def withRetryAfter(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withRetryAfter.mapOut(
+        _.unit(RetryAfter.toRetryAfter(value.toString)),
+      ),
+    )(identity)
+  }
+
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
 
