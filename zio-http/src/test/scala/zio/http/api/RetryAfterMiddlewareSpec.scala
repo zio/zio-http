@@ -34,6 +34,17 @@ object RetryAfterMiddlewareSpec extends ZIOSpecDefault {
               .apply(Request.get(URL.empty))
           } yield assertTrue(response.headers.retryAfter.getOrElse("error").equals("0"))
         },
+<<<<<<< HEAD
+=======
+        test("add invalid negative duration RetryAfter") {
+          for {
+            response <- api.Middleware
+              .withRetryAfter("-10")
+              .apply(Http.succeed(response))
+              .apply(Request.get(URL.empty))
+          } yield assertTrue(response.headers.retryAfter.getOrElse("error").equals("0"))
+        },
+>>>>>>> 9f0bcecc (Commit code for retry after middleware.)
       ),
     )
 }
