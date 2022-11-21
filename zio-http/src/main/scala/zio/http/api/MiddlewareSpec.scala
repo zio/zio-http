@@ -5,7 +5,7 @@ import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName
-import zio.http.model.headers.values.AccessControlMaxAge
+import zio.http.model.headers.values._
 import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames}
 import zio.http.{Request, Response}
 
@@ -156,6 +156,9 @@ object MiddlewareSpec {
 
   def withAccessControlAllowMaxAge: MiddlewareSpec[Unit, AccessControlMaxAge] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlMaxAge)
+
+  def withIfRange: MiddlewareSpec[Unit, IfRange] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.ifRange)
 
   def auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
