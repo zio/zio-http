@@ -1,8 +1,6 @@
 package zio.http.api
 
 import zio.http._
-import zio.http.model.MediaType
-import zio.http.model.headers.values.AccessControlAllowOrigin
 import zio.test._
 
 object AccessControlAllowOriginSpec extends ZIOSpecDefault {
