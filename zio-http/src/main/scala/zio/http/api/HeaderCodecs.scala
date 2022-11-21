@@ -116,30 +116,31 @@ trait HeaderCodecs {
   final val pragma: HeaderCodec[String]                  = header(HeaderNames.pragma.toString(), TextCodec.string)
   final val proxyAuthenticate: HeaderCodec[String]       =
     header(HeaderNames.proxyAuthenticate.toString(), TextCodec.string)
-  final val proxyAuthorization: HeaderCodec[String]      =
+  final val proxyAuthorization: HeaderCodec[ProxyAuthorization] =
     header(HeaderNames.proxyAuthorization.toString(), TextCodec.string)
-  final val range: HeaderCodec[String]                   = header(HeaderNames.range.toString(), TextCodec.string)
-  final val referer: HeaderCodec[String]                 = header(HeaderNames.referer.toString(), TextCodec.string)
-  final val retryAfter: HeaderCodec[String]              =
+      .transform(ProxyAuthorization.toProxyAuthorization, ProxyAuthorization.fromProxyAuthorization)
+  final val range: HeaderCodec[String]                          = header(HeaderNames.range.toString(), TextCodec.string)
+  final val referer: HeaderCodec[String]                    = header(HeaderNames.referer.toString(), TextCodec.string)
+  final val retryAfter: HeaderCodec[String]                 =
     header(HeaderNames.retryAfter.toString(), TextCodec.string)
-  final val secWebSocketLocation: HeaderCodec[String]    =
+  final val secWebSocketLocation: HeaderCodec[String]       =
     header(HeaderNames.secWebSocketLocation.toString(), TextCodec.string)
-  final val secWebSocketOrigin: HeaderCodec[String]      =
+  final val secWebSocketOrigin: HeaderCodec[String]         =
     header(HeaderNames.secWebSocketOrigin.toString(), TextCodec.string)
-  final val secWebSocketProtocol: HeaderCodec[String]    =
+  final val secWebSocketProtocol: HeaderCodec[String]       =
     header(HeaderNames.secWebSocketProtocol.toString(), TextCodec.string)
-  final val secWebSocketVersion: HeaderCodec[String]     =
+  final val secWebSocketVersion: HeaderCodec[String]        =
     header(HeaderNames.secWebSocketVersion.toString(), TextCodec.string)
-  final val secWebSocketKey: HeaderCodec[String]         =
+  final val secWebSocketKey: HeaderCodec[String]            =
     header(HeaderNames.secWebSocketKey.toString(), TextCodec.string)
-  final val secWebSocketAccept: HeaderCodec[String]      =
+  final val secWebSocketAccept: HeaderCodec[String]         =
     header(HeaderNames.secWebSocketAccept.toString(), TextCodec.string)
-  final val secWebSocketExtensions: HeaderCodec[String]  =
+  final val secWebSocketExtensions: HeaderCodec[String]     =
     header(HeaderNames.secWebSocketExtensions.toString(), TextCodec.string)
-  final val server: HeaderCodec[String]                  = header(HeaderNames.server.toString(), TextCodec.string)
-  final val setCookie: HeaderCodec[String]               = header(HeaderNames.setCookie.toString(), TextCodec.string)
-  final val te: HeaderCodec[String]                      = header(HeaderNames.te.toString(), TextCodec.string)
-  final val trailer: HeaderCodec[String]                 = header(HeaderNames.trailer.toString(), TextCodec.string)
+  final val server: HeaderCodec[String]                     = header(HeaderNames.server.toString(), TextCodec.string)
+  final val setCookie: HeaderCodec[String]                  = header(HeaderNames.setCookie.toString(), TextCodec.string)
+  final val te: HeaderCodec[String]                         = header(HeaderNames.te.toString(), TextCodec.string)
+  final val trailer: HeaderCodec[String]                    = header(HeaderNames.trailer.toString(), TextCodec.string)
   final val transferEncoding: HeaderCodec[TransferEncoding] = header(
     HeaderNames.transferEncoding.toString(),
     TextCodec.string,
