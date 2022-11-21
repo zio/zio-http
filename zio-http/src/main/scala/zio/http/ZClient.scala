@@ -555,7 +555,10 @@ object ZClient {
               headers = headers,
             ),
           clientConfig = settings.copy(socketApp = Some(app.provideEnvironment(env))),
-        ).withFinalizer(_.close.orDie)
+        ).withFinalizer {
+          case resp: Response.CloseableResponse => resp.close.orDie
+          case _                                => ZIO.unit
+        }
       } yield res
 
     private def requestAsync(request: Request, clientConfig: ClientConfig)(implicit
