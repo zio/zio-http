@@ -62,8 +62,12 @@ trait HeaderCodecs {
       )
   final val accessControlRequestHeaders: HeaderCodec[String]                          =
     header(HeaderNames.accessControlRequestHeaders.toString(), TextCodec.string)
-  final val accessControlRequestMethod: HeaderCodec[String]                           =
+  final val accessControlRequestMethod: HeaderCodec[AccessControlRequestMethod]       =
     header(HeaderNames.accessControlRequestMethod.toString(), TextCodec.string)
+      .transform(
+        AccessControlRequestMethod.toAccessControlRequestMethod,
+        AccessControlRequestMethod.fromAccessControlRequestMethod,
+      )
   final val age: HeaderCodec[Age]                                                     =
     header(HeaderNames.age.toString(), TextCodec.string).transform(Age.toAge, Age.fromAge)
   final val allow: HeaderCodec[Allow]                                                 =
