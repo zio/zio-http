@@ -30,8 +30,12 @@ trait HeaderCodecs {
         AccessControlAllowCredentials.toAccessControlAllowCredentials,
         AccessControlAllowCredentials.fromAccessControlAllowCredentials,
       )
-  final val accessControlAllowHeaders: HeaderCodec[String]                            =
+  final val accessControlAllowHeaders: HeaderCodec[AccessControlAllowHeaders]         =
     header(HeaderNames.accessControlAllowHeaders.toString(), TextCodec.string)
+      .transform(
+        AccessControlAllowHeaders.toAccessControlAllowHeaders,
+        AccessControlAllowHeaders.fromAccessControlAllowHeaders,
+      )
   final val accessControlAllowMethods: HeaderCodec[String]                            =
     header(HeaderNames.accessControlAllowMethods.toString(), TextCodec.string)
   final val accessControlAllowOrigin: HeaderCodec[AccessControlAllowOrigin]           =
