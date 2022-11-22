@@ -102,7 +102,7 @@ lazy val root = (project in file("."))
     zioHttpExample,
     zioHttpTestkit,
   )
-  .enablePlugins(WebsitePlugin)
+  // .enablePlugins(WebsitePlugin)
 
 lazy val zioHttp = (project in file("zio-http"))
   .settings(stdSettings("zio-http"))
