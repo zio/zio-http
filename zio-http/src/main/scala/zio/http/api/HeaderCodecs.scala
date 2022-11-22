@@ -48,8 +48,12 @@ trait HeaderCodecs {
         AccessControlAllowOrigin.toAccessControlAllowOrigin,
         AccessControlAllowOrigin.fromAccessControlAllowOrigin,
       )
-  final val accessControlExposeHeaders: HeaderCodec[String]                           =
-    header(HeaderNames.accessControlExposeHeaders.toString, TextCodec.string)
+  final val accessControlExposeHeaders: HeaderCodec[AccessControlExposeHeaders]       =
+    header(HeaderNames.accessControlExposeHeaders.toString(), TextCodec.string)
+      .transform(
+        AccessControlExposeHeaders.toAccessControlExposeHeaders,
+        AccessControlExposeHeaders.fromAccessControlExposeHeaders,
+      )
   final val accessControlMaxAge: HeaderCodec[AccessControlMaxAge]                     =
     header(HeaderNames.accessControlMaxAge.toString, TextCodec.string)
       .transform[AccessControlMaxAge](
