@@ -2,8 +2,6 @@ package zio.http.model.headers.values
 
 import zio.http.URL
 
-import scala.util.Try
-
 /**
  * The Referer HTTP request header contains the absolute or partial address from
  * which a resource has been requested. The Referer header allows a server to

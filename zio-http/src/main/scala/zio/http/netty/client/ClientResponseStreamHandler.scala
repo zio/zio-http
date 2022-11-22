@@ -29,9 +29,12 @@ final class ClientResponseStreamHandler(
       ctx.channel().pipeline().remove(self)
 
       if (keepAlive)
-        zExec.runUninterruptible(ctx)(onComplete.succeed(ChannelState.Reusable))(unsafeClass, trace)
+        zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.Reusable))(
+          unsafeClass,
+          trace,
+        )
       else {
-        zExec.runUninterruptible(ctx)(
+        zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
           NettyFutureExecutor
             .executed(ctx.close())
             .as(ChannelState.Invalid)
@@ -47,6 +50,6 @@ final class ClientResponseStreamHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    zExec.runUninterruptible(ctx)(onComplete.fail(cause))(unsafeClass, trace)
+    zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.fail(cause))(unsafeClass, trace)
   }
 }

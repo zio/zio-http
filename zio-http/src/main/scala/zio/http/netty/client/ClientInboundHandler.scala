@@ -38,8 +38,8 @@ final class ClientInboundHandler(
     msg.touch("handlers.ClientInboundHandler-channelRead0")
     // NOTE: The promise is made uninterruptible to be able to complete the promise in a error situation.
     // It allows to avoid loosing the message from pipeline in case the channel pipeline is closed due to an error.
-    zExec.runUninterruptible(ctx) {
-      onResponse.succeed(Response.unsafe.fromJResponse(ctx, msg))
+    zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
+      onResponse.succeed(Response.NettyResponse.make(ctx, msg))
     }(unsafeClass, trace)
 
     if (isWebSocket) {
@@ -50,7 +50,7 @@ final class ClientInboundHandler(
     val shouldKeepAlive = HttpUtil.isKeepAlive(msg) || isWebSocket
 
     if (!shouldKeepAlive) {
-      zExec.runUninterruptible(ctx)(
+      zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
         NettyFutureExecutor
           .executed(ctx.close())
           .as(ChannelState.Invalid)
@@ -58,13 +58,16 @@ final class ClientInboundHandler(
           .flatMap(onComplete.done(_)),
       )(unsafeClass, trace)
     } else {
-      zExec.runUninterruptible(ctx)(onComplete.succeed(ChannelState.Reusable))(unsafeClass, trace)
+      zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.Reusable))(
+        unsafeClass,
+        trace,
+      )
     }
 
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    zExec.runUninterruptible(ctx)(
+    zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
       onResponse.fail(error) *> onComplete.fail(error),
     )(unsafeClass, trace)
     releaseRequest()
