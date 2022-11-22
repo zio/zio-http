@@ -324,6 +324,13 @@ object Middleware {
     )(identity)
   }
 
+  def withAccessControlAllowCredentials(value: Boolean): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowCredentials.mapOut(
+        _.unit(value.toString),
+      ),
+    )(identity)
+
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
 
