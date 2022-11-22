@@ -8,9 +8,10 @@ ARG ARCH
 ENV RUN_SERVER="java -agentpath:/usr/local/YourKit-JavaProfiler-2022.9/bin/${ARCH}/libyjpagent.so=port=10001,listen=all -Xms2G -Xmx2G -server -jar /zio-http/target/scala-2.13/zio-http-assembly-1.0.0.jar"
 
 WORKDIR /zio-http
-COPY src src
-COPY project project
-COPY build.sbt build.sbt
+COPY profiling/src src
+COPY profiling/project project
+COPY profiling/build.sbt build.sbt
+COPY . zio-http-src
 RUN sbt assembly
 
 EXPOSE 8080

@@ -144,6 +144,9 @@ object MiddlewareSpec {
   def addCorrelationId: MiddlewareSpec[Unit, String] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
 
+  def withAccessControlAllowOrigin: MiddlewareSpec[Unit, AccessControlAllowOrigin] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowOrigin)
+
   def withAuthorization(value: CharSequence): MiddlewareSpec[Unit, Unit] =
     addHeader(HeaderNames.authorization.toString, value.toString)
 
