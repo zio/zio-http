@@ -169,6 +169,9 @@ object MiddlewareSpec {
   def addCorrelationId: MiddlewareSpec[Unit, String] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
 
+  def withAccessControlAllowOrigin: MiddlewareSpec[Unit, AccessControlAllowOrigin] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowOrigin)
+
   def withAuthorization(value: CharSequence): MiddlewareSpec[Unit, Unit] =
     addHeader(HeaderNames.authorization.toString, value.toString)
 
@@ -178,6 +181,9 @@ object MiddlewareSpec {
     val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB)
     addHeader(HeaderNames.authorization.toString, value)
   }
+
+  def withAccessControlAllowMaxAge: MiddlewareSpec[Unit, AccessControlMaxAge] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlMaxAge)
 
   def auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)

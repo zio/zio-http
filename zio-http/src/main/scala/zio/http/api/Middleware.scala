@@ -646,6 +646,22 @@ object Middleware {
   ): Middleware[R, A, B] =
     interceptZIO(spec)((a: A) => ZIO.succeedNow(Control.Continue(a)))((a, _) => f(a))
 
+  def withAccessControlAllowOrigin(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowOrigin.mapOut(
+        _.unit(AccessControlAllowOrigin.toAccessControlAllowOrigin(value.toString)),
+      ),
+    )(identity)
+  }
+
+  def withAccessControlAllowMaxAge(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowMaxAge.mapOut(
+        _.unit(AccessControlMaxAge.toAccessControlMaxAge(value.toString)),
+      ),
+    )(identity)
+  }
+
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
 

@@ -1,5 +1,5 @@
-package zio.logging
-import zio.logging.LoggerTransport.DefaultLoggerTransport
+package zio.http.logging
+import zio.http.logging.LoggerTransport.DefaultLoggerTransport
 import zio.test._
 
 import scala.collection.mutable.ListBuffer

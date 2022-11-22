@@ -1,6 +1,6 @@
-package zio.logging.macros
+package zio.http.logging.macros
 
-import zio.logging.{LogLevel, Logger}
+import zio.http.logging.{LogLevel, Logger}
 
 import scala.reflect.macros.whitebox
 
@@ -25,11 +25,11 @@ private[zio] object LoggerMacroImpl {
     val lno: Tree            = q"${c.enclosingPosition.line}"
     val sourceLocation: Tree =
       if (logLevel == LogLevel.Trace)
-        q"Some(_root_.zio.logging.Logger.SourcePos($cname, $lno))"
+        q"Some(_root_.zio.http.logging.Logger.SourcePos($cname, $lno))"
       else
         q"None"
     val logLevelName         = logLevel.name.toLowerCase.capitalize
-    val level: Tree          = q"_root_.zio.logging.LogLevel.${TermName(logLevelName)}"
+    val level: Tree          = q"_root_.zio.http.logging.LogLevel.${TermName(logLevelName)}"
     val isEnabled: Tree      = q"""${c.prefix.tree}.${TermName(s"is${logLevelName}Enabled")}"""
 
     // LogLevel Hierarchy: Trace < Debug < Info < Warn < Error

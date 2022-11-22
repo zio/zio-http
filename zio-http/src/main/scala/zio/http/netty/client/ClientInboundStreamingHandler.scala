@@ -25,10 +25,10 @@ final class ClientInboundStreamingHandler(
     msg match {
       case response: HttpResponse =>
         ctx.channel().config().setAutoRead(false)
-        rtm.runUninterruptible(ctx) {
+        rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
           onResponse
             .succeed(
-              Response.unsafe.fromStreamingJResponse(
+              Response.NettyResponse.make(
                 ctx,
                 response,
                 rtm,
@@ -45,7 +45,7 @@ final class ClientInboundStreamingHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    rtm.runUninterruptible(ctx)(
+    rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
       onResponse.fail(error) *> onComplete.fail(error),
     )(unsafeClass, trace)
   }
@@ -75,7 +75,7 @@ final class ClientInboundStreamingHandler(
 
   private def writeRequest(msg: Request, ctx: ChannelHandlerContext): Unit = {
     ctx.write(encodeRequest(msg))
-    rtm.run(ctx)(msg.body.write(ctx).unit)(Unsafe.unsafe, trace)
+    rtm.run(ctx, NettyRuntime.noopEnsuring)(NettyBodyWriter.write(msg.body, ctx).unit)(Unsafe.unsafe, trace)
     ctx.flush(): Unit
   }
 

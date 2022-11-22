@@ -2,7 +2,7 @@ package zio.http.service.logging
 
 import io.netty.util.internal.logging.{AbstractInternalLogger, InternalLogger, InternalLoggerFactory}
 import zio.http.service.logging.NettyLoggerFactory.Live
-import zio.logging.{LogLevel, Logger}
+import zio.http.logging.{LogLevel, Logger}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
