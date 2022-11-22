@@ -33,7 +33,7 @@ private[zio] final class WebSocketAppHandler(
     log.debug(s"ChannelEvent: [${event.event}]")
     app.message match {
       case Some(f) =>
-        zExec.runUninterruptible(ctx)(
+        zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
           f(event.map(WebSocketFrame.unsafe.fromJFrame).contramap[WebSocketFrame](_.toWebSocketFrame)),
         )
       case None    => ()

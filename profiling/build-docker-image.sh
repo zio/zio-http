@@ -1,5 +1,4 @@
 #!/bin/bash
-
 COMMIT_SHA=$(git rev-parse --short HEAD)
 TAG="zio-http:$COMMIT_SHA"
 
@@ -18,5 +17,6 @@ mkdir -p src/main/scala
 rm ./src/main/scala/Main.scala
 cp ../zio-http-example/src/main/scala/example/PlainTextBenchmarkServer.scala ./src/main/scala/Main.scala
 
-docker build --build-arg ARCH=$ARCH -t $TAG .
+cd "$(dirname "$0")/../"
+docker build -f ./profiling/Dockerfile --build-arg ARCH=$ARCH -t $TAG .
 docker tag $TAG zio-http:latest
