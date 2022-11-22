@@ -5,7 +5,7 @@ import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName
-import zio.http.model.headers.values.{AccessControlMaxAge, Expires}
+import zio.http.model.headers.values._
 import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames}
 import zio.http.{Request, Response}
 
@@ -143,6 +143,9 @@ object MiddlewareSpec {
 
   def addCorrelationId: MiddlewareSpec[Unit, String] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
+
+  def withAccessControlAllowOrigin: MiddlewareSpec[Unit, AccessControlAllowOrigin] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowOrigin)
 
   def withAuthorization(value: CharSequence): MiddlewareSpec[Unit, Unit] =
     addHeader(HeaderNames.authorization.toString, value.toString)

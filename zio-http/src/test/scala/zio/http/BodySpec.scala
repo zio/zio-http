@@ -28,11 +28,6 @@ object BodySpec extends ZIOSpecDefault {
             },
           ),
           suite("fromFile")(
-            test("failure") {
-              val res =
-                Body.fromFile(throw new Error("Failure")).asChunk.either
-              assertZIO(res)(isLeft(isSubtype[Error](anything)))
-            } @@ ignore,
             test("success") {
               lazy val file = testFile
               val res       = Body.fromFile(file).asString(HTTP_CHARSET)
