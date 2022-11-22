@@ -32,6 +32,24 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
 
   def sslConfig: Option[ClientSSLConfig]
 
+  /**
+   * Applies the specified client aspect, which can modify the execution of this
+   * client.
+   */
+  final def @@[
+    LowerEnv <: UpperEnv,
+    UpperEnv <: Env,
+    LowerIn <: UpperIn,
+    UpperIn <: In,
+    LowerErr >: Err,
+    UpperErr >: LowerErr,
+    LowerOut >: Out,
+    UpperOut >: LowerOut,
+  ](
+    aspect: ZClientAspect[LowerEnv, UpperEnv, LowerIn, UpperIn, LowerErr, UpperErr, LowerOut, UpperOut],
+  ): ZClient[UpperEnv, UpperIn, LowerErr, LowerOut] =
+    aspect(self)
+
   final def contramap[In2](f: In2 => In): ZClient[Env, In2, Err, Out] =
     contramapZIO(in => ZIO.succeedNow(f(in)))
 
