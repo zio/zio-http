@@ -125,7 +125,7 @@ trait HeaderCodecs {
       .transform(Expect.toExpect, Expect.fromExpect)
   final val expires: HeaderCodec[Expires]                   =
     header(HeaderNames.expires.toString, TextCodec.string).transform[Expires](Expires.toExpires, Expires.fromExpires)
-  final val from: HeaderCodec[From]                       = header(HeaderNames.from.toString, TextCodec.string)
+  final val from: HeaderCodec[From]                         = header(HeaderNames.from.toString, TextCodec.string)
     .transform(From.toFrom, From.fromFrom)
   final val host: HeaderCodec[Host]                         = header(HeaderNames.host.toString, TextCodec.string)
     .transform(Host.toHost, Host.fromHost)
@@ -156,7 +156,7 @@ trait HeaderCodecs {
   final val proxyAuthorization: HeaderCodec[String]         =
     header(HeaderNames.proxyAuthorization.toString, TextCodec.string)
   final val range: HeaderCodec[String]                      = header(HeaderNames.range.toString, TextCodec.string)
-  final val referer: HeaderCodec[Referer]                    = header(HeaderNames.referer.toString, TextCodec.string)
+  final val referer: HeaderCodec[Referer]                   = header(HeaderNames.referer.toString, TextCodec.string)
     .transform(Referer.toReferer, Referer.fromReferer)
   final val retryAfter: HeaderCodec[String]                 =
     header(HeaderNames.retryAfter.toString, TextCodec.string)
@@ -174,11 +174,11 @@ trait HeaderCodecs {
     header(HeaderNames.secWebSocketAccept.toString, TextCodec.string)
   final val secWebSocketExtensions: HeaderCodec[String]     =
     header(HeaderNames.secWebSocketExtensions.toString, TextCodec.string)
-  final val server: HeaderCodec[Server]                  =
+  final val server: HeaderCodec[Server]                     =
     header(HeaderNames.server.toString, TextCodec.string).transform(Server.toServer, Server.fromServer)
   final val setCookie: HeaderCodec[String]                  = header(HeaderNames.setCookie.toString, TextCodec.string)
   final val te: HeaderCodec[String]                         = header(HeaderNames.te.toString, TextCodec.string)
-  final val trailer: HeaderCodec[Trailer]                    = header(HeaderNames.trailer.toString, TextCodec.string)
+  final val trailer: HeaderCodec[Trailer]                   = header(HeaderNames.trailer.toString, TextCodec.string)
     .transform(Trailer.toTrailer, Trailer.fromTrailer)
   final val transferEncoding: HeaderCodec[TransferEncoding] = header(
     HeaderNames.transferEncoding.toString,
