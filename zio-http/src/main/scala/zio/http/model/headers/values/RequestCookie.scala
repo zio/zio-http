@@ -18,13 +18,16 @@ object RequestCookie {
     implicit val decoder = CookieDecoder.RequestCookieDecoder
     model.Cookie.decode(value) match {
       case Left(value)  => InvalidCookieValue(value)
-      case Right(value) => CookieValue(value)
+      case Right(value) =>
+        if (value.isEmpty) InvalidCookieValue(new Exception("invalid cookie"))
+        else
+          CookieValue(value)
     }
   }
 
   def fromCookie(cookie: RequestCookie): String = cookie match {
     case CookieValue(value)    =>
-      value.map(_.encode).mkString("; ")
+      value.map(_.encode.getOrElse("")).mkString("; ")
     case InvalidCookieValue(_) => ""
   }
 }
