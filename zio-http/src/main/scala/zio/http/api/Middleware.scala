@@ -331,6 +331,13 @@ object Middleware {
       ),
     )(identity)
 
+  def withAccessControlAllowMethods(value: Method*): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowMethods.mapOut(
+        _.unit(value.mkString(", ")),
+      ),
+    )(identity)
+
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
 

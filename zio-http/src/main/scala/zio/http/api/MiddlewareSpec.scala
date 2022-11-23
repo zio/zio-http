@@ -163,6 +163,9 @@ object MiddlewareSpec {
   def withAccessControlAllowCredentials: MiddlewareSpec[Unit, String] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowCredentials)
 
+  def withAccessControlAllowMethods: MiddlewareSpec[Unit, String] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowMethods)
+
   def auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
       .mapIn(
