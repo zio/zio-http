@@ -7,6 +7,7 @@ import zio.http.api.MiddlewareSpec.{CsrfValidate, decodeHttpBasic}
 import zio.http.middleware.Auth
 import zio.http.middleware.Cors.CorsConfig
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName, Header}
+import zio.http.model.headers.values.AccessControlRequestMethod.RequestMethod
 import zio.http.model.headers.values._
 import zio.http.model.{Cookie, Headers, Method, Status}
 
@@ -238,7 +239,7 @@ object Middleware {
     }
 
     MiddlewareSpec.cors.implement {
-      case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm)) =>
+      case (Method.OPTIONS, Some(origin), Some(acrm: RequestMethod)) if allowCORS(origin, acrm.method) =>
         ZIO
           .succeed(
             Middleware.Control.Abort(
