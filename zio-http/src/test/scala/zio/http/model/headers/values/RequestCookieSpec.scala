@@ -1,8 +1,8 @@
 package zio.http.model.headers.values
 
 import zio.Scope
-import zio.http.model.Cookie.Type.RequestType
 import zio.http.model
+import zio.http.model.Cookie.Type.RequestType
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
 object RequestCookieSpec extends ZIOSpecDefault {
@@ -47,7 +47,7 @@ object RequestCookieSpec extends ZIOSpecDefault {
       val result = RequestCookie.toCookie("") match {
         case _: RequestCookie.CookieValue =>
           false
-        case _                             => true
+        case _                            => true
       }
       assertTrue(result)
     },
