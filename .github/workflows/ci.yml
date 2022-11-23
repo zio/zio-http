@@ -17,221 +17,222 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  PERFORMANCE_FLOOR: 770000
 
 jobs:
-  build:
-    name: Build and Test
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.12.16, 2.13.8, 3.2.0]
-        java: [graal_21.1.0@11, temurin@8]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout current branch (full)
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+  # build:
+  #   name: Build and Test
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest]
+  #       scala: [2.12.16, 2.13.8, 3.2.0]
+  #       java: [graal_21.1.0@11, temurin@8]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - name: Checkout current branch (full)
+  #       uses: actions/checkout@v2
+  #       with:
+  #         fetch-depth: 0
 
-      - name: Setup GraalVM (graal_21.1.0@11)
-        if: matrix.java == 'graal_21.1.0@11'
-        uses: DeLaGuardo/setup-graalvm@5.0
-        with:
-          graalvm: 21.1.0
-          java: java11
+  #     - name: Setup GraalVM (graal_21.1.0@11)
+  #       if: matrix.java == 'graal_21.1.0@11'
+  #       uses: DeLaGuardo/setup-graalvm@5.0
+  #       with:
+  #         graalvm: 21.1.0
+  #         java: java11
 
-      - name: Setup Java (temurin@8)
-        if: matrix.java == 'temurin@8'
-        uses: actions/setup-java@v2
-        with:
-          distribution: temurin
-          java-version: 8
+  #     - name: Setup Java (temurin@8)
+  #       if: matrix.java == 'temurin@8'
+  #       uses: actions/setup-java@v2
+  #       with:
+  #         distribution: temurin
+  #         java-version: 8
 
-      - name: Cache sbt
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.sbt
-            ~/.ivy2/cache
-            ~/.coursier/cache/v1
-            ~/.cache/coursier/v1
-            ~/AppData/Local/Coursier/Cache/v1
-            ~/Library/Caches/Coursier/v1
-          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+  #     - name: Cache sbt
+  #       uses: actions/cache@v2
+  #       with:
+  #         path: |
+  #           ~/.sbt
+  #           ~/.ivy2/cache
+  #           ~/.coursier/cache/v1
+  #           ~/.cache/coursier/v1
+  #           ~/AppData/Local/Coursier/Cache/v1
+  #           ~/Library/Caches/Coursier/v1
+  #         key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
 
-      - name: Check formatting
-        if: matrix.scala == '2.13.8'
-        run: sbt ++2.13.8 fmtCheck
+  #     - name: Check formatting
+  #       if: matrix.scala == '2.13.8'
+  #       run: sbt ++2.13.8 fmtCheck
 
-      - name: Check that workflows are up to date
-        run: sbt ++${{ matrix.scala }} githubWorkflowCheck
+  #     - name: Check that workflows are up to date
+  #       run: sbt ++${{ matrix.scala }} githubWorkflowCheck
 
-      - name: Build project
-        run: sbt ++${{ matrix.scala }} test
+  #     - name: Build project
+  #       run: sbt ++${{ matrix.scala }} test
 
-      - name: Check doc generation
-        if: ${{ github.event_name == 'pull_request' }}
-        run: sbt ++2.13.8 doc
+  #     - name: Check doc generation
+  #       if: ${{ github.event_name == 'pull_request' }}
+  #       run: sbt ++2.13.8 doc
 
-      - name: Compress target directories
-        run: tar cf targets.tar target zio-http/target zio-http-logging/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target project/target
+  #     - name: Compress target directories
+  #       run: tar cf targets.tar target zio-http/target zio-http-logging/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target project/target
 
-      - name: Upload target directories
-        uses: actions/upload-artifact@v2
-        with:
-          name: target-${{ matrix.os }}-${{ matrix.scala }}-${{ matrix.java }}
-          path: targets.tar
+  #     - name: Upload target directories
+  #       uses: actions/upload-artifact@v2
+  #       with:
+  #         name: target-${{ matrix.os }}-${{ matrix.scala }}-${{ matrix.java }}
+  #         path: targets.tar
 
-  publish:
-    name: Publish Artifacts
-    needs: [build]
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.8]
-        java: [graal_21.1.0@11]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout current branch (full)
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+  # publish:
+  #   name: Publish Artifacts
+  #   needs: [build]
+  #   if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest]
+  #       scala: [2.13.8]
+  #       java: [graal_21.1.0@11]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - name: Checkout current branch (full)
+  #       uses: actions/checkout@v2
+  #       with:
+  #         fetch-depth: 0
 
-      - name: Setup GraalVM (graal_21.1.0@11)
-        if: matrix.java == 'graal_21.1.0@11'
-        uses: DeLaGuardo/setup-graalvm@5.0
-        with:
-          graalvm: 21.1.0
-          java: java11
+  #     - name: Setup GraalVM (graal_21.1.0@11)
+  #       if: matrix.java == 'graal_21.1.0@11'
+  #       uses: DeLaGuardo/setup-graalvm@5.0
+  #       with:
+  #         graalvm: 21.1.0
+  #         java: java11
 
-      - name: Setup Java (temurin@8)
-        if: matrix.java == 'temurin@8'
-        uses: actions/setup-java@v2
-        with:
-          distribution: temurin
-          java-version: 8
+  #     - name: Setup Java (temurin@8)
+  #       if: matrix.java == 'temurin@8'
+  #       uses: actions/setup-java@v2
+  #       with:
+  #         distribution: temurin
+  #         java-version: 8
 
-      - name: Cache sbt
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.sbt
-            ~/.ivy2/cache
-            ~/.coursier/cache/v1
-            ~/.cache/coursier/v1
-            ~/AppData/Local/Coursier/Cache/v1
-            ~/Library/Caches/Coursier/v1
-          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+  #     - name: Cache sbt
+  #       uses: actions/cache@v2
+  #       with:
+  #         path: |
+  #           ~/.sbt
+  #           ~/.ivy2/cache
+  #           ~/.coursier/cache/v1
+  #           ~/.cache/coursier/v1
+  #           ~/AppData/Local/Coursier/Cache/v1
+  #           ~/Library/Caches/Coursier/v1
+  #         key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
 
-      - name: Download target directories (2.12.16)
-        uses: actions/download-artifact@v2
-        with:
-          name: target-${{ matrix.os }}-2.12.16-${{ matrix.java }}
+  #     - name: Download target directories (2.12.16)
+  #       uses: actions/download-artifact@v2
+  #       with:
+  #         name: target-${{ matrix.os }}-2.12.16-${{ matrix.java }}
 
-      - name: Inflate target directories (2.12.16)
-        run: |
-          tar xf targets.tar
-          rm targets.tar
+  #     - name: Inflate target directories (2.12.16)
+  #       run: |
+  #         tar xf targets.tar
+  #         rm targets.tar
 
-      - name: Download target directories (2.13.8)
-        uses: actions/download-artifact@v2
-        with:
-          name: target-${{ matrix.os }}-2.13.8-${{ matrix.java }}
+  #     - name: Download target directories (2.13.8)
+  #       uses: actions/download-artifact@v2
+  #       with:
+  #         name: target-${{ matrix.os }}-2.13.8-${{ matrix.java }}
 
-      - name: Inflate target directories (2.13.8)
-        run: |
-          tar xf targets.tar
-          rm targets.tar
+  #     - name: Inflate target directories (2.13.8)
+  #       run: |
+  #         tar xf targets.tar
+  #         rm targets.tar
 
-      - name: Download target directories (3.2.0)
-        uses: actions/download-artifact@v2
-        with:
-          name: target-${{ matrix.os }}-3.2.0-${{ matrix.java }}
+  #     - name: Download target directories (3.2.0)
+  #       uses: actions/download-artifact@v2
+  #       with:
+  #         name: target-${{ matrix.os }}-3.2.0-${{ matrix.java }}
 
-      - name: Inflate target directories (3.2.0)
-        run: |
-          tar xf targets.tar
-          rm targets.tar
+  #     - name: Inflate target directories (3.2.0)
+  #       run: |
+  #         tar xf targets.tar
+  #         rm targets.tar
 
-      - env:
-          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
-          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
-          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-          PGP_SECRET: ${{ secrets.PGP_SECRET }}
-        run: sbt ++${{ matrix.scala }} ci-release
+  #     - env:
+  #         PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+  #         SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+  #         CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
+  #         SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+  #         PGP_SECRET: ${{ secrets.PGP_SECRET }}
+  #       run: sbt ++${{ matrix.scala }} ci-release
 
-  update_release_draft:
-    name: Release Drafter
-    if: ${{ github.base_ref == 'main' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.6]
-        java: [temurin@11]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: release-drafter/release-drafter@v5
+  # update_release_draft:
+  #   name: Release Drafter
+  #   if: ${{ github.base_ref == 'main' }}
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest]
+  #       scala: [2.13.6]
+  #       java: [temurin@11]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - uses: release-drafter/release-drafter@v5
 
-  update_docs:
-    name: Publish Documentation
-    if: ${{ github.ref == 'refs/heads/main' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.6]
-        java: [temurin@11]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3.1.0
-        with:
-          fetch-depth: 0
+  # update_docs:
+  #   name: Publish Documentation
+  #   if: ${{ github.ref == 'refs/heads/main' }}
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest]
+  #       scala: [2.13.6]
+  #       java: [temurin@11]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - uses: actions/checkout@v3.1.0
+  #       with:
+  #         fetch-depth: 0
 
-      - name: Setup Scala and Java
-        uses: olafurpg/setup-scala@v13
+  #     - name: Setup Scala and Java
+  #       uses: olafurpg/setup-scala@v13
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 16.x
-          registry-url: 'https://registry.npmjs.org'
+  #     - uses: actions/setup-node@v3
+  #       with:
+  #         node-version: 16.x
+  #         registry-url: 'https://registry.npmjs.org'
 
-      - name: Publishing Docs to NPM Registry
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
-        run: sbt publishToNpm
+  #     - name: Publishing Docs to NPM Registry
+  #       env:
+  #         NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+  #       run: sbt publishToNpm
 
-  unsafeRunScoverage:
-    name: Unsafe Scoverage
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.8]
-        java: [temurin@11]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout current branch (full)
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+  # unsafeRunScoverage:
+  #   name: Unsafe Scoverage
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest]
+  #       scala: [2.13.8]
+  #       java: [temurin@11]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - name: Checkout current branch (full)
+  #       uses: actions/checkout@v2
+  #       with:
+  #         fetch-depth: 0
 
-      - name: Add Scoverage
-        id: add_plugin
-        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.3")' project/plugins.sbt
+  #     - name: Add Scoverage
+  #       id: add_plugin
+  #       run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.3")' project/plugins.sbt
 
-      - name: Update Build Definition
-        id: update_build_definition
-        run: |
+  #     - name: Update Build Definition
+  #       id: update_build_definition
+  #       run: |
 
-          sed -i -e 's+(project in file("./zio-http"))+(project in file("./zio-http")).settings(coverageEnabled:=true,coverageMinimumStmtTotal:=50.0,coverageMinimumBranchTotal:=60.0)+g' build.sbt
+  #         sed -i -e 's+(project in file("./zio-http"))+(project in file("./zio-http")).settings(coverageEnabled:=true,coverageMinimumStmtTotal:=50.0,coverageMinimumBranchTotal:=60.0)+g' build.sbt
 
-      - name: Run Coverage
-        id: run_coverage
-        run: sbt ++${{ matrix.scala }} 'coverage; project zioHttp; test; coverageReport'
+  #     - name: Run Coverage
+  #       id: run_coverage
+  #       run: sbt ++${{ matrix.scala }} 'coverage; project zioHttp; test; coverageReport'
 
-      - name: Push Codecov
-        id: push_codecov
-        run: 'bash <(curl -s https://codecov.io/bash)'
+  #     - name: Push Codecov
+  #       id: push_codecov
+  #       run: 'bash <(curl -s https://codecov.io/bash)'
 
   runBenchMarks:
     name: Benchmarks
@@ -262,73 +263,101 @@ jobs:
         env:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: |
+          mkdir -p ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala
           cp ./zio-http/zio-http-example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
           cd ./FrameworkBenchMarks
           sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt
-          ./tfb  --test zio-http | tee result
-          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")
-          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")
-          echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
-          echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
+          ./tfb  --test zio-http | tee result $BENCHMARK_RESULTS
+          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+" | grep -oiE "[0-9]+" | head -1)
+          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+" | grep -oiE "[0-9]+")
+          echo "request_per_second=$RESULT_REQUEST" >> $GITHUB_OUTPUT
+          echo "concurrency=$RESULT_CONCURRENCY" >> $GITHUB_OUTPUT
+          
+          
+          # # echo ::set-output name=request_result::$(echo $RESULT_REQUEST)
+          # # echo ::set-output name=concurrency_result::$(echo $RESULT_CONCURRENCY)
+          # echo "request_per_second=$RESULT_REQUEST" >> $GITHUB_OUTPUT
+          # echo "concurrency=$RESULT_CONCURRENCY" >> $GITHUB_OUTPUT
+          # RESULT_REQUEST=800000
+          # RESULT_CONCURRENCY=256
+
+
 
       - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
-        uses: peter-evans/commit-comment@v1
+        uses: peter-evans/commit-comment@v2
         with:
           sha: ${{github.event.pull_request.head.sha}}
           body: |
 
             **🚀 Performance Benchmark:**
 
-            ${{steps.result.outputs.concurrency_result}}
-            ${{steps.result.outputs.request_result}}
-
-  Jmh_publish:
-    name: Jmh Publish
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.8]
-        java: [temurin@11]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Format Output
-        id: fomat_output
+            requests/sec: ${{steps.result.outputs.concurrency}}
+            concurrency:  ${{steps.result.outputs.request_per_second}}
+      - name: Performance Report
+        id: perf-report
+        env:
+          REQUESTS_PER_SECOND: ${{steps.result.outputs.request_per_second}}
+          CONCURRENCY: ${{steps.result.outputs.concurrency}}
         run: |
-          cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
-                    while IFS= read -r line; do
-                    if grep -q "$line" Current.txt
-                    then
-                    grep "$line" Current.txt | sed 's/^.*: //' >> finalCurrent.txt;
-                    else
-                    echo "" >> finalCurrent.txt;
-                    fi
-                      if grep -q "$line" Main.txt
-                    then
-                    grep "$line" Main.txt | sed 's/^.*: //' >> finalMain.txt;
-                    else
-                    echo "" >> finalMain.txt;
-                    fi
-                     done < c.txt
-          paste -d '|' c.txt finalCurrent.txt finalMain.txt > FinalOutput.txt
-           sed -i -e 's/^/|/' FinalOutput.txt
-           sed -i -e 's/$/|/' FinalOutput.txt
-           body=$(cat FinalOutput.txt)
-           body="${body//'%'/'%25'}"
-           body="${body//$'\n'/'%0A'}"
-           body="${body//$'\r'/'%0D'}"
-           echo $body
-           echo ::set-output name=body::$(echo $body)
+
+          echo "** 🚀 Performance Benchmark Report 🚀 **"
+          echo "$REQUESTS_PER_SECOND requests/sec for $CONCURRENCY concurrent requests"
+
+
+          if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
+             echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
+          else 
+            echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
+            exit 1
+          fi
+
+  # Jmh_publish:
+  #   name: Jmh Publish
+  #   if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest]
+  #       scala: [2.13.8]
+  #       java: [temurin@11]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - name: Format Output
+  #       id: fomat_output
+  #       run: |
+  #         cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
+  #                   while IFS= read -r line; do
+  #                   if grep -q "$line" Current.txt
+  #                   then
+  #                   grep "$line" Current.txt | sed 's/^.*: //' >> finalCurrent.txt;
+  #                   else
+  #                   echo "" >> finalCurrent.txt;
+  #                   fi
+  #                     if grep -q "$line" Main.txt
+  #                   then
+  #                   grep "$line" Main.txt | sed 's/^.*: //' >> finalMain.txt;
+  #                   else
+  #                   echo "" >> finalMain.txt;
+  #                   fi
+  #                    done < c.txt
+  #         paste -d '|' c.txt finalCurrent.txt finalMain.txt > FinalOutput.txt
+  #          sed -i -e 's/^/|/' FinalOutput.txt
+  #          sed -i -e 's/$/|/' FinalOutput.txt
+  #          body=$(cat FinalOutput.txt)
+  #          body="${body//'%'/'%25'}"
+  #          body="${body//$'\n'/'%0A'}"
+  #          body="${body//$'\r'/'%0D'}"
+  #          echo $body
+  #          echo ::set-output name=body::$(echo $body)
 
       
-      - uses: peter-evans/commit-comment@v1
-        with:
-          sha: ${{github.sha}}
-          body: |
+  #     - uses: peter-evans/commit-comment@v1
+  #       with:
+  #         sha: ${{github.sha}}
+  #         body: |
 
-            **🚀 Jmh Benchmark:**
+  #           **🚀 Jmh Benchmark:**
 
-            |Name |Current| Main|
-            |-----|----| ----|
-             ${{steps.fomat_output.outputs.body}}
+  #           |Name |Current| Main|
+  #           |-----|----| ----|
+  #            ${{steps.fomat_output.outputs.body}}
              
