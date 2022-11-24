@@ -184,23 +184,24 @@ trait HeaderCodecs {
     TextCodec.string,
   ).transform(TransferEncoding.toTransferEncoding, TransferEncoding.fromTransferEncoding)
   final val upgrade: HeaderCodec[String]                    = header(HeaderNames.upgrade.toString(), TextCodec.string)
-  final val upgradeInsecureRequests: HeaderCodec[String]    =
+  final val upgradeInsecureRequests: HeaderCodec[UpgradeInsecureRequests] =
     header(HeaderNames.upgradeInsecureRequests.toString(), TextCodec.string)
-  final val userAgent: HeaderCodec[String]                  = header(HeaderNames.userAgent.toString(), TextCodec.string)
-  final val vary: HeaderCodec[Vary]                         = header(HeaderNames.vary.toString(), TextCodec.string)
+      .transform(UpgradeInsecureRequests.toUpgradeInsecureRequests, UpgradeInsecureRequests.fromUpgradeInsecureRequests)
+  final val userAgent: HeaderCodec[String]         = header(HeaderNames.userAgent.toString(), TextCodec.string)
+  final val vary: HeaderCodec[Vary]                = header(HeaderNames.vary.toString(), TextCodec.string)
     .transform(Vary.toVary, Vary.fromVary)
-  final val via: HeaderCodec[String]                        = header(HeaderNames.via.toString(), TextCodec.string)
-  final val warning: HeaderCodec[String]                    = header(HeaderNames.warning.toString(), TextCodec.string)
-  final val webSocketLocation: HeaderCodec[String]          =
+  final val via: HeaderCodec[String]               = header(HeaderNames.via.toString(), TextCodec.string)
+  final val warning: HeaderCodec[String]           = header(HeaderNames.warning.toString(), TextCodec.string)
+  final val webSocketLocation: HeaderCodec[String] =
     header(HeaderNames.webSocketLocation.toString(), TextCodec.string)
-  final val webSocketOrigin: HeaderCodec[String]            =
+  final val webSocketOrigin: HeaderCodec[String]   =
     header(HeaderNames.webSocketOrigin.toString(), TextCodec.string)
-  final val webSocketProtocol: HeaderCodec[String]          =
+  final val webSocketProtocol: HeaderCodec[String] =
     header(HeaderNames.webSocketProtocol.toString(), TextCodec.string)
-  final val wwwAuthenticate: HeaderCodec[String]            =
+  final val wwwAuthenticate: HeaderCodec[String]   =
     header(HeaderNames.wwwAuthenticate.toString(), TextCodec.string)
-  final val xFrameOptions: HeaderCodec[String]              =
+  final val xFrameOptions: HeaderCodec[String]     =
     header(HeaderNames.xFrameOptions.toString(), TextCodec.string)
-  final val xRequestedWith: HeaderCodec[String]             =
+  final val xRequestedWith: HeaderCodec[String]    =
     header(HeaderNames.xRequestedWith.toString(), TextCodec.string)
 }
