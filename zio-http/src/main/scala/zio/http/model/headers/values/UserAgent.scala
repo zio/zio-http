@@ -13,7 +13,7 @@ object UserAgent {
   final case class CompleteUserAgent(product: Product, comment: Option[Comment]) extends UserAgent
   final case class Product(name: String, version: Option[String])                extends UserAgent
   final case class Comment(comment: String)                                      extends UserAgent
-  final object InvalidUserAgent                                                  extends UserAgent
+  object InvalidUserAgent                                                        extends UserAgent
 
   def toUserAgent(userAgent: String): UserAgent = {
     val productRegex  = """(?i)([a-z0-9]+)(?:/([a-z0-9.]+))?""".r
