@@ -126,7 +126,7 @@ trait HeaderCodecs {
     .transform(From.toFrom, From.fromFrom)
   final val host: HeaderCodec[Host]                 = header(HeaderNames.host.toString(), TextCodec.string)
     .transform(Host.toHost(_), Host.fromHost(_))
-  final val ifMatch: HeaderCodec[IfMatch]                = header(HeaderNames.ifMatch.toString(), TextCodec.string)
+  final val ifMatch: HeaderCodec[IfMatch]           = header(HeaderNames.ifMatch.toString(), TextCodec.string)
     .transform(IfMatch.toIfMatch, IfMatch.fromIfMatch)
   final val ifModifiedSince: HeaderCodec[String]    =
     header(HeaderNames.ifModifiedSince.toString(), TextCodec.string)
