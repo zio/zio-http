@@ -60,8 +60,12 @@ trait HeaderCodecs {
         AccessControlMaxAge.toAccessControlMaxAge,
         AccessControlMaxAge.fromAccessControlMaxAge,
       )
-  final val accessControlRequestHeaders: HeaderCodec[String]                          =
+  final val accessControlRequestHeaders: HeaderCodec[AccessControlRequestHeaders]     =
     header(HeaderNames.accessControlRequestHeaders.toString(), TextCodec.string)
+      .transform(
+        AccessControlRequestHeaders.toAccessControlRequestHeaders,
+        AccessControlRequestHeaders.fromAccessControlRequestHeaders,
+      )
   final val accessControlRequestMethod: HeaderCodec[AccessControlRequestMethod]       =
     header(HeaderNames.accessControlRequestMethod.toString(), TextCodec.string)
       .transform(
@@ -107,7 +111,8 @@ trait HeaderCodecs {
     RequestCookie.toCookie,
     RequestCookie.fromCookie,
   )
-  final val date: HeaderCodec[String]          = header(HeaderNames.date.toString(), TextCodec.string)
+  final val date: HeaderCodec[Date]            = header(HeaderNames.date.toString(), TextCodec.string)
+    .transform(Date.toDate, Date.fromDate)
   final val dnt: HeaderCodec[DNT]              = header(HeaderNames.dnt.toString(), TextCodec.string)
     .transform(DNT.toDNT(_), DNT.fromDNT(_))
   final val etag: HeaderCodec[ETag]            = header(HeaderNames.etag.toString(), TextCodec.string)
@@ -121,7 +126,8 @@ trait HeaderCodecs {
     .transform(From.toFrom, From.fromFrom)
   final val host: HeaderCodec[Host]            = header(HeaderNames.host.toString(), TextCodec.string)
     .transform(Host.toHost(_), Host.fromHost(_))
-  final val ifMatch: HeaderCodec[String]       = header(HeaderNames.ifMatch.toString(), TextCodec.string)
+  final val ifMatch: HeaderCodec[IfMatch]      = header(HeaderNames.ifMatch.toString(), TextCodec.string)
+    .transform(IfMatch.toIfMatch, IfMatch.fromIfMatch)
   final val ifModifiedSince: HeaderCodec[IfModifiedSince]   =
     header(HeaderNames.ifModifiedSince.toString(), TextCodec.string)
       .transform[IfModifiedSince](
