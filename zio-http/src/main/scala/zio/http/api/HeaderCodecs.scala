@@ -137,8 +137,9 @@ trait HeaderCodecs {
       .transform(IfRange.toIfRange, IfRange.fromIfRange)
   final val ifUnmodifiedSince: HeaderCodec[String]  =
     header(HeaderNames.ifUnmodifiedSince.toString(), TextCodec.string)
-  final val lastModified: HeaderCodec[String]       =
+  final val lastModified: HeaderCodec[LastModified] =
     header(HeaderNames.lastModified.toString(), TextCodec.string)
+      .transform(LastModified.toLastModified, LastModified.fromLastModified)
   final val location: HeaderCodec[Location]         =
     header(HeaderNames.location.toString(), TextCodec.string).transform(Location.toLocation, Location.fromLocation)
   final val maxForwards: HeaderCodec[MaxForwards]   =
