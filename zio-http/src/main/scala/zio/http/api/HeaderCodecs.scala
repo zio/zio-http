@@ -183,7 +183,8 @@ trait HeaderCodecs {
     HeaderNames.transferEncoding.toString(),
     TextCodec.string,
   ).transform(TransferEncoding.toTransferEncoding, TransferEncoding.fromTransferEncoding)
-  final val upgrade: HeaderCodec[String]                    = header(HeaderNames.upgrade.toString(), TextCodec.string)
+  final val upgrade: HeaderCodec[Upgrade]                   = header(HeaderNames.upgrade.toString(), TextCodec.string)
+    .transform(Upgrade.toUpgrade, Upgrade.fromUpgrade)
   final val upgradeInsecureRequests: HeaderCodec[String]    =
     header(HeaderNames.upgradeInsecureRequests.toString(), TextCodec.string)
   final val userAgent: HeaderCodec[String]                  = header(HeaderNames.userAgent.toString(), TextCodec.string)
