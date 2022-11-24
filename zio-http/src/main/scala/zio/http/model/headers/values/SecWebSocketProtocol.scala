@@ -22,7 +22,7 @@ object SecWebSocketProtocol {
 
   def toSecWebSocketProtocol(subProtocols: String): SecWebSocketProtocol =
     if (subProtocols.trim.isEmpty) InvalidProtocol
-    else Protocols(Chunk.from(subProtocols.split(",").map(_.trim)))
+    else Protocols(Chunk.fromArray(subProtocols.split(",").map(_.trim)))
 
   def fromSecWebSocketProtocol(subProtocols: SecWebSocketProtocol): String =
     subProtocols match {

@@ -60,7 +60,7 @@ object SecWebSocketExtensions {
               }
               params
             }
-          Array(Token(Chunk.from(tokens)))
+          Array(Token(Chunk.fromArray(tokens)))
         }
       Extensions(Chunk.fromArray(extensions))
     }
