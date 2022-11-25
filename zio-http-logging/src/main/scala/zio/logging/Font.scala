@@ -1,6 +1,6 @@
-package zio.logging
+package zio.http.logging
 
-import zio.logging.Font._
+import zio.http.logging.Font._
 
 private[logging] sealed trait Font { self =>
   def toAnsiColor: String = self match {
