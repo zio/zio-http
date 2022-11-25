@@ -7,7 +7,7 @@ import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName
 import zio.http.model.headers.values._
 import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames}
-import zio.http.{Request, Response}
+import zio.http.{Request, Response, model}
 
 import java.util.Base64
 
@@ -154,9 +154,9 @@ object MiddlewareSpec {
   def addCookie: MiddlewareSpec[Unit, Cookie[Response]] =
     MiddlewareSpec(
       HttpCodec.empty,
-      HeaderCodec.cookie.transformOrFail(
-        str => Cookie.decode[Response](str).left.map(_.getMessage),
-        _.encode(validate = false).left.map(_.getMessage),
+      HeaderCodec.setCookie.transformOrFail(
+        _ => Left("Cannot add cookie"),
+        value => Right(ResponseCookie.CookieValue(value)),
       ),
     )
 
