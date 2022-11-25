@@ -337,6 +337,14 @@ object Middleware {
     )(identity)
   }
 
+  def withRetryAfter(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withRetryAfter.mapOut(
+        _.unit(RetryAfter.toRetryAfter(value.toString)),
+      ),
+    )(identity)
+  }
+
   def withAccessControlAllowCredentials(value: Boolean): Middleware[Any, Unit, Unit] =
     fromFunction(
       MiddlewareSpec.withAccessControlAllowCredentials.mapOut(
