@@ -169,6 +169,9 @@ object MiddlewareSpec {
   def withReferer: MiddlewareSpec[Unit, Referer] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.referer)
 
+  def withRetryAfter: MiddlewareSpec[Unit, RetryAfter] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.retryAfter)
+
   def withAccessControlAllowCredentials: MiddlewareSpec[Unit, AccessControlAllowCredentials] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowCredentials)
 
