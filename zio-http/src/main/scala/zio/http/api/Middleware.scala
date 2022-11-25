@@ -381,6 +381,14 @@ object Middleware {
       ),
     )(identity)
 
+  def withTransferEncoding(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withTransferEncoding.mapOut(
+        _.unit(TransferEncoding.toTransferEncoding(value.toString)),
+      ),
+    )(identity)
+  }
+
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
 
