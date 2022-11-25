@@ -219,8 +219,9 @@ trait HeaderCodecs {
   final val referer: HeaderCodec[Referer] = header(HeaderNames.referer.toString(), TextCodec.string)
     .transform(Referer.toReferer, Referer.fromReferer)
 
-  final val retryAfter: HeaderCodec[String] =
+  final val retryAfter: HeaderCodec[RetryAfter] =
     header(HeaderNames.retryAfter.toString(), TextCodec.string)
+      .transform(RetryAfter.toRetryAfter, RetryAfter.fromRetryAfter)
 
   final val secWebSocketLocation: HeaderCodec[SecWebSocketLocation] =
     header(HeaderNames.secWebSocketLocation.toString(), TextCodec.string)
