@@ -36,10 +36,7 @@ object Main extends ZIOAppDefault {
   private def jsonApp(json: Response) =
     Http.fromHExit(HExit.succeed(json)).whenPathEq(jsonPath)
 
-  private def app = for {
-    plainTextResponse <- frozenPlainTextResponse
-    jsonResponse      <- frozenJsonResponse
-  } yield plainTextApp(plainTextResponse) ++ jsonApp(jsonResponse)
+  val app = plainTextApp(frozenPlainTextResponse) ++ jsonApp(frozenJsonResponse)
 
   private val config = ServerConfig.default
     .port(8080)
@@ -52,8 +49,6 @@ object Main extends ZIOAppDefault {
   private val configLayer = ServerConfig.live(config)
 
   val run: UIO[ExitCode] =
-    app
-      .flatMap(Server.serve(_).provide(configLayer, Server.live))
-      .exitCode
+    Server.serve(app).provide(configLayer, Server.live).exitCode
 
 }

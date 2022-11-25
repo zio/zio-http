@@ -105,7 +105,7 @@ object NettyDriver {
       (
         (
           (time ++ app ++ ecb) ++
-            (eventLoopGroup >>> nettyRuntime) >>> serverInboundHandler
+            (eventLoopGroup >>> nettyRuntime) >+> serverInboundHandler
         ) >>> serverChannelInitializer
       ) ++
       ecb ++

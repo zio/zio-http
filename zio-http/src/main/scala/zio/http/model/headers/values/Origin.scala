@@ -1,6 +1,6 @@
 package zio.http.model.headers.values
 
-import scala.util.Try
+import zio.http.URL
 
 /** Origin header value. */
 sealed trait Origin
@@ -16,7 +16,7 @@ object Origin {
   /** The Origin header value is invalid. */
   case object InvalidOriginValue extends Origin
 
-  def fromOrigin(origin: Origin): String =
+  def fromOrigin(origin: Origin): String = {
     origin match {
       case OriginNull                           => "null"
       case OriginValue(scheme, host, maybePort) =>
@@ -26,26 +26,14 @@ object Origin {
         }
       case InvalidOriginValue                   => ""
     }
-
-  def toOrigin(value: String): Origin = if (value == "null") {
-    OriginNull
-  } else {
-    val scheme = value.substring(0, math.max(0, value.indexOf(':', 1)))
-
-    val schemeSeparatorIndex = value.indexOf("://", 1)
-    val portSeparatorIndex   = value.indexOf(':', 6) // 6 is minimum possible port separator index
-
-    val host =
-      if (
-        schemeSeparatorIndex != -1 &&
-        portSeparatorIndex != -1 &&
-        portSeparatorIndex - (schemeSeparatorIndex + 3) >= 1
-      ) {
-        value.substring(schemeSeparatorIndex + 3, portSeparatorIndex)
-      } else null
-
-    val maybePort = Try(value.substring(portSeparatorIndex + 1, value.length).toInt).toOption
-
-    if (scheme.isEmpty || host == null) InvalidOriginValue else OriginValue(scheme, host, maybePort)
   }
+
+  def toOrigin(value: String): Origin =
+    if (value == "null") OriginNull
+    else
+      URL.fromString(value) match {
+        case Left(_)                                              => InvalidOriginValue
+        case Right(url) if url.host.isEmpty || url.scheme.isEmpty => InvalidOriginValue
+        case Right(url) => OriginValue(url.scheme.get.encode, url.host.get, url.port)
+      }
 }

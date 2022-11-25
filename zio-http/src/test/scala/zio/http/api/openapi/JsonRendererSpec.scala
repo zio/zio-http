@@ -58,7 +58,7 @@ object JsonRendererSpec extends ZIOSpecDefault {
         assertTrue(rendered == expected)
       },
       test("render doc") {
-        val rendered = JsonRenderer.renderFields("doc" -> Doc.p(Doc.Span.uri(new URI("https://google.com"))))
+        val rendered = JsonRenderer.renderFields("doc" -> Doc.p(Doc.Span.link(new URI("https://google.com"))))
         val expected = """{"doc":"W2h0dHBzOi8vZ29vZ2xlLmNvbV0oaHR0cHM6Ly9nb29nbGUuY29tKQoK"}"""
         assertTrue(rendered == expected)
       },
