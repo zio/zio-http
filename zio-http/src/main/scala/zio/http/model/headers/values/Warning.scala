@@ -22,7 +22,7 @@ object Warning {
   final case class WarningValue(code: Int, agent: String, text: String, date: Option[ZonedDateTime] = None)
       extends Warning
 
-  private val validCodes = List(110, 111, 112, 113, 199, 214, 299)
+  private val validCodes         = List(110, 111, 112, 113, 199, 214, 299)
   private val expectedDateFormat = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
   case object InvalidWarning extends Warning
@@ -63,7 +63,7 @@ object Warning {
     val dateStartIndex = warningString.indexOf("\"", descriptionEndIndex + 1)
     val dateEndIndex   = warningString.indexOf("\"", dateStartIndex + 1)
     val warningDate    = Try {
-      val selectedDate   = warningString.substring(dateStartIndex + 1, dateEndIndex)
+      val selectedDate = warningString.substring(dateStartIndex + 1, dateEndIndex)
       ZonedDateTime.parse(selectedDate, expectedDateFormat)
     }.toOption
 
@@ -111,7 +111,7 @@ object Warning {
   def fromWarning(warning: Warning): String = {
     val warningString = warning match {
       case WarningValue(code, agent, text, date) => {
-        val formattedDate  = date match {
+        val formattedDate = date match {
           case Some(value) => value.format(expectedDateFormat)
           case None        => ""
         }
