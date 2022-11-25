@@ -3,15 +3,17 @@ package zio.http.api
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio._
 import zio.http._
-import zio.http.api.MiddlewareSpec.{CsrfValidate, decodeHttpBasic}
+import zio.http.api.MiddlewareSpec.CsrfValidate
 import zio.http.middleware.Auth
+import zio.http.middleware.Auth.Credentials
 import zio.http.middleware.Cors.CorsConfig
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName, Header}
 import zio.http.model.headers.values.AccessControlRequestMethod.RequestMethod
+import zio.http.model.headers.values.Authorization.AuthScheme.{Basic, Bearer}
 import zio.http.model.headers.values._
 import zio.http.model.{Cookie, Headers, Method, Status}
 
-import java.util.{Base64, UUID}
+import java.util.UUID
 
 /**
  * A `Middleware` represents the implementation of a `MiddlewareSpec`,
@@ -109,17 +111,32 @@ object Middleware {
   def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie[Response]]): Middleware[R, Unit, Cookie[Response]] =
     fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
 
+  def withAccept(value: CharSequence): Middleware[Any, Unit, Accept] =
+    fromFunction(MiddlewareSpec.withAccept)(_ => Accept.toAccept(value.toString))
+
+  def withAcceptEncoding(value: CharSequence): Middleware[Any, Unit, AcceptEncoding] =
+    fromFunction(MiddlewareSpec.withAcceptEncoding)(_ => AcceptEncoding.toAcceptEncoding(value.toString))
+
+  def withAcceptLanguage(value: CharSequence): Middleware[Any, Unit, AcceptLanguage] =
+    fromFunction(MiddlewareSpec.withAcceptLanguage)(_ => AcceptLanguage.toAcceptLanguage(value.toString))
+
+  def withAcceptPatch(value: CharSequence): Middleware[Any, Unit, AcceptPatch] =
+    fromFunction(MiddlewareSpec.withAcceptPatch)(_ => AcceptPatch.toAcceptPatch(value.toString))
+
+  def withAcceptRanges(value: CharSequence): Middleware[Any, Unit, AcceptRanges] =
+    fromFunction(MiddlewareSpec.withAcceptRanges)(_ => AcceptRanges.to(value.toString))
+
   /**
    * Creates a middleware for basic authentication
    */
-  final def basicAuth(f: Auth.Credentials => Boolean)(implicit trace: Trace): Middleware[Any, String, Unit] =
+  final def basicAuth(f: Auth.Credentials => Boolean)(implicit trace: Trace): Middleware[Any, Authorization, Unit] =
     basicAuthZIO(credentials => ZIO.succeed(f(credentials)))
 
   /**
    * Creates a middleware for basic authentication that checks if the
    * credentials are same as the ones given
    */
-  final def basicAuth(u: String, p: String)(implicit trace: Trace): Middleware[Any, String, Unit] =
+  final def basicAuth(u: String, p: String)(implicit trace: Trace): Middleware[Any, Authorization, Unit] =
     basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
 
   /**
@@ -128,18 +145,10 @@ object Middleware {
    */
   def basicAuthZIO[R](f: Auth.Credentials => ZIO[R, Nothing, Boolean])(implicit
     trace: Trace,
-  ): Middleware[R, String, Unit] =
-    customAuthZIO(HeaderCodec.authorization, Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName)) { encoded =>
-      val indexOfBasic = encoded.indexOf(BasicSchemeName)
-      if (indexOfBasic != 0 || encoded.length == BasicSchemeName.length) ZIO.succeed(false)
-      else {
-        // TODO: probably should be part of decodeHttpBasic
-        val readyForDecode = new String(Base64.getDecoder.decode(encoded.substring(BasicSchemeName.length + 1)))
-        decodeHttpBasic(readyForDecode) match {
-          case Some(credentials) => f(credentials)
-          case None              => ZIO.succeed(false)
-        }
-      }
+  ): Middleware[R, Authorization, Unit] =
+    customAuthZIO(HeaderCodec.authorization, Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName)) {
+      case Authorization.AuthorizationValue(Basic(username, password)) => f(Credentials(username, password))
+      case _                                                           => ZIO.succeed(false)
     }
 
   /**
@@ -149,7 +158,7 @@ object Middleware {
    * @param f
    *   : function that validates the token string inside the Bearer Header
    */
-  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): Middleware[Any, String, Unit] =
+  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): Middleware[Any, Authorization, Unit] =
     bearerAuthZIO(token => ZIO.succeed(f(token)))
 
   /**
@@ -162,16 +171,13 @@ object Middleware {
    */
   final def bearerAuthZIO[R](
     f: String => ZIO[R, Nothing, Boolean],
-  )(implicit trace: Trace): Middleware[R, String, Unit] =
+  )(implicit trace: Trace): Middleware[R, Authorization, Unit] =
     customAuthZIO(
       HeaderCodec.authorization,
       responseHeaders = Headers(HttpHeaderNames.WWW_AUTHENTICATE, BearerSchemeName),
-    ) { token =>
-      val indexOfBearer = token.indexOf(BearerSchemeName)
-      if (indexOfBearer != 0 || token.length == BearerSchemeName.length)
-        ZIO.succeed(false)
-      else
-        f(token.substring(BearerSchemeName.length + 1))
+    ) {
+      case Authorization.AuthorizationValue(Bearer(token)) => f(token)
+      case _                                               => ZIO.succeed(false)
     }
 
   /**
@@ -260,6 +266,12 @@ object Middleware {
       ZIO.unit
     }
   }
+
+  def addHeader(header: Header): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.addHeader(header))(_ => ())
+
+  def addHeaders(headers: Headers): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.addHeaders(headers))(_ => ())
 
   /**
    * Adds the content base header to the response with the given value.
@@ -659,6 +671,66 @@ object Middleware {
     fromFunction(
       MiddlewareSpec.withAccessControlAllowMaxAge.mapOut(
         _.unit(AccessControlMaxAge.toAccessControlMaxAge(value.toString)),
+      ),
+    )(identity)
+  }
+
+  def withProxyAuthorization(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withProxyAuthorization.mapOut(
+        _.unit(ProxyAuthorization.toProxyAuthorization(value.toString)),
+      ),
+    )(identity)
+  }
+
+  def withReferer(value: CharSequence): Middleware[Any, Unit, Unit]    = {
+    fromFunction(
+      MiddlewareSpec.withReferer.mapOut(
+        _.unit(Referer.toReferer(value.toString)),
+      ),
+    )(identity)
+  }
+  def withRetryAfter(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withRetryAfter.mapOut(
+        _.unit(RetryAfter.toRetryAfter(value.toString)),
+      ),
+    )(identity)
+  }
+
+  def withAccessControlAllowCredentials(value: Boolean): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowCredentials.mapOut(
+        _.unit(AccessControlAllowCredentials.toAccessControlAllowCredentials(value)),
+      ),
+    )(identity)
+
+  def withAccessControlAllowMethods(value: Method*): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowMethods.mapOut(
+        _.unit(AccessControlAllowMethods.AllowMethods(Chunk.fromIterable(value))),
+      ),
+    )(identity)
+
+  def withAccessControlAllowMethods(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowMethods.mapOut(
+        _.unit(AccessControlAllowMethods.toAccessControlAllowMethods(value.toString)),
+      ),
+    )(identity)
+
+  def withTransferEncoding(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withTransferEncoding.mapOut(
+        _.unit(TransferEncoding.toTransferEncoding(value.toString)),
+      ),
+    )(identity)
+  }
+
+  def withConnection(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withConnection.mapOut(
+        _.unit(Connection.toConnection(value.toString)),
       ),
     )(identity)
   }

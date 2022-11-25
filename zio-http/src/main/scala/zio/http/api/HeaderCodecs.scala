@@ -92,8 +92,9 @@ trait HeaderCodecs {
     header(HeaderNames.allow.toString(), TextCodec.string)
       .transform[Allow](Allow.toAllow, Allow.fromAllow)
 
-  final val authorization: HeaderCodec[String] =
+  final val authorization: HeaderCodec[Authorization] =
     header(HeaderNames.authorization.toString(), TextCodec.string)
+      .transform(Authorization.toAuthorization, Authorization.fromAuthorization)
 
   final val cacheControl: HeaderCodec[CacheControl] =
     header(HeaderNames.cacheControl.toString(), TextCodec.string)
@@ -191,8 +192,12 @@ trait HeaderCodecs {
         IfModifiedSince.toIfModifiedSince,
         IfModifiedSince.fromIfModifiedSince,
       )
-  final val ifNoneMatch: HeaderCodec[String]              =
-    header(HeaderNames.ifNoneMatch.toString, TextCodec.string)
+
+  final val ifNoneMatch: HeaderCodec[IfNoneMatch] =
+    header(HeaderNames.ifNoneMatch.toString(), TextCodec.string).transform(
+      IfNoneMatch.toIfNoneMatch,
+      IfNoneMatch.fromIfNoneMatch,
+    )
 
   final val ifRange: HeaderCodec[IfRange] =
     header(HeaderNames.ifRange.toString, TextCodec.string)
@@ -226,16 +231,18 @@ trait HeaderCodecs {
   final val proxyAuthenticate: HeaderCodec[String] =
     header(HeaderNames.proxyAuthenticate.toString(), TextCodec.string)
 
-  final val proxyAuthorization: HeaderCodec[String] =
+  final val proxyAuthorization: HeaderCodec[ProxyAuthorization] =
     header(HeaderNames.proxyAuthorization.toString(), TextCodec.string)
+      .transform(ProxyAuthorization.toProxyAuthorization, ProxyAuthorization.fromProxyAuthorization)
 
   final val range: HeaderCodec[String] = header(HeaderNames.range.toString(), TextCodec.string)
 
   final val referer: HeaderCodec[Referer] = header(HeaderNames.referer.toString(), TextCodec.string)
     .transform(Referer.toReferer, Referer.fromReferer)
 
-  final val retryAfter: HeaderCodec[String] =
+  final val retryAfter: HeaderCodec[RetryAfter] =
     header(HeaderNames.retryAfter.toString(), TextCodec.string)
+      .transform(RetryAfter.toRetryAfter, RetryAfter.fromRetryAfter)
 
   final val secWebSocketLocation: HeaderCodec[SecWebSocketLocation] =
     header(HeaderNames.secWebSocketLocation.toString(), TextCodec.string)
@@ -309,7 +316,8 @@ trait HeaderCodecs {
 
   final val via: HeaderCodec[String] = header(HeaderNames.via.toString(), TextCodec.string)
 
-  final val warning: HeaderCodec[String] = header(HeaderNames.warning.toString(), TextCodec.string)
+  final val warning: HeaderCodec[Warning] =
+    header(HeaderNames.warning.toString(), TextCodec.string).transform[Warning](Warning.toWarning, Warning.fromWarning)
 
   final val webSocketLocation: HeaderCodec[SecWebSocketLocation] =
     header(HeaderNames.webSocketLocation.toString(), TextCodec.string).transform(
