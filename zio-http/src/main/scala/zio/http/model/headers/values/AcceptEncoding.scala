@@ -85,7 +85,7 @@ object AcceptEncoding {
   }
 
   private def identifyEncoding(raw: String, weight: Option[Double] = None): AcceptEncoding = {
-    raw match {
+    raw.trim match {
       case "br"       => BrEncoding(weight)
       case "compress" => CompressEncoding(weight)
       case "deflate"  => DeflateEncoding(weight)
