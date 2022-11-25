@@ -91,8 +91,9 @@ trait HeaderCodecs {
     header(HeaderNames.allow.toString(), TextCodec.string)
       .transform[Allow](Allow.toAllow, Allow.fromAllow)
 
-  final val authorization: HeaderCodec[String] =
+  final val authorization: HeaderCodec[Authorization] =
     header(HeaderNames.authorization.toString(), TextCodec.string)
+      .transform(Authorization.toAuthorization, Authorization.fromAuthorization)
 
   final val cacheControl: HeaderCodec[CacheControl] =
     header(HeaderNames.cacheControl.toString(), TextCodec.string)
