@@ -2,8 +2,6 @@ package zio.http.model.headers.values
 
 import zio.http.URL
 
-import scala.util.Try
-
 /**
  * Location header value.
  */
