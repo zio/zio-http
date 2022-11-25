@@ -293,7 +293,8 @@ trait HeaderCodecs {
 
   final val via: HeaderCodec[String] = header(HeaderNames.via.toString(), TextCodec.string)
 
-  final val warning: HeaderCodec[String] = header(HeaderNames.warning.toString(), TextCodec.string)
+  final val warning: HeaderCodec[Warning] =
+    header(HeaderNames.warning.toString(), TextCodec.string).transform[Warning](Warning.toWarning, Warning.fromWarning)
 
   final val webSocketLocation: HeaderCodec[SecWebSocketLocation] =
     header(HeaderNames.webSocketLocation.toString(), TextCodec.string).transform(
