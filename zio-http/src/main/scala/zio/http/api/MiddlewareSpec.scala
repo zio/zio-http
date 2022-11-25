@@ -1,14 +1,13 @@
 package zio.http.api
 
+import zio.ZIO
 import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName
-import zio.http.model.headers.HeaderGetters
-import zio.http.model.headers.values.{Accept, AcceptEncoding, AcceptLanguage, AcceptPatch, AcceptRanges}
-import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames, Headers}
-import zio.http.{Request, Response, api}
-import zio.{Duration, Trace, ZIO}
+import zio.http.model.headers.values._
+import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames}
+import zio.http.{Request, Response}
 
 import java.util.Base64
 
@@ -130,9 +129,9 @@ object MiddlewareSpec {
   def addCookie: MiddlewareSpec[Unit, Cookie[Response]] =
     MiddlewareSpec(
       HttpCodec.empty,
-      HeaderCodec.cookie.transformOrFail(
-        str => Cookie.decode[Response](str).left.map(_.getMessage),
-        _.encode(validate = false).left.map(_.getMessage),
+      HeaderCodec.setCookie.transformOrFail(
+        _ => Left("Cannot add cookie"),
+        value => Right(ResponseCookie.CookieValue(value)),
       ),
     )
 
@@ -145,6 +144,9 @@ object MiddlewareSpec {
   def addCorrelationId: MiddlewareSpec[Unit, String] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
 
+  def withAccessControlAllowOrigin: MiddlewareSpec[Unit, AccessControlAllowOrigin] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowOrigin)
+
   def withAuthorization(value: CharSequence): MiddlewareSpec[Unit, Unit] =
     addHeader(HeaderNames.authorization.toString, value.toString)
 
@@ -154,6 +156,9 @@ object MiddlewareSpec {
     val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB)
     addHeader(HeaderNames.authorization.toString, value)
   }
+
+  def withAccessControlAllowMaxAge: MiddlewareSpec[Unit, AccessControlMaxAge] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlMaxAge)
 
   def auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)

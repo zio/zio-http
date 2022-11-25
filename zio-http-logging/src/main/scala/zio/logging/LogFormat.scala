@@ -1,4 +1,4 @@
-package zio.logging
+package zio.http.logging
 
 import java.time.format.DateTimeFormatter
 

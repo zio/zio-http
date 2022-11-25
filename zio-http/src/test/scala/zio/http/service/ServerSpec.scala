@@ -288,22 +288,23 @@ object ServerSpec extends HttpRunnableSpec {
       test("concurrent") {
         val size     = 100
         val expected = (0 to size) map (_ => Status.Ok)
+        val response = Response.text("abc").freeze
         for {
-          response <- Response.text("abc").freeze
-          actual   <- ZIO.foreachPar(0 to size)(_ => Http.response(response).deploy.status.run())
+          actual <- ZIO.foreachPar(0 to size)(_ => Http.response(response).deploy.status.run())
         } yield assert(actual)(equalTo(expected))
       },
       test("update after cache") {
         val server = "ZIO-Http"
+        val res    = Response.text("abc").freeze
         for {
-          res    <- Response.text("abc").freeze
           actual <- Http.response(res).withServer(server).deploy.headerValue(HeaderNames.server).run()
         } yield assert(actual)(isSome(equalTo(server)))
       },
       test("multiple headers of same type with different values") {
         val expectedValue = "test1,test2"
+        val res           = Response.text("abc").withVary("test1").withVary("test2").freeze
+
         for {
-          res    <- Response.text("abc").withVary("test1").withVary("test2").freeze
           actual <- Http.response(res).deploy.headerValue(HeaderNames.vary).run()
         } yield assert(actual)(isSome(equalTo(expectedValue)))
       },
