@@ -6,8 +6,8 @@ import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName
 import zio.http.model.headers.values._
-import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames}
-import zio.http.{Request, Response, model}
+import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames, Headers}
+import zio.http.{Request, Response}
 
 import java.util.Base64
 
@@ -141,6 +141,12 @@ object MiddlewareSpec {
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
 
+  def addHeader(header: Headers.Header): MiddlewareSpec[Unit, Unit] =
+    addHeader(header.key.toString, header.value.toString)
+
+  def addHeaders(headers: Headers): MiddlewareSpec[Unit, Unit] =
+    headers.headersAsList.map(addHeader(_)).reduce(_ ++ _)
+
   def addCorrelationId: MiddlewareSpec[Unit, String] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
 
@@ -162,6 +168,21 @@ object MiddlewareSpec {
 
   def withTransferEncoding: MiddlewareSpec[Unit, TransferEncoding] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.transferEncoding)
+
+  def withProxyAuthorization: MiddlewareSpec[Unit, ProxyAuthorization] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.proxyAuthorization)
+
+  def withReferer: MiddlewareSpec[Unit, Referer] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.referer)
+
+  def withRetryAfter: MiddlewareSpec[Unit, RetryAfter] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.retryAfter)
+
+  def withAccessControlAllowCredentials: MiddlewareSpec[Unit, AccessControlAllowCredentials] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowCredentials)
+
+  def withAccessControlAllowMethods: MiddlewareSpec[Unit, AccessControlAllowMethods] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowMethods)
 
   def auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
@@ -190,6 +211,33 @@ object MiddlewareSpec {
 
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
     MiddlewareSpec(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty)
+
+  def withAccept: MiddlewareSpec[Unit, Accept] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accept)
+
+  def withAcceptEncoding: MiddlewareSpec[Unit, AcceptEncoding] =
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.acceptEncoding,
+    )
+
+  def withAcceptLanguage: MiddlewareSpec[Unit, AcceptLanguage] =
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.acceptLanguage,
+    )
+
+  def withAcceptPatch: MiddlewareSpec[Unit, AcceptPatch] =
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.acceptPatch,
+    )
+
+  def withAcceptRanges: MiddlewareSpec[Unit, AcceptRanges] =
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.acceptRanges,
+    )
 
   private[api] def decodeHttpBasic(encoded: String): Option[Credentials] = {
     val colonIndex = encoded.indexOf(":")
