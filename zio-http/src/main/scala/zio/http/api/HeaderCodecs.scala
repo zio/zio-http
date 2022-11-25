@@ -64,7 +64,7 @@ trait HeaderCodecs {
         AccessControlExposeHeaders.fromAccessControlExposeHeaders,
       )
 
-  final val accessControlMaxAge: HeaderCodec[AccessControlMaxAge]               =
+  final val accessControlMaxAge: HeaderCodec[AccessControlMaxAge] =
     header(HeaderNames.accessControlMaxAge.toString, TextCodec.string)
       .transform[AccessControlMaxAge](
         AccessControlMaxAge.toAccessControlMaxAge,
@@ -102,7 +102,7 @@ trait HeaderCodecs {
   final val connection: HeaderCodec[Connection] = header(HeaderNames.connection.toString(), TextCodec.string)
     .transform[Connection](Connection.toConnection, Connection.fromConnection)
 
-  final val contentBase: HeaderCodec[ContentBase]         =
+  final val contentBase: HeaderCodec[ContentBase] =
     header(HeaderNames.contentBase.toString, TextCodec.string)
       .transform(ContentBase.toContentBase, ContentBase.fromContentBase)
 
@@ -114,7 +114,7 @@ trait HeaderCodecs {
     header(HeaderNames.contentLanguage.toString, TextCodec.string)
       .transform[ContentLanguage](ContentLanguage.toContentLanguage, ContentLanguage.fromContentLanguage)
 
-  final val contentLength: HeaderCodec[ContentLength]     =
+  final val contentLength: HeaderCodec[ContentLength] =
     header(HeaderNames.contentLength.toString, TextCodec.string)
       .transform(ContentLength.toContentLength, ContentLength.fromContentLength)
 
@@ -129,29 +129,29 @@ trait HeaderCodecs {
         ContentTransferEncoding.fromContentTransferEncoding,
       )
 
-  final val contentDisposition: HeaderCodec[ContentDisposition]           =
+  final val contentDisposition: HeaderCodec[ContentDisposition] =
     header(HeaderNames.contentDisposition.toString, TextCodec.string)
       .transform[ContentDisposition](
         ContentDisposition.toContentDisposition,
         ContentDisposition.fromContentDisposition,
       )
 
-  final val contentMd5: HeaderCodec[ContentMd5]                           =
+  final val contentMd5: HeaderCodec[ContentMd5] =
     header(HeaderNames.contentMd5.toString, TextCodec.string)
       .transform[ContentMd5](ContentMd5.toContentMd5, ContentMd5.fromContentMd5)
 
-  final val contentRange: HeaderCodec[ContentRange]                       =
+  final val contentRange: HeaderCodec[ContentRange] =
     header(HeaderNames.contentRange.toString, TextCodec.string)
       .transform[ContentRange](ContentRange.toContentRange, ContentRange.fromContentRange)
 
-  final val contentSecurityPolicy: HeaderCodec[ContentSecurityPolicy]     =
+  final val contentSecurityPolicy: HeaderCodec[ContentSecurityPolicy] =
     header(HeaderNames.contentSecurityPolicy.toString, TextCodec.string)
       .transform[ContentSecurityPolicy](
         ContentSecurityPolicy.toContentSecurityPolicy,
         ContentSecurityPolicy.fromContentSecurityPolicy,
       )
 
-  final val contentType: HeaderCodec[ContentType]                         =
+  final val contentType: HeaderCodec[ContentType] =
     header(HeaderNames.contentType.toString, TextCodec.string)
       .transform(ContentType.toContentType, ContentType.fromContentType)
 
@@ -166,33 +166,35 @@ trait HeaderCodecs {
   final val dnt: HeaderCodec[DNT] = header(HeaderNames.dnt.toString(), TextCodec.string)
     .transform(DNT.toDNT(_), DNT.fromDNT(_))
 
-  final val etag: HeaderCodec[ETag]                         = header(HeaderNames.etag.toString, TextCodec.string)
+  final val etag: HeaderCodec[ETag] = header(HeaderNames.etag.toString, TextCodec.string)
     .transform(ETag.toETag, ETag.fromETag)
 
-  final val expect: HeaderCodec[Expect]                     =
+  final val expect: HeaderCodec[Expect] =
     header(HeaderNames.expect.toString, TextCodec.string)
       .transform(Expect.toExpect, Expect.fromExpect)
 
-  final val expires: HeaderCodec[Expires]                   =
+  final val expires: HeaderCodec[Expires] =
     header(HeaderNames.expires.toString, TextCodec.string).transform[Expires](Expires.toExpires, Expires.fromExpires)
 
-  final val from: HeaderCodec[From]                         = header(HeaderNames.from.toString, TextCodec.string)
+  final val from: HeaderCodec[From] = header(HeaderNames.from.toString, TextCodec.string)
     .transform(From.toFrom, From.fromFrom)
 
-  final val host: HeaderCodec[Host]                         = header(HeaderNames.host.toString, TextCodec.string)
+  final val host: HeaderCodec[Host] = header(HeaderNames.host.toString, TextCodec.string)
     .transform(Host.toHost, Host.fromHost)
 
-  final val ifMatch: HeaderCodec[IfMatch]                    = header(HeaderNames.ifMatch.toString, TextCodec.string)
+  final val ifMatch: HeaderCodec[IfMatch] = header(HeaderNames.ifMatch.toString, TextCodec.string)
     .transform(IfMatch.toIfMatch, IfMatch.fromIfMatch)
 
-  final val ifModifiedSince: HeaderCodec[IfModifiedSince]            =
+  final val ifModifiedSince: HeaderCodec[IfModifiedSince] =
     header(HeaderNames.ifModifiedSince.toString, TextCodec.string)
       .transform[IfModifiedSince](
         IfModifiedSince.toIfModifiedSince,
         IfModifiedSince.fromIfModifiedSince,
-      )final val ifNoneMatch: HeaderCodec[String]                =
+      )
+  final val ifNoneMatch: HeaderCodec[String]              =
     header(HeaderNames.ifNoneMatch.toString, TextCodec.string)
-  final val ifRange: HeaderCodec[IfRange]                   =
+
+  final val ifRange: HeaderCodec[IfRange] =
     header(HeaderNames.ifRange.toString, TextCodec.string)
       .transform(IfRange.toIfRange, IfRange.fromIfRange)
 
