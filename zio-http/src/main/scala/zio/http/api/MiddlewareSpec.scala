@@ -200,6 +200,9 @@ object MiddlewareSpec {
   def withTransferEncoding: MiddlewareSpec[Unit, TransferEncoding] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.transferEncoding)
 
+  def withProxyAuthenticate: MiddlewareSpec[Unit, ProxyAuthenticate] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.proxyAuthenticate)
+
   def withProxyAuthorization: MiddlewareSpec[Unit, ProxyAuthorization] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.proxyAuthorization)
 
