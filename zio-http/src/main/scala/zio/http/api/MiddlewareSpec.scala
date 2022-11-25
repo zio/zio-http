@@ -203,6 +203,33 @@ object MiddlewareSpec {
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
     MiddlewareSpec(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty)
 
+  def withAccept: MiddlewareSpec[Unit, Accept] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accept)
+
+  def withAcceptEncoding: MiddlewareSpec[Unit, AcceptEncoding] =
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.acceptEncoding,
+    )
+
+  def withAcceptLanguage: MiddlewareSpec[Unit, AcceptLanguage] =
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.acceptLanguage,
+    )
+
+  def withAcceptPatch: MiddlewareSpec[Unit, AcceptPatch] =
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.acceptPatch,
+    )
+
+  def withAcceptRanges: MiddlewareSpec[Unit, AcceptRanges] =
+    MiddlewareSpec(
+      HttpCodec.empty,
+      HeaderCodec.acceptRanges,
+    )
+
   private[api] def decodeHttpBasic(encoded: String): Option[Credentials] = {
     val colonIndex = encoded.indexOf(":")
     if (colonIndex == -1)
