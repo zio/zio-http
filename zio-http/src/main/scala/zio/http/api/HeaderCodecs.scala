@@ -211,8 +211,9 @@ trait HeaderCodecs {
   final val proxyAuthenticate: HeaderCodec[String] =
     header(HeaderNames.proxyAuthenticate.toString(), TextCodec.string)
 
-  final val proxyAuthorization: HeaderCodec[String] =
+  final val proxyAuthorization: HeaderCodec[ProxyAuthorization] =
     header(HeaderNames.proxyAuthorization.toString(), TextCodec.string)
+      .transform(ProxyAuthorization.toProxyAuthorization, ProxyAuthorization.fromProxyAuthorization)
 
   final val range: HeaderCodec[String] = header(HeaderNames.range.toString(), TextCodec.string)
 

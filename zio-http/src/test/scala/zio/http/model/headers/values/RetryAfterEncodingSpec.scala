@@ -4,7 +4,7 @@ import zio.Scope
 import zio.test._
 
 import java.time.format.DateTimeFormatter
-import java.time.{ZoneId, ZonedDateTime}
+import java.time.{Duration, ZoneId, ZonedDateTime}
 
 object RetryAfterEncodingSpec extends ZIOSpecDefault {
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
@@ -17,9 +17,9 @@ object RetryAfterEncodingSpec extends ZIOSpecDefault {
     },
     test("parsing valid Retry After values") {
       assertTrue(
-        RetryAfter.toRetryAfter("Wed, 21 Oct 2015 07:28:00 GMT") == RetryAfter.WebDate(
+        RetryAfter.toRetryAfter("Wed, 21 Oct 2015 07:28:00 GMT") == RetryAfter.RetryAfterByDate(
           ZonedDateTime.parse("Wed, 21 Oct 2015 07:28:00 GMT", formatter),
-        ) && RetryAfter.toRetryAfter("20") == RetryAfter.DelaySeconds(20),
+        ) && RetryAfter.toRetryAfter("20") == RetryAfter.RetryAfterByDuration(Duration.ofSeconds(20)),
       )
     },
     suite("Encoding header value transformation should be symmetrical")(
