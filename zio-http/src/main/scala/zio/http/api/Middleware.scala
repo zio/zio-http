@@ -337,6 +337,14 @@ object Middleware {
     )(identity)
   }
 
+  def withProxyAuthorization(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withProxyAuthorization.mapOut(
+        _.unit(ProxyAuthorization.toProxyAuthorization(value.toString)),
+      ),
+    )(identity)
+  }
+
   def withReferer(value: CharSequence): Middleware[Any, Unit, Unit]    = {
     fromFunction(
       MiddlewareSpec.withReferer.mapOut(

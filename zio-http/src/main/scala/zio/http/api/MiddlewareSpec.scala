@@ -166,6 +166,9 @@ object MiddlewareSpec {
   def withAccessControlAllowMaxAge: MiddlewareSpec[Unit, AccessControlMaxAge] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlMaxAge)
 
+  def withProxyAuthorization: MiddlewareSpec[Unit, ProxyAuthorization] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.proxyAuthorization)
+
   def withReferer: MiddlewareSpec[Unit, Referer] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.referer)
 
