@@ -191,6 +191,9 @@ object MiddlewareSpec {
   def withAccessControlAllowMaxAge: MiddlewareSpec[Unit, AccessControlMaxAge] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlMaxAge)
 
+  def withExpires: MiddlewareSpec[Unit, Expires] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.expires)
+
   def withConnection: MiddlewareSpec[Unit, Connection] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.connection)
 
