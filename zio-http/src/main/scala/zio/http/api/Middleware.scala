@@ -267,6 +267,12 @@ object Middleware {
     }
   }
 
+  def addHeader(header: Header): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.addHeader(header))(_ => ())
+
+  def addHeaders(headers: Headers): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.addHeaders(headers))(_ => ())
+
   /**
    * Generates a new CSRF token that can be validated using the csrfValidate
    * middleware.
@@ -330,6 +336,27 @@ object Middleware {
       ),
     )(identity)
   }
+
+  def withAccessControlAllowCredentials(value: Boolean): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowCredentials.mapOut(
+        _.unit(AccessControlAllowCredentials.toAccessControlAllowCredentials(value)),
+      ),
+    )(identity)
+
+  def withAccessControlAllowMethods(value: Method*): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowMethods.mapOut(
+        _.unit(AccessControlAllowMethods.AllowMethods(Chunk.fromIterable(value))),
+      ),
+    )(identity)
+
+  def withAccessControlAllowMethods(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowMethods.mapOut(
+        _.unit(AccessControlAllowMethods.toAccessControlAllowMethods(value.toString)),
+      ),
+    )(identity)
 
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
