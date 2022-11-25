@@ -337,7 +337,7 @@ object Middleware {
     )(identity)
   }
 
-  def withReferer(value: CharSequence): Middleware[Any, Unit, Unit] = {
+  def withReferer(value: CharSequence): Middleware[Any, Unit, Unit]                  = {
     fromFunction(
       MiddlewareSpec.withReferer.mapOut(
         _.unit(Referer.toReferer(value.toString)),
