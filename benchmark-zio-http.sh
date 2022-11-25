@@ -1,6 +1,11 @@
-
 COMMIT_SHA=$(git rev-parse --short HEAD)
 ZIO_HTTP="zio/zio-http.git#$COMMIT_SHA"
+
+if [ -z "$1" ]; then
+    SERVER=PlainTextBenchmarkServer
+else
+    SERVER=$1
+fi
 
 if [ ! -e "/var/run/docker.sock" ]; then
     echo "'/var/run/docker.sock' does not exist.  Are you sure Docker is running?"
@@ -12,10 +17,11 @@ if [ ! -d "../FrameworkBenchMarks" ]; then
     git checkout master
 fi
 
+mkdir -p ../FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala
 rm ../FrameworkBenchMarks/frameworks/Scala/zio-http/build.sbt
 rm ../FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
 cp ../FrameworkBenchMarks/frameworks/Scala/zio-http/base.build.sbt ../FrameworkBenchMarks/frameworks/Scala/zio-http/build.sbt
-cp ./zio-http-example/src/main/scala/example/PlainTextBenchmarkServer.scala ../FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
+cp ./zio-http-example/src/main/scala/example/$SERVER.scala ../FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
 cd ../FrameworkBenchMarks
 sed -i '' "s|---COMMIT_SHA---|${ZIO_HTTP}|g" frameworks/Scala/zio-http/build.sbt
 ./tfb --test zio-http | tee result
