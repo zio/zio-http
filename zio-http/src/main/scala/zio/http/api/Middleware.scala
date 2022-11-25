@@ -3,14 +3,17 @@ package zio.http.api
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio._
 import zio.http._
-import zio.http.api.MiddlewareSpec.{CsrfValidate, decodeHttpBasic}
+import zio.http.api.MiddlewareSpec.CsrfValidate
 import zio.http.middleware.Auth
+import zio.http.middleware.Auth.Credentials
 import zio.http.middleware.Cors.CorsConfig
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName, Header}
+import zio.http.model.headers.values.AccessControlRequestMethod.RequestMethod
+import zio.http.model.headers.values.Authorization.AuthScheme.{Basic, Bearer}
 import zio.http.model.headers.values._
 import zio.http.model.{Cookie, Headers, Method, Status}
 
-import java.util.{Base64, UUID}
+import java.util.UUID
 
 /**
  * A `Middleware` represents the implementation of a `MiddlewareSpec`,
@@ -111,14 +114,14 @@ object Middleware {
   /**
    * Creates a middleware for basic authentication
    */
-  final def basicAuth(f: Auth.Credentials => Boolean)(implicit trace: Trace): Middleware[Any, String, Unit] =
+  final def basicAuth(f: Auth.Credentials => Boolean)(implicit trace: Trace): Middleware[Any, Authorization, Unit] =
     basicAuthZIO(credentials => ZIO.succeed(f(credentials)))
 
   /**
    * Creates a middleware for basic authentication that checks if the
    * credentials are same as the ones given
    */
-  final def basicAuth(u: String, p: String)(implicit trace: Trace): Middleware[Any, String, Unit] =
+  final def basicAuth(u: String, p: String)(implicit trace: Trace): Middleware[Any, Authorization, Unit] =
     basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
 
   /**
@@ -127,18 +130,10 @@ object Middleware {
    */
   def basicAuthZIO[R](f: Auth.Credentials => ZIO[R, Nothing, Boolean])(implicit
     trace: Trace,
-  ): Middleware[R, String, Unit] =
-    customAuthZIO(HeaderCodec.authorization, Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName)) { encoded =>
-      val indexOfBasic = encoded.indexOf(BasicSchemeName)
-      if (indexOfBasic != 0 || encoded.length == BasicSchemeName.length) ZIO.succeed(false)
-      else {
-        // TODO: probably should be part of decodeHttpBasic
-        val readyForDecode = new String(Base64.getDecoder.decode(encoded.substring(BasicSchemeName.length + 1)))
-        decodeHttpBasic(readyForDecode) match {
-          case Some(credentials) => f(credentials)
-          case None              => ZIO.succeed(false)
-        }
-      }
+  ): Middleware[R, Authorization, Unit] =
+    customAuthZIO(HeaderCodec.authorization, Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName)) {
+      case Authorization.AuthorizationValue(Basic(username, password)) => f(Credentials(username, password))
+      case _                                                           => ZIO.succeed(false)
     }
 
   /**
@@ -148,7 +143,7 @@ object Middleware {
    * @param f
    *   : function that validates the token string inside the Bearer Header
    */
-  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): Middleware[Any, String, Unit] =
+  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): Middleware[Any, Authorization, Unit] =
     bearerAuthZIO(token => ZIO.succeed(f(token)))
 
   /**
@@ -161,16 +156,13 @@ object Middleware {
    */
   final def bearerAuthZIO[R](
     f: String => ZIO[R, Nothing, Boolean],
-  )(implicit trace: Trace): Middleware[R, String, Unit] =
+  )(implicit trace: Trace): Middleware[R, Authorization, Unit] =
     customAuthZIO(
       HeaderCodec.authorization,
       responseHeaders = Headers(HttpHeaderNames.WWW_AUTHENTICATE, BearerSchemeName),
-    ) { token =>
-      val indexOfBearer = token.indexOf(BearerSchemeName)
-      if (indexOfBearer != 0 || token.length == BearerSchemeName.length)
-        ZIO.succeed(false)
-      else
-        f(token.substring(BearerSchemeName.length + 1))
+    ) {
+      case Authorization.AuthorizationValue(Bearer(token)) => f(token)
+      case _                                               => ZIO.succeed(false)
     }
 
   /**
@@ -238,7 +230,7 @@ object Middleware {
     }
 
     MiddlewareSpec.cors.implement {
-      case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm)) =>
+      case (Method.OPTIONS, Some(origin), Some(acrm: RequestMethod)) if allowCORS(origin, acrm.method) =>
         ZIO
           .succeed(
             Middleware.Control.Abort(
