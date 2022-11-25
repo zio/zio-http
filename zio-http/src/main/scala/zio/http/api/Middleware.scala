@@ -111,6 +111,21 @@ object Middleware {
   def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie[Response]]): Middleware[R, Unit, Cookie[Response]] =
     fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
 
+  def withAccept(value: CharSequence): Middleware[Any, Unit, Accept] =
+    fromFunction(MiddlewareSpec.withAccept)(_ => Accept.toAccept(value.toString))
+
+  def withAcceptEncoding(value: CharSequence): Middleware[Any, Unit, AcceptEncoding] =
+    fromFunction(MiddlewareSpec.withAcceptEncoding)(_ => AcceptEncoding.toAcceptEncoding(value.toString))
+
+  def withAcceptLanguage(value: CharSequence): Middleware[Any, Unit, AcceptLanguage] =
+    fromFunction(MiddlewareSpec.withAcceptLanguage)(_ => AcceptLanguage.toAcceptLanguage(value.toString))
+
+  def withAcceptPatch(value: CharSequence): Middleware[Any, Unit, AcceptPatch] =
+    fromFunction(MiddlewareSpec.withAcceptPatch)(_ => AcceptPatch.toAcceptPatch(value.toString))
+
+  def withAcceptRanges(value: CharSequence): Middleware[Any, Unit, AcceptRanges] =
+    fromFunction(MiddlewareSpec.withAcceptRanges)(_ => AcceptRanges.to(value.toString))
+
   /**
    * Creates a middleware for basic authentication
    */
@@ -252,6 +267,12 @@ object Middleware {
     }
   }
 
+  def addHeader(header: Header): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.addHeader(header))(_ => ())
+
+  def addHeaders(headers: Headers): Middleware[Any, Unit, Unit] =
+    fromFunction(MiddlewareSpec.addHeaders(headers))(_ => ())
+
   /**
    * Generates a new CSRF token that can be validated using the csrfValidate
    * middleware.
@@ -323,6 +344,27 @@ object Middleware {
       ),
     )(identity)
   }
+
+  def withAccessControlAllowCredentials(value: Boolean): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowCredentials.mapOut(
+        _.unit(AccessControlAllowCredentials.toAccessControlAllowCredentials(value)),
+      ),
+    )(identity)
+
+  def withAccessControlAllowMethods(value: Method*): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowMethods.mapOut(
+        _.unit(AccessControlAllowMethods.AllowMethods(Chunk.fromIterable(value))),
+      ),
+    )(identity)
+
+  def withAccessControlAllowMethods(value: CharSequence): Middleware[Any, Unit, Unit] =
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowMethods.mapOut(
+        _.unit(AccessControlAllowMethods.toAccessControlAllowMethods(value.toString)),
+      ),
+    )(identity)
 
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
