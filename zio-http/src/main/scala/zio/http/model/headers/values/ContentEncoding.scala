@@ -77,8 +77,8 @@ object ContentEncoding {
    * Note: This implementation ignores the invalid string that might occur in
    * MultipleEncodings case.
    */
-  def toContentEncoding(value: String): ContentEncoding = {
-    val array = value.split(",")
+  def toContentEncoding(value: CharSequence): ContentEncoding = {
+    val array = value.toString.split(",")
     array.foldLeft[ContentEncoding](InvalidEncoding)((accum, elem) => {
       val encoding = findEncoding(elem)
       (accum, encoding) match {
