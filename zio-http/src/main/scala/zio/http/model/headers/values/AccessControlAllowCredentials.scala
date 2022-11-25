@@ -31,4 +31,10 @@ object AccessControlAllowCredentials {
       case "false" => DoNotAllowCredentials
       case _       => DoNotAllowCredentials
     }
+
+  def toAccessControlAllowCredentials(value: Boolean): AccessControlAllowCredentials =
+    value match {
+      case true  => AllowCredentials
+      case false => DoNotAllowCredentials
+    }
 }
