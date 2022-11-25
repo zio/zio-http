@@ -166,6 +166,12 @@ object MiddlewareSpec {
   def withAccessControlAllowMaxAge: MiddlewareSpec[Unit, AccessControlMaxAge] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlMaxAge)
 
+  def withAccessControlAllowCredentials: MiddlewareSpec[Unit, AccessControlAllowCredentials] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowCredentials)
+
+  def withAccessControlAllowMethods: MiddlewareSpec[Unit, AccessControlAllowMethods] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowMethods)
+
   def auth: MiddlewareSpec[Auth.Credentials, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
       .mapIn(
