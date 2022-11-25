@@ -293,7 +293,10 @@ trait HeaderCodecs {
   final val vary: HeaderCodec[Vary] = header(HeaderNames.vary.toString(), TextCodec.string)
     .transform(Vary.toVary, Vary.fromVary)
 
-  final val via: HeaderCodec[String] = header(HeaderNames.via.toString(), TextCodec.string)
+  final val via: HeaderCodec[Via] = header(HeaderNames.via.toString(), TextCodec.string).transform(
+    Via.toVia,
+    Via.fromVia,
+  )
 
   final val warning: HeaderCodec[Warning] =
     header(HeaderNames.warning.toString(), TextCodec.string).transform[Warning](Warning.toWarning, Warning.fromWarning)
