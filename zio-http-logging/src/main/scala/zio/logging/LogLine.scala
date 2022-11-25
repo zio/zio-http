@@ -1,6 +1,6 @@
-package zio.logging
+package zio.http.logging
 
-import zio.logging.Logger.SourcePos
+import zio.http.logging.Logger.SourcePos
 
 import java.time.LocalDateTime
 

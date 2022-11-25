@@ -7,7 +7,8 @@ import zio.http.api.MiddlewareSpec.{CsrfValidate, decodeHttpBasic}
 import zio.http.middleware.Auth
 import zio.http.middleware.Cors.CorsConfig
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName, Header}
-import zio.http.model.headers.values.Origin
+import zio.http.model.headers.values.AccessControlRequestMethod.RequestMethod
+import zio.http.model.headers.values._
 import zio.http.model.{Cookie, Headers, Method, Status}
 
 import java.util.{Base64, UUID}
@@ -238,7 +239,7 @@ object Middleware {
     }
 
     MiddlewareSpec.cors.implement {
-      case (Method.OPTIONS, Some(origin), Some(acrm)) if allowCORS(origin, Method.fromString(acrm)) =>
+      case (Method.OPTIONS, Some(origin), Some(acrm: RequestMethod)) if allowCORS(origin, acrm.method) =>
         ZIO
           .succeed(
             Middleware.Control.Abort(
@@ -307,6 +308,22 @@ object Middleware {
     f: A => ZIO[R, Nothing, B],
   ): Middleware[R, A, B] =
     interceptZIO(spec)((a: A) => ZIO.succeedNow(Control.Continue(a)))((a, _) => f(a))
+
+  def withAccessControlAllowOrigin(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowOrigin.mapOut(
+        _.unit(AccessControlAllowOrigin.toAccessControlAllowOrigin(value.toString)),
+      ),
+    )(identity)
+  }
+
+  def withAccessControlAllowMaxAge(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withAccessControlAllowMaxAge.mapOut(
+        _.unit(AccessControlMaxAge.toAccessControlMaxAge(value.toString)),
+      ),
+    )(identity)
+  }
 
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())

@@ -318,4 +318,6 @@ object HttpGen {
       TransferEncoding.InvalidEncoding,
     ),
   )
+
+  def headerNames: Gen[Sized, List[String]] = Gen.listOf(Gen.alphaNumericStringBounded(2, 200))
 }

@@ -1,3 +1,9 @@
+---
+sidebar_position: 1
+title: "Introduction to ZIO Http"
+sidebar_label: "Introduction"
+---
+
 **Table of Contents**
 
 - [Http](#http)

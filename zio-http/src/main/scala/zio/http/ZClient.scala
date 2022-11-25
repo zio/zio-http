@@ -32,6 +32,24 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
 
   def sslConfig: Option[ClientSSLConfig]
 
+  /**
+   * Applies the specified client aspect, which can modify the execution of this
+   * client.
+   */
+  final def @@[
+    LowerEnv <: UpperEnv,
+    UpperEnv <: Env,
+    LowerIn <: UpperIn,
+    UpperIn <: In,
+    LowerErr >: Err,
+    UpperErr >: LowerErr,
+    LowerOut >: Out,
+    UpperOut >: LowerOut,
+  ](
+    aspect: ZClientAspect[LowerEnv, UpperEnv, LowerIn, UpperIn, LowerErr, UpperErr, LowerOut, UpperOut],
+  ): ZClient[UpperEnv, UpperIn, LowerErr, LowerOut] =
+    aspect(self)
+
   final def contramap[In2](f: In2 => In): ZClient[Env, In2, Err, Out] =
     contramapZIO(in => ZIO.succeedNow(f(in)))
 
@@ -555,7 +573,10 @@ object ZClient {
               headers = headers,
             ),
           clientConfig = settings.copy(socketApp = Some(app.provideEnvironment(env))),
-        ).withFinalizer(_.close.orDie)
+        ).withFinalizer {
+          case resp: Response.CloseableResponse => resp.close.orDie
+          case _                                => ZIO.unit
+        }
       } yield res
 
     private def requestAsync(request: Request, clientConfig: ClientConfig)(implicit
