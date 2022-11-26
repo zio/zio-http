@@ -233,8 +233,8 @@ jobs:
         id: push_codecov
         run: 'bash <(curl -s https://codecov.io/bash)'
 
-  runBenchMarks:
-    name: Benchmarks
+  runBenchmarks-simple:
+    name: Performance Benchmarks (PlainTextBenchmarkServer)
     if: ${{ github.event_name == 'pull_request'}}
     strategy:
       matrix:
@@ -278,10 +278,10 @@ jobs:
           sha: ${{github.event.pull_request.head.sha}}
           body: |
 
-            **🚀 Performance Benchmark:**
+            **🚀 :** Performance Benchmarks (PlainTextBenchmarkServer)
 
-             requests/sec: ${{steps.result.outputs.concurrency}}
-             concurrency:  ${{steps.result.outputs.request_per_second}}
+             concurrency: ${{steps.result.outputs.concurrency}}
+             requests/sec:  ${{steps.result.outputs.request_per_second}}
 
       
       - name: Performance Report
@@ -291,7 +291,77 @@ jobs:
           CONCURRENCY: ${{steps.result.outputs.concurrency}}
           PERFORMANCE_FLOOR: 800000
         run: |
-          echo "** 🚀 Performance Benchmark Report 🚀 **"
+          echo "** 🚀 Performance Benchmarks (PlainTextBenchmarkServer) Report 🚀 **" 
+
+          echo "$REQUESTS_PER_SECOND requests/sec for $CONCURRENCY concurrent requests"
+
+          if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
+            echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
+          else 
+            echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
+             exit 1
+          fi
+
+  runBenchmarks-effectful:
+    name: Performance Benchmarks (SimpleEffectBenchmarkServer)
+    if: ${{ github.event_name == 'pull_request'}}
+    strategy:
+      matrix:
+        os: [centos]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: [ "${{ matrix.os }}", zio-http ]
+    steps:
+      - name: Clean up
+        id: clean_up
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: sudo rm -rf *
+
+      - uses: actions/checkout@v2
+        with:
+          path: zio-http
+
+      - uses: actions/checkout@v2
+        with:
+          repository: zio/FrameworkBenchmarks
+          path: FrameworkBenchMarks
+
+      - id: result
+        env:
+          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
+        run: |
+          mkdir -p ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala
+          cp ./zio-http/zio-http-example/src/main/scala/example/SimpleEffectBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
+          cd ./FrameworkBenchMarks
+          sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt
+          ./tfb  --test zio-http | tee result
+          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+" | grep -oiE "[0-9]+" | head -1)
+          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+" | grep -oiE "[0-9]+")
+          echo "request_per_second=$RESULT_REQUEST" >> $GITHUB_OUTPUT
+          echo "concurrency=$RESULT_CONCURRENCY" >> $GITHUB_OUTPUT
+
+      - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
+        uses: peter-evans/commit-comment@v2
+        with:
+          sha: ${{github.event.pull_request.head.sha}}
+          body: |
+
+            **🚀 :** Performance Benchmarks (SimpleEffectBenchmarkServer)
+
+             concurrency: ${{steps.result.outputs.concurrency}}
+             requests/sec:  ${{steps.result.outputs.request_per_second}}
+
+      
+      - name: Performance Report
+        id: perf-report
+        env:
+          REQUESTS_PER_SECOND: ${{steps.result.outputs.request_per_second}}
+          CONCURRENCY: ${{steps.result.outputs.concurrency}}
+          PERFORMANCE_FLOOR: 500000
+        run: |
+          echo "** 🚀 Performance Benchmarks (SimpleEffectBenchmarkServer) Report 🚀 **" 
+
           echo "$REQUESTS_PER_SECOND requests/sec for $CONCURRENCY concurrent requests"
 
           if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then

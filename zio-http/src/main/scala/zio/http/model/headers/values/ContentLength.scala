@@ -27,9 +27,9 @@ object ContentLength {
     }
 
   def toContentLength(value: String): ContentLength =
-    Try(value.trim.toLong).fold(
-      _ => InvalidContentLengthValue,
-      value => if (value > 0) ContentLengthValue(value) else InvalidContentLengthValue,
-    )
+    Try(value.trim.toLong).fold(_ => InvalidContentLengthValue, toContentLength)
+
+  def toContentLength(value: Long): ContentLength =
+    if (value >= 0) ContentLengthValue(value) else InvalidContentLengthValue
 
 }
