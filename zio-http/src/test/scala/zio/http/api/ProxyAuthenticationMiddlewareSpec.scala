@@ -1,8 +1,8 @@
 package zio.http.api
 
-import zio.http.{Http, Request, Response, URL}
-import zio.http.internal.HttpGen
+import zio.http._
 import zio.test._
+import zio.http.internal.HttpGen
 
 object ProxyAuthenticationMiddlewareSpec extends ZIOSpecDefault {
   override def spec =
