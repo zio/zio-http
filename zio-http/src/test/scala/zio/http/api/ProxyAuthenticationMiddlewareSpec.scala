@@ -12,7 +12,7 @@ object ProxyAuthenticationMiddlewareSpec extends ZIOSpecDefault {
           check(HttpGen.authSchemes, Gen.alphaNumericStringBounded(4, 6)) { (scheme, realm) =>
             val header = s"${scheme.name} realm=$realm"
             for {
-              response <- Middleware
+              response <- api.Middleware
                 .withProxyAuthenticate(header)
                 .apply(Http.succeed(Response.ok))
                 .apply(Request.get(URL.empty))
@@ -24,7 +24,7 @@ object ProxyAuthenticationMiddlewareSpec extends ZIOSpecDefault {
         test("Proxy-Authenticate without realm") {
           check(HttpGen.authSchemes) { scheme =>
             for {
-              response <- Middleware
+              response <- api.Middleware
                 .withProxyAuthenticate(scheme.name)
                 .apply(Http.succeed(Response.ok))
                 .apply(Request.get(URL.empty))
@@ -36,7 +36,7 @@ object ProxyAuthenticationMiddlewareSpec extends ZIOSpecDefault {
       ),
       test("invalid value") {
         for {
-          response <- Middleware
+          response <- api.Middleware
             .withProxyAuthenticate("bad input")
             .apply(Http.succeed(Response.ok))
             .apply(Request.get(URL.empty))
