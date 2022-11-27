@@ -343,7 +343,7 @@ trait HeaderCodecs {
   final val xFrameOptions: HeaderCodec[String] =
     header(HeaderNames.xFrameOptions.toString(), TextCodec.string)
 
-  final val xRequestedWith: HeaderCodec[String] =
+  final val xRequestedWith: HeaderCodec[XRequestedWith] =
     header(HeaderNames.xRequestedWith.toString(), TextCodec.string).transform(
       XRequestedWith.toXRequestedWith,
       XRequestedWith.fromXRequestedWith,
