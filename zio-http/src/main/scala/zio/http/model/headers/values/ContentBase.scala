@@ -1,11 +1,11 @@
 package zio.http.model.headers.values
 
-import com.sun.jndi.toolkit.url.Uri
+import java.net._
 
 sealed trait ContentBase
 
 object ContentBase {
-  final case class BaseUri(uri: Uri) extends ContentBase
+  final case class BaseUri(uri: URI) extends ContentBase
   case object InvalidContentBase     extends ContentBase
 
   def fromContentBase(cb: ContentBase): String = cb match {
@@ -15,10 +15,10 @@ object ContentBase {
 
   def toContentBase(s: CharSequence): ContentBase =
     try {
-      BaseUri(new Uri(s.toString))
+      BaseUri(new URL(s.toString).toURI)
     } catch {
       case _: Throwable => InvalidContentBase
     }
 
-  def uri(uri: Uri): ContentBase = BaseUri(uri)
+  def uri(uri: URI): ContentBase = BaseUri(uri)
 }
