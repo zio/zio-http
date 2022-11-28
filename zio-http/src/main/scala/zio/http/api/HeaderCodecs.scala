@@ -343,8 +343,11 @@ trait HeaderCodecs {
   final val wwwAuthenticate: HeaderCodec[String] =
     header(HeaderNames.wwwAuthenticate.toString(), TextCodec.string)
 
-  final val xFrameOptions: HeaderCodec[String] =
-    header(HeaderNames.xFrameOptions.toString(), TextCodec.string)
+  final val xFrameOptions: HeaderCodec[XFrameOptions] =
+    header(HeaderNames.xFrameOptions.toString(), TextCodec.string).transform(
+      XFrameOptions.toXFrameOptions,
+      XFrameOptions.fromXFrameOptions,
+    )
 
   final val xRequestedWith: HeaderCodec[String] =
     header(HeaderNames.xRequestedWith.toString(), TextCodec.string)
