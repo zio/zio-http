@@ -314,7 +314,10 @@ trait HeaderCodecs {
   final val vary: HeaderCodec[Vary] = header(HeaderNames.vary.toString(), TextCodec.string)
     .transform(Vary.toVary, Vary.fromVary)
 
-  final val via: HeaderCodec[String] = header(HeaderNames.via.toString(), TextCodec.string)
+  final val via: HeaderCodec[Via] = header(HeaderNames.via.toString(), TextCodec.string).transform(
+    Via.toVia,
+    Via.fromVia,
+  )
 
   final val warning: HeaderCodec[Warning] =
     header(HeaderNames.warning.toString(), TextCodec.string).transform[Warning](Warning.toWarning, Warning.fromWarning)
@@ -343,9 +346,15 @@ trait HeaderCodecs {
       WWWAuthenticate.fromWWWAuthenticate,
     )
 
-  final val xFrameOptions: HeaderCodec[String] =
-    header(HeaderNames.xFrameOptions.toString(), TextCodec.string)
+  final val xFrameOptions: HeaderCodec[XFrameOptions] =
+    header(HeaderNames.xFrameOptions.toString(), TextCodec.string).transform(
+      XFrameOptions.toXFrameOptions,
+      XFrameOptions.fromXFrameOptions,
+    )
 
-  final val xRequestedWith: HeaderCodec[String] =
-    header(HeaderNames.xRequestedWith.toString(), TextCodec.string)
+  final val xRequestedWith: HeaderCodec[XRequestedWith] =
+    header(HeaderNames.xRequestedWith.toString(), TextCodec.string).transform(
+      XRequestedWith.toXRequestedWith,
+      XRequestedWith.fromXRequestedWith,
+    )
 }
