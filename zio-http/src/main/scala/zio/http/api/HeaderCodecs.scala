@@ -337,8 +337,11 @@ trait HeaderCodecs {
       SecWebSocketProtocol.fromSecWebSocketProtocol,
     )
 
-  final val wwwAuthenticate: HeaderCodec[String] =
-    header(HeaderNames.wwwAuthenticate.toString(), TextCodec.string)
+  final val wwwAuthenticate: HeaderCodec[WWWAuthenticate] =
+    header(HeaderNames.wwwAuthenticate.toString(), TextCodec.string).transform(
+      WWWAuthenticate.toWWWAuthenticate,
+      WWWAuthenticate.fromWWWAuthenticate,
+    )
 
   final val xFrameOptions: HeaderCodec[String] =
     header(HeaderNames.xFrameOptions.toString(), TextCodec.string)

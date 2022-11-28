@@ -34,6 +34,9 @@ object AuthenticationScheme {
     override val name: String = "OAuth"
   }
 
+  case object Scram     extends AuthenticationScheme {
+    override val name: String = "SCRAM"
+  }
   case object ScramSha1 extends AuthenticationScheme {
     override val name: String = "SCRAM-SHA-1"
   }
@@ -66,6 +69,7 @@ object AuthenticationScheme {
       case "MUTUAL"           => Mutual
       case "NEGOTIATE"        => Negotiate
       case "OAUTH"            => OAuth
+      case "SCRAM"            => Scram
       case "SCRAM-SHA-1"      => ScramSha1
       case "SCRAM-SHA-256"    => ScramSha256
       case "VAPID"            => Vapid
