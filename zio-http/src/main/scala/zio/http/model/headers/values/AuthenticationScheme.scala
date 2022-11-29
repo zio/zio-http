@@ -34,6 +34,9 @@ object AuthenticationScheme {
     override val name: String = "OAuth"
   }
 
+  case object Scram     extends AuthenticationScheme {
+    override val name: String = "SCRAM"
+  }
   case object ScramSha1 extends AuthenticationScheme {
     override val name: String = "SCRAM-SHA-1"
   }
@@ -46,6 +49,10 @@ object AuthenticationScheme {
     override val name: String = "vapid"
   }
 
+  case object `AWS4-HMAC-SHA256` extends AuthenticationScheme {
+    override val name: String = "AWS4-HMAC-SHA256"
+  }
+
   case object Invalid extends AuthenticationScheme {
     override val name: String = ""
   }
@@ -55,17 +62,20 @@ object AuthenticationScheme {
 
   def toAuthenticationScheme(name: String): AuthenticationScheme = {
     name.trim.toUpperCase match {
-      case "BASIC"         => Basic
-      case "BEARER"        => Bearer
-      case "DIGEST"        => Digest
-      case "HOBA"          => HOBA
-      case "MUTUAL"        => Mutual
-      case "NEGOTIATE"     => Negotiate
-      case "OAUTH"         => OAuth
-      case "SCRAM-SHA-1"   => ScramSha1
-      case "SCRAM-SHA-256" => ScramSha256
-      case "VAPID"         => Vapid
-      case _               => Invalid
+      case "BASIC"            => Basic
+      case "BEARER"           => Bearer
+      case "DIGEST"           => Digest
+      case "HOBA"             => HOBA
+      case "MUTUAL"           => Mutual
+      case "NEGOTIATE"        => Negotiate
+      case "OAUTH"            => OAuth
+      case "SCRAM"            => Scram
+      case "SCRAM-SHA-1"      => ScramSha1
+      case "SCRAM-SHA-256"    => ScramSha256
+      case "VAPID"            => Vapid
+      case "AWS4-HMAC-SHA256" => `AWS4-HMAC-SHA256`
+      case _                  => Invalid
     }
   }
+
 }
