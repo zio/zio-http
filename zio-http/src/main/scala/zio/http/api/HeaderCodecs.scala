@@ -235,7 +235,10 @@ trait HeaderCodecs {
     header(HeaderNames.proxyAuthorization.toString(), TextCodec.string)
       .transform(ProxyAuthorization.toProxyAuthorization, ProxyAuthorization.fromProxyAuthorization)
 
-  final val range: HeaderCodec[String] = header(HeaderNames.range.toString(), TextCodec.string)
+  final val range: HeaderCodec[Range] = header(HeaderNames.range.toString(), TextCodec.string).transform(
+    Range.toRange,
+    Range.fromRange,
+  )
 
   final val referer: HeaderCodec[Referer] = header(HeaderNames.referer.toString(), TextCodec.string)
     .transform(Referer.toReferer, Referer.fromReferer)
