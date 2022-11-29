@@ -320,4 +320,18 @@ object HttpGen {
   )
 
   def headerNames: Gen[Sized, List[String]] = Gen.listOf(Gen.alphaNumericStringBounded(2, 200))
+
+  def authSchemes: Gen[Any, AuthenticationScheme] =
+    Gen.elements(
+      AuthenticationScheme.Basic,
+      AuthenticationScheme.Bearer,
+      AuthenticationScheme.Digest,
+      AuthenticationScheme.HOBA,
+      AuthenticationScheme.Mutual,
+      AuthenticationScheme.Negotiate,
+      AuthenticationScheme.OAuth,
+      AuthenticationScheme.ScramSha1,
+      AuthenticationScheme.ScramSha256,
+      AuthenticationScheme.Vapid,
+    )
 }
