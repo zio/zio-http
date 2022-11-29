@@ -1,7 +1,7 @@
 package zio.http.api
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-import zio.http.api.internal.TextCodec
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.http.api.internal.{RichTextCodec, TextCodec}
 import zio.http.Path
 sealed trait EndpointError extends Exception {
   def message: String
@@ -30,7 +30,8 @@ object EndpointError {
   final case class MalformedStatus(status: String, textCodec: TextCodec[_])                   extends ServerError {
     def message = s"Malformed status $status failed to decode using $textCodec"
   }
-  final case class MalformedHeader(headerName: String, textCodec: TextCodec[_])               extends ServerError {
+  final case class MalformedHeader(headerName: String, textCodec: Either[TextCodec[_], RichTextCodec[_]])
+      extends ServerError {
     def message = s"Malformed header $headerName failed to decode using $textCodec"
   }
   final case class MissingQueryParam(queryParamName: String)                                  extends ServerError {

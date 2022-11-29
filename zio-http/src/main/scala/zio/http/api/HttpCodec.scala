@@ -1,15 +1,12 @@
 package zio.http.api
 
 import scala.language.implicitConversions
-
 import zio.http._
 import zio.http.model._
-import zio.http.api.internal.TextCodec
-
+import zio.http.api.internal.{RichTextCodec, TextCodec}
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.stream.ZStream
-
 import zio.schema.Schema
 import zio.schema.codec.Codec
 
@@ -210,8 +207,11 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
     def erase: Method[Any] = self.asInstanceOf[Method[Any]]
   }
 
-  private[api] final case class Header[A](name: String, textCodec: TextCodec[A], optional: Boolean)
-      extends Atom[CodecType.Header, A] {
+  private[api] final case class Header[A](
+    name: String,
+    textCodec: Either[TextCodec[A], RichTextCodec[A]],
+    optional: Boolean,
+  ) extends Atom[CodecType.Header, A] {
     self =>
     def erase: Header[Any] = self.asInstanceOf[Header[Any]]
   }

@@ -123,8 +123,9 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
 
       headers.get(header.name) match {
         case Some(value) =>
-          inputs(i) =
-            header.textCodec.decode(value).getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
+          inputs(i) = header.textCodec.swap
+            .map(_.decode(value))
+            .getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
 
         case None =>
           if (header.optional) {
@@ -199,7 +200,8 @@ private[api] final case class EncoderDecoder[-AtomTypes, Value](httpCodec: HttpC
       val header = flattened.headers(i).erase
       val input  = inputs(i)
 
-      val value = header.textCodec.encode(input)
+      // TODO: Fix this - temporary solution
+      val value = header.textCodec.swap.map(_.encode(input)).toOption.getOrElse("")
 
       headers = headers ++ Headers(header.name, value)
 

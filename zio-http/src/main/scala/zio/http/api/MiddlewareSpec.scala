@@ -164,7 +164,7 @@ object MiddlewareSpec {
    * Add specified header to the response
    */
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, Left(TextCodec.constant(value))))
 
   def addHeader(header: Headers.Header): MiddlewareSpec[Unit, Unit] =
     addHeader(header.key.toString, header.value.toString)
@@ -173,7 +173,7 @@ object MiddlewareSpec {
     headers.headersAsList.map(addHeader(_)).reduce(_ ++ _)
 
   def addCorrelationId: MiddlewareSpec[Unit, String] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", Left(TextCodec.string)))
 
   def withAccessControlAllowOrigin: MiddlewareSpec[Unit, AccessControlAllowOrigin] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowOrigin)
@@ -244,7 +244,7 @@ object MiddlewareSpec {
     )
 
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
-    MiddlewareSpec(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty)
+    MiddlewareSpec(HeaderCodec.header(name, Left(TextCodec.string)), HttpCodec.empty)
 
   def withAccept: MiddlewareSpec[Unit, Accept] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.accept)
