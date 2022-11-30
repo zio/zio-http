@@ -3,6 +3,7 @@ package zio.http.api.internal
 import zio.http.api.{Combiner, Doc}
 import zio.{Chunk, NonEmptyChunk}
 
+import java.lang.Double.parseDouble
 import java.lang.Integer.parseInt
 import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
@@ -180,11 +181,19 @@ object RichTextCodec {
   val digit: RichTextCodec[Int] =
     filter(c => c >= '0' && c <= '9').transform[Int](c => parseInt(c.toString), x => x.toString.head)
 
+  val double: RichTextCodec[Double] =
+    filter(c => c >= '0' && c <= '9').transform[Double](c => parseDouble(c.toString), x => x.toString.head)
+
   /**
    * A codec that describes nothing at all. Such codecs successfully decode even
    * on empty input, and when encoded, do not produce any text output.
    */
   val empty: RichTextCodec[Unit] = Empty
+
+  val comma: RichTextCodec[Char] = char(',')
+
+  def commaSeparatedMultiValues[A](codec: RichTextCodec[A]): RichTextCodec[Chunk[A]] =
+    (codec ~ comma).repeat.transform(_.map(_._1), _.map(a => (a, ',')))
 
   /**
    * Defines a new codec for a single character based on the specified

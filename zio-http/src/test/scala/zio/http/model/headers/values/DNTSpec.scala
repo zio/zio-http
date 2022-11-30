@@ -1,6 +1,7 @@
 package zio.http.model.headers.values
 
 import zio.Scope
+import zio.http.api.HttpCodec.dntCodec
 import zio.http.model.headers.values.DNT.{
   InvalidDNTValue,
   NotSpecifiedDNTValue,
@@ -12,22 +13,23 @@ import zio.test._
 object DNTSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("DNT header suite")(
     test("parse DNT headers") {
-      assertTrue(DNT.toDNT("1") == TrackingAllowedDNTValue)
-      assertTrue(DNT.toDNT("0") == TrackingNotAllowedDNTValue)
-      assertTrue(DNT.toDNT("null") == NotSpecifiedDNTValue)
-      assertTrue(DNT.toDNT("test") == InvalidDNTValue)
+      assertTrue(dntCodec.decode("1").map(DNT.toDNT) == Right(TrackingNotAllowedDNTValue))
+      assertTrue(dntCodec.decode("0").map(DNT.toDNT) == Right(TrackingAllowedDNTValue))
+      assertTrue(dntCodec.decode("null").map(DNT.toDNT) == Right(NotSpecifiedDNTValue))
+      assertTrue(dntCodec.decode("test").map(DNT.toDNT).isLeft)
     },
     test("encode DNT to String") {
-      assertTrue(DNT.fromDNT(TrackingAllowedDNTValue) == "1")
-      assertTrue(DNT.fromDNT(TrackingNotAllowedDNTValue) == "0")
-      assertTrue(DNT.fromDNT(NotSpecifiedDNTValue) == "null")
-      assertTrue(DNT.fromDNT(InvalidDNTValue) == "")
+      assertTrue(DNT.fromDNT(TrackingAllowedDNTValue) == Right("1"))
+      assertTrue(DNT.fromDNT(TrackingNotAllowedDNTValue) == Right("0"))
+      assertTrue(DNT.fromDNT(NotSpecifiedDNTValue) == Right("null"))
+      assertTrue(DNT.fromDNT(InvalidDNTValue) == Right("invalid"))
     },
     test("parsing and encoding is symmetrical") {
-      assertTrue(DNT.fromDNT(DNT.toDNT("1")) == "1")
-      assertTrue(DNT.fromDNT(DNT.toDNT("0")) == "0")
-      assertTrue(DNT.fromDNT(DNT.toDNT("null")) == "null")
-      assertTrue(DNT.fromDNT(DNT.toDNT("")) == "")
+
+      assertTrue(dntCodec.decode("1").map(DNT.toDNT).flatMap(DNT.fromDNT) == Right("1"))
+      assertTrue(dntCodec.decode("0").map(DNT.toDNT).flatMap(DNT.fromDNT) == Right("0"))
+      assertTrue(dntCodec.decode("null").map(DNT.toDNT).flatMap(DNT.fromDNT) == Right(null))
+      assertTrue(dntCodec.decode("").map(DNT.toDNT).flatMap(DNT.fromDNT).isLeft)
     },
   )
 }

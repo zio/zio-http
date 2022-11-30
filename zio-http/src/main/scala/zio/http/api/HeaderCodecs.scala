@@ -1,5 +1,6 @@
 package zio.http.api
 
+import zio.Chunk
 import zio.http.model.HeaderNames
 import zio.http.model.headers.values._
 import zio.http.api.internal.{RichTextCodec, TextCodec}
@@ -9,8 +10,14 @@ trait HeaderCodecs {
   private[api] def header[A](name: String, value: Either[TextCodec[A], RichTextCodec[A]]): HeaderCodec[A] =
     HttpCodec.Header(name, value, optional = false)
 
+  val acceptCodec: RichTextCodec[Chunk[(String, Chunk[(String, String, Double)])]] =
+    RichTextCodec.commaSeparatedMultiValues(
+      RichTextCodec.literal("[A-Za-z0-9*/]+") ~
+        (RichTextCodec.literal(";") ~ RichTextCodec.literal("q=") ~ RichTextCodec.double).repeat,
+    )
+
   final val accept: HeaderCodec[Accept] =
-    header(HeaderNames.accept.toString(), Left(TextCodec.string))
+    header(HeaderNames.accept.toString(), Right(acceptCodec))
       .transform(Accept.toAccept, Accept.fromAccept)
 
   final val acceptEncoding: HeaderCodec[AcceptEncoding] =
@@ -86,7 +93,7 @@ trait HeaderCodecs {
       )
 
   final val age: HeaderCodec[Age] =
-    header(HeaderNames.age.toString(), Left(TextCodec.string)).transform(Age.toAge, Age.fromAge)
+    header(HeaderNames.age.toString(), Right(RichTextCodec.digit)).transform(Age.toAge, Age.fromAge)
 
   final val allow: HeaderCodec[Allow] =
     header(HeaderNames.allow.toString(), Left(TextCodec.string))
@@ -165,14 +172,18 @@ trait HeaderCodecs {
   final val date: HeaderCodec[Date] = header(HeaderNames.date.toString(), Left(TextCodec.string))
     .transform(Date.toDate, Date.fromDate)
 
-  final val dnt: HeaderCodec[DNT] = header(HeaderNames.dnt.toString(), Left(TextCodec.string))
-    .transform(DNT.toDNT(_), DNT.fromDNT(_))
+  final val dntCodec = RichTextCodec.digit | RichTextCodec.literal("null")
+
+  final val dnt: HeaderCodec[DNT] =
+    header(HeaderNames.dnt.toString(), Right(dntCodec))
+      .transform(DNT.toDNT, DNT.fromDNT)
 
   final val etag: HeaderCodec[ETag] = header(HeaderNames.etag.toString, Left(TextCodec.string))
     .transform(ETag.toETag, ETag.fromETag)
 
+  final val expectCodec: RichTextCodec[String] = RichTextCodec.literalCI("100-continue")
   final val expect: HeaderCodec[Expect] =
-    header(HeaderNames.expect.toString, Left(TextCodec.string))
+    header(HeaderNames.expect.toString, Right(expectCodec))
       .transform(Expect.toExpect, Expect.fromExpect)
 
   final val expires: HeaderCodec[Expires] =

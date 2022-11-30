@@ -112,7 +112,7 @@ object Middleware {
     fromFunctionZIO(MiddlewareSpec.addCookie)(_ => cookie)
 
   def withAccept(value: CharSequence): Middleware[Any, Unit, Accept] =
-    fromFunction(MiddlewareSpec.withAccept)(_ => Accept.toAccept(value.toString))
+    fromFunction(MiddlewareSpec.withAccept)(_ => Accept.InvalidAcceptValue) // Accept.toAccept(value.toString))
 
   def withAcceptEncoding(value: CharSequence): Middleware[Any, Unit, AcceptEncoding] =
     fromFunction(MiddlewareSpec.withAcceptEncoding)(_ => AcceptEncoding.toAcceptEncoding(value.toString))

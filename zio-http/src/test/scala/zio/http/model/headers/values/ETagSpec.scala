@@ -1,6 +1,7 @@
 package zio.http.model.headers.values
 
 import zio.Scope
+import zio.http.api.internal.RichTextCodec
 import zio.http.model.headers.values.ETag.{InvalidETagValue, StrongETagValue, WeakETagValue}
 import zio.test._
 

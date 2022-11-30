@@ -21,32 +21,31 @@ object Accept {
   /** The Accept header value is invalid. */
   case object InvalidAcceptValue extends Accept
 
-  def fromAccept(header: Accept): String = header match {
+  def fromAccept(header: Accept): Chunk[(String, Chunk[(String, String, Double)])] = header match {
     case AcceptValue(mimeTypes) =>
       mimeTypes.map { case MediaTypeWithQFactor(mime, maybeQFactor) =>
-        s"${mime.fullType}${maybeQFactor.map(qFactor => s";q=$qFactor").getOrElse("")}"
-      }.mkString(", ")
-    case InvalidAcceptValue     => ""
+        (mime.toString, Chunk.fromArray(maybeQFactor.map(q => ("q", "", q)).toArray))
+      }
+    case InvalidAcceptValue     => Chunk.empty
   }
 
-  def toAccept(value: String): Accept = {
-    val acceptHeaderValues: Array[MediaTypeWithQFactor] = value
-      .split(',')
-      .map(_.trim)
-      .map { subValue =>
-        MediaType
-          .forContentType(subValue)
-          .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
-          .getOrElse {
-            MediaType
-              .parseCustomMediaType(subValue)
-              .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
-              .orNull
-          }
-      }
+  def toAccept(
+    values: Chunk[(String, Chunk[(String, String, Double)])],
+  ): Accept = {
+    val acceptHeaderValues: Chunk[MediaTypeWithQFactor] = values.map { subValue =>
+      MediaType
+        .forContentType(subValue._1)
+        .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
+        .getOrElse {
+          MediaType
+            .parseCustomMediaType(subValue._1)
+            .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
+            .orNull
+        }
+    }
 
     if (acceptHeaderValues.nonEmpty && acceptHeaderValues.length == acceptHeaderValues.count(_ != null))
-      AcceptValue(Chunk.fromArray(acceptHeaderValues))
+      AcceptValue(acceptHeaderValues)
     else InvalidAcceptValue
   }
 

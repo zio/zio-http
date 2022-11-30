@@ -7,20 +7,25 @@ object DNT {
   case object TrackingNotAllowedDNTValue extends DNT
   case object NotSpecifiedDNTValue       extends DNT
 
-  def toDNT(value: String): DNT = {
+  def toDNT(value: Either[Int, String]): DNT = {
     value match {
-      case "null" => NotSpecifiedDNTValue
-      case "1"    => TrackingNotAllowedDNTValue
-      case "0"    => TrackingAllowedDNTValue
-      case _      => InvalidDNTValue
+      case Left(value) =>
+        value match {
+          case 1 => TrackingNotAllowedDNTValue
+          case 0 => TrackingAllowedDNTValue
+          case _ => InvalidDNTValue
+        }
+      case Right(_)    => NotSpecifiedDNTValue
+
     }
+
   }
 
-  def fromDNT(dnt: DNT): String =
+  def fromDNT(dnt: DNT): Either[Int, String] =
     dnt match {
-      case NotSpecifiedDNTValue       => null
-      case TrackingAllowedDNTValue    => "0"
-      case TrackingNotAllowedDNTValue => "1"
-      case InvalidDNTValue            => ""
+      case NotSpecifiedDNTValue       => Right(null)
+      case TrackingAllowedDNTValue    => Left(0)
+      case TrackingNotAllowedDNTValue => Left(1)
+      case InvalidDNTValue            => Right("invalid")
     }
 }

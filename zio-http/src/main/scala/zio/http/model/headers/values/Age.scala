@@ -1,6 +1,5 @@
 package zio.http.model.headers.values
 
-import scala.util.Try
 
 /**
  * Age header value.
@@ -20,12 +19,12 @@ object Age {
    */
   case object InvalidAgeValue extends Age
 
-  def fromAge(age: Age): String =
+  def fromAge(age: Age): Int =
     age match {
-      case AgeValue(seconds) => seconds.toString
-      case InvalidAgeValue   => ""
+      case AgeValue(seconds) => seconds
+      case InvalidAgeValue   => 0
     }
 
-  def toAge(value: String): Age =
-    Try(value.trim.toInt).fold(_ => InvalidAgeValue, value => if (value > 0) AgeValue(value) else InvalidAgeValue)
+  def toAge(value: Int): Age =
+    if (value > 0) AgeValue(value) else InvalidAgeValue
 }
