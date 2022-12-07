@@ -3,10 +3,25 @@ import sbtghactions.GenerativePlugin.autoImport.{UseRef, WorkflowJob, WorkflowSt
 
 object BenchmarkWorkFlow {
   def apply(): Seq[WorkflowJob] = Seq(
+    makeBenchmarkPass(
+      "runBenchmarks-simple",
+      "Performance Benchmarks (PlainTextBenchmarkServer)",
+      800000,
+      "PlainTextBenchmarkServer",
+    ),
+    makeBenchmarkPass(
+      "runBenchmarks-effectful",
+      "Performance Benchmarks (SimpleEffectBenchmarkServer)",
+      500000,
+      "SimpleEffectBenchmarkServer",
+    ),
+  )
+
+  private def makeBenchmarkPass(id: String, name: String, performanceFloor: Int, server: String) =
     WorkflowJob(
       runsOnExtraLabels = List("zio-http"),
-      id = "runBenchMarks",
-      name = "Benchmarks",
+      id = id,
+      name = name,
       oses = List("centos"),
       cond = Some(
         "${{ github.event_name == 'pull_request'}}",
@@ -37,7 +52,7 @@ object BenchmarkWorkFlow {
           id = Some("result"),
           commands = List(
             "mkdir -p ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala",
-            "cp ./zio-http/zio-http-example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala",
+            s"cp ./zio-http/zio-http-example/src/main/scala/example/${server}.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala",
             "cd ./FrameworkBenchMarks",
             """sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt""",
             "./tfb  --test zio-http | tee result",
@@ -55,12 +70,12 @@ object BenchmarkWorkFlow {
           params = Map(
             "sha"  -> "${{github.event.pull_request.head.sha}}",
             "body" ->
-              """
-                |**\uD83D\uDE80 Performance Benchmark:**
-                |
-                | requests/sec: ${{steps.result.outputs.concurrency}}
-                | concurrency:  ${{steps.result.outputs.request_per_second}}
-                """.stripMargin,
+              (s"""
+                 |**\uD83D\uDE80 :** $name""" + """
+                                                              |
+                                                              | concurrency: ${{steps.result.outputs.concurrency}}
+                                                              | requests/sec:  ${{steps.result.outputs.request_per_second}}
+                """).stripMargin,
           ),
         ),
         WorkflowStep.Run(
@@ -69,21 +84,21 @@ object BenchmarkWorkFlow {
           env = Map(
             "REQUESTS_PER_SECOND" -> "${{steps.result.outputs.request_per_second}}",
             "CONCURRENCY"         -> "${{steps.result.outputs.concurrency}}",
-            "PERFORMANCE_FLOOR"   -> "800000",
+            "PERFORMANCE_FLOOR"   -> s"${performanceFloor}",
           ),
           commands = List(
-            """|echo "** 🚀 Performance Benchmark Report 🚀 **"
-               |echo "$REQUESTS_PER_SECOND requests/sec for $CONCURRENCY concurrent requests"
+            s"""echo "** 🚀 ${name} Report 🚀 **" """,
+            """
+              |echo "$REQUESTS_PER_SECOND requests/sec for $CONCURRENCY concurrent requests"
 
-               |if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
-               |  echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
-               |else 
-               |  echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
-               |   exit 1
-               |fi""".stripMargin,
+              |if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
+              |  echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
+              |else 
+              |  echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
+              |   exit 1
+              |fi""".stripMargin,
           ),
         ),
       ),
-    ),
-  )
+    )
 }

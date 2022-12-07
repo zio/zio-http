@@ -8,7 +8,7 @@ import zio.http._
 /**
  * This server is used to run plaintext benchmarks on CI.
  */
-object Main extends ZIOAppDefault {
+object PlainTextBenchmarkServer extends ZIOAppDefault {
 
   private val plainTextMessage: String = "hello, world!"
   private val jsonMessage: String      = """{"message": "hello, world!"}"""
