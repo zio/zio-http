@@ -10,11 +10,21 @@ trait HeaderCodecs {
   private[api] def header[A](name: String, value: Either[TextCodec[A], RichTextCodec[A]]): HeaderCodec[A] =
     HttpCodec.Header(name, value, optional = false)
 
-  val acceptCodec: RichTextCodec[Chunk[(String, Chunk[(String, String, Double)])]] =
-    RichTextCodec.commaSeparatedMultiValues(
-      RichTextCodec.literal("[A-Za-z0-9*/]+") ~
-        (RichTextCodec.literal(";") ~ RichTextCodec.literal("q=") ~ RichTextCodec.double).repeat,
-    )
+  val mediaTypeCodec: RichTextCodec[Chunk[Char]] =
+    RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c == '/' || c == '*').repeat
+
+  val acceptCodec: RichTextCodec[Chunk[(String, Double)]] =
+    RichTextCodec
+      .commaSeparatedMultiValues(
+        mediaTypeCodec ~
+          (RichTextCodec.literal(";q=") ~ RichTextCodec.digits,
+      )
+      .transform(
+        _.map { case (mediaType, params) =>
+          (mediaType.mkString, params._2)
+        },
+        _.map(a => (Chunk.from(a._1.toCharArray), (";q=", a._2))),
+      )
 
   final val accept: HeaderCodec[Accept] =
     header(HeaderNames.accept.toString(), Right(acceptCodec))
@@ -182,7 +192,7 @@ trait HeaderCodecs {
     .transform(ETag.toETag, ETag.fromETag)
 
   final val expectCodec: RichTextCodec[String] = RichTextCodec.literalCI("100-continue")
-  final val expect: HeaderCodec[Expect] =
+  final val expect: HeaderCodec[Expect]        =
     header(HeaderNames.expect.toString, Right(expectCodec))
       .transform(Expect.toExpect, Expect.fromExpect)
 

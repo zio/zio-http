@@ -181,9 +181,6 @@ object RichTextCodec {
   val digit: RichTextCodec[Int] =
     filter(c => c >= '0' && c <= '9').transform[Int](c => parseInt(c.toString), x => x.toString.head)
 
-  val double: RichTextCodec[Double] =
-    filter(c => c >= '0' && c <= '9').transform[Double](c => parseDouble(c.toString), x => x.toString.head)
-
   /**
    * A codec that describes nothing at all. Such codecs successfully decode even
    * on empty input, and when encoded, do not produce any text output.
@@ -206,6 +203,11 @@ object RichTextCodec {
    * A codec that describes a letter character.
    */
   val letter: RichTextCodec[Char] = filter(_.isLetter) ?! "letter"
+
+  val asciiString: RichTextCodec[Chunk[Char]] =
+    RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z').repeat
+
+  val digits: RichTextCodec[Chunk[Int]] = digit.repeat
 
   /**
    * A codec that describes a literal character sequence.
