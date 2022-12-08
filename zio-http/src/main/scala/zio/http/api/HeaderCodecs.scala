@@ -1,9 +1,10 @@
 package zio.http.api
 
 import zio.Chunk
+import zio.http.api.internal.RichTextCodec.comma
 import zio.http.model.HeaderNames
 import zio.http.model.headers.values._
-import zio.http.api.internal.{RichTextCodec, TextCodec}
+import zio.http.api.internal.{HeaderValueCodecs, RichTextCodec, TextCodec}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HeaderCodecs {
@@ -13,17 +14,31 @@ trait HeaderCodecs {
   val mediaTypeCodec: RichTextCodec[Chunk[Char]] =
     RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c == '/' || c == '*').repeat
 
-  val acceptCodec: RichTextCodec[Chunk[(String, Double)]] =
+  val mediaTypeCodecWithQualifier =
+    mediaTypeCodec ~ RichTextCodec.semicolon ~ RichTextCodec
+      .literal("q=")
+      .unit("") ~ RichTextCodec.double
+
+  val mediaTypeCodecAlternative = mediaTypeCodecWithQualifier | mediaTypeCodec
+
+  val temp = mediaTypeCodecAlternative.repeat
+
+  val acceptCodec: RichTextCodec[Chunk[(String, Option[Double])]] =
     RichTextCodec
       .commaSeparatedMultiValues(
-        mediaTypeCodec ~
-          (RichTextCodec.literal(";q=") ~ RichTextCodec.digits,
+        mediaTypeCodec | mediaTypeCodecWithQualifier,
       )
       .transform(
-        _.map { case (mediaType, params) =>
-          (mediaType.mkString, params._2)
+        _.map {
+          case Left(a)          => (a.mkString, None)
+          case Right((a, _, b)) => (a.mkString, Some(b))
         },
-        _.map(a => (Chunk.from(a._1.toCharArray), (";q=", a._2))),
+        _.map {
+          case (mediaType, Some(params)) =>
+            Right((Chunk.from(mediaType.toCharArray), ' ', params))
+          case (mediaType, None)         =>
+            Left(Chunk.from(mediaType.toCharArray))
+        },
       )
 
   final val accept: HeaderCodec[Accept] =
@@ -31,12 +46,12 @@ trait HeaderCodecs {
       .transform(Accept.toAccept, Accept.fromAccept)
 
   final val acceptEncoding: HeaderCodec[AcceptEncoding] =
-    header(HeaderNames.acceptEncoding.toString(), Left(TextCodec.string))
+    header(HeaderNames.acceptEncoding.toString(), Right(HeaderValueCodecs.acceptEncodingCodec))
       .transform(AcceptEncoding.toAcceptEncoding, AcceptEncoding.fromAcceptEncoding)
 
   final val acceptLanguage: HeaderCodec[AcceptLanguage] =
-    header(HeaderNames.acceptLanguage.toString(), Left(TextCodec.string))
-      .transform(AcceptLanguage.toAcceptLanguage, AcceptLanguage.fromAcceptLanguage)
+    header(HeaderNames.acceptLanguage.toString(), Right(HeaderValueCodecs.acceptLanguageCodec))
+  // .transform(AcceptLanguage.toAcceptLanguage, AcceptLanguage.fromAcceptLanguage)
 
   final val acceptRanges: HeaderCodec[AcceptRanges] =
     header(HeaderNames.acceptRanges.toString(), Left(TextCodec.string))

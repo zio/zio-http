@@ -1,14 +1,15 @@
 package zio.http.api
 
-import scala.language.implicitConversions
-import zio.http._
-import zio.http.model._
-import zio.http.api.internal.{RichTextCodec, TextCodec}
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.stream.ZStream
+import zio.http._
+import zio.http.api.internal.{RichTextCodec, TextCodec}
+import zio.http.model._
 import zio.schema.Schema
 import zio.schema.codec.Codec
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stream.ZStream
+
+import scala.language.implicitConversions
 
 /**
  * A [[zio.http.api.HttpCodec]] represents a codec for a part of an HTTP

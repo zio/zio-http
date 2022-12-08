@@ -189,8 +189,30 @@ object RichTextCodec {
 
   val comma: RichTextCodec[Char] = char(',')
 
+  val dot: RichTextCodec[Char] = char('.')
+
+  val slash: RichTextCodec[Char] = char('/')
+
+  val star: RichTextCodec[Char] = char('*')
+
+  val colon: RichTextCodec[Char] = char(':')
+
+  val semicolon: RichTextCodec[Char] = char(';')
+
   def commaSeparatedMultiValues[A](codec: RichTextCodec[A]): RichTextCodec[Chunk[A]] =
-    (codec ~ comma).repeat.transform(_.map(_._1), _.map(a => (a, ',')))
+    (codec | (comma ~ codec).repeat).transform[Chunk[A]](
+      {
+        case Left(a)                          => Chunk.single(a)
+        case Right(NonEmptyChunk(_, (_, as))) =>
+          Chunk(as)
+        case _                                => Chunk.empty
+      },
+      {
+        case Chunk(a)          => Left(a)
+        case Chunk(_, as @ _*) => Right(Chunk.fromIterable(as.map((',', _))))
+        case _                 => Right(Chunk.empty)
+      },
+    )
 
   /**
    * Defines a new codec for a single character based on the specified
@@ -208,6 +230,36 @@ object RichTextCodec {
     RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z').repeat
 
   val digits: RichTextCodec[Chunk[Int]] = digit.repeat
+
+  val int: RichTextCodec[Int] =
+    digits.transform(_.mkString.toInt, a => Chunk.fromIterable(a.toString.map(_.asDigit)))
+
+  val double: RichTextCodec[Double] =
+    ((digits ~ dot ~ digits) | digits).transform(
+      {
+        case Right(digits)            =>
+          try {
+            digits.mkString.toDouble
+          } catch {
+            case _: NumberFormatException => Double.NaN
+          }
+        case Left((before, _, after)) =>
+          (before.mkString + "." + after.mkString).toDouble
+      },
+      a => {
+        val s               = a.toString
+        val (before, after) = s.splitAt(s.indexOf('.'))
+        if (after.isEmpty) Right(Chunk.fromIterable(before.map(_.asDigit)))
+        else
+          Left(
+            (
+              Chunk.fromIterable(before.map(_.asDigit)),
+              '.',
+              Chunk.fromIterable(before.map(_.asDigit) ++ after.tail.map(_.asDigit)),
+            ),
+          )
+      },
+    )
 
   /**
    * A codec that describes a literal character sequence.

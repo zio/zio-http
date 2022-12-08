@@ -1,23 +1,39 @@
 package zio.http.model.headers.values
 
-import zio.Scope
 import zio.test._
+import zio.{Chunk, Scope}
 
 object AcceptLanguageSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Accept Language header suite")(
     test("accept language header transformation must be symmetrical") {
       check(acceptLanguageStr) { header =>
-        assertTrue(AcceptLanguage.fromAcceptLanguage(AcceptLanguage.toAcceptLanguage(header)) == header)
+        assertTrue(
+          AcceptLanguage.fromAcceptLanguage(AcceptLanguage.toAcceptLanguage(Chunk((header, None)))) == Chunk(
+            (header, None),
+          ),
+        )
       } &&
       check(acceptLanguageWithWeightStr) { header =>
-        assertTrue(AcceptLanguage.fromAcceptLanguage(AcceptLanguage.toAcceptLanguage(header)) == header)
+        assertTrue(
+          AcceptLanguage.fromAcceptLanguage(AcceptLanguage.toAcceptLanguage(Chunk((header, None)))) == Chunk(
+            (header, None),
+          ),
+        )
       }
     },
     test("empty input should yield invalid header value") {
-      assertTrue(AcceptLanguage.toAcceptLanguage("") == AcceptLanguage.InvalidAcceptLanguageValue)
+      assertTrue(
+        AcceptLanguage.toAcceptLanguage(Chunk(("", None))) == AcceptLanguage.AcceptedLanguages(
+          Chunk(AcceptLanguage.InvalidAcceptLanguageValue),
+        ),
+      )
     },
-    test("presence of invalid characters should yield invalid value") {
-      assertTrue(AcceptLanguage.toAcceptLanguage("!") == AcceptLanguage.InvalidAcceptLanguageValue)
+    test("parse multiple accept language values") {
+      assertTrue(
+        AcceptLanguage.toAcceptLanguage(Chunk(("en", None), ("de", None))) == AcceptLanguage.AcceptedLanguages(
+          Chunk(AcceptLanguage.AcceptedLanguage("en", None), AcceptLanguage.AcceptedLanguage("de", None)),
+        ),
+      )
     },
   )
 

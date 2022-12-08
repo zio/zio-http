@@ -21,16 +21,16 @@ object Accept {
   /** The Accept header value is invalid. */
   case object InvalidAcceptValue extends Accept
 
-  def fromAccept(header: Accept): Chunk[(String, Double)] = header match {
+  def fromAccept(header: Accept): Chunk[(String, Option[Double])] = header match {
     case AcceptValue(mimeTypes) =>
       mimeTypes.map { case MediaTypeWithQFactor(mime, maybeQFactor) =>
-        (mime.toString, maybeQFactor.getOrElse(1.0))
+        (mime.toString, maybeQFactor)
       }
     case InvalidAcceptValue     => Chunk.empty
   }
 
   def toAccept(
-    values: Chunk[(String, Double)],
+    values: Chunk[(String, Option[Double])],
   ): Accept = {
     val acceptHeaderValues: Chunk[MediaTypeWithQFactor] = values.map { subValue =>
       MediaType

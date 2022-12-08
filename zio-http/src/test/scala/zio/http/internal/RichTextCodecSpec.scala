@@ -235,6 +235,12 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         assertTrue(success(123) == codec.decode("123--")) &&
         assertTrue(codec.decode("4123").isLeft)
       },
+      test("double decoder") {
+        val codec = RichTextCodec.double
+        assertTrue(success(123.0) == codec.decode("123")) &&
+        assertTrue(success(123.45) == codec.decode("123.45")) &&
+        assertTrue(codec.decode("abc").isRight)
+      },
     ),
   )
 }

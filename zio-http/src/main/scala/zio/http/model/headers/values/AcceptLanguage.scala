@@ -2,9 +2,7 @@ package zio.http.model.headers.values
 
 import zio.Chunk
 
-import scala.annotation.tailrec
 import scala.util.Try
-import scala.util.matching.Regex
 
 /**
  * The Accept-Language request HTTP header indicates the natural language and
@@ -22,42 +20,19 @@ object AcceptLanguage {
 
   case object InvalidAcceptLanguageValue extends AcceptLanguage
 
-  def fromAcceptLanguage(acceptLanguage: AcceptLanguage): String = acceptLanguage match {
-    case AcceptedLanguage(language, weight) =>
-      val weightString = weight match {
-        case Some(w) => s";q=$w"
-        case None    => ""
-      }
-      s"$language$weightString"
-    case AcceptedLanguages(languages)       => languages.map(fromAcceptLanguage).mkString(",")
-    case AnyLanguage                        => "*"
-    case InvalidAcceptLanguageValue         => ""
+  def fromAcceptLanguage(acceptLanguage: AcceptLanguage): Chunk[(String, Option[Double])] = acceptLanguage match {
+    case AcceptedLanguage(language, weight) => Chunk.single((language, weight))
+    case AcceptedLanguages(languages)       => languages.flatMap(fromAcceptLanguage)
+    case AnyLanguage                        => Chunk.single(("*", None))
+    case InvalidAcceptLanguageValue         => Chunk.empty
   }
 
-  def toAcceptLanguage(value: String): AcceptLanguage = {
-    @tailrec def loop(index: Int, value: String, acc: AcceptedLanguages): AcceptedLanguages = {
-      if (index == -1) acc.copy(languages = acc.languages ++ Chunk(parseAcceptedLanguage(value.trim)))
-      else {
-        val valueChunk     = value.substring(0, index)
-        val valueRemaining = value.substring(index + 1)
-        val newIndex       = valueRemaining.indexOf(',')
-        loop(
-          newIndex,
-          valueRemaining,
-          acc.copy(languages = acc.languages ++ Chunk(parseAcceptedLanguage(valueChunk.trim))),
-        )
-      }
+  def toAcceptLanguage(value: Chunk[(String, Option[Double])]): AcceptLanguage = {
+    val languages = value.map { case (language, weight) =>
+      if (language.isEmpty) InvalidAcceptLanguageValue else AcceptedLanguage(language, weight)
     }
-    if (validCharacters.findFirstIn(value).isEmpty) InvalidAcceptLanguageValue
-    else if (value.isEmpty) InvalidAcceptLanguageValue
-    else if (value == "*") AnyLanguage
-    else loop(value.indexOf(','), value, AcceptedLanguages(Chunk.empty))
+    if (languages.nonEmpty) AcceptedLanguages(languages) else InvalidAcceptLanguageValue
   }
-
-  /**
-   * Allowed characters in the header are 0-9, A-Z, a-z, space or *,-.;=
-   */
-  private val validCharacters: Regex = "^[0-9a-zA-Z *,\\-.;=]+$".r
 
   private def parseAcceptedLanguage(value: String): AcceptLanguage = {
     val weightIndex = value.indexOf(";q=")

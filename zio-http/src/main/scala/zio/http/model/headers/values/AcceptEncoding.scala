@@ -2,9 +2,6 @@ package zio.http.model.headers.values
 
 import zio.Chunk
 
-import scala.annotation.tailrec
-import scala.util.Try
-
 /**
  * Represents an AcceptEncoding header value.
  */
@@ -75,15 +72,6 @@ object AcceptEncoding {
     override val raw: String = "*"
   }
 
-  private def identifyEncodingFull(raw: String): AcceptEncoding = {
-    val index = raw.indexOf(";q=")
-    if (index == -1)
-      identifyEncoding(raw)
-    else {
-      identifyEncoding(raw.substring(0, index), Try(raw.substring(index + 3).toDouble).toOption)
-    }
-  }
-
   private def identifyEncoding(raw: String, weight: Option[Double] = None): AcceptEncoding = {
     raw.trim match {
       case "br"       => BrEncoding(weight)
@@ -96,40 +84,30 @@ object AcceptEncoding {
     }
   }
 
-  def toAcceptEncoding(value: String): AcceptEncoding = {
-    val index = value.indexOf(",")
-
-    @tailrec def loop(value: String, index: Int, acc: MultipleEncodings): MultipleEncodings = {
-      if (index == -1) acc.copy(encodings = acc.encodings ++ Chunk(identifyEncodingFull(value)))
-      else {
-        val valueChunk       = value.substring(0, index)
-        val remaining        = value.substring(index + 1)
-        val nextIndex        = remaining.indexOf(",")
-        val acceptedEncoding = Chunk(identifyEncodingFull(valueChunk))
-        loop(
-          remaining,
-          nextIndex,
-          acc.copy(encodings = acc.encodings ++ acceptedEncoding),
-        )
-      }
-    }
-
-    if (index == -1)
-      identifyEncodingFull(value)
-    else
-      loop(value, index, MultipleEncodings(Chunk.empty[AcceptEncoding]))
-
+  def toAcceptEncoding(value: Chunk[(String, Option[Double])]): AcceptEncoding = {
+    val encodings = value.map { case (raw, weight) => identifyEncoding(raw, weight) }
+    if (encodings.nonEmpty)
+      MultipleEncodings(encodings)
+    else InvalidEncoding
   }
 
-  def fromAcceptEncoding(encoding: AcceptEncoding): String = encoding match {
-    case b @ BrEncoding(weight)           => weight.fold(b.raw)(value => s"${b.raw};q=$value")
-    case c @ CompressEncoding(weight)     => weight.fold(c.raw)(value => s"${c.raw};q=$value")
-    case d @ DeflateEncoding(weight)      => weight.fold(d.raw)(value => s"${d.raw};q=$value")
-    case g @ GZipEncoding(weight)         => weight.fold(g.raw)(value => s"${g.raw};q=$value")
-    case i @ IdentityEncoding(weight)     => weight.fold(i.raw)(value => s"${i.raw};q=$value")
-    case MultipleEncodings(encodings)     => encodings.map(fromAcceptEncoding).mkString(",")
-    case n @ NoPreferenceEncoding(weight) => weight.fold(n.raw)(value => s"${n.raw};q=$value")
-    case InvalidEncoding                  => ""
+  def fromAcceptEncoding(encoding: AcceptEncoding): Chunk[(String, Option[Double])] = encoding match {
+    case MultipleEncodings(encodings) =>
+      encodings.map(e =>
+        (
+          e.raw,
+          e match {
+            case BrEncoding(weight)           => weight
+            case CompressEncoding(weight)     => weight
+            case DeflateEncoding(weight)      => weight
+            case GZipEncoding(weight)         => weight
+            case IdentityEncoding(weight)     => weight
+            case NoPreferenceEncoding(weight) => weight
+            case _                            => None
+          },
+        ),
+      )
+    case _                            => Chunk.empty
   }
 
 }

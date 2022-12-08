@@ -4,13 +4,14 @@ import io.netty.handler.codec.http.HttpHeaderNames
 import zio._
 import zio.http._
 import zio.http.api.MiddlewareSpec.CsrfValidate
+import zio.http.api.internal.HeaderValueCodecs
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.middleware.Cors.CorsConfig
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName, Header}
 import zio.http.model.headers.values.AccessControlRequestMethod.RequestMethod
 import zio.http.model.headers.values.Authorization.AuthScheme.{Basic, Bearer}
-import zio.http.model.headers.values._
+import zio.http.model.headers.values.{AcceptLanguage, _}
 import zio.http.model.{Cookie, Headers, Method, Status}
 
 import java.util.UUID
@@ -115,10 +116,19 @@ object Middleware {
     fromFunction(MiddlewareSpec.withAccept)(_ => Accept.InvalidAcceptValue) // Accept.toAccept(value.toString))
 
   def withAcceptEncoding(value: CharSequence): Middleware[Any, Unit, AcceptEncoding] =
-    fromFunction(MiddlewareSpec.withAcceptEncoding)(_ => AcceptEncoding.toAcceptEncoding(value.toString))
+    fromFunction(MiddlewareSpec.withAcceptEncoding)(_ =>
+      AcceptEncoding.toAcceptEncoding(
+        HeaderValueCodecs.acceptEncodingCodec.decode(value.toString).toOption.getOrElse(Chunk.empty),
+      ),
+    )
 
   def withAcceptLanguage(value: CharSequence): Middleware[Any, Unit, AcceptLanguage] =
-    fromFunction(MiddlewareSpec.withAcceptLanguage)(_ => AcceptLanguage.toAcceptLanguage(value.toString))
+    fromFunction(MiddlewareSpec.withAcceptLanguage)(_ =>
+      HeaderValueCodecs.acceptLanguageCodec
+        .decode(value.toString)
+        .toOption
+        .getOrElse(AcceptLanguage.InvalidAcceptLanguageValue),
+    )
 
   def withAcceptPatch(value: CharSequence): Middleware[Any, Unit, AcceptPatch] =
     fromFunction(MiddlewareSpec.withAcceptPatch)(_ => AcceptPatch.toAcceptPatch(value.toString))

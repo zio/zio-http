@@ -14,7 +14,7 @@ object ExpectSpec extends ZIOSpecDefault {
       },
       test("parse invalid value") {
         assertTrue(expectCodec.decode("").map(Expect.toExpect).isLeft) &&
-        assertTrue(expectCodec.decode("200-ok").map(Expect.toExpect) .isLeft) &&
+        assertTrue(expectCodec.decode("200-ok").map(Expect.toExpect).isLeft) &&
         assertTrue(Expect.fromExpect(Expect.InvalidExpectValue).isEmpty)
       },
     )
