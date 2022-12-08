@@ -1,5 +1,6 @@
 package zio.http.model
 
+import org.owasp.encoder.Encode
 import zio.http.Response
 import zio.http.model.HttpError.HTTPErrorWithCause
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -38,7 +39,7 @@ object HttpError {
   final case class Forbidden(msg: String = "Forbidden") extends HttpError(Status.Forbidden, msg)
 
   final case class NotFound(path: String)
-      extends HttpError(Status.NotFound, s"""The requested URI "${path}" was not found on this server\n""")
+      extends HttpError(Status.NotFound, s"""The requested URI "${Encode.forHtml(path)}" was not found on this server\n""")
 
   final case class MethodNotAllowed(msg: String = "Method Not Allowed") extends HttpError(Status.MethodNotAllowed, msg)
 
