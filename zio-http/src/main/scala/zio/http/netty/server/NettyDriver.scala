@@ -81,41 +81,51 @@ object NettyDriver {
       serverConfig = sc,
     )
 
-  val default: ZLayer[ServerConfig, Throwable, Driver] = ZLayer.scoped {
-    val app  = ZLayer.succeed(
-      new AtomicReference[(HttpApp[Any, Throwable], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
-    )
-    val ecb  = ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty))
-    val time = ZLayer.succeed(ServerTime.make(1000 millis))
+  val default: ZLayer[ServerConfig, Throwable, Driver] = {
 
     val serverChannelFactory: ZLayer[ServerConfig, Nothing, ChannelFactory[ServerChannel]] =
       ChannelFactories.Server.fromConfig
     val eventLoopGroup: ZLayer[Scope with ServerConfig, Nothing, EventLoopGroup]           = EventLoopGroups.fromConfig
-    val nettyRuntime: ZLayer[EventLoopGroup, Nothing, NettyRuntime] = NettyRuntime.usingSharedThreadPool
-    val serverChannelInitializer: ZLayer[ServerInboundHandler with ServerConfig, Nothing, ServerChannelInitializer] =
-      ServerChannelInitializer.layer
-    val serverInboundHandler: ZLayer[
-      ServerTime with ServerConfig with NettyRuntime with ErrorCallbackRef with AppRef,
-      Nothing,
-      ServerInboundHandler,
-    ] = ServerInboundHandler.layer
 
-    val serverLayers = app ++
-      serverChannelFactory ++
-      (
-        (
-          (time ++ app ++ ecb) ++
-            (eventLoopGroup >>> nettyRuntime) >+> serverInboundHandler
-        ) >>> serverChannelInitializer
-      ) ++
-      ecb ++
-      eventLoopGroup
-
-    make
-      .provideSomeLayer[ServerConfig & Scope](
-        serverLayers,
-      )
-
+    Scope.default >>> eventLoopGroup >+> serverChannelFactory >>> manual
   }
+
+  val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Nothing, Driver] =
+    ZLayer {
+      val app  = ZLayer.succeed(
+        new AtomicReference[(HttpApp[Any, Throwable], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
+      )
+      val ecb  = ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty))
+      val time = ZLayer.succeed(ServerTime.make(1000 millis))
+
+      val nettyBits = ZLayer.fromZIOEnvironment(for {
+        elg <- ZIO.service[EventLoopGroup]
+        cf  <- ZIO.service[ChannelFactory[ServerChannel]]
+      } yield ZEnvironment(elg, cf))
+
+      val nettyRuntime: ZLayer[EventLoopGroup, Nothing, NettyRuntime] = NettyRuntime.usingSharedThreadPool
+      val serverChannelInitializer: ZLayer[ServerInboundHandler with ServerConfig, Nothing, ServerChannelInitializer] =
+        ServerChannelInitializer.layer
+      val serverInboundHandler: ZLayer[
+        ServerTime with ServerConfig with NettyRuntime with ErrorCallbackRef with AppRef,
+        Nothing,
+        ServerInboundHandler,
+      ] = ServerInboundHandler.layer
+
+      val serverLayers = app ++
+        nettyBits ++
+        (
+          (
+            (time ++ app ++ ecb) ++
+              (nettyBits >>> nettyRuntime) >+> serverInboundHandler
+          ) >>> serverChannelInitializer
+        ) ++ ecb
+
+      make
+        .provideSomeLayer[ServerConfig & EventLoopGroup & ChannelFactory[ServerChannel]](
+          serverLayers,
+        )
+
+    }
 
 }

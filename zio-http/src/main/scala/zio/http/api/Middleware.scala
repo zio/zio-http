@@ -761,6 +761,14 @@ object Middleware {
     )(identity)
   }
 
+  def withIfRange(value: CharSequence): Middleware[Any, Unit, Unit] = {
+    fromFunction(
+      MiddlewareSpec.withIfRange.mapOut(
+        _.unit(IfRange.toIfRange(value.toString)),
+      ),
+    )(identity)
+  }
+
   val none: Middleware[Any, Unit, Unit] =
     fromFunction(MiddlewareSpec.none)(_ => ())
 
