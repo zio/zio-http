@@ -17,7 +17,7 @@ import java.util.zip.ZipFile
 import scala.annotation.unused
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+//import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok; // TODO
 
 /**
  * A functional domain to model Http apps using ZIO and that can work over any
@@ -581,57 +581,74 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * performance improves quite significantly if no additional heap allocations
    * are required this way.
    */
-  final private[zio] def execute(a: A)(implicit trace: Trace): HExit[R, E, B] =
+  // TODO: readd (implicit trace: Trace) propagation?
+  // TODO: the resulting PartialFunction can throw exceptions which has to be interpreted as HExit.Die
+  // TODO: HExit.empty should not exist, only the partial function's "unhandled" state?
+  final private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] =
     self match {
+      case Http.Empty           => _ => HExit.empty
+      case Http.Identity        => (a: A) => HExit.succeed(a.asInstanceOf[B])
+      case Succeed(b)           => _ => HExit.succeed(b)
+      case Fail(cause)          => _ => HExit.failCause(cause)
+      case attempt: Attempt[_]  =>
+        _ =>
+          try {
+            HExit.succeed(attempt.a().asInstanceOf[B])
+          } catch {
+            case e: Throwable => HExit.fail(e.asInstanceOf[E])
+          }
+      case FromFunctionHExit(f) => f
+      case FromHExit(h)         => _ => h
+      case Chain(self, other)   =>
+        self.execute.andThen { h =>
+          h.flatMap { b =>
+            other.execute.applyOrElse(b, (_: Any) => HExit.empty)
+          }
+        }
+      case Race(self, other)    => {
+        case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) => self.execute(a)
+        case a if !self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a) => other.execute(a)
+        case a if self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a)  =>
+          (self.execute(a), other.execute(a)) match {
+            case (HExit.Effect(self), HExit.Effect(other)) =>
+              Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
+            case (HExit.Effect(_), other)                  => other
+            case (self, _)                                 => self
+          }
+      }
 
-      case Http.Empty                              => HExit.empty
-      case Http.Identity                           => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)                              => HExit.succeed(b)
-      case Fail(cause)                             => HExit.failCause(cause)
-      case Attempt(a)                              =>
-        try { HExit.succeed(a()) }
-        catch { case e: Throwable => HExit.fail(e.asInstanceOf[E]) }
-      case FromFunctionHExit(f)                    =>
-        try { f(a) }
-        catch { case e: Throwable => HExit.die(e) }
-      case FromHExit(h)                            => h
-      case Chain(self, other)                      => self.execute(a).flatMap(b => other.execute(b))
-      case Race(self, other)                       =>
-        (self.execute(a), other.execute(a)) match {
-          case (HExit.Effect(self), HExit.Effect(other)) =>
-            Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
-          case (HExit.Effect(_), other)                  => other
-          case (self, _)                                 => self
-        }
-      case FoldHttp(self, failure, success, empty) =>
-        try {
-          self.execute(a).foldExit(failure(_).execute(a), success(_).execute(a), empty.execute(a))
-        } catch {
-          case e: Throwable => HExit.die(e)
-        }
+      case FoldHttp(self, failure, success, empty) => {
+        case a if self.execute.isDefinedAt(a) =>
+          self
+            .execute(a)
+            .foldExit(
+              failure(_).execute(a),
+              success(_).execute(a),
+              empty.execute(a)
+            )
+        case a                                => empty.execute(a)
+      }
 
       case RunMiddleware(app, mid) =>
         try {
-          mid(app).execute(a)
+          mid(app).execute
         } catch {
-          case e: Throwable => HExit.die(e)
+          case e: Throwable => { _ => HExit.die(e) }
         }
 
-      case When(f, other) =>
-        try {
-          if (f(a)) other.execute(a) else HExit.empty
-        } catch {
-          case e: Throwable => HExit.die(e)
-        }
-
-      case Combine(self, other) => {
-        self.execute(a) match {
-          case HExit.Empty            => other.execute(a)
-          case exit: HExit.Success[_] => exit.asInstanceOf[HExit[R, E, B]]
-          case exit: HExit.Failure[_] => exit.asInstanceOf[HExit[R, E, B]]
-          case exit @ HExit.Effect(_) => exit.defaultWith(other.execute(a)).asInstanceOf[HExit[R, E, B]]
-        }
+      case When(f, other) => {
+        case a if f(a) && other.execute.isDefinedAt(a) => other.execute(a)
       }
+
+      case Combine(self, other) =>
+        self.execute
+          .orElse(
+            other.execute,
+          )
+          .asInstanceOf[PartialFunction[
+            A,
+            HExit[R, E, B],
+          ]] // TODO: if self HExit.Effect evaluates into empty we need to somehow call 'other.execute' (?)
     }
 }
 
@@ -1047,10 +1064,7 @@ object Http {
 
   final case class PartialCollect[A](unit: Unit) extends AnyVal {
     def apply[B](pf: PartialFunction[A, B]): Http[Any, Nothing, A, B] = {
-      FromFunctionHExit(pf.lift(_) match {
-        case Some(value) => HExit.succeed(value)
-        case None        => HExit.Empty
-      })
+      FromFunctionHExit(pf.andThen(b => HExit.succeed(b)))
     }
   }
 
@@ -1069,7 +1083,7 @@ object Http {
       Http.identity[X].flatMap(xa) >>> self
   }
 
-  final class PartialFromOptionFunction[A](val unit: Unit) extends AnyVal {
+  final class PartialFromOptionFunction[A](val unit: Unit) extends AnyVal { // TODO
     def apply[R, E, B](f: A => ZIO[R, Option[E], B])(implicit trace: Trace): Http[R, E, A, B] = Http
       .collectZIO[A] { case a =>
         f(a)
@@ -1087,13 +1101,16 @@ object Http {
     def apply[B](f: A => B): Http[Any, Nothing, A, B] = Http.identity[A].map(f)
   }
 
-  final class PartialFromFunctionZIO[A](val unit: Unit) extends AnyVal {
+  final class PartialFromFunctionZIO[A](val unit: Unit) extends AnyVal { // TODO
     def apply[R, E, B](f: A => ZIO[R, E, B])(implicit trace: Trace): Http[R, E, A, B] =
       FromFunctionHExit(a => HExit.fromZIO(f(a)))
   }
 
   final class PartialFromFunctionHExit[A](val unit: Unit) extends AnyVal {
-    def apply[R, E, B](f: A => HExit[R, E, B]): Http[R, E, A, B] = FromFunctionHExit(f)
+    def apply[R, E, B](f: A => HExit[R, E, B]): Http[R, E, A, B] =
+      FromFunctionHExit { case a =>
+        f(a)
+      }
   }
 
   private final case class Succeed[B](b: B) extends Http[Any, Nothing, Any, B]
@@ -1102,7 +1119,7 @@ object Http {
 
   private final case class Fail[E](cause: Cause[E]) extends Http[Any, E, Any, Nothing]
 
-  private final case class FromFunctionHExit[R, E, A, B](f: A => HExit[R, E, B]) extends Http[R, E, A, B]
+  private final case class FromFunctionHExit[R, E, A, B](f: PartialFunction[A, HExit[R, E, B]]) extends Http[R, E, A, B]
 
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http[R, E, B, C])
       extends Http[R, E, A, C]
@@ -1119,7 +1136,7 @@ object Http {
     mid: Middleware[R, E, A1, B1, A2, B2],
   ) extends Http[R, E, A2, B2]
 
-  private case class Attempt[A](a: () => A) extends Http[Any, Nothing, Any, A]
+  private case class Attempt[A](a: () => A) extends Http[Any, Throwable, Any, A]
 
   private final case class Combine[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
