@@ -152,9 +152,7 @@ private[api] object EncoderDecoder                   {
           case Some(value) =>
             inputs(i) = value
           case None        =>
-            if (query.optional) {
-              inputs(i) = Undefined
-            } else throw EndpointError.MissingQueryParam(query.name)
+            throw EndpointError.MissingQueryParam(query.name)
         }
 
         i = i + 1
@@ -196,9 +194,7 @@ private[api] object EncoderDecoder                   {
               .getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
 
           case None =>
-            if (header.optional) {
-              inputs(i) = Undefined
-            } else throw EndpointError.MissingHeader(header.name)
+            throw EndpointError.MissingHeader(header.name)
         }
 
         i = i + 1
