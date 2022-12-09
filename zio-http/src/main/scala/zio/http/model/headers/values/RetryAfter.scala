@@ -34,7 +34,7 @@ object RetryAfter {
     (Try(dateOrSeconds.toLong) orElse Try(ZonedDateTime.parse(dateOrSeconds, formatter)) map {
       case long: Long if long > -1 => RetryAfterByDuration(Duration.ofSeconds(long))
       case date: ZonedDateTime     => RetryAfterByDate(date)
-    } recover { case e: Throwable =>
+    } recover { case _: Throwable =>
       InvalidRetryAfter
     }).getOrElse(InvalidRetryAfter)
   }

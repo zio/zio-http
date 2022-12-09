@@ -26,6 +26,7 @@ private[api] object Mechanic {
       case WithDoc(api, _)               => flattenedAtoms(api)
       case optional: Optional[_, _]      => flattenedAtoms(optional.in)
       case Empty                         => Chunk.empty
+      case Fallback(_, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
 
   private def indexed[R, A](api: HttpCodec[R, A]): HttpCodec[R, A] =
@@ -48,6 +49,7 @@ private[api] object Mechanic {
       case opt: Optional[_, _] =>
         val (api2, resultIndices) = indexedImpl(opt.in, indices)
         (Optional(api2).asInstanceOf[HttpCodec[R, A]], resultIndices)
+      case Fallback(_, _)      => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
 
   def makeConstructor[R, A](
@@ -130,6 +132,8 @@ private[api] object Mechanic {
 
       case atom: Atom[_, _] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
+
+      case Fallback(_, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
   }
 
@@ -188,6 +192,8 @@ private[api] object Mechanic {
 
       case atom: Atom[_, _] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
+
+      case Fallback(_, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
   }
 

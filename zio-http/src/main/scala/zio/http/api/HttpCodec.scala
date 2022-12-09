@@ -33,23 +33,19 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Returns a new codec that is the same as this one, but has attached docs,
    * which will render whenever docs are generated from the codec.
    */
-  def ??(doc: Doc): HttpCodec[AtomTypes, Value] = HttpCodec.WithDoc(self, doc)
+  final def ??(doc: Doc): HttpCodec[AtomTypes, Value] = HttpCodec.WithDoc(self, doc)
 
-  /**
-   * Returns a new codec, where the value produced by this one is optional. This
-   * method may only be called on header and query codecs.
-   */
-  def optional(implicit
-    ev: CodecType.Header with CodecType.Query with CodecType.Method <:< AtomTypes,
-  ): HttpCodec[AtomTypes, Option[Value]] =
-    HttpCodec.Optional(HttpCodec.updateOptional(self))
+  final def |[AtomTypes1 <: AtomTypes, Value2](
+    that: HttpCodec[AtomTypes1, Value2],
+  ): HttpCodec[AtomTypes1, Either[Value, Value2]] =
+    HttpCodec.Fallback(self, that)
 
   /**
    * Returns a new codec that is the composition of this codec and the specified
    * codec. For codecs that include route codecs, the routes will be decoded
    * sequentially from left to right.
    */
-  def ++[AtomTypes1 <: AtomTypes, Value2](that: HttpCodec[AtomTypes1, Value2])(implicit
+  final def ++[AtomTypes1 <: AtomTypes, Value2](that: HttpCodec[AtomTypes1, Value2])(implicit
     combiner: Combiner[Value, Value2],
   ): HttpCodec[AtomTypes1, combiner.Out] =
     HttpCodec.Combine[AtomTypes1, AtomTypes1, Value, Value2, combiner.Out](self, that, combiner)
@@ -57,7 +53,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Combines two query codecs into another query codec.
    */
-  def &[Value2](
+  final def &[Value2](
     that: QueryCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
@@ -68,13 +64,20 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Combines two route codecs into another route codec.
    */
-  def /[Value2](
+  final def /[Value2](
     that: RouteCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
     ev: CodecType.Route <:< AtomTypes,
   ): RouteCodec[combiner.Out] =
     self.asRoute ++ that
+
+  /**
+   * Produces a flattened collection of alternatives. Once flattened, each codec
+   * inside the returned collection is guaranteed to contain no nested
+   * alternatives.
+   */
+  final def alternatives: Chunk[HttpCodec[AtomTypes, Value]] = HttpCodec.flattenFallbacks(self)
 
   /**
    * Reinterprets this codec as a query codec assuming evidence that this
@@ -140,6 +143,32 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     encoderDecoder.encodeWith(value)(f)
 
   /**
+   * Returns a new codec, where the value produced by this one is optional. This
+   * method may only be called on header and query codecs.
+   */
+  final def optional(implicit
+    ev: CodecType.Header with CodecType.Query with CodecType.Method <:< AtomTypes,
+  ): HttpCodec[AtomTypes, Option[Value]] =
+    HttpCodec.Optional(HttpCodec.updateOptional(self))
+
+  final def orElse[AtomTypes1 <: AtomTypes, Value2](
+    that: HttpCodec[AtomTypes1, Value2],
+  ): HttpCodec[AtomTypes1, Either[Value, Value2]] =
+    self | that
+
+  final def toLeft[R]: HttpCodec[AtomTypes, Either[Value, R]] =
+    self.transformOrFail[Either[Value, R]](
+      value => Right(Left(value)),
+      either => either.swap.left.map(_ => "Error!"),
+    ) // TODO: Solve with partiality
+
+  final def toRight[L]: HttpCodec[AtomTypes, Either[L, Value]] =
+    self.transformOrFail[Either[L, Value]](
+      value => Right(Right(value)),
+      either => either.left.map(_ => "Error!"),
+    ) // TODO: Solve with partiality
+
+  /**
    * Transforms the type parameter of this HttpCodec from `Value` to `Value2`.
    * Due to the fact that HttpCodec is invariant in its type parameter, the
    * transformation requires not just a function from `Value` to `Value2`, but
@@ -150,22 +179,22 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * used in encoding, for example, when a client calls the endpoint on the
    * server.
    */
-  def transform[Value2](f: Value => Value2, g: Value2 => Value): HttpCodec[AtomTypes, Value2] =
+  final def transform[Value2](f: Value => Value2, g: Value2 => Value): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, in => Right(f(in)), output => Right(g(output)))
 
-  def transformOrFail[Value2](
+  final def transformOrFail[Value2](
     f: Value => Either[String, Value2],
     g: Value2 => Either[String, Value],
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, f, g)
 
-  def transformOrFailLeft[Value2](
+  final def transformOrFailLeft[Value2](
     f: Value => Either[String, Value2],
     g: Value2 => Value,
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, f, output => Right(g(output)))
 
-  def transformOrFailRight[Value2](
+  final def transformOrFailRight[Value2](
     f: Value => Value2,
     g: Value2 => Either[String, Value],
   ): HttpCodec[AtomTypes, Value2] =
@@ -179,7 +208,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Note: You should NOT use this method on any codec which can decode
    * semantically distinct values.
    */
-  def unit(canonical: Value): HttpCodec[AtomTypes, Unit] =
+  final def unit(canonical: Value): HttpCodec[AtomTypes, Unit] =
     self.transform(_ => (), _ => canonical)
 }
 
@@ -216,7 +245,11 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
     def erase: Header[Any] = self.asInstanceOf[Header[Any]]
   }
 
-  private[api] final case class Optional[AtomType, A](in: HttpCodec[AtomType, A]) extends HttpCodec[AtomType, Option[A]]
+  private[api] final case class Optional[AtomType, A](in: HttpCodec[AtomType, A])
+      extends HttpCodec[AtomType, Option[A]] {
+    type In  = A
+    type Out = Option[A]
+  }
 
   private[api] final case class IndexedAtom[AtomType, A](atom: Atom[AtomType, A], index: Int) extends Atom[AtomType, A]
 
@@ -227,7 +260,10 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
     api: HttpCodec[AtomType, X],
     f: X => Either[String, A],
     g: A => Either[String, X],
-  ) extends HttpCodec[AtomType, A]
+  ) extends HttpCodec[AtomType, A] {
+    type In  = X
+    type Out = A
+  }
 
   private[api] case object Empty extends HttpCodec[Any, Unit]
 
@@ -235,7 +271,20 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
     left: HttpCodec[AtomType1, A1],
     right: HttpCodec[AtomType2, A2],
     inputCombiner: Combiner.WithOut[A1, A2, A],
-  ) extends HttpCodec[AtomType1 with AtomType2, A]
+  ) extends HttpCodec[AtomType1 with AtomType2, A] {
+    type Left  = A1
+    type Right = A2
+    type Out   = A
+  }
+
+  private[api] final case class Fallback[AtomType, A, B](
+    left: HttpCodec[AtomType, A],
+    right: HttpCodec[AtomType, B],
+  ) extends HttpCodec[AtomType, Either[A, B]] {
+    type Left  = A
+    type Right = B
+    type Out   = Either[A, B]
+  }
 
   private[api] def updateOptional[AtomTypes, A](api: HttpCodec[AtomTypes, A]): HttpCodec[AtomTypes, A] = {
     def loop[B](api: HttpCodec[AtomTypes, B]): HttpCodec[AtomTypes, B] =
@@ -260,8 +309,37 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
         case optional: HttpCodec.Optional[_, _]            => HttpCodec.Optional(updateOptional(optional.in))
         case HttpCodec.Combine(left, right, inputCombiner) =>
           HttpCodec.Combine(loop(left), loop(right), inputCombiner)
+        case HttpCodec.Fallback(left, right)               => HttpCodec.Fallback(loop(left), loop(right))
       }
 
     loop(api)
+  }
+
+  private[api] def flattenFallbacks[AtomTypes, A](api: HttpCodec[AtomTypes, A]): Chunk[HttpCodec[AtomTypes, A]] = {
+    def rewrite[T, B](api: HttpCodec[T, B]): Chunk[HttpCodec[T, B]] =
+      api match {
+        case fallback @ HttpCodec.Fallback(left, right) =>
+          rewrite[T, fallback.Left](left).map(_.toLeft[fallback.Right]) ++ rewrite[T, fallback.Right](right)
+            .map(_.toRight[fallback.Left])
+
+        case transform @ HttpCodec.TransformOrFail(codec, f, g) =>
+          rewrite[T, transform.In](codec).map(HttpCodec.TransformOrFail(_, f, g))
+
+        case combine @ HttpCodec.Combine(left, right, combiner) =>
+          for {
+            l <- rewrite[T, combine.Left](left)
+            r <- rewrite[T, combine.Right](right)
+          } yield HttpCodec.Combine(l, r, combiner)
+
+        case HttpCodec.WithDoc(in, doc) => rewrite[T, B](in).map(_ ?? doc)
+
+        case optional @ HttpCodec.Optional(codec) => rewrite[T, optional.In](codec).map(HttpCodec.Optional(_))
+
+        case HttpCodec.Empty => Chunk.single(HttpCodec.Empty)
+
+        case atom: Atom[_, _] => Chunk.single(atom)
+      }
+
+    rewrite(api)
   }
 }
