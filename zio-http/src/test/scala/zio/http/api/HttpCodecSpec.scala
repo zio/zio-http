@@ -20,6 +20,36 @@ object HttpCodecSpec extends ZIOSpecDefault {
   val emptyJson = Body.fromString("{}")
 
   def spec = suite("HttpCodecSpec")(
+    suite("fallback") {
+      test("route fallback") {
+        val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
+        val postsURL = URL.fromString("http://mywebservice.com/posts").toOption.get
+
+        val codec1 = RouteCodec.literal("users")
+        val codec2 = RouteCodec.literal("posts")
+
+        val fallback = codec1 | codec2
+
+        for {
+          result1 <- fallback.decodeRequest(Request.get(url = usersURL))
+          result2 <- fallback.decodeRequest(Request.get(url = postsURL))
+        } yield assertTrue(result1 == Left(())) && assertTrue(result2 == Right(()))
+      } +
+        test("query fallback") {
+          val codec1 = QueryCodec.query("skip")
+          val codec2 = QueryCodec.query("limit")
+
+          val fallback = codec1 | codec2
+
+          val skipRequest  = Request.get(url = usersUrl.copy(queryParams = QueryParams("skip" -> "10")))
+          val limitRequest = Request.get(url = usersUrl.copy(queryParams = QueryParams("limit" -> "20")))
+
+          for {
+            result1 <- fallback.decodeRequest(skipRequest)
+            result2 <- fallback.decodeRequest(limitRequest)
+          } yield assertTrue(result1 == Left("10")) && assertTrue(result2 == Right("20"))
+        }
+    },
     suite("RouteCodec") {
       test("decode route with one path segment") {
         val codec = RouteCodec.literal("users")

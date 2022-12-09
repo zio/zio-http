@@ -31,11 +31,23 @@ private[api] object EncoderDecoder                   {
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
-    ): Task[Value] =
-      ZIO.firstSuccessOf(
-        head.decode(url, status, method, headers, body),
-        tail.map(_.decode(url, status, method, headers, body)),
-      )
+    ): Task[Value] = {
+      def tryDecode(i: Int, lastError: Cause[Throwable]): Task[Value] = {
+        if (i >= singles.length) ZIO.refailCause(lastError)
+        else {
+          val codec = singles(i)
+
+          codec
+            .decode(url, status, method, headers, body)
+            .catchAllCause(cause =>
+              // TODO: Only on EndpointError
+              tryDecode(i + 1, lastError ++ cause),
+            )
+        }
+      }
+
+      tryDecode(0, Cause.empty)
+    }
 
     def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
       var i         = 0
@@ -58,7 +70,8 @@ private[api] object EncoderDecoder                   {
         i = i + 1
       }
 
-      encoded
+      if (encoded == null) throw lastError
+      else encoded
     }
   }
 
@@ -74,7 +87,7 @@ private[api] object EncoderDecoder                   {
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
-    ): Task[Value] = {
+    ): Task[Value] = ZIO.suspend {
       val inputsBuilder = flattened.makeInputsBuilder()
 
       decodeRoutes(url.path, inputsBuilder.routes)
