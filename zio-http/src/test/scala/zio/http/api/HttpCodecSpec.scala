@@ -3,6 +3,7 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.api._
+import zio.http.api.internal.TextCodec
 import zio.http.model._
 import zio.test._
 
@@ -48,6 +49,47 @@ object HttpCodecSpec extends ZIOSpecDefault {
             result1 <- fallback.decodeRequest(skipRequest)
             result2 <- fallback.decodeRequest(limitRequest)
           } yield assertTrue(result1 == Left("10")) && assertTrue(result2 == Right("20"))
+        } +
+        test("header fallback") {
+          val codec1 = HeaderCodec.header("Authentication", TextCodec.string)
+          val codec2 = HeaderCodec.header("X-Token-ID", TextCodec.string)
+
+          val fallback = codec1 | codec2
+
+          val authRequest  = Request.get(url = usersUrl).copy(headers = Headers("Authentication" -> "1234"))
+          val tokenRequest = Request.get(url = usersUrl).copy(headers = Headers("X-Token-ID" -> "5678"))
+
+          for {
+            result1 <- fallback.decodeRequest(authRequest)
+            result2 <- fallback.decodeRequest(tokenRequest)
+          } yield assertTrue(result1 == Left("1234")) && assertTrue(result2 == Right("5678"))
+        } +
+        test("composite fallback") {
+          val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
+          val postsURL = URL.fromString("http://mywebservice.com/posts").toOption.get
+
+          val codec1 = RouteCodec.literal("users") ++ QueryCodec.query("skip") ++ HeaderCodec.header(
+            "Authentication",
+            TextCodec.string,
+          )
+          val codec2 = RouteCodec.literal("posts") ++ QueryCodec.query("limit") ++ HeaderCodec.header(
+            "X-Token-ID",
+            TextCodec.string,
+          )
+
+          val fallback = codec1 | codec2
+
+          val usersRequest = Request
+            .get(url = usersURL.copy(queryParams = QueryParams("skip" -> "10")))
+            .copy(headers = Headers("Authentication" -> "1234"))
+          val postsRequest = Request
+            .get(url = postsURL.copy(queryParams = QueryParams("limit" -> "20")))
+            .copy(headers = Headers("X-Token-ID" -> "567"))
+
+          for {
+            result1 <- fallback.decodeRequest(usersRequest)
+            result2 <- fallback.decodeRequest(postsRequest)
+          } yield assertTrue(result1 == Left(("10", "1234"))) && assertTrue(result2 == Right(("20", "567")))
         }
     },
     suite("RouteCodec") {
