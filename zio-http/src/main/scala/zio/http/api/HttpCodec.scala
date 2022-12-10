@@ -147,10 +147,10 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    */
   final def optional: HttpCodec[AtomTypes, Option[Value]] =
     self
-      .orElse(HttpCodec.empty)
+      .orElseEither(HttpCodec.empty)
       .transform[Option[Value]](_.swap.toOption, _.fold[Either[Unit, Value]](Left(()))(Right(_)).swap)
 
-  final def orElse[AtomTypes1 <: AtomTypes, Value2](
+  final def orElseEither[AtomTypes1 <: AtomTypes, Value2](
     that: HttpCodec[AtomTypes1, Value2],
   ): HttpCodec[AtomTypes1, Either[Value, Value2]] =
     self | that
