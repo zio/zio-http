@@ -104,7 +104,9 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Consumes the input and executes the Http.
    */
-  final def apply(a: A)(implicit trace: Trace): ZIO[R, Option[E], B] = execute(a).toZIO
+  final def apply(a: A)(implicit trace: Trace): ZIO[R, Option[E], B] =
+    if (execute.isDefinedAt(a)) execute(a).toZIO.mapError(Some(_))
+    else ZIO.fail(None)
 
   /**
    * Makes the app resolve with a constant value
@@ -583,10 +585,9 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   // TODO: readd (implicit trace: Trace) propagation?
   // TODO: the resulting PartialFunction can throw exceptions which has to be interpreted as HExit.Die
-  // TODO: HExit.empty should not exist, only the partial function's "unhandled" state?
   final private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] =
     self match {
-      case Http.Empty           => _ => HExit.empty
+      case Http.Empty           => PartialFunction.empty
       case Http.Identity        => (a: A) => HExit.succeed(a.asInstanceOf[B])
       case Succeed(b)           => _ => HExit.succeed(b)
       case Fail(cause)          => _ => HExit.failCause(cause)
@@ -602,7 +603,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
       case Chain(self, other)   =>
         self.execute.andThen { h =>
           h.flatMap { b =>
-            other.execute.applyOrElse(b, (_: Any) => HExit.empty)
+            if (other.execute.isDefinedAt(b)) other.execute(b)
+            else ??? // TODO: HExit.empty but I deleted that.
           }
         }
       case Race(self, other)    => {
@@ -611,7 +613,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
         case a if self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a)  =>
           (self.execute(a), other.execute(a)) match {
             case (HExit.Effect(self), HExit.Effect(other)) =>
-              Http.fromOptionFunction[Any](_ => self.raceFirst(other)).execute(a)
+              Http.fromZIO(self.raceFirst(other)).execute(a)
             case (HExit.Effect(_), other)                  => other
             case (self, _)                                 => self
           }
@@ -624,17 +626,14 @@ sealed trait Http[-R, +E, -A, +B] { self =>
             .foldExit(
               failure(_).execute(a),
               success(_).execute(a),
-              empty.execute(a)
             )
         case a                                => empty.execute(a)
       }
 
-      case RunMiddleware(app, mid) =>
-        try {
-          mid(app).execute
-        } catch {
-          case e: Throwable => { _ => HExit.die(e) }
-        }
+      case RunMiddleware(app, mid) => {
+        case a if app.execute.isDefinedAt(a) =>
+          mid(app).execute(a)
+      }
 
       case When(f, other) => {
         case a if f(a) && other.execute.isDefinedAt(a) => other.execute(a)
@@ -1075,7 +1074,7 @@ object Http {
 
   final case class PartialCollectHExit[A](unit: Unit) extends AnyVal {
     def apply[R, E, B](pf: PartialFunction[A, HExit[R, E, B]]): Http[R, E, A, B] =
-      FromFunctionHExit(a => if (pf.isDefinedAt(a)) pf(a) else HExit.empty)
+      FromFunctionHExit(pf)
   }
 
   final case class PartialContraFlatMap[-R, +E, -A, +B, X](self: Http[R, E, A, B]) extends AnyVal {
@@ -1084,17 +1083,18 @@ object Http {
   }
 
   final class PartialFromOptionFunction[A](val unit: Unit) extends AnyVal { // TODO
-    def apply[R, E, B](f: A => ZIO[R, Option[E], B])(implicit trace: Trace): Http[R, E, A, B] = Http
-      .collectZIO[A] { case a =>
-        f(a)
-          .map(Http.succeed)
-          .catchAll {
-            case Some(error) => ZIO.succeed(Http.fail(error))
-            case None        => ZIO.succeed(Http.empty)
-          }
-          .catchAllDefect(defect => ZIO.succeed(Http.die(defect)))
-      }
-      .flatten
+    def apply[R, E, B](f: A => ZIO[R, Option[E], B])(implicit trace: Trace): Http[R, E, A, B] =
+      Http
+        .collectZIO[A] { case a =>
+          f(a)
+            .map(Http.succeed)
+            .catchAll {
+              case Some(error) => ZIO.succeed(Http.fail(error))
+              case None        => ZIO.succeed(Http.empty)
+            }
+            .catchAllDefect(defect => ZIO.succeed(Http.die(defect)))
+        }
+        .flatten
   }
 
   final class PartialFromFunction[A](val unit: Unit) extends AnyVal {

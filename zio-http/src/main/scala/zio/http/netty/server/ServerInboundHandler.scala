@@ -45,8 +45,7 @@ private[zio] final case class ServerInboundHandler(
     msg match {
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
-        val req  = makeZioRequest(ctx, jReq)
-        val exit = http.execute(req)
+        val req = makeZioRequest(ctx, jReq)
 
         val releaseRequest = { () =>
           if (jReq.refCnt() > 0) {
@@ -54,29 +53,39 @@ private[zio] final case class ServerInboundHandler(
           }
         }
 
-        if (!attemptImmediateWrite(ctx, exit, time))
-          writeResponse(ctx, env, exit, jReq)(releaseRequest)
-        else
-          releaseRequest()
+        if (http.execute.isDefinedAt(req)) {
+          val exit = http.execute(req)
+
+          if (!attemptImmediateWrite(ctx, exit, time))
+            writeResponse(ctx, env, exit, jReq)(releaseRequest)
+          else
+            releaseRequest()
+        } else {
+          writeNotFound(ctx, jReq)(releaseRequest)
+        }
 
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
-        val req  = makeZioRequest(ctx, jReq)
-        val exit = http.execute(req)
+        val req = makeZioRequest(ctx, jReq)
 
-        if (!attemptImmediateWrite(ctx, exit, time)) {
+        if (http.execute.isDefinedAt(req)) {
+          val exit = http.execute(req)
 
-          if (
-            jReq.method() == HttpMethod.TRACE ||
-            jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
-            jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
-          )
-            ctx.channel().config().setAutoRead(false)
+          if (!attemptImmediateWrite(ctx, exit, time)) {
 
-          writeResponse(ctx, env, exit, jReq) { () =>
-            val _ = ctx.channel().config().setAutoRead(true)
+            if (
+              jReq.method() == HttpMethod.TRACE ||
+              jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
+              jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
+            )
+              ctx.channel().config().setAutoRead(false)
+
+            writeResponse(ctx, env, exit, jReq) { () =>
+              val _ = ctx.channel().config().setAutoRead(true)
+            }
           }
-
+        } else {
+          writeNotFound(ctx, jReq) { () => }
         }
 
       case msg: HttpContent =>
@@ -252,30 +261,31 @@ private[zio] final case class ServerInboundHandler(
     }
   }
 
+  private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest)(ensured: () => Unit): Unit = {
+    // TODO: this can be done without ZIO
+    runtime.run(ctx, ensured) {
+      ZIO.succeedNow(HttpError.NotFound(jReq.uri()).toResponse)
+    }
+  }
+
   private def writeResponse(
     ctx: ChannelHandlerContext,
     env: ZEnvironment[Any],
     exit: HExit[Any, Throwable, Response],
     jReq: HttpRequest,
-  )(ensured: () => Unit) = {
+  )(ensured: () => Unit): Unit = {
     runtime.run(ctx, ensured) {
       val pgm = for {
-        response <- exit.toZIO.unrefine { case error => Option(error) }.catchAll {
-          case None        => ZIO.succeedNow(HttpError.NotFound(jReq.uri()).toResponse)
-          case Some(error) => ZIO.succeedNow(HttpError.InternalServerError(cause = Some(error)).toResponse)
+        response <- exit.toZIO.catchAll { error =>
+          ZIO.succeedNow(HttpError.InternalServerError(cause = Some(error)).toResponse)
         }
         done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-        result   <-
-          if (done)
-            ZIO.unit
-          else
-            attemptFullWrite(ctx, response, jReq, time, runtime)
+        _        <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
 
       } yield ()
 
       pgm.provideEnvironment(env)
     }
-
   }
 }
 

@@ -15,12 +15,6 @@ private[zio] trait HExitAssertion {
       case _               => false
     }
 
-  def isEmpty[R, E, A]: Assertion[HExit[R, E, A]] =
-    Assertion.assertion("isEmpty") {
-      case HExit.Empty => true
-      case _           => false
-    }
-
   def isSuccess[R, E, A](ass: Assertion[A]): Assertion[HExit[R, E, A]] =
     Assertion.assertion("isSuccess") {
       case HExit.Success(a) => ass.test(a)
