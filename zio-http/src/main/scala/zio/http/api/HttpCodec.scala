@@ -37,8 +37,13 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
   final def |[AtomTypes1 <: AtomTypes, Value2](
     that: HttpCodec[AtomTypes1, Value2],
-  ): HttpCodec[AtomTypes1, Either[Value, Value2]] =
-    HttpCodec.Fallback(self, that)
+  )(implicit alternator: Alternator[Value, Value2]): HttpCodec[AtomTypes1, alternator.Out] =
+    HttpCodec
+      .Fallback(self, that)
+      .transform[alternator.Out](
+        either => either.fold(alternator.left(_), alternator.right(_)),
+        value => alternator.unleft(value).map(Left(_)).orElse(alternator.unright(value).map(Right(_))).get,
+      )
 
   /**
    * Returns a new codec that is the composition of this codec and the specified

@@ -69,7 +69,7 @@ object SocketContractSpec extends ZIOSpecDefault {
             ZIO.fail(new Exception("Broken server"))
         },
       ) { p =>
-        Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, ChannelUnregistered) =>
+        Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(_, ChannelUnregistered) =>
           printLine("Server failed and killed socket. Should complete promise.") *>
             p.succeed(()).unit
         }
