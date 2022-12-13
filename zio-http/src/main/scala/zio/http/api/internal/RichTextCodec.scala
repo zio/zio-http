@@ -181,95 +181,95 @@ object RichTextCodec {
     descriptionNotNeeded: Boolean = false,
   ) extends RichTextCodec[A]
 
-  private[internal] class PartiallyAppliedEnumeration[D]() {
+  private[internal] class PartiallyAppliedEnumeration[A]() {
 
-    def apply[X <: D](codec1: RichTextCodec[X])(implicit tag: ClassTag[X]): RichTextCodec[D] =
+    def apply[B <: A](codec1: RichTextCodec[B])(implicit tag: ClassTag[B]): RichTextCodec[A] =
       codec1.transform(
-        (a: X) => a: D,
-        (d: D) =>
+        (a: B) => a: B,
+        (d: A) =>
           d match {
-            case a: X => a
+            case a: B => a
           },
       )
 
-    def apply[X <: D](codec1: RichTextCodec[X], codec2: RichTextCodec[X])(implicit tag: ClassTag[X]): RichTextCodec[D] =
+    def apply[B <: A](codec1: RichTextCodec[B], codec2: RichTextCodec[B])(implicit tag: ClassTag[B]): RichTextCodec[A] =
       (apply(codec1) | apply(codec2)).transform(
         {
-          case Left(a)  => a: D
-          case Right(a) => a: D
+          case Left(a)  => a: A
+          case Right(a) => a: A
         },
-        { case a: X =>
-          Left(a)
+        { case b: B =>
+          Left(b)
         },
       )
 
-    def apply[X <: D](codec1: RichTextCodec[X], codec2: RichTextCodec[X], codec3: RichTextCodec[X])(implicit
-      tag: ClassTag[X],
-    ): RichTextCodec[D] =
+    def apply[B <: A](codec1: RichTextCodec[B], codec2: RichTextCodec[B], codec3: RichTextCodec[B])(implicit
+      tag: ClassTag[B],
+    ): RichTextCodec[A] =
       (apply(codec1, codec2) | apply(codec3)).transform(
         {
-          case Left(a)  => a: D
-          case Right(a) => a: D
+          case Left(a)  => a: A
+          case Right(a) => a: A
         },
-        { case a: X =>
-          Left(a)
+        { case b: B =>
+          Left(b)
         },
       )
 
-    def apply[X <: D](
-      codec1: RichTextCodec[X],
-      codec2: RichTextCodec[X],
-      codec3: RichTextCodec[X],
-      codec4: RichTextCodec[X],
+    def apply[B <: A](
+      codec1: RichTextCodec[B],
+      codec2: RichTextCodec[B],
+      codec3: RichTextCodec[B],
+      codec4: RichTextCodec[B],
     )(implicit
-      tag: ClassTag[X],
-    ): RichTextCodec[D] =
+      tag: ClassTag[B],
+    ): RichTextCodec[A] =
       (apply(codec1, codec2, codec3) | apply(codec4)).transform(
         {
-          case Left(a)  => a: D
-          case Right(a) => a: D
+          case Left(a)  => a: A
+          case Right(a) => a: A
         },
-        { case a: X =>
-          Left(a)
+        { case b: B =>
+          Left(b)
         },
       )
 
-    def apply[X <: D](
-      codec1: RichTextCodec[X],
-      codec2: RichTextCodec[X],
-      codec3: RichTextCodec[X],
-      codec4: RichTextCodec[X],
-      codec5: RichTextCodec[X],
+    def apply[B <: A](
+      codec1: RichTextCodec[B],
+      codec2: RichTextCodec[B],
+      codec3: RichTextCodec[B],
+      codec4: RichTextCodec[B],
+      codec5: RichTextCodec[B],
     )(implicit
-      tag: ClassTag[X],
-    ): RichTextCodec[D] =
+      tag: ClassTag[B],
+    ): RichTextCodec[A] =
       (apply(codec1, codec2, codec3, codec4) | apply(codec5)).transform(
         {
-          case Left(a)  => a: D
-          case Right(a) => a: D
+          case Left(a)  => a: A
+          case Right(a) => a: A
         },
-        { case a: X =>
-          Left(a)
+        { case b: B =>
+          Left(b)
         },
       )
 
-    def apply[X <: D](
-      codec1: RichTextCodec[X],
-      codec2: RichTextCodec[X],
-      codec3: RichTextCodec[X],
-      codec4: RichTextCodec[X],
-      codec5: RichTextCodec[X],
-      codec6: RichTextCodec[X],
+    def apply[B <: A](
+      codec1: RichTextCodec[B],
+      codec2: RichTextCodec[B],
+      codec3: RichTextCodec[B],
+      codec4: RichTextCodec[B],
+      codec5: RichTextCodec[B],
+      codec6: RichTextCodec[B],
     )(implicit
-      tag: ClassTag[X],
-    ): RichTextCodec[D] =
+      tag: ClassTag[B],
+    ): RichTextCodec[A] =
       (apply(codec1, codec2, codec3, codec4, codec5) | apply(codec6)).transform(
         {
-          case Left(a)  => a: D
-          case Right(a) => a: D
+          case Left(a)  => a: A
+          case Right(a) => a: A
         },
-        { case a: X =>
-          Left(a)
+        { case b: B =>
+          Left(b)
         },
       )
 
@@ -278,8 +278,8 @@ object RichTextCodec {
   /**
    * Combines up to six codecs into a single codec using OR semantics.
    */
-  def enumeration[D] =
-    new PartiallyAppliedEnumeration[D]
+  def enumeration[A] =
+    new PartiallyAppliedEnumeration[A]
 
   /**
    * Returns a lazy codec, which can be used to define recursive codecs.
