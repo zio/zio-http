@@ -23,7 +23,7 @@ object APIExamples extends ZIOAppDefault {
       .in(query("name"))
 
   val getUserPostEndpoint =
-    getUserPosts.implement[Any, Nothing] { case (id1: Int, id2: Int, query: String) =>
+    getUserPosts.implement[Any] { case (id1: Int, id2: Int, query: String) =>
       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
     }
 
