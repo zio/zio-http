@@ -25,8 +25,9 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
     import zio.http.api.internal._
 
     val handlerTree     = HandlerTree.fromService(self)
-    val requestHandlers = Memoized[Endpoints.HandledEndpoint[R, E, _, _, _], EndpointServer[R, E, _, _]] { handledApi =>
-      EndpointServer(handledApi)
+    val requestHandlers = Memoized[Endpoints.HandledEndpoint[R, _ <: E, _, _, _], EndpointServer[R, _ <: E, _, _]] {
+      handledApi =>
+        EndpointServer(handledApi)
     }
 
     Http
@@ -49,8 +50,8 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
 
 object Endpoints {
   // How to integrate middlewarespec's handlers in here ?
-  final case class HandledEndpoint[-R, +E, In0, Out0, Id](
-    endpointSpec: EndpointSpec[In0, Out0],
+  final case class HandledEndpoint[-R, E, In0, Out0, Id](
+    endpointSpec: EndpointSpec[In0, E, Out0],
     handler: In0 => ZIO[R, E, Out0],
   ) extends Endpoints[R, E, Id] { self =>
     def flatten: Iterable[Endpoints.HandledEndpoint[R, E, _, _, Id]] = Chunk(self)

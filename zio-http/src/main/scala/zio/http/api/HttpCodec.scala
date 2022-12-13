@@ -42,7 +42,12 @@ sealed trait HttpCodec[-AtomTypes, Value] {
       .Fallback(self, that)
       .transform[alternator.Out](
         either => either.fold(alternator.left(_), alternator.right(_)),
-        value => alternator.unleft(value).map(Left(_)).orElse(alternator.unright(value).map(Right(_))).get,
+        value =>
+          alternator
+            .unleft(value)
+            .map(Left(_))
+            .orElse(alternator.unright(value).map(Right(_)))
+            .get, // TODO: Solve with partiality
       )
 
   /**
@@ -157,7 +162,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
   final def orElseEither[AtomTypes1 <: AtomTypes, Value2](
     that: HttpCodec[AtomTypes1, Value2],
-  ): HttpCodec[AtomTypes1, Either[Value, Value2]] =
+  )(implicit alternator: Alternator[Value, Value2]): HttpCodec[AtomTypes1, alternator.Out] =
     self | that
 
   final def toLeft[R]: HttpCodec[AtomTypes, Either[Value, R]] =
@@ -218,9 +223,12 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
 object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
   implicit def stringToLiteral(s: String): RouteCodec[Unit] = RouteCodec.literal(s)
+  type Unused <: Nothing
 
   def empty: HttpCodec[Any, Unit] =
     Empty
+
+  def unused: HttpCodec[Any, Unused] = Unused
 
   private[api] sealed trait Atom[-AtomTypes, Value0] extends HttpCodec[AtomTypes, Value0]
 
@@ -263,6 +271,8 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
 
   private[api] case object Empty extends HttpCodec[Any, Unit]
 
+  private[api] case object Unused extends HttpCodec[Any, Unused]
+
   private[api] final case class Combine[AtomType1, AtomType2, A1, A2, A](
     left: HttpCodec[AtomType1, A1],
     right: HttpCodec[AtomType2, A2],
@@ -301,6 +311,8 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
         case HttpCodec.WithDoc(in, doc) => rewrite[T, B](in).map(_ ?? doc)
 
         case HttpCodec.Empty => Chunk.single(HttpCodec.Empty)
+
+        case HttpCodec.Unused => Chunk.empty
 
         case atom: Atom[_, _] => Chunk.single(atom)
       }

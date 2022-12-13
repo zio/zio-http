@@ -10,6 +10,8 @@ package object api {
   type MethodCodec[A] = HttpCodec[CodecType.Method, A]
   type StatusCodec[A] = HttpCodec[CodecType.Status, A]
 
+  type Unused = HttpCodec.Unused
+
   implicit def string2HttpCodec(string: String): RouteCodec[Unit] =
     HttpCodec.literal(string)
 }

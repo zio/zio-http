@@ -4,5 +4,5 @@ import zio.http.URL
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait EndpointLocator {
-  def locate(api: EndpointSpec[_, _]): Option[URL]
+  def locate[A, E, B](api: EndpointSpec[A, E, B]): Option[URL]
 }

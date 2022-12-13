@@ -25,6 +25,7 @@ private[api] object Mechanic {
       case map: TransformOrFail[_, _, _] => flattenedAtoms(map.api)
       case WithDoc(api, _)               => flattenedAtoms(api)
       case Empty                         => Chunk.empty
+      case Unused                        => Chunk.empty
       case Fallback(_, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
 
@@ -45,6 +46,7 @@ private[api] object Mechanic {
 
       case WithDoc(api, _) => indexedImpl(api.asInstanceOf[HttpCodec[R, A]], indices)
       case Empty           => (Empty.asInstanceOf[HttpCodec[R, A]], indices)
+      case Unused          => (Unused.asInstanceOf[HttpCodec[R, A]], indices)
       case Fallback(_, _)  => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
 
@@ -115,6 +117,9 @@ private[api] object Mechanic {
       case Empty =>
         _ => coerce(())
 
+      case Unused =>
+        _ => throw new RuntimeException("Unused shouldd never appear in a vallue being constructed")
+
       case atom: Atom[_, _] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
 
@@ -170,6 +175,8 @@ private[api] object Mechanic {
       case WithDoc(api, _) => makeDeconstructorLoop(api)
 
       case Empty => (_, _) => ()
+
+      case Unused => (_, _) => ()
 
       case atom: Atom[_, _] =>
         throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")

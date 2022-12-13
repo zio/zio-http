@@ -11,17 +11,17 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * failing with some kind of RPC error.
  */
 trait EndpointExecutor[+MI, +MO, +Ids] { self =>
-  def apply[Id, A, B](
-    invocation: Invocation[Id, A, B],
-  )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B]
+  def apply[Id, A, E, B](
+    invocation: Invocation[Id, A, E, B],
+  )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, E, B]
 
   def middlewareInput(implicit trace: Trace): Task[MI]
 
   def mapMiddlewareInput[MI2](f: MI => MI2): EndpointExecutor[MI2, MO, Ids] =
     new EndpointExecutor[MI2, MO, Ids] {
-      def apply[Id, A, B](
-        invocation: Invocation[Id, A, B],
-      )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B] =
+      def apply[Id, A, E, B](
+        invocation: Invocation[Id, A, E, B],
+      )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, E, B] =
         self.apply(invocation)
 
       def middlewareInput(implicit trace: Trace): Task[MI2] = self.middlewareInput.map(f)
@@ -54,20 +54,20 @@ object EndpointExecutor {
     locator: EndpointLocator,
     middlewareInput0: Task[MI],
   ) extends EndpointExecutor[MI, Any, Nothing] {
-    val metadata = zio.http.api.internal.Memoized[EndpointSpec[_, _], EndpointClient[Any, Any]] {
-      (api: EndpointSpec[_, _]) =>
+    val metadata = zio.http.api.internal.Memoized[EndpointSpec[_, _, _], EndpointClient[Any, Any, Any]] {
+      (api: EndpointSpec[_, _, _]) =>
         EndpointClient(
           locator.locate(api).getOrElse(throw EndpointError.NotFound(s"Could not locate API", api)),
-          api.asInstanceOf[EndpointSpec[Any, Any]],
+          api.asInstanceOf[EndpointSpec[Any, Any, Any]],
         )
     }
 
-    def apply[Id, A, B](
-      invocation: Invocation[Id, A, B],
-    )(implicit ev: Nothing <:< Id, trace: Trace): ZIO[Any, Throwable, B] = {
-      val executor = metadata.get(invocation.api).asInstanceOf[EndpointClient[A, B]]
+    def apply[Id, A, E, B](
+      invocation: Invocation[Id, A, E, B],
+    )(implicit ev: Nothing <:< Id, trace: Trace): ZIO[Any, E, B] = {
+      val executor = metadata.get(invocation.api).asInstanceOf[EndpointClient[A, E, B]]
 
-      executor.execute(client, invocation.input).asInstanceOf[ZIO[Any, Throwable, B]]
+      executor.execute(client, invocation.input).asInstanceOf[ZIO[Any, E, B]]
     }
 
     def middlewareInput(implicit trace: Trace): Task[MI] = middlewareInput0

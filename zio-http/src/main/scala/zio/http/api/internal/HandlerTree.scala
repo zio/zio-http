@@ -9,7 +9,7 @@ import scala.annotation.tailrec
 case class HandlerTree[-R, +E](
   constants: Map[String, HandlerTree[R, E]],
   parsers: Map[TextCodec[_], HandlerTree[R, E]],
-  leaf: Option[Endpoints.HandledEndpoint[R, E, _, _, _]],
+  leaf: Option[Endpoints.HandledEndpoint[R, _ <: E, _, _, _]],
 ) { self =>
 
   def add[R1 <: R, E1 >: E](handledAPI: Endpoints.HandledEndpoint[R1, E1, _, _, _]): HandlerTree[R1, E1] =
@@ -17,15 +17,13 @@ case class HandlerTree[-R, +E](
 
   def generateError(request: Request): String = s"The path ${request.path} does not match any route"
 
-  def merge[R1 <: R, E1 >: E](that: HandlerTree[R1, E1]): HandlerTree[R1, E1] =
-    (self, that) match {
-      case (HandlerTree(constants1, parsers1, leaf), HandlerTree(constants2, parsers2, leaf2)) =>
-        HandlerTree(
-          mergeWith(constants1, constants2)(_ merge _),
-          mergeWith(parsers1, parsers2)(_ merge _),
-          leaf orElse leaf2,
-        )
-    }
+  def merge[R1 <: R, E1 >: E](that: HandlerTree[R1, E1]): HandlerTree[R1, E1] = {
+    HandlerTree[R1, E1](
+      mergeWith(self.constants, that.constants)(_ merge _),
+      mergeWith(self.parsers, that.parsers)(_ merge _),
+      self.leaf.map(_.asInstanceOf[Endpoints.HandledEndpoint[R1, E1, Any, Any, Any]]).orElse(that.leaf),
+    )
+  }
 
   def lookup(request: Request): Option[HandlerMatch[R, E, _, _]] = {
     val segments = request.path.segments.collect { case Path.Segment.Text(text) => text }
