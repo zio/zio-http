@@ -3,10 +3,10 @@ package zio.http.api.internal
 import zio.http.api.{Combiner, Doc}
 import zio.{Chunk, NonEmptyChunk}
 
-import java.lang.Double.parseDouble
 import java.lang.Integer.parseInt
 import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
+import scala.reflect.ClassTag
 
 /**
  * A `RichTextCodec` is a more compositional version of `TextCodec`, which has
@@ -108,6 +108,23 @@ sealed trait RichTextCodec[A] { self =>
         c => c.nonEmptyOrElse[Either[NonEmptyChunk[A], Chunk[A]]](Right(c))(Left(_)),
       )
 
+  def replsep(separator: RichTextCodec[Unit]): RichTextCodec[Chunk[A]] =
+    ((self ~ separator) | self).repeat.transform(
+      {
+        _.foldLeft(Chunk.empty[A]) {
+          case (acc, Left(a))  =>
+            acc :+ a
+          case (acc, Right(a)) =>
+            acc :+ a
+        }
+      },
+      {
+        case Chunk(a)          => Chunk.single(Left(a))
+        case Chunk(a, as @ _*) => Chunk.single(Left(a)) ++ as.map(Right(_))
+        case _                 => Chunk.empty
+      },
+    )
+
   final def singleton: RichTextCodec[NonEmptyChunk[A]] =
     self.transform(a => NonEmptyChunk(a), _.head)
 
@@ -164,6 +181,106 @@ object RichTextCodec {
     descriptionNotNeeded: Boolean = false,
   ) extends RichTextCodec[A]
 
+  private[internal] class PartiallyAppliedEnumeration[D]() {
+
+    def apply[X <: D](codec1: RichTextCodec[X])(implicit tag: ClassTag[X]): RichTextCodec[D] =
+      codec1.transform(
+        (a: X) => a: D,
+        (d: D) =>
+          d match {
+            case a: X => a
+          },
+      )
+
+    def apply[X <: D](codec1: RichTextCodec[X], codec2: RichTextCodec[X])(implicit tag: ClassTag[X]): RichTextCodec[D] =
+      (apply(codec1) | apply(codec2)).transform(
+        {
+          case Left(a)  => a: D
+          case Right(a) => a: D
+        },
+        { case a: X =>
+          Left(a)
+        },
+      )
+
+    def apply[X <: D](codec1: RichTextCodec[X], codec2: RichTextCodec[X], codec3: RichTextCodec[X])(implicit
+      tag: ClassTag[X],
+    ): RichTextCodec[D] =
+      (apply(codec1, codec2) | apply(codec3)).transform(
+        {
+          case Left(a)  => a: D
+          case Right(a) => a: D
+        },
+        { case a: X =>
+          Left(a)
+        },
+      )
+
+    def apply[X <: D](
+      codec1: RichTextCodec[X],
+      codec2: RichTextCodec[X],
+      codec3: RichTextCodec[X],
+      codec4: RichTextCodec[X],
+    )(implicit
+      tag: ClassTag[X],
+    ): RichTextCodec[D] =
+      (apply(codec1, codec2, codec3) | apply(codec4)).transform(
+        {
+          case Left(a)  => a: D
+          case Right(a) => a: D
+        },
+        { case a: X =>
+          Left(a)
+        },
+      )
+
+    def apply[X <: D](
+      codec1: RichTextCodec[X],
+      codec2: RichTextCodec[X],
+      codec3: RichTextCodec[X],
+      codec4: RichTextCodec[X],
+      codec5: RichTextCodec[X],
+    )(implicit
+      tag: ClassTag[X],
+    ): RichTextCodec[D] =
+      (apply(codec1, codec2, codec3, codec4) | apply(codec5)).transform(
+        {
+          case Left(a)  => a: D
+          case Right(a) => a: D
+        },
+        { case a: X =>
+          Left(a)
+        },
+      )
+
+    def apply[X <: D](
+      codec1: RichTextCodec[X],
+      codec2: RichTextCodec[X],
+      codec3: RichTextCodec[X],
+      codec4: RichTextCodec[X],
+      codec5: RichTextCodec[X],
+      codec6: RichTextCodec[X],
+    )(implicit
+      tag: ClassTag[X],
+    ): RichTextCodec[D] =
+      (apply(codec1, codec2, codec3, codec4, codec5) | apply(codec6)).transform(
+        {
+          case Left(a)  => a: D
+          case Right(a) => a: D
+        },
+        { case a: X =>
+          Left(a)
+        },
+      )
+
+  }
+
+  /**
+   * Combines up to six codecs into a single codec using OR semantics.
+   */
+  def enumeration[D] =
+    new PartiallyAppliedEnumeration[D]
+
   /**
    * Returns a lazy codec, which can be used to define recursive codecs.
    */
@@ -179,40 +296,25 @@ object RichTextCodec {
    * A codec that describes a digit character.
    */
   val digit: RichTextCodec[Int] =
-    filter(c => c >= '0' && c <= '9').transform[Int](c => parseInt(c.toString), x => x.toString.head)
+    filter(c => c >= '0' && c <= '9').transform[Int](c => parseInt(c.toString), x => x.toString.head) ?? "digit"
 
   /**
    * A codec that describes nothing at all. Such codecs successfully decode even
    * on empty input, and when encoded, do not produce any text output.
    */
-  val empty: RichTextCodec[Unit] = Empty
+  val empty: RichTextCodec[Unit] = Empty ?? "empty"
 
-  val comma: RichTextCodec[Char] = char(',')
+  val comma: RichTextCodec[Char] = char(',') ?? "comma"
 
-  val dot: RichTextCodec[Char] = char('.')
+  val dot: RichTextCodec[Char] = char('.') ?? "dot"
 
-  val slash: RichTextCodec[Char] = char('/')
+  val slash: RichTextCodec[Char] = char('/') ?? "slash"
 
-  val star: RichTextCodec[Char] = char('*')
+  val star: RichTextCodec[Char] = char('*') ?? "star"
 
-  val colon: RichTextCodec[Char] = char(':')
+  val colon: RichTextCodec[Char] = char(':') ?? "colon"
 
-  val semicolon: RichTextCodec[Char] = char(';')
-
-  def commaSeparatedMultiValues[A](codec: RichTextCodec[A]): RichTextCodec[Chunk[A]] =
-    (codec | (comma ~ codec).repeat).transform[Chunk[A]](
-      {
-        case Left(a)                          => Chunk.single(a)
-        case Right(NonEmptyChunk(_, (_, as))) =>
-          Chunk(as)
-        case _                                => Chunk.empty
-      },
-      {
-        case Chunk(a)          => Left(a)
-        case Chunk(_, as @ _*) => Right(Chunk.fromIterable(as.map((',', _))))
-        case _                 => Right(Chunk.empty)
-      },
-    )
+  val semicolon: RichTextCodec[Char] = char(';') ?? "semicolon"
 
   /**
    * Defines a new codec for a single character based on the specified
@@ -227,12 +329,12 @@ object RichTextCodec {
   val letter: RichTextCodec[Char] = filter(_.isLetter) ?! "letter"
 
   val asciiString: RichTextCodec[Chunk[Char]] =
-    RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z').repeat
+    RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z').repeat ?! "ascii string"
 
-  val digits: RichTextCodec[Chunk[Int]] = digit.repeat
+  val digits: RichTextCodec[Chunk[Int]] = digit.repeat ?! "digits"
 
   val int: RichTextCodec[Int] =
-    digits.transform(_.mkString.toInt, a => Chunk.fromIterable(a.toString.map(_.asDigit)))
+    digits.transform(_.mkString.toInt, (a: Int) => Chunk.fromIterable(a.toString.map(_.asDigit))) ?! "int"
 
   val double: RichTextCodec[Double] =
     ((digits ~ dot ~ digits) | digits).transform(
@@ -244,9 +346,12 @@ object RichTextCodec {
             case _: NumberFormatException => Double.NaN
           }
         case Left((before, _, after)) =>
-          (before.mkString + "." + after.mkString).toDouble
+          try { (before.mkString + "." + after.mkString).toDouble }
+          catch {
+            case _: NumberFormatException => Double.NaN
+          }
       },
-      a => {
+      (a: Double) => {
         val s               = a.toString
         val (before, after) = s.splitAt(s.indexOf('.'))
         if (after.isEmpty) Right(Chunk.fromIterable(before.map(_.asDigit)))
@@ -259,7 +364,7 @@ object RichTextCodec {
             ),
           )
       },
-    )
+    ) ?! "double"
 
   /**
    * A codec that describes a literal character sequence.

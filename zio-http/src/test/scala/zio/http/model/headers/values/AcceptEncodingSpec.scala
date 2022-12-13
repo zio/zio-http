@@ -1,6 +1,6 @@
 package zio.http.model.headers.values
 
-import zio.http.api.internal.HeaderValueCodecs
+import zio.http.api.HeaderValueCodecs
 import zio.http.internal.HttpGen
 import zio.http.model.headers.values.AcceptEncoding.MultipleEncodings
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
