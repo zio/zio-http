@@ -29,7 +29,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
 
   final def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
-  )(implicit trace: Trace): Http[R1, E1, A2, B2] = mid(self)
+  )(implicit trace: Trace): Http[R1, E1, A2, B2] =
+    self.middleware(mid)
 
   /**
    * Attaches the provided middleware to the Http app TODO; Rename to @@ once
@@ -300,7 +301,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   final def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
-  ): Http[R1, E1, A2, B2] = Http.RunMiddleware(self, mid)
+  ): Http[R1, E1, A2, B2] = mid(self)
 
   /**
    * Narrows the type of the input
@@ -489,6 +490,12 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   final def withFallback[R1 <: R, E1, A1 <: A, B1 >: B](other: Http.Total[R1, E1, A1, B1]): Http.Total[R1, E1, A1, B1] =
     CombineTotal(self, other)
 
+  final def wrap[R2, E2, B2](f: (A, ZIO[R, E, B]) => ZIO[R2, E2, B2]): Http[R2, E2, A, B2] =
+    Http.collectZIO {
+      case a if self.execute.isDefinedAt(a) =>
+        f(a, self.execute(a).toZIO)
+    }
+
   /**
    * Combines the two apps and returns the result of the one on the right
    */
@@ -555,12 +562,6 @@ sealed trait Http[-R, +E, -A, +B] { self =>
               failure(_).execute(a),
               success(_).execute(a),
             )
-
-      case RunMiddleware(app, mid) => {
-        // TODO it should be transformed first (?)
-        case a if app.execute.isDefinedAt(a) =>
-          mid(app).execute(a)
-      }
 
       case When(f, other) => {
         case a if f(a) && other.execute.isDefinedAt(a) => other.execute(a)
@@ -1223,11 +1224,6 @@ object Http {
     failure: Cause[E] => Http.Total[R, EE, A, BB],
     success: B => Http.Total[R, EE, A, BB],
   ) extends Http.Total[R, EE, A, BB]
-
-  private final case class RunMiddleware[R, E, A1, B1, A2, B2](
-    http: Http[R, E, A1, B1],
-    mid: Middleware[R, E, A1, B1, A2, B2],
-  ) extends Http[R, E, A2, B2]
 
   private case class Attempt[A](a: () => A) extends Http.Total[Any, Throwable, Any, A]
 
