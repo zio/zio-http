@@ -41,12 +41,12 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   )(implicit trace: Trace, ev1: A1 <:< Request, ev2: B <:< http.Response): HttpApp[R1, E] =
     mid(self.asInstanceOf[Http[R, E, Request, Response]])
 
-  /**
-   * Combines two Http instances into a middleware that works a codec for
-   * incoming and outgoing messages.
-   */
-  final def \/[R1 <: R, E1 >: E, C, D](other: Http[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D] =
-    self codecMiddleware other
+//  /**
+//   * Combines two Http instances into a middleware that works a codec for
+//   * incoming and outgoing messages.
+//   */
+//  final def \/[R1 <: R, E1 >: E, C, D](other: Http[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D] =
+//    self codecMiddleware other
 
   /**
    * Alias for flatmap
@@ -63,8 +63,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Runs self but if it fails, runs other, ignoring the result from self.
    */
-  final def <>[R1 <: R, E1, A1 <: A, B1 >: B](other: Http.Total[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    self orElse other // TODO: this could have its own primitive and not require total rhs
+  final def <>[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    self orElse other
 
   /**
    * Combines two Http into one.
@@ -173,12 +173,12 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   ): Http[R1, E1, A1, B1] =
     unrefineWith(pf)(Http.fail).catchAll(e => e)
 
-  /**
-   * Combines two Http instances into a middleware that works a codec for
-   * incoming and outgoing messages.
-   */
-  final def codecMiddleware[R1 <: R, E1 >: E, C, D](other: Http[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D] =
-    Middleware.codecHttp(self, other)
+//  /**
+//   * Combines two Http instances into a middleware that works a codec for
+//   * incoming and outgoing messages.
+//   */
+//  final def codecMiddleware[R1 <: R, E1 >: E, C, D](other: Http[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D] =
+//    Middleware.codecHttp(self, other)
 
   /**
    * Extracts content-length from the response if available
@@ -346,8 +346,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Named alias for `<>`
    */
-  final def orElse[R1 <: R, E1, A1 <: A, B1 >: B](other: Http.Total[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    self.catchAll(_ => other)
+  final def orElse[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
+    OrElse(self, other)
 
   /**
    * Provides the environment to Http.
@@ -599,6 +599,16 @@ sealed trait Http[-R, +E, -A, +B] { self =>
           HExit.fromZIO(
             aspect(self.execute(a).toZIO).asInstanceOf[ZIO[R, E, B]],
           )
+      }
+
+      case OrElse(self, other) => {
+        case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) => self.execute(a)
+        case a if !self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a) => other.execute(a)
+        case a if self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a)  =>
+          (self.execute(a), other.execute(a)) match {
+            case (s @ HExit.Success(_), _) => s
+            case (self, other)             => HExit.fromZIO(self.toZIO.orElse(other.toZIO))
+          }
       }
     }
 }
@@ -1252,4 +1262,9 @@ object Http {
     self: Http.Total[R, E, A, B],
     aspect: ZIO[R, E, B] => ZIO[R1, E1, B],
   ) extends Http.Total[R1, E1, A, B]
+
+  private case class OrElse[R, E, A, B](
+    self: Http[R, E, A, B],
+    other: Http[R, E, A, B],
+  ) extends Http[R, E, A, B]
 }
