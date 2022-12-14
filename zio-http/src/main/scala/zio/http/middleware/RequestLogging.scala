@@ -76,7 +76,6 @@ private[zio] trait RequestLogging {
               }
             }
           }
-          .mapError(Option(_))
       } yield patch
     }
 

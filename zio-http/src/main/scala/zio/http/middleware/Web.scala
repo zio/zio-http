@@ -32,10 +32,10 @@ private[zio] trait Web
   final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]]): HttpMiddleware[R, E] =
     new HttpMiddleware[R, E] {
       override def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1])(implicit trace: Trace): HttpApp[R1, E1] =
-        Http.fromOptionFunction[Request] { request =>
+        app.wrap { (_, execute) =>
           for {
-            response <- app(request)
-            patch    <- cookie.mapBoth(Option(_), c => Patch.addHeader(Headers.setCookie(c)))
+            response <- execute
+            patch    <- cookie.map(c => Patch.addHeader(Headers.setCookie(c)))
           } yield patch(response)
         }
     }
@@ -54,16 +54,15 @@ private[zio] trait Web
       override def apply[R, E >: IOException](app: HttpApp[R, E])(implicit
         trace: Trace,
       ): HttpApp[R, E] =
-        Http.fromOptionFunction { request =>
+        app.wrap { (request, execute) =>
           for {
             start    <- Clock.nanoTime
-            response <- app(request)
+            response <- execute
             end      <- Clock.nanoTime
             _        <- Console
               .printLine(
                 s"${response.status.asJava.code()} ${request.method} ${request.url.encode} ${(end - start) / 1000000}ms",
               )
-              .asSomeError
           } yield response
         }
     }
@@ -116,7 +115,7 @@ private[zio] trait Web
   /**
    * Creates a new middleware using effectful transformation functions
    */
-  final def interceptZIOPatch[R, E, S](req: Request => ZIO[R, Option[E], S]): PartialInterceptZIOPatch[R, E, S] =
+  final def interceptZIOPatch[R, E, S](req: Request => ZIO[R, E, S]): PartialInterceptZIOPatch[R, E, S] =
     PartialInterceptZIOPatch(req)
 
   /**
@@ -128,7 +127,7 @@ private[zio] trait Web
   /**
    * Creates a middleware that produces a Patch for the Response effectfully.
    */
-  final def patchZIO[R, E](f: Response => ZIO[R, Option[E], Patch]): HttpMiddleware[R, E] =
+  final def patchZIO[R, E](f: Response => ZIO[R, E, Patch]): HttpMiddleware[R, E] =
     Middleware.interceptZIOPatch(_ => ZIO.unit)((res, _) => f(res))
 
   /**
@@ -156,10 +155,10 @@ private[zio] trait Web
       override def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1])(implicit
         trace: Trace,
       ): HttpApp[R1, E1] =
-        Http.fromOptionFunction { request =>
+        app.wrap { (_, execute) =>
           for {
-            response <- app(request)
-            _        <- effect.asSomeError
+            response <- execute
+            _        <- effect
           } yield response
         }
     }
@@ -173,10 +172,10 @@ private[zio] trait Web
       override def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1])(implicit
         trace: Trace,
       ): HttpApp[R1, E1] =
-        Http.fromOptionFunction { request =>
+        app.wrap { (_, execute) =>
           for {
-            _        <- effect.asSomeError
-            response <- app(request)
+            _        <- effect
+            response <- execute
           } yield response
         }
     }
@@ -209,10 +208,8 @@ private[zio] trait Web
   final def timeout(duration: Duration): HttpMiddleware[Any, Nothing] =
     new HttpMiddleware[Any, Nothing] {
       def apply[R, E](app: HttpApp[R, E])(implicit trace: Trace): HttpApp[R, E] =
-        Http.fromOptionFunction { request =>
-          for {
-            response <- app(request).timeoutTo(Response.status(Status.RequestTimeout))(identity)(duration)
-          } yield response
+        app.wrap { (_, execute) =>
+          execute.timeoutTo(Response.status(Status.RequestTimeout))(identity)(duration)
         }
     }
 
@@ -281,18 +278,18 @@ object Web {
     }
   }
 
-  final case class PartialInterceptZIOPatch[R, E, S](req: Request => ZIO[R, Option[E], S]) extends AnyVal {
+  final case class PartialInterceptZIOPatch[R, E, S](req: Request => ZIO[R, E, S]) extends AnyVal {
     def apply[R1 <: R, E1 >: E](
-      res: (Response, S) => ZIO[R1, Option[E1], Patch],
+      res: (Response, S) => ZIO[R1, E1, Patch],
     ): HttpMiddleware[R1, E1] =
       new HttpMiddleware[R1, E1] {
         def apply[R2 <: R1, E2 >: E1](
           app: HttpApp[R2, E2],
         )(implicit trace: Trace): HttpApp[R2, E2] =
-          Http.fromOptionFunction[Request] { a =>
+          app.wrap { (a, execute) =>
             for {
               s <- req(a)
-              b <- app(a)
+              b <- execute
               c <- res(b, s)
             } yield c(b)
           }
