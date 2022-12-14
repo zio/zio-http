@@ -6,6 +6,7 @@ import zio.{Duration, Scope, Trace, ZLayer}
 import zio.http.netty.{ChannelFactories, ChannelType, EventLoopGroups, NettyRuntime}
 import zio.http.socket.SocketApp
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import java.net.InetSocketAddress
 
 case class ClientConfig(
   socketApp: Option[SocketApp[Any]] = None,
@@ -17,6 +18,7 @@ case class ClientConfig(
   connectionPool: ConnectionPoolConfig = ConnectionPoolConfig.Disabled,
   maxHeaderSize: Int = 8192,
   requestDecompression: Decompression = Decompression.No,
+  localAddress: Option[InetSocketAddress] = None,
 ) extends EventLoopGroups.Config {
   self =>
   def ssl(ssl: ClientSSLConfig): ClientConfig = self.copy(ssl = Some(ssl))

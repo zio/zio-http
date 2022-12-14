@@ -27,6 +27,7 @@ trait ConnectionPool {
     sslOptions: ClientSSLConfig,
     maxHeaderSize: Int,
     decompression: Decompression,
+    localAddress: Option[InetSocketAddress] = None,
   ): ZIO[Scope, Throwable, JChannel]
 
   def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit]
@@ -43,6 +44,7 @@ object ConnectionPool {
     sslOptions: ClientSSLConfig,
     maxHeaderSize: Int,
     decompression: Decompression,
+    localAddress: Option[InetSocketAddress],
   ): ZIO[Any, Throwable, JChannel] = {
     val initializer = new ChannelInitializer[JChannel] {
       override def initChannel(ch: JChannel): Unit = {
@@ -95,12 +97,15 @@ object ConnectionPool {
     }
 
     ZIO.attempt {
-      new Bootstrap()
+      val bootstrap = new Bootstrap()
         .channelFactory(channelFactory)
         .group(eventLoopGroup)
         .remoteAddress(new InetSocketAddress(location.host, location.port))
         .handler(initializer)
-        .connect()
+      (localAddress match {
+        case Some(addr) => bootstrap.localAddress(addr)
+        case _          => bootstrap
+      }).connect()
     }.flatMap { channelFuture =>
       NettyFutureExecutor.executed(channelFuture) *>
         ZIO
@@ -116,8 +121,18 @@ object ConnectionPool {
       sslOptions: ClientSSLConfig,
       maxHeaderSize: Int,
       decompression: Decompression,
+      localAddress: Option[InetSocketAddress] = None,
     ): ZIO[Scope, Throwable, JChannel] =
-      createChannel(channelFactory, eventLoopGroup, location, proxy, sslOptions, maxHeaderSize, decompression)
+      createChannel(
+        channelFactory,
+        eventLoopGroup,
+        location,
+        proxy,
+        sslOptions,
+        maxHeaderSize,
+        decompression,
+        localAddress,
+      )
 
     override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
       ZIO.unit
@@ -140,6 +155,7 @@ object ConnectionPool {
       sslOptions: ClientSSLConfig,
       maxHeaderSize: Int,
       decompression: Decompression,
+      localAddress: Option[InetSocketAddress] = None,
     ): ZIO[Scope, Throwable, JChannel] =
       ZIO.uninterruptibleMask { restore =>
         restore(
@@ -245,6 +261,7 @@ object ConnectionPool {
             key.sslOptions,
             key.maxHeaderSize,
             key.decompression,
+            None,
           ),
         (key: PoolKey) => size(key.location),
       )
@@ -275,6 +292,7 @@ object ConnectionPool {
             key.sslOptions,
             key.maxHeaderSize,
             key.decompression,
+            None,
           ),
         (key: PoolKey) => min(key.location) to max(key.location),
         (key: PoolKey) => ttl(key.location),

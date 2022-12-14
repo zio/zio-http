@@ -53,6 +53,18 @@ object APISpec extends ZIOSpecDefault {
           "route(users, 123, posts, 555) query(name=adam, age=9000)",
         )
       },
+      test("fallback") {
+        val testRoutes = testApi(
+          EndpointSpec
+            .get(literal("users") / (int | string))
+            .out[String]
+            .implement { userId =>
+              ZIO.succeed(s"route(users, $userId)")
+            },
+        ) _
+        testRoutes("/users/123", "route(users, Left(123))") &&
+        testRoutes("/users/foo", "route(users, Right(foo))")
+      },
       test("broad api") {
         val broadUsers              =
           EndpointSpec.get("users").out[String].implement { _ => ZIO.succeed("route(users)") }
