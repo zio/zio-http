@@ -360,7 +360,7 @@ object Middleware extends Web {
         override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit
           trace: Trace,
         ): Http[R1, E1, AOut, BOut] =
-          Http.collect[AOut] { case a if f.isDefinedAt(a) => f(a)(http) }.flatten
+          Http.collectHttp[AOut] { case a if f.isDefinedAt(a) => f(a)(http) }
       }
   }
 

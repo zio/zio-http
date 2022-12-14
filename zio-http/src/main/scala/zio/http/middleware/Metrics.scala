@@ -1,6 +1,7 @@
 package zio.http.middleware
 
 import zio._
+import zio.http.model.Status
 import zio.http.{Http, Middleware, Request, Response}
 import zio.metrics.{Metric, MetricKeyType, MetricLabel}
 
@@ -37,7 +38,6 @@ private[zio] trait Metrics {
       val requestsTotal      = Metric.counterInt(totalRequestsName)
       val concurrentRequests = Metric.gauge(concurrentRequestsName)
       val requestDuration    = Metric.histogram(requestDurationName, requestDurationBoundaries)
-      val status404          = Set(MetricLabel("status", "404"))
       val status500          = Set(MetricLabel("status", "500"))
       val nanosToSeconds     = 1e9d
 
@@ -55,16 +55,16 @@ private[zio] trait Metrics {
       def apply[R1 <: Any, E1 >: Nothing](
         http: Http[R1, E1, Request, Response],
       )(implicit trace: Trace): Http[R1, E1, Request, Response] =
-        Http.fromOptionFunction[Request] { req =>
+        Http.fromFunctionZIO[Request] { req =>
           val requestLabels = labelsForRequest(req)
 
           for {
             start <- Clock.nanoTime
             _     <- concurrentRequests.tagged(requestLabels).increment
-            res   <- http(req).onExit(exit => {
+            res   <- http.withFallback(Http.status(Status.NotFound))(req).onExit { (exit: Exit[E1, Response]) =>
               val labels =
                 requestLabels ++ exit.foldExit(
-                  cause => cause.failureOption.fold(status500)(failure => failure.fold(status404)(_ => status500)),
+                  cause => cause.failureOption.fold(status500)(_ => status500),
                   labelsForResponse,
                 )
 
@@ -75,7 +75,7 @@ private[zio] trait Metrics {
                 took = end - start
                 _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
               } yield ()
-            })
+            }
           } yield res
         }
     }

@@ -25,7 +25,7 @@ sealed trait Middleware[-R, I, O] { self =>
   /**
    * Processes an incoming request, whose relevant parts are encoded into `I`,
    * the middleware input, and then returns an effect that will produce both
-   * middleware-specific state (which will be passed to the outgoing handlerr),
+   * middleware-specific state (which will be passed to the outgoing handler),
    * together with a decision about whether to continue or abort the handling of
    * the request.
    */
@@ -43,7 +43,7 @@ sealed trait Middleware[-R, I, O] { self =>
    * middleware fully installed.
    */
   def apply[R1 <: R, E](httpApp: HttpApp[R1, E]): HttpApp[R1, E] =
-    Http.fromOptionFunction[Request] { request =>
+    Http.fromFunctionZIO { (request: Request) =>
       for {
         in       <- spec.middlewareIn.decodeRequest(request).orDie
         control  <- incoming(in)

@@ -44,7 +44,7 @@ private[zio] trait Cors {
         http: Http[R1, E1, Request, Response],
       )(implicit trace: Trace): Http[R1, E1, Request, Response] =
         Http
-          .collect[Request] { case req =>
+          .collectHttp[Request] { case req =>
             (
               req.method,
               req.headers.header(HttpHeaderNames.ORIGIN),
@@ -63,7 +63,6 @@ private[zio] trait Cors {
               case _                                                     => http
             }
           }
-          .flatten
     }
   }
 }
