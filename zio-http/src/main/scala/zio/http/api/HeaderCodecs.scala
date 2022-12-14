@@ -9,7 +9,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HeaderCodecs {
   private[api] def header[A](name: String, value: Either[TextCodec[A], RichTextCodec[A]]): HeaderCodec[A] =
-    HttpCodec.Header(name, value, optional = false)
+    HttpCodec.Header(name, value)
 
   final val accept: HeaderCodec[Accept] =
     header(HeaderNames.accept.toString(), Right(HeaderValueCodecs.acceptCodec))

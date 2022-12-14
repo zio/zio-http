@@ -189,9 +189,13 @@ private[api] object EncoderDecoder                   {
 
         headers.get(header.name) match {
           case Some(value) =>
-            inputs(i) = header.textCodec
-              .decode(value)
-              .getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
+            // FIXME: GC requires re-write after RichCodec is inplace
+            inputs(i) = header.textCodec.swap
+              .map(_.decode(value))
+              .toOption
+              .getOrElse(throw EndpointError.MalformedHeader(header.name, Left(TextCodec.string)))
+//              .decode(value)
+//              .getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
 
           case None =>
             throw EndpointError.MissingHeader(header.name)
@@ -264,7 +268,8 @@ private[api] object EncoderDecoder                   {
         val header = flattened.headers(i).erase
         val input  = inputs(i)
 
-        val value = header.textCodec.encode(input)
+        // FIXME: GC requires re-write after RichCodec is inplace
+        val value = header.textCodec.swap.map(_.encode(input)).getOrElse(TextCodec.string.encode(input.toString))
 
         headers = headers ++ Headers(header.name, value)
 
