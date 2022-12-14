@@ -118,7 +118,6 @@ lazy val zioHttp = (project in file("zio-http"))
       `zio-test`,
       `zio-test-sbt`,
       `netty-incubator`,
-      `htmlEncoder`,
     ),
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
