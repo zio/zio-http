@@ -2,7 +2,8 @@ package zio.http.model
 
 import zio.http.Response
 import zio.http.model.HttpError.HTTPErrorWithCause
-import zio.http.security.OutputEncoding // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.http.security.OutputEncoding
 
 sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message) { self =>
   def foldCause[A](a: A)(f: Throwable => A): A = self match {
