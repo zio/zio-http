@@ -104,7 +104,7 @@ private[zio] trait Web
    */
   final def ifRequestThenElseZIO[R, E](
     cond: Request => ZIO[R, E, Boolean],
-  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  )(left: HttpMiddlewareForTotal[R, E], right: HttpMiddlewareForTotal[R, E]): HttpMiddlewareForTotal[R, E] =
     Middleware.ifThenElseZIO[Request](cond)(_ => left, _ => right)
 
   /**
@@ -234,7 +234,7 @@ private[zio] trait Web
   /**
    * Applies the middleware only if status matches the condition
    */
-  final def whenStatus[R, E](cond: Status => Boolean)(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  final def whenStatus[R, E](cond: Status => Boolean)(middleware: HttpMiddlewareForTotal[R, E]): HttpMiddlewareForTotal[R, E] =
     whenResponse(respon => cond(respon.status))(middleware)
 
   /**
@@ -249,7 +249,7 @@ private[zio] trait Web
    */
   final def whenRequestZIO[R, E](
     cond: Request => ZIO[R, E, Boolean],
-  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+  )(middleware: HttpMiddlewareForTotal[R, E]): HttpMiddlewareForTotal[R, E] =
     middleware.whenZIO(cond)
 
   /**
@@ -257,8 +257,8 @@ private[zio] trait Web
    */
   def whenResponse[R, E](
     cond: Response => Boolean,
-  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    Middleware.identity[Request, Response].flatMap(response => middleware.when(_ => cond(response)))
+  )(middleware: HttpMiddlewareForTotal[R, E]): HttpMiddlewareForTotal[R, E] =
+    Middleware.identityTotal[Request, Response].flatMap(response => middleware.when(_ => cond(response)))
 
   /**
    * Applies the middleware only if the condition function effectfully evaluates
@@ -266,8 +266,8 @@ private[zio] trait Web
    */
   def whenResponseZIO[R, E](
     cond: Response => ZIO[R, E, Boolean],
-  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
-    Middleware.identity[Request, Response].flatMap(response => middleware.whenZIO(_ => cond(response)))
+  )(middleware: HttpMiddlewareForTotal[R, E]): HttpMiddlewareForTotal[R, E] =
+    Middleware.identityTotal[Request, Response].flatMap(response => middleware.whenZIO(_ => cond(response)))
 }
 
 object Web {

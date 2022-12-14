@@ -61,7 +61,7 @@ private[zio] trait Metrics {
           for {
             start <- Clock.nanoTime
             _     <- concurrentRequests.tagged(requestLabels).increment
-            res   <- http.withFallback(Http.status(Status.NotFound))(req).onExit { (exit: Exit[E1, Response]) =>
+            res   <- http.withFallback(Http.status(Status.NotFound)).toZIO(req).onExit { (exit: Exit[E1, Response]) =>
               val labels =
                 requestLabels ++ exit.foldExit(
                   cause => cause.failureOption.fold(status500)(_ => status500),

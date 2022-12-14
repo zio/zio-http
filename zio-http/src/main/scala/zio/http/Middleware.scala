@@ -1,7 +1,7 @@
 package zio.http
 
 import zio._
-import zio.http.middleware.{MonoMiddleware, Web}
+import zio.http.middleware.{MonoMiddleware, MonoMiddlewareForTotal, Web}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
@@ -90,12 +90,6 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
         self(http).contramap(f)
     }
 
-//  /**
-//   * Preprocesses the incoming value using a ZIO, for the outgoing Http.
-//   */
-//  final def contramapZIO[AOut0]: Middleware.PartialContraMapZIO[R, E, AIn, BIn, AOut, BOut, AOut0] =
-//    new Middleware.PartialContraMapZIO(self)
-
   /**
    * Delays the production of Http output for the specified duration
    */
@@ -106,27 +100,6 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
       ): Http[R1, E1, AOut, BOut] =
         self(http).delay(duration)
     }
-
-//  /**
-//   * Creates a new Middleware from another
-//   */
-//  final def flatMap[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](
-//    f: BOut => Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
-//  ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
-//    new Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] {
-//      override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn0, BIn0])(implicit
-//        trace: Trace,
-//      ): Http[R2, E2, AOut0, BOut0] =
-//        self(http).flatMap(f(_)(http))
-//    }
-
-//  /**
-//   * Flattens an Middleware of a Middleware
-//   */
-//  final def flatten[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](implicit
-//    ev: BOut <:< Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0],
-//  ): Middleware[R1, E1, AIn0, BIn0, AOut0, BOut0] =
-//    flatMap(identity(_))
 
   /**
    * Transforms the output type of the current middleware.
@@ -199,19 +172,6 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
       isTrue = _ => self,
       isFalse = _ => Middleware.identity[AIn, BIn, AOut, BOut],
     )
-
-//  /**
-//   * Applies Middleware based only if the condition effectful function evaluates
-//   * to true
-//   */
-//  final def whenZIO[R1 <: R, E1 >: E, AOut0 <: AOut](
-//    cond: AOut0 => ZIO[R1, E1, Boolean],
-//  )(implicit ev: IsMono[AIn, BIn, AOut0, BOut]): Middleware[R1, E1, AIn, BIn, AOut0, BOut] = {
-//    Middleware.ifThenElseZIO[AOut0](cond(_))(
-//      isTrue = _ => self,
-//      isFalse = _ => Middleware.identity[AIn, BIn, AOut, BOut],
-//    )
-//  }
 }
 
 object Middleware extends Web {
@@ -234,20 +194,20 @@ object Middleware extends Web {
 //   */
 //  def allowZIO[A, B]: PartialAllowZIO[A, B] = new PartialAllowZIO[A, B](())
 
-//  /**
-//   * Creates a middleware using the specified encoder and decoder functions
-//   */
-//  def codec[A, B]: PartialCodec[A, B] = new PartialCodec[A, B](())
-//
-//  /**
-//   * Creates a codec middleware using two Http.
-//   */
-//  def codecHttp[A, B]: PartialCodecHttp[A, B] = new PartialCodecHttp[A, B](())
-//
-//  /**
-//   * Creates a middleware using specified effectful encoder and decoder
-//   */
-//  def codecZIO[A, B]: PartialCodecZIO[A, B] = new PartialCodecZIO[A, B](())
+  /**
+   * Creates a middleware using the specified encoder and decoder functions
+   */
+  def codec[A, B]: PartialCodec[A, B] = new PartialCodec[A, B](())
+
+  /**
+   * Creates a codec middleware using two Http.
+   */
+  def codecHttp[A, B]: PartialCodecHttp[A, B] = new PartialCodecHttp[A, B](())
+
+  /**
+   * Creates a middleware using specified effectful encoder and decoder
+   */
+  def codecZIO[A, B]: PartialCodecZIO[A, B] = new PartialCodecZIO[A, B](())
 
   /**
    * Creates a middleware using specified function
@@ -286,10 +246,21 @@ object Middleware extends Web {
     }
 
   /**
+   * Creates a middleware with specified http App
+   */
+  def fromHttpTotal[R, E, A, B](http: Http.Total[R, E, A, B]): Middleware.ForTotal[R, E, Nothing, Any, A, B] =
+    new Middleware.ForTotal[R, E, Nothing, Any, A, B] {
+      override def apply[R1 <: R, E1 >: E](other: Http.Total[R1, E1, Nothing, Any])(implicit
+        trace: Trace,
+      ): Http.Total[R1, E1, A, B] = http
+    }
+
+  /**
    * An empty middleware that doesn't do perform any operations on the provided
    * Http and returns it as it is.
    */
-  def identity[A, B]: MonoMiddleware[Any, Nothing, A, B] = Identity
+  def identity[A, B]: MonoMiddleware[Any, Nothing, A, B] =
+    Identity
 
   /**
    * An empty middleware that doesn't do perform any operations on the provided
@@ -300,17 +271,31 @@ object Middleware extends Web {
   ): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
     Identity
 
+  def identityTotal[A, B]: MonoMiddlewareForTotal[Any, Nothing, A, B] =
+    IdentityForTotal
+
+  def identityTotal[AIn, BIn, AOut, BOut](implicit
+    ev: IsMono[AIn, BIn, AOut, BOut],
+  ): Middleware.ForTotal[Any, Nothing, AIn, BIn, AOut, BOut] =
+    IdentityForTotal
+
   /**
    * Logical operator to decide which middleware to select based on the
    * predicate.
    */
   def ifThenElse[A]: PartialIfThenElse[A] = new PartialIfThenElse(())
 
-//  /**
-//   * Logical operator to decide which middleware to select based on the
-//   * predicate effect.
-//   */
-//  def ifThenElseZIO[A]: PartialIfThenElseZIO[A] = new PartialIfThenElseZIO(())
+  /**
+   * Logical operator to decide which middleware to select based on the
+   * predicate.
+   */
+  def ifThenElseTotal[A]: PartialIfThenElseTotal[A] = new PartialIfThenElseTotal(())
+
+  /**
+   * Logical operator to decide which middleware to select based on the
+   * predicate effect.
+   */
+  def ifThenElseZIO[A]: PartialIfThenElseZIO[A] = new PartialIfThenElseZIO(())
 
   /**
    * Creates a new middleware using transformation functions
@@ -334,12 +319,12 @@ object Middleware extends Web {
    */
   def transform[AOut, BIn]: PartialMono[AOut, BIn] = new PartialMono[AOut, BIn]({})
 
-//  /**
-//   * Creates a new middleware using two transformation functions, one that's
-//   * applied to the incoming type of the Http and one that applied to the
-//   * outgoing type of the Http.
-//   */
-//  def transformZIO[AOut, BIn]: PartialMonoZIO[AOut, BIn] = new PartialMonoZIO[AOut, BIn]({})
+  /**
+   * Creates a new middleware using two transformation functions, one that's
+   * applied to the incoming type of the Http and one that applied to the
+   * outgoing type of the Http.
+   */
+  def transformZIO[AOut, BIn]: PartialMonoZIO[AOut, BIn] = new PartialMonoZIO[AOut, BIn]({})
 
 //  final class PartialAllowZIO[A, B](val unit: Unit) extends AnyVal {
 //    def apply[R, E](cond: A => ZIO[R, E, Boolean]): MonoMiddleware[R, E, A, B] =
@@ -364,18 +349,18 @@ object Middleware extends Web {
       }
   }
 
-//  final class PartialMonoZIO[AOut, BIn](val unit: Unit) extends AnyVal {
-//    def apply[R, E, AIn, BOut](
-//      in: AOut => ZIO[R, E, AIn],
-//      out: BIn => ZIO[R, E, BOut],
-//    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-//      new Middleware[R, E, AIn, BIn, AOut, BOut] {
-//        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit
-//          trace: Trace,
-//        ): Http[R1, E1, AOut, BOut] =
-//          http.contramapZIO(in).mapZIO(out)
-//      }
-//  }
+  final class PartialMonoZIO[AOut, BIn](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BOut](
+      in: AOut => ZIO[R, E, AIn],
+      out: BIn => ZIO[R, E, BOut],
+    ): Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut] =
+      new Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut] {
+        override def apply[R1 <: R, E1 >: E](http: Http.Total[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R1, E1, AOut, BOut] =
+          http.contramapZIO(in).mapZIO(out)
+      }
+  }
 
   final class PartialCollect[AOut](val unit: Unit) extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](
@@ -429,18 +414,18 @@ object Middleware extends Web {
       }
   }
 
-//  final class PartialCodec[AOut, BIn](val unit: Unit) extends AnyVal {
-//    def apply[E, AIn, BOut](
-//      decoder: AOut => Either[E, AIn],
-//      encoder: BIn => Either[E, BOut],
-//    ): Middleware[Any, E, AIn, BIn, AOut, BOut] =
-//      new Middleware[Any, E, AIn, BIn, AOut, BOut] {
-//        override def apply[R1 <: Any, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit
-//          trace: Trace,
-//        ): Http[R1, E1, AOut, BOut] =
-//          http.mapZIO(b => ZIO.fromEither(encoder(b))).contramapZIO(a => ZIO.fromEither(decoder(a)))
-//      }
-//  }
+  final class PartialCodec[AOut, BIn](val unit: Unit) extends AnyVal {
+    def apply[E, AIn, BOut](
+      decoder: AOut => Either[E, AIn],
+      encoder: BIn => Either[E, BOut],
+    ): Middleware.ForTotal[Any, E, AIn, BIn, AOut, BOut] =
+      new Middleware.ForTotal[Any, E, AIn, BIn, AOut, BOut] {
+        override def apply[R1 <: Any, E1 >: E](http: Http.Total[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R1, E1, AOut, BOut] =
+          http.mapZIO(b => ZIO.fromEither(encoder(b))).contramapZIO(a => ZIO.fromEither(decoder(a)))
+      }
+  }
 
   final class PartialIfThenElse[AOut](val unit: Unit) extends AnyVal {
     def apply[R, E, AIn, BIn, BOut](cond: AOut => Boolean)(
@@ -458,64 +443,147 @@ object Middleware extends Web {
         }
       }
   }
-//
-//  final class PartialIfThenElseZIO[AOut](val unit: Unit) extends AnyVal {
-//    def apply[R, E, AIn, BIn, BOut](cond: AOut => ZIO[R, E, Boolean])(
-//      isTrue: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
-//      isFalse: AOut => Middleware[R, E, AIn, BIn, AOut, BOut],
-//    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-//      new Middleware[R, E, AIn, BIn, AOut, BOut] {
-//        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit
-//          trace: Trace,
-//        ): Http[R1, E1, AOut, BOut] =
-//          Http.fromFunctionZIO[AOut](a => cond(a).map(b => if (b) isTrue(a)(http) else isFalse(a)(http))).flatten
-//      }
-//  }
 
-//  final class PartialCodecZIO[AOut, BIn](val unit: Unit) extends AnyVal {
-//    def apply[R, E, AIn, BOut](
-//      decoder: AOut => ZIO[R, E, AIn],
-//      encoder: BIn => ZIO[R, E, BOut],
-//    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-//      new Middleware[R, E, AIn, BIn, AOut, BOut] {
-//        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit
-//          trace: Trace,
-//        ): Http[R1, E1, AOut, BOut] =
-//          http.mapZIO(encoder).contramapZIO(decoder)
-//      }
-//  }
+  final class PartialIfThenElseTotal[AOut](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BIn, BOut](cond: AOut => Boolean)(
+      isTrue: AOut => Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut],
+      isFalse: AOut => Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut],
+    ): Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut] =
+      new Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut] {
+        override def apply[R1 <: R, E1 >: E](http: Http.Total[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R1, E1, AOut, BOut] = Http.fromFunctionHExit { a =>
+          if (cond(a)) isTrue(a)(http).executeTotal(a)
+          else isFalse(a)(http).executeTotal(a)
+        }
+      }
+  }
 
-//  final class PartialCodecHttp[AOut, BIn](val unit: Unit) extends AnyVal {
-//    def apply[R, E, AIn, BOut](
-//      decoder: Http[R, E, AOut, AIn],
-//      encoder: Http[R, E, BIn, BOut],
-//    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-//      new Middleware[R, E, AIn, BIn, AOut, BOut] {
-//        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit
-//          trace: Trace,
-//        ): Http[R1, E1, AOut, BOut] =
-//          decoder >>> http >>> encoder
-//      }
-//  }
-//
-//  final class PartialContraMapZIO[-R, +E, +AIn, -BIn, -AOut, +BOut, AOut0](
-//    val self: Middleware[R, E, AIn, BIn, AOut, BOut],
-//  ) extends AnyVal {
-//    def apply[R1 <: R, E1 >: E](
-//      f: AOut0 => ZIO[R1, E1, AOut],
-//    ): Middleware[R1, E1, AIn, BIn, AOut0, BOut] =
-//      new Middleware[R1, E1, AIn, BIn, AOut0, BOut] {
-//        override def apply[R2 <: R1, E2 >: E1](http: Http[R2, E2, AIn, BIn])(implicit
-//          trace: Trace,
-//        ): Http[R2, E2, AOut0, BOut] =
-//          self(http).contramapZIO(a => f(a))
-//      }
-//  }
+  final class PartialIfThenElseZIO[AOut](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BIn, BOut](cond: AOut => ZIO[R, E, Boolean])(
+      isTrue: AOut => Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut],
+      isFalse: AOut => Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut],
+    ): Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut] =
+      new Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut] {
+        override def apply[R1 <: R, E1 >: E](http: Http.Total[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R1, E1, AOut, BOut] =
+          Http.fromFunctionZIO[AOut](a => cond(a).map(b => if (b) isTrue(a)(http) else isFalse(a)(http))).flatten
+      }
+  }
+
+  final class PartialCodecZIO[AOut, BIn](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BOut](
+      decoder: AOut => ZIO[R, E, AIn],
+      encoder: BIn => ZIO[R, E, BOut],
+    ): Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut] =
+      new Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut] {
+        override def apply[R1 <: R, E1 >: E](http: Http.Total[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R1, E1, AOut, BOut] =
+          http.mapZIO(encoder).contramapZIO(decoder)
+      }
+  }
+
+  final class PartialCodecHttp[AOut, BIn](val unit: Unit) extends AnyVal {
+    def apply[R, E, AIn, BOut](
+      decoder: Http.Total[R, E, AOut, AIn],
+      encoder: Http.Total[R, E, BIn, BOut],
+    ): Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut] =
+      new Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut] {
+        override def apply[R1 <: R, E1 >: E](http: Http.Total[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R1, E1, AOut, BOut] =
+          decoder >>> http >>> encoder
+      }
+  }
+
+  final class PartialContraMapZIO[-R, +E, +AIn, -BIn, -AOut, +BOut, AOut0](
+    val self: Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut],
+  ) extends AnyVal {
+    def apply[R1 <: R, E1 >: E](
+      f: AOut0 => ZIO[R1, E1, AOut],
+    ): Middleware.ForTotal[R1, E1, AIn, BIn, AOut0, BOut] =
+      new Middleware.ForTotal[R1, E1, AIn, BIn, AOut0, BOut] {
+        override def apply[R2 <: R1, E2 >: E1](http: Http.Total[R2, E2, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R2, E2, AOut0, BOut] =
+          self(http).contramapZIO(a => f(a))
+      }
+  }
+
+  trait ForTotal[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
+
+    /**
+     * Applies middleware on Http and returns new Http.
+     */
+    def apply[R1 <: R, E1 >: E](http: Http.Total[R1, E1, AIn, BIn])(implicit
+      trace: Trace,
+    ): Http.Total[R1, E1, AOut, BOut]
+
+    /**
+     * Preprocesses the incoming value using a ZIO, for the outgoing Http.
+     */
+    final def contramapZIO[AOut0]: Middleware.PartialContraMapZIO[R, E, AIn, BIn, AOut, BOut, AOut0] =
+      new Middleware.PartialContraMapZIO(self)
+
+    /**
+     * Creates a new Middleware from another
+     */
+    final def flatMap[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](
+      f: BOut => Middleware.ForTotal[R1, E1, AIn0, BIn0, AOut0, BOut0],
+    ): Middleware.ForTotal[R1, E1, AIn0, BIn0, AOut0, BOut0] =
+      new Middleware.ForTotal[R1, E1, AIn0, BIn0, AOut0, BOut0] {
+        override def apply[R2 <: R1, E2 >: E1](http: Http.Total[R2, E2, AIn0, BIn0])(implicit
+          trace: Trace,
+        ): Http.Total[R2, E2, AOut0, BOut0] =
+          self(http).flatMap(f(_)(http))
+      }
+
+    /**
+     * Flattens an Middleware of a Middleware
+     */
+    final def flatten[R1 <: R, E1 >: E, AIn0 >: AIn, BIn0 <: BIn, AOut0 <: AOut, BOut0](implicit
+      ev: BOut <:< Middleware.ForTotal[R1, E1, AIn0, BIn0, AOut0, BOut0],
+    ): Middleware.ForTotal[R1, E1, AIn0, BIn0, AOut0, BOut0] =
+      flatMap(m => m)
+
+    /**
+     * Applies Middleware based only if the condition function evaluates to true
+     */
+    final def when[AOut0 <: AOut](cond: AOut0 => Boolean)(implicit
+      ev: IsMono[AIn, BIn, AOut0, BOut],
+    ): Middleware.ForTotal[R, E, AIn, BIn, AOut0, BOut] =
+      Middleware.ifThenElseTotal[AOut0](cond(_))(
+        isTrue = _ => self,
+        isFalse = _ => Middleware.identityTotal[AIn, BIn, AOut, BOut],
+      )
+
+    /**
+     * Applies Middleware based only if the condition effectful function
+     * evaluates to true
+     */
+    final def whenZIO[R1 <: R, E1 >: E, AOut0 <: AOut](
+      cond: AOut0 => ZIO[R1, E1, Boolean],
+    )(implicit ev: IsMono[AIn, BIn, AOut0, BOut]): Middleware.ForTotal[R1, E1, AIn, BIn, AOut0, BOut] = {
+      Middleware.ifThenElseZIO[AOut0](cond(_))(
+        isTrue = _ => self,
+        isFalse = _ => Middleware.identityTotal[AIn, BIn, AOut, BOut],
+      )
+    }
+  }
 
   private object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing] {
     override def apply[R1 <: Any, E1 >: Nothing](http: Http[R1, E1, Nothing, Any])(implicit
       trace: Trace,
     ): Http[R1, E1, Any, Nothing] =
       http.asInstanceOf[Http[R1, E1, Any, Nothing]]
+  }
+
+  private object IdentityForTotal extends Middleware.ForTotal[Any, Nothing, Nothing, Any, Any, Nothing] {
+    override def apply[R1 <: Any, E1 >: Nothing](http: Http.Total[R1, E1, Nothing, Any])(implicit
+      trace: Trace,
+    ): Http.Total[R1, E1, Any, Nothing] =
+      http.asInstanceOf[Http.Total[R1, E1, Any, Nothing]]
   }
 }
