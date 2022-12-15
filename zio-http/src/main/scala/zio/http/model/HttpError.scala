@@ -3,7 +3,7 @@ package zio.http.model
 import zio.http.Response
 import zio.http.model.HttpError.HTTPErrorWithCause
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-import zio.http.security.OutputEncoding
+import zio.http.security.OutputEncoder
 
 sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message) { self =>
   def foldCause[A](a: A)(f: Throwable => A): A = self match {
@@ -41,7 +41,7 @@ object HttpError {
   final case class NotFound(path: String)
       extends HttpError(
         Status.NotFound,
-        s"""The requested URI "${OutputEncoding.html(path)}" was not found on this server\n""",
+        s"""The requested URI "${OutputEncoder.encodeHtml(path)}" was not found on this server\n""",
       )
 
   final case class MethodNotAllowed(msg: String = "Method Not Allowed") extends HttpError(Status.MethodNotAllowed, msg)

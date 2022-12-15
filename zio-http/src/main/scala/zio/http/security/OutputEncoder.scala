@@ -1,6 +1,6 @@
 package zio.http.security
 
-private[http] object OutputEncoding {
+private[http] object OutputEncoder {
 
   /**
    * Encode HTML characters that can cause XSS, according to OWASP
@@ -15,7 +15,7 @@ private[http] object OutputEncoding {
    * @return
    *   HTML encoded string
    */
-  def html(output: String): String = {
+  def encodeHtml(output: String): String = {
     output.map(char => encodeHtmlChar(char))
   }.mkString
 
@@ -26,7 +26,7 @@ private[http] object OutputEncoding {
     case '"'     => "&quot;"
     case '\''    => "&#x27;"
     case '/'     => "&#x2F;"
-    case _ @data => data.toString
+    case _ @char => char.toString
   }
 
 }
