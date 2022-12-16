@@ -45,13 +45,13 @@ sealed trait Middleware[-R, I, O] { self =>
   def apply[R1 <: R, E](httpApp: HttpApp[R1, E]): HttpApp[R1, E] =
     httpApp.wrap { (request, execute) =>
       for {
-        in <- spec.middlewareIn.decodeRequest(request).orDie
-        control <- incoming(in)
+        in       <- spec.middlewareIn.decodeRequest(request).orDie
+        control  <- incoming(in)
         response <- control match {
-          case Middleware.Control.Continue(state) =>
+          case Middleware.Control.Continue(state)     =>
             for {
               response1 <- execute
-              mo <- outgoing(state, response1)
+              mo        <- outgoing(state, response1)
               patch = spec.middlewareOut.encodeResponsePatch(mo)
             } yield response1.patch(patch)
           case Middleware.Control.Abort(state, patch) =>

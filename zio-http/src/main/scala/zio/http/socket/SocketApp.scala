@@ -31,7 +31,7 @@ final case class SocketApp[-R](
   /**
    * Converts the socket app to a HTTP app.
    */
-  def toHttp(implicit trace: Trace): HttpApp[R, Nothing] = Http.fromZIO(toResponse)
+  def toHttp(implicit trace: Trace): Http.Total[R, Nothing, Request, Response] = Http.fromZIO(toResponse)
 
   /**
    * Creates a new response from the socket app.

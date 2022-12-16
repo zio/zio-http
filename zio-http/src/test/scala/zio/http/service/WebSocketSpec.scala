@@ -20,7 +20,7 @@ object WebSocketSpec extends HttpRunnableSpec {
         url <- DynamicServer.wsURL
         id  <- DynamicServer.deploy {
           Http
-            .collectZIO[WebSocketChannelEvent] {
+            .fromFunctionZIO[WebSocketChannelEvent] {
               case ev @ ChannelEvent(ch, ChannelRead(frame)) => ch.writeAndFlush(frame) *> msg.add(ev.event)
               case ev @ ChannelEvent(_, ChannelUnregistered) => msg.add(ev.event, true)
               case ev @ ChannelEvent(_, _)                   => msg.add(ev.event)

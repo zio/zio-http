@@ -302,15 +302,21 @@ object Middleware extends Web {
    */
   def intercept[A, B]: PartialIntercept[A, B] = new PartialIntercept[A, B](())
 
+  def interceptTotal[A, B]: PartialInterceptTotal[A, B] = new PartialInterceptTotal[A, B](())
+
   /**
    * Creates a new middleware using effectful transformation functions
    */
   def interceptZIO[A, B]: PartialInterceptZIO[A, B] = new PartialInterceptZIO[A, B](())
 
+  def interceptZIOTotal[A, B]: PartialInterceptZIOTotal[A, B] = new PartialInterceptZIOTotal[A, B](())
+
   /**
    * Creates a middleware which always succeed with specified value
    */
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
+
+  def succeedTotal[B](b: B): Middleware.ForTotal[Any, Nothing, Nothing, Any, Any, B] = fromHttpTotal(Http.succeed(b))
 
   /**
    * Creates a new middleware using two transformation functions, one that's
@@ -318,6 +324,8 @@ object Middleware extends Web {
    * outgoing type of the Http.
    */
   def transform[AOut, BIn]: PartialMono[AOut, BIn] = new PartialMono[AOut, BIn]({})
+
+  def transformTotal[AOut, BIn]: PartialMonoTotal[AOut, BIn] = new PartialMonoTotal[AOut, BIn]({})
 
   /**
    * Creates a new middleware using two transformation functions, one that's
@@ -345,6 +353,19 @@ object Middleware extends Web {
         override def apply[R1 <: Any, E1 >: Nothing](http: Http[R1, E1, AIn, BIn])(implicit
           trace: Trace,
         ): Http[R1, E1, AOut, BOut] =
+          http.contramap(in).map(out)
+      }
+  }
+
+  final class PartialMonoTotal[AOut, BIn](val unit: Unit) extends AnyVal {
+    def apply[AIn, BOut](
+      in: AOut => AIn,
+      out: BIn => BOut,
+    ): Middleware.ForTotal[Any, Nothing, AIn, BIn, AOut, BOut] =
+      new Middleware.ForTotal[Any, Nothing, AIn, BIn, AOut, BOut] {
+        override def apply[R1 <: Any, E1 >: Nothing](http: Http.Total[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R1, E1, AOut, BOut] =
           http.contramap(in).map(out)
       }
   }
@@ -391,11 +412,23 @@ object Middleware extends Web {
       interceptZIO[A, B](a => ZIO.succeedNow(incoming(a)))((b, s) => ZIO.succeedNow(outgoing(b, s)))
   }
 
+  final class PartialInterceptTotal[A, B](val unit: Unit) extends AnyVal {
+    def apply[S, BOut](incoming: A => S)(outgoing: (B, S) => BOut): Middleware.ForTotal[Any, Nothing, A, B, A, BOut] =
+      interceptZIOTotal[A, B](a => ZIO.succeedNow(incoming(a)))((b, s) => ZIO.succeedNow(outgoing(b, s)))
+  }
+
   final class PartialInterceptZIO[A, B](val unit: Unit) extends AnyVal {
     def apply[R, E, S, BOut](
       incoming: A => ZIO[R, E, S],
     ): PartialInterceptOutgoingZIO[R, E, A, S, B] =
       new PartialInterceptOutgoingZIO(incoming)
+  }
+
+  final class PartialInterceptZIOTotal[A, B](val unit: Unit) extends AnyVal {
+    def apply[R, E, S, BOut](
+      incoming: A => ZIO[R, E, S],
+    ): PartialInterceptOutgoingZIOTotal[R, E, A, S, B] =
+      new PartialInterceptOutgoingZIOTotal(incoming)
   }
 
   final class PartialInterceptOutgoingZIO[-R, +E, A, +S, B](val incoming: A => ZIO[R, E, S]) extends AnyVal {
@@ -408,6 +441,24 @@ object Middleware extends Web {
             for {
               s <- incoming(a)
               b <- execute
+              c <- outgoing(b, s)
+            } yield c
+          }
+      }
+  }
+
+  final class PartialInterceptOutgoingZIOTotal[-R, +E, A, +S, B](val incoming: A => ZIO[R, E, S]) extends AnyVal {
+    def apply[R1 <: R, E1 >: E, BOut](
+      outgoing: (B, S) => ZIO[R1, E1, BOut],
+    ): Middleware.ForTotal[R1, E1, A, B, A, BOut] =
+      new Middleware.ForTotal[R1, E1, A, B, A, BOut] {
+        override def apply[R2 <: R1, E2 >: E1](
+          http: Http.Total[R2, E2, A, B],
+        )(implicit trace: Trace): Http.Total[R2, E2, A, BOut] =
+          Http.fromFunctionZIO { a =>
+            for {
+              s <- incoming(a)
+              b <- http.toZIO(a)
               c <- outgoing(b, s)
             } yield c
           }
@@ -515,11 +566,35 @@ object Middleware extends Web {
   trait ForTotal[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
 
     /**
+     * Composes one middleware with another.
+     */
+    final def andThen[R1 <: R, E1 >: E, AIn1 <: AOut, BIn1 >: BOut, AOut1, BOut1](
+      other: Middleware.ForTotal[R1, E1, AIn1, BIn1, AOut1, BOut1],
+    ): Middleware.ForTotal[R1, E1, AIn, BIn, AOut1, BOut1] =
+      new Middleware.ForTotal[R1, E1, AIn, BIn, AOut1, BOut1] {
+        override def apply[R2 <: R1, E2 >: E1](http: Http.Total[R2, E2, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R2, E2, AOut1, BOut1] =
+          other(self(http))
+      }
+
+    /**
      * Applies middleware on Http and returns new Http.
      */
     def apply[R1 <: R, E1 >: E](http: Http.Total[R1, E1, AIn, BIn])(implicit
       trace: Trace,
     ): Http.Total[R1, E1, AOut, BOut]
+
+    /**
+     * Preprocesses the incoming value for the outgoing Http.
+     */
+    final def contramap[AOut0](f: AOut0 => AOut): Middleware.ForTotal[R, E, AIn, BIn, AOut0, BOut] =
+      new Middleware.ForTotal[R, E, AIn, BIn, AOut0, BOut] {
+        override def apply[R1 <: R, E1 >: E](http: Http.Total[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R1, E1, AOut0, BOut] =
+          self(http).contramap(f)
+      }
 
     /**
      * Preprocesses the incoming value using a ZIO, for the outgoing Http.
@@ -547,6 +622,31 @@ object Middleware extends Web {
       ev: BOut <:< Middleware.ForTotal[R1, E1, AIn0, BIn0, AOut0, BOut0],
     ): Middleware.ForTotal[R1, E1, AIn0, BIn0, AOut0, BOut0] =
       flatMap(m => m)
+
+    /**
+     * Transforms the output type of the current middleware.
+     */
+    final def map[BOut0](f: BOut => BOut0): Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut0] =
+      new Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut0] {
+        override def apply[R1 <: R, E1 >: E](http: Http.Total[R1, E1, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R1, E1, AOut, BOut0] =
+          self(http).map(f)
+      }
+
+    /**
+     * Transforms the output type of the current middleware using effect
+     * function.
+     */
+    final def mapZIO[R1 <: R, E1 >: E, BOut0](
+      f: BOut => ZIO[R1, E1, BOut0],
+    ): Middleware.ForTotal[R1, E1, AIn, BIn, AOut, BOut0] =
+      new Middleware.ForTotal[R1, E1, AIn, BIn, AOut, BOut0] {
+        def apply[R2 <: R1, E2 >: E1](http: Http.Total[R2, E2, AIn, BIn])(implicit
+          trace: Trace,
+        ): Http.Total[R2, E2, AOut, BOut0] =
+          self(http).mapZIO(f)
+      }
 
     /**
      * Applies Middleware based only if the condition function evaluates to true

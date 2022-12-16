@@ -62,7 +62,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
     ): Http[R with Client with DynamicServer with Scope, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
-        id       <- Http.fromZIO(DynamicServer.deploy(app))
+        id       <- Http.fromZIO(DynamicServer.deploy[R](app.withFallback(Http.notFound)))
         response <- Http.fromFunctionZIO[Request] { params =>
           Client.request(
             params
@@ -77,7 +77,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
     ): Http[R with Client with DynamicServer, Throwable, Request, Response] =
       for {
         port     <- Http.fromZIO(DynamicServer.port)
-        id       <- Http.fromZIO(DynamicServer.deploy(app))
+        id       <- Http.fromZIO(DynamicServer.deploy(app.withFallback(Http.notFound)))
         response <- Http.fromFunctionZIO[Request] { params =>
           Client.request(
             params
@@ -90,7 +90,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       e: E <:< Throwable,
     ): Http[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =
       for {
-        id       <- Http.fromZIO(DynamicServer.deploy(app))
+        id       <- Http.fromZIO(DynamicServer.deploy[R](app.withFallback(Http.notFound)))
         url      <- Http.fromZIO(DynamicServer.wsURL)
         response <- Http.fromFunctionZIO[SocketApp[Client with Scope]] { app =>
           ZIO.scoped[Client with Scope](

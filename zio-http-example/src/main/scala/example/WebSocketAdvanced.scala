@@ -12,8 +12,8 @@ object WebSocketAdvanced extends ZIOAppDefault {
       (channel, message)
     }
 
-  val messageSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
-    Http.collectZIO[(WebSocketChannel, String)] {
+  val messageSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    messageFilter >>> Http.fromFunctionZIO[(WebSocketChannel, String)] {
       case (ch, "end") => ch.close()
 
       // Send a "bar" if the server sends a "foo"

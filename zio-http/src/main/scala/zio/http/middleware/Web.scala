@@ -234,7 +234,9 @@ private[zio] trait Web
   /**
    * Applies the middleware only if status matches the condition
    */
-  final def whenStatus[R, E](cond: Status => Boolean)(middleware: HttpMiddlewareForTotal[R, E]): HttpMiddlewareForTotal[R, E] =
+  final def whenStatus[R, E](cond: Status => Boolean)(
+    middleware: HttpMiddlewareForTotal[R, E],
+  ): HttpMiddlewareForTotal[R, E] =
     whenResponse(respon => cond(respon.status))(middleware)
 
   /**

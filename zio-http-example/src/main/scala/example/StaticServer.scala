@@ -39,7 +39,7 @@ object StaticServer extends ZIOAppDefault {
         else if (file.isFile) Http.fromFile(file)
 
         // Return a 404 if the file doesn't exist
-        else Http.empty
+        else Http.notFound
     } yield http
   }
 

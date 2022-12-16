@@ -2,12 +2,12 @@ package zio.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.ZIO.attemptBlocking
-import zio.{http, _}
 import zio.http.html._
 import zio.http.model._
 import zio.http.model.headers.HeaderModifierZIO
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
+import zio.{http, _}
 
 import java.io.{File, FileNotFoundException}
 import java.net
@@ -40,13 +40,6 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     mid: api.Middleware[R1, I, O],
   )(implicit trace: Trace, ev1: A1 <:< Request, ev2: B <:< http.Response): HttpApp[R1, E] =
     mid(self.asInstanceOf[Http[R, E, Request, Response]])
-
-//  /**
-//   * Combines two Http instances into a middleware that works a codec for
-//   * incoming and outgoing messages.
-//   */
-//  def \/[R1 <: R, E1 >: E, C, D](other: Http[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D] =
-//    self codecMiddleware other
 
   /**
    * Alias for flatmap
@@ -172,13 +165,6 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     pf: PartialFunction[Throwable, Http.Total[R1, E1, A1, B1]],
   ): Http[R1, E1, A1, B1] =
     unrefineWith(pf)(Http.fail).catchAll(e => e)
-
-//  /**
-//   * Combines two Http instances into a middleware that works a codec for
-//   * incoming and outgoing messages.
-//   */
-//  def codecMiddleware[R1 <: R, E1 >: E, C, D](other: Http[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D] =
-//    Middleware.codecHttp(self, other)
 
   /**
    * Extracts content-length from the response if available
@@ -665,7 +651,8 @@ object Http {
     }
   }
 
-  implicit final class TotalHttpAppSyntax[-R, +E](val http: Http.Total[R, E, Request, Response]) extends HeaderModifierZIO[Http.Total[R, E, Request, Response]] {
+  implicit final class TotalHttpAppSyntax[-R, +E](val http: Http.Total[R, E, Request, Response])
+      extends HeaderModifierZIO[Http.Total[R, E, Request, Response]] {
     self =>
 
     /**
@@ -676,7 +663,8 @@ object Http {
     /**
      * Overwrites the method in the incoming request
      */
-    def setMethod(method: Method): Http.Total[R, E, Request, Response] = http.contramap[Request](_.copy(method = method))
+    def setMethod(method: Method): Http.Total[R, E, Request, Response] =
+      http.contramap[Request](_.copy(method = method))
 
     /**
      * Overwrites the path in the incoming request
@@ -729,7 +717,7 @@ object Http {
   /**
    * Creates an HTTP app which always responds with a 400 status code.
    */
-  def badRequest(msg: String): HttpApp[Any, Nothing] = Http.error(HttpError.BadRequest(msg))
+  def badRequest(msg: String): Http.Total[Any, Nothing, Request, Response] = Http.error(HttpError.BadRequest(msg))
 
   /**
    * Creates an HTTP app which accepts a request and produces response.
@@ -890,22 +878,15 @@ object Http {
     v.fold[Http[Any, Option[Nothing], Any, A]](Http.fail(None))(Http.succeed)
 
   /**
-   * Creates an `Http` from a function that takes a value of type `A` and
-   * returns with a `ZIO[R, Option[E], B]`. The returned effect can fail with a
-   * `None` to signal "not found" to the backend.
-   */
-  // def fromOptionFunction[A]: PartialFromOptionFunction[A] = new PartialFromOptionFunction(()) // TODO
-
-  /**
    * Creates an HTTP that can serve files on the give path.
    */
-  def fromPath(head: String, tail: String*)(implicit trace: Trace): HttpApp[Any, Throwable] =
+  def fromPath(head: String, tail: String*)(implicit trace: Trace): Http.Total[Any, Throwable, Request, Response] =
     Http.fromFile(Paths.get(head, tail: _*).toFile)
 
   /**
    * Creates an Http app from a resource path
    */
-  def fromResource(path: String)(implicit trace: Trace): Http[Any, Throwable, Request, Response] =
+  def fromResource(path: String)(implicit trace: Trace): Http.Total[Any, Throwable, Request, Response] =
     Http.getResource(path).flatMap(url => Http.fromResourceWithURL(url))
 
   private[zio] def fromResourceWithURL(
@@ -965,7 +946,7 @@ object Http {
    */
   def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET)(implicit
     trace: Trace,
-  ): HttpApp[R, Nothing] =
+  ): Http.Total[R, Nothing, Request, Response] =
     Http
       .fromZIO(ZIO.environment[R].map(r => Http.fromBody(Body.fromStream(stream.provideEnvironment(r), charset))))
       .flatten
@@ -1018,13 +999,13 @@ object Http {
   /**
    * Creates an Http app that fails with a NotFound exception.
    */
-  def notFound: HttpApp[Any, Nothing] =
+  def notFound: Http.Total[Any, Nothing, Request, Response] =
     Http.fromFunction[Request](req => Http.error(HttpError.NotFound(req.url.path.encode))).flatten
 
   /**
    * Creates an HTTP app which always responds with a 200 status code.
    */
-  def ok: HttpApp[Any, Nothing] = status(Status.Ok)
+  def ok: Http.Total[Any, Nothing, Request, Response] = status(Status.Ok)
 
   /**
    * Creates an Http app which always responds with the same value.
@@ -1055,13 +1036,13 @@ object Http {
    * Creates an Http app which responds with an Html page using the built-in
    * template.
    */
-  def template(heading: CharSequence)(view: Html): HttpApp[Any, Nothing] =
+  def template(heading: CharSequence)(view: Html): Http.Total[Any, Nothing, Request, Response] =
     Http.response(Response.html(Template.container(heading)(view)))
 
   /**
    * Creates an Http app which always responds with the same plain text.
    */
-  def text(charSeq: CharSequence): HttpApp[Any, Nothing] =
+  def text(charSeq: CharSequence): Http.Total[Any, Nothing, Request, Response] =
     Http.succeed(Response.text(charSeq))
 
   /**
@@ -1134,6 +1115,11 @@ object Http {
     final private[zio] def executeTotal(a: A): HExit[R, E, B] =
       execute(a)
 
+    def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+      mid: Middleware.ForTotal[R1, E1, A1, B1, A2, B2],
+    ): Http.Total[R1, E1, A2, B2] =
+      self.middleware(mid)
+
     /**
      * Pipes the output of one app into the other
      */
@@ -1147,10 +1133,32 @@ object Http {
       self compose other
 
     /**
+     * Combines two Http instances into a middleware that works a codec for
+     * incoming and outgoing messages.
+     */
+    def \/[R1 <: R, E1 >: E, C, D](other: Http.Total[R1, E1, C, D]): Middleware.ForTotal[R1, E1, B, C, A, D] =
+      self codecMiddleware other
+
+    /**
+     * Alias for zipRight
+     */
+    override def *>[R1 <: R, E1 >: E, A1 <: A, C1](other: Http.Total[R1, E1, A1, C1]): Http.Total[R1, E1, A1, C1] =
+      self.zipRight(other)
+
+    /**
      * Named alias for `>>>`
      */
     override def andThen[R1 <: R, E1 >: E, B1 >: B, C](other: Http.Total[R1, E1, B1, C]): Http.Total[R1, E1, A, C] =
       Http.ChainTotal(self, other)
+
+    /**
+     * Combines two Http instances into a middleware that works a codec for
+     * incoming and outgoing messages.
+     */
+    def codecMiddleware[R1 <: R, E1 >: E, C, D](
+      other: Http.Total[R1, E1, C, D],
+    ): Middleware.ForTotal[R1, E1, B, C, A, D] =
+      Middleware.codecHttp(self, other)
 
     /**
      * Named alias for `<<<`
@@ -1192,6 +1200,18 @@ object Http {
       self.contramapZIO(a => ZIO.succeed(a).delay(duration))
 
     /**
+     * Delays production of output B for the specified duration of time
+     */
+    override def delay(duration: Duration)(implicit trace: Trace): Http.Total[R, E, A, B] =
+      self.delayAfter(duration)
+
+    /**
+     * Delays production of output B for the specified duration of time
+     */
+    override def delayAfter(duration: Duration)(implicit trace: Trace): Http.Total[R, E, A, B] =
+      self.mapZIO(b => ZIO.succeed(b).delay(duration))
+
+    /**
      * Flattens an Http app of an Http app
      */
     override def flatten[R1 <: R, E1 >: E, A1 <: A, B1](implicit
@@ -1203,7 +1223,9 @@ object Http {
     /**
      * Creates a new Http app from another
      */
-    override def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](f: B => Http.Total[R1, E1, A1, C1]): Http.Total[R1, E1, A1, C1] = {
+    override def flatMap[R1 <: R, E1 >: E, A1 <: A, C1](
+      f: B => Http.Total[R1, E1, A1, C1],
+    ): Http.Total[R1, E1, A1, C1] = {
       self.foldHttp(Http.fail, f)
     }
 
@@ -1226,8 +1248,17 @@ object Http {
     override def map[C](bc: B => C): Http.Total[R, E, A, C] =
       self.flatMap(b => Http.succeed(bc(b)))
 
-    override def mapZIO[R1 <: R, E1 >: E, C](bFc: B => ZIO[R1, E1, C])(implicit trace: Trace): Http.Total[R1, E1, A, C] =
+    override def mapZIO[R1 <: R, E1 >: E, C](bFc: B => ZIO[R1, E1, C])(implicit
+      trace: Trace,
+    ): Http.Total[R1, E1, A, C] =
       self >>> Http.fromFunctionZIO(bFc)
+
+    /**
+     * Named alias for @@
+     */
+    def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+      mid: Middleware.ForTotal[R1, E1, A1, B1, A2, B2],
+    ): Http.Total[R1, E1, A2, B2] = mid(self)
 
     /**
      * Provides the environment to Http.
@@ -1258,6 +1289,14 @@ object Http {
       layer: ZLayer[R0, E1, R1],
     )(implicit ev: R0 with R1 <:< R, tagged: Tag[R1], trace: Trace): Http.Total[R0, E1, A, B] =
       AspectTotal(self, (z: ZIO[R, E1, B]) => z.provideSomeLayer[R0](layer))
+
+    /**
+     * Combines the two apps and returns the result of the one on the right
+     */
+    override def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](
+      other: Http.Total[R1, E1, A1, C1],
+    ): Http.Total[R1, E1, A1, C1] =
+      self.flatMap(_ => other)
   }
 
   private final case class Succeed[B](b: B) extends Http.Total[Any, Nothing, Any, B]

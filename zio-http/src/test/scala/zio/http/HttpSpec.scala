@@ -75,15 +75,14 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         assert(actual)(isSuccess(equalTo("OK")))
       },
       test("should fail") {
-        val a      = Http.collect[Int] { case 1 => "OK" }
-        val actual = a.execute(0)
-        assert(actual)(isEmpty)
+        val a = Http.collect[Int] { case 1 => "OK" }
+        assertTrue(!a.execute.isDefinedAt(0))
       },
     ),
     suite("codecMiddleware")(
       test("codec success") {
-        val a      = Http.collect[Int] { case v => v.toString }
-        val b      = Http.collect[String] { case v => v.toInt }
+        val a      = Http.fromFunction[Int] { v => v.toString }
+        val b      = Http.fromFunction[String] { v => v.toInt }
         val app    = Http.identity[String] @@ (a \/ b)
         val actual = app.execute(2)
         assert(actual)(isSuccess(equalTo(2)))
@@ -117,9 +116,8 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         assert(actual)(isDie(equalTo(t)))
       },
       test("should give empty if the inout is not defined") {
-        val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
-        val actual = a.execute(0)
-        assert(actual)(isEmpty)
+        val a = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
+        assertTrue(!a.execute.isDefinedAt(0))
       },
     ),
     suite("fromFunctionHExit")(
@@ -132,11 +130,6 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         val a      = Http.fromFunctionHExit[Int] { a => HExit.fail(a + 1) }
         val actual = a.execute(1)
         assert(actual)(isFailure(equalTo(2)))
-      },
-      test("should give empty if the returned HExit is empty") {
-        val a      = Http.fromFunctionHExit[Int] { _ => HExit.empty }
-        val actual = a.execute(0)
-        assert(actual)(isEmpty)
       },
       test("should die if the functions throws an exception") {
         val t      = new Throwable("boom")
@@ -155,11 +148,6 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         val a      = Http.fromHExit(HExit.fail("fail"))
         val actual = a.execute(1)
         assert(actual)(isFailure(equalTo("fail")))
-      },
-      test("should give empty if the returned HExit is empty") {
-        val a      = Http.fromHExit(HExit.empty)
-        val actual = a.execute(1)
-        assert(actual)(isEmpty)
       },
     ),
     suite("combine")(
@@ -182,17 +170,15 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         assert(actual)(isSuccess(equalTo("B")))
       },
       test("should not resolve") {
-        val a      = Http.collect[Int] { case 1 => "A" }
-        val b      = Http.collect[Int] { case 2 => "B" }
-        val actual = (a ++ b).execute(3)
-        assert(actual)(isEmpty)
+        val a = Http.collect[Int] { case 1 => "A" }
+        val b = Http.collect[Int] { case 2 => "B" }
+        assertTrue(!(a ++ b).execute.isDefinedAt(3))
       },
       test("should not resolve") {
-        val a      = Http.empty
-        val b      = Http.empty
-        val c      = Http.empty
-        val actual = (a ++ b ++ c).execute(())
-        assert(actual)(isEmpty)
+        val a = Http.empty
+        val b = Http.empty
+        val c = Http.empty
+        assertTrue(!(a ++ b ++ c).execute.isDefinedAt(()))
       },
       test("should fail with second") {
         val a      = Http.empty
@@ -223,15 +209,14 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
       },
       test("should complete") {
         val a      = Http.collect[Int] { case 1 => "A" }
-        val actual = a.execute(2).toZIO.either
+        val actual = a(2).either
         assertZIO(actual)(isLeft(isNone))
       },
     ),
     suite("collectM")(
       test("should be empty") {
-        val a      = Http.collectZIO[Int] { case 1 => ZIO.succeed("A") }
-        val actual = a.execute(2)
-        assert(actual)(isEmpty)
+        val a = Http.collectZIO[Int] { case 1 => ZIO.succeed("A") }
+        assertTrue(!a.execute.isDefinedAt(2))
       },
       test("should resolve") {
         val a      = Http.collectZIO[Int] { case 1 => ZIO.succeed("A") }
@@ -255,22 +240,11 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         assert(actual)(isSuccess(equalTo(2)))
       },
       test("should be empty if no matches") {
-        val app    = Http.collectHttp[Int](Map.empty)
-        val actual = app.execute(1)
-        assert(actual)(isEmpty)
+        val app = Http.collectHttp[Int](Map.empty)
+        assertTrue(!app.execute.isDefinedAt(1))
       },
     ),
-    suite("tap")(
-      test("taps the success") {
-        for {
-          r <- Ref.make(0)
-          app = Http.succeed(1).tap(v => Http.fromZIO(r.set(v)))
-          _   <- app.execute(()).toZIO
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
-    ),
-    suite("tapM")(
+    suite("tapZIO")(
       test("taps the success") {
         for {
           r <- Ref.make(0)
@@ -280,17 +254,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         } yield assert(res)(equalTo(1))
       },
     ),
-    suite("tapError")(
-      test("taps the error") {
-        for {
-          r <- Ref.make(0)
-          app = Http.fail(1).tapError(v => Http.fromZIO(r.set(v)))
-          _   <- app.execute(()).toZIO.ignore
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
-    ),
-    suite("tapErrorM")(
+    suite("tapErrorZIO")(
       test("taps the error") {
         for {
           r <- Ref.make(0)
@@ -300,58 +264,11 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         } yield assert(res)(equalTo(1))
       },
     ),
-    suite("tapAll")(
-      test("taps the success") {
-        for {
-          r <- Ref.make(0)
-          app = (Http.succeed(1): Http[Any, Any, Any, Int])
-            .tapAll(_ => Http.empty, v => Http.fromZIO(r.set(v)), Http.empty)
-          _   <- app.execute(()).toZIO
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
-      test("taps the failure") {
-        for {
-          r <- Ref.make(0)
-          app = (Http.fail(1): Http[Any, Int, Any, Any])
-            .tapAll(
-              cause => cause.failureOption.fold[Http[Any, Nothing, Any, Unit]](Http.empty)(v => Http.fromZIO(r.set(v))),
-              _ => Http.empty,
-              Http.empty,
-            )
-          _   <- app.execute(()).toZIO.ignore
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
-      test("taps the die") {
-        val t = new Throwable("boom")
-        for {
-          r <- Ref.make(0)
-          app = (Http.die(t): Http[Any, Any, Any, Any])
-            .tapAll(
-              cause => cause.dieOption.fold[Http[Any, Nothing, Any, Unit]](Http.empty)(v => Http.fromZIO(r.set(1))),
-              _ => Http.empty,
-              Http.empty,
-            )
-          _   <- app.execute(()).toZIO.exit.ignore
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
-      test("taps the empty") {
-        for {
-          r <- Ref.make(0)
-          app = (Http.empty: Http[Any, Any, Any, Any])
-            .tapAll(_ => Http.empty, _ => Http.empty, Http.fromZIO(r.set(1)))
-          _   <- app.execute(()).toZIO.ignore
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
-    ),
     suite("tapAllZIO")(
       test("taps the success") {
         for {
           r <- Ref.make(0)
-          app = (Http.succeed(1): Http[Any, Any, Any, Int]).tapAllZIO(_ => ZIO.unit, r.set, ZIO.unit)
+          app = (Http.succeed(1): Http[Any, Any, Any, Int]).tapAllZIO(_ => ZIO.unit, r.set)
           _   <- app.execute(()).toZIO
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -360,7 +277,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = (Http.fail(1): Http[Any, Int, Any, Any])
-            .tapAllZIO(cause => cause.failureOption.fold(ZIO.unit)(r.set), _ => ZIO.unit, ZIO.unit)
+            .tapAllZIO(cause => cause.failureOption.fold(ZIO.unit)(r.set), _ => ZIO.unit)
           _   <- app.execute(()).toZIO.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
@@ -370,17 +287,8 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = (Http.die(t): Http[Any, Any, Any, Any])
-            .tapAllZIO(cause => cause.dieOption.fold(ZIO.unit)(_ => r.set(1)), _ => ZIO.unit, ZIO.unit)
+            .tapAllZIO(cause => cause.dieOption.fold(ZIO.unit)(_ => r.set(1)), _ => ZIO.unit)
           _   <- app.execute(()).toZIO.exit.ignore
-          res <- r.get
-        } yield assert(res)(equalTo(1))
-      },
-      test("taps the empty") {
-        for {
-          r <- Ref.make(0)
-          app = (Http.empty: Http[Any, Any, Any, Any])
-            .tapAllZIO(_ => ZIO.unit, _ => ZIO.unit, r.set(1))
-          _   <- app.execute(()).toZIO.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
@@ -426,9 +334,8 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         assert(actual)(isSuccess(equalTo(1)))
       },
       test("should not execute http when condition doesn't apply") {
-        val app    = Http.succeed(1).when((_: Any) => false)
-        val actual = app.execute(0)
-        assert(actual)(isEmpty)
+        val app = Http.succeed(1).when((_: Any) => false)
+        assertTrue(!app.execute.isDefinedAt(0))
       },
       test("should die when condition throws an exception") {
         val t      = new Throwable("boom")

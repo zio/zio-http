@@ -55,7 +55,7 @@ object ClientProxySpec extends HttpRunnableSpec {
       assertZIO(res.either)(isRight)
     },
     test("proxy respond Ok for auth server") {
-      val proxyAuthApp = Http.collect[Request] { case req =>
+      val proxyAuthApp = Http.fromFunction[Request] { req =>
         val proxyAuthHeaderName = HeaderNames.proxyAuthorization.toString
         req.headers.toList.collectFirst { case Header(`proxyAuthHeaderName`, _) =>
           Response.ok
