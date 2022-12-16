@@ -10,6 +10,8 @@ private[http] object OutputEncoder {
    * Specification: Convert & to &amp;, Convert < to &lt;, Convert > to &gt;,
    * Convert " to &quot;, Convert ' to &#x27;, Convert / to &#x2F;
    *
+   * Only use this function to encode characters inside HTML context: <html>output</html
+   *
    * @param output
    *   string that needs HTML encoding
    * @return
