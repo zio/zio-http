@@ -1,5 +1,7 @@
 package zio.http.security
 
+import scala.collection.mutable
+
 private[http] object OutputEncoder {
 
   /**
@@ -19,10 +21,19 @@ private[http] object OutputEncoder {
    *   HTML encoded string
    */
   def encodeHtml(output: String): String = {
-    output.map(char => encodeHtmlChar(char))
-  }.mkString
+    val sb = new mutable.StringBuilder(output.length)
 
-  private def encodeHtmlChar(char: Char): String = char match {
+    var idx = 0
+
+    while (idx < output.length) {
+      sb.append(encodeHtmlChar(output.charAt(idx)))
+      idx += 1
+    }
+
+    sb.mkString
+  }
+
+  private def encodeHtmlChar(char: Char): CharSequence = char match {
     case '&'     => "&amp"
     case '<'     => "&lt;"
     case '>'     => "&gt;"
