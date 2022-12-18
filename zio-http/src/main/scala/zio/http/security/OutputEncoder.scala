@@ -3,6 +3,12 @@ package zio.http.security
 import scala.collection.mutable
 
 private[http] object OutputEncoder {
+  private val `&` = "&amp"
+  private val `<` = "&lt;"
+  private val `>` = "&gt;"
+  private val `"` = "&quot;"
+  private val `'` = "&#x27;"
+  private val `/` = "&#x2F;"
 
   /**
    * Encode HTML characters that can cause XSS, according to OWASP
@@ -34,12 +40,12 @@ private[http] object OutputEncoder {
   }
 
   private def encodeHtmlChar(char: Char): CharSequence = char match {
-    case '&'     => "&amp"
-    case '<'     => "&lt;"
-    case '>'     => "&gt;"
-    case '"'     => "&quot;"
-    case '\''    => "&#x27;"
-    case '/'     => "&#x2F;"
+    case '&'     => `&`
+    case '<'     => `<`
+    case '>'     => `>`
+    case '"'     => `"`
+    case '\''    => `'`
+    case '/'     => `/`
     case _ @char => char.toString
   }
 
