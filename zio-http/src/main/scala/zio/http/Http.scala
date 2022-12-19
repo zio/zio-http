@@ -185,7 +185,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   def contramap[X](xa: X => A): Http[R, E, X, B] =
     Http.collectHExit {
-      val pxa: PartialFunction[X, A] = x => xa(x)
+      val pxa: PartialFunction[X, A] = { case x => xa(x) }
       pxa.andThen(self.execute)
     }
 
@@ -512,26 +512,28 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   final private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] =
     self match {
       case Http.Empty              => PartialFunction.empty
-      case Http.Identity           => (a: A) => HExit.succeed(a.asInstanceOf[B])
-      case Succeed(b)              => _ => HExit.succeed(b)
-      case Fail(cause)             => _ => HExit.failCause(cause)
-      case attempt: Attempt[_]     =>
-        _ =>
-          try {
-            HExit.succeed(attempt.a().asInstanceOf[B])
-          } catch {
-            case e: Throwable => HExit.fail(e.asInstanceOf[E])
-          }
+      case Http.Identity           => { case a => HExit.succeed(a.asInstanceOf[B]) }
+      case Succeed(b)              => { case _ => HExit.succeed(b) }
+      case Fail(cause)             => { case _ => HExit.failCause(cause) }
+      case attempt: Attempt[_]     => { case _ =>
+        try {
+          HExit.succeed(attempt.a().asInstanceOf[B])
+        } catch {
+          case e: Throwable => HExit.fail(e.asInstanceOf[E])
+        }
+      }
       case PartialHandler(f)       => {
         case a if f.isDefinedAt(a) =>
           try f(a)
           catch { case NonFatal(e) => HExit.die(e) }
       }
-      case TotalHandler(f)         =>
-        a =>
-          try f(a)
-          catch { case NonFatal(e) => HExit.die(e) }
-      case FromHExit(h)            => _ => h
+      case TotalHandler(f)         => { case a =>
+        try f(a)
+        catch {
+          case NonFatal(e) => HExit.die(e)
+        }
+      }
+      case FromHExit(h)            => { case _ => h }
       case Chain(self, other)      =>
         self.execute.andThen(_.flatMap(other.executeTotal))
       case ChainTotal(self, other) =>
@@ -558,14 +560,14 @@ sealed trait Http[-R, +E, -A, +B] { self =>
             )
       }
 
-      case FoldHttpTotal(self, failure, success) =>
-        a =>
-          self
-            .execute(a)
-            .foldExit(
-              failure(_).execute(a),
-              success(_).execute(a),
-            )
+      case FoldHttpTotal(self, failure, success) => { case a =>
+        self
+          .execute(a)
+          .foldExit(
+            failure(_).execute(a),
+            success(_).execute(a),
+          )
+      }
 
       case When(f, other) => {
         case a if f(a) && other.execute.isDefinedAt(a) => other.execute(a)
