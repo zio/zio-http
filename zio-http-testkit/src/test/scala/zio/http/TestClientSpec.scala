@@ -63,17 +63,21 @@ object TestClientSpec extends ZIOSpecDefault {
 
           val greetingToClient                                                       = "Hi Client"
           val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageUnwrapper >>>
-            Http.collectZIO[(WebSocketChannel, String)] { case (ch, `greetingToClient`) =>
-              ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
-            }
+            Http
+              .collectZIO[(WebSocketChannel, String)] { case (ch, `greetingToClient`) =>
+                ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
+              }
+              .withFallback(Http.fail(new Exception("Unexpected message")))
 
           val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
             Http.empty
 
           val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageUnwrapper >>>
-            Http.collectZIO[(WebSocketChannel, String)] { case (ch, "Hi Server") =>
-              ch.close()
-            }
+            Http
+              .collectZIO[(WebSocketChannel, String)] { case (ch, "Hi Server") =>
+                ch.close()
+              }
+              .withFallback(Http.fail(new Exception("Unexpected message")))
 
           val channelSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
             Http.collectZIO[WebSocketChannelEvent] {

@@ -1,7 +1,14 @@
 package zio.http
 
 import zio._
-import zio.http.middleware.{MonoMiddleware, MonoMiddlewareForTotal, Web}
+import zio.http.middleware.{
+  HttpMiddleware,
+  HttpMiddlewareForTotal,
+  MonoMiddleware,
+  MonoMiddlewareForTotal,
+  Web,
+  WebForTotal,
+}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
@@ -246,16 +253,6 @@ object Middleware extends Web {
     }
 
   /**
-   * Creates a middleware with specified http App
-   */
-  def fromHttpTotal[R, E, A, B](http: Http.Total[R, E, A, B]): Middleware.ForTotal[R, E, Nothing, Any, A, B] =
-    new Middleware.ForTotal[R, E, Nothing, Any, A, B] {
-      override def apply[R1 <: R, E1 >: E](other: Http.Total[R1, E1, Nothing, Any])(implicit
-        trace: Trace,
-      ): Http.Total[R1, E1, A, B] = http
-    }
-
-  /**
    * An empty middleware that doesn't do perform any operations on the provided
    * Http and returns it as it is.
    */
@@ -271,25 +268,11 @@ object Middleware extends Web {
   ): Middleware[Any, Nothing, AIn, BIn, AOut, BOut] =
     Identity
 
-  def identityTotal[A, B]: MonoMiddlewareForTotal[Any, Nothing, A, B] =
-    IdentityForTotal
-
-  def identityTotal[AIn, BIn, AOut, BOut](implicit
-    ev: IsMono[AIn, BIn, AOut, BOut],
-  ): Middleware.ForTotal[Any, Nothing, AIn, BIn, AOut, BOut] =
-    IdentityForTotal
-
   /**
    * Logical operator to decide which middleware to select based on the
    * predicate.
    */
   def ifThenElse[A]: PartialIfThenElse[A] = new PartialIfThenElse(())
-
-  /**
-   * Logical operator to decide which middleware to select based on the
-   * predicate.
-   */
-  def ifThenElseTotal[A]: PartialIfThenElseTotal[A] = new PartialIfThenElseTotal(())
 
   /**
    * Logical operator to decide which middleware to select based on the
@@ -302,21 +285,15 @@ object Middleware extends Web {
    */
   def intercept[A, B]: PartialIntercept[A, B] = new PartialIntercept[A, B](())
 
-  def interceptTotal[A, B]: PartialInterceptTotal[A, B] = new PartialInterceptTotal[A, B](())
-
   /**
    * Creates a new middleware using effectful transformation functions
    */
   def interceptZIO[A, B]: PartialInterceptZIO[A, B] = new PartialInterceptZIO[A, B](())
 
-  def interceptZIOTotal[A, B]: PartialInterceptZIOTotal[A, B] = new PartialInterceptZIOTotal[A, B](())
-
   /**
    * Creates a middleware which always succeed with specified value
    */
   def succeed[B](b: B): Middleware[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
-
-  def succeedTotal[B](b: B): Middleware.ForTotal[Any, Nothing, Nothing, Any, Any, B] = fromHttpTotal(Http.succeed(b))
 
   /**
    * Creates a new middleware using two transformation functions, one that's
@@ -324,8 +301,6 @@ object Middleware extends Web {
    * outgoing type of the Http.
    */
   def transform[AOut, BIn]: PartialMono[AOut, BIn] = new PartialMono[AOut, BIn]({})
-
-  def transformTotal[AOut, BIn]: PartialMonoTotal[AOut, BIn] = new PartialMonoTotal[AOut, BIn]({})
 
   /**
    * Creates a new middleware using two transformation functions, one that's
@@ -414,7 +389,7 @@ object Middleware extends Web {
 
   final class PartialInterceptTotal[A, B](val unit: Unit) extends AnyVal {
     def apply[S, BOut](incoming: A => S)(outgoing: (B, S) => BOut): Middleware.ForTotal[Any, Nothing, A, B, A, BOut] =
-      interceptZIOTotal[A, B](a => ZIO.succeedNow(incoming(a)))((b, s) => ZIO.succeedNow(outgoing(b, s)))
+      ForTotal.interceptZIO[A, B](a => ZIO.succeedNow(incoming(a)))((b, s) => ZIO.succeedNow(outgoing(b, s)))
   }
 
   final class PartialInterceptZIO[A, B](val unit: Unit) extends AnyVal {
@@ -654,9 +629,9 @@ object Middleware extends Web {
     final def when[AOut0 <: AOut](cond: AOut0 => Boolean)(implicit
       ev: IsMono[AIn, BIn, AOut0, BOut],
     ): Middleware.ForTotal[R, E, AIn, BIn, AOut0, BOut] =
-      Middleware.ifThenElseTotal[AOut0](cond(_))(
+      Middleware.ForTotal.ifThenElse[AOut0](cond(_))(
         isTrue = _ => self,
-        isFalse = _ => Middleware.identityTotal[AIn, BIn, AOut, BOut],
+        isFalse = _ => Middleware.ForTotal.identity[AIn, BIn, AOut, BOut],
       )
 
     /**
@@ -668,9 +643,44 @@ object Middleware extends Web {
     )(implicit ev: IsMono[AIn, BIn, AOut0, BOut]): Middleware.ForTotal[R1, E1, AIn, BIn, AOut0, BOut] = {
       Middleware.ifThenElseZIO[AOut0](cond(_))(
         isTrue = _ => self,
-        isFalse = _ => Middleware.identityTotal[AIn, BIn, AOut, BOut],
+        isFalse = _ => Middleware.ForTotal.identity[AIn, BIn, AOut, BOut],
       )
     }
+  }
+
+  object ForTotal extends WebForTotal {
+
+    /**
+     * Creates a middleware with specified http App
+     */
+    def fromHttp[R, E, A, B](http: Http.Total[R, E, A, B]): Middleware.ForTotal[R, E, Nothing, Any, A, B] =
+      new Middleware.ForTotal[R, E, Nothing, Any, A, B] {
+        override def apply[R1 <: R, E1 >: E](other: Http.Total[R1, E1, Nothing, Any])(implicit
+          trace: Trace,
+        ): Http.Total[R1, E1, A, B] = http
+      }
+
+    def identity[A, B]: MonoMiddlewareForTotal[Any, Nothing, A, B] =
+      IdentityForTotal
+
+    def identity[AIn, BIn, AOut, BOut](implicit
+      ev: IsMono[AIn, BIn, AOut, BOut],
+    ): Middleware.ForTotal[Any, Nothing, AIn, BIn, AOut, BOut] =
+      IdentityForTotal
+
+    /**
+     * Logical operator to decide which middleware to select based on the
+     * predicate.
+     */
+    def ifThenElse[A]: PartialIfThenElseTotal[A] = new PartialIfThenElseTotal(())
+
+    def intercept[A, B]: PartialInterceptTotal[A, B] = new PartialInterceptTotal[A, B](())
+
+    def interceptZIO[A, B]: PartialInterceptZIOTotal[A, B] = new PartialInterceptZIOTotal[A, B](())
+
+    def succeed[B](b: B): Middleware.ForTotal[Any, Nothing, Nothing, Any, Any, B] = fromHttp(Http.succeed(b))
+
+    def transform[AOut, BIn]: PartialMonoTotal[AOut, BIn] = new PartialMonoTotal[AOut, BIn]({})
   }
 
   private object Identity extends Middleware[Any, Nothing, Nothing, Any, Any, Nothing] {

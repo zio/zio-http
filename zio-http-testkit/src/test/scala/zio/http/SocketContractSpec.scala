@@ -15,14 +15,18 @@ object SocketContractSpec extends ZIOSpecDefault {
       (channel, message)
     }
 
-  private val warnOnUnrecognizedEvent = Http.collectZIO[WebSocketChannelEvent] { case other =>
+  private val warnOnUnrecognizedEvent = Http.fromFunctionZIO[WebSocketChannelEvent] { other =>
     ZIO.fail(new Exception("Unexpected event: " + other))
+  }
+
+  private val warnOnUnrecognizedMessage = Http.fromFunctionZIO[(WebSocketChannel, String)] { case (_, msg) =>
+    ZIO.fail(new Exception("Unexpected message: " + msg))
   }
 
   def spec =
     suite("SocketOps")(
       contract("Successful Multi-message application") { p =>
-        def channelSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+        def channelSocketServer: Http.Total[Any, Throwable, WebSocketChannelEvent, Unit] =
           Http
             .collectZIO[WebSocketChannelEvent] {
               case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
@@ -35,22 +39,25 @@ object SocketContractSpec extends ZIOSpecDefault {
               case ChannelEvent(_, other)                                            =>
                 printLine("Server Unexpected: " + other)
             }
-            .defaultWith(warnOnUnrecognizedEvent)
+            .withFallback(warnOnUnrecognizedEvent)
 
         val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
-          Http.collectZIO[(WebSocketChannel, String)] {
-            case (ch, text) if text.contains("Hi Server") =>
-              printLine("Server got message: " + text) *> ch.close()
-          }
+          Http
+            .collectZIO[(WebSocketChannel, String)] {
+              case (ch, text) if text.contains("Hi Server") =>
+                printLine("Server got message: " + text) *> ch.close()
+            }
+            .withFallback(warnOnUnrecognizedMessage)
 
-        messageSocketServer
-          .defaultWith(channelSocketServer)
+        messageSocketServer.withFallback(channelSocketServer)
       } { _ =>
         val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
-          Http.collectZIO[(WebSocketChannel, String)] {
-            case (ch, text) if text.contains("Hi Client") =>
-              ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
-          }
+          Http
+            .collectZIO[(WebSocketChannel, String)] {
+              case (ch, text) if text.contains("Hi Client") =>
+                ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
+            }
+            .withFallback(warnOnUnrecognizedMessage)
 
         val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
           Http.collectZIO[WebSocketChannelEvent] {
@@ -69,7 +76,7 @@ object SocketContractSpec extends ZIOSpecDefault {
             ZIO.fail(new Exception("Broken server"))
         },
       ) { p =>
-        Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, ChannelUnregistered) =>
+        Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(_, ChannelUnregistered) =>
           printLine("Server failed and killed socket. Should complete promise.") *>
             p.succeed(()).unit
         }

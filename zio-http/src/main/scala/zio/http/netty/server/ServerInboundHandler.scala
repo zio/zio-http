@@ -7,12 +7,14 @@ import zio._
 import zio.http._
 import zio.http.netty.{NettyRuntime, _}
 import zio.http.logging.Logger
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.model._
 import io.netty.util.AttributeKey
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
+
 import scala.annotation.tailrec
 import ServerInboundHandler.isReadKey
+
 import java.io.IOException
 import zio.http.Body.ChunkBody
 import zio.http.Body.AsciiStringBody
@@ -21,6 +23,8 @@ import zio.http.Body.ByteBufBody
 import zio.http.Body.EmptyBody
 import zio.http.Body.StreamBody
 import zio.http.Body.AsyncBody
+
+import scala.util.control.NonFatal
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -53,9 +57,8 @@ private[zio] final case class ServerInboundHandler(
           }
         }
 
-        if (http.execute.isDefinedAt(req)) {
-          val exit = http.execute(req)
-
+        val exit = http.toHExitOrNull(req)
+        if (exit ne null) {
           if (!attemptImmediateWrite(ctx, exit, time))
             writeResponse(ctx, env, exit, jReq)(releaseRequest)
           else
@@ -68,9 +71,8 @@ private[zio] final case class ServerInboundHandler(
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req = makeZioRequest(ctx, jReq)
 
-        if (http.execute.isDefinedAt(req)) {
-          val exit = http.execute(req)
-
+        val exit = http.toHExitOrNull(req)
+        if (exit ne null) {
           if (!attemptImmediateWrite(ctx, exit, time)) {
 
             if (

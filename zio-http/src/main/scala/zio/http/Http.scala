@@ -93,8 +93,10 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Consumes the input and executes the Http.
    */
   def apply(a: A)(implicit trace: Trace): ZIO[R, Option[E], B] =
-    if (execute.isDefinedAt(a)) execute(a).toZIO.mapError(Some(_))
-    else ZIO.fail(None)
+    try
+      if (execute.isDefinedAt(a)) executeToZIO(a).mapError(Some(_))
+      else ZIO.fail(None)
+    catch { case NonFatal(e) => ZIO.die(e) }
 
   /**
    * Makes the app resolve with a constant value
@@ -479,7 +481,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def wrap[R2, E2, B2, AA <: A](f: (AA, ZIO[R, E, B]) => ZIO[R2, E2, B2]): Http[R2, E2, AA, B2] =
     Http.collectZIO {
       case a if self.execute.isDefinedAt(a) =>
-        f(a, self.execute(a).toZIO)
+        f(a, self.executeToZIO(a))
     }
 
   /**
@@ -487,6 +489,16 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http.Total[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.flatMap(_ => other)
+
+  final private[zio] def executeToZIO(a: A): ZIO[R, E, B] =
+    (try { self.execute(a) }
+    catch { case NonFatal(e) => HExit.die(e) }).toZIO
+
+  final private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
+    try {
+      if (execute.isDefinedAt(a)) execute(a)
+      else null
+    } catch { case NonFatal(e) => HExit.die(e) }
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
@@ -497,7 +509,6 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * are required this way.
    */
   // TODO: readd (implicit trace: Trace) propagation?
-  // TODO: the resulting PartialFunction can throw exceptions which has to be interpreted as HExit.Die
   final private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] =
     self match {
       case Http.Empty              => PartialFunction.empty
@@ -511,8 +522,15 @@ sealed trait Http[-R, +E, -A, +B] { self =>
           } catch {
             case e: Throwable => HExit.fail(e.asInstanceOf[E])
           }
-      case PartialHandler(f)       => f
-      case TotalHandler(f)         => a => f(a)
+      case PartialHandler(f)       => {
+        case a if f.isDefinedAt(a) =>
+          try f(a)
+          catch { case NonFatal(e) => HExit.die(e) }
+      }
+      case TotalHandler(f)         =>
+        a =>
+          try f(a)
+          catch { case NonFatal(e) => HExit.die(e) }
       case FromHExit(h)            => _ => h
       case Chain(self, other)      =>
         self.execute.andThen(_.flatMap(other.executeTotal))
@@ -588,12 +606,20 @@ sealed trait Http[-R, +E, -A, +B] { self =>
       }
 
       case OrElse(self, other) => {
-        case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) => self.execute(a)
-        case a if !self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a) => other.execute(a)
+        case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) =>
+          self.execute(a)
+        case a if !self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a) =>
+          other.execute(a)
         case a if self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a)  =>
           (self.execute(a), other.execute(a)) match {
-            case (s @ HExit.Success(_), _) => s
-            case (self, other)             => HExit.fromZIO(self.toZIO.orElse(other.toZIO))
+            case (s @ HExit.Success(_), _)                        =>
+              s
+            case (s @ HExit.Failure(cause), _) if cause.isDie     =>
+              s
+            case (HExit.Failure(cause), other) if cause.isFailure =>
+              other
+            case (self, other)                                    =>
+              HExit.fromZIO(self.toZIO.orElse(other.toZIO))
           }
       }
     }
@@ -1113,7 +1139,8 @@ object Http {
       executeTotal(a).toZIO
 
     final private[zio] def executeTotal(a: A): HExit[R, E, B] =
-      execute(a)
+      try { execute(a) }
+      catch { case NonFatal(e) => HExit.die(e) }
 
     def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
       mid: Middleware.ForTotal[R1, E1, A1, B1, A2, B2],

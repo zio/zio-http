@@ -99,15 +99,6 @@ private[zio] trait Web
     Middleware.ifThenElse[Request](cond)(_ => left, _ => right)
 
   /**
-   * Logical operator to decide which middleware to select based on the
-   * predicate.
-   */
-  final def ifRequestThenElseZIO[R, E](
-    cond: Request => ZIO[R, E, Boolean],
-  )(left: HttpMiddlewareForTotal[R, E], right: HttpMiddlewareForTotal[R, E]): HttpMiddlewareForTotal[R, E] =
-    Middleware.ifThenElseZIO[Request](cond)(_ => left, _ => right)
-
-  /**
    * Creates a new middleware using transformation functions
    */
   final def interceptPatch[S](req: Request => S): PartialInterceptPatch[S] = PartialInterceptPatch(req)
@@ -232,44 +223,11 @@ private[zio] trait Web
     middleware.when(req => cond(req.headers))
 
   /**
-   * Applies the middleware only if status matches the condition
-   */
-  final def whenStatus[R, E](cond: Status => Boolean)(
-    middleware: HttpMiddlewareForTotal[R, E],
-  ): HttpMiddlewareForTotal[R, E] =
-    whenResponse(respon => cond(respon.status))(middleware)
-
-  /**
    * Applies the middleware only if the condition function evaluates to true
    */
   final def whenRequest[R, E](cond: Request => Boolean)(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     middleware.when(cond)
 
-  /**
-   * Applies the middleware only if the condition function effectfully evaluates
-   * to true
-   */
-  final def whenRequestZIO[R, E](
-    cond: Request => ZIO[R, E, Boolean],
-  )(middleware: HttpMiddlewareForTotal[R, E]): HttpMiddlewareForTotal[R, E] =
-    middleware.whenZIO(cond)
-
-  /**
-   * Applies the middleware only if the condition function evaluates to true
-   */
-  def whenResponse[R, E](
-    cond: Response => Boolean,
-  )(middleware: HttpMiddlewareForTotal[R, E]): HttpMiddlewareForTotal[R, E] =
-    Middleware.identityTotal[Request, Response].flatMap(response => middleware.when(_ => cond(response)))
-
-  /**
-   * Applies the middleware only if the condition function effectfully evaluates
-   * to true
-   */
-  def whenResponseZIO[R, E](
-    cond: Response => ZIO[R, E, Boolean],
-  )(middleware: HttpMiddlewareForTotal[R, E]): HttpMiddlewareForTotal[R, E] =
-    Middleware.identityTotal[Request, Response].flatMap(response => middleware.whenZIO(_ => cond(response)))
 }
 
 object Web {
@@ -298,7 +256,7 @@ object Web {
       }
   }
 
-  private def updateErrorResponse(response: Response, request: Request): Response = {
+  private[middleware] def updateErrorResponse(response: Response, request: Request): Response = {
     def htmlResponse: Body = {
       val message: String = response.httpError.map(_.message).getOrElse("")
       val data            = Template.container(s"${response.status}") {

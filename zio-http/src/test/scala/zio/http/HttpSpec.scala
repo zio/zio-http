@@ -134,8 +134,8 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
       test("should die if the functions throws an exception") {
         val t      = new Throwable("boom")
         val a      = Http.fromFunctionHExit[Int] { _ => throw t }
-        val actual = a.execute(0)
-        assert(actual)(isDie(equalTo(t)))
+        val actual = a.executeToZIO(0)
+        assertZIO(actual.exit)(dies(equalTo(t)))
       },
     ),
     suite("fromHExit")(
@@ -193,12 +193,6 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         val c      = Http.succeed("C")
         val actual = (a ++ b ++ c).execute(())
         assert(actual)(isSuccess(equalTo("C")))
-      },
-      test("should resolve second") {
-        val a      = Http.fromHExit(HExit.Effect(ZIO.fail(None)))
-        val b      = Http.succeed(2)
-        val actual = (a ++ b).execute(()).toZIO.either
-        assertZIO(actual)(isRight)
       },
     ),
     suite("asEffect")(
@@ -340,8 +334,8 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
       test("should die when condition throws an exception") {
         val t      = new Throwable("boom")
         val app    = Http.succeed(1).when((_: Any) => throw t)
-        val actual = app.execute(0)
-        assert(actual)(isDie(equalTo(t)))
+        val actual = app(0)
+        assertZIO(actual.exit)(dies(equalTo(t)))
       },
     ),
     suite("catchSome")(

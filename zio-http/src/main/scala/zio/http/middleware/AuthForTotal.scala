@@ -8,12 +8,12 @@ import zio.http.model.{Headers, Status}
 import zio.{Trace, ZIO}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[zio] trait Auth {
+private[zio] trait AuthForTotal {
 
   /**
    * Creates a middleware for basic authentication
    */
-  final def basicAuth(f: Credentials => Boolean)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
+  final def basicAuth(f: Credentials => Boolean)(implicit trace: Trace): HttpMiddlewareForTotal[Any, Nothing] =
     customAuth(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -26,7 +26,7 @@ private[zio] trait Auth {
    * Creates a middleware for basic authentication that checks if the
    * credentials are same as the ones given
    */
-  final def basicAuth(u: String, p: String)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
+  final def basicAuth(u: String, p: String)(implicit trace: Trace): HttpMiddlewareForTotal[Any, Nothing] =
     basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
 
   /**
@@ -50,7 +50,7 @@ private[zio] trait Auth {
    * @param f:
    *   function that validates the token string inside the Bearer Header
    */
-  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
+  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): HttpMiddlewareForTotal[Any, Nothing] =
     customAuth(
       _.bearerToken match {
         case Some(token) => f(token)
@@ -83,10 +83,10 @@ private[zio] trait Auth {
     verify: Headers => Boolean,
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  )(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
-    Middleware.ifThenElse[Request](req => verify(req.headers))(
-      _ => Middleware.identity,
-      _ => Middleware.fromHttp(Http.status(responseStatus).addHeaders(responseHeaders)),
+  )(implicit trace: Trace): HttpMiddlewareForTotal[Any, Nothing] =
+    Middleware.ForTotal.ifThenElse[Request](req => verify(req.headers))(
+      _ => Middleware.ForTotal.identity,
+      _ => Middleware.ForTotal.fromHttp(Http.status(responseStatus).addHeaders(responseHeaders)),
     )
 
   /**
@@ -103,8 +103,4 @@ private[zio] trait Auth {
       _ => Middleware.ForTotal.identity,
       _ => Middleware.ForTotal.fromHttp(Http.status(responseStatus).addHeaders(responseHeaders)),
     )
-}
-
-object Auth {
-  case class Credentials(uname: String, upassword: String)
 }

@@ -2,7 +2,7 @@ package zio.http
 
 import zio._
 import zio.test.Assertion._
-import zio.test.{Spec, TestClock, TestConsole, ZIOSpecDefault, assertTrue, assertZIO}
+import zio.test._
 
 import java.io.IOException
 
@@ -57,7 +57,7 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
           assertZIO(app(0))(equalTo(4))
         } +
         test("flatMap") {
-          val mid = increment.flatMap(i => Middleware.succeedTotal(i + 1))
+          val mid = increment.flatMap(i => Middleware.ForTotal.succeed(i + 1))
           val app = Http.identity[Int] @@ mid
           assertZIO(app(0))(equalTo(3))
         } +
@@ -102,8 +102,8 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
         } +
         suite("ifThenElseZIO") {
           val mid = Middleware.ifThenElseZIO[Int](i => ZIO.succeed(i > 5))(
-            isTrue = i => Middleware.succeedTotal(i + 1),
-            isFalse = i => Middleware.succeedTotal(i - 1),
+            isTrue = i => Middleware.ForTotal.succeed(i + 1),
+            isFalse = i => Middleware.ForTotal.succeed(i - 1),
           )
           test("isTrue") {
             val app = Http.identity[Int] @@ mid
@@ -115,7 +115,7 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
             }
         } +
         suite("contramap") {
-          val mid = Middleware.interceptTotal[String, String](a => a + "Bar")((b, s) => b + s)
+          val mid = Middleware.ForTotal.intercept[String, String](a => a + "Bar")((b, s) => b + s)
           test("contramap") {
             val app = Http.identity[String] @@ mid.contramap[Int] { i => s"${i}Foo" }
             assertZIO(app(0))(equalTo("0Foo0FooBar"))
@@ -140,7 +140,7 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
             }
         } +
         suite("whenZIO") {
-          val mid = Middleware.transformTotal[Int, Int](
+          val mid = Middleware.ForTotal.transform[Int, Int](
             in = _ + 1,
             out = _ + 1,
           )
