@@ -80,33 +80,34 @@ object StaticServerSpec extends HttpRunnableSpec {
     ) @@
       timeout(30 seconds)
 
-  def staticAppSpec    = suite("StaticAppSpec")(
-    test("200 response") {
-      val actual = status(path = !! / "success")
-      assertZIO(actual)(equalTo(Status.Ok))
-    },
-    test("500 response on failure") {
-      val actual = status(path = !! / "failure")
-      assertZIO(actual)(equalTo(Status.InternalServerError))
-    },
-    test("500 response on die") {
-      val actual = status(path = !! / "die")
-      assertZIO(actual)(equalTo(Status.InternalServerError))
-    },
-    test("404 response") {
-      val actual = status(path = !! / "random")
-      assertZIO(actual)(equalTo(Status.NotFound))
-    },
-    test("200 response with encoded path") {
-      val actual = status(path = !! / "get%2Fsuccess")
-      assertZIO(actual)(equalTo(Status.Ok))
-    },
-    test("Multiple 200 response") {
-      for {
-        data <- status(path = !! / "success").repeatN(1024)
-      } yield assertTrue(data == Status.Ok)
-    },
-  )
+  def staticAppSpec    =
+    suite("StaticAppSpec")(
+      test("200 response") {
+        val actual = status(path = !! / "success")
+        assertZIO(actual)(equalTo(Status.Ok))
+      },
+      test("500 response on failure") {
+        val actual = status(path = !! / "failure")
+        assertZIO(actual)(equalTo(Status.InternalServerError))
+      },
+      test("500 response on die") {
+        val actual = status(path = !! / "die")
+        assertZIO(actual)(equalTo(Status.InternalServerError))
+      },
+      test("404 response") {
+        val actual = status(path = !! / "random")
+        assertZIO(actual)(equalTo(Status.NotFound))
+      },
+      test("200 response with encoded path") {
+        val actual = status(path = !! / "get%2Fsuccess")
+        assertZIO(actual)(equalTo(Status.Ok))
+      },
+      test("Multiple 200 response") {
+        for {
+          data <- status(path = !! / "success").repeatN(1024)
+        } yield assertTrue(data == Status.Ok)
+      },
+    )
   def throwableAppSpec = suite("ThrowableAppSpec") {
     test("Throw inside Handler") {
       for {

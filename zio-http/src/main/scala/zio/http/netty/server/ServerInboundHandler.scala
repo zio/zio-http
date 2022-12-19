@@ -3,27 +3,19 @@ package zio.http.netty.server
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
-import zio._
-import zio.http._
-import zio.http.netty.{NettyRuntime, _}
-import zio.http.logging.Logger
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.http.model._
-import io.netty.util.AttributeKey
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-
-import scala.annotation.tailrec
-import ServerInboundHandler.isReadKey
+import io.netty.util.AttributeKey
+import zio._
+import zio.http.Body._
+import zio.http._
+import zio.http.logging.Logger
+import zio.http.model._
+import zio.http.netty.server.ServerInboundHandler.isReadKey
+import zio.http.netty.{NettyRuntime, _}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import java.io.IOException
-import zio.http.Body.ChunkBody
-import zio.http.Body.AsciiStringBody
-import zio.http.Body.FileBody
-import zio.http.Body.ByteBufBody
-import zio.http.Body.EmptyBody
-import zio.http.Body.StreamBody
-import zio.http.Body.AsyncBody
-
+import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
 @Sharable
@@ -266,7 +258,11 @@ private[zio] final case class ServerInboundHandler(
   private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest)(ensured: () => Unit): Unit = {
     // TODO: this can be done without ZIO
     runtime.run(ctx, ensured) {
-      ZIO.succeedNow(HttpError.NotFound(jReq.uri()).toResponse)
+      for {
+        response <- ZIO.succeedNow(HttpError.NotFound(jReq.uri()).toResponse)
+        done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
+        _        <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
+      } yield ()
     }
   }
 
@@ -278,7 +274,7 @@ private[zio] final case class ServerInboundHandler(
   )(ensured: () => Unit): Unit = {
     runtime.run(ctx, ensured) {
       val pgm = for {
-        response <- exit.toZIO.catchAll { error =>
+        response <- exit.toZIO.absorb.catchAll { error =>
           ZIO.succeedNow(HttpError.InternalServerError(cause = Some(error)).toResponse)
         }
         done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
