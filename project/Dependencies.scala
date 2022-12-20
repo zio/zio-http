@@ -36,4 +36,5 @@ object Dependencies {
   val `zio-test-sbt`    = "dev.zio" %% "zio-test-sbt"    % ZioVersion % "test"
 
   val reflect = Def.map(scalaVersion)("org.scala-lang" % "scala-reflect" % _)
+
 }
