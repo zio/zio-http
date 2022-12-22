@@ -235,8 +235,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
     def erase: Method[Any] = self.asInstanceOf[Method[Any]]
   }
 
-  private[api] final case class Header[A](name: String, textCodec: Either[TextCodec[A], RichTextCodec[A]])
-      extends Atom[CodecType.Header, A] {
+  private[api] final case class Header[A](name: String, textCodec: RichTextCodec[A]) extends Atom[CodecType.Header, A] {
     self =>
     def erase: Header[Any] = self.asInstanceOf[Header[Any]]
   }

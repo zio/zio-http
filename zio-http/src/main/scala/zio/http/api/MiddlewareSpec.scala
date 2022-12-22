@@ -1,10 +1,12 @@
 package zio.http.api
 
 import zio.ZIO
-import zio.http.api.internal.TextCodec
+import zio.http.api.internal.{RichTextCodec, TextCodec}
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName
+import zio.http.model.headers.HeaderTypedValues
+import zio.http.model.headers.HeaderTypedValues._
 import zio.http.model.headers.values._
 import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames, Headers}
 import zio.http.{Request, Response}
@@ -164,7 +166,7 @@ object MiddlewareSpec {
    * Add specified header to the response
    */
   def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, Left(TextCodec.constant(value))))
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, RichTextCodec.literal(value).unit(value)))
 
   def addHeader(header: Headers.Header): MiddlewareSpec[Unit, Unit] =
     addHeader(header.key.toString, header.value.toString)
@@ -173,7 +175,7 @@ object MiddlewareSpec {
     headers.headersAsList.map(addHeader(_)).reduce(_ ++ _)
 
   def addCorrelationId: MiddlewareSpec[Unit, String] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", Left(TextCodec.string)))
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", RichTextCodec.string))
 
   def withAccessControlAllowOrigin: MiddlewareSpec[Unit, AccessControlAllowOrigin] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowOrigin)
@@ -247,12 +249,12 @@ object MiddlewareSpec {
     )
 
   def requireHeader(name: String): MiddlewareSpec[String, Unit] =
-    MiddlewareSpec(HeaderCodec.header(name, Left(TextCodec.string)), HttpCodec.empty)
+    MiddlewareSpec(HeaderCodec.header(name, RichTextCodec.string), HttpCodec.empty)
 
   def withAccept: MiddlewareSpec[Unit, Accept] =
     MiddlewareSpec(HttpCodec.empty, HeaderCodec.accept)
 
-  def withAcceptEncoding: MiddlewareSpec[Unit, AcceptEncoding] =
+  def withAcceptEncoding: MiddlewareSpec[Unit, HeaderTypedValues.AcceptEncoding] =
     MiddlewareSpec(
       HttpCodec.empty,
       HeaderCodec.acceptEncoding,

@@ -273,6 +273,72 @@ object RichTextCodec {
         },
       )
 
+    def apply[B <: A](
+      codec1: RichTextCodec[B],
+      codec2: RichTextCodec[B],
+      codec3: RichTextCodec[B],
+      codec4: RichTextCodec[B],
+      codec5: RichTextCodec[B],
+      codec6: RichTextCodec[B],
+      codec7: RichTextCodec[B],
+    )(implicit
+      tag: ClassTag[B],
+    ): RichTextCodec[A] =
+      (apply(codec1, codec2, codec3, codec4, codec5, codec6) | apply(codec7)).transform(
+        {
+          case Left(a)  => a: A
+          case Right(a) => a: A
+        },
+        { case b: B =>
+          Left(b)
+        },
+      )
+
+    def apply[B <: A](
+      codec1: RichTextCodec[B],
+      codec2: RichTextCodec[B],
+      codec3: RichTextCodec[B],
+      codec4: RichTextCodec[B],
+      codec5: RichTextCodec[B],
+      codec6: RichTextCodec[B],
+      codec7: RichTextCodec[B],
+      codec8: RichTextCodec[B],
+    )(implicit
+      tag: ClassTag[B],
+    ): RichTextCodec[A] =
+      (apply(codec1, codec2, codec3, codec4, codec5, codec6, codec7) | apply(codec8)).transform(
+        {
+          case Left(a)  => a: A
+          case Right(a) => a: A
+        },
+        { case b: B =>
+          Left(b)
+        },
+      )
+
+    def apply[B <: A](
+      codec1: RichTextCodec[B],
+      codec2: RichTextCodec[B],
+      codec3: RichTextCodec[B],
+      codec4: RichTextCodec[B],
+      codec5: RichTextCodec[B],
+      codec6: RichTextCodec[B],
+      codec7: RichTextCodec[B],
+      codec8: RichTextCodec[B],
+      codec9: RichTextCodec[B],
+    )(implicit
+      tag: ClassTag[B],
+    ): RichTextCodec[A] =
+      (apply(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8) | apply(codec9)).transform(
+        {
+          case Left(a)  => a: A
+          case Right(a) => a: A
+        },
+        { case b: B =>
+          Left(b)
+        },
+      )
+
   }
 
   /**
@@ -302,7 +368,7 @@ object RichTextCodec {
    * A codec that describes nothing at all. Such codecs successfully decode even
    * on empty input, and when encoded, do not produce any text output.
    */
-  val empty: RichTextCodec[Unit] = Empty ?? "empty"
+  val empty: RichTextCodec[Unit] = Empty
 
   val comma: RichTextCodec[Char] = char(',') ?? "comma"
 
@@ -316,6 +382,12 @@ object RichTextCodec {
 
   val semicolon: RichTextCodec[Char] = char(';') ?? "semicolon"
 
+  val minus: RichTextCodec[Char] = char('-') ?? "minus"
+
+  val string: RichTextCodec[String] =
+    filter(_ => true).repeat
+      .transform(_.mkString, (value: String) => Chunk.fromArray(value.getBytes.map(_.toChar))) ?? "string"
+
   /**
    * Defines a new codec for a single character based on the specified
    * predicate.
@@ -328,8 +400,8 @@ object RichTextCodec {
    */
   val letter: RichTextCodec[Char] = filter(_.isLetter) ?! "letter"
 
-  val asciiString: RichTextCodec[Chunk[Char]] =
-    RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z').repeat ?! "ascii string"
+  val letters: RichTextCodec[Chunk[Char]] =
+    RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z').repeat ?! "letters"
 
   val digits: RichTextCodec[Chunk[Int]] = digit.repeat ?! "digits"
 

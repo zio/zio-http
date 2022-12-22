@@ -115,7 +115,8 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         assertTrue(
           textOf(decimal.describe).get ==
             """|«decimal» ⩴ «integer» | «integer» “.” «integer»
-               |«integer» ⩴ “[0-9]” «integer»?""".stripMargin,
+               |«integer» ⩴ «digit» «integer»?
+               |«digit» ⩴ [0-9]""".stripMargin,
         )
       },
       test("describe labelled mutual recursion") {

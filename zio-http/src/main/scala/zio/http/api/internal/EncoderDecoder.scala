@@ -5,7 +5,6 @@ import zio.http._
 import zio.http.api._
 import zio.http.model._
 import zio.schema.codec._
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait EncoderDecoder[-AtomTypes, Value] {
@@ -189,13 +188,10 @@ private[api] object EncoderDecoder                   {
 
         headers.get(header.name) match {
           case Some(value) =>
-            // FIXME: GC requires re-write after RichCodec is inplace
-            inputs(i) = header.textCodec.swap
-              .map(_.decode(value))
+            inputs(i) = header.textCodec
+              .decode(value)
               .toOption
-              .getOrElse(throw EndpointError.MalformedHeader(header.name, Left(TextCodec.string)))
-//              .decode(value)
-//              .getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
+              .getOrElse(throw EndpointError.MalformedHeader(header.name, RichTextCodec.string))
 
           case None =>
             throw EndpointError.MissingHeader(header.name)
@@ -267,9 +263,7 @@ private[api] object EncoderDecoder                   {
       while (i < inputs.length) {
         val header = flattened.headers(i).erase
         val input  = inputs(i)
-
-        // FIXME: GC requires re-write after RichCodec is inplace
-        val value = header.textCodec.swap.map(_.encode(input)).getOrElse(TextCodec.string.encode(input.toString))
+        val value  = header.textCodec.encode(input).getOrElse(TextCodec.string.encode(input.toString))
 
         headers = headers ++ Headers(header.name, value)
 

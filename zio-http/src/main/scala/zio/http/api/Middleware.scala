@@ -1,16 +1,36 @@
 package zio.http.api
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zio._
+import zio.{http, _}
 import zio.http._
 import zio.http.api.MiddlewareSpec.CsrfValidate
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.middleware.Cors.CorsConfig
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName, Header}
-import zio.http.model.headers.values.AccessControlRequestMethod.RequestMethod
-import zio.http.model.headers.values.Authorization.AuthScheme.{Basic, Bearer}
-import zio.http.model.headers.values._
+import zio.http.model.headers.HeaderTypedValues.AccessControlAllowCredentials.DoNotAllowCredentials
+import zio.http.model.headers.HeaderTypedValues.AccessControlAllowMethods.NoMethodsAllowed
+import zio.http.model.headers.HeaderTypedValues.AccessControlAllowOrigin.InvalidAccessControlAllowOrigin
+import zio.http.model.headers.HeaderTypedValues.AccessControlMaxAge.InvalidAccessControlMaxAge
+import zio.http.model.headers.HeaderTypedValues.AccessControlRequestMethod.RequestMethod
+import zio.http.model.headers.HeaderTypedValues.Authorization.AuthScheme.{Basic, Bearer}
+import zio.http.model.headers.HeaderTypedValues.Connection.InvalidConnection
+import zio.http.model.headers.HeaderTypedValues.ContentLanguage.InvalidContentLanguage
+import zio.http.model.headers.HeaderTypedValues.ContentLength.InvalidContentLengthValue
+import zio.http.model.headers.HeaderTypedValues.ContentLocation.InvalidContentLocationValue
+import zio.http.model.headers.HeaderTypedValues.ContentMd5.InvalidContentMd5Value
+import zio.http.model.headers.HeaderTypedValues.ContentRange.InvalidContentRange
+import zio.http.model.headers.HeaderTypedValues.ContentTransferEncoding.InvalidContentTransferEncoding
+import zio.http.model.headers.HeaderTypedValues.ContentType.InvalidContentType
+import zio.http.model.headers.HeaderTypedValues.Expires.InvalidExpires
+import zio.http.model.headers.HeaderTypedValues.IfRange.InvalidIfRangeValue
+import zio.http.model.headers.HeaderTypedValues.ProxyAuthenticate.InvalidProxyAuthenticate
+import zio.http.model.headers.HeaderTypedValues.ProxyAuthorization.InvalidProxyAuthorization
+import zio.http.model.headers.HeaderTypedValues.Referer.InvalidReferer
+import zio.http.model.headers.HeaderTypedValues.RetryAfter.InvalidRetryAfter
+import zio.http.model.headers.HeaderTypedValues.TransferEncoding.InvalidTransferEncoding
+import zio.http.model.headers.HeaderTypedValues._
+import zio.http.model.headers.values.ContentSecurityPolicy
 import zio.http.model.{Cookie, Headers, Method, Status}
 
 import java.util.UUID
@@ -116,9 +136,7 @@ object Middleware {
 
   def withAcceptEncoding(value: CharSequence): Middleware[Any, Unit, AcceptEncoding] =
     fromFunction(MiddlewareSpec.withAcceptEncoding)(_ =>
-      AcceptEncoding.toAcceptEncoding(
-        HeaderValueCodecs.acceptEncodingCodec.decode(value.toString).toOption.getOrElse(Chunk.empty),
-      ),
+      HeaderValueCodecs.acceptEncodingCodec.decode(value.toString).toOption.getOrElse(AcceptEncoding.InvalidEncoding),
     )
 
   def withAcceptLanguage(value: CharSequence): Middleware[Any, Unit, AcceptLanguage] =
@@ -130,10 +148,17 @@ object Middleware {
     )
 
   def withAcceptPatch(value: CharSequence): Middleware[Any, Unit, AcceptPatch] =
-    fromFunction(MiddlewareSpec.withAcceptPatch)(_ => AcceptPatch.toAcceptPatch(value.toString))
+    fromFunction(MiddlewareSpec.withAcceptPatch)(_ =>
+      HeaderValueCodecs.acceptPatchCodec.decode(value.toString).toOption.getOrElse(AcceptPatch.InvalidAcceptPatchValue),
+    )
 
   def withAcceptRanges(value: CharSequence): Middleware[Any, Unit, AcceptRanges] =
-    fromFunction(MiddlewareSpec.withAcceptRanges)(_ => AcceptRanges.to(value.toString))
+    fromFunction(MiddlewareSpec.withAcceptRanges)(_ =>
+      HeaderValueCodecs.acceptRangesCodec
+        .decode(value.toString)
+        .toOption
+        .getOrElse(AcceptRanges.InvalidAcceptRanges),
+    )
 
   /**
    * Creates a middleware for basic authentication
@@ -223,7 +248,12 @@ object Middleware {
    */
   def cors(config: CorsConfig = CorsConfig()) = {
     def allowCORS(origin: Origin, method: Method): Boolean =
-      (config.anyOrigin, config.anyMethod, Origin.fromOrigin(origin), method) match {
+      (
+        config.anyOrigin,
+        config.anyMethod,
+        HeaderValueCodecs.originCodec.encode(origin).toOption.getOrElse(""),
+        method,
+      ) match {
         case (true, true, _, _)           => true
         case (true, false, _, acrm)       => config.allowedMethods.exists(_.contains(acrm))
         case (false, true, origin, _)     => config.allowedOrigins(origin)
@@ -243,7 +273,10 @@ object Middleware {
         onTrue = buildHeaders(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS.toString(), config.allowedHeaders),
         onFalse = buildHeaders(HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(), config.exposedHeaders),
       ) ++
-        Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(), Origin.fromOrigin(origin)) ++
+        Headers(
+          HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(),
+          HeaderValueCodecs.originCodec.encode(origin).toOption.getOrElse(""),
+        ) ++
         buildHeaders(
           HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS.toString(),
           config.allowedMethods.map(_.map(_.toJava.name())),
@@ -293,7 +326,11 @@ object Middleware {
    * valid. Else, it add an empty value.
    */
   def withContentBase(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withContentBase.mapOut(_.unit(ContentBase.toContentBase(value))))(identity)
+    fromFunction(
+      MiddlewareSpec.withContentBase.mapOut(
+        _.unit(HeaderValueCodecs.contentBaseCodec.decode(value).toOption.getOrElse(ContentBase.InvalidContentBase)),
+      ),
+    )(identity)
 
   /**
    * Adds the content base header to the response with the value computed by the
@@ -309,7 +346,9 @@ object Middleware {
    * given effect, if it is valid. Else, it add an empty value.
    */
   def withContentBaseZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentBase] =
-    fromFunctionZIO(MiddlewareSpec.withContentBase)(_ => value.map(ContentBase.toContentBase))
+    fromFunctionZIO(MiddlewareSpec.withContentBase)(_ =>
+      value.map(v => HeaderValueCodecs.contentBaseCodec.decode(v).toOption.getOrElse(ContentBase.InvalidContentBase)),
+    )
 
   /**
    * Adds the content disposition header to the response with the given value.
@@ -323,7 +362,14 @@ object Middleware {
    */
   def withContentDisposition(value: CharSequence): Middleware[Any, Unit, Unit] =
     fromFunction(
-      MiddlewareSpec.withContentDisposition.mapOut(_.unit(ContentDisposition.toContentDisposition(value))),
+      MiddlewareSpec.withContentDisposition.mapOut(
+        _.unit(
+          HeaderValueCodecs.contentDispositionCodec
+            .decode(value)
+            .toOption
+            .getOrElse(ContentDisposition.InvalidContentDisposition),
+        ),
+      ),
     )(identity)
 
   /**
@@ -342,7 +388,14 @@ object Middleware {
   def withContentDispositionZIO[R](
     value: ZIO[R, Nothing, CharSequence],
   ): Middleware[R, Unit, ContentDisposition] =
-    fromFunctionZIO(MiddlewareSpec.withContentDisposition)(_ => value.map(ContentDisposition.toContentDisposition))
+    fromFunctionZIO(MiddlewareSpec.withContentDisposition)(_ =>
+      value.map(v =>
+        HeaderValueCodecs.contentDispositionCodec
+          .decode(v)
+          .toOption
+          .getOrElse(ContentDisposition.InvalidContentDisposition),
+      ),
+    )
 
   /**
    * Adds the content encoding header to the response with the given value.
@@ -355,7 +408,16 @@ object Middleware {
    * it is valid. Else, it adds an empty value.
    */
   def withContentEncoding(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withContentEncoding.mapOut(_.unit(ContentEncoding.toContentEncoding(value))))(identity)
+    fromFunction(
+      MiddlewareSpec.withContentEncoding.mapOut(
+        _.unit(
+          HeaderValueCodecs.contentEncodingCodec
+            .decode(value)
+            .toOption
+            .getOrElse(ContentEncoding.InvalidContentEncoding),
+        ),
+      ),
+    )(identity)
 
   /**
    * Adds the content encoding header to the response with the value computed by
@@ -371,7 +433,11 @@ object Middleware {
    * the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentEncodingZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentEncoding] =
-    fromFunctionZIO(MiddlewareSpec.withContentEncoding)(_ => value.map(ContentEncoding.toContentEncoding))
+    fromFunctionZIO(MiddlewareSpec.withContentEncoding)(_ =>
+      value.map(v =>
+        HeaderValueCodecs.contentEncodingCodec.decode(v).toOption.getOrElse(ContentEncoding.InvalidContentEncoding),
+      ),
+    )
 
   /**
    * Adds the content language header to the response with the given value.
@@ -384,7 +450,11 @@ object Middleware {
    * it is valid. Else, it adds an empty value.
    */
   def withContentLanguage(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withContentLanguage.mapOut(_.unit(ContentLanguage.toContentLanguage(value))))(identity)
+    fromFunction(
+      MiddlewareSpec.withContentLanguage.mapOut(
+        _.unit(HeaderValueCodecs.contentLanguageCodec.decode(value).toOption.getOrElse(InvalidContentLanguage)),
+      ),
+    )(identity)
 
   /**
    * Adds the content language header to the response with the value computed by
@@ -400,7 +470,9 @@ object Middleware {
    * the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentLanguageZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentLanguage] =
-    fromFunctionZIO(MiddlewareSpec.withContentLanguage)(_ => value.map(ContentLanguage.toContentLanguage))
+    fromFunctionZIO(MiddlewareSpec.withContentLanguage)(_ =>
+      value.map(v => HeaderValueCodecs.contentLanguageCodec.decode(v).toOption.getOrElse(InvalidContentLanguage)),
+    )
 
   /**
    * Adds the content length header to the response with the given value.
@@ -413,7 +485,16 @@ object Middleware {
    * is valid. Else, it adds an empty value.
    */
   def withContentLength(value: Long): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withContentLength.mapOut(_.unit(ContentLength.toContentLength(value))))(identity)
+    fromFunction(
+      MiddlewareSpec.withContentLength.mapOut(
+        _.unit(
+          HeaderValueCodecs.contentLengthCodec
+            .decode(value.toString)
+            .toOption
+            .getOrElse(InvalidContentLengthValue),
+        ),
+      ),
+    )(identity)
 
   /**
    * Adds the content length header to the response with the value computed by
@@ -429,7 +510,11 @@ object Middleware {
    * the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentLengthZIO[R](value: ZIO[R, Nothing, Long]): Middleware[R, Unit, ContentLength] =
-    fromFunctionZIO(MiddlewareSpec.withContentLength)(_ => value.map(ContentLength.toContentLength))
+    fromFunctionZIO(MiddlewareSpec.withContentLength)(_ =>
+      value.map(v =>
+        HeaderValueCodecs.contentLengthCodec.decode(v.toString).toOption.getOrElse(InvalidContentLengthValue),
+      ),
+    )
 
   /**
    * Adds the content location header to the response with the given value.
@@ -442,7 +527,11 @@ object Middleware {
    * it is valid. Else, it adds an empty value.
    */
   def withContentLocation(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withContentLocation.mapOut(_.unit(ContentLocation.toContentLocation(value))))(identity)
+    fromFunction(
+      MiddlewareSpec.withContentLocation.mapOut(
+        _.unit(HeaderValueCodecs.contentLocationCodec.decode(value).toOption.getOrElse(InvalidContentLocationValue)),
+      ),
+    )(identity)
 
   /**
    * Adds the content location header to the response with the value computed by
@@ -458,7 +547,9 @@ object Middleware {
    * the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentLocationZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentLocation] =
-    fromFunctionZIO(MiddlewareSpec.withContentLocation)(_ => value.map(ContentLocation.toContentLocation))
+    fromFunctionZIO(MiddlewareSpec.withContentLocation)(_ =>
+      value.map(HeaderValueCodecs.contentLocationCodec.decode(_).toOption.getOrElse(InvalidContentLocationValue)),
+    )
 
   /**
    * Adds the content md5 header to the response with the given value.
@@ -471,7 +562,11 @@ object Middleware {
    * valid. Else, it adds an empty value.
    */
   def withContentMd5(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withContentMd5.mapOut(_.unit(ContentMd5.toContentMd5(value))))(identity)
+    fromFunction(
+      MiddlewareSpec.withContentMd5.mapOut(
+        _.unit(HeaderValueCodecs.contentMd5Codec.decode(value).toOption.getOrElse(InvalidContentMd5Value)),
+      ),
+    )(identity)
 
   /**
    * Adds the content md5 header to the response with the value computed by the
@@ -487,7 +582,9 @@ object Middleware {
    * given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentMd5ZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentMd5] =
-    fromFunctionZIO(MiddlewareSpec.withContentMd5)(_ => value.map(ContentMd5.toContentMd5))
+    fromFunctionZIO(MiddlewareSpec.withContentMd5)(_ =>
+      value.map(v => HeaderValueCodecs.contentMd5Codec.decode(v).toOption.getOrElse(InvalidContentMd5Value)),
+    )
 
   /**
    * Adds the content range header to the response with the given value.
@@ -500,7 +597,11 @@ object Middleware {
    * is valid. Else, it adds an empty value.
    */
   def withContentRange(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withContentRange.mapOut(_.unit(ContentRange.toContentRange(value))))(identity)
+    fromFunction(
+      MiddlewareSpec.withContentRange.mapOut(
+        _.unit(HeaderValueCodecs.contentRangeCodec.decode(value).toOption.getOrElse(InvalidContentRange)),
+      ),
+    )(identity)
 
   /**
    * Adds the content range header to the response with the value computed by
@@ -516,7 +617,9 @@ object Middleware {
    * the given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentRangeZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentRange] =
-    fromFunctionZIO(MiddlewareSpec.withContentRange)(_ => value.map(ContentRange.toContentRange))
+    fromFunctionZIO(MiddlewareSpec.withContentRange)(_ =>
+      value.map(v => HeaderValueCodecs.contentRangeCodec.decode(v).toOption.getOrElse(InvalidContentRange)),
+    )
 
   /**
    * Adds the content security policy header to the response with the given
@@ -569,7 +672,12 @@ object Middleware {
   def withContentTransferEncoding(value: CharSequence): Middleware[Any, Unit, Unit] =
     fromFunction(
       MiddlewareSpec.withContentTransferEncoding.mapOut(
-        _.unit(ContentTransferEncoding.toContentTransferEncoding(value)),
+        _.unit(
+          HeaderValueCodecs.contentTransferEncodingCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidContentTransferEncoding),
+        ),
       ),
     )(identity)
 
@@ -588,7 +696,9 @@ object Middleware {
     value: ZIO[R, Nothing, CharSequence],
   ): Middleware[R, Unit, ContentTransferEncoding] =
     fromFunctionZIO(MiddlewareSpec.withContentTransferEncoding)(_ =>
-      value.map(ContentTransferEncoding.toContentTransferEncoding),
+      value.map(v =>
+        HeaderValueCodecs.contentTransferEncodingCodec.decode(v).toOption.getOrElse(InvalidContentTransferEncoding),
+      ),
     )
 
   /**
@@ -602,7 +712,11 @@ object Middleware {
    * valid. Else, it adds an empty value.
    */
   def withContentType(value: CharSequence): Middleware[Any, Unit, Unit] =
-    fromFunction(MiddlewareSpec.withContentType.mapOut(_.unit(ContentType.toContentType(value))))(identity)
+    fromFunction(
+      MiddlewareSpec.withContentType.mapOut(
+        _.unit(HeaderValueCodecs.contentTypeCodec.decode(value).toOption.getOrElse(InvalidContentType)),
+      ),
+    )(identity)
 
   /**
    * Adds the content type header to the response with the value computed by the
@@ -618,7 +732,9 @@ object Middleware {
    * given effect, if it is valid. Else, it adds an empty value.
    */
   def withContentTypeZIO[R](value: ZIO[R, Nothing, CharSequence]): Middleware[R, Unit, ContentType] =
-    fromFunctionZIO(MiddlewareSpec.withContentType)(_ => value.map(ContentType.toContentType))
+    fromFunctionZIO(MiddlewareSpec.withContentType)(_ =>
+      value.map(v => HeaderValueCodecs.contentTypeCodec.decode(v).toOption.getOrElse(InvalidContentType)),
+    )
 
   /**
    * Generates a new CSRF token that can be validated using the csrfValidate
@@ -671,7 +787,12 @@ object Middleware {
   def withAccessControlAllowOrigin(value: CharSequence): Middleware[Any, Unit, Unit] = {
     fromFunction(
       MiddlewareSpec.withAccessControlAllowOrigin.mapOut(
-        _.unit(AccessControlAllowOrigin.toAccessControlAllowOrigin(value.toString)),
+        _.unit(
+          HeaderValueCodecs.accessControlAllowOriginCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidAccessControlAllowOrigin),
+        ),
       ),
     )(identity)
   }
@@ -679,7 +800,12 @@ object Middleware {
   def withAccessControlAllowMaxAge(value: CharSequence): Middleware[Any, Unit, Unit] = {
     fromFunction(
       MiddlewareSpec.withAccessControlAllowMaxAge.mapOut(
-        _.unit(AccessControlMaxAge.toAccessControlMaxAge(value.toString)),
+        _.unit(
+          HeaderValueCodecs.accessControlMaxAgeCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidAccessControlMaxAge),
+        ),
       ),
     )(identity)
   }
@@ -687,7 +813,12 @@ object Middleware {
   def withProxyAuthenticate(value: CharSequence): Middleware[Any, Unit, Unit] = {
     fromFunction(
       MiddlewareSpec.withProxyAuthenticate.mapOut(
-        _.unit(ProxyAuthenticate.toProxyAuthenticate(value.toString)),
+        _.unit(
+          HeaderValueCodecs.proxyAuthenticateCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidProxyAuthenticate),
+        ),
       ),
     )(identity)
   }
@@ -695,7 +826,12 @@ object Middleware {
   def withProxyAuthorization(value: CharSequence): Middleware[Any, Unit, Unit] = {
     fromFunction(
       MiddlewareSpec.withProxyAuthorization.mapOut(
-        _.unit(ProxyAuthorization.toProxyAuthorization(value.toString)),
+        _.unit(
+          HeaderValueCodecs.proxyAuthorizationCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidProxyAuthorization),
+        ),
       ),
     )(identity)
   }
@@ -703,14 +839,24 @@ object Middleware {
   def withReferer(value: CharSequence): Middleware[Any, Unit, Unit]    = {
     fromFunction(
       MiddlewareSpec.withReferer.mapOut(
-        _.unit(Referer.toReferer(value.toString)),
+        _.unit(
+          HeaderValueCodecs.refererCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidReferer),
+        ),
       ),
     )(identity)
   }
   def withRetryAfter(value: CharSequence): Middleware[Any, Unit, Unit] = {
     fromFunction(
       MiddlewareSpec.withRetryAfter.mapOut(
-        _.unit(RetryAfter.toRetryAfter(value.toString)),
+        _.unit(
+          HeaderValueCodecs.retryAfterCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidRetryAfter),
+        ),
       ),
     )(identity)
   }
@@ -718,7 +864,12 @@ object Middleware {
   def withAccessControlAllowCredentials(value: Boolean): Middleware[Any, Unit, Unit] =
     fromFunction(
       MiddlewareSpec.withAccessControlAllowCredentials.mapOut(
-        _.unit(AccessControlAllowCredentials.toAccessControlAllowCredentials(value)),
+        _.unit(
+          HeaderValueCodecs.accessControlAllowCredentialsCodec
+            .decode(value.toString)
+            .toOption
+            .getOrElse(DoNotAllowCredentials),
+        ),
       ),
     )(identity)
 
@@ -732,14 +883,24 @@ object Middleware {
   def withAccessControlAllowMethods(value: CharSequence): Middleware[Any, Unit, Unit] =
     fromFunction(
       MiddlewareSpec.withAccessControlAllowMethods.mapOut(
-        _.unit(AccessControlAllowMethods.toAccessControlAllowMethods(value.toString)),
+        _.unit(
+          HeaderValueCodecs.accessControlAllowMethodsCodec
+            .decode(value)
+            .toOption
+            .getOrElse(NoMethodsAllowed),
+        ),
       ),
     )(identity)
 
   def withTransferEncoding(value: CharSequence): Middleware[Any, Unit, Unit] = {
     fromFunction(
       MiddlewareSpec.withTransferEncoding.mapOut(
-        _.unit(TransferEncoding.toTransferEncoding(value.toString)),
+        _.unit(
+          HeaderValueCodecs.transferEncodingCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidTransferEncoding),
+        ),
       ),
     )(identity)
   }
@@ -747,7 +908,12 @@ object Middleware {
   def withConnection(value: CharSequence): Middleware[Any, Unit, Unit] = {
     fromFunction(
       MiddlewareSpec.withConnection.mapOut(
-        _.unit(Connection.toConnection(value.toString)),
+        _.unit(
+          HeaderValueCodecs.connectionCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidConnection),
+        ),
       ),
     )(identity)
   }
@@ -755,7 +921,12 @@ object Middleware {
   def withExpires(value: CharSequence): Middleware[Any, Unit, Unit] = {
     fromFunction(
       MiddlewareSpec.withExpires.mapOut(
-        _.unit(Expires.toExpires(value.toString)),
+        _.unit(
+          HeaderValueCodecs.expiresCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidExpires),
+        ),
       ),
     )(identity)
   }
@@ -763,7 +934,12 @@ object Middleware {
   def withIfRange(value: CharSequence): Middleware[Any, Unit, Unit] = {
     fromFunction(
       MiddlewareSpec.withIfRange.mapOut(
-        _.unit(IfRange.toIfRange(value.toString)),
+        _.unit(
+          HeaderValueCodecs.ifRangeCodec
+            .decode(value)
+            .toOption
+            .getOrElse(InvalidIfRangeValue),
+        ),
       ),
     )(identity)
   }

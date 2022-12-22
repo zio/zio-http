@@ -51,8 +51,8 @@ object HttpCodecSpec extends ZIOSpecDefault {
           } yield assertTrue(result1 == Left("10")) && assertTrue(result2 == Right("20"))
         } +
         test("header fallback") {
-          val codec1 = HeaderCodec.header("Authentication", TextCodec.string)
-          val codec2 = HeaderCodec.header("X-Token-ID", TextCodec.string)
+          val codec1 = HeaderCodec.header("Authentication", Left(TextCodec.string))
+          val codec2 = HeaderCodec.header("X-Token-ID", Left(TextCodec.string))
 
           val fallback = codec1 | codec2
 
@@ -70,11 +70,11 @@ object HttpCodecSpec extends ZIOSpecDefault {
 
           val codec1 = RouteCodec.literal("users") ++ QueryCodec.query("skip") ++ HeaderCodec.header(
             "Authentication",
-            TextCodec.string,
+            Left(TextCodec.string),
           )
           val codec2 = RouteCodec.literal("posts") ++ QueryCodec.query("limit") ++ HeaderCodec.header(
             "X-Token-ID",
-            TextCodec.string,
+            Left(TextCodec.string),
           )
 
           val fallback = codec1 | codec2
