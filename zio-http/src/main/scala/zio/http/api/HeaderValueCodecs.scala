@@ -18,6 +18,8 @@ import scala.util.Try
 
 object HeaderValueCodecs {
 
+  final case class Protocol(protocol: String, version: Option[String])
+
   private val httpMethodCodec: RichTextCodec[String] = RichTextCodec
     .enumeration(
       RichTextCodec.literalCI("GET"),
@@ -37,6 +39,31 @@ object HeaderValueCodecs {
         .literalCI("TRACE"),
       RichTextCodec
         .literalCI("CONNECT"),
+    )
+
+  private val version: RichTextCodec[String]    =
+    ((RichTextCodec.digits ~ RichTextCodec.literal(".") ~ RichTextCodec.digits) | RichTextCodec.string).transform(
+      {
+        case Left((major, _, minor)) => s"$major.$minor"
+        case Right(value)            => value
+      },
+      {
+        case s if s.contains(".") =>
+          val Array(major, minor) = s.split('.')
+          Left((Chunk.fromArray(major.toArray.map(_.toInt)), ".", Chunk.fromArray(minor.toArray.map(_.toInt))))
+        case s                    => Right(s)
+      },
+    )
+  private val protocol: RichTextCodec[Protocol] =
+    (RichTextCodec.string | (RichTextCodec.string ~ RichTextCodec.literal("/") ~ version)).transform(
+      {
+        case Left(protocol)          => Protocol(protocol, None)
+        case Right((protocol, _, v)) => Protocol(protocol, Some(v))
+      },
+      {
+        case Protocol(protocol, Some(v)) => Right((protocol, "/", v))
+        case Protocol(protocol, _)       => Left(protocol)
+      },
     )
 
   private val quantifier    = RichTextCodec.literalCI(";q=") ~ RichTextCodec.double
@@ -535,7 +562,23 @@ object HeaderValueCodecs {
 
   val transferEncodingCodec: RichTextCodec[TransferEncoding] = ??? // Easy
 
-  val upgradeCodec: RichTextCodec[Upgrade] = ??? // Easy
+  val upgradeCodec: RichTextCodec[Upgrade] = protocol
+    .replsep(RichTextCodec.comma.unit(','))
+    .transform(
+      values =>
+        Upgrade.UpgradeProtocols(
+          values.map(v => Upgrade.UpgradeValue(v.protocol, v.version.getOrElse(""))),
+        ),
+      {
+        case Upgrade.UpgradeProtocols(values)        =>
+          Chunk
+            .fromArray(values.map(v => Protocol(v.protocol, if (v.version.isEmpty) None else Some(v.version))).toArray)
+        case Upgrade.UpgradeValue(protocol, version) =>
+          Chunk.single(Protocol(protocol, if (version.isEmpty) None else Some(version)))
+        case Upgrade.InvalidUpgradeValue             =>
+          Chunk.empty
+      },
+    )
 
   val upgradeInsecureRequestsCodec: RichTextCodec[UpgradeInsecureRequests] = RichTextCodec
     .literal("1")
