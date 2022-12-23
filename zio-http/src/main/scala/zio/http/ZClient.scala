@@ -1,6 +1,6 @@
 package zio.http
 
-import io.netty.channel.{ChannelHandler, Channel => JChannel}
+import io.netty.channel.{ChannelFuture, ChannelHandler, Channel => JChannel}
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.flow.FlowControlHandler
@@ -587,7 +587,10 @@ object ZClient {
         jReq       <- encode(request)
         _          <- internalRequest(request, jReq, onResponse, clientConfig)(Unsafe.unsafe, trace)
           .catchAll(cause => onResponse.fail(cause))
-        res        <- onResponse.await
+        res        <- onResponse.await.onInterrupt {
+          // propagate the interrupt to the Promise
+          onResponse.interrupt
+        }
       } yield res
 
     /**
@@ -606,7 +609,7 @@ object ZClient {
             channelScope <- Scope.make
             _            <- ZIO.uninterruptibleMask { restore =>
               for {
-                channel      <-
+                channel <-
                   restore {
                     connectionPool
                       .get(
@@ -619,6 +622,7 @@ object ZClient {
                       )
                       .provideEnvironment(ZEnvironment(channelScope))
                   }
+
                 resetChannel <- ZIO.attempt {
                   requestOnChannel(
                     channel,
@@ -633,25 +637,39 @@ object ZClient {
                 }.tapErrorCause { cause =>
                   channelScope.close(Exit.failCause(cause))
                 }
+
+                _ <- onResponse.await.onInterrupt {
+                  // propagate the interrupt to onComplete
+                  onComplete.interrupt
+                }.forkDaemon
+
                 // If request registration failed we release the channel immediately.
                 // Otherwise we wait for completion signal from netty in a background fiber:
-                _            <-
+                _ <-
                   onComplete.await.interruptible.exit.flatMap { exit =>
-                    resetChannel
-                      .zip(exit)
-                      .map { case (s1, s2) => s1 && s2 }
-                      .catchAll(_ =>
-                        ZIO.succeed(ChannelState.Invalid),
-                      ) // In case resetting the channel fails we cannot reuse it
-                      .flatMap { channelState =>
-                        connectionPool
-                          .invalidate(channel)
-                          .when(channelState == ChannelState.Invalid)
-                      }
-                      .flatMap { _ =>
-                        channelScope.close(exit)
-                      }
-                      .uninterruptible
+                    if (exit.isInterrupted) {
+                      // do not try to reset the channel because it is disconnected
+                      ZIO.async[Any, Nothing, Unit] { register =>
+                        channel.pipeline().disconnect().addListener((_: ChannelFuture) => register(ZIO.unit))
+                        ()
+                      } *> channelScope.close(Exit.empty)
+                    } else {
+                      resetChannel
+                        .zip(exit)
+                        .map { case (s1, s2) => s1 && s2 }
+                        .catchAll { _ =>
+                          ZIO.succeed(ChannelState.Invalid)
+                        }
+                        .flatMap { channelState =>
+                          connectionPool
+                            .invalidate(channel)
+                            .when(channelState == ChannelState.Invalid)
+                        }
+                        .flatMap { _ =>
+                          channelScope.close(exit)
+                        }
+                        .uninterruptible
+                    }
                   }.forkDaemon
               } yield ()
             }
@@ -730,7 +748,6 @@ object ZClient {
           ChannelState.Invalid,
         ) // channel becomes invalid - reuse of websocket channels not supported currently
       } else {
-
         pipeline.fireChannelRegistered()
         pipeline.fireChannelActive()
 
