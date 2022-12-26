@@ -372,7 +372,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * Performs a race between two apps
    */
   def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http[R1, E1, A1, B1]): Http[R1, E1, A1, B1] =
-    Http.Race(self, other)
+    Race(self, other)
 
   /**
    * Keeps some of the errors, and terminates the http app with the rest.
@@ -552,6 +552,15 @@ sealed trait Http[-R, +E, -A, +B] { self =>
           }
       }
 
+      case RaceTotal(self, other) =>
+        a =>
+          (self.executeTotal(a), other.executeTotal(a)) match {
+            case (HExit.Effect(self), HExit.Effect(other)) =>
+              Http.fromZIO(self.raceFirst(other)).executeTotal(a)
+            case (HExit.Effect(_), other)                  => other
+            case (self, _)                                 => self
+          }
+
       case FoldHttp(self, failure, success) => {
         case a if self.execute.isDefinedAt(a) =>
           self
@@ -562,14 +571,14 @@ sealed trait Http[-R, +E, -A, +B] { self =>
             )
       }
 
-      case FoldHttpTotal(self, failure, success) => { case a =>
-        self
-          .execute(a)
-          .foldExit(
-            failure(_).execute(a),
-            success(_).execute(a),
-          )
-      }
+      case FoldHttpTotal(self, failure, success) =>
+        a =>
+          self
+            .executeTotal(a)
+            .foldExit(
+              failure(_).execute(a),
+              success(_).execute(a),
+            )
 
       case When(f, other) => {
         case a if f(a) && other.execute.isDefinedAt(a) => other.execute(a)
@@ -602,9 +611,10 @@ sealed trait Http[-R, +E, -A, +B] { self =>
           )
       }
 
-      case AspectTotal(self, aspect) => a =>
+      case AspectTotal(self, aspect) =>
+        a =>
           HExit.fromZIO(
-            aspect(self.execute(a).toZIO).asInstanceOf[ZIO[R, E, B]],
+            aspect(self.executeTotal(a).toZIO).asInstanceOf[ZIO[R, E, B]],
           )
 
       case OrElse(self, other) => {
@@ -625,13 +635,25 @@ sealed trait Http[-R, +E, -A, +B] { self =>
           }
       }
 
+      case OrElseTotal(self, other) =>
+        a =>
+          (self.executeTotal(a), other.executeTotal(a)) match {
+            case (s @ HExit.Success(_), _)                        =>
+              s
+            case (s @ HExit.Failure(cause), _) if cause.isDie     =>
+              s
+            case (HExit.Failure(cause), other) if cause.isFailure =>
+              other
+            case (self, other)                                    =>
+              HExit.fromZIO(self.toZIO.orElse(other.toZIO))
+          }
+
       case ApplyMiddleware(self, middleware) => {
         case a if self.execute.isDefinedAt(a) =>
-          middleware(self).execute(a)
+          middleware(Http.fromHExit(self.execute(a))).execute(a)
       }
 
-      case ApplyMiddlewareTotal(self, middleware) => a =>
-          middleware(self).execute(a)
+      case ApplyMiddlewareTotal(self, middleware) => a => middleware(self).executeTotal(a)
     }
 }
 
@@ -905,7 +927,7 @@ object Http {
   /**
    * Creates a Http from HExit[R,E,B]
    */
-  def fromHExit[R, E, B](h: HExit[R, E, B]): Http[R, E, Any, B] = FromHExit(h)
+  def fromHExit[R, E, B](h: HExit[R, E, B]): Http.Total[R, E, Any, B] = FromHExit(h)
 
   /**
    * Lifts an `Option` into a `Http` value.
@@ -1153,7 +1175,7 @@ object Http {
       catch { case NonFatal(e) => HExit.die(e) }
 
     def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
-      mid: Middleware.ForTotal[R1, E1, A1, B1, A2, B2],
+      mid: Middleware[R1, E1, A1, B1, A2, B2],
     ): Http.Total[R1, E1, A2, B2] =
       self.middleware(mid)
 
@@ -1173,7 +1195,7 @@ object Http {
      * Combines two Http instances into a middleware that works a codec for
      * incoming and outgoing messages.
      */
-    def \/[R1 <: R, E1 >: E, C, D](other: Http.Total[R1, E1, C, D]): Middleware.ForTotal[R1, E1, B, C, A, D] =
+    def \/[R1 <: R, E1 >: E, C, D](other: Http.Total[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D] =
       self codecMiddleware other
 
     /**
@@ -1181,6 +1203,12 @@ object Http {
      */
     override def *>[R1 <: R, E1 >: E, A1 <: A, C1](other: Http.Total[R1, E1, A1, C1]): Http.Total[R1, E1, A1, C1] =
       self.zipRight(other)
+
+    /**
+     * Runs self but if it fails, runs other, ignoring the result from self.
+     */
+    def <>[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http.Total[R1, E1, A1, B1]): Http.Total[R1, E1, A1, B1] =
+      self orElse other
 
     /**
      * Named alias for `>>>`
@@ -1194,7 +1222,7 @@ object Http {
      */
     def codecMiddleware[R1 <: R, E1 >: E, C, D](
       other: Http.Total[R1, E1, C, D],
-    ): Middleware.ForTotal[R1, E1, B, C, A, D] =
+    ): Middleware[R1, E1, B, C, A, D] =
       Middleware.codecHttp(self, other)
 
     /**
@@ -1293,10 +1321,18 @@ object Http {
     /**
      * Named alias for @@
      */
-    def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
-      mid: Middleware.ForTotal[R1, E1, A1, B1, A2, B2],
+    override def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+      mid: Middleware[R1, E1, A1, B1, A2, B2],
     ): Http.Total[R1, E1, A2, B2] =
       ApplyMiddlewareTotal(self, mid)
+
+    /**
+     * Named alias for `<>`
+     */
+    def orElse[R1 <: R, E1 >: E, A1 <: A, B1 >: B](
+      other: Http.Total[R1, E1, A1, B1],
+    ): Http.Total[R1, E1, A1, B1] =
+      OrElseTotal(self, other)
 
     /**
      * Provides the environment to Http.
@@ -1329,6 +1365,12 @@ object Http {
       AspectTotal(self, (z: ZIO[R, E1, B]) => z.provideSomeLayer[R0](layer))
 
     /**
+     * Performs a race between two apps
+     */
+    def race[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http.Total[R1, E1, A1, B1]): Http.Total[R1, E1, A1, B1] =
+      RaceTotal(self, other)
+
+    /**
      * Combines the two apps and returns the result of the one on the right
      */
     override def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](
@@ -1341,7 +1383,8 @@ object Http {
 
   private final case class Race[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B]
 
-  // TODO: RaceTotal?
+  private final case class RaceTotal[R, E, A, B](self: Http.Total[R, E, A, B], other: Http.Total[R, E, A, B])
+      extends Http.Total[R, E, A, B]
 
   private final case class Fail[E](cause: Cause[E]) extends Http.Total[Any, E, Any, Nothing]
 
@@ -1400,6 +1443,11 @@ object Http {
     other: Http[R, E, A, B],
   ) extends Http[R, E, A, B]
 
+  private case class OrElseTotal[R, E, A, B](
+    self: Http.Total[R, E, A, B],
+    other: Http.Total[R, E, A, B],
+  ) extends Http.Total[R, E, A, B]
+
   private case class ApplyMiddleware[R, E, AIn, BIn, AOut, BOut](
     self: Http[R, E, AIn, BIn],
     middleware: Middleware[R, E, AIn, BIn, AOut, BOut],
@@ -1407,6 +1455,6 @@ object Http {
 
   private case class ApplyMiddlewareTotal[R, E, AIn, BIn, AOut, BOut](
     self: Http.Total[R, E, AIn, BIn],
-    middleware: Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut],
+    middleware: Middleware[R, E, AIn, BIn, AOut, BOut],
   ) extends Http.Total[R, E, AOut, BOut]
 }

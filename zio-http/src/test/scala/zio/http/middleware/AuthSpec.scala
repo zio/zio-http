@@ -14,16 +14,16 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val successBearerHeader: Headers = Headers.bearerAuthorizationHeader(bearerToken)
   private val failureBearerHeader: Headers = Headers.bearerAuthorizationHeader(bearerToken + "SomethingElse")
 
-  private val basicAuthM: HttpMiddleware[Any, Nothing]             = Middleware.basicAuth { c =>
+  private val basicAuthM: HttpMiddleware[Any, Nothing]     = Middleware.basicAuth { c =>
     c.uname.reverse == c.upassword
   }
-  private val basicAuthZIOM: HttpMiddlewareForTotal[Any, Nothing]  = Middleware.basicAuthZIO { c =>
+  private val basicAuthZIOM: HttpMiddleware[Any, Nothing]  = Middleware.basicAuthZIO { c =>
     ZIO.succeed(c.uname.reverse == c.upassword)
   }
-  private val bearerAuthM: HttpMiddleware[Any, Nothing]            = Middleware.bearerAuth { c =>
+  private val bearerAuthM: HttpMiddleware[Any, Nothing]    = Middleware.bearerAuth { c =>
     c == bearerToken
   }
-  private val bearerAuthZIOM: HttpMiddlewareForTotal[Any, Nothing] = Middleware.bearerAuthZIO { c =>
+  private val bearerAuthZIOM: HttpMiddleware[Any, Nothing] = Middleware.bearerAuthZIO { c =>
     ZIO.succeed(c == bearerToken)
   }
 
@@ -70,24 +70,24 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertZIO(app(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Http.collectHttp[Request] {
-          case Method.GET -> !! / "a" => Http.ok
+        val app1 = Http.collectHttp[Request] { case Method.GET -> !! / "a" =>
+          Http.ok
         }
-        val app2 = Http.collectHttp[Request]  {
-          case Method.GET -> !! / "b" => Http.ok
+        val app2 = Http.collectHttp[Request] { case Method.GET -> !! / "b" =>
+          Http.ok
         }
-        val app3 = Http.collectHttp[Request]  {
-          case Method.GET -> !! / "c" => Http.ok
+        val app3 = Http.collectHttp[Request] { case Method.GET -> !! / "c" =>
+          Http.ok
         }
-        val app = (app1 ++ app2 @@ bearerAuthM ++ app3).status
+        val app  = (app1 ++ app2 @@ bearerAuthM ++ app3).status
         for {
           s1 <- app(Request.get(URL(!! / "a")).copy(headers = failureBearerHeader))
           s2 <- app(Request.get(URL(!! / "b")).copy(headers = failureBearerHeader))
           s3 <- app(Request.get(URL(!! / "c")).copy(headers = failureBearerHeader))
         } yield assertTrue(
-          s1 == Status.Ok && s2 == Status.Unauthorized && s3 == Status.Ok
+          s1 == Status.Ok && s2 == Status.Unauthorized && s3 == Status.Ok,
         )
-      }
+      },
     ),
     suite("bearerAuthZIO")(
       test("HttpApp is accepted if the bearer authentication succeeds") {
@@ -101,6 +101,25 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       test("Responses should have WWW-Authentication header if bearer Auth failed") {
         val app = Http.ok @@ bearerAuthZIOM header "WWW-AUTHENTICATE"
         assertZIO(app(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
+      },
+      test("Does not affect fallback apps") {
+        val app1 = Http.collectHttp[Request] { case Method.GET -> !! / "a" =>
+          Http.ok
+        }
+        val app2 = Http.collectHttp[Request] { case Method.GET -> !! / "b" =>
+          Http.ok
+        }
+        val app3 = Http.collectHttp[Request] { case Method.GET -> !! / "c" =>
+          Http.ok
+        }
+        val app  = (app1 ++ app2 @@ bearerAuthZIOM ++ app3).status
+        for {
+          s1 <- app(Request.get(URL(!! / "a")).copy(headers = failureBearerHeader))
+          s2 <- app(Request.get(URL(!! / "b")).copy(headers = failureBearerHeader))
+          s3 <- app(Request.get(URL(!! / "c")).copy(headers = failureBearerHeader))
+        } yield assertTrue(
+          s1 == Status.Ok && s2 == Status.Unauthorized && s3 == Status.Ok,
+        )
       },
     ),
   )

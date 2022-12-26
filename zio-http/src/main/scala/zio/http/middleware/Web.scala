@@ -31,10 +31,12 @@ private[zio] trait Web
 
   final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]]): HttpMiddleware[R, E] =
     new HttpMiddleware[R, E] {
-      override def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1])(implicit trace: Trace): HttpApp[R1, E1] =
-        app.wrap { (_, execute) =>
+      override def apply[R1 <: R, E1 >: E](
+        app: Http.Total[R1, E1, Request, Response],
+      )(implicit trace: Trace): Http.Total[R1, E1, Request, Response] =
+        Http.fromFunctionZIO { request =>
           for {
-            response <- execute
+            response <- app.toZIO(request)
             patch    <- cookie.map(c => Patch.addHeader(Headers.setCookie(c)))
           } yield patch(response)
         }
@@ -51,13 +53,13 @@ private[zio] trait Web
    */
   final def debug: HttpMiddleware[Any, IOException] =
     new HttpMiddleware[Any, IOException] {
-      override def apply[R, E >: IOException](app: HttpApp[R, E])(implicit
+      override def apply[R, E >: IOException](app: Http.Total[R, E, Request, Response])(implicit
         trace: Trace,
-      ): HttpApp[R, E] =
-        app.wrap { (request, execute) =>
+      ): Http.Total[R, E, Request, Response] =
+        Http.fromFunctionZIO { request =>
           for {
             start    <- Clock.nanoTime
-            response <- execute
+            response <- app.toZIO(request)
             end      <- Clock.nanoTime
             _        <- Console
               .printLine(
@@ -97,6 +99,15 @@ private[zio] trait Web
     cond: Request => Boolean,
   )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     Middleware.ifThenElse[Request](cond)(_ => left, _ => right)
+
+  /**
+   * Logical operator to decide which middleware to select based on the
+   * predicate.
+   */
+  final def ifRequestThenElseZIO[R, E](
+    cond: Request => ZIO[R, E, Boolean],
+  )(left: HttpMiddleware[R, E], right: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    Middleware.ifThenElseZIO[Request](cond)(_ => left, _ => right)
 
   /**
    * Creates a new middleware using transformation functions
@@ -143,12 +154,12 @@ private[zio] trait Web
    */
   final def runAfter[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
     new HttpMiddleware[R, E] {
-      override def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1])(implicit
+      override def apply[R1 <: R, E1 >: E](app: Http.Total[R1, E1, Request, Response])(implicit
         trace: Trace,
-      ): HttpApp[R1, E1] =
-        app.wrap { (_, execute) =>
+      ): Http.Total[R1, E1, Request, Response] =
+        Http.fromFunctionZIO { request =>
           for {
-            response <- execute
+            response <- app.toZIO(request)
             _        <- effect
           } yield response
         }
@@ -160,13 +171,13 @@ private[zio] trait Web
    */
   final def runBefore[R, E](effect: ZIO[R, E, Any]): HttpMiddleware[R, E] =
     new HttpMiddleware[R, E] {
-      override def apply[R1 <: R, E1 >: E](app: HttpApp[R1, E1])(implicit
+      override def apply[R1 <: R, E1 >: E](app: Http.Total[R1, E1, Request, Response])(implicit
         trace: Trace,
-      ): HttpApp[R1, E1] =
-        app.wrap { (_, execute) =>
+      ): Http.Total[R1, E1, Request, Response] =
+        Http.fromFunctionZIO { request =>
           for {
             _        <- effect
-            response <- execute
+            response <- app.toZIO(request)
           } yield response
         }
     }
@@ -198,9 +209,11 @@ private[zio] trait Web
    */
   final def timeout(duration: Duration): HttpMiddleware[Any, Nothing] =
     new HttpMiddleware[Any, Nothing] {
-      def apply[R, E](app: HttpApp[R, E])(implicit trace: Trace): HttpApp[R, E] =
-        app.wrap { (_, execute) =>
-          execute.timeoutTo(Response.status(Status.RequestTimeout))(identity)(duration)
+      def apply[R, E](
+        app: Http.Total[R, E, Request, Response],
+      )(implicit trace: Trace): Http.Total[R, E, Request, Response] =
+        Http.fromFunctionZIO { request =>
+          app.toZIO(request).timeoutTo(Response.status(Status.RequestTimeout))(identity)(duration)
         }
     }
 
@@ -223,11 +236,44 @@ private[zio] trait Web
     middleware.when(req => cond(req.headers))
 
   /**
+   * Applies the middleware only if status matches the condition
+   */
+  final def whenStatus[R, E](cond: Status => Boolean)(
+    middleware: HttpMiddleware[R, E],
+  ): HttpMiddleware[R, E] =
+    whenResponse(response => cond(response.status))(middleware)
+
+  /**
    * Applies the middleware only if the condition function evaluates to true
    */
   final def whenRequest[R, E](cond: Request => Boolean)(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
     middleware.when(cond)
 
+  /**
+   * Applies the middleware only if the condition function effectfully evaluates
+   * to true
+   */
+  final def whenRequestZIO[R, E](
+    cond: Request => ZIO[R, E, Boolean],
+  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    middleware.whenZIO(cond)
+
+  /**
+   * Applies the middleware only if the condition function evaluates to true
+   */
+  def whenResponse[R, E](
+    cond: Response => Boolean,
+  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    Middleware.identity[Request, Response].flatMap(response => middleware.when(_ => cond(response)))
+
+  /**
+   * Applies the middleware only if the condition function effectfully evaluates
+   * to true
+   */
+  def whenResponseZIO[R, E](
+    cond: Response => ZIO[R, E, Boolean],
+  )(middleware: HttpMiddleware[R, E]): HttpMiddleware[R, E] =
+    Middleware.identity[Request, Response].flatMap(response => middleware.whenZIO(_ => cond(response)))
 }
 
 object Web {
@@ -244,14 +290,14 @@ object Web {
     ): HttpMiddleware[R1, E1] =
       new HttpMiddleware[R1, E1] {
         def apply[R2 <: R1, E2 >: E1](
-          app: HttpApp[R2, E2],
-        )(implicit trace: Trace): HttpApp[R2, E2] =
-          app.wrap { (a, execute) =>
+          app: Http.Total[R2, E2, Request, Response],
+        )(implicit trace: Trace): Http.Total[R2, E2, Request, Response] =
+          Http.fromFunctionZIO { request =>
             for {
-              s <- req(a)
-              b <- execute
-              c <- res(b, s)
-            } yield c(b)
+              s        <- req(request)
+              response <- app.toZIO(request)
+              c        <- res(response, s)
+            } yield c(response)
           }
       }
   }

@@ -17,7 +17,10 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           case Method.GET -> !! / "error"  => Http.error(HttpError.InternalServerError())
           case Method.GET -> !! / "defect" => Http.die(new Throwable("boom"))
         }
-        .flatten @@ metrics(extraLabels = Set(MetricLabel("test", "http_requests_total & http_errors_total")))
+        .flatten
+        .withFallback(Http.notFound) @@ metrics(
+        extraLabels = Set(MetricLabel("test", "http_requests_total & http_errors_total")),
+      )
 
       val total   = Metric.counterInt("http_requests_total").tagged("test", "http_requests_total & http_errors_total")
       val totalOk = total.tagged("path", "/ok").tagged("method", "GET").tagged("status", "200")

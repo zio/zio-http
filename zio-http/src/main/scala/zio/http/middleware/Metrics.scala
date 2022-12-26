@@ -53,15 +53,15 @@ private[zio] trait Metrics {
         )
 
       def apply[R1 <: Any, E1 >: Nothing](
-        http: Http[R1, E1, Request, Response],
-      )(implicit trace: Trace): Http[R1, E1, Request, Response] =
+        http: Http.Total[R1, E1, Request, Response],
+      )(implicit trace: Trace): Http.Total[R1, E1, Request, Response] =
         Http.fromFunctionZIO[Request] { req =>
           val requestLabels = labelsForRequest(req)
 
           for {
             start <- Clock.nanoTime
             _     <- concurrentRequests.tagged(requestLabels).increment
-            res   <- http.withFallback(Http.status(Status.NotFound)).toZIO(req).onExit { (exit: Exit[E1, Response]) =>
+            res   <- http.toZIO(req).onExit { (exit: Exit[E1, Response]) =>
               val labels =
                 requestLabels ++ exit.foldExit(
                   cause => cause.failureOption.fold(status500)(_ => status500),

@@ -41,10 +41,10 @@ private[zio] trait Cors {
     }
     new HttpMiddleware[R, E] {
       def apply[R1 <: R, E1 >: E](
-        http: Http[R1, E1, Request, Response],
-      )(implicit trace: Trace): Http[R1, E1, Request, Response] =
+        http: Http.Total[R1, E1, Request, Response],
+      )(implicit trace: Trace): Http.Total[R1, E1, Request, Response] =
         Http
-          .collectHttp[Request] { case req =>
+          .fromFunction[Request] { req =>
             (
               req.method,
               req.headers.header(HttpHeaderNames.ORIGIN),
@@ -63,6 +63,7 @@ private[zio] trait Cors {
               case _                                                     => http
             }
           }
+          .flatten
     }
   }
 }

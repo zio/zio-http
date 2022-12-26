@@ -11,20 +11,10 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
     suite("Middleware") {
       val increment = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
       test("identity") {
-        val http = Http.empty
-        val app  = Middleware.identity(http)
-        assertZIO(app(()).either)(isLeft(isNone))
+        val http = Http.succeed(1)
+        val app  = Middleware.identity[Unit, Int](http)
+        assertZIO(app(()))(equalTo(1))
       } +
-        test("identity - 2") {
-          val http = Http.succeed(1)
-          val app  = Middleware.identity[Unit, Int](http)
-          assertZIO(app(()))(equalTo(1))
-        } +
-        test("empty") {
-          val mid = Middleware.empty
-          val app = Http.succeed(1) @@ mid
-          assertZIO(app(()).either)(isLeft(isNone))
-        } +
         test("constant") {
           val mid = Middleware.fromHttp(Http.succeed("OK"))
           val app = Http.succeed(1) @@ mid
@@ -46,7 +36,7 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
         } +
         test("orElse") {
           val mid = Middleware.fail("left") <> Middleware.fail("right")
-          val app = Http.empty @@ mid
+          val app = Http.fail(1) @@ mid
           assertZIO(app(()).flip)(isSome(equalTo("right")))
         } +
         test("combine") {
@@ -57,7 +47,7 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
           assertZIO(app(0))(equalTo(4))
         } +
         test("flatMap") {
-          val mid = increment.flatMap(i => Middleware.ForTotal.succeed(i + 1))
+          val mid = increment.flatMap(i => Middleware.succeed(i + 1))
           val app = Http.identity[Int] @@ mid
           assertZIO(app(0))(equalTo(3))
         } +
@@ -102,8 +92,8 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
         } +
         suite("ifThenElseZIO") {
           val mid = Middleware.ifThenElseZIO[Int](i => ZIO.succeed(i > 5))(
-            isTrue = i => Middleware.ForTotal.succeed(i + 1),
-            isFalse = i => Middleware.ForTotal.succeed(i - 1),
+            isTrue = i => Middleware.succeed(i + 1),
+            isFalse = i => Middleware.succeed(i - 1),
           )
           test("isTrue") {
             val app = Http.identity[Int] @@ mid
@@ -115,7 +105,7 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
             }
         } +
         suite("contramap") {
-          val mid = Middleware.ForTotal.intercept[String, String](a => a + "Bar")((b, s) => b + s)
+          val mid = Middleware.intercept[String, String](a => a + "Bar")((b, s) => b + s)
           test("contramap") {
             val app = Http.identity[String] @@ mid.contramap[Int] { i => s"${i}Foo" }
             assertZIO(app(0))(equalTo("0Foo0FooBar"))
@@ -140,7 +130,7 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
             }
         } +
         suite("whenZIO") {
-          val mid = Middleware.ForTotal.transform[Int, Int](
+          val mid = Middleware.transform[Int, Int](
             in = _ + 1,
             out = _ + 1,
           )
@@ -170,14 +160,14 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
               assertZIO(app("1").exit)(fails(anything))
             }
         } +
-        test("allow") {
-          val mid = Middleware.allow[Int, Int](_ > 4)
-          val app = Http.succeed(1) @@ mid
-          for {
-            test1 <- assertZIO(app(1).either)(isLeft(isNone))
-            test2 <- assertZIO(app(6))(equalTo(1))
-          } yield test1 && test2
-        } +
+//        test("allow") {
+//          val mid = Middleware.allow[Int, Int](_ > 4)
+//          val app = Http.succeed(1) @@ mid
+//          for {
+//            test1 <- assertZIO(app(1).either)(isLeft(isNone))
+//            test2 <- assertZIO(app(6))(equalTo(1))
+//          } yield test1 && test2
+//        } +
 //        test("allowZIO") {
 //          val mid = Middleware.allowZIO[Int, Int](x => ZIO.succeed(x > 4))
 //          val app = Http.succeed(1) @@ mid

@@ -14,10 +14,8 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
   }
   private val appTotal = app.withFallback(Http.notFound)
 
-  private val midA      = Middleware.addHeader("X-Custom", "A")
-  private val midATotal = Middleware.ForTotal.addHeader("X-Custom", "A")
-  private val midB      = Middleware.addHeader("X-Custom", "B")
-  private val midBTotal = Middleware.ForTotal.addHeader("X-Custom", "B")
+  private val midA = Middleware.addHeader("X-Custom", "A")
+  private val midB = Middleware.addHeader("X-Custom", "B")
 
   def spec = suite("HttpMiddleware")(
     suite("headers suite")(
@@ -65,12 +63,12 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     suite("whenZIO")(
       test("condition is true") {
         val program =
-          runApp(self.appTotal @@ ForTotal.debug.whenZIO((_: Request) => ZIO.succeed(true))) *> TestConsole.output
+          runApp(self.appTotal @@ debug.whenZIO((_: Request) => ZIO.succeed(true))) *> TestConsole.output
         assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
       },
       test("condition is false") {
         val log =
-          runApp(self.appTotal @@ ForTotal.debug.whenZIO((_: Request) => ZIO.succeed(false))) *> TestConsole.output
+          runApp(self.appTotal @@ debug.whenZIO((_: Request) => ZIO.succeed(false))) *> TestConsole.output
         assertZIO(log)(equalTo(Vector()))
       },
     ),
@@ -103,12 +101,12 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("ifRequestThenElseZIO")(
       test("if the condition is true take first") {
-        val app = (Http.ok @@ ForTotal.ifRequestThenElseZIO(condZIO(true))(midATotal, midBTotal)) header "X-Custom"
+        val app = (Http.ok @@ ifRequestThenElseZIO(condZIO(true))(midA, midB)) header "X-Custom"
         assertZIO(app(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false take 2nd") {
         val app =
-          (Http.ok @@ ForTotal.ifRequestThenElseZIO(condZIO(false))(midATotal, midBTotal)) header "X-Custom"
+          (Http.ok @@ ifRequestThenElseZIO(condZIO(false))(midA, midB)) header "X-Custom"
         assertZIO(app(Request.get(URL.empty)))(isSome(equalTo("B")))
       },
     ),
@@ -124,21 +122,21 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("whenStatus")(
       test("if the condition is true apply middleware") {
-        val app = Http.ok @@ Middleware.ForTotal.whenStatus(_ == Status.Ok)(midATotal) header "X-Custom"
+        val app = Http.ok @@ Middleware.whenStatus(_ == Status.Ok)(midA) header "X-Custom"
         assertZIO(app(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply the middleware") {
-        val app = Http.ok @@ Middleware.ForTotal.whenStatus(_ == Status.NoContent)(midATotal) header "X-Custom"
+        val app = Http.ok @@ Middleware.whenStatus(_ == Status.NoContent)(midA) header "X-Custom"
         assertZIO(app(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("whenRequestZIO")(
       test("if the condition is true apply middleware") {
-        val app = (Http.ok @@ ForTotal.whenRequestZIO(condZIO(true))(midATotal)) header "X-Custom"
+        val app = (Http.ok @@ Middleware.whenRequestZIO(condZIO(true))(midA)) header "X-Custom"
         assertZIO(app(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply any middleware") {
-        val app = (Http.ok @@ ForTotal.whenRequestZIO(condZIO(false))(midATotal)) header "X-Custom"
+        val app = (Http.ok @@ Middleware.whenRequestZIO(condZIO(false))(midA)) header "X-Custom"
         assertZIO(app(Request.get(URL.empty)))(isNone)
       },
     ),
@@ -154,21 +152,21 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("whenResponseZIO")(
       test("if the condition is true apply middleware") {
-        val app = (Http.ok @@ ForTotal.whenResponseZIO(condZIO(true))(midATotal)) header "X-Custom"
+        val app = (Http.ok @@ Middleware.whenResponseZIO(condZIO(true))(midA)) header "X-Custom"
         assertZIO(app(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply any middleware") {
-        val app = (Http.ok @@ ForTotal.whenResponseZIO(condZIO(false))(midATotal)) header "X-Custom"
+        val app = (Http.ok @@ Middleware.whenResponseZIO(condZIO(false))(midA)) header "X-Custom"
         assertZIO(app(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("whenResponse")(
       test("if the condition is true apply middleware") {
-        val app = Http.ok @@ ForTotal.whenResponse(cond(true))(midATotal) header "X-Custom"
+        val app = Http.ok @@ Middleware.whenResponse(cond(true))(midA) header "X-Custom"
         assertZIO(app(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply the middleware") {
-        val app = Http.ok @@ ForTotal.whenResponse(cond(false))(midATotal) header "X-Custom"
+        val app = Http.ok @@ Middleware.whenResponse(cond(false))(midA) header "X-Custom"
         assertZIO(app(Request.get(URL.empty)))(isNone)
       },
     ),
@@ -215,7 +213,9 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
           ),
         )
         checkAll(urls) { case (url, expected) =>
-          val app = Http.collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash
+          val app = Http
+            .collect[Request] { case req => Response.text(req.url.encode) }
+            .withFallback(Http.notFound) @@ dropTrailingSlash
           for {
             url      <- ZIO.fromEither(URL.fromString(url))
             response <- app(Request.get(url = url))
