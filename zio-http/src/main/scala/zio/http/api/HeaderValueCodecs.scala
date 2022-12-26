@@ -1,8 +1,6 @@
 package zio.http.api
 
-import zio.{Chunk, Duration}
 import zio.http.api.internal.RichTextCodec
-import zio.http.model.{MediaType, Method}
 import zio.http.model.headers.HeaderTypedValues.Accept.{InvalidAcceptValue, MediaTypeWithQFactor}
 import zio.http.model.headers.HeaderTypedValues.DNT.{
   InvalidDNTValue,
@@ -13,12 +11,18 @@ import zio.http.model.headers.HeaderTypedValues.DNT.{
 import zio.http.model.headers.HeaderTypedValues.Expect.{ExpectValue, InvalidExpectValue}
 import zio.http.model.headers.HeaderTypedValues._
 import zio.http.model.headers.values.ContentSecurityPolicy
+import zio.http.model.{MediaType, Method}
+import zio.{Chunk, Duration}
 
+import java.time.ZonedDateTime
 import scala.util.Try
 
 object HeaderValueCodecs {
 
   final case class Protocol(protocol: String, version: Option[String])
+  final case class HostAndPort(host: String, port: Option[Int])
+
+  private val validStatusCodes = List(110, 111, 112, 113, 199, 214, 299)
 
   private val httpMethodCodec: RichTextCodec[String] = RichTextCodec
     .enumeration(
@@ -65,6 +69,111 @@ object HeaderValueCodecs {
         case Protocol(protocol, _)       => Left(protocol)
       },
     )
+
+  private val optionalProtocol: RichTextCodec[Either[String, Protocol]] = version | protocol
+
+  private val rawHostCodec: RichTextCodec[Either[String, (String, Int)]] =
+    RichTextCodec.string | (RichTextCodec.string ~ RichTextCodec.colon.unit(':') ~ RichTextCodec.int)
+
+  private val dayCodec: RichTextCodec[String] = RichTextCodec.enumeration(
+    RichTextCodec.literalCI("Mon"),
+    RichTextCodec.literalCI("Tue"),
+    RichTextCodec.literalCI("Wed"),
+    RichTextCodec.literalCI("Thu"),
+    RichTextCodec.literalCI("Fri"),
+    RichTextCodec.literalCI("Sat"),
+    RichTextCodec.literalCI("Sun"),
+  )
+
+  private val monthCodec: RichTextCodec[String] = RichTextCodec.enumeration(
+    RichTextCodec.literalCI("Jan"),
+    RichTextCodec.literalCI("Feb"),
+    RichTextCodec.literalCI("Mar"),
+    RichTextCodec.literalCI("Apr"),
+    RichTextCodec.literalCI("May"),
+    RichTextCodec.literalCI("Jun"),
+    RichTextCodec.literalCI("Jul"),
+    RichTextCodec.literalCI("Aug"),
+    RichTextCodec.literalCI("Sep"),
+    RichTextCodec.literalCI("Oct"),
+    RichTextCodec.literalCI("Nov"),
+    RichTextCodec.literalCI("Dec"),
+  )
+
+  private val timeUnitCodec: RichTextCodec[Int] = (RichTextCodec.digit ~ RichTextCodec.digit).transform(
+    { case (h1, h2) =>
+      h1 * 10 + h2
+    },
+    { case h =>
+      val h1 = h / 10
+      val h2 = h % 10
+      (h1, h2)
+    },
+  )
+
+  private val timeCodec: RichTextCodec[String] =
+    (timeUnitCodec ~ RichTextCodec.colon.unit(':') ~ timeUnitCodec ~ RichTextCodec.colon.unit(':') ~ timeUnitCodec)
+      .transform(
+        { case (h, m, s) =>
+          s"$h:$m:$s"
+        },
+        { case s =>
+          val Array(h, m, ss) = s.split(':')
+          (h.toInt, m.toInt, ss.toInt)
+        },
+      )
+
+  private val yearCodec: RichTextCodec[Int] =
+    (RichTextCodec.digit ~ RichTextCodec.digit ~ RichTextCodec.digit ~ RichTextCodec.digit).transform(
+      { case (y1, y2, y3, y4) =>
+        y1 * 1000 + y2 * 100 + y3 * 10 + y4
+      },
+      { case y =>
+        val y1 = y / 1000
+        val y2 = (y % 1000) / 100
+        val y3 = (y % 100) / 10
+        val y4 = y  % 10
+        (y1, y2, y3, y4)
+      },
+    )
+
+  private val dayOfMonthCodec = timeUnitCodec
+
+  private val zonedDateTimeCodec: RichTextCodec[ZonedDateTime] = (dayCodec ~ RichTextCodec.comma.unit(
+    ',',
+  ) ~ RichTextCodec.whitespaces ~ dayOfMonthCodec ~ RichTextCodec.whitespaces ~ monthCodec ~ RichTextCodec.whitespaces ~ yearCodec ~ RichTextCodec.whitespaces ~ timeCodec ~ RichTextCodec.whitespaces ~ RichTextCodec.string)
+    .transform(
+      { case (day, dayOfMonth, month, year, time, zone) =>
+        ZonedDateTime.parse(s"$day, $dayOfMonth $month $year $time $zone")
+      },
+      { case zdt =>
+        val day        = zdt.getDayOfWeek.toString
+        val dayOfMonth = zdt.getDayOfMonth
+        val month      = zdt.getMonth.toString
+        val year       = zdt.getYear
+        val time       = zdt.toLocalTime.toString
+        val zone       = zdt.getZone.toString
+        (day, dayOfMonth, month, year, time, zone)
+      },
+    )
+
+  private val statusCodec: RichTextCodec[Int] =
+    (RichTextCodec.digit ~ RichTextCodec.digit ~ RichTextCodec.digit).transform(
+      { case (d1, d2, d3) =>
+        d1 * 100 + d2 * 10 + d3
+      },
+      { case s =>
+        val d1 = s / 100
+        val d2 = (s % 100) / 10
+        val d3 = s  % 10
+        (d1, d2, d3)
+      },
+    )
+
+  private val rawWarningCodec =
+    statusCodec ~ RichTextCodec.whitespaces ~ RichTextCodec.string ~ RichTextCodec.whitespaces ~ RichTextCodec.string
+
+  private val chunkCodec = RichTextCodec.literalCI("chunked")
 
   private val quantifier    = RichTextCodec.literalCI(";q=") ~ RichTextCodec.double
   // accept encoding
@@ -496,7 +605,18 @@ object HeaderValueCodecs {
 
   val originCodec: RichTextCodec[Origin] = ??? // Easy
 
-  val pragmaCodec: RichTextCodec[Pragma] = ??? // Easy
+  val pragmaCodec: RichTextCodec[Pragma] = RichTextCodec
+    .literalCI("no-cache")
+    .transform(
+      {
+        case "no-cache" => Pragma.PragmaNoCacheValue
+        case _          => Pragma.InvalidPragmaValue
+      },
+      {
+        case Pragma.PragmaNoCacheValue => "no-cache"
+        case Pragma.InvalidPragmaValue => ""
+      },
+    )
 
   val proxyAuthenticateCodec: RichTextCodec[ProxyAuthenticate] = ??? // Easy
 
@@ -560,7 +680,22 @@ object HeaderValueCodecs {
       },
     )
 
-  val transferEncodingCodec: RichTextCodec[TransferEncoding] = ??? // Easy
+  val transferEncodingCodec: RichTextCodec[TransferEncoding] = RichTextCodec.enumeration(chunkCodec, compressCodec, deflateCodec, gzipCodec)
+    .replsep(RichTextCodec.comma.unit(',')).transform(
+    (values: Chunk[String]) =>  TransferEncoding.MultipleEncodings(values.map { value =>
+      value.trim match {
+              case "chunked"  => TransferEncoding.ChunkedEncoding
+              case "compress" => TransferEncoding.CompressEncoding
+              case "deflate"  => TransferEncoding.DeflateEncoding
+              case "gzip"     => TransferEncoding.GZipEncoding
+              case _          => TransferEncoding.InvalidTransferEncoding
+            }
+
+      }),
+    (values: TransferEncoding) => Chunk.fromArray(values.encoding.split(',').map(_.trim)),
+
+
+  )
 
   val upgradeCodec: RichTextCodec[Upgrade] = protocol
     .replsep(RichTextCodec.comma.unit(','))
@@ -595,11 +730,100 @@ object HeaderValueCodecs {
 
   val userAgentCodec: RichTextCodec[UserAgent] = ??? // Easy
 
-  val varyCodec: RichTextCodec[Vary] = ??? // Easy
+  val varyCodec: RichTextCodec[Vary] =
+    (RichTextCodec.star | (RichTextCodec.string.replsep(RichTextCodec.comma.unit(',')))).transform(
+      {
+        case Left(_)       => Vary.StarVary
+        case Right(values) => Vary.HeadersVaryValue(values)
+      },
+      {
+        case Vary.StarVary                 => Left('*')
+        case Vary.HeadersVaryValue(values) => Right(values)
+        case Vary.InvalidVaryValue         => Right(Chunk.empty)
+      },
+    )
 
-  val viaCodec: RichTextCodec[Via] = ??? // Easy
+  val viaCodec: RichTextCodec[Via] = (optionalProtocol ~ RichTextCodec.whitespaces ~ rawHostCodec)
+    .replsep(RichTextCodec.comma.unit(','))
+    .transform(
+      values => {
+        val data = values.map {
+          case (Left(version), Left(pseudonym))       =>
+            Via.DetailedValue(Via.ReceivedProtocol.Version(version), pseudonym)
+          case (Left(version), Right((host, port)))   =>
+            Via.DetailedValue(Via.ReceivedProtocol.Version(version), s"$host:$port")
+          case (Right(protocol), Left(pseudonym))     =>
+            Via.DetailedValue(
+              Via.ReceivedProtocol.ProtocolVersion(protocol.protocol, protocol.version.getOrElse("")),
+              pseudonym,
+            )
+          case (Right(protocol), Right((host, port))) =>
+            Via.DetailedValue(
+              Via.ReceivedProtocol.ProtocolVersion(protocol.protocol, protocol.version.getOrElse("")),
+              s"$host:$port",
+            )
+        }
+        Via.ViaValues(Chunk.fromArray(data.toArray))
+      },
+      values => parseViaValues(values),
+    )
 
-  val warningCodec: RichTextCodec[Warning] = ??? // Easy
+  private def parseViaValues(values: Via): Chunk[(Either[String, Protocol], Either[String, (String, Int)])] =
+    values match {
+      case Via.ViaValues(values)                                =>
+        values.map {
+          case Via.DetailedValue(Via.ReceivedProtocol.Version(version), pseudonym)                   =>
+            if (pseudonym.contains(":")) {
+              val hostPortArray = pseudonym.split(":")
+              (Left(version), Right((hostPortArray(0), hostPortArray(1).toInt)))
+            } else
+              (Left(version), Left(pseudonym))
+          case Via.DetailedValue(Via.ReceivedProtocol.ProtocolVersion(protocol, version), pseudonym) =>
+            if (pseudonym.contains(":")) {
+              val hostPortArray = pseudonym.split(":")
+              (
+                Right(Protocol(protocol, if (version.isEmpty) None else Some(version))),
+                Right((hostPortArray(0), hostPortArray(1).toInt)),
+              )
+            } else
+              (Right(Protocol(protocol, if (version.isEmpty) None else Some(version))), Left(pseudonym))
+
+          case Via.DetailedValue(Via.ReceivedProtocol.InvalidProtocol, _) =>
+            (Left(""), Left(""))
+        }
+      case Via.DetailedValue(receivedProtocol, hostOrPseudonym) =>
+        receivedProtocol match {
+          case Via.ReceivedProtocol.Version(version)                   =>
+            Chunk.single((Left(version), Left(hostOrPseudonym)))
+          case Via.ReceivedProtocol.ProtocolVersion(protocol, version) =>
+            Chunk.single(
+              (Right(Protocol(protocol, if (version.isEmpty) None else Some(version))), Left(hostOrPseudonym)),
+            )
+          case Via.ReceivedProtocol.InvalidProtocol                    => Chunk.empty
+        }
+      case Via.InvalidVia                                       => Chunk.empty
+    }
+
+  val warningCodec: RichTextCodec[Warning] = ((rawWarningCodec ~ zonedDateTimeCodec) | rawWarningCodec)
+    .transform(
+      {
+        case Left((code, agent, text, zone)) =>
+          if (validStatusCodes.contains(code)) Warning.WarningValue(code, agent, text, Some(zone))
+          else Warning.InvalidWarning
+
+        case Right((code, agent, text)) =>
+          if (validStatusCodes.contains(code)) Warning.WarningValue(code, agent, text, None)
+          else Warning.InvalidWarning
+      },
+      {
+        case Warning.WarningValue(code, agent, text, Some(zonedDateTime)) =>
+          Left((code, agent, text, zonedDateTime))
+        case Warning.WarningValue(code, agent, text, None)                =>
+          Right((code, agent, text))
+        case Warning.InvalidWarning                                       =>
+          Right((0, "", ""))
+      },
+    )
 
   val wwwAuthenticateCodec: RichTextCodec[WWWAuthenticate] = ??? // Easy
 

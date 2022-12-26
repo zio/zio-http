@@ -339,6 +339,83 @@ object RichTextCodec {
         },
       )
 
+    def apply[B <: A](
+      codec1: RichTextCodec[B],
+      codec2: RichTextCodec[B],
+      codec3: RichTextCodec[B],
+      codec4: RichTextCodec[B],
+      codec5: RichTextCodec[B],
+      codec6: RichTextCodec[B],
+      codec7: RichTextCodec[B],
+      codec8: RichTextCodec[B],
+      codec9: RichTextCodec[B],
+      codec10: RichTextCodec[B],
+    )(implicit
+      tag: ClassTag[B],
+    ): RichTextCodec[A] =
+      (apply(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8, codec9) | apply(codec10)).transform(
+        {
+          case Left(a)  => a: A
+          case Right(a) => a: A
+        },
+        { case b: B =>
+          Left(b)
+        },
+      )
+
+    def apply[B <: A](
+      codec1: RichTextCodec[B],
+      codec2: RichTextCodec[B],
+      codec3: RichTextCodec[B],
+      codec4: RichTextCodec[B],
+      codec5: RichTextCodec[B],
+      codec6: RichTextCodec[B],
+      codec7: RichTextCodec[B],
+      codec8: RichTextCodec[B],
+      codec9: RichTextCodec[B],
+      codec10: RichTextCodec[B],
+      codec11: RichTextCodec[B],
+    )(implicit
+      tag: ClassTag[B],
+    ): RichTextCodec[A] =
+      (apply(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8, codec9, codec10) | apply(codec11))
+        .transform(
+          {
+            case Left(a)  => a: A
+            case Right(a) => a: A
+          },
+          { case b: B =>
+            Left(b)
+          },
+        )
+
+    def apply[B <: A](
+      codec1: RichTextCodec[B],
+      codec2: RichTextCodec[B],
+      codec3: RichTextCodec[B],
+      codec4: RichTextCodec[B],
+      codec5: RichTextCodec[B],
+      codec6: RichTextCodec[B],
+      codec7: RichTextCodec[B],
+      codec8: RichTextCodec[B],
+      codec9: RichTextCodec[B],
+      codec10: RichTextCodec[B],
+      codec11: RichTextCodec[B],
+      codec12: RichTextCodec[B],
+    )(implicit
+      tag: ClassTag[B],
+    ): RichTextCodec[A] =
+      (apply(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8, codec9, codec10, codec11) | apply(codec12))
+        .transform(
+          {
+            case Left(a)  => a: A
+            case Right(a) => a: A
+          },
+          { case b: B =>
+            Left(b)
+          },
+        )
+
   }
 
   /**

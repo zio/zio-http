@@ -1,8 +1,8 @@
 package zio.http.model.headers
 
+import zio.http.model.{Cookie, MediaType, Method}
 import zio.http.{Request, Response, URL}
 import zio.{Chunk, Duration, durationInt}
-import zio.http.model.{Cookie, MediaType, Method}
 
 import java.net.URI
 import java.time.{ZoneId, ZonedDateTime}
@@ -1639,7 +1639,7 @@ object HeaderTypedValues {
   sealed trait Vary
 
   object Vary {
-    case class HeadersVaryValue(headers: List[String]) extends Vary
+    case class HeadersVaryValue(headers: Chunk[String]) extends Vary
 
     case object StarVary extends Vary
 
@@ -1665,10 +1665,9 @@ object HeaderTypedValues {
       case object InvalidProtocol extends ReceivedProtocol
     }
 
-    final case class ViaValues(values: Chunk[Via]) extends Via
+    final case class ViaValues(values: Chunk[DetailedValue]) extends Via
 
-    final case class DetailedValue(receivedProtocol: ReceivedProtocol, receivedBy: String, comment: Option[String])
-        extends Via
+    final case class DetailedValue(receivedProtocol: ReceivedProtocol, hostOrPseudonym: String) extends Via
 
     case object InvalidVia extends Via
   }

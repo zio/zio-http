@@ -1,7 +1,6 @@
 package zio.http.api
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zio.{http, _}
 import zio.http._
 import zio.http.api.MiddlewareSpec.CsrfValidate
 import zio.http.middleware.Auth
@@ -32,6 +31,7 @@ import zio.http.model.headers.HeaderTypedValues.TransferEncoding.InvalidTransfer
 import zio.http.model.headers.HeaderTypedValues._
 import zio.http.model.headers.values.ContentSecurityPolicy
 import zio.http.model.{Cookie, Headers, Method, Status}
+import zio.{http, _}
 
 import java.util.UUID
 
