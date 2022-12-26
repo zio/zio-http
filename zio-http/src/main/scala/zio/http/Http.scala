@@ -14,7 +14,7 @@ import java.net
 import java.nio.charset.Charset
 import java.nio.file.Paths
 import java.util.zip.ZipFile
-import scala.annotation.{nowarn, unused}
+import scala.annotation.unused
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 //import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok; // TODO
@@ -510,7 +510,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * are required this way.
    */
   // TODO: readd (implicit trace: Trace) propagation?
-  @nowarn final private[zio] lazy val execute
+  final private[zio] lazy val execute
     : PartialFunction[A, HExit[R, E, B]] = // NOTE: @nowarn for Scala 3 false exhaustiveness report
     self match {
       case Http.Empty              => PartialFunction.empty
@@ -552,14 +552,14 @@ sealed trait Http[-R, +E, -A, +B] { self =>
           }
       }
 
-      case RaceTotal(self, other) =>
-        a =>
-          (self.executeTotal(a), other.executeTotal(a)) match {
-            case (HExit.Effect(self), HExit.Effect(other)) =>
-              Http.fromZIO(self.raceFirst(other)).executeTotal(a)
-            case (HExit.Effect(_), other)                  => other
-            case (self, _)                                 => self
-          }
+      case RaceTotal(self, other) => { case a =>
+        (self.executeTotal(a), other.executeTotal(a)) match {
+          case (HExit.Effect(self), HExit.Effect(other)) =>
+            Http.fromZIO(self.raceFirst(other)).executeTotal(a)
+          case (HExit.Effect(_), other)                  => other
+          case (self, _)                                 => self
+        }
+      }
 
       case FoldHttp(self, failure, success) => {
         case a if self.execute.isDefinedAt(a) =>
@@ -571,14 +571,14 @@ sealed trait Http[-R, +E, -A, +B] { self =>
             )
       }
 
-      case FoldHttpTotal(self, failure, success) =>
-        a =>
-          self
-            .executeTotal(a)
-            .foldExit(
-              failure(_).execute(a),
-              success(_).execute(a),
-            )
+      case FoldHttpTotal(self, failure, success) => { case a =>
+        self
+          .executeTotal(a)
+          .foldExit(
+            failure(_).execute(a),
+            success(_).execute(a),
+          )
+      }
 
       case When(f, other) => {
         case a if f(a) && other.execute.isDefinedAt(a) => other.execute(a)
@@ -611,11 +611,11 @@ sealed trait Http[-R, +E, -A, +B] { self =>
           )
       }
 
-      case AspectTotal(self, aspect) =>
-        a =>
-          HExit.fromZIO(
-            aspect(self.executeTotal(a).toZIO).asInstanceOf[ZIO[R, E, B]],
-          )
+      case AspectTotal(self, aspect) => { case a =>
+        HExit.fromZIO(
+          aspect(self.executeTotal(a).toZIO).asInstanceOf[ZIO[R, E, B]],
+        )
+      }
 
       case OrElse(self, other) => {
         case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) =>
@@ -635,25 +635,32 @@ sealed trait Http[-R, +E, -A, +B] { self =>
           }
       }
 
-      case OrElseTotal(self, other) =>
-        a =>
-          (self.executeTotal(a), other.executeTotal(a)) match {
-            case (s @ HExit.Success(_), _)                        =>
-              s
-            case (s @ HExit.Failure(cause), _) if cause.isDie     =>
-              s
-            case (HExit.Failure(cause), other) if cause.isFailure =>
-              other
-            case (self, other)                                    =>
-              HExit.fromZIO(self.toZIO.orElse(other.toZIO))
-          }
-
-      case ApplyMiddleware(self, middleware) => {
-        case a if self.execute.isDefinedAt(a) =>
-          middleware(Http.fromHExit(self.execute(a))).execute(a)
+      case OrElseTotal(self, other) => { case a =>
+        (self.executeTotal(a), other.executeTotal(a)) match {
+          case (s @ HExit.Success(_), _)                        =>
+            s
+          case (s @ HExit.Failure(cause), _) if cause.isDie     =>
+            s
+          case (HExit.Failure(cause), other) if cause.isFailure =>
+            other
+          case (self, other)                                    =>
+            HExit.fromZIO(self.toZIO.orElse(other.toZIO))
+        }
       }
 
-      case ApplyMiddlewareTotal(self, middleware) => a => middleware(self).executeTotal(a)
+      case ApplyMiddleware(self, middleware) => {
+        case a if self.execute.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]].isDefinedAt(a) =>
+          middleware
+            .asInstanceOf[Middleware[Any, Any, Any, Any, Any, Any]](
+              Http.fromHExit[Any, Any, Any](self.execute.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]](a)),
+            )
+            .execute(a)
+            .asInstanceOf[HExit[R, E, B]]
+      }
+
+      case ApplyMiddlewareTotal(self, middleware) => { case a =>
+        middleware(self).executeTotal(a)
+      }
     }
 }
 
