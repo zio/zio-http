@@ -3,7 +3,7 @@ package zio.http.middleware
 import zio.ZIO
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
-import zio.http.model.{Headers, Status}
+import zio.http.model.{Headers, Method, Status}
 import zio.test.Assertion._
 import zio.test._
 
@@ -69,6 +69,25 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         val app = Http.ok @@ bearerAuthM header "WWW-AUTHENTICATE"
         assertZIO(app(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
+      test("Does not affect fallback apps") {
+        val app1 = Http.collectHttp[Request] {
+          case Method.GET -> !! / "a" => Http.ok
+        }
+        val app2 = Http.collectHttp[Request]  {
+          case Method.GET -> !! / "b" => Http.ok
+        }
+        val app3 = Http.collectHttp[Request]  {
+          case Method.GET -> !! / "c" => Http.ok
+        }
+        val app = (app1 ++ app2 @@ bearerAuthM ++ app3).status
+        for {
+          s1 <- app(Request.get(URL(!! / "a")).copy(headers = failureBearerHeader))
+          s2 <- app(Request.get(URL(!! / "b")).copy(headers = failureBearerHeader))
+          s3 <- app(Request.get(URL(!! / "c")).copy(headers = failureBearerHeader))
+        } yield assertTrue(
+          s1 == Status.Ok && s2 == Status.Unauthorized && s3 == Status.Ok
+        )
+      }
     ),
     suite("bearerAuthZIO")(
       test("HttpApp is accepted if the bearer authentication succeeds") {

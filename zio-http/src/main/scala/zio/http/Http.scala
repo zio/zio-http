@@ -289,7 +289,8 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
-  ): Http[R1, E1, A2, B2] = mid(self)
+  ): Http[R1, E1, A2, B2] =
+    ApplyMiddleware(self, mid)
 
   /**
    * Narrows the type of the input
@@ -601,12 +602,10 @@ sealed trait Http[-R, +E, -A, +B] { self =>
           )
       }
 
-      case AspectTotal(self, aspect) => {
-        case a if self.execute.isDefinedAt(a) =>
+      case AspectTotal(self, aspect) => a =>
           HExit.fromZIO(
             aspect(self.execute(a).toZIO).asInstanceOf[ZIO[R, E, B]],
           )
-      }
 
       case OrElse(self, other) => {
         case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) =>
@@ -625,6 +624,14 @@ sealed trait Http[-R, +E, -A, +B] { self =>
               HExit.fromZIO(self.toZIO.orElse(other.toZIO))
           }
       }
+
+      case ApplyMiddleware(self, middleware) => {
+        case a if self.execute.isDefinedAt(a) =>
+          middleware(self).execute(a)
+      }
+
+      case ApplyMiddlewareTotal(self, middleware) => a =>
+          middleware(self).execute(a)
     }
 }
 
@@ -1288,7 +1295,8 @@ object Http {
      */
     def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
       mid: Middleware.ForTotal[R1, E1, A1, B1, A2, B2],
-    ): Http.Total[R1, E1, A2, B2] = mid(self)
+    ): Http.Total[R1, E1, A2, B2] =
+      ApplyMiddlewareTotal(self, mid)
 
     /**
      * Provides the environment to Http.
@@ -1391,4 +1399,14 @@ object Http {
     self: Http[R, E, A, B],
     other: Http[R, E, A, B],
   ) extends Http[R, E, A, B]
+
+  private case class ApplyMiddleware[R, E, AIn, BIn, AOut, BOut](
+    self: Http[R, E, AIn, BIn],
+    middleware: Middleware[R, E, AIn, BIn, AOut, BOut],
+  ) extends Http[R, E, AOut, BOut]
+
+  private case class ApplyMiddlewareTotal[R, E, AIn, BIn, AOut, BOut](
+    self: Http.Total[R, E, AIn, BIn],
+    middleware: Middleware.ForTotal[R, E, AIn, BIn, AOut, BOut],
+  ) extends Http.Total[R, E, AOut, BOut]
 }
