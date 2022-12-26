@@ -14,7 +14,7 @@ import java.net
 import java.nio.charset.Charset
 import java.nio.file.Paths
 import java.util.zip.ZipFile
-import scala.annotation.unused
+import scala.annotation.{nowarn, unused}
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 //import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok; // TODO
@@ -510,7 +510,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * are required this way.
    */
   // TODO: readd (implicit trace: Trace) propagation?
-  final private[zio] lazy val execute
+  @nowarn final private[zio] lazy val execute
     : PartialFunction[A, HExit[R, E, B]] = // NOTE: @nowarn for Scala 3 false exhaustiveness report
     self match {
       case Http.Empty              => PartialFunction.empty
