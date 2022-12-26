@@ -1,13 +1,9 @@
 package zio.http.api
 
+import zio.http.{CookieDecoder, model}
 import zio.http.api.internal.RichTextCodec
 import zio.http.model.headers.HeaderTypedValues.Accept.{InvalidAcceptValue, MediaTypeWithQFactor}
-import zio.http.model.headers.HeaderTypedValues.DNT.{
-  InvalidDNTValue,
-  NotSpecifiedDNTValue,
-  TrackingAllowedDNTValue,
-  TrackingNotAllowedDNTValue,
-}
+import zio.http.model.headers.HeaderTypedValues.DNT.{InvalidDNTValue, NotSpecifiedDNTValue, TrackingAllowedDNTValue, TrackingNotAllowedDNTValue}
 import zio.http.model.headers.HeaderTypedValues.Expect.{ExpectValue, InvalidExpectValue}
 import zio.http.model.headers.HeaderTypedValues._
 import zio.http.model.headers.values.ContentSecurityPolicy
@@ -71,6 +67,10 @@ object HeaderValueCodecs {
     )
 
   private val optionalProtocol: RichTextCodec[Either[String, Protocol]] = version | protocol
+
+  private val productCodec = RichTextCodec.string ~ RichTextCodec.literal("/").unit("/") ~ version
+
+  private val productWithOptionalCommentCodec = (productCodec ~ RichTextCodec.literal("(").unit("(") ~ RichTextCodec.string ~ RichTextCodec.literal(")").unit(")")) | productCodec
 
   private val rawHostCodec: RichTextCodec[Either[String, (String, Int)]] =
     RichTextCodec.string | (RichTextCodec.string ~ RichTextCodec.colon.unit(':') ~ RichTextCodec.int)
@@ -174,8 +174,9 @@ object HeaderValueCodecs {
     statusCodec ~ RichTextCodec.whitespaces ~ RichTextCodec.string ~ RichTextCodec.whitespaces ~ RichTextCodec.string
 
   private val chunkCodec = RichTextCodec.literalCI("chunked")
+  private val trailersCodec = RichTextCodec.literalCI("trailers")
 
-  private val quantifier    = RichTextCodec.literalCI(";q=") ~ RichTextCodec.double
+  private val qualityFactor    = RichTextCodec.literalCI(";q=") ~ RichTextCodec.double
   // accept encoding
   private val gzipCodec     = RichTextCodec.literalCI("gzip")
   private val deflateCodec  = RichTextCodec.literalCI("deflate")
@@ -185,13 +186,15 @@ object HeaderValueCodecs {
   private val starCodec     = RichTextCodec.literalCI("*")
 
   private val gzipCodecComplete: RichTextCodec[(String, Option[Double])] =
-    ((gzipCodec ~ quantifier) | gzipCodec).transform(f, g)
-  private val deflateCodecComplete  = ((deflateCodec ~ quantifier) | deflateCodec).transform(f, g)
-  private val brCodecComplete       = ((brCodec ~ quantifier) | brCodec).transform(f, g)
+    ((gzipCodec ~ qualityFactor) | gzipCodec).transform(f, g)
+  private val deflateCodecComplete  = ((deflateCodec ~ qualityFactor) | deflateCodec).transform(f, g)
+  private val brCodecComplete       = ((brCodec ~ qualityFactor) | brCodec).transform(f, g)
   private val identityCodecComplete =
-    ((identityCodec ~ quantifier) | identityCodec).transform(f, g)
-  private val compressCodecComplete = ((compressCodec ~ quantifier) | compressCodec).transform(f, g)
-  private val starCodecComplete     = ((starCodec ~ quantifier) | starCodec).transform(f, g)
+    ((identityCodec ~ qualityFactor) | identityCodec).transform(f, g)
+  private val compressCodecComplete = ((compressCodec ~ qualityFactor) | compressCodec).transform(f, g)
+  private val starCodecComplete     = ((starCodec ~ qualityFactor) | starCodec).transform(f, g)
+
+  private val trailersCodecComplete = ((trailersCodec ~ qualityFactor) | trailersCodec).transform(f, g)
 
   private val acceptEncodingCodecAlt: RichTextCodec[(String, Option[Double])] =
     RichTextCodec.enumeration(
@@ -249,7 +252,7 @@ object HeaderValueCodecs {
   // accept language
   private val lang                                          =
     RichTextCodec.filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c == '-' || c == '*').repeat
-  val langComplete: RichTextCodec[(String, Option[Double])] = ((lang ~ quantifier) | lang).transform(
+  val langComplete: RichTextCodec[(String, Option[Double])] = ((lang ~ qualityFactor) | lang).transform(
     {
       case Left((name, (_, value))) => (name.mkString, Some(value))
       case Right(name)              => (name.mkString, None)
@@ -549,7 +552,13 @@ object HeaderValueCodecs {
 
   val contentTypeCodec: RichTextCodec[ContentType] = ??? // Easy
 
-  val dateCodec: RichTextCodec[Date] = ??? // Easy
+  val dateCodec: RichTextCodec[Date] = zonedDateTimeCodec.transform(
+    values => Date.ValidDate(values),
+    {
+      case Date.ValidDate(value) => value
+      case _                     => ZonedDateTime.now()
+    },
+  )
 
   val dntCodec: RichTextCodec[DNT] = (RichTextCodec.digit | RichTextCodec.literal("null")).transform(
     {
@@ -581,7 +590,13 @@ object HeaderValueCodecs {
       },
     )
 
-  val expiresCodec: RichTextCodec[Expires] = ??? // Easy
+  val expiresCodec: RichTextCodec[Expires] = zonedDateTimeCodec.transform(
+    values => Expires.ValidExpires(values),
+    {
+       case Expires.ValidExpires(value) => value
+      case _                           => ZonedDateTime.now()
+    },
+  )
 
   val fromCodec: RichTextCodec[From] = ??? // Easy
 
@@ -589,19 +604,43 @@ object HeaderValueCodecs {
 
   val ifMatchCodec: RichTextCodec[IfMatch] = ??? // Easy
 
-  val ifModifiedSinceCodec: RichTextCodec[IfModifiedSince] = ??? // Easy
+  val ifModifiedSinceCodec: RichTextCodec[IfModifiedSince] = zonedDateTimeCodec.transform(
+    values => IfModifiedSince.ModifiedSince(values),
+    {
+      case IfModifiedSince.ModifiedSince(value) => value
+      case _                      => ZonedDateTime.now()
+    },
+  )
 
   val ifNoneMatchCodec: RichTextCodec[IfNoneMatch] = ??? // Easy
 
   val ifRangeCodec: RichTextCodec[IfRange] = ??? // Easy
 
-  val ifUnmodifiedSinceCodec: RichTextCodec[IfUnmodifiedSince] = ??? // Easy
+  val ifUnmodifiedSinceCodec: RichTextCodec[IfUnmodifiedSince] = zonedDateTimeCodec.transform(
+    values => IfUnmodifiedSince.UnmodifiedSince(values),
+    {
+      case IfUnmodifiedSince.UnmodifiedSince(value) => value
+      case _                        => ZonedDateTime.now()
+    },
+  )
 
-  val lastModifiedCodec: RichTextCodec[LastModified] = ??? // Easy
+  val lastModifiedCodec: RichTextCodec[LastModified] = zonedDateTimeCodec.transform(
+    values => LastModified.LastModifiedDateTime(values),
+    {
+      case LastModified.LastModifiedDateTime(value) => value
+      case _                                     => ZonedDateTime.now()
+    },
+  )
 
   val locationCodec: RichTextCodec[Location] = ??? // Easy
 
-  val maxForwardsCodec: RichTextCodec[MaxForwards] = ??? // Easy
+  val maxForwardsCodec: RichTextCodec[MaxForwards] = RichTextCodec.int.transform(
+    values => MaxForwards.MaxForwardsValue(values),
+    {
+      case MaxForwards.MaxForwardsValue(value) => value
+      case _                                   => 0
+    },
+  )
 
   val originCodec: RichTextCodec[Origin] = ??? // Easy
 
@@ -626,23 +665,75 @@ object HeaderValueCodecs {
 
   val refererCodec: RichTextCodec[Referer] = ??? // Easy
 
-  val requestCookieCodec: RichTextCodec[RequestCookie] = ??? // Easy
+  val requestCookieCodec: RichTextCodec[RequestCookie] = RichTextCodec.string.transform(
+    values => {
+      implicit val decoder = CookieDecoder.RequestCookieDecoder
+      model.Cookie.decode(values) match {
+        case Left(err)  => RequestCookie.InvalidCookieValue(err)
+        case Right(c) => RequestCookie.CookieValue(Chunk.fromIterable(c))
+      }
+    },
+    {
+      case RequestCookie.CookieValue(values) => values.map(_.encode.getOrElse("")).mkString("; ")
+      case _                     => ""
+    },
+  )
 
-  val responseCookieCodec: RichTextCodec[ResponseCookie] = ??? // Easy
+  val responseCookieCodec: RichTextCodec[ResponseCookie] = RichTextCodec.string.transform(
+    values => {
+      implicit val decoder = CookieDecoder.ResponseCookieDecoder
+        model.Cookie.decode(values) match {
+        case Left(err)  => ResponseCookie.InvalidCookieValue(err)
+        case Right(c) => ResponseCookie.CookieValue(c)
+        }
+    },
+    {
+      case ResponseCookie.CookieValue(value) => value.encode(true).getOrElse("")
+      case ResponseCookie.InvalidCookieValue(_) => ""
+    },
+  )
 
-  val retryAfterCodec: RichTextCodec[RetryAfter] = ??? // Easy
+  val retryAfterCodec: RichTextCodec[RetryAfter] = (zonedDateTimeCodec | RichTextCodec.int).transform(
+    {
+      case Left(value)  => RetryAfter.RetryAfterByDate(value)
+      case Right(value) => RetryAfter.RetryAfterByDuration(Duration.fromSeconds(value.toLong))
+    },
+    {
+      case RetryAfter.RetryAfterByDate(value)    => Left(value)
+      case RetryAfter.RetryAfterByDuration(value) => Right(value.toSeconds.toInt)
+      case RetryAfter.InvalidRetryAfter  => Right(0)
+    },
+  )
 
-  val secWebSocketAcceptCodec: RichTextCodec[SecWebSocketAccept] = ??? // Easy
+  val secWebSocketAcceptCodec: RichTextCodec[SecWebSocketAccept] = RichTextCodec.string.transform(
+    SecWebSocketAccept.HashedKey,
+    {
+      case SecWebSocketAccept.HashedKey(value) => value
+      case SecWebSocketAccept.InvalidHashedKey      => ""
+    },
+  )
 
   val secWebSocketExtensionsCodec: RichTextCodec[SecWebSocketExtensions] = ??? // Easy
 
-  val secWebSocketKeyCodec: RichTextCodec[SecWebSocketKey] = ??? // Easy
+  val secWebSocketKeyCodec: RichTextCodec[SecWebSocketKey] = RichTextCodec.string.transform(
+    SecWebSocketKey.Base64EncodedKey,
+    {
+      case SecWebSocketKey.Base64EncodedKey(value) => value
+      case SecWebSocketKey.InvalidKey              => ""
+    },
+  )
 
   val secWebSocketLocationCodec: RichTextCodec[SecWebSocketLocation] = ??? // Easy
 
   val secWebSocketOriginCodec: RichTextCodec[SecWebSocketOrigin] = ??? // Easy
 
-  val secWebSocketProtocolCodec: RichTextCodec[SecWebSocketProtocol] = ??? // Easy
+  val secWebSocketProtocolCodec: RichTextCodec[SecWebSocketProtocol] = RichTextCodec.string.replsep(RichTextCodec.comma.unit(',')).transform(
+    values => SecWebSocketProtocol.Protocols(values),
+    {
+      case SecWebSocketProtocol.Protocols(values) => values
+      case SecWebSocketProtocol.InvalidProtocol   => Chunk.empty
+    },
+  )
 
   val secWebSocketVersionCodec: RichTextCodec[SecWebSocketVersion] = (RichTextCodec.digit ~ RichTextCodec.digit)
     .transform(
@@ -665,7 +756,29 @@ object HeaderValueCodecs {
     },
   )
 
-  val teCodec: RichTextCodec[Te] = ??? // Easy
+  val teCodec: RichTextCodec[Te] = RichTextCodec.enumeration(compressCodecComplete, deflateCodecComplete, gzipCodecComplete, trailersCodecComplete)
+    .replsep(RichTextCodec.comma.unit(','))
+    .transform(
+      (values: Chunk[(String, Option[Double])]) => Te.MultipleEncodings(values.map{
+        case ("compress", factor) => Te.CompressEncoding(factor)
+        case ("deflate", factor)  => Te.DeflateEncoding(factor)
+        case ("gzip", factor)     => Te.GZipEncoding(factor)
+        case ("trailers", _) => Te.Trailers
+        case _               => Te.InvalidEncoding
+      }),
+      {
+       transformTe
+      }
+    )
+
+  private def transformTe(value: Te): Chunk[(String, Option[Double])] = value match {
+    case Te.InvalidEncoding => Chunk.single(("", None))
+    case t@Te.CompressEncoding(weight) => Chunk.single((t.raw, weight))
+    case t@Te.DeflateEncoding(weight) => Chunk.single((t.raw, weight))
+    case t@Te.GZipEncoding(weight) => Chunk.single((t.raw, weight))
+    case t@Te.Trailers => Chunk.single((t.raw, None))
+    case Te.MultipleEncodings(encodings) => encodings.flatMap(transformTe)
+  }
 
   val trailerCodec: RichTextCodec[Trailer] = RichTextCodec
     .filter(c => c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c == '_')
@@ -728,7 +841,20 @@ object HeaderValueCodecs {
       },
     )
 
-  val userAgentCodec: RichTextCodec[UserAgent] = ??? // Easy
+  val userAgentCodec: RichTextCodec[UserAgent] = productWithOptionalCommentCodec.transform(
+   {
+     case Left((name,version, comment)) => UserAgent.CompleteUserAgent(UserAgent.Product(name, Some(version)), Some(UserAgent.Comment(comment)))
+     case Right((name, version)) => UserAgent.Product(name, Some(version))
+   },
+    {
+      case UserAgent.CompleteUserAgent(product, Some(comment)) => Left((product.name, product.version.getOrElse(""), comment.comment))
+      case UserAgent.CompleteUserAgent(product, None) => Right((product.name, product.version.getOrElse("")))
+      case UserAgent.Product(name, Some(version)) => Right((name, version))
+      case UserAgent.Product(name, None) => Right((name, ""))
+      case UserAgent.Comment(comment) => Left(("", "", comment))
+      case UserAgent.InvalidUserAgent => Right(("", ""))
+    },
+  )
 
   val varyCodec: RichTextCodec[Vary] =
     (RichTextCodec.star | (RichTextCodec.string.replsep(RichTextCodec.comma.unit(',')))).transform(

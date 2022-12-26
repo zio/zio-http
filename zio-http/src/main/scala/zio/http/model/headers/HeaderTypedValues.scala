@@ -1264,7 +1264,7 @@ object HeaderTypedValues {
    */
   object RequestCookie {
 
-    final case class CookieValue(value: List[Cookie[Request]]) extends RequestCookie
+    final case class CookieValue(value: Chunk[Cookie[Request]]) extends RequestCookie
 
     final case class InvalidCookieValue(error: Exception) extends RequestCookie
 
