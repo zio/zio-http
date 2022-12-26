@@ -510,7 +510,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    * are required this way.
    */
   // TODO: readd (implicit trace: Trace) propagation?
-  @nowarn final private[zio] lazy val execute
+  final private[zio] lazy val execute
     : PartialFunction[A, HExit[R, E, B]] = // NOTE: @nowarn for Scala 3 false exhaustiveness report
     self match {
       case Http.Empty              => PartialFunction.empty
@@ -1435,12 +1435,12 @@ object Http {
 
   private case object Identity extends Http.Total[Any, Nothing, Any, Nothing]
 
-  private case class Aspect[R, E, A, B, R1, E1 >: E](
+  private case class Aspect[R, E, A, B, R1, E1](
     self: Http[R, E, A, B],
     aspect: ZIO[R, E, B] => ZIO[R1, E1, B],
   ) extends Http[R1, E1, A, B]
 
-  private case class AspectTotal[R, E, A, B, R1, E1 >: E](
+  private case class AspectTotal[R, E, A, B, R1, E1](
     self: Http.Total[R, E, A, B],
     aspect: ZIO[R, E, B] => ZIO[R1, E1, B],
   ) extends Http.Total[R1, E1, A, B]
