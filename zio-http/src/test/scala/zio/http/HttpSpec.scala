@@ -332,7 +332,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         assertTrue(!app.execute.isDefinedAt(0))
       },
       test("should die when condition throws an exception") {
-        val t      = new Throwable("boom")
+        val t      = new IllegalArgumentException("boom")
         val app    = Http.succeed(1).when((_: Any) => throw t)
         val actual = app(0)
         assertZIO(actual.exit)(dies(equalTo(t)))
