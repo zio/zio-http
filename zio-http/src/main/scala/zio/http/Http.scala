@@ -92,11 +92,11 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   /**
    * Consumes the input and executes the Http.
    */
-  def apply(a: A)(implicit trace: Trace): ZIO[R, Option[E], B] =
-    try
-      if (execute.isDefinedAt(a)) executeToZIO(a).mapError(Some(_))
-      else ZIO.fail(None)
-    catch { case NonFatal(e) => ZIO.die(e) }
+  def apply(a: A)(implicit trace: Trace): ZIO[R, Option[E], B] = {
+    val hExit = toHExitOrNull(a)
+    if (hExit ne null) hExit.toZIO.mapError(Some(_))
+    else ZIO.fail(None)
+  }
 
   /**
    * Makes the app resolve with a constant value
@@ -491,15 +491,41 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http.Total[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.flatMap(_ => other)
 
-  final private[zio] def executeToZIO(a: A): ZIO[R, E, B] =
-    (try { self.execute(a) }
-    catch { case NonFatal(e) => HExit.die(e) }).toZIO
+  final private[zio] def executeToZIO(a: A): ZIO[R, E, B] = {
+    val hExit = toHExitOrNull(a)
+    if (hExit ne null) hExit.toZIO
+    else ZIO.die(new MatchError(a))
+  }
 
-  final private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
-    try {
-      if (execute.isDefinedAt(a)) execute(a)
-      else null
-    } catch { case NonFatal(e) => HExit.die(e) }
+  private final def toHExitOrNullPartial(a: A): HExit[R, E, B] =
+    if (execute.isDefinedAt(a)) execute(a)
+    else null
+
+  private final def toHExitOrNullPartialSafe(A: A): HExit[R, E, B] =
+    try toHExitOrNullPartial(A)
+    catch {
+      case NonFatal(e) => HExit.die(e)
+    }
+
+  private final def toHExitOrNullTotal(a: A): HExit[R, E, B] =
+    execute(a)
+
+  private final def toHExitOrNullTotalSafe(a: A): HExit[R, E, B] =
+    try toHExitOrNullTotal(a)
+    catch {
+      case NonFatal(e) => HExit.die(e)
+    }
+
+  final private[zio] lazy val toHExitOrNull: A => HExit[R, E, B] =
+    self match {
+      case PartialHandler(_)         => toHExitOrNullPartialSafe
+      case TotalHandler(_)           => toHExitOrNullTotalSafe
+      case FoldHttp(_, _, _)         => toHExitOrNullPartialSafe
+      case FoldHttpTotal(_, _, _)    => toHExitOrNullTotalSafe
+      case When(_, _)                => toHExitOrNullPartialSafe
+      case _: Http.Total[R, E, A, B] => toHExitOrNullTotal
+      case _                         => toHExitOrNullPartial
+    }
 
   /**
    * Evaluates the app and returns an HExit that can be resolved further
@@ -1178,8 +1204,7 @@ object Http {
       executeTotal(a).toZIO
 
     final private[zio] def executeTotal(a: A): HExit[R, E, B] =
-      try { execute(a) }
-      catch { case NonFatal(e) => HExit.die(e) }
+      execute(a)
 
     def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
       mid: Middleware[R1, E1, A1, B1, A2, B2],
