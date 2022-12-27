@@ -77,6 +77,7 @@ lazy val root = (project in file("."))
     zioHttpLogging,
     zioHttpExample,
     zioHttpTestkit,
+    docs,
   )
 
 lazy val zioHttp = (project in file("zio-http"))
