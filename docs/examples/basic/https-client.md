@@ -1,6 +1,7 @@
 ---
 id: https-client
 title: Https Client Example
+sidebar_label: Https Client
 ---
 
 ```scala

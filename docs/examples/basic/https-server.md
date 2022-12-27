@@ -1,6 +1,7 @@
 ---
 id: https-server
 title: Https Server Example
+sidebar_label: Https Server
 ---
 
 ```scala

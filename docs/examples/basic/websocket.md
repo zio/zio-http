@@ -1,6 +1,7 @@
 ---
 id: websocket
 title: WebSocket Example
+sidebar_label: WebSocket
 ---
 
 ```scala
