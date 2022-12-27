@@ -500,10 +500,12 @@ sealed trait Http[-R, +E, -A, +B] { self =>
     else HExit.die(new MatchError(a))
   }
 
-  private[zio] def safeExecute(a: A): HExit[R, E, B] = execute(a)
+  private[zio] def safeExecute(a: A): HExit[R, E, B] =
+    execute(a)
 
   private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
-    if (execute.isDefinedAt(a)) safeExecute(a) else null
+    execute.applyOrElse(a, (_: A) => null)
+
   private[zio] def execute: PartialFunction[A, HExit[R, E, B]]
 }
 
@@ -1235,9 +1237,6 @@ object Http {
     override private[zio] def toHExitOrNull(a: Any): HExit[Any, Nothing, B] =
       execute(a)
 
-    override private[zio] def safeExecute(a: Any): HExit[Any, Nothing, B] =
-      execute(a)
-
     override private[zio] lazy val execute: PartialFunction[Any, HExit[Any, Nothing, B]] = { case _ =>
       HExit.succeed(b)
     }
@@ -1281,8 +1280,7 @@ object Http {
   private final case class PartialHandler[R, E, A, B](f: PartialFunction[A, HExit[R, E, B]]) extends Http[R, E, A, B] {
     override private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
       try
-        if (execute.isDefinedAt(a)) execute(a)
-        else null
+        execute.applyOrElse(a, (_: A) => null)
       catch {
         case NonFatal(e) => HExit.die(e)
       }
@@ -1432,8 +1430,7 @@ object Http {
   private final case class When[R, E, A, B](f: A => Boolean, other: Http[R, E, A, B]) extends Http[R, E, A, B] {
     override private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
       try
-        if (execute.isDefinedAt(a)) execute(a)
-        else null
+        execute.applyOrElse(a, (_: A) => null)
       catch {
         case NonFatal(e) => HExit.die(e)
       }
