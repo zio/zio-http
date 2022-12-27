@@ -476,7 +476,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def widen[E1, B1](implicit e: E <:< E1, b: B <:< B1): Http[R, E1, A, B1] =
     self.asInstanceOf[Http[R, E1, A, B1]]
 
-  def withFallback[R1 <: R, E1, A1 <: A, B1 >: B](other: Http.Total[R1, E1, A1, B1]): Http.Total[R1, E1, A1, B1] =
+  def withFallback[R1 <: R, E1 >: E, A1 <: A, B1 >: B](other: Http.Total[R1, E1, A1, B1]): Http.Total[R1, E1, A1, B1] =
     CombineTotal(self, other)
 
   def wrap[R2, E2, B2, AA <: A](f: (AA, ZIO[R, E, B]) => ZIO[R2, E2, B2]): Http[R2, E2, AA, B2] =
@@ -491,203 +491,20 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def zipRight[R1 <: R, E1 >: E, A1 <: A, C1](other: Http.Total[R1, E1, A1, C1]): Http[R1, E1, A1, C1] =
     self.flatMap(_ => other)
 
-  final private[zio] def executeToZIO(a: A): ZIO[R, E, B] = {
+  final private[zio] def executeToZIO(a: A): ZIO[R, E, B] =
+    toHExit(a).toZIO
+
+  final private[zio] def toHExit(a: A): HExit[R, E, B] = {
     val hExit = toHExitOrNull(a)
-    if (hExit ne null) hExit.toZIO
-    else ZIO.die(new MatchError(a))
+    if (hExit ne null) hExit
+    else HExit.die(new MatchError(a))
   }
 
-  private final def toHExitOrNullPartial(a: A): HExit[R, E, B] =
-    if (execute.isDefinedAt(a)) execute(a)
-    else null
+  private[zio] def safeExecute(a: A): HExit[R, E, B] = execute(a)
 
-  private final def toHExitOrNullPartialSafe(A: A): HExit[R, E, B] =
-    try toHExitOrNullPartial(A)
-    catch {
-      case NonFatal(e) => HExit.die(e)
-    }
-
-  private final def toHExitOrNullTotal(a: A): HExit[R, E, B] =
-    execute(a)
-
-  private final def toHExitOrNullTotalSafe(a: A): HExit[R, E, B] =
-    try toHExitOrNullTotal(a)
-    catch {
-      case NonFatal(e) => HExit.die(e)
-    }
-
-  final private[zio] lazy val toHExitOrNull: A => HExit[R, E, B] =
-    self match {
-      case PartialHandler(_)         => toHExitOrNullPartialSafe
-      case TotalHandler(_)           => toHExitOrNullTotalSafe
-      case FoldHttp(_, _, _)         => toHExitOrNullPartialSafe
-      case FoldHttpTotal(_, _, _)    => toHExitOrNullTotalSafe
-      case When(_, _)                => toHExitOrNullPartialSafe
-      case _: Http.Total[R, E, A, B] => toHExitOrNullTotal
-      case _                         => toHExitOrNullPartial
-    }
-
-  /**
-   * Evaluates the app and returns an HExit that can be resolved further
-   *
-   * NOTE: `execute` is not a stack-safe method for performance reasons. Unlike
-   * ZIO, there is no reason why the execute should be stack safe. The
-   * performance improves quite significantly if no additional heap allocations
-   * are required this way.
-   */
-  // TODO: readd (implicit trace: Trace) propagation?
-  final private[zio] lazy val execute
-    : PartialFunction[A, HExit[R, E, B]] = // NOTE: @nowarn for Scala 3 false exhaustiveness report
-    self match {
-      case Http.Empty              => PartialFunction.empty
-      case Http.Identity           => { case a => HExit.succeed(a.asInstanceOf[B]) }
-      case Succeed(b)              => { case _ => HExit.succeed(b) }
-      case Fail(cause)             => { case _ => HExit.failCause(cause) }
-      case attempt: Attempt[_]     => { case _ =>
-        try {
-          HExit.succeed(attempt.a().asInstanceOf[B])
-        } catch {
-          case e: Throwable => HExit.fail(e.asInstanceOf[E])
-        }
-      }
-      case PartialHandler(f)       => {
-        case a if f.isDefinedAt(a) =>
-          try f(a)
-          catch { case NonFatal(e) => HExit.die(e) }
-      }
-      case TotalHandler(f)         => { case a =>
-        try f(a)
-        catch {
-          case NonFatal(e) => HExit.die(e)
-        }
-      }
-      case FromHExit(h)            => { case _ => h }
-      case Chain(self, other)      =>
-        self.execute.andThen(_.flatMap(other.executeTotal))
-      case ChainTotal(self, other) =>
-        self.execute.andThen(_.flatMap(other.executeTotal))
-      case Race(self, other)       => {
-        case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) => self.execute(a)
-        case a if !self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a) => other.execute(a)
-        case a if self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a)  =>
-          (self.execute(a), other.execute(a)) match {
-            case (HExit.Effect(self), HExit.Effect(other)) =>
-              Http.fromZIO(self.raceFirst(other)).execute(a)
-            case (HExit.Effect(_), other)                  => other
-            case (self, _)                                 => self
-          }
-      }
-
-      case RaceTotal(self, other) => { case a =>
-        (self.executeTotal(a), other.executeTotal(a)) match {
-          case (HExit.Effect(self), HExit.Effect(other)) =>
-            Http.fromZIO(self.raceFirst(other)).executeTotal(a)
-          case (HExit.Effect(_), other)                  => other
-          case (self, _)                                 => self
-        }
-      }
-
-      case FoldHttp(self, failure, success) => {
-        case a if self.execute.isDefinedAt(a) =>
-          self
-            .execute(a)
-            .foldExit(
-              failure(_).execute(a),
-              success(_).execute(a),
-            )
-      }
-
-      case FoldHttpTotal(self, failure, success) => { case a =>
-        self
-          .executeTotal(a)
-          .foldExit(
-            failure(_).execute(a),
-            success(_).execute(a),
-          )
-      }
-
-      case When(f, other) => {
-        case a if f(a) && other.execute.isDefinedAt(a) => other.execute(a)
-      }
-
-      case Combine(self, other) =>
-        self.execute
-          .orElse(
-            other.execute,
-          )
-          .asInstanceOf[PartialFunction[
-            A,
-            HExit[R, E, B],
-          ]]
-
-      case CombineTotal(self, other) =>
-        self.execute
-          .orElse(
-            other.execute,
-          )
-          .asInstanceOf[PartialFunction[
-            A,
-            HExit[R, E, B],
-          ]]
-
-      case Aspect(self, aspect) => {
-        case a if self.execute.isDefinedAt(a) =>
-          HExit.fromZIO(
-            aspect(self.execute(a).toZIO).asInstanceOf[ZIO[R, E, B]],
-          )
-      }
-
-      case AspectTotal(self, aspect) => { case a =>
-        HExit.fromZIO(
-          aspect(self.executeTotal(a).toZIO).asInstanceOf[ZIO[R, E, B]],
-        )
-      }
-
-      case OrElse(self, other) => {
-        case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) =>
-          self.execute(a)
-        case a if !self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a) =>
-          other.execute(a)
-        case a if self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a)  =>
-          (self.execute(a), other.execute(a)) match {
-            case (s @ HExit.Success(_), _)                        =>
-              s
-            case (s @ HExit.Failure(cause), _) if cause.isDie     =>
-              s
-            case (HExit.Failure(cause), other) if cause.isFailure =>
-              other
-            case (self, other)                                    =>
-              HExit.fromZIO(self.toZIO.orElse(other.toZIO))
-          }
-      }
-
-      case OrElseTotal(self, other) => { case a =>
-        (self.executeTotal(a), other.executeTotal(a)) match {
-          case (s @ HExit.Success(_), _)                        =>
-            s
-          case (s @ HExit.Failure(cause), _) if cause.isDie     =>
-            s
-          case (HExit.Failure(cause), other) if cause.isFailure =>
-            other
-          case (self, other)                                    =>
-            HExit.fromZIO(self.toZIO.orElse(other.toZIO))
-        }
-      }
-
-      case ApplyMiddleware(self, middleware) => {
-        case a if self.execute.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]].isDefinedAt(a) =>
-          middleware
-            .asInstanceOf[Middleware[Any, Any, Any, Any, Any, Any]](
-              Http.fromHExit[Any, Any, Any](self.execute.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]](a)),
-            )
-            .execute(a)
-            .asInstanceOf[HExit[R, E, B]]
-      }
-
-      case ApplyMiddlewareTotal(self, middleware) => { case a =>
-        middleware(self).executeTotal(a)
-      }
-    }
+  private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
+    if (execute.isDefinedAt(a)) safeExecute(a) else null
+  private[zio] def execute: PartialFunction[A, HExit[R, E, B]]
 }
 
 object Http {
@@ -1080,7 +897,7 @@ object Http {
   /**
    * Creates a pass thru Http instance
    */
-  def identity[A]: Http.Total[Any, Nothing, A, A] = Http.Identity
+  def identity[A]: Http.Total[Any, Nothing, A, A] = Http.Identity()
 
   /**
    * Creates an HTTP app which always responds with a 405 status code.
@@ -1205,6 +1022,9 @@ object Http {
 
     final private[zio] def executeTotal(a: A): HExit[R, E, B] =
       execute(a)
+
+    override private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
+      executeTotal(a)
 
     def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
       mid: Middleware[R1, E1, A1, B1, A2, B2],
@@ -1411,82 +1231,329 @@ object Http {
       self.flatMap(_ => other)
   }
 
-  private final case class Succeed[B](b: B) extends Http.Total[Any, Nothing, Any, B]
+  private final case class Succeed[B](b: B) extends Http.Total[Any, Nothing, Any, B] {
+    override private[zio] def toHExitOrNull(a: Any): HExit[Any, Nothing, B] =
+      execute(a)
 
-  private final case class Race[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B]
+    override private[zio] def safeExecute(a: Any): HExit[Any, Nothing, B] =
+      execute(a)
+
+    override private[zio] lazy val execute: PartialFunction[Any, HExit[Any, Nothing, B]] = { case _ =>
+      HExit.succeed(b)
+    }
+  }
+
+  private final case class Race[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B] {
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] = {
+      case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) => self.execute(a)
+      case a if !self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a) => other.execute(a)
+      case a if self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a)  =>
+        (self.safeExecute(a), other.safeExecute(a)) match {
+          case (HExit.Effect(self), HExit.Effect(other)) =>
+            Http.fromZIO(self.raceFirst(other)).safeExecute(a)
+          case (HExit.Effect(_), other)                  => other
+          case (self, _)                                 => self
+        }
+    }
+  }
 
   private final case class RaceTotal[R, E, A, B](self: Http.Total[R, E, A, B], other: Http.Total[R, E, A, B])
-      extends Http.Total[R, E, A, B]
+      extends Http.Total[R, E, A, B] {
 
-  private final case class Fail[E](cause: Cause[E]) extends Http.Total[Any, E, Any, Nothing]
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] = { case a =>
+      (self.safeExecute(a), other.safeExecute(a)) match {
+        case (HExit.Effect(self), HExit.Effect(other)) =>
+          Http.fromZIO(self.raceFirst(other)).safeExecute(a)
+        case (HExit.Effect(_), other)                  => other
+        case (self, _)                                 => self
+      }
+    }
+  }
 
-  private final case class PartialHandler[R, E, A, B](f: PartialFunction[A, HExit[R, E, B]]) extends Http[R, E, A, B]
+  private final case class Fail[E](cause: Cause[E]) extends Http.Total[Any, E, Any, Nothing] {
 
-  private final case class TotalHandler[R, E, A, B](f: A => HExit[R, E, B]) extends Http.Total[R, E, A, B]
+    override private[zio] lazy val execute: PartialFunction[Any, HExit[Any, E, Nothing]] = { case _ =>
+      HExit.failCause(cause)
+    }
+  }
+
+  private final case class PartialHandler[R, E, A, B](f: PartialFunction[A, HExit[R, E, B]]) extends Http[R, E, A, B] {
+    override private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
+      try
+        if (execute.isDefinedAt(a)) execute(a)
+        else null
+      catch {
+        case NonFatal(e) => HExit.die(e)
+      }
+
+    override private[zio] def safeExecute(a: A): HExit[R, E, B] =
+      try execute(a)
+      catch {
+        case NonFatal(e) => HExit.die(e)
+      }
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] = f
+  }
+
+  private final case class TotalHandler[R, E, A, B](f: A => HExit[R, E, B]) extends Http.Total[R, E, A, B] {
+    override private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
+      try
+        execute(a)
+      catch {
+        case NonFatal(e) => HExit.die(e)
+      }
+
+    override private[zio] def safeExecute(a: A): HExit[R, E, B] =
+      try execute(a)
+      catch {
+        case NonFatal(e) => HExit.die(e)
+      }
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] = { case a => f(a) }
+  }
 
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http.Total[R, E, B, C])
-      extends Http[R, E, A, C]
+      extends Http[R, E, A, C] {
+
+    override private[zio] def safeExecute(a: A): HExit[R, E, C] =
+      try execute(a)
+      catch {
+        case NonFatal(e) => HExit.die(e)
+      }
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, E, C]] =
+      self.execute.andThen(_.flatMap(other.safeExecute))
+  }
 
   private final case class ChainTotal[R, E, A, B, C](self: Http.Total[R, E, A, B], other: Http.Total[R, E, B, C])
-      extends Http.Total[R, E, A, C]
+      extends Http.Total[R, E, A, C] {
+
+    override private[zio] def safeExecute(a: A): HExit[R, E, C] =
+      try execute(a)
+      catch {
+        case NonFatal(e) => HExit.die(e)
+      }
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, E, C]] =
+      self.execute.andThen(_.flatMap(other.safeExecute))
+  }
 
   private final case class FoldHttp[R, E, EE, A, B, BB](
     self: Http[R, E, A, B],
     failure: Cause[E] => Http.Total[R, EE, A, BB],
     success: B => Http.Total[R, EE, A, BB],
-  ) extends Http[R, EE, A, BB]
+  ) extends Http[R, EE, A, BB] {
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, EE, BB]] = {
+      case a if self.execute.isDefinedAt(a) =>
+        self
+          .safeExecute(a)
+          .foldExit(
+            failure(_).execute(a),
+            success(_).execute(a),
+          )
+    }
+  }
 
   private final case class FoldHttpTotal[R, E, EE, A, B, BB](
     self: Http.Total[R, E, A, B],
     failure: Cause[E] => Http.Total[R, EE, A, BB],
     success: B => Http.Total[R, EE, A, BB],
-  ) extends Http.Total[R, EE, A, BB]
+  ) extends Http.Total[R, EE, A, BB] {
 
-  private case class Attempt[A](a: () => A) extends Http.Total[Any, Throwable, Any, A]
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, EE, BB]] = { case a =>
+      {
+        try
+          self.executeTotal(a)
+        catch {
+          case NonFatal(e) => HExit.die(e)
+        }
+      }
+        .foldExit(
+          failure(_).execute(a),
+          success(_).execute(a),
+        )
+    }
+  }
 
-  private final case class Combine[R, E, EE, A, B, BB](
+  private case class Attempt[A](a: () => A) extends Http.Total[Any, Throwable, Any, A] {
+
+    override private[zio] lazy val execute: PartialFunction[Any, HExit[Any, Throwable, A]] = { case _ =>
+      try {
+        HExit.succeed(a())
+      } catch {
+        case e: Throwable => HExit.fail(e)
+      }
+    }
+  }
+
+  private final case class Combine[R, E, EE >: E, A, B, BB >: B](
     self: Http[R, E, A, B],
     other: Http[R, EE, A, BB],
-  ) extends Http[R, EE, A, BB]
+  ) extends Http[R, EE, A, BB] {
 
-  private case class CombineTotal[R, E, A, B, R1, E1, A1, B1](self: Http[R, E, A, B], other: Http.Total[R1, E1, A1, B1])
-      extends Http.Total[R1, E1, A1, B1]
+    override private[zio] def safeExecute(a: A): HExit[R, EE, BB] =
+      try execute(a)
+      catch {
+        case NonFatal(e) => HExit.die(e)
+      }
 
-  private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http.Total[R, E, Any, B]
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, EE, BB]] =
+      self.execute
+        .orElse(
+          other.execute,
+        )
+  }
 
-  private final case class When[R, E, A, B](f: A => Boolean, other: Http[R, E, A, B]) extends Http[R, E, A, B]
+  private case class CombineTotal[R, E, A, B, R1 <: R, E1 >: E, A1 <: A, B1 >: B](
+    self: Http[R, E, A, B],
+    other: Http.Total[R1, E1, A1, B1],
+  ) extends Http.Total[R1, E1, A1, B1] {
 
-  private case object Empty extends Http[Any, Nothing, Any, Nothing]
+    override private[zio] def safeExecute(a: A1): HExit[R1, E1, B1] =
+      try execute(a)
+      catch {
+        case NonFatal(e) => HExit.die(e)
+      }
 
-  private case object Identity extends Http.Total[Any, Nothing, Any, Nothing]
+    override private[zio] lazy val execute: PartialFunction[A1, HExit[R1, E1, B1]] =
+      self.execute
+        .orElse(
+          other.execute,
+        )
+  }
+
+  private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http.Total[R, E, Any, B] {
+
+    override private[zio] lazy val execute: PartialFunction[Any, HExit[R, E, B]] = { case _ => h }
+  }
+
+  private final case class When[R, E, A, B](f: A => Boolean, other: Http[R, E, A, B]) extends Http[R, E, A, B] {
+    override private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
+      try
+        if (execute.isDefinedAt(a)) execute(a)
+        else null
+      catch {
+        case NonFatal(e) => HExit.die(e)
+      }
+
+    override private[zio] def safeExecute(a: A): HExit[R, E, B] =
+      try
+        execute(a)
+      catch {
+        case NonFatal(e) => HExit.die(e)
+      }
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] = {
+      case a if f(a) && other.execute.isDefinedAt(a) => other.safeExecute(a)
+    }
+  }
+
+  private case object Empty extends Http[Any, Nothing, Any, Nothing] {
+    override private[zio] def toHExitOrNull(a: Any): HExit[Any, Nothing, Nothing] = null
+
+    override private[zio] def execute: PartialFunction[Any, HExit[Any, Nothing, Nothing]] = PartialFunction.empty
+  }
+
+  private final case class Identity[A]() extends Http.Total[Any, Nothing, A, A] {
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[Any, Nothing, A]] = { case a =>
+      HExit.succeed(a)
+    }
+  }
 
   private case class Aspect[R, E, A, B, R1, E1](
     self: Http[R, E, A, B],
     aspect: ZIO[R, E, B] => ZIO[R1, E1, B],
-  ) extends Http[R1, E1, A, B]
+  ) extends Http[R1, E1, A, B] {
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R1, E1, B]] = {
+      case a if self.execute.isDefinedAt(a) =>
+        HExit.fromZIO(
+          aspect(self.safeExecute(a).toZIO),
+        )
+    }
+  }
 
   private case class AspectTotal[R, E, A, B, R1, E1](
     self: Http.Total[R, E, A, B],
     aspect: ZIO[R, E, B] => ZIO[R1, E1, B],
-  ) extends Http.Total[R1, E1, A, B]
+  ) extends Http.Total[R1, E1, A, B] {
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R1, E1, B]] = { case a =>
+      HExit.fromZIO(
+        aspect(self.safeExecute(a).toZIO),
+      )
+    }
+  }
 
   private case class OrElse[R, E, A, B](
     self: Http[R, E, A, B],
     other: Http[R, E, A, B],
-  ) extends Http[R, E, A, B]
+  ) extends Http[R, E, A, B] {
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] = {
+      case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) =>
+        self.execute(a)
+      case a if !self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a) =>
+        other.execute(a)
+      case a if self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a)  =>
+        (self.safeExecute(a), other.safeExecute(a)) match {
+          case (s @ HExit.Success(_), _)                        =>
+            s
+          case (s @ HExit.Failure(cause), _) if cause.isDie     =>
+            s
+          case (HExit.Failure(cause), other) if cause.isFailure =>
+            other
+          case (self, other)                                    =>
+            HExit.fromZIO(self.toZIO.orElse(other.toZIO))
+        }
+    }
+  }
 
   private case class OrElseTotal[R, E, A, B](
     self: Http.Total[R, E, A, B],
     other: Http.Total[R, E, A, B],
-  ) extends Http.Total[R, E, A, B]
+  ) extends Http.Total[R, E, A, B] {
+
+    override private[zio] lazy val execute: PartialFunction[A, HExit[R, E, B]] = { case a =>
+      (self.safeExecute(a), other.safeExecute(a)) match {
+        case (s @ HExit.Success(_), _)                        =>
+          s
+        case (s @ HExit.Failure(cause), _) if cause.isDie     =>
+          s
+        case (HExit.Failure(cause), other) if cause.isFailure =>
+          other
+        case (self, other)                                    =>
+          HExit.fromZIO(self.toZIO.orElse(other.toZIO))
+      }
+    }
+  }
 
   private case class ApplyMiddleware[R, E, AIn, BIn, AOut, BOut](
     self: Http[R, E, AIn, BIn],
     middleware: Middleware[R, E, AIn, BIn, AOut, BOut],
-  ) extends Http[R, E, AOut, BOut]
+  ) extends Http[R, E, AOut, BOut] {
+
+    override private[zio] lazy val execute: PartialFunction[AOut, HExit[R, E, BOut]] = {
+      case a if self.execute.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]].isDefinedAt(a) =>
+        middleware
+          .asInstanceOf[Middleware[Any, Any, Any, Any, Any, Any]](
+            Http.fromHExit[Any, Any, Any](self.execute.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]](a)),
+          )
+          .safeExecute(a)
+          .asInstanceOf[HExit[R, E, BOut]]
+    }
+  }
 
   private case class ApplyMiddlewareTotal[R, E, AIn, BIn, AOut, BOut](
     self: Http.Total[R, E, AIn, BIn],
     middleware: Middleware[R, E, AIn, BIn, AOut, BOut],
-  ) extends Http.Total[R, E, AOut, BOut]
+  ) extends Http.Total[R, E, AOut, BOut] {
+
+    override private[zio] lazy val execute: PartialFunction[AOut, HExit[R, E, BOut]] = { case a =>
+      middleware(self).safeExecute(a)
+    }
+  }
 }
