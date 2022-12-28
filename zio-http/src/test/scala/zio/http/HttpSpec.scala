@@ -442,5 +442,11 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         assert(http.apply {})(isSuccess(equalTo(1)))
       },
     ),
+    suite("withFallback")(
+      test("calls the fallback handler") {
+        val http = Http.collect[Int] { case 0 => "0" }.withFallback(Http.succeed("1"))
+        assert(http.apply(1))(isSuccess(equalTo("1")))
+      },
+    ),
   ) @@ timeout(10 seconds)
 }

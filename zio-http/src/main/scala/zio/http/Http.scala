@@ -16,6 +16,7 @@ import java.nio.file.Paths
 import java.util.zip.ZipFile
 import scala.annotation.{nowarn, unused}
 import scala.reflect.ClassTag
+import scala.runtime.AbstractPartialFunction
 import scala.util.control.NonFatal
 //import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok; // TODO
 
@@ -23,7 +24,7 @@ import scala.util.control.NonFatal
  * A functional domain to model Http apps using ZIO and that can work over any
  * kind of request and response types.
  */
-sealed trait Http[-R, +E, -A, +B] extends PartialFunction[A, HExit[R, E, B]] { self =>
+sealed trait Http[-R, +E, -A, +B] extends AbstractPartialFunction[A, HExit[R, E, B]] { self =>
 
   import Http._
 
@@ -1013,7 +1014,7 @@ object Http {
 
   sealed trait Total[-R, +E, -A, +B] extends Http[R, E, A, B] { self =>
     final override def isDefinedAt(x: A): Boolean                                               = true
-    final override def applyOrElse[A1 <: A, B1 >: HExit[R, E, B]](x: A1, default: A1 => B1): B1 = apply(x)
+    final override def applyOrElse[A1 <: A, B1 >: HExit[R, E, B]](x: A1, default: A1 => B1): B1 = self.apply(x)
 
     def toZIO(a: A): ZIO[R, E, B] =
       self(a).toZIO
@@ -1373,8 +1374,8 @@ object Http {
   ) extends Http.Total[R1, E1, A1, B1] {
 
     override def apply(a: A1): HExit[R1, E1, B1] = {
-      val z = self.applyOrElse(a, checkFallback[HExit[R1, E1, B1]])
-      if (!fallbackOccurred(z)) z else other(a)
+      val z = self.applyOrElse[A1, AnyRef](a, checkFallback[HExit[R1, E1, B1]])
+      if (!fallbackOccurred(z)) z.asInstanceOf[HExit[R1, E1, B1]] else other(a)
     }
   }
 
@@ -1501,7 +1502,7 @@ object Http {
       middleware(self).apply(a)
   }
 
-  private val fallbackFn: Any => Any             = _ => fallbackFn
+  private[this] val fallbackFn: AnyRef           = (_: Any) => fallbackFn
   private def checkFallback[B]: Any => B         = fallbackFn.asInstanceOf[Any => B]
   private def fallbackOccurred[B](x: B): Boolean = fallbackFn eq x.asInstanceOf[AnyRef]
 }
