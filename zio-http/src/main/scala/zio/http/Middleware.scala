@@ -221,24 +221,6 @@ trait Middleware[-R, +E, +AIn, -BIn, -AOut, +BOut] { self =>
 
 object Middleware extends Web {
 
-//  /**
-//   * Creates a middleware which can allow or disallow access to an http based on
-//   * the predicate
-//   */
-//  def allow[A, B](cond: A => Boolean): Middleware[Any, Nothing, A, B, A, B] =
-//    new Middleware[Any, Nothing, A, B, A, B] {
-//      override def apply[R1 <: Any, E1 >: Nothing](http: Http.Total[R1, E1, A, B])(implicit
-//        trace: Trace,
-//      ): Http.Total[R1, E1, A, B] =
-//        Http.collectHttp { case a if cond(a) => http }
-//    }
-
-//  /**
-//   * Creates a middleware which can allow or disallow access to an http based on
-//   * the predicate effect
-//   */
-//  def allowZIO[A, B]: PartialAllowZIO[A, B] = new PartialAllowZIO[A, B](())
-
   /**
    * Creates a middleware using the specified encoder and decoder functions
    */
@@ -253,21 +235,6 @@ object Middleware extends Web {
    * Creates a middleware using specified effectful encoder and decoder
    */
   def codecZIO[A, B]: PartialCodecZIO[A, B] = new PartialCodecZIO[A, B](())
-
-//  /**
-//   * Creates a middleware using specified function
-//   */
-//  def collect[A]: PartialCollect[A] = new PartialCollect[A](())
-
-//  /**
-//   * Creates a middleware using specified effect function
-//   */
-//  def collectZIO[A]: PartialCollectZIO[A] = new PartialCollectZIO[A](())
-//
-//  /**
-//   * Creates a middleware which returns an empty http value
-//   */
-//  def empty: Middleware[Any, Nothing, Nothing, Any, Any, Nothing] = fromHttp(Http.empty)
 
   /**
    * Creates a middleware which always fail with specified error
@@ -347,16 +314,6 @@ object Middleware extends Web {
    */
   def transformZIO[AOut, BIn]: PartialMonoZIO[AOut, BIn] = new PartialMonoZIO[AOut, BIn]({})
 
-//  final class PartialAllowZIO[A, B](val unit: Unit) extends AnyVal {
-//    def apply[R, E](cond: A => ZIO[R, E, Boolean]): MonoMiddleware[R, E, A, B] =
-//      new Middleware[R, E, A, B, A, B] {
-//        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, A, B])(implicit
-//          trace: Trace,
-//        ): Http[R1, E1, A, B] =
-//          Http.fromFunctionZIO[A](a => cond(a).map(if (_) http else Http.empty)).flatten
-//      }
-//  }
-
   final class PartialMono[AOut, BIn](val unit: Unit) extends AnyVal {
     def apply[AIn, BOut](
       in: AOut => AIn,
@@ -382,30 +339,6 @@ object Middleware extends Web {
           http.contramapZIO(in).mapZIO(out)
       }
   }
-
-//  final class PartialCollect[AOut](val unit: Unit) extends AnyVal {
-//    def apply[R, E, AIn, BIn, BOut](
-//      f: PartialFunction[AOut, Middleware[R, E, AIn, BIn, AOut, BOut]],
-//    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-//      new Middleware[R, E, AIn, BIn, AOut, BOut] {
-//        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit
-//          trace: Trace,
-//        ): Http[R1, E1, AOut, BOut] =
-//          Http.collectHttp[AOut] { case a if f.isDefinedAt(a) => f(a)(http) }
-//      }
-//  }
-
-//  final class PartialCollectZIO[AOut](val unit: Unit) extends AnyVal {
-//    def apply[R, E, AIn, BIn, BOut](
-//      f: PartialFunction[AOut, ZIO[R, E, Middleware[R, E, AIn, BIn, AOut, BOut]]],
-//    ): Middleware[R, E, AIn, BIn, AOut, BOut] =
-//      new Middleware[R, E, AIn, BIn, AOut, BOut] {
-//        override def apply[R1 <: R, E1 >: E](http: Http[R1, E1, AIn, BIn])(implicit
-//          trace: Trace,
-//        ): Http[R1, E1, AOut, BOut] =
-//          Http.collectZIO[AOut] { case a if f.isDefinedAt(a) => f(a).map(_(http)) }.flatten
-//      }
-//  }
 
   final class PartialIntercept[A, B](val unit: Unit) extends AnyVal {
     def apply[S, BOut](incoming: A => S)(outgoing: (B, S) => BOut): Middleware[Any, Nothing, A, B, A, BOut] =
