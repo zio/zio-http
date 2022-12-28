@@ -98,7 +98,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
         version = version,
         remoteAddress = None,
       )
-      response <- currentBehavior(request).catchAll {
+      response <- currentBehavior.toZIO(request).catchAll {
         case Some(value) => ZIO.succeed(Response(status = Status.BadRequest, body = Body.fromString(value.toString)))
         case None        => ZIO.succeed(Response.status(Status.NotFound))
       }

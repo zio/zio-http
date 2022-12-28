@@ -169,13 +169,13 @@ class ApiBenchmark {
   @Benchmark
   def benchmarkSmallDataZioApi(): Unit =
     unsafeRun {
-      apiHttpApp(smallDataRequest).repeatN(REPEAT_N)
+      apiHttpApp.toZIO(smallDataRequest).repeatN(REPEAT_N)
     }
 
   @Benchmark
   def benchmarkSmallDataZioCollect(): Unit =
     unsafeRun {
-      collectHttpApp(smallDataRequest).repeatN(REPEAT_N)
+      collectHttpApp.toZIO(smallDataRequest).repeatN(REPEAT_N)
     }
 
 //  @Benchmark
@@ -273,13 +273,13 @@ class ApiBenchmark {
   @Benchmark
   def benchmarkDeepPathZioApi(): Unit =
     unsafeRun {
-      deepPathHttpApp(deepPathRequest).repeatN(REPEAT_N)
+      deepPathHttpApp.toZIO(deepPathRequest).repeatN(REPEAT_N)
     }
 
   @Benchmark
   def benchmarkDeepPathZioCollect(): Unit =
     unsafeRun {
-      deepPathCollectHttpApp(deepPathRequest).repeatN(REPEAT_N)
+      deepPathCollectHttpApp.toZIO(deepPathRequest).repeatN(REPEAT_N)
     }
 
 //  @Benchmark
@@ -608,13 +608,13 @@ class ApiBenchmark {
   @Benchmark
   def benchmarkBroadZioApi(): Unit =
     unsafeRunResult {
-      ZIO.foreachDiscard(broadZioRequests)(broadApiApp(_))
+      ZIO.foreachDiscard(broadZioRequests)(broadApiApp.toZIO(_))
     }
 
   @Benchmark
   def benchmarkBroadZioCollect(): Unit =
     unsafeRun {
-      ZIO.foreachDiscard(broadZioRequests)(broadCollectApp(_))
+      ZIO.foreachDiscard(broadZioRequests)(broadCollectApp.toZIO(_))
     }
 
 //  @Benchmark

@@ -32,7 +32,7 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         }
         .toList
       for {
-        res <- app(request)
+        res <- app.toZIO(request)
       } yield assert(res.headersAsList)(hasSubset(expected)) &&
         assertTrue(res.status == Status.NoContent)
 
@@ -53,7 +53,7 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         .toList
 
       for {
-        res <- app(request)
+        res <- app.toZIO(request)
       } yield assert(res.headersAsList)(hasSubset(expected))
     },
   )

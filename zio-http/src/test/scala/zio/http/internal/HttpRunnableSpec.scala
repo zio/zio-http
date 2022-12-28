@@ -30,19 +30,21 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       version: Version = Version.Http_1_1,
       addZioUserAgentHeader: Boolean = false,
     ): ZIO[R, Throwable, A] =
-      app(
-        Request(
-          body,
-          headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
-          method,
-          url = URL(path), // url set here is overridden later via `deploy` method
-          version,
-          None,
-        ),
-      ).catchAll {
-        case Some(value) => ZIO.fail(value)
-        case None        => ZIO.fail(new RuntimeException("No response"))
-      }
+      app
+        .toZIO(
+          Request(
+            body,
+            headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
+            method,
+            url = URL(path), // url set here is overridden later via `deploy` method
+            version,
+            None,
+          ),
+        )
+        .catchAll {
+          case Some(value) => ZIO.fail(value)
+          case None        => ZIO.fail(new RuntimeException("No response"))
+        }
   }
 
   implicit class RunnableHttpClientAppSyntax[R, E](http: HttpApp[R, E]) {

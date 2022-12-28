@@ -23,7 +23,7 @@ import scala.util.control.NonFatal
  * A functional domain to model Http apps using ZIO and that can work over any
  * kind of request and response types.
  */
-sealed trait Http[-R, +E, -A, +B] { self =>
+sealed trait Http[-R, +E, -A, +B] extends PartialFunction[A, HExit[R, E, B]] { self =>
 
   import Http._
 
@@ -88,15 +88,6 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   def andThen[R1 <: R, E1 >: E, B1 >: B, C](other: Http.Total[R1, E1, B1, C]): Http[R1, E1, A, C] =
     Http.Chain(self, other)
-
-  /**
-   * Consumes the input and executes the Http.
-   */
-  def apply(a: A)(implicit trace: Trace): ZIO[R, Option[E], B] = {
-    val hExit = toHExitOrNull(a)
-    if (hExit ne null) hExit.toZIO.mapError(Some(_))
-    else ZIO.fail(None)
-  }
 
   /**
    * Makes the app resolve with a constant value
@@ -186,7 +177,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   def contramap[X](xa: X => A): Http[R, E, X, B] =
     Http.collectHExit {
       val pxa: PartialFunction[X, A] = { case x => xa(x) }
-      pxa.andThen(self.execute)
+      pxa.andThen(self)
     }
 
   /**
@@ -429,7 +420,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
    */
   def toSocketApp(implicit a: WebSocketChannelEvent <:< A, e: E <:< Throwable, trace: Trace): SocketApp[R] =
     SocketApp(event =>
-      self(event).catchAll {
+      self.toZIO(event).catchAll {
         case Some(value) => ZIO.fail(value)
         case None        => ZIO.unit
       },
@@ -481,7 +472,7 @@ sealed trait Http[-R, +E, -A, +B] { self =>
 
   def wrap[R2, E2, B2, AA <: A](f: (AA, ZIO[R, E, B]) => ZIO[R2, E2, B2]): Http[R2, E2, AA, B2] =
     Http.collectZIO {
-      case a if self.execute.isDefinedAt(a) =>
+      case a if self.isDefinedAt(a) =>
         f(a, self.executeToZIO(a))
     }
 
@@ -501,9 +492,16 @@ sealed trait Http[-R, +E, -A, +B] { self =>
   }
 
   private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
-    execute.applyOrElse(a, (_: A) => null)
+    self.applyOrElse(a, (_: A) => null)
 
-  private[zio] def execute: PartialFunction[A, HExit[R, E, B]]
+  /**
+   * Consumes the input and executes the Http.
+   */
+  def toZIO(a: A)(implicit trace: Trace): ZIO[R, Option[E], B] = {
+    val hExit = toHExitOrNull(a)
+    if (hExit ne null) hExit.toZIO.mapError(Some(_))
+    else ZIO.fail(None)
+  }
 }
 
 object Http {
@@ -982,7 +980,7 @@ object Http {
         val pf2: PartialFunction[A, (A, Http[R, E, A, B])] = {
           case a if pf.isDefinedAt(a) => (a, pf(a))
         }
-        pf2.andThen { case (a, http) if http.execute.isDefinedAt(a) => http.execute(a) }
+        pf2.andThen { case (a, http) if http.isDefinedAt(a) => http(a) }
       }
   }
 
@@ -1014,14 +1012,17 @@ object Http {
   // Http constructors
 
   sealed trait Total[-R, +E, -A, +B] extends Http[R, E, A, B] { self =>
+    final override def isDefinedAt(x: A): Boolean                                               = true
+    final override def applyOrElse[A1 <: A, B1 >: HExit[R, E, B]](x: A1, default: A1 => B1): B1 = apply(x)
+
     def toZIO(a: A): ZIO[R, E, B] =
-      execute(a).toZIO
+      self(a).toZIO
 
     final private[zio] def executeTotal(a: A): HExit[R, E, B] =
-      execute(a)
+      self(a)
 
     override private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
-      execute(a)
+      self(a)
 
     def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
       mid: Middleware[R1, E1, A1, B1, A2, B2],
@@ -1230,74 +1231,76 @@ object Http {
 
   private final case class Succeed[B](b: B) extends Http.Total[Any, Nothing, Any, B] {
 
-    override private[zio] def execute: PartialFunction[Any, HExit[Any, Nothing, B]] = { case _ =>
-      HExit.succeed(b)
-    }
+    override def apply(v1: Any): HExit[Any, Nothing, B] = HExit.succeed(b)
   }
 
   private final case class Race[R, E, A, B](self: Http[R, E, A, B], other: Http[R, E, A, B]) extends Http[R, E, A, B] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, E, B]] = {
-      case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) => self.execute(a)
-      case a if !self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a) => other.execute(a)
-      case a if self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a)  =>
-        (self.execute(a), other.execute(a)) match {
+    override def isDefinedAt(a: A): Boolean =
+      self.isDefinedAt(a) || other.isDefinedAt(a)
+
+    override def apply(a: A): HExit[R, E, B] =
+      if (self.isDefinedAt(a) && !other.isDefinedAt(a)) self(a)
+      else if (!self.isDefinedAt(a) && other.isDefinedAt(a)) other(a)
+      else
+        (self(a), other(a)) match {
           case (HExit.Effect(self), HExit.Effect(other)) =>
-            Http.fromZIO(self.raceFirst(other)).execute(a)
+            Http.fromZIO(self.raceFirst(other)).apply(a)
           case (HExit.Effect(_), other)                  => other
           case (self, _)                                 => self
         }
-    }
   }
 
   private final case class RaceTotal[R, E, A, B](self: Http.Total[R, E, A, B], other: Http.Total[R, E, A, B])
       extends Http.Total[R, E, A, B] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, E, B]] = { case a =>
-      (self.execute(a), other.execute(a)) match {
+    override def apply(a: A): HExit[R, E, B] =
+      (self(a), other(a)) match {
         case (HExit.Effect(self), HExit.Effect(other)) =>
-          Http.fromZIO(self.raceFirst(other)).execute(a)
+          Http.fromZIO(self.raceFirst(other)).apply(a)
         case (HExit.Effect(_), other)                  => other
         case (self, _)                                 => self
       }
-    }
   }
 
   private final case class Fail[E](cause: Cause[E]) extends Http.Total[Any, E, Any, Nothing] {
-
-    override private[zio] def execute: PartialFunction[Any, HExit[Any, E, Nothing]] = { case _ =>
-      HExit.failCause(cause)
-    }
+    override def apply(v1: Any): HExit[Any, E, Nothing] = HExit.failCause(cause)
   }
 
   private final case class PartialHandler[R, E, A, B](f: PartialFunction[A, HExit[R, E, B]]) extends Http[R, E, A, B] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, E, B]] = {
-      case a if f.isDefinedAt(a) =>
+    override def isDefinedAt(a: A): Boolean  = f.isDefinedAt(a)
+    override def apply(a: A): HExit[R, E, B] =
+      if (f.isDefinedAt(a))
         try f(a)
-        catch { case NonFatal(e) => HExit.die(e) }
-    }
+        catch {
+          case NonFatal(e) => HExit.die(e)
+        }
+      else throw new MatchError(a)
   }
 
   private final case class TotalHandler[R, E, A, B](f: A => HExit[R, E, B]) extends Http.Total[R, E, A, B] {
-    override private[zio] def execute: PartialFunction[A, HExit[R, E, B]] = { case a =>
+    override def apply(a: A): HExit[R, E, B] =
       try f(a)
       catch { case NonFatal(e) => HExit.die(e) }
-    }
+
   }
 
   private final case class Chain[R, E, A, B, C](self: Http[R, E, A, B], other: Http.Total[R, E, B, C])
       extends Http[R, E, A, C] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, E, C]] =
-      self.execute.andThen(_.flatMap(other.execute))
+    override def isDefinedAt(a: A): Boolean =
+      self.isDefinedAt(a)
+
+    override def apply(a: A): HExit[R, E, C] =
+      self(a).flatMap(other)
   }
 
   private final case class ChainTotal[R, E, A, B, C](self: Http.Total[R, E, A, B], other: Http.Total[R, E, B, C])
       extends Http.Total[R, E, A, C] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, E, C]] =
-      self.execute.andThen(_.flatMap(other.execute))
+    override def apply(a: A): HExit[R, E, C] =
+      self(a).flatMap(other)
   }
 
   private final case class FoldHttp[R, E, EE, A, B, BB](
@@ -1306,17 +1309,19 @@ object Http {
     success: B => Http.Total[R, EE, A, BB],
   ) extends Http[R, EE, A, BB] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, EE, BB]] = {
-      case a if self.execute.isDefinedAt(a) =>
-        {
-          try self.execute(a)
-          catch {
-            case NonFatal(e) => HExit.die(e)
-          }
-        }.foldExit(
-          failure(_).execute(a),
-          success(_).execute(a),
-        )
+    override def isDefinedAt(a: A): Boolean =
+      self.isDefinedAt(a)
+
+    override def apply(a: A): HExit[R, EE, BB] = {
+      {
+        try self(a)
+        catch {
+          case NonFatal(e) => HExit.die(e)
+        }
+      }.foldExit(
+        failure(_)(a),
+        success(_)(a),
+      )
     }
   }
 
@@ -1326,29 +1331,23 @@ object Http {
     success: B => Http.Total[R, EE, A, BB],
   ) extends Http.Total[R, EE, A, BB] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, EE, BB]] = { case a =>
+    override def apply(a: A): HExit[R, EE, BB] = {
       {
-        try self.execute(a)
+        try self(a)
         catch {
           case NonFatal(e) => HExit.die(e)
         }
-      }
-        .foldExit(
-          failure(_).execute(a),
-          success(_).execute(a),
-        )
+      }.foldExit(
+        failure(_)(a),
+        success(_)(a),
+      )
     }
   }
 
   private case class Attempt[A](a: () => A) extends Http.Total[Any, Throwable, Any, A] {
-
-    override private[zio] def execute: PartialFunction[Any, HExit[Any, Throwable, A]] = { case _ =>
-      try {
-        HExit.succeed(a())
-      } catch {
-        case e: Throwable => HExit.fail(e)
-      }
-    }
+    override def apply(v1: Any): HExit[Any, Throwable, A] =
+      try HExit.succeed(a())
+      catch { case NonFatal(e) => HExit.fail(e) }
   }
 
   private final case class Combine[R, E, EE >: E, A, B, BB >: B](
@@ -1356,11 +1355,16 @@ object Http {
     other: Http[R, EE, A, BB],
   ) extends Http[R, EE, A, BB] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, EE, BB]] =
-      self.execute
-        .orElse(
-          other.execute,
-        )
+    override def isDefinedAt(a: A): Boolean =
+      self.isDefinedAt(a) || other.isDefinedAt(a)
+
+    override def apply(a: A): HExit[R, EE, BB] =
+      applyOrElse(a, (a: A) => throw new MatchError(a))
+
+    override def applyOrElse[A1 <: A, B1 >: HExit[R, E, BB]](x: A1, default: A1 => B1): B1 = {
+      val z = self.applyOrElse(x, checkFallback[B1])
+      if (!fallbackOccurred(z)) z else other.applyOrElse(x, default).asInstanceOf[B1]
+    }
   }
 
   private case class CombineTotal[R, E, A, B, R1 <: R, E1 >: E, A1 <: A, B1 >: B](
@@ -1368,40 +1372,42 @@ object Http {
     other: Http.Total[R1, E1, A1, B1],
   ) extends Http.Total[R1, E1, A1, B1] {
 
-    override private[zio] def execute: PartialFunction[A1, HExit[R1, E1, B1]] =
-      self.execute
-        .orElse(
-          other.execute,
-        )
+    override def apply(a: A1): HExit[R1, E1, B1] = {
+      val z = self.applyOrElse(a, checkFallback[HExit[R1, E1, B1]])
+      if (!fallbackOccurred(z)) z else other(a)
+    }
   }
 
   private final case class FromHExit[R, E, B](h: HExit[R, E, B]) extends Http.Total[R, E, Any, B] {
-
-    override private[zio] def execute: PartialFunction[Any, HExit[R, E, B]] = { case _ => h }
+    override def apply(a: Any): HExit[R, E, B] = h
   }
 
   private final case class When[R, E, A, B](f: A => Boolean, other: Http[R, E, A, B]) extends Http[R, E, A, B] {
 
     override private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
-      try execute.applyOrElse(a, (_: A) => null)
+      try applyOrElse(a, (_: A) => null)
       catch { case NonFatal(e) => HExit.die(e) }
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, E, B]] = {
-      case a if f(a) && other.execute.isDefinedAt(a) => other.execute(a)
+    override def isDefinedAt(a: A): Boolean =
+      f(a) && other.isDefinedAt(a)
+
+    override def apply(a: A): HExit[R, E, B] = a match {
+      case a if f(a) && other.isDefinedAt(a) => other(a)
     }
+
+    override def applyOrElse[A1 <: A, B1 >: HExit[R, E, B]](x: A1, default: A1 => B1): B1 =
+      if (f(x) && other.isDefinedAt(x)) other(x) else default(x)
   }
 
   private case object Empty extends Http[Any, Nothing, Any, Nothing] {
     override private[zio] def toHExitOrNull(a: Any): HExit[Any, Nothing, Nothing] = null
 
-    override private[zio] def execute: PartialFunction[Any, HExit[Any, Nothing, Nothing]] = PartialFunction.empty
+    override def isDefinedAt(a: Any): Boolean                = false
+    override def apply(a: Any): HExit[Any, Nothing, Nothing] = throw new MatchError(a)
   }
 
   private final case class Identity[A]() extends Http.Total[Any, Nothing, A, A] {
-
-    override private[zio] def execute: PartialFunction[A, HExit[Any, Nothing, A]] = { case a =>
-      HExit.succeed(a)
-    }
+    override def apply(a: A): HExit[Any, Nothing, A] = HExit.succeed(a)
   }
 
   private case class Aspect[R, E, A, B, R1, E1](
@@ -1409,12 +1415,13 @@ object Http {
     aspect: ZIO[R, E, B] => ZIO[R1, E1, B],
   ) extends Http[R1, E1, A, B] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R1, E1, B]] = {
-      case a if self.execute.isDefinedAt(a) =>
-        HExit.fromZIO(
-          aspect(self.execute(a).toZIO),
-        )
-    }
+    override def isDefinedAt(a: A): Boolean =
+      self.isDefinedAt(a)
+
+    override def apply(a: A): HExit[R1, E1, B] =
+      HExit.fromZIO(
+        aspect(self(a).toZIO),
+      )
   }
 
   private case class AspectTotal[R, E, A, B, R1, E1](
@@ -1422,11 +1429,10 @@ object Http {
     aspect: ZIO[R, E, B] => ZIO[R1, E1, B],
   ) extends Http.Total[R1, E1, A, B] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R1, E1, B]] = { case a =>
+    override def apply(a: A): HExit[R1, E1, B] =
       HExit.fromZIO(
-        aspect(self.execute(a).toZIO),
+        aspect(self(a).toZIO),
       )
-    }
   }
 
   private case class OrElse[R, E, A, B](
@@ -1434,13 +1440,16 @@ object Http {
     other: Http[R, E, A, B],
   ) extends Http[R, E, A, B] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, E, B]] = {
-      case a if self.execute.isDefinedAt(a) && !other.execute.isDefinedAt(a) =>
-        self.execute(a)
-      case a if !self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a) =>
-        other.execute(a)
-      case a if self.execute.isDefinedAt(a) && other.execute.isDefinedAt(a)  =>
-        (self.execute(a), other.execute(a)) match {
+    override def isDefinedAt(a: A): Boolean =
+      self.isDefinedAt(a) || other.isDefinedAt(a)
+
+    override def apply(a: A): HExit[R, E, B] = a match {
+      case a if self.isDefinedAt(a) && !other.isDefinedAt(a) =>
+        self(a)
+      case a if !self.isDefinedAt(a) && other.isDefinedAt(a) =>
+        other(a)
+      case a if self.isDefinedAt(a) && other.isDefinedAt(a)  =>
+        (self(a), other(a)) match {
           case (s @ HExit.Success(_), _)                        =>
             s
           case (s @ HExit.Failure(cause), _) if cause.isDie     =>
@@ -1458,8 +1467,8 @@ object Http {
     other: Http.Total[R, E, A, B],
   ) extends Http.Total[R, E, A, B] {
 
-    override private[zio] def execute: PartialFunction[A, HExit[R, E, B]] = { case a =>
-      (self.execute(a), other.execute(a)) match {
+    override def apply(a: A): HExit[R, E, B] =
+      (self(a), other(a)) match {
         case (s @ HExit.Success(_), _)                        =>
           s
         case (s @ HExit.Failure(cause), _) if cause.isDie     =>
@@ -1469,7 +1478,6 @@ object Http {
         case (self, other)                                    =>
           HExit.fromZIO(self.toZIO.orElse(other.toZIO))
       }
-    }
   }
 
   private case class ApplyMiddleware[R, E, AIn, BIn, AOut, BOut](
@@ -1477,24 +1485,27 @@ object Http {
     middleware: Middleware[R, E, AIn, BIn, AOut, BOut],
   ) extends Http[R, E, AOut, BOut] {
 
-    override private[zio] def execute: PartialFunction[AOut, HExit[R, E, BOut]] = {
-      case a if self.execute.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]].isDefinedAt(a) =>
-        middleware
-          .asInstanceOf[Middleware[Any, Any, Any, Any, Any, Any]](
-            Http.fromHExit[Any, Any, Any](self.execute.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]](a)),
-          )
-          .execute(a)
-          .asInstanceOf[HExit[R, E, BOut]]
-    }
+    override def isDefinedAt(a: AOut): Boolean =
+      self.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]].isDefinedAt(a)
+
+    override def apply(a: AOut): HExit[R, E, BOut] =
+      middleware
+        .asInstanceOf[Middleware[Any, Any, Any, Any, Any, Any]](
+          Http.fromHExit[Any, Any, Any](self.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]](a)),
+        )
+        .apply(a)
+        .asInstanceOf[HExit[R, E, BOut]]
   }
 
   private case class ApplyMiddlewareTotal[R, E, AIn, BIn, AOut, BOut](
     self: Http.Total[R, E, AIn, BIn],
     middleware: Middleware[R, E, AIn, BIn, AOut, BOut],
   ) extends Http.Total[R, E, AOut, BOut] {
-
-    override private[zio] def execute: PartialFunction[AOut, HExit[R, E, BOut]] = { case a =>
-      middleware(self).execute(a)
-    }
+    override def apply(a: AOut): HExit[R, E, BOut] =
+      middleware(self).apply(a)
   }
+
+  private val fallbackFn: Any => Any             = _ => fallbackFn
+  private def checkFallback[B]: Any => B         = fallbackFn.asInstanceOf[Any => B]
+  private def fallbackOccurred[B](x: B): Boolean = fallbackFn eq x.asInstanceOf[AnyRef]
 }

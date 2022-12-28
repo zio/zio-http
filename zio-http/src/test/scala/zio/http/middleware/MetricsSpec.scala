@@ -29,10 +29,10 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       val totalNotFound = total.tagged("path", "/not-found").tagged("method", "GET").tagged("status", "404")
 
       for {
-        _                  <- app(Request.get(url = URL(!! / "ok")))
-        _                  <- app(Request.get(url = URL(!! / "error")))
-        _                  <- app(Request.get(url = URL(!! / "defect"))).catchAllDefect(_ => ZIO.unit)
-        _                  <- app(Request.get(url = URL(!! / "not-found"))).ignore.catchAllDefect(_ => ZIO.unit)
+        _                  <- app.toZIO(Request.get(url = URL(!! / "ok")))
+        _                  <- app.toZIO(Request.get(url = URL(!! / "error")))
+        _                  <- app.toZIO(Request.get(url = URL(!! / "defect"))).catchAllDefect(_ => ZIO.unit)
+        _                  <- app.toZIO(Request.get(url = URL(!! / "not-found"))).ignore.catchAllDefect(_ => ZIO.unit)
         totalOkCount       <- totalOk.value
         totalErrorsCount   <- totalErrors.value
         totalDefectsCount  <- totalDefects.value
@@ -54,8 +54,8 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       val totalOk = total.tagged("path", "/user/:id").tagged("method", "GET").tagged("status", "200")
 
       for {
-        _            <- app(Request.get(url = URL(!! / "user" / "1")))
-        _            <- app(Request.get(url = URL(!! / "user" / "2")))
+        _            <- app.toZIO(Request.get(url = URL(!! / "user" / "1")))
+        _            <- app.toZIO(Request.get(url = URL(!! / "user" / "2")))
         totalOkCount <- totalOk.value
       } yield assertTrue(totalOkCount == MetricState.Counter(2))
     },
@@ -74,7 +74,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         Http.ok @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
 
       for {
-        _        <- app(Request.get(url = URL(!! / "ok")))
+        _        <- app.toZIO(Request.get(url = URL(!! / "ok")))
         observed <- histogram.value.map(_.buckets.exists { case (_, count) => count > 0 })
       } yield assertTrue(observed)
     },
@@ -93,7 +93,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           }
           .flatten @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
         before <- gauge.value
-        fiber  <- app(Request.get(url = URL(!! / "slow"))).fork
+        fiber  <- app.toZIO(Request.get(url = URL(!! / "slow"))).fork
         _      <- promise.await
         during <- gauge.value
         _      <- TestClock.adjust(11.seconds)

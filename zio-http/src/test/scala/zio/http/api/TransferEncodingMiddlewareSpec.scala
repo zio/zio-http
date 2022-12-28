@@ -13,7 +13,7 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
             response <- api.Middleware
               .withTransferEncoding("chunked")
               .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("chunked"))
         },
         test("add compress TransferEncoding") {
@@ -21,7 +21,7 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
             response <- api.Middleware
               .withTransferEncoding("compress")
               .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("compress"))
         },
         test("add deflate TransferEncoding") {
@@ -29,7 +29,7 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
             response <- api.Middleware
               .withTransferEncoding("deflate")
               .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("deflate"))
         },
         test("add gzip TransferEncoding") {
@@ -37,7 +37,7 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
             response <- api.Middleware
               .withTransferEncoding("gzip")
               .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("gzip"))
         },
       ),
@@ -47,7 +47,7 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
             response <- api.Middleware
               .withTransferEncoding("*grabag$*&()")
               .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals(""))
         },
       ),

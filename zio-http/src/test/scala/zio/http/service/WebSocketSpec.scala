@@ -81,7 +81,7 @@ object WebSocketSpec extends HttpRunnableSpec {
           .toSocketApp
 
         // Deploy the server and send it a socket request
-        _ <- serverHttp(clientSocket)
+        _ <- serverHttp.toZIO(clientSocket)
 
         // Wait for the close handler to complete
         _ <- TestClock.adjust(2 seconds)
@@ -95,7 +95,7 @@ object WebSocketSpec extends HttpRunnableSpec {
     test("Multiple websocket upgrades") {
       val app   = Http.succeed(WebSocketFrame.text("BAR")).toSocketApp.toHttp.deployWS
       val codes = ZIO
-        .foreach(1 to 1024)(_ => app(Http.empty.toSocketApp).map(_.status))
+        .foreach(1 to 1024)(_ => app.toZIO(Http.empty.toSocketApp).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))
 
       assertZIO(codes)(equalTo(1024))

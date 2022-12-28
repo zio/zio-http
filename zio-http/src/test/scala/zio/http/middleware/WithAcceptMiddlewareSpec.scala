@@ -13,7 +13,7 @@ object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtension
       val expected = Headers.accept("application/json").headersAsList
 
       for {
-        res <- app(Request.get(URL.empty))
+        res <- app.toZIO(Request.get(URL.empty))
       } yield assert(res.headersAsList)(hasSubset(expected))
     },
     test("withAcceptEncoding") {
@@ -21,7 +21,7 @@ object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtension
       val expected = Headers.acceptEncoding("compress").headersAsList
 
       for {
-        res <- app(Request.get(URL.empty))
+        res <- app.toZIO(Request.get(URL.empty))
       } yield assert(res.headersAsList)(hasSubset(expected))
     },
     test("withAcceptLanguage") {
@@ -29,7 +29,7 @@ object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtension
       val expected = Headers.acceptLanguage("en").headersAsList
 
       for {
-        res <- app(Request.get(URL.empty))
+        res <- app.toZIO(Request.get(URL.empty))
       } yield assert(res.headersAsList)(hasSubset(expected))
     },
     test("withAcceptPatch") {
@@ -37,7 +37,7 @@ object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtension
       val expected = Headers.acceptPatch("application/example").headersAsList
 
       for {
-        res <- app(Request.get(URL.empty))
+        res <- app.toZIO(Request.get(URL.empty))
       } yield assert(res.headersAsList)(hasSubset(expected))
     },
     test("withAcceptRanges") {
@@ -45,7 +45,7 @@ object WithAcceptMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtension
       val expected = Headers.acceptRanges("bytes").headersAsList
 
       for {
-        res <- app(Request.get(URL.empty))
+        res <- app.toZIO(Request.get(URL.empty))
       } yield assert(res.headersAsList)(hasSubset(expected))
     },
   )
