@@ -27,7 +27,7 @@ sealed trait Http[-R, +E, -A, +B] extends PartialFunction[A, HExit[R, E, B]] { s
 
   import Http._
 
-  def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+  def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2 <: A1, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
   )(implicit trace: Trace): Http[R1, E1, A2, B2] =
     self.middleware(mid)
@@ -278,7 +278,7 @@ sealed trait Http[-R, +E, -A, +B] extends PartialFunction[A, HExit[R, E, B]] { s
   /**
    * Named alias for @@
    */
-  def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
+  def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2 <: A1, B2](
     mid: Middleware[R1, E1, A1, B1, A2, B2],
   ): Http[R1, E1, A2, B2] =
     ApplyMiddleware(self, mid)
@@ -1480,21 +1480,17 @@ object Http {
       }
   }
 
-  private case class ApplyMiddleware[R, E, AIn, BIn, AOut, BOut](
+  private case class ApplyMiddleware[R, E, AIn, BIn, AOut <: AIn, BOut](
     self: Http[R, E, AIn, BIn],
     middleware: Middleware[R, E, AIn, BIn, AOut, BOut],
   ) extends Http[R, E, AOut, BOut] {
 
     override def isDefinedAt(a: AOut): Boolean =
-      self.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]].isDefinedAt(a)
+      self.isDefinedAt(a)
 
     override def apply(a: AOut): HExit[R, E, BOut] =
-      middleware
-        .asInstanceOf[Middleware[Any, Any, Any, Any, Any, Any]](
-          Http.fromHExit[Any, Any, Any](self.asInstanceOf[PartialFunction[Any, HExit[Any, Any, Any]]](a)),
-        )
+      middleware(Http.fromHExit(self(a)))
         .apply(a)
-        .asInstanceOf[HExit[R, E, BOut]]
   }
 
   private case class ApplyMiddlewareTotal[R, E, AIn, BIn, AOut, BOut](
