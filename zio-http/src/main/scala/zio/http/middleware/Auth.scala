@@ -86,10 +86,14 @@ private[zio] trait Auth {
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
   )(implicit trace: Trace): HttpMiddleware[Any, Nothing, IT.Id[Request]] =
-    Middleware.ifThenElse[Request](req => verify(req.headers))(
-      _ => Middleware.identity[Request, Response],
-      _ => Middleware.fromHttp(Http.status(responseStatus).addHeaders(responseHeaders)),
-    )
+    Middleware
+      .ifThenElse[Request]
+      .apply[Any, Nothing, Request, Response, Response, Request, Nothing, IT.Id[Request], IT.Id[Nothing], IT.Id[
+        Request,
+      ]](req => verify(req.headers))(
+        _ => Middleware.identity[Request, Response],
+        _ => Middleware.fromHttp(Http.status(responseStatus).addHeaders(responseHeaders)),
+      )
 
   /**
    * Creates an authentication middleware that only allows authenticated
