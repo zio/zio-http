@@ -14,16 +14,16 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val successBearerHeader: Headers = Headers.bearerAuthorizationHeader(bearerToken)
   private val failureBearerHeader: Headers = Headers.bearerAuthorizationHeader(bearerToken + "SomethingElse")
 
-  private val basicAuthM: HttpMiddleware[Any, Nothing]     = Middleware.basicAuth { c =>
+  private val basicAuthM: HttpMiddleware[Any, Nothing, IT.Id[Request]]     = Middleware.basicAuth { c =>
     c.uname.reverse == c.upassword
   }
-  private val basicAuthZIOM: HttpMiddleware[Any, Nothing]  = Middleware.basicAuthZIO { c =>
+  private val basicAuthZIOM: HttpMiddleware[Any, Nothing, IT.Id[Request]]  = Middleware.basicAuthZIO { c =>
     ZIO.succeed(c.uname.reverse == c.upassword)
   }
-  private val bearerAuthM: HttpMiddleware[Any, Nothing]    = Middleware.bearerAuth { c =>
+  private val bearerAuthM: HttpMiddleware[Any, Nothing, IT.Id[Request]]    = Middleware.bearerAuth { c =>
     c == bearerToken
   }
-  private val bearerAuthZIOM: HttpMiddleware[Any, Nothing] = Middleware.bearerAuthZIO { c =>
+  private val bearerAuthZIOM: HttpMiddleware[Any, Nothing, IT.Id[Request]] = Middleware.bearerAuthZIO { c =>
     ZIO.succeed(c == bearerToken)
   }
 

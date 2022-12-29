@@ -3,6 +3,7 @@ package zio.http
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio.ZIO.attemptBlocking
 import zio.http.html._
+import zio.http.middleware.IT
 import zio.http.model._
 import zio.http.model.headers.HeaderModifierZIO
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
@@ -28,9 +29,9 @@ sealed trait Http[-R, +E, -A, +B] extends AbstractPartialFunction[A, HExit[R, E,
 
   import Http._
 
-  def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2 <: A1, B2](
-    mid: Middleware[R1, E1, A1, B1, A2, B2],
-  )(implicit trace: Trace): Http[R1, E1, A2, B2] =
+  def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2, A1T <: IT[A1]](
+    mid: Middleware[R1, E1, A1, B1, A2, B2, A1T],
+  )(implicit trace: Trace, ev: IT.CanApplyToPartial.Aux[A1, A2, A1T]): Http[R1, E1, A2, B2] =
     self.middleware(mid)
 
   /**
@@ -279,10 +280,10 @@ sealed trait Http[-R, +E, -A, +B] extends AbstractPartialFunction[A, HExit[R, E,
   /**
    * Named alias for @@
    */
-  def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2 <: A1, B2](
-    mid: Middleware[R1, E1, A1, B1, A2, B2],
-  ): Http[R1, E1, A2, B2] =
-    ApplyMiddleware(self, mid)
+  def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2, A1T <: IT[A1]](
+    mid: Middleware[R1, E1, A1, B1, A2, B2, A1T],
+  )(implicit canApplyToPartial: IT.CanApplyToPartial.Aux[A1, A2, A1T]): Http[R1, E1, A2, B2] =
+    ApplyMiddleware(self, mid, canApplyToPartial)
 
   /**
    * Narrows the type of the input
@@ -666,7 +667,7 @@ object Http {
    * text message. This method can be used for terminating a HTTP request
    * because a defect has been detected in the code.
    */
-  def dieMessage(message: => String): UHttp[Any, Nothing] =
+  def dieMessage(message: => String): Http.Total[Any, Nothing, Any, Nothing] =
     die(new RuntimeException(message))
 
   /**
@@ -1025,8 +1026,8 @@ object Http {
     override private[zio] def toHExitOrNull(a: A): HExit[R, E, B] =
       self(a)
 
-    def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
-      mid: Middleware[R1, E1, A1, B1, A2, B2],
+    def @@[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2, A1T <: IT[A1]](
+      mid: Middleware[R1, E1, A1, B1, A2, B2, A1T],
     ): Http.Total[R1, E1, A2, B2] =
       self.middleware(mid)
 
@@ -1046,7 +1047,7 @@ object Http {
      * Combines two Http instances into a middleware that works a codec for
      * incoming and outgoing messages.
      */
-    def \/[R1 <: R, E1 >: E, C, D](other: Http.Total[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D] =
+    def \/[R1 <: R, E1 >: E, C, D](other: Http.Total[R1, E1, C, D]): Middleware[R1, E1, B, C, A, D, IT.Impossible[B]] =
       self codecMiddleware other
 
     /**
@@ -1073,7 +1074,7 @@ object Http {
      */
     def codecMiddleware[R1 <: R, E1 >: E, C, D](
       other: Http.Total[R1, E1, C, D],
-    ): Middleware[R1, E1, B, C, A, D] =
+    ): Middleware[R1, E1, B, C, A, D, IT.Impossible[B]] =
       Middleware.codecHttp(self, other)
 
     /**
@@ -1172,8 +1173,8 @@ object Http {
     /**
      * Named alias for @@
      */
-    override def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2](
-      mid: Middleware[R1, E1, A1, B1, A2, B2],
+    def middleware[R1 <: R, E1 >: E, A1 <: A, B1 >: B, A2, B2, A1T <: IT[A1]](
+      mid: Middleware[R1, E1, A1, B1, A2, B2, A1T],
     ): Http.Total[R1, E1, A2, B2] =
       ApplyMiddlewareTotal(self, mid)
 
@@ -1481,22 +1482,22 @@ object Http {
       }
   }
 
-  private case class ApplyMiddleware[R, E, AIn, BIn, AOut <: AIn, BOut](
+  private case class ApplyMiddleware[R, E, AIn, BIn, AOut, BOut, AInT <: IT[AIn]](
     self: Http[R, E, AIn, BIn],
-    middleware: Middleware[R, E, AIn, BIn, AOut, BOut],
+    middleware: Middleware[R, E, AIn, BIn, AOut, BOut, AInT],
+    canApplyToPartial: IT.CanApplyToPartial.Aux[AIn, AOut, AInT],
   ) extends Http[R, E, AOut, BOut] {
 
     override def isDefinedAt(a: AOut): Boolean =
-      self.isDefinedAt(a)
+      self.isDefinedAt(canApplyToPartial.transform(middleware.inputTransformation, a))
 
     override def apply(a: AOut): HExit[R, E, BOut] =
-      middleware(Http.fromHExit(self(a)))
-        .apply(a)
+      middleware(self.withFallback(Http.dieMessage("Illegal state"))).apply(a)
   }
 
-  private case class ApplyMiddlewareTotal[R, E, AIn, BIn, AOut, BOut](
+  private case class ApplyMiddlewareTotal[R, E, AIn, BIn, AOut, BOut, AInT <: IT[AIn]](
     self: Http.Total[R, E, AIn, BIn],
-    middleware: Middleware[R, E, AIn, BIn, AOut, BOut],
+    middleware: Middleware[R, E, AIn, BIn, AOut, BOut, AInT],
   ) extends Http.Total[R, E, AOut, BOut] {
     override def apply(a: AOut): HExit[R, E, BOut] =
       middleware(self).apply(a)

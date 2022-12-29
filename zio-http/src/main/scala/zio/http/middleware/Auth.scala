@@ -13,7 +13,7 @@ private[zio] trait Auth {
   /**
    * Creates a middleware for basic authentication
    */
-  final def basicAuth(f: Credentials => Boolean)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
+  final def basicAuth(f: Credentials => Boolean)(implicit trace: Trace): HttpMiddleware[Any, Nothing, IT.Id[Request]] =
     customAuth(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -26,7 +26,7 @@ private[zio] trait Auth {
    * Creates a middleware for basic authentication that checks if the
    * credentials are same as the ones given
    */
-  final def basicAuth(u: String, p: String)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
+  final def basicAuth(u: String, p: String)(implicit trace: Trace): HttpMiddleware[Any, Nothing, IT.Id[Request]] =
     basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
 
   /**
@@ -35,7 +35,7 @@ private[zio] trait Auth {
    */
   final def basicAuthZIO[R, E](f: Credentials => ZIO[R, E, Boolean])(implicit
     trace: Trace,
-  ): HttpMiddleware[R, E] =
+  ): HttpMiddleware[R, E, IT.Id[Request]] =
     customAuthZIO(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -50,7 +50,7 @@ private[zio] trait Auth {
    * @param f:
    *   function that validates the token string inside the Bearer Header
    */
-  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
+  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): HttpMiddleware[Any, Nothing, IT.Id[Request]] =
     customAuth(
       _.bearerToken match {
         case Some(token) => f(token)
@@ -66,7 +66,9 @@ private[zio] trait Auth {
    *   function that effectfully validates the token string inside the Bearer
    *   Header
    */
-  final def bearerAuthZIO[R, E](f: String => ZIO[R, E, Boolean])(implicit trace: Trace): HttpMiddleware[R, E] =
+  final def bearerAuthZIO[R, E](
+    f: String => ZIO[R, E, Boolean],
+  )(implicit trace: Trace): HttpMiddleware[R, E, IT.Id[Request]] =
     customAuthZIO(
       _.bearerToken match {
         case Some(token) => f(token)
@@ -83,9 +85,9 @@ private[zio] trait Auth {
     verify: Headers => Boolean,
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  )(implicit trace: Trace): HttpMiddleware[Any, Nothing] =
+  )(implicit trace: Trace): HttpMiddleware[Any, Nothing, IT.Id[Request]] =
     Middleware.ifThenElse[Request](req => verify(req.headers))(
-      _ => Middleware.identity,
+      _ => Middleware.identity[Request, Response],
       _ => Middleware.fromHttp(Http.status(responseStatus).addHeaders(responseHeaders)),
     )
 
@@ -98,10 +100,10 @@ private[zio] trait Auth {
     verify: Headers => ZIO[R, E, Boolean],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  )(implicit trace: Trace): HttpMiddleware[R, E] =
-    Middleware.ifThenElseZIO[Request](req => verify(req.headers))(
-      _ => Middleware.identity,
-      _ => Middleware.fromHttp(Http.status(responseStatus).addHeaders(responseHeaders)),
+  )(implicit trace: Trace): HttpMiddleware[R, E, IT.Id[Request]] =
+    Middleware.ifThenElseZIOStatic[Request](req => verify(req.headers))(
+      Middleware.identity[Request, Response],
+      Middleware.fromHttp(Http.status(responseStatus).addHeaders(responseHeaders)),
     )
 }
 

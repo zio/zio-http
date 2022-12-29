@@ -1,6 +1,7 @@
 package zio.http
 
 import zio._
+import zio.http.middleware.ITOrElse
 import zio.test.Assertion._
 import zio.test._
 

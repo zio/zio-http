@@ -33,8 +33,8 @@ private[zio] trait Metrics {
     requestDurationName: String = "http_request_duration_seconds",
     requestDurationBoundaries: MetricKeyType.Histogram.Boundaries = Metrics.defaultBoundaries,
     extraLabels: Set[MetricLabel] = Set.empty,
-  ): HttpMiddleware[Any, Nothing] = {
-    new Middleware[Any, Nothing, Request, Response, Request, Response] {
+  ): HttpMiddleware[Any, Nothing, IT.Id[Request]] = {
+    new Middleware[Any, Nothing, Request, Response, Request, Response, IT.Id[Request]] {
       val requestsTotal      = Metric.counterInt(totalRequestsName)
       val concurrentRequests = Metric.gauge(concurrentRequestsName)
       val requestDuration    = Metric.histogram(requestDurationName, requestDurationBoundaries)
@@ -51,6 +51,8 @@ private[zio] trait Metrics {
         Set(
           MetricLabel("status", res.status.code.toString),
         )
+
+      override def inputTransformation: IT.Id[Request] = IT.Id()
 
       def apply[R1 <: Any, E1 >: Nothing](
         http: Http.Total[R1, E1, Request, Response],

@@ -14,7 +14,7 @@ private[zio] trait Cors {
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
-  final def cors[R, E](config: CorsConfig = CorsConfig()): HttpMiddleware[R, E] = {
+  final def cors[R, E](config: CorsConfig = CorsConfig()): HttpMiddleware[R, E, IT.Id[Request]] = {
     def allowCORS(origin: Header, acrm: Method): Boolean                           =
       (config.anyOrigin, config.anyMethod, origin._2.toString, acrm) match {
         case (true, true, _, _)           => true
@@ -39,7 +39,10 @@ private[zio] trait Cors {
           Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS, config.allowCredentials.toString)
         }
     }
-    new HttpMiddleware[R, E] {
+    new HttpMiddleware[R, E, IT.Id[Request]] {
+
+      override def inputTransformation: IT.Id[Request] = IT.Id() // TODO: IT.Extend
+
       def apply[R1 <: R, E1 >: E](
         http: Http.Total[R1, E1, Request, Response],
       )(implicit trace: Trace): Http.Total[R1, E1, Request, Response] =

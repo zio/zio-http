@@ -2,7 +2,7 @@ package example
 
 import zio._
 import zio.http._
-import zio.http.middleware.HttpMiddleware
+import zio.http.middleware.{HttpMiddleware, IT}
 import zio.http.model.Method
 
 import java.io.IOException
@@ -19,13 +19,13 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
     }
   }
 
-  val serverTime: HttpMiddleware[Any, Nothing] = Middleware.patchZIO(_ =>
+  val serverTime: HttpMiddleware[Any, Nothing, IT.Id[Request]] = Middleware.patchZIO(_ =>
     for {
       currentMilliseconds <- Clock.currentTime(TimeUnit.MILLISECONDS)
       withHeader = Patch.addHeader("X-Time", currentMilliseconds.toString)
     } yield withHeader,
   )
-  val middlewares: HttpMiddleware[Any, IOException] =
+  val middlewares: Middleware[Any, IOException, Request, Response, Request, Response, IT.Id[Request]] =
     // print debug info about request and response
     Middleware.debug ++
       // close connection if request takes more than 3 seconds

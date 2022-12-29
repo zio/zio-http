@@ -18,7 +18,7 @@ private[zio] trait RequestLogging {
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
-  )(implicit trace: Trace): HttpMiddleware[Any, Throwable] =
+  )(implicit trace: Trace): HttpMiddleware[Any, Throwable, IT.Id[Request]] =
     Middleware.interceptZIOPatch { request =>
       Clock.nanoTime.map(start => (request, start))
     } { case (response, (request, start)) =>
