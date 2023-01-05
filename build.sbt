@@ -27,30 +27,6 @@ ThisBuild / githubWorkflowAddedJobs      :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
-    WorkflowJob(
-      id = "update_docs",
-      name = "Publish Documentation",
-      steps = List(
-        WorkflowStep
-          .Use(UseRef.Public("actions", "checkout", "v3.1.0"), Map("fetch-depth" -> "0")),
-        WorkflowStep.Use(name = Some("Setup Scala and Java"), ref = UseRef.Public("olafurpg", "setup-scala", "v13")),
-        WorkflowStep.Use(
-          UseRef.Public("actions", "setup-node", "v3"),
-          Map(
-            "node-version" -> "16.x",
-            "registry-url" -> "https://registry.npmjs.org",
-          ),
-        ),
-        WorkflowStep.Run(
-          name = Some("Publishing Docs to NPM Registry"),
-          env = Map("NODE_AUTH_TOKEN" -> "${{secrets.NPM_TOKEN}}"),
-          commands = List(
-            "sbt publishToNpm",
-          ),
-        ),
-      ),
-      cond = Option("${{ github.ref == 'refs/heads/main' }}"),
-    ),
   ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow() ++ JmhBenchmarkWorkflow(1)
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
@@ -101,8 +77,8 @@ lazy val root = (project in file("."))
     zioHttpLogging,
     zioHttpExample,
     zioHttpTestkit,
+    docs,
   )
-  .enablePlugins(WebsitePlugin)
 
 lazy val zioHttp = (project in file("zio-http"))
   .settings(stdSettings("zio-http"))
@@ -175,3 +151,22 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
     ),
   )
   .dependsOn(zioHttp, zioHttpLogging)
+
+lazy val docs = project
+  .in(file("zio-http-docs"))
+  .settings(
+    publish / skip    := true,
+    moduleName        := "zio-http-docs",
+    scalacOptions -= "-Yno-imports",
+    scalacOptions -= "-Xfatal-warnings",
+    projectName       := "ZIO Http",
+    badgeInfo         := Some(
+      BadgeInfo(
+        artifact = "zio-http_2.12",
+        projectStage = ProjectStage.Development,
+      ),
+    ),
+    docsPublishBranch := "main",
+  )
+//  .dependsOn(zioHttp)
+  .enablePlugins(WebsitePlugin)
