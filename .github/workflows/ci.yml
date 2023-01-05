@@ -29,7 +29,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -94,7 +94,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -184,7 +184,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -222,11 +222,11 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: sudo rm -rf *
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: zio-http
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           repository: zio/FrameworkBenchmarks
           path: FrameworkBenchMarks
@@ -291,11 +291,11 @@ jobs:
           GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
         run: sudo rm -rf *
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: zio-http
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           repository: zio/FrameworkBenchmarks
           path: FrameworkBenchMarks
