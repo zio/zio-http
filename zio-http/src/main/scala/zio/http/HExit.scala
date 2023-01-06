@@ -1,7 +1,7 @@
 package zio.http
 
 import zio.http.HExit.Effect
-import zio.{Cause, Trace, ZIO}
+import zio.{Cause, Tag, Trace, ZEnvironment, ZIO, ZLayer}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
@@ -54,6 +54,40 @@ sealed trait HExit[-R, +E, +A] { self =>
     }
 
   def map[B](ab: A => B)(implicit trace: Trace): HExit[R, E, B] = self.flatMap(a => HExit.succeed(ab(a)))
+
+  final def provideEnvironment(r: ZEnvironment[R])(implicit trace: Trace): HExit[Any, E, A] =
+    self match {
+      case HExit.Success(_) => self.asInstanceOf[HExit[Any, E, A]]
+      case HExit.Failure(_) => self.asInstanceOf[HExit[Any, E, A]]
+      case Effect(z)        => Effect(z.provideEnvironment(r))
+    }
+
+  final def provideLayer[E1 >: E, R0](layer: ZLayer[R0, E1, R])(implicit
+    trace: Trace,
+  ): HExit[R0, E1, A] =
+    self match {
+      case HExit.Success(_) => self.asInstanceOf[HExit[R0, E1, A]]
+      case HExit.Failure(_) => self.asInstanceOf[HExit[R0, E1, A]]
+      case Effect(z)        => Effect(z.provideLayer(layer))
+    }
+
+  final def provideSomeEnvironment[R1](f: ZEnvironment[R1] => ZEnvironment[R])(implicit
+    trace: Trace,
+  ): HExit[R1, E, A] =
+    self match {
+      case HExit.Success(_) => self.asInstanceOf[HExit[R1, E, A]]
+      case HExit.Failure(_) => self.asInstanceOf[HExit[R1, E, A]]
+      case Effect(z)        => Effect(z.provideSomeEnvironment[R1](f))
+    }
+
+  final def provideSomeLayer[R0, R1: Tag, E1 >: E](
+    layer: ZLayer[R0, E1, R1],
+  )(implicit ev: R0 with R1 <:< R, trace: Trace): HExit[R0, E1, A] =
+    self match {
+      case HExit.Success(_) => self.asInstanceOf[HExit[R0, E1, A]]
+      case HExit.Failure(_) => self.asInstanceOf[HExit[R0, E1, A]]
+      case Effect(z)        => Effect(z.provideSomeLayer(layer))
+    }
 
   def orElse[R1 <: R, E1, A1 >: A](other: HExit[R1, E1, A1])(implicit trace: Trace): HExit[R1, E1, A1] =
     self.foldExit(_ => other, HExit.succeed)

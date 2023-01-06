@@ -8,7 +8,7 @@ import zio.{Clock, LogAnnotation, LogLevel, Trace, ZIO}
 import java.nio.charset.{Charset, StandardCharsets}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[zio] trait RequestLogging {
+private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
 
   final def requestLogging(
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
@@ -18,8 +18,8 @@ private[zio] trait RequestLogging {
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
-  )(implicit trace: Trace): HttpMiddleware[Any, Throwable, IT.Id[Request]] =
-    Middleware.interceptZIOPatch { request =>
+  )(implicit trace: Trace): RequestHandlerMiddleware[Any, Throwable] =
+    interceptPatchZIO { request =>
       Clock.nanoTime.map(start => (request, start))
     } { case (response, (request, start)) =>
       for {

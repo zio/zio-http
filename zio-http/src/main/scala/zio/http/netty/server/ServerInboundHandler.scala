@@ -31,7 +31,7 @@ private[zio] final case class ServerInboundHandler(
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
-  private lazy val (http, env) = appRef.get
+  private lazy val (app, env) = appRef.get
 
   private lazy val errCallback = errCallbackRef.get.orNull
 
@@ -49,7 +49,7 @@ private[zio] final case class ServerInboundHandler(
           }
         }
 
-        val exit = http.toHExitOrNull(req)
+        val exit = app.toHExitOrNull(req)
         if (exit ne null) {
           if (!attemptImmediateWrite(ctx, exit, time))
             writeResponse(ctx, env, exit, jReq)(releaseRequest)
@@ -63,7 +63,7 @@ private[zio] final case class ServerInboundHandler(
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req = makeZioRequest(ctx, jReq)
 
-        val exit = http.toHExitOrNull(req)
+        val exit = app.toHExitOrNull(req)
         if (exit ne null) {
           if (!attemptImmediateWrite(ctx, exit, time)) {
 
@@ -168,7 +168,7 @@ private[zio] final case class ServerInboundHandler(
 
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
-    exit: HExit[Any, Throwable, Response],
+    exit: HExit[Any, Response, Response],
     time: service.ServerTime,
   ): Boolean = {
     exit match {
@@ -269,13 +269,19 @@ private[zio] final case class ServerInboundHandler(
   private def writeResponse(
     ctx: ChannelHandlerContext,
     env: ZEnvironment[Any],
-    exit: HExit[Any, Throwable, Response],
+    exit: HExit[Any, Response, Response],
     jReq: HttpRequest,
   )(ensured: () => Unit): Unit = {
     runtime.run(ctx, ensured) {
       val pgm = for {
-        response <- exit.toZIO.absorb.catchAll { error =>
-          ZIO.succeedNow(HttpError.InternalServerError(cause = Some(error)).toResponse)
+        response <- exit.toZIO.sandbox.catchAll { error =>
+          ZIO.succeedNow {
+            error.failureOrCause
+              .fold[Response](
+                identity,
+                cause => HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
+              )
+          }
         }
         done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
         _        <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)

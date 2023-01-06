@@ -14,7 +14,7 @@ private[zio] trait Cors {
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
-  final def cors[R, E](config: CorsConfig = CorsConfig()): HttpMiddleware[R, E, IT.Id[Request]] = {
+  final def cors(config: CorsConfig = CorsConfig()): HttpRouteMiddleware[Any, Nothing] = {
     def allowCORS(origin: Header, acrm: Method): Boolean                           =
       (config.anyOrigin, config.anyMethod, origin._2.toString, acrm) match {
         case (true, true, _, _)           => true
@@ -39,34 +39,35 @@ private[zio] trait Cors {
           Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS, config.allowCredentials.toString)
         }
     }
-    new HttpMiddleware[R, E, IT.Id[Request]] {
 
-      override def inputTransformation: IT.Id[Request] = IT.Id() // TODO: IT.Extend
-
-      def apply[R1 <: R, E1 >: E](
-        http: Http.Total[R1, E1, Request, Response],
-      )(implicit trace: Trace): Http.Total[R1, E1, Request, Response] =
-        Http
-          .fromFunction[Request] { req =>
-            (
-              req.method,
-              req.headers.header(HttpHeaderNames.ORIGIN),
-              req.headers.header(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
-            ) match {
-              case (Method.OPTIONS, Some(origin), Some(acrm))
-                  if allowCORS(origin, Method.fromString(acrm._2.toString)) =>
-                Http.succeed(
+    new HttpRouteMiddleware[Any, Nothing] {
+      override def apply[R1 <: Any, Err1 >: Nothing](
+        route: Route[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Route[R1, Err1, Request, Response] =
+        Route.fromHandlerHExit[Request] { request =>
+          val newRoute = (
+            request.method,
+            request.headers.header(HttpHeaderNames.ORIGIN),
+            request.headers.header(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
+          ) match {
+            case (Method.OPTIONS, Some(origin), Some(acrm))
+                if allowCORS(origin, Method.fromString(acrm.value.toString)) =>
+              Handler
+                .response(
                   Response(
                     Status.NoContent,
                     headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
                   ),
                 )
-              case (_, Some(origin), _) if allowCORS(origin, req.method) =>
-                http.addHeaders(corsHeaders(origin, req.method, isPreflight = false))
-              case _                                                     => http
-            }
+                .toRoute
+            case (_, Some(origin), _) if allowCORS(origin, request.method) =>
+              route @@ Middleware.addHeaders(corsHeaders(origin, request.method, isPreflight = false))
+            case _                                                         =>
+              route
           }
-          .flatten
+
+          newRoute.toHandlerOrNull(request)
+        }
     }
   }
 }

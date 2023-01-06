@@ -42,15 +42,15 @@ sealed trait Middleware[-R, I, O] { self =>
    * Applies the middleware to an `HttpApp`, returning a new `HttpApp` with the
    * middleware fully installed.
    */
-  def apply[R1 <: R, E](httpApp: HttpApp[R1, E]): HttpApp[R1, E] =
-    httpApp.wrap { (request, execute) =>
+  def apply[R1 <: R, E](httpRoute: HttpRoute[R1, E]): HttpRoute[R1, E] =
+    Route.fromHandlerZIO { request =>
       for {
         in       <- spec.middlewareIn.decodeRequest(request).orDie
         control  <- incoming(in)
         response <- control match {
           case Middleware.Control.Continue(state)     =>
             for {
-              response1 <- execute
+              response1 <- httpRoute.toZIO(request)
               mo        <- outgoing(state, response1)
               patch = spec.middlewareOut.encodeResponsePatch(mo)
             } yield response1.patch(patch)
@@ -61,7 +61,7 @@ sealed trait Middleware[-R, I, O] { self =>
               .map(out => response.patch(spec.middlewareOut.encodeResponsePatch(out)))
 
         }
-      } yield response
+      } yield Handler.response(response)
     }
 
   def ++[R1 <: R, I2, O2](that: Middleware[R1, I2, O2])(implicit

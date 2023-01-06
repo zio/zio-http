@@ -1,11 +1,11 @@
 package zio.http.middleware
 
 import zio._
-import zio.http.model.Status
-import zio.http.{Http, Middleware, Request, Response}
+import zio.http.{Handler, Request, RequestHandlerMiddleware, Response}
+import zio.metrics.Metric.{Counter, Gauge, Histogram}
 import zio.metrics.{Metric, MetricKeyType, MetricLabel}
 
-private[zio] trait Metrics {
+private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
 
   /**
    * Adds metrics to a zio-http server.
@@ -33,13 +33,13 @@ private[zio] trait Metrics {
     requestDurationName: String = "http_request_duration_seconds",
     requestDurationBoundaries: MetricKeyType.Histogram.Boundaries = Metrics.defaultBoundaries,
     extraLabels: Set[MetricLabel] = Set.empty,
-  ): HttpMiddleware[Any, Nothing, IT.Id[Request]] = {
-    new Middleware[Any, Nothing, Request, Response, Request, Response, IT.Id[Request]] {
-      val requestsTotal      = Metric.counterInt(totalRequestsName)
-      val concurrentRequests = Metric.gauge(concurrentRequestsName)
-      val requestDuration    = Metric.histogram(requestDurationName, requestDurationBoundaries)
-      val status500          = Set(MetricLabel("status", "500"))
-      val nanosToSeconds     = 1e9d
+  ): RequestHandlerMiddleware[Any, Nothing] = {
+    new RequestHandlerMiddleware[Any, Nothing] {
+      val requestsTotal: Counter[RuntimeFlags] = Metric.counterInt(totalRequestsName)
+      val concurrentRequests: Gauge[Double]    = Metric.gauge(concurrentRequestsName)
+      val requestDuration: Histogram[Double]   = Metric.histogram(requestDurationName, requestDurationBoundaries)
+      val status500: Set[MetricLabel]          = Set(MetricLabel("status", "500"))
+      val nanosToSeconds: Double               = 1e9d
 
       def labelsForRequest(req: Request): Set[MetricLabel] =
         Set(
@@ -52,18 +52,16 @@ private[zio] trait Metrics {
           MetricLabel("status", res.status.code.toString),
         )
 
-      override def inputTransformation: IT.Id[Request] = IT.Id()
-
-      def apply[R1 <: Any, E1 >: Nothing](
-        http: Http.Total[R1, E1, Request, Response],
-      )(implicit trace: Trace): Http.Total[R1, E1, Request, Response] =
-        Http.fromFunctionZIO[Request] { req =>
+      override def apply[R1 <: Any, Err1 >: Nothing](
+        handler: Handler[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+        Handler.fromFunctionZIO[Request] { req =>
           val requestLabels = labelsForRequest(req)
 
           for {
             start <- Clock.nanoTime
             _     <- concurrentRequests.tagged(requestLabels).increment
-            res   <- http.toZIO(req).onExit { (exit: Exit[E1, Response]) =>
+            res   <- handler.toZIO(req).onExit { (exit: Exit[Err1, Response]) =>
               val labels =
                 requestLabels ++ exit.foldExit(
                   cause => cause.failureOption.fold(status500)(_ => status500),
