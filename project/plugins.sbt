@@ -6,6 +6,6 @@ addSbtPlugin("io.spray"           % "sbt-revolver"       % "0.9.1")
 addSbtPlugin("com.codecommit"     % "sbt-github-actions" % "0.14.2")
 addSbtPlugin("ch.epfl.scala"      % "sbt-scala3-migrate" % "0.5.1")
 addSbtPlugin("com.github.sbt"     % "sbt-ci-release"     % "1.5.10")
-addSbtPlugin("dev.zio"            % "zio-sbt-website"    % "0.2.2")
+addSbtPlugin("dev.zio"            % "zio-sbt-website"    % "0.2.7")
 
 resolvers += Resolver.sonatypeRepo("public")
