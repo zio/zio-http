@@ -11,14 +11,12 @@ import zio.test._
 object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   override def spec = suite("MetricsSpec")(
     test("http_requests_total & http_errors_total") {
-      val app = Http
-        .collect[Request] {
-          case Method.GET -> !! / "ok"     => Http.ok
-          case Method.GET -> !! / "error"  => Http.error(HttpError.InternalServerError())
-          case Method.GET -> !! / "defect" => Http.die(new Throwable("boom"))
-        }
-        .flatten
-        .withFallback(Http.notFound) @@ metrics(
+      val app = Route
+        .collectHandler[Request] {
+          case Method.GET -> !! / "ok"     => Handler.ok
+          case Method.GET -> !! / "error"  => Handler.error(HttpError.InternalServerError())
+          case Method.GET -> !! / "defect" => Handler.die(new Throwable("boom"))
+        } @@ metrics(
         extraLabels = Set(MetricLabel("test", "http_requests_total & http_errors_total")),
       )
 
@@ -43,7 +41,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertTrue(totalNotFoundCount == MetricState.Counter(1))
     },
     test("http_requests_total with path label mapper") {
-      val app = Http.ok @@ metrics(
+      val app = Handler.ok @@ metrics(
         pathLabelMapper = { case Method.GET -> !! / "user" / _ =>
           "/user/:id"
         },
@@ -70,8 +68,8 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         .tagged("method", "GET")
         .tagged("status", "200")
 
-      val app: Http[Any, Nothing, Request, Response] =
-        Http.ok @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
+      val app: RequestHandler[Any, Nothing] =
+        Handler.ok @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
 
       for {
         _        <- app.toZIO(Request.get(url = URL(!! / "ok")))
@@ -87,11 +85,10 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
 
       for {
         promise <- Promise.make[Nothing, Unit]
-        app = Http
-          .collect[Request] { case _ =>
-            Http.fromZIO(promise.succeed(())) *> Http.ok.delay(10.seconds)
-          }
-          .flatten @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
+        app = Route
+          .collectHandler[Request] { case _ =>
+            Handler.fromZIO(promise.succeed(())) *> Handler.ok.delay(10.seconds)
+          } @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
         before <- gauge.value
         fiber  <- app.toZIO(Request.get(url = URL(!! / "slow"))).fork
         _      <- promise.await

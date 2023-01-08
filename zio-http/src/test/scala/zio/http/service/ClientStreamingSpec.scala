@@ -14,7 +14,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
 
   def clientStreamingSpec = suite("ClientStreamingSpec")(
     test("streaming content from server - extended") {
-      val app    = Http.collect[Request] { case req => Response(body = Body.fromStream(req.body.asStream)) }
+      val app    = Route.collect[Request] { case req => Response(body = Body.fromStream(req.body.asStream)) }
       val stream = ZStream.fromIterable(List("This ", "is ", "a ", "longer ", "text."), chunkSize = 1)
       val res    = app.deployChunked.body
         .run(method = Method.POST, body = Body.fromStream(stream))

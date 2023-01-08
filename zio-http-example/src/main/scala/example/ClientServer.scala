@@ -6,7 +6,7 @@ import zio.{Scope, ZIO, ZIOAppDefault}
 
 object ClientServer extends ZIOAppDefault {
 
-  val app = Http.collectZIO[Request] {
+  val app = Route.collectZIO[Request] {
     case Method.GET -> !! / "hello" =>
       ZIO.succeed(Response.text("hello"))
 
@@ -16,6 +16,6 @@ object ClientServer extends ZIOAppDefault {
   }
 
   val run = {
-    Server.serve(app).provide(Server.default, Client.default, Scope.default).exitCode
+    Server.serve(app.withDefaultErrorResponse).provide(Server.default, Client.default, Scope.default).exitCode
   }
 }

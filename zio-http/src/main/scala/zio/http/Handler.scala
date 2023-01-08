@@ -3,8 +3,8 @@ package zio.http
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio._
 import zio.http.html.{Html, Template}
+import zio.http.model._
 import zio.http.model.headers.HeaderModifierZIO
-import zio.http.model.{HTTP_CHARSET, Headers, HttpError, MediaType, Method, Status}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 

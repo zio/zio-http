@@ -9,6 +9,11 @@ trait HandlerAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
   ): HandlerAspect[R1, Err1, AIn, AOut, BIn1, BOut1] =
     self.andThen(that)
 
+  final def ++[R1 <: R, Err1 >: Err, AIn1 <: BIn, AOut1 >: BOut, BIn1, BOut1](
+    that: HandlerAspect[R1, Err1, AIn1, AOut1, BIn1, BOut1],
+  ): HandlerAspect[R1, Err1, AIn, AOut, BIn1, BOut1] =
+    self.andThen(that)
+
   final def andThen[R1 <: R, Err1 >: Err, AIn1 <: BIn, AOut1 >: BOut, BIn1, BOut1](
     that: HandlerAspect[R1, Err1, AIn1, AOut1, BIn1, BOut1],
   ): HandlerAspect[R1, Err1, AIn, AOut, BIn1, BOut1] =

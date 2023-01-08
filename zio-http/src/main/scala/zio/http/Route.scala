@@ -1,6 +1,7 @@
 package zio.http
 
 import zio._
+import zio.http.model.Status
 
 trait Route[-R, +Err, -In, +Out] { self =>
 
@@ -31,6 +32,22 @@ trait Route[-R, +Err, -In, +Out] { self =>
       self.toHandlerOrNull(in).flatMap { handler =>
         if (handler eq null) that.toHandlerOrNull(in)
         else HExit.succeed(handler)
+      }
+    }
+
+  final def map[Out1](f: Out => Out1)(implicit trace: Trace): Route[R, Err, In, Out1] =
+    Route.fromHandlerHExit[In] { in =>
+      self.toHandlerOrNull(in).map { handler =>
+        if (handler eq null) null
+        else handler.map(f)
+      }
+    }
+
+  final def mapError[Err1](f: Err => Err1)(implicit trace: Trace): Route[R, Err1, In, Out] =
+    Route.fromHandlerHExit[In] { in =>
+      self.toHandlerOrNull(in).mapError(f).map { handler =>
+        if (handler eq null) null
+        else handler.mapError(f)
       }
     }
 
@@ -155,6 +172,11 @@ trait Route[-R, +Err, -In, +Out] { self =>
     else ZIO.fail(None)
   }
 
+  final def withMiddleware[R1 <: R, In1 <: In, In2, Out2](
+    middleware: api.Middleware[R1, In2, Out2],
+  )(implicit ev1: In1 <:< Request, ev2: Out <:< Response): HttpRoute[R1, Err] =
+    middleware(self.asInstanceOf[HttpRoute[R, Err]])
+
   final def when[In1 <: In](f: In1 => Boolean)(implicit trace: Trace): Route[R, Err, In1, Out] =
     Route.fromHandlerHExit[In1] { in =>
       if (f(in)) self.toHandlerOrNull(in)
@@ -175,6 +197,11 @@ trait Route[-R, +Err, -In, +Out] { self =>
           ZIO.fail(None)
       }
     }
+
+  final def withDefaultErrorResponse(implicit trace: Trace, ev1: Request <:< In, ev2: Out <:< Response): App[R] =
+    self.mapError { _ =>
+      Response(status = Status.InternalServerError)
+    }.asInstanceOf[App[R]]
 }
 
 object Route {
@@ -231,5 +258,13 @@ object Route {
           case None    => ZIO.succeed(null)
           case Some(e) => ZIO.fail(e)
         })
+  }
+
+  implicit class HttpRouteSyntax[R, Err](val self: HttpRoute[R, Err]) extends AnyVal {
+    def whenPathEq(path: Path): HttpRoute[R, Err] =
+      self.when[Request](_.path == path)
+
+    def whenPathEq(path: String): HttpRoute[R, Err] =
+      self.when[Request](_.path.encode == path)
   }
 }

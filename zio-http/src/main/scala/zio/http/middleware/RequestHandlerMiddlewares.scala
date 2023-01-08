@@ -1,10 +1,10 @@
 package zio.http.middleware
 
-import zio.{Duration, Trace, ZIO}
+import zio.http._
 import zio.http.middleware.RequestHandlerMiddlewares.{InterceptPatch, InterceptPatchZIO}
-import zio.http.model.{Cookie, HeaderNames, Headers, Method, Status}
 import zio.http.model.headers.HeaderModifier
-import zio.http.{Handler, HandlerAspect, Patch, Request, RequestHandler, RequestHandlerMiddleware, Response, URL}
+import zio.http.model.{Cookie, HeaderNames, Headers, Method, Status}
+import zio.{Duration, Trace, ZIO}
 
 private[zio] trait RequestHandlerMiddlewares
     extends RequestLogging

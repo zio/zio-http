@@ -12,7 +12,7 @@ import zio.http.socket.{SocketApp, WebSocketChannelEvent, WebSocketFrame}
  *   Contains the user-specified behavior that takes the place of the usual
  *   Server
  */
-final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocketBehavior: Ref[SocketApp[Any]])
+final case class TestClient(behavior: Ref[HttpRoute[Any, Throwable]], serverSocketBehavior: Ref[SocketApp[Any]])
     extends Client {
 
   /**
@@ -63,8 +63,8 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     for {
       r                <- ZIO.environment[R]
       previousBehavior <- behavior.get
-      newBehavior                  = handler.andThen(_.provideEnvironment(r))
-      app: HttpApp[Any, Throwable] = Http.collectZIO(newBehavior)
+      newBehavior                    = handler.andThen(_.provideEnvironment(r))
+      app: HttpRoute[Any, Throwable] = Route.collectZIO(newBehavior)
       _ <- behavior.set(previousBehavior.defaultWith(app))
     } yield ()
 
@@ -159,12 +159,16 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     }
 
   def installSocketApp[Env1](
-    app: Http[Any, Throwable, WebSocketChannelEvent, Unit],
+    app: Route[Any, Throwable, WebSocketChannelEvent, Unit],
   ): ZIO[Env1, Nothing, Unit] =
     for {
       env <- ZIO.environment[Env1]
       _   <- serverSocketBehavior.set(
-        app.defaultWith(TestClient.warnOnUnrecognizedEvent).toSocketApp.provideEnvironment(env),
+        app
+          .defaultWith(TestClient.warnOnUnrecognizedEvent)
+          .toHandler(Handler.response(Response(Status.NotFound)))
+          .toSocketApp
+          .provideEnvironment(env),
       )
     } yield ()
 }
@@ -207,19 +211,19 @@ object TestClient {
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
   def installSocketApp(
-    app: Http[Any, Throwable, WebSocketChannelEvent, Unit],
+    app: Route[Any, Throwable, WebSocketChannelEvent, Unit],
   ): ZIO[TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
 
   val layer: ZLayer[Any, Nothing, TestClient] =
     ZLayer.scoped {
       for {
-        behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
+        behavior       <- Ref.make[HttpRoute[Any, Throwable]](Route.empty)
         socketBehavior <- Ref.make[SocketApp[Any]](SocketApp.apply(_ => ZIO.unit))
       } yield TestClient(behavior, socketBehavior)
     }
 
-  private val warnOnUnrecognizedEvent = Http.collectZIO[WebSocketChannelEvent] { case other =>
+  private val warnOnUnrecognizedEvent = Route.collectZIO[WebSocketChannelEvent] { case other =>
     ZIO.fail(new Exception("Test Server received Unexpected event: " + other))
   }
 

@@ -13,7 +13,7 @@ object CookieServerSide extends ZIOAppDefault {
   private val cookie = Cookie("key", "value").withMaxAge(5 days)
   val res            = Response.ok.addCookie(cookie)
 
-  private val app = Http.collect[Request] {
+  private val app = Route.collect[Request] {
     case Method.GET -> !! / "cookie" =>
       Response.ok.addCookie(cookie.withPath(!! / "cookie").withHttpOnly)
 

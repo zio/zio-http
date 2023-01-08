@@ -1,7 +1,7 @@
 package zio.http.middleware
 
-import zio.{Trace, ZIO}
 import zio.http.{HttpRouteMiddleware, Request, Response, Route, RouteAspect}
+import zio.{Trace, ZIO}
 
 private[zio] trait HttpRouteMiddlewares extends Cors {
   def allow(condition: Request => Boolean): HttpRouteMiddleware[Any, Nothing] =

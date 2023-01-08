@@ -13,9 +13,9 @@ object StreamingResponse extends ZIOAppDefault {
   def run = Server.serve(app).provide(Server.default)
 
   // Create a message as a Chunk[Byte]
-  def message                    = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
+  def message                      = Chunk.fromArray("Hello world !\r\n".getBytes(HTTP_CHARSET))
   // Use `Http.collect` to match on route
-  def app: HttpApp[Any, Nothing] = Http.collect[Request] {
+  def app: HttpRoute[Any, Nothing] = Route.collect[Request] {
 
     // Simple (non-stream) based route
     case Method.GET -> !! / "health" => Response.ok

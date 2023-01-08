@@ -11,12 +11,12 @@ object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
   private val PORT = 0
 
-  private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
+  private val fooBar: HttpRoute[Any, Nothing] = Route.collect[Request] {
     case Method.GET -> !! / "foo" => Response.text("bar")
     case Method.GET -> !! / "bar" => Response.text("foo")
   }
 
-  private val app = Http.collectZIO[Request] {
+  private val app = Route.collectZIO[Request] {
     case Method.GET -> !! / "random" => Random.nextString(10).map(Response.text(_))
     case Method.GET -> !! / "utc"    => Clock.currentDateTime.map(s => Response.text(s.toString))
   }

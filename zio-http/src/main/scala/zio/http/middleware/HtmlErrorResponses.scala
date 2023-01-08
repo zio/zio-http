@@ -1,9 +1,9 @@
 package zio.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderValues
-import zio.http.html.{Template, div, h3, pre, s, styles}
-import zio.http.{Body, Request, Response, model}
+import zio.http.html._
 import zio.http.model.{HeaderNames, Headers}
+import zio.http.{Body, Request, Response, model}
 
 import java.io.{PrintWriter, StringWriter}
 

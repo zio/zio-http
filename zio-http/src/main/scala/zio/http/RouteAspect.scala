@@ -3,6 +3,26 @@ package zio.http
 import zio.{Trace, ZIO}
 
 trait RouteAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
+  final def >>>[R1 <: R, Err1 >: Err, AIn1 <: BIn, AOut1 >: BOut, BIn1, BOut1](
+    that: RouteAspect[R1, Err1, AIn1, AOut1, BIn1, BOut1],
+  ): RouteAspect[R1, Err1, AIn, AOut, BIn1, BOut1] =
+    self.andThen(that)
+
+  final def ++[R1 <: R, Err1 >: Err, AIn1 <: BIn, AOut1 >: BOut, BIn1, BOut1](
+    that: RouteAspect[R1, Err1, AIn1, AOut1, BIn1, BOut1],
+  ): RouteAspect[R1, Err1, AIn, AOut, BIn1, BOut1] =
+    self.andThen(that)
+
+  final def andThen[R1 <: R, Err1 >: Err, AIn1 <: BIn, AOut1 >: BOut, BIn1, BOut1](
+    that: RouteAspect[R1, Err1, AIn1, AOut1, BIn1, BOut1],
+  ): RouteAspect[R1, Err1, AIn, AOut, BIn1, BOut1] =
+    new RouteAspect[R1, Err1, AIn, AOut, BIn1, BOut1] {
+      override def apply[R2 <: R1, Err2 >: Err1](handler: Route[R2, Err2, AIn, AOut])(implicit
+        trace: Trace,
+      ): Route[R2, Err2, BIn1, BOut1] =
+        that(self(handler))
+    }
+
   def apply[R1 <: R, Err1 >: Err](route: Route[R1, Err1, AIn, AOut])(implicit
     trace: Trace,
   ): Route[R1, Err1, BIn, BOut]
