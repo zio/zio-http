@@ -164,5 +164,5 @@ lazy val docs = project
     docsPublishBranch                          := "main",
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttp, zioHttpLogging),
   )
-  .dependsOn(zioHttp)
+  .dependsOn(zioHttp, zioHttpLogging)
   .enablePlugins(WebsitePlugin)
