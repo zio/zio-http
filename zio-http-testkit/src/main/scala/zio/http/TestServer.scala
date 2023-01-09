@@ -76,7 +76,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
       _ <- driver.addApp(app.withDefaultErrorResponse, r)
     } yield ()
 
-  override def install[R](httpApp: HttpRoute[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
+  override def install[R](httpApp: App[R], errorCallback: Option[ErrorCallback])(implicit
     trace: zio.Trace,
   ): URIO[R, Unit] =
     ZIO

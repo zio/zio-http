@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpCombineEval {
   private val MAX  = 1000
-  private val app  = Http.collect[Int] { case 0 => 1 }
+  private val app  = Route.collect[Int] { case 0 => 1 }
   private val spec = (0 to MAX).foldLeft(app)((a, _) => a ++ app)
 
   @Benchmark

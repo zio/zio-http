@@ -1,7 +1,9 @@
 package zio.http
 
+import io.netty.handler.codec.http.HttpHeaderNames
 import zio._
-import zio.http.model.Status
+import zio.http.model.{Headers, Status}
+import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 
 trait Route[-R, +Err, -In, +Out] { self =>
 
@@ -166,6 +168,18 @@ trait Route[-R, +Err, -In, +Out] { self =>
     }
   }
 
+  final def toSocketApp(implicit
+    ev1: WebSocketChannelEvent <:< In,
+    ev2: Err <:< Throwable,
+    trace: Trace,
+  ): SocketApp[R] =
+    SocketApp(event =>
+      self.toZIO(event).catchAll {
+        case Some(value) => ZIO.fail(value)
+        case None        => ZIO.unit
+      },
+    )
+
   final def toZIO(in: In)(implicit trace: Trace): ZIO[R, Option[Err], Out] = {
     val hExit = toHExitOrNull(in)
     if (hExit ne null) hExit.toZIO.mapError(Some(_))
@@ -223,6 +237,8 @@ object Route {
 
   def fromHandlerZIO[In]: FromHandlerZIO[In] = new FromHandlerZIO[In](())
 
+  def fromRouteZIO[In]: FromRouteZIO[In] = new FromRouteZIO[In](())
+
   final class Collect[In](val self: Unit) extends AnyVal {
     def apply[Out](pf: PartialFunction[In, Out])(implicit trace: Trace): Route[Any, Nothing, In, Out] =
       Route.collectHandler[In].apply(pf.andThen(Handler.succeed(_)))
@@ -260,11 +276,43 @@ object Route {
         })
   }
 
+  final class FromRouteZIO[In](val self: Unit) extends AnyVal {
+    def apply[R, Err, Out](f: In => ZIO[R, Err, Route[R, Err, In, Out]])(implicit
+      trace: Trace,
+    ): Route[R, Err, In, Out] =
+      (in: In) =>
+        HExit.fromZIO {
+          f(in).flatMap { route =>
+            route.toHandlerOrNull(in).toZIO
+          }
+        }
+  }
+
   implicit class HttpRouteSyntax[R, Err](val self: HttpRoute[R, Err]) extends AnyVal {
     def whenPathEq(path: Path): HttpRoute[R, Err] =
       self.when[Request](_.path == path)
 
     def whenPathEq(path: String): HttpRoute[R, Err] =
       self.when[Request](_.path.encode == path)
+  }
+
+  final implicit class ResponseOutputSyntax[-R, +Err, -In](val self: Route[R, Err, In, Response]) extends AnyVal {
+    def body(implicit trace: Trace): Route[R, Err, In, Body] =
+      self.map(_.body)
+
+    def contentLength(implicit trace: Trace): Route[R, Err, In, Option[Long]] =
+      self.map(_.contentLength)
+
+    def contentType(implicit trace: Trace): Route[R, Err, In, Option[String]] =
+      headerValue(HttpHeaderNames.CONTENT_TYPE)
+
+    def headers(implicit trace: Trace): Route[R, Err, In, Headers] =
+      self.map(_.headers)
+
+    def headerValue(name: CharSequence)(implicit trace: Trace): Route[R, Err, In, Option[String]] =
+      self.map(_.headerValue(name))
+
+    def status(implicit trace: Trace): Route[R, Err, In, Status] =
+      self.map(_.status)
   }
 }

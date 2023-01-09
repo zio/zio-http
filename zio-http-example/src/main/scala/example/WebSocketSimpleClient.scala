@@ -29,7 +29,7 @@ object WebSocketSimpleClient extends ZIOAppDefault {
       }
 
   val app: ZIO[Any with Client with Scope, Throwable, Response] =
-    httpSocket.toHandler(Handler.notFound).toSocketApp.connect(url) *> ZIO.never
+    httpSocket.toSocketApp.connect(url) *> ZIO.never
 
   val run = app.provide(Client.default, Scope.default)
 

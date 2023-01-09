@@ -12,12 +12,12 @@ class HttpNestedFlatMapEval {
 
   private val MAX = 1000
 
-  val programFlatMap: Http[Any, Nothing, Int, Int] =
-    (0 to MAX).foldLeft(Http.identity[Int])((a, _) => a.flatMap(i => Http.succeed(i + 1)))
+  val programFlatMap: Handler[Any, Nothing, Int, Int] =
+    (0 to MAX).foldLeft(Handler.identity[Int])((a, _) => a.flatMap(i => Handler.succeed(i + 1)))
 
   @Benchmark
   def benchmarkHttpFlatMap(): Unit = {
-    programFlatMap.toHExitOrNull(0)
+    programFlatMap.toRoute.toHExitOrNull(0)
     ()
   }
 }

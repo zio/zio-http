@@ -12,7 +12,7 @@ object RefererMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withReferer("https://developer.mozilla.org/en-US/docs/Web/JavaScript")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.referer
@@ -24,7 +24,7 @@ object RefererMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withReferer("https://developer.mozilla.org/en-US/")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.referer
@@ -38,7 +38,7 @@ object RefererMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withReferer("developer.mozilla.org/en-US/")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.referer.getOrElse("error").equals(""))
         },
@@ -46,7 +46,7 @@ object RefererMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withReferer("garbage)(*&^%")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.referer.getOrElse("error").equals(""))
         },

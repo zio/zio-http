@@ -14,7 +14,7 @@ object ProxyAuthenticationMiddlewareSpec extends ZIOSpecDefault {
             for {
               response <- api.Middleware
                 .withProxyAuthenticate(header)
-                .apply(Http.succeed(Response.ok))
+                .apply(Handler.succeed(Response.ok).toRoute)
                 .toZIO(Request.get(URL.empty))
             } yield assertTrue(
               response.headers.proxyAuthenticate.contains(header),
@@ -26,7 +26,7 @@ object ProxyAuthenticationMiddlewareSpec extends ZIOSpecDefault {
             for {
               response <- api.Middleware
                 .withProxyAuthenticate(scheme.name)
-                .apply(Http.succeed(Response.ok))
+                .apply(Handler.succeed(Response.ok).toRoute)
                 .toZIO(Request.get(URL.empty))
             } yield assertTrue(
               response.headers.proxyAuthenticate.contains(scheme.name),
@@ -38,7 +38,7 @@ object ProxyAuthenticationMiddlewareSpec extends ZIOSpecDefault {
         for {
           response <- api.Middleware
             .withProxyAuthenticate("bad input")
-            .apply(Http.succeed(Response.ok))
+            .apply(Handler.succeed(Response.ok).toRoute)
             .toZIO(Request.get(URL.empty))
         } yield assertTrue(
           response.headers.proxyAuthenticate.contains(""),

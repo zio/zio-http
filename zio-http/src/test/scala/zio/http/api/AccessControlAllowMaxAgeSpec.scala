@@ -14,7 +14,7 @@ object AccessControlAllowMaxAgeSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withAccessControlAllowMaxAge("10")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.accessControlMaxAge.getOrElse("error").equals("10"))
         },
@@ -24,7 +24,7 @@ object AccessControlAllowMaxAgeSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withAccessControlAllowMaxAge("*()!*#&#$^")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.accessControlMaxAge.getOrElse("error").equals("5"))
         },
@@ -32,7 +32,7 @@ object AccessControlAllowMaxAgeSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withAccessControlAllowMaxAge("-10")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.accessControlMaxAge.getOrElse("error").equals("5"))
         },

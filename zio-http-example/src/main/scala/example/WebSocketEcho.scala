@@ -7,8 +7,8 @@ import zio.http.model.Method
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
 
 object WebSocketEcho extends ZIOAppDefault {
-  private val socket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-    Http.collectZIO[WebSocketChannelEvent] {
+  private val socket: Route[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Route.collectZIO[WebSocketChannelEvent] {
       case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("FOO"))) =>
         ch.writeAndFlush(WebSocketFrame.text("BAR"))
 
@@ -19,8 +19,8 @@ object WebSocketEcho extends ZIOAppDefault {
         ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
-  private val app: Http[Any, Nothing, Request, Response] =
-    Http.collectZIO[Request] {
+  private val app: Route[Any, Nothing, Request, Response] =
+    Route.collectZIO[Request] {
       case Method.GET -> !! / "greet" / name  => ZIO.succeed(Response.text(s"Greetings {$name}!"))
       case Method.GET -> !! / "subscriptions" => socket.toSocketApp.toResponse
     }

@@ -7,13 +7,13 @@ import zio.http.model.Method
 import zio.http.socket._
 
 object WebSocketAdvanced extends ZIOAppDefault {
-  val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
-    Http.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
+  val messageFilter: Route[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
+    Route.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
       (channel, message)
     }
 
-  val messageSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-    messageFilter >>> Http.fromFunctionZIO[(WebSocketChannel, String)] {
+  val messageSocket: Route[Any, Throwable, WebSocketChannelEvent, Unit] =
+    messageFilter >>> Handler.fromFunctionZIO[(WebSocketChannel, String)] {
       case (ch, "end") => ch.close()
 
       // Send a "bar" if the server sends a "foo"
@@ -29,8 +29,8 @@ object WebSocketAdvanced extends ZIOAppDefault {
         ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
-  val channelSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-    Http.collectZIO[WebSocketChannelEvent] {
+  val channelSocket: Route[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Route.collectZIO[WebSocketChannelEvent] {
 
       // Send a "greeting" message to the server once the connection is established
       case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete))  =>
@@ -45,7 +45,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
         Console.printLine(s"Channel error!: ${cause.getMessage}")
     }
 
-  val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+  val httpSocket: Route[Any, Throwable, WebSocketChannelEvent, Unit] =
     messageSocket ++ channelSocket
 
   val protocol = SocketProtocol.default.withSubProtocol(Some("json")) // Setup protocol settings

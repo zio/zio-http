@@ -12,7 +12,7 @@ object RetryAfterMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withRetryAfter("Wed, 21 Oct 2015 07:28:00 GMT")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.retryAfter.getOrElse("error").equals("Wed, 21 Oct 2015 07:28:00 GMT"))
         },
@@ -20,7 +20,7 @@ object RetryAfterMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withRetryAfter("10")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.retryAfter.getOrElse("error").equals("10"))
         },
@@ -30,7 +30,7 @@ object RetryAfterMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withRetryAfter("garbage!@##$$")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.retryAfter.getOrElse("error").equals("0"))
         },
@@ -38,7 +38,7 @@ object RetryAfterMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withRetryAfter("-10")
-              .apply(Http.succeed(response))
+              .apply(Handler.succeed(response).toRoute)
               .toZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.retryAfter.getOrElse("error").equals("0"))
         },
