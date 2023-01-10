@@ -26,8 +26,9 @@ object RouteSpec extends ZIOSpecDefault with HExitAssertion {
           assert(actual)(isDie(equalTo(t)))
         },
         test("should give empty if the inout is not defined") {
-          val a = Route.collectHExit[Int] { case 1 => HExit.succeed("OK") }
-          assertTrue(a.toHExitOrNull(0) eq null)
+          val a      = Route.collectHExit[Int] { case 1 => HExit.succeed("OK") }
+          val actual = a.toHExitOrNull(0)
+          assert(actual)(isSuccess(equalTo(null)))
         },
       ),
       suite("combine")(
@@ -53,14 +54,14 @@ object RouteSpec extends ZIOSpecDefault with HExitAssertion {
           val a      = Route.collect[Int] { case 1 => "A" }
           val b      = Route.collect[Int] { case 2 => "B" }
           val actual = (a ++ b).toHExitOrNull(3)
-          assertTrue(actual eq null)
+          assert(actual)(isSuccess(equalTo(null)))
         },
         test("should not resolve") {
           val a      = Route.empty
           val b      = Route.empty
           val c      = Route.empty
           val actual = (a ++ b ++ c).toHExitOrNull(())
-          assertTrue(actual eq null)
+          assert(actual)(isSuccess(equalTo(null)))
         },
         test("should fail with second") {
           val a      = Route.empty
@@ -98,14 +99,14 @@ object RouteSpec extends ZIOSpecDefault with HExitAssertion {
         test("should fail") {
           val a      = Route.collect[Int] { case 1 => "OK" }
           val actual = a.toHExitOrNull(0)
-          assertTrue(actual eq null)
+          assert(actual)(isSuccess(equalTo(null)))
         },
       ),
       suite("collectZIO")(
         test("should be empty") {
           val a      = Route.collectZIO[Int] { case 1 => ZIO.succeed("A") }
           val actual = a.toHExitOrNull(2)
-          assertTrue(actual eq null)
+          assert(actual)(isSuccess(equalTo(null)))
         },
         test("should resolve") {
           val a      = Route.collectZIO[Int] { case 1 => ZIO.succeed("A") }
@@ -131,7 +132,7 @@ object RouteSpec extends ZIOSpecDefault with HExitAssertion {
         test("should be empty if no matches") {
           val app    = Route.collectHandler[Int](Map.empty)
           val actual = app.toHExitOrNull(1)
-          assertTrue(actual eq null)
+          assert(actual)(isSuccess(equalTo(null)))
         },
       ),
       suite("when")(
@@ -143,7 +144,7 @@ object RouteSpec extends ZIOSpecDefault with HExitAssertion {
         test("should not execute http when condition doesn't apply") {
           val app    = Handler.succeed(1).toRoute.when((_: Any) => false)
           val actual = app.toHExitOrNull(0)
-          assertTrue(actual eq null)
+          assert(actual.asInstanceOf[HExit[Any, Any, Any]])(isSuccess(equalTo(null)))
         },
         test("should die when condition throws an exception") {
           val t      = new IllegalArgumentException("boom")

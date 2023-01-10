@@ -50,36 +50,28 @@ private[zio] final case class ServerInboundHandler(
         }
 
         val exit = app.toHExitOrNull(req)
-        if (exit ne null) {
-          if (!attemptImmediateWrite(ctx, exit, time))
-            writeResponse(ctx, env, exit, jReq)(releaseRequest)
-          else
-            releaseRequest()
-        } else {
-          writeNotFound(ctx, jReq)(releaseRequest)
-        }
+        if (!attemptImmediateWrite(ctx, exit, time))
+          writeResponse(ctx, env, exit, jReq)(releaseRequest)
+        else
+          releaseRequest()
 
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req = makeZioRequest(ctx, jReq)
 
         val exit = app.toHExitOrNull(req)
-        if (exit ne null) {
-          if (!attemptImmediateWrite(ctx, exit, time)) {
+        if (!attemptImmediateWrite(ctx, exit, time)) {
 
-            if (
-              jReq.method() == HttpMethod.TRACE ||
-              jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
-              jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
-            )
-              ctx.channel().config().setAutoRead(false)
+          if (
+            jReq.method() == HttpMethod.TRACE ||
+            jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
+            jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
+          )
+            ctx.channel().config().setAutoRead(false)
 
-            writeResponse(ctx, env, exit, jReq) { () =>
-              val _ = ctx.channel().config().setAutoRead(true)
-            }
+          writeResponse(ctx, env, exit, jReq) { () =>
+            val _ = ctx.channel().config().setAutoRead(true)
           }
-        } else {
-          writeNotFound(ctx, jReq) { () => }
         }
 
       case msg: HttpContent =>
@@ -172,9 +164,9 @@ private[zio] final case class ServerInboundHandler(
     time: service.ServerTime,
   ): Boolean = {
     exit match {
-      case HExit.Success(response) =>
+      case HExit.Success(response) if response ne null =>
         attemptFastWrite(ctx, response, time)
-      case _                       => false
+      case _                                           => false
     }
   }
 
@@ -283,9 +275,15 @@ private[zio] final case class ServerInboundHandler(
               )
           }
         }
-        done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-        _        <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
-
+        _        <-
+          if (response ne null) {
+            for {
+              done <- ZIO.attempt(attemptFastWrite(ctx, response, time))
+              _    <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
+            } yield ()
+          } else {
+            ZIO.attempt(writeNotFound(ctx, jReq)(() => ()))
+          }
       } yield ()
 
       pgm.provideEnvironment(env)

@@ -627,7 +627,12 @@ object Handler {
 
   final class FromFunction[In](val self: Unit) extends AnyVal {
     def apply[Out](f: In => Out)(implicit trace: Trace): Handler[Any, Nothing, In, Out] =
-      (in: In) => HExit.succeed(f(in))
+      (in: In) =>
+        try {
+          HExit.succeed(f(in))
+        } catch {
+          case error: Throwable => HExit.die(error)
+        }
   }
 
   final class FromFunctionHandler[In](val self: Unit) extends AnyVal {
@@ -637,7 +642,12 @@ object Handler {
 
   final class FromFunctionHExit[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => HExit[R, Err, Out])(implicit trace: Trace): Handler[R, Err, In, Out] =
-      (in: In) => f(in)
+      (in: In) =>
+        try {
+          f(in)
+        } catch {
+          case error: Throwable => HExit.die(error)
+        }
   }
 
   final class FromFunctionZIO[In](val self: Unit) extends AnyVal {

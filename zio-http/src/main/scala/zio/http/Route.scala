@@ -168,23 +168,18 @@ trait Route[-R, +Err, -In, +Out] { self =>
       .flatten
 
   // TODO: unsafe api
-  private[zio] def toHandlerOrNull(in: In): HExit[R, Err, Handler[R, Err, In, Out]]
+  private[zio] def toHandlerOrNull(
+    in: In,
+  ): HExit[R, Err, Handler[R, Err, In, Out]] // NOTE: Handler[R, Err, In, Out] can be null
 
   final def toHandler(in: In): HExit[R, Err, Option[Handler[R, Err, In, Out]]] =
     self.toHandlerOrNull(in).map(Option(_))
 
   // TODO: unsafe api
-  final private[zio] def toHExit(in: In): HExit[R, Err, Out] = {
-    val hExit = toHExitOrNull(in)
-    if (hExit ne null) hExit
-    else HExit.die(new MatchError(in))
-  }
-
-  // TODO: unsafe api
-  final private[zio] def toHExitOrNull(in: In): HExit[R, Err, Out] = {
+  final private[zio] def toHExitOrNull(in: In): HExit[R, Err, Out] = { // NOTE: Out can be null
     self.toHandlerOrNull(in).flatMap { handler =>
       if (handler ne null) handler.apply(in)
-      else null
+      else HExit.succeed(null).asInstanceOf[HExit[R, Err, Out]]
     }
   }
 
@@ -200,11 +195,14 @@ trait Route[-R, +Err, -In, +Out] { self =>
       },
     )
 
-  final def toZIO(in: In)(implicit trace: Trace): ZIO[R, Option[Err], Out] = {
-    val hExit = toHExitOrNull(in)
-    if (hExit ne null) hExit.toZIO.mapError(Some(_))
-    else ZIO.fail(None)
-  }
+  final def toZIO(in: In)(implicit trace: Trace): ZIO[R, Option[Err], Out] =
+    toHExitOrNull(in)
+      .mapError(Some(_))
+      .flatMap { out =>
+        if (out != null) HExit.succeed(out)
+        else HExit.fail(None)
+      }
+      .toZIO
 
   final def withMiddleware[R1 <: R, In1 <: In, In2, Out2](
     middleware: api.Middleware[R1, In2, Out2],
@@ -214,7 +212,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
   final def when[In1 <: In](f: In1 => Boolean)(implicit trace: Trace): Route[R, Err, In1, Out] =
     Route.fromHandlerHExit[In1] { in =>
       if (f(in)) self.toHandlerOrNull(in)
-      else null
+      else HExit.succeed(null)
     }
 
   final def whenZIO[R1 <: R, Err1 >: Err, In1 <: In](
@@ -291,7 +289,12 @@ object Route {
     def apply[R, Err, Out](f: In => HExit[R, Err, Handler[R, Err, In, Out]])(implicit
       trace: Trace,
     ): Route[R, Err, In, Out] =
-      (in: In) => f(in)
+      (in: In) =>
+        try {
+          f(in)
+        } catch {
+          case error: Throwable => HExit.die(error)
+        }
   }
 
   final class FromHandlerZIO[In](val self: Unit) extends AnyVal {
