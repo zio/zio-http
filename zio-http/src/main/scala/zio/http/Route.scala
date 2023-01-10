@@ -2,8 +2,13 @@ package zio.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
 import zio._
-import zio.http.model.{Headers, Status}
+import zio.http.model.{Headers, MediaType, Status}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
+import zio.stream.ZStream
+
+import java.io.{File, FileNotFoundException}
+import java.nio.file.Paths
+import java.util.zip.ZipFile
 
 trait Route[-R, +Err, -In, +Out] { self =>
 
@@ -244,10 +249,39 @@ object Route {
 
   def collectHExit[In]: CollectHExit[In] = new CollectHExit[In](())
 
+  def collectRoute[In]: CollectRoute[In] = new CollectRoute[In](())
+
   def collectZIO[In]: CollectZIO[In] = new CollectZIO[In](())
 
   def empty: Route[Any, Nothing, Any, Nothing] =
     (_: Any) => HExit.succeed(null)
+
+  def fromFile(file: => File)(implicit trace: Trace): Route[Any, Throwable, Any, Response] =
+    fromFileZIO(ZIO.succeed(file))
+
+  def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit
+    trace: Trace,
+  ): Route[R, Throwable, Any, Response] =
+    Route.fromHandlerZIO { (_: Any) =>
+      getFile.mapError(Some(_)).flatMap { file =>
+        ZIO.attempt {
+          if (file.isFile) {
+            val length   = Headers.contentLength(file.length())
+            val response = http.Response(headers = length, body = Body.fromFile(file))
+            val pathName = file.toPath.toString
+
+            // Set MIME type in the response headers. This is only relevant in
+            // case of RandomAccessFile transfers as browsers use the MIME type,
+            // not the file extension, to determine how to process a URL.
+            // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+            Some(Handler.succeed(determineMediaType(pathName).fold(response)(response.withMediaType)))
+          } else None
+        }.mapError(Some(_)).flatMap {
+          case Some(value) => ZIO.succeed(value)
+          case None        => ZIO.fail(None)
+        }
+      }
+    }
 
   def fromHandler[R, Err, In, Out](handler: Handler[R, Err, In, Out])(implicit trace: Trace): Route[R, Err, In, Out] =
     (_: In) => HExit.succeed(handler)
@@ -257,7 +291,34 @@ object Route {
 
   def fromHandlerZIO[In]: FromHandlerZIO[In] = new FromHandlerZIO[In](())
 
+  def fromPath(head: String, tail: String*)(implicit trace: Trace): Route[Any, Throwable, Any, Response] =
+    fromFile(Paths.get(head, tail: _*).toFile)
+
+  def fromResource(path: String)(implicit trace: Trace): Route[Any, Throwable, Any, Response] =
+    Route.fromRouteZIO { (_: Any) =>
+      ZIO
+        .attemptBlocking(getClass.getClassLoader.getResource(path))
+        .map { resource =>
+          if (resource == null) Route.empty
+          else fromResourceWithURL(resource)
+        }
+    }
+
   def fromRouteZIO[In]: FromRouteZIO[In] = new FromRouteZIO[In](())
+
+  def getResource(path: String)(implicit trace: Trace): Route[Any, Throwable, Any, java.net.URL] =
+    Route.fromHandlerZIO { _ =>
+      ZIO
+        .attemptBlocking(getClass.getClassLoader.getResource(path))
+        .mapError(Some(_))
+        .flatMap { resource =>
+          if (resource == null) ZIO.fail(None)
+          else ZIO.succeed(Handler.succeed(resource))
+        }
+    }
+
+  def getResourceAsFile(path: String)(implicit trace: Trace): Route[Any, Throwable, Any, File] =
+    getResource(path).map(url => new File(url.getPath))
 
   final class Collect[In](val self: Unit) extends AnyVal {
     def apply[Out](pf: PartialFunction[In, Out])(implicit trace: Trace): Route[Any, Nothing, In, Out] =
@@ -276,6 +337,17 @@ object Route {
       trace: Trace,
     ): Route[R, Err, In, Out] =
       Route.collectHandler[In].apply(pf.andThen(Handler.fromHExit(_)))
+  }
+
+  final class CollectRoute[In](val self: Unit) extends AnyVal {
+    def apply[R, Err, Out](pf: PartialFunction[In, Route[R, Err, In, Out]])(implicit
+      trace: Trace,
+    ): Route[R, Err, In, Out] =
+      (in: In) =>
+        pf.applyOrElse(in, (_: In) => null) match {
+          case null  => HExit.succeed(null)
+          case route => route.toHandlerOrNull(in)
+        }
   }
 
   final class CollectZIO[In](val self: Unit) extends AnyVal {
@@ -347,4 +419,68 @@ object Route {
     def status(implicit trace: Trace): Route[R, Err, In, Status] =
       self.map(_.status)
   }
+
+  private def determineMediaType(filePath: String): Option[MediaType] = {
+    filePath.lastIndexOf(".") match {
+      case -1 => None
+      case i  =>
+        // Extract file extension
+        val ext = filePath.substring(i + 1)
+        MediaType.forFileExtension(ext)
+    }
+  }
+
+  private[zio] def fromResourceWithURL(
+    url: java.net.URL,
+  )(implicit trace: Trace): Route[Any, Throwable, Any, Response] = {
+    url.getProtocol match {
+      case "file" =>
+        Route.fromFile(new File(url.getPath))
+      case "jar"  =>
+        val path         = new java.net.URI(url.getPath).getPath // remove "file:" prefix and normalize whitespace
+        val bangIndex    = path.indexOf('!')
+        val filePath     = path.substring(0, bangIndex)
+        val resourcePath = path.substring(bangIndex + 2)
+        val mediaType    = determineMediaType(resourcePath)
+        val openZip      = ZIO.attemptBlockingIO(new ZipFile(filePath))
+        val closeZip     = (jar: ZipFile) => ZIO.attemptBlocking(jar.close()).ignoreLogged
+
+        def fileNotFound = new FileNotFoundException(s"Resource $resourcePath not found")
+
+        def isDirectory = new IllegalArgumentException(s"Resource $resourcePath is a directory")
+
+        val appZIO =
+          ZIO.acquireReleaseWith(openZip)(closeZip) { jar =>
+            for {
+              entry <- ZIO
+                .attemptBlocking(Option(jar.getEntry(resourcePath)))
+                .collect(fileNotFound) { case Some(e) => e }
+              _     <- ZIO.when(entry.isDirectory)(ZIO.fail(isDirectory))
+              contentLength = entry.getSize
+              inZStream     = ZStream
+                .acquireReleaseWith(openZip)(closeZip)
+                .mapZIO(jar => ZIO.attemptBlocking(jar.getEntry(resourcePath) -> jar))
+                .flatMap { case (entry, jar) => ZStream.fromInputStream(jar.getInputStream(entry)) }
+              response      = Response(body = Body.fromStream(inZStream))
+            } yield mediaType.fold(response) { t =>
+              response.withMediaType(t).withContentLength(contentLength)
+            }
+          }
+
+        Route.fromHandlerZIO(_ =>
+          appZIO.mapBoth(
+            {
+              case _: FileNotFoundException => None
+              case error: Throwable         => Some(error)
+            },
+            { response =>
+              Handler.response(response)
+            },
+          ),
+        )
+      case proto  =>
+        Handler.fail(new IllegalArgumentException(s"Unsupported protocol: $proto")).toRoute
+    }
+  }
+
 }

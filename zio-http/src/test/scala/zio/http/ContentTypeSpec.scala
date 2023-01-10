@@ -11,32 +11,32 @@ object ContentTypeSpec extends HttpRunnableSpec {
 
   val contentSpec = suite("Content type header on file response")(
     test("mp4") {
-      val res = Handler.fromResource("TestFile2.mp4").toRoute.deploy.contentType.run()
+      val res = Route.fromResource("TestFile2.mp4").deploy.contentType.run()
       assertZIO(res)(isSome(equalTo("video/mp4")))
     },
     test("js") {
-      val res = Handler.fromResource("TestFile3.js").toRoute.deploy.contentType.run()
+      val res = Route.fromResource("TestFile3.js").deploy.contentType.run()
       assertZIO(res)(isSome(equalTo("application/javascript")))
     },
     test("no extension") {
-      val res = Handler.fromResource("TestFile4").toRoute.deploy.contentType.run()
+      val res = Route.fromResource("TestFile4").deploy.contentType.run()
       assertZIO(res)(isNone)
     },
     test("css") {
-      val res = Handler.fromResource("TestFile5.css").toRoute.deploy.contentType.run()
+      val res = Route.fromResource("TestFile5.css").deploy.contentType.run()
       assertZIO(res)(isSome(equalTo("text/css")))
     },
     test("mp3") {
-      val res = Handler.fromResource("TestFile6.mp3").toRoute.deploy.contentType.run()
+      val res = Route.fromResource("TestFile6.mp3").deploy.contentType.run()
       assertZIO(res)(isSome(equalTo("audio/mpeg")))
     },
     test("unidentified extension") {
-      val res = Handler.fromResource("truststore.jks").toRoute.deploy.contentType.run()
+      val res = Route.fromResource("truststore.jks").deploy.contentType.run()
       assertZIO(res)(isNone)
     },
     test("already set content-type") {
       val expected = MediaType.application.`json`
-      val res = Handler.fromResource("TestFile6.mp3").map(_.withMediaType(expected)).toRoute.deploy.contentType.run()
+      val res      = Route.fromResource("TestFile6.mp3").map(_.withMediaType(expected)).deploy.contentType.run()
       assertZIO(res)(isSome(equalTo(expected.fullType)))
     },
   )

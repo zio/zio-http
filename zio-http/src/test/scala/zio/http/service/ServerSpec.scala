@@ -215,14 +215,13 @@ object ServerSpec extends HttpRunnableSpec {
       }
     },
     test("data from file") {
-      val res = Handler.fromResource("TestFile.txt").toRoute.deploy.body.mapZIO(_.asString).run()
+      val res = Route.fromResource("TestFile.txt").deploy.body.mapZIO(_.asString).run()
       assertZIO(res)(equalTo("foo\nbar"))
     },
     test("content-type header on file response") {
       val res =
-        Handler
+        Route
           .fromResource("TestFile2.mp4")
-          .toRoute
           .deploy
           .headerValue(HeaderNames.contentType)
           .run()

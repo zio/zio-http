@@ -37,7 +37,7 @@ object StaticServer extends ZIOAppDefault {
           }
 
           // Return the file if it's a static resource
-          else if (file.isFile) Handler.fromFile(file)
+          else if (file.isFile) Route.fromFile(file).toHandler(Handler.notFound)
 
           // Return a 404 if the file doesn't exist
           else Handler.notFound

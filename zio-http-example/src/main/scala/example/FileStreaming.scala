@@ -11,18 +11,18 @@ import java.nio.file.Paths
 object FileStreaming extends ZIOAppDefault {
 
   // Create HTTP route
-  val app = Route.collectHandler[Request] {
-    case Method.GET -> !! / "health" => Handler.ok
+  val app = Route.collectRoute[Request] {
+    case Method.GET -> !! / "health" => Handler.ok.toRoute
 
     // Read the file as ZStream
     // Uses the blocking version of ZStream.fromFile
-    case Method.GET -> !! / "blocking" => Handler.fromStream(ZStream.fromPath(Paths.get("README.md")))
+    case Method.GET -> !! / "blocking" => Handler.fromStream(ZStream.fromPath(Paths.get("README.md"))).toRoute
 
     // Uses netty's capability to write file content to the Channel
     // Content-type response headers are automatically identified and added
     // Adds content-length header and does not use Chunked transfer encoding
-    case Method.GET -> !! / "video" => Handler.fromFile(new File("src/main/resources/TestVideoFile.mp4"))
-    case Method.GET -> !! / "text"  => Handler.fromFile(new File("src/main/resources/TestFile.txt"))
+    case Method.GET -> !! / "video" => Route.fromFile(new File("src/main/resources/TestVideoFile.mp4"))
+    case Method.GET -> !! / "text"  => Route.fromFile(new File("src/main/resources/TestFile.txt"))
   }
 
   // Run it like any simple app

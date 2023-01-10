@@ -366,16 +366,6 @@ object Handler {
   def badRequest(message: String)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
     error(HttpError.BadRequest(message))
 
-  private def determineMediaType(filePath: String): Option[MediaType] = {
-    filePath.lastIndexOf(".") match {
-      case -1 => None
-      case i  =>
-        // Extract file extension
-        val ext = filePath.substring(i + 1)
-        MediaType.forFileExtension(ext)
-    }
-  }
-
   def die(failure: => Throwable)(implicit trace: Trace): Handler[Any, Nothing, Any, Nothing] =
     fromHExit(HExit.die(failure))
 
@@ -403,30 +393,6 @@ object Handler {
   def fromEither[Err, Out](either: Either[Err, Out])(implicit trace: Trace): Handler[Any, Err, Any, Out] =
     either.fold(Handler.fail(_), Handler.succeed(_))
 
-  def fromFile(file: => File)(implicit trace: Trace): Handler[Any, Throwable, Any, Response] =
-    fromFileZIO(ZIO.succeed(file))
-
-  def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit
-    trace: Trace,
-  ): Handler[R, Throwable, Any, Response] =
-    fromZIO {
-      getFile.flatMap { file =>
-        ZIO.attempt {
-          if (file.isFile) {
-            val length   = Headers.contentLength(file.length())
-            val response = http.Response(headers = length, body = Body.fromFile(file))
-            val pathName = file.toPath.toString
-
-            // Set MIME type in the response headers. This is only relevant in
-            // case of RandomAccessFile transfers as browsers use the MIME type,
-            // not the file extension, to determine how to process a URL.
-            // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-            Handler.succeed(determineMediaType(pathName).fold(response)(response.withMediaType))
-          } else Handler.fail(new IllegalArgumentException(s"File $file is not a file"))
-        }
-      }
-    }.flatten
-
   def fromFunction[In]: FromFunction[In] = new FromFunction[In](())
 
   def fromFunctionHandler[In]: FromFunctionHandler[In] = new FromFunctionHandler[In](())
@@ -437,12 +403,6 @@ object Handler {
 
   def fromHExit[R, Err, Out](hExit: => HExit[R, Err, Out])(implicit trace: Trace): Handler[R, Err, Any, Out] =
     (_: Any) => hExit
-
-  def fromPath(head: String, tail: String*)(implicit trace: Trace): Handler[Any, Throwable, Any, Response] =
-    fromFile(Paths.get(head, tail: _*).toFile)
-
-  def fromResource(path: String)(implicit trace: Trace): Handler[Any, Throwable, Any, Response] =
-    getResource(path).flatMap(fromResourceWithURL)
 
   def fromRoute[R, Err, In, Out](route: Route[R, Err, In, Out], default: Handler[R, Err, In, Out])(implicit
     trace: Trace,
@@ -469,49 +429,6 @@ object Handler {
 
   def fromZIO[R, Err, Out](zio: => ZIO[R, Err, Out])(implicit trace: Trace): Handler[R, Err, Any, Out] =
     fromHExit(HExit.fromZIO(zio))
-
-  private[zio] def fromResourceWithURL(
-    url: java.net.URL,
-  )(implicit trace: Trace): Handler[Any, Throwable, Any, Response] = {
-    url.getProtocol match {
-      case "file" =>
-        Handler.fromFile(new File(url.getPath))
-      case "jar"  =>
-        val path         = new java.net.URI(url.getPath).getPath // remove "file:" prefix and normalize whitespace
-        val bangIndex    = path.indexOf('!')
-        val filePath     = path.substring(0, bangIndex)
-        val resourcePath = path.substring(bangIndex + 2)
-        val mediaType    = determineMediaType(resourcePath)
-        val openZip      = ZIO.attemptBlockingIO(new ZipFile(filePath))
-        val closeZip     = (jar: ZipFile) => ZIO.attemptBlocking(jar.close()).ignoreLogged
-
-        def fileNotFound = new FileNotFoundException(s"Resource $resourcePath not found")
-
-        def isDirectory = new IllegalArgumentException(s"Resource $resourcePath is a directory")
-
-        val appZIO =
-          ZIO.acquireReleaseWith(openZip)(closeZip) { jar =>
-            for {
-              entry <- ZIO
-                .attemptBlocking(Option(jar.getEntry(resourcePath)))
-                .collect(fileNotFound) { case Some(e) => e }
-              _     <- ZIO.when(entry.isDirectory)(ZIO.fail(isDirectory))
-              contentLength = entry.getSize
-              inZStream     = ZStream
-                .acquireReleaseWith(openZip)(closeZip)
-                .mapZIO(jar => ZIO.attemptBlocking(jar.getEntry(resourcePath) -> jar))
-                .flatMap { case (entry, jar) => ZStream.fromInputStream(jar.getInputStream(entry)) }
-              response      = Response(body = Body.fromStream(inZStream))
-            } yield mediaType.fold(response) { t =>
-              response.withMediaType(t).withContentLength(contentLength)
-            }
-          }
-
-        Handler.fromZIO(appZIO)
-      case proto  =>
-        Handler.fail(new IllegalArgumentException(s"Unsupported protocol: $proto"))
-    }
-  }
 
   def getResource(path: String)(implicit trace: Trace): Handler[Any, Throwable, Any, java.net.URL] =
     Handler
