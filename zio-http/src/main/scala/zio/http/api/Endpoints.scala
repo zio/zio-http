@@ -21,7 +21,7 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
     toHttpRoute.withDefaultErrorResponse
 
   /**
-   * Converts this service into a [[zio.http.HttpApp]], which can then be served
+   * Converts this service into a [[zio.http.App]], which can then be served
    * via [[zio.http.Server.serve]].
    */
   def toHttpRoute: HttpRoute[R, E] = {
