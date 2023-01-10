@@ -57,7 +57,7 @@ sealed trait HExit[-R, +E, +A] { self =>
 
   final def mapError[E1](f: E => E1)(implicit trace: Trace): HExit[R, E1, A] =
     self match {
-      case HExit.Success(a)     => self.asInstanceOf[HExit[R, E1, A]]
+      case HExit.Success(_)     => self.asInstanceOf[HExit[R, E1, A]]
       case HExit.Failure(cause) => HExit.Failure(cause.map(f))
       case Effect(z)            => Effect(z.mapError(f))
     }

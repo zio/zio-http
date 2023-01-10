@@ -57,8 +57,8 @@ object WebSocketAdvanced extends ZIOAppDefault {
       .withDecoder(decoder)   // Setup websocket decoder config
       .withProtocol(protocol) // Setup websocket protocol config
 
-  val app: Http[Any, Nothing, Request, Response] =
-    Http.collectZIO[Request] {
+  val app: Route[Any, Nothing, Request, Response] =
+    Route.collectZIO[Request] {
       case Method.GET -> !! / "greet" / name  => ZIO.succeed(Response.text(s"Greetings ${name}!"))
       case Method.GET -> !! / "subscriptions" => socketApp.toResponse
     }

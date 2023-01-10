@@ -4,17 +4,31 @@ import zio.http._
 import zio.http.model._
 
 trait HttpAppTestExtensions {
-  implicit class HttpAppSyntax[R, E](app: HttpRoute[R, E]) {
+  implicit class HttpAppSyntax[R, E](route: HttpRoute[R, E]) {
     def header(name: String): Route[R, E, Request, Option[String]] =
-      app.map(res => res.headerValue(name))
+      route.map(res => res.headerValue(name))
 
     def headerValues: Route[R, E, Request, List[String]] =
-      app.map(res => res.headers.toList.map(_._2.toString))
+      route.map(res => res.headers.toList.map(_._2.toString))
 
     def headers: Route[R, E, Request, Headers] =
-      app.map(res => res.headers)
+      route.map(res => res.headers)
 
     def status: Route[R, E, Request, Status] =
-      app.map(res => res.status)
+      route.map(res => res.status)
+  }
+
+  implicit class RequestHandlerSyntax[R, E](handler: RequestHandler[R, E]) {
+    def header(name: String): Handler[R, E, Request, Option[String]] =
+      handler.map(res => res.headerValue(name))
+
+    def headerValues: Handler[R, E, Request, List[String]] =
+      handler.map(res => res.headers.toList.map(_._2.toString))
+
+    def headers: Handler[R, E, Request, Headers] =
+      handler.map(res => res.headers)
+
+    def status: Handler[R, E, Request, Status] =
+      handler.map(res => res.status)
   }
 }

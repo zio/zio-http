@@ -7,6 +7,16 @@ import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 
 trait Route[-R, +Err, -In, +Out] { self =>
 
+  final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
+    handler: Handler[R1, Err1, In1, Out1],
+  ): Route[R1, Err1, In, Out1] =
+    Route.fromHandlerHExit[In] { in =>
+      self.toHandlerOrNull(in).map { firstHandler =>
+        if (firstHandler eq null) null.asInstanceOf[Handler[R1, Err1, In, Out1]]
+        else firstHandler.andThen(handler)
+      }
+    }
+
   final def @@[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out, In2, Out2](
     aspect: RouteAspect[R1, Err1, In1, Out1, In2, Out2],
   ): Route[R1, Err1, In2, Out2] =
@@ -50,6 +60,16 @@ trait Route[-R, +Err, -In, +Out] { self =>
       self.toHandlerOrNull(in).mapError(f).map { handler =>
         if (handler eq null) null
         else handler.mapError(f)
+      }
+    }
+
+  final def mapZIO[R1 <: R, Err1 >: Err, Out1](f: Out => ZIO[R1, Err1, Out1])(implicit
+    trace: Trace,
+  ): Route[R1, Err1, In, Out1] =
+    Route.fromHandlerHExit[In] { in =>
+      self.toHandlerOrNull(in).map { handler =>
+        if (handler eq null) null
+        else handler.mapZIO(f)
       }
     }
 
@@ -224,6 +244,8 @@ object Route {
 
   def collectHandler[In]: CollectHandler[In] = new CollectHandler[In](())
 
+  def collectHExit[In]: CollectHExit[In] = new CollectHExit[In](())
+
   def collectZIO[In]: CollectZIO[In] = new CollectZIO[In](())
 
   def empty: Route[Any, Nothing, Any, Nothing] =
@@ -249,6 +271,13 @@ object Route {
       trace: Trace,
     ): Route[R, Err, In, Out] =
       (in: In) => HExit.succeed(pf.applyOrElse(in, (_: In) => null))
+  }
+
+  final class CollectHExit[In](val self: Unit) extends AnyVal {
+    def apply[R, Err, Out](pf: PartialFunction[In, HExit[R, Err, Out]])(implicit
+      trace: Trace,
+    ): Route[R, Err, In, Out] =
+      Route.collectHandler[In].apply(pf.andThen(Handler.fromHExit(_)))
   }
 
   final class CollectZIO[In](val self: Unit) extends AnyVal {

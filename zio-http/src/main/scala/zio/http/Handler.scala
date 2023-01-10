@@ -57,6 +57,11 @@ trait Handler[-R, +Err, -In, +Out] { self =>
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     self.zipRight(that)
 
+  final def \/[R1 <: R, Err1 >: Err, In1, Out1](
+    that: Handler[R1, Err1, In1, Out1],
+  ): HandlerAspect[R1, Err1, Out, In1, In, Out1] =
+    self.codecMiddleware(that)
+
   final def absolve[Err1 >: Err, Out1](implicit ev: Out <:< Either[Err1, Out1]): Handler[R, Err1, In, Out1] =
     self.flatMap { out =>
       ev(out) match {
@@ -74,6 +79,11 @@ trait Handler[-R, +Err, -In, +Out] { self =>
 
   final def as[Out1](out: Out1)(implicit trace: Trace): Handler[R, Err, In, Out1] =
     self.map(_ => out)
+
+  final def codecMiddleware[R1 <: R, Err1 >: Err, In1, Out1](
+    that: Handler[R1, Err1, In1, Out1],
+  ): HandlerAspect[R1, Err1, Out, In1, In, Out1] =
+    HandlerAspect.codecHttp(self, that)
 
   final def compose[R1 <: R, Err1 >: Err, In1, Out1 <: In](
     that: Handler[R1, Err1, In1, Out1],
@@ -413,6 +423,8 @@ object Handler {
 
   def fromFunctionHandler[In]: FromFunctionHandler[In] = new FromFunctionHandler[In](())
 
+  def fromFunctionHExit[In]: FromFunctionHExit[In] = new FromFunctionHExit[In](())
+
   def fromFunctionZIO[In]: FromFunctionZIO[In] = new FromFunctionZIO[In](())
 
   def fromHExit[R, Err, Out](hExit: => HExit[R, Err, Out])(implicit trace: Trace): Handler[R, Err, Any, Out] =
@@ -621,6 +633,11 @@ object Handler {
   final class FromFunctionHandler[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => Handler[R, Err, In, Out])(implicit trace: Trace): Handler[R, Err, In, Out] =
       (in: In) => f(in)(in)
+  }
+
+  final class FromFunctionHExit[In](val self: Unit) extends AnyVal {
+    def apply[R, Err, Out](f: In => HExit[R, Err, Out])(implicit trace: Trace): Handler[R, Err, In, Out] =
+      (in: In) => f(in)
   }
 
   final class FromFunctionZIO[In](val self: Unit) extends AnyVal {

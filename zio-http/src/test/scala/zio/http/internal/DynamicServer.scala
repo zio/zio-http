@@ -66,8 +66,7 @@ object DynamicServer {
 
   def wsURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.WS)
 
-  final class Live(ref: Ref[Map[Id, App[Any]]], pr: Promise[Nothing, Server])
-      extends DynamicServer {
+  final class Live(ref: Ref[Map[Id, App[Any]]], pr: Promise[Nothing, Server]) extends DynamicServer {
     def add(app: App[Any]): UIO[Id] = for {
       id <- ZIO.succeed(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))

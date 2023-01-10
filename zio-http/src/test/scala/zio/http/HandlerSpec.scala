@@ -101,7 +101,7 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
       test("should die if the functions throws an exception") {
         val t      = new Throwable("boom")
         val a      = Handler.fromFunctionHExit[Int] { _ => throw t }
-        val actual = a.executeToZIO(0)
+        val actual = a.toZIO(0)
         assertZIO(actual.exit)(dies(equalTo(t)))
       },
     ),
@@ -222,7 +222,7 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
       },
       test("doesn't affect the success") {
         val http =
-          (Handler.succeed("bar"): Http[Any, Throwable, Any, String]).catchSome { case _: Throwable =>
+          (Handler.succeed("bar"): Handler[Any, Throwable, Any, String]).catchSome { case _: Throwable =>
             Handler.succeed("baz")
           }
         assert(http.apply {})(isSuccess(equalTo("bar")))
@@ -239,7 +239,7 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
       test("dies if doesn't catch anything") {
         val t    = new Throwable("boom")
         val http =
-          Http
+          Handler
             .fail(t)
             .refineOrDie { case _: IllegalArgumentException =>
               "fail"
@@ -263,7 +263,7 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
       },
       test("doesn't affect the success") {
         val http =
-          (Handler.succeed("bar"): Http[Any, Throwable, Any, String]).orDie
+          (Handler.succeed("bar"): Handler[Any, Throwable, Any, String]).orDie
         assert(http.apply {})(isSuccess(equalTo("bar")))
       },
     ),
@@ -275,26 +275,14 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
 
       },
       test("catches thrown defects") {
-        val http = Http
-          .collect[Any] { case _ => throw new IllegalArgumentException("boom") }
+        val http = Handler
+          .fromFunction[Any] { _ => throw new IllegalArgumentException("boom") }
           .catchSomeDefect { case _: IllegalArgumentException => Handler.succeed("OK") }
         assert(http.apply {})(isSuccess(equalTo("OK")))
       },
       test("propagates non-caught defect") {
         val t    = new IllegalArgumentException("boom")
         val http = Handler.die(t).catchSomeDefect { case _: SecurityException => Handler.succeed("OK") }
-        assert(http.apply {})(isDie(equalTo(t)))
-      },
-    ),
-    suite("catchNonFatalOrDie")(
-      test("catches non-fatal exception") {
-        val t    = new IllegalArgumentException("boom")
-        val http = Handler.fail(t).catchNonFatalOrDie { _ => Handler.succeed("OK") }
-        assert(http.apply {})(isSuccess(equalTo("OK")))
-      },
-      test("dies with fatal exception") {
-        val t    = new OutOfMemoryError()
-        val http = Handler.fail(t).catchNonFatalOrDie(_ => Handler.succeed("OK"))
         assert(http.apply {})(isDie(equalTo(t)))
       },
     ),

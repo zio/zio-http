@@ -1,7 +1,7 @@
 package zio.http.service
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.{Http, Server, ServerConfig}
+import zio.http.{Route, Server, ServerConfig}
 import zio.test.Assertion.{equalTo, not}
 import zio.test._
 import zio.{Scope, ZIO}
@@ -12,14 +12,14 @@ object ServerStartSpec extends HttpRunnableSpec {
     test("desired port") {
       val port   = 8088
       val config = ServerConfig.default.port(port)
-      serve(Http.empty).flatMap { port =>
+      serve(Route.empty).flatMap { port =>
         assertZIO(ZIO.attempt(port))(equalTo(port))
       }.provide(ServerConfig.live(config), DynamicServer.live, Server.live)
     },
     test("available port") {
       val port   = 0
       val config = ServerConfig.default.port(port)
-      serve(Http.empty).flatMap { bindPort =>
+      serve(Route.empty).flatMap { bindPort =>
         assertZIO(ZIO.attempt(bindPort))(not(equalTo(port)))
       }.provide(ServerConfig.live(config), DynamicServer.live, Server.live)
     },

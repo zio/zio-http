@@ -19,18 +19,18 @@ object WebSocketSpec extends HttpRunnableSpec {
         msg <- MessageCollector.make[ChannelEvent.Event[WebSocketFrame]]
         url <- DynamicServer.wsURL
         id  <- DynamicServer.deploy {
-          Http
+          Handler
             .fromFunctionZIO[WebSocketChannelEvent] {
               case ev @ ChannelEvent(ch, ChannelRead(frame)) => ch.writeAndFlush(frame) *> msg.add(ev.event)
               case ev @ ChannelEvent(_, ChannelUnregistered) => msg.add(ev.event, true)
               case ev @ ChannelEvent(_, _)                   => msg.add(ev.event)
             }
             .toSocketApp
-            .toHttp
+            .toRoute
         }
 
         res <- ZIO.scoped {
-          Http
+          Route
             .collectZIO[WebSocketChannelEvent] {
               case ChannelEvent(ch, UserEventTriggered(HandshakeComplete))   =>
                 ch.writeAndFlush(WebSocketFrame.text("FOO"))
@@ -64,17 +64,17 @@ object WebSocketSpec extends HttpRunnableSpec {
 
         // Setup websocket server
 
-        serverHttp   = Http
+        serverHttp   = Route
           .collectZIO[WebSocketChannelEvent] { case ChannelEvent(_, ChannelUnregistered) =>
             isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
           }
           .toSocketApp
-          .toHttp
+          .toRoute
           .deployWS
 
         // Setup Client
         // Client closes the connection after 1 second
-        clientSocket = Http
+        clientSocket = Route
           .collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, UserEventTriggered(HandshakeComplete)) =>
             ch.writeAndFlush(WebSocketFrame.close(1000)).delay(1 second).withClock(clock)
           }
@@ -93,9 +93,9 @@ object WebSocketSpec extends HttpRunnableSpec {
       } yield assertCompletes
     } @@ nonFlaky,
     test("Multiple websocket upgrades") {
-      val app   = Http.succeed(WebSocketFrame.text("BAR")).toSocketApp.toHttp.deployWS
+      val app   = Handler.succeed(WebSocketFrame.text("BAR")).toSocketApp.toRoute.deployWS
       val codes = ZIO
-        .foreach(1 to 1024)(_ => app.toZIO(Http.empty.toSocketApp).map(_.status))
+        .foreach(1 to 1024)(_ => app.toZIO(Route.empty.toSocketApp).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))
 
       assertZIO(codes)(equalTo(1024))

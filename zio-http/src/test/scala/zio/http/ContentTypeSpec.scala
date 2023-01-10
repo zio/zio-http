@@ -36,7 +36,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
     },
     test("already set content-type") {
       val expected = MediaType.application.`json`
-      val res      = Handler.fromResource("TestFile6.mp3").map(_.withMediaType(expected)).toRoute.deploy.contentType.run()
+      val res = Handler.fromResource("TestFile6.mp3").map(_.withMediaType(expected)).toRoute.deploy.contentType.run()
       assertZIO(res)(isSome(equalTo(expected.fullType)))
     },
   )

@@ -90,7 +90,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       }
 
     def deployWS
-      : Handler[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =
+      : Route[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =
       Route.fromHandler {
         for {
           id       <- Handler.fromZIO(DynamicServer.deploy[R](app))

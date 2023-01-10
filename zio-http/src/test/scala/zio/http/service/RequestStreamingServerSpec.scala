@@ -30,15 +30,17 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
     test("test unsafe large content") {
       val size    = 1024 * 1024
       val content = genString(size, '?')
-      val app     = Http.fromFunctionZIO[Request] {
-        _.body.asStream.runCount
-          .map(bytesCount => Response.text(bytesCount.toString))
-      }
+      val app     = Handler
+        .fromFunctionZIO[Request] {
+          _.body.asStream.runCount
+            .map(bytesCount => Response.text(bytesCount.toString))
+        }
+        .toRoute
       val res     = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(content))
       assertZIO(res)(equalTo(size.toString))
     },
     test("multiple body read") {
-      val app = Http.collectZIO[Request] { case req =>
+      val app = Route.collectZIO[Request] { case req =>
         for {
           _ <- req.body.asChunk
           _ <- req.body.asChunk
