@@ -66,7 +66,7 @@ object TestServerSpec extends ZIOSpecDefault {
             Client.request(
               testRequest.copy(url = testRequest.url.setPath(Path.root / "unhandled")),
             )
-        } yield assertTrue(finalResponse.status == Status.InternalServerError)
+        } yield assertTrue(finalResponse.status == Status.NotFound)
       },
       test("does not match different headers") {
         for {
@@ -76,7 +76,7 @@ object TestServerSpec extends ZIOSpecDefault {
             Client.request(
               testRequest.copy(headers = Headers.cacheControl("cache")),
             )
-        } yield assertTrue(finalResponse.status == Status.InternalServerError)
+        } yield assertTrue(finalResponse.status == Status.NotFound)
       },
     )
       .provideSome[Client with Driver](

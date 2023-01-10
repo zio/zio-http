@@ -22,7 +22,7 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
       withHeader = Patch.addHeader("X-Time", currentMilliseconds.toString)
     } yield withHeader,
   )
-  val middlewares: RequestHandlerMiddleware[Any, Nothing] =
+  val middlewares: RequestHandlerMiddleware[Any, IOException] =
     // print debug info about request and response
     Middleware.debug ++
       // close connection if request takes more than 3 seconds
@@ -33,5 +33,5 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
       serverTime
 
   // Run it like any simple app
-  val run = Server.serve(app @@ middlewares).provide(Server.default)
+  val run = Server.serve((app @@ middlewares).withDefaultErrorResponse).provide(Server.default)
 }

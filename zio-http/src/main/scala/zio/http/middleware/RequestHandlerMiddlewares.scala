@@ -4,7 +4,9 @@ import zio.http._
 import zio.http.middleware.RequestHandlerMiddlewares.{InterceptPatch, InterceptPatchZIO}
 import zio.http.model.headers.HeaderModifier
 import zio.http.model.{Cookie, HeaderNames, Headers, Method, Status}
-import zio.{Duration, Trace, ZIO}
+import zio.{Console, Duration, Trace, ZIO}
+
+import java.io.IOException
 
 private[zio] trait RequestHandlerMiddlewares
     extends RequestLogging
@@ -22,15 +24,15 @@ private[zio] trait RequestHandlerMiddlewares
   final def beautifyErrors: RequestHandlerMiddleware[Any, Nothing] =
     intercept(replaceErrorResponse)
 
-  final def debug: RequestHandlerMiddleware[Any, Nothing] =
-    new RequestHandlerMiddleware[Any, Nothing] {
-      override def apply[R1 <: Any, Err1 >: Nothing](
+  final def debug: RequestHandlerMiddleware[Any, IOException] =
+    new RequestHandlerMiddleware[Any, IOException] {
+      override def apply[R1 <: Any, Err1 >: IOException](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionZIO { request =>
           handler.toZIO(request).timed.flatMap { case (duration, response) =>
-            ZIO
-              .debug(s"${response.status.code} ${request.method} ${request.url.encode} ${duration.toMillis}ms")
+            Console
+              .printLine(s"${response.status.code} ${request.method} ${request.url.encode} ${duration.toMillis}ms")
               .as(response)
           }
         }
@@ -48,17 +50,17 @@ private[zio] trait RequestHandlerMiddlewares
 
   final def ifHeaderThenElse[R, E](
     condition: Headers => Boolean,
-  )(ifFalse: RequestHandlerMiddleware[R, E], ifTrue: RequestHandlerMiddleware[R, E]): RequestHandlerMiddleware[R, E] =
-    ifRequestThenElse(request => condition(request.headers))(ifFalse, ifTrue)
+  )(ifTrue: RequestHandlerMiddleware[R, E], ifFalse: RequestHandlerMiddleware[R, E]): RequestHandlerMiddleware[R, E] =
+    ifRequestThenElse(request => condition(request.headers))(ifTrue, ifFalse)
 
   final def ifMethodThenElse[R, E](
     condition: Method => Boolean,
-  )(ifFalse: RequestHandlerMiddleware[R, E], ifTrue: RequestHandlerMiddleware[R, E]): RequestHandlerMiddleware[R, E] =
-    ifRequestThenElse(request => condition(request.method))(ifFalse, ifTrue)
+  )(ifTrue: RequestHandlerMiddleware[R, E], ifFalse: RequestHandlerMiddleware[R, E]): RequestHandlerMiddleware[R, E] =
+    ifRequestThenElse(request => condition(request.method))(ifTrue, ifFalse)
 
   final def ifRequestThenElse[R, E](
     condition: Request => Boolean,
-  )(ifFalse: RequestHandlerMiddleware[R, E], ifTrue: RequestHandlerMiddleware[R, E]): RequestHandlerMiddleware[R, E] =
+  )(ifTrue: RequestHandlerMiddleware[R, E], ifFalse: RequestHandlerMiddleware[R, E]): RequestHandlerMiddleware[R, E] =
     new RequestHandlerMiddleware[R, E] {
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
@@ -71,8 +73,8 @@ private[zio] trait RequestHandlerMiddlewares
   final def ifRequestThenElseFunction[R, E](
     condition: Request => Boolean,
   )(
-    ifFalse: Request => RequestHandlerMiddleware[R, E],
     ifTrue: Request => RequestHandlerMiddleware[R, E],
+    ifFalse: Request => RequestHandlerMiddleware[R, E],
   ): RequestHandlerMiddleware[R, E] =
     new RequestHandlerMiddleware[R, E] {
       override def apply[R1 <: R, Err1 >: E](
@@ -85,7 +87,7 @@ private[zio] trait RequestHandlerMiddlewares
 
   final def ifRequestThenElseZIO[R, E](
     condition: Request => ZIO[R, E, Boolean],
-  )(ifFalse: RequestHandlerMiddleware[R, E], ifTrue: RequestHandlerMiddleware[R, E]): RequestHandlerMiddleware[R, E] =
+  )(ifTrue: RequestHandlerMiddleware[R, E], ifFalse: RequestHandlerMiddleware[R, E]): RequestHandlerMiddleware[R, E] =
     new RequestHandlerMiddleware[R, E] {
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
@@ -103,8 +105,8 @@ private[zio] trait RequestHandlerMiddlewares
   final def ifRequestThenElseFunctionZIO[R, E](
     condition: Request => ZIO[R, E, Boolean],
   )(
-    ifFalse: Request => RequestHandlerMiddleware[R, E],
     ifTrue: Request => RequestHandlerMiddleware[R, E],
+    ifFalse: Request => RequestHandlerMiddleware[R, E],
   ): RequestHandlerMiddleware[R, E] =
     new RequestHandlerMiddleware[R, E] {
       override def apply[R1 <: R, Err1 >: E](

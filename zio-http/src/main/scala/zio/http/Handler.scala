@@ -205,6 +205,14 @@ trait Handler[-R, +Err, -In, +Out] { self =>
   final def narrow[In1](implicit ev: In1 <:< In): Handler[R, Err, In1, Out] =
     self.asInstanceOf[Handler[R, Err, In1, Out]]
 
+  final def onExit[R1 <: R, Err1 >: Err](f: Exit[Err, Out] => ZIO[R1, Err1, Any])(implicit
+    trace: Trace,
+  ): Handler[R1, Err1, In, Out] =
+    self.tapAllZIO(
+      cause => f(Exit.failCause(cause)),
+      out => f(Exit.succeed(out)),
+    )
+
   final def option(implicit ev: CanFail[Err], trace: Trace): Handler[R, Nothing, In, Option[Out]] =
     self.foldHandler(_ => Handler.succeed(None), out => Handler.succeed(Some(out)))
 
