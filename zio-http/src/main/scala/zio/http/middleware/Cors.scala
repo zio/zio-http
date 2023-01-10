@@ -1,7 +1,7 @@
 package zio.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zio.Trace
+import zio.{Trace, Unsafe}
 import zio.http._
 import zio.http.middleware.Cors.{CorsConfig, buildHeaders}
 import zio.http.model._
@@ -66,7 +66,7 @@ private[zio] trait Cors {
               route
           }
 
-          newRoute.toHandlerOrNull(request)
+          newRoute.toHandlerOrNull(request)(Unsafe.unsafe)
         }
     }
   }

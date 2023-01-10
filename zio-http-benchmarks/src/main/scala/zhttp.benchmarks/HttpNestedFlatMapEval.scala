@@ -1,6 +1,7 @@
 package zio.benchmarks
 
 import org.openjdk.jmh.annotations._
+import zio.Unsafe
 import zio.http._
 
 import java.util.concurrent.TimeUnit
@@ -17,7 +18,7 @@ class HttpNestedFlatMapEval {
 
   @Benchmark
   def benchmarkHttpFlatMap(): Unit = {
-    programFlatMap.toRoute.toHExitOrNull(0)
+    programFlatMap.toRoute.toHExitOrNull(0)(Unsafe.unsafe)
     ()
   }
 }

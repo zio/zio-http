@@ -11,12 +11,13 @@ import java.nio.file.Paths
 import java.util.zip.ZipFile
 
 trait Route[-R, +Err, -In, +Out] { self =>
+  protected def run(in: In): HExit[R, Err, Handler[R, Err, In, Out]]
 
   final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
     handler: Handler[R1, Err1, In1, Out1],
   ): Route[R1, Err1, In, Out1] =
     Route.fromHandlerHExit[In] { in =>
-      self.toHandlerOrNull(in).map { firstHandler =>
+      self.run(in).map { firstHandler =>
         if (firstHandler eq null) null.asInstanceOf[Handler[R1, Err1, In, Out1]]
         else firstHandler.andThen(handler)
       }
@@ -31,7 +32,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
     aspect: HandlerAspect[R1, Err1, In1, Out1, In2, Out2],
   ): Route[R1, Err1, In2, Out2] =
     Route.fromHandlerHExit[In2] { in =>
-      self.toHandlerOrNull(in).flatMap { handler =>
+      self.run(in).flatMap { handler =>
         if (handler eq null) HExit.succeed(null)
         else HExit.succeed(aspect(handler))
       }
@@ -46,15 +47,15 @@ trait Route[-R, +Err, -In, +Out] { self =>
     that: Route[R1, Err1, In1, Out1],
   ): Route[R1, Err1, In1, Out1] =
     Route.fromHandlerHExit[In1] { in =>
-      self.toHandlerOrNull(in).flatMap { handler =>
-        if (handler eq null) that.toHandlerOrNull(in)
+      self.run(in).flatMap { handler =>
+        if (handler eq null) that.run(in)
         else HExit.succeed(handler)
       }
     }
 
   final def map[Out1](f: Out => Out1)(implicit trace: Trace): Route[R, Err, In, Out1] =
     Route.fromHandlerHExit[In] { in =>
-      self.toHandlerOrNull(in).map { handler =>
+      self.run(in).map { handler =>
         if (handler eq null) null
         else handler.map(f)
       }
@@ -62,7 +63,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
 
   final def mapError[Err1](f: Err => Err1)(implicit trace: Trace): Route[R, Err1, In, Out] =
     Route.fromHandlerHExit[In] { in =>
-      self.toHandlerOrNull(in).mapError(f).map { handler =>
+      self.run(in).mapError(f).map { handler =>
         if (handler eq null) null
         else handler.mapError(f)
       }
@@ -72,7 +73,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Route[R1, Err1, In, Out1] =
     Route.fromHandlerHExit[In] { in =>
-      self.toHandlerOrNull(in).map { handler =>
+      self.run(in).map { handler =>
         if (handler eq null) null
         else handler.mapZIO(f)
       }
@@ -81,7 +82,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
   final def provideEnvironment(r: ZEnvironment[R])(implicit trace: Trace): Route[Any, Err, In, Out] =
     Route.fromHandlerHExit[In] { in =>
       self
-        .toHandlerOrNull(in)
+        .run(in)
         .map { handler =>
           if (handler ne null) handler.provideEnvironment(r)
           else null
@@ -94,7 +95,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
   ): Route[R0, Err1, In, Out] =
     Route.fromHandlerHExit[In] { in =>
       self
-        .toHandlerOrNull(in)
+        .run(in)
         .map { handler =>
           if (handler ne null) handler.provideLayer(layer)
           else null
@@ -107,7 +108,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
   ): Route[R1, Err, In, Out] =
     Route.fromHandlerHExit[In] { in =>
       self
-        .toHandlerOrNull(in)
+        .run(in)
         .map { handler =>
           if (handler ne null) handler.provideSomeEnvironment(f)
           else null
@@ -120,7 +121,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
   )(implicit ev: R0 with R1 <:< R, trace: Trace): Route[R0, Err1, In, Out] =
     Route.fromHandlerHExit[In] { in =>
       self
-        .toHandlerOrNull(in)
+        .run(in)
         .map { handler =>
           if (handler ne null) handler.provideSomeLayer(layer)
           else null
@@ -134,7 +135,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
     onUnhandled: ZIO[R1, Err1, Any],
   )(implicit trace: Trace): Route[R1, Err1, In, Out] =
     Route.fromHandlerHExit[In] { in =>
-      self.toHandlerOrNull(in).flatMap { handler =>
+      self.run(in).flatMap { handler =>
         if (handler eq null) HExit.fromZIO(onUnhandled) *> HExit.succeed(null)
         else HExit.succeed(handler.tapAllZIO(onFailure, onSuccess))
       }
@@ -165,23 +166,22 @@ trait Route[-R, +Err, -In, +Out] { self =>
   ): Handler[R1, Err1, In1, Out1] =
     Handler
       .fromFunctionZIO[In1] { in =>
-        self.toHandlerOrNull(in).toZIO.map { handler =>
+        self.run(in).toZIO.map { handler =>
           if (handler ne null) handler
           else default
         }
       }
       .flatten
 
-  // TODO: unsafe api
-  private[zio] def toHandlerOrNull(
+  def toHandlerOrNull(
     in: In,
-  ): HExit[R, Err, Handler[R, Err, In, Out]] // NOTE: Handler[R, Err, In, Out] can be null
+  )(implicit unsafe: Unsafe): HExit[R, Err, Handler[R, Err, In, Out]] = // NOTE: Handler[R, Err, In, Out] can be null
+    run(in)
 
   final def toHandler(in: In): HExit[R, Err, Option[Handler[R, Err, In, Out]]] =
-    self.toHandlerOrNull(in).map(Option(_))
+    self.run(in).map(Option(_))
 
-  // TODO: unsafe api
-  final private[zio] def toHExitOrNull(in: In): HExit[R, Err, Out] = { // NOTE: Out can be null
+  final def toHExitOrNull(in: In)(implicit unsafe: Unsafe): HExit[R, Err, Out] = { // NOTE: Out can be null
     self.toHandlerOrNull(in).flatMap { handler =>
       if (handler ne null) handler.apply(in)
       else HExit.succeed(null).asInstanceOf[HExit[R, Err, Out]]
@@ -201,7 +201,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
     )
 
   final def toZIO(in: In)(implicit trace: Trace): ZIO[R, Option[Err], Out] =
-    toHExitOrNull(in)
+    toHExitOrNull(in)(Unsafe.unsafe)
       .mapError(Some(_))
       .flatMap { out =>
         if (out != null) HExit.succeed(out)
@@ -216,7 +216,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
 
   final def when[In1 <: In](f: In1 => Boolean)(implicit trace: Trace): Route[R, Err, In1, Out] =
     Route.fromHandlerHExit[In1] { in =>
-      if (f(in)) self.toHandlerOrNull(in)
+      if (f(in)) self.run(in)
       else HExit.succeed(null)
     }
 
@@ -226,7 +226,7 @@ trait Route[-R, +Err, -In, +Out] { self =>
     Route.fromHandlerZIO { (in: In1) =>
       f(in).mapError(Some(_)).flatMap {
         case true  =>
-          self.toHandlerOrNull(in).toZIO.mapError(Some(_)).flatMap { handler =>
+          self.run(in).toZIO.mapError(Some(_)).flatMap { handler =>
             if (handler eq null) ZIO.fail(None)
             else ZIO.succeed(handler)
           }
@@ -346,7 +346,7 @@ object Route {
       (in: In) =>
         pf.applyOrElse(in, (_: In) => null) match {
           case null  => HExit.succeed(null)
-          case route => route.toHandlerOrNull(in)
+          case route => route.run(in)
         }
   }
 
@@ -387,7 +387,7 @@ object Route {
       (in: In) =>
         HExit.fromZIO {
           f(in).flatMap { route =>
-            route.toHandlerOrNull(in).toZIO
+            route.run(in).toZIO
           }
         }
   }

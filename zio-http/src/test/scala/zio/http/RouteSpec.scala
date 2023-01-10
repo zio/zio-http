@@ -1,10 +1,11 @@
 package zio.http
 
-import zio.ZIO
 import zio.test.Assertion.{dies, equalTo, isLeft, isNone}
-import zio.test.{Spec, ZIOSpecDefault, assert, assertTrue, assertZIO}
+import zio.test.{Spec, ZIOSpecDefault, assert, assertZIO}
+import zio.{Unsafe, ZIO}
 
 object RouteSpec extends ZIOSpecDefault with HExitAssertion {
+  implicit val allowUnsafe: Unsafe = Unsafe.unsafe
 
   def spec: Spec[Any, Nothing] =
     suite("Route")(

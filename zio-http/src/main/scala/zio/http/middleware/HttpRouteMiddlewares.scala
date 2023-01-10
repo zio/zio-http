@@ -1,7 +1,7 @@
 package zio.http.middleware
 
 import zio.http.{HttpRouteMiddleware, Request, Response, Route, RouteAspect}
-import zio.{Trace, ZIO}
+import zio.{Trace, Unsafe, ZIO}
 
 private[zio] trait HttpRouteMiddlewares extends Cors {
   def allow(condition: Request => Boolean): HttpRouteMiddleware[Any, Nothing] =
@@ -17,9 +17,9 @@ private[zio] trait HttpRouteMiddlewares extends Cors {
       )(implicit trace: Trace): Route[R1, Err1, Request, Response] =
         Route.fromHandlerHExit[Request] { request =>
           if (request.url.queryParams.isEmpty)
-            route.toHandlerOrNull(request.dropTrailingSlash)
+            route.toHandlerOrNull(request.dropTrailingSlash)(Unsafe.unsafe)
           else
-            route.toHandlerOrNull(request)
+            route.toHandlerOrNull(request)(Unsafe.unsafe)
         }
     }
 }
