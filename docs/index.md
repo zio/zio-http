@@ -6,7 +6,7 @@ sidebar_label: "ZIO Http"
 
 ZIO Http is a scala library for building http apps. It is powered by ZIO and [netty](https://netty.io/) and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic scala.
 
-@PROJECT-BADGES@
+@PROJECT_BADGES@
 
 ## Installation
 
