@@ -15,7 +15,9 @@ import java.util.zip.ZipFile
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
-trait Handler[-R, +Err, -In, +Out] { self =>
+sealed trait OptionalHandler[-R, +Err, -In, +Out]
+
+trait Handler[-R, +Err, -In, +Out] extends OptionalHandler[R, Err, In, Out] { self =>
 
   final def @@[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out, In2, Out2](
     that: HandlerAspect[R1, Err1, In1, Out1, In2, Out2],
@@ -580,3 +582,5 @@ object Handler {
       (in: In) => HExit.fromZIO(f(in))
   }
 }
+
+case object Unhandled extends OptionalHandler[Any, Nothing, Any, Nothing]

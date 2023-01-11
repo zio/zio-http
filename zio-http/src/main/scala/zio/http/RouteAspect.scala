@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.{Trace, Unsafe, ZIO}
+import zio.{Trace, ZIO}
 
 trait RouteAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
   final def >>>[R1 <: R, Err1 >: Err, AIn1 <: BIn, AOut1 >: BOut, BIn1, BOut1](
@@ -35,8 +35,8 @@ trait RouteAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
         trace: Trace,
       ): Route[R1, Err1, BIn1, BOut] =
         Route.fromHandlerHExit[BIn1] { in =>
-          if (condition(in)) self(route).toHandlerOrNull(in)(Unsafe.unsafe)
-          else route.asInstanceOf[Route[R1, Err1, BIn, BOut]].toHandlerOrNull(in)(Unsafe.unsafe)
+          if (condition(in)) self(route).toOptionalHandler(in)
+          else route.asInstanceOf[Route[R1, Err1, BIn, BOut]].toOptionalHandler(in)
         }
     }
 
@@ -50,8 +50,8 @@ trait RouteAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
         Route
           .fromHandlerHExit[BIn1] { in =>
             HExit.fromZIO(condition(in)).flatMap {
-              case true  => self(route).toHandlerOrNull(in)(Unsafe.unsafe)
-              case false => route.asInstanceOf[Route[R2, Err2, BIn, BOut]].toHandlerOrNull(in)(Unsafe.unsafe)
+              case true  => self(route).toOptionalHandler(in)
+              case false => route.asInstanceOf[Route[R2, Err2, BIn, BOut]].toOptionalHandler(in)
             }
           }
     }
