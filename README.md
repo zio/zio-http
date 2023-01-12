@@ -52,7 +52,7 @@ You can use the [sbt-revolver] plugin to start the server and run it in watch mo
 
 ## Documentation
 
-Learn more on the [ZIO Http homepage](https://github.com/zio/zio-http)!
+Learn more on the [ZIO Http homepage](https://zio.dev/zio-http/)!
 
 ## Contributing
 
