@@ -35,8 +35,8 @@ trait RouteAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
         trace: Trace,
       ): Route[R1, Err1, BIn1, BOut] =
         Route.fromHandlerHExit[BIn1] { in =>
-          if (condition(in)) self(route).toOptionalHandler(in)
-          else route.asInstanceOf[Route[R1, Err1, BIn, BOut]].toOptionalHandler(in)
+          if (condition(in)) self(route).runOptionalHandler(in)
+          else route.asInstanceOf[Route[R1, Err1, BIn, BOut]].runOptionalHandler(in)
         }
     }
 
@@ -50,8 +50,8 @@ trait RouteAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
         Route
           .fromHandlerHExit[BIn1] { in =>
             HExit.fromZIO(condition(in)).flatMap {
-              case true  => self(route).toOptionalHandler(in)
-              case false => route.asInstanceOf[Route[R2, Err2, BIn, BOut]].toOptionalHandler(in)
+              case true  => self(route).runOptionalHandler(in)
+              case false => route.asInstanceOf[Route[R2, Err2, BIn, BOut]].runOptionalHandler(in)
             }
           }
     }

@@ -66,7 +66,7 @@ private[zio] trait Cors {
               route
           }
 
-          newRoute.toOptionalHandler(request)
+          newRoute.runOptionalHandler(request)
         }
     }
   }

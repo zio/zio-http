@@ -25,7 +25,7 @@ object StatusSpec extends ZIOSpecDefault {
     suite("toApp")(
       test("status") {
         checkAll(statusGen) { case status =>
-          val res = status.toApp.toZIO(Request.get(URL.empty))
+          val res = status.toApp.runZIO(Request.get(URL.empty))
           assertZIO(res.map(_.status))(equalTo(status))
         }
       },

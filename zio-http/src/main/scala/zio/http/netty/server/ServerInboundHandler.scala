@@ -49,7 +49,7 @@ private[zio] final case class ServerInboundHandler(
           }
         }
 
-        val exit = app.toHExitOrNull(req)
+        val exit = app.runHExitOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time))
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
         else
@@ -59,7 +59,7 @@ private[zio] final case class ServerInboundHandler(
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req = makeZioRequest(ctx, jReq)
 
-        val exit = app.toHExitOrNull(req)
+        val exit = app.runHExitOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
 
           if (

@@ -14,22 +14,22 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
         val mid2 = increment
         val mid  = mid1 andThen mid2
         val app  = Handler.identity[Int] @@ mid
-        assertZIO(app.toZIO(0))(equalTo(4))
+        assertZIO(app.runZIO(0))(equalTo(4))
       },
       test("runBefore") {
         val mid = Middleware.runBefore(Console.printLine("A"))
         val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("B").as(Response.ok)) @@ mid
-        assertZIO(app.toZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
+        assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
       },
       test("runAfter") {
         val mid = Middleware.runAfter(Console.printLine("B"))
         val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("A").as(Response.ok)) @@ mid
-        assertZIO(app.toZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
+        assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
       },
       test("runBefore and runAfter") {
         val mid = Middleware.runBefore(Console.printLine("A")) ++ Middleware.runAfter(Console.printLine("C"))
         val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("B").as(Response.ok)) @@ mid
-        assertZIO(app.toZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n", "C\n")))
+        assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n", "C\n")))
       },
       suite("when") {
         val mid = Middleware.transform[Int, Int](
@@ -38,11 +38,11 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
         )
         test("condition is true") {
           val app = Handler.identity[Int] @@ mid.when((_: Any) => true)
-          assertZIO(app.toZIO(10))(equalTo(12))
+          assertZIO(app.runZIO(10))(equalTo(12))
         } +
           test("condition is false") {
             val app = Handler.identity[Int] @@ mid.when((_: Any) => false)
-            assertZIO(app.toZIO(1))(equalTo(1))
+            assertZIO(app.runZIO(1))(equalTo(1))
           }
       },
       suite("whenZIO") {
@@ -52,28 +52,28 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
         )
         test("condition is true") {
           val app = Handler.identity[Int] @@ mid.whenZIO((_: Any) => ZIO.succeed(true))
-          assertZIO(app.toZIO(10))(equalTo(12))
+          assertZIO(app.runZIO(10))(equalTo(12))
         } +
           test("condition is false") {
             val app = Handler.identity[Int] @@ mid.whenZIO((_: Any) => ZIO.succeed(false))
-            assertZIO(app.toZIO(1))(equalTo(1))
+            assertZIO(app.runZIO(1))(equalTo(1))
           }
       },
       suite("codec")(
         test("codec success") {
           val mid = Middleware.codec[String, Int](a => Right(a.toInt), b => Right(b.toString))
           val app = Handler.identity[Int] @@ mid
-          assertZIO(app.toZIO("1"))(equalTo("1"))
+          assertZIO(app.runZIO("1"))(equalTo("1"))
         },
         test("decoder failure") {
           val mid = Middleware.codec[String, Int](a => Left(a), b => Right(b.toString))
           val app = Handler.identity[Int] @@ mid
-          assertZIO(app.toZIO("a").exit)(fails(anything))
+          assertZIO(app.runZIO("a").exit)(fails(anything))
         },
         test("encoder failure") {
           val mid = Middleware.codec[String, Int](a => Right(a.toInt), b => Left(b.toString))
           val app = Handler.identity[Int] @@ mid
-          assertZIO(app.toZIO("1").exit)(fails(anything))
+          assertZIO(app.runZIO("1").exit)(fails(anything))
         },
       ),
       suite("codecHttp")(
@@ -82,17 +82,17 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
           val b   = Handler.fromFunction[String] { v => v.toInt }
           val mid = Middleware.codecHttp[String, Int](b, a)
           val app = Handler.identity[Int] @@ mid
-          assertZIO(app.toZIO("2"))(equalTo("2"))
+          assertZIO(app.runZIO("2"))(equalTo("2"))
         },
         test("encoder failure") {
           val mid = Middleware.codecHttp[String, Int](Handler.succeed(1), Handler.fail("fail"))
           val app = Handler.identity[Int] @@ mid
-          assertZIO(app.toZIO("2").exit)(fails(anything))
+          assertZIO(app.runZIO("2").exit)(fails(anything))
         },
         test("decoder failure") {
           val mid = Middleware.codecHttp[String, Int](Handler.fail("fail"), Handler.succeed(2))
           val app = Handler.identity[Int] @@ mid
-          assertZIO(app.toZIO("2").exit)(fails(anything))
+          assertZIO(app.runZIO("2").exit)(fails(anything))
         },
       ),
     )

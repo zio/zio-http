@@ -98,7 +98,7 @@ final case class TestClient(behavior: Ref[HttpRoute[Any, Throwable]], serverSock
         version = version,
         remoteAddress = None,
       )
-      response <- currentBehavior.toZIO(request).catchAll {
+      response <- currentBehavior.runZIO(request).catchAll {
         case Some(value) => ZIO.succeed(Response(status = Status.BadRequest, body = Body.fromString(value.toString)))
         case None        => ZIO.succeed(Response.status(Status.NotFound))
       }

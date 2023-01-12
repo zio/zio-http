@@ -31,7 +31,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       addZioUserAgentHeader: Boolean = false,
     ): ZIO[R, Throwable, A] =
       app
-        .toZIO(
+        .runZIO(
           Request(
             body,
             headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),

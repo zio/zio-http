@@ -17,9 +17,9 @@ private[zio] trait HttpRouteMiddlewares extends Cors {
       )(implicit trace: Trace): Route[R1, Err1, Request, Response] =
         Route.fromHandlerHExit[Request] { request =>
           if (request.url.queryParams.isEmpty)
-            route.toOptionalHandler(request.dropTrailingSlash)
+            route.runOptionalHandler(request.dropTrailingSlash)
           else
-            route.toOptionalHandler(request)
+            route.runOptionalHandler(request)
         }
     }
 }

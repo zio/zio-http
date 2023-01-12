@@ -129,6 +129,31 @@ sealed trait Route[-R, +Err, -In, +Out] { self =>
         .provideSomeLayer(layer)
     }
 
+  def runOptionalHandler(in: In): HExit[R, Err, OptionalHandler[R, Err, In, Out]] =
+    run(in)
+
+  final def runHandler(in: In): HExit[R, Err, Option[Handler[R, Err, In, Out]]] =
+    self.run(in).map {
+      case Unhandled                         => None
+      case handler: Handler[R, Err, In, Out] => Some(handler)
+    }
+
+  final def runHExitOrNull(in: In)(implicit unsafe: Unsafe): HExit[R, Err, Out] = { // NOTE: Out can be null
+    self.runOptionalHandler(in).flatMap {
+      case Unhandled                         => HExit.succeed(null).asInstanceOf[HExit[R, Err, Out]]
+      case handler: Handler[R, Err, In, Out] => handler(in)
+    }
+  }
+
+  final def runZIO(in: In)(implicit trace: Trace): ZIO[R, Option[Err], Out] =
+    runHExitOrNull(in)(Unsafe.unsafe)
+      .mapError(Some(_))
+      .flatMap { out =>
+        if (out != null) HExit.succeed(out)
+        else HExit.fail(None)
+      }
+      .toZIO
+
   final def tapAllZIO[R1 <: R, Err1 >: Err](
     onFailure: Cause[Err] => ZIO[R1, Err1, Any],
     onSuccess: Out => ZIO[R1, Err1, Any],
@@ -173,42 +198,17 @@ sealed trait Route[-R, +Err, -In, +Out] { self =>
       }
       .flatten
 
-  def toOptionalHandler(in: In): HExit[R, Err, OptionalHandler[R, Err, In, Out]] =
-    run(in)
-
-  final def toHandler(in: In): HExit[R, Err, Option[Handler[R, Err, In, Out]]] =
-    self.run(in).map {
-      case Unhandled                         => None
-      case handler: Handler[R, Err, In, Out] => Some(handler)
-    }
-
-  final def toHExitOrNull(in: In)(implicit unsafe: Unsafe): HExit[R, Err, Out] = { // NOTE: Out can be null
-    self.toOptionalHandler(in).flatMap {
-      case Unhandled                         => HExit.succeed(null).asInstanceOf[HExit[R, Err, Out]]
-      case handler: Handler[R, Err, In, Out] => handler(in)
-    }
-  }
-
   final def toSocketApp(implicit
     ev1: WebSocketChannelEvent <:< In,
     ev2: Err <:< Throwable,
     trace: Trace,
   ): SocketApp[R] =
     SocketApp(event =>
-      self.toZIO(event).catchAll {
+      self.runZIO(event).catchAll {
         case Some(value) => ZIO.fail(value)
         case None        => ZIO.unit
       },
     )
-
-  final def toZIO(in: In)(implicit trace: Trace): ZIO[R, Option[Err], Out] =
-    toHExitOrNull(in)(Unsafe.unsafe)
-      .mapError(Some(_))
-      .flatMap { out =>
-        if (out != null) HExit.succeed(out)
-        else HExit.fail(None)
-      }
-      .toZIO
 
   final def withMiddleware[R1 <: R, In1 <: In, In2, Out2](
     middleware: api.Middleware[R1, In2, Out2],

@@ -30,7 +30,7 @@ private[zio] trait RequestHandlerMiddlewares
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionZIO { request =>
-          handler.toZIO(request).timed.flatMap { case (duration, response) =>
+          handler.runZIO(request).timed.flatMap { case (duration, response) =>
             Console
               .printLine(s"${response.status.code} ${request.method} ${request.url.encode} ${duration.toMillis}ms")
               .as(response)
@@ -182,7 +182,7 @@ private[zio] trait RequestHandlerMiddlewares
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionZIO[Request] { request =>
-          handler.toZIO(request).timeoutTo(Response.status(Status.RequestTimeout))(identity)(duration)
+          handler.runZIO(request).timeoutTo(Response.status(Status.RequestTimeout))(identity)(duration)
         }
     }
 
@@ -282,7 +282,7 @@ object RequestHandlerMiddlewares extends RequestHandlerMiddlewares {
           Handler.fromFunctionZIO { (request: Request) =>
             for {
               s        <- fromRequest(request)
-              response <- handler.toZIO(request)
+              response <- handler.runZIO(request)
               patch    <- result(response, s)
             } yield patch(response)
           }

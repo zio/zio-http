@@ -101,7 +101,7 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
       test("should die if the functions throws an exception") {
         val t      = new Throwable("boom")
         val a      = Handler.fromFunctionHExit[Int] { _ => throw t }
-        val actual = a.toZIO(0)
+        val actual = a.runZIO(0)
         assertZIO(actual.exit)(dies(equalTo(t)))
       },
     ),
@@ -169,19 +169,19 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
     suite("race")(
       test("left wins") {
         val http = Handler.succeed(1) race Handler.succeed(2)
-        assertZIO(http.toZIO(()))(equalTo(1))
+        assertZIO(http.runZIO(()))(equalTo(1))
       },
       test("sync right wins") {
         val http = Handler.fromZIO(ZIO.succeed(1)) race Handler.succeed(2)
-        assertZIO(http.toZIO(()))(equalTo(2))
+        assertZIO(http.runZIO(()))(equalTo(2))
       },
       test("sync left wins") {
         val http = Handler.succeed(1) race Handler.fromZIO(ZIO.succeed(2))
-        assertZIO(http.toZIO(()))(equalTo(1))
+        assertZIO(http.runZIO(()))(equalTo(1))
       },
       test("async fast wins") {
         val http    = Handler.succeed(1).delay(1 second) race Handler.succeed(2).delay(2 second)
-        val program = http.toZIO(()) <& TestClock.adjust(5 second)
+        val program = http.runZIO(()) <& TestClock.adjust(5 second)
         assertZIO(program)(equalTo(1))
       },
     ),

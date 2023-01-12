@@ -13,7 +13,7 @@ object AccessControlAllowCredentialsSpec extends ZIOSpecDefault {
           response <- api.Middleware
             .withAccessControlAllowCredentials(true)
             .apply(Handler.succeed(response).toRoute)
-            .toZIO(Request.get(URL.empty))
+            .runZIO(Request.get(URL.empty))
         } yield assertTrue(response.headers.accessControlAllowCredentials.equals(Some(true)))
       },
     )

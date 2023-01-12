@@ -24,19 +24,19 @@ class HttpCollectEval {
 
   @Benchmark
   def benchmarkApp(): Unit = {
-    (0 to MAX).foreach(_ => app.toHExitOrNull(0)(Unsafe.unsafe))
+    (0 to MAX).foreach(_ => app.runHExitOrNull(0)(Unsafe.unsafe))
     ()
   }
 
   @Benchmark
   def benchmarkHttp(): Unit = {
-    (0 to MAX).foreach(_ => http.toHExitOrNull(Request.get(url = URL(!! / "text")))(Unsafe.unsafe))
+    (0 to MAX).foreach(_ => http.runHExitOrNull(Request.get(url = URL(!! / "text")))(Unsafe.unsafe))
     ()
   }
 
   @Benchmark
   def benchmarkHttpTotal(): Unit = {
-    (0 to MAX).foreach(_ => httpTotal.toRoute.toHExitOrNull(Request.get(url = URL(!! / "text")))(Unsafe.unsafe))
+    (0 to MAX).foreach(_ => httpTotal.toRoute.runHExitOrNull(Request.get(url = URL(!! / "text")))(Unsafe.unsafe))
     ()
   }
 

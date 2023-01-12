@@ -214,7 +214,7 @@ object APISpec extends ZIOSpecDefault {
   ): ZIO[R, E, TestResult] = {
     val request = Request.get(url = URL.fromString(url).toOption.get)
     for {
-      response <- service.toHttpRoute.toZIO(request).mapError(_.get)
+      response <- service.toHttpRoute.runZIO(request).mapError(_.get)
       body     <- response.body.asString.orDie
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }

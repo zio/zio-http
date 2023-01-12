@@ -95,16 +95,6 @@ sealed trait Handler[-R, +Err, -In, +Out] extends OptionalHandler[R, Err, In, Ou
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out] =
     that.andThen(self)
 
-  final def toSocketApp(implicit
-    ev1: WebSocketChannelEvent <:< In,
-    ev2: Err <:< Throwable,
-    trace: Trace,
-  ): SocketApp[R] =
-    SocketApp(event => self.toZIO(event).mapError(ev2))
-
-  final def toZIO(in: In)(implicit trace: Trace): ZIO[R, Err, Out] =
-    self(in).toZIO
-
   final def contramap[In1](f: In1 => In)(implicit trace: Trace): Handler[R, Err, In1, Out] =
     new Handler[R, Err, In1, Out] {
       override def apply(in: In1): HExit[R, Err, Out] =
@@ -313,6 +303,12 @@ sealed trait Handler[-R, +Err, -In, +Out] extends OptionalHandler[R, Err, In, Ou
       Handler.succeed,
     )
 
+  final def runHExit(in: In)(implicit trace: Trace): HExit[R, Err, Out] =
+    self(in)
+
+  final def runZIO(in: In)(implicit trace: Trace): ZIO[R, Err, Out] =
+    self(in).toZIO
+
   final def tapAllZIO[R1 <: R, Err1 >: Err](
     onFailure: Cause[Err] => ZIO[R1, Err1, Any],
     onSuccess: Out => ZIO[R1, Err1, Any],
@@ -343,6 +339,13 @@ sealed trait Handler[-R, +Err, -In, +Out] extends OptionalHandler[R, Err, In, Ou
 
   final def toRoute(implicit trace: Trace): Route[R, Err, In, Out] =
     Route.fromHandler(self)
+
+  final def toSocketApp(implicit
+    ev1: WebSocketChannelEvent <:< In,
+    ev2: Err <:< Throwable,
+    trace: Trace,
+  ): SocketApp[R] =
+    SocketApp(event => self.runZIO(event).mapError(ev2))
 
   final def unrefine[Err1 >: Err](pf: PartialFunction[Throwable, Err1]): Handler[R, Err1, In, Out] =
     unrefineWith(pf)(err => err)

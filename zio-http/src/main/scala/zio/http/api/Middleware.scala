@@ -50,7 +50,7 @@ sealed trait Middleware[-R, I, O] { self =>
         response <- control match {
           case Middleware.Control.Continue(state)     =>
             for {
-              response1 <- httpRoute.toZIO(request)
+              response1 <- httpRoute.runZIO(request)
               mo        <- outgoing(state, response1)
               patch = spec.middlewareOut.encodeResponsePatch(mo)
             } yield response1.patch(patch)

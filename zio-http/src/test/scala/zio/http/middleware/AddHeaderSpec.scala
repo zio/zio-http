@@ -27,13 +27,13 @@ object AddHeaderSpec extends ZIOSpecDefault with HttpAppTestExtensions with Head
     test("Specified header is added to response") {
 
       for {
-        response <- appAddingAcceptHeader.toZIO(req)
+        response <- appAddingAcceptHeader.runZIO(req)
       } yield assert(response.headersAsList)(contains(acceptHeader))
     },
     test("Specified header is added to response with other headers in place") {
 
       for {
-        response <- appAddingHeader.toZIO(req)
+        response <- appAddingHeader.runZIO(req)
       } yield assert(response.headersAsList)(
         hasSubset(acceptHeader ++ connectionHeader ++ age("12")),
       )
@@ -41,7 +41,7 @@ object AddHeaderSpec extends ZIOSpecDefault with HttpAppTestExtensions with Head
     test("Specified list of headers is added to response") {
 
       for {
-        response <- appAddingHeadersList.toZIO(req)
+        response <- appAddingHeadersList.runZIO(req)
       } yield assert(response.headersAsList)(hasSubset(acceptHeader ++ connectionHeader))
     },
   )

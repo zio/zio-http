@@ -75,7 +75,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
           for {
             start           <- Clock.nanoTime
             _               <- concurrentRequests.tagged(requestLabels).increment
-            optionalHandler <- route.toHandler(req).toZIO.mapError(Some(_))
+            optionalHandler <- route.runHandler(req).toZIO.mapError(Some(_))
             handler         <-
               optionalHandler match {
                 case Some(handler) =>
