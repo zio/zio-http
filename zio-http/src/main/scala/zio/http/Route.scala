@@ -10,7 +10,7 @@ import java.io.{File, FileNotFoundException}
 import java.nio.file.Paths
 import java.util.zip.ZipFile
 
-trait Route[-R, +Err, -In, +Out] { self =>
+sealed trait Route[-R, +Err, -In, +Out] { self =>
   protected def run(in: In): HExit[R, Err, OptionalHandler[R, Err, In, Out]]
 
   final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
@@ -255,7 +255,10 @@ object Route {
   def collectZIO[In]: CollectZIO[In] = new CollectZIO[In](())
 
   def empty: Route[Any, Nothing, Any, Nothing] =
-    (_: Any) => HExit.succeed(Unhandled)
+    new Route[Any, Nothing, Any, Nothing] {
+      override protected def run(in: Any): HExit[Any, Nothing, OptionalHandler[Any, Nothing, Any, Nothing]] =
+        HExit.succeed(Unhandled)
+    }
 
   def fromFile(file: => File)(implicit trace: Trace): Route[Any, Throwable, Any, Response] =
     fromFileZIO(ZIO.succeed(file))
@@ -285,9 +288,11 @@ object Route {
     }
 
   def fromHandler[R, Err, In, Out](handler: Handler[R, Err, In, Out])(implicit trace: Trace): Route[R, Err, In, Out] =
-    (_: In) => HExit.succeed(handler)
+    new Route[R, Err, In, Out] {
+      override protected def run(in: In): HExit[R, Err, OptionalHandler[R, Err, In, Out]] =
+        HExit.succeed(handler)
+    }
 
-  // TODO: unsafe api
   private[zio] def fromHandlerHExit[In] = new FromHandlerHExit[In](())
 
   def fromHandlerZIO[In]: FromHandlerZIO[In] = new FromHandlerZIO[In](())
@@ -330,7 +335,10 @@ object Route {
     def apply[R, Err, Out](pf: PartialFunction[In, Handler[R, Err, In, Out]])(implicit
       trace: Trace,
     ): Route[R, Err, In, Out] =
-      (in: In) => HExit.succeed(pf.applyOrElse(in, (_: In) => Unhandled))
+      new Route[R, Err, In, Out] {
+        override protected def run(in: In): HExit[R, Err, OptionalHandler[R, Err, In, Out]] =
+          HExit.succeed(pf.applyOrElse(in, (_: In) => Unhandled))
+      }
   }
 
   final class CollectHExit[In](val self: Unit) extends AnyVal {
@@ -344,11 +352,13 @@ object Route {
     def apply[R, Err, Out](pf: PartialFunction[In, Route[R, Err, In, Out]])(implicit
       trace: Trace,
     ): Route[R, Err, In, Out] =
-      (in: In) =>
-        pf.applyOrElse(in, (_: In) => null) match {
-          case null  => HExit.succeed(Unhandled)
-          case route => route.run(in)
-        }
+      new Route[R, Err, In, Out] {
+        override protected def run(in: In): HExit[R, Err, OptionalHandler[R, Err, In, Out]] =
+          pf.applyOrElse(in, (_: In) => null) match {
+            case null  => HExit.succeed(Unhandled)
+            case route => route.run(in)
+          }
+      }
   }
 
   final class CollectZIO[In](val self: Unit) extends AnyVal {
@@ -362,35 +372,41 @@ object Route {
     def apply[R, Err, Out](f: In => HExit[R, Err, OptionalHandler[R, Err, In, Out]])(implicit
       trace: Trace,
     ): Route[R, Err, In, Out] =
-      (in: In) =>
-        try {
-          f(in)
-        } catch {
-          case error: Throwable => HExit.die(error)
-        }
+      new Route[R, Err, In, Out] {
+        override protected def run(in: In): HExit[R, Err, OptionalHandler[R, Err, In, Out]] =
+          try {
+            f(in)
+          } catch {
+            case error: Throwable => HExit.die(error)
+          }
+      }
   }
 
   final class FromHandlerZIO[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => ZIO[R, Option[Err], Handler[R, Err, In, Out]])(implicit
       trace: Trace,
     ): Route[R, Err, In, Out] =
-      (in: In) =>
-        HExit.fromZIO(f(in).catchAll {
-          case None    => ZIO.succeed(Unhandled)
-          case Some(e) => ZIO.fail(e)
-        })
+      new Route[R, Err, In, Out] {
+        override protected def run(in: In): HExit[R, Err, OptionalHandler[R, Err, In, Out]] =
+          HExit.fromZIO(f(in).catchAll {
+            case None    => ZIO.succeed(Unhandled)
+            case Some(e) => ZIO.fail(e)
+          })
+      }
   }
 
   final class FromRouteZIO[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => ZIO[R, Err, Route[R, Err, In, Out]])(implicit
       trace: Trace,
     ): Route[R, Err, In, Out] =
-      (in: In) =>
-        HExit.fromZIO {
-          f(in).flatMap { route =>
-            route.run(in).toZIO
+      new Route[R, Err, In, Out] {
+        override protected def run(in: In): HExit[R, Err, OptionalHandler[R, Err, In, Out]] =
+          HExit.fromZIO {
+            f(in).flatMap { route =>
+              route.run(in).toZIO
+            }
           }
-        }
+      }
   }
 
   implicit class HttpRouteSyntax[R, Err](val self: HttpRoute[R, Err]) extends AnyVal {
