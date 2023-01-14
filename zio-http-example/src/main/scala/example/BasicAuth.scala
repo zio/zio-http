@@ -8,7 +8,7 @@ import zio.http.model.Method
 object BasicAuth extends ZIOAppDefault {
 
   // Http app that requires a JWT claim
-  val user: HttpRoute[Any, Nothing] = Route.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
+  val user: HttpRoute[Any, Nothing] = Http.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
     Response.text(s"Welcome to the ZIO party! ${name}")
   }
 

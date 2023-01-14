@@ -16,7 +16,7 @@ import zio.{Scope, ZIO}
  */
 abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
 
-  implicit class RunnableClientHttpSyntax[R, A](app: Route[R, Throwable, Request, A]) {
+  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Request, A]) {
 
     /**
      * Runs the deployed Http app by making a real http request to it. The
@@ -59,8 +59,8 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy: Route[R with Client with DynamicServer with Scope, Throwable, Request, Response] =
-      Route.fromHandler {
+    def deploy: Http[R with Client with DynamicServer with Scope, Throwable, Request, Response] =
+      Http.fromHandler {
         for {
           port     <- Handler.fromZIO(DynamicServer.port)
           id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
@@ -74,8 +74,8 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         } yield response
       }
 
-    def deployChunked: Route[R with Client with DynamicServer, Throwable, Request, Response] =
-      Route.fromHandler {
+    def deployChunked: Http[R with Client with DynamicServer, Throwable, Request, Response] =
+      Http.fromHandler {
         for {
           port     <- Handler.fromZIO(DynamicServer.port)
           id       <- Handler.fromZIO(DynamicServer.deploy(app))
@@ -89,9 +89,8 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         } yield response
       }
 
-    def deployWS
-      : Route[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =
-      Route.fromHandler {
+    def deployWS: Http[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =
+      Http.fromHandler {
         for {
           id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
           url      <- Handler.fromZIO(DynamicServer.wsURL)

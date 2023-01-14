@@ -12,14 +12,14 @@ import java.io.File
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val fileOk       = Route.fromResource("TestFile.txt").deploy
-  private val fileNotFound = Route.fromResource("Nothing").deploy
+  private val fileOk       = Http.fromResource("TestFile.txt").deploy
+  private val fileNotFound = Http.fromResource("Nothing").deploy
 
   private val testArchivePath  = getClass.getResource("/TestArchive.jar").getPath
   private val resourceOk       =
-    Route.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).deploy
+    Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).deploy
   private val resourceNotFound =
-    Route.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt")).deploy
+    Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt")).deploy
 
   override def spec = suite("StaticFileServer") {
     ZIO.scoped(serve(DynamicServer.app).as(List(staticSpec)))
@@ -54,7 +54,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
     suite("fromFile")(
       suite("failure on construction")(
         test("should respond with 500") {
-          val res = Route.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
+          val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),
@@ -64,7 +64,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
             override def length: Long    = throw new Error("Haha")
             override def isFile: Boolean = true
           }
-          val res = Route.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
+          val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),

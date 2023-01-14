@@ -11,7 +11,7 @@ import zio.test._
 object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   override def spec = suite("MetricsSpec")(
     test("http_requests_total & http_errors_total") {
-      val app = Route
+      val app = Http
         .collectHandler[Request] {
           case Method.GET -> !! / "ok"     => Handler.ok
           case Method.GET -> !! / "error"  => Handler.error(HttpError.InternalServerError())
@@ -85,7 +85,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
 
       for {
         promise <- Promise.make[Nothing, Unit]
-        app = Route
+        app = Http
           .collectHandler[Request] { case _ =>
             Handler.fromZIO(promise.succeed(())) *> Handler.ok.delay(10.seconds)
           } @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))

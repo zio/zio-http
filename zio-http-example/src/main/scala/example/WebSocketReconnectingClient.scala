@@ -3,15 +3,15 @@ package example
 import zio._
 import zio.http.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
-import zio.http.{ChannelEvent, Client, Route}
+import zio.http.{ChannelEvent, Client, Http}
 
 object WebSocketReconnectingClient extends ZIOAppDefault {
 
   val url = "ws://ws.vi-server.org/mirror"
 
   // A promise is used to be able to notify application about websocket errors
-  def makeHttpSocket(p: Promise[Nothing, Throwable]): Route[Any, Throwable, WebSocketChannelEvent, Unit] =
-    Route
+  def makeHttpSocket(p: Promise[Nothing, Throwable]): Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Http
 
       // Listen for all websocket channel events
       .collectZIO[WebSocketChannelEvent] {

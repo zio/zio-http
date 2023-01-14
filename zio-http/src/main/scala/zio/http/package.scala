@@ -10,7 +10,7 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
   type RequestHandlerMiddleware[-R, +Err] = HandlerAspect[R, Err, Request, Response, Request, Response]
   type AppHandlerMiddleware[-R]           = RequestHandlerMiddleware[R, Response]
 
-  type HttpRoute[-R, +Err] = Route[R, Err, Request, Response]
+  type HttpRoute[-R, +Err] = Http[R, Err, Request, Response]
   type App[-R]             = HttpRoute[R, Response]
 
   type HttpRouteMiddleware[-R, +Err] = RouteAspect[R, Err, Request, Response, Request, Response]

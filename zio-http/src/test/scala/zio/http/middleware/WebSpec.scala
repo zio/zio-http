@@ -9,7 +9,7 @@ import zio.test.Assertion._
 import zio.test._
 
 object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
-  private val app  = Route.collectZIO[Request] { case Method.GET -> !! / "health" =>
+  private val app  = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
     ZIO.succeed(Response.ok).delay(1 second)
   }
   private val midA = Middleware.addHeader("X-Custom", "A")
@@ -45,7 +45,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
       },
       test("log 404 status method url and time") {
-        val program = runApp(Route.empty ++ (Handler.notFound @@ debug).toRoute) *> TestConsole.output
+        val program = runApp(Http.empty ++ (Handler.notFound @@ debug).toRoute) *> TestConsole.output
         assertZIO(program)(equalTo(Vector("404 GET /health 0ms\n")))
       },
     ),
@@ -212,7 +212,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
           ),
         )
         checkAll(urls) { case (url, expected) =>
-          val app = Route
+          val app = Http
             .collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash
           for {
             url      <- ZIO.fromEither(URL.fromString(url))

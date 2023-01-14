@@ -26,7 +26,7 @@ object DynamicServer {
   val APP_ID = "X-APP_ID"
 
   def app: App[DynamicServer] =
-    Route.fromRouteZIO { (req: Request) =>
+    Http.fromRouteZIO { (req: Request) =>
       req.headerValue(APP_ID) match {
         case Some(id) =>
           get(id).map(_.getOrElse(Handler.notFound.toRoute))

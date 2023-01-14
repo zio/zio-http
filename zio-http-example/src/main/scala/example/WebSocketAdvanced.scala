@@ -7,12 +7,12 @@ import zio.http.model.Method
 import zio.http.socket._
 
 object WebSocketAdvanced extends ZIOAppDefault {
-  val messageFilter: Route[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
-    Route.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
+  val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
+    Http.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
       (channel, message)
     }
 
-  val messageSocket: Route[Any, Throwable, WebSocketChannelEvent, Unit] =
+  val messageSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
     messageFilter >>> Handler.fromFunctionZIO[(WebSocketChannel, String)] {
       case (ch, "end") => ch.close()
 
@@ -29,8 +29,8 @@ object WebSocketAdvanced extends ZIOAppDefault {
         ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
     }
 
-  val channelSocket: Route[Any, Throwable, WebSocketChannelEvent, Unit] =
-    Route.collectZIO[WebSocketChannelEvent] {
+  val channelSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Http.collectZIO[WebSocketChannelEvent] {
 
       // Send a "greeting" message to the server once the connection is established
       case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete))  =>
@@ -45,7 +45,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
         Console.printLine(s"Channel error!: ${cause.getMessage}")
     }
 
-  val httpSocket: Route[Any, Throwable, WebSocketChannelEvent, Unit] =
+  val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
     messageSocket ++ channelSocket
 
   val protocol = SocketProtocol.default.withSubProtocol(Some("json")) // Setup protocol settings
@@ -57,8 +57,8 @@ object WebSocketAdvanced extends ZIOAppDefault {
       .withDecoder(decoder)   // Setup websocket decoder config
       .withProtocol(protocol) // Setup websocket protocol config
 
-  val app: Route[Any, Nothing, Request, Response] =
-    Route.collectZIO[Request] {
+  val app: Http[Any, Nothing, Request, Response] =
+    Http.collectZIO[Request] {
       case Method.GET -> !! / "greet" / name  => ZIO.succeed(Response.text(s"Greetings ${name}!"))
       case Method.GET -> !! / "subscriptions" => socketApp.toResponse
     }

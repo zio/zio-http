@@ -6,7 +6,7 @@ import zio.http.model.Method
 object RequestStreaming extends ZIOAppDefault {
 
   // Create HTTP route which echos back the request body
-  val app = Route.collect[Request] { case req @ Method.POST -> !! / "echo" =>
+  val app = Http.collect[Request] { case req @ Method.POST -> !! / "echo" =>
     // Returns a stream of bytes from the request
     // The stream supports back-pressure
     val stream = req.body.asStream

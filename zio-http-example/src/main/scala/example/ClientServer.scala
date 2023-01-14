@@ -6,7 +6,7 @@ import zio.{Scope, ZIO, ZIOAppDefault}
 
 object ClientServer extends ZIOAppDefault {
 
-  val app = Route.collectZIO[Request] {
+  val app = Http.collectZIO[Request] {
     case Method.GET -> !! / "hello" =>
       ZIO.succeed(Response.text("hello"))
 

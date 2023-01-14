@@ -4,76 +4,76 @@ import zio.test.Assertion.{dies, equalTo, isLeft, isNone}
 import zio.test.{Spec, ZIOSpecDefault, assert, assertZIO}
 import zio.{Unsafe, ZIO}
 
-object RouteSpec extends ZIOSpecDefault with HExitAssertion {
+object HttpSpec extends ZIOSpecDefault with HExitAssertion {
   implicit val allowUnsafe: Unsafe = Unsafe.unsafe
 
   def spec: Spec[Any, Nothing] =
     suite("Route")(
       suite("collectHExit")(
         test("should succeed") {
-          val a      = Route.collectHExit[Int] { case 1 => HExit.succeed("OK") }
+          val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
           val actual = a.runHExitOrNull(1)
           assert(actual)(isSuccess(equalTo("OK")))
         },
         test("should fail") {
-          val a      = Route.collectHExit[Int] { case 1 => HExit.fail("OK") }
+          val a      = Http.collectHExit[Int] { case 1 => HExit.fail("OK") }
           val actual = a.runHExitOrNull(1)
           assert(actual)(isFailure(equalTo("OK")))
         },
         test("should die") {
           val t      = new Throwable("boom")
-          val a      = Route.collectHExit[Int] { case 1 => HExit.die(t) }
+          val a      = Http.collectHExit[Int] { case 1 => HExit.die(t) }
           val actual = a.runHExitOrNull(1)
           assert(actual)(isDie(equalTo(t)))
         },
         test("should give empty if the inout is not defined") {
-          val a      = Route.collectHExit[Int] { case 1 => HExit.succeed("OK") }
+          val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
           val actual = a.runHExitOrNull(0)
           assert(actual)(isSuccess(equalTo(null)))
         },
       ),
       suite("combine")(
         test("should resolve first") {
-          val a      = Route.collect[Int] { case 1 => "A" }
-          val b      = Route.collect[Int] { case 2 => "B" }
+          val a      = Http.collect[Int] { case 1 => "A" }
+          val b      = Http.collect[Int] { case 2 => "B" }
           val actual = (a ++ b).runHExitOrNull(1)
           assert(actual)(isSuccess(equalTo("A")))
         },
         test("should resolve second") {
-          val a      = Route.empty
+          val a      = Http.empty
           val b      = Handler.succeed("A").toRoute
           val actual = (a ++ b).runHExitOrNull(())
           assert(actual)(isSuccess(equalTo("A")))
         },
         test("should resolve second") {
-          val a      = Route.collect[Int] { case 1 => "A" }
-          val b      = Route.collect[Int] { case 2 => "B" }
+          val a      = Http.collect[Int] { case 1 => "A" }
+          val b      = Http.collect[Int] { case 2 => "B" }
           val actual = (a ++ b).runHExitOrNull(2)
           assert(actual)(isSuccess(equalTo("B")))
         },
         test("should not resolve") {
-          val a      = Route.collect[Int] { case 1 => "A" }
-          val b      = Route.collect[Int] { case 2 => "B" }
+          val a      = Http.collect[Int] { case 1 => "A" }
+          val b      = Http.collect[Int] { case 2 => "B" }
           val actual = (a ++ b).runHExitOrNull(3)
           assert(actual)(isSuccess(equalTo(null)))
         },
         test("should not resolve") {
-          val a      = Route.empty
-          val b      = Route.empty
-          val c      = Route.empty
+          val a      = Http.empty
+          val b      = Http.empty
+          val c      = Http.empty
           val actual = (a ++ b ++ c).runHExitOrNull(())
           assert(actual)(isSuccess(equalTo(null)))
         },
         test("should fail with second") {
-          val a      = Route.empty
+          val a      = Http.empty
           val b      = Handler.fail(100).toRoute
           val c      = Handler.succeed("A").toRoute
           val actual = (a ++ b ++ c).runHExitOrNull(())
           assert(actual)(isFailure(equalTo(100)))
         },
         test("should resolve third") {
-          val a      = Route.empty
-          val b      = Route.empty
+          val a      = Http.empty
+          val b      = Http.empty
           val c      = Handler.succeed("C").toRoute
           val actual = (a ++ b ++ c).runHExitOrNull(())
           assert(actual)(isSuccess(equalTo("C")))
@@ -81,41 +81,41 @@ object RouteSpec extends ZIOSpecDefault with HExitAssertion {
       ),
       suite("asEffect")(
         test("should resolve") {
-          val a      = Route.collect[Int] { case 1 => "A" }
+          val a      = Http.collect[Int] { case 1 => "A" }
           val actual = a.runHExitOrNull(1).toZIO
           assertZIO(actual)(equalTo("A"))
         },
         test("should complete") {
-          val a      = Route.collect[Int] { case 1 => "A" }
+          val a      = Http.collect[Int] { case 1 => "A" }
           val actual = a.runZIO(2).either
           assertZIO(actual)(isLeft(isNone))
         },
       ),
       suite("collect")(
         test("should succeed") {
-          val a      = Route.collect[Int] { case 1 => "OK" }
+          val a      = Http.collect[Int] { case 1 => "OK" }
           val actual = a.runHExitOrNull(1)
           assert(actual)(isSuccess(equalTo("OK")))
         },
         test("should fail") {
-          val a      = Route.collect[Int] { case 1 => "OK" }
+          val a      = Http.collect[Int] { case 1 => "OK" }
           val actual = a.runHExitOrNull(0)
           assert(actual)(isSuccess(equalTo(null)))
         },
       ),
       suite("collectZIO")(
         test("should be empty") {
-          val a      = Route.collectZIO[Int] { case 1 => ZIO.succeed("A") }
+          val a      = Http.collectZIO[Int] { case 1 => ZIO.succeed("A") }
           val actual = a.runHExitOrNull(2)
           assert(actual)(isSuccess(equalTo(null)))
         },
         test("should resolve") {
-          val a      = Route.collectZIO[Int] { case 1 => ZIO.succeed("A") }
+          val a      = Http.collectZIO[Int] { case 1 => ZIO.succeed("A") }
           val actual = a.runHExitOrNull(1)
           assert(actual)(isEffect)
         },
         test("should resolve second effect") {
-          val a      = Route.empty
+          val a      = Http.empty
           val b      = Handler.succeed("B").toRoute
           val actual = (a ++ b).runHExitOrNull(2)
           assert(actual)(isSuccess(equalTo("B")))
@@ -123,7 +123,7 @@ object RouteSpec extends ZIOSpecDefault with HExitAssertion {
       ),
       suite("collectHttp")(
         test("should delegate to its HTTP apps") {
-          val app    = Route.collectHandler[Int] {
+          val app    = Http.collectHandler[Int] {
             case 1 => Handler.succeed(1)
             case 2 => Handler.succeed(2)
           }
@@ -131,7 +131,7 @@ object RouteSpec extends ZIOSpecDefault with HExitAssertion {
           assert(actual)(isSuccess(equalTo(2)))
         },
         test("should be empty if no matches") {
-          val app    = Route.collectHandler[Int](Map.empty)
+          val app    = Http.collectHandler[Int](Map.empty)
           val actual = app.runHExitOrNull(1)
           assert(actual)(isSuccess(equalTo(null)))
         },

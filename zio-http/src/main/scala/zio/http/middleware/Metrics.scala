@@ -69,7 +69,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
       override def apply[R1 <: Any, Err1 >: Nothing](
         route: HttpRoute[R1, Err1],
       )(implicit trace: Trace): HttpRoute[R1, Err1] =
-        Route.fromHandlerZIO[Request] { req =>
+        Http.fromHandlerZIO[Request] { req =>
           val requestLabels = labelsForRequest(req)
 
           for {

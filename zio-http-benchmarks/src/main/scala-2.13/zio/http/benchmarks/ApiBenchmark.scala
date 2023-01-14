@@ -99,7 +99,7 @@ class ApiBenchmark {
   val apiHttpApp = handledUsersPosts.toHttpApp
 
   // Collect DSL
-  val collectHttpApp = Route.collectZIO[Request] { //
+  val collectHttpApp = Http.collectZIO[Request] { //
     case req @ Method.GET -> !! / "users" / userId / "posts" / postId =>
       val userIdInt = userId.toInt
       val postIdInt = postId.toInt
@@ -218,7 +218,7 @@ class ApiBenchmark {
 
   // Collect DSL
 
-  val deepPathCollectHttpApp = Route.collectZIO[Request] { //
+  val deepPathCollectHttpApp = Http.collectZIO[Request] { //
     case Method.GET -> !! / "first" / id1 / "second" / id2 / "third" / id3 / "fourth" / id4 / "fifth" / id5 / "sixth" / id6 / "seventh" / id7 =>
       val _ = (id1.toInt, id2.toInt, id3.toInt, id4.toInt, id5.toInt, id6.toInt, id7.toInt)
       ZIO.unit
@@ -424,7 +424,7 @@ class ApiBenchmark {
 
   // Collect DSL
 
-  val broadCollectApp = Route.collectZIO[Request] {
+  val broadCollectApp = Http.collectZIO[Request] {
     case Method.GET -> !! / "users" / userId / "posts" / postId / "comments" / commentId                       =>
       val _ = (userId.toInt, postId.toInt, commentId.toInt)
       ZIO.unit

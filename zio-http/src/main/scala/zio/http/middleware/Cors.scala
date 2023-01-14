@@ -42,10 +42,10 @@ private[zio] trait Cors {
 
     new HttpRouteMiddleware[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
-        route: Route[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Route[R1, Err1, Request, Response] =
-        Route.fromHandlerHExit[Request] { request =>
-          val newRoute = (
+        route: Http[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
+        Http.fromRoute[Request] { request =>
+          (
             request.method,
             request.headers.header(HttpHeaderNames.ORIGIN),
             request.headers.header(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
@@ -65,8 +65,6 @@ private[zio] trait Cors {
             case _                                                         =>
               route
           }
-
-          newRoute.runOptionalHandler(request)
         }
     }
   }

@@ -32,7 +32,7 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
       EndpointServer(handledApi)
     }
 
-    Route
+    Http
       .collectZIO[Request]
       .apply[R, E, Response] { case request =>
         val handler = handlerTree.lookup(request)

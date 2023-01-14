@@ -8,7 +8,7 @@ import zio.http.model.Method
 object StaticServer extends ZIOAppDefault {
 
   // A simple app to serve static resource files from a local directory.
-  val app = Route
+  val app = Http
     .collectHandler[Request] { case Method.GET -> "" /: "static" /: path =>
       for {
         file <- Handler.getResourceAsFile(path.encode)
@@ -37,7 +37,7 @@ object StaticServer extends ZIOAppDefault {
           }
 
           // Return the file if it's a static resource
-          else if (file.isFile) Route.fromFile(file).toHandler(Handler.notFound)
+          else if (file.isFile) Http.fromFile(file).toHandler(Handler.notFound)
 
           // Return a 404 if the file doesn't exist
           else Handler.notFound

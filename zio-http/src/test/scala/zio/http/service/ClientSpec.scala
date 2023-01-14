@@ -29,7 +29,7 @@ object ClientSpec extends HttpRunnableSpec {
       assertZIO(res)(equalTo("ZIO user"))
     },
     test("empty content") {
-      val app             = Route.empty
+      val app             = Http.empty
       val responseContent = app.deploy.body.run().flatMap(_.asString.map(_.length))
       assertZIO(responseContent)(equalTo(0))
     },

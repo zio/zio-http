@@ -30,7 +30,7 @@ object WebSocketSpec extends HttpRunnableSpec {
         }
 
         res <- ZIO.scoped {
-          Route
+          Http
             .collectZIO[WebSocketChannelEvent] {
               case ChannelEvent(ch, UserEventTriggered(HandshakeComplete))   =>
                 ch.writeAndFlush(WebSocketFrame.text("FOO"))
@@ -64,7 +64,7 @@ object WebSocketSpec extends HttpRunnableSpec {
 
         // Setup websocket server
 
-        serverHttp   = Route
+        serverHttp   = Http
           .collectZIO[WebSocketChannelEvent] { case ChannelEvent(_, ChannelUnregistered) =>
             isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
           }
@@ -74,7 +74,7 @@ object WebSocketSpec extends HttpRunnableSpec {
 
         // Setup Client
         // Client closes the connection after 1 second
-        clientSocket = Route
+        clientSocket = Http
           .collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, UserEventTriggered(HandshakeComplete)) =>
             ch.writeAndFlush(WebSocketFrame.close(1000)).delay(1 second).withClock(clock)
           }
@@ -95,7 +95,7 @@ object WebSocketSpec extends HttpRunnableSpec {
     test("Multiple websocket upgrades") {
       val app   = Handler.succeed(WebSocketFrame.text("BAR")).toSocketApp.toRoute.deployWS
       val codes = ZIO
-        .foreach(1 to 1024)(_ => app.runZIO(Route.empty.toSocketApp).map(_.status))
+        .foreach(1 to 1024)(_ => app.runZIO(Http.empty.toSocketApp).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))
 
       assertZIO(codes)(equalTo(1024))

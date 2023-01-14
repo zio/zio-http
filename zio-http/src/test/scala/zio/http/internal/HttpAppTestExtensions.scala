@@ -5,16 +5,16 @@ import zio.http.model._
 
 trait HttpAppTestExtensions {
   implicit class HttpAppSyntax[R, E](route: HttpRoute[R, E]) {
-    def header(name: String): Route[R, E, Request, Option[String]] =
+    def header(name: String): Http[R, E, Request, Option[String]] =
       route.map(res => res.headerValue(name))
 
-    def headerValues: Route[R, E, Request, List[String]] =
+    def headerValues: Http[R, E, Request, List[String]] =
       route.map(res => res.headers.toList.map(_._2.toString))
 
-    def headers: Route[R, E, Request, Headers] =
+    def headers: Http[R, E, Request, Headers] =
       route.map(res => res.headers)
 
-    def status: Route[R, E, Request, Status] =
+    def status: Http[R, E, Request, Status] =
       route.map(res => res.status)
   }
 

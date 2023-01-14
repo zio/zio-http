@@ -70,13 +70,13 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Route.collectHandler[Request] { case Method.GET -> !! / "a" =>
+        val app1 = Http.collectHandler[Request] { case Method.GET -> !! / "a" =>
           Handler.ok
         }
-        val app2 = Route.collectHandler[Request] { case Method.GET -> !! / "b" =>
+        val app2 = Http.collectHandler[Request] { case Method.GET -> !! / "b" =>
           Handler.ok
         }
-        val app3 = Route.collectHandler[Request] { case Method.GET -> !! / "c" =>
+        val app3 = Http.collectHandler[Request] { case Method.GET -> !! / "c" =>
           Handler.ok
         }
         val app  = (app1 ++ app2 @@ bearerAuthM ++ app3).status
@@ -103,13 +103,13 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Route.collectHandler[Request] { case Method.GET -> !! / "a" =>
+        val app1 = Http.collectHandler[Request] { case Method.GET -> !! / "a" =>
           Handler.ok
         }
-        val app2 = Route.collectHandler[Request] { case Method.GET -> !! / "b" =>
+        val app2 = Http.collectHandler[Request] { case Method.GET -> !! / "b" =>
           Handler.ok
         }
-        val app3 = Route.collectHandler[Request] { case Method.GET -> !! / "c" =>
+        val app3 = Http.collectHandler[Request] { case Method.GET -> !! / "c" =>
           Handler.ok
         }
         val app  = (app1 ++ app2 @@ bearerAuthZIOM ++ app3).status

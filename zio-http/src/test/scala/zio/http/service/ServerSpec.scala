@@ -45,7 +45,7 @@ object ServerSpec extends HttpRunnableSpec {
       },
     ),
     suite("not found") {
-      val app = Route.empty
+      val app = Http.empty
       test("status is 404") {
         val res = app.deploy.status.run()
         assertZIO(res)(equalTo(Status.NotFound))
@@ -86,7 +86,7 @@ object ServerSpec extends HttpRunnableSpec {
           }
       } +
       suite("echo content") {
-        val app = Route.collectZIO[Request] { case req =>
+        val app = Http.collectZIO[Request] { case req =>
           req.body.asString.map(text => Response.text(text))
         }
 
@@ -108,7 +108,7 @@ object ServerSpec extends HttpRunnableSpec {
           } +
           test("data") {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
-            val app        = Route.collect[Request] { case req => Response(body = req.body) }
+            val app        = Http.collect[Request] { case req => Response(body = req.body) }
             val res        = app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromStream(dataStream))
             assertZIO(res)(equalTo(MaxSize))
           }
@@ -130,7 +130,7 @@ object ServerSpec extends HttpRunnableSpec {
         val body         = "some-text"
         val bodyAsStream = ZStream.fromChunk(Chunk.fromArray(body.getBytes))
 
-        val app = Route.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
+        val app = Http.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
 
         def roundTrip[R, E <: Throwable](
           app: HttpRoute[R, Throwable],
@@ -186,7 +186,7 @@ object ServerSpec extends HttpRunnableSpec {
   )
 
   def requestSpec = suite("RequestSpec") {
-    val app: HttpRoute[Any, Nothing] = Route.collect[Request] { case req =>
+    val app: HttpRoute[Any, Nothing] = Http.collect[Request] { case req =>
       Response.text(req.contentLength.getOrElse(-1).toString)
     }
     test("has content-length") {
@@ -196,12 +196,12 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       test("POST Request.getBody") {
-        val app = Route.collectZIO[Request] { case req => req.body.asChunk.as(Response.ok) }
+        val app = Http.collectZIO[Request] { case req => req.body.asChunk.as(Response.ok) }
         val res = app.deploy.status.run(path = !!, method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
       } +
       test("body can be read multiple times") {
-        val app = Route.collectZIO[Request] { case req => (req.body.asChunk *> req.body.asChunk).as(Response.ok) }
+        val app = Http.collectZIO[Request] { case req => (req.body.asChunk *> req.body.asChunk).as(Response.ok) }
         val res = app.deploy.status.run(method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
       }
@@ -215,12 +215,12 @@ object ServerSpec extends HttpRunnableSpec {
       }
     },
     test("data from file") {
-      val res = Route.fromResource("TestFile.txt").deploy.body.mapZIO(_.asString).run()
+      val res = Http.fromResource("TestFile.txt").deploy.body.mapZIO(_.asString).run()
       assertZIO(res)(equalTo("foo\nbar"))
     },
     test("content-type header on file response") {
       val res =
-        Route
+        Http
           .fromResource("TestFile2.mp4")
           .deploy
           .headerValue(HeaderNames.contentType)
@@ -246,7 +246,7 @@ object ServerSpec extends HttpRunnableSpec {
       assertZIO(res)(equalTo("abc"))
     },
     test("echo streaming") {
-      val res = Route
+      val res = Http
         .collectHandler[Request] { case req =>
           Handler.fromStream(ZStream.fromZIO(req.body.asChunk).flattenChunks)
         }
@@ -313,7 +313,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   def requestBodySpec = suite("RequestBodySpec")(
     test("POST Request stream") {
-      val app: Route[Any, Throwable, Request, Response] = Route.collect[Request] { case req =>
+      val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
         Response(body = Body.fromStream(req.body.asStream))
       }
       check(Gen.alphaNumericString) { c =>

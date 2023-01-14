@@ -8,16 +8,12 @@ import zio.http.model.headers.HeaderModifierZIO
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
-import java.io.{File, FileNotFoundException}
+import java.io.File
 import java.nio.charset.Charset
-import java.nio.file.Paths
-import java.util.zip.ZipFile
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
-sealed trait OptionalHandler[-R, +Err, -In, +Out]
-
-sealed trait Handler[-R, +Err, -In, +Out] extends OptionalHandler[R, Err, In, Out] { self =>
+sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   final def @@[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out, In2, Out2](
     that: HandlerAspect[R1, Err1, In1, Out1, In2, Out2],
@@ -337,8 +333,8 @@ sealed trait Handler[-R, +Err, -In, +Out] extends OptionalHandler[R, Err, In, Ou
   ): Handler[R1, Err1, In, Out] =
     self.tapAllZIO(_ => ZIO.unit, f)
 
-  final def toRoute(implicit trace: Trace): Route[R, Err, In, Out] =
-    Route.fromHandler(self)
+  final def toRoute(implicit trace: Trace): Http[R, Err, In, Out] =
+    Http.fromHandler(self)
 
   final def toSocketApp(implicit
     ev1: WebSocketChannelEvent <:< In,
@@ -440,7 +436,7 @@ object Handler {
       override def apply(in: Any): HExit[R, Err, Out] = hExit
     }
 
-  def fromRoute[R, Err, In, Out](route: Route[R, Err, In, Out], default: Handler[R, Err, In, Out])(implicit
+  def fromRoute[R, Err, In, Out](route: Http[R, Err, In, Out], default: Handler[R, Err, In, Out])(implicit
     trace: Trace,
   ): Handler[R, Err, In, Out] =
     route.toHandler(default)
@@ -628,5 +624,3 @@ object Handler {
       }
   }
 }
-
-case object Unhandled extends OptionalHandler[Any, Nothing, Any, Nothing]

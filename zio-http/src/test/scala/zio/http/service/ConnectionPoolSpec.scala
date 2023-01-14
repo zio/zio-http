@@ -14,7 +14,7 @@ import zio.test._
 
 object ConnectionPoolSpec extends HttpRunnableSpec {
 
-  private val app = Route.collectZIO[Request] {
+  private val app = Http.collectZIO[Request] {
     case req @ Method.POST -> !! / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
     case req                                   => req.body.asString.map(Response.text(_))
   }

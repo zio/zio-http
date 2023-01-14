@@ -3,14 +3,14 @@ package example
 import zio._
 import zio.http.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
-import zio.http.{ChannelEvent, Client, Handler, Response, Route}
+import zio.http.{ChannelEvent, Client, Handler, Http, Response}
 
 object WebSocketSimpleClient extends ZIOAppDefault {
 
   val url = "ws://ws.vi-server.org/mirror"
 
-  val httpSocket: Route[Any, Throwable, WebSocketChannelEvent, Unit] =
-    Route
+  val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Http
 
       // Listen for all websocket channel events
       .collectZIO[WebSocketChannelEvent] {
