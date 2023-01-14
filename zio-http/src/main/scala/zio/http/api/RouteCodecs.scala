@@ -6,14 +6,14 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait RouteCodecs {
   def literal(string: String): RouteCodec[Unit] =
-    HttpCodec.Route(TextCodec.constant(string))
+    HttpCodec.Route(TextCodec.constant(string), None)
 
-  val int: RouteCodec[Int] =
-    HttpCodec.Route(TextCodec.int)
+  def int(name: String): RouteCodec[Int] =
+    HttpCodec.Route(TextCodec.int, Some(name))
 
-  val string: RouteCodec[String] =
-    HttpCodec.Route(TextCodec.string)
+  def string(name: String): RouteCodec[String] =
+    HttpCodec.Route(TextCodec.string, Some(name))
 
-  val uuid: RouteCodec[UUID] =
-    HttpCodec.Route(TextCodec.uuid)
+  def uuid(name: String): RouteCodec[UUID] =
+    HttpCodec.Route(TextCodec.uuid, Some(name))
 }
