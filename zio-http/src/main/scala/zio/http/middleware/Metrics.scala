@@ -67,7 +67,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
         } yield ()
 
       override def apply[R1 <: Any, Err1 >: Nothing](
-        route: HttpRoute[R1, Err1],
+        http: HttpRoute[R1, Err1],
       )(implicit trace: Trace): HttpRoute[R1, Err1] =
         Http.fromHandlerZIO[Request] { req =>
           val requestLabels = labelsForRequest(req)
@@ -75,7 +75,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
           for {
             start           <- Clock.nanoTime
             _               <- concurrentRequests.tagged(requestLabels).increment
-            optionalHandler <- route.runHandler(req).toZIO.mapError(Some(_))
+            optionalHandler <- http.runHandler(req).toZIO.mapError(Some(_))
             handler         <-
               optionalHandler match {
                 case Some(handler) =>

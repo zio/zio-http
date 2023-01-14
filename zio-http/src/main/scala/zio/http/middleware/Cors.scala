@@ -42,7 +42,7 @@ private[zio] trait Cors {
 
     new HttpRouteMiddleware[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
-        route: Http[R1, Err1, Request, Response],
+        http: Http[R1, Err1, Request, Response],
       )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
         Http.fromRoute[Request] { request =>
           (
@@ -61,9 +61,9 @@ private[zio] trait Cors {
                 )
                 .toRoute
             case (_, Some(origin), _) if allowCORS(origin, request.method) =>
-              route @@ Middleware.addHeaders(corsHeaders(origin, request.method, isPreflight = false))
+              http @@ Middleware.addHeaders(corsHeaders(origin, request.method, isPreflight = false))
             case _                                                         =>
-              route
+              http
           }
         }
     }

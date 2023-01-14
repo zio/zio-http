@@ -27,22 +27,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     }
 
   final def @@[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out, In2, Out2](
-    aspect: RouteAspect[R1, Err1, In1, Out1, In2, Out2],
+    aspect: Middleware[R1, Err1, In1, Out1, In2, Out2],
   ): Http[R1, Err1, In2, Out2] =
     aspect(self)
-
-  final def @@[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out, In2 <: In, Out2](
-    aspect: HandlerAspect[R1, Err1, In1, Out1, In2, Out2],
-  ): Http[R1, Err1, In2, Out2] =
-    self match {
-      case Http.Empty                         => Http.empty
-      case Http.Static(handler)               => Http.Static(aspect(handler))
-      case route: Http.Route[R, Err, In, Out] =>
-        new Route[R1, Err1, In2, Out2] {
-          override def run(in: In2): HExit[R1, Err1, Http[R1, Err1, In2, Out2]] =
-            route.run(in).map(_ @@ aspect)
-        }
-    }
 
   final def ++[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](
     that: Http[R1, Err1, In1, Out1],
@@ -334,6 +321,8 @@ object Http {
 
   def fromRoute[In]: FromRoute[In] = new FromRoute[In](())
 
+  def fromRouteHExit[In]: FromRouteHExit[In] = new FromRouteHExit[In](())
+
   def fromRouteZIO[In]: FromRouteZIO[In] = new FromRouteZIO[In](())
 
   def getResource(path: String)(implicit trace: Trace): Http[Any, Throwable, Any, java.net.URL] =
@@ -434,6 +423,15 @@ object Http {
           HExit.succeed {
             f(in)
           }
+      }
+  }
+
+  final class FromRouteHExit[In](val self: Unit) extends AnyVal {
+    def apply[R, Err, Out](f: In => HExit[R, Err, Http[R, Err, In, Out]])(implicit
+      trace: Trace,
+    ): Http[R, Err, In, Out] =
+      new Route[R, Err, In, Out] {
+        override def run(in: In): HExit[R, Err, Http[R, Err, In, Out]] = f(in)
       }
   }
 

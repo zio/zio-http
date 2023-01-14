@@ -4,6 +4,8 @@ import zio._
 import zio.test.Assertion._
 import zio.test._
 
+import java.io.IOException
+
 object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
   private val increment = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
 
@@ -12,8 +14,7 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
       test("combine") {
         val mid1 = increment
         val mid2 = increment
-        val mid  = mid1 andThen mid2
-        val app  = Handler.identity[Int] @@ mid
+        val app  = Handler.identity[Int] @@ mid1 @@ mid2
         assertZIO(app.runZIO(0))(equalTo(4))
       },
       test("runBefore") {
@@ -27,15 +28,19 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
         assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
       },
       test("runBefore and runAfter") {
-        val mid = Middleware.runBefore(Console.printLine("A")) ++ Middleware.runAfter(Console.printLine("C"))
+        val mid: RequestHandlerMiddleware[Any, IOException] =
+          Middleware.runBefore(Console.printLine("A")) ++ Middleware.runAfter(Console.printLine("C"))
         val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("B").as(Response.ok)) @@ mid
         assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n", "C\n")))
       },
       suite("when") {
-        val mid = Middleware.transform[Int, Int](
-          in = _ + 1,
-          out = _ + 1,
-        )
+        val mid = Middleware
+          .transform[Int, Int](
+            in = _ + 1,
+            out = _ + 1,
+          )
+          .toMiddleware
+
         test("condition is true") {
           val app = Handler.identity[Int] @@ mid.when((_: Any) => true)
           assertZIO(app.runZIO(10))(equalTo(12))
@@ -46,10 +51,13 @@ object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
           }
       },
       suite("whenZIO") {
-        val mid = Middleware.transform[Int, Int](
-          in = _ + 1,
-          out = _ + 1,
-        )
+        val mid = Middleware
+          .transform[Int, Int](
+            in = _ + 1,
+            out = _ + 1,
+          )
+          .toMiddleware
+
         test("condition is true") {
           val app = Handler.identity[Int] @@ mid.whenZIO((_: Any) => ZIO.succeed(true))
           assertZIO(app.runZIO(10))(equalTo(12))
