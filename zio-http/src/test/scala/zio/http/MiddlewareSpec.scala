@@ -6,7 +6,7 @@ import zio.test._
 
 import java.io.IOException
 
-object MiddlewareSpec extends ZIOSpecDefault with HExitAssertion {
+object MiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
   private val increment = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))
 
   def spec: Spec[Any, Any] =

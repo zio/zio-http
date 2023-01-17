@@ -8,7 +8,7 @@ import zio.http.model._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
-import zio.{Scope, ZIO, durationInt}
+import zio.{Exit, Scope, ZIO, durationInt}
 
 object StaticServerSpec extends HttpRunnableSpec {
 
@@ -20,10 +20,10 @@ object StaticServerSpec extends HttpRunnableSpec {
   }
 
   // Use this route to test anything that doesn't require ZIO related computations.
-  private val nonZIO = Http.collectHExit[Request] {
-    case _ -> !! / "HExitSuccess" => HExit.succeed(Response.ok)
-    case _ -> !! / "HExitFailure" => HExit.fail(new RuntimeException("FAILURE"))
-    case _ -> !! / "throwable"    => throw new Exception("Throw inside Handler")
+  private val nonZIO = Http.collectExit[Request] {
+    case _ -> !! / "ExitSuccess" => Exit.succeed(Response.ok)
+    case _ -> !! / "ExitFailure" => Exit.fail(new RuntimeException("FAILURE"))
+    case _ -> !! / "throwable"   => throw new Exception("Throw inside Handler")
   }
 
   private val staticAppWithCors = Http.collectZIO[Request] { case Method.GET -> !! / "success-cors" =>
@@ -48,13 +48,13 @@ object StaticServerSpec extends HttpRunnableSpec {
   def nonZIOSpec = suite("NonZIOSpec")(
     test("200 response") {
       checkAll(HttpGen.method) { method =>
-        val actual = status(method, !! / "HExitSuccess")
+        val actual = status(method, !! / "ExitSuccess")
         assertZIO(actual)(equalTo(Status.Ok))
       }
     },
     test("500 response") {
       checkAll(methodGenWithoutHEAD) { method =>
-        val actual = status(method, !! / "HExitFailure")
+        val actual = status(method, !! / "ExitFailure")
         assertZIO(actual)(equalTo(Status.InternalServerError))
       }
     },

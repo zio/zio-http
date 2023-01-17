@@ -32,7 +32,7 @@ trait HandlerMiddleware[-R, +Err, +AIn, -AOut, -BIn <: AIn, +BOut]
       case Http.Empty                             => Http.empty
       case Http.Static(handler)                   => Http.Static(apply(handler))
       case route: Http.Route[R1, Err1, AIn, AOut] =>
-        Http.fromRouteHExit { (in: BIn) =>
+        Http.fromHttpZIO { (in: BIn) =>
           route.run(in).map(_ @@ self)
         }
     }

@@ -6,7 +6,7 @@ import zio.test._
 
 import scala.collection.Seq
 
-object PathSpec extends ZIOSpecDefault with HExitAssertion {
+object PathSpec extends ZIOSpecDefault with ExitAssertion {
   val a = "a"
   val b = "b"
   val c = "c"

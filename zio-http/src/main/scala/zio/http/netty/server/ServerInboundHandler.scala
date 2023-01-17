@@ -6,17 +6,14 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import io.netty.util.AttributeKey
 import zio._
-import zio.http.Body._
 import zio.http._
 import zio.http.logging.Logger
 import zio.http.model._
+import zio.http.netty._
 import zio.http.netty.server.ServerInboundHandler.isReadKey
-import zio.http.netty.{NettyRuntime, _}
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import java.io.IOException
 import scala.annotation.tailrec
-import scala.util.control.NonFatal
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -49,7 +46,7 @@ private[zio] final case class ServerInboundHandler(
           }
         }
 
-        val exit = app.runHExitOrNull(req)
+        val exit = app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time))
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
         else
@@ -59,7 +56,7 @@ private[zio] final case class ServerInboundHandler(
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req = makeZioRequest(ctx, jReq)
 
-        val exit = app.runHExitOrNull(req)
+        val exit = app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
 
           if (
@@ -160,13 +157,13 @@ private[zio] final case class ServerInboundHandler(
 
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
-    exit: HExit[Any, Response, Response],
+    exit: ZIO[Any, Response, Response],
     time: service.ServerTime,
   ): Boolean = {
     exit match {
-      case HExit.Success(response) if response ne null =>
+      case Exit.Success(response) if response ne null =>
         attemptFastWrite(ctx, response, time)
-      case _                                           => false
+      case _                                          => false
     }
   }
 
@@ -261,12 +258,12 @@ private[zio] final case class ServerInboundHandler(
   private def writeResponse(
     ctx: ChannelHandlerContext,
     env: ZEnvironment[Any],
-    exit: HExit[Any, Response, Response],
+    exit: ZIO[Any, Response, Response],
     jReq: HttpRequest,
   )(ensured: () => Unit): Unit = {
     runtime.run(ctx, ensured) {
       val pgm = for {
-        response <- exit.toZIO.sandbox.catchAll { error =>
+        response <- exit.sandbox.catchAll { error =>
           ZIO.succeedNow {
             error.failureOrCause
               .fold[Response](

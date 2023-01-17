@@ -1,6 +1,5 @@
 package zio.http
 
-import zio.http.Http.Route
 import zio.{Trace, ZIO}
 
 trait HandlerAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>

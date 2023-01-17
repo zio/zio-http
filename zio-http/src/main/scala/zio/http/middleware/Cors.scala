@@ -44,7 +44,7 @@ private[zio] trait Cors {
       override def apply[R1 <: Any, Err1 >: Nothing](
         http: Http[R1, Err1, Request, Response],
       )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
-        Http.fromRoute[Request] { request =>
+        Http.fromHttp[Request] { request =>
           (
             request.method,
             request.headers.header(HttpHeaderNames.ORIGIN),

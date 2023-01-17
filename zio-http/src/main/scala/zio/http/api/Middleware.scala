@@ -43,7 +43,7 @@ sealed trait Middleware[-R, I, O] { self =>
    * middleware fully installed.
    */
   def apply[R1 <: R, E](httpRoute: HttpRoute[R1, E]): HttpRoute[R1, E] =
-    Http.fromHandlerZIO { request =>
+    Http.fromOptionalHandlerZIO { request =>
       for {
         in       <- spec.middlewareIn.decodeRequest(request).orDie
         control  <- incoming(in)

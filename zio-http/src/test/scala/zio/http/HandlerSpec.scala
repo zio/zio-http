@@ -5,7 +5,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
 
-object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
+object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
 
   def spec = suite("Handler")(
     suite("flatMap")(
@@ -87,32 +87,32 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
         assert(actual)(isFailure(equalTo("fail")))
       },
     ),
-    suite("fromFunctionHExit")(
+    suite("fromFunctionExit")(
       test("should succeed if the ") {
-        val a      = Handler.fromFunctionHExit[Int] { a => HExit.succeed(a + 1) }
+        val a      = Handler.fromFunctionExit[Int] { a => Exit.succeed(a + 1) }
         val actual = a.apply(1)
         assert(actual)(isSuccess(equalTo(2)))
       },
-      test("should fail if the returned HExit is a failure") {
-        val a      = Handler.fromFunctionHExit[Int] { a => HExit.fail(a + 1) }
+      test("should fail if the returned Exit is a failure") {
+        val a      = Handler.fromFunctionExit[Int] { a => Exit.fail(a + 1) }
         val actual = a.apply(1)
         assert(actual)(isFailure(equalTo(2)))
       },
       test("should die if the functions throws an exception") {
         val t      = new Throwable("boom")
-        val a      = Handler.fromFunctionHExit[Int] { _ => throw t }
+        val a      = Handler.fromFunctionExit[Int] { _ => throw t }
         val actual = a.runZIO(0)
         assertZIO(actual.exit)(dies(equalTo(t)))
       },
     ),
-    suite("fromHExit")(
-      test("should succeed if the returned HExit succeeds ") {
-        val a      = Handler.fromHExit(HExit.succeed("a"))
+    suite("fromExit")(
+      test("should succeed if the returned Exit succeeds ") {
+        val a      = Handler.fromExit(Exit.succeed("a"))
         val actual = a.apply(1)
         assert(actual)(isSuccess(equalTo("a")))
       },
-      test("should fail if the returned HExit is a failure") {
-        val a      = Handler.fromHExit(HExit.fail("fail"))
+      test("should fail if the returned Exit is a failure") {
+        val a      = Handler.fromExit(Exit.fail("fail"))
         val actual = a.apply(1)
         assert(actual)(isFailure(equalTo("fail")))
       },
@@ -122,7 +122,7 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = Handler.succeed(1).tapZIO(r.set)
-          _   <- app.apply(()).toZIO
+          _   <- app.apply(())
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
@@ -132,7 +132,7 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = Handler.fail(1).tapErrorZIO(r.set)
-          _   <- app.apply(()).toZIO.ignore
+          _   <- app.apply(()).ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
@@ -142,7 +142,7 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
         for {
           r <- Ref.make(0)
           app = (Handler.succeed(1): Handler[Any, Any, Any, Int]).tapAllZIO(_ => ZIO.unit, r.set)
-          _   <- app.apply(()).toZIO
+          _   <- app.apply(())
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
@@ -151,7 +151,7 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
           r <- Ref.make(0)
           app = (Handler.fail(1): Handler[Any, Int, Any, Any])
             .tapAllZIO(cause => cause.failureOption.fold(ZIO.unit)(r.set), _ => ZIO.unit)
-          _   <- app.apply(()).toZIO.ignore
+          _   <- app.apply(()).ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
       },
@@ -161,7 +161,7 @@ object HandlerSpec extends ZIOSpecDefault with HExitAssertion {
           r <- Ref.make(0)
           app = (Handler.die(t): Handler[Any, Any, Any, Any])
             .tapAllZIO(cause => cause.dieOption.fold(ZIO.unit)(_ => r.set(1)), _ => ZIO.unit)
-          _   <- app.apply(()).toZIO.exit.ignore
+          _   <- app.apply(()).exit.ignore
           res <- r.get
         } yield assert(res)(equalTo(1))
       },

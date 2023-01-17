@@ -14,6 +14,7 @@ import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
+  import Handler.FastZIOSyntax
 
   final def @@[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out, In2, Out2](
     that: HandlerAspect[R1, Err1, In1, Out1, In2, Out2],
@@ -72,11 +73,11 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In, Out1] =
     new Handler[R1, Err1, In, Out1] {
-      override def apply(in: In): HExit[R1, Err1, Out1] =
-        self(in).flatMap(that(_))
+      override def apply(in: In): ZIO[R1, Err1, Out1] =
+        self(in).fastFlatMap(that(_))
     }
 
-  def apply(in: In): HExit[R, Err, Out]
+  def apply(in: In): ZIO[R, Err, Out]
 
   final def as[Out1](out: Out1)(implicit trace: Trace): Handler[R, Err, In, Out1] =
     self.map(_ => out)
@@ -93,7 +94,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   final def contramap[In1](f: In1 => In)(implicit trace: Trace): Handler[R, Err, In1, Out] =
     new Handler[R, Err, In1, Out] {
-      override def apply(in: In1): HExit[R, Err, Out] =
+      override def apply(in: In1): ZIO[R, Err, Out] =
         self(f(in))
     }
 
@@ -101,8 +102,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Handler[R1, Err1, In1, Out] =
     new Handler[R1, Err1, In1, Out] {
-      override def apply(in: In1): HExit[R1, Err1, Out] =
-        HExit.fromZIO(f(in)).flatMap(self(_))
+      override def apply(in: In1): ZIO[R1, Err1, Out] =
+        f(in).flatMap(self(_))
     }
 
   final def contraFlatMap[In1]: Handler.ContraFlatMap[R, Err, In, Out, In1] =
@@ -171,8 +172,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     onSuccess: Out => Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     new Handler[R1, Err1, In1, Out1] {
-      override def apply(in: In1): HExit[R1, Err1, Out1] =
-        self(in).foldExit(
+      override def apply(in: In1): ZIO[R1, Err1, Out1] =
+        self(in).foldCauseZIO(
           cause => onFailure(cause)(in),
           out => onSuccess(out)(in),
         )
@@ -231,22 +232,22 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     new Handler[R1, Err1, In1, Out1] {
-      override def apply(in: In1): HExit[R1, Err1, Out1] =
+      override def apply(in: In1): ZIO[R1, Err1, Out1] =
         (self(in), that(in)) match {
-          case (s @ HExit.Success(_), _)                        =>
+          case (s @ Exit.Success(_), _)                        =>
             s
-          case (s @ HExit.Failure(cause), _) if cause.isDie     =>
+          case (s @ Exit.Failure(cause), _) if cause.isDie     =>
             s
-          case (HExit.Failure(cause), other) if cause.isFailure =>
+          case (Exit.Failure(cause), other) if cause.isFailure =>
             other
-          case (self, other)                                    =>
-            HExit.fromZIO(self.toZIO.orElse(other.toZIO))
+          case (self, other)                                   =>
+            self.orElse(other)
         }
     }
 
   final def provideEnvironment(r: ZEnvironment[R])(implicit trace: Trace): Handler[Any, Err, In, Out] =
     new Handler[Any, Err, In, Out] {
-      override def apply(in: In): HExit[Any, Err, Out] =
+      override def apply(in: In): ZIO[Any, Err, Out] =
         self(in).provideEnvironment(r)
     }
 
@@ -254,7 +255,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Handler[R0, Err1, In, Out] =
     new Handler[R0, Err1, In, Out] {
-      override def apply(in: In): HExit[R0, Err1, Out] =
+      override def apply(in: In): ZIO[R0, Err1, Out] =
         self(in).provideLayer(layer)
     }
 
@@ -262,7 +263,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Handler[R1, Err, In, Out] =
     new Handler[R1, Err, In, Out] {
-      override def apply(in: In): HExit[R1, Err, Out] =
+      override def apply(in: In): ZIO[R1, Err, Out] =
         self(in).provideSomeEnvironment(f)
     }
 
@@ -270,7 +271,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     layer: ZLayer[R0, Err1, R1],
   )(implicit ev: R0 with R1 <:< R, trace: Trace): Handler[R0, Err1, In, Out] =
     new Handler[R0, Err1, In, Out] {
-      override def apply(in: In): HExit[R0, Err1, Out] =
+      override def apply(in: In): ZIO[R0, Err1, Out] =
         self(in).provideSomeLayer(layer)
     }
 
@@ -278,11 +279,11 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     new Handler[R1, Err1, In1, Out1] {
-      override def apply(in: In1): HExit[R1, Err1, Out1] =
+      override def apply(in: In1): ZIO[R1, Err1, Out1] =
         (self(in), that(in)) match {
-          case (HExit.Effect(self), HExit.Effect(other)) => HExit.fromZIO(self.raceFirst(other))
-          case (HExit.Effect(_), other)                  => other
-          case (self, _)                                 => self
+          case (self: Exit[Err, Out], _)    => self
+          case (_, other: Exit[Err1, Out1]) => other
+          case (self, other)                => self.raceFirst(other)
         }
     }
 
@@ -299,22 +300,19 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       Handler.succeed,
     )
 
-  final def runHExit(in: In)(implicit trace: Trace): HExit[R, Err, Out] =
-    self(in)
-
   final def runZIO(in: In)(implicit trace: Trace): ZIO[R, Err, Out] =
-    self(in).toZIO
+    self(in)
 
   final def tapAllZIO[R1 <: R, Err1 >: Err](
     onFailure: Cause[Err] => ZIO[R1, Err1, Any],
     onSuccess: Out => ZIO[R1, Err1, Any],
   )(implicit trace: Trace): Handler[R1, Err1, In, Out] =
     new Handler[R1, Err1, In, Out] {
-      override def apply(in: In): HExit[R1, Err1, Out] =
+      override def apply(in: In): ZIO[R1, Err1, Out] =
         self(in) match {
-          case HExit.Success(a)     => HExit.fromZIO(onSuccess(a).as(a))
-          case HExit.Failure(cause) => HExit.fromZIO(onFailure(cause) *> ZIO.failCause(cause))
-          case HExit.Effect(z)      => HExit.Effect(z.tapErrorCause(onFailure).tap(onSuccess))
+          case Exit.Success(a)     => onSuccess(a).as(a)
+          case Exit.Failure(cause) => onFailure(cause) *> ZIO.failCause(cause)
+          case z                   => z.tapErrorCause(onFailure).tap(onSuccess)
         }
     }
 
@@ -386,10 +384,10 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 object Handler {
 
   def attempt[Out](out: => Out)(implicit trace: Trace): Handler[Any, Throwable, Any, Out] =
-    fromHExit {
-      try HExit.succeed(out)
+    fromExit {
+      try Exit.succeed(out)
       catch {
-        case NonFatal(cause) => HExit.fail(cause)
+        case NonFatal(cause) => Exit.fail(cause)
       }
     }
 
@@ -397,7 +395,7 @@ object Handler {
     error(HttpError.BadRequest(message))
 
   def die(failure: => Throwable)(implicit trace: Trace): Handler[Any, Nothing, Any, Nothing] =
-    fromHExit(HExit.die(failure))
+    fromExit(Exit.die(failure))
 
   def dieMessage(message: => String)(implicit trace: Trace): Handler[Any, Nothing, Any, Nothing] =
     die(new RuntimeException(message))
@@ -409,10 +407,10 @@ object Handler {
     error(HttpError.InternalServerError(message))
 
   def fail[Err](err: => Err)(implicit trace: Trace): Handler[Any, Err, Any, Nothing] =
-    fromHExit(HExit.fail(err))
+    fromExit(Exit.fail(err))
 
   def failCause[Err](cause: => Cause[Err])(implicit trace: Trace): Handler[Any, Err, Any, Nothing] =
-    fromHExit(HExit.failCause(cause))
+    fromExit(Exit.failCause(cause))
 
   def forbidden(message: String)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
     error(HttpError.Forbidden(message))
@@ -423,23 +421,23 @@ object Handler {
   def fromEither[Err, Out](either: Either[Err, Out])(implicit trace: Trace): Handler[Any, Err, Any, Out] =
     either.fold(Handler.fail(_), Handler.succeed(_))
 
+  def fromExit[Err, Out](exit: => Exit[Err, Out])(implicit trace: Trace): Handler[Any, Err, Any, Out] =
+    new Handler[Any, Err, Any, Out] {
+      override def apply(in: Any): ZIO[Any, Err, Out] = exit
+    }
+
   def fromFunction[In]: FromFunction[In] = new FromFunction[In](())
 
   def fromFunctionHandler[In]: FromFunctionHandler[In] = new FromFunctionHandler[In](())
 
-  def fromFunctionHExit[In]: FromFunctionHExit[In] = new FromFunctionHExit[In](())
+  def fromFunctionExit[In]: FromFunctionExit[In] = new FromFunctionExit[In](())
 
   def fromFunctionZIO[In]: FromFunctionZIO[In] = new FromFunctionZIO[In](())
 
-  def fromHExit[R, Err, Out](hExit: => HExit[R, Err, Out])(implicit trace: Trace): Handler[R, Err, Any, Out] =
-    new Handler[R, Err, Any, Out] {
-      override def apply(in: Any): HExit[R, Err, Out] = hExit
-    }
-
-  def fromRoute[R, Err, In, Out](route: Http[R, Err, In, Out], default: Handler[R, Err, In, Out])(implicit
+  def fromHttp[R, Err, In, Out](http: Http[R, Err, In, Out], default: Handler[R, Err, In, Out])(implicit
     trace: Trace,
   ): Handler[R, Err, In, Out] =
-    route.toHandler(default)
+    http.toHandler(default)
 
   def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET)(implicit
     trace: Trace,
@@ -460,7 +458,9 @@ object Handler {
     }.flatten
 
   def fromZIO[R, Err, Out](zio: => ZIO[R, Err, Out])(implicit trace: Trace): Handler[R, Err, Any, Out] =
-    fromHExit(HExit.fromZIO(zio))
+    new Handler[R, Err, Any, Out] {
+      override def apply(in: Any): ZIO[R, Err, Out] = zio
+    }
 
   def getResource(path: String)(implicit trace: Trace): Handler[Any, Throwable, Any, java.net.URL] =
     Handler
@@ -478,7 +478,7 @@ object Handler {
 
   def identity[A](implicit trace: Trace): Handler[Any, Nothing, A, A] =
     new Handler[Any, Nothing, A, A] {
-      override def apply(in: A): HExit[Any, Nothing, A] = HExit.succeed(in)
+      override def apply(in: A): ZIO[Any, Nothing, A] = Exit.succeed(in)
     }
 
   def methodNotAllowed(message: String)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
@@ -506,7 +506,7 @@ object Handler {
     succeed(Response(code))
 
   def succeed[Out](out: Out)(implicit trace: Trace): Handler[Any, Nothing, Any, Out] =
-    fromHExit(HExit.succeed(out))
+    fromExit(Exit.succeed(out))
 
   def template(heading: CharSequence)(view: Html)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
     response(Response.html(Template.container(heading)(view)))
@@ -587,11 +587,11 @@ object Handler {
   final class FromFunction[In](val self: Unit) extends AnyVal {
     def apply[Out](f: In => Out)(implicit trace: Trace): Handler[Any, Nothing, In, Out] =
       new Handler[Any, Nothing, In, Out] {
-        override def apply(in: In): HExit[Any, Nothing, Out] =
+        override def apply(in: In): ZIO[Any, Nothing, Out] =
           try {
-            HExit.succeed(f(in))
+            Exit.succeed(f(in))
           } catch {
-            case error: Throwable => HExit.die(error)
+            case error: Throwable => Exit.die(error)
           }
       }
   }
@@ -599,19 +599,19 @@ object Handler {
   final class FromFunctionHandler[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => Handler[R, Err, In, Out])(implicit trace: Trace): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
-        override def apply(in: In): HExit[R, Err, Out] =
+        override def apply(in: In): ZIO[R, Err, Out] =
           f(in)(in)
       }
   }
 
-  final class FromFunctionHExit[In](val self: Unit) extends AnyVal {
-    def apply[R, Err, Out](f: In => HExit[R, Err, Out])(implicit trace: Trace): Handler[R, Err, In, Out] =
-      new Handler[R, Err, In, Out] {
-        override def apply(in: In): HExit[R, Err, Out] =
+  final class FromFunctionExit[In](val self: Unit) extends AnyVal {
+    def apply[R, Err, Out](f: In => Exit[Err, Out])(implicit trace: Trace): Handler[Any, Err, In, Out] =
+      new Handler[Any, Err, In, Out] {
+        override def apply(in: In): ZIO[Any, Err, Out] =
           try {
             f(in)
           } catch {
-            case error: Throwable => HExit.die(error)
+            case error: Throwable => Exit.die(error)
           }
       }
   }
@@ -619,8 +619,32 @@ object Handler {
   final class FromFunctionZIO[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => ZIO[R, Err, Out])(implicit trace: Trace): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
-        override def apply(in: In): HExit[R, Err, Out] =
-          HExit.fromZIO(f(in))
+        override def apply(in: In): ZIO[R, Err, Out] =
+          f(in)
+      }
+  }
+
+  // TODO: Remove after https://github.com/zio/zio/pull/7714
+  implicit class FastZIOSyntax[R, E, A](val zio: ZIO[R, E, A]) extends AnyVal {
+    def fastFlatMap[R1 <: R, E1 >: E, B](f: A => ZIO[R1, E1, B]): ZIO[R1, E1, B] =
+      zio match {
+        case Exit.Success(a)     => f(a)
+        case e @ Exit.Failure(_) => e
+        case _                   => zio.flatMap(f)
+      }
+
+    def fastMap[B](f: A => B): ZIO[R, E, B] =
+      zio match {
+        case Exit.Success(a)     => Exit.Success(f(a))
+        case e @ Exit.Failure(_) => e
+        case _                   => zio.map(f)
+      }
+
+    def fastMapBoth[E2, B](f: E => E2, g: A => B): ZIO[R, E2, B] =
+      zio match {
+        case Exit.Success(a) => Exit.Success(g(a))
+        case Exit.Failure(e) => Exit.Failure(e.map(f))
+        case _               => zio.mapBoth(f, g)
       }
   }
 }
