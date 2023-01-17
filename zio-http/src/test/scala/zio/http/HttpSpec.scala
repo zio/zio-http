@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.test.Assertion.{dies, equalTo, isLeft, isNone}
+import zio.test.Assertion.{dies, equalTo, fails, isLeft, isNone}
 import zio.test.{Spec, ZIOSpecDefault, assert, assertZIO}
 import zio.{Unsafe, ZIO}
 
@@ -8,7 +8,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
   implicit val allowUnsafe: Unsafe = Unsafe.unsafe
 
   def spec: Spec[Any, Nothing] =
-    suite("Route")(
+    suite("Http")(
       suite("collectHExit")(
         test("should succeed") {
           val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
@@ -28,8 +28,8 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         },
         test("should give empty if the inout is not defined") {
           val a      = Http.collectHExit[Int] { case 1 => HExit.succeed("OK") }
-          val actual = a.runHExitOrNull(0)
-          assert(actual)(isSuccess(equalTo(null)))
+          val actual = a.runZIO(0)
+          assertZIO(actual.exit)(fails(isNone))
         },
       ),
       suite("combine")(
@@ -54,15 +54,15 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         test("should not resolve") {
           val a      = Http.collect[Int] { case 1 => "A" }
           val b      = Http.collect[Int] { case 2 => "B" }
-          val actual = (a ++ b).runHExitOrNull(3)
-          assert(actual)(isSuccess(equalTo(null)))
+          val actual = (a ++ b).runZIO(3)
+          assertZIO(actual.exit)(fails(isNone))
         },
         test("should not resolve") {
           val a      = Http.empty
           val b      = Http.empty
           val c      = Http.empty
-          val actual = (a ++ b ++ c).runHExitOrNull(())
-          assert(actual)(isSuccess(equalTo(null)))
+          val actual = (a ++ b ++ c).runZIO(())
+          assertZIO(actual.exit)(fails(isNone))
         },
         test("should fail with second") {
           val a      = Http.empty
@@ -99,15 +99,15 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         },
         test("should fail") {
           val a      = Http.collect[Int] { case 1 => "OK" }
-          val actual = a.runHExitOrNull(0)
-          assert(actual)(isSuccess(equalTo(null)))
+          val actual = a.runZIO(0)
+          assertZIO(actual.exit)(fails(isNone))
         },
       ),
       suite("collectZIO")(
         test("should be empty") {
           val a      = Http.collectZIO[Int] { case 1 => ZIO.succeed("A") }
-          val actual = a.runHExitOrNull(2)
-          assert(actual)(isSuccess(equalTo(null)))
+          val actual = a.runZIO(2)
+          assertZIO(actual.exit)(fails(isNone))
         },
         test("should resolve") {
           val a      = Http.collectZIO[Int] { case 1 => ZIO.succeed("A") }
@@ -132,8 +132,8 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         },
         test("should be empty if no matches") {
           val app    = Http.collectHandler[Int](Map.empty)
-          val actual = app.runHExitOrNull(1)
-          assert(actual)(isSuccess(equalTo(null)))
+          val actual = app.runZIO(1)
+          assertZIO(actual.exit)(fails(isNone))
         },
       ),
       suite("when")(
@@ -144,8 +144,8 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         },
         test("should not execute http when condition doesn't apply") {
           val app    = Handler.succeed(1).toHttp.when((_: Any) => false)
-          val actual = app.runHExitOrNull(0)
-          assert(actual.asInstanceOf[HExit[Any, Any, Any]])(isSuccess(equalTo(null)))
+          val actual = app.runZIO(0)
+          assertZIO(actual.exit)(fails(isNone))
         },
         test("should die when condition throws an exception") {
           val t      = new IllegalArgumentException("boom")
