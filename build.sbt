@@ -68,6 +68,15 @@ ThisBuild / githubWorkflowBuildPostamble :=
     scalas = List(Scala213),
   ).steps
 
+
+inThisBuild(
+  List(
+    organization := "dev.zio",
+    homepage     := Some(url("https://zio.dev/zio-http/")),
+    licenses     := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
+  )
+)
+
 lazy val root = (project in file("."))
   .settings(stdSettings("zio-http-root"))
   .settings(publishSetting(false))
@@ -163,6 +172,7 @@ lazy val docs = project
     projectStage                               := ProjectStage.Development,
     docsPublishBranch                          := "main",
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttp, zioHttpLogging),
+    ciWorkflowName := "Continuous Integration"
   )
   .dependsOn(zioHttp, zioHttpLogging)
   .enablePlugins(WebsitePlugin)
