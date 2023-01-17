@@ -12,7 +12,7 @@ object IfRangeMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withIfRange("Wed, 21 Oct 2015 07:28:00 GMT")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.ifRange.getOrElse("error").equals("Wed, 21 Oct 2015 07:28:00 GMT"))
         },
@@ -20,7 +20,7 @@ object IfRangeMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withIfRange(""""675af34563dc-tr34"""")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.ifRange.getOrElse("error").equals(""""675af34563dc-tr34""""))
         },
@@ -30,7 +30,7 @@ object IfRangeMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withIfRange("W/675af34563dc-tr34")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.ifRange.getOrElse("error").equals(""))
         },
@@ -38,7 +38,7 @@ object IfRangeMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withIfRange("*&^%$#@")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.ifRange.getOrElse("error").equals(""))
         },

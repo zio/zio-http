@@ -59,7 +59,7 @@ private[zio] trait Cors {
                     headers = corsHeaders(origin, Method.fromString(acrm._2.toString), isPreflight = true),
                   ),
                 )
-                .toRoute
+                .toHttp
             case (_, Some(origin), _) if allowCORS(origin, request.method) =>
               http @@ Middleware.addHeaders(corsHeaders(origin, request.method, isPreflight = false))
             case _                                                         =>

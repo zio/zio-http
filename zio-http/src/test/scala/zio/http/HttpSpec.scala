@@ -41,7 +41,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         },
         test("should resolve second") {
           val a      = Http.empty
-          val b      = Handler.succeed("A").toRoute
+          val b      = Handler.succeed("A").toHttp
           val actual = (a ++ b).runHExitOrNull(())
           assert(actual)(isSuccess(equalTo("A")))
         },
@@ -66,15 +66,15 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         },
         test("should fail with second") {
           val a      = Http.empty
-          val b      = Handler.fail(100).toRoute
-          val c      = Handler.succeed("A").toRoute
+          val b      = Handler.fail(100).toHttp
+          val c      = Handler.succeed("A").toHttp
           val actual = (a ++ b ++ c).runHExitOrNull(())
           assert(actual)(isFailure(equalTo(100)))
         },
         test("should resolve third") {
           val a      = Http.empty
           val b      = Http.empty
-          val c      = Handler.succeed("C").toRoute
+          val c      = Handler.succeed("C").toHttp
           val actual = (a ++ b ++ c).runHExitOrNull(())
           assert(actual)(isSuccess(equalTo("C")))
         },
@@ -116,7 +116,7 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
         },
         test("should resolve second effect") {
           val a      = Http.empty
-          val b      = Handler.succeed("B").toRoute
+          val b      = Handler.succeed("B").toHttp
           val actual = (a ++ b).runHExitOrNull(2)
           assert(actual)(isSuccess(equalTo("B")))
         },
@@ -138,18 +138,18 @@ object HttpSpec extends ZIOSpecDefault with HExitAssertion {
       ),
       suite("when")(
         test("should execute http only when condition applies") {
-          val app    = Handler.succeed(1).toRoute.when((_: Any) => true)
+          val app    = Handler.succeed(1).toHttp.when((_: Any) => true)
           val actual = app.runHExitOrNull(0)
           assert(actual)(isSuccess(equalTo(1)))
         },
         test("should not execute http when condition doesn't apply") {
-          val app    = Handler.succeed(1).toRoute.when((_: Any) => false)
+          val app    = Handler.succeed(1).toHttp.when((_: Any) => false)
           val actual = app.runHExitOrNull(0)
           assert(actual.asInstanceOf[HExit[Any, Any, Any]])(isSuccess(equalTo(null)))
         },
         test("should die when condition throws an exception") {
           val t      = new IllegalArgumentException("boom")
-          val app    = Handler.succeed(1).toRoute.when((_: Any) => throw t)
+          val app    = Handler.succeed(1).toHttp.when((_: Any) => throw t)
           val actual = app.runZIO(0)
           assertZIO(actual.exit)(dies(equalTo(t)))
         },

@@ -14,7 +14,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentBase("http://localhost:8080")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentBase.contains("http://localhost:8080"))
         },
@@ -22,7 +22,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentDisposition(ContentDisposition.attachment("foo.txt"))
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentDisposition.contains("attachment; filename=foo.txt"))
         },
@@ -30,7 +30,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentEncoding("gzip")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentEncoding.contains("gzip"))
         },
@@ -38,7 +38,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentLanguage("en")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentLanguage.contains("en"))
         },
@@ -46,7 +46,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentLength(10)
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentLength.contains(10))
         },
@@ -54,7 +54,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentLocation("http://localhost:8080")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentLocation.contains("http://localhost:8080"))
         },
@@ -62,7 +62,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentMd5("86e3edf31dfc82bcf1d45345f0f63b60")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentMd5.contains("86e3edf31dfc82bcf1d45345f0f63b60"))
         },
@@ -70,7 +70,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentRange(ContentRange.toContentRange("bytes 0-10/100"))
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentRange.contains("bytes 0-10/100"))
         },
@@ -78,7 +78,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentSecurityPolicy("upgrade-insecure-requests")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentSecurityPolicy.contains("upgrade-insecure-requests"))
         },
@@ -86,7 +86,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentTransferEncoding("7bit")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentTransferEncoding.contains("7bit"))
         },
@@ -94,7 +94,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentType(ContentType.fromMediaType(MediaType.application.`json`))
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentType.contains("application/json"))
         },
@@ -104,7 +104,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentBase("foo")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentBase.contains(""))
         },
@@ -112,7 +112,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentDisposition(ContentDisposition.attachment("foo.txt"))
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentDisposition.contains("attachment; filename=foo.txt"))
         },
@@ -120,7 +120,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentEncoding("foo")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentEncoding.contains(""))
         },
@@ -128,7 +128,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentLanguage("foo")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentLanguage.contains(""))
         },
@@ -136,7 +136,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentLength(-1)
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentLength.isEmpty)
         },
@@ -144,7 +144,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentLocation("##_-foo")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentLocation.contains(""))
         },
@@ -152,7 +152,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentMd5("foo")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentMd5.contains(""))
         },
@@ -160,7 +160,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentRange(ContentRange.toContentRange("foo"))
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentRange.contains(""))
         },
@@ -168,7 +168,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentSecurityPolicy("foo")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentSecurityPolicy.contains(""))
         },
@@ -176,7 +176,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentTransferEncoding("foo")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentTransferEncoding.contains(""))
         },
@@ -184,7 +184,7 @@ object ContentMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withContentType(ContentType.fromMediaType(MediaType.application.`json`))
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.contentType.contains("application/json"))
         },

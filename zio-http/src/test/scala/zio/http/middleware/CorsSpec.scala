@@ -9,7 +9,7 @@ import zio.test.Assertion.hasSubset
 import zio.test._
 
 object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
-  val app = Handler.ok.toRoute @@ cors(CorsConfig(allowedMethods = Some(Set(Method.GET))))
+  val app = Handler.ok.toHttp @@ cors(CorsConfig(allowedMethods = Some(Set(Method.GET))))
 
   override def spec = suite("CorsMiddlewares")(
     test("OPTIONS request") {

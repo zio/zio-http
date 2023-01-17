@@ -12,7 +12,7 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withTransferEncoding("chunked")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("chunked"))
         },
@@ -20,7 +20,7 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withTransferEncoding("compress")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("compress"))
         },
@@ -28,7 +28,7 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withTransferEncoding("deflate")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("deflate"))
         },
@@ -36,7 +36,7 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withTransferEncoding("gzip")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("gzip"))
         },
@@ -46,7 +46,7 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withTransferEncoding("*grabag$*&()")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals(""))
         },

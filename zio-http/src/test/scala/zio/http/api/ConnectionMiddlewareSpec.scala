@@ -12,7 +12,7 @@ object ConnectionMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withConnection("close")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.connection.getOrElse("error").equals("close"))
         },
@@ -20,7 +20,7 @@ object ConnectionMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withConnection("keep-alive")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.connection.getOrElse("error").equals("keep-alive"))
         },
@@ -30,7 +30,7 @@ object ConnectionMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withConnection("*()!*#&#$^")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.connection.getOrElse("error").equals(""))
         },

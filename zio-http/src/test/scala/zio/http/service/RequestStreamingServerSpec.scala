@@ -35,7 +35,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
           _.body.asStream.runCount
             .map(bytesCount => Response.text(bytesCount.toString))
         }
-        .toRoute
+        .toHttp
       val res     = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(content))
       assertZIO(res)(equalTo(size.toString))
     },

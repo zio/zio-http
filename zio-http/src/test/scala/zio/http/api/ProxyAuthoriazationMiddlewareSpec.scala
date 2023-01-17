@@ -14,7 +14,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("Basic YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("Basic YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -24,7 +24,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("Bearer YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("Bearer YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -34,7 +34,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("Digest YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("Digest YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -44,7 +44,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("HOBA YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("HOBA YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -54,7 +54,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("Mutual YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("Mutual YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -64,7 +64,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("Negotiate YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("Negotiate YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -74,7 +74,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("OAuth YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("OAuth YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -84,7 +84,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("OAuth YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("OAuth YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -94,7 +94,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("SCRAM-SHA-1 YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("SCRAM-SHA-1 YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -104,7 +104,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("SCRAM-SHA-256 YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("SCRAM-SHA-256 YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -114,7 +114,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("vapid YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.proxyAuthorization.getOrElse("error").equals("vapid YWxhZGRpbjpvcGVuc2VzYW1l"),
@@ -126,7 +126,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("!!@#$%(")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.proxyAuthorization.getOrElse("error").equals(""))
         },
@@ -134,7 +134,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization(" YWxhZGRpbjpvcGVuc2VzYW1l")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.proxyAuthorization.getOrElse("error").equals(""))
         },
@@ -142,7 +142,7 @@ object ProxyAuthoriazationMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withProxyAuthorization("Basic ")
-              .apply(Handler.succeed(response).toRoute)
+              .apply(Handler.succeed(response).toHttp)
               .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.proxyAuthorization.getOrElse("error").equals(""))
         },

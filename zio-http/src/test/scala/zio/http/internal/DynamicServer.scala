@@ -29,9 +29,9 @@ object DynamicServer {
     Http.fromRouteZIO { (req: Request) =>
       req.headerValue(APP_ID) match {
         case Some(id) =>
-          get(id).map(_.getOrElse(Handler.notFound.toRoute))
+          get(id).map(_.getOrElse(Handler.notFound.toHttp))
         case None     =>
-          ZIO.succeed(Handler.notFound.toRoute)
+          ZIO.succeed(Handler.notFound.toHttp)
       }
     }
 

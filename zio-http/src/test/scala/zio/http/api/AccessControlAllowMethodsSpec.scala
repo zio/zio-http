@@ -13,7 +13,7 @@ object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
         for {
           response <- api.Middleware
             .withAccessControlAllowMethods(GET, PUT, POST)
-            .apply(Handler.succeed(response).toRoute)
+            .apply(Handler.succeed(response).toHttp)
             .runZIO(Request.get(URL.empty))
         } yield assertTrue(response.headers.accessControlAllowMethods.getOrElse("error").equals("GET, PUT, POST"))
       },
@@ -21,7 +21,7 @@ object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
         for {
           response <- api.Middleware
             .withAccessControlAllowMethods("*")
-            .apply(Handler.succeed(response).toRoute)
+            .apply(Handler.succeed(response).toHttp)
             .runZIO(Request.get(URL.empty))
         } yield assertTrue(response.headers.accessControlAllowMethods.getOrElse("error").equals("*"))
       },
@@ -29,7 +29,7 @@ object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
         for {
           response <- api.Middleware
             .withAccessControlAllowMethods("")
-            .apply(Handler.succeed(response).toRoute)
+            .apply(Handler.succeed(response).toHttp)
             .runZIO(Request.get(URL.empty))
         } yield assertTrue(response.headers.accessControlAllowMethods.getOrElse("error").equals(""))
       },

@@ -19,23 +19,23 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     suite("headers suite")(
       test("addHeaders") {
         val middleware = addHeaders(Headers("KeyA", "ValueA") ++ Headers("KeyB", "ValueB"))
-        val headers    = (Handler.ok @@ middleware).toRoute.headerValues
+        val headers    = (Handler.ok @@ middleware).toHttp.headerValues
         assertZIO(headers.runZIO(Request.get(URL.empty)))(contains("ValueA") && contains("ValueB"))
       },
       test("addHeader") {
         val middleware = addHeader("KeyA", "ValueA")
-        val headers    = (Handler.ok @@ middleware).toRoute.headerValues
+        val headers    = (Handler.ok @@ middleware).toHttp.headerValues
         assertZIO(headers.runZIO(Request.get(URL.empty)))(contains("ValueA"))
       },
       test("updateHeaders") {
         val middleware = updateHeaders(_ => Headers("KeyA", "ValueA"))
-        val headers    = (Handler.ok @@ middleware).toRoute.headerValues
+        val headers    = (Handler.ok @@ middleware).toHttp.headerValues
         assertZIO(headers.runZIO(Request.get(URL.empty)))(contains("ValueA"))
       },
       test("removeHeader") {
         val middleware = removeHeader("KeyA")
         val headers    =
-          (Handler.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware).toRoute header "KeyA"
+          (Handler.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware).toHttp header "KeyA"
         assertZIO(headers.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
@@ -45,7 +45,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
       },
       test("log 404 status method url and time") {
-        val program = runApp(Http.empty ++ (Handler.notFound @@ debug).toRoute) *> TestConsole.output
+        val program = runApp(Http.empty ++ (Handler.notFound @@ debug).toHttp) *> TestConsole.output
         assertZIO(program)(equalTo(Vector("404 GET /health 0ms\n")))
       },
     ),

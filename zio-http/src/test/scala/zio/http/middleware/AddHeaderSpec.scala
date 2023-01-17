@@ -15,11 +15,11 @@ object AddHeaderSpec extends ZIOSpecDefault with HttpAppTestExtensions with Head
   private val response         = Response(headers = age("12"))
 
   private val appAddingAcceptHeader =
-    Handler.ok.toRoute.withMiddleware(api.Middleware.addHeader(acceptHeader.headers.head))
+    Handler.ok.toHttp.withMiddleware(api.Middleware.addHeader(acceptHeader.headers.head))
   private val appAddingHeadersList  =
-    Handler.ok.toRoute.withMiddleware(api.Middleware.addHeaders(acceptHeader ++ connectionHeader))
+    Handler.ok.toHttp.withMiddleware(api.Middleware.addHeaders(acceptHeader ++ connectionHeader))
   private val appAddingHeader       =
-    Handler.response(response).toRoute.withMiddleware(api.Middleware.addHeaders(acceptHeader ++ connectionHeader))
+    Handler.response(response).toHttp.withMiddleware(api.Middleware.addHeaders(acceptHeader ++ connectionHeader))
 
   private val req = Request.get(URL.empty)
 

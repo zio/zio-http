@@ -32,7 +32,7 @@ final case class SocketApp[-R](
    * Converts the socket app to a HTTP app.
    */
   def toHandler(implicit trace: Trace): Handler[R, Nothing, Any, Response] = Handler.fromZIO(toResponse)
-  def toRoute(implicit trace: Trace): Http[R, Nothing, Any, Response]      = toHandler.toRoute
+  def toRoute(implicit trace: Trace): Http[R, Nothing, Any, Response]      = toHandler.toHttp
 
   /**
    * Creates a new response from the socket app.

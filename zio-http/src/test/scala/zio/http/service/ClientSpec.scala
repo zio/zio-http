@@ -15,16 +15,16 @@ object ClientSpec extends HttpRunnableSpec {
 
   def clientSpec = suite("ClientSpec")(
     test("respond Ok") {
-      val app = Handler.ok.toRoute.deploy.status.run()
+      val app = Handler.ok.toHttp.deploy.status.run()
       assertZIO(app)(equalTo(Status.Ok))
     },
     test("non empty content") {
-      val app             = Handler.text("abc").toRoute
+      val app             = Handler.text("abc").toHttp
       val responseContent = app.deploy.body.run().flatMap(_.asChunk)
       assertZIO(responseContent)(isNonEmpty)
     },
     test("echo POST request content") {
-      val app = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.toRoute
+      val app = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.toHttp
       val res = app.deploy.body.mapZIO(_.asString).run(method = Method.POST, body = Body.fromString("ZIO user"))
       assertZIO(res)(equalTo("ZIO user"))
     },
@@ -34,7 +34,7 @@ object ClientSpec extends HttpRunnableSpec {
       assertZIO(responseContent)(equalTo(0))
     },
     test("text content") {
-      val app             = Handler.text("zio user does not exist").toRoute
+      val app             = Handler.text("zio user does not exist").toHttp
       val responseContent = app.deploy.body.mapZIO(_.asString).run()
       assertZIO(responseContent)(containsString("user"))
     },
@@ -43,7 +43,7 @@ object ClientSpec extends HttpRunnableSpec {
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
     test("streaming content to server") {
-      val app    = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.toRoute
+      val app    = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.toHttp
       val stream = ZStream.fromIterable(List("a", "b", "c"), chunkSize = 1)
       val res    = app.deploy.body
         .run(method = Method.POST, body = Body.fromStream(stream))

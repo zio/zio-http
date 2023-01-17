@@ -534,7 +534,7 @@ object Http {
           ),
         )
       case proto  =>
-        Handler.fail(new IllegalArgumentException(s"Unsupported protocol: $proto")).toRoute
+        Handler.fail(new IllegalArgumentException(s"Unsupported protocol: $proto")).toHttp
     }
   }
 

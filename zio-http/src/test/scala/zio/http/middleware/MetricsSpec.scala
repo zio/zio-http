@@ -41,7 +41,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertTrue(totalNotFoundCount == MetricState.Counter(1))
     },
     test("http_requests_total with path label mapper") {
-      val app = Handler.ok.toRoute @@ metrics(
+      val app = Handler.ok.toHttp @@ metrics(
         pathLabelMapper = { case Method.GET -> !! / "user" / _ =>
           "/user/:id"
         },
@@ -69,7 +69,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         .tagged("status", "200")
 
       val app: HttpRoute[Any, Nothing] =
-        Handler.ok.toRoute @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
+        Handler.ok.toHttp @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
 
       for {
         _        <- app.runZIO(Request.get(url = URL(!! / "ok")))

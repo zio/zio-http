@@ -36,7 +36,7 @@ class HttpCollectEval {
 
   @Benchmark
   def benchmarkHttpTotal(): Unit = {
-    (0 to MAX).foreach(_ => httpTotal.toRoute.runHExitOrNull(Request.get(url = URL(!! / "text")))(Unsafe.unsafe))
+    (0 to MAX).foreach(_ => httpTotal.toHttp.runHExitOrNull(Request.get(url = URL(!! / "text")))(Unsafe.unsafe))
     ()
   }
 

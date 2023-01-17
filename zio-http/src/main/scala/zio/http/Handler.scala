@@ -333,7 +333,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   ): Handler[R1, Err1, In, Out] =
     self.tapAllZIO(_ => ZIO.unit, f)
 
-  final def toRoute(implicit trace: Trace): Http[R, Err, In, Out] =
+  final def toHttp(implicit trace: Trace): Http[R, Err, In, Out] =
     Http.fromHandler(self)
 
   final def toSocketApp(implicit

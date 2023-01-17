@@ -18,7 +18,7 @@ class HttpNestedFlatMapEval {
 
   @Benchmark
   def benchmarkHttpFlatMap(): Unit = {
-    programFlatMap.toRoute.runHExitOrNull(0)(Unsafe.unsafe)
+    programFlatMap.toHttp.runHExitOrNull(0)(Unsafe.unsafe)
     ()
   }
 }

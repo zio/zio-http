@@ -39,7 +39,7 @@ object ClientProxySpec extends HttpRunnableSpec {
         for {
           port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
           url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
-          id   <- DynamicServer.deploy(Handler.ok.toRoute)
+          id   <- DynamicServer.deploy(Handler.ok.toHttp)
           proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
           out <- Client
             .request(
@@ -62,7 +62,7 @@ object ClientProxySpec extends HttpRunnableSpec {
             Response.ok
           }.getOrElse(Response.status(Status.Forbidden))
         }
-        .toRoute
+        .toHttp
 
       val res =
         for {
