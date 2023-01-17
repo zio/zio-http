@@ -27,12 +27,14 @@ jobs:
         distribution: temurin
         java-version: 17
         check-latest: true
-    - name: Check that site workflow is up to date
+    - name: Check if the README file is up to date
+      run: sbt  docs/checkReadme
+    - name: Check if the site workflow is up to date
       run: sbt  docs/checkGithubWorkflow
     - name: Check artifacts build process
       run: sbt  +publishLocal
     - name: Check website build process
-      run: sbt  docs/buildWebsite
+      run: sbt docs/clean; sbt  docs/buildWebsite
   publish-docs:
     name: Publish Docs
     runs-on: ubuntu-latest
