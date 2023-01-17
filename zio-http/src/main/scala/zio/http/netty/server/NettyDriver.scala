@@ -96,7 +96,7 @@ object NettyDriver {
         new AtomicReference[(App[Any], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
       )
       val ecb  = ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty))
-      val time = ZLayer.succeed(ServerTime.make(1000 millis))
+      val time = ZLayer.succeed(ServerTime.make(1000.millis))
 
       val nettyBits = ZLayer.fromZIOEnvironment(for {
         elg <- ZIO.service[EventLoopGroup]

@@ -47,16 +47,19 @@ object HandlerTree {
     HandlerTree(Map.empty, Map.empty, None)
 
   def single[R, E](handledAPI: Endpoints.HandledEndpoint[R, E, _, _, _]): HandlerTree[R, E] = {
-    val routeCodecs = Mechanic.flatten(handledAPI.endpointSpec.input).routes
+    val inputs = handledAPI.endpointSpec.input.alternatives
 
-    routeCodecs.foldRight[HandlerTree[R, E]](HandlerTree(Map.empty, Map.empty, Some(handledAPI))) { //
-      case (codec, acc) =>
+    inputs.foldLeft[HandlerTree[R, E]](HandlerTree(Map.empty, Map.empty, Some(handledAPI))) { case (acc, input) =>
+      val routeCodecs = Mechanic.flatten(input).routes
+
+      acc.merge(routeCodecs.foldRight(HandlerTree(Map.empty, Map.empty, Some(handledAPI))) { case (codec, acc) =>
         codec match {
           case TextCodec.Constant(string) =>
             HandlerTree(Map(string -> acc), Map.empty, None)
           case codec                      =>
             HandlerTree(Map.empty, Map(codec -> acc), None)
         }
+      })
     }
   }
 

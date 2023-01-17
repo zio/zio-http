@@ -615,6 +615,7 @@ object ZClient {
                         clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
                         clientConfig.maxHeaderSize,
                         clientConfig.requestDecompression,
+                        clientConfig.localAddress,
                       )
                       .provideEnvironment(ZEnvironment(channelScope))
                   }
