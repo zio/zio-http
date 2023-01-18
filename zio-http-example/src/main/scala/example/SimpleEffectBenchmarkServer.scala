@@ -16,7 +16,7 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
 
   private val STATIC_SERVER_NAME = AsciiString.cached("zio-http")
 
-  private val app: HttpRoute[Any, Nothing] = Http.collectZIO[Request] {
+  private val app: HttpApp[Any, Nothing] = Http.collectZIO[Request] {
     case Method.GET -> !! / "plaintext" =>
       ZIO.succeed(Response.text(plainTextMessage).withServerTime.withServer(STATIC_SERVER_NAME).freeze)
     case Method.GET -> !! / "json"      =>

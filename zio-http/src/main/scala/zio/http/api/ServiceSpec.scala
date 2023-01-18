@@ -1,7 +1,7 @@
 package zio.http.api
 
 import zio.Chunk
-import zio.http.HttpRoute
+import zio.http.HttpApp
 
 sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
   final def ++[AllIds2](that: ServiceSpec[MI, MO, AllIds2]): ServiceSpec[MI, MO, AllIds with AllIds2] =
@@ -20,13 +20,13 @@ sealed trait ServiceSpec[MI, MO, -AllIds] { self =>
   // TODO: rename these and create ToHttpApp that converts it to App[R]
   final def toHttpApp[AllIds1 <: AllIds, R, E](
     service: Endpoints[R, E, AllIds1],
-  )(implicit ev1: MI =:= Unit, ev2: MO =:= Unit): HttpRoute[R, E] =
+  )(implicit ev1: MI =:= Unit, ev2: MO =:= Unit): HttpApp[R, E] =
     self.withMI[Unit].withMO[Unit].toHttpApp(service, Middleware.none)
 
   final def toHttpApp[AllIds1 <: AllIds, R, E](
     service: Endpoints[R, E, AllIds1],
     middleware: Middleware[R, MI, MO],
-  ): HttpRoute[R, E] =
+  ): HttpApp[R, E] =
     middleware(service.toHttpRoute)
 
   final def withMI[MI2](implicit ev: MI =:= MI2): ServiceSpec[MI2, MO, AllIds] =

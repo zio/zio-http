@@ -40,19 +40,19 @@ object AuthenticationServer extends ZIOAppDefault {
   }
 
   // Http app that is accessible only via a jwt token
-  def user: HttpRoute[Any, Nothing] = Http.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
+  def user: HttpApp[Any, Nothing] = Http.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
     Response.text(s"Welcome to the ZIO party! ${name}")
   } @@ bearerAuth(jwtDecode(_).isDefined)
 
   // App that let's the user login
   // Login is successful only if the password is the reverse of the username
-  def login: HttpRoute[Any, Nothing] = Http.collect[Request] { case Method.GET -> !! / "login" / username / password =>
+  def login: HttpApp[Any, Nothing] = Http.collect[Request] { case Method.GET -> !! / "login" / username / password =>
     if (password.reverse.hashCode == username.hashCode) Response.text(jwtEncode(username))
     else Response.text("Invalid username or password.").setStatus(Status.Unauthorized)
   }
 
   // Composing all the HttpApps together
-  val app: HttpRoute[Any, Nothing] = login ++ user
+  val app: HttpApp[Any, Nothing] = login ++ user
 
   // Run it like any simple app
   override val run = Server.serve(app).provide(Server.default)

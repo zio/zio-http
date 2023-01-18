@@ -4,7 +4,7 @@ import zio.http._
 import zio.http.model._
 
 trait HttpAppTestExtensions {
-  implicit class HttpAppSyntax[R, E](route: HttpRoute[R, E]) {
+  implicit class HttpAppSyntax[R, E](route: HttpApp[R, E]) {
     def header(name: String): Http[R, E, Request, Option[String]] =
       route.map(res => res.headerValue(name))
 

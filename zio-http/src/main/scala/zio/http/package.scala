@@ -4,17 +4,18 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
 
-  type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
-  type AppHandler[-R]           = RequestHandler[R, Response]
-
+  type RequestHandler[-R, +Err]           = Handler[R, Err, Request, Response]
   type RequestHandlerMiddleware[-R, +Err] = HandlerMiddleware[R, Err, Request, Response, Request, Response]
-  type AppHandlerMiddleware[-R]           = RequestHandlerMiddleware[R, Response]
 
-  type HttpRoute[-R, +Err] = Http[R, Err, Request, Response]
-  type App[-R]             = HttpRoute[R, Response]
+  type HttpApp[-R, +Err] = Http[R, Err, Request, Response]
+  type UHttpApp          = HttpApp[Any, Nothing]
+  type RHttpApp[-R]      = HttpApp[R, Throwable]
+  type EHttpApp          = HttpApp[Any, Throwable]
+  type UHttp[-A, +B]     = Http[Any, Nothing, A, B]
+  type App[-R]           = HttpApp[R, Response]
 
-  type HttpRouteMiddleware[-R, +Err] = Middleware[R, Err, Request, Response, Request, Response]
-  type AppMiddleware[-R]             = HttpRouteMiddleware[R, Response]
+  type UMiddleware[+AIn, -AOut, -BIn, +BOut] = Middleware[Any, Nothing, AIn, AOut, BIn, BOut]
+  type HttpAppMiddleware[-R, +Err]           = Middleware[R, Err, Request, Response, Request, Response]
 
   type Client = ZClient[Any, Body, Throwable, Response]
   def Client: ZClient.type = ZClient

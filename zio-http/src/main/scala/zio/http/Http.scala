@@ -268,8 +268,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def withMiddleware[R1 <: R, In1 <: In, In2, Out2](
     middleware: api.Middleware[R1, In2, Out2],
-  )(implicit ev1: In1 <:< Request, ev2: Out <:< Response): HttpRoute[R1, Err] =
-    middleware(self.asInstanceOf[HttpRoute[R, Err]])
+  )(implicit ev1: In1 <:< Request, ev2: Out <:< Response): HttpApp[R1, Err] =
+    middleware(self.asInstanceOf[HttpApp[R, Err]])
 
   /**
    * Applies Http based only if the condition function evaluates to true
@@ -510,11 +510,11 @@ object Http {
       }
   }
 
-  implicit class HttpRouteSyntax[R, Err](val self: HttpRoute[R, Err]) extends AnyVal {
-    def whenPathEq(path: Path)(implicit trace: Trace): HttpRoute[R, Err] =
+  implicit class HttpRouteSyntax[R, Err](val self: HttpApp[R, Err]) extends AnyVal {
+    def whenPathEq(path: Path)(implicit trace: Trace): HttpApp[R, Err] =
       self.when[Request](_.path == path)
 
-    def whenPathEq(path: String)(implicit trace: Trace): HttpRoute[R, Err] =
+    def whenPathEq(path: String)(implicit trace: Trace): HttpApp[R, Err] =
       self.when[Request](_.path.encode == path)
   }
 

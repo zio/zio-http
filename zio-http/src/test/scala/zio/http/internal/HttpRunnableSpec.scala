@@ -47,7 +47,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         }
   }
 
-  implicit class RunnableHttpClientAppSyntax[R, E](route: HttpRoute[R, E]) {
+  implicit class RunnableHttpClientAppSyntax[R, E](route: HttpApp[R, E]) {
 
     def app: App[R] =
       route.withDefaultErrorResponse

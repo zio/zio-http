@@ -133,7 +133,7 @@ object ServerSpec extends HttpRunnableSpec {
         val app = Http.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
 
         def roundTrip[R, E <: Throwable](
-          app: HttpRoute[R, Throwable],
+          app: HttpApp[R, Throwable],
           headers: Headers,
           contentStream: ZStream[R, E, Byte],
           compressor: ZPipeline[R, E, Byte, Byte],
@@ -186,7 +186,7 @@ object ServerSpec extends HttpRunnableSpec {
   )
 
   def requestSpec = suite("RequestSpec") {
-    val app: HttpRoute[Any, Nothing] = Http.collect[Request] { case req =>
+    val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
       Response.text(req.contentLength.getOrElse(-1).toString)
     }
     test("has content-length") {

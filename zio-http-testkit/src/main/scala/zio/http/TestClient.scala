@@ -12,7 +12,7 @@ import zio.http.socket.{SocketApp, WebSocketChannelEvent, WebSocketFrame}
  *   Contains the user-specified behavior that takes the place of the usual
  *   Server
  */
-final case class TestClient(behavior: Ref[HttpRoute[Any, Throwable]], serverSocketBehavior: Ref[SocketApp[Any]])
+final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocketBehavior: Ref[SocketApp[Any]])
     extends Client {
 
   /**
@@ -63,8 +63,8 @@ final case class TestClient(behavior: Ref[HttpRoute[Any, Throwable]], serverSock
     for {
       r                <- ZIO.environment[R]
       previousBehavior <- behavior.get
-      newBehavior                    = handler.andThen(_.provideEnvironment(r))
-      app: HttpRoute[Any, Throwable] = Http.collectZIO(newBehavior)
+      newBehavior                  = handler.andThen(_.provideEnvironment(r))
+      app: HttpApp[Any, Throwable] = Http.collectZIO(newBehavior)
       _ <- behavior.set(previousBehavior.defaultWith(app))
     } yield ()
 
@@ -218,7 +218,7 @@ object TestClient {
   val layer: ZLayer[Any, Nothing, TestClient] =
     ZLayer.scoped {
       for {
-        behavior       <- Ref.make[HttpRoute[Any, Throwable]](Http.empty)
+        behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
         socketBehavior <- Ref.make[SocketApp[Any]](SocketApp.apply(_ => ZIO.unit))
       } yield TestClient(behavior, socketBehavior)
     }

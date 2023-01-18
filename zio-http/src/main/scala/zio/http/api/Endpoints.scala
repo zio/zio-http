@@ -24,7 +24,7 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
    * Converts this service into a [[zio.http.App]], which can then be served via
    * [[zio.http.Server.serve]].
    */
-  def toHttpRoute: HttpRoute[R, E] = {
+  def toHttpRoute: HttpApp[R, E] = {
     import zio.http.api.internal._
 
     val handlerTree     = HandlerTree.fromService(self)

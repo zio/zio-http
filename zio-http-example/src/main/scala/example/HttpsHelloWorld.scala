@@ -6,7 +6,7 @@ import zio.http.{SSLConfig, _}
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route
-  val app: HttpRoute[Any, Nothing] = Http.collect[Request] {
+  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "text" => Response.text("Hello World!")
     case Method.GET -> !! / "json" => Response.json("""{"greetings": "Hello World!"}""")
   }
