@@ -87,7 +87,6 @@ object SSLSpec extends ZIOSpecDefault {
               assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
             }
           }.provide(
-            Scope.default,
             ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
