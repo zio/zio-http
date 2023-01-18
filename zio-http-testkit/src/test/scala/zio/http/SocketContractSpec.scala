@@ -104,7 +104,8 @@ object SocketContractSpec extends ZIOSpecDefault {
           )
           _        <- promise.await.timeout(10.seconds)
         } yield assertTrue(response.status == Status.SwitchingProtocols)
-      }.provide(Client.default, Scope.default, TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort),
+      }.provideSome[Client](TestServer.layer, NettyDriver.default, ServerConfig.liveOnOpenPort, Scope.default)
+        .provide(Client.default),
       test("Test") {
         for {
           portAndPromise <- testServerSetup(serverApp)

@@ -85,9 +85,9 @@ object NettyDriver {
 
     val serverChannelFactory: ZLayer[ServerConfig, Nothing, ChannelFactory[ServerChannel]] =
       ChannelFactories.Server.fromConfig
-    val eventLoopGroup: ZLayer[Scope with ServerConfig, Nothing, EventLoopGroup]           = EventLoopGroups.fromConfig
+    val eventLoopGroup: ZLayer[ServerConfig, Nothing, EventLoopGroup]                      = EventLoopGroups.fromConfig
 
-    Scope.default >>> eventLoopGroup >+> serverChannelFactory >>> manual
+    eventLoopGroup >+> serverChannelFactory >>> manual
   }
 
   val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Nothing, Driver] =
