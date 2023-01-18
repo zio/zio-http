@@ -26,7 +26,6 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = serverUrl),
             )
             .provideSome(
-              Scope.default,
               ConnectionPool.disabled,
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))),
@@ -46,7 +45,6 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = url),
             )
             .provideSome(
-              Scope.default,
               ConnectionPool.disabled,
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(proxy)),
@@ -76,7 +74,6 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = url),
             )
             .provideSome(
-              Scope.default,
               ConnectionPool.disabled,
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(proxy)),

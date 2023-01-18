@@ -53,21 +53,22 @@ object ChannelFactories {
     def uring(implicit trace: Trace)    = clientChannel(new IOUringSocketChannel())
     def embedded(implicit trace: Trace) = clientChannel(new EmbeddedChannel(false, false))
 
-    implicit val trace: Trace = Trace.empty
-    val fromConfig            = ZLayer.fromZIO {
-      ZIO.service[ChannelType.Config].flatMap {
-        _.channelType match {
-          case ChannelType.NIO    => nio
-          case ChannelType.EPOLL  => epoll
-          case ChannelType.KQUEUE => kqueue
-          case ChannelType.URING  => uring
-          case ChannelType.AUTO   =>
-            if (Epoll.isAvailable) epoll
-            else if (KQueue.isAvailable) kqueue
-            else nio
+    implicit val trace: Trace                                                    = Trace.empty
+    val fromConfig: ZLayer[ChannelType.Config, Nothing, ChannelFactory[Channel]] =
+      ZLayer.fromZIO {
+        ZIO.service[ChannelType.Config].flatMap {
+          _.channelType match {
+            case ChannelType.NIO    => nio
+            case ChannelType.EPOLL  => epoll
+            case ChannelType.KQUEUE => kqueue
+            case ChannelType.URING  => uring
+            case ChannelType.AUTO   =>
+              if (Epoll.isAvailable) epoll
+              else if (KQueue.isAvailable) kqueue
+              else nio
+          }
         }
       }
-    }
   }
 
 }

@@ -82,7 +82,7 @@ object TestServerSpec extends ZIOSpecDefault {
       .provideSome[Client with Driver](
         TestServer.layer,
       ),
-  ).provideSome[Scope](
+  ).provide(
     ServerConfig.liveOnOpenPort,
     Client.default,
     NettyDriver.default,

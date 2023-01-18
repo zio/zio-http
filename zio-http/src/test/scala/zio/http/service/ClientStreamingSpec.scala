@@ -26,7 +26,6 @@ object ClientStreamingSpec extends HttpRunnableSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ClientProxy") {
     serve(DynamicServer.app).as(List(clientStreamingSpec))
   }.provideShared(
-    Scope.default,
     DynamicServer.live,
     severTestLayer,
     ConnectionPool.disabled,

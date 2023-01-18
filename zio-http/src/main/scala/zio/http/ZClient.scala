@@ -792,15 +792,15 @@ object ZClient {
   }
 
   val fromConfig: ZLayer[
-    Scope with EventLoopGroups.Config with ChannelType.Config with ConnectionPool with ClientConfig,
+    ChannelType.Config with ConnectionPool with ClientConfig,
     Throwable,
     Client,
   ] = {
     implicit val trace = Trace.empty
-    EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool >>> live
+    ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool >>> live
   }
 
-  val default: ZLayer[Scope, Throwable, Client] = {
+  val default: ZLayer[Any, Throwable, Client] = {
     implicit val trace = Trace.empty
     ClientConfig.default >+> ConnectionPool.disabled >>> live
   }

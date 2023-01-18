@@ -53,7 +53,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           _        <- ZIO.debug(s"Result: $result")
         } yield assertTrue(result == Post(20, "title", "body", 10))
       },
-    ).provideSome[Scope](
+    ).provide(
       Server.live,
       ServerConfig.live,
       Client.live,

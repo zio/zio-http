@@ -53,7 +53,7 @@ object ClientConfig {
   def empty: ClientConfig = ClientConfig()
 
   val default: ZLayer[
-    Scope,
+    Any,
     Nothing,
     ClientConfig with EventLoopGroup with ChannelFactory[channel.Channel] with NettyRuntime,
   ] = {
@@ -67,7 +67,7 @@ object ClientConfig {
     clientConfig: ClientConfig,
   )(implicit
     trace: Trace,
-  ): ZLayer[Scope, Nothing, ClientConfig with EventLoopGroup with ChannelFactory[channel.Channel] with NettyRuntime] =
+  ): ZLayer[Any, Nothing, ClientConfig with EventLoopGroup with ChannelFactory[channel.Channel] with NettyRuntime] =
     ZLayer.succeed(
       clientConfig,
     ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
