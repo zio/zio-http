@@ -3,6 +3,8 @@ package zio.http
 import zio.http.middleware.{HttpRouteMiddlewares, RequestHandlerMiddlewares}
 import zio.{Trace, ZIO}
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
 trait Middleware[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
 
   def apply[R1 <: R, Err1 >: Err](http: Http[R1, Err1, AIn, AOut])(implicit

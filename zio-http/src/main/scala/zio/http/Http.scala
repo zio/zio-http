@@ -11,6 +11,8 @@ import java.io.{File, FileNotFoundException}
 import java.nio.file.Paths
 import java.util.zip.ZipFile
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
 sealed trait Http[-R, +Err, -In, +Out] { self =>
   import Handler.FastZIOSyntax
 
@@ -19,7 +21,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
     handler: Handler[R1, Err1, In1, Out1],
-  ): Http[R1, Err1, In, Out1] =
+  )(implicit trace: Trace): Http[R1, Err1, In, Out1] =
     self match {
       case Http.Empty                         => Http.empty
       case Http.Static(firstHandler)          => Http.Static(firstHandler.andThen(handler))
@@ -32,7 +34,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
 
   final def @@[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out, In2, Out2](
     aspect: Middleware[R1, Err1, In1, Out1, In2, Out2],
-  ): Http[R1, Err1, In2, Out2] =
+  )(implicit trace: Trace): Http[R1, Err1, In2, Out2] =
     aspect(self)
 
   /**
@@ -40,7 +42,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def ++[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](
     that: Http[R1, Err1, In1, Out1],
-  ): Http[R1, Err1, In1, Out1] =
+  )(implicit trace: Trace): Http[R1, Err1, In1, Out1] =
     self.defaultWith(that)
 
   /**
@@ -48,7 +50,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def defaultWith[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](
     that: Http[R1, Err1, In1, Out1],
-  ): Http[R1, Err1, In1, Out1] =
+  )(implicit trace: Trace): Http[R1, Err1, In1, Out1] =
     self match {
       case Http.Empty                    => that
       case Http.Static(handler)          => Http.Static(handler)
@@ -165,14 +167,14 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
-  final def runHandler(in: In): ZIO[R, Err, Option[Handler[R, Err, In, Out]]] =
+  final def runHandler(in: In)(implicit trace: Trace): ZIO[R, Err, Option[Handler[R, Err, In, Out]]] =
     self match {
       case Http.Empty                    => Exit.succeed(None)
       case Http.Static(handler)          => Exit.succeed(Some(handler))
       case route: Route[R, Err, In, Out] => route.run(in).fastFlatMap(_.runHandler(in))
     }
 
-  final def runZIOOrNull(in: In)(implicit unsafe: Unsafe): ZIO[R, Err, Out] = // NOTE: Out can be null
+  final def runZIOOrNull(in: In)(implicit unsafe: Unsafe, trace: Trace): ZIO[R, Err, Out] = // NOTE: Out can be null
     self match {
       case Http.Empty                    => Exit.succeed(null).asInstanceOf[ZIO[R, Err, Out]]
       case Http.Static(handler)          => handler(in)
@@ -180,7 +182,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     }
 
   final def runZIO(in: In)(implicit trace: Trace): ZIO[R, Option[Err], Out] =
-    runZIOOrNull(in)(Unsafe.unsafe)
+    runZIOOrNull(in)(Unsafe.unsafe, trace)
       .mapError(Some(_))
       .flatMap { out =>
         if (out != null) Exit.succeed(out)
@@ -370,7 +372,7 @@ object Http {
       }
     }
 
-  def fromHandler[R, Err, In, Out](handler: Handler[R, Err, In, Out])(implicit trace: Trace): Http[R, Err, In, Out] =
+  def fromHandler[R, Err, In, Out](handler: Handler[R, Err, In, Out]): Http[R, Err, In, Out] =
     new Route[R, Err, In, Out] {
       override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
         Exit.succeed(Static(handler))
@@ -424,14 +426,12 @@ object Http {
     getResource(path).map(url => new File(url.getPath))
 
   final class Collect[In](val self: Unit) extends AnyVal {
-    def apply[Out](pf: PartialFunction[In, Out])(implicit trace: Trace): Http[Any, Nothing, In, Out] =
+    def apply[Out](pf: PartialFunction[In, Out]): Http[Any, Nothing, In, Out] =
       Http.collectHandler[In].apply(pf.andThen(Handler.succeed(_)))
   }
 
   final class CollectHandler[In](val self: Unit) extends AnyVal {
-    def apply[R, Err, Out](pf: PartialFunction[In, Handler[R, Err, In, Out]])(implicit
-      trace: Trace,
-    ): Http[R, Err, In, Out] =
+    def apply[R, Err, Out](pf: PartialFunction[In, Handler[R, Err, In, Out]]): Http[R, Err, In, Out] =
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
           try {
@@ -448,16 +448,12 @@ object Http {
   }
 
   final class CollectExit[In](val self: Unit) extends AnyVal {
-    def apply[Err, Out](pf: PartialFunction[In, Exit[Err, Out]])(implicit
-      trace: Trace,
-    ): Http[Any, Err, In, Out] =
+    def apply[Err, Out](pf: PartialFunction[In, Exit[Err, Out]]): Http[Any, Err, In, Out] =
       Http.collectHandler[In].apply(pf.andThen(Handler.fromExit(_)))
   }
 
   final class CollectHttp[In](val self: Unit) extends AnyVal {
-    def apply[R, Err, Out](pf: PartialFunction[In, Http[R, Err, In, Out]])(implicit
-      trace: Trace,
-    ): Http[R, Err, In, Out] =
+    def apply[R, Err, Out](pf: PartialFunction[In, Http[R, Err, In, Out]]): Http[R, Err, In, Out] =
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
           Exit.succeed(pf.applyOrElse(in, (_: In) => Empty))
@@ -465,9 +461,7 @@ object Http {
   }
 
   final class CollectZIO[In](val self: Unit) extends AnyVal {
-    def apply[R, Err, Out](pf: PartialFunction[In, ZIO[R, Err, Out]])(implicit
-      trace: Trace,
-    ): Http[R, Err, In, Out] =
+    def apply[R, Err, Out](pf: PartialFunction[In, ZIO[R, Err, Out]]): Http[R, Err, In, Out] =
       Http.collectHandler[In].apply(pf.andThen(Handler.fromZIO(_)))
   }
 
@@ -499,9 +493,7 @@ object Http {
   }
 
   final class FromHttp[In](val self: Unit) extends AnyVal {
-    def apply[R, Err, Out](f: In => Http[R, Err, In, Out])(implicit
-      trace: Trace,
-    ): Http[R, Err, In, Out] =
+    def apply[R, Err, Out](f: In => Http[R, Err, In, Out]): Http[R, Err, In, Out] =
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
           Exit.succeed {
@@ -511,9 +503,7 @@ object Http {
   }
 
   final class FromHttpZIO[In](val self: Unit) extends AnyVal {
-    def apply[R, Err, Out](f: In => ZIO[R, Err, Http[R, Err, In, Out]])(implicit
-      trace: Trace,
-    ): Http[R, Err, In, Out] =
+    def apply[R, Err, Out](f: In => ZIO[R, Err, Http[R, Err, In, Out]]): Http[R, Err, In, Out] =
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
           f(in)
@@ -521,10 +511,10 @@ object Http {
   }
 
   implicit class HttpRouteSyntax[R, Err](val self: HttpRoute[R, Err]) extends AnyVal {
-    def whenPathEq(path: Path): HttpRoute[R, Err] =
+    def whenPathEq(path: Path)(implicit trace: Trace): HttpRoute[R, Err] =
       self.when[Request](_.path == path)
 
-    def whenPathEq(path: String): HttpRoute[R, Err] =
+    def whenPathEq(path: String)(implicit trace: Trace): HttpRoute[R, Err] =
       self.when[Request](_.path.encode == path)
   }
 

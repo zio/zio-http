@@ -1,8 +1,8 @@
 package zio.benchmarks
 
 import org.openjdk.jmh.annotations._
-import zio.Unsafe
 import zio.http._
+import zio.{Trace, Unsafe}
 
 import java.util.concurrent.TimeUnit
 
@@ -16,13 +16,13 @@ class HttpCombineEval {
 
   @Benchmark
   def empty(): Unit = {
-    spec.runZIOOrNull(-1)(Unsafe.unsafe)
+    spec.runZIOOrNull(-1)(Unsafe.unsafe, Trace.empty)
     ()
   }
 
   @Benchmark
   def ok(): Unit = {
-    spec.runZIOOrNull(0)(Unsafe.unsafe)
+    spec.runZIOOrNull(0)(Unsafe.unsafe, Trace.empty)
     ()
   }
 }

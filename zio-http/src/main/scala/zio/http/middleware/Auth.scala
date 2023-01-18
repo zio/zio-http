@@ -13,7 +13,7 @@ private[zio] trait Auth {
   /**
    * Creates a middleware for basic authentication
    */
-  final def basicAuth(f: Credentials => Boolean)(implicit trace: Trace): RequestHandlerMiddleware[Any, Nothing] =
+  final def basicAuth(f: Credentials => Boolean): RequestHandlerMiddleware[Any, Nothing] =
     customAuth(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -26,7 +26,7 @@ private[zio] trait Auth {
    * Creates a middleware for basic authentication that checks if the
    * credentials are same as the ones given
    */
-  final def basicAuth(u: String, p: String)(implicit trace: Trace): RequestHandlerMiddleware[Any, Nothing] =
+  final def basicAuth(u: String, p: String): RequestHandlerMiddleware[Any, Nothing] =
     basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
 
   /**
@@ -50,7 +50,7 @@ private[zio] trait Auth {
    * @param f:
    *   function that validates the token string inside the Bearer Header
    */
-  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): RequestHandlerMiddleware[Any, Nothing] =
+  final def bearerAuth(f: String => Boolean): RequestHandlerMiddleware[Any, Nothing] =
     customAuth(
       _.bearerToken match {
         case Some(token) => f(token)
@@ -85,7 +85,7 @@ private[zio] trait Auth {
     verify: Headers => Boolean,
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  )(implicit trace: Trace): RequestHandlerMiddleware[Any, Nothing] =
+  ): RequestHandlerMiddleware[Any, Nothing] =
     new RequestHandlerMiddleware[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
@@ -105,7 +105,7 @@ private[zio] trait Auth {
     verify: Headers => ZIO[R, E, Boolean],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  )(implicit trace: Trace): RequestHandlerMiddleware[R, E] =
+  ): RequestHandlerMiddleware[R, E] =
     new RequestHandlerMiddleware[R, E] {
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],

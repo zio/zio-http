@@ -8,6 +8,8 @@ import zio.{Console, Duration, Trace, ZIO}
 
 import java.io.IOException
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
 private[zio] trait RequestHandlerMiddlewares
     extends RequestLogging
     with Metrics
@@ -21,7 +23,9 @@ private[zio] trait RequestHandlerMiddlewares
   final def addCookie(cookie: Cookie[Response]): RequestHandlerMiddleware[Any, Nothing] =
     withSetCookie(cookie)
 
-  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]]): RequestHandlerMiddleware[R, E] =
+  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]])(implicit
+    trace: Trace,
+  ): RequestHandlerMiddleware[R, E] =
     updateResponseZIO(response => cookie.map(response.addCookie))
 
   /**
@@ -177,7 +181,7 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Permanent redirect if the trailing slash is present in the request URL.
    */
-  final def redirectTrailingSlash(isPermanent: Boolean): RequestHandlerMiddleware[Any, Nothing] =
+  final def redirectTrailingSlash(isPermanent: Boolean)(implicit trace: Trace): RequestHandlerMiddleware[Any, Nothing] =
     ifRequestThenElseFunction(request => request.url.path.trailingSlash && request.url.queryParams.isEmpty)(
       ifFalse = _ => HandlerAspect.identity,
       ifTrue = request => redirect(request.dropTrailingSlash.url, isPermanent),
@@ -194,7 +198,7 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Runs the effect after the middleware is applied
    */
-  final def runAfter[R, E](effect: ZIO[R, E, Any]): RequestHandlerMiddleware[R, E] =
+  final def runAfter[R, E](effect: ZIO[R, E, Any])(implicit trace: Trace): RequestHandlerMiddleware[R, E] =
     updateResponseZIO(response => effect.as(response))
 
   /**

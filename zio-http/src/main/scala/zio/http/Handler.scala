@@ -13,12 +13,14 @@ import java.nio.charset.Charset
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
   import Handler.FastZIOSyntax
 
   final def @@[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out, In2, Out2](
     that: HandlerAspect[R1, Err1, In1, Out1, In2, Out2],
-  ): Handler[R1, Err1, In2, Out2] =
+  )(implicit trace: Trace): Handler[R1, Err1, In2, Out2] =
     that(self)
 
   /**
@@ -80,14 +82,17 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    */
   final def \/[R1 <: R, Err1 >: Err, In1, Out1](
     that: Handler[R1, Err1, In1, Out1],
-  ): HandlerAspect[R1, Err1, Out, In1, In, Out1] =
+  )(implicit trace: Trace): HandlerAspect[R1, Err1, Out, In1, In, Out1] =
     self.codecMiddleware(that)
 
   /**
    * Returns a handler that submerges the error case of an `Either` into the
    * `Handler`. The inverse operation of `Handler.either`.
    */
-  final def absolve[Err1 >: Err, Out1](implicit ev: Out <:< Either[Err1, Out1]): Handler[R, Err1, In, Out1] =
+  final def absolve[Err1 >: Err, Out1](implicit
+    ev: Out <:< Either[Err1, Out1],
+    trace: Trace,
+  ): Handler[R, Err1, In, Out1] =
     self.flatMap { out =>
       ev(out) match {
         case Right(out1) => Handler.succeed(out1)
@@ -177,7 +182,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    */
   final def codecMiddleware[R1 <: R, Err1 >: Err, In1, Out1](
     that: Handler[R1, Err1, In1, Out1],
-  ): HandlerAspect[R1, Err1, Out, In1, In, Out1] =
+  )(implicit trace: Trace): HandlerAspect[R1, Err1, Out, In1, In, Out1] =
     HandlerAspect.codecHttp(self, that)
 
   /**
@@ -192,7 +197,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    * Transforms the input of the handler before passing it on to the current
    * Handler
    */
-  final def contramap[In1](f: In1 => In)(implicit trace: Trace): Handler[R, Err, In1, Out] =
+  final def contramap[In1](f: In1 => In): Handler[R, Err, In1, Out] =
     new Handler[R, Err, In1, Out] {
       override def apply(in: In1): ZIO[R, Err, Out] =
         self(f(in))
@@ -454,7 +459,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       Handler.succeed,
     )
 
-  final def runZIO(in: In)(implicit trace: Trace): ZIO[R, Err, Out] =
+  final def runZIO(in: In): ZIO[R, Err, Out] =
     self(in)
 
   /**
@@ -511,22 +516,28 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   /**
    * Takes some defects and converts them into failures.
    */
-  final def unrefine[Err1 >: Err](pf: PartialFunction[Throwable, Err1]): Handler[R, Err1, In, Out] =
+  final def unrefine[Err1 >: Err](pf: PartialFunction[Throwable, Err1])(implicit
+    trace: Trace,
+  ): Handler[R, Err1, In, Out] =
     unrefineWith(pf)(err => err)
 
   /**
    * Takes some defects and converts them into failures.
    */
-  final def unrefineTo[Err1 >: Err: ClassTag]: Handler[R, Err1, In, Out] =
-    unrefine { case err: Err1 =>
+  final def unrefineTo[Err1 >: Err: ClassTag](implicit trace: Trace): Handler[R, Err1, In, Out] = {
+    val pf: PartialFunction[Throwable, Err1] = { case err: Err1 =>
       err
     }
+    unrefine(pf)
+  }
 
   /**
    * Takes some defects and converts them into failures, using the specified
    * function to convert the `E` into an `E1`.
    */
-  final def unrefineWith[Err1](pf: PartialFunction[Throwable, Err1])(f: Err => Err1): Handler[R, Err1, In, Out] =
+  final def unrefineWith[Err1](
+    pf: PartialFunction[Throwable, Err1],
+  )(f: Err => Err1)(implicit trace: Trace): Handler[R, Err1, In, Out] =
     self.catchAllCause(cause =>
       cause.find {
         case Cause.Die(t, _) if pf.isDefinedAt(t) => pf(t)
@@ -573,7 +584,7 @@ object Handler {
    * Attempts to create a Handler that succeeds with the provided value,
    * capturing all exceptions on it's way.
    */
-  def attempt[Out](out: => Out)(implicit trace: Trace): Handler[Any, Throwable, Any, Out] =
+  def attempt[Out](out: => Out): Handler[Any, Throwable, Any, Out] =
     fromExit {
       try Exit.succeed(out)
       catch {
@@ -584,7 +595,7 @@ object Handler {
   /**
    * Creates a handler which always responds with a 400 status code.
    */
-  def badRequest(message: String)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def badRequest(message: String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.BadRequest(message))
 
   /**
@@ -593,7 +604,7 @@ object Handler {
    * code. Terminating a handler leads to aborting handling of an HTTP request
    * and responding with 500 Internal Server Error.
    */
-  def die(failure: => Throwable)(implicit trace: Trace): Handler[Any, Nothing, Any, Nothing] =
+  def die(failure: => Throwable): Handler[Any, Nothing, Any, Nothing] =
     fromExit(Exit.die(failure))
 
   /**
@@ -601,50 +612,50 @@ object Handler {
    * text message. This method can be used for terminating a HTTP request
    * because a defect has been detected in the code.
    */
-  def dieMessage(message: => String)(implicit trace: Trace): Handler[Any, Nothing, Any, Nothing] =
+  def dieMessage(message: => String): Handler[Any, Nothing, Any, Nothing] =
     die(new RuntimeException(message))
 
   /**
    * Creates a handler with HttpError.
    */
-  def error(error: HttpError)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def error(error: HttpError): Handler[Any, Nothing, Any, Response] =
     response(Response.fromHttpError(error))
 
   /**
    * Creates a handler that responds with 500 status code
    */
-  def error(message: String)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def error(message: String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.InternalServerError(message))
 
   /**
    * Creates a Handler that always fails
    */
-  def fail[Err](err: => Err)(implicit trace: Trace): Handler[Any, Err, Any, Nothing] =
+  def fail[Err](err: => Err): Handler[Any, Err, Any, Nothing] =
     fromExit(Exit.fail(err))
 
-  def failCause[Err](cause: => Cause[Err])(implicit trace: Trace): Handler[Any, Err, Any, Nothing] =
+  def failCause[Err](cause: => Cause[Err]): Handler[Any, Err, Any, Nothing] =
     fromExit(Exit.failCause(cause))
 
   /**
    * Creates a handler that responds with 403 - Forbidden status code
    */
-  def forbidden(message: String)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def forbidden(message: String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.Forbidden(message))
 
   /**
    * Creates a handler which always responds the provided data and a 200 status
    * code
    */
-  def fromBody(body: Body)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def fromBody(body: Body): Handler[Any, Nothing, Any, Response] =
     response(Response(body = body))
 
   /**
    * Lifts an `Either` into a `Handler` alue.
    */
-  def fromEither[Err, Out](either: Either[Err, Out])(implicit trace: Trace): Handler[Any, Err, Any, Out] =
+  def fromEither[Err, Out](either: Either[Err, Out]): Handler[Any, Err, Any, Out] =
     either.fold(Handler.fail(_), Handler.succeed(_))
 
-  def fromExit[Err, Out](exit: => Exit[Err, Out])(implicit trace: Trace): Handler[Any, Err, Any, Out] =
+  def fromExit[Err, Out](exit: => Exit[Err, Out]): Handler[Any, Err, Any, Out] =
     new Handler[Any, Err, Any, Out] {
       override def apply(in: Any): ZIO[Any, Err, Out] = exit
     }
@@ -700,7 +711,7 @@ object Handler {
   /**
    * Converts a ZIO to a Handler type
    */
-  def fromZIO[R, Err, Out](zio: => ZIO[R, Err, Out])(implicit trace: Trace): Handler[R, Err, Any, Out] =
+  def fromZIO[R, Err, Out](zio: => ZIO[R, Err, Out]): Handler[R, Err, Any, Out] =
     new Handler[R, Err, Any, Out] {
       override def apply(in: Any): ZIO[R, Err, Out] = zio
     }
@@ -725,13 +736,13 @@ object Handler {
   /**
    * Creates a handler which always responds with the provided Html page.
    */
-  def html(view: Html)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def html(view: Html): Handler[Any, Nothing, Any, Response] =
     response(Response.html(view))
 
   /**
    * Creates a pass thru Handler instance
    */
-  def identity[A](implicit trace: Trace): Handler[Any, Nothing, A, A] =
+  def identity[A]: Handler[Any, Nothing, A, A] =
     new Handler[Any, Nothing, A, A] {
       override def apply(in: A): ZIO[Any, Nothing, A] = Exit.succeed(in)
     }
@@ -739,7 +750,7 @@ object Handler {
   /**
    * Creates a handler which always responds with a 405 status code.
    */
-  def methodNotAllowed(message: String)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def methodNotAllowed(message: String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.MethodNotAllowed(message))
 
   /**
@@ -760,13 +771,13 @@ object Handler {
   /**
    * Creates a handler which always responds with the same value.
    */
-  def response(response: Response)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def response(response: Response): Handler[Any, Nothing, Any, Response] =
     succeed(response)
 
   /**
    * Converts a ZIO to a handler type
    */
-  def responseZIO[R, Err](getResponse: ZIO[R, Err, Response])(implicit trace: Trace): Handler[R, Err, Any, Response] =
+  def responseZIO[R, Err](getResponse: ZIO[R, Err, Response]): Handler[R, Err, Any, Response] =
     fromZIO(getResponse)
 
   def stackTrace(implicit trace: Trace): Handler[Any, Nothing, Any, StackTrace] =
@@ -776,26 +787,26 @@ object Handler {
    * Creates a handler which always responds with the same status code and empty
    * data.
    */
-  def status(code: Status)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def status(code: Status): Handler[Any, Nothing, Any, Response] =
     succeed(Response(code))
 
   /**
    * Creates a Handler that always returns the same response and never fails.
    */
-  def succeed[Out](out: Out)(implicit trace: Trace): Handler[Any, Nothing, Any, Out] =
+  def succeed[Out](out: Out): Handler[Any, Nothing, Any, Out] =
     fromExit(Exit.succeed(out))
 
   /**
    * Creates a handler which responds with an Html page using the built-in
    * template.
    */
-  def template(heading: CharSequence)(view: Html)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def template(heading: CharSequence)(view: Html): Handler[Any, Nothing, Any, Response] =
     response(Response.html(Template.container(heading)(view)))
 
   /**
    * Creates a handler which always responds with the same plain text.
    */
-  def text(text: CharSequence)(implicit trace: Trace): Handler[Any, Nothing, Any, Response] =
+  def text(text: CharSequence): Handler[Any, Nothing, Any, Response] =
     response(Response.text(text))
 
   /**
@@ -822,13 +833,13 @@ object Handler {
     /**
      * Overwrites the method in the incoming request
      */
-    def setMethod(method: Method)(implicit trace: Trace): RequestHandler[R, Err] =
+    def setMethod(method: Method): RequestHandler[R, Err] =
       self.contramap[Request](_.copy(method = method))
 
     /**
      * Overwrites the path in the incoming request
      */
-    def setPath(path: Path)(implicit trace: Trace): RequestHandler[R, Err] = self.contramap[Request](_.updatePath(path))
+    def setPath(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.updatePath(path))
 
     /**
      * Sets the status in the response produced by the app
@@ -838,7 +849,7 @@ object Handler {
     /**
      * Overwrites the url in the incoming request
      */
-    def setUrl(url: URL)(implicit trace: Trace): RequestHandler[R, Err] = self.contramap[Request](_.copy(url = url))
+    def setUrl(url: URL): RequestHandler[R, Err] = self.contramap[Request](_.copy(url = url))
 
     /**
      * Updates the current Headers with new one, using the provided update
@@ -895,7 +906,7 @@ object Handler {
   }
 
   final class FromFunction[In](val self: Unit) extends AnyVal {
-    def apply[Out](f: In => Out)(implicit trace: Trace): Handler[Any, Nothing, In, Out] =
+    def apply[Out](f: In => Out): Handler[Any, Nothing, In, Out] =
       new Handler[Any, Nothing, In, Out] {
         override def apply(in: In): ZIO[Any, Nothing, Out] =
           try {
@@ -907,7 +918,7 @@ object Handler {
   }
 
   final class FromFunctionHandler[In](val self: Unit) extends AnyVal {
-    def apply[R, Err, Out](f: In => Handler[R, Err, In, Out])(implicit trace: Trace): Handler[R, Err, In, Out] =
+    def apply[R, Err, Out](f: In => Handler[R, Err, In, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[R, Err, Out] =
           f(in)(in)
@@ -915,7 +926,7 @@ object Handler {
   }
 
   final class FromFunctionExit[In](val self: Unit) extends AnyVal {
-    def apply[R, Err, Out](f: In => Exit[Err, Out])(implicit trace: Trace): Handler[Any, Err, In, Out] =
+    def apply[R, Err, Out](f: In => Exit[Err, Out]): Handler[Any, Err, In, Out] =
       new Handler[Any, Err, In, Out] {
         override def apply(in: In): ZIO[Any, Err, Out] =
           try {
@@ -927,7 +938,7 @@ object Handler {
   }
 
   final class FromFunctionZIO[In](val self: Unit) extends AnyVal {
-    def apply[R, Err, Out](f: In => ZIO[R, Err, Out])(implicit trace: Trace): Handler[R, Err, In, Out] =
+    def apply[R, Err, Out](f: In => ZIO[R, Err, Out]): Handler[R, Err, In, Out] =
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[R, Err, Out] =
           f(in)
@@ -936,21 +947,21 @@ object Handler {
 
   // TODO: Remove after https://github.com/zio/zio/pull/7714 is released
   implicit class FastZIOSyntax[R, E, A](val zio: ZIO[R, E, A]) extends AnyVal {
-    def fastFlatMap[R1 <: R, E1 >: E, B](f: A => ZIO[R1, E1, B]): ZIO[R1, E1, B] =
+    def fastFlatMap[R1 <: R, E1 >: E, B](f: A => ZIO[R1, E1, B])(implicit trace: Trace): ZIO[R1, E1, B] =
       zio match {
         case Exit.Success(a)     => f(a)
         case e @ Exit.Failure(_) => e
         case _                   => zio.flatMap(f)
       }
 
-    def fastMap[B](f: A => B): ZIO[R, E, B] =
+    def fastMap[B](f: A => B)(implicit trace: Trace): ZIO[R, E, B] =
       zio match {
         case Exit.Success(a)     => Exit.Success(f(a))
         case e @ Exit.Failure(_) => e
         case _                   => zio.map(f)
       }
 
-    def fastMapBoth[E2, B](f: E => E2, g: A => B): ZIO[R, E2, B] =
+    def fastMapBoth[E2, B](f: E => E2, g: A => B)(implicit trace: Trace): ZIO[R, E2, B] =
       zio match {
         case Exit.Success(a) => Exit.Success(g(a))
         case Exit.Failure(e) => Exit.Failure(e.map(f))

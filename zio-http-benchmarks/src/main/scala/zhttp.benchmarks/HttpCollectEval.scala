@@ -1,8 +1,8 @@
 package zio.benchmarks
 
 import org.openjdk.jmh.annotations._
-import zio.Unsafe
 import zio.http._
+import zio.{Trace, Unsafe}
 
 import java.util.concurrent.TimeUnit
 
@@ -24,19 +24,21 @@ class HttpCollectEval {
 
   @Benchmark
   def benchmarkApp(): Unit = {
-    (0 to MAX).foreach(_ => app.runZIOOrNull(0)(Unsafe.unsafe))
+    (0 to MAX).foreach(_ => app.runZIOOrNull(0)(Unsafe.unsafe, Trace.empty))
     ()
   }
 
   @Benchmark
   def benchmarkHttp(): Unit = {
-    (0 to MAX).foreach(_ => http.runZIOOrNull(Request.get(url = URL(!! / "text")))(Unsafe.unsafe))
+    (0 to MAX).foreach(_ => http.runZIOOrNull(Request.get(url = URL(!! / "text")))(Unsafe.unsafe, Trace.empty))
     ()
   }
 
   @Benchmark
   def benchmarkHttpTotal(): Unit = {
-    (0 to MAX).foreach(_ => httpTotal.toHttp.runZIOOrNull(Request.get(url = URL(!! / "text")))(Unsafe.unsafe))
+    (0 to MAX).foreach(_ =>
+      httpTotal.toHttp.runZIOOrNull(Request.get(url = URL(!! / "text")))(Unsafe.unsafe, Trace.empty),
+    )
     ()
   }
 

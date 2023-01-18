@@ -43,7 +43,7 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
           case Some(handlerMatch) =>
             requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)(Trace.empty)
         }
-      }(Trace.empty)
+      }
   }
 
   private[api] def withAllIds[AllIds0]: Endpoints[R, E, AllIds0] =

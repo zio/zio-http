@@ -1,7 +1,9 @@
 package zio.http.middleware
 
 import zio.http.{Http, HttpRouteMiddleware, Middleware, Request, Response}
-import zio.{Trace, Unsafe, ZIO}
+import zio.{Trace, ZIO}
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait HttpRouteMiddlewares extends Cors {
 

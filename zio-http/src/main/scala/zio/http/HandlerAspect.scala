@@ -2,6 +2,8 @@ package zio.http
 
 import zio.{Trace, ZIO}
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
 trait HandlerAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
   def apply[R1 <: R, Err1 >: Err](handler: Handler[R1, Err1, AIn, AOut])(implicit
     trace: Trace,
@@ -39,7 +41,7 @@ object HandlerAspect {
     def apply[Err, AIn, BOut](
       decoder: BIn => Either[Err, AIn],
       encoder: AOut => Either[Err, BOut],
-    )(implicit trace: Trace): HandlerAspect[Any, Err, AIn, AOut, BIn, BOut] =
+    ): HandlerAspect[Any, Err, AIn, AOut, BIn, BOut] =
       new HandlerAspect[Any, Err, AIn, AOut, BIn, BOut] {
         override def apply[R1 <: Any, Err1 >: Err](
           handler: Handler[R1, Err1, AIn, AOut],
@@ -54,7 +56,7 @@ object HandlerAspect {
     def apply[R, Err, AIn, BOut](
       decoder: Handler[R, Err, BIn, AIn],
       encoder: Handler[R, Err, AOut, BOut],
-    )(implicit trace: Trace): HandlerAspect[R, Err, AIn, AOut, BIn, BOut] =
+    ): HandlerAspect[R, Err, AIn, AOut, BIn, BOut] =
       new HandlerAspect[R, Err, AIn, AOut, BIn, BOut] {
         override def apply[R1 <: R, Err1 >: Err](
           handler: Handler[R1, Err1, AIn, AOut],
@@ -67,7 +69,7 @@ object HandlerAspect {
     def apply[R, Err, AIn, BOut](
       decoder: BIn => ZIO[R, Err, AIn],
       encoder: AOut => ZIO[R, Err, BOut],
-    )(implicit trace: Trace): HandlerAspect[R, Err, AIn, AOut, BIn, BOut] =
+    ): HandlerAspect[R, Err, AIn, AOut, BIn, BOut] =
       new HandlerAspect[R, Err, AIn, AOut, BIn, BOut] {
         override def apply[R1 <: R, Err1 >: Err](
           handler: Handler[R1, Err1, AIn, AOut],
