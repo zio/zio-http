@@ -45,7 +45,6 @@ object ClientHttpsSpec extends ZIOSpecDefault {
     ClientConfig.live(ClientConfig.empty.ssl(sslConfig)),
     Client.live,
     ConnectionPool.disabled,
-    Scope.default,
   ) @@ timeout(
     30 seconds,
   ) @@ ignore

@@ -77,7 +77,7 @@ private[zio] object NettyRuntime {
   /**
    * Creates a runtime that uses a separate thread pool for ZIO operations.
    */
-  val usingDedicatedThreadPool = {
+  val usingDedicatedThreadPool: ZLayer[Any, Nothing, NettyRuntime] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       ZIO
@@ -95,7 +95,7 @@ private[zio] object NettyRuntime {
    * event loop. This should be the preferred way of creating the runtime for
    * the server.
    */
-  val usingSharedThreadPool = {
+  val usingSharedThreadPool: ZLayer[EventLoopGroup, Nothing, NettyRuntime] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {

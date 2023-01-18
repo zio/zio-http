@@ -22,6 +22,6 @@ object HttpsClient extends ZIOAppDefault {
     _    <- Console.printLine(data)
   } yield ()
 
-  val run = program.provide(ClientConfig.live(clientConfig), Client.live, ConnectionPool.disabled, Scope.default)
+  val run = program.provide(ClientConfig.live(clientConfig), Client.live, ConnectionPool.disabled)
 
 }

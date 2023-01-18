@@ -39,7 +39,6 @@ object SSLSpec extends ZIOSpecDefault {
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
-            Scope.default,
             ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
@@ -52,7 +51,6 @@ object SSLSpec extends ZIOSpecDefault {
               }
             assertZIO(actual)(equalTo("DecoderException"))
           }.provide(
-            Scope.default,
             ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL2)),
@@ -63,7 +61,6 @@ object SSLSpec extends ZIOSpecDefault {
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
-            Scope.default,
             ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(ClientSSLConfig.Default)),
@@ -74,7 +71,6 @@ object SSLSpec extends ZIOSpecDefault {
               .map(_.status)
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
           }.provide(
-            Scope.default,
             ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),

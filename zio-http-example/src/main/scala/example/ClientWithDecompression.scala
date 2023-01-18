@@ -17,6 +17,6 @@ object ClientWithDecompression extends ZIOAppDefault {
 
   val config       = ClientConfig.empty.requestDecompression(true)
   override val run =
-    program.provide(ClientConfig.live(config), ConnectionPool.disabled, Client.fromConfig, Scope.default)
+    program.provide(ClientConfig.live(config), ConnectionPool.disabled, Client.fromConfig)
 
 }

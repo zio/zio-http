@@ -48,21 +48,22 @@ object EventLoopGroups {
 
   implicit val trace: Trace = Trace.empty
 
-  val fromConfig = ZLayer.fromZIO {
-    ZIO.service[Config].flatMap { config =>
-      config.channelType match {
-        case ChannelType.NIO    => nio(config.nThreads)
-        case ChannelType.EPOLL  => epoll(config.nThreads)
-        case ChannelType.KQUEUE => kqueue(config.nThreads)
-        case ChannelType.URING  => uring(config.nThreads)
-        case ChannelType.AUTO   =>
-          if (Epoll.isAvailable)
-            epoll(config.nThreads)
-          else if (KQueue.isAvailable)
-            kqueue(config.nThreads)
-          else nio(config.nThreads)
+  val fromConfig: ZLayer[Config, Nothing, EventLoopGroup] =
+    ZLayer.scoped {
+      ZIO.service[Config].flatMap { config =>
+        config.channelType match {
+          case ChannelType.NIO    => nio(config.nThreads)
+          case ChannelType.EPOLL  => epoll(config.nThreads)
+          case ChannelType.KQUEUE => kqueue(config.nThreads)
+          case ChannelType.URING  => uring(config.nThreads)
+          case ChannelType.AUTO   =>
+            if (Epoll.isAvailable)
+              epoll(config.nThreads)
+            else if (KQueue.isAvailable)
+              kqueue(config.nThreads)
+            else nio(config.nThreads)
+        }
       }
     }
-  }
 
 }
