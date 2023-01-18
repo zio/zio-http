@@ -14,6 +14,9 @@ import java.util.zip.ZipFile
 sealed trait Http[-R, +Err, -In, +Out] { self =>
   import Handler.FastZIOSyntax
 
+  /**
+   * Pipes the output of one app into the other
+   */
   final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
     handler: Handler[R1, Err1, In1, Out1],
   ): Http[R1, Err1, In, Out1] =
@@ -32,11 +35,17 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   ): Http[R1, Err1, In2, Out2] =
     aspect(self)
 
+  /**
+   * Combines two Http into one.
+   */
   final def ++[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](
     that: Http[R1, Err1, In1, Out1],
   ): Http[R1, Err1, In1, Out1] =
     self.defaultWith(that)
 
+  /**
+   * Named alias for `++`
+   */
   final def defaultWith[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](
     that: Http[R1, Err1, In1, Out1],
   ): Http[R1, Err1, In1, Out1] =
@@ -50,7 +59,10 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
-  final def map[Out1](f: Out => Out1)(implicit trace: Trace): Http[R, Err, In, Out1]      =
+  /**
+   * Transforms the output of the http app
+   */
+  final def map[Out1](f: Out => Out1)(implicit trace: Trace): Http[R, Err, In, Out1] =
     self match {
       case Http.Empty                    => Http.Empty
       case Http.Static(handler)          => Http.Static(handler.map(f))
@@ -60,6 +72,10 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
             route.run(in).fastMap(_.map(f))
         }
     }
+
+  /**
+   * Transforms the failure of the http app
+   */
   final def mapError[Err1](f: Err => Err1)(implicit trace: Trace): Http[R, Err1, In, Out] =
     self match {
       case Http.Empty                    => Http.Empty
@@ -71,6 +87,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
+  /**
+   * Transforms the output of the http effectfully
+   */
   final def mapZIO[R1 <: R, Err1 >: Err, Out1](f: Out => ZIO[R1, Err1, Out1])(implicit
     trace: Trace,
   ): Http[R1, Err1, In, Out1] =
@@ -84,6 +103,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
+  /**
+   * Provides the environment to Http.
+   */
   final def provideEnvironment(r: ZEnvironment[R])(implicit trace: Trace): Http[Any, Err, In, Out] =
     self match {
       case Http.Empty                    => Http.Empty
@@ -95,6 +117,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
+  /**
+   * Provides layer to Http.
+   */
   final def provideLayer[Err1 >: Err, R0](layer: ZLayer[R0, Err1, R])(implicit
     trace: Trace,
   ): Http[R0, Err1, In, Out] =
@@ -108,6 +133,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
+  /**
+   * Provides some of the environment to Http.
+   */
   final def provideSomeEnvironment[R1](f: ZEnvironment[R1] => ZEnvironment[R])(implicit
     trace: Trace,
   ): Http[R1, Err, In, Out] =
@@ -121,6 +149,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
+  /**
+   * Provides some of the environment to Http leaving the remainder `R0`.
+   */
   final def provideSomeLayer[R0, R1: Tag, Err1 >: Err](
     layer: ZLayer[R0, Err1, R1],
   )(implicit ev: R0 with R1 <:< R, trace: Trace): Http[R0, Err1, In, Out] =
@@ -156,6 +187,10 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         else Exit.fail(None)
       }
 
+  /**
+   * Returns an Http that effectfully peeks at the success, failed, defective or
+   * empty value of this Http.
+   */
   final def tapAllZIO[R1 <: R, Err1 >: Err](
     onFailure: Cause[Err] => ZIO[R1, Err1, Any],
     onSuccess: Out => ZIO[R1, Err1, Any],
@@ -176,6 +211,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   )(implicit trace: Trace): Http[R1, Err1, In, Out] =
     self.tapAllZIO(f, _ => ZIO.unit, ZIO.unit)
 
+  /**
+   * Returns an Http that effectfully peeks at the failure of this Http.
+   */
   final def tapErrorZIO[R1 <: R, Err1 >: Err](
     f: Err => ZIO[R1, Err1, Any],
   )(implicit trace: Trace): Http[R1, Err1, In, Out] =
@@ -186,6 +224,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   )(implicit trace: Trace): Http[R1, Err1, In, Out] =
     self.tapAllZIO(_ => ZIO.unit, _ => ZIO.unit, f)
 
+  /**
+   * Returns an Http that effectfully peeks at the success of this Http.
+   */
   final def tapZIO[R1 <: R, Err1 >: Err](f: Out => ZIO[R1, Err1, Any])(implicit
     trace: Trace,
   ): Http[R1, Err1, In, Out] =
@@ -205,6 +246,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
           .flatten
     }
 
+  /**
+   * Converts an Http into a websocket application
+   */
   final def toSocketApp(implicit
     ev1: WebSocketChannelEvent <:< In,
     ev2: Err <:< Throwable,
@@ -217,11 +261,17 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       },
     )
 
+  /**
+   * Attaches the provided middleware to the Http app
+   */
   final def withMiddleware[R1 <: R, In1 <: In, In2, Out2](
     middleware: api.Middleware[R1, In2, Out2],
   )(implicit ev1: In1 <:< Request, ev2: Out <:< Response): HttpRoute[R1, Err] =
     middleware(self.asInstanceOf[HttpRoute[R, Err]])
 
+  /**
+   * Applies Http based only if the condition function evaluates to true
+   */
   final def when[In1 <: In](f: In1 => Boolean)(implicit trace: Trace): Http[R, Err, In1, Out] =
     Http.fromHttp[In1] { in =>
       try {
@@ -257,20 +307,45 @@ object Http {
     def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]]
   }
 
-  def collect[In]: Collect[In]         = new Collect[In](())
+  /**
+   * Creates an HTTP app which accepts a request and produces response.
+   */
+  def collect[In]: Collect[In] = new Collect[In](())
+
+  /**
+   * Create an HTTP app from a partial function from A to HExit[R,E,B]
+   */
   def collectExit[In]: CollectExit[In] = new CollectExit[In](())
 
   def collectHandler[In]: CollectHandler[In] = new CollectHandler[In](())
 
+  /**
+   * Create an HTTP app from a partial function from A to Http[R,E,A,B]
+   */
   def collectRoute[In]: CollectHttp[In] = new CollectHttp[In](())
 
+  /**
+   * Creates an HTTP app which accepts a request and produces response
+   * effectfully.
+   */
   def collectZIO[In]: CollectZIO[In] = new CollectZIO[In](())
 
+  /**
+   * Creates an empty Http value
+   */
   def empty: Http[Any, Nothing, Any, Nothing] = Empty
 
+  /**
+   * Creates an Http app from the contents of a file.
+   */
   def fromFile(file: => File)(implicit trace: Trace): Http[Any, Throwable, Any, Response] =
     fromFileZIO(ZIO.succeed(file))
 
+  /**
+   * Creates an Http app from the contents of a file which is produced from an
+   * effect. The operator automatically adds the content-length and content-type
+   * headers if possible.
+   */
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit
     trace: Trace,
   ): Http[R, Throwable, Any, Response] =
@@ -309,9 +384,15 @@ object Http {
 
   def fromOptionalHandlerZIO[In]: FromOptionalHandlerZIO[In] = new FromOptionalHandlerZIO[In](())
 
+  /**
+   * Creates an HTTP that can serve files on the give path.
+   */
   def fromPath(head: String, tail: String*)(implicit trace: Trace): Http[Any, Throwable, Any, Response] =
     fromFile(Paths.get(head, tail: _*).toFile)
 
+  /**
+   * Creates an Http app from a resource path
+   */
   def fromResource(path: String)(implicit trace: Trace): Http[Any, Throwable, Any, Response] =
     Http.fromHttpZIO { (_: Any) =>
       ZIO
@@ -322,6 +403,9 @@ object Http {
         }
     }
 
+  /**
+   * Attempts to retrieve files from the classpath.
+   */
   def getResource(path: String)(implicit trace: Trace): Http[Any, Throwable, Any, java.net.URL] =
     Http.fromOptionalHandlerZIO { _ =>
       ZIO
@@ -333,6 +417,9 @@ object Http {
         }
     }
 
+  /**
+   * Attempts to retrieve files from the classpath.
+   */
   def getResourceAsFile(path: String)(implicit trace: Trace): Http[Any, Throwable, Any, File] =
     getResource(path).map(url => new File(url.getPath))
 
