@@ -312,14 +312,14 @@ object Middleware extends Web {
    * applied to the incoming type of the Http and one that applied to the
    * outgoing type of the Http.
    */
-  def transform[AOut, BIn]: PartialMono[AOut, BIn] = new PartialMono[AOut, BIn]({})
+  def transform[AOut, BIn]: PartialMono[AOut, BIn] = new PartialMono[AOut, BIn] {}
 
   /**
    * Creates a new middleware using two transformation functions, one that's
    * applied to the incoming type of the Http and one that applied to the
    * outgoing type of the Http.
    */
-  def transformZIO[AOut, BIn]: PartialMonoZIO[AOut, BIn] = new PartialMonoZIO[AOut, BIn]({})
+  def transformZIO[AOut, BIn]: PartialMonoZIO[AOut, BIn] = new PartialMonoZIO[AOut, BIn] {}
 
   final class PartialAllowZIO[A, B](val unit: Unit) extends AnyVal {
     def apply[R, E](cond: A => ZIO[R, E, Boolean]): MonoMiddleware[R, E, A, B] =
