@@ -68,13 +68,12 @@ ThisBuild / githubWorkflowBuildPostamble :=
     scalas = List(Scala213),
   ).steps
 
-
 inThisBuild(
   List(
     organization := "dev.zio",
     homepage     := Some(url("https://zio.dev/zio-http/")),
-    licenses     := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0"))
-  )
+    licenses     := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+  ),
 )
 
 lazy val root = (project in file("."))
@@ -120,8 +119,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.1.4",
-      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.1.4",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.2.6",
+      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.2.6",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
     ),
   )
@@ -172,7 +171,7 @@ lazy val docs = project
     projectStage                               := ProjectStage.Development,
     docsPublishBranch                          := "main",
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttp, zioHttpLogging),
-    ciWorkflowName := "Continuous Integration"
+    ciWorkflowName                             := "Continuous Integration",
   )
   .dependsOn(zioHttp, zioHttpLogging)
   .enablePlugins(WebsitePlugin)
