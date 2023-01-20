@@ -153,7 +153,6 @@ object ConnectionPool {
 
   private class ZioConnectionPool(
     pool: ZKeyedPool[Throwable, PoolKey, JChannel],
-    activeChannels: Ref[Set[JChannel]],
   ) extends ConnectionPool {
     override def get(
       location: Location.Absolute,
@@ -167,26 +166,11 @@ object ConnectionPool {
         restore(
           pool
             .get(PoolKey(location, proxy, sslOptions, maxHeaderSize, decompression)),
-        ).tap { channel =>
-          for {
-            channels        <- activeChannels.get
-            updatedChannels <-
-              if (channels.contains(channel)) ZIO.succeed(channels)
-              else
-                restore(
-                  NettyFutureExecutor.executed(channel.closeFuture()),
-                ).zipRight(
-                  pool.invalidate(channel),
-                ).forkDaemon
-                  .as(channels + channel)
-            _               <- activeChannels.set(updatedChannels)
-          } yield ()
-        }
+        )
       }
 
     override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
-      pool.invalidate(channel) *>
-        activeChannels.update(_ - channel)
+      pool.invalidate(channel)
 
     override def enableKeepAlive: Boolean = true
   }
@@ -268,22 +252,31 @@ object ConnectionPool {
     for {
       channelFactory <- ZIO.service[ChannelFactory]
       eventLoopGroup <- ZIO.service[EventLoopGroup]
+      poolPromise    <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       keyedPool      <- ZKeyedPool.make(
         (key: PoolKey) =>
-          createChannel(
-            channelFactory,
-            eventLoopGroup,
-            key.location,
-            key.proxy,
-            key.sslOptions,
-            key.maxHeaderSize,
-            key.decompression,
-            None,
-          ),
+          ZIO.uninterruptibleMask { restore =>
+            createChannel(
+              channelFactory,
+              eventLoopGroup,
+              key.location,
+              key.proxy,
+              key.sslOptions,
+              key.maxHeaderSize,
+              key.decompression,
+              None,
+            ).tap { channel =>
+              restore(
+                NettyFutureExecutor.executed(channel.closeFuture()),
+              ).zipRight(
+                poolPromise.await.flatMap(_.invalidate(channel)),
+              ).forkDaemon
+            }
+          },
         (key: PoolKey) => size(key.location),
       )
-      activeChannels <- Ref.make(Set.empty[JChannel])
-    } yield new ZioConnectionPool(keyedPool, activeChannels)
+      _              <- poolPromise.succeed(keyedPool)
+    } yield new ZioConnectionPool(keyedPool)
 
   private def createDynamic(
     min: Int,
@@ -300,21 +293,30 @@ object ConnectionPool {
     for {
       channelFactory <- ZIO.service[ChannelFactory]
       eventLoopGroup <- ZIO.service[EventLoopGroup]
+      poolPromise    <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       keyedPool      <- ZKeyedPool.make(
         (key: PoolKey) =>
-          createChannel(
-            channelFactory,
-            eventLoopGroup,
-            key.location,
-            key.proxy,
-            key.sslOptions,
-            key.maxHeaderSize,
-            key.decompression,
-            None,
-          ),
+          ZIO.uninterruptibleMask { restore =>
+            createChannel(
+              channelFactory,
+              eventLoopGroup,
+              key.location,
+              key.proxy,
+              key.sslOptions,
+              key.maxHeaderSize,
+              key.decompression,
+              None,
+            ).tap { channel =>
+              restore(
+                NettyFutureExecutor.executed(channel.closeFuture()),
+              ).zipRight(
+                poolPromise.await.flatMap(_.invalidate(channel)),
+              ).forkDaemon
+            }
+          },
         (key: PoolKey) => min(key.location) to max(key.location),
         (key: PoolKey) => ttl(key.location),
       )
       activeChannels <- Ref.make(Set.empty[JChannel])
-    } yield new ZioConnectionPool(keyedPool, activeChannels)
+    } yield new ZioConnectionPool(keyedPool)
 }
