@@ -1,22 +1,17 @@
 package zio.http.netty.client
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
+import zio._
 import zio.http.URL.Location
 import zio.http._
 import zio.http.logging.LogLevel
 import zio.http.netty.NettyFutureExecutor
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
-import zio.{Duration, Scope, ZIO, ZKeyedPool, ZLayer}
 
 import java.net.InetSocketAddress
 
@@ -31,6 +26,8 @@ trait ConnectionPool {
   ): ZIO[Scope, Throwable, JChannel]
 
   def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit]
+
+  def enableKeepAlive: Boolean
 }
 
 object ConnectionPool {
@@ -97,6 +94,7 @@ object ConnectionPool {
     }
 
     ZIO.attempt {
+      println("Creating new channel")
       val bootstrap = new Bootstrap()
         .channelFactory(channelFactory)
         .group(eventLoopGroup)
@@ -136,6 +134,9 @@ object ConnectionPool {
 
     override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
       ZIO.unit
+
+    override def enableKeepAlive: Boolean =
+      false
   }
 
   case class PoolKey(
@@ -148,6 +149,7 @@ object ConnectionPool {
 
   private class ZioConnectionPool(
     pool: ZKeyedPool[Throwable, PoolKey, JChannel],
+    activeChannels: Ref[Set[JChannel]],
   ) extends ConnectionPool {
     override def get(
       location: Location.Absolute,
@@ -162,16 +164,27 @@ object ConnectionPool {
           pool
             .get(PoolKey(location, proxy, sslOptions, maxHeaderSize, decompression)),
         ).tap { channel =>
-          restore(
-            NettyFutureExecutor.executed(channel.closeFuture()),
-          ).zipRight(
-            pool.invalidate(channel),
-          ).forkDaemon
+          for {
+            channels        <- activeChannels.get
+            updatedChannels <-
+              if (channels.contains(channel)) ZIO.succeed(channels)
+              else
+                restore(
+                  NettyFutureExecutor.executed(channel.closeFuture()),
+                ).zipRight(
+                  pool.invalidate(channel),
+                ).forkDaemon
+                  .as(channels + channel)
+            _               <- activeChannels.set(updatedChannels)
+          } yield ()
         }
       }
 
     override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
-      pool.invalidate(channel)
+      pool.invalidate(channel) *>
+        activeChannels.update(_ - channel)
+
+    override def enableKeepAlive: Boolean = true
   }
 
   val disabled: ZLayer[EventLoopGroup with ChannelFactory, Nothing, ConnectionPool] =
@@ -265,7 +278,8 @@ object ConnectionPool {
           ),
         (key: PoolKey) => size(key.location),
       )
-    } yield new ZioConnectionPool(keyedPool)
+      activeChannels <- Ref.make(Set.empty[JChannel])
+    } yield new ZioConnectionPool(keyedPool, activeChannels)
 
   private def createDynamic(
     min: Int,
@@ -297,5 +311,6 @@ object ConnectionPool {
         (key: PoolKey) => min(key.location) to max(key.location),
         (key: PoolKey) => ttl(key.location),
       )
-    } yield new ZioConnectionPool(keyedPool)
+      activeChannels <- Ref.make(Set.empty[JChannel])
+    } yield new ZioConnectionPool(keyedPool, activeChannels)
 }

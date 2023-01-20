@@ -12,6 +12,7 @@ final class ClientInboundStreamingHandler(
   req: Request,
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
+  enableKeepAlive: Boolean,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) {
 
@@ -33,7 +34,7 @@ final class ClientInboundStreamingHandler(
                 response,
                 rtm,
                 onComplete,
-                HttpUtil.isKeepAlive(response),
+                enableKeepAlive && HttpUtil.isKeepAlive(response),
               ),
             )
         }(unsafeClass, trace)
