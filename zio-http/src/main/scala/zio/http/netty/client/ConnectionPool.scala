@@ -317,6 +317,5 @@ object ConnectionPool {
         (key: PoolKey) => min(key.location) to max(key.location),
         (key: PoolKey) => ttl(key.location),
       )
-      activeChannels <- Ref.make(Set.empty[JChannel])
     } yield new ZioConnectionPool(keyedPool)
 }
