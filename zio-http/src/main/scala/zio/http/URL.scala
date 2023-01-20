@@ -2,7 +2,7 @@ package zio.http
 
 import io.netty.handler.codec.http.QueryStringEncoder
 import zio.Chunk
-import zio.http.URL.{Fragment, Location}
+import zio.http.URL.{Fragment, Location, portFromScheme}
 import zio.http.model.Scheme
 
 import java.net.{MalformedURLException, URI}
@@ -25,10 +25,19 @@ final case class URL(
 
   def encode: String = URL.encode(self)
 
-  def host: Option[String] = kind match {
+  def host: Option[String]                 = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.host)
   }
+  def hostWithOptionalPort: Option[String] =
+    kind match {
+      case URL.Location.Relative                     => None
+      case URL.Location.Absolute(scheme, host, port) =>
+        Some(
+          if (port == portFromScheme(scheme)) host
+          else s"$host:$port",
+        )
+    }
 
   def isAbsolute: Boolean = self.kind match {
     case Location.Absolute(_, _, _) => true
@@ -46,6 +55,13 @@ final case class URL(
   def port: Option[Int] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.port)
+  }
+
+  def portIfNotDefault: Option[Int] = kind match {
+    case URL.Location.Relative      =>
+      None
+    case abs: URL.Location.Absolute =>
+      if (abs.port == portFromScheme(abs.scheme)) None else Some(abs.port)
   }
 
   private[zio] def relative: URL = self.kind match {
@@ -147,9 +163,10 @@ object URL {
     }
 
     url.kind match {
-      case Location.Relative                     => path
+      case Location.Relative                     =>
+        path
       case Location.Absolute(scheme, host, port) =>
-        if (port == 80 || port == 443) s"${scheme.encode}://$host$path"
+        if (port == portFromScheme(scheme)) s"${scheme.encode}://$host$path"
         else s"${scheme.encode}://$host:$port$path"
     }
   }

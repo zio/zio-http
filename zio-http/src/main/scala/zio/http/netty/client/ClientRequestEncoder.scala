@@ -24,8 +24,8 @@ trait ClientRequestEncoder {
 
       val encodedReqHeaders = req.headers.encode
 
-      val headers = req.url.host match {
-        case Some(host) => encodedReqHeaders.set(HttpHeaderNames.HOST, req.url.port.fold(host)(port => s"$host:$port"))
+      val headers = req.url.hostWithOptionalPort match {
+        case Some(host) => encodedReqHeaders.set(HttpHeaderNames.HOST, host)
         case _          => encodedReqHeaders
       }
 

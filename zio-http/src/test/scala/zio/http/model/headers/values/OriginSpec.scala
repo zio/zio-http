@@ -19,8 +19,8 @@ object OriginSpec extends ZIOSpecDefault {
       assertTrue(Origin.toOrigin("host:80") == InvalidOriginValue)
     },
     test("parsing of valid without a port ") {
-      assertTrue(Origin.toOrigin("http://domain") == OriginValue("http", "domain", Some(80))) &&
-      assertTrue(Origin.toOrigin("https://domain") == OriginValue("https", "domain", Some(443)))
+      assertTrue(Origin.toOrigin("http://domain") == OriginValue("http", "domain", None)) &&
+      assertTrue(Origin.toOrigin("https://domain") == OriginValue("https", "domain", None))
     },
     test("parsing of valid Origin values") {
       check(HttpGen.genAbsoluteURL) { url =>
@@ -29,7 +29,7 @@ object OriginSpec extends ZIOSpecDefault {
           Origin.toOrigin(justSchemeHostAndPort.encode) == OriginValue(
             url.scheme.map(_.encode).getOrElse(""),
             url.host.getOrElse(""),
-            url.port,
+            url.portIfNotDefault,
           ),
         )
       }

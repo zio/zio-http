@@ -34,6 +34,6 @@ object Origin {
       URL.fromString(value) match {
         case Left(_)                                              => InvalidOriginValue
         case Right(url) if url.host.isEmpty || url.scheme.isEmpty => InvalidOriginValue
-        case Right(url) => OriginValue(url.scheme.get.encode, url.host.get, url.port)
+        case Right(url) => OriginValue(url.scheme.get.encode, url.host.get, url.portIfNotDefault)
       }
 }
