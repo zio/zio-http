@@ -99,7 +99,6 @@ object ConnectionPool {
     }
 
     ZIO.attempt {
-      println("Creating new channel")
       val bootstrap = new Bootstrap()
         .channelFactory(channelFactory)
         .group(eventLoopGroup)
