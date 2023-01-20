@@ -110,6 +110,9 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
         )
     }
 
+  final def delete(pathSuffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+    request(Method.DELETE, pathSuffix, body)
+
   final def dieOn(
     f: Err => Boolean,
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err, Out] =
@@ -117,6 +120,9 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
 
   final def get(pathSuffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
     request(Method.GET, pathSuffix, body)
+
+  final def head(pathSuffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+    request(Method.HEAD, pathSuffix, body)
 
   final def header(key: String, value: String): ZClient[Env, In, Err, Out] =
     copy(headers = headers ++ Headers.Header(key, value))
@@ -189,11 +195,17 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
   final def path(segment: String): ZClient[Env, In, Err, Out] =
     copy(pathPrefix = pathPrefix / segment)
 
-  final def put(pathSuffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
-    request(Method.PUT, pathSuffix, body)
-
   final def port(port: Int): ZClient[Env, In, Err, Out] =
     copy(portOption = Some(port))
+
+  final def patch(pathSuffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+    request(Method.PATCH, pathSuffix, body)
+
+  final def post(pathSuffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+    request(Method.POST, pathSuffix, body)
+
+  final def put(pathSuffix: String)(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+    request(Method.PUT, pathSuffix, body)
 
   def query(key: String, value: String): ZClient[Env, In, Err, Out] =
     copy(queries = queries.add(key, value))
@@ -742,6 +754,18 @@ object ZClient {
         }
       }
     }
+  }
+
+  final implicit class ClientSyntax(val client: Client) extends AnyVal {
+
+    def delete(pathSuffix: String)(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+      client.delete(pathSuffix)(Body.empty)
+
+    def get(pathSuffix: String)(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+      client.get(pathSuffix)(Body.empty)
+
+    def head(pathSuffix: String)(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+      client.head(pathSuffix)(Body.empty)
   }
 
   def request(
