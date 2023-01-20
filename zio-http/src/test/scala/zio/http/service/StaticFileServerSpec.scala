@@ -45,7 +45,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           val res = fileOk.run().map(_.mediaType)
           assertZIO(res)(isSome(equalTo(MediaType.text.plain)))
         },
-        test("should respond with empty") {
+        test("should respond with empty if file not found") {
           val res = fileNotFound.run().map(_.status)
           assertZIO(res)(equalTo(Status.NotFound))
         },
@@ -87,7 +87,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           val res = resourceOk.run().map(_.mediaType)
           assertZIO(res)(isSome(equalTo(MediaType.text.plain)))
         },
-        test("should respond with empty") {
+        test("should respond with empty if not found") {
           val res = resourceNotFound.run().map(_.status)
           assertZIO(res)(equalTo(Status.NotFound))
         },

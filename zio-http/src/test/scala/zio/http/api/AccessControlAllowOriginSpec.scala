@@ -12,24 +12,24 @@ object AccessControlAllowOriginSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withAccessControlAllowOrigin("*")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.accessControlAllowOrigin.contains("*"))
         },
         test("add null allow control access origin") {
           for {
             response <- api.Middleware
               .withAccessControlAllowOrigin("null")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.accessControlAllowOrigin.contains("null"))
         },
         test("add url allow control access origin") {
           for {
             response <- api.Middleware
               .withAccessControlAllowOrigin("http://localhost:8080")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.accessControlAllowOrigin.contains("http://localhost:8080"))
         },
       ),
@@ -38,8 +38,8 @@ object AccessControlAllowOriginSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withAccessControlAllowOrigin("*()!*#&#$^")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.accessControlAllowOrigin.contains(""))
         },
       ),

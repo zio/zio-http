@@ -19,7 +19,7 @@ object SocketContractSpec extends ZIOSpecDefault {
     ZIO.fail(new Exception("Unexpected event: " + other))
   }
 
-  def spec =
+  def spec: Spec[Any, Any] =
     suite("SocketOps")(
       contract("Successful Multi-message application") { p =>
         def channelSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
@@ -38,7 +38,7 @@ object SocketContractSpec extends ZIOSpecDefault {
             .defaultWith(warnOnUnrecognizedEvent)
 
         val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
-          Http.collectZIO[(WebSocketChannel, String)] {
+          Handler.fromFunctionZIO[(WebSocketChannel, String)] {
             case (ch, text) if text.contains("Hi Server") =>
               printLine("Server got message: " + text) *> ch.close()
           }
@@ -47,7 +47,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           .defaultWith(channelSocketServer)
       } { _ =>
         val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
-          Http.collectZIO[(WebSocketChannel, String)] {
+          Handler.fromFunctionZIO[(WebSocketChannel, String)] {
             case (ch, text) if text.contains("Hi Client") =>
               ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
           }
@@ -69,7 +69,7 @@ object SocketContractSpec extends ZIOSpecDefault {
             ZIO.fail(new Exception("Broken server"))
         },
       ) { p =>
-        Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, ChannelUnregistered) =>
+        Http.collectZIO[WebSocketChannelEvent] { case ChannelEvent(_, ChannelUnregistered) =>
           printLine("Server failed and killed socket. Should complete promise.") *>
             p.succeed(()).unit
         }
@@ -121,17 +121,17 @@ object SocketContractSpec extends ZIOSpecDefault {
 
   private def liveServerSetup(
     serverApp: Promise[Throwable, Unit] => Http[Any, Throwable, WebSocketChannelEvent, Unit],
-  ) =
+  ): ZIO[Server, Nothing, (RuntimeFlags, Promise[Throwable, Unit])] =
     ZIO.serviceWithZIO[Server](server =>
       for {
         p <- Promise.make[Throwable, Unit]
-        _ <- server.install(serverApp(p).toSocketApp.toHttp)
+        _ <- server.install(serverApp(p).toSocketApp.toRoute)
       } yield (server.port, p),
     )
 
   private def testServerSetup(
     serverApp: Promise[Throwable, Unit] => Http[Any, Throwable, WebSocketChannelEvent, Unit],
-  ) =
+  ): ZIO[TestClient, Nothing, (RuntimeFlags, Promise[Throwable, Unit])] =
     for {
       p <- Promise.make[Throwable, Unit]
       _ <- TestClient.installSocketApp(serverApp(p))

@@ -11,12 +11,12 @@ import java.nio.file.Paths
 object FileStreaming extends ZIOAppDefault {
 
   // Create HTTP route
-  val app = Http.collectHttp[Request] {
-    case Method.GET -> !! / "health" => Http.ok
+  val app = Http.collectRoute[Request] {
+    case Method.GET -> !! / "health" => Handler.ok.toHttp
 
     // Read the file as ZStream
     // Uses the blocking version of ZStream.fromFile
-    case Method.GET -> !! / "blocking" => Http.fromStream(ZStream.fromPath(Paths.get("README.md")))
+    case Method.GET -> !! / "blocking" => Handler.fromStream(ZStream.fromPath(Paths.get("README.md"))).toHttp
 
     // Uses netty's capability to write file content to the Channel
     // Content-type response headers are automatically identified and added
@@ -27,5 +27,5 @@ object FileStreaming extends ZIOAppDefault {
 
   // Run it like any simple app
   val run =
-    Server.serve(app).provide(Server.default)
+    Server.serve(app.withDefaultErrorResponse).provide(Server.default)
 }

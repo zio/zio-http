@@ -11,7 +11,7 @@ import zio.{Scope, durationInt}
 
 object KeepAliveSpec extends HttpRunnableSpec {
 
-  val app                         = Http.ok
+  val app                         = Handler.ok.toHttp
   val connectionCloseHeader       = Headers.connection(HttpHeaderValues.CLOSE)
   val keepAliveHeader             = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
   private val appKeepAliveEnabled = serve(DynamicServer.app)

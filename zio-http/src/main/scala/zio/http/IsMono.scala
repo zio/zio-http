@@ -28,11 +28,11 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * for such middlewares.
  */
 @implicitNotFound(
-  "This operation is only valid if the incoming and outgoing type of Http are same.",
+  "This operation is only valid if the incoming and outgoing type are same.",
 )
-sealed trait IsMono[-AIn, +BIn, +AOut, -BOut] {}
+sealed trait IsMono[-AIn, +AOut, +BIn, -BOut] {}
 
 object IsMono extends IsMono[Any, Nothing, Nothing, Any] {
-  implicit def mono[AIn, BIn, AOut, BOut](implicit a: AIn =:= AOut, b: BIn =:= BOut): IsMono[AIn, BIn, AOut, BOut] =
+  implicit def mono[AIn, AOut, BIn, BOut](implicit a: AIn =:= BIn, b: AOut =:= BOut): IsMono[AIn, AOut, BIn, BOut] =
     IsMono
 }

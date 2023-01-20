@@ -3,24 +3,17 @@ package zio.http.netty.server
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
+import io.netty.util.AttributeKey
 import zio._
 import zio.http._
-import zio.http.netty.{NettyRuntime, _}
 import zio.http.logging.Logger
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import zio.http.model._
-import io.netty.util.AttributeKey
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import scala.annotation.tailrec
-import ServerInboundHandler.isReadKey
+import zio.http.netty._
+import zio.http.netty.server.ServerInboundHandler.isReadKey
+
 import java.io.IOException
-import zio.http.Body.ChunkBody
-import zio.http.Body.AsciiStringBody
-import zio.http.Body.FileBody
-import zio.http.Body.ByteBufBody
-import zio.http.Body.EmptyBody
-import zio.http.Body.StreamBody
-import zio.http.Body.AsyncBody
+import scala.annotation.tailrec
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -35,7 +28,7 @@ private[zio] final case class ServerInboundHandler(
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
-  private lazy val (http, env) = appRef.get
+  private lazy val (app, env) = appRef.get
 
   private lazy val errCallback = errCallbackRef.get.orNull
 
@@ -45,8 +38,7 @@ private[zio] final case class ServerInboundHandler(
     msg match {
       case jReq: FullHttpRequest =>
         log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
-        val req  = makeZioRequest(ctx, jReq)
-        val exit = http.execute(req)
+        val req = makeZioRequest(ctx, jReq)
 
         val releaseRequest = { () =>
           if (jReq.refCnt() > 0) {
@@ -54,6 +46,7 @@ private[zio] final case class ServerInboundHandler(
           }
         }
 
+        val exit = app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time))
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
         else
@@ -61,9 +54,9 @@ private[zio] final case class ServerInboundHandler(
 
       case jReq: HttpRequest =>
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
-        val req  = makeZioRequest(ctx, jReq)
-        val exit = http.execute(req)
+        val req = makeZioRequest(ctx, jReq)
 
+        val exit = app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
 
           if (
@@ -76,7 +69,6 @@ private[zio] final case class ServerInboundHandler(
           writeResponse(ctx, env, exit, jReq) { () =>
             val _ = ctx.channel().config().setAutoRead(true)
           }
-
         }
 
       case msg: HttpContent =>
@@ -165,13 +157,13 @@ private[zio] final case class ServerInboundHandler(
 
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
-    exit: HExit[Any, Throwable, Response],
+    exit: ZIO[Any, Response, Response],
     time: service.ServerTime,
   ): Boolean = {
     exit match {
-      case HExit.Success(response) =>
+      case Exit.Success(response) if response ne null =>
         attemptFastWrite(ctx, response, time)
-      case _                       => false
+      case _                                          => false
     }
   }
 
@@ -252,30 +244,47 @@ private[zio] final case class ServerInboundHandler(
     }
   }
 
+  private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest)(ensured: () => Unit): Unit = {
+    // TODO: this can be done without ZIO
+    runtime.run(ctx, ensured) {
+      for {
+        response <- ZIO.succeedNow(HttpError.NotFound(jReq.uri()).toResponse)
+        done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
+        _        <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
+      } yield ()
+    }
+  }
+
   private def writeResponse(
     ctx: ChannelHandlerContext,
     env: ZEnvironment[Any],
-    exit: HExit[Any, Throwable, Response],
+    exit: ZIO[Any, Response, Response],
     jReq: HttpRequest,
-  )(ensured: () => Unit) = {
+  )(ensured: () => Unit): Unit = {
     runtime.run(ctx, ensured) {
       val pgm = for {
-        response <- exit.toZIO.unrefine { case error => Option(error) }.catchAll {
-          case None        => ZIO.succeedNow(HttpError.NotFound(jReq.uri()).toResponse)
-          case Some(error) => ZIO.succeedNow(HttpError.InternalServerError(cause = Some(error)).toResponse)
+        response <- exit.sandbox.catchAll { error =>
+          ZIO.succeedNow {
+            error.failureOrCause
+              .fold[Response](
+                identity,
+                cause => HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
+              )
+          }
         }
-        done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-        result   <-
-          if (done)
-            ZIO.unit
-          else
-            attemptFullWrite(ctx, response, jReq, time, runtime)
-
+        _        <-
+          if (response ne null) {
+            for {
+              done <- ZIO.attempt(attemptFastWrite(ctx, response, time))
+              _    <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
+            } yield ()
+          } else {
+            ZIO.attempt(writeNotFound(ctx, jReq)(() => ()))
+          }
       } yield ()
 
       pgm.provideEnvironment(env)
     }
-
   }
 }
 

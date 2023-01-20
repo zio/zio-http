@@ -12,32 +12,32 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withTransferEncoding("chunked")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("chunked"))
         },
         test("add compress TransferEncoding") {
           for {
             response <- api.Middleware
               .withTransferEncoding("compress")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("compress"))
         },
         test("add deflate TransferEncoding") {
           for {
             response <- api.Middleware
               .withTransferEncoding("deflate")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("deflate"))
         },
         test("add gzip TransferEncoding") {
           for {
             response <- api.Middleware
               .withTransferEncoding("gzip")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals("gzip"))
         },
       ),
@@ -46,8 +46,8 @@ object TransferEncodingMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withTransferEncoding("*grabag$*&()")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.transferEncoding.getOrElse("error").equals(""))
         },
       ),

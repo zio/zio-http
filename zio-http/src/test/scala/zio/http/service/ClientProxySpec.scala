@@ -38,7 +38,7 @@ object ClientProxySpec extends HttpRunnableSpec {
         for {
           port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
           url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
-          id   <- DynamicServer.deploy(Http.ok)
+          id   <- DynamicServer.deploy(Handler.ok.toHttp)
           proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
           out <- Client
             .request(
@@ -53,12 +53,14 @@ object ClientProxySpec extends HttpRunnableSpec {
       assertZIO(res.either)(isRight)
     },
     test("proxy respond Ok for auth server") {
-      val proxyAuthApp = Http.collect[Request] { case req =>
-        val proxyAuthHeaderName = HeaderNames.proxyAuthorization.toString
-        req.headers.toList.collectFirst { case Header(`proxyAuthHeaderName`, _) =>
-          Response.ok
-        }.getOrElse(Response.status(Status.Forbidden))
-      }
+      val proxyAuthApp = Handler
+        .fromFunction[Request] { req =>
+          val proxyAuthHeaderName = HeaderNames.proxyAuthorization.toString
+          req.headers.toList.collectFirst { case Header(`proxyAuthHeaderName`, _) =>
+            Response.ok
+          }.getOrElse(Response.status(Status.Forbidden))
+        }
+        .toHttp
 
       val res =
         for {

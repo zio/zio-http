@@ -30,11 +30,11 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
     .withServer(STATIC_SERVER_NAME)
     .freeze
 
-  private def plainTextApp(response: Response) =
-    Http.fromHExit(HExit.succeed(response)).whenPathEq(plaintextPath)
+  private def plainTextApp(response: Response): HttpApp[Any, Nothing] =
+    Handler.response(response).toHttp.whenPathEq(plaintextPath)
 
-  private def jsonApp(json: Response) =
-    Http.fromHExit(HExit.succeed(json)).whenPathEq(jsonPath)
+  private def jsonApp(json: Response): HttpApp[Any, Nothing] =
+    Handler.response(json).toHttp.whenPathEq(jsonPath)
 
   val app = plainTextApp(frozenPlainTextResponse) ++ jsonApp(frozenJsonResponse)
 
