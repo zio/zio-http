@@ -4,6 +4,7 @@ import zio._
 
 import zio.http.Body
 import zio.http.Body._
+import zio.http.model.Headers
 
 import io.netty.buffer.Unpooled
 import io.netty.channel._

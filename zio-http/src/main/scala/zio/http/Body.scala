@@ -3,6 +3,10 @@ package zio.http
 import java.io.FileInputStream
 import java.nio.charset.Charset
 import java.nio.file._
+import zio.http.model.Headers
+
+import zio.http.forms._
+import zio.http.model.MediaType
 
 import zio._
 
@@ -29,6 +33,15 @@ sealed trait Body { self =>
 
   def asChunk(implicit trace: Trace): Task[Chunk[Byte]]
 
+  def asURLEncodedForm(implicit trace: Trace): Task[Form] =
+    asString.flatMap(Form.fromURLEncoded(_, HTTP_CHARSET).mapError(_.asException))
+
+  def asMultipartForm(implicit trace: Trace): Task[Form] =
+    for {
+      bytes <- asChunk
+      form  <- Form.fromMultipartBytes(bytes, HTTP_CHARSET).mapError(_.asException)
+    } yield form
+
   def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte]
 
   /**
@@ -44,6 +57,8 @@ sealed trait Body { self =>
     asArray.map(new String(_, HTTP_CHARSET))
 
   def isComplete: Boolean
+
+  private[zio] def requestHeaders: Headers = Headers.empty
 
 }
 
@@ -77,9 +92,9 @@ object Body {
   /**
    * Helper to create Body from AsciiString
    */
-  def fromAsciiString(asciiString: AsciiString): Body = AsciiStringBody(asciiString)
+  def fromAsciiString(asciiString: AsciiString): Body = AsciiStringBody(asciiString, Headers.empty)
 
-  private[zio] final case class AsciiStringBody(asciiString: AsciiString)
+  private[zio] final case class AsciiStringBody(asciiString: AsciiString, override val requestHeaders: Headers)
       extends Body
       with UnsafeWriteable
       with UnsafeBytes {
@@ -133,7 +148,10 @@ object Body {
    */
   def fromChunk(data: Chunk[Byte]): Body = new ChunkBody(data)
 
-  private[zio] final case class ChunkBody(data: Chunk[Byte]) extends Body with UnsafeWriteable with UnsafeBytes {
+  private[zio] final case class ChunkBody(data: Chunk[Byte], override val requestHeaders: Headers = Headers.empty)
+      extends Body
+      with UnsafeWriteable
+      with UnsafeBytes {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
 
@@ -191,6 +209,17 @@ object Body {
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       Files.readAllBytes(file.toPath)
 
+  }
+
+  def fromURLEncodedForm(form: Form, charset: Charset = `UTF-8`): Body = {
+    val contentType = Headers.contentType(MediaType.application.`x-www-form-urlencoded`.fullType)
+    AsciiStringBody(new AsciiString(form.encodeAsURLEncoded(charset), charset), contentType)
+  }
+
+  def fromMultipartForm(form: Form, charset: Charset = `UTF-8`): Body = {
+    val (headers, bytes) = form.encodeAsMultipartBytes(charset)
+
+    ChunkBody(bytes, headers)
   }
 
   /**
