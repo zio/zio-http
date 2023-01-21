@@ -628,6 +628,7 @@ object ZClient {
                     onResponse,
                     onComplete,
                     clientConfig.useAggregator,
+                    connectionPool.enableKeepAlive,
                     () => clientConfig.socketApp.getOrElse(SocketApp()),
                   )
                 }.tapErrorCause { cause =>
@@ -648,9 +649,7 @@ object ZClient {
                           .invalidate(channel)
                           .when(channelState == ChannelState.Invalid)
                       }
-                      .flatMap { _ =>
-                        channelScope.close(exit)
-                      }
+                      .zipRight(channelScope.close(exit))
                       .uninterruptible
                   }.forkDaemon
               } yield ()
@@ -675,6 +674,7 @@ object ZClient {
       onResponse: Promise[Throwable, Response],
       onComplete: Promise[Throwable, ChannelState],
       useAggregator: Boolean,
+      enableKeepAlive: Boolean,
       createSocketApp: () => SocketApp[Any],
     )(implicit trace: Trace): ZIO[Any, Throwable, ChannelState] = {
       log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
@@ -686,7 +686,8 @@ object ZClient {
       // This is also required to make WebSocketHandlers work
       if (useAggregator) {
         val httpObjectAggregator = new HttpObjectAggregator(Int.MaxValue)
-        val clientInbound = new ClientInboundHandler(rtm, jReq, onResponse, onComplete, location.scheme.isWebSocket)
+        val clientInbound        =
+          new ClientInboundHandler(rtm, jReq, onResponse, onComplete, location.scheme.isWebSocket, enableKeepAlive)
         pipeline.addLast(HTTP_OBJECT_AGGREGATOR, httpObjectAggregator)
         pipeline.addLast(CLIENT_INBOUND_HANDLER, clientInbound)
 
@@ -694,7 +695,7 @@ object ZClient {
         toRemove.add(clientInbound)
       } else {
         val flowControl   = new FlowControlHandler()
-        val clientInbound = new ClientInboundStreamingHandler(rtm, req, onResponse, onComplete)
+        val clientInbound = new ClientInboundStreamingHandler(rtm, req, onResponse, onComplete, enableKeepAlive)
 
         pipeline.addLast(FLOW_CONTROL_HANDLER, flowControl)
         pipeline.addLast(CLIENT_INBOUND_HANDLER, clientInbound)
