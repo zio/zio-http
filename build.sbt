@@ -11,15 +11,15 @@ ThisBuild / resolvers +=
   "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
 // CI Configuration
-ThisBuild / githubWorkflowJavaVersions   := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
-ThisBuild / githubWorkflowPREventTypes   := Seq(
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
+ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
   PREventType.Reopened,
   PREventType.Edited,
   PREventType.Labeled,
 )
-ThisBuild / githubWorkflowAddedJobs      :=
+ThisBuild / githubWorkflowAddedJobs    :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -31,7 +31,7 @@ ThisBuild / githubWorkflowAddedJobs      :=
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish        :=
+ThisBuild / githubWorkflowPublish       :=
   Seq(
     WorkflowStep.Sbt(
       List("ci-release"),
@@ -46,7 +46,7 @@ ThisBuild / githubWorkflowPublish        :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble  := Seq(
+ThisBuild / githubWorkflowBuildPreamble := Seq(
   WorkflowStep.Run(
     name = Some("Check formatting"),
     commands = List(s"sbt ++${Scala213} fmtCheck"),
