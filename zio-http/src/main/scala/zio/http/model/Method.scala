@@ -8,7 +8,7 @@ sealed trait Method { self =>
 
   val text: String = toJava.asciiName().toString()
 
-  override def toString(): String = Method.asHttpMethod(self).name()
+  override def toString: String = Method.asHttpMethod(self).name()
 }
 
 object Method {

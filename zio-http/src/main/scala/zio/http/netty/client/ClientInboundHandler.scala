@@ -16,6 +16,7 @@ final class ClientInboundHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
   isWebSocket: Boolean,
+  enableKeepAlive: Boolean,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
@@ -47,7 +48,7 @@ final class ClientInboundHandler(
       ctx.pipeline().remove(ctx.name()): Unit
     }
 
-    val shouldKeepAlive = HttpUtil.isKeepAlive(msg) || isWebSocket
+    val shouldKeepAlive = enableKeepAlive && HttpUtil.isKeepAlive(msg) || isWebSocket
 
     if (!shouldKeepAlive) {
       zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(

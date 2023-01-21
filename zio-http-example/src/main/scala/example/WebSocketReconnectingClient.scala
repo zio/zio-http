@@ -30,10 +30,9 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
         case ChannelEvent(_, ExceptionCaught(t))                               =>
           ZIO.fail(t)
       }
-      .catchAll { f =>
+      .tapErrorZIO { f =>
         // signal failure to application
-        Http.fromZIO(p.succeed(f)) *>
-          Http.fail(f)
+        p.succeed(f)
       }
 
   val app: ZIO[Any with Client with Scope, Throwable, Unit] = {

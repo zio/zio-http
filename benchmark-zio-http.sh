@@ -23,7 +23,11 @@ rm ../FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
 cp ../FrameworkBenchMarks/frameworks/Scala/zio-http/base.build.sbt ../FrameworkBenchMarks/frameworks/Scala/zio-http/build.sbt
 cp ./zio-http-example/src/main/scala/example/$SERVER.scala ../FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
 cd ../FrameworkBenchMarks
-sed -i '' "s|---COMMIT_SHA---|${ZIO_HTTP}|g" frameworks/Scala/zio-http/build.sbt
+if [ "$OS" = 'Darwin' ]; then
+  sed -i '' "s|---COMMIT_SHA---|${ZIO_HTTP}|g" frameworks/Scala/zio-http/build.sbt
+else
+  sed -i "s|---COMMIT_SHA---|${ZIO_HTTP}|g" frameworks/Scala/zio-http/build.sbt
+fi
 ./tfb --test zio-http | tee result
 RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+")
 RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+")

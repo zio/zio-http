@@ -12,8 +12,8 @@ object ExpiresMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withExpires("Wed, 21 Oct 2015 07:28:00 GMT")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.expires.getOrElse("error").equals("Wed, 21 Oct 2015 07:28:00 GMT"))
         },
       ),
@@ -22,8 +22,8 @@ object ExpiresMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withExpires("*()!*#&#$^")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.expires.getOrElse("error").equals("0"))
         },
       ),

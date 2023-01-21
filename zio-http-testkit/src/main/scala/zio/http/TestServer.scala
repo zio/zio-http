@@ -72,18 +72,18 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
     for {
       r <- ZIO.environment[R]
       behavior                     = pf.andThen(_.provideEnvironment(r))
-      app: HttpApp[Any, Throwable] = Http.fromFunctionZIO(behavior)
-      _ <- driver.addApp(app, r)
+      app: HttpApp[Any, Throwable] = Http.collectZIO(behavior)
+      _ <- driver.addApp(app.withDefaultErrorResponse, r)
     } yield ()
 
-  override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
+  override def install[R](httpApp: App[R], errorCallback: Option[ErrorCallback])(implicit
     trace: zio.Trace,
   ): URIO[R, Unit] =
     ZIO
       .environment[R]
       .flatMap(
         driver.addApp(
-          httpApp,
+          httpApp.withDefaultErrorResponse,
           _,
         ),
       ) *> setErrorCallback(errorCallback)

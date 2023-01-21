@@ -3,7 +3,7 @@ package zio.http.api
 import zio._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.model.{Headers, Status}
-import zio.http.{Http, Request, URL}
+import zio.http.{Handler, Request, URL}
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test._
 
@@ -24,58 +24,62 @@ object AuthMiddlewareSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     suite("Auth Middleware Spec")(
       suite("basicAuth")(
         test("HttpApp is accepted if the basic authentication succeeds") {
-          val app = Http.ok.withMiddleware(basicAuth).status
-          assertZIO(app(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo(Status.Ok))
+          val app = Handler.ok.toHttp.withMiddleware(basicAuth).status
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo(Status.Ok))
         },
         test("Uses forbidden app if the basic authentication fails") {
-          val app = Http.ok.withMiddleware(basicAuth).status
-          assertZIO(app(Request.get(URL.empty).copy(headers = failureBasicHeader)))(equalTo(Status.Unauthorized))
+          val app = Handler.ok.toHttp.withMiddleware(basicAuth).status
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(equalTo(Status.Unauthorized))
         },
         test("Responses should have WWW-Authentication header if Basic Auth failed") {
-          val app = Http.ok.withMiddleware(basicAuth).header("WWW-AUTHENTICATE")
-          assertZIO(app(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
+          val app = Handler.ok.toHttp.withMiddleware(basicAuth).header("WWW-AUTHENTICATE")
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
         },
       ),
       suite("basicAuthZIO")(
-        test("HttpApp is accepted if the basic authentication succeeds") {
-          val app = Http.ok.withMiddleware(basicAuthZIO).status
-          assertZIO(app(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo(Status.Ok))
+        test("Handler is.toRoute accepted if the basic authentication succeeds") {
+          val app = Handler.ok.toHttp.withMiddleware(basicAuthZIO).status
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo(Status.Ok))
         },
         test("Uses forbidden app if the basic authentication fails") {
-          val app = Http.ok.withMiddleware(basicAuthZIO).status
-          assertZIO(app(Request.get(URL.empty).copy(headers = failureBasicHeader)))(equalTo(Status.Unauthorized))
+          val app = Handler.ok.toHttp.withMiddleware(basicAuthZIO).status
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(equalTo(Status.Unauthorized))
         },
         test("Responses should have WWW-Authentication header if Basic Auth failed") {
-          val app = Http.ok.withMiddleware(basicAuthZIO).header("WWW-AUTHENTICATE")
-          assertZIO(app(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
+          val app = Handler.ok.toHttp.withMiddleware(basicAuthZIO).header("WWW-AUTHENTICATE")
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
         },
       ),
       suite("bearerAuth")(
-        test("HttpApp is accepted if the bearer authentication succeeds") {
-          val app = Http.ok.withMiddleware(bearerAuth).status
-          assertZIO(app(Request.get(URL.empty).copy(headers = successBearerHeader)))(equalTo(Status.Ok))
+        test("Handler is.toRoute accepted if the bearer authentication succeeds") {
+          val app = Handler.ok.toHttp.withMiddleware(bearerAuth).status
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBearerHeader)))(equalTo(Status.Ok))
         },
         test("Uses forbidden app if the bearer authentication fails") {
-          val app = Http.ok.withMiddleware(bearerAuth).status
-          assertZIO(app(Request.get(URL.empty).copy(headers = failureBearerHeader)))(equalTo(Status.Unauthorized))
+          val app = Handler.ok.toHttp.withMiddleware(bearerAuth).status
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(
+            equalTo(Status.Unauthorized),
+          )
         },
         test("Responses should have WWW-Authentication header if bearer Auth failed") {
-          val app = Http.ok.withMiddleware(bearerAuth).header("WWW-AUTHENTICATE")
-          assertZIO(app(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
+          val app = Handler.ok.toHttp.withMiddleware(bearerAuth).header("WWW-AUTHENTICATE")
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
         },
       ),
       suite("bearerAuthZIO")(
         test("HttpApp is accepted if the bearer authentication succeeds") {
-          val app = Http.ok.withMiddleware(bearerAuthZIO).status
-          assertZIO(app(Request.get(URL.empty).copy(headers = successBearerHeader)))(equalTo(Status.Ok))
+          val app = Handler.ok.toHttp.withMiddleware(bearerAuthZIO).status
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBearerHeader)))(equalTo(Status.Ok))
         },
         test("Uses forbidden app if the bearer authentication fails") {
-          val app = Http.ok.withMiddleware(bearerAuthZIO).status
-          assertZIO(app(Request.get(URL.empty).copy(headers = failureBearerHeader)))(equalTo(Status.Unauthorized))
+          val app = Handler.ok.toHttp.withMiddleware(bearerAuthZIO).status
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(
+            equalTo(Status.Unauthorized),
+          )
         },
         test("Responses should have WWW-Authentication header if bearer Auth failed") {
-          val app = Http.ok.withMiddleware(bearerAuthZIO).header("WWW-AUTHENTICATE")
-          assertZIO(app(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
+          val app = Handler.ok.toHttp.withMiddleware(bearerAuthZIO).header("WWW-AUTHENTICATE")
+          assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
         },
       ),
     )

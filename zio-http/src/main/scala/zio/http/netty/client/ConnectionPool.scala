@@ -10,13 +10,13 @@ import io.netty.channel.{
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
+import zio._
 import zio.http.URL.Location
 import zio.http._
 import zio.http.logging.LogLevel
 import zio.http.netty.NettyFutureExecutor
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
-import zio.{Duration, Scope, ZIO, ZKeyedPool, ZLayer}
 
 import java.net.InetSocketAddress
 
@@ -31,6 +31,8 @@ trait ConnectionPool {
   ): ZIO[Scope, Throwable, JChannel]
 
   def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit]
+
+  def enableKeepAlive: Boolean
 }
 
 object ConnectionPool {
@@ -136,6 +138,9 @@ object ConnectionPool {
 
     override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
       ZIO.unit
+
+    override def enableKeepAlive: Boolean =
+      false
   }
 
   case class PoolKey(
@@ -161,17 +166,13 @@ object ConnectionPool {
         restore(
           pool
             .get(PoolKey(location, proxy, sslOptions, maxHeaderSize, decompression)),
-        ).tap { channel =>
-          restore(
-            NettyFutureExecutor.executed(channel.closeFuture()),
-          ).zipRight(
-            pool.invalidate(channel),
-          ).forkDaemon
-        }
+        )
       }
 
     override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
       pool.invalidate(channel)
+
+    override def enableKeepAlive: Boolean = true
   }
 
   val disabled: ZLayer[EventLoopGroup with ChannelFactory, Nothing, ConnectionPool] =
@@ -251,20 +252,30 @@ object ConnectionPool {
     for {
       channelFactory <- ZIO.service[ChannelFactory]
       eventLoopGroup <- ZIO.service[EventLoopGroup]
+      poolPromise    <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       keyedPool      <- ZKeyedPool.make(
         (key: PoolKey) =>
-          createChannel(
-            channelFactory,
-            eventLoopGroup,
-            key.location,
-            key.proxy,
-            key.sslOptions,
-            key.maxHeaderSize,
-            key.decompression,
-            None,
-          ),
+          ZIO.uninterruptibleMask { restore =>
+            createChannel(
+              channelFactory,
+              eventLoopGroup,
+              key.location,
+              key.proxy,
+              key.sslOptions,
+              key.maxHeaderSize,
+              key.decompression,
+              None,
+            ).tap { channel =>
+              restore(
+                NettyFutureExecutor.executed(channel.closeFuture()),
+              ).zipRight(
+                poolPromise.await.flatMap(_.invalidate(channel)),
+              ).forkDaemon
+            }
+          },
         (key: PoolKey) => size(key.location),
       )
+      _              <- poolPromise.succeed(keyedPool)
     } yield new ZioConnectionPool(keyedPool)
 
   private def createDynamic(
@@ -282,18 +293,27 @@ object ConnectionPool {
     for {
       channelFactory <- ZIO.service[ChannelFactory]
       eventLoopGroup <- ZIO.service[EventLoopGroup]
+      poolPromise    <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       keyedPool      <- ZKeyedPool.make(
         (key: PoolKey) =>
-          createChannel(
-            channelFactory,
-            eventLoopGroup,
-            key.location,
-            key.proxy,
-            key.sslOptions,
-            key.maxHeaderSize,
-            key.decompression,
-            None,
-          ),
+          ZIO.uninterruptibleMask { restore =>
+            createChannel(
+              channelFactory,
+              eventLoopGroup,
+              key.location,
+              key.proxy,
+              key.sslOptions,
+              key.maxHeaderSize,
+              key.decompression,
+              None,
+            ).tap { channel =>
+              restore(
+                NettyFutureExecutor.executed(channel.closeFuture()),
+              ).zipRight(
+                poolPromise.await.flatMap(_.invalidate(channel)),
+              ).forkDaemon
+            }
+          },
         (key: PoolKey) => min(key.location) to max(key.location),
         (key: PoolKey) => ttl(key.location),
       )

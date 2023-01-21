@@ -6,7 +6,7 @@ import io.netty.util.ResourceLeakDetector
 import zio._
 import zio.http.netty._
 import zio.http.service.ServerTime
-import zio.http.{Driver, Http, HttpApp, Server, ServerConfig}
+import zio.http.{App, Driver, Http, Server, ServerConfig}
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
@@ -38,12 +38,12 @@ private[zio] final case class NettyDriver(
     }
   }
 
-  def addApp[R](newApp: HttpApp[R, Throwable], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
+  def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
     var loop = true
     while (loop) {
       val oldAppAndEnv     = appRef.get()
       val (oldApp, oldEnv) = oldAppAndEnv
-      val updatedApp       = (oldApp ++ newApp).asInstanceOf[HttpApp[Any, Throwable]]
+      val updatedApp       = (oldApp ++ newApp).asInstanceOf[App[Any]]
       val updatedEnv       = oldEnv.unionAll(env)
       val updatedAppAndEnv = (updatedApp, updatedEnv)
 
@@ -93,7 +93,7 @@ object NettyDriver {
   val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Nothing, Driver] =
     ZLayer {
       val app  = ZLayer.succeed(
-        new AtomicReference[(HttpApp[Any, Throwable], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
+        new AtomicReference[(App[Any], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
       )
       val ecb  = ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty))
       val time = ZLayer.succeed(ServerTime.make(1000.millis))
