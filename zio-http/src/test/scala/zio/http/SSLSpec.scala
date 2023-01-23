@@ -3,7 +3,7 @@ package zio.http
 import io.netty.handler.codec.DecoderException
 import zio.http._
 import zio.http.model._
-import zio.http.netty.client.ConnectionPool
+import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
@@ -39,9 +39,9 @@ object SSLSpec extends ZIOSpecDefault {
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
-            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
+            NettyClientDriver.fromConfig,
           ),
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
@@ -51,9 +51,9 @@ object SSLSpec extends ZIOSpecDefault {
               }
             assertZIO(actual)(equalTo("DecoderException"))
           }.provide(
-            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL2)),
+            NettyClientDriver.fromConfig,
           ),
           test("succeed when client has default SSL") {
             val actual = Client
@@ -61,9 +61,9 @@ object SSLSpec extends ZIOSpecDefault {
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
-            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(ClientSSLConfig.Default)),
+            NettyClientDriver.fromConfig,
           ),
           test("Https Redirect when client makes http request") {
             val actual = Client
@@ -71,9 +71,9 @@ object SSLSpec extends ZIOSpecDefault {
               .map(_.status)
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
           }.provide(
-            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
+            NettyClientDriver.fromConfig,
           ),
           test("Https request with a large payload should respond with 413") {
             check(payload) { payload =>
@@ -87,9 +87,9 @@ object SSLSpec extends ZIOSpecDefault {
               assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
             }
           }.provide(
-            ConnectionPool.disabled,
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
+            NettyClientDriver.fromConfig,
           ),
         ),
       ),

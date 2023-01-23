@@ -4,7 +4,7 @@ import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Auth.Credentials
 import zio.http.model._
-import zio.http.netty.client.ConnectionPool
+import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
@@ -26,9 +26,9 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = serverUrl),
             )
             .provideSome(
-              ConnectionPool.disabled,
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))),
+              NettyClientDriver.fromConfig,
             )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
@@ -45,9 +45,9 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = url),
             )
             .provideSome(
-              ConnectionPool.disabled,
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(proxy)),
+              NettyClientDriver.fromConfig,
             )
         } yield out
       assertZIO(res.either)(isRight)
@@ -76,9 +76,9 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = url),
             )
             .provideSome(
-              ConnectionPool.disabled,
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(proxy)),
+              NettyClientDriver.fromConfig,
             )
         } yield out
       assertZIO(res.either)(isRight)
