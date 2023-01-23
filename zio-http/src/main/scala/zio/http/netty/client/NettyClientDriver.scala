@@ -139,12 +139,4 @@ object NettyClientDriver {
         } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
       }
 
-  val shared: ZLayer[ClientConfig with Driver, Throwable, ClientDriver] =
-    ZLayer.scoped {
-      for {
-        config       <- ZIO.service[ClientConfig]
-        driver       <- ZIO.service[Driver]
-        clientDriver <- driver.createClientDriver(config)
-      } yield clientDriver
-    }
 }

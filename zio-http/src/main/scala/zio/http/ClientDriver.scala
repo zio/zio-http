@@ -2,7 +2,7 @@ package zio.http
 
 import zio.http.netty.client.ChannelState
 import zio.http.socket.SocketApp
-import zio.{Promise, Scope, Trace, ZIO}
+import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
 trait ClientDriver {
   type Connection
@@ -21,4 +21,16 @@ trait ClientDriver {
   def createConnectionPool(config: ConnectionPoolConfig)(implicit
     trace: Trace,
   ): ZIO[Scope, Nothing, ConnectionPool[Connection]]
+}
+
+object ClientDriver {
+
+  val shared: ZLayer[ClientConfig with Driver, Throwable, ClientDriver] =
+    ZLayer.scoped {
+      for {
+        config       <- ZIO.service[ClientConfig]
+        driver       <- ZIO.service[Driver]
+        clientDriver <- driver.createClientDriver(config)
+      } yield clientDriver
+    }
 }
