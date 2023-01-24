@@ -624,9 +624,9 @@ object ZClient {
                         connectionPool.enableKeepAlive,
                         () => clientConfig.socketApp.getOrElse(SocketApp()),
                       )
-                      .map(_.tapErrorCause { cause =>
+                      .tapErrorCause { cause =>
                         channelScope.close(Exit.failCause(cause))
-                      })
+                      }
                   // If request registration failed we release the channel immediately.
                   // Otherwise we wait for completion signal from netty in a background fiber:
                   _            <-

@@ -9,7 +9,7 @@ import zio.http.netty.NettyRuntime
 import zio.http.netty.client.NettyClientDriver
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, nonFlaky, sequential, timeout}
+import zio.test.TestAspect.{diagnose, nonFlaky, sequential, timeout, withLiveClock}
 import zio.test._
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
@@ -151,7 +151,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
     )
 
   override def spec: Spec[Scope, Throwable] = {
-    connectionPoolSpec @@ timeout(30.seconds) @@ diagnose(30.seconds) @@ sequential
+    connectionPoolSpec @@ timeout(30.seconds) @@ diagnose(30.seconds) @@ sequential @@ withLiveClock
   }
 
 }
