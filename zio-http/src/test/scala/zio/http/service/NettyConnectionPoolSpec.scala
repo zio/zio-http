@@ -6,13 +6,13 @@ import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.{Headers, Method, Version}
 import zio.http.netty.NettyRuntime
-import zio.http.netty.client.ConnectionPool
+import zio.http.netty.client.NettyClientDriver
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, nonFlaky, sequential, timeout}
+import zio.test.TestAspect.{diagnose, nonFlaky, sequential, timeout, withLiveClock}
 import zio.test._
 
-object ConnectionPoolSpec extends HttpRunnableSpec {
+object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
   private val app = Http.collectZIO[Request] {
     case req @ Method.POST -> !! / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
@@ -100,8 +100,7 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
       },
     )
 
-  def connectionPoolSpec
-    : Spec[Scope with ClientConfig with EventLoopGroup with ChannelFactory with NettyRuntime, Throwable] =
+  def connectionPoolSpec: Spec[Scope, Throwable] =
     suite("ConnectionPool")(
       suite("fixed")(
         connectionPoolTests(
@@ -118,12 +117,13 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
             "with keep-alive"    -> keepAliveHeader,
           ),
         ),
-      ).provideSomeShared[Scope with ClientConfig with EventLoopGroup with ChannelFactory with NettyRuntime](
+      ).provideSome[Scope](
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         severTestLayer,
         Client.live,
-        ConnectionPool.fixed(2),
+        ClientConfig.live(ClientConfig.empty.withFixedConnectionPool(2)),
+        NettyClientDriver.fromConfig,
       ),
       suite("dynamic")(
         connectionPoolTests(
@@ -140,21 +140,18 @@ object ConnectionPoolSpec extends HttpRunnableSpec {
             "with keep-alive"    -> keepAliveHeader,
           ),
         ),
-      ).provideSomeShared[Scope with ClientConfig with EventLoopGroup with ChannelFactory with NettyRuntime](
+      ).provideSome[Scope](
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         severTestLayer,
         Client.live,
-        ConnectionPool.dynamic(4, 16, 100.millis),
+        ClientConfig.live(ClientConfig.empty.withDynamicConnectionPool(4, 16, 100.millis)),
+        NettyClientDriver.fromConfig,
       ),
     )
 
-  override def spec: Spec[Any, Throwable] = {
-    connectionPoolSpec
-      .provideShared(
-        ClientConfig.default,
-        Scope.default,
-      ) @@ timeout(30.seconds) @@ diagnose(30.seconds) @@ sequential
+  override def spec: Spec[Scope, Throwable] = {
+    connectionPoolSpec @@ timeout(30.seconds) @@ diagnose(30.seconds) @@ sequential @@ withLiveClock
   }
 
 }

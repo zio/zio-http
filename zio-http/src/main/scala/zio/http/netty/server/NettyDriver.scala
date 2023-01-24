@@ -5,8 +5,9 @@ import io.netty.channel._
 import io.netty.util.ResourceLeakDetector
 import zio._
 import zio.http.netty._
+import zio.http.netty.client.NettyClientDriver
 import zio.http.service.ServerTime
-import zio.http.{App, Driver, Http, Server, ServerConfig}
+import zio.http.{App, ClientConfig, ClientDriver, Driver, Http, Server, ServerConfig}
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
@@ -51,6 +52,12 @@ private[zio] final case class NettyDriver(
     }
   }
 
+  override def createClientDriver(config: ClientConfig)(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
+    for {
+      channelFactory <- ChannelFactories.Client.fromConfig.build
+        .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](config))
+      nettyRuntime   <- NettyRuntime.usingDedicatedThreadPool.build
+    } yield NettyClientDriver(channelFactory.get, eventLoopGroup, nettyRuntime.get, config)
 }
 
 object NettyDriver {
