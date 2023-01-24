@@ -33,7 +33,7 @@ private[zio] final case class NettyClientDriver(
     useAggregator: Boolean,
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
-  )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelState] = {
+  )(implicit trace: Trace): ZIO[Scope, Throwable, ZIO[Any, Throwable, ChannelState]] = {
     encode(req).flatMap { jReq =>
       Scope.addFinalizerExit { exit =>
         ZIO.attempt {
@@ -41,7 +41,7 @@ private[zio] final case class NettyClientDriver(
             jReq.release(jReq.refCnt()): Unit
           }
         }.ignore.when(exit.isFailure)
-      }.zipRight {
+      }.as {
         log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
 
         val pipeline                              = channel.pipeline()

@@ -16,7 +16,7 @@ trait ClientDriver {
     useAggregator: Boolean,
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
-  )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelState]
+  )(implicit trace: Trace): ZIO[Scope, Throwable, ZIO[Any, Throwable, ChannelState]]
 
   def createConnectionPool(config: ConnectionPoolConfig)(implicit
     trace: Trace,

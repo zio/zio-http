@@ -612,20 +612,21 @@ object ZClient {
                         .map(_.asInstanceOf[driver.Connection])
                         .provideEnvironment(ZEnvironment(channelScope))
                     }
-                  resetChannel <- ZIO.attempt {
-                    driver.requestOnChannel(
-                      connection,
-                      location,
-                      req,
-                      onResponse,
-                      onComplete,
-                      clientConfig.useAggregator,
-                      connectionPool.enableKeepAlive,
-                      () => clientConfig.socketApp.getOrElse(SocketApp()),
-                    )
-                  }.tapErrorCause { cause =>
-                    channelScope.close(Exit.failCause(cause))
-                  }
+                  resetChannel <-
+                    driver
+                      .requestOnChannel(
+                        connection,
+                        location,
+                        req,
+                        onResponse,
+                        onComplete,
+                        clientConfig.useAggregator,
+                        connectionPool.enableKeepAlive,
+                        () => clientConfig.socketApp.getOrElse(SocketApp()),
+                      )
+                      .map(_.tapErrorCause { cause =>
+                        channelScope.close(Exit.failCause(cause))
+                      })
                   // If request registration failed we release the channel immediately.
                   // Otherwise we wait for completion signal from netty in a background fiber:
                   _            <-
