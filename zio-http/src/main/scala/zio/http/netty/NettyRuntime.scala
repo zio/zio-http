@@ -1,7 +1,7 @@
 package zio.http.netty
 
 import io.netty.channel._
-import io.netty.util.concurrent.{Future, GenericFutureListener}
+import io.netty.util.concurrent.{EventExecutor, Future, GenericFutureListener}
 import zio._
 import zio.http.service.Log
 
@@ -72,6 +72,20 @@ private[zio] trait NettyRuntime { self =>
 
 private[zio] object NettyRuntime {
 
+  private class SharedThreadPoolRuntime(
+    defaultRuntime: Runtime[Any],
+    runtimes: Map[EventExecutor, Runtime[Any]],
+  ) extends NettyRuntime {
+    @volatile private var closed = false
+
+    override def runtime(ctx: ChannelHandlerContext): Runtime[Any] =
+      if (closed) defaultRuntime
+      else runtimes.getOrElse(ctx.executor(), defaultRuntime)
+
+    def close(): Unit =
+      closed = true
+  }
+
   val noopEnsuring = () => ()
 
   /**
@@ -100,7 +114,8 @@ private[zio] object NettyRuntime {
     ZLayer.fromZIO {
       for {
         elg      <- ZIO.service[EventLoopGroup]
-        provider <- ZIO.runtime[Any].flatMap { runtime =>
+        runtime  <- ZIO.runtime[Any]
+        runtimes <-
           ZIO
             .foreach(elg.asScala) { javaExecutor =>
               val executor = Executor.fromJavaExecutor(javaExecutor)
@@ -108,14 +123,17 @@ private[zio] object NettyRuntime {
                 javaExecutor -> runtime
               }
             }
-            .map { iterable =>
-              val map = iterable.toMap
-              (ctx: ChannelHandlerContext) => map.getOrElse(ctx.executor(), runtime)
-            }
-        }
-      } yield new NettyRuntime {
-        def runtime(ctx: ChannelHandlerContext): Runtime[Any] = provider(ctx)
-      }
+            .map(_.toMap)
+        nettyRuntime = new SharedThreadPoolRuntime(runtime, runtimes)
+        _        <- ZIO.attempt {
+          elg.terminationFuture.addListener(
+            new GenericFutureListener[io.netty.util.concurrent.Future[Any]] {
+              override def operationComplete(future: io.netty.util.concurrent.Future[Any]): Unit =
+                nettyRuntime.close()
+            },
+          )
+        }.orDie
+      } yield nettyRuntime
     }
   }
 
