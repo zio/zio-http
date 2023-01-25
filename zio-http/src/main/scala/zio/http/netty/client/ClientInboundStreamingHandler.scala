@@ -61,7 +61,7 @@ final class ClientInboundStreamingHandler(
 
     val encodedReqHeaders = req.headers.encode
 
-    val headers = req.url.host match {
+    val headers = req.url.hostWithOptionalPort match {
       case Some(value) => encodedReqHeaders.set(HttpHeaderNames.HOST, value)
       case None        => encodedReqHeaders
     }
