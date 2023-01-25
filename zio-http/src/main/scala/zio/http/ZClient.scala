@@ -756,15 +756,15 @@ object ZClient {
     }
   }
 
-  final implicit class ClientSyntax(val client: Client) extends AnyVal {
+  final implicit class ZClientBodySyntax[Env, Err, Out](val client: ZClient[Env, Body, Err, Out]) extends AnyVal {
 
-    def delete(pathSuffix: String)(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+    def delete(pathSuffix: String)(implicit trace: Trace): ZIO[Env, Err, Out] =
       client.delete(pathSuffix)(Body.empty)
 
-    def get(pathSuffix: String)(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+    def get(pathSuffix: String)(implicit trace: Trace): ZIO[Env, Err, Out] =
       client.get(pathSuffix)(Body.empty)
 
-    def head(pathSuffix: String)(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+    def head(pathSuffix: String)(implicit trace: Trace): ZIO[Env, Err, Out] =
       client.head(pathSuffix)(Body.empty)
   }
 
