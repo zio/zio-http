@@ -126,7 +126,12 @@ private[zio] object NettyRuntime {
             .map(_.toMap)
         nettyRuntime = new SharedThreadPoolRuntime(runtime, runtimes)
         _        <- ZIO.attempt {
-          elg.terminationFuture.addListener((_: Any) => nettyRuntime.close())
+          elg.terminationFuture.addListener(
+            new GenericFutureListener[io.netty.util.concurrent.Future[Any]] {
+              override def operationComplete(future: io.netty.util.concurrent.Future[Any]): Unit =
+                nettyRuntime.close()
+            },
+          )
         }.orDie
       } yield nettyRuntime
     }
