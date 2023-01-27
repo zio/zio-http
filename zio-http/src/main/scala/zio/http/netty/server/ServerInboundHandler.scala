@@ -13,6 +13,7 @@ import zio.http.netty._
 import zio.http.netty.server.ServerInboundHandler.isReadKey
 
 import java.io.IOException
+import java.net.InetSocketAddress
 import scala.annotation.tailrec
 
 @Sharable
@@ -175,11 +176,10 @@ private[zio] final case class ServerInboundHandler(
       case _                    => throw new IllegalArgumentException(s"Unsupported HTTP version: ${nettyHttpVersion}")
     }
 
-    // TODO: We need to bring this back, probably not part of Request.
-    // val remoteAddress = ctx.channel().remoteAddress() match {
-    //   case m: InetSocketAddress => Some(m.getAddress)
-    //   case _                    => None
-    // }
+    val remoteAddress = ctx.channel().remoteAddress() match {
+      case m: InetSocketAddress => Option(m.getAddress)
+      case _                    => None
+    }
 
     nettyReq match {
       case nettyReq: FullHttpRequest =>
@@ -189,7 +189,7 @@ private[zio] final case class ServerInboundHandler(
           Method.fromHttpMethod(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
-          None,
+          remoteAddress,
         )
       case nettyReq: HttpRequest     =>
         val body = Body.fromAsync { async =>
@@ -201,7 +201,7 @@ private[zio] final case class ServerInboundHandler(
           Method.fromHttpMethod(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
-          None,
+          remoteAddress,
         )
     }
 
