@@ -598,9 +598,11 @@ object ZClient {
     ): ZIO[Any, Throwable, Response] =
       for {
         onResponse <- Promise.make[Throwable, Response]
-        _          <- internalRequest(request, onResponse, clientConfig)(Unsafe.unsafe, trace)
-          .catchAll(cause => onResponse.fail(cause))
-        res        <- onResponse.await
+        canceler   <- internalRequest(request, onResponse, clientConfig)(Unsafe.unsafe, trace)
+          .catchAll(cause => onResponse.fail(cause).as(ZIO.unit))
+        res        <- onResponse.await.onInterrupt {
+          ZIO.debug("onResponse onInterrupt") *> canceler *> ZIO.debug("canceler done")
+        }
       } yield res
 
     /**
@@ -610,16 +612,18 @@ object ZClient {
       req: Request,
       onResponse: Promise[Throwable, Response],
       clientConfig: ClientConfig,
-    )(implicit unsafe: Unsafe, trace: Trace): ZIO[Any, Throwable, Unit] =
+    )(implicit unsafe: Unsafe, trace: Trace): ZIO[Any, Throwable, ZIO[Any, Nothing, Unit]] =
       ZIO.scoped {
         req.url.kind match {
           case location: Location.Absolute =>
             for {
-              onComplete   <- Promise.make[Throwable, ChannelState]
+              onCompleteFinished <- Promise.make[Nothing, Unit]
+              onComplete <- Promise.make[Throwable, ChannelState]
+              canceler = onComplete.interrupt *> onCompleteFinished.await
               channelScope <- Scope.make
               _            <- ZIO.uninterruptibleMask { restore =>
                 for {
-                  connection   <-
+                  connection       <-
                     restore {
                       connectionPool
                         .get(
@@ -633,7 +637,7 @@ object ZClient {
                         .map(_.asInstanceOf[driver.Connection])
                         .provideEnvironment(ZEnvironment(channelScope))
                     }
-                  resetChannel <-
+                  channelInterface <-
                     driver
                       .requestOnChannel(
                         connection,
@@ -650,25 +654,37 @@ object ZClient {
                       }
                   // If request registration failed we release the channel immediately.
                   // Otherwise we wait for completion signal from netty in a background fiber:
-                  _            <-
+                  _                <-
                     onComplete.await.interruptible.exit.flatMap { exit =>
-                      resetChannel
-                        .zip(exit)
-                        .map { case (s1, s2) => s1 && s2 }
-                        .catchAll(_ =>
-                          ZIO.succeed(ChannelState.Invalid),
-                        ) // In case resetting the channel fails we cannot reuse it
-                        .flatMap { channelState =>
-                          connectionPool
-                            .invalidate(connection)
-                            .when(channelState == ChannelState.Invalid)
-                        }
-                        .zipRight(channelScope.close(exit))
-                        .uninterruptible
+                      println(s"EXIT: $exit")
+                      if (exit.isInterrupted) {
+                        channelInterface
+                          .interrupt()
+                          .zipRight(connectionPool.invalidate(connection))
+                          .zipRight(onCompleteFinished.succeed(()))
+                          .uninterruptible
+                          .debug("completion handler done")
+                      } else {
+                        channelInterface
+                          .resetChannel()
+                          .zip(exit)
+                          .map { case (s1, s2) => s1 && s2 }
+                          .catchAll(_ =>
+                            ZIO.succeed(ChannelState.Invalid),
+                          ) // In case resetting the channel fails we cannot reuse it
+                          .flatMap { channelState =>
+                            connectionPool
+                              .invalidate(connection)
+                              .when(channelState == ChannelState.Invalid)
+                          }
+                          .zipRight(channelScope.close(exit))
+                          .zipRight(onCompleteFinished.succeed(()))
+                          .uninterruptible
+                      }
                     }.forkDaemon
                 } yield ()
               }
-            } yield ()
+            } yield canceler
           case Location.Relative           =>
             ZIO.fail(throw new IllegalArgumentException("Absolute URL is required"))
         }
@@ -744,6 +760,7 @@ object ZClient {
         config         <- ZIO.service[ClientConfig]
         driver         <- ZIO.service[ClientDriver]
         connectionPool <- driver.createConnectionPool(config.connectionPool)
+        _ <- ZIO.addFinalizer(ZIO.debug("Releasing client"))
       } yield new ClientLive(driver)(connectionPool)(config)
     }
   }

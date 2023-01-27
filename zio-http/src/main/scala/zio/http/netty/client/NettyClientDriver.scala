@@ -5,11 +5,12 @@ import io.netty.handler.codec.http.HttpObjectAggregator
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.flow.FlowControlHandler
 import zio._
+import zio.http.ClientDriver.ChannelInterface
 import zio.http._
-import zio.http.netty.{ChannelFactories, EventLoopGroups, NettyRuntime, WebSocketAppHandler}
+import zio.http.netty.{ChannelFactories, EventLoopGroups, NettyFutureExecutor, NettyRuntime, WebSocketAppHandler}
 import zio.http.service._
 import zio.http.socket.SocketApp
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import scala.collection.mutable
 
@@ -33,7 +34,7 @@ final case class NettyClientDriver private (
     useAggregator: Boolean,
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
-  )(implicit trace: Trace): ZIO[Scope, Throwable, ZIO[Any, Throwable, ChannelState]] = {
+  )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
     encode(req).flatMap { jReq =>
       Scope.addFinalizerExit { exit =>
         ZIO.attempt {
@@ -100,9 +101,15 @@ final case class NettyClientDriver private (
           pipeline.fireChannelRegistered()
           pipeline.fireChannelActive()
 
-          ZIO.succeed(
-            ChannelState.Invalid,
-          ) // channel becomes invalid - reuse of websocket channels not supported currently
+          new ChannelInterface {
+            override def resetChannel(): ZIO[Any, Throwable, ChannelState] =
+              ZIO.succeed(
+                ChannelState.Invalid,
+              ) // channel becomes invalid - reuse of websocket channels not supported currently
+
+            override def interrupt(): ZIO[Any, Throwable, Unit] =
+              NettyFutureExecutor.executed(channel.disconnect())
+          }
         } else {
 
           pipeline.fireChannelRegistered()
@@ -110,9 +117,15 @@ final case class NettyClientDriver private (
 
           val frozenToRemove = toRemove.toSet
 
-          ZIO.attempt {
-            frozenToRemove.foreach(pipeline.remove)
-            ChannelState.Reusable // channel can be reused
+          new ChannelInterface {
+            override def resetChannel(): ZIO[Any, Throwable, ChannelState] =
+              ZIO.attempt {
+                frozenToRemove.foreach(pipeline.remove)
+                ChannelState.Reusable // channel can be reused
+              }
+
+            override def interrupt(): ZIO[Any, Throwable, Unit] =
+              NettyFutureExecutor.executed(channel.disconnect()).debug("disconnected")
           }
         }
       }
