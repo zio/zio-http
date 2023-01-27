@@ -92,6 +92,9 @@ final case class EndpointSpec[Input, Output](
   ): EndpointSpec[combiner.Out, Output] =
     copy(input = self.input ++ codec)
 
+  def in[Input2: Schema]: EndpointSpec[Input2, Output] =
+    copy(input = HttpCodec.Body(implicitly[Schema[Input2]]))
+
   /**
    * Adds a new element of input to the API, which can come from the portion of
    * the HTTP path not yet consumed, the query string parameters, or the HTTP
