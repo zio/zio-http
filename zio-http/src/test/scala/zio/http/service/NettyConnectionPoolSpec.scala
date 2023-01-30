@@ -108,7 +108,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                 .flatMap(_.asString)
                 .fork
                 .flatMap { fib =>
-                  fib.interrupt.unit.delay(2.seconds)
+                  fib.interrupt.unit.delay(500.millis)
                 }
             }
             assertZIO(res)(hasSize(equalTo(N)))
