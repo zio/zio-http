@@ -634,6 +634,12 @@ object ZClient {
                         )
                         .map(_.asInstanceOf[driver.Connection])
                         .provideEnvironment(ZEnvironment(channelScope))
+                        .onExit { exit =>
+                          channelScope
+                            .close(exit)
+                            .zipRight(onCompleteFinished.succeed(()))
+                            .when(exit.isInterrupted || exit.isFailure)
+                        }
                     }
                   channelInterface <-
                     driver

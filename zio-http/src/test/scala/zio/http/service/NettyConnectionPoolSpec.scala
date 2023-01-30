@@ -5,17 +5,17 @@ import zio._
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.{Headers, Method, Version}
-import zio.http.netty.NettyRuntime
 import zio.http.netty.client.NettyClientDriver
 import zio.stream.ZStream
-import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, nonFlaky, sequential, timeout, withLiveClock}
+import zio.test.Assertion.{equalTo, hasSize}
+import zio.test.TestAspect._
 import zio.test._
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
   private val app = Http.collectZIO[Request] {
     case req @ Method.POST -> !! / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
+    case Method.GET -> !! / "slow"             => ZIO.sleep(1.hour).as(Response.text("done"))
     case req                                   => req.body.asString.map(Response.text(_))
   }
 
@@ -96,6 +96,42 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
           } @@ nonFlaky(10),
+          test("interrupting the parallel clients") {
+            val res = ZIO.foreachPar(1 to N) { idx =>
+              ZIO.debug(s"Request $idx") *>
+                app.deploy.body
+                  .run(
+                    method = Method.GET,
+                    path = !! / "slow",
+                    body = Body.fromString(idx.toString),
+                    headers = extraHeaders,
+                  )
+                  .flatMap(_.asString)
+                  .fork
+                  .flatMap { fib =>
+                    fib.interrupt.unit.delay(2.seconds)
+                  }
+            }
+            assertZIO(res)(hasSize(equalTo(N)))
+          },
+          test("interrupting the sequential clients") {
+            val res = ZIO.foreach(1 to N) { idx =>
+              ZIO.debug(s"Request $idx") *>
+                app.deploy.body
+                  .run(
+                    method = Method.GET,
+                    path = !! / "slow",
+                    body = Body.fromString(idx.toString),
+                    headers = extraHeaders,
+                  )
+                  .flatMap(_.asString)
+                  .fork
+                  .flatMap { fib =>
+                    fib.interrupt.unit.delay(100.millis)
+                  }
+            }
+            assertZIO(res)(hasSize(equalTo(N)))
+          },
         )
       },
     )
