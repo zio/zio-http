@@ -20,7 +20,7 @@ object MyServer extends ZIOAppDefault {
     Server.serve(app).provide(Server.default)
 }
 
-object MyCLient extends ZIOAppDefault {
+object MyClient extends ZIOAppDefault {
 
   @nowarn def run = {
     val req = for {
@@ -38,9 +38,9 @@ object MyCLient extends ZIOAppDefault {
 
     reqWithTimeout.exit
       .debug("Client finished")
-      .provide(Client.default)
-//      .provide(Client.fromConfig, ClientConfig.live(ClientConfig().withFixedConnectionPool(2)))
-      //.provide(Client.live, NettyClientDriver.fromConfig, ClientConfig.live(ClientConfig().withFixedConnectionPool(2)))
+//      .provide(Client.default)
+      .provide(Client.fromConfig, ClientConfig.live(ClientConfig().withFixedConnectionPool(2)))
+      // .provide(Client.live, NettyClientDriver.fromConfig, ClientConfig.live(ClientConfig().withFixedConnectionPool(2)))
       .debug("EXIT")
   }
 }

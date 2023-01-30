@@ -600,9 +600,7 @@ object ZClient {
         onResponse <- Promise.make[Throwable, Response]
         canceler   <- internalRequest(request, onResponse, clientConfig)(Unsafe.unsafe, trace)
           .catchAll(cause => onResponse.fail(cause).as(ZIO.unit))
-        res        <- onResponse.await.onInterrupt {
-          ZIO.debug("onResponse onInterrupt") *> canceler *> ZIO.debug("canceler done")
-        }
+        res        <- onResponse.await.onInterrupt(canceler)
       } yield res
 
     /**
@@ -618,7 +616,7 @@ object ZClient {
           case location: Location.Absolute =>
             for {
               onCompleteFinished <- Promise.make[Nothing, Unit]
-              onComplete <- Promise.make[Throwable, ChannelState]
+              onComplete         <- Promise.make[Throwable, ChannelState]
               canceler = onComplete.interrupt *> onCompleteFinished.await
               channelScope <- Scope.make
               _            <- ZIO.uninterruptibleMask { restore =>
@@ -656,14 +654,13 @@ object ZClient {
                   // Otherwise we wait for completion signal from netty in a background fiber:
                   _                <-
                     onComplete.await.interruptible.exit.flatMap { exit =>
-                      println(s"EXIT: $exit")
                       if (exit.isInterrupted) {
                         channelInterface
                           .interrupt()
                           .zipRight(connectionPool.invalidate(connection))
+                          .zipRight(channelScope.close(exit))
                           .zipRight(onCompleteFinished.succeed(()))
                           .uninterruptible
-                          .debug("completion handler done")
                       } else {
                         channelInterface
                           .resetChannel()
@@ -760,7 +757,6 @@ object ZClient {
         config         <- ZIO.service[ClientConfig]
         driver         <- ZIO.service[ClientDriver]
         connectionPool <- driver.createConnectionPool(config.connectionPool)
-        _ <- ZIO.addFinalizer(ZIO.debug("Releasing client"))
       } yield new ClientLive(driver)(connectionPool)(config)
     }
   }

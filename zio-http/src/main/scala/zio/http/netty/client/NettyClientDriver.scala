@@ -125,7 +125,7 @@ final case class NettyClientDriver private (
               }
 
             override def interrupt(): ZIO[Any, Throwable, Unit] =
-              NettyFutureExecutor.executed(channel.disconnect()).debug("disconnected")
+              NettyFutureExecutor.executed(channel.disconnect())
           }
         }
       }

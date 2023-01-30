@@ -183,7 +183,6 @@ object NettyConnectionPool {
             location => configs.getOrElse(location, default).ttl,
           )
       }
-      _ <- ZIO.addFinalizer(ZIO.debug("Releasing connection pool"))
     } yield pool
 
   private def createDisabled(implicit trace: Trace): ZIO[NettyClientDriver, Nothing, NettyConnectionPool] =
@@ -202,8 +201,7 @@ object NettyConnectionPool {
     for {
       driver      <- ZIO.service[NettyClientDriver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
-      _           <- ZIO.addFinalizer(ZIO.debug("Connection pool closing"))
-      keyedPool <- ZKeyedPool.make(
+      keyedPool   <- ZKeyedPool.make(
         (key: PoolKey) =>
           ZIO.uninterruptibleMask { restore =>
             createChannel(
@@ -225,8 +223,7 @@ object NettyConnectionPool {
           },
         (key: PoolKey) => size(key.location),
       )
-      _         <- poolPromise.succeed(keyedPool)
-      _         <- ZIO.addFinalizer(ZIO.debug("Connection pool closed"))
+      _           <- poolPromise.succeed(keyedPool)
     } yield new ZioNettyConnectionPool(keyedPool)
 
   private def createDynamic(
