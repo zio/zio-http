@@ -98,37 +98,35 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           } @@ nonFlaky(10),
           test("interrupting the parallel clients") {
             val res = ZIO.foreachPar(1 to N) { idx =>
-              ZIO.debug(s"Request $idx") *>
-                app.deploy.body
-                  .run(
-                    method = Method.GET,
-                    path = !! / "slow",
-                    body = Body.fromString(idx.toString),
-                    headers = extraHeaders,
-                  )
-                  .flatMap(_.asString)
-                  .fork
-                  .flatMap { fib =>
-                    fib.interrupt.unit.delay(2.seconds)
-                  }
+              app.deploy.body
+                .run(
+                  method = Method.GET,
+                  path = !! / "slow",
+                  body = Body.fromString(idx.toString),
+                  headers = extraHeaders,
+                )
+                .flatMap(_.asString)
+                .fork
+                .flatMap { fib =>
+                  fib.interrupt.unit.delay(2.seconds)
+                }
             }
             assertZIO(res)(hasSize(equalTo(N)))
           },
           test("interrupting the sequential clients") {
             val res = ZIO.foreach(1 to N) { idx =>
-              ZIO.debug(s"Request $idx") *>
-                app.deploy.body
-                  .run(
-                    method = Method.GET,
-                    path = !! / "slow",
-                    body = Body.fromString(idx.toString),
-                    headers = extraHeaders,
-                  )
-                  .flatMap(_.asString)
-                  .fork
-                  .flatMap { fib =>
-                    fib.interrupt.unit.delay(100.millis)
-                  }
+              app.deploy.body
+                .run(
+                  method = Method.GET,
+                  path = !! / "slow",
+                  body = Body.fromString(idx.toString),
+                  headers = extraHeaders,
+                )
+                .flatMap(_.asString)
+                .fork
+                .flatMap { fib =>
+                  fib.interrupt.unit.delay(100.millis)
+                }
             }
             assertZIO(res)(hasSize(equalTo(N)))
           },
