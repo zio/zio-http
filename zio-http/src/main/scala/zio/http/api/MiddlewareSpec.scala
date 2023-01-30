@@ -10,67 +10,66 @@ import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames, Headers}
 import zio.http.{Request, Response}
 
 import java.util.Base64
+import zio.http.model.Method
 
-final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
-  middlewareIn: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, MiddlewareIn],
-  middlewareOut: HttpCodec[CodecType.Header, MiddlewareOut],
+final case class MiddlewareSpec[In, Err, Out](
+  input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In],
+  output: HttpCodec[CodecType.Header, Out],
+  error: HttpCodec[CodecType.ResponseType, Err],
+  doc: Doc = Doc.empty,
 ) { self =>
-  def ++[MiddlewareIn2, MiddlewareOut2](that: MiddlewareSpec[MiddlewareIn2, MiddlewareOut2])(implicit
-    inCombiner: Combiner[MiddlewareIn, MiddlewareIn2],
-    outCombiner: Combiner[MiddlewareOut, MiddlewareOut2],
-  ): MiddlewareSpec[inCombiner.Out, outCombiner.Out] =
-    MiddlewareSpec(self.middlewareIn ++ that.middlewareIn, self.middlewareOut ++ that.middlewareOut)
+  def ++[MiddlewareIn2, Err2, MiddlewareOut2](that: MiddlewareSpec[MiddlewareIn2, Err2, MiddlewareOut2])(implicit
+    inCombiner: Combiner[In, MiddlewareIn2],
+    outCombiner: Combiner[Out, MiddlewareOut2],
+    errAlternator: Alternator[Err, Err2],
+  ): MiddlewareSpec[inCombiner.Out, errAlternator.Out, outCombiner.Out] =
+    MiddlewareSpec(self.input ++ that.input, self.output ++ that.output, self.error | that.error, doc)
 
-  def implement[R, S](
-    incoming: MiddlewareIn => ZIO[R, Nothing, Middleware.Control[S]],
-  ): Middleware.Interceptor2[S, R, MiddlewareIn, MiddlewareOut] =
-    Middleware.interceptZIO(self)(incoming)
+  // def implement[R, S](
+  //   incoming: In => ZIO[R, Err, S],
+  // ): Middleware.Interceptor2[S, R, In, Err, Out] =
+  //   Middleware.interceptZIO(self)(incoming)
 
-  def implementIncoming[R](
-    incoming: MiddlewareIn => ZIO[R, Nothing, MiddlewareOut],
-  ): Middleware[R, MiddlewareIn, MiddlewareOut] =
-    Middleware.fromFunctionZIO(self)(incoming)
-
-  def implementIncomingControl[R](
-    incoming: MiddlewareIn => ZIO[R, Nothing, Middleware.Control[MiddlewareOut]],
-  ): Middleware[R, MiddlewareIn, MiddlewareOut] =
-    implement[R, MiddlewareOut](in => incoming(in))((out, _) => ZIO.succeedNow(out))
+  // def implementIncoming[R](
+  //   incoming: In => ZIO[R, Err, Out],
+  // ): Middleware[R, In, Err, Out] =
+  //   implement(in => incoming(in))((out, _) => ZIO.succeedNow(out))
 
   def mapIn[MiddlewareIn2](
-    f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, MiddlewareIn] => HttpCodec[
+    f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In] => HttpCodec[
       CodecType.Header with CodecType.Query with CodecType.Method,
       MiddlewareIn2,
     ],
-  ): MiddlewareSpec[MiddlewareIn2, MiddlewareOut] =
-    copy(middlewareIn = f(middlewareIn))
+  ): MiddlewareSpec[MiddlewareIn2, Err, Out] =
+    copy(input = f(input))
 
   def mapOut[MiddlewareOut2](
-    f: HttpCodec[CodecType.Header, MiddlewareOut] => HttpCodec[
+    f: HttpCodec[CodecType.Header, Out] => HttpCodec[
       CodecType.Header,
       MiddlewareOut2,
     ],
-  ): MiddlewareSpec[MiddlewareIn, MiddlewareOut2] =
-    copy(middlewareOut = f(middlewareOut))
+  ): MiddlewareSpec[In, Err, MiddlewareOut2] =
+    copy(output = f(output))
 
   def mapBoth[MiddlewareIn2, MiddlewareOut2](
-    f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, MiddlewareIn] => HttpCodec[
+    f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In] => HttpCodec[
       CodecType.Header with CodecType.Query with CodecType.Method,
       MiddlewareIn2,
     ],
-    g: HttpCodec[CodecType.Header, MiddlewareOut] => HttpCodec[
+    g: HttpCodec[CodecType.Header, Out] => HttpCodec[
       CodecType.Header,
       MiddlewareOut2,
     ],
-  ): MiddlewareSpec[MiddlewareIn2, MiddlewareOut2] =
+  ): MiddlewareSpec[MiddlewareIn2, Err, MiddlewareOut2] =
     mapIn(f).mapOut(g)
 
-  def optional: MiddlewareSpec[Option[MiddlewareIn], Option[MiddlewareOut]] =
+  def optional: MiddlewareSpec[Option[In], Err, Option[Out]] =
     self.optionalIn.optionalOut
 
-  def optionalIn: MiddlewareSpec[Option[MiddlewareIn], MiddlewareOut] =
+  def optionalIn: MiddlewareSpec[Option[In], Err, Out] =
     self.mapIn(_.optional)
 
-  def optionalOut: MiddlewareSpec[MiddlewareIn, Option[MiddlewareOut]] =
+  def optionalOut: MiddlewareSpec[In, Err, Option[Out]] =
     self.mapOut(_.optional)
 
 }
@@ -79,10 +78,10 @@ object MiddlewareSpec {
 
   final case class CsrfValidate(cookieOption: Option[Cookie[Request]], tokenValue: Option[String])
 
-  def none: MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(HttpCodec.empty, HttpCodec.empty)
+  val none: MiddlewareSpec[Unit, Unused, Unit] =
+    MiddlewareSpec(HttpCodec.empty, HttpCodec.empty, HttpCodec.unused)
 
-  def cookieOption(cookieName: String): MiddlewareSpec[Option[Cookie[Request]], Unit] =
+  def cookieOption(cookieName: String): MiddlewareSpec[Option[Cookie[Request]], Unused, Unit] =
     requireHeader(HeaderNames.cookie.toString()).optionalIn
       .mapIn(
         _.transformOrFail(
@@ -97,7 +96,7 @@ object MiddlewareSpec {
         ),
       )
 
-  def cookie(cookieName: String): MiddlewareSpec[Cookie[Request], Unit] = {
+  def cookie(cookieName: String): MiddlewareSpec[Cookie[Request], Unused, Unit] = {
     cookieOption(cookieName).mapIn(
       _.transformOrFailLeft(
         {
@@ -109,14 +108,17 @@ object MiddlewareSpec {
     )
   }
 
-  def csrfValidate(tokenName: String): MiddlewareSpec[CsrfValidate, Unit] = {
-    val cookie: MiddlewareSpec[Option[Cookie[Request]], Unit] =
+  def csrfValidate(tokenName: String): MiddlewareSpec[CsrfValidate, Unit, Unit] = {
+    val cookie: MiddlewareSpec[Option[Cookie[Request]], Unused, Unit] =
       MiddlewareSpec.cookieOption(tokenName)
 
     val tokenHeader =
       MiddlewareSpec.requireHeader(tokenName)
 
-    (cookie ++ tokenHeader.mapIn(_.optional)).mapIn(
+    val forbidden =
+      MiddlewareSpec(HttpCodec.empty, HttpCodec.empty, StatusCodec.Forbidden)
+
+    (cookie ++ tokenHeader.mapIn(_.optional) ++ forbidden).mapIn(
       _.transform(
         { case (a, b) =>
           CsrfValidate(a, b)
@@ -126,102 +128,103 @@ object MiddlewareSpec {
     )
   }
 
-  def withContentBase: MiddlewareSpec[Unit, ContentBase] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentBase)
+  val withContentBase: MiddlewareSpec[Unit, Unused, ContentBase] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentBase, HttpCodec.unused)
 
-  def withContentDisposition: MiddlewareSpec[Unit, ContentDisposition] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentDisposition)
+  val withContentDisposition: MiddlewareSpec[Unit, Unused, ContentDisposition] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentDisposition, HttpCodec.unused)
 
-  def withContentEncoding: MiddlewareSpec[Unit, ContentEncoding]                 =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentEncoding)
-  def withContentLanguage: MiddlewareSpec[Unit, ContentLanguage]                 =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentLanguage)
-  def withContentLength: MiddlewareSpec[Unit, ContentLength]                     =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentLength)
-  def withContentLocation: MiddlewareSpec[Unit, ContentLocation]                 =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentLocation)
-  def withContentMd5: MiddlewareSpec[Unit, ContentMd5]                           =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentMd5)
-  def withContentRange: MiddlewareSpec[Unit, ContentRange]                       =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentRange)
-  def withContentSecurityPolicy: MiddlewareSpec[Unit, ContentSecurityPolicy]     =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentSecurityPolicy)
-  def withContentTransferEncoding: MiddlewareSpec[Unit, ContentTransferEncoding] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentTransferEncoding)
-  def withContentType: MiddlewareSpec[Unit, ContentType]                         =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentType)
+  val withContentEncoding: MiddlewareSpec[Unit, Unused, ContentEncoding]                 =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentEncoding, HttpCodec.unused)
+  val withContentLanguage: MiddlewareSpec[Unit, Unused, ContentLanguage]                 =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentLanguage, HttpCodec.unused)
+  def withContentLength: MiddlewareSpec[Unit, Unused, ContentLength]                     =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentLength, HttpCodec.unused)
+  val withContentLocation: MiddlewareSpec[Unit, Unused, ContentLocation]                 =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentLocation, HttpCodec.unused)
+  val withContentMd5: MiddlewareSpec[Unit, Unused, ContentMd5]                           =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentMd5, HttpCodec.unused)
+  val withContentRange: MiddlewareSpec[Unit, Unused, ContentRange]                       =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentRange, HttpCodec.unused)
+  def withContentSecurityPolicy: MiddlewareSpec[Unit, Unused, ContentSecurityPolicy]  =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentSecurityPolicy, HttpCodec.unused)
+  val withContentTransferEncoding: MiddlewareSpec[Unit, Unused, ContentTransferEncoding] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentTransferEncoding, HttpCodec.unused)
+  val withContentType: MiddlewareSpec[Unit, Unused, ContentType]                         =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.contentType, HttpCodec.unused)
 
-  def addCookie: MiddlewareSpec[Unit, Cookie[Response]] =
+  val addCookie: MiddlewareSpec[Unit, Unused, Cookie[Response]] =
     MiddlewareSpec(
       HttpCodec.empty,
       HeaderCodec.setCookie.transformOrFail(
         _ => Left("Cannot add cookie"),
         value => Right(ResponseCookie.CookieValue(value)),
       ),
+      HttpCodec.unused,
     )
 
   /**
    * Add specified header to the response
    */
-  def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unit] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
+  def addHeader(key: String, value: String): MiddlewareSpec[Unit, Unused, Unit] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)), HttpCodec.unused)
 
-  def addHeader(header: Headers.Header): MiddlewareSpec[Unit, Unit] =
+  def addHeader(header: Headers.Header): MiddlewareSpec[Unit, Unused, Unit] =
     addHeader(header.key.toString, header.value.toString)
 
-  def addHeaders(headers: Headers): MiddlewareSpec[Unit, Unit] =
+  def addHeaders(headers: Headers): MiddlewareSpec[Unit, Unused, Unit] =
     headers.headersAsList.map(addHeader(_)).reduce(_ ++ _)
 
-  def addCorrelationId: MiddlewareSpec[Unit, String] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
+  val addCorrelationId: MiddlewareSpec[Unit, Unused, String] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string), HttpCodec.unused)
 
-  def withAccessControlAllowOrigin: MiddlewareSpec[Unit, AccessControlAllowOrigin] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowOrigin)
+  val withAccessControlAllowOrigin: MiddlewareSpec[Unit, Unused, AccessControlAllowOrigin] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowOrigin, HttpCodec.unused)
 
-  def withAuthorization(value: CharSequence): MiddlewareSpec[Unit, Unit] =
+  def withAuthorization(value: CharSequence): MiddlewareSpec[Unit, Unused, Unit] =
     addHeader(HeaderNames.authorization.toString, value.toString)
 
-  def withBasicAuthorization(username: String, password: String): MiddlewareSpec[Unit, Unit] = {
+  def withBasicAuthorization(username: String, password: String): MiddlewareSpec[Unit, Unused, Unit] = {
     val authString    = String.format("%s:%s", username, password)
     val encodedAuthCB = new String(Base64.getEncoder.encode(authString.getBytes(HTTP_CHARSET)), HTTP_CHARSET)
     val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB)
     addHeader(HeaderNames.authorization.toString, value)
   }
 
-  def withAccessControlAllowMaxAge: MiddlewareSpec[Unit, AccessControlMaxAge] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlMaxAge)
+  val withAccessControlAllowMaxAge: MiddlewareSpec[Unit, Unused, AccessControlMaxAge] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlMaxAge, HttpCodec.unused)
 
-  def withExpires: MiddlewareSpec[Unit, Expires] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.expires)
+  val withExpires: MiddlewareSpec[Unit, Unused, Expires] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.expires, HttpCodec.unused)
 
-  def withConnection: MiddlewareSpec[Unit, Connection] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.connection)
+  val withConnection: MiddlewareSpec[Unit, Unused, Connection] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.connection, HttpCodec.unused)
 
-  def withTransferEncoding: MiddlewareSpec[Unit, TransferEncoding] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.transferEncoding)
+  val withTransferEncoding: MiddlewareSpec[Unit, Unused, TransferEncoding] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.transferEncoding, HttpCodec.unused)
 
-  def withProxyAuthenticate: MiddlewareSpec[Unit, ProxyAuthenticate] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.proxyAuthenticate)
+  val withProxyAuthenticate: MiddlewareSpec[Unit, Unused, ProxyAuthenticate] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.proxyAuthenticate, HttpCodec.unused)
 
-  def withProxyAuthorization: MiddlewareSpec[Unit, ProxyAuthorization] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.proxyAuthorization)
+  val withProxyAuthorization: MiddlewareSpec[Unit, Unused, ProxyAuthorization] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.proxyAuthorization, HttpCodec.unused)
 
-  def withReferer: MiddlewareSpec[Unit, Referer] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.referer)
+  val withReferer: MiddlewareSpec[Unit, Unused, Referer] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.referer, HttpCodec.unused)
 
-  def withRetryAfter: MiddlewareSpec[Unit, RetryAfter] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.retryAfter)
+  val withRetryAfter: MiddlewareSpec[Unit, Unused, RetryAfter] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.retryAfter, HttpCodec.unused)
 
-  def withAccessControlAllowCredentials: MiddlewareSpec[Unit, AccessControlAllowCredentials] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowCredentials)
+  val withAccessControlAllowCredentials: MiddlewareSpec[Unit, Unused, AccessControlAllowCredentials] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowCredentials, HttpCodec.unused)
 
-  def withAccessControlAllowMethods: MiddlewareSpec[Unit, AccessControlAllowMethods] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowMethods)
+  val withAccessControlAllowMethods: MiddlewareSpec[Unit, Unused, AccessControlAllowMethods] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accessControlAllowMethods, HttpCodec.unused)
 
-  def withIfRange: MiddlewareSpec[Unit, IfRange] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.ifRange)
+  val withIfRange: MiddlewareSpec[Unit, Unused, IfRange] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.ifRange, HttpCodec.unused)
 
-  def auth: MiddlewareSpec[Auth.Credentials, Unit] =
+  val auth: MiddlewareSpec[Auth.Credentials, Unused, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
       .mapIn(
         _.transformOrFailLeft(
@@ -230,50 +233,85 @@ object MiddlewareSpec {
         ),
       )
 
-  def cors =
-    MiddlewareSpec(
-      middlewareIn = MethodCodec.method ++
-        HeaderCodec.origin.optional ++
-        HeaderCodec.accessControlRequestMethod.optional,
-      middlewareOut = HttpCodec.empty,
+  type CorsInput =
+    Either[(Origin, AccessControlRequestMethod), (Method, Origin)]
+
+  type CorsError =
+    (
+      AccessControlAllowHeaders,
+      AccessControlAllowOrigin,
+      AccessControlAllowMethods,
+      Option[AccessControlAllowCredentials],
     )
 
-  def customAuth[I](
-    headerCodec: HeaderCodec[I],
-  ): MiddlewareSpec[I, Unit] =
-    MiddlewareSpec(
-      headerCodec,
-      HttpCodec.empty,
+  type CorsOutput =
+    (
+      AccessControlExposeHeaders,
+      AccessControlAllowOrigin,
+      AccessControlAllowMethods,
+      Option[AccessControlAllowCredentials],
     )
 
-  def requireHeader(name: String): MiddlewareSpec[String, Unit] =
-    MiddlewareSpec(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty)
+  val cors: MiddlewareSpec[CorsInput, CorsError, CorsOutput] =
+    MiddlewareSpec(
+      input = (MethodCodec.options ++
+        HeaderCodec.origin ++
+        HeaderCodec.accessControlRequestMethod) |
+        (MethodCodec.method ++ HeaderCodec.origin),
+      output = HeaderCodec.accessControlExposeHeaders ++
+        HeaderCodec.accessControlAllowOrigin ++
+        HeaderCodec.accessControlAllowMethods ++
+        HeaderCodec.accessControlAllowCredentials.optional,
+      error = HeaderCodec.accessControlAllowHeaders ++
+        HeaderCodec.accessControlAllowOrigin ++
+        HeaderCodec.accessControlAllowMethods ++
+        HeaderCodec.accessControlAllowCredentials.optional ++
+        StatusCodec.NoContent,
+    )
 
-  def withAccept: MiddlewareSpec[Unit, Accept] =
-    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accept)
+  def customAuth[I, E, O](
+    request: HeaderCodec[I],
+    response: HeaderCodec[O],
+    error: HttpCodec[CodecType.ResponseType, E],
+  ): MiddlewareSpec[I, E, O] =
+    MiddlewareSpec(
+      request,
+      response,
+      error,
+    )
 
-  def withAcceptEncoding: MiddlewareSpec[Unit, AcceptEncoding] =
+  def requireHeader(name: String): MiddlewareSpec[String, Unused, Unit] =
+    MiddlewareSpec(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty, HttpCodec.unused)
+
+  val withAccept: MiddlewareSpec[Unit, Unused, Accept] =
+    MiddlewareSpec(HttpCodec.empty, HeaderCodec.accept, HttpCodec.unused)
+
+  val withAcceptEncoding: MiddlewareSpec[Unit, Unused, AcceptEncoding] =
     MiddlewareSpec(
       HttpCodec.empty,
       HeaderCodec.acceptEncoding,
+      HttpCodec.unused,
     )
 
-  def withAcceptLanguage: MiddlewareSpec[Unit, AcceptLanguage] =
+  val withAcceptLanguage: MiddlewareSpec[Unit, Unused, AcceptLanguage] =
     MiddlewareSpec(
       HttpCodec.empty,
       HeaderCodec.acceptLanguage,
+      HttpCodec.unused,
     )
 
-  def withAcceptPatch: MiddlewareSpec[Unit, AcceptPatch] =
+  val withAcceptPatch: MiddlewareSpec[Unit, Unused, AcceptPatch] =
     MiddlewareSpec(
       HttpCodec.empty,
       HeaderCodec.acceptPatch,
+      HttpCodec.unused,
     )
 
-  def withAcceptRanges: MiddlewareSpec[Unit, AcceptRanges] =
+  val withAcceptRanges: MiddlewareSpec[Unit, Unused, AcceptRanges] =
     MiddlewareSpec(
       HttpCodec.empty,
       HeaderCodec.acceptRanges,
+      HttpCodec.unused,
     )
 
   private[api] def decodeHttpBasic(encoded: String): Option[Credentials] = {

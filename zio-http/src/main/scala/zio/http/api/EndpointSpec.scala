@@ -108,8 +108,8 @@ final case class EndpointSpec[Input, Err, Output](
   /**
    * Convert API to a ServiceSpec.
    */
-  def toServiceSpec: ServiceSpec[Unit, Unit, this.type] =
-    ServiceSpec(self).middleware(MiddlewareSpec.none)
+  def toServiceSpec =
+    ServiceSpec(EndpointSpecs(self), MiddlewareSpec.none)
 
   /**
    * Changes the output type of the endpoint to the specified output type.
@@ -148,8 +148,8 @@ object EndpointSpec {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def delete[Input](route: RouteCodec[Input]): EndpointSpec[Input, Nothing, Unit] = {
-    EndpointSpec[Input, Nothing, Unit](route ++ MethodCodec.delete, HttpCodec.empty, HttpCodec.unused, Doc.empty)
+  def delete[Input](route: RouteCodec[Input]): EndpointSpec[Input, Unused, Unit] = {
+    EndpointSpec(route ++ MethodCodec.delete, HttpCodec.empty, HttpCodec.unused, Doc.empty)
   }
 
   /**
