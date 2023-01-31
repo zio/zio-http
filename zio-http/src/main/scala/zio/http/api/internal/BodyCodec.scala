@@ -3,7 +3,7 @@ package zio.http.api.internal
 import zio._
 import zio.http.Body
 import zio.schema._
-import zio.schema.codec.Codec
+import zio.schema.codec.{BinaryCodec, Codec}
 import zio.stream.ZStream
 
 import java.io.IOException
@@ -24,12 +24,12 @@ private[api] sealed trait BodyCodec[A] { self =>
   /**
    * Attempts to decode the `A` from a body using the given codec.
    */
-  def decodeFromBody(body: Body, codec: Codec): IO[Throwable, A]
+  def decodeFromBody(body: Body, codec: BinaryCodec[Element]): IO[Throwable, A]
 
   /**
    * Encodes the `A` to a body in the given codec.
    */
-  def encodeToBody(value: A, codec: Codec): Body
+  def encodeToBody(value: A, codec: BinaryCodec[Element]): Body
 
   /**
    * Erases the type for easier use in the internal implementation.
@@ -45,34 +45,34 @@ object BodyCodec {
   case object Empty extends BodyCodec[Unit] {
     type Element = Unit
 
-    def decodeFromBody(body: Body, codec: Codec): IO[Throwable, Unit] = ZIO.unit
+    def decodeFromBody(body: Body, codec: BinaryCodec[Unit]): IO[Throwable, Unit] = ZIO.unit
 
-    def encodeToBody(value: Unit, codec: Codec): Body = Body.empty
+    def encodeToBody(value: Unit, codec: BinaryCodec[Unit]): Body = Body.empty
 
     def schema: Schema[Unit] = Schema[Unit]
   }
 
   final case class Single[A](schema: Schema[A]) extends BodyCodec[A] {
-    def decodeFromBody(body: Body, codec: Codec): IO[Throwable, A] = {
+    def decodeFromBody(body: Body, codec: BinaryCodec[A]): IO[Throwable, A] = {
       if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
       else
         body.asChunk.flatMap { chunk =>
-          ZIO.fromEither(codec.decode(schema)(chunk)).mapError(message => new IOException(message))
+          ZIO.fromEither(codec.decode(chunk)).mapError(message => new IOException(message))
         }
     }
 
-    def encodeToBody(value: A, codec: Codec): Body =
-      Body.fromChunk(codec.encode(schema)(value))
+    def encodeToBody(value: A, codec: BinaryCodec[A]): Body =
+      Body.fromChunk(codec.encode(value))
 
     type Element = A
   }
 
   final case class Multiple[E](schema: Schema[E]) extends BodyCodec[ZStream[Any, Throwable, E]] {
-    def decodeFromBody(body: Body, codec: Codec): IO[Throwable, ZStream[Any, Throwable, E]] =
-      ZIO.succeed(body.asStream >>> codec.decoder(schema).mapError(message => new IOException(message)))
+    def decodeFromBody(body: Body, codec: BinaryCodec[E]): IO[Throwable, ZStream[Any, Throwable, E]] =
+      ZIO.succeed(body.asStream >>> codec.streamDecoder.mapError(message => new IOException(message)))
 
-    def encodeToBody(value: ZStream[Any, Throwable, E], codec: Codec): Body =
-      Body.fromStream(value >>> codec.encoder(schema))
+    def encodeToBody(value: ZStream[Any, Throwable, E], codec: BinaryCodec[E]): Body =
+      Body.fromStream(value >>> codec.streamEncoder)
 
     type Element = E
   }

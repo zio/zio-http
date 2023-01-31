@@ -1,152 +1,51 @@
 ---
-sidebar_position: 1
+id: index
 title: "Introduction to ZIO Http"
-sidebar_label: "Introduction"
+sidebar_label: "ZIO Http"
 ---
 
-**Table of Contents**
+ZIO Http is a scala library for building http apps. It is powered by ZIO and [netty](https://netty.io/) and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic scala.
 
-- [Http](#http)
-  - [Creating a "_Hello World_" app](#creating-a-hello-world-app)
-  - [Routing](#routing)
-  - [Composition](#composition)
-  - [ZIO Integration](#zio-integration)
-  - [Requests](#accessing-the-request)
-  - [Testing](#testing)
-- [Socket](#socket)
-  - [Creating a socket app](#creating-a-socket-app)
-- [Server](#server)
-  - [Starting an Http App](#starting-an-http-app)
-- [Examples](#examples)
+@PROJECT_BADGES@
 
-# Http
+## Installation
 
-## Creating a "_Hello World_" app
+Setup via `build.sbt`:
 
 ```scala
-import zio.http._
-
-val app = Http.text("Hello World!")
+libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 ```
 
-An application can be made using any of the available operators on `zio.Http`. In the above program for any Http request, the response is always `"Hello World!"`.
+**NOTE:** ZIO Http is compatible with `ZIO 1.x` and `ZIO 2.x`.
 
-## Routing
+## Getting Started
+
+A simple Http server can be built using a few lines of code.
 
 ```scala
+import zio._
 import zio.http._
+import zio.http.model.Method
 
-val app = Http.collect[Request] {
-  case Method.GET -> Root / "fruits" / "a"  => Response.text("Apple")
-  case Method.GET -> Root / "fruits" / "b"  => Response.text("Banana")
-}
-```
+object HelloWorld extends ZIOAppDefault {
 
-Pattern matching on route is supported by the framework
-
-## Composition
-
-```scala
-import zio.http._
-
-val a = Http.collect[Request] { case Method.GET -> Root / "a"  => Response.ok }
-val b = Http.collect[Request] { case Method.GET -> Root / "b"  => Response.ok }
-
-val app = a <> b
-```
-
-Apps can be composed using the `<>` operator. The way it works is, if none of the routes match in `a` , or a `NotFound` error is thrown from `a`, and then the control is passed on to the `b` app.
-
-## ZIO Integration
-
-```scala
-val app = Http.collectM[Request] {
-  case Method.GET -> Root / "hello" => ZIO.succeed(Response.text("Hello World"))
-}
-```
-
-`Http.collectM` allow routes to return a ZIO effect value.
-
-## Accessing the Request
-
-```scala
-import zio.http._
-
-val app = Http.collect[Request] {
-  case req @ Method.GET -> Root / "fruits" / "a"  =>
-    Response.text("URL:" + req.url.path.asString + " Headers: " + r.headers)
-  case req @ Method.POST -> Root / "fruits" / "a" =>
-    Response.text(req.bodyAsString.getOrElse("No body!"))
-}
-```
-
-## Testing
-
-Tests suites could be implemented using `zio-test` library, as following:
-
-```scala
-
-import zio.test._
-import zio.http._
-import zio.test.Assertion.equalTo
-
-object Spec extends DefaultRunnableSpec {
-  val app = Http.collect[Request] { case Method.GET -> !! / "text" =>
-    Response.text("Hello World!")
+  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
+    case Method.GET -> !! / "text" => Response.text("Hello World!")
   }
 
-  def spec = suite("http")(
-    test("should be ok") {
-      val req         = ???
-      val expectedRes = app(req).map(_.status)
-      assertZIO(expectedRes)(equalTo(Status.Ok))
-    },
-  )
+  override val run =
+    Server.serve(app).provide(Server.default)
 }
 ```
 
-# Socket
+## Steps to run an example
 
-## Creating a socket app
+1. Edit the [RunSettings](https://github.com/zio/zio-http/blob/main/project/BuildHelper.scala#L109) - modify `className` to the example you'd like to run.
+2. From sbt shell, run `~example/reStart`. You should see `Server started on port: 8080`.
+3. Send curl request for defined `http Routes`, for eg : `curl -i "http://localhost:8080/text"` for `example.HelloWorld`.
 
-```scala
-import zio.socket._
+## Watch Mode
 
-private val socket = Socket.collect[WebSocketFrame] {
-  case WebSocketFrame.Text("FOO")  => ZStream.succeed(WebSocketFrame.text("BAR"))
-}
+You can use the [sbt-revolver] plugin to start the server and run it in watch mode using `~ reStart` command on the SBT console.
 
-private val app = Http.collect[Request] {
-  case Method.GET -> Root / "greet" / name  => Response.text(s"Greetings {$name}!")
-  case Method.GET -> Root / "ws" => Response.socket(socket)
-}
-```
-
-# Server
-
-## Starting an Http App
-
-```scala
-import zio.http._
-import zio.http.Server
-import zio._
-
-object HelloWorld extends App {
-  val app = Http.ok
-
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
-}
-```
-
-A simple Http app that responds with empty content and a `200` status code is deployed on port `8090` using `Server.start`.
-
-# Examples
-
-- [Simple Server](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/HelloWorld.scala)
-- [Advanced Server](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/HelloWorldAdvanced.scala)
-- [WebSocket Server](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/SocketEchoServer.scala)
-- [Streaming Response](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/StreamingResponse.scala)
-- [Simple Client](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/SimpleClient.scala)
-- [File Streaming](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/FileStreaming.scala)
-- [Authentication](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/Authentication.scala)
+[sbt-revolver]: https://github.com/spray/sbt-revolver

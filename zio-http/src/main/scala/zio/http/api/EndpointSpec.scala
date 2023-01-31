@@ -18,10 +18,10 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * doesn't give access to `Output` Input: Example: Int Output: Example: User
  *
  * As [[zio.http.api.EndpointSpec]] is a purely declarative encoding of an
- * endpoint, it is possible to use this model to generate a [[zio.http.HttpApp]]
- * (by supplying a handler for the endpoint), to generate OpenAPI documentation,
- * to generate a type-safe Scala client for the endpoint, and possibly, to
- * generate client libraries in other programming languages.
+ * endpoint, it is possible to use this model to generate a [[zio.http.App]] (by
+ * supplying a handler for the endpoint), to generate OpenAPI documentation, to
+ * generate a type-safe Scala client for the endpoint, and possibly, to generate
+ * client libraries in other programming languages.
  */
 final case class EndpointSpec[Input, Output](
   input: HttpCodec[CodecType.RequestType, Input],
@@ -91,6 +91,9 @@ final case class EndpointSpec[Input, Output](
     combiner: Combiner[Input, A],
   ): EndpointSpec[combiner.Out, Output] =
     copy(input = self.input ++ codec)
+
+  def in[Input2: Schema]: EndpointSpec[Input2, Output] =
+    copy(input = HttpCodec.Body(implicitly[Schema[Input2]]))
 
   /**
    * Adds a new element of input to the API, which can come from the portion of

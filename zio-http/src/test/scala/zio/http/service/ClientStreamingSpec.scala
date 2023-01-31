@@ -3,7 +3,7 @@ package zio.http.service
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.Method
-import zio.http.netty.client.ConnectionPool
+import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
@@ -26,12 +26,11 @@ object ClientStreamingSpec extends HttpRunnableSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ClientProxy") {
     serve(DynamicServer.app).as(List(clientStreamingSpec))
   }.provideShared(
-    Scope.default,
     DynamicServer.live,
     severTestLayer,
-    ConnectionPool.disabled,
     Client.live,
     ClientConfig.live(ClientConfig.empty.useObjectAggregator(false)),
+    NettyClientDriver.fromConfig,
   ) @@
     timeout(5 seconds) @@ sequential
 }

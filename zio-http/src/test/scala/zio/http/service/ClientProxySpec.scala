@@ -4,7 +4,7 @@ import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Auth.Credentials
 import zio.http.model._
-import zio.http.netty.client.ConnectionPool
+import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
@@ -26,10 +26,9 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = serverUrl),
             )
             .provideSome(
-              Scope.default,
-              ConnectionPool.disabled,
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))),
+              NettyClientDriver.fromConfig,
             )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
@@ -39,28 +38,29 @@ object ClientProxySpec extends HttpRunnableSpec {
         for {
           port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
           url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
-          id   <- DynamicServer.deploy(Http.ok)
+          id   <- DynamicServer.deploy(Handler.ok.toHttp)
           proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
           out <- Client
             .request(
               Request.get(url = url),
             )
             .provideSome(
-              Scope.default,
-              ConnectionPool.disabled,
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(proxy)),
+              NettyClientDriver.fromConfig,
             )
         } yield out
       assertZIO(res.either)(isRight)
     },
     test("proxy respond Ok for auth server") {
-      val proxyAuthApp = Http.collect[Request] { case req =>
-        val proxyAuthHeaderName = HeaderNames.proxyAuthorization.toString
-        req.headers.toList.collectFirst { case Header(`proxyAuthHeaderName`, _) =>
-          Response.ok
-        }.getOrElse(Response.status(Status.Forbidden))
-      }
+      val proxyAuthApp = Handler
+        .fromFunction[Request] { req =>
+          val proxyAuthHeaderName = HeaderNames.proxyAuthorization.toString
+          req.headers.toList.collectFirst { case Header(`proxyAuthHeaderName`, _) =>
+            Response.ok
+          }.getOrElse(Response.status(Status.Forbidden))
+        }
+        .toHttp
 
       val res =
         for {
@@ -76,10 +76,9 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = url),
             )
             .provideSome(
-              Scope.default,
-              ConnectionPool.disabled,
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(proxy)),
+              NettyClientDriver.fromConfig,
             )
         } yield out
       assertZIO(res.either)(isRight)

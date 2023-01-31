@@ -12,8 +12,8 @@ object RefererMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withReferer("https://developer.mozilla.org/en-US/docs/Web/JavaScript")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.referer
               .getOrElse("error")
@@ -24,8 +24,8 @@ object RefererMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withReferer("https://developer.mozilla.org/en-US/")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(
             response.headers.referer
               .getOrElse("error")
@@ -38,16 +38,16 @@ object RefererMiddlewareSpec extends ZIOSpecDefault {
           for {
             response <- api.Middleware
               .withReferer("developer.mozilla.org/en-US/")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.referer.getOrElse("error").equals(""))
         },
         test("add invalid garbage value to RefererMiddlewareSpec") {
           for {
             response <- api.Middleware
               .withReferer("garbage)(*&^%")
-              .apply(Http.succeed(response))
-              .apply(Request.get(URL.empty))
+              .apply(Handler.succeed(response).toHttp)
+              .runZIO(Request.get(URL.empty))
           } yield assertTrue(response.headers.referer.getOrElse("error").equals(""))
         },
       ),

@@ -11,15 +11,15 @@ ThisBuild / resolvers +=
   "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
 // CI Configuration
-ThisBuild / githubWorkflowJavaVersions   := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
-ThisBuild / githubWorkflowPREventTypes   := Seq(
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.graalvm("21.1.0", "11"), JavaSpec.temurin("8"))
+ThisBuild / githubWorkflowPREventTypes := Seq(
   PREventType.Opened,
   PREventType.Synchronize,
   PREventType.Reopened,
   PREventType.Edited,
   PREventType.Labeled,
 )
-ThisBuild / githubWorkflowAddedJobs      :=
+ThisBuild / githubWorkflowAddedJobs    :=
   Seq(
     WorkflowJob(
       id = "update_release_draft",
@@ -27,35 +27,11 @@ ThisBuild / githubWorkflowAddedJobs      :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
-    WorkflowJob(
-      id = "update_docs",
-      name = "Publish Documentation",
-      steps = List(
-        WorkflowStep
-          .Use(UseRef.Public("actions", "checkout", "v3.1.0"), Map("fetch-depth" -> "0")),
-        WorkflowStep.Use(name = Some("Setup Scala and Java"), ref = UseRef.Public("olafurpg", "setup-scala", "v13")),
-        WorkflowStep.Use(
-          UseRef.Public("actions", "setup-node", "v3"),
-          Map(
-            "node-version" -> "16.x",
-            "registry-url" -> "https://registry.npmjs.org",
-          ),
-        ),
-        WorkflowStep.Run(
-          name = Some("Publishing Docs to NPM Registry"),
-          env = Map("NODE_AUTH_TOKEN" -> "${{secrets.NPM_TOKEN}}"),
-          commands = List(
-            "sbt publishToNpm",
-          ),
-        ),
-      ),
-      cond = Option("${{ github.ref == 'refs/heads/main' }}"),
-    ),
   ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow() ++ JmhBenchmarkWorkflow(1)
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish        :=
+ThisBuild / githubWorkflowPublish       :=
   Seq(
     WorkflowStep.Sbt(
       List("ci-release"),
@@ -70,7 +46,7 @@ ThisBuild / githubWorkflowPublish        :=
   )
 //scala fix isn't available for scala 3 so ensure we only run the fmt check
 //using the latest scala 2.13
-ThisBuild / githubWorkflowBuildPreamble  := Seq(
+ThisBuild / githubWorkflowBuildPreamble := Seq(
   WorkflowStep.Run(
     name = Some("Check formatting"),
     commands = List(s"sbt ++${Scala213} fmtCheck"),
@@ -92,6 +68,14 @@ ThisBuild / githubWorkflowBuildPostamble :=
     scalas = List(Scala213),
   ).steps
 
+inThisBuild(
+  List(
+    organization := "dev.zio",
+    homepage     := Some(url("https://zio.dev/zio-http/")),
+    licenses     := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+  ),
+)
+
 lazy val root = (project in file("."))
   .settings(stdSettings("zio-http-root"))
   .settings(publishSetting(false))
@@ -101,8 +85,8 @@ lazy val root = (project in file("."))
     zioHttpLogging,
     zioHttpExample,
     zioHttpTestkit,
+    docs,
   )
-  .enablePlugins(WebsitePlugin)
 
 lazy val zioHttp = (project in file("zio-http"))
   .settings(stdSettings("zio-http"))
@@ -135,8 +119,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.1.4",
-      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.1.4",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.2.7",
+      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.2.7",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
     ),
   )
@@ -175,3 +159,19 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
     ),
   )
   .dependsOn(zioHttp, zioHttpLogging)
+
+lazy val docs = project
+  .in(file("zio-http-docs"))
+  .settings(
+    moduleName                                 := "zio-http-docs",
+    scalacOptions -= "-Yno-imports",
+    scalacOptions -= "-Xfatal-warnings",
+    projectName                                := "ZIO Http",
+    mainModuleName                             := (zioHttp / moduleName).value,
+    projectStage                               := ProjectStage.Development,
+    docsPublishBranch                          := "main",
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttp, zioHttpLogging),
+    ciWorkflowName                             := "Continuous Integration",
+  )
+  .dependsOn(zioHttp, zioHttpLogging)
+  .enablePlugins(WebsitePlugin)

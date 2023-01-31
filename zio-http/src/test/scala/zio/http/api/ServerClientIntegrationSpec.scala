@@ -1,6 +1,6 @@
 package zio.http.api
 
-import zio.http.netty.client.ConnectionPool
+import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 import zio.http.{Client, ClientConfig, Server, ServerConfig, URL}
 import zio.schema.{DeriveSchema, Schema}
 import zio.test.{ZIOSpecDefault, assertTrue}
@@ -20,7 +20,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
   }
 
   val usersPostAPI =
-    EndpointSpec.get("users" / RouteCodec.int / "posts" / RouteCodec.int).out[Post]
+    EndpointSpec.get("users" / RouteCodec.int("userId") / "posts" / RouteCodec.int("postId")).out[Post]
 
   val usersPostHandler =
     usersPostAPI.implement { case (userId, postId) =>
@@ -53,13 +53,13 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           _        <- ZIO.debug(s"Result: $result")
         } yield assertTrue(result == Post(20, "title", "body", 10))
       },
-    ).provideSome[Scope](
+    ).provide(
       Server.live,
       ServerConfig.live,
       Client.live,
-      ConnectionPool.disabled,
       executorLayer,
       // TODO: [Ergonomics] Server.default is a value and ClientConfig.default is a Layer
       ClientConfig.default,
+      NettyClientDriver.fromConfig,
     )
 }

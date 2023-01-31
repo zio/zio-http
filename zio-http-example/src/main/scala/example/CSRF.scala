@@ -17,7 +17,7 @@ object CSRF extends ZIOAppDefault {
     }
     .withMiddleware(api.Middleware.csrfGenerate()) // set x-csrf token cookie
 
-  val app = publicApp ++ privateApp
+  val app = (publicApp ++ privateApp).withDefaultErrorResponse
 
   def run = Server.serve(app).provide(Server.default)
 }

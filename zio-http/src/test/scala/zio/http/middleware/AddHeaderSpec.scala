@@ -14,11 +14,12 @@ object AddHeaderSpec extends ZIOSpecDefault with HttpAppTestExtensions with Head
   private val connectionHeader = connection("keep-alive")
   private val response         = Response(headers = age("12"))
 
-  private val appAddingAcceptHeader = Http.ok.withMiddleware(api.Middleware.addHeader(acceptHeader.headers.head))
+  private val appAddingAcceptHeader =
+    Handler.ok.toHttp.withMiddleware(api.Middleware.addHeader(acceptHeader.headers.head))
   private val appAddingHeadersList  =
-    Http.ok.withMiddleware(api.Middleware.addHeaders(acceptHeader ++ connectionHeader))
+    Handler.ok.toHttp.withMiddleware(api.Middleware.addHeaders(acceptHeader ++ connectionHeader))
   private val appAddingHeader       =
-    Http.response(response).withMiddleware(api.Middleware.addHeaders(acceptHeader ++ connectionHeader))
+    Handler.response(response).toHttp.withMiddleware(api.Middleware.addHeaders(acceptHeader ++ connectionHeader))
 
   private val req = Request.get(URL.empty)
 
@@ -26,13 +27,13 @@ object AddHeaderSpec extends ZIOSpecDefault with HttpAppTestExtensions with Head
     test("Specified header is added to response") {
 
       for {
-        response <- appAddingAcceptHeader(req)
+        response <- appAddingAcceptHeader.runZIO(req)
       } yield assert(response.headersAsList)(contains(acceptHeader))
     },
     test("Specified header is added to response with other headers in place") {
 
       for {
-        response <- appAddingHeader(req)
+        response <- appAddingHeader.runZIO(req)
       } yield assert(response.headersAsList)(
         hasSubset(acceptHeader ++ connectionHeader ++ age("12")),
       )
@@ -40,7 +41,7 @@ object AddHeaderSpec extends ZIOSpecDefault with HttpAppTestExtensions with Head
     test("Specified list of headers is added to response") {
 
       for {
-        response <- appAddingHeadersList(req)
+        response <- appAddingHeadersList.runZIO(req)
       } yield assert(response.headersAsList)(hasSubset(acceptHeader ++ connectionHeader))
     },
   )

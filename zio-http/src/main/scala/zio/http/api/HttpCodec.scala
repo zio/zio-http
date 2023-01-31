@@ -220,7 +220,8 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
   private[api] final case class Status[A](textCodec: TextCodec[A]) extends Atom[CodecType.Status, A] { self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
   }
-  private[api] final case class Route[A](textCodec: TextCodec[A])  extends Atom[CodecType.Route, A]  { self =>
+  private[api] final case class Route[A](textCodec: TextCodec[A], name: Option[String])
+      extends Atom[CodecType.Route, A] { self =>
     def erase: Route[Any] = self.asInstanceOf[Route[Any]]
   }
   private[api] final case class Body[A](schema: Schema[A])         extends Atom[CodecType.Body, A]

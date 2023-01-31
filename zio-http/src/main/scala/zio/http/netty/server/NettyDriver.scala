@@ -5,8 +5,9 @@ import io.netty.channel._
 import io.netty.util.ResourceLeakDetector
 import zio._
 import zio.http.netty._
+import zio.http.netty.client.NettyClientDriver
 import zio.http.service.ServerTime
-import zio.http.{Driver, Http, HttpApp, Server, ServerConfig}
+import zio.http.{App, ClientConfig, ClientDriver, Driver, Http, Server, ServerConfig}
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
@@ -38,12 +39,12 @@ private[zio] final case class NettyDriver(
     }
   }
 
-  def addApp[R](newApp: HttpApp[R, Throwable], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
+  def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
     var loop = true
     while (loop) {
       val oldAppAndEnv     = appRef.get()
       val (oldApp, oldEnv) = oldAppAndEnv
-      val updatedApp       = (oldApp ++ newApp).asInstanceOf[HttpApp[Any, Throwable]]
+      val updatedApp       = (oldApp ++ newApp).asInstanceOf[App[Any]]
       val updatedEnv       = oldEnv.unionAll(env)
       val updatedAppAndEnv = (updatedApp, updatedEnv)
 
@@ -51,6 +52,12 @@ private[zio] final case class NettyDriver(
     }
   }
 
+  override def createClientDriver(config: ClientConfig)(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
+    for {
+      channelFactory <- ChannelFactories.Client.fromConfig.build
+        .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](config))
+      nettyRuntime   <- NettyRuntime.usingDedicatedThreadPool.build
+    } yield NettyClientDriver(channelFactory.get, eventLoopGroup, nettyRuntime.get, config)
 }
 
 object NettyDriver {
@@ -85,18 +92,18 @@ object NettyDriver {
 
     val serverChannelFactory: ZLayer[ServerConfig, Nothing, ChannelFactory[ServerChannel]] =
       ChannelFactories.Server.fromConfig
-    val eventLoopGroup: ZLayer[Scope with ServerConfig, Nothing, EventLoopGroup]           = EventLoopGroups.fromConfig
+    val eventLoopGroup: ZLayer[ServerConfig, Nothing, EventLoopGroup]                      = EventLoopGroups.fromConfig
 
-    Scope.default >>> eventLoopGroup >+> serverChannelFactory >>> manual
+    eventLoopGroup >+> serverChannelFactory >>> manual
   }
 
   val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Nothing, Driver] =
     ZLayer {
       val app  = ZLayer.succeed(
-        new AtomicReference[(HttpApp[Any, Throwable], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
+        new AtomicReference[(App[Any], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
       )
       val ecb  = ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty))
-      val time = ZLayer.succeed(ServerTime.make(1000 millis))
+      val time = ZLayer.succeed(ServerTime.make(1000.millis))
 
       val nettyBits = ZLayer.fromZIOEnvironment(for {
         elg <- ZIO.service[EventLoopGroup]

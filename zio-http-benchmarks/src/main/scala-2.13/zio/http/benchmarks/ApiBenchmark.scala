@@ -87,7 +87,7 @@ class ApiBenchmark {
   // API DSL
   val usersPosts =
     EndpointSpec
-      .get(RouteCodec.literal("users") / RouteCodec.int / "posts" / RouteCodec.int)
+      .get(RouteCodec.literal("users") / RouteCodec.int("userId") / "posts" / RouteCodec.int("limit"))
       .in(QueryCodec.query("query"))
       .out[ExampleData]
 
@@ -169,13 +169,13 @@ class ApiBenchmark {
   @Benchmark
   def benchmarkSmallDataZioApi(): Unit =
     unsafeRun {
-      apiHttpApp(smallDataRequest).repeatN(REPEAT_N)
+      apiHttpApp.runZIO(smallDataRequest).repeatN(REPEAT_N)
     }
 
   @Benchmark
   def benchmarkSmallDataZioCollect(): Unit =
     unsafeRun {
-      collectHttpApp(smallDataRequest).repeatN(REPEAT_N)
+      collectHttpApp.runZIO(smallDataRequest).repeatN(REPEAT_N)
     }
 
 //  @Benchmark
@@ -209,7 +209,11 @@ class ApiBenchmark {
   val deepPathHttpApp = EndpointSpec
     .get(
       RouteCodec.literal("first") /
-        RouteCodec.int / "second" / RouteCodec.int / "third" / RouteCodec.int / "fourth" / RouteCodec.int / "fifth" / RouteCodec.int / "sixth" / RouteCodec.int / "seventh" / RouteCodec.int,
+        RouteCodec.int("id1") / "second" / RouteCodec.int("id2") / "third" / RouteCodec.int(
+          "id3",
+        ) / "fourth" / RouteCodec.int("id4") / "fifth" / RouteCodec.int("id5") / "sixth" / RouteCodec.int(
+          "id5",
+        ) / "seventh" / RouteCodec.int("id5"),
     )
     .implement { _ =>
       ZIO.unit
@@ -273,13 +277,13 @@ class ApiBenchmark {
   @Benchmark
   def benchmarkDeepPathZioApi(): Unit =
     unsafeRun {
-      deepPathHttpApp(deepPathRequest).repeatN(REPEAT_N)
+      deepPathHttpApp.runZIO(deepPathRequest).repeatN(REPEAT_N)
     }
 
   @Benchmark
   def benchmarkDeepPathZioCollect(): Unit =
     unsafeRun {
-      deepPathCollectHttpApp(deepPathRequest).repeatN(REPEAT_N)
+      deepPathCollectHttpApp.runZIO(deepPathRequest).repeatN(REPEAT_N)
     }
 
 //  @Benchmark
@@ -325,65 +329,89 @@ class ApiBenchmark {
 
   // API DSL
 
-  val broadUsers        = EndpointSpec.get(RouteCodec.literal("users")).implement { _ => ZIO.unit }
-  val broadUsersId      = EndpointSpec.get(RouteCodec.literal("users") / RouteCodec.int).implement { _ => ZIO.unit }
-  val boardUsersPosts   =
-    EndpointSpec.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts")).implement { _ =>
-      ZIO.unit
+  val broadUsers                       = EndpointSpec.get(RouteCodec.literal("users")).implement { _ => ZIO.unit }
+  val broadUsersId                     =
+    EndpointSpec.get(RouteCodec.literal("users") / RouteCodec.int("userId")).implement { _ => ZIO.unit }
+  val boardUsersPosts                  =
+    EndpointSpec.get(RouteCodec.literal("users") / RouteCodec.int("userId") / RouteCodec.literal("posts")).implement {
+      _ =>
+        ZIO.unit
     }
-  val boardUsersPostsId =
+  val boardUsersPostsId                =
     EndpointSpec
-      .get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int)
+      .get(
+        RouteCodec.literal("users") / RouteCodec.int("userId") / RouteCodec.literal("posts") / RouteCodec.int("postId"),
+      )
       .implement { _ =>
         ZIO.unit
       }
-  val boardUsersPostsComments   =
+  val boardUsersPostsComments          =
     EndpointSpec
       .get(
-        RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int / RouteCodec
+        RouteCodec.literal("users") / RouteCodec.int("userId") / RouteCodec.literal("posts") / RouteCodec.int(
+          "postId",
+        ) / RouteCodec
           .literal("comments"),
       )
       .implement { _ =>
         ZIO.unit
       }
-  val boardUsersPostsCommentsId =
+  val boardUsersPostsCommentsId        =
     EndpointSpec
       .get(
-        RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int / RouteCodec
-          .literal("comments") / RouteCodec.int,
+        RouteCodec.literal("users") / RouteCodec.int("userId") / RouteCodec.literal("posts") / RouteCodec.int(
+          "postId",
+        ) / RouteCodec
+          .literal("comments") / RouteCodec.int("commentId"),
       )
       .implement { _ =>
         ZIO.unit
       }
-  val broadPosts                = EndpointSpec.get(RouteCodec.literal("posts")).implement { _ => ZIO.unit }
-  val broadPostsId         = EndpointSpec.get(RouteCodec.literal("posts") / RouteCodec.int).implement { _ => ZIO.unit }
-  val boardPostsComments   =
-    EndpointSpec.get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments")).implement { _ =>
-      ZIO.unit
-    }
-  val boardPostsCommentsId =
+  val broadPosts                       = EndpointSpec.get(RouteCodec.literal("posts")).implement { _ => ZIO.unit }
+  val broadPostsId                     =
+    EndpointSpec.get(RouteCodec.literal("posts") / RouteCodec.int("postId")).implement { _ => ZIO.unit }
+  val boardPostsComments               =
     EndpointSpec
-      .get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int)
+      .get(RouteCodec.literal("posts") / RouteCodec.int("postId") / RouteCodec.literal("comments"))
       .implement { _ =>
         ZIO.unit
       }
-  val broadComments        = EndpointSpec.get(RouteCodec.literal("comments")).implement { _ => ZIO.unit }
-  val broadCommentsId    = EndpointSpec.get(RouteCodec.literal("comments") / RouteCodec.int).implement { _ => ZIO.unit }
-  val broadUsersComments =
-    EndpointSpec.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments")).implement { _ =>
-      ZIO.unit
-    }
+  val boardPostsCommentsId             =
+    EndpointSpec
+      .get(
+        RouteCodec.literal("posts") / RouteCodec.int("postId") / RouteCodec.literal("comments") / RouteCodec.int(
+          "commentId",
+        ),
+      )
+      .implement { _ =>
+        ZIO.unit
+      }
+  val broadComments                    = EndpointSpec.get(RouteCodec.literal("comments")).implement { _ => ZIO.unit }
+  val broadCommentsId                  =
+    EndpointSpec.get(RouteCodec.literal("comments") / RouteCodec.int("commentId")).implement { _ => ZIO.unit }
+  val broadUsersComments               =
+    EndpointSpec
+      .get(RouteCodec.literal("users") / RouteCodec.int("userId") / RouteCodec.literal("comments"))
+      .implement { _ =>
+        ZIO.unit
+      }
   val broadUsersCommentsId             =
     EndpointSpec
-      .get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int)
+      .get(
+        RouteCodec.literal("users") / RouteCodec.int("userId") / RouteCodec.literal("comments") / RouteCodec.int(
+          "commentId",
+        ),
+      )
       .implement { _ =>
         ZIO.unit
       }
   val boardUsersPostsCommentsReplies   =
     EndpointSpec
       .get(
-        RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int / RouteCodec
-          .literal("comments") / RouteCodec.int / RouteCodec.literal(
+        RouteCodec.literal("users") / RouteCodec.int("userId") / RouteCodec.literal("posts") / RouteCodec.int(
+          "postId",
+        ) / RouteCodec
+          .literal("comments") / RouteCodec.int("commentId") / RouteCodec.literal(
           "replies",
         ),
       )
@@ -393,10 +421,12 @@ class ApiBenchmark {
   val boardUsersPostsCommentsRepliesId =
     EndpointSpec
       .get(
-        RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int / RouteCodec
-          .literal("comments") / RouteCodec.int / RouteCodec.literal(
+        RouteCodec.literal("users") / RouteCodec.int("userId") / RouteCodec.literal("posts") / RouteCodec.int(
+          "postId",
+        ) / RouteCodec
+          .literal("comments") / RouteCodec.int("commentId") / RouteCodec.literal(
           "replies",
-        ) / RouteCodec.int,
+        ) / RouteCodec.int("replyId"),
       )
       .implement { _ =>
         ZIO.unit
@@ -608,13 +638,13 @@ class ApiBenchmark {
   @Benchmark
   def benchmarkBroadZioApi(): Unit =
     unsafeRunResult {
-      ZIO.foreachDiscard(broadZioRequests)(broadApiApp(_))
+      ZIO.foreachDiscard(broadZioRequests)(broadApiApp.runZIO(_))
     }
 
   @Benchmark
   def benchmarkBroadZioCollect(): Unit =
     unsafeRun {
-      ZIO.foreachDiscard(broadZioRequests)(broadCollectApp(_))
+      ZIO.foreachDiscard(broadZioRequests)(broadCollectApp.runZIO(_))
     }
 
 //  @Benchmark

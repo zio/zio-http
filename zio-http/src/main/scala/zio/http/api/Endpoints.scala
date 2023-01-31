@@ -17,11 +17,14 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
   def ++[R1 <: R, E1 >: E, AllIds2](that: Endpoints[R1, E1, AllIds2]): Endpoints[R1, E1, AllIds with AllIds2] =
     Endpoints.Concat(self, that).withAllIds[AllIds with AllIds2]
 
+  def toHttpApp(implicit trace: Trace): App[R] =
+    toHttpRoute.withDefaultErrorResponse
+
   /**
-   * Converts this service into a [[zio.http.HttpApp]], which can then be served
-   * via [[zio.http.Server.serve]].
+   * Converts this service into a [[zio.http.App]], which can then be served via
+   * [[zio.http.Server.serve]].
    */
-  def toHttpApp: HttpApp[R, E] = {
+  def toHttpRoute: HttpApp[R, E] = {
     import zio.http.api.internal._
 
     val handlerTree     = HandlerTree.fromService(self)
@@ -40,7 +43,7 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
           case Some(handlerMatch) =>
             requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)(Trace.empty)
         }
-      }(Trace.empty)
+      }
   }
 
   private[api] def withAllIds[AllIds0]: Endpoints[R, E, AllIds0] =

@@ -1,17 +1,14 @@
 package zio.http
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil, Unpooled}
-import io.netty.channel.{Channel => JChannel, DefaultFileRegion}
-import io.netty.handler.codec.http.LastHttpContent
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.channel.{Channel => JChannel}
 import io.netty.util.AsciiString
 import zio._
 import zio.http.model.HTTP_CHARSET
-import zio.http.service.Ctx
 import zio.stream.ZStream
 
 import java.io.FileInputStream
 import java.nio.charset.Charset
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import java.nio.file._
 
 /**

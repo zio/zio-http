@@ -1,11 +1,9 @@
 package zio.http
 
-import io.netty.channel
-import io.netty.channel.{ChannelFactory, EventLoopGroup, _}
-import zio.{Duration, Scope, Trace, ZLayer}
-import zio.http.netty.{ChannelFactories, ChannelType, EventLoopGroups, NettyRuntime}
+import zio.http.netty.{ChannelType, EventLoopGroups}
 import zio.http.socket.SocketApp
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.{Duration, ZLayer}
+
 import java.net.InetSocketAddress
 
 case class ClientConfig(
@@ -52,23 +50,9 @@ case class ClientConfig(
 object ClientConfig {
   def empty: ClientConfig = ClientConfig()
 
-  val default: ZLayer[
-    Scope,
-    Nothing,
-    ClientConfig with EventLoopGroup with ChannelFactory[channel.Channel] with NettyRuntime,
-  ] = {
-    implicit val trace: Trace = Trace.empty
-    ZLayer.succeed(
-      empty,
-    ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
-  }
+  val default: ZLayer[Any, Nothing, ClientConfig] =
+    live(empty)
 
-  def live(
-    clientConfig: ClientConfig,
-  )(implicit
-    trace: Trace,
-  ): ZLayer[Scope, Nothing, ClientConfig with EventLoopGroup with ChannelFactory[channel.Channel] with NettyRuntime] =
-    ZLayer.succeed(
-      clientConfig,
-    ) >+> EventLoopGroups.fromConfig >+> ChannelFactories.Client.fromConfig >+> NettyRuntime.usingDedicatedThreadPool
+  def live(clientConfig: ClientConfig): ZLayer[Any, Nothing, ClientConfig] =
+    ZLayer.succeed(clientConfig)
 }
