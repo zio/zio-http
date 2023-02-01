@@ -10,7 +10,7 @@
 
 //   // MiddlewareSpec can be added at the service level as well
 //   val getUser =
-//     EndpointSpec.get(literal("users") / int).out[Int]
+//     Endpoint.get(literal("users") / int).out[Int]
 
 //   val getUserImpl =
 //     getUser.implement { case (id: Int) =>

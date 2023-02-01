@@ -8,7 +8,7 @@ import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[api] final case class EndpointClient[I, E, O](apiRoot: URL, api: EndpointSpec[I, E, O]) {
+private[api] final case class EndpointClient[I, E, O, M <: EndpointMiddleware](apiRoot: URL, api: Endpoint[I, E, O, M]) {
   def execute(client: Client, input: I)(implicit trace: Trace): ZIO[Any, E, O] = {
     val request0 = api.input.encodeRequest(input)
     val request  = request0.copy(url = apiRoot ++ request0.url)

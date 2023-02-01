@@ -8,14 +8,14 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 /**
  * Represents a collection of API endpoints that all have handlers.
  */
-sealed trait Endpoints[-R, +E, AllIds] { self =>
+sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
 
   /**
    * Combines this service and the specified service into a single service,
    * which contains all endpoints and their associated handlers.
    */
-  def ++[R1 <: R, E1 >: E, AllIds2](that: Endpoints[R1, E1, AllIds2]): Endpoints[R1, E1, AllIds with AllIds2] =
-    Endpoints.Concat(self, that).withAllIds[AllIds with AllIds2]
+  def ++[R1 <: R, E1 >: E, AllIds2](that: Routes[R1, E1, M]): Routes[R1, E1, M] =
+    Routes.Concat(self, that)
 
   /**
    * Converts this service into a [[zio.http.HttpApp]], which can then be served
@@ -25,7 +25,7 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
     import zio.http.api.internal._
 
     val handlerTree     = HandlerTree.fromService(self)
-    val requestHandlers = Memoized[Endpoints.HandledEndpoint[R, _ <: E, _, _, _], EndpointServer[R, _ <: E, _, _]] {
+    val requestHandlers = Memoized[Routes.HandledEndpoint[R, _ <: E, _, _, M], EndpointServer[R, _ <: E, _, _, M]] {
       handledApi =>
         EndpointServer(handledApi)
     }
@@ -43,26 +43,22 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
         }
       }(Trace.empty)
   }
-
-  private[api] def withAllIds[AllIds0]: Endpoints[R, E, AllIds0] =
-    self.asInstanceOf[Endpoints[R, E, AllIds0]]
 }
 
-object Endpoints {
-  // How to integrate middlewarespec's handlers in here ?
-  final case class HandledEndpoint[-R, E, In0, Out0, Id](
-    endpointSpec: EndpointSpec[In0, E, Out0],
+object Routes {
+  final case class HandledEndpoint[-R, E, In0, Out0, M <: EndpointMiddleware](
+    endpointSpec: Endpoint[In0, E, Out0, M],
     handler: In0 => ZIO[R, E, Out0],
-  ) extends Endpoints[R, E, Id] { self =>
-    def flatten: Iterable[Endpoints.HandledEndpoint[R, E, _, _, Id]] = Chunk(self)
+  ) extends Routes[R, E, M] { self =>
+    def flatten: Iterable[Routes.HandledEndpoint[R, E, _, _, M]] = Chunk(self)
   }
 
-  final case class Concat[-R, +E, Ids1, Ids2](left: Endpoints[R, E, Ids1], right: Endpoints[R, E, Ids2])
-      extends Endpoints[R, E, Ids1 with Ids2]
+  final case class Concat[-R, +E, M <: EndpointMiddleware](left: Routes[R, E, M], right: Routes[R, E, M])
+      extends Routes[R, E, M]
 
-  def flatten[R, E](service: Endpoints[R, E, _]): Chunk[Endpoints.HandledEndpoint[R, E, _, _, _]] =
+  def flatten[R, E, M <: EndpointMiddleware](service: Routes[R, E, M]): Chunk[Routes.HandledEndpoint[R, E, _, _, M]] =
     service match {
-      case api @ HandledEndpoint(_, _) => Chunk(api.asInstanceOf[HandledEndpoint[R, E, _, _, _]])
+      case api @ HandledEndpoint(_, _) => Chunk(api.asInstanceOf[HandledEndpoint[R, E, _, _, M]])
       case Concat(left, right)         => flatten(left) ++ flatten(right)
     }
 }

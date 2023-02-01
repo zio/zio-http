@@ -10,7 +10,7 @@
 
 //   // MiddlewareSpec can be added at the service level as well
 //   val getUsers =
-//     EndpointSpec.get("users" / int).out[Int]
+//     Endpoint.get("users" / int).out[Int]
 
 //   val getUserEndpoint =
 //     getUsers.implement { id =>
@@ -18,7 +18,7 @@
 //     }
 
 //   val getUserPosts =
-//     EndpointSpec
+//     Endpoint
 //       .get("users" / int / "posts" / int)
 //       .in(query("name"))
 

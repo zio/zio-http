@@ -6,26 +6,26 @@ import zio.http.api._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import scala.annotation.tailrec
 
-case class HandlerTree[-R, +E](
-  constants: Map[String, HandlerTree[R, E]],
-  parsers: Map[TextCodec[_], HandlerTree[R, E]],
-  leaf: Option[Endpoints.HandledEndpoint[R, _ <: E, _, _, _]],
+final case class HandlerTree[-R, +E, M <: EndpointMiddleware](
+  constants: Map[String, HandlerTree[R, E, M]],
+  parsers: Map[TextCodec[_], HandlerTree[R, E, M]],
+  leaf: Option[Routes.HandledEndpoint[R, _ <: E, _, _, M]],
 ) { self =>
 
-  def add[R1 <: R, E1 >: E](handledAPI: Endpoints.HandledEndpoint[R1, E1, _, _, _]): HandlerTree[R1, E1] =
+  def add[R1 <: R, E1 >: E](handledAPI: Routes.HandledEndpoint[R1, E1, _, _, M]): HandlerTree[R1, E1, M] =
     merge(HandlerTree.single(handledAPI))
 
   def generateError(request: Request): String = s"The path ${request.path} does not match any route"
 
-  def merge[R1 <: R, E1 >: E](that: HandlerTree[R1, E1]): HandlerTree[R1, E1] = {
-    HandlerTree[R1, E1](
+  def merge[R1 <: R, E1 >: E](that: HandlerTree[R1, E1, M]): HandlerTree[R1, E1, M] = {
+    HandlerTree[R1, E1, M](
       mergeWith(self.constants, that.constants)(_ merge _),
       mergeWith(self.parsers, that.parsers)(_ merge _),
-      self.leaf.map(_.asInstanceOf[Endpoints.HandledEndpoint[R1, E1, Any, Any, Any]]).orElse(that.leaf),
+      self.leaf.map(_.asInstanceOf[Routes.HandledEndpoint[R1, E1, Any, Any, M]]).orElse(that.leaf),
     )
   }
 
-  def lookup(request: Request): Option[HandlerMatch[R, E, _, _]] = {
+  def lookup(request: Request): Option[HandlerMatch[R, E, _, _, M]] = {
     val segments = request.path.segments.collect { case Path.Segment.Text(text) => text }
     HandlerTree.lookup(segments, 0, self, Chunk.empty)
   }
@@ -41,13 +41,13 @@ case class HandlerTree[-R, +E](
 
 object HandlerTree {
 
-  val empty: HandlerTree[Any, Nothing] =
+  def empty[M <: EndpointMiddleware]: HandlerTree[Any, Nothing, M] =
     HandlerTree(Map.empty, Map.empty, None)
 
-  def single[R, E](handledAPI: Endpoints.HandledEndpoint[R, E, _, _, _]): HandlerTree[R, E] = {
+  def single[R, E, M <: EndpointMiddleware](handledAPI: Routes.HandledEndpoint[R, E, _, _, M]): HandlerTree[R, E, M] = {
     val inputs = handledAPI.endpointSpec.input.alternatives
 
-    inputs.foldLeft[HandlerTree[R, E]](HandlerTree(Map.empty, Map.empty, Some(handledAPI))) { case (acc, input) =>
+    inputs.foldLeft[HandlerTree[R, E, M]](HandlerTree(Map.empty, Map.empty, Some(handledAPI))) { case (acc, input) =>
       val routeCodecs = Mechanic.flatten(input).routes
 
       acc.merge(routeCodecs.foldRight(HandlerTree(Map.empty, Map.empty, Some(handledAPI))) { case (codec, acc) =>
@@ -61,19 +61,19 @@ object HandlerTree {
     }
   }
 
-  def fromService[R, E](service: Endpoints[R, E, _]): HandlerTree[R, E] =
-    fromIterable(Endpoints.flatten(service))
+  def fromService[R, E, M <: EndpointMiddleware](service: Routes[R, E, M]): HandlerTree[R, E, M] =
+    fromIterable(Routes.flatten(service))
 
-  def fromIterable[R, E](handledAPIs: Iterable[Endpoints.HandledEndpoint[R, E, _, _, _]]): HandlerTree[R, E] =
-    handledAPIs.foldLeft[HandlerTree[R, E]](empty)(_ add _)
+  def fromIterable[R, E, M <: EndpointMiddleware](handledAPIs: Iterable[Routes.HandledEndpoint[R, E, _, _, M]]): HandlerTree[R, E, M] =
+    handledAPIs.foldLeft[HandlerTree[R, E, M]](empty)(_ add _)
 
   @tailrec
-  private def lookup[R, E](
+  private def lookup[R, E, M <: EndpointMiddleware](
     segments: Vector[String],
     index: Int,
-    current: HandlerTree[R, E],
+    current: HandlerTree[R, E, M],
     results: Chunk[Any],
-  ): Option[HandlerMatch[R, E, _, _]] =
+  ): Option[HandlerMatch[R, E, _, _, M]] =
     if (index == segments.length) {
       // If we've reached the end of the path, we should have a handler
       // otherwise we don't have a match
@@ -99,10 +99,10 @@ object HandlerTree {
       }
     }
 
-  private def firstSuccessfulCodec[R, E](
+  private def firstSuccessfulCodec[R, E, M <: EndpointMiddleware](
     pathSegment: String,
-    parsers: Map[TextCodec[_], HandlerTree[R, E]],
-  ): Option[(Any, HandlerTree[R, E])] =
+    parsers: Map[TextCodec[_], HandlerTree[R, E, M]],
+  ): Option[(Any, HandlerTree[R, E, M])] =
     parsers.collectFirst { case (codec, handler) =>
       codec.decode(pathSegment) match {
         case Some(value) =>

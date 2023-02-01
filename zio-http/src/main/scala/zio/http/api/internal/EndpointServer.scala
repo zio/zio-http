@@ -9,7 +9,7 @@ import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[api] final case class EndpointServer[R, E, I, O](handledEndpoint: Endpoints.HandledEndpoint[R, E, I, O, _]) {
+private[api] final case class EndpointServer[R, E, I, O, M <: EndpointMiddleware](handledEndpoint: Routes.HandledEndpoint[R, E, I, O, M]) {
   private val api     = handledEndpoint.endpointSpec
   private val handler = handledEndpoint.handler
 
