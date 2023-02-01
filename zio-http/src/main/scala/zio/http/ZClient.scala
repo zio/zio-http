@@ -521,12 +521,12 @@ object ZClient {
       this(settings, driver, connectionPool.asInstanceOf[ConnectionPool[Any]])
 
     val headers: Headers                   = Headers.empty
-    val hostOption: Option[String]         = None
+    val hostOption: Option[String]         = config.localAddress.map(_.getHostString)
     val pathPrefix: Path                   = Path.empty
-    val portOption: Option[Int]            = None
+    val portOption: Option[Int]            = config.localAddress.map(_.getPort)
     val queries: QueryParams               = QueryParams.empty
     val schemeOption: Option[Scheme]       = None
-    val sslConfig: Option[ClientSSLConfig] = None
+    val sslConfig: Option[ClientSSLConfig] = config.ssl
 
     def requestInternal(
       body: Body,
