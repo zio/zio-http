@@ -1,5 +1,6 @@
 package zio.http.api
 
+import zio.ZNothing
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
@@ -22,7 +23,7 @@ sealed trait Alternator[L, R] {
 object Alternator extends AlternatorLowPriority1 {
   type WithOut[L, R, Out0] = Alternator[L, R] { type Out = Out0 }
 
-  implicit def leftEmpty[A]: Alternator.WithOut[Unused, A, A] =
+  implicit def leftEmpty[A]: Alternator.WithOut[ZNothing, A, A] =
     (new Alternator[Any, A] {
       type Out = A
 
@@ -33,11 +34,11 @@ object Alternator extends AlternatorLowPriority1 {
       def unleft(out: Out): Option[Any] = None
 
       def unright(out: Out): Option[A] = Some(out)
-    }).asInstanceOf[Alternator.WithOut[Unused, A, A]] // Work around compiler bug
+    }).asInstanceOf[Alternator.WithOut[ZNothing, A, A]] // Work around compiler bug
 }
 
 trait AlternatorLowPriority1 extends AlternatorLowPriority2 {
-  implicit def rightEmpty[A]: Alternator.WithOut[A, Unused, A] =
+  implicit def rightEmpty[A]: Alternator.WithOut[A, ZNothing, A] =
     (new Alternator[A, Any] {
       type Out = A
 
@@ -48,7 +49,7 @@ trait AlternatorLowPriority1 extends AlternatorLowPriority2 {
       def unleft(out: Out): Option[A] = Some(out)
 
       def unright(out: Out): Option[Any] = None
-    }).asInstanceOf[Alternator.WithOut[A, Unused, A]] // Work around compiler bug
+    }).asInstanceOf[Alternator.WithOut[A, ZNothing, A]] // Work around compiler bug
 }
 
 trait AlternatorLowPriority2 {

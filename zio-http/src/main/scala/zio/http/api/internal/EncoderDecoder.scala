@@ -7,6 +7,7 @@ import zio.http.model._
 import zio.schema.codec._
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import scala.annotation.tailrec
 
 private[api] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit

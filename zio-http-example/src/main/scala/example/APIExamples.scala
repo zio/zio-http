@@ -21,11 +21,12 @@ object APIExamples extends ZIOAppDefault {
   val getUserPosts =
     Endpoint
       .get("users" / int / "posts" / int)
-      .in(query("name")) @@ middleware
+      .in(query("name"))
+      .out[List[String]] @@ middleware
 
   val getUserPostsRoute =
     getUserPosts.implement[Any] { case (id1: Int, id2: Int, query: String) =>
-      ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
+      ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
     }
 
   val routes = getUserRoute ++ getUserPostsRoute
@@ -47,10 +48,10 @@ object APIExamples extends ZIOAppDefault {
       val x1 = getUser(42)
       val x2 = getUserPosts(42, 200, "adam")
 
-      val result1: IO[Unused, Int] = executor(x1)
-      val result2: IO[Unused, Unit] = executor(x2)
+      val result1: UIO[Int]          = executor(x1)
+      val result2: UIO[List[String]] = executor(x2)
 
-      result1.zip(result2)
+      result1.zip(result2).debug
     }
   }
 }

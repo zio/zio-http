@@ -78,6 +78,17 @@ object EndpointMiddleware       {
   type Typed[In0, Err0, Out0] = EndpointMiddleware { type In = In0; type Err = Err0; type Out = Out0 }
   type None                   = EndpointMiddleware.None.type
 
+  def apply[In0, Out0](
+    input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
+    output: HttpCodec[CodecType.Header, Out0],
+  ): EndpointMiddleware.Typed[In0, Nothing, Out0] = Spec[In0, Nothing, Out0](input, output, HttpCodec.halt, Doc.empty)
+
+  def apply[In0, Out0](
+    input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
+    output: HttpCodec[CodecType.Header, Out0],
+    doc: Doc,
+  ): EndpointMiddleware.Typed[In0, Nothing, Out0] = Spec[In0, Nothing, Out0](input, output, HttpCodec.halt, doc)
+
   def apply[In0, Err0, Out0](
     input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
     output: HttpCodec[CodecType.Header, Out0],
@@ -87,12 +98,12 @@ object EndpointMiddleware       {
 
   case object None extends EndpointMiddleware {
     final type In  = Unit
-    final type Err = Unused
+    final type Err = zio.ZNothing
     final type Out = Unit
 
     val input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, Unit] = HttpCodec.empty
     val output: HttpCodec[CodecType.Header, Unit]                                           = HttpCodec.empty
-    val error: HttpCodec[CodecType.ResponseType, Unused]                                    = HttpCodec.unused
+    val error: HttpCodec[CodecType.ResponseType, Nothing]                                   = HttpCodec.halt
     val doc: Doc                                                                            = Doc.empty
   }
   final case class Spec[In0, Err0, Out0](
@@ -108,10 +119,10 @@ object EndpointMiddleware       {
 
   final case class CsrfValidate(cookieOption: Option[Cookie[Request]], tokenValue: Option[String])
 
-  val none: EndpointMiddleware.Typed[Unit, Unused, Unit] =
-    EndpointMiddleware(HttpCodec.empty, HttpCodec.empty, HttpCodec.unused)
+  val none: EndpointMiddleware.Typed[Unit, Nothing, Unit] =
+    EndpointMiddleware(HttpCodec.empty, HttpCodec.empty)
 
-  def cookieOption(cookieName: String): EndpointMiddleware.Typed[Option[Cookie[Request]], Unused, Unit] =
+  def cookieOption(cookieName: String): EndpointMiddleware.Typed[Option[Cookie[Request]], Nothing, Unit] =
     requireHeader(HeaderNames.cookie.toString()).optionalIn
       .mapIn(
         _.transformOrFail(
@@ -126,7 +137,7 @@ object EndpointMiddleware       {
         ),
       )
 
-  def cookie(cookieName: String): EndpointMiddleware.Typed[Cookie[Request], Unused, Unit] = {
+  def cookie(cookieName: String): EndpointMiddleware.Typed[Cookie[Request], Nothing, Unit] = {
     cookieOption(cookieName).mapIn(
       _.transformOrFailLeft(
         {
@@ -139,7 +150,7 @@ object EndpointMiddleware       {
   }
 
   def csrfValidate(tokenName: String): EndpointMiddleware.Typed[CsrfValidate, Unit, Unit] = {
-    val cookie: EndpointMiddleware.Typed[Option[Cookie[Request]], Unused, Unit] =
+    val cookie: EndpointMiddleware.Typed[Option[Cookie[Request]], Nothing, Unit] =
       EndpointMiddleware.cookieOption(tokenName)
 
     val tokenHeader =
@@ -158,103 +169,102 @@ object EndpointMiddleware       {
     )
   }
 
-  val withContentBase: EndpointMiddleware.Typed[Unit, Unused, ContentBase] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentBase, HttpCodec.unused)
+  val withContentBase: EndpointMiddleware.Typed[Unit, Nothing, ContentBase] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentBase)
 
-  val withContentDisposition: EndpointMiddleware.Typed[Unit, Unused, ContentDisposition] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentDisposition, HttpCodec.unused)
+  val withContentDisposition: EndpointMiddleware.Typed[Unit, Nothing, ContentDisposition] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentDisposition)
 
-  val withContentEncoding: EndpointMiddleware.Typed[Unit, Unused, ContentEncoding]                 =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentEncoding, HttpCodec.unused)
-  val withContentLanguage: EndpointMiddleware.Typed[Unit, Unused, ContentLanguage]                 =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentLanguage, HttpCodec.unused)
-  def withContentLength: EndpointMiddleware.Typed[Unit, Unused, ContentLength]                     =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentLength, HttpCodec.unused)
-  val withContentLocation: EndpointMiddleware.Typed[Unit, Unused, ContentLocation]                 =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentLocation, HttpCodec.unused)
-  val withContentMd5: EndpointMiddleware.Typed[Unit, Unused, ContentMd5]                           =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentMd5, HttpCodec.unused)
-  val withContentRange: EndpointMiddleware.Typed[Unit, Unused, ContentRange]                       =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentRange, HttpCodec.unused)
-  def withContentSecurityPolicy: EndpointMiddleware.Typed[Unit, Unused, ContentSecurityPolicy]     =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentSecurityPolicy, HttpCodec.unused)
-  val withContentTransferEncoding: EndpointMiddleware.Typed[Unit, Unused, ContentTransferEncoding] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentTransferEncoding, HttpCodec.unused)
-  val withContentType: EndpointMiddleware.Typed[Unit, Unused, ContentType]                         =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentType, HttpCodec.unused)
+  val withContentEncoding: EndpointMiddleware.Typed[Unit, Nothing, ContentEncoding]                 =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentEncoding)
+  val withContentLanguage: EndpointMiddleware.Typed[Unit, Nothing, ContentLanguage]                 =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentLanguage)
+  def withContentLength: EndpointMiddleware.Typed[Unit, Nothing, ContentLength]                     =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentLength)
+  val withContentLocation: EndpointMiddleware.Typed[Unit, Nothing, ContentLocation]                 =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentLocation)
+  val withContentMd5: EndpointMiddleware.Typed[Unit, Nothing, ContentMd5]                           =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentMd5)
+  val withContentRange: EndpointMiddleware.Typed[Unit, Nothing, ContentRange]                       =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentRange)
+  def withContentSecurityPolicy: EndpointMiddleware.Typed[Unit, Nothing, ContentSecurityPolicy]     =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentSecurityPolicy)
+  val withContentTransferEncoding: EndpointMiddleware.Typed[Unit, Nothing, ContentTransferEncoding] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentTransferEncoding)
+  val withContentType: EndpointMiddleware.Typed[Unit, Nothing, ContentType]                         =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentType)
 
-  val addCookie: EndpointMiddleware.Typed[Unit, Unused, Cookie[Response]] =
+  val addCookie: EndpointMiddleware.Typed[Unit, Nothing, Cookie[Response]] =
     EndpointMiddleware(
       HttpCodec.empty,
       HeaderCodec.setCookie.transformOrFail(
         _ => Left("Cannot add cookie"),
         value => Right(ResponseCookie.CookieValue(value)),
       ),
-      HttpCodec.unused,
     )
 
   /**
    * Add specified header to the response
    */
-  def addHeader(key: String, value: String): EndpointMiddleware.Typed[Unit, Unused, Unit] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)), HttpCodec.unused)
+  def addHeader(key: String, value: String): EndpointMiddleware.Typed[Unit, Nothing, Unit] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.header(key, TextCodec.constant(value)))
 
-  def addHeader(header: Headers.Header): EndpointMiddleware.Typed[Unit, Unused, Unit] =
+  def addHeader(header: Headers.Header): EndpointMiddleware.Typed[Unit, Nothing, Unit] =
     addHeader(header.key.toString, header.value.toString)
 
-  def addHeaders(headers: Headers): EndpointMiddleware.Typed[Unit, Unused, Unit] =
+  def addHeaders(headers: Headers): EndpointMiddleware.Typed[Unit, Nothing, Unit] =
     headers.headersAsList.map(addHeader(_)).reduce(_ ++ _)
 
-  val addCorrelationId: EndpointMiddleware.Typed[Unit, Unused, String] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string), HttpCodec.unused)
+  val addCorrelationId: EndpointMiddleware.Typed[Unit, Nothing, String] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.header("-x-correlation-id", TextCodec.string))
 
-  val withAccessControlAllowOrigin: EndpointMiddleware.Typed[Unit, Unused, AccessControlAllowOrigin] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.accessControlAllowOrigin, HttpCodec.unused)
+  val withAccessControlAllowOrigin: EndpointMiddleware.Typed[Unit, Nothing, AccessControlAllowOrigin] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.accessControlAllowOrigin)
 
-  def withAuthorization(value: CharSequence): EndpointMiddleware.Typed[Unit, Unused, Unit] =
+  def withAuthorization(value: CharSequence): EndpointMiddleware.Typed[Unit, Nothing, Unit] =
     addHeader(HeaderNames.authorization.toString, value.toString)
 
-  def withBasicAuthorization(username: String, password: String): EndpointMiddleware.Typed[Unit, Unused, Unit] = {
+  def withBasicAuthorization(username: String, password: String): EndpointMiddleware.Typed[Unit, Nothing, Unit] = {
     val authString    = String.format("%s:%s", username, password)
     val encodedAuthCB = new String(Base64.getEncoder.encode(authString.getBytes(HTTP_CHARSET)), HTTP_CHARSET)
     val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB)
     addHeader(HeaderNames.authorization.toString, value)
   }
 
-  val withAccessControlAllowMaxAge: EndpointMiddleware.Typed[Unit, Unused, AccessControlMaxAge] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.accessControlMaxAge, HttpCodec.unused)
+  val withAccessControlAllowMaxAge: EndpointMiddleware.Typed[Unit, Nothing, AccessControlMaxAge] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.accessControlMaxAge)
 
-  val withExpires: EndpointMiddleware.Typed[Unit, Unused, Expires] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.expires, HttpCodec.unused)
+  val withExpires: EndpointMiddleware.Typed[Unit, Nothing, Expires] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.expires)
 
-  val withConnection: EndpointMiddleware.Typed[Unit, Unused, Connection] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.connection, HttpCodec.unused)
+  val withConnection: EndpointMiddleware.Typed[Unit, Nothing, Connection] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.connection)
 
-  val withTransferEncoding: EndpointMiddleware.Typed[Unit, Unused, TransferEncoding] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.transferEncoding, HttpCodec.unused)
+  val withTransferEncoding: EndpointMiddleware.Typed[Unit, Nothing, TransferEncoding] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.transferEncoding)
 
-  val withProxyAuthenticate: EndpointMiddleware.Typed[Unit, Unused, ProxyAuthenticate] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.proxyAuthenticate, HttpCodec.unused)
+  val withProxyAuthenticate: EndpointMiddleware.Typed[Unit, Nothing, ProxyAuthenticate] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.proxyAuthenticate)
 
-  val withProxyAuthorization: EndpointMiddleware.Typed[Unit, Unused, ProxyAuthorization] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.proxyAuthorization, HttpCodec.unused)
+  val withProxyAuthorization: EndpointMiddleware.Typed[Unit, Nothing, ProxyAuthorization] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.proxyAuthorization)
 
-  val withReferer: EndpointMiddleware.Typed[Unit, Unused, Referer] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.referer, HttpCodec.unused)
+  val withReferer: EndpointMiddleware.Typed[Unit, Nothing, Referer] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.referer)
 
-  val withRetryAfter: EndpointMiddleware.Typed[Unit, Unused, RetryAfter] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.retryAfter, HttpCodec.unused)
+  val withRetryAfter: EndpointMiddleware.Typed[Unit, Nothing, RetryAfter] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.retryAfter)
 
-  val withAccessControlAllowCredentials: EndpointMiddleware.Typed[Unit, Unused, AccessControlAllowCredentials] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.accessControlAllowCredentials, HttpCodec.unused)
+  val withAccessControlAllowCredentials: EndpointMiddleware.Typed[Unit, Nothing, AccessControlAllowCredentials] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.accessControlAllowCredentials)
 
-  val withAccessControlAllowMethods: EndpointMiddleware.Typed[Unit, Unused, AccessControlAllowMethods] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.accessControlAllowMethods, HttpCodec.unused)
+  val withAccessControlAllowMethods: EndpointMiddleware.Typed[Unit, Nothing, AccessControlAllowMethods] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.accessControlAllowMethods)
 
-  val withIfRange: EndpointMiddleware.Typed[Unit, Unused, IfRange] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.ifRange, HttpCodec.unused)
+  val withIfRange: EndpointMiddleware.Typed[Unit, Nothing, IfRange] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.ifRange)
 
-  val auth: EndpointMiddleware.Typed[Auth.Credentials, Unused, Unit] =
+  val auth: EndpointMiddleware.Typed[Auth.Credentials, Nothing, Unit] =
     requireHeader(HeaderNames.wwwAuthenticate.toString)
       .mapIn(
         _.transformOrFailLeft(
@@ -310,38 +320,34 @@ object EndpointMiddleware       {
       error,
     )
 
-  def requireHeader(name: String): EndpointMiddleware.Typed[String, Unused, Unit] =
-    EndpointMiddleware(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty, HttpCodec.unused)
+  def requireHeader(name: String): EndpointMiddleware.Typed[String, Nothing, Unit] =
+    EndpointMiddleware(HeaderCodec.header(name, TextCodec.string), HttpCodec.empty)
 
-  val withAccept: EndpointMiddleware.Typed[Unit, Unused, Accept] =
-    EndpointMiddleware(HttpCodec.empty, HeaderCodec.accept, HttpCodec.unused)
+  val withAccept: EndpointMiddleware.Typed[Unit, Nothing, Accept] =
+    EndpointMiddleware(HttpCodec.empty, HeaderCodec.accept)
 
-  val withAcceptEncoding: EndpointMiddleware.Typed[Unit, Unused, AcceptEncoding] =
+  val withAcceptEncoding: EndpointMiddleware.Typed[Unit, Nothing, AcceptEncoding] =
     EndpointMiddleware(
       HttpCodec.empty,
       HeaderCodec.acceptEncoding,
-      HttpCodec.unused,
     )
 
-  val withAcceptLanguage: EndpointMiddleware.Typed[Unit, Unused, AcceptLanguage] =
+  val withAcceptLanguage: EndpointMiddleware.Typed[Unit, Nothing, AcceptLanguage] =
     EndpointMiddleware(
       HttpCodec.empty,
       HeaderCodec.acceptLanguage,
-      HttpCodec.unused,
     )
 
-  val withAcceptPatch: EndpointMiddleware.Typed[Unit, Unused, AcceptPatch] =
+  val withAcceptPatch: EndpointMiddleware.Typed[Unit, Nothing, AcceptPatch] =
     EndpointMiddleware(
       HttpCodec.empty,
       HeaderCodec.acceptPatch,
-      HttpCodec.unused,
     )
 
-  val withAcceptRanges: EndpointMiddleware.Typed[Unit, Unused, AcceptRanges] =
+  val withAcceptRanges: EndpointMiddleware.Typed[Unit, Nothing, AcceptRanges] =
     EndpointMiddleware(
       HttpCodec.empty,
       HeaderCodec.acceptRanges,
-      HttpCodec.unused,
     )
 
   private[api] def decodeHttpBasic(encoded: String): Option[Credentials] = {

@@ -179,8 +179,14 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def delete[Input](route: RouteCodec[Input]): Endpoint[Input, Unused, Unit, EndpointMiddleware.None] = {
-    Endpoint(route ++ MethodCodec.delete, HttpCodec.empty, HttpCodec.unused, Doc.empty, EndpointMiddleware.None)
+  def delete[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] = {
+    Endpoint[Input, Nothing, Unit, EndpointMiddleware.None](
+      route ++ MethodCodec.delete,
+      HttpCodec.empty,
+      HttpCodec.halt,
+      Doc.empty,
+      EndpointMiddleware.None,
+    )
   }
 
   /**
@@ -189,8 +195,14 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def get[Input](route: RouteCodec[Input]): Endpoint[Input, Unused, Unit, EndpointMiddleware.None] =
-    Endpoint(route ++ MethodCodec.get, HttpCodec.empty, HttpCodec.unused, Doc.empty, EndpointMiddleware.None)
+  def get[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
+    Endpoint[Input, Nothing, Unit, EndpointMiddleware.None](
+      route ++ MethodCodec.get,
+      HttpCodec.empty,
+      HttpCodec.halt,
+      Doc.empty,
+      EndpointMiddleware.None,
+    )
 
   /**
    * Constructs an API for a POST endpoint, given the specified input. It is not
@@ -198,8 +210,14 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def post[Input](route: RouteCodec[Input]): Endpoint[Input, Unused, Unit, EndpointMiddleware.None] =
-    Endpoint(route ++ MethodCodec.post, HttpCodec.empty, HttpCodec.unused, Doc.empty, EndpointMiddleware.None)
+  def post[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
+    Endpoint[Input, Nothing, Unit, EndpointMiddleware.None](
+      route ++ MethodCodec.post,
+      HttpCodec.empty,
+      HttpCodec.halt,
+      Doc.empty,
+      EndpointMiddleware.None,
+    )
 
   /**
    * Constructs an API for a PUT endpoint, given the specified input. It is not
@@ -207,6 +225,12 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def put[Input](route: RouteCodec[Input]): Endpoint[Input, Unused, Unit, EndpointMiddleware.None] =
-    Endpoint(route ++ MethodCodec.put, HttpCodec.empty, HttpCodec.unused, Doc.empty, EndpointMiddleware.None)
+  def put[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
+    Endpoint[Input, Nothing, Unit, EndpointMiddleware.None](
+      route ++ MethodCodec.put,
+      HttpCodec.empty,
+      HttpCodec.halt,
+      Doc.empty,
+      EndpointMiddleware.None,
+    )
 }
