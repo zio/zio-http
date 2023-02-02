@@ -7,8 +7,6 @@ import zio.schema._
 import zio.stream.ZStream
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-
-
 /**
  * An [[zio.http.api.Endpoint]] represents an API endpoint for the HTTP
  * protocol. Every `API` has an input, which comes from a combination of the
@@ -19,19 +17,20 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * access to `Input` MiddlewareOutput: Example: A subset of `Out[Output]` that
  * doesn't give access to `Output` Input: Example: Int Output: Example: User
  *
- * As [[zio.http.api.Endpoint]] is a purely declarative encoding of an
- * endpoint, it is possible to use this model to generate a [[zio.http.HttpApp]]
- * (by supplying a handler for the endpoint), to generate OpenAPI documentation,
- * to generate a type-safe Scala client for the endpoint, and possibly, to
- * generate client libraries in other programming languages.
+ * As [[zio.http.api.Endpoint]] is a purely declarative encoding of an endpoint,
+ * it is possible to use this model to generate a [[zio.http.HttpApp]] (by
+ * supplying a handler for the endpoint), to generate OpenAPI documentation, to
+ * generate a type-safe Scala client for the endpoint, and possibly, to generate
+ * client libraries in other programming languages.
  */
 final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   input: HttpCodec[CodecType.RequestType, Input],
   output: HttpCodec[CodecType.ResponseType, Output],
   error: HttpCodec[CodecType.ResponseType, Err],
   doc: Doc,
-  middleware: Middleware
+  middleware: Middleware,
 ) { self =>
+  import self.{middleware => mw}
 
   def apply(input: Input): Invocation[Input, Err, Output, Middleware] =
     Invocation(self, input)
@@ -86,8 +85,8 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   ): Invocation[Input, Err, Output, Middleware] =
     Invocation(self, ev((a, b, c, d, e, f, g, h, i, j, k)))
 
-  def apply[A, B, C, D, E, F, G, H, I, J, K, L](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L)(implicit
-    ev: (A, B, C, D, E, F, G, H, I, J, K, L) <:< Input,
+  def apply[A, B, C, D, E, F, G, H, I, J, K, L](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L)(
+    implicit ev: (A, B, C, D, E, F, G, H, I, J, K, L) <:< Input,
   ): Invocation[Input, Err, Output, Middleware] =
     Invocation(self, ev((a, b, c, d, e, f, g, h, i, j, k, l)))
 
@@ -104,8 +103,11 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    * the input, and returns the output.
    */
   def implement[Env](f: Input => ZIO[Env, Err, Output]): Routes[Env, Err, Middleware] =
-    Routes.HandledEndpoint[Env, Err, Input, Output, Middleware](self, f)
+    Routes.Single[Env, Err, Input, Output, Middleware](self, f)
 
+  /**
+   * Returns a new endpoint that requires the specified headers.
+   */
   def header[A](codec: HeaderCodec[A])(implicit
     combiner: Combiner[Input, A],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
@@ -122,6 +124,17 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     combiner: Combiner[Input, Input2],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ in2)
+
+  /**
+   * Returns a new endpoint that is augmented with the specified endpoint
+   * middleware.
+   */
+  def @@[M2 <: EndpointMiddleware](that: M2)(implicit
+    inCombiner: Combiner[middleware.In, that.In],
+    outCombiner: Combiner[middleware.Out, that.Out],
+    errAlternator: Alternator[mw.Err, that.Err],
+  ): Endpoint[Input, Err, Output, EndpointMiddleware.Typed[inCombiner.Out, errAlternator.Out, outCombiner.Out]] =
+    Endpoint(input, output, error, doc, mw ++ that)
 
   /**
    * Changes the output type of the endpoint to the specified output type.
@@ -141,11 +154,17 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   def outStream[Output2: Schema]: Endpoint[Input, Err, ZStream[Any, Throwable, Output2], Middleware] =
     copy(output = HttpCodec.BodyStream(implicitly[Schema[Output2]]))
 
+  /**
+   * Returns a new endpoint that requires the specified query.
+   */
   def query[A](codec: QueryCodec[A])(implicit
     combiner: Combiner[Input, A],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
 
+  /**
+   * Returns a new endpoint with the specified path appended.
+   */
   def route[A](codec: RouteCodec[A])(implicit
     combiner: Combiner[Input, A],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =

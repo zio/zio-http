@@ -136,6 +136,17 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     )
 
   /**
+   * Uses this codec to encode the Scala value as a patch to a request.
+   */
+  final def encodeRequestPatch(value: Value): Request.Patch =
+    encodeWith(value)((url, status, method, headers, body) =>
+      Request.Patch(
+        addQueryParams = url.queryParams,
+        addHeaders = headers,
+      ),
+    )
+
+  /**
    * Uses this codec to encode the Scala value as a response.
    */
   final def encodeResponse[Z](value: Value): Response =

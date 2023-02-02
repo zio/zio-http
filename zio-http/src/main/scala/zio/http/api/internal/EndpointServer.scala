@@ -9,9 +9,11 @@ import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[api] final case class EndpointServer[R, E, I, O, M <: EndpointMiddleware](handledEndpoint: Routes.HandledEndpoint[R, E, I, O, M]) {
-  private val api     = handledEndpoint.endpointSpec
-  private val handler = handledEndpoint.handler
+private[api] final case class EndpointServer[R, E, I, O, M <: EndpointMiddleware](
+  Single: Routes.Single[R, E, I, O, M],
+) {
+  private val api     = Single.endpoint
+  private val handler = Single.handler
 
   def handle(routeInputs: Chunk[Any], request: Request)(implicit trace: Trace): ZIO[R, E, Response] = {
     api.input.decodeRequest(request).debug("request").orDie.flatMap { value =>

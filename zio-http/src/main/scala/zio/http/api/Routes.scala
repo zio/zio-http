@@ -25,7 +25,7 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
     import zio.http.api.internal._
 
     val handlerTree     = HandlerTree.fromService(self)
-    val requestHandlers = Memoized[Routes.HandledEndpoint[R, _ <: E, _, _, M], EndpointServer[R, _ <: E, _, _, M]] {
+    val requestHandlers = Memoized[Routes.Single[R, _ <: E, _, _, M], EndpointServer[R, _ <: E, _, _, M]] {
       handledApi =>
         EndpointServer(handledApi)
     }
@@ -46,19 +46,19 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
 }
 
 object Routes {
-  final case class HandledEndpoint[-R, E, In0, Out0, M <: EndpointMiddleware](
-    endpointSpec: Endpoint[In0, E, Out0, M],
+  final case class Single[-R, E, In0, Out0, M <: EndpointMiddleware](
+    endpoint: Endpoint[In0, E, Out0, M],
     handler: In0 => ZIO[R, E, Out0],
   ) extends Routes[R, E, M] { self =>
-    def flatten: Iterable[Routes.HandledEndpoint[R, E, _, _, M]] = Chunk(self)
+    def flatten: Iterable[Routes.Single[R, E, _, _, M]] = Chunk(self)
   }
 
   final case class Concat[-R, +E, M <: EndpointMiddleware](left: Routes[R, E, M], right: Routes[R, E, M])
       extends Routes[R, E, M]
 
-  def flatten[R, E, M <: EndpointMiddleware](service: Routes[R, E, M]): Chunk[Routes.HandledEndpoint[R, E, _, _, M]] =
+  def flatten[R, E, M <: EndpointMiddleware](service: Routes[R, E, M]): Chunk[Routes.Single[R, E, _, _, M]] =
     service match {
-      case api @ HandledEndpoint(_, _) => Chunk(api.asInstanceOf[HandledEndpoint[R, E, _, _, M]])
-      case Concat(left, right)         => flatten(left) ++ flatten(right)
+      case api @ Single(_, _)  => Chunk(api.asInstanceOf[Single[R, E, _, _, M]])
+      case Concat(left, right) => flatten(left) ++ flatten(right)
     }
 }

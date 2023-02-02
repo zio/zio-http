@@ -6,16 +6,19 @@ import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName
 import zio.http.model.headers.values._
-import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames, Headers}
+import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames, Headers, Method}
 import zio.http.{Request, Response}
 
 import java.util.Base64
-import zio.http.model.Method
 
+/**
+ * A description of endpoint middleware, in terms of what the middleware
+ * requires from the request, and what it appends to the response.
+ */
 sealed trait EndpointMiddleware { self =>
-  type In 
-  type Err 
-  type Out 
+  type In
+  type Err
+  type Out
 
   def input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In]
   def output: HttpCodec[CodecType.Header, Out]
@@ -27,9 +30,12 @@ sealed trait EndpointMiddleware { self =>
     outCombiner: Combiner[Out, that.Out],
     errAlternator: Alternator[Err, that.Err],
   ): EndpointMiddleware.Typed[inCombiner.Out, errAlternator.Out, outCombiner.Out] =
-    EndpointMiddleware.Spec[inCombiner.Out, errAlternator.Out, outCombiner.Out](self.input ++ that.input, self.output ++ that.output, self.error | that.error, self.doc + that.doc)
-
-  
+    EndpointMiddleware.Spec[inCombiner.Out, errAlternator.Out, outCombiner.Out](
+      self.input ++ that.input,
+      self.output ++ that.output,
+      self.error | that.error,
+      self.doc + that.doc,
+    )
 
   def mapIn[MiddlewareIn2](
     f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In] => HttpCodec[
@@ -68,9 +74,9 @@ sealed trait EndpointMiddleware { self =>
   def optionalOut: EndpointMiddleware.Typed[In, Err, Option[Out]] =
     self.mapOut(_.optional)
 }
-object EndpointMiddleware {
+object EndpointMiddleware       {
   type Typed[In0, Err0, Out0] = EndpointMiddleware { type In = In0; type Err = Err0; type Out = Out0 }
-  type None = EndpointMiddleware.None.type 
+  type None                   = EndpointMiddleware.None.type
 
   def apply[In0, Err0, Out0](
     input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
@@ -80,14 +86,14 @@ object EndpointMiddleware {
   ): EndpointMiddleware.Typed[In0, Err0, Out0] = Spec(input, output, error, doc)
 
   case object None extends EndpointMiddleware {
-    final type In  = Unit 
-    final type Err = Unused 
+    final type In  = Unit
+    final type Err = Unused
     final type Out = Unit
 
     val input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, Unit] = HttpCodec.empty
-    val output: HttpCodec[CodecType.Header, Unit] = HttpCodec.empty
-    val error: HttpCodec[CodecType.ResponseType, Unused] = HttpCodec.unused
-    val doc: Doc = Doc.empty
+    val output: HttpCodec[CodecType.Header, Unit]                                           = HttpCodec.empty
+    val error: HttpCodec[CodecType.ResponseType, Unused]                                    = HttpCodec.unused
+    val doc: Doc                                                                            = Doc.empty
   }
   final case class Spec[In0, Err0, Out0](
     input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
@@ -100,7 +106,7 @@ object EndpointMiddleware {
     final type Out = Out0
   }
 
-   final case class CsrfValidate(cookieOption: Option[Cookie[Request]], tokenValue: Option[String])
+  final case class CsrfValidate(cookieOption: Option[Cookie[Request]], tokenValue: Option[String])
 
   val none: EndpointMiddleware.Typed[Unit, Unused, Unit] =
     EndpointMiddleware(HttpCodec.empty, HttpCodec.empty, HttpCodec.unused)
@@ -111,11 +117,11 @@ object EndpointMiddleware {
         _.transformOrFail(
           {
             case Some(cookieList) => readCookie(cookieList, cookieName)
-            case scala.None             => Right(scala.None)
+            case scala.None       => Right(scala.None)
           },
           {
             case Some(cookie) => writeCookie(cookie).map(Some(_))
-            case scala.None         => Right(scala.None)
+            case scala.None   => Right(scala.None)
           },
         ),
       )
@@ -125,7 +131,7 @@ object EndpointMiddleware {
       _.transformOrFailLeft(
         {
           case Some(cookie) => Right(cookie)
-          case scala.None         => Left(s"Cookie ${cookieName} not found")
+          case scala.None   => Left(s"Cookie ${cookieName} not found")
         },
         value => Some(value),
       ),
@@ -170,7 +176,7 @@ object EndpointMiddleware {
     EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentMd5, HttpCodec.unused)
   val withContentRange: EndpointMiddleware.Typed[Unit, Unused, ContentRange]                       =
     EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentRange, HttpCodec.unused)
-  def withContentSecurityPolicy: EndpointMiddleware.Typed[Unit, Unused, ContentSecurityPolicy]  =
+  def withContentSecurityPolicy: EndpointMiddleware.Typed[Unit, Unused, ContentSecurityPolicy]     =
     EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentSecurityPolicy, HttpCodec.unused)
   val withContentTransferEncoding: EndpointMiddleware.Typed[Unit, Unused, ContentTransferEncoding] =
     EndpointMiddleware(HttpCodec.empty, HeaderCodec.contentTransferEncoding, HttpCodec.unused)

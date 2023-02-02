@@ -10,30 +10,41 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * invocation, and executing this invocation, returning the final result, or
  * failing with some kind of RPC error.
  */
-final case class EndpointExecutor[ME, MI](
+final case class EndpointExecutor[MI](
   client: Client,
   locator: EndpointLocator,
-  middlewareInput: IO[ME, MI],
-  trace: Trace
+  middlewareInput: UIO[MI],
 ) {
   val metadata = {
-    implicit val trace0 = trace 
-      zio.http.api.internal.MemoizedZIO[Endpoint[_, _, _, _ <: EndpointMiddleware], EndpointError, EndpointClient[Any, Any, Any, _]] {
-      (api: Endpoint[_, _, _, _ <: EndpointMiddleware]) =>
-        locator.locate(api).map { location => 
-          EndpointClient(
-            location,
-            api.asInstanceOf[Endpoint[Any, Any, Any, _ <: EndpointMiddleware]],
-          )
+    implicit val trace0 = Trace.empty
+    zio.http.api.internal
+      .MemoizedZIO[Endpoint[_, _, _, _ <: EndpointMiddleware], EndpointError, EndpointClient[Any, Any, Any, _]] {
+        (api: Endpoint[_, _, _, _ <: EndpointMiddleware]) =>
+          locator.locate(api).map { location =>
+            EndpointClient(
+              location,
+              api.asInstanceOf[Endpoint[Any, Any, Any, _ <: EndpointMiddleware]],
+            )
+          }
       }
-    }
   }
 
-  def apply[A, E, B](
-      invocation: Invocation[A, E, B, _ <: EndpointMiddleware],
-    )(implicit alt: Alternator[E, ME], trace: Trace): ZIO[Any, alt.Out, B] = {
-    metadata.get(invocation.api).orDie.flatMap { executor =>
-      executor.execute(client, invocation.input).asInstanceOf[ZIO[Any, alt.Out, B]]
+  def getClient[I, E, O, M <: EndpointMiddleware](
+    endpoint: Endpoint[I, E, O, M],
+  )(implicit trace: Trace): IO[EndpointError, EndpointClient[I, E, O, M]] =
+    metadata.get(endpoint).map(_.asInstanceOf[EndpointClient[I, E, O, M]])
+
+  def apply[A, E, B, M <: EndpointMiddleware](
+    invocation: Invocation[A, E, B, M],
+  )(implicit
+    alt: Alternator[E, invocation.middleware.Err],
+    ev: MI <:< invocation.middleware.In,
+    trace: Trace,
+  ): ZIO[Any, alt.Out, B] = {
+    middlewareInput.flatMap { mi =>
+      getClient(invocation.endpoint).orDie.flatMap { endpointClient =>
+        endpointClient.execute(client, invocation)(ev(mi))
+      }
     }
   }
 }

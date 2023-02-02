@@ -325,13 +325,13 @@ class ApiBenchmark {
 
   // API DSL
 
-  val broadUsers        = Endpoint.get(RouteCodec.literal("users")).implement { _ => ZIO.unit }
-  val broadUsersId      = Endpoint.get(RouteCodec.literal("users") / RouteCodec.int).implement { _ => ZIO.unit }
-  val boardUsersPosts   =
+  val broadUsers                = Endpoint.get(RouteCodec.literal("users")).implement { _ => ZIO.unit }
+  val broadUsersId              = Endpoint.get(RouteCodec.literal("users") / RouteCodec.int).implement { _ => ZIO.unit }
+  val boardUsersPosts           =
     Endpoint.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts")).implement { _ =>
       ZIO.unit
     }
-  val boardUsersPostsId =
+  val boardUsersPostsId         =
     Endpoint
       .get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("posts") / RouteCodec.int)
       .implement { _ =>
@@ -356,24 +356,24 @@ class ApiBenchmark {
         ZIO.unit
       }
   val broadPosts                = Endpoint.get(RouteCodec.literal("posts")).implement { _ => ZIO.unit }
-  val broadPostsId         = Endpoint.get(RouteCodec.literal("posts") / RouteCodec.int).implement { _ => ZIO.unit }
-  val boardPostsComments   =
+  val broadPostsId              = Endpoint.get(RouteCodec.literal("posts") / RouteCodec.int).implement { _ => ZIO.unit }
+  val boardPostsComments        =
     Endpoint.get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments")).implement { _ =>
       ZIO.unit
     }
-  val boardPostsCommentsId =
+  val boardPostsCommentsId      =
     Endpoint
       .get(RouteCodec.literal("posts") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int)
       .implement { _ =>
         ZIO.unit
       }
-  val broadComments        = Endpoint.get(RouteCodec.literal("comments")).implement { _ => ZIO.unit }
-  val broadCommentsId    = Endpoint.get(RouteCodec.literal("comments") / RouteCodec.int).implement { _ => ZIO.unit }
-  val broadUsersComments =
+  val broadComments             = Endpoint.get(RouteCodec.literal("comments")).implement { _ => ZIO.unit }
+  val broadCommentsId      = Endpoint.get(RouteCodec.literal("comments") / RouteCodec.int).implement { _ => ZIO.unit }
+  val broadUsersComments   =
     Endpoint.get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments")).implement { _ =>
       ZIO.unit
     }
-  val broadUsersCommentsId             =
+  val broadUsersCommentsId =
     Endpoint
       .get(RouteCodec.literal("users") / RouteCodec.int / RouteCodec.literal("comments") / RouteCodec.int)
       .implement { _ =>

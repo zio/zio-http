@@ -1,6 +1,6 @@
 package zio.http.api.internal
 
-import zio._ 
+import zio._
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
@@ -27,11 +27,11 @@ private[http] class MemoizedZIO[K, E, A] private (compute: K => IO[E, A]) { self
   def get(k: K)(implicit trace: Trace): IO[E, A] = {
     ZIO.fiberIdWith { fiberId =>
       for {
-        p <- Promise.make[E, A]
-        effect <- mapRef.modify[IO[E, A]] { map => 
+        p      <- Promise.make[E, A]
+        effect <- mapRef.modify[IO[E, A]] { map =>
           map.get(k) match {
             case Some(promise) => (promise.await, map)
-            case None    =>
+            case None          =>
               val promise = Promise.unsafe.make[E, A](fiberId)(Unsafe.unsafe)
               (compute(k).exit.tap(exit => promise.done(exit)).flatten, map + (k -> promise))
           }
@@ -41,6 +41,6 @@ private[http] class MemoizedZIO[K, E, A] private (compute: K => IO[E, A]) { self
     }
   }
 }
-private[http] object MemoizedZIO                                {
+private[http] object MemoizedZIO                                          {
   def apply[K, E, A](compute: K => IO[E, A]): MemoizedZIO[K, E, A] = new MemoizedZIO(compute)
 }

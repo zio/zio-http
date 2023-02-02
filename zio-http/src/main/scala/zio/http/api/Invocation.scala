@@ -2,4 +2,6 @@ package zio.http.api
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-final case class Invocation[A, E, B, M <: EndpointMiddleware](api: Endpoint[A, E, B, M], input: A)
+final case class Invocation[I, E, O, M <: EndpointMiddleware](endpoint: Endpoint[I, E, O, M], input: I) {
+  val middleware: endpoint.middleware.type = endpoint.middleware
+}

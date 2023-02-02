@@ -1,65 +1,56 @@
-// package zio.http.api
+package zio.http.api
 
-// import zio._
-// import zio.http.middleware.Auth
-// import zio.http.{Client, Request, Server, URL}
+import zio._
+import zio.http.middleware.Auth
+import zio.http.{Client, Request, Server, URL}
 
-// object APIExamples extends ZIOAppDefault {
-//   import RouteCodec._
-//   import QueryCodec._
+object APIExamples extends ZIOAppDefault {
+  import RouteCodec._
+  import QueryCodec._
 
-//   // MiddlewareSpec can be added at the service level as well
-//   val getUsers =
-//     Endpoint.get("users" / int).out[Int]
+  val middleware = EndpointMiddleware.auth
 
-//   val getUserEndpoint =
-//     getUsers.implement { id =>
-//       ZIO.succeed(id)
-//     }
+  val getUser =
+    Endpoint.get("users" / int).out[Int] @@ middleware
 
-//   val getUserPosts =
-//     Endpoint
-//       .get("users" / int / "posts" / int)
-//       .in(query("name"))
+  val getUserRoute =
+    getUser.implement { id =>
+      ZIO.succeed(id)
+    }
 
-//   val getUserPostEndpoint =
-//     getUserPosts.implement[Any] { case (id1: Int, id2: Int, query: String) =>
-//       ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
-//     }
+  val getUserPosts =
+    Endpoint
+      .get("users" / int / "posts" / int)
+      .in(query("name")) @@ middleware
 
-//   val middlewareSpec =
-//     MiddlewareSpec.auth
+  val getUserPostsRoute =
+    getUserPosts.implement[Any] { case (id1: Int, id2: Int, query: String) =>
+      ZIO.debug(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query")
+    }
 
-//   // just like api.handle
-//   // val middleware =
-//   //   middlewareSpec.implementIncoming(_ => ZIO.unit)
+  val routes = getUserRoute ++ getUserPostsRoute
 
-//   val serviceSpec =
-//     (getUsers.toServiceSpec ++ getUserPosts.toServiceSpec)
-//     //.middleware(middlewareSpec)
+  val app = routes.toHttpApp
 
-//   val app = serviceSpec.toHttpApp(getUserEndpoint ++ getUserPostEndpoint, middleware)
+  val request = Request.get(url = URL.fromString("/users/1").toOption.get)
 
-//   val request = Request.get(url = URL.fromString("/users/1").toOption.get)
-//   println(s"Looking up $request")
+  val run = Server.serve(app).provide(Server.default)
 
-//   val run = Server.serve(app).provide(Server.default)
+  object Client {
+    def example(client: Client) = {
+      val locator =
+        EndpointLocator.fromURL(URL.fromString("http://localhost:8080").toOption.get)
 
-//   object Client {
-//     def example(client: Client) = {
-//       val registry =
-//         EndpointRegistry(URL.fromString("http://localhost:8080").getOrElse(???), serviceSpec)
+      val executor: EndpointExecutor[Auth.Credentials] =
+        EndpointExecutor(client, locator, ZIO.succeed(Auth.Credentials("user", "pass")))
 
-//       val executor: EndpointExecutor[Any, Any, getUsers.type with getUserPosts.type] =
-//         EndpointExecutor(client, registry, ZIO.succeed(Auth.Credentials("user", "pass")))
+      val x1 = getUser(42)
+      val x2 = getUserPosts(42, 200, "adam")
 
-//       val x1 = getUsers(42)
-//       val x2 = getUserPosts(42, 200, "adam")
+      val result1: IO[Unused, Int] = executor(x1)
+      val result2: IO[Unused, Unit] = executor(x2)
 
-//       val result1 = executor(x1)
-//       val result2 = executor(x2)
-
-//       result1.zip(result2)
-//     }
-//   }
-// }
+      result1.zip(result2)
+    }
+  }
+}

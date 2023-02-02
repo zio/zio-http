@@ -12,6 +12,6 @@ package object api {
 
   type Unused = HttpCodec.Unused
 
-    implicit def string2HttpCodec(string: String): RouteCodec[Unit] =
+  implicit def string2HttpCodec(string: String): RouteCodec[Unit] =
     HttpCodec.literal(string)
 }

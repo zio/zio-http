@@ -9,10 +9,10 @@ import scala.annotation.tailrec
 final case class HandlerTree[-R, +E, M <: EndpointMiddleware](
   constants: Map[String, HandlerTree[R, E, M]],
   parsers: Map[TextCodec[_], HandlerTree[R, E, M]],
-  leaf: Option[Routes.HandledEndpoint[R, _ <: E, _, _, M]],
+  leaf: Option[Routes.Single[R, _ <: E, _, _, M]],
 ) { self =>
 
-  def add[R1 <: R, E1 >: E](handledAPI: Routes.HandledEndpoint[R1, E1, _, _, M]): HandlerTree[R1, E1, M] =
+  def add[R1 <: R, E1 >: E](handledAPI: Routes.Single[R1, E1, _, _, M]): HandlerTree[R1, E1, M] =
     merge(HandlerTree.single(handledAPI))
 
   def generateError(request: Request): String = s"The path ${request.path} does not match any route"
@@ -21,7 +21,7 @@ final case class HandlerTree[-R, +E, M <: EndpointMiddleware](
     HandlerTree[R1, E1, M](
       mergeWith(self.constants, that.constants)(_ merge _),
       mergeWith(self.parsers, that.parsers)(_ merge _),
-      self.leaf.map(_.asInstanceOf[Routes.HandledEndpoint[R1, E1, Any, Any, M]]).orElse(that.leaf),
+      self.leaf.map(_.asInstanceOf[Routes.Single[R1, E1, Any, Any, M]]).orElse(that.leaf),
     )
   }
 
@@ -44,8 +44,8 @@ object HandlerTree {
   def empty[M <: EndpointMiddleware]: HandlerTree[Any, Nothing, M] =
     HandlerTree(Map.empty, Map.empty, None)
 
-  def single[R, E, M <: EndpointMiddleware](handledAPI: Routes.HandledEndpoint[R, E, _, _, M]): HandlerTree[R, E, M] = {
-    val inputs = handledAPI.endpointSpec.input.alternatives
+  def single[R, E, M <: EndpointMiddleware](handledAPI: Routes.Single[R, E, _, _, M]): HandlerTree[R, E, M] = {
+    val inputs = handledAPI.endpoint.input.alternatives
 
     inputs.foldLeft[HandlerTree[R, E, M]](HandlerTree(Map.empty, Map.empty, Some(handledAPI))) { case (acc, input) =>
       val routeCodecs = Mechanic.flatten(input).routes
@@ -64,7 +64,9 @@ object HandlerTree {
   def fromService[R, E, M <: EndpointMiddleware](service: Routes[R, E, M]): HandlerTree[R, E, M] =
     fromIterable(Routes.flatten(service))
 
-  def fromIterable[R, E, M <: EndpointMiddleware](handledAPIs: Iterable[Routes.HandledEndpoint[R, E, _, _, M]]): HandlerTree[R, E, M] =
+  def fromIterable[R, E, M <: EndpointMiddleware](
+    handledAPIs: Iterable[Routes.Single[R, E, _, _, M]],
+  ): HandlerTree[R, E, M] =
     handledAPIs.foldLeft[HandlerTree[R, E, M]](empty)(_ add _)
 
   @tailrec

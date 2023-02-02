@@ -3,6 +3,11 @@ package zio.http.api
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import zio.http.api.internal.TextCodec
 import zio.http.Path
+
+/**
+ * Describes an endpoint error. All endpoint errors are either server-side or
+ * client-side.
+ */
 sealed trait EndpointError extends Exception {
   def message: String
 
@@ -10,8 +15,8 @@ sealed trait EndpointError extends Exception {
 }
 
 object EndpointError {
-  sealed trait ClientError                                                            extends EndpointError
-  final case class EndpointNotFound(message: String, api: Endpoint[_, _, _, _])              extends ClientError
+  sealed trait ClientError                                                           extends EndpointError
+  final case class EndpointNotFound(message: String, api: Endpoint[_, _, _, _])      extends ClientError
   final case class MalformedResponseBody(message: String, api: Endpoint[_, _, _, _]) extends ClientError
 
   sealed trait ServerError                                                                    extends EndpointError
@@ -39,7 +44,7 @@ object EndpointError {
   final case class MalformedQueryParam(queryParamName: String, textCodec: TextCodec[_])       extends ServerError {
     def message = s"Malformed query parameter $queryParamName failed to decode using $textCodec"
   }
-  final case class MalformedRequestBody(api: Endpoint[_, _, _, _])                           extends ServerError {
+  final case class MalformedRequestBody(api: Endpoint[_, _, _, _])                            extends ServerError {
     def message = s"Malformed request body failed to decode"
   }
 }
