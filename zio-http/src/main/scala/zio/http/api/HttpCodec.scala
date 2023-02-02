@@ -238,7 +238,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
   def empty: HttpCodec[Any, Unit] =
     Empty
 
-  def halt: HttpCodec[Any, ZNothing] = Halt
+  def unused: HttpCodec[Any, ZNothing] = Halt
 
   private[api] sealed trait Atom[-AtomTypes, Value0] extends HttpCodec[AtomTypes, Value0]
 

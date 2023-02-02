@@ -81,13 +81,13 @@ object EndpointMiddleware       {
   def apply[In0, Out0](
     input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
     output: HttpCodec[CodecType.Header, Out0],
-  ): EndpointMiddleware.Typed[In0, Nothing, Out0] = Spec[In0, Nothing, Out0](input, output, HttpCodec.halt, Doc.empty)
+  ): EndpointMiddleware.Typed[In0, Nothing, Out0] = Spec[In0, Nothing, Out0](input, output, HttpCodec.unused, Doc.empty)
 
   def apply[In0, Out0](
     input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
     output: HttpCodec[CodecType.Header, Out0],
     doc: Doc,
-  ): EndpointMiddleware.Typed[In0, Nothing, Out0] = Spec[In0, Nothing, Out0](input, output, HttpCodec.halt, doc)
+  ): EndpointMiddleware.Typed[In0, Nothing, Out0] = Spec[In0, Nothing, Out0](input, output, HttpCodec.unused, doc)
 
   def apply[In0, Err0, Out0](
     input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
@@ -103,7 +103,7 @@ object EndpointMiddleware       {
 
     val input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, Unit] = HttpCodec.empty
     val output: HttpCodec[CodecType.Header, Unit]                                           = HttpCodec.empty
-    val error: HttpCodec[CodecType.ResponseType, Nothing]                                   = HttpCodec.halt
+    val error: HttpCodec[CodecType.ResponseType, Nothing]                                   = HttpCodec.unused
     val doc: Doc                                                                            = Doc.empty
   }
   final case class Spec[In0, Err0, Out0](

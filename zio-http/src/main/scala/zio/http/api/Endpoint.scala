@@ -180,10 +180,10 @@ object Endpoint {
    * definition of the API.
    */
   def delete[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] = {
-    Endpoint[Input, Nothing, Unit, EndpointMiddleware.None](
+    Endpoint(
       route ++ MethodCodec.delete,
       HttpCodec.empty,
-      HttpCodec.halt,
+      HttpCodec.unused,
       Doc.empty,
       EndpointMiddleware.None,
     )
@@ -196,10 +196,10 @@ object Endpoint {
    * definition of the API.
    */
   def get[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
-    Endpoint[Input, Nothing, Unit, EndpointMiddleware.None](
+    Endpoint(
       route ++ MethodCodec.get,
       HttpCodec.empty,
-      HttpCodec.halt,
+      HttpCodec.unused,
       Doc.empty,
       EndpointMiddleware.None,
     )
@@ -211,10 +211,10 @@ object Endpoint {
    * definition of the API.
    */
   def post[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
-    Endpoint[Input, Nothing, Unit, EndpointMiddleware.None](
+    Endpoint(
       route ++ MethodCodec.post,
       HttpCodec.empty,
-      HttpCodec.halt,
+      HttpCodec.unused,
       Doc.empty,
       EndpointMiddleware.None,
     )
@@ -226,10 +226,10 @@ object Endpoint {
    * definition of the API.
    */
   def put[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
-    Endpoint[Input, Nothing, Unit, EndpointMiddleware.None](
+    Endpoint(
       route ++ MethodCodec.put,
       HttpCodec.empty,
-      HttpCodec.halt,
+      HttpCodec.unused,
       Doc.empty,
       EndpointMiddleware.None,
     )
