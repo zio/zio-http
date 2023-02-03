@@ -333,9 +333,8 @@ class ApiBenchmark {
   val broadUsersId                     =
     Endpoint.get(RouteCodec.literal("users") / RouteCodec.int("userId")).implement { _ => ZIO.unit }
   val boardUsersPosts                  =
-    Endpoint.get(RouteCodec.literal("users") / RouteCodec.int("userId") / RouteCodec.literal("posts")).implement {
-      _ =>
-        ZIO.unit
+    Endpoint.get(RouteCodec.literal("users") / RouteCodec.int("userId") / RouteCodec.literal("posts")).implement { _ =>
+      ZIO.unit
     }
   val boardUsersPostsId                =
     Endpoint
