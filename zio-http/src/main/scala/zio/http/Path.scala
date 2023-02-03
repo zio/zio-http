@@ -183,7 +183,7 @@ object Path {
    */
   val root: Path = new Path(Vector(Segment.root))
 
-  def apply(segments: Vector[Segment]): Path = new Path({
+  def apply(segments: Vector[Segment]): Path = {
     val trailingSlash = segments.lastOption.contains(Segment.root)
     val leadingSlash  = segments.headOption.contains(Segment.root)
 
@@ -192,9 +192,12 @@ object Path {
 
     val nonRoot = segments.filter(_ != Segment.Root)
 
-    if (nonRoot.isEmpty && (leadingSlash || trailingSlash)) Vector(Segment.Root)
-    else head ++ nonRoot ++ tail
-  })
+    val pathSegments =
+      if (nonRoot.isEmpty && (leadingSlash || trailingSlash)) Vector(Segment.Root)
+      else head ++ nonRoot ++ tail
+
+    new Path(pathSegments)
+  }
 
   /**
    * Decodes a path string into a Path. Can fail if the path is invalid.

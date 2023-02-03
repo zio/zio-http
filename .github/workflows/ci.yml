@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.16, 2.13.8, 3.2.0]
+        scala: [2.12.16, 2.13.8, 3.2.1]
         java: [graal_21.1.0@11, temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -74,7 +74,7 @@ jobs:
         run: sbt ++2.13.8 doc
 
       - name: Compress target directories
-        run: tar cf targets.tar target zio-http/target zio-http-logging/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target project/target
+        run: tar cf targets.tar target zio-http/target zio-http-docs/target zio-http-logging/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target project/target
 
       - name: Upload target directories
         uses: actions/upload-artifact@v2
@@ -144,12 +144,12 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (3.2.0)
+      - name: Download target directories (3.2.1)
         uses: actions/download-artifact@v2
         with:
-          name: target-${{ matrix.os }}-3.2.0-${{ matrix.java }}
+          name: target-${{ matrix.os }}-3.2.1-${{ matrix.java }}
 
-      - name: Inflate target directories (3.2.0)
+      - name: Inflate target directories (3.2.1)
         run: |
           tar xf targets.tar
           rm targets.tar
@@ -173,33 +173,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: release-drafter/release-drafter@v5
-
-  update_docs:
-    name: Publish Documentation
-    if: ${{ github.ref == 'refs/heads/main' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.6]
-        java: [temurin@11]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3.1.0
-        with:
-          fetch-depth: 0
-
-      - name: Setup Scala and Java
-        uses: olafurpg/setup-scala@v13
-
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 16.x
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Publishing Docs to NPM Registry
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
-        run: sbt publishToNpm
 
   unsafeRunScoverage:
     name: Unsafe Scoverage

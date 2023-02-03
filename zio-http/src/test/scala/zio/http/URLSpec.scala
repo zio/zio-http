@@ -108,5 +108,27 @@ object URLSpec extends ZIOSpecDefault {
           }
         },
       ),
+      suite("hostWithOptionalPort")(
+        test("does not add the port 80 for http") {
+          assertTrue(
+            URL.fromString("http://localhost:80").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost"),
+          )
+        },
+        test("adds the port 8080 for http") {
+          assertTrue(
+            URL.fromString("http://localhost:8080").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost:8080"),
+          )
+        },
+        test("does not add the port 443 for https") {
+          assertTrue(
+            URL.fromString("https://localhost:443").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost"),
+          )
+        },
+        test("adds the port 80 for https") {
+          assertTrue(
+            URL.fromString("https://localhost:80").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost:80"),
+          )
+        },
+      ),
     )
 }

@@ -6,7 +6,7 @@ import zio.http.netty.server._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait Server {
-  def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback] = None)(implicit
+  def install[R](httpApp: App[R], errorCallback: Option[ErrorCallback] = None)(implicit
     trace: Trace,
   ): URIO[R, Unit]
 
@@ -18,13 +18,13 @@ object Server {
 
   type ErrorCallback = Throwable => ZIO[Any, Nothing, Unit]
   def serve[R](
-    httpApp: HttpApp[R, Throwable],
+    httpApp: App[R],
     errorCallback: Option[ErrorCallback] = None,
   )(implicit trace: Trace): URIO[R with Server, Nothing] =
     install(httpApp, errorCallback) *> ZIO.never
 
   def install[R](
-    httpApp: HttpApp[R, Throwable],
+    httpApp: App[R],
     errorCallback: Option[ErrorCallback] = None,
   )(implicit trace: Trace): URIO[R with Server, Int] = {
     ZIO.serviceWithZIO[Server](_.install(httpApp, errorCallback)) *> ZIO.service[Server].map(_.port)
@@ -54,7 +54,7 @@ object Server {
     driver: Driver,
     bindPort: Int,
   ) extends Server {
-    override def install[R](httpApp: HttpApp[R, Throwable], errorCallback: Option[ErrorCallback])(implicit
+    override def install[R](httpApp: App[R], errorCallback: Option[ErrorCallback])(implicit
       trace: Trace,
     ): URIO[R, Unit] =
       ZIO.environment[R].flatMap(driver.addApp(httpApp, _)) *> setErrorCallback(errorCallback)

@@ -2,7 +2,7 @@ package zio.http.service
 
 import io.netty.handler.codec.DecoderException
 import zio.http.model.Status
-import zio.http.netty.client.ConnectionPool
+import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 import zio.http.{Client, ClientConfig, ClientSSLConfig}
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
@@ -44,8 +44,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
   ).provide(
     ClientConfig.live(ClientConfig.empty.ssl(sslConfig)),
     Client.live,
-    ConnectionPool.disabled,
-    Scope.default,
+    NettyClientDriver.fromConfig,
   ) @@ timeout(
     30 seconds,
   ) @@ ignore

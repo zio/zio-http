@@ -83,8 +83,15 @@ private[api] object EncoderDecoder                   {
 
     private val flattened: Mechanic.FlattenedAtoms = Mechanic.flatten(httpCodec)
 
-    private val jsonEncoders = flattened.bodies.map(bodyCodec => bodyCodec.erase.encodeToBody(_, JsonCodec))
-    private val jsonDecoders = flattened.bodies.map(bodyCodec => bodyCodec.decodeFromBody(_, JsonCodec))
+    private val jsonEncoders = flattened.bodies.map { bodyCodec =>
+      val erased    = bodyCodec.erase
+      val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
+      erased.encodeToBody(_, jsonCodec)
+    }
+    private val jsonDecoders = flattened.bodies.map { bodyCodec =>
+      val jsonCodec = JsonCodec.schemaBasedBinaryCodec(bodyCodec.schema)
+      bodyCodec.decodeFromBody(_, jsonCodec)
+    }
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,

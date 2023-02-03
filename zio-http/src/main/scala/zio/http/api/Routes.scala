@@ -31,8 +31,7 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
     }
 
     Http
-      .collectZIO[Request]
-      .apply[R, E, Response] { case request =>
+      .collectZIO[Request] { case (request: Request) =>
         val handler = handlerTree.lookup(request)
 
         handler match {
@@ -41,7 +40,7 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
           case Some(handlerMatch) =>
             requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)(Trace.empty)
         }
-      }(Trace.empty)
+      }
   }
 }
 

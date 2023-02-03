@@ -199,7 +199,8 @@ object Headers extends HeaderConstructors {
   def empty: Headers = EmptyHeaders
 
   private[http] def encode(headersList: List[Product2[CharSequence, CharSequence]]): HttpHeaders = {
-    val (exceptions, regularHeaders) = headersList.span(h => h._1.toString.contains(HeaderNames.setCookie.toString))
+    val (exceptions, regularHeaders) =
+      headersList.partition(h => h._1.toString.contains(HeaderNames.setCookie.toString))
     val combinedHeaders              = regularHeaders
       .groupBy(_._1)
       .map { case (key, tuples) =>

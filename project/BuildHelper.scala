@@ -6,7 +6,7 @@ import xerial.sbt.Sonatype.autoImport._
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.16"
   val Scala213         = "2.13.8"
-  val ScalaDotty       = "3.2.0"
+  val ScalaDotty       = "3.2.1"
   val ScoverageVersion = "1.9.3"
   val JmhVersion       = "0.4.3"
 
@@ -16,7 +16,7 @@ object BuildHelper extends ScalaSettings {
     "UTF-8",
     "-feature",
     "-unchecked",
-    "-language:postfixOps"
+    "-language:postfixOps",
   ) ++ {
     if (sys.env.contains("CI")) {
       Seq("-Xfatal-warnings")
@@ -37,13 +37,13 @@ object BuildHelper extends ScalaSettings {
     val publishSettings = Seq(
       organization           := "dev.zio",
       organizationName       := "zio",
-      licenses := Seq("MIT License" -> url("https://github.com/zio/zio-http/blob/master/LICENSE")),
+      licenses               := Seq("MIT License" -> url("https://github.com/zio/zio-http/blob/master/LICENSE")),
       sonatypeCredentialHost := "oss.sonatype.org",
       sonatypeRepository     := "https://oss.sonatype.org/service/local",
       sonatypeProfileName    := "dev.zio",
-      publishTo := sonatypePublishToBundle.value,
-      sonatypeTimeoutMillis := 300 * 60 * 1000,
-      publishMavenStyle := true,
+      publishTo              := sonatypePublishToBundle.value,
+      sonatypeTimeoutMillis  := 300 * 60 * 1000,
+      publishMavenStyle      := true,
       credentials ++=
         (for {
           username <- Option(System.getenv().get("SONATYPE_USERNAME"))
@@ -52,12 +52,12 @@ object BuildHelper extends ScalaSettings {
           "Sonatype Nexus Repository Manager",
           "oss.sonatype.org",
           username,
-          password
-        )).toSeq
+          password,
+        )).toSeq,
     )
     val skipSettings    = Seq(
       publish / skip  := true,
-      publishArtifact := false
+      publishArtifact := false,
     )
     if (publishArtifacts) publishSettings else publishSettings ++ skipSettings
   }
@@ -81,12 +81,12 @@ object BuildHelper extends ScalaSettings {
       "-Dio.netty.leakDetectionLevel=paranoid",
       s"-DZIOHttpLogLevel=${Debug.ZIOHttpLogLevel}",
     ),
-    ThisBuild / fork                       := true
+    ThisBuild / fork                       := true,
   )
 
   def runSettings(className: String = "example.HelloWorld") = Seq(
     fork                      := true,
-    Compile / run / mainClass := Option(className)
+    Compile / run / mainClass := Option(className),
   )
 
   def meta = Seq(
@@ -107,7 +107,7 @@ object BuildHelper extends ScalaSettings {
         "Amit Kumar Singh",
         "amit.singh@dream11.com",
         new URL("https://github.com/amitksingh1490"),
-      )
+      ),
     ),
   )
 }

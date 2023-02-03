@@ -131,7 +131,7 @@ trait HeaderModifierZIO[+A] { self =>
     addHeaders(Headers.contentTransferEncoding(value))
 
   final def withContentType(value: CharSequence)(implicit trace: Trace): A =
-    setHeaders(Headers.contentType(value))
+    addHeaders(Headers.contentType(value))
 
   final def withCookie(value: CharSequence)(implicit trace: Trace): A =
     addHeaders(Headers.cookie(value))

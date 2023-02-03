@@ -19,14 +19,14 @@ object WebSocketSpec extends HttpRunnableSpec {
         msg <- MessageCollector.make[ChannelEvent.Event[WebSocketFrame]]
         url <- DynamicServer.wsURL
         id  <- DynamicServer.deploy {
-          Http
-            .collectZIO[WebSocketChannelEvent] {
+          Handler
+            .fromFunctionZIO[WebSocketChannelEvent] {
               case ev @ ChannelEvent(ch, ChannelRead(frame)) => ch.writeAndFlush(frame) *> msg.add(ev.event)
               case ev @ ChannelEvent(_, ChannelUnregistered) => msg.add(ev.event, true)
               case ev @ ChannelEvent(_, _)                   => msg.add(ev.event)
             }
             .toSocketApp
-            .toHttp
+            .toRoute
         }
 
         res <- ZIO.scoped {
@@ -69,7 +69,7 @@ object WebSocketSpec extends HttpRunnableSpec {
             isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
           }
           .toSocketApp
-          .toHttp
+          .toRoute
           .deployWS
 
         // Setup Client
@@ -81,7 +81,7 @@ object WebSocketSpec extends HttpRunnableSpec {
           .toSocketApp
 
         // Deploy the server and send it a socket request
-        _ <- serverHttp(clientSocket)
+        _ <- serverHttp.runZIO(clientSocket)
 
         // Wait for the close handler to complete
         _ <- TestClock.adjust(2 seconds)
@@ -93,9 +93,9 @@ object WebSocketSpec extends HttpRunnableSpec {
       } yield assertCompletes
     } @@ nonFlaky,
     test("Multiple websocket upgrades") {
-      val app   = Http.succeed(WebSocketFrame.text("BAR")).toSocketApp.toHttp.deployWS
+      val app   = Handler.succeed(WebSocketFrame.text("BAR")).toSocketApp.toRoute.deployWS
       val codes = ZIO
-        .foreach(1 to 1024)(_ => app(Http.empty.toSocketApp).map(_.status))
+        .foreach(1 to 1024)(_ => app.runZIO(Http.empty.toSocketApp).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))
 
       assertZIO(codes)(equalTo(1024))

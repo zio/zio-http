@@ -1,10 +1,13 @@
 package zio.http.middleware
 
 import zio._
-import zio.http.{Http, Middleware, Request, Response}
+import zio.http._
+import zio.metrics.Metric.{Counter, Gauge, Histogram}
 import zio.metrics.{Metric, MetricKeyType, MetricLabel}
 
-private[zio] trait Metrics {
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
+private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
 
   /**
    * Adds metrics to a zio-http server.
@@ -32,51 +35,68 @@ private[zio] trait Metrics {
     requestDurationName: String = "http_request_duration_seconds",
     requestDurationBoundaries: MetricKeyType.Histogram.Boundaries = Metrics.defaultBoundaries,
     extraLabels: Set[MetricLabel] = Set.empty,
-  ): HttpMiddleware[Any, Nothing] = {
-    new Middleware[Any, Nothing, Request, Response, Request, Response] {
-      val requestsTotal      = Metric.counterInt(totalRequestsName)
-      val concurrentRequests = Metric.gauge(concurrentRequestsName)
-      val requestDuration    = Metric.histogram(requestDurationName, requestDurationBoundaries)
-      val status404          = Set(MetricLabel("status", "404"))
-      val status500          = Set(MetricLabel("status", "500"))
-      val nanosToSeconds     = 1e9d
+  ): HttpAppMiddleware[Any, Nothing] = {
+    new HttpAppMiddleware[Any, Nothing] {
+      val requestsTotal: Counter[RuntimeFlags] = Metric.counterInt(totalRequestsName)
+      val concurrentRequests: Gauge[Double]    = Metric.gauge(concurrentRequestsName)
+      val requestDuration: Histogram[Double]   = Metric.histogram(requestDurationName, requestDurationBoundaries)
+      val status404: Set[MetricLabel]          = Set(MetricLabel("status", "404"))
+      val status500: Set[MetricLabel]          = Set(MetricLabel("status", "500"))
+      val nanosToSeconds: Double               = 1e9d
 
-      def labelsForRequest(req: Request): Set[MetricLabel] =
+      private def labelsForRequest(req: Request): Set[MetricLabel] =
         Set(
           MetricLabel("method", req.method.toString),
           MetricLabel("path", pathLabelMapper.lift(req).getOrElse(req.path.toString())),
         ) ++ extraLabels
 
-      def labelsForResponse(res: Response): Set[MetricLabel] =
+      private def labelsForResponse(res: Response): Set[MetricLabel] =
         Set(
           MetricLabel("status", res.status.code.toString),
         )
 
-      def apply[R1 <: Any, E1 >: Nothing](
-        http: Http[R1, E1, Request, Response],
-      )(implicit trace: Trace): Http[R1, E1, Request, Response] =
-        Http.fromOptionFunction[Request] { req =>
+      private def report(
+        start: Long,
+        requestLabels: Set[MetricLabel],
+        labels: Set[MetricLabel],
+      )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+        for {
+          _   <- requestsTotal.tagged(labels).increment
+          _   <- concurrentRequests.tagged(requestLabels).decrement
+          end <- Clock.nanoTime
+          took = end - start
+          _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
+        } yield ()
+
+      override def apply[R1 <: Any, Err1 >: Nothing](
+        http: HttpApp[R1, Err1],
+      )(implicit trace: Trace): HttpApp[R1, Err1] =
+        Http.fromOptionalHandlerZIO[Request] { req =>
           val requestLabels = labelsForRequest(req)
 
           for {
-            start <- Clock.nanoTime
-            _     <- concurrentRequests.tagged(requestLabels).increment
-            res   <- http(req).onExit(exit => {
-              val labels =
-                requestLabels ++ exit.foldExit(
-                  cause => cause.failureOption.fold(status500)(failure => failure.fold(status404)(_ => status500)),
-                  labelsForResponse,
-                )
+            start           <- Clock.nanoTime
+            _               <- concurrentRequests.tagged(requestLabels).increment
+            optionalHandler <- http.runHandler(req).mapError(Some(_))
+            handler         <-
+              optionalHandler match {
+                case Some(handler) =>
+                  ZIO.succeed {
+                    handler.onExit { exit =>
+                      val labels =
+                        requestLabels ++ exit.foldExit(
+                          cause => cause.failureOption.fold(status500)(_ => status500),
+                          labelsForResponse,
+                        )
 
-              for {
-                _   <- requestsTotal.tagged(labels).increment
-                _   <- concurrentRequests.tagged(requestLabels).decrement
-                end <- Clock.nanoTime
-                took = end - start
-                _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
-              } yield ()
-            })
-          } yield res
+                      report(start, requestLabels, labels)
+                    }
+                  }
+                case None          =>
+                  report(start, requestLabels, requestLabels ++ status404) *>
+                    ZIO.fail(None)
+              }
+          } yield handler
         }
     }
   }

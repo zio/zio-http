@@ -103,7 +103,7 @@ sealed trait Response extends HeaderExtension[Response] { self =>
   /**
    * Creates an Http from a Response
    */
-  final def toHttp: Http[Any, Nothing, Any, Response] = Http.succeed(self)
+  final def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.response(self)
 
   def withServerTime: Response
 }
@@ -307,7 +307,7 @@ object Response {
    * Creates a new response for the provided socket
    */
   def fromSocket[R](
-    http: Http[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
+    http: Handler[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
   )(implicit trace: Trace): ZIO[R, Nothing, Response] =
     fromSocketApp(http.toSocketApp)
 

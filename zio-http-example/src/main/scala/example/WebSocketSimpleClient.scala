@@ -3,7 +3,7 @@ package example
 import zio._
 import zio.http.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
-import zio.http.{ChannelEvent, Client, Http, Response}
+import zio.http.{ChannelEvent, Client, Handler, Http, Response}
 
 object WebSocketSimpleClient extends ZIOAppDefault {
 

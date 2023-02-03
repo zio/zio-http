@@ -98,7 +98,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
         version = version,
         remoteAddress = None,
       )
-      response <- currentBehavior(request).catchAll {
+      response <- currentBehavior.runZIO(request).catchAll {
         case Some(value) => ZIO.succeed(Response(status = Status.BadRequest, body = Body.fromString(value.toString)))
         case None        => ZIO.succeed(Response.status(Status.NotFound))
       }
@@ -164,7 +164,11 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     for {
       env <- ZIO.environment[Env1]
       _   <- serverSocketBehavior.set(
-        app.defaultWith(TestClient.warnOnUnrecognizedEvent).toSocketApp.provideEnvironment(env),
+        app
+          .defaultWith(TestClient.warnOnUnrecognizedEvent)
+          .toHandler(Handler.response(Response(Status.NotFound)))
+          .toSocketApp
+          .provideEnvironment(env),
       )
     } yield ()
 }

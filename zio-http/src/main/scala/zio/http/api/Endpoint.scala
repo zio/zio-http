@@ -113,6 +113,9 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
 
+  def in[Input2: Schema]: Endpoint[Input2, Err, Output, Middleware] =
+    copy(input = HttpCodec.Body(implicitly[Schema[Input2]]))
+
   /**
    * Adds a new element of input to the API, which can come from the portion of
    * the HTTP path not yet consumed, the query string parameters, or the HTTP
