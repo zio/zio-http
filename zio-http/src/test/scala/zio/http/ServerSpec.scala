@@ -13,7 +13,9 @@ object ServerSpec extends ZIOSpecDefault {
   }
 
   val http = Http.collectZIO[Request] { case Method.GET -> !! / "hello" =>
-    ZIO.succeed(Response.text("Hello")) raceFirst (ZIO.sleep(1.milli).as(Response.text("hi")))
+    ZIO.succeed(Response.text("Hello")) raceFirst (Clock.instant.as(Response.text("hi")))
+  // also fails
+  // ZIO.succeed(Response.text("Hello")) raceFirst (ZIO.sleep(1.milli).as(Response.text("hi")))
   }
 
   val port = ZLayer.scoped(for {
