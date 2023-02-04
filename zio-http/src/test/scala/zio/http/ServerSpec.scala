@@ -13,7 +13,7 @@ object ServerSpec extends ZIOSpecDefault {
   }
 
   val http = Http.collectZIO[Request] { case Method.GET -> !! / "hello" =>
-    ZIO.succeed(Response.text("Hello")) @@ timeoutFail(HttpError.BadGateway("bad gateway").toResponse)(1.seconds)
+    ZIO.succeed(Response.text("Hello")) raceFirst (ZIO.sleep(1.milli).as(Response.text("hi")))
   }
 
   val port = ZLayer.scoped(for {
@@ -27,6 +27,6 @@ object ServerSpec extends ZIOSpecDefault {
         res  <- Client.request(s"http://localhost:$port/hello")
         body <- res.body.asString
       } yield assertTrue(body == "Hello")
-    } @@ TestAspect.timeout(2.seconds),
+    },
   ).provideShared(Client.default, Server.live, ServerConfig.live(ServerConfig.default.port(0)), port)
 }
