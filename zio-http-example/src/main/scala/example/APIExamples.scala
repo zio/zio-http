@@ -2,6 +2,7 @@ package zio.http.api
 
 import zio._
 import zio.http.middleware.Auth
+import zio.http.model.headers.values.WWWAuthenticate
 import zio.http.{Client, Request, Server, URL}
 
 object APIExamples extends ZIOAppDefault {
@@ -43,8 +44,8 @@ object APIExamples extends ZIOAppDefault {
       val locator =
         EndpointLocator.fromURL(URL.fromString("http://localhost:8080").toOption.get)
 
-      val executor: EndpointExecutor[Auth.Credentials] =
-        EndpointExecutor(client, locator, ZIO.succeed(Auth.Credentials("user", "pass")))
+      val executor: EndpointExecutor[WWWAuthenticate] =
+        EndpointExecutor(client, locator, ZIO.succeed(WWWAuthenticate.Basic("user", "pass")))
 
       val x1 = getUser(42)
       val x2 = getUserPosts(42, 200, "adam")
