@@ -150,12 +150,8 @@ object NettyConnectionPool {
       decompression: Decompression,
       localAddress: Option[InetSocketAddress] = None,
     )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] =
-      ZIO.uninterruptibleMask { restore =>
-        restore(
-          pool
-            .get(PoolKey(location, proxy, sslOptions, maxHeaderSize, decompression)),
-        )
-      }
+      pool
+        .get(PoolKey(location, proxy, sslOptions, maxHeaderSize, decompression))
 
     override def invalidate(channel: JChannel)(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
       pool.invalidate(channel)
@@ -201,29 +197,31 @@ object NettyConnectionPool {
     for {
       driver      <- ZIO.service[NettyClientDriver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
-      keyedPool   <- ZKeyedPool.make(
-        (key: PoolKey) =>
-          ZIO.uninterruptibleMask { restore =>
-            createChannel(
-              driver.channelFactory,
-              driver.eventLoopGroup,
-              key.location,
-              key.proxy,
-              key.sslOptions,
-              key.maxHeaderSize,
-              key.decompression,
-              None,
-            ).tap { channel =>
-              restore(
-                NettyFutureExecutor.executed(channel.closeFuture()),
-              ).zipRight(
-                poolPromise.await.flatMap(_.invalidate(channel)),
-              ).forkDaemon
-            }
-          },
-        (key: PoolKey) => size(key.location),
-      )
-      _           <- poolPromise.succeed(keyedPool)
+      keyedPool   <- ZKeyedPool
+        .make(
+          (key: PoolKey) =>
+            ZIO.uninterruptibleMask { restore =>
+              createChannel(
+                driver.channelFactory,
+                driver.eventLoopGroup,
+                key.location,
+                key.proxy,
+                key.sslOptions,
+                key.maxHeaderSize,
+                key.decompression,
+                None,
+              ).tap { channel =>
+                restore(
+                  NettyFutureExecutor.executed(channel.closeFuture()),
+                ).zipRight(
+                  poolPromise.await.flatMap(_.invalidate(channel)),
+                ).forkDaemon
+              }
+            },
+          (key: PoolKey) => size(key.location),
+        )
+        .tap(poolPromise.succeed)
+        .uninterruptible
     } yield new ZioNettyConnectionPool(keyedPool)
 
   private def createDynamic(
@@ -241,28 +239,31 @@ object NettyConnectionPool {
     for {
       driver      <- ZIO.service[NettyClientDriver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
-      keyedPool   <- ZKeyedPool.make(
-        (key: PoolKey) =>
-          ZIO.uninterruptibleMask { restore =>
-            createChannel(
-              driver.channelFactory,
-              driver.eventLoopGroup,
-              key.location,
-              key.proxy,
-              key.sslOptions,
-              key.maxHeaderSize,
-              key.decompression,
-              None,
-            ).tap { channel =>
-              restore(
-                NettyFutureExecutor.executed(channel.closeFuture()),
-              ).zipRight(
-                poolPromise.await.flatMap(_.invalidate(channel)),
-              ).forkDaemon
-            }
-          },
-        (key: PoolKey) => min(key.location) to max(key.location),
-        (key: PoolKey) => ttl(key.location),
-      )
+      keyedPool   <- ZKeyedPool
+        .make(
+          (key: PoolKey) =>
+            ZIO.uninterruptibleMask { restore =>
+              createChannel(
+                driver.channelFactory,
+                driver.eventLoopGroup,
+                key.location,
+                key.proxy,
+                key.sslOptions,
+                key.maxHeaderSize,
+                key.decompression,
+                None,
+              ).tap { channel =>
+                restore(
+                  NettyFutureExecutor.executed(channel.closeFuture()),
+                ).zipRight(
+                  poolPromise.await.flatMap(_.invalidate(channel)),
+                ).forkDaemon
+              }
+            },
+          (key: PoolKey) => min(key.location) to max(key.location),
+          (key: PoolKey) => ttl(key.location),
+        )
+        .tap(poolPromise.succeed)
+        .uninterruptible
     } yield new ZioNettyConnectionPool(keyedPool)
 }
