@@ -44,10 +44,10 @@ private[zio] final case class ServerChannelInitializer(
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
     pipeline.addLast(
-      "decoder",
+      Names.HttpRequestDecoder,
       new HttpRequestDecoder(DEFAULT_MAX_INITIAL_LINE_LENGTH, cfg.maxHeaderSize, DEFAULT_MAX_CHUNK_SIZE, false),
     )
-    pipeline.addLast("encoder", new HttpResponseEncoder())
+    pipeline.addLast(Names.HttpResponseEncoder, new HttpResponseEncoder())
 
     // HttpContentDecompressor
     if (cfg.requestDecompression.enabled)

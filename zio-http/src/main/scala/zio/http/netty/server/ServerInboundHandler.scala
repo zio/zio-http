@@ -147,8 +147,12 @@ private[zio] final case class ServerInboundHandler(
               ctx.writeAndFlush(jResponse)
             }
             flushed   <-
-              if (!jResponse.isInstanceOf[FullHttpResponse]) NettyBodyWriter.write(response.body, ctx)
-              else ZIO.succeed(true)
+              if (!jResponse.isInstanceOf[FullHttpResponse])
+                ZIO.scoped {
+                  NettyBodyWriter.write(response.body, ctx)
+                }
+              else
+                ZIO.succeed(true)
             _         <- ZIO.attempt(ctx.flush()).when(!flushed)
           } yield ()
 

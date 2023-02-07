@@ -4,7 +4,7 @@ import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
 import zio.http.netty._
 import zio.http.{Request, Response}
-import zio.{Promise, Trace, Unsafe}
+import zio.{Promise, Trace, Unsafe, ZIO}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final class ClientInboundStreamingHandler(
@@ -76,8 +76,11 @@ final class ClientInboundStreamingHandler(
 
   private def writeRequest(msg: Request, ctx: ChannelHandlerContext): Unit = {
     ctx.write(encodeRequest(msg))
-    rtm.run(ctx, NettyRuntime.noopEnsuring)(NettyBodyWriter.write(msg.body, ctx).unit)(Unsafe.unsafe, trace)
+    rtm.run(ctx, NettyRuntime.noopEnsuring) {
+      ZIO.scoped {
+        NettyBodyWriter.write(msg.body, ctx).unit
+      }
+    }(Unsafe.unsafe, trace)
     ctx.flush(): Unit
   }
-
 }
