@@ -264,13 +264,18 @@ private[zio] final case class ServerInboundHandler(
     runtime.run(ctx, ensured) {
       val pgm = for {
         response <- exit.sandbox.catchAll { error =>
-          ZIO.succeedNow {
-            error.failureOrCause
-              .fold[Response](
-                identity,
-                cause => HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
-              )
-          }
+          error.failureOrCause
+            .fold[UIO[Response]](
+              response => ZIO.succeedNow(response),
+              cause =>
+                (cause.dieOption match {
+                  case Some(failure) =>
+                    if (errCallback ne null) errCallback(failure) else ZIO.unit
+                  case None          => ZIO.unit
+                }).as(
+                  HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
+                ),
+            )
         }
         _        <-
           if (response ne null) {
