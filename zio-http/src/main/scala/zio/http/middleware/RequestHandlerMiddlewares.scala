@@ -44,9 +44,10 @@ private[zio] trait RequestHandlerMiddlewares
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionZIO { request =>
           handler.runZIO(request).timed.flatMap { case (duration, response) =>
-            ZIO
-              .debug(s"${response.status.code} ${request.method} ${request.url.encode} ${duration.toMillis}ms")
+            Console
+              .printLine(s"${response.status.code} ${request.method} ${request.url.encode} ${duration.toMillis}ms")
               .as(response)
+              .orDie
           }
         }
     }
