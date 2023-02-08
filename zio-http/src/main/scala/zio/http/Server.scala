@@ -16,7 +16,7 @@ trait Server {
 
 object Server {
 
-  type ErrorCallback = Throwable => ZIO[Any, Nothing, Unit]
+  type ErrorCallback = Cause[Nothing] => ZIO[Any, Nothing, Unit]
   def serve[R](
     httpApp: App[R],
     errorCallback: Option[ErrorCallback] = None,

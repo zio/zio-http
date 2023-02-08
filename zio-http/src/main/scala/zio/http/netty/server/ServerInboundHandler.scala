@@ -83,7 +83,7 @@ private[zio] final case class ServerInboundHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     if (errCallback != null) {
-      runtime.run(ctx, NettyRuntime.noopEnsuring)(errCallback(cause))
+      runtime.run(ctx, NettyRuntime.noopEnsuring)(errCallback(Cause.die(cause)))
     } else {
       cause match {
         case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
@@ -268,11 +268,7 @@ private[zio] final case class ServerInboundHandler(
             .fold[UIO[Response]](
               response => ZIO.succeedNow(response),
               cause =>
-                (cause.dieOption match {
-                  case Some(failure) =>
-                    if (errCallback ne null) errCallback(failure) else ZIO.unit
-                  case None          => ZIO.unit
-                }).as(
+                (if (errCallback ne null) errCallback(cause) else ZIO.unit).as(
                   HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
                 ),
             )
