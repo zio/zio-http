@@ -122,11 +122,11 @@ final case class ServerConfig(
 }
 
 object ServerConfig {
-  val default: ServerConfig = ServerConfig()
+  def default: ServerConfig = ServerConfig()
 
-  val live: ZLayer[Any, Nothing, ServerConfig] = {
+  def live(port: Int = 8080): ZLayer[Any, Nothing, ServerConfig] = {
     implicit val trace = Trace.empty
-    ZLayer.succeed(ServerConfig.default)
+    ZLayer.succeed(ServerConfig.default.port(port))
   }
 
   def live(config: ServerConfig)(implicit trace: Trace): ZLayer[Any, Nothing, ServerConfig] =

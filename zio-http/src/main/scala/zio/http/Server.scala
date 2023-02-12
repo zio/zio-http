@@ -6,7 +6,7 @@ import zio.http.netty.server._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait Server {
-  def install[R](httpApp: App[R], errorCallback: Option[ErrorCallback] = None)(implicit
+  def   install[R](httpApp: App[R], errorCallback: Option[ErrorCallback] = None)(implicit
     trace: Trace,
   ): URIO[R, Unit]
 
@@ -32,7 +32,7 @@ object Server {
 
   val default: ZLayer[Any, Throwable, Server] = {
     implicit val trace = Trace.empty
-    ServerConfig.live >>> live
+    ServerConfig.live() >>> live
   }
 
   val live: ZLayer[ServerConfig, Throwable, Server] = {
