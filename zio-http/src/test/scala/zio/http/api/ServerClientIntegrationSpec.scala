@@ -58,7 +58,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       ServerConfig.live(),
       Client.live,
       executorLayer,
-      // TODO: [Ergonomics] Server.default is a value and ClientConfig.default is a Layer
+      // TODO: [Ergonomics] Server.default() is a value and ClientConfig.default is a Layer
       ClientConfig.default,
       NettyClientDriver.fromConfig,
     )

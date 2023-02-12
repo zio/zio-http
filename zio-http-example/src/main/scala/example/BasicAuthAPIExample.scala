@@ -39,6 +39,6 @@ object BasicAuthAPIExample extends ZIOAppDefault {
 
   val app = serviceSpec.toHttpApp(getUserImpl, middlewareImpl)
 
-  val run = Server.serve(app).provide(Server.default)
+  val run = Server.serve(app).provide(Server.default())
 
 }

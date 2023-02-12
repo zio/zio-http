@@ -45,6 +45,6 @@ object StaticServer extends ZIOAppDefault {
     }
     .withDefaultErrorResponse
 
-  val run = Server.serve(app).provide(Server.default)
+  val run = Server.serve(app).provide(Server.default())
 
 }
