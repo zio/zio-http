@@ -34,7 +34,7 @@ final case class MiddlewareSpec[MiddlewareIn, MiddlewareOut](
   def implementIncomingControl[R](
     incoming: MiddlewareIn => ZIO[R, Nothing, Middleware.Control[MiddlewareOut]],
   ): Middleware[R, MiddlewareIn, MiddlewareOut] =
-    implement[R, MiddlewareOut](in => incoming(in))((out, _) => ZIO.succeedNow(out))
+    implement[R, MiddlewareOut](in => incoming(in))((out, _) => ZIO.succeed(out))
 
   def mapIn[MiddlewareIn2](
     f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, MiddlewareIn] => HttpCodec[
