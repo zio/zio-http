@@ -13,11 +13,12 @@ import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
 import zio._
 import zio.http.ServerConfig
-import zio.http.logging.LogLevel
 import zio.http.netty.Names
 import zio.http.netty.server.ServerChannelInitializer.log
 import zio.http.service.Log
 import zio.http.service.logging.LogLevelTransform._
+import zio.http.logging.LogLevel
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Initializes the netty channel with default handlers
@@ -97,6 +98,8 @@ private[zio] final case class ServerChannelInitializer(
 }
 
 object ServerChannelInitializer {
+  implicit val trace: Trace = Trace.empty
+
   private val log = Log.withTags("Server", "Channel")
 
   val layer = ZLayer.fromZIO {

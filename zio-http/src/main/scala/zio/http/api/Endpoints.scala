@@ -3,6 +3,7 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.model.HttpError
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Represents a collection of API endpoints that all have handlers.
@@ -16,7 +17,7 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
   def ++[R1 <: R, E1 >: E, AllIds2](that: Endpoints[R1, E1, AllIds2]): Endpoints[R1, E1, AllIds with AllIds2] =
     Endpoints.Concat(self, that).withAllIds[AllIds with AllIds2]
 
-  def toHttpApp: App[R] =
+  def toHttpApp(implicit trace: Trace): App[R] =
     toHttpRoute.withDefaultErrorResponse
 
   /**
@@ -40,7 +41,7 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
           case None               =>
             ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
           case Some(handlerMatch) =>
-            requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)
+            requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)(Trace.empty)
         }
       }
   }

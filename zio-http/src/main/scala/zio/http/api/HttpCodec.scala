@@ -1,14 +1,17 @@
 package zio.http.api
 
-import zio._
+import scala.language.implicitConversions
+
 import zio.http._
-import zio.http.api.internal.TextCodec
 import zio.http.model._
-import zio.schema.Schema
-import zio.schema.codec.Codec
+import zio.http.api.internal.TextCodec
+
+import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import zio.stream.ZStream
 
-import scala.language.implicitConversions
+import zio.schema.Schema
+import zio.schema.codec.Codec
 
 /**
  * A [[zio.http.api.HttpCodec]] represents a codec for a part of an HTTP
@@ -93,16 +96,18 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Uses this codec to decode the Scala value from a request.
    */
-  final def decodeRequest(request: Request): Task[Value] =
+  final def decodeRequest(request: Request)(implicit trace: Trace): Task[Value] =
     decode(request.url, Status.Ok, request.method, request.headers, request.body)
 
   /**
    * Uses this codec to decode the Scala value from a response.
    */
-  final def decodeResponse(response: Response): Task[Value] =
+  final def decodeResponse(response: Response)(implicit trace: Trace): Task[Value] =
     decode(URL.empty, response.status, Method.GET, response.headers, response.body)
 
-  private final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body): Task[Value] =
+  private final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
+    trace: Trace,
+  ): Task[Value] =
     encoderDecoder.decode(url, status, method, headers, body)
 
   /**

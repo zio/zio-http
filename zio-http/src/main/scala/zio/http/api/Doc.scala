@@ -1,5 +1,7 @@
 package zio.http.api
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 /**
  * A `Doc` models documentation for an endpoint or input.
  */

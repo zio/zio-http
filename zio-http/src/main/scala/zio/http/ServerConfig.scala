@@ -1,12 +1,13 @@
 package zio.http
 
-import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
+import io.netty.handler.codec.compression.{StandardCompressionOptions, CompressionOptions => JCompressionOptions}
 import io.netty.util.ResourceLeakDetector
+import zio.{Trace, ZLayer}
 import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
 import zio.http.netty.{ChannelType, EventLoopGroups}
-import zio.{Trace, ZLayer}
 
 import java.net.{InetAddress, InetSocketAddress}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class ServerConfig(
   leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
@@ -128,10 +129,10 @@ object ServerConfig {
     ZLayer.succeed(ServerConfig.default)
   }
 
-  def live(config: ServerConfig): ZLayer[Any, Nothing, ServerConfig] =
+  def live(config: ServerConfig)(implicit trace: Trace): ZLayer[Any, Nothing, ServerConfig] =
     ZLayer.succeed(config)
 
-  private[http] def liveOnOpenPort: ZLayer[Any, Any, ServerConfig] =
+  private[http] def liveOnOpenPort(implicit trace: Trace): ZLayer[Any, Any, ServerConfig] =
     ZLayer.succeed(
       ServerConfig.default.port(0),
     )

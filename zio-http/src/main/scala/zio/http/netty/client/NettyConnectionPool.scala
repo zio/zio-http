@@ -17,6 +17,7 @@ import zio.http.logging.LogLevel
 import zio.http.netty.NettyFutureExecutor
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 import java.net.InetSocketAddress
 
@@ -34,7 +35,7 @@ object NettyConnectionPool {
     maxHeaderSize: Int,
     decompression: Decompression,
     localAddress: Option[InetSocketAddress],
-  ): ZIO[Any, Throwable, JChannel] = {
+  )(implicit trace: Trace): ZIO[Any, Throwable, JChannel] = {
     val initializer = new ChannelInitializer[JChannel] {
       override def initChannel(ch: JChannel): Unit = {
         val pipeline = ch.pipeline()
@@ -111,7 +112,7 @@ object NettyConnectionPool {
       maxHeaderSize: Int,
       decompression: Decompression,
       localAddress: Option[InetSocketAddress] = None,
-    ): ZIO[Scope, Throwable, JChannel] =
+    )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] =
       createChannel(
         channelFactory,
         eventLoopGroup,
@@ -123,7 +124,7 @@ object NettyConnectionPool {
         localAddress,
       )
 
-    override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
+    override def invalidate(channel: JChannel)(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
       ZIO.unit
 
     override def enableKeepAlive: Boolean =
@@ -148,11 +149,11 @@ object NettyConnectionPool {
       maxHeaderSize: Int,
       decompression: Decompression,
       localAddress: Option[InetSocketAddress] = None,
-    ): ZIO[Scope, Throwable, JChannel] =
+    )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] =
       pool
         .get(PoolKey(location, proxy, sslOptions, maxHeaderSize, decompression))
 
-    override def invalidate(channel: JChannel): ZIO[Any, Nothing, Unit] =
+    override def invalidate(channel: JChannel)(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
       pool.invalidate(channel)
 
     override def enableKeepAlive: Boolean = true
@@ -160,7 +161,7 @@ object NettyConnectionPool {
 
   def fromConfig(
     config: ConnectionPoolConfig,
-  ): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
     for {
       pool <- config match {
         case ConnectionPoolConfig.Disabled                         =>
@@ -180,17 +181,19 @@ object NettyConnectionPool {
       }
     } yield pool
 
-  private def createDisabled: ZIO[NettyClientDriver, Nothing, NettyConnectionPool] =
+  private def createDisabled(implicit trace: Trace): ZIO[NettyClientDriver, Nothing, NettyConnectionPool] =
     for {
       driver <- ZIO.service[NettyClientDriver]
     } yield new NoNettyConnectionPool(driver.channelFactory, driver.eventLoopGroup)
 
-  private def createFixed(size: Int): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
+  private def createFixed(size: Int)(implicit
+    trace: Trace,
+  ): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
     createFixedPerHost(_ => size)
 
   private def createFixedPerHost(
     size: URL.Location.Absolute => Int,
-  ): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
     for {
       driver      <- ZIO.service[NettyClientDriver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
@@ -224,14 +227,14 @@ object NettyConnectionPool {
     min: Int,
     max: Int,
     ttl: Duration,
-  ): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
     createDynamicPerHost(_ => min, _ => max, _ => ttl)
 
   private def createDynamicPerHost(
     min: URL.Location.Absolute => Int,
     max: URL.Location.Absolute => Int,
     ttl: URL.Location.Absolute => Duration,
-  ): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
     for {
       driver      <- ZIO.service[NettyClientDriver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]

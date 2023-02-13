@@ -1,5 +1,7 @@
 package zio
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
 package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
 
   type RequestHandler[-R, +Err]           = Handler[R, Err, Request, Response]

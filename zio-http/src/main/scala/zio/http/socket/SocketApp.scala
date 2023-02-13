@@ -3,6 +3,7 @@ package zio.http.socket
 import zio._
 import zio.http._
 import zio.http.model.Headers
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class SocketApp[-R](
   decoder: SocketDecoder = SocketDecoder.default,
@@ -17,26 +18,26 @@ final case class SocketApp[-R](
   def connect(
     url: String,
     headers: Headers = Headers.empty,
-  ): ZIO[R with Client with Scope, Throwable, Response] =
+  )(implicit trace: Trace): ZIO[R with Client with Scope, Throwable, Response] =
     Client.socket(url, self, headers)
 
   /**
    * Provides the socket app with its required environment, which eliminates its
    * dependency on `R`.
    */
-  def provideEnvironment(env: ZEnvironment[R]): SocketApp[Any] =
+  def provideEnvironment(env: ZEnvironment[R])(implicit trace: Trace): SocketApp[Any] =
     self.copy(message = self.message.map(cb => event => cb(event).provideEnvironment(env)))
 
   /**
    * Converts the socket app to a HTTP app.
    */
-  def toHandler: Handler[R, Nothing, Any, Response] = Handler.fromZIO(toResponse)
-  def toRoute: Http[R, Nothing, Any, Response]      = toHandler.toHttp
+  def toHandler(implicit trace: Trace): Handler[R, Nothing, Any, Response] = Handler.fromZIO(toResponse)
+  def toRoute(implicit trace: Trace): Http[R, Nothing, Any, Response]      = toHandler.toHttp
 
   /**
    * Creates a new response from the socket app.
    */
-  def toResponse: ZIO[R, Nothing, Response] =
+  def toResponse(implicit trace: Trace): ZIO[R, Nothing, Response] =
     ZIO.environment[R].flatMap { env =>
       Response.fromSocketApp(self.provideEnvironment(env))
     }
