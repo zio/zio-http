@@ -83,7 +83,7 @@ private[zio] final case class ServerInboundHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     if (errCallback != null) {
-      runtime.run(ctx, NettyRuntime.noopEnsuring)(errCallback(cause))
+      runtime.run(ctx, NettyRuntime.noopEnsuring)(errCallback(Cause.die(cause)))
     } else {
       cause match {
         case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
@@ -248,7 +248,7 @@ private[zio] final case class ServerInboundHandler(
     // TODO: this can be done without ZIO
     runtime.run(ctx, ensured) {
       for {
-        response <- ZIO.succeedNow(HttpError.NotFound(jReq.uri()).toResponse)
+        response <- ZIO.succeed(HttpError.NotFound(jReq.uri()).toResponse)
         done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
         _        <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
       } yield ()
@@ -264,13 +264,14 @@ private[zio] final case class ServerInboundHandler(
     runtime.run(ctx, ensured) {
       val pgm = for {
         response <- exit.sandbox.catchAll { error =>
-          ZIO.succeedNow {
-            error.failureOrCause
-              .fold[Response](
-                identity,
-                cause => HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
-              )
-          }
+          error.failureOrCause
+            .fold[UIO[Response]](
+              response => ZIO.succeed(response),
+              cause =>
+                (if (errCallback ne null) errCallback(cause) else ZIO.unit).as(
+                  HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
+                ),
+            )
         }
         _        <-
           if (response ne null) {

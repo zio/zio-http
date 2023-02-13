@@ -37,9 +37,9 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Add log status, method, url and time taken from req to res
    */
-  final def debug: RequestHandlerMiddleware[Any, IOException] =
-    new RequestHandlerMiddleware[Any, IOException] {
-      override def apply[R1 <: Any, Err1 >: IOException](
+  final def debug: RequestHandlerMiddleware[Any, Nothing] =
+    new RequestHandlerMiddleware[Any, Nothing] {
+      override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionZIO { request =>
@@ -47,6 +47,7 @@ private[zio] trait RequestHandlerMiddlewares
             Console
               .printLine(s"${response.status.code} ${request.method} ${request.url.encode} ${duration.toMillis}ms")
               .as(response)
+              .orDie
           }
         }
     }

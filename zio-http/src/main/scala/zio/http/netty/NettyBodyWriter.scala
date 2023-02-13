@@ -11,12 +11,12 @@ object NettyBodyWriter {
 
   def write(body: Body, ctx: ChannelHandlerContext): Task[Boolean] = body match {
     case body: ByteBufBody            =>
-      ZIO.succeedNow {
+      ZIO.succeed {
         ctx.write(body.byteBuf)
         false
       }
     case body: FileBody               =>
-      ZIO.succeedNow {
+      ZIO.succeed {
         val file = body.file
         // Write the content.
         ctx.write(new DefaultFileRegion(file, 0, file.length()))
@@ -41,18 +41,18 @@ object NettyBodyWriter {
         false
       }
     case StreamBody(stream)           =>
-      stream.runForeachChunk(c => ZIO.succeedNow(ctx.writeAndFlush(Unpooled.wrappedBuffer(c.toArray)))).flatMap { _ =>
-        ZIO.succeedNow {
+      stream.runForeachChunk(c => ZIO.succeed(ctx.writeAndFlush(Unpooled.wrappedBuffer(c.toArray)))).flatMap { _ =>
+        ZIO.succeed {
           ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
           true
         }
       }
     case ChunkBody(data)              =>
-      ZIO.succeedNow {
+      ZIO.succeed {
         ctx.write(Unpooled.wrappedBuffer(data.toArray))
         false
       }
-    case EmptyBody                    => ZIO.succeedNow(false)
+    case EmptyBody                    => ZIO.succeed(false)
   }
 
   def unsafeWrite(body: Body.UnsafeWriteable, ctx: ChannelHandlerContext): Boolean =
