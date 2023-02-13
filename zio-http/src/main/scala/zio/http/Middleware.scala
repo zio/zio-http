@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.http.middleware.{HttpRouteMiddlewares, RequestHandlerMiddlewares}
+import zio.http.middleware.{HttpRoutesMiddlewares, RequestHandlerMiddlewares}
 import zio.{Trace, ZIO}
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -40,7 +40,7 @@ trait Middleware[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
     }
 }
 
-object Middleware extends RequestHandlerMiddlewares with HttpRouteMiddlewares {
+object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
 
   /**
    * Creates a middleware which can allow or disallow access to an http based on

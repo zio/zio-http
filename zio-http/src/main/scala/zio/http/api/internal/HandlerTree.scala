@@ -27,7 +27,7 @@ final case class HandlerTree[-R, +E, M <: EndpointMiddleware](
 
   def lookup(request: Request): Option[HandlerMatch[R, E, _, _, M]] = {
     val segments = request.path.segments.collect { case Path.Segment.Text(text) => text }
-    HandlerTree.lookup(segments, 0, self, Chunk.empty)
+    HandlerTree.lookup(segments, 0, self)
   }
 
   private def mergeWith[K, V](left: Map[K, V], right: Map[K, V])(f: (V, V) => V): Map[K, V] =
@@ -74,13 +74,12 @@ object HandlerTree {
     segments: Vector[String],
     index: Int,
     current: HandlerTree[R, E, M],
-    results: Chunk[Any],
   ): Option[HandlerMatch[R, E, _, _, M]] =
     if (index == segments.length) {
       // If we've reached the end of the path, we should have a handler
       // otherwise we don't have a match
       current.leaf match {
-        case Some(handler) => Some(HandlerMatch(handler, results))
+        case Some(handler) => Some(HandlerMatch(handler))
         case None          => None
       }
     } else {
@@ -88,14 +87,14 @@ object HandlerTree {
       current.constants.get(segment) match {
         // We can quickly check if we have a constant match
         case Some(handler) =>
-          lookup(segments, index + 1, handler, results.:+(()))
+          lookup(segments, index + 1, handler)
         case None          =>
           // If we don't have a constant match, we need to check if we have a
           // parser that matches.
           firstSuccessfulCodec(segment, current.parsers) match {
-            case Some((result, handler)) =>
-              lookup(segments, index + 1, handler, results.:+(result))
-            case None                    =>
+            case Some(handler) =>
+              lookup(segments, index + 1, handler)
+            case None          =>
               None
           }
       }
@@ -104,14 +103,9 @@ object HandlerTree {
   private def firstSuccessfulCodec[R, E, M <: EndpointMiddleware](
     pathSegment: String,
     parsers: Map[TextCodec[_], HandlerTree[R, E, M]],
-  ): Option[(Any, HandlerTree[R, E, M])] =
+  ): Option[HandlerTree[R, E, M]] =
     parsers.collectFirst { case (codec, handler) =>
-      codec.decode(pathSegment) match {
-        case Some(value) =>
-          Some((value, handler))
-        case None        =>
-          None
-      }
+      if (codec.isDefinedAt(pathSegment)) Some(handler) else None
     }.flatten
 
 }

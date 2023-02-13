@@ -7,8 +7,8 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A [[zio.http.api.EndpointExecutor]] is responsible for taking an endpoint
- * invocation, and executing this invocation, returning the final result, or
- * failing with some kind of RPC error.
+ * invocation, and executing the invocation, returning the final result, or
+ * failing with a pre-defined RPC error.
  */
 final case class EndpointExecutor[MI](
   client: Client,

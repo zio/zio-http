@@ -3,7 +3,8 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.model.HttpError
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.http.api.RoutesMiddleware // scalafix:ok;
 
 /**
  * Represents a collection of API endpoints that all have handlers.
@@ -18,10 +19,18 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
     Routes.Concat(self, that)
 
   /**
+   * Converts the collection of routes into a [[zio.http.HttpApp]], which can be
+   * executed.
+   */
+  def toHttpApp[R1 <: R](implicit ev: EndpointMiddleware.None <:< M, trace: Trace): HttpApp[R1, E] = {
+    toHttpApp[R1, Unit](RoutesMiddleware.none.asInstanceOf[RoutesMiddleware[R1, Unit, M]])
+  }
+
+  /**
    * Converts this service into a [[zio.http.HttpApp]], which can then be served
    * via [[zio.http.Server.serve]].
    */
-  def toHttpApp: HttpApp[R, E] = {
+  def toHttpApp[R1 <: R, S](mh: RoutesMiddleware[R1, S, M])(implicit trace: Trace): HttpApp[R1, E] = {
     import zio.http.api.internal._
 
     val handlerTree     = HandlerTree.fromService(self)
@@ -38,24 +47,26 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
           case None               =>
             ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
           case Some(handlerMatch) =>
-            requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)(Trace.empty)
+            requestHandlers.get(handlerMatch.handledApi).handle(request)(Trace.empty)
         }
-      }
+      } @@ mh.toMiddleware
   }
 }
 
 object Routes {
-  final case class Single[-R, E, In0, Out0, M <: EndpointMiddleware](
+  private[zio] final case class Single[-R, E, In0, Out0, M <: EndpointMiddleware](
     endpoint: Endpoint[In0, E, Out0, M],
     handler: In0 => ZIO[R, E, Out0],
   ) extends Routes[R, E, M] { self =>
     def flatten: Iterable[Routes.Single[R, E, _, _, M]] = Chunk(self)
   }
 
-  final case class Concat[-R, +E, M <: EndpointMiddleware](left: Routes[R, E, M], right: Routes[R, E, M])
+  private[zio] final case class Concat[-R, +E, M <: EndpointMiddleware](left: Routes[R, E, M], right: Routes[R, E, M])
       extends Routes[R, E, M]
 
-  def flatten[R, E, M <: EndpointMiddleware](service: Routes[R, E, M]): Chunk[Routes.Single[R, E, _, _, M]] =
+  private[zio] def flatten[R, E, M <: EndpointMiddleware](
+    service: Routes[R, E, M],
+  ): Chunk[Routes.Single[R, E, _, _, M]] =
     service match {
       case api @ Single(_, _)  => Chunk(api.asInstanceOf[Single[R, E, _, _, M]])
       case Concat(left, right) => flatten(left) ++ flatten(right)

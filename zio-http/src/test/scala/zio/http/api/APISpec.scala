@@ -220,7 +220,7 @@ object APISpec extends ZIOSpecDefault {
     ),
   )
 
-  def testApi[R, E](service: Routes[R, E, _])(
+  def testApi[R, E](service: Routes[R, E, EndpointMiddleware.None])(
     url: String,
     expected: String,
   ): ZIO[R, E, TestResult] = {

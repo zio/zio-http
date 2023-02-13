@@ -1,6 +1,7 @@
 package zio.http.api
 
 import zio.ZIO
+import zio.http.api.RoutesMiddleware
 import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
@@ -36,6 +37,11 @@ sealed trait EndpointMiddleware { self =>
       self.error | that.error,
       self.doc + that.doc,
     )
+
+  def implement[R, S](incoming: In => ZIO[R, Err, S])(
+    outgoing: S => ZIO[R, Err, Out],
+  ): RoutesMiddleware[R, S, this.type] =
+    RoutesMiddleware.make[this.type](this)(incoming)(outgoing)
 
   def mapIn[MiddlewareIn2](
     f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In] => HttpCodec[

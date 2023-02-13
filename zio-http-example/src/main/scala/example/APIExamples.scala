@@ -33,7 +33,7 @@ object APIExamples extends ZIOAppDefault {
 
   val routes = getUserRoute ++ getUserPostsRoute
 
-  val app = routes.toHttpApp
+  val app = routes.toHttpApp(middleware.implement(_ => ZIO.unit)(_ => ZIO.unit))
 
   val request = Request.get(url = URL.fromString("/users/1").toOption.get)
 
