@@ -44,7 +44,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     aspect(self)
 
   final def contramap[In2](f: In2 => In): ZClient[Env, In2, Err, Out] =
-    contramapZIO(in => ZIO.succeedNow(f(in)))
+    contramapZIO(in => ZIO.succeed(f(in)))
 
   final def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): ZClient[Env1, In2, Err1, Out] =
     new ZClient[Env1, In2, Err1, Out] {
@@ -133,7 +133,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     copy(hostOption = Some(host))
 
   final def map[Out2](f: Out => Out2): ZClient[Env, In, Err, Out2] =
-    mapZIO(out => ZIO.succeedNow(f(out)))
+    mapZIO(out => ZIO.succeed(f(out)))
 
   final def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): ZClient[Env1, In, Err1, Out2] =
     new ZClient[Env1, In, Err1, Out2] {
@@ -521,12 +521,12 @@ object ZClient {
       this(settings, driver, connectionPool.asInstanceOf[ConnectionPool[Any]])
 
     val headers: Headers                   = Headers.empty
-    val hostOption: Option[String]         = None
+    val hostOption: Option[String]         = config.localAddress.map(_.getHostString)
     val pathPrefix: Path                   = Path.empty
-    val portOption: Option[Int]            = None
+    val portOption: Option[Int]            = config.localAddress.map(_.getPort)
     val queries: QueryParams               = QueryParams.empty
     val schemeOption: Option[Scheme]       = None
-    val sslConfig: Option[ClientSSLConfig] = None
+    val sslConfig: Option[ClientSSLConfig] = config.ssl
 
     def requestInternal(
       body: Body,
