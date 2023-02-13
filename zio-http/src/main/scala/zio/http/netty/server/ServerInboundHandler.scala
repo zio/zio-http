@@ -248,7 +248,7 @@ private[zio] final case class ServerInboundHandler(
     // TODO: this can be done without ZIO
     runtime.run(ctx, ensured) {
       for {
-        response <- ZIO.succeedNow(HttpError.NotFound(jReq.uri()).toResponse)
+        response <- ZIO.succeed(HttpError.NotFound(jReq.uri()).toResponse)
         done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
         _        <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
       } yield ()
@@ -266,7 +266,7 @@ private[zio] final case class ServerInboundHandler(
         response <- exit.sandbox.catchAll { error =>
           error.failureOrCause
             .fold[UIO[Response]](
-              response => ZIO.succeedNow(response),
+              response => ZIO.succeed(response),
               cause =>
                 (if (errCallback ne null) errCallback(cause) else ZIO.unit).as(
                   HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,

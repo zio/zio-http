@@ -44,7 +44,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     aspect(self)
 
   final def contramap[In2](f: In2 => In): ZClient[Env, In2, Err, Out] =
-    contramapZIO(in => ZIO.succeedNow(f(in)))
+    contramapZIO(in => ZIO.succeed(f(in)))
 
   final def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): ZClient[Env1, In2, Err1, Out] =
     new ZClient[Env1, In2, Err1, Out] {
@@ -133,7 +133,7 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
     copy(hostOption = Some(host))
 
   final def map[Out2](f: Out => Out2): ZClient[Env, In, Err, Out2] =
-    mapZIO(out => ZIO.succeedNow(f(out)))
+    mapZIO(out => ZIO.succeed(f(out)))
 
   final def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): ZClient[Env1, In, Err1, Out2] =
     new ZClient[Env1, In, Err1, Out2] {

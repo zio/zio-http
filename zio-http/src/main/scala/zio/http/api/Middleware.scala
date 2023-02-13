@@ -98,7 +98,7 @@ object Middleware {
   def intercept[S, R, I, O](spec: MiddlewareSpec[I, O])(incoming: I => Control[S])(
     outgoing: (S, Response) => O,
   ): Middleware[R, I, O] =
-    interceptZIO(spec)(i => ZIO.succeedNow(incoming(i)))((s, r) => ZIO.succeedNow(outgoing(s, r)))
+    interceptZIO(spec)(i => ZIO.succeed(incoming(i)))((s, r) => ZIO.succeed(outgoing(s, r)))
 
   def interceptZIO[S]: Interceptor1[S] = new Interceptor1[S]
 
@@ -643,10 +643,10 @@ object Middleware {
       .csrfValidate(tokenName)
       .implement {
         case state @ CsrfValidate(Some(cookieValue), Some(tokenValue)) if cookieValue.content == tokenValue =>
-          ZIO.succeedNow(Control.Continue(state))
+          ZIO.succeed(Control.Continue(state))
 
         case state =>
-          ZIO.succeedNow(Control.Abort(state, _ => Response.status(Status.Forbidden)))
+          ZIO.succeed(Control.Abort(state, _ => Response.status(Status.Forbidden)))
       }((_, _) => ZIO.unit)
 
   def fromFunction[A, B](spec: MiddlewareSpec[A, B])(
@@ -657,7 +657,7 @@ object Middleware {
   def fromFunctionZIO[R, A, B](spec: MiddlewareSpec[A, B])(
     f: A => ZIO[R, Nothing, B],
   ): Middleware[R, A, B] =
-    interceptZIO(spec)((a: A) => ZIO.succeedNow(Control.Continue(a)))((a, _) => f(a))
+    interceptZIO(spec)((a: A) => ZIO.succeed(Control.Continue(a)))((a, _) => f(a))
 
   def withAccessControlAllowOrigin(value: CharSequence): Middleware[Any, Unit, Unit] = {
     fromFunction(
