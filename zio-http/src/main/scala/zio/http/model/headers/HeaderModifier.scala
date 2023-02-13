@@ -1,9 +1,8 @@
 package zio.http.model.headers
 
-import zio.{Duration, Trace}
 import zio.http._
 import zio.http.model._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.{Duration, Trace}
 
 /**
  * Maintains a list of operators that modify the current Headers. Once modified,

@@ -3,7 +3,6 @@ package zio.http.model.headers
 import io.netty.handler.codec.http.HttpUtil
 import io.netty.util.AsciiString.contentEqualsIgnoreCase
 import zio.http.model._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Maintains a list of operators that checks if the Headers meet the give

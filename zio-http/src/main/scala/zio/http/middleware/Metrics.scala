@@ -5,8 +5,6 @@ import zio.http._
 import zio.metrics.Metric.{Counter, Gauge, Histogram}
 import zio.metrics.{Metric, MetricKeyType, MetricLabel}
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-
 private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
 
   /**
@@ -59,7 +57,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
         start: Long,
         requestLabels: Set[MetricLabel],
         labels: Set[MetricLabel],
-      )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+      ): ZIO[Any, Nothing, Unit] =
         for {
           _   <- requestsTotal.tagged(labels).increment
           _   <- concurrentRequests.tagged(requestLabels).decrement
@@ -70,7 +68,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
 
       override def apply[R1 <: Any, Err1 >: Nothing](
         http: HttpApp[R1, Err1],
-      )(implicit trace: Trace): HttpApp[R1, Err1] =
+      ): HttpApp[R1, Err1] =
         Http.fromOptionalHandlerZIO[Request] { req =>
           val requestLabels = labelsForRequest(req)
 

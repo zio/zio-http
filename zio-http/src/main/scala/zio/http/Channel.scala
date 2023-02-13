@@ -13,18 +13,18 @@ trait Channel[-A] {
    * channel. When set to false, the channel will not read messages until `read`
    * is called.
    */
-  def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit]
+  def autoRead(flag: Boolean): UIO[Unit]
 
   /**
    * Provides a way to wait for the channel to be closed.
    */
-  def awaitClose(implicit trace: Trace): UIO[Unit]
+  def awaitClose: UIO[Unit]
 
   /**
    * Closes the channel. Pass true to await to wait for the channel to be
    * closed.
    */
-  def close(await: Boolean = false)(implicit trace: Trace): Task[Unit]
+  def close(await: Boolean = false): Task[Unit]
 
   /**
    * Creates a new channel that can write a different type of message by using a
@@ -35,34 +35,34 @@ trait Channel[-A] {
   /**
    * Flushes the pending write operations on the channel.
    */
-  def flush(implicit trace: Trace): Task[Unit]
+  def flush: Task[Unit]
 
   /**
    * Returns the globally unique identifier of this channel.
    */
-  def id(implicit trace: Trace): String
+  def id: String
 
   /**
    * Returns `true` if auto-read is set to true.
    */
-  def isAutoRead(implicit trace: Trace): UIO[Boolean]
+  def isAutoRead: UIO[Boolean]
 
   /**
    * Schedules a read operation on the channel. This is not necessary if
    * auto-read is enabled.
    */
-  def read(implicit trace: Trace): UIO[Unit]
+  def read: UIO[Unit]
 
   /**
    * Schedules a write operation on the channel. The actual write only happens
    * after calling `flush`. Pass `true` to await the completion of the write
    * operation.
    */
-  def write(msg: A, await: Boolean = false)(implicit trace: Trace): Task[Unit]
+  def write(msg: A, await: Boolean = false): Task[Unit]
 
   /**
    * Writes and flushes the message on the channel. Pass `true` to await the
    * completion of the write operation.
    */
-  def writeAndFlush(msg: A, await: Boolean = false)(implicit trace: Trace): Task[Unit]
+  def writeAndFlush(msg: A, await: Boolean = false): Task[Unit]
 }

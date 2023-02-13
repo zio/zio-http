@@ -7,8 +7,6 @@ import zio.http.{Body, Request, Response, model}
 
 import java.io.{PrintWriter, StringWriter}
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-
 private[zio] trait HtmlErrorResponses {
 
   protected def replaceErrorResponse(request: Request, response: Response): Response = {

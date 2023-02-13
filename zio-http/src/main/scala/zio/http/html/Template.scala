@@ -1,7 +1,5 @@
 package zio.http.html
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-
 /**
  * A ZIO Http styled general purpose templates
  */

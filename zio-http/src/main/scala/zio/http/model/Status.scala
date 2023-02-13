@@ -3,7 +3,6 @@ package zio.http.model
 import io.netty.handler.codec.http.HttpResponseStatus
 import zio.Trace
 import zio.http._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Status extends Product with Serializable { self =>
 
@@ -87,7 +86,7 @@ sealed trait Status extends Product with Serializable { self =>
   /**
    * Returns an HttpApp[Any, Nothing] that responses with this http status code.
    */
-  def toApp(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.status(self)
+  def toApp: Handler[Any, Nothing, Any, Response] = Handler.status(self)
 
   /**
    * Returns a Response with empty data and no headers.

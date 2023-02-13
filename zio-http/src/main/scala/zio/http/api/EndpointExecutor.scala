@@ -3,7 +3,6 @@ package zio.http.api
 import zio._
 import zio.http._
 import zio.http.api.internal.EndpointClient
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A [[zio.http.api.EndpointExecutor]] is responsible for taking an endpoint
@@ -13,18 +12,18 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 trait EndpointExecutor[+MI, +MO, +Ids] { self =>
   def apply[Id, A, B](
     invocation: Invocation[Id, A, B],
-  )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B]
+  )(implicit ev: Ids <:< Id): ZIO[Any, Throwable, B]
 
-  def middlewareInput(implicit trace: Trace): Task[MI]
+  def middlewareInput: Task[MI]
 
   def mapMiddlewareInput[MI2](f: MI => MI2): EndpointExecutor[MI2, MO, Ids] =
     new EndpointExecutor[MI2, MO, Ids] {
       def apply[Id, A, B](
         invocation: Invocation[Id, A, B],
-      )(implicit ev: Ids <:< Id, trace: Trace): ZIO[Any, Throwable, B] =
+      )(implicit ev: Ids <:< Id): ZIO[Any, Throwable, B] =
         self.apply(invocation)
 
-      def middlewareInput(implicit trace: Trace): Task[MI2] = self.middlewareInput.map(f)
+      def middlewareInput: Task[MI2] = self.middlewareInput.map(f)
     }
 }
 
@@ -64,12 +63,12 @@ object EndpointExecutor {
 
     def apply[Id, A, B](
       invocation: Invocation[Id, A, B],
-    )(implicit ev: Nothing <:< Id, trace: Trace): ZIO[Any, Throwable, B] = {
+    )(implicit ev: Nothing <:< Id): ZIO[Any, Throwable, B] = {
       val executor = metadata.get(invocation.api).asInstanceOf[EndpointClient[A, B]]
 
       executor.execute(client, invocation.input).asInstanceOf[ZIO[Any, Throwable, B]]
     }
 
-    def middlewareInput(implicit trace: Trace): Task[MI] = middlewareInput0
+    def middlewareInput: Task[MI] = middlewareInput0
   }
 }

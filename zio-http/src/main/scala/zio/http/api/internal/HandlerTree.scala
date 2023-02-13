@@ -3,7 +3,7 @@ package zio.http.api.internal
 import zio._
 import zio.http._
 import zio.http.api._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
 import scala.annotation.tailrec
 
 case class HandlerTree[-R, +E](

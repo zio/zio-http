@@ -4,7 +4,6 @@ import zio.Chunk
 import zio.http.api.HttpCodec._
 import zio.http.api._
 import zio.http.model.Headers
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] object Mechanic {
   type Constructor[+A]   = InputsBuilder => A
