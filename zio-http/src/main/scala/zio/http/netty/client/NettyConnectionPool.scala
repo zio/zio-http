@@ -238,31 +238,29 @@ object NettyConnectionPool {
     for {
       driver      <- ZIO.service[NettyClientDriver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
-      keyedPool   <- ZKeyedPool
-        .make(
-          (key: PoolKey) =>
-            ZIO.uninterruptibleMask { restore =>
-              createChannel(
-                driver.channelFactory,
-                driver.eventLoopGroup,
-                key.location,
-                key.proxy,
-                key.sslOptions,
-                key.maxHeaderSize,
-                key.decompression,
-                None,
-              ).tap { channel =>
-                restore(
-                  NettyFutureExecutor.executed(channel.closeFuture()),
-                ).zipRight(
-                  poolPromise.await.flatMap(_.invalidate(channel)),
-                ).forkDaemon
-              }
-            },
-          (key: PoolKey) => min(key.location) to max(key.location),
-          (key: PoolKey) => ttl(key.location),
-        )
+      poolFn = (key: PoolKey) =>
+        createChannel(
+          driver.channelFactory,
+          driver.eventLoopGroup,
+          key.location,
+          key.proxy,
+          key.sslOptions,
+          key.maxHeaderSize,
+          key.decompression,
+          None,
+        ).tap { channel =>
+          NettyFutureExecutor
+            .executed(channel.closeFuture())
+            .interruptible
+            .zipRight(
+              poolPromise.await.flatMap(_.invalidate(channel)),
+            )
+            .forkDaemon
+        }.uninterruptible
+      keyedPool <- ZKeyedPool
+        .make(poolFn, (key: PoolKey) => min(key.location) to max(key.location), (key: PoolKey) => ttl(key.location))
         .tap(poolPromise.succeed)
-        .uninterruptible
+        .tapErrorCause(poolPromise.failCause)
+        .interruptible // TODO: Needs a fix in ZKeyedPool to be able to make this uninterruptible
     } yield new ZioNettyConnectionPool(keyedPool)
 }
