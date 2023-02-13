@@ -194,30 +194,29 @@ object NettyConnectionPool {
     for {
       driver      <- ZIO.service[NettyClientDriver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
-      keyedPool   <- ZKeyedPool
-        .make(
-          (key: PoolKey) =>
-            ZIO.uninterruptibleMask { restore =>
-              createChannel(
-                driver.channelFactory,
-                driver.eventLoopGroup,
-                key.location,
-                key.proxy,
-                key.sslOptions,
-                key.maxHeaderSize,
-                key.decompression,
-                None,
-              ).tap { channel =>
-                restore(
-                  NettyFutureExecutor.executed(channel.closeFuture()),
-                ).zipRight(
-                  poolPromise.await.flatMap(_.invalidate(channel)),
-                ).forkDaemon
-              }
-            },
-          (key: PoolKey) => size(key.location),
-        )
+      poolFn = (key: PoolKey) =>
+        ZIO.uninterruptibleMask { restore =>
+          createChannel(
+            driver.channelFactory,
+            driver.eventLoopGroup,
+            key.location,
+            key.proxy,
+            key.sslOptions,
+            key.maxHeaderSize,
+            key.decompression,
+            None,
+          ).tap { channel =>
+            restore(
+              NettyFutureExecutor.executed(channel.closeFuture()),
+            ).zipRight(
+              poolPromise.await.flatMap(_.invalidate(channel)),
+            ).forkDaemon
+          }
+        }
+      keyedPool <- ZKeyedPool
+        .make(poolFn, (key: PoolKey) => size(key.location))
         .tap(poolPromise.succeed)
+        .tapErrorCause(poolPromise.failCause)
         .uninterruptible
     } yield new ZioNettyConnectionPool(keyedPool)
 
