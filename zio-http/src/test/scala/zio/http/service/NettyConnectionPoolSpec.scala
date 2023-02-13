@@ -98,42 +98,42 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           } @@ nonFlaky(10),
           test("interrupting the parallel clients") {
             val res =
-              // ZIO.scoped {
-              ZIO.foreachPar(1 to 16) { idx =>
-                app.deploy.body
-                  .run(
-                    method = Method.GET,
-                    path = !! / "slow",
-                    body = Body.fromString(idx.toString),
-                    headers = extraHeaders,
-                  )
-                  .flatMap(_.asString)
-                  .fork
-                  .flatMap { fib =>
-                    fib.interrupt.unit.delay(500.millis)
-                  }
+              ZIO.scoped {
+                ZIO.foreachPar(1 to 16) { idx =>
+                  app.deploy.body
+                    .run(
+                      method = Method.GET,
+                      path = !! / "slow",
+                      body = Body.fromString(idx.toString),
+                      headers = extraHeaders,
+                    )
+                    .flatMap(_.asString)
+                    .fork
+                    .flatMap { fib =>
+                      fib.interrupt.unit.delay(500.millis)
+                    }
+                }
               }
-            // }
             assertZIO(res)(hasSize(equalTo(16)))
           },
           test("interrupting the sequential clients") {
             val res =
-              // ZIO.scoped {
-              ZIO.foreach(1 to 16) { idx =>
-                app.deploy.body
-                  .run(
-                    method = Method.GET,
-                    path = !! / "slow",
-                    body = Body.fromString(idx.toString),
-                    headers = extraHeaders,
-                  )
-                  .flatMap(_.asString)
-                  .fork
-                  .flatMap { fib =>
-                    fib.interrupt.unit.delay(100.millis)
-                  }
+              ZIO.scoped {
+                ZIO.foreach(1 to 16) { idx =>
+                  app.deploy.body
+                    .run(
+                      method = Method.GET,
+                      path = !! / "slow",
+                      body = Body.fromString(idx.toString),
+                      headers = extraHeaders,
+                    )
+                    .flatMap(_.asString)
+                    .fork
+                    .flatMap { fib =>
+                      fib.interrupt.unit.delay(100.millis)
+                    }
+                }
               }
-            // }
             assertZIO(res)(hasSize(equalTo(16)))
           },
         )
