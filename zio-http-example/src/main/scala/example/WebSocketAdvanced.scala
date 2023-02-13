@@ -63,5 +63,5 @@ object WebSocketAdvanced extends ZIOAppDefault {
       case Method.GET -> !! / "subscriptions" => socketApp.toResponse
     }
 
-  override val run = Server.serve(app).provide(Server.default())
+  override val run = Server.serve(app).provide(Server.default)
 }

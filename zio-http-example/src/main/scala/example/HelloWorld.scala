@@ -13,5 +13,5 @@ object HelloWorld extends ZIOAppDefault {
   }
 
   // Run it like any simple app
-  override val run = Server.serve(app).provide(Server.default())
+  override val run = Server.serve(app).provide(Server.default)
 }

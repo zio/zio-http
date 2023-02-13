@@ -25,5 +25,5 @@ object WebSocketEcho extends ZIOAppDefault {
       case Method.GET -> !! / "subscriptions" => socket.toSocketApp.toResponse
     }
 
-  override val run = Server.serve(app).provide(Server.default())
+  override val run = Server.serve(app).provide(Server.default)
 }
