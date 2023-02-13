@@ -16,13 +16,13 @@ class HttpCombineEval {
 
   @Benchmark
   def empty(): Unit = {
-    spec.runZIOOrNull(-1)(Unsafe.unsafe, Trace.empty)
+    spec.runZIOOrNull(-1)(Unsafe.unsafe)
     ()
   }
 
   @Benchmark
   def ok(): Unit = {
-    spec.runZIOOrNull(0)(Unsafe.unsafe, Trace.empty)
+    spec.runZIOOrNull(0)(Unsafe.unsafe)
     ()
   }
 }

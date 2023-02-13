@@ -8,7 +8,6 @@ import io.netty.incubator.channel.uring.IOUringEventLoopGroup
 import zio._
 
 import java.util.concurrent.Executor
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Simple wrapper over NioEventLoopGroup
@@ -18,35 +17,33 @@ object EventLoopGroups {
     def nThreads: Int
   }
 
-  def nio(nThreads: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+  def nio(nThreads: Int): ZIO[Scope, Nothing, EventLoopGroup] =
     make(ZIO.succeed(new NioEventLoopGroup(nThreads)))
 
-  def nio(nThreads: Int, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+  def nio(nThreads: Int, executor: Executor): ZIO[Scope, Nothing, EventLoopGroup] =
     make(ZIO.succeed(new NioEventLoopGroup(nThreads, executor)))
 
-  def make(eventLoopGroup: UIO[EventLoopGroup])(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+  def make(eventLoopGroup: UIO[EventLoopGroup]): ZIO[Scope, Nothing, EventLoopGroup] =
     ZIO.acquireRelease(eventLoopGroup)(ev => NettyFutureExecutor.executed(ev.shutdownGracefully).orDie)
 
-  def epoll(nThreads: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+  def epoll(nThreads: Int): ZIO[Scope, Nothing, EventLoopGroup] =
     make(ZIO.succeed(new EpollEventLoopGroup(nThreads)))
 
-  def kqueue(nThreads: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+  def kqueue(nThreads: Int): ZIO[Scope, Nothing, EventLoopGroup] =
     make(ZIO.succeed(new KQueueEventLoopGroup(nThreads)))
 
-  def epoll(nThreads: Int, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+  def epoll(nThreads: Int, executor: Executor): ZIO[Scope, Nothing, EventLoopGroup] =
     make(ZIO.succeed(new EpollEventLoopGroup(nThreads, executor)))
 
-  def uring(nThread: Int)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+  def uring(nThread: Int): ZIO[Scope, Nothing, EventLoopGroup] =
     make(ZIO.succeed(new IOUringEventLoopGroup(nThread)))
 
-  def uring(nThread: Int, executor: Executor)(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] =
+  def uring(nThread: Int, executor: Executor): ZIO[Scope, Nothing, EventLoopGroup] =
     make(ZIO.succeed(new IOUringEventLoopGroup(nThread, executor)))
 
-  def default(implicit trace: Trace): ZIO[Scope, Nothing, EventLoopGroup] = make(
+  def default: ZIO[Scope, Nothing, EventLoopGroup] = make(
     ZIO.succeed(new DefaultEventLoopGroup()),
   )
-
-  implicit val trace: Trace = Trace.empty
 
   val fromConfig: ZLayer[Config, Nothing, EventLoopGroup] =
     ZLayer.scoped {

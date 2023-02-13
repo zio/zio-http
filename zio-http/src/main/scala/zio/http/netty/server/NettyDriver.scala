@@ -11,7 +11,6 @@ import zio.http.{App, ClientConfig, ClientDriver, Driver, Http, Server, ServerCo
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] final case class NettyDriver(
   appRef: AppRef,
@@ -22,7 +21,7 @@ private[zio] final case class NettyDriver(
   serverConfig: ServerConfig,
 ) extends Driver { self =>
 
-  def start(implicit trace: Trace): RIO[Scope, Int] =
+  def start: RIO[Scope, Int] =
     for {
       serverBootstrap <- ZIO.attempt(new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup))
       chf             <- ZIO.attempt(serverBootstrap.childHandler(channelInitializer).bind(serverConfig.address))
@@ -31,7 +30,7 @@ private[zio] final case class NettyDriver(
       port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield port
 
-  def setErrorCallback(newCallback: Option[Server.ErrorCallback])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
+  def setErrorCallback(newCallback: Option[Server.ErrorCallback]): UIO[Unit] = ZIO.succeed {
     var loop = true
     while (loop) {
       val oldCallback = errorCallbackRef.get()
@@ -39,7 +38,7 @@ private[zio] final case class NettyDriver(
     }
   }
 
-  def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
+  def addApp[R](newApp: App[R], env: ZEnvironment[R]): UIO[Unit] = ZIO.succeed {
     var loop = true
     while (loop) {
       val oldAppAndEnv     = appRef.get()
@@ -52,7 +51,7 @@ private[zio] final case class NettyDriver(
     }
   }
 
-  override def createClientDriver(config: ClientConfig)(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
+  override def createClientDriver(config: ClientConfig): ZIO[Scope, Throwable, ClientDriver] =
     for {
       channelFactory <- ChannelFactories.Client.fromConfig.build
         .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](config))
@@ -61,8 +60,6 @@ private[zio] final case class NettyDriver(
 }
 
 object NettyDriver {
-
-  implicit val trace: Trace = Trace.empty
 
   private type Env = AppRef
     with ChannelFactory[ServerChannel]

@@ -3,8 +3,6 @@ package zio.http.middleware
 import zio.http.{Http, HttpAppMiddleware, Middleware, Request, Response}
 import zio.{Trace, ZIO}
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-
 private[zio] trait HttpRouteMiddlewares extends Cors {
 
   /**
@@ -28,7 +26,7 @@ private[zio] trait HttpRouteMiddlewares extends Cors {
     new HttpAppMiddleware[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         http: Http[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
+      ): Http[R1, Err1, Request, Response] =
         Http.fromHandlerZIO[Request] { request =>
           if (request.url.queryParams.isEmpty)
             http.runHandler(request.dropTrailingSlash)

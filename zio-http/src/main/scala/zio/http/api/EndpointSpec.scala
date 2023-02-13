@@ -5,7 +5,6 @@ import zio.http.api.CodecType.Route
 import zio.http.model.{Header, Headers, Method}
 import zio.schema._
 import zio.stream.ZStream
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * An [[zio.http.api.EndpointSpec]] represents an API endpoint for the HTTP

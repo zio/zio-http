@@ -1,7 +1,6 @@
 package zio.http.api.internal
 
 import java.util.UUID
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import scala.util.control.NonFatal
 
 /**

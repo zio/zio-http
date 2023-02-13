@@ -129,23 +129,21 @@ object Middleware {
   /**
    * Creates a middleware for basic authentication
    */
-  final def basicAuth(f: Auth.Credentials => Boolean)(implicit trace: Trace): Middleware[Any, Authorization, Unit] =
+  final def basicAuth(f: Auth.Credentials => Boolean): Middleware[Any, Authorization, Unit] =
     basicAuthZIO(credentials => ZIO.succeed(f(credentials)))
 
   /**
    * Creates a middleware for basic authentication that checks if the
    * credentials are same as the ones given
    */
-  final def basicAuth(u: String, p: String)(implicit trace: Trace): Middleware[Any, Authorization, Unit] =
+  final def basicAuth(u: String, p: String): Middleware[Any, Authorization, Unit] =
     basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
 
   /**
    * Creates a middleware for basic authentication using an effectful
    * verification function
    */
-  def basicAuthZIO[R](f: Auth.Credentials => ZIO[R, Nothing, Boolean])(implicit
-    trace: Trace,
-  ): Middleware[R, Authorization, Unit] =
+  def basicAuthZIO[R](f: Auth.Credentials => ZIO[R, Nothing, Boolean]): Middleware[R, Authorization, Unit] =
     customAuthZIO(HeaderCodec.authorization, Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName)) {
       case Authorization.AuthorizationValue(Basic(username, password)) => f(Credentials(username, password))
       case _                                                           => ZIO.succeed(false)
@@ -158,7 +156,7 @@ object Middleware {
    * @param f
    *   : function that validates the token string inside the Bearer Header
    */
-  final def bearerAuth(f: String => Boolean)(implicit trace: Trace): Middleware[Any, Authorization, Unit] =
+  final def bearerAuth(f: String => Boolean): Middleware[Any, Authorization, Unit] =
     bearerAuthZIO(token => ZIO.succeed(f(token)))
 
   /**
@@ -171,7 +169,7 @@ object Middleware {
    */
   final def bearerAuthZIO[R](
     f: String => ZIO[R, Nothing, Boolean],
-  )(implicit trace: Trace): Middleware[R, Authorization, Unit] =
+  ): Middleware[R, Authorization, Unit] =
     customAuthZIO(
       HeaderCodec.authorization,
       responseHeaders = Headers(HttpHeaderNames.WWW_AUTHENTICATE, BearerSchemeName),
@@ -198,7 +196,7 @@ object Middleware {
     headerCodec: HeaderCodec[I],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  )(verify: I => ZIO[R, Nothing, Boolean])(implicit trace: Trace): Middleware[R, I, Unit] =
+  )(verify: I => ZIO[R, Nothing, Boolean]): Middleware[R, I, Unit] =
     MiddlewareSpec.customAuth(headerCodec).implementIncomingControl { in =>
       verify(in).map {
         case true  => Middleware.Control.Continue(())
@@ -624,7 +622,7 @@ object Middleware {
   final def csrfGenerate[R, E](
     tokenName: String = "x-csrf-token",
     tokenGen: ZIO[R, Nothing, String] = ZIO.succeed(UUID.randomUUID.toString)(Trace.empty),
-  )(implicit trace: Trace): api.Middleware[R, Unit, Cookie[Response]] = {
+  ): api.Middleware[R, Unit, Cookie[Response]] = {
     api.Middleware.addCookieZIO(tokenGen.map(Cookie(tokenName, _)))
   }
 

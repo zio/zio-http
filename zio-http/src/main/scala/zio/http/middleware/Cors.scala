@@ -1,11 +1,10 @@
 package zio.http.middleware
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zio.{Trace, Unsafe}
 import zio.http._
 import zio.http.middleware.Cors.{CorsConfig, buildHeaders}
 import zio.http.model._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.{Trace, Unsafe}
 
 private[zio] trait Cors {
 
@@ -43,7 +42,7 @@ private[zio] trait Cors {
     new HttpAppMiddleware[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         http: Http[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
+      ): Http[R1, Err1, Request, Response] =
         Http.fromHttp[Request] { request =>
           (
             request.method,

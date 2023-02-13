@@ -6,12 +6,8 @@ import zio.http.api._
 import zio.http.model._
 import zio.schema.codec._
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-
 private[api] trait EncoderDecoder[-AtomTypes, Value] {
-  def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
-    trace: Trace,
-  ): Task[Value]
+  def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body): Task[Value]
 
   def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z
 }
@@ -29,9 +25,7 @@ private[api] object EncoderDecoder                   {
     val head    = singles.head
     val tail    = singles.tail
 
-    def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
-      trace: Trace,
-    ): Task[Value] = {
+    def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body): Task[Value] = {
       def tryDecode(i: Int, lastError: Cause[Throwable]): Task[Value] = {
         if (i >= singles.length) ZIO.refailCause(lastError)
         else {
@@ -92,9 +86,7 @@ private[api] object EncoderDecoder                   {
       bodyCodec.decodeFromBody(_, jsonCodec)
     }
 
-    def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
-      trace: Trace,
-    ): Task[Value] = ZIO.suspend {
+    def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body): Task[Value] = ZIO.suspend {
       val inputsBuilder = flattened.makeInputsBuilder()
 
       decodeRoutes(url.path, inputsBuilder.routes)
@@ -208,7 +200,7 @@ private[api] object EncoderDecoder                   {
       }
     }
 
-    private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] =
+    private def decodeBody(body: Body, inputs: Array[Any]): Task[Unit] =
       if (jsonDecoders.length == 0) ZIO.unit
       else if (jsonDecoders.length == 1) {
         jsonDecoders(0)(body).map { result => inputs(0) = result }

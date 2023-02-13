@@ -2,7 +2,6 @@ package zio.http.model.headers
 
 import io.netty.handler.codec.http.HttpHeaderValues
 import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * List of commonly use HeaderValues. They are provided to reduce bugs caused by

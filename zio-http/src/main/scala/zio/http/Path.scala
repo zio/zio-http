@@ -4,7 +4,6 @@ import zio.http.Path.Segment
 import zio.http.Path.Segment.Text
 
 import scala.collection.mutable
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Path is an immutable representation of a urls path. Internally it stores each

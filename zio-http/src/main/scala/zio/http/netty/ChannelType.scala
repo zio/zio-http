@@ -1,7 +1,5 @@
 package zio.http.netty
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-
 sealed trait ChannelType
 
 object ChannelType {
