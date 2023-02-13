@@ -111,14 +111,14 @@ object ZKeyedPoolTest {
           var value = map.get(key)
           if (value eq null) {
             ZIO.uninterruptibleMask { restore =>
-              val promise  = Promise.unsafe.make[Nothing, ZPool[Err, Item]](fiberId)(Unsafe.unsafe)
+              val promise  = Promise.unsafe.make[Nothing, ZPoolTest[Err, Item]](fiberId)(Unsafe.unsafe)
               value = MapValue.Pending(promise)
               val previous = map.putIfAbsent(key, value)
               if (previous eq null) {
                 restore(
                   scope
                     .extend(
-                      ZPool
+                      ZPoolTest
                         .make(
                           get(key).provideEnvironment(environment),
                           range(key),
@@ -158,8 +158,8 @@ object ZKeyedPoolTest {
     } yield DefaultKeyedPool(getOrCreatePool, activePools)
 
   private final case class DefaultKeyedPool[Err, Key, Item](
-    getOrCreatePool: Key => ZIO[Any, Nothing, ZPool[Err, Item]],
-    activePools: ZIO[Any, Nothing, Chunk[ZPool[Err, Item]]],
+    getOrCreatePool: Key => ZIO[Any, Nothing, ZPoolTest[Err, Item]],
+    activePools: ZIO[Any, Nothing, Chunk[ZPoolTest[Err, Item]]],
   ) extends ZKeyedPoolTest[Err, Key, Item] {
 
     override def get(key: Key): ZIO[Scope, Err, Item] =
@@ -172,7 +172,7 @@ object ZKeyedPoolTest {
   private sealed trait MapValue[Err, Item]
 
   private object MapValue {
-    final case class Complete[Err, Item](pool: ZPool[Err, Item])                     extends MapValue[Err, Item]
-    final case class Pending[Err, Item](promise: Promise[Nothing, ZPool[Err, Item]]) extends MapValue[Err, Item]
+    final case class Complete[Err, Item](pool: ZPoolTest[Err, Item])                     extends MapValue[Err, Item]
+    final case class Pending[Err, Item](promise: Promise[Nothing, ZPoolTest[Err, Item]]) extends MapValue[Err, Item]
   }
 }
