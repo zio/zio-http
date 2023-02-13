@@ -6,6 +6,7 @@ import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http.model.{Headers, Status}
 import zio.{Trace, ZIO}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait Auth {
 
@@ -32,7 +33,9 @@ private[zio] trait Auth {
    * Creates a middleware for basic authentication using an effectful
    * verification function
    */
-  final def basicAuthZIO[R, E](f: Credentials => ZIO[R, E, Boolean]): RequestHandlerMiddleware[R, E] =
+  final def basicAuthZIO[R, E](f: Credentials => ZIO[R, E, Boolean])(implicit
+    trace: Trace,
+  ): RequestHandlerMiddleware[R, E] =
     customAuthZIO(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -65,7 +68,7 @@ private[zio] trait Auth {
    */
   final def bearerAuthZIO[R, E](
     f: String => ZIO[R, E, Boolean],
-  ): RequestHandlerMiddleware[R, E] =
+  )(implicit trace: Trace): RequestHandlerMiddleware[R, E] =
     customAuthZIO(
       _.bearerToken match {
         case Some(token) => f(token)
@@ -86,7 +89,7 @@ private[zio] trait Auth {
     new RequestHandlerMiddleware[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
-      ): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
           if (verify(request.headers)) handler
           else Handler.status(responseStatus).addHeaders(responseHeaders)
@@ -106,7 +109,7 @@ private[zio] trait Auth {
     new RequestHandlerMiddleware[R, E] {
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
-      ): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler
           .fromFunctionZIO[Request] { request =>
             verify(request.headers).map {

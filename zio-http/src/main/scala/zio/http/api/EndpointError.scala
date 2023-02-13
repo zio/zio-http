@@ -1,7 +1,8 @@
 package zio.http.api
 
-import zio.http.Path
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import zio.http.api.internal.TextCodec
+import zio.http.Path
 sealed trait EndpointError extends Exception {
   def message: String
 

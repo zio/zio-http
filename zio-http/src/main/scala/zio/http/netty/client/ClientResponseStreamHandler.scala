@@ -6,13 +6,15 @@ import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 import zio.http.Body.UnsafeAsync
 import zio.http.netty.{NettyFutureExecutor, NettyRuntime}
 import zio.{Chunk, Promise, Trace, Unsafe}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final class ClientResponseStreamHandler(
   val callback: UnsafeAsync,
   zExec: NettyRuntime,
   onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,
-) extends SimpleChannelInboundHandler[HttpContent](false) { self =>
+)(implicit trace: Trace)
+    extends SimpleChannelInboundHandler[HttpContent](false) { self =>
 
   private val unsafeClass: Unsafe = Unsafe.unsafe
 
@@ -29,6 +31,7 @@ final class ClientResponseStreamHandler(
       if (keepAlive)
         zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.Reusable))(
           unsafeClass,
+          trace,
         )
       else {
         zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
@@ -37,7 +40,7 @@ final class ClientResponseStreamHandler(
             .as(ChannelState.Invalid)
             .exit
             .flatMap(onComplete.done(_)),
-        )(unsafeClass)
+        )(unsafeClass, trace)
       }
     }: Unit
   }
@@ -47,6 +50,6 @@ final class ClientResponseStreamHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.fail(cause))(unsafeClass)
+    zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.fail(cause))(unsafeClass, trace)
   }
 }

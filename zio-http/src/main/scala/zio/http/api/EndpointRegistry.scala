@@ -1,6 +1,7 @@
 package zio.http.api
 
 import zio.http.URL
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class EndpointRegistry[-MI, +MO, +Ids] private (private val map: Map[EndpointSpec[_, _], URL])
     extends EndpointLocator { self =>
