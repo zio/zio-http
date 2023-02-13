@@ -1,7 +1,6 @@
 package zio.http.api
 
 import zio.ZIO
-import zio.http.api.RoutesMiddleware
 import zio.http.api.internal.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
