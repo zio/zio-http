@@ -98,7 +98,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           } @@ nonFlaky(10),
           test("interrupting the parallel clients") {
             val res =
-              ZIO.scoped {
+              //ZIO.scoped {
                 ZIO.foreachPar(1 to 16) { idx =>
                   app.deploy.body
                     .run(
@@ -113,12 +113,12 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                       fib.interrupt.unit.delay(500.millis)
                     }
                 }
-              }
+              //}
             assertZIO(res)(hasSize(equalTo(16)))
           },
           test("interrupting the sequential clients") {
             val res =
-              ZIO.scoped {
+              //ZIO.scoped {
                 ZIO.foreach(1 to 16) { idx =>
                   app.deploy.body
                     .run(
@@ -133,7 +133,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                       fib.interrupt.unit.delay(100.millis)
                     }
                 }
-              }
+              //}
             assertZIO(res)(hasSize(equalTo(16)))
           },
         )
