@@ -217,7 +217,7 @@ object NettyConnectionPool {
         .make(poolFn, (key: PoolKey) => size(key.location))
         .tap(poolPromise.succeed)
         .tapErrorCause(poolPromise.failCause)
-        .uninterruptible
+        //.uninterruptible
     } yield new ZioNettyConnectionPool(keyedPool)
 
   private def createDynamic(
