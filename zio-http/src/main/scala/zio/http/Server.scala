@@ -30,6 +30,9 @@ object Server {
     ZIO.serviceWithZIO[Server](_.install(httpApp, errorCallback)) *> ZIO.service[Server].map(_.port)
   }
 
+  def defaultWithPort(port: Int): ZLayer[Any, Throwable, Server] =
+    defaultWith(_.port(port))
+
   def defaultWith(f: ServerConfig => ServerConfig): ZLayer[Any, Throwable, Server] =
     live(f(ServerConfig.default))
 
