@@ -45,7 +45,7 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
 
         handler match {
           case None               =>
-            ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
+            ZIO.succeed(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
           case Some(handlerMatch) =>
             requestHandlers.get(handlerMatch.handledApi).handle(request)(Trace.empty)
         }

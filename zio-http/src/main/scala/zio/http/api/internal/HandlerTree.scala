@@ -8,7 +8,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import scala.annotation.tailrec
 
-case class HandlerTree[-R, +E, M <: EndpointMiddleware](
+private[zio] case class HandlerTree[-R, E, M <: EndpointMiddleware](
   constants: Map[String, HandlerTree[R, E, M]],
   parsers: Map[TextCodec[_], HandlerTree[R, E, M]],
   methodConstants: Map[Method, HandlerTree[R, E, M]],
@@ -16,18 +16,18 @@ case class HandlerTree[-R, +E, M <: EndpointMiddleware](
   leaf: Option[Routes.Single[R, E, _, _, M]],
 ) { self =>
 
-  def add[R1 <: R, E1 >: E](handledAPI: Routes.Single[R1, E1, _, _, M]): HandlerTree[R1, E1, M] =
+  private[zio] def add[R1 <: R](handledAPI: Routes.Single[R1, E, _, _, M]): HandlerTree[R1, E, M] =
     merge(HandlerTree.single(handledAPI))
 
-  def generateError(request: Request): String = s"The path ${request.path} does not match any route"
+  private[zio] def generateError(request: Request): String = s"The path ${request.path} does not match any route"
 
-  def merge[R1 <: R, E1 >: E](that: HandlerTree[R1, E1, M]): HandlerTree[R1, E1, M] =
+  private[zio] def merge[R1 <: R](that: HandlerTree[R1, E, M]): HandlerTree[R1, E, M] =
     (self, that) match {
       case (
             HandlerTree(constants1, parsers1, methodConstants1, methodParsers1, leaf),
             HandlerTree(constants2, parsers2, methodConstants2, methodParsers2, leaf2),
           ) =>
-        HandlerTree[R1, E1, M](
+        HandlerTree[R1, E, M](
           mergeWith(constants1, constants2)(_ merge _),
           mergeWith(parsers1, parsers2)(_ merge _),
           mergeWith(methodConstants1, methodConstants2)(_ merge _),
@@ -36,7 +36,7 @@ case class HandlerTree[-R, +E, M <: EndpointMiddleware](
         )
     }
 
-  def lookup(request: Request): Option[HandlerMatch[R, E, _, _, M]] = {
+  private[zio] def lookup(request: Request): Option[HandlerMatch[R, E, _, _, M]] = {
     val segments = request.path.segments.collect { case Path.Segment.Text(text) => text }
     HandlerTree.lookup(segments, request.method, 0, self)
   }
@@ -52,7 +52,7 @@ case class HandlerTree[-R, +E, M <: EndpointMiddleware](
 
 object HandlerTree {
 
-  def empty[M <: EndpointMiddleware]: HandlerTree[Any, Nothing, M] =
+  def empty[E, M <: EndpointMiddleware]: HandlerTree[Any, E, M] =
     HandlerTree(
       constants = Map.empty,
       parsers = Map.empty,
@@ -64,7 +64,7 @@ object HandlerTree {
   def single[R, E, M <: EndpointMiddleware](handledAPI: Routes.Single[R, E, _, _, M]): HandlerTree[R, E, M] = {
     val inputs = handledAPI.endpoint.input.alternatives
 
-    inputs.foldLeft[HandlerTree[R, E, M]](HandlerTree.empty[M]) { case (acc, input) =>
+    inputs.foldLeft[HandlerTree[R, E, M]](HandlerTree.empty[E, M]) { case (acc, input) =>
       val routeCodecs  = Mechanic.flatten(input).routes
       val methodCodecs = Mechanic.flatten(input).methods
 
@@ -126,8 +126,10 @@ object HandlerTree {
   def fromService[R, E, M <: EndpointMiddleware](service: Routes[R, E, M]): HandlerTree[R, E, M] =
     fromIterable(Routes.flatten(service))
 
-  def fromIterable[R, E, M <: EndpointMiddleware](handledAPIs: Iterable[Routes.Single[R, E, _, _, M]]): HandlerTree[R, E, M] =
-    handledAPIs.foldLeft[HandlerTree[R, E, M]](empty[M])(_ add _)
+  def fromIterable[R, E, M <: EndpointMiddleware](
+    handledAPIs: Iterable[Routes.Single[R, E, _, _, M]],
+  ): HandlerTree[R, E, M] =
+    handledAPIs.foldLeft[HandlerTree[R, E, M]](HandlerTree.empty[E, M])(_ add _)
 
   @tailrec
   private def lookup[R, E, M <: EndpointMiddleware](
@@ -152,7 +154,7 @@ object HandlerTree {
           firstSuccessfulCodec(segment, current.parsers) match {
             case Some(handler) =>
               lookup(segments, method, index + 1, handler)
-            case None                    =>
+            case None          =>
               None
           }
       }
@@ -161,7 +163,7 @@ object HandlerTree {
   @tailrec
   private def lookupByMethod[R, E, M <: EndpointMiddleware](
     method: Method,
-    current: HandlerTree[R, E, M]
+    current: HandlerTree[R, E, M],
   ): Option[HandlerMatch[R, E, _, _, M]] =
     current.leaf match {
       case Some(handler) =>
@@ -174,7 +176,7 @@ object HandlerTree {
             firstSuccessfulCodec(method.text, current.methodParsers) match {
               case Some(handler) =>
                 lookupByMethod(method, handler)
-              case None                    =>
+              case None          =>
                 None
             }
         }
@@ -185,7 +187,7 @@ object HandlerTree {
     parsers: Map[TextCodec[_], HandlerTree[R, E, M]],
   ): Option[HandlerTree[R, E, M]] =
     parsers.collectFirst { case (codec, handler) =>
-      if (codec.isDefinedAt(pathSegment)) Some(handler) else None 
+      if (codec.isDefinedAt(pathSegment)) Some(handler) else None
     }.flatten
 
 }

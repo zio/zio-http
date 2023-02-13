@@ -221,13 +221,13 @@ object APISpec extends ZIOSpecDefault {
       suite("404")(
         test("on wrong path") {
           val testRoutes = testApiError(
-            EndpointSpec
+            Endpoint
               .get(literal("users") / int("userId"))
               .out[String]
               .implement { userId =>
                 ZIO.succeed(s"route(users, $userId)")
               } ++
-              EndpointSpec
+              Endpoint
                 .get(literal("users") / int("userId") / literal("posts") / int("postId"))
                 .in(query("name"))
                 .out[String]
@@ -240,13 +240,13 @@ object APISpec extends ZIOSpecDefault {
         },
         test("on wrong method") {
           val testRoutes = testApiError(
-            EndpointSpec
+            Endpoint
               .get(literal("users") / int("userId"))
               .out[String]
               .implement { userId =>
                 ZIO.succeed(s"route(users, $userId)")
               } ++
-              EndpointSpec
+              Endpoint
                 .get(literal("users") / int("userId") / literal("posts") / int("postId"))
                 .in(query("name"))
                 .out[String]
@@ -272,14 +272,14 @@ object APISpec extends ZIOSpecDefault {
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }
 
-  def testApiError[R, E](service: Endpoints[R, E, _])(
+  def testApiError[R, E](service: Routes[R, E, EndpointMiddleware.None])(
     url: String,
     method: Method,
     expected: Status,
   ): ZIO[R, E, TestResult] = {
     val request = Request.default(method = method, url = URL.fromString(url).toOption.get)
     for {
-      response <- service.toHttpRoute.runZIO(request).mapError(_.get)
+      response <- service.toHttpApp.runZIO(request).mapError(_.get)
       status = response.status
     } yield assertTrue(status == expected)
   }
