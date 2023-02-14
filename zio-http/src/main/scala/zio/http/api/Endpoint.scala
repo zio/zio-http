@@ -2,7 +2,7 @@ package zio.http.api
 
 import zio._
 import zio.http.api.CodecType.Path
-import zio.http.model.{Header, Headers, Method}
+import zio.http.model.{Header, Headers, Method, Status}
 import zio.schema._
 import zio.stream.ZStream
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
@@ -114,14 +114,15 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     Routes.Single[Env, Err, Input, Output, Middleware](self, f)
 
   /**
-   * Returns a new endpoint based on this one, whose request content must
+   * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema.
    */
   def in[Input2: Schema]: Endpoint[Input2, Err, Output, Middleware] =
     copy(input = HttpCodec.Body(implicitly[Schema[Input2]]))
 
   /**
-   * Returns a new endpoint that is augmented with the specified endpoint
+   * Returns a new endpoint derived from this one whose middleware is composed
+   * from the existing middleware of this endpoint, and the specified
    * middleware.
    */
   def @@[M2 <: EndpointMiddleware](that: M2)(implicit
@@ -132,13 +133,18 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     Endpoint(input, output, error, doc, mw ++ that)
 
   /**
-   * Changes the output type of the endpoint to the specified output type.
+   * Returns a new endpoint derived from this one, whose output type is the
+   * specified type for the ok status code.
    */
   def out[Output2: Schema](implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
-    out[Output2](zio.http.model.Status.Ok)
+    out[Output2](Status.Ok)
 
+  /**
+   * Returns a new endpoint derived from this one, whose output type is the
+   * specified type for the specified status code.
+   */
   def out[Output2: Schema](
-    status: zio.http.model.Status,
+    status: Status,
   )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
@@ -149,11 +155,28 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     )
 
   /**
-   * Changes the output type of the endpoint to be a stream of the specified
-   * output type.
+   * Returns a new endpoint derived from this one, whose output type is a stream
+   * of the specified type for the ok status code.
    */
-  def outStream[Output2: Schema]: Endpoint[Input, Err, ZStream[Any, Throwable, Output2], Middleware] =
-    copy(output = HttpCodec.BodyStream(implicitly[Schema[Output2]]))
+  def outStream[Output2: Schema](implicit
+    alt: Alternator[Output, ZStream[Any, Throwable, Output2]],
+  ): Endpoint[Input, Err, alt.Out, Middleware] =
+    outStream[Output2](Status.Ok)
+
+  /**
+   * Returns a new endpoint derived from this one, whose output type is a stream
+   * of the specified type for the specified status code.
+   */
+  def outStream[Output2: Schema](
+    status: Status,
+  )(implicit alt: Alternator[Output, ZStream[Any, Throwable, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
+    Endpoint(
+      input,
+      output = (self.output | HttpCodec.BodyStream(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),
+      error,
+      doc,
+      mw,
+    )
 
   /**
    * Returns a new endpoint with the specified path appended.
@@ -175,10 +198,8 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
 object Endpoint {
 
   /**
-   * Constructs an API for a DELETE endpoint, given the specified input. It is
-   * not necessary to specify the full input to the endpoint upfront, as the
-   * `API#in` method can be used to incrementally append additional input to the
-   * definition of the API.
+   * Constructs an endpoint for an HTTP DELETE endpoint, whose path is described
+   * by the specified path codec.
    */
   def delete[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
     Endpoint(
@@ -191,10 +212,8 @@ object Endpoint {
   }
 
   /**
-   * Constructs an API for a GET endpoint, given the specified input. It is not
-   * necessary to specify the full input to the endpoint upfront, as the
-   * `API#in` method can be used to incrementally append additional input to the
-   * definition of the API.
+   * Constructs an endpoint for an HTTP GET endpoint, whose path is described by
+   * the specified path codec.
    */
   def get[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
@@ -206,10 +225,8 @@ object Endpoint {
     )
 
   /**
-   * Constructs an API for a POST endpoint, given the specified input. It is not
-   * necessary to specify the full input to the endpoint upfront, as the
-   * `API#in` method can be used to incrementally append additional input to the
-   * definition of the API.
+   * Constructs an endpoint for an HTTP POST endpoint, whose path is described
+   * by the specified path codec.
    */
   def post[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
@@ -221,10 +238,8 @@ object Endpoint {
     )
 
   /**
-   * Constructs an API for a PUT endpoint, given the specified input. It is not
-   * necessary to specify the full input to the endpoint upfront, as the
-   * `API#in` method can be used to incrementally append additional input to the
-   * definition of the API.
+   * Constructs an endpoint for an HTTP PUT endpoint, whose path is described by
+   * the specified path codec.
    */
   def put[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
