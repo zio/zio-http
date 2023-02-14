@@ -1,7 +1,7 @@
 package zio.http.api
 
 import zio._
-import zio.http.api.CodecType.Route
+import zio.http.api.CodecType.Path
 import zio.http.model.{Header, Headers, Method}
 import zio.schema._
 import zio.stream.ZStream

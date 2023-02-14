@@ -78,7 +78,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     that: PathCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
-    ev: CodecType.Route <:< AtomTypes,
+    ev: CodecType.Path <:< AtomTypes,
   ): PathCodec[combiner.Out] =
     self.asRoute ++ that
 
@@ -100,7 +100,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Reinterpets this codec as a route codec assuming evidence that this
    * interpretation is sound.
    */
-  final def asRoute(implicit ev: CodecType.Route <:< AtomTypes): PathCodec[Value] =
+  final def asRoute(implicit ev: CodecType.Path <:< AtomTypes): PathCodec[Value] =
     self.asInstanceOf[PathCodec[Value]]
 
   /**
@@ -246,7 +246,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
   }
   private[api] final case class Route[A](textCodec: TextCodec[A], name: Option[String])
-      extends Atom[CodecType.Route, A] { self =>
+      extends Atom[CodecType.Path, A] { self =>
     def erase: Route[Any] = self.asInstanceOf[Route[Any]]
   }
   private[api] final case class Body[A](schema: Schema[A])         extends Atom[CodecType.Body, A]
