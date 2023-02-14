@@ -684,7 +684,7 @@ object ZClient {
                           .resetChannel()
                           .zip(exit)
                           .map { case (s1, s2) => s1 && s2 }
-                          .catchAll(_ =>
+                          .catchAllCause(_ =>
                             ZIO.succeed(ChannelState.Invalid),
                           ) // In case resetting the channel fails we cannot reuse it
                           .flatMap { channelState =>
