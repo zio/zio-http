@@ -41,8 +41,10 @@ object Server {
     ServerConfig.live >>> live
   }
 
-  def live(conf: ServerConfig) =
+  def live(conf: ServerConfig): ZLayer[Any, Throwable, Server] = {
+    implicit val trace = Trace.empty
     ServerConfig.live(conf) >>> Server.live
+  }
 
   val live: ZLayer[ServerConfig, Throwable, Server] = {
     implicit val trace = Trace.empty
