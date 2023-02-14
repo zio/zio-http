@@ -4,7 +4,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A combiner is a type class responsible for combining invariant type
- * parameters. It is used to compose the parameters of the
+ * parameters using a tuple. It is used to compose the parameters of the
  * [[zio.http.api.HttpCodec]] data type.
  */
 sealed trait Combiner[L, R] {
@@ -85,6 +85,55 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
 
       def separate(out: (A, B, C, D, E, F)): ((A, B, C, D, E), F) =
         ((out._1, out._2, out._3, out._4, out._5), out._6)
+    }
+
+  // (A, B, C, D, E, F) + G -> (A, B, C, D, E, F, G)
+  implicit def combine6[A, B, C, D, E, F, G]: Combiner.WithOut[(A, B, C, D, E, F), G, (A, B, C, D, E, F, G)] =
+    new Combiner[(A, B, C, D, E, F), G] {
+      type Out = (A, B, C, D, E, F, G)
+
+      def combine(l: (A, B, C, D, E, F), r: G): (A, B, C, D, E, F, G) = (l._1, l._2, l._3, l._4, l._5, l._6, r)
+
+      def separate(out: (A, B, C, D, E, F, G)): ((A, B, C, D, E, F), G) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6), out._7)
+    }
+
+  // (A, B, C, D, E, F, G) + H -> (A, B, C, D, E, F, G, H)
+  implicit def combine7[A, B, C, D, E, F, G, H]: Combiner.WithOut[(A, B, C, D, E, F, G), H, (A, B, C, D, E, F, G, H)] =
+    new Combiner[(A, B, C, D, E, F, G), H] {
+      type Out = (A, B, C, D, E, F, G, H)
+
+      def combine(l: (A, B, C, D, E, F, G), r: H): (A, B, C, D, E, F, G, H) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, r)
+
+      def separate(out: (A, B, C, D, E, F, G, H)): ((A, B, C, D, E, F, G), H) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), out._8)
+    }
+
+  // (A, B, C, D, E, F, G, H) + I -> (A, B, C, D, E, F, G, H, I)
+  implicit def combine8[A, B, C, D, E, F, G, H, I]
+    : Combiner.WithOut[(A, B, C, D, E, F, G, H), I, (A, B, C, D, E, F, G, H, I)] =
+    new Combiner[(A, B, C, D, E, F, G, H), I] {
+      type Out = (A, B, C, D, E, F, G, H, I)
+
+      def combine(l: (A, B, C, D, E, F, G, H), r: I): (A, B, C, D, E, F, G, H, I) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, r)
+
+      def separate(out: (A, B, C, D, E, F, G, H, I)): ((A, B, C, D, E, F, G, H), I) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8), out._9)
+    }
+
+  // (A, B, C, D, E, F, G, H, I) + J -> (A, B, C, D, E, F, G, H, I, J)
+  implicit def combine9[A, B, C, D, E, F, G, H, I, J]
+    : Combiner.WithOut[(A, B, C, D, E, F, G, H, I), J, (A, B, C, D, E, F, G, H, I, J)] =
+    new Combiner[(A, B, C, D, E, F, G, H, I), J] {
+      type Out = (A, B, C, D, E, F, G, H, I, J)
+
+      def combine(l: (A, B, C, D, E, F, G, H, I), r: J): (A, B, C, D, E, F, G, H, I, J) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, l._9, r)
+
+      def separate(out: (A, B, C, D, E, F, G, H, I, J)): ((A, B, C, D, E, F, G, H, I), J) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9), out._10)
     }
 
 }

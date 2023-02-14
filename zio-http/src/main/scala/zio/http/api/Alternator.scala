@@ -23,6 +23,21 @@ sealed trait Alternator[L, R] {
 object Alternator extends AlternatorLowPriority1 {
   type WithOut[L, R, Out0] = Alternator[L, R] { type Out = Out0 }
 
+  implicit def leftRightEqual[A]: Alternator.WithOut[A, A, A] =
+    new Alternator[A, A] {
+      type Out = A
+
+      def left(l: A): Out = l
+
+      def right(r: A): Out = r
+
+      def unleft(out: Out): Option[A] = Some(out)
+
+      def unright(out: Out): Option[A] = Some(out)
+    }
+}
+
+trait AlternatorLowPriority1 extends AlternatorLowPriority2 {
   implicit def leftEmpty[A]: Alternator.WithOut[ZNothing, A, A] =
     (new Alternator[Any, A] {
       type Out = A
@@ -37,7 +52,7 @@ object Alternator extends AlternatorLowPriority1 {
     }).asInstanceOf[Alternator.WithOut[ZNothing, A, A]] // Work around compiler bug
 }
 
-trait AlternatorLowPriority1 extends AlternatorLowPriority2 {
+trait AlternatorLowPriority2 extends AlternatorLowPriority3 {
   implicit def rightEmpty[A]: Alternator.WithOut[A, ZNothing, A] =
     (new Alternator[A, Any] {
       type Out = A
@@ -52,7 +67,7 @@ trait AlternatorLowPriority1 extends AlternatorLowPriority2 {
     }).asInstanceOf[Alternator.WithOut[A, ZNothing, A]] // Work around compiler bug
 }
 
-trait AlternatorLowPriority2 {
+trait AlternatorLowPriority3 {
   implicit def either[A, B]: Alternator.WithOut[A, B, Either[A, B]] =
     new Alternator[A, B] {
       type Out = Either[A, B]

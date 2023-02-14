@@ -34,7 +34,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
         for {
           result1 <- fallback.decodeRequest(Request.get(url = usersURL))
           result2 <- fallback.decodeRequest(Request.get(url = postsURL))
-        } yield assertTrue(result1 == Left(())) && assertTrue(result2 == Right(()))
+        } yield assertTrue(result1 == (())) && assertTrue(result2 == (()))
       } +
         test("query fallback") {
           val codec1 = QueryCodec.query("skip")
@@ -48,7 +48,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
           for {
             result1 <- fallback.decodeRequest(skipRequest)
             result2 <- fallback.decodeRequest(limitRequest)
-          } yield assertTrue(result1 == Left("10")) && assertTrue(result2 == Right("20"))
+          } yield assertTrue(result1 == "10") && assertTrue(result2 == "20")
         } +
         test("header fallback") {
           val codec1 = HeaderCodec.header("Authentication", TextCodec.string)
@@ -62,7 +62,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
           for {
             result1 <- fallback.decodeRequest(authRequest)
             result2 <- fallback.decodeRequest(tokenRequest)
-          } yield assertTrue(result1 == Left("1234")) && assertTrue(result2 == Right("5678"))
+          } yield assertTrue(result1 == "1234") && assertTrue(result2 == "5678")
         } +
         test("composite fallback") {
           val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
@@ -89,7 +89,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
           for {
             result1 <- fallback.decodeRequest(usersRequest)
             result2 <- fallback.decodeRequest(postsRequest)
-          } yield assertTrue(result1 == Left(("10", "1234"))) && assertTrue(result2 == Right(("20", "567")))
+          } yield assertTrue(result1 == (("10", "1234"))) && assertTrue(result2 == (("20", "567")))
         }
     },
     suite("RouteCodec") {
