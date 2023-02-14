@@ -167,7 +167,7 @@ object ZPoolTest {
     track: Exit[E, A] => UIO[Any],
   ) extends ZPoolTest[E, A] {
 
-  val taken = new java.util.concurrent.atomic.AtomicInteger(0)
+    val taken = new java.util.concurrent.atomic.AtomicInteger(0)
 
     /**
      * Returns the number of items in the pool in excess of the minimum size.
@@ -211,16 +211,16 @@ object ZPoolTest {
           case Exit.Success(item) =>
             invalidated.get.flatMap { set =>
               if (set.contains(item))
-                  finalizeInvalid(attempted)
+                finalizeInvalid(attempted)
               else
                 state.update(state => state.copy(free = state.free + 1)) *>
                   ZIO.succeed {
                     val n = taken.decrementAndGet()
                     ZIO.debug(s"offered item to queue, $n items taken")
                   }
-                  items.offer(attempted) *>
-                  track(attempted.result) *>
-                  getAndShutdown.whenZIO(isShuttingDown.get)
+              items.offer(attempted) *>
+                track(attempted.result) *>
+                getAndShutdown.whenZIO(isShuttingDown.get)
             }
 
           case Exit.Failure(_) =>
