@@ -55,7 +55,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       },
     ).provide(
       Server.live,
-      ServerConfig.live(),
+      ServerConfig.live,
       Client.live,
       executorLayer,
       // TODO: [Ergonomics] Server.default is a value and ClientConfig.default is a Layer
