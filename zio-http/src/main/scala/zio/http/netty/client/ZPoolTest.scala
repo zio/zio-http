@@ -183,6 +183,7 @@ object ZPoolTest {
               if (free > 0 || size >= range.end)
                 (
                   items.take.flatMap { attempted =>
+                    println(s"took $attempted from the queue")
                     attempted.result match {
                       case Exit.Success(item) =>
                         invalidated.get.flatMap { set =>
@@ -206,9 +207,12 @@ object ZPoolTest {
         attempted.result match {
           case Exit.Success(item) =>
             invalidated.get.flatMap { set =>
-              if (set.contains(item)) finalizeInvalid(attempted)
+              if (set.contains(item))
+                ZIO.debug(s"finalizing invalid item $attempted") *>
+                  finalizeInvalid(attempted)
               else
                 state.update(state => state.copy(free = state.free + 1)) *>
+                  ZIO.debug(s"offering $attempted to the queue") *>
                   items.offer(attempted) *>
                   track(attempted.result) *>
                   getAndShutdown.whenZIO(isShuttingDown.get)
@@ -328,9 +332,9 @@ object ZPoolTest {
     final def shutdown: UIO[Unit] =
       isShuttingDown.modify { down =>
         if (down)
-          ZIO.unit                   -> true
+          items.awaitShutdown                   -> true
         else
-          getAndShutdown *> ZIO.unit -> true
+          getAndShutdown *> items.awaitShutdown -> true
       }.flatten
   }
 
