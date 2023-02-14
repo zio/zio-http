@@ -168,7 +168,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   /**
    * Returns a new endpoint with the specified path appended.
    */
-  def route[A](codec: RouteCodec[A])(implicit
+  def path[A](codec: PathCodec[A])(implicit
     combiner: Combiner[Input, A],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
@@ -182,7 +182,7 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def delete[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] = {
+  def delete[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] = {
     Endpoint(
       route ++ MethodCodec.delete,
       HttpCodec.empty,
@@ -198,7 +198,7 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def get[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
+  def get[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
     Endpoint(
       route ++ MethodCodec.get,
       HttpCodec.empty,
@@ -213,7 +213,7 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def post[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
+  def post[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
     Endpoint(
       route ++ MethodCodec.post,
       HttpCodec.empty,
@@ -228,7 +228,7 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def put[Input](route: RouteCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
+  def put[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
     Endpoint(
       route ++ MethodCodec.put,
       HttpCodec.empty,

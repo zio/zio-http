@@ -20,7 +20,7 @@
 //   }
 
 //   val usersPostAPI =
-//     Endpoint.get("users" / RouteCodec.int("userId") / "posts" / RouteCodec.int("postId")).out[Post]
+//     Endpoint.get("users" / PathCodec.int("userId") / "posts" / PathCodec.int("postId")).out[Post]
 
 //   val usersPostHandler =
 //     usersPostAPI.implement { case (userId, postId) =>

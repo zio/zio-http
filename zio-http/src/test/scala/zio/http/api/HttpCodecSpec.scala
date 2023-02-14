@@ -7,6 +7,7 @@ import zio.http.api.internal.TextCodec
 import zio.http.model._
 import zio.test._
 
+import zio.http.api.PathCodec
 object HttpCodecSpec extends ZIOSpecDefault {
   val googleUrl     = URL.fromString("http://google.com").toOption.get
   val usersUrl      = URL.fromString("http://mywebservice.com/users").toOption.get
@@ -26,8 +27,8 @@ object HttpCodecSpec extends ZIOSpecDefault {
         val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
         val postsURL = URL.fromString("http://mywebservice.com/posts").toOption.get
 
-        val codec1 = RouteCodec.literal("users")
-        val codec2 = RouteCodec.literal("posts")
+        val codec1 = PathCodec.literal("users")
+        val codec2 = PathCodec.literal("posts")
 
         val fallback = codec1 | codec2
 
@@ -68,11 +69,11 @@ object HttpCodecSpec extends ZIOSpecDefault {
           val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
           val postsURL = URL.fromString("http://mywebservice.com/posts").toOption.get
 
-          val codec1 = RouteCodec.literal("users") ++ QueryCodec.query("skip") ++ HeaderCodec.header(
+          val codec1 = PathCodec.literal("users") ++ QueryCodec.query("skip") ++ HeaderCodec.header(
             "Authentication",
             TextCodec.string,
           )
-          val codec2 = RouteCodec.literal("posts") ++ QueryCodec.query("limit") ++ HeaderCodec.header(
+          val codec2 = PathCodec.literal("posts") ++ QueryCodec.query("limit") ++ HeaderCodec.header(
             "X-Token-ID",
             TextCodec.string,
           )
@@ -92,24 +93,24 @@ object HttpCodecSpec extends ZIOSpecDefault {
           } yield assertTrue(result1 == (("10", "1234"))) && assertTrue(result2 == (("20", "567")))
         }
     },
-    suite("RouteCodec") {
+    suite("PathCodec") {
       test("decode route with one path segment") {
-        val codec = RouteCodec.literal("users")
+        val codec = PathCodec.literal("users")
 
         for {
           result <- codec.decodeRequest(Request.get(url = usersUrl))
         } yield assertTrue(result == (()))
       } +
         test("encode route with one path segment") {
-          val codec = RouteCodec.literal("users")
+          val codec = PathCodec.literal("users")
 
           val request = codec.encodeRequest(())
 
           assertTrue(request.path.toString() == "users")
         } +
         test("decode route with two path segments") {
-          val userCodec = RouteCodec.literal("users")
-          val intCodec  = RouteCodec.int("userId")
+          val userCodec = PathCodec.literal("users")
+          val intCodec  = PathCodec.int("userId")
 
           // /users/<int id>
           val fullCodec = userCodec ++ intCodec
@@ -119,8 +120,8 @@ object HttpCodecSpec extends ZIOSpecDefault {
           } yield assertTrue(result == 42)
         } +
         test("encode route with two path segments") {
-          val userCodec = RouteCodec.literal("users")
-          val intCodec  = RouteCodec.int("userId")
+          val userCodec = PathCodec.literal("users")
+          val intCodec  = PathCodec.int("userId")
 
           // /users/<int id>
           val fullCodec = userCodec ++ intCodec
@@ -132,9 +133,9 @@ object HttpCodecSpec extends ZIOSpecDefault {
           // test comment
         } +
         test("decode route with three path segments") {
-          val userCodec = RouteCodec.literal("users")
-          val intCodec  = RouteCodec.int("userId")
-          val postCodec = RouteCodec.literal("post")
+          val userCodec = PathCodec.literal("users")
+          val intCodec  = PathCodec.int("userId")
+          val postCodec = PathCodec.literal("post")
 
           val fullCodec = userCodec ++ intCodec ++ postCodec
 
@@ -143,9 +144,9 @@ object HttpCodecSpec extends ZIOSpecDefault {
           } yield assertTrue(result == 42)
         } +
         test("encode route with three path segments") {
-          val userCodec = RouteCodec.literal("users")
-          val intCodec  = RouteCodec.int("userId")
-          val postCodec = RouteCodec.literal("post")
+          val userCodec = PathCodec.literal("users")
+          val intCodec  = PathCodec.int("userId")
+          val postCodec = PathCodec.literal("post")
 
           val fullCodec = userCodec ++ intCodec ++ postCodec
 
@@ -154,10 +155,10 @@ object HttpCodecSpec extends ZIOSpecDefault {
           assertTrue(request.path.toString() == "users/42/post")
         } +
         test("decode route with four path segments") {
-          val userCodec   = RouteCodec.literal("users")
-          val intCodec    = RouteCodec.int("userId")
-          val postCodec   = RouteCodec.literal("post")
-          val postIdCodec = RouteCodec.int("postId")
+          val userCodec   = PathCodec.literal("users")
+          val intCodec    = PathCodec.int("userId")
+          val postCodec   = PathCodec.literal("post")
+          val postIdCodec = PathCodec.int("postId")
 
           val fullCodec = userCodec ++ intCodec ++ postCodec ++ postIdCodec
           for {
@@ -165,10 +166,10 @@ object HttpCodecSpec extends ZIOSpecDefault {
           } yield assertTrue(result == ((42, 42)))
         } +
         test("encode route with four path segments") {
-          val userCodec   = RouteCodec.literal("users")
-          val intCodec    = RouteCodec.int("userId")
-          val postCodec   = RouteCodec.literal("post")
-          val postIdCodec = RouteCodec.int("postId")
+          val userCodec   = PathCodec.literal("users")
+          val intCodec    = PathCodec.int("userId")
+          val postCodec   = PathCodec.literal("post")
+          val postIdCodec = PathCodec.int("postId")
 
           val fullCodec = userCodec ++ intCodec ++ postCodec ++ postIdCodec
 
@@ -177,11 +178,11 @@ object HttpCodecSpec extends ZIOSpecDefault {
           assertTrue(request.path.toString() == "users/42/post/42")
         } +
         test("decode route with five path segments") {
-          val userCodec       = RouteCodec.literal("users")
-          val intCodec        = RouteCodec.int("userId")
-          val postCodec       = RouteCodec.literal("post")
-          val postIdCodec     = RouteCodec.int("postId")
-          val postIdfontCodec = RouteCodec.literal("fontstyle")
+          val userCodec       = PathCodec.literal("users")
+          val intCodec        = PathCodec.int("userId")
+          val postCodec       = PathCodec.literal("post")
+          val postIdCodec     = PathCodec.int("postId")
+          val postIdfontCodec = PathCodec.literal("fontstyle")
 
           val fullCodec = userCodec ++ intCodec ++ postCodec ++ postIdCodec ++ postIdfontCodec
           for {
@@ -189,11 +190,11 @@ object HttpCodecSpec extends ZIOSpecDefault {
           } yield assertTrue(result == ((42, 42)))
         } +
         test("encode route with five path segments") {
-          val userCodec       = RouteCodec.literal("users")
-          val intCodec        = RouteCodec.int("userId")
-          val postCodec       = RouteCodec.literal("post")
-          val postIdCodec     = RouteCodec.int("postId")
-          val postIdfontCodec = RouteCodec.literal("fontstyle")
+          val userCodec       = PathCodec.literal("users")
+          val intCodec        = PathCodec.int("userId")
+          val postCodec       = PathCodec.literal("post")
+          val postIdCodec     = PathCodec.int("postId")
+          val postIdfontCodec = PathCodec.literal("fontstyle")
 
           val fullCodec = userCodec ++ intCodec ++ postCodec ++ postIdCodec ++ postIdfontCodec
           val request   = fullCodec.encodeRequest((42, 42))

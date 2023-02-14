@@ -13,6 +13,8 @@ import zio.stream.ZStream
 import zio.schema.Schema
 import zio.schema.codec.Codec
 
+import zio.http.api.PathCodecs
+import zio.http.api.PathCodec
 /**
  * A [[zio.http.api.HttpCodec]] represents a codec for a part of an HTTP
  * request. HttpCodec the HTTP protocol, these parts may be the unconsumed
@@ -75,11 +77,11 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Combines two route codecs into another route codec.
    */
   final def /[Value2](
-    that: RouteCodec[Value2],
+    that: PathCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
     ev: CodecType.Route <:< AtomTypes,
-  ): RouteCodec[combiner.Out] =
+  ): PathCodec[combiner.Out] =
     self.asRoute ++ that
 
   /**
@@ -100,8 +102,8 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Reinterpets this codec as a route codec assuming evidence that this
    * interpretation is sound.
    */
-  final def asRoute(implicit ev: CodecType.Route <:< AtomTypes): RouteCodec[Value] =
-    self.asInstanceOf[RouteCodec[Value]]
+  final def asRoute(implicit ev: CodecType.Route <:< AtomTypes): PathCodec[Value] =
+    self.asInstanceOf[PathCodec[Value]]
 
   /**
    * Uses this codec to decode the Scala value from a request.
@@ -232,8 +234,8 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     self.transform(_ => (), _ => canonical)
 }
 
-object HttpCodec extends HeaderCodecs with QueryCodecs with RouteCodecs {
-  implicit def stringToLiteral(s: String): RouteCodec[Unit] = RouteCodec.literal(s)
+object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
+  implicit def stringToLiteral(s: String): PathCodec[Unit] = PathCodec.literal(s)
 
   def empty: HttpCodec[Any, Unit] =
     Empty
