@@ -110,6 +110,8 @@ object ZPoolTest {
     ZIO.uninterruptibleMask { restore =>
       for {
         id       <- ZIO.succeed(scala.util.Random.nextInt())
+        _        <- ZIO.debug(s"$id: creating pool")
+        _        <- ZIO.debug(s"$id: restore = $restore")
         get      <- ZIO.succeed(get)
         range    <- ZIO.succeed(range)
         strategy <- ZIO.succeed(strategy)
