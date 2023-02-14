@@ -328,9 +328,9 @@ object ZPoolTest {
     final def shutdown: UIO[Unit] =
       isShuttingDown.modify { down =>
         if (down)
-          items.awaitShutdown                   -> true
+          ZIO.unit                   -> true
         else
-          getAndShutdown *> items.awaitShutdown -> true
+          getAndShutdown *> ZIO.unit -> true
       }.flatten
   }
 
