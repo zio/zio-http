@@ -11,15 +11,15 @@ import zio.stream.Take
 
 object NettyBodyWriter {
 
-  def write(body: Body, ctx: ChannelHandlerContext): ZIO[Scope, Throwable, Boolean] =
+  def write(body: Body, ctx: ChannelHandlerContext, isClient: Boolean): ZIO[Scope, Throwable, Boolean] =
     body match {
       case body: ByteBufBody            =>
-        ZIO.succeedNow {
+        ZIO.succeed {
           ctx.write(body.byteBuf)
           false
         }
       case body: FileBody               =>
-        ZIO.succeedNow {
+        ZIO.succeed {
           val file = body.file
           // Write the content.
           ctx.write(new DefaultFileRegion(file, 0, file.length()))
@@ -46,21 +46,29 @@ object NettyBodyWriter {
       case StreamBody(stream)           =>
         val addChunkedWriter =
           ZIO
-            .attempt(
-              ctx.pipeline().addBefore(Names.HttpRequestHandler, Names.ChunkedWriter, new ChunkedWriteHandler()),
-            )
-            .zipRight(Scope.addFinalizer(ZIO.attempt(ctx.pipeline().remove(Names.ChunkedWriter)).orDie))
-            .uninterruptible
+            .acquireRelease(
+              ZIO.attempt {
+                ctx
+                  .pipeline()
+                  .addBefore(
+                    if (isClient) Names.ClientInboundHandler
+                    else Names.HttpRequestHandler,
+                    Names.ChunkedWriter,
+                    new ChunkedWriteHandler(),
+                  )
+              },
+            )(_ => ZIO.attempt(ctx.pipeline().remove(Names.ChunkedWriter)).orDie)
 
         implicit val unsafe: Unsafe = Unsafe.unsafe
         for {
           _     <- addChunkedWriter
           queue <- Queue.bounded[Take[Throwable, ByteBuf]](1)
           _     <- stream.chunks
-            .mapZIO(chunk => ZIO.succeedNow(Unpooled.wrappedBuffer(chunk.toArray)))
+            .mapZIO(chunk => ZIO.succeed(Unpooled.wrappedBuffer(chunk.toArray)))
             .runIntoQueue(queue)
             .forkDaemon
             .onExecutor(Runtime.defaultExecutor)
+            .interruptible
           runtime = Runtime.default
           finished <- Ref.make(false)
           chunkedInput = new ChunkedInput[HttpContent] {
@@ -75,7 +83,7 @@ object NettyBodyWriter {
                       finished.set(true).as(LastHttpContent.EMPTY_LAST_CONTENT),
                       ZIO.failCause(_),
                       {
-                        case Chunk(buf) => ZIO.succeedNow(new DefaultHttpContent(buf))
+                        case Chunk(buf) => ZIO.succeed(new DefaultHttpContent(buf))
                         case _          => throw new IllegalStateException("Chunks should contain single ByteBufs")
                       },
                     ),
@@ -94,16 +102,16 @@ object NettyBodyWriter {
 
             override def progress(): Long = -1
           }
-          _ <- ZIO.succeedNow(
+          _ <- ZIO.succeed(
             ctx.writeAndFlush(chunkedInput),
           )
         } yield true
 
       case ChunkBody(data) =>
-        ZIO.succeedNow {
+        ZIO.succeed {
           ctx.write(Unpooled.wrappedBuffer(data.toArray))
           false
         }
-      case EmptyBody       => ZIO.succeedNow(false)
+      case EmptyBody       => ZIO.succeed(false)
     }
 }

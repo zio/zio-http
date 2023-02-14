@@ -78,7 +78,7 @@ final class ClientInboundStreamingHandler(
     ctx.write(encodeRequest(msg))
     rtm.run(ctx, NettyRuntime.noopEnsuring) {
       ZIO.scoped {
-        NettyBodyWriter.write(msg.body, ctx).unit
+        NettyBodyWriter.write(msg.body, ctx, isClient = true).unit
       }
     }(Unsafe.unsafe, trace)
     ctx.flush(): Unit

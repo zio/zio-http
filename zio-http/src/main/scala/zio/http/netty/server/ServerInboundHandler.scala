@@ -149,7 +149,7 @@ private[zio] final case class ServerInboundHandler(
             flushed   <-
               if (!jResponse.isInstanceOf[FullHttpResponse])
                 ZIO.scoped {
-                  NettyBodyWriter.write(response.body, ctx)
+                  NettyBodyWriter.write(response.body, ctx, isClient = false)
                 }
               else
                 ZIO.succeed(true)
