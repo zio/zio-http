@@ -109,6 +109,7 @@ object ZPoolTest {
   ): ZIO[R with R1 with Scope, Nothing, ZPoolTest[E, A]] =
     ZIO.uninterruptibleMask { restore =>
       for {
+        id       <- Random.nextLong
         get      <- ZIO.succeed(get)
         range    <- ZIO.succeed(range)
         strategy <- ZIO.succeed(strategy)
@@ -129,7 +130,15 @@ object ZPoolTest {
         )
         fiber  <- restore(pool.initialize).forkDaemon
         shrink <- strategy.run(initial, pool.excess, pool.shrink).interruptible.forkDaemon
-        _      <- ZIO.addFinalizer(pool.shutdown *> fiber.interrupt *> shrink.interrupt)
+        _      <- ZIO.addFinalizer {
+          ZIO.debug(s"$id: beginning finalization of pool") *>
+            pool.shutdown *>
+            ZIO.debug(s"$id: pool shutdown, beginning interruption of fiber") *>
+            fiber.interrupt *>
+            ZIO.debug(s"$id: fiber interrupted, beginning interruption of shrink") *>
+            shrink.interrupt *>
+            ZIO.debug(s"$id: shrink interrupted, finalization complete")
+        }
       } yield pool
     }
 
