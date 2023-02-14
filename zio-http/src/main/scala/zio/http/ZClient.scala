@@ -594,12 +594,14 @@ object ZClient {
       } yield res
 
     private def requestAsync(request: Request, clientConfig: ClientConfig): ZIO[Any, Throwable, Response] =
-      for {
-        onResponse <- Promise.make[Throwable, Response]
-        canceler   <- internalRequest(request, onResponse, clientConfig)(Unsafe.unsafe)
-          .catchAll(cause => onResponse.fail(cause).as(ZIO.unit))
-        res        <- onResponse.await.onInterrupt(canceler)
-      } yield res
+      ZIO.uninterruptibleMask { restore =>
+        Promise.make[Throwable, Response].flatMap { onResponse =>
+          restore(internalRequest(request, onResponse, clientConfig)(Unsafe.unsafe)).foldCauseZIO(
+            cause => onResponse.failCause(cause) *> restore(onResponse.await),
+            canceler => restore(onResponse.await).onInterrupt(canceler)
+          )
+        }
+      }
 
     val activeChannelScopes = new java.util.concurrent.atomic.AtomicInteger(0)
 
