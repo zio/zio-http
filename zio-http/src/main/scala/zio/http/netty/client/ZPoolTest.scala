@@ -217,10 +217,10 @@ object ZPoolTest {
                   ZIO.succeed {
                     val n = taken.decrementAndGet()
                     ZIO.debug(s"offered item to queue, $n items taken")
-                  }
-              items.offer(attempted) *>
-                track(attempted.result) *>
-                getAndShutdown.whenZIO(isShuttingDown.get)
+                  } *>
+                  items.offer(attempted) *>
+                  track(attempted.result) *>
+                  getAndShutdown.whenZIO(isShuttingDown.get)
             }
 
           case Exit.Failure(_) =>
