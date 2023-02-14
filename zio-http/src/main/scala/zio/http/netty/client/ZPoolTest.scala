@@ -186,7 +186,7 @@ object ZPoolTest {
                 (
                   items.take.flatMap { attempted =>
                     val n = taken.incrementAndGet()
-                    println(s"took item from queue, $n items taken")
+                    println(s"acquire: took item from queue, $n items taken")
                     attempted.result match {
                       case Exit.Success(item) =>
                         invalidated.get.flatMap { set =>
@@ -211,12 +211,16 @@ object ZPoolTest {
           case Exit.Success(item) =>
             invalidated.get.flatMap { set =>
               if (set.contains(item))
-                finalizeInvalid(attempted)
+                ZIO.succeed {
+                  val n = taken.decrementAndGet()
+                  println(s"release: item was invalidated, $n items taken")
+                } *>
+                  finalizeInvalid(attempted)
               else
                 state.update(state => state.copy(free = state.free + 1)) *>
                   ZIO.succeed {
                     val n = taken.decrementAndGet()
-                    ZIO.debug(s"offered item to queue, $n items taken")
+                    println(s"release: offered item to queue, $n items taken")
                   } *>
                   items.offer(attempted) *>
                   track(attempted.result) *>
