@@ -1,9 +1,6 @@
 package zio.http.api
 
 import zio._
-import zio.http.api.PathCodec
-import zio.http.api.PathCodec._
-import zio.http.api.QueryCodec._
 import zio.http.model.{Method, Status}
 import zio.http.{Request, Response, URL}
 import zio.test._
