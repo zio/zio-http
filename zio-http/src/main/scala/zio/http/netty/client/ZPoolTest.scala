@@ -190,7 +190,12 @@ object ZPoolTest {
                     attempted.result match {
                       case Exit.Success(item) =>
                         invalidated.get.flatMap { set =>
-                          if (set.contains(item)) finalizeInvalid(attempted) *> acquire
+                          if (set.contains(item))
+                            ZIO.succeed {
+                              val n = taken.decrementAndGet()
+                              println(s"acquire: invalidated item, $n items outstanding")
+                            } *>
+                              finalizeInvalid(attempted) *> acquire
                           else ZIO.succeedNow(attempted)
                         }
                       case _                  =>
