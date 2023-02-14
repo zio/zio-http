@@ -39,7 +39,7 @@ sealed trait Endpoints[-R, +E, AllIds] { self =>
 
         handler match {
           case None               =>
-            ZIO.succeedNow(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
+            ZIO.succeed(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))(Trace.empty)
           case Some(handlerMatch) =>
             requestHandlers.get(handlerMatch.handledApi).handle(handlerMatch.routeInputs, request)(Trace.empty)
         }

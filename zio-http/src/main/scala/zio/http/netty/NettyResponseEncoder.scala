@@ -23,7 +23,7 @@ private[zio] object NettyResponseEncoder {
       val jHeaders         = response.headers.encode
       val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-      ZIO.succeedNow(new DefaultHttpResponse(HttpVersion.HTTP_1_1, response.status.asJava, jHeaders))
+      ZIO.succeed(new DefaultHttpResponse(HttpVersion.HTTP_1_1, response.status.asJava, jHeaders))
     }
   }
 
@@ -35,7 +35,7 @@ private[zio] object NettyResponseEncoder {
         encodedResponse
       else {
         val encoded    = doEncode(response, bytes)
-        val encodedZio = ZIO.succeedNow(encoded)
+        val encodedZio = ZIO.succeed(encoded)
         frozenZioCache.put(response, encodedZio)
         frozenCache.put(response, encoded)
         encoded
