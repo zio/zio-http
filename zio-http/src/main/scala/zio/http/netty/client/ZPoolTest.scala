@@ -109,7 +109,7 @@ object ZPoolTest {
   ): ZIO[R with R1 with Scope, Nothing, ZPoolTest[E, A]] =
     ZIO.uninterruptibleMask { restore =>
       for {
-        id       <- Random.nextLong
+        id       <- ZIO.succeed(scala.util.Random.nextInt())
         get      <- ZIO.succeed(get)
         range    <- ZIO.succeed(range)
         strategy <- ZIO.succeed(strategy)
