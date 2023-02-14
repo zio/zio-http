@@ -598,7 +598,7 @@ object ZClient {
         Promise.make[Throwable, Response].flatMap { onResponse =>
           restore(internalRequest(request, onResponse, clientConfig)(Unsafe.unsafe)).foldCauseZIO(
             cause => onResponse.failCause(cause) *> restore(onResponse.await),
-            canceler => restore(onResponse.await).onInterrupt(canceler)
+            canceler => restore(onResponse.await).onInterrupt(canceler),
           )
         }
       }
