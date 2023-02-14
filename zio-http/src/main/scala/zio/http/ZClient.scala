@@ -696,7 +696,7 @@ object ZClient {
                           .zipRight(onCompleteFinished.succeed(()))
                           .uninterruptible
                       }
-                    }.fork
+                    }.forkDaemon
                 } yield ()
               }
             } yield canceler
