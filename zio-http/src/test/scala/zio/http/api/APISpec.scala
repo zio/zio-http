@@ -20,7 +20,7 @@ object APISpec extends ZIOSpecDefault {
             } ++
             Endpoint
               .get(literal("users") / int("userId") / literal("posts") / int("postId"))
-              .in(query("name"))
+              .query(query("name"))
               .out[String]
               .implement { case (userId, postId, name) =>
                 ZIO.succeed(s"path(users, $userId, posts, $postId) query(name=$name)")
@@ -39,9 +39,9 @@ object APISpec extends ZIOSpecDefault {
             } ++
             Endpoint
               .get(literal("users") / int("userId"))
-              .in(query("name"))
-              .in(literal("posts") / int("postId"))
-              .in(query("age"))
+              .query(query("name"))
+              .path(literal("posts") / int("postId"))
+              .query(query("age"))
               .out[String]
               .implement { case (userId, name, postId, age) =>
                 ZIO.succeed(s"path(users, $userId, posts, $postId) query(name=$name, age=$age)")
@@ -228,7 +228,7 @@ object APISpec extends ZIOSpecDefault {
               } ++
               Endpoint
                 .get(literal("users") / int("userId") / literal("posts") / int("postId"))
-                .in(query("name"))
+                .query(query("name"))
                 .out[String]
                 .implement { case (userId, postId, name) =>
                   ZIO.succeed(s"path(users, $userId, posts, $postId) query(name=$name)")
@@ -247,7 +247,7 @@ object APISpec extends ZIOSpecDefault {
               } ++
               Endpoint
                 .get(literal("users") / int("userId") / literal("posts") / int("postId"))
-                .in(query("name"))
+                .query(query("name"))
                 .out[String]
                 .implement { case (userId, postId, name) =>
                   ZIO.succeed(s"path(users, $userId, posts, $postId) query(name=$name)")

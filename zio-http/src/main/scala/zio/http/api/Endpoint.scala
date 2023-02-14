@@ -97,36 +97,28 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   def ??(that: Doc): Endpoint[Input, Err, Output, Middleware] = copy(doc = self.doc + that)
 
   /**
-   * Converts this API, which is an abstract description of an endpoint, into a
-   * service, which is a concrete implementation of the endpoint. In order to
-   * convert an API into a service, you must specify a function which handles
-   * the input, and returns the output.
-   */
-  def implement[Env](f: Input => ZIO[Env, Err, Output]): Routes[Env, Err, Middleware] =
-    Routes.Single[Env, Err, Input, Output, Middleware](self, f)
-
-  /**
-   * Returns a new endpoint that requires the specified headers.
+   * Returns a new endpoint that requires the specified headers to be present.
    */
   def header[A](codec: HeaderCodec[A])(implicit
     combiner: Combiner[Input, A],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
 
-  def in[Input2: Schema]: Endpoint[Input2, Err, Output, Middleware] =
-    copy(input = HttpCodec.Body(implicitly[Schema[Input2]]))
+  /**
+   * Converts this endpoint, which is an abstract description of an endpoint,
+   * into a route, which maps a path to a handler for that path. In order to
+   * convert an endpoint into a route, you must specify a function which handles
+   * the input, and returns the output.
+   */
+  def implement[Env](f: Input => ZIO[Env, Err, Output]): Routes[Env, Err, Middleware] =
+    Routes.Single[Env, Err, Input, Output, Middleware](self, f)
 
   /**
-   * Adds a new element of input to the API, which can come from the portion of
-   * the HTTP path not yet consumed, the query string parameters, or the HTTP
-   * headers of the request.
+   * Returns a new endpoint based on this one, whose request content must
+   * satisfy the specified schema.
    */
-  def in[Input2](
-    in2: HttpCodec[CodecType.RequestType, Input2],
-  )(implicit
-    combiner: Combiner[Input, Input2],
-  ): Endpoint[combiner.Out, Err, Output, Middleware] =
-    copy(input = self.input ++ in2)
+  def in[Input2: Schema]: Endpoint[Input2, Err, Output, Middleware] =
+    copy(input = HttpCodec.Body(implicitly[Schema[Input2]]))
 
   /**
    * Returns a new endpoint that is augmented with the specified endpoint
@@ -142,13 +134,19 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   /**
    * Changes the output type of the endpoint to the specified output type.
    */
-  def out[Output2: Schema]: Endpoint[Input, Err, Output2, Middleware] =
-    copy(output = HttpCodec.Body(implicitly[Schema[Output2]]))
+  def out[Output2: Schema](implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
+    out[Output2](zio.http.model.Status.Ok)
 
-  def out[Output2](out2: HttpCodec[CodecType.ResponseType, Output2])(implicit
-    combiner: Combiner[Output, Output2],
-  ): Endpoint[Input, Err, combiner.Out, Middleware] =
-    copy(output = output ++ out2)
+  def out[Output2: Schema](
+    status: zio.http.model.Status,
+  )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
+    Endpoint(
+      input,
+      output = (self.output | HttpCodec.Body(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),
+      error,
+      doc,
+      mw,
+    )
 
   /**
    * Changes the output type of the endpoint to be a stream of the specified
@@ -158,17 +156,17 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     copy(output = HttpCodec.BodyStream(implicitly[Schema[Output2]]))
 
   /**
-   * Returns a new endpoint that requires the specified query.
+   * Returns a new endpoint with the specified path appended.
    */
-  def query[A](codec: QueryCodec[A])(implicit
+  def path[A](codec: PathCodec[A])(implicit
     combiner: Combiner[Input, A],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
 
   /**
-   * Returns a new endpoint with the specified path appended.
+   * Returns a new endpoint that requires the specified query.
    */
-  def path[A](codec: PathCodec[A])(implicit
+  def query[A](codec: QueryCodec[A])(implicit
     combiner: Combiner[Input, A],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
@@ -182,10 +180,10 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def delete[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] = {
+  def delete[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
     Endpoint(
       route ++ MethodCodec.delete,
-      HttpCodec.empty,
+      HttpCodec.unused,
       HttpCodec.unused,
       Doc.empty,
       EndpointMiddleware.None,
@@ -198,10 +196,10 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def get[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
+  def get[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       route ++ MethodCodec.get,
-      HttpCodec.empty,
+      HttpCodec.unused,
       HttpCodec.unused,
       Doc.empty,
       EndpointMiddleware.None,
@@ -213,10 +211,10 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def post[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
+  def post[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       route ++ MethodCodec.post,
-      HttpCodec.empty,
+      HttpCodec.unused,
       HttpCodec.unused,
       Doc.empty,
       EndpointMiddleware.None,
@@ -228,10 +226,10 @@ object Endpoint {
    * `API#in` method can be used to incrementally append additional input to the
    * definition of the API.
    */
-  def put[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, Unit, EndpointMiddleware.None] =
+  def put[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       route ++ MethodCodec.put,
-      HttpCodec.empty,
+      HttpCodec.unused,
       HttpCodec.unused,
       Doc.empty,
       EndpointMiddleware.None,

@@ -22,7 +22,7 @@ object APIExamples extends ZIOAppDefault {
   val getUserPosts =
     Endpoint
       .get("users" / int("userId") / "posts" / int("postId"))
-      .in(query("name"))
+      .query(query("name"))
       .out[List[String]] @@ middleware
 
   val getUserPostsRoute =

@@ -67,4 +67,6 @@ private[api] trait StatusCodecs {
   val NetworkAuthenticationRequired: StatusCodec[Unit] =
     HttpCodec.Status(TextCodec.constant(Status.NetworkAuthenticationRequired.text))
   val CustomStatus: StatusCodec[Int]                   = HttpCodec.Status(TextCodec.int)
+
+  def status(status: zio.http.model.Status): StatusCodec[Unit] = HttpCodec.Status(TextCodec.constant(status.text))
 }
