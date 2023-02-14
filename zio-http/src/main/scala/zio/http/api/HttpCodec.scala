@@ -13,8 +13,6 @@ import zio.stream.ZStream
 import zio.schema.Schema
 import zio.schema.codec.Codec
 
-import zio.http.api.PathCodecs
-import zio.http.api.PathCodec
 /**
  * A [[zio.http.api.HttpCodec]] represents a codec for a part of an HTTP
  * request. HttpCodec the HTTP protocol, these parts may be the unconsumed

@@ -2,12 +2,9 @@ package zio.http.api
 
 import zio._
 import zio.http._
-import zio.http.api._
 import zio.http.api.internal.TextCodec
 import zio.http.model._
 import zio.test._
-
-import zio.http.api.PathCodec
 object HttpCodecSpec extends ZIOSpecDefault {
   val googleUrl     = URL.fromString("http://google.com").toOption.get
   val usersUrl      = URL.fromString("http://mywebservice.com/users").toOption.get
