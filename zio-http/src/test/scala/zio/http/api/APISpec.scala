@@ -1,9 +1,11 @@
 package zio.http.api
 
 import zio._
+import zio.http.api.HttpCodec.{int, literal, query, string}
 import zio.http.model.{Method, Status}
 import zio.http.{Request, Response, URL}
 import zio.test._
+
 object APISpec extends ZIOSpecDefault {
 
   def spec = suite("APISpec")(
