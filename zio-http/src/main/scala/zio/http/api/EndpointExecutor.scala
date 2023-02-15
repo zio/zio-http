@@ -10,12 +10,12 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * invocation, and executing the invocation, returning the final result, or
  * failing with a pre-defined RPC error.
  */
-final case class EndpointExecutor[MI](
+final case class EndpointExecutor[+MI](
   client: Client,
   locator: EndpointLocator,
   middlewareInput: UIO[MI],
 ) {
-  val metadata = {
+  private val metadata = {
     implicit val trace0 = Trace.empty
     zio.http.api.internal
       .MemoizedZIO[Endpoint[_, _, _, _ <: EndpointMiddleware], EndpointError, EndpointClient[Any, Any, Any, _]] {
@@ -29,7 +29,7 @@ final case class EndpointExecutor[MI](
       }
   }
 
-  def getClient[I, E, O, M <: EndpointMiddleware](
+  private def getClient[I, E, O, M <: EndpointMiddleware](
     endpoint: Endpoint[I, E, O, M],
   )(implicit trace: Trace): IO[EndpointError, EndpointClient[I, E, O, M]] =
     metadata.get(endpoint).map(_.asInstanceOf[EndpointClient[I, E, O, M]])
