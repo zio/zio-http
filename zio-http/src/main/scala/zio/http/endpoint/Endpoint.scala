@@ -32,6 +32,12 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
 ) { self =>
   import self.{middleware => mw}
 
+  /**
+   * Returns a new API that is derived from this one, but which includes
+   * additional documentation that will be included in OpenAPI generation.
+   */
+  def ??(that: Doc): Endpoint[Input, Err, Output, Middleware] = copy(doc = self.doc + that)
+
   def apply(input: Input): Invocation[Input, Err, Output, Middleware] =
     Invocation(self, input)
 
@@ -91,10 +97,16 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     Invocation(self, ev((a, b, c, d, e, f, g, h, i, j, k, l)))
 
   /**
-   * Returns a new API that is derived from this one, but which includes
-   * additional documentation that will be included in OpenAPI generation.
+   * Returns a new endpoint that can fail with the specified error type for the
+   * specified status code.
    */
-  def ??(that: Doc): Endpoint[Input, Err, Output, Middleware] = copy(doc = self.doc + that)
+  def err[Err2](status: Status)(implicit
+    schema: Schema[Err2],
+    alt: Alternator[Err, Err2],
+  ): Endpoint[Input, alt.Out, Output, Middleware] =
+    copy[Input, alt.Out, Output, Middleware](error =
+      self.error | (HttpCodec.Body(schema) ++ StatusCodec.status(status)),
+    )
 
   /**
    * Returns a new endpoint that requires the specified headers to be present.
@@ -106,8 +118,8 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
 
   /**
    * Converts this endpoint, which is an abstract description of an endpoint,
-   * into a route, which maps a path to a handler for that path. In order to
-   * convert an endpoint into a route, you must specify a function which handles
+   * into a path, which maps a path to a handler for that path. In order to
+   * convert an endpoint into a path, you must specify a function which handles
    * the input, and returns the output.
    */
   def implement[Env](f: Input => ZIO[Env, Err, Output]): Routes[Env, Err, Middleware] =
@@ -201,9 +213,9 @@ object Endpoint {
    * Constructs an endpoint for an HTTP DELETE endpoint, whose path is described
    * by the specified path codec.
    */
-  def delete[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
+  def delete[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
     Endpoint(
-      route ++ MethodCodec.delete,
+      path ++ MethodCodec.delete,
       HttpCodec.unused,
       HttpCodec.unused,
       Doc.empty,
@@ -215,9 +227,22 @@ object Endpoint {
    * Constructs an endpoint for an HTTP GET endpoint, whose path is described by
    * the specified path codec.
    */
-  def get[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def get[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
-      route ++ MethodCodec.get,
+      path ++ MethodCodec.get,
+      HttpCodec.unused,
+      HttpCodec.unused,
+      Doc.empty,
+      EndpointMiddleware.None,
+    )
+
+  /**
+   * Constructs an endpoint for an HTTP OPTIONS endpoint, whose path is
+   * described by the specified path codec.
+   */
+  def options[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+    Endpoint(
+      path ++ MethodCodec.options,
       HttpCodec.unused,
       HttpCodec.unused,
       Doc.empty,
@@ -228,9 +253,9 @@ object Endpoint {
    * Constructs an endpoint for an HTTP POST endpoint, whose path is described
    * by the specified path codec.
    */
-  def post[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def post[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
-      route ++ MethodCodec.post,
+      path ++ MethodCodec.post,
       HttpCodec.unused,
       HttpCodec.unused,
       Doc.empty,
@@ -241,9 +266,9 @@ object Endpoint {
    * Constructs an endpoint for an HTTP PUT endpoint, whose path is described by
    * the specified path codec.
    */
-  def put[Input](route: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def put[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
-      route ++ MethodCodec.put,
+      path ++ MethodCodec.put,
       HttpCodec.unused,
       HttpCodec.unused,
       Doc.empty,

@@ -6,12 +6,12 @@ import zio.http.model.{Method, Status}
 import zio.http.{Request, Response, URL}
 import zio.test._
 
-object APISpec extends ZIOSpecDefault {
+object EndpointSpec extends ZIOSpecDefault {
 
-  def spec = suite("APISpec")(
+  def spec = suite("EndpointSpec")(
     suite("handler")(
       test("simple request") {
-        val testRoutes = testApi(
+        val testRoutes = testEndpoint(
           Endpoint
             .get(literal("users") / int("userId"))
             .out[String]
@@ -30,7 +30,7 @@ object APISpec extends ZIOSpecDefault {
         testRoutes("/users/123/posts/555?name=adam", "path(users, 123, posts, 555) query(name=adam)")
       },
       test("out of order api") {
-        val testRoutes = testApi(
+        val testRoutes = testEndpoint(
           Endpoint
             .get(literal("users") / int("userId"))
             .out[String]
@@ -54,7 +54,7 @@ object APISpec extends ZIOSpecDefault {
         )
       },
       test("fallback") {
-        val testRoutes = testApi(
+        val testRoutes = testEndpoint(
           Endpoint
             .get(literal("users") / (int("userId") | string("userId")))
             .out[String]
@@ -174,7 +174,7 @@ object APISpec extends ZIOSpecDefault {
               ZIO.succeed(s"path(users, $userId, posts, $postId, comments, $commentId, replies, $replyId)")
             }
 
-        val testRoutes = testApi(
+        val testRoutes = testEndpoint(
           broadUsers ++
             broadUsersId ++
             boardUsersPosts ++
@@ -260,7 +260,7 @@ object APISpec extends ZIOSpecDefault {
     ),
   )
 
-  def testApi[R, E](service: Routes[R, E, EndpointMiddleware.None])(
+  def testEndpoint[R, E](service: Routes[R, E, EndpointMiddleware.None])(
     url: String,
     expected: String,
   ): ZIO[R, E, TestResult] = {
