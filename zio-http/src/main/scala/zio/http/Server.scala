@@ -30,10 +30,10 @@ object Server {
     ZIO.serviceWithZIO[Server](_.install(httpApp, errorCallback)) *> ZIO.service[Server].map(_.port)
   }
 
-  def defaultWithPort(port: Int): ZLayer[Any, Throwable, Server] =
+  def defaultWithPort(port: Int)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
     defaultWith(_.port(port))
 
-  def defaultWith(f: ServerConfig => ServerConfig): ZLayer[Any, Throwable, Server] =
+  def defaultWith(f: ServerConfig => ServerConfig)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
     live(f(ServerConfig.default))
 
   val default: ZLayer[Any, Throwable, Server] = {
@@ -41,8 +41,7 @@ object Server {
     ServerConfig.live >>> live
   }
 
-  def live(conf: ServerConfig): ZLayer[Any, Throwable, Server] = {
-    implicit val trace = Trace.empty
+  def live(conf: ServerConfig)(implicit trace: Trace): ZLayer[Any, Throwable, Server] = {
     ServerConfig.live(conf) >>> Server.live
   }
 
