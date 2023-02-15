@@ -234,39 +234,85 @@ sealed trait HttpCodec[-AtomTypes, Value] {
 
 object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
   implicit def stringToLiteral(s: String): PathCodec[Unit] = PathCodec.literal(s)
+  private[api] sealed trait AtomTag
+  private[api] object AtomTag {
+    case object Status extends AtomTag
+    case object Path   extends AtomTag
+    case object Body   extends AtomTag
+    case object Query  extends AtomTag
+    case object Header extends AtomTag
+    case object Method extends AtomTag
+  }
 
   def empty: HttpCodec[Any, Unit] =
     Empty
 
   def unused: HttpCodec[Any, ZNothing] = Halt
 
-  private[api] sealed trait Atom[-AtomTypes, Value0] extends HttpCodec[AtomTypes, Value0]
+  private[api] sealed trait Atom[-AtomTypes, Value0] extends HttpCodec[AtomTypes, Value0] {
+    def tag: AtomTag
 
-  private[api] final case class Status[A](textCodec: TextCodec[A]) extends Atom[CodecType.Status, A] { self =>
+    def index: Int
+
+    def withIndex(index: Int): Atom[AtomTypes, Value0]
+  }
+
+  private[api] final case class Status[A](textCodec: TextCodec[A], index: Int = 0) extends Atom[CodecType.Status, A] {
+    self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
+
+    def tag: AtomTag = AtomTag.Status
+
+    def withIndex(index: Int): Status[A] = copy(index = index)
   }
-  private[api] final case class Route[A](textCodec: TextCodec[A], name: Option[String])
+  private[api] final case class Path[A](textCodec: TextCodec[A], name: Option[String], index: Int = 0)
       extends Atom[CodecType.Path, A] { self =>
-    def erase: Route[Any] = self.asInstanceOf[Route[Any]]
+    def erase: Path[Any] = self.asInstanceOf[Path[Any]]
+
+    def tag: AtomTag = AtomTag.Path
+
+    def withIndex(index: Int): Path[A] = copy(index = index)
   }
-  private[api] final case class Body[A](schema: Schema[A])         extends Atom[CodecType.Body, A]
-  private[api] final case class BodyStream[A](schema: Schema[A])
-      extends Atom[CodecType.Body, ZStream[Any, Throwable, A]]
-  private[api] final case class Query[A](name: String, textCodec: TextCodec[A]) extends Atom[CodecType.Query, A] {
+  private[api] final case class Body[A](schema: Schema[A], index: Int = 0)         extends Atom[CodecType.Body, A]   {
+    self =>
+    def tag: AtomTag = AtomTag.Body
+
+    def withIndex(index: Int): Body[A] = copy(index = index)
+  }
+  private[api] final case class BodyStream[A](schema: Schema[A], index: Int = 0)
+      extends Atom[CodecType.Body, ZStream[Any, Throwable, A]] {
+    def tag: AtomTag = AtomTag.Body
+
+    def withIndex(index: Int): BodyStream[A] = copy(index = index)
+  }
+  private[api] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
+      extends Atom[CodecType.Query, A] {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
+
+    def tag: AtomTag = AtomTag.Query
+
+    def withIndex(index: Int): Query[A] = copy(index = index)
   }
 
-  private[api] final case class Method[A](methodCodec: TextCodec[A]) extends Atom[CodecType.Method, A] { self =>
+  private[api] final case class Method[A](methodCodec: TextCodec[A], index: Int = 0) extends Atom[CodecType.Method, A] {
+    self =>
     def erase: Method[Any] = self.asInstanceOf[Method[Any]]
+
+    def tag: AtomTag = AtomTag.Method
+
+    def withIndex(index: Int): Method[A] = copy(index = index)
   }
 
-  private[api] final case class Header[A](name: String, textCodec: TextCodec[A]) extends Atom[CodecType.Header, A] {
+  private[api] final case class Header[A](name: String, textCodec: TextCodec[A], index: Int = 0)
+      extends Atom[CodecType.Header, A] {
     self =>
     def erase: Header[Any] = self.asInstanceOf[Header[Any]]
-  }
 
-  private[api] final case class IndexedAtom[AtomType, A](atom: Atom[AtomType, A], index: Int) extends Atom[AtomType, A]
+    def tag: AtomTag = AtomTag.Header
+
+    def withIndex(index: Int): Header[A] = copy(index = index)
+  }
 
   private[api] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)
       extends HttpCodec[AtomType, A]

@@ -81,14 +81,14 @@ private[api] object EncoderDecoder                   {
     private val constructor   = Mechanic.makeConstructor(httpCodec)
     private val deconstructor = Mechanic.makeDeconstructor(httpCodec)
 
-    private val flattened: Mechanic.FlattenedAtoms = Mechanic.flatten(httpCodec)
+    private val flattened: AtomizedCodecs = Mechanic.flatten(httpCodec)
 
-    private val jsonEncoders = flattened.bodies.map { bodyCodec =>
+    private val jsonEncoders = flattened.body.map { bodyCodec =>
       val erased    = bodyCodec.erase
       val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
       erased.encodeToBody(_, jsonCodec)
     }
-    private val jsonDecoders = flattened.bodies.map { bodyCodec =>
+    private val jsonDecoders = flattened.body.map { bodyCodec =>
       val jsonCodec = JsonCodec.schemaBasedBinaryCodec(bodyCodec.schema)
       bodyCodec.decodeFromBody(_, jsonCodec)
     }
@@ -98,42 +98,42 @@ private[api] object EncoderDecoder                   {
     ): Task[Value] = ZIO.suspend {
       val inputsBuilder = flattened.makeInputsBuilder()
 
-      decodeRoutes(url.path, inputsBuilder.routes)
-      decodeQuery(url.queryParams, inputsBuilder.queries)
-      decodeStatus(status, inputsBuilder.statuses)
-      decodeMethod(method, inputsBuilder.methods)
-      decodeHeaders(headers, inputsBuilder.headers)
-      decodeBody(body, inputsBuilder.bodies).as(constructor(inputsBuilder))
+      decodeRoutes(url.path, inputsBuilder.path)
+      decodeQuery(url.queryParams, inputsBuilder.query)
+      decodeStatus(status, inputsBuilder.status)
+      decodeMethod(method, inputsBuilder.method)
+      decodeHeaders(headers, inputsBuilder.header)
+      decodeBody(body, inputsBuilder.body).as(constructor(inputsBuilder))
     }
 
     final def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
       val inputs = deconstructor(value)
 
-      val route   = encodeRoute(inputs.routes)
-      val query   = encodeQuery(inputs.queries)
-      val status  = encodeStatus(inputs.statuses)
-      val method  = encodeMethod(inputs.methods)
-      val headers = encodeHeaders(inputs.headers)
-      val body    = encodeBody(inputs.bodies)
+      val route   = encodeRoute(inputs.path)
+      val query   = encodeQuery(inputs.query)
+      val status  = encodeStatus(inputs.status)
+      val method  = encodeMethod(inputs.method)
+      val headers = encodeHeaders(inputs.header)
+      val body    = encodeBody(inputs.body)
 
       f(URL(route, queryParams = query), status, method, headers, body)
     }
 
     private def decodeRoutes(path: Path, inputs: Array[Any]): Unit = {
-      assert(flattened.routes.length == inputs.length)
+      assert(flattened.path.length == inputs.length)
 
       var i        = 0
       var j        = 0
       val segments = path.segments
       while (i < inputs.length) {
-        val textCodec = flattened.routes(i).erase
+        val textCodec = flattened.path(i).erase
 
         if (j >= segments.length) throw EndpointError.PathTooShort(path, textCodec)
         else {
           val segment = segments(j)
 
           if (segment.text.length != 0) {
-            val textCodec = flattened.routes(i).erase
+            val textCodec = flattened.path(i).erase
 
             inputs(i) =
               textCodec.decode(segment.text).getOrElse(throw EndpointError.MalformedRoute(path, segment, textCodec))
@@ -147,7 +147,7 @@ private[api] object EncoderDecoder                   {
 
     private def decodeQuery(queryParams: QueryParams, inputs: Array[Any]): Unit = {
       var i       = 0
-      val queries = flattened.queries
+      val queries = flattened.query
       while (i < queries.length) {
         val query = queries(i).erase
 
@@ -170,7 +170,7 @@ private[api] object EncoderDecoder                   {
     private def decodeStatus(status: Status, inputs: Array[Any]): Unit = {
       var i = 0
       while (i < inputs.length) {
-        val textCodec = flattened.statuses(i).erase
+        val textCodec = flattened.status(i).erase
 
         inputs(i) = textCodec.decode(status.text).getOrElse(throw EndpointError.MalformedStatus("200", textCodec))
 
@@ -181,7 +181,7 @@ private[api] object EncoderDecoder                   {
     private def decodeMethod(method: Method, inputs: Array[Any]): Unit = {
       var i = 0
       while (i < inputs.length) {
-        val textCodec = flattened.methods(i)
+        val textCodec = flattened.method(i)
 
         inputs(i) =
           textCodec.decode(method.text).getOrElse(throw EndpointError.MalformedMethod(method.toString(), textCodec))
@@ -192,8 +192,8 @@ private[api] object EncoderDecoder                   {
 
     private def decodeHeaders(headers: Headers, inputs: Array[Any]): Unit = {
       var i = 0
-      while (i < flattened.headers.length) {
-        val header = flattened.headers(i).erase
+      while (i < flattened.header.length) {
+        val header = flattened.header(i).erase
 
         headers.get(header.name) match {
           case Some(value) =>
@@ -224,7 +224,7 @@ private[api] object EncoderDecoder                   {
 
       var i = 0
       while (i < inputs.length) {
-        val textCodec = flattened.routes(i).erase
+        val textCodec = flattened.path(i).erase
         val input     = inputs(i)
 
         val segment = textCodec.encode(input)
@@ -241,7 +241,7 @@ private[api] object EncoderDecoder                   {
 
       var i = 0
       while (i < inputs.length) {
-        val query = flattened.queries(i).erase
+        val query = flattened.query(i).erase
         val input = inputs(i)
 
         val value = query.textCodec.encode(input)
@@ -255,10 +255,10 @@ private[api] object EncoderDecoder                   {
     }
 
     private def encodeStatus(inputs: Array[Any]): Option[Status] = {
-      if (flattened.statuses.length == 0) {
+      if (flattened.status.length == 0) {
         None
       } else {
-        val statusString = flattened.statuses(0).erase.encode(inputs(0))
+        val statusString = flattened.status(0).erase.encode(inputs(0))
 
         Some(Status.fromInt(statusString.toInt).getOrElse(Status.Ok))
       }
@@ -269,7 +269,7 @@ private[api] object EncoderDecoder                   {
 
       var i = 0
       while (i < inputs.length) {
-        val header = flattened.headers(i).erase
+        val header = flattened.header(i).erase
         val input  = inputs(i)
 
         val value = header.textCodec.encode(input)
@@ -283,8 +283,8 @@ private[api] object EncoderDecoder                   {
     }
 
     private def encodeMethod(inputs: Array[Any]): Option[zio.http.model.Method] = {
-      if (flattened.methods.nonEmpty) {
-        val method = flattened.methods.head.erase
+      if (flattened.method.nonEmpty) {
+        val method = flattened.method.head.erase
         Some(zio.http.model.Method.fromString(method.encode(inputs(0))))
       } else {
         None

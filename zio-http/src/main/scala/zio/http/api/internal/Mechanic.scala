@@ -7,11 +7,13 @@ import zio.http.model.Headers
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] object Mechanic {
+  type InputsBuilder = Atomized[Array[Any]]
+
   type Constructor[+A]   = InputsBuilder => A
   type Deconstructor[-A] = A => InputsBuilder
 
-  def flatten[R, A](in: HttpCodec[R, A]): FlattenedAtoms = {
-    var result = FlattenedAtoms.empty
+  def flatten[R, A](in: HttpCodec[R, A]): AtomizedCodecs = {
+    var result = AtomizedCodecs.empty
     flattenedAtoms(in).foreach { atom =>
       result = result.append(atom)
     }
@@ -30,16 +32,16 @@ private[api] object Mechanic {
     }
 
   private def indexed[R, A](api: HttpCodec[R, A]): HttpCodec[R, A] =
-    indexedImpl(api, AtomIndices())._1
+    indexedImpl(api, Atomized(0))._1
 
-  private def indexedImpl[R, A](api: HttpCodec[R, A], indices: AtomIndices): (HttpCodec[R, A], AtomIndices) =
+  private def indexedImpl[R, A](api: HttpCodec[R, A], indices: Atomized[Int]): (HttpCodec[R, A], Atomized[Int]) =
     api.asInstanceOf[HttpCodec[_, _]] match {
       case Combine(left, right, inputCombiner) =>
         val (left2, leftIndices)   = indexedImpl(left, indices)
         val (right2, rightIndices) = indexedImpl(right, leftIndices)
         (Combine(left2, right2, inputCombiner).asInstanceOf[HttpCodec[R, A]], rightIndices)
       case atom: Atom[_, _]                    =>
-        (IndexedAtom(atom, indices.get(atom)).asInstanceOf[HttpCodec[R, A]], indices.increment(atom))
+        (atom.withIndex(indices.get(atom.tag)).asInstanceOf[HttpCodec[R, A]], indices.update(atom.tag)(_ + 1))
       case TransformOrFail(api, f, g)          =>
         val (api2, resultIndices) = indexedImpl(api, indices)
         (TransformOrFail(api2, f, g).asInstanceOf[HttpCodec[R, A]], resultIndices)
@@ -85,25 +87,9 @@ private[api] object Mechanic {
           inputCombiner.combine(leftValue, rightValue)
         }
 
-      case IndexedAtom(_: Route[_], index)     =>
-        results => coerce(results.routes(index))
-      case IndexedAtom(_: Header[_], index)    =>
-        results => {
-          val headerValue = results.headers(index)
+      case atom: Atom[_, _] =>
+        results => coerce(results.get(atom.tag)(atom.index))
 
-          headerValue match {
-            case header1: EndpointError.MissingHeader =>
-              throw header1
-            case any                                  =>
-              coerce(any)
-          }
-        }
-      case IndexedAtom(_: Query[_], index)     =>
-        results => coerce(results.queries(index))
-      case IndexedAtom(_: Body[_], index)      =>
-        results => coerce(results.bodies(index))
-      case IndexedAtom(_: Method[_], index)    =>
-        results => coerce(results.methods(index))
       case transform: TransformOrFail[_, _, A] =>
         val threaded = makeConstructorLoop(transform.api)
         results =>
@@ -117,11 +103,7 @@ private[api] object Mechanic {
       case Empty =>
         _ => coerce(())
 
-      case Halt =>
-        _ => throw new RuntimeException("Unused should never appear in a value being constructed")
-
-      case atom: Atom[_, _] =>
-        throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
+      case Halt => throw HaltException
 
       case Fallback(_, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
@@ -142,23 +124,10 @@ private[api] object Mechanic {
           rightDeconstructor(right, inputsBuilder)
         }
 
-      case IndexedAtom(_: Route[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.routes(index) = input
-
-      case IndexedAtom(_: Header[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.headers(index) = input
-
-      case IndexedAtom(_: Query[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.queries(index) = input
-
-      case IndexedAtom(_: Body[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.bodies(index) = input
-
-      case IndexedAtom(_: Method[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.methods(index) = input
-
-      case IndexedAtom(_: Status[_], index) =>
-        (input, inputsBuilder) => inputsBuilder.statuses(index) = input
+      case atom: Atom[_, _] =>
+        (input, inputsBuilder) =>
+          val array = inputsBuilder.get(atom.tag)
+          array(atom.index) = input
 
       case transform: TransformOrFail[_, _, A] =>
         val deconstructor = makeDeconstructorLoop(transform.api)
@@ -178,101 +147,7 @@ private[api] object Mechanic {
 
       case Halt => (_, _) => ()
 
-      case atom: Atom[_, _] =>
-        throw new RuntimeException(s"Atom $atom should have been wrapped in IndexedAtom")
-
       case Fallback(_, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
     }
-  }
-
-  // Private Helper Classes
-
-  private[api] final case class FlattenedAtoms(
-    methods: Chunk[TextCodec[_]],
-    routes: Chunk[TextCodec[_]],
-    queries: Chunk[Query[_]],
-    headers: Chunk[Header[_]],
-    bodies: Chunk[internal.BodyCodec[_]],
-    statuses: Chunk[TextCodec[_]],
-  ) { self =>
-    def append(atom: Atom[_, _]) = atom match {
-      case route: Route[_]       => self.copy(routes = routes :+ route.textCodec)
-      case method: Method[_]     => self.copy(methods = methods :+ method.methodCodec)
-      case query: Query[_]       => self.copy(queries = queries :+ query)
-      case header: Header[_]     => self.copy(headers = headers :+ header)
-      case body: Body[_]         => self.copy(bodies = bodies :+ BodyCodec.Single(body.schema))
-      case status: Status[_]     => self.copy(statuses = statuses :+ status.textCodec)
-      case stream: BodyStream[_] => self.copy(bodies = bodies :+ BodyCodec.Multiple(stream.schema))
-      case _: IndexedAtom[_, _]  => throw new RuntimeException("IndexedAtom should not be appended to FlattenedAtoms")
-    }
-
-    def makeInputsBuilder(): InputsBuilder = {
-      Mechanic.InputsBuilder.make(
-        routes.length,
-        queries.length,
-        headers.length,
-        bodies.length,
-        methods.length,
-        statuses.length,
-      )
-    }
-  }
-
-  private[api] object FlattenedAtoms {
-    val empty = FlattenedAtoms(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
-  }
-
-  private[api] final case class InputsBuilder(
-    routes: Array[Any],
-    queries: Array[Any],
-    headers: Array[Any],
-    bodies: Array[Any],
-    methods: Array[Any],
-    statuses: Array[Any],
-  ) { self => }
-  private[api] object InputsBuilder  {
-    def make(routes: Int, queries: Int, headers: Int, bodies: Int, methods: Int, statuses: Int): InputsBuilder =
-      InputsBuilder(
-        routes = new Array(routes),
-        queries = new Array(queries),
-        headers = new Array(headers),
-        bodies = new Array(bodies),
-        methods = new Array(methods),
-        statuses = new Array(statuses),
-      )
-  }
-
-  private final case class AtomIndices(
-    method: Int = 0,
-    route: Int = 0,
-    query: Int = 0,
-    header: Int = 0,
-    inputBody: Int = 0,
-    status: Int = 0,
-  ) { self =>
-    def increment(atom: Atom[_, _]): AtomIndices = {
-      atom match {
-        case _: Route[_]          => self.copy(route = route + 1)
-        case _: Method[_]         => self.copy(method = method + 1)
-        case _: Query[_]          => self.copy(query = query + 1)
-        case _: Header[_]         => self.copy(header = header + 1)
-        case _: Body[_]           => self.copy(inputBody = inputBody + 1)
-        case _: Status[_]         => self.copy(status = status + 1)
-        case _: BodyStream[_]     => self // TODO: Support body streams
-        case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to increment")
-      }
-    }
-
-    def get(atom: Atom[_, _]): Int =
-      atom match {
-        case _: Route[_]          => route
-        case _: Query[_]          => query
-        case _: Header[_]         => header
-        case _: Body[_]           => inputBody
-        case _: Method[_]         => method
-        case _: Status[_]         => status
-        case _: BodyStream[_]     => throw new RuntimeException("FIXME: Support BodyStream")
-        case _: IndexedAtom[_, _] => throw new RuntimeException("IndexedAtom should not be passed to get")
-      }
   }
 }

@@ -65,8 +65,8 @@ object HandlerTree {
     val inputs = handledAPI.endpoint.input.alternatives
 
     inputs.foldLeft[HandlerTree[R, E, M]](HandlerTree.empty[E, M]) { case (acc, input) =>
-      val routeCodecs  = Mechanic.flatten(input).routes
-      val methodCodecs = Mechanic.flatten(input).methods
+      val routeCodecs  = Mechanic.flatten(input).path
+      val methodCodecs = Mechanic.flatten(input).method
 
       acc.merge(
         methodCodecs.foldRight(
