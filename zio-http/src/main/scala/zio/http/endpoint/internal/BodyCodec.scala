@@ -3,7 +3,7 @@ package zio.http.endpoint.internal
 import zio._
 import zio.http.Body
 import zio.schema._
-import zio.schema.codec.{BinaryCodec, Codec}
+import zio.schema.codec.{BinaryCodec, Codec, DecodeError}
 import zio.stream.ZStream
 
 import java.io.IOException
@@ -45,7 +45,7 @@ object BodyCodec {
   case object Empty extends BodyCodec[Unit] {
     type Element = Unit
 
-    def decodeFromBody(body: Body, codec: BinaryCodec[Unit]): IO[Throwable, Unit] = ZIO.unit
+    def decodeFromBody(body: Body, codec: BinaryCodec[Unit]): IO[Nothing, Unit] = ZIO.unit
 
     def encodeToBody(value: Unit, codec: BinaryCodec[Unit]): Body = Body.empty
 
@@ -57,7 +57,7 @@ object BodyCodec {
       if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
       else
         body.asChunk.flatMap { chunk =>
-          ZIO.fromEither(codec.decode(chunk)).mapError(message => new IOException(message))
+          ZIO.fromEither(codec.decode(chunk))
         }
     }
 
@@ -67,11 +67,11 @@ object BodyCodec {
     type Element = A
   }
 
-  final case class Multiple[E](schema: Schema[E]) extends BodyCodec[ZStream[Any, Throwable, E]] {
-    def decodeFromBody(body: Body, codec: BinaryCodec[E]): IO[Throwable, ZStream[Any, Throwable, E]] =
-      ZIO.succeed(body.asStream >>> codec.streamDecoder.mapError(message => new IOException(message)))
+  final case class Multiple[E](schema: Schema[E]) extends BodyCodec[ZStream[Any, Nothing, E]] {
+    def decodeFromBody(body: Body, codec: BinaryCodec[E]): IO[Throwable, ZStream[Any, Nothing, E]] =
+      ZIO.succeed((body.asStream >>> codec.streamDecoder).orDie)
 
-    def encodeToBody(value: ZStream[Any, Throwable, E], codec: BinaryCodec[E]): Body =
+    def encodeToBody(value: ZStream[Any, Nothing, E], codec: BinaryCodec[E]): Body =
       Body.fromStream(value >>> codec.streamEncoder)
 
     type Element = E

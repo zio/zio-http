@@ -171,7 +171,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    * of the specified type for the ok status code.
    */
   def outStream[Output2: Schema](implicit
-    alt: Alternator[Output, ZStream[Any, Throwable, Output2]],
+    alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
   ): Endpoint[Input, Err, alt.Out, Middleware] =
     outStream[Output2](Status.Ok)
 
@@ -181,7 +181,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    */
   def outStream[Output2: Schema](
     status: Status,
-  )(implicit alt: Alternator[Output, ZStream[Any, Throwable, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
+  )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
       output = (self.output | HttpCodec.BodyStream(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),

@@ -258,7 +258,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
   }
 
   private[endpoint] final case class Status[A](textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[CodecType.Status, A]                        {
+      extends Atom[CodecType.Status, A]                      {
     self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
 
@@ -267,7 +267,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
     def withIndex(index: Int): Status[A] = copy(index = index)
   }
   private[endpoint] final case class Path[A](textCodec: TextCodec[A], name: Option[String], index: Int = 0)
-      extends Atom[CodecType.Path, A]                          { self =>
+      extends Atom[CodecType.Path, A]                        { self =>
     def erase: Path[Any] = self.asInstanceOf[Path[Any]]
 
     def tag: AtomTag = AtomTag.Path
@@ -281,13 +281,13 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
     def withIndex(index: Int): Body[A] = copy(index = index)
   }
   private[endpoint] final case class BodyStream[A](schema: Schema[A], index: Int = 0)
-      extends Atom[CodecType.Body, ZStream[Any, Throwable, A]] {
+      extends Atom[CodecType.Body, ZStream[Any, Nothing, A]] {
     def tag: AtomTag = AtomTag.Body
 
     def withIndex(index: Int): BodyStream[A] = copy(index = index)
   }
   private[endpoint] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[CodecType.Query, A]                         {
+      extends Atom[CodecType.Query, A]                       {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 
