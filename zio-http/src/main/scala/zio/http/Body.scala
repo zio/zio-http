@@ -220,12 +220,9 @@ object Body {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): Body = fromCharSequence(text, charset)
 
-  private[zio] def fromAsync(unsafeAsync: UnsafeAsync => Unit): Body = new AsyncBody(unsafeAsync)
+  private[zio] def fromAsync(unsafeAsync: UnsafeAsync => Unit): Body = AsyncBody(unsafeAsync)
 
   private[zio] final case class AsyncBody(unsafeAsync: UnsafeAsync => Unit) extends Body with UnsafeWriteable {
-
-    def async = unsafeAsync
-
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asStream.runCollect

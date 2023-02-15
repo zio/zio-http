@@ -9,6 +9,8 @@ import zio.http.Body
 import zio.http.Body._
 import zio.stream.Take
 
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsScala}
+
 object NettyBodyWriter {
 
   def write(body: Body, ctx: ChannelHandlerContext, isClient: Boolean): ZIO[Scope, Throwable, Boolean] =
@@ -56,38 +58,43 @@ object NettyBodyWriter {
                     Names.ChunkedWriter,
                     new ChunkedWriteHandler(),
                   )
+                ()
               },
-            )(_ => ZIO.attempt(ctx.pipeline().remove(Names.ChunkedWriter)).orDie)
+            ) { _ =>
+              ZIO.attempt {
+                ctx.pipeline().remove(Names.ChunkedWriter)
+              }.ignore
+            }
 
         implicit val unsafe: Unsafe = Unsafe.unsafe
         for {
-          _     <- addChunkedWriter
-          queue <- Queue.bounded[Take[Throwable, ByteBuf]](1)
-          _     <- stream.chunks
-            .mapZIO(chunk => ZIO.succeed(Unpooled.wrappedBuffer(chunk.toArray)))
-            .runIntoQueue(queue)
-            .forkDaemon
-            .onExecutor(Runtime.defaultExecutor)
-            .interruptible
-          runtime = Runtime.default
+          runtime <- ZIO.runtime[Any]
+          _       <- addChunkedWriter
+          queue   <- Queue.bounded[Take[Throwable, ByteBuf]](1)
+
           finished <- Ref.make(false)
           chunkedInput = new ChunkedInput[HttpContent] {
-            override def isEndOfInput: Boolean =
+            override def isEndOfInput: Boolean = {
               runtime.unsafe.run(finished.get).getOrThrowFiberFailure()
+            }
 
             override def readChunk(allocator: ByteBufAllocator): HttpContent = {
               val r = runtime.unsafe
                 .run(
-                  queue.take.flatMap(
-                    _.foldZIO[Any, Throwable, HttpContent](
-                      finished.set(true).as(LastHttpContent.EMPTY_LAST_CONTENT),
-                      ZIO.failCause(_),
-                      {
-                        case Chunk(buf) => ZIO.succeed(new DefaultHttpContent(buf))
-                        case _          => throw new IllegalStateException("Chunks should contain single ByteBufs")
-                      },
+                  queue.take
+                    .flatMap(
+                      _.foldZIO[Any, Throwable, HttpContent](
+                        finished
+                          .set(true)
+                          .as(LastHttpContent.EMPTY_LAST_CONTENT),
+                        ZIO.failCause(_),
+                        {
+                          case Chunk(buf) =>
+                            ZIO.succeed(new DefaultHttpContent(buf))
+                          case _          => throw new IllegalStateException("Chunks should contain single ByteBufs")
+                        },
+                      ),
                     ),
-                  ),
                 )
                 .getOrThrowFiberFailure()
               r
@@ -102,9 +109,10 @@ object NettyBodyWriter {
 
             override def progress(): Long = -1
           }
-          _ <- ZIO.succeed(
-            ctx.writeAndFlush(chunkedInput),
-          )
+          _ <- ZIO.succeed(ctx.writeAndFlush(chunkedInput)).forkDaemon
+          _ <- stream.chunks
+            .mapZIO(chunk => ZIO.succeed(Unpooled.wrappedBuffer(chunk.toArray)))
+            .runIntoQueue(queue)
         } yield true
 
       case ChunkBody(data) =>

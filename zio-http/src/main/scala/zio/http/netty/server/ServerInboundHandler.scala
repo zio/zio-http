@@ -11,9 +11,11 @@ import zio.http.logging.Logger
 import zio.http.model._
 import zio.http.netty._
 import zio.http.netty.server.ServerInboundHandler.isReadKey
+import zio.stream.ZStream
 
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.util.concurrent.ConcurrentLinkedQueue
 import scala.annotation.tailrec
 
 @Sharable
@@ -96,6 +98,7 @@ private[zio] final case class ServerInboundHandler(
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: Body.UnsafeAsync): Unit = {
     if (ctx.channel().attr(isReadKey).get())
       throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
+
     ctx
       .channel()
       .pipeline()
@@ -148,8 +151,11 @@ private[zio] final case class ServerInboundHandler(
             }
             flushed   <-
               if (!jResponse.isInstanceOf[FullHttpResponse])
-                ZIO.scoped {
-                  NettyBodyWriter.write(response.body, ctx, isClient = false)
+                ZIO.blocking {
+                  ZIO.scoped {
+                    NettyBodyWriter
+                      .write(response.body, ctx, isClient = false)
+                  }
                 }
               else
                 ZIO.succeed(true)
@@ -196,9 +202,24 @@ private[zio] final case class ServerInboundHandler(
           remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-        val body = Body.fromAsync { async =>
-          addAsyncBodyHandler(ctx, async)
-        }
+        val queue  = new ConcurrentLinkedQueue[(Chunk[Byte], Boolean)]()
+        addAsyncBodyHandler(
+          ctx,
+          { (ctx, msg, isLast) =>
+            queue.offer((msg, isLast))
+            if (!isLast) ctx.read()
+            ()
+          },
+        )
+        val stream = ZStream
+          .repeatZIO(ZIO.blocking(ZIO.attempt(queue.poll())))
+          .filter { case (bytes, _) => bytes.nonEmpty }
+          .takeUntil { case (_, isLast) => isLast }
+          .map { case (msg, _) => msg }
+          .flattenChunks
+
+        val body = Body.fromStream(stream)
+
         Request(
           body,
           Headers.make(nettyReq.headers()),
