@@ -1,7 +1,7 @@
 package zio.http.endpoint.internal
 
 import zio.Scope
-import zio.http.endpoint.internal.TextCodec.UUIDCodec
+import zio.http.codec.TextCodec.UUIDCodec
 import zio.test._
 
 import java.util.UUID

@@ -1,7 +1,7 @@
 package zio.http.endpoint
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-import zio.http.endpoint.internal.TextCodec
+import zio.http.codec.TextCodec
 import zio.http.Path
 
 /**

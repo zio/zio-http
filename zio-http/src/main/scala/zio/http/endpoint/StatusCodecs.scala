@@ -1,6 +1,6 @@
 package zio.http.endpoint
 
-import zio.http.endpoint.internal.TextCodec
+import zio.http.codec.TextCodec
 import zio.http.model.Status
 
 private[endpoint] trait StatusCodecs {

@@ -319,16 +319,16 @@ sealed trait Doc { self =>
 
 }
 object Doc {
-  private[endpoint] case object Empty                                                       extends Doc
-  private[endpoint] final case class Header(value: String, level: Int)                      extends Doc
-  private[endpoint] final case class Paragraph(value: Span)                                 extends Doc
-  private[endpoint] final case class DescriptionList(definitions: List[(Span, Doc)])        extends Doc
-  private[endpoint] final case class Sequence(left: Doc, right: Doc)                        extends Doc
-  private[endpoint] final case class Listing(elements: List[Doc], listingType: ListingType) extends Doc
-  private[endpoint] sealed trait ListingType
-  private[endpoint] object ListingType {
-    private[endpoint] case object Unordered extends ListingType
-    private[endpoint] case object Ordered   extends ListingType
+  case object Empty                                                       extends Doc
+  final case class Header(value: String, level: Int)                      extends Doc
+  final case class Paragraph(value: Span)                                 extends Doc
+  final case class DescriptionList(definitions: List[(Span, Doc)])        extends Doc
+  final case class Sequence(left: Doc, right: Doc)                        extends Doc
+  final case class Listing(elements: List[Doc], listingType: ListingType) extends Doc
+  sealed trait ListingType
+  object ListingType {
+    case object Unordered extends ListingType
+    case object Ordered   extends ListingType
   }
 
   def blocks(bs: Iterable[Doc]): Doc =
@@ -373,13 +373,13 @@ object Doc {
       }
   }
   object Span       {
-    private[endpoint] final case class Text(value: String)                             extends Span
-    private[endpoint] final case class Code(value: String)                             extends Span
-    private[endpoint] final case class Error(value: String)                            extends Span
-    private[endpoint] final case class Bold(value: Span)                               extends Span
-    private[endpoint] final case class Italic(value: Span)                             extends Span
-    private[endpoint] final case class Link(value: java.net.URI, text: Option[String]) extends Span
-    private[endpoint] final case class Sequence(left: Span, right: Span)               extends Span
+    final case class Text(value: String)                             extends Span
+    final case class Code(value: String)                             extends Span
+    final case class Error(value: String)                            extends Span
+    final case class Bold(value: Span)                               extends Span
+    final case class Italic(value: Span)                             extends Span
+    final case class Link(value: java.net.URI, text: Option[String]) extends Span
+    final case class Sequence(left: Span, right: Span)               extends Span
 
     def code(t: String): Span                       = Span.Code(t)
     def empty: Span                                 = Span.text("")

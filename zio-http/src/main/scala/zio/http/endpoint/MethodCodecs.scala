@@ -1,7 +1,7 @@
 package zio.http.endpoint
 
+import zio.http.codec.TextCodec
 import zio.http.endpoint.CodecType.Method
-import zio.http.endpoint.internal.TextCodec
 
 private[endpoint] trait MethodCodecs {
   def method(method: zio.http.model.Method): HttpCodec[CodecType.Method, Unit] =

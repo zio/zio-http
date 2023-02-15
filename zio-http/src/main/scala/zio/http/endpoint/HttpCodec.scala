@@ -4,7 +4,7 @@ import scala.language.implicitConversions
 
 import zio.http._
 import zio.http.model._
-import zio.http.endpoint.internal.TextCodec
+import zio.http.codec.TextCodec
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;

@@ -1,6 +1,7 @@
 package zio.http.endpoint.internal
 
 import zio.Chunk
+import zio.http.codec.TextCodec
 import zio.http.endpoint.HttpCodec._
 
 private[endpoint] final case class AtomizedCodecs(

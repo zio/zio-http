@@ -2,6 +2,7 @@ package zio.http.endpoint.internal
 
 import zio._
 import zio.http._
+import zio.http.codec.TextCodec
 import zio.http.endpoint._
 import zio.http.model.Method
 import zio.stacktracer.TracingImplicits.disableAutoTrace

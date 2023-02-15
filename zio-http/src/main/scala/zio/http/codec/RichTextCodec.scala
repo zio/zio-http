@@ -1,4 +1,4 @@
-package zio.http.endpoint.internal
+package zio.http.codec
 
 import zio.http.endpoint.{Combiner, Doc}
 import zio.{Chunk, NonEmptyChunk}
@@ -139,25 +139,25 @@ sealed trait RichTextCodec[A] { self =>
     }
 }
 object RichTextCodec {
-  private[internal] case object Empty                                        extends RichTextCodec[Unit]
-  private[internal] final case class CharIn(set: BitSet)                     extends RichTextCodec[Char]
-  private[internal] final case class TransformOrFail[A, B](
+  private[codec] case object Empty                                        extends RichTextCodec[Unit]
+  private[codec] final case class CharIn(set: BitSet)                     extends RichTextCodec[Char]
+  private[codec] final case class TransformOrFail[A, B](
     codec: RichTextCodec[A],
     to: A => Either[String, B],
     from: B => Either[String, A],
   ) extends RichTextCodec[B]
-  private[internal] final case class Alt[A, B](left: RichTextCodec[A], right: RichTextCodec[B])
+  private[codec] final case class Alt[A, B](left: RichTextCodec[A], right: RichTextCodec[B])
       extends RichTextCodec[Either[A, B]]
-  private[internal] final case class Lazy[A](codec0: () => RichTextCodec[A]) extends RichTextCodec[A] {
+  private[codec] final case class Lazy[A](codec0: () => RichTextCodec[A]) extends RichTextCodec[A] {
     lazy val codec: RichTextCodec[A] = codec0()
   }
-  private[internal] final case class Zip[A, B, C](
+  private[codec] final case class Zip[A, B, C](
     left: RichTextCodec[A],
     right: RichTextCodec[B],
     combiner: Combiner.WithOut[A, B, C],
   ) extends RichTextCodec[C]
 
-  private[internal] final case class Tagged[A](
+  private[codec] final case class Tagged[A](
     name: String,
     codec: RichTextCodec[A],
     descriptionNotNeeded: Boolean = false,

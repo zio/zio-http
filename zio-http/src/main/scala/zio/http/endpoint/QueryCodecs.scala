@@ -1,6 +1,6 @@
 package zio.http.endpoint
 
-import zio.http.endpoint.internal.TextCodec
+import zio.http.codec.TextCodec
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[endpoint] trait QueryCodecs {

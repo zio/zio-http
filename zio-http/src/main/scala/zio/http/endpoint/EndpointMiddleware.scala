@@ -1,7 +1,7 @@
 package zio.http.endpoint
 
 import zio.ZIO
-import zio.http.endpoint.internal.TextCodec
+import zio.http.codec.TextCodec
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName

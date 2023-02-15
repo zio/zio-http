@@ -1,4 +1,4 @@
-package zio.http.endpoint.internal
+package zio.http.codec
 
 import zio.http.endpoint._
 import zio.test.Assertion.equalTo

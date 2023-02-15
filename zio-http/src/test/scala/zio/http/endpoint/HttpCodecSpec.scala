@@ -2,7 +2,7 @@ package zio.http.endpoint
 
 import zio._
 import zio.http._
-import zio.http.endpoint.internal.TextCodec
+import zio.http.codec.TextCodec
 import zio.http.model._
 import zio.test._
 object HttpCodecSpec extends ZIOSpecDefault {
