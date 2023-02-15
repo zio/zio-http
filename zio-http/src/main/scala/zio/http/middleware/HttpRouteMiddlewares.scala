@@ -5,7 +5,7 @@ import zio.{Trace, ZIO}
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[zio] trait HttpRouteMiddlewares extends Cors {
+private[zio] trait HttpRoutesMiddlewares extends Cors {
 
   /**
    * Creates a middleware which can allow or disallow access to an http based on
@@ -38,4 +38,4 @@ private[zio] trait HttpRouteMiddlewares extends Cors {
     }
 }
 
-object HttpRouteMiddlewares extends HttpRouteMiddlewares
+object HttpRoutesMiddlewares extends HttpRoutesMiddlewares

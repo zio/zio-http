@@ -264,14 +264,6 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     )
 
   /**
-   * Attaches the provided middleware to the Http app
-   */
-  final def withMiddleware[R1 <: R, In1 <: In, In2, Out2](
-    middleware: api.Middleware[R1, In2, Out2],
-  )(implicit ev1: In1 <:< Request, ev2: Out <:< Response): HttpApp[R1, Err] =
-    middleware(self.asInstanceOf[HttpApp[R, Err]])
-
-  /**
    * Applies Http based only if the condition function evaluates to true
    */
   final def when[In1 <: In](f: In1 => Boolean)(implicit trace: Trace): Http[R, Err, In1, Out] =
