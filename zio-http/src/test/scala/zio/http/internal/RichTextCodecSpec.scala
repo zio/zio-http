@@ -1,6 +1,6 @@
-package zio.http.api.internal
+package zio.http.endpoint.internal
 
-import zio.http.api._
+import zio.http.endpoint._
 import zio.test.Assertion.equalTo
 import zio.test._
 

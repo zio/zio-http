@@ -1,4 +1,4 @@
-package zio.http.api
+package zio.http.endpoint
 
 import zio._
 import zio.http.middleware.Auth

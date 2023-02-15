@@ -14,7 +14,7 @@ import sttp.tapir.json.circe._
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.{Endpoint => TEndpoint, endpoint => tendpoint, path => tpath, _}
 import zio.http._
-import zio.http.api._
+import zio.http.endpoint._
 import zio.http.model.Method
 import zio.json.{DeriveJsonCodec, EncoderOps, JsonCodec}
 import zio.schema.{DeriveSchema, Schema}
