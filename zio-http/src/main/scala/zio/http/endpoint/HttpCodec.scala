@@ -103,6 +103,9 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   final def asRoute(implicit ev: CodecType.Path <:< AtomTypes): PathCodec[Value] =
     self.asInstanceOf[PathCodec[Value]]
 
+  final def const[Value2](value2: => Value2)(implicit ev: Unit <:< Value): HttpCodec[AtomTypes, Value2] =
+    self.transform(_ => value2, _ => ev(()))
+
   /**
    * Uses this codec to decode the Scala value from a request.
    */

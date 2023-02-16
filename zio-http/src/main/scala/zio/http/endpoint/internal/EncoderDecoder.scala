@@ -41,8 +41,10 @@ private[endpoint] object EncoderDecoder                   {
           codec
             .decode(url, status, method, headers, body)
             .catchAllCause(cause =>
-              // TODO: Only on EndpointError
-              tryDecode(i + 1, lastError ++ cause),
+              if (shouldRetry(cause)) {
+                // TODO: Only on EndpointError
+                tryDecode(i + 1, lastError && cause)
+              } else ZIO.refailCause(cause),
             )
         }
       }
@@ -74,6 +76,9 @@ private[endpoint] object EncoderDecoder                   {
       if (encoded == null) throw lastError
       else encoded
     }
+
+    private def shouldRetry(cause: Cause[Any]): Boolean =
+      !cause.isFailure && cause.defects.forall(_.isInstanceOf[EndpointError])
   }
 
   private final case class Single[-AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value])
@@ -95,7 +100,7 @@ private[endpoint] object EncoderDecoder                   {
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
-    ): Task[Value] = ZIO.suspend {
+    ): Task[Value] = ZIO.suspendSucceed {
       val inputsBuilder = flattened.makeInputsBuilder()
 
       decodeRoutes(url.path, inputsBuilder.path)

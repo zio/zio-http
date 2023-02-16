@@ -88,6 +88,19 @@ object HttpCodecSpec extends ZIOSpecDefault {
             result1 <- fallback.decodeRequest(usersRequest)
             result2 <- fallback.decodeRequest(postsRequest)
           } yield assertTrue(result1 == (("10", "1234"))) && assertTrue(result2 == (("20", "567")))
+        } +
+        test("no fallback for defects") {
+          val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
+          val e        = new RuntimeException("boom")
+
+          val codec1 = PathCodec.literal("users").transform[Unit](_ => throw e, _ => ()).const("route1")
+          val codec2 = PathCodec.literal("users").const("route2")
+
+          val fallback = codec1 | codec2
+
+          for {
+            result <- fallback.decodeRequest(Request.get(url = usersURL)).exit
+          } yield assertTrue(result.causeOption.get.defects.forall(_ == e))
         }
     },
     suite("PathCodec") {
