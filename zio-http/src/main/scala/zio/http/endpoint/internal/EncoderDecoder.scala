@@ -42,7 +42,6 @@ private[endpoint] object EncoderDecoder                   {
             .decode(url, status, method, headers, body)
             .catchAllCause(cause =>
               if (shouldRetry(cause)) {
-                // TODO: Only on EndpointError
                 tryDecode(i + 1, lastError && cause)
               } else ZIO.refailCause(cause),
             )
