@@ -48,3 +48,26 @@ final case class EndpointExecutor[+MI](
     }
   }
 }
+object EndpointExecutor {
+  final case class Config(url: URL)
+  object Config {
+    import zio.{Config => ZConfig}
+    val config: ZConfig[Config] =
+      ZConfig
+        .uri("url")
+        .map { uri =>
+          URL
+            .fromString(uri.toString())
+            .getOrElse(throw new RuntimeException(s"Illegal format of URI ${uri} for endpoint executor configuration"))
+        }
+        .map(Config(_))
+  }
+
+  def make(serviceName: String)(implicit trace: Trace): ZLayer[Client, zio.Config.Error, EndpointExecutor[Unit]] =
+    ZLayer {
+      for {
+        client <- ZIO.service[Client]
+        config <- ZIO.config(Config.config.nested(serviceName))
+      } yield EndpointExecutor(client, EndpointLocator.fromURL(config.url), ZIO.unit)
+    }
+}

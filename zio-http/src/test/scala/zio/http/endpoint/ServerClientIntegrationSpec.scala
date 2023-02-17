@@ -27,7 +27,6 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       ZIO.succeed(Post(postId, "title", "body", userId))
     }
 
-  // TODO: [Ergonomics] Need to make it easy to create an EndpointExecutor layer
   def makeExecutor(client: Client) = {
     val locator = EndpointLocator.fromURL(
       URL.fromString("http://localhost:8080").getOrElse(???),
@@ -45,9 +44,6 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           _        <- Server.install(usersPostHandler.toApp)
           _        <- ZIO.debug("Installed server")
           executor <- ZIO.service[EndpointExecutor[Unit]]
-          // QUESTION: Do we want to encode `E` in an API?
-          // The result of `executor.apply` could be ApiError[E], a sealed trait of the user error E or
-          // some network error Throwable. Is that worth it?
           result   <- executor(usersPostAPI(10, 20))
           _        <- ZIO.debug(s"Result: $result")
         } yield assertTrue(result == Post(20, "title", "body", 10))
@@ -59,7 +55,6 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       ClientDriver.shared,
       executorLayer,
       NettyDriver.default,
-      // TODO: [Ergonomics] Server.default is a value and ClientConfig.default is a Layer
       ClientConfig.default,
     )
 }
