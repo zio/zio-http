@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
 import zio.Scope
+import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+
 import zio.http.model
 import zio.http.model.Cookie.Type.RequestType
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
 object RequestCookieSpec extends ZIOSpecDefault {
 

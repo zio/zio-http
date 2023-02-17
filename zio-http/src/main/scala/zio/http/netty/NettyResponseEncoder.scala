@@ -1,11 +1,13 @@
 package zio.http.netty
 
-import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http._
+import java.util.concurrent.ConcurrentHashMap
+
 import zio._
+
 import zio.http._
 
-import java.util.concurrent.ConcurrentHashMap
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.http._
 
 private[zio] object NettyResponseEncoder {
 

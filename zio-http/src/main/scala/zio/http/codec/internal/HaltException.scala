@@ -1,4 +1,4 @@
-package zio.http.endpoint.internal
+package zio.http.codec.internal
 
 import scala.util.control.NoStackTrace
 

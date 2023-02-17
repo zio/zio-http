@@ -2,9 +2,8 @@ package zio.http.endpoint.internal
 
 import zio._
 import zio.http._
-import zio.http.endpoint._
-import zio.http.endpoint.internal.Mechanic.Constructor
-import zio.http.model.{Headers}
+import zio.http.endpoint.{EndpointMiddleware, Routes}
+import zio.http.model.Headers
 import zio.schema._
 import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;

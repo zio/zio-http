@@ -3,12 +3,15 @@ package zio.http.endpoint.internal
 import zio._
 import zio.http._
 import zio.http.codec.TextCodec
+import zio.http.codec.internal.AtomizedCodecs
 import zio.http.endpoint._
 import zio.http.model.Method
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 import scala.annotation.tailrec
 
+import zio.http.codec.internal.Mechanic
 private[zio] case class HandlerTree[-R, E, M <: EndpointMiddleware](
   constants: Map[String, HandlerTree[R, E, M]],
   parsers: Map[TextCodec[_], HandlerTree[R, E, M]],
@@ -66,8 +69,8 @@ object HandlerTree {
     val inputs = handledAPI.endpoint.input.alternatives
 
     inputs.foldLeft[HandlerTree[R, E, M]](HandlerTree.empty[E, M]) { case (acc, input) =>
-      val pathCodecs   = Mechanic.flatten(input).path
-      val methodCodecs = Mechanic.flatten(input).method
+      val pathCodecs   = AtomizedCodecs.flatten(input).path
+      val methodCodecs = AtomizedCodecs.flatten(input).method
 
       acc.merge(
         methodCodecs.foldRight(

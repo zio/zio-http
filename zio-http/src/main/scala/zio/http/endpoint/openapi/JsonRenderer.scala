@@ -1,7 +1,7 @@
 package zio.http.endpoint.openapi
 
 import zio.NonEmptyChunk
-import zio.http.endpoint.Doc
+import zio.http.codec.Doc
 import zio.http.endpoint.openapi.OpenAPI.LiteralOrExpression
 import zio.http.model.Status
 

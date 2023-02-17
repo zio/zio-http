@@ -1,9 +1,11 @@
 package example
 
-import io.netty.util.AsciiString
 import zio._
+
 import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http._
+
+import io.netty.util.AsciiString
 
 /**
  * This server is used to run plaintext benchmarks on CI.

@@ -1,10 +1,10 @@
 package zio.http
 
+import java.io.IOException
+
 import zio._
 import zio.test.Assertion._
 import zio.test._
-
-import java.io.IOException
 
 object MiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
   private val increment = Middleware.codec[Int, Int](decoder = a => Right(a + 1), encoder = b => Right(b + 1))

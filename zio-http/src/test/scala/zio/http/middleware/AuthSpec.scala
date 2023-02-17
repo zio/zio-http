@@ -1,11 +1,12 @@
 package zio.http.middleware
 
 import zio.ZIO
+import zio.test.Assertion._
+import zio.test._
+
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.model.{Headers, Method, Status}
-import zio.test.Assertion._
-import zio.test._
 
 object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val successBasicHeader: Headers  = Headers.basicAuthorizationHeader("user", "resu")

@@ -1,9 +1,10 @@
 package zio.http.endpoint
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http._
 import zio.http.model.HttpError
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * Represents a collection of API endpoints that all have handlers.

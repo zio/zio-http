@@ -1,12 +1,14 @@
 package zio.http.endpoint
 
-import zio.http._
-import zio.http.netty.server.NettyDriver
+import scala.language.implicitConversions
+
 import zio.schema.{DeriveSchema, Schema}
 import zio.test.{ZIOSpecDefault, assertTrue}
 import zio.{Scope, ZIO, ZLayer}
 
-import scala.language.implicitConversions
+import zio.http._
+import zio.http.codec.PathCodec.{int, literal}
+import zio.http.netty.server.NettyDriver
 
 object ServerClientIntegrationSpec extends ZIOSpecDefault {
   trait PostsService {
@@ -20,7 +22,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
   }
 
   val usersPostAPI =
-    Endpoint.get("users" / PathCodec.int("userId") / "posts" / PathCodec.int("postId")).out[Post]
+    Endpoint.get(literal("users") / int("userId") / literal("posts") / int("postId")).out[Post]
 
   val usersPostHandler =
     usersPostAPI.implement { case (userId, postId) =>

@@ -1,9 +1,9 @@
 package zio.http
 
+import java.net.InetAddress
+
 import zio.http.model._
 import zio.http.model.headers._
-
-import java.net.InetAddress
 
 final case class Request(
   body: Body,

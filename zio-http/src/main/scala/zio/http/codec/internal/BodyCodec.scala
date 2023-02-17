@@ -1,18 +1,20 @@
-package zio.http.endpoint.internal
-
-import zio._
-import zio.http.Body
-import zio.schema._
-import zio.schema.codec.{BinaryCodec, Codec, DecodeError}
-import zio.stream.ZStream
+package zio.http.codec.internal
 
 import java.io.IOException
+
+import zio._
+import zio.schema._
+import zio.schema.codec.{BinaryCodec, Codec, DecodeError}
+
+import zio.stream.ZStream
+
+import zio.http.Body
 
 /**
  * A BodyCodec encapsulates the logic necessary to both encode and decode bodies
  * for a media type, using ZIO Schema codecs and schemas.
  */
-private[endpoint] sealed trait BodyCodec[A] { self =>
+private[internal] sealed trait BodyCodec[A] { self =>
 
   /**
    * The element type, described by the schema. This could be the type of the
@@ -41,7 +43,7 @@ private[endpoint] sealed trait BodyCodec[A] { self =>
    */
   def schema: Schema[Element]
 }
-object BodyCodec {
+private[internal] object BodyCodec {
   case object Empty extends BodyCodec[Unit] {
     type Element = Unit
 

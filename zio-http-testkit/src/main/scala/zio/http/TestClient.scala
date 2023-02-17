@@ -1,6 +1,7 @@
 package zio.http
 
 import zio._
+
 import zio.http.ChannelEvent.{ChannelUnregistered, UserEvent}
 import zio.http.model.{Headers, Method, Scheme, Status, Version}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent, WebSocketFrame}

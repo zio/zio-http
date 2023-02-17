@@ -3,6 +3,17 @@ package zio.http.benchmarks
 //import akka.actor.ActorSystem
 //import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 //import akka.http.scaladsl.server.Route
+import java.util.concurrent.TimeUnit
+
+import zio.json.{DeriveJsonCodec, EncoderOps, JsonCodec}
+import zio.schema.{DeriveSchema, Schema}
+import zio.{Scope => _, _}
+
+import zio.http._
+import zio.http.codec.{PathCodec, QueryCodec}
+import zio.http.endpoint._
+import zio.http.model.Method
+
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO => CIO}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
@@ -13,14 +24,6 @@ import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.{Endpoint => TEndpoint, endpoint => tendpoint, path => tpath, _}
-import zio.http._
-import zio.http.endpoint._
-import zio.http.model.Method
-import zio.json.{DeriveJsonCodec, EncoderOps, JsonCodec}
-import zio.schema.{DeriveSchema, Schema}
-import zio.{Scope => _, _}
-
-import java.util.concurrent.TimeUnit //import scala.concurrent.Future
 
 // Original
 //

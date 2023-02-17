@@ -1,8 +1,9 @@
 package zio.http.model.headers.values
 
 import zio.Scope
-import zio.http.internal.HttpGen
 import zio.test._
+
+import zio.http.internal.HttpGen
 
 object ConnectionSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Connection header suite")(

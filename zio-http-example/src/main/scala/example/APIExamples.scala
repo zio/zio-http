@@ -1,12 +1,14 @@
 package zio.http.endpoint
 
 import zio._
+
+import zio.http.codec.HttpCodec
 import zio.http.middleware.Auth
 import zio.http.model.headers.values.WWWAuthenticate
 import zio.http.{Client, Request, Server, URL}
+
 object APIExamples extends ZIOAppDefault {
-  import PathCodec._
-  import QueryCodec._
+  import HttpCodec._
 
   val middleware = EndpointMiddleware.auth
 

@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
-import zio.http.model.headers.values.Warning.{InvalidWarning, WarningValue}
+import java.time.{ZoneId, ZonedDateTime}
+
 import zio.test.{ZIOSpecDefault, assertTrue}
 
-import java.time.{ZoneId, ZonedDateTime}
+import zio.http.model.headers.values.Warning.{InvalidWarning, WarningValue}
 
 object WarningSpec extends ZIOSpecDefault {
 

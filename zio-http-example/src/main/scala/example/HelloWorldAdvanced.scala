@@ -1,11 +1,12 @@
 package example
 
+import scala.util.Try
+
 import zio._
+
 import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http._
 import zio.http.model.Method
-
-import scala.util.Try
 
 object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port

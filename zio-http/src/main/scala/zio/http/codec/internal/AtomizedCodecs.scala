@@ -1,10 +1,11 @@
-package zio.http.endpoint.internal
+package zio.http.codec.internal
 
 import zio.Chunk
-import zio.http.codec.TextCodec
-import zio.http.endpoint.HttpCodec._
 
-private[endpoint] final case class AtomizedCodecs(
+import zio.http.codec.HttpCodec._
+import zio.http.codec._
+
+private[http] final case class AtomizedCodecs(
   method: Chunk[TextCodec[_]],
   path: Chunk[TextCodec[_]],
   query: Chunk[Query[_]],
@@ -34,6 +35,25 @@ private[endpoint] final case class AtomizedCodecs(
   }
 }
 
-private[endpoint] object AtomizedCodecs {
+private[http] object AtomizedCodecs {
   val empty = AtomizedCodecs(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
+
+  def flatten[R, A](in: HttpCodec[R, A]): AtomizedCodecs = {
+    var result = AtomizedCodecs.empty
+    flattenedAtoms(in).foreach { atom =>
+      result = result.append(atom)
+    }
+    result
+  }
+
+  private def flattenedAtoms[R, A](in: HttpCodec[R, A]): Chunk[Atom[_, _]] =
+    in match {
+      case Combine(left, right, _)       => flattenedAtoms(left) ++ flattenedAtoms(right)
+      case atom: Atom[_, _]              => Chunk(atom)
+      case map: TransformOrFail[_, _, _] => flattenedAtoms(map.api)
+      case WithDoc(api, _)               => flattenedAtoms(api)
+      case Empty                         => Chunk.empty
+      case Halt                          => Chunk.empty
+      case Fallback(_, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
+    }
 }

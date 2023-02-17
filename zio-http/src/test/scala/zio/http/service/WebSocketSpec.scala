@@ -1,15 +1,16 @@
 package zio.http.service
 
 import zio._
+import zio.test.Assertion.equalTo
+import zio.test.TestAspect.{diagnose, nonFlaky, timeout}
+import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
+
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.{Headers, Status}
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
-import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, nonFlaky, timeout}
-import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
 object WebSocketSpec extends HttpRunnableSpec {
 

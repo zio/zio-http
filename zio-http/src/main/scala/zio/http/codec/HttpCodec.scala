@@ -1,20 +1,18 @@
-package zio.http.endpoint
+package zio.http.codec
 
 import scala.language.implicitConversions
 
 import zio.http._
 import zio.http.model._
-import zio.http.codec.TextCodec
 
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import zio.stream.ZStream
 
 import zio.schema.Schema
-import zio.schema.codec.Codec
 
 /**
- * A [[zio.http.endpoint.HttpCodec]] represents a codec for a part of an HTTP
+ * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
  * request. HttpCodec the HTTP protocol, these parts may be the unconsumed
  * portion of the HTTP path (a route codec), the query string parameters (a
  * query codec), the request headers (a header codec), or the request body (a
@@ -27,7 +25,7 @@ import zio.schema.codec.Codec
  */
 sealed trait HttpCodec[-AtomTypes, Value] {
   self =>
-  private lazy val encoderDecoder = zio.http.endpoint.internal.EncoderDecoder(self)
+  private lazy val encoderDecoder = zio.http.codec.internal.EncoderDecoder(self)
 
   /**
    * Returns a new codec that is the same as this one, but has attached docs,
@@ -67,7 +65,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     that: QueryCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
-    ev: CodecType.Query <:< AtomTypes,
+    ev: HttpCodecType.Query <:< AtomTypes,
   ): QueryCodec[combiner.Out] =
     self.asQuery ++ that
 
@@ -78,7 +76,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     that: PathCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
-    ev: CodecType.Path <:< AtomTypes,
+    ev: HttpCodecType.Path <:< AtomTypes,
   ): PathCodec[combiner.Out] =
     self.asRoute ++ that
 
@@ -93,14 +91,14 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Reinterprets this codec as a query codec assuming evidence that this
    * interpretation is sound.
    */
-  final def asQuery(implicit ev: CodecType.Query <:< AtomTypes): QueryCodec[Value] =
+  final def asQuery(implicit ev: HttpCodecType.Query <:< AtomTypes): QueryCodec[Value] =
     self.asInstanceOf[QueryCodec[Value]]
 
   /**
    * Reinterpets this codec as a route codec assuming evidence that this
    * interpretation is sound.
    */
-  final def asRoute(implicit ev: CodecType.Path <:< AtomTypes): PathCodec[Value] =
+  final def asRoute(implicit ev: HttpCodecType.Path <:< AtomTypes): PathCodec[Value] =
     self.asInstanceOf[PathCodec[Value]]
 
   final def const[Value2](value2: => Value2)(implicit ev: Unit <:< Value): HttpCodec[AtomTypes, Value2] =
@@ -231,14 +229,15 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Note: You should NOT use this method on any codec which can decode
    * semantically distinct values.
    */
-  final def unit(canonical: Value): HttpCodec[AtomTypes, Unit] =
+  final def const(canonical: Value): HttpCodec[AtomTypes, Unit] =
     self.transform(_ => (), _ => canonical)
 }
 
-object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
-  implicit def stringToLiteral(s: String): PathCodec[Unit] = PathCodec.literal(s)
-  private[endpoint] sealed trait AtomTag
-  private[endpoint] object AtomTag {
+object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs with StatusCodecs with MethodCodecs {
+  implicit def stringToLiteral(string: String): PathCodec[Unit] = literal(string)
+
+  private[http] sealed trait AtomTag
+  private[http] object AtomTag {
     case object Status extends AtomTag
     case object Path   extends AtomTag
     case object Body   extends AtomTag
@@ -252,7 +251,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
 
   def unused: HttpCodec[Any, ZNothing] = Halt
 
-  private[endpoint] sealed trait Atom[-AtomTypes, Value0] extends HttpCodec[AtomTypes, Value0] {
+  private[http] sealed trait Atom[-AtomTypes, Value0] extends HttpCodec[AtomTypes, Value0] {
     def tag: AtomTag
 
     def index: Int
@@ -260,8 +259,8 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
     def withIndex(index: Int): Atom[AtomTypes, Value0]
   }
 
-  private[endpoint] final case class Status[A](textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[CodecType.Status, A]                      {
+  private[http] final case class Status[A](textCodec: TextCodec[A], index: Int = 0)
+      extends Atom[HttpCodecType.Status, A]                      {
     self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
 
@@ -269,28 +268,28 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
 
     def withIndex(index: Int): Status[A] = copy(index = index)
   }
-  private[endpoint] final case class Path[A](textCodec: TextCodec[A], name: Option[String], index: Int = 0)
-      extends Atom[CodecType.Path, A]                        { self =>
+  private[http] final case class Path[A](textCodec: TextCodec[A], name: Option[String], index: Int = 0)
+      extends Atom[HttpCodecType.Path, A]                        { self =>
     def erase: Path[Any] = self.asInstanceOf[Path[Any]]
 
     def tag: AtomTag = AtomTag.Path
 
     def withIndex(index: Int): Path[A] = copy(index = index)
   }
-  private[endpoint] final case class Body[A](schema: Schema[A], index: Int = 0) extends Atom[CodecType.Body, A] {
+  private[http] final case class Body[A](schema: Schema[A], index: Int = 0) extends Atom[HttpCodecType.Body, A] {
     self =>
     def tag: AtomTag = AtomTag.Body
 
     def withIndex(index: Int): Body[A] = copy(index = index)
   }
-  private[endpoint] final case class BodyStream[A](schema: Schema[A], index: Int = 0)
-      extends Atom[CodecType.Body, ZStream[Any, Nothing, A]] {
+  private[http] final case class BodyStream[A](schema: Schema[A], index: Int = 0)
+      extends Atom[HttpCodecType.Body, ZStream[Any, Nothing, A]] {
     def tag: AtomTag = AtomTag.Body
 
     def withIndex(index: Int): BodyStream[A] = copy(index = index)
   }
-  private[endpoint] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[CodecType.Query, A]                       {
+  private[http] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
+      extends Atom[HttpCodecType.Query, A]                       {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 
@@ -299,8 +298,8 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
     def withIndex(index: Int): Query[A] = copy(index = index)
   }
 
-  private[endpoint] final case class Method[A](methodCodec: TextCodec[A], index: Int = 0)
-      extends Atom[CodecType.Method, A] {
+  private[http] final case class Method[A](methodCodec: TextCodec[A], index: Int = 0)
+      extends Atom[HttpCodecType.Method, A] {
     self =>
     def erase: Method[Any] = self.asInstanceOf[Method[Any]]
 
@@ -309,8 +308,8 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
     def withIndex(index: Int): Method[A] = copy(index = index)
   }
 
-  private[endpoint] final case class Header[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[CodecType.Header, A] {
+  private[http] final case class Header[A](name: String, textCodec: TextCodec[A], index: Int = 0)
+      extends Atom[HttpCodecType.Header, A] {
     self =>
     def erase: Header[Any] = self.asInstanceOf[Header[Any]]
 
@@ -319,10 +318,10 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
     def withIndex(index: Int): Header[A] = copy(index = index)
   }
 
-  private[endpoint] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)
+  private[http] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)
       extends HttpCodec[AtomType, A]
 
-  private[endpoint] final case class TransformOrFail[AtomType, X, A](
+  private[http] final case class TransformOrFail[AtomType, X, A](
     api: HttpCodec[AtomType, X],
     f: X => Either[String, A],
     g: A => Either[String, X],
@@ -331,11 +330,11 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
     type Out = A
   }
 
-  private[endpoint] case object Empty extends HttpCodec[Any, Unit]
+  private[http] case object Empty extends HttpCodec[Any, Unit]
 
-  private[endpoint] case object Halt extends HttpCodec[Any, Nothing]
+  private[http] case object Halt extends HttpCodec[Any, Nothing]
 
-  private[endpoint] final case class Combine[AtomType1, AtomType2, A1, A2, A](
+  private[http] final case class Combine[AtomType1, AtomType2, A1, A2, A](
     left: HttpCodec[AtomType1, A1],
     right: HttpCodec[AtomType2, A2],
     inputCombiner: Combiner.WithOut[A1, A2, A],
@@ -345,7 +344,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
     type Out   = A
   }
 
-  private[endpoint] final case class Fallback[AtomType, A, B](
+  private[http] final case class Fallback[AtomType, A, B](
     left: HttpCodec[AtomType, A],
     right: HttpCodec[AtomType, B],
   ) extends HttpCodec[AtomType, Either[A, B]] {
@@ -354,7 +353,7 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs {
     type Out   = Either[A, B]
   }
 
-  private[endpoint] def flattenFallbacks[AtomTypes, A](api: HttpCodec[AtomTypes, A]): Chunk[HttpCodec[AtomTypes, A]] = {
+  private[http] def flattenFallbacks[AtomTypes, A](api: HttpCodec[AtomTypes, A]): Chunk[HttpCodec[AtomTypes, A]] = {
     def rewrite[T, B](api: HttpCodec[T, B]): Chunk[HttpCodec[T, B]] =
       api match {
         case fallback @ HttpCodec.Fallback(left, right) =>

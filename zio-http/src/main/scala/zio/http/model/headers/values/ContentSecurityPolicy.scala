@@ -1,6 +1,7 @@
 package zio.http.model.headers.values
 
 import java.net.URI
+
 import scala.util.Try
 
 //scalafmt: { maxColumn = 180 }

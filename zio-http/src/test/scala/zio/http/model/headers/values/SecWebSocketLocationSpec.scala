@@ -1,8 +1,9 @@
 package zio.http.model.headers.values
 
 import zio.Scope
-import zio.http.URL
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+
+import zio.http.URL
 
 object SecWebSocketLocationSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketLocation suite")(

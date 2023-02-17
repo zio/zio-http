@@ -1,10 +1,12 @@
 package zio.http.endpoint
 
 import zio._
-import zio.http._
-import zio.http.codec.TextCodec
-import zio.http.model._
 import zio.test._
+
+import zio.http._
+import zio.http.codec._
+import zio.http.model._
+
 object HttpCodecSpec extends ZIOSpecDefault {
   val googleUrl     = URL.fromString("http://google.com").toOption.get
   val usersUrl      = URL.fromString("http://mywebservice.com/users").toOption.get

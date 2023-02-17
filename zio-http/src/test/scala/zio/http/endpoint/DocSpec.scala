@@ -1,8 +1,9 @@
 package zio.http.endpoint
 
-import zio.http.endpoint.Doc._
 import zio.test._
 
+import zio.http.codec.Doc
+import zio.http.codec.Doc._
 object DocSpec extends ZIOSpecDefault {
   override def spec = suite("DocSpec")(
     test("common mark rendering") {

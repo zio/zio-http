@@ -1,10 +1,12 @@
 package zio.http.model
 
-import io.netty.handler.codec.http.HttpScheme
-import io.netty.handler.codec.http.websocketx.WebSocketScheme
-import zio.http.internal.HttpGen
 import zio.test.Assertion.isNone
 import zio.test._
+
+import zio.http.internal.HttpGen
+
+import io.netty.handler.codec.http.HttpScheme
+import io.netty.handler.codec.http.websocketx.WebSocketScheme
 
 object SchemeSpec extends ZIOSpecDefault {
   override def spec = suite("SchemeSpec")(

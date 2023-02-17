@@ -1,13 +1,15 @@
 package zio.http
 
-import io.netty.handler.codec.DecoderException
-import zio.http._
-import zio.http.model._
-import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
 import zio.{Scope, ZIO, durationInt}
+
+import zio.http._
+import zio.http.model._
+import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
+
+import io.netty.handler.codec.DecoderException
 
 object SSLSpec extends ZIOSpecDefault {
 

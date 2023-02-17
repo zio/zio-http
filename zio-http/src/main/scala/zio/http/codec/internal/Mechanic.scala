@@ -1,35 +1,18 @@
-package zio.http.endpoint.internal
+package zio.http.codec.internal
 
 import zio.Chunk
-import zio.http.endpoint.HttpCodec._
+import zio.http.codec.HttpCodec._
 import zio.http.endpoint._
 import zio.http.model.Headers
+import zio.http.codec.HttpCodec
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[endpoint] object Mechanic {
+private[http] object Mechanic {
   type InputsBuilder = Atomized[Array[Any]]
 
   type Constructor[+A]   = InputsBuilder => A
   type Deconstructor[-A] = A => InputsBuilder
-
-  def flatten[R, A](in: HttpCodec[R, A]): AtomizedCodecs = {
-    var result = AtomizedCodecs.empty
-    flattenedAtoms(in).foreach { atom =>
-      result = result.append(atom)
-    }
-    result
-  }
-
-  private def flattenedAtoms[R, A](in: HttpCodec[R, A]): Chunk[Atom[_, _]] =
-    in match {
-      case Combine(left, right, _)       => flattenedAtoms(left) ++ flattenedAtoms(right)
-      case atom: Atom[_, _]              => Chunk(atom)
-      case map: TransformOrFail[_, _, _] => flattenedAtoms(map.api)
-      case WithDoc(api, _)               => flattenedAtoms(api)
-      case Empty                         => Chunk.empty
-      case Halt                          => Chunk.empty
-      case Fallback(_, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
-    }
 
   private def indexed[R, A](api: HttpCodec[R, A]): HttpCodec[R, A] =
     indexedImpl(api, Atomized(0))._1
@@ -60,7 +43,7 @@ private[endpoint] object Mechanic {
   def makeDeconstructor[R, A](
     api: HttpCodec[R, A],
   ): Deconstructor[A] = {
-    val flattened = flatten(api)
+    val flattened = AtomizedCodecs.flatten(api)
 
     val deconstructor = makeDeconstructorLoop(indexed(api))
 

@@ -1,3 +1,3 @@
-package zio.http.endpoint
+package zio.http.codec
 
 object MethodCodec extends MethodCodecs

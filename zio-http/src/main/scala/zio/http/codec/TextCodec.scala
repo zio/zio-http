@@ -18,8 +18,6 @@ import scala.util.control.NonFatal
 sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
   def apply(value: String): A
 
-  // TODO: Implement this using `isDefinedAt` and `apply` but only after all
-  // subtypes properly & performantly implement `isDefinedAt`.
   final def decode(value: String): Option[A] =
     if (isDefinedAt(value)) Some(apply(value)) else None
 
@@ -103,7 +101,6 @@ object TextCodec {
 
     def encode(value: Boolean): String = value.toString
 
-    // TODO: Make faster by hand-writing validation:
     def isDefinedAt(value: String): Boolean = value == "1" || value == "0" || value == "true" || value == "false" ||
       value == "no" || value == "off" || value == "yes" || value == "on"
 

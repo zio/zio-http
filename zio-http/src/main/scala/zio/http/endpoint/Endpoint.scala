@@ -1,11 +1,12 @@
 package zio.http.endpoint
 
 import zio._
-import zio.http.endpoint.CodecType.Path
 import zio.http.model.{Header, Headers, Method, Status}
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
 import zio.schema._
 import zio.stream.ZStream
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.http.codec._
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
@@ -18,15 +19,15 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * doesn't give access to `Output` Input: Example: Int Output: Example: User
  *
  * As [[zio.http.endpoint.Endpoint]] is a purely declarative encoding of an
- * endpoint, it is possible to use this model to generate a [[zio.http.HttpApp]]
- * (by supplying a handler for the endpoint), to generate OpenAPI documentation,
- * to generate a type-safe Scala client for the endpoint, and possibly, to
- * generate client libraries in other programming languages.
+ * endpoint, it is possible to use this model to generate a [[zio.http.App]] (by
+ * supplying a handler for the endpoint), to generate OpenAPI documentation, to
+ * generate a type-safe Scala client for the endpoint, and possibly, to generate
+ * client libraries in other programming languages.
  */
 final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
-  input: HttpCodec[CodecType.RequestType, Input],
-  output: HttpCodec[CodecType.ResponseType, Output],
-  error: HttpCodec[CodecType.ResponseType, Err],
+  input: HttpCodec[HttpCodecType.RequestType, Input],
+  output: HttpCodec[HttpCodecType.ResponseType, Output],
+  error: HttpCodec[HttpCodecType.ResponseType, Err],
   doc: Doc,
   middleware: Middleware,
 ) { self =>

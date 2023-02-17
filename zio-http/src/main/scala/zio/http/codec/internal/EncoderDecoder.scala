@@ -1,7 +1,8 @@
-package zio.http.endpoint.internal
+package zio.http.codec.internal
 
 import zio._
 import zio.http._
+import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.model._
 import zio.schema.codec._
@@ -9,14 +10,14 @@ import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import scala.annotation.tailrec
 
-private[endpoint] trait EncoderDecoder[-AtomTypes, Value] {
+private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
     trace: Trace,
   ): Task[Value]
 
   def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z
 }
-private[endpoint] object EncoderDecoder                   {
+private[codec] object EncoderDecoder                   {
   def apply[AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value]): EncoderDecoder[AtomTypes, Value] = {
     val flattened = httpCodec.alternatives
 
@@ -85,7 +86,7 @@ private[endpoint] object EncoderDecoder                   {
     private val constructor   = Mechanic.makeConstructor(httpCodec)
     private val deconstructor = Mechanic.makeDeconstructor(httpCodec)
 
-    private val flattened: AtomizedCodecs = Mechanic.flatten(httpCodec)
+    private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
     private val jsonEncoders = flattened.body.map { bodyCodec =>
       val erased    = bodyCodec.erase

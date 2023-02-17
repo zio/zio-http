@@ -1,13 +1,12 @@
-package zio.http.endpoint
+package zio.http.codec
 
-import zio.http.codec.TextCodec
-import zio.http.endpoint.CodecType.Method
+private[codec] trait MethodCodecs {
+  import HttpCodecType.Method
 
-private[endpoint] trait MethodCodecs {
-  def method(method: zio.http.model.Method): HttpCodec[CodecType.Method, Unit] =
+  def method(method: zio.http.model.Method): HttpCodec[HttpCodecType.Method, Unit] =
     HttpCodec.Method(TextCodec.constant(method.toString()))
 
-  def method: HttpCodec[CodecType.Method, zio.http.model.Method] =
+  def method: HttpCodec[HttpCodecType.Method, zio.http.model.Method] =
     HttpCodec
       .Method(TextCodec.string)
       .transform(

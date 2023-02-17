@@ -1,6 +1,7 @@
 package example
 
 import zio._
+
 import zio.http.model.Method
 import zio.http.{SSLConfig, _}
 

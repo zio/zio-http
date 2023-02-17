@@ -1,11 +1,11 @@
 package zio.http.codec
 
-import zio.http.endpoint.{Combiner, Doc}
-import zio.{Chunk, NonEmptyChunk}
-
 import java.lang.Integer.parseInt
+
 import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
+
+import zio.{Chunk, NonEmptyChunk}
 
 /**
  * A `RichTextCodec` is a more compositional version of `TextCodec`, which has
@@ -126,7 +126,7 @@ sealed trait RichTextCodec[A] { self =>
    * Converts this codec of `A` into a codec of `Unit` by specifying a canonical
    * value to use when an HTTP client needs to generate a value for this codec.
    */
-  final def unit(canonical: A): RichTextCodec[Unit] =
+  final def const(canonical: A): RichTextCodec[Unit] =
     self.transform[Unit](_ => (), _ => canonical)
 
   /**
@@ -205,7 +205,7 @@ object RichTextCodec {
     def loop(list: List[Char]): RichTextCodec[Unit] =
       list match {
         case head :: tail =>
-          char(head).unit(head) ~> loop(tail)
+          char(head).const(head) ~> loop(tail)
         case Nil          => empty
       }
 
@@ -219,7 +219,7 @@ object RichTextCodec {
     def loop(list: List[Char]): RichTextCodec[Unit] =
       list match {
         case head :: tail =>
-          CharIn(BitSet(head.toUpper.toInt, head.toLower.toInt)).unit(head) ~> loop(tail)
+          CharIn(BitSet(head.toUpper.toInt, head.toLower.toInt)).const(head) ~> loop(tail)
         case Nil          => empty
       }
 
@@ -235,7 +235,7 @@ object RichTextCodec {
   /**
    * A codec that describes a single whitespace character.
    */
-  lazy val whitespaceChar: RichTextCodec[Unit] = filter(_.isWhitespace).unit(' ')
+  lazy val whitespaceChar: RichTextCodec[Unit] = filter(_.isWhitespace).const(' ')
 
   private def describe[A](codec: RichTextCodec[A]): String = {
 

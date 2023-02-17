@@ -1,10 +1,12 @@
 package zio.http.endpoint
 
 import zio._
-import zio.http.endpoint.HttpCodec.{int, literal, query, string}
+import zio.test._
+
+import zio.http.codec.HttpCodec.{int, literal, query, string}
+import zio.http.codec._
 import zio.http.model.{Method, Status}
 import zio.http.{Request, Response, URL}
-import zio.test._
 
 object EndpointSpec extends ZIOSpecDefault {
 
@@ -67,21 +69,21 @@ object EndpointSpec extends ZIOSpecDefault {
       },
       test("broad api") {
         val broadUsers              =
-          Endpoint.get("users").out[String].implement { _ => ZIO.succeed("path(users)") }
+          Endpoint.get(literal("users")).out[String].implement { _ => ZIO.succeed("path(users)") }
         val broadUsersId            =
-          Endpoint.get("users" / PathCodec.int("userId")).out[String].implement { userId =>
+          Endpoint.get(literal("users") / int("userId")).out[String].implement { userId =>
             ZIO.succeed(s"path(users, $userId)")
           }
         val boardUsersPosts         =
           Endpoint
-            .get("users" / PathCodec.int("userId") / "posts")
+            .get(literal("users") / int("userId") / "posts")
             .out[String]
             .implement { userId =>
               ZIO.succeed(s"path(users, $userId, posts)")
             }
         val boardUsersPostsId       =
           Endpoint
-            .get("users" / PathCodec.int("userId") / "posts" / PathCodec.int("postId"))
+            .get(literal("users") / int("userId") / "posts" / int("postId"))
             .out[String]
             .implement { case (userId, postId) =>
               ZIO.succeed(s"path(users, $userId, posts, $postId)")
@@ -89,8 +91,7 @@ object EndpointSpec extends ZIOSpecDefault {
         val boardUsersPostsComments =
           Endpoint
             .get(
-              "users" / PathCodec.int("userId") / "posts" / PathCodec.int("postId") / PathCodec
-                .literal("comments"),
+              literal("users") / int("userId") / "posts" / int("postId") / literal("comments"),
             )
             .out[String]
             .implement { case (userId, postId) =>
@@ -100,49 +101,48 @@ object EndpointSpec extends ZIOSpecDefault {
         val boardUsersPostsCommentsId        =
           Endpoint
             .get(
-              "users" / PathCodec.int("userId") / "posts" / PathCodec.int("postId") / PathCodec
-                .literal("comments") / PathCodec.int("commentId"),
+              literal("users") / int("userId") / "posts" / int("postId") / literal("comments") / int("commentId"),
             )
             .out[String]
             .implement { case (userId, postId, commentId) =>
               ZIO.succeed(s"path(users, $userId, posts, $postId, comments, $commentId)")
             }
         val broadPosts                       =
-          Endpoint.get("posts").out[String].implement { _ => ZIO.succeed("path(posts)") }
+          Endpoint.get(literal("posts")).out[String].implement { _ => ZIO.succeed("path(posts)") }
         val broadPostsId                     =
-          Endpoint.get("posts" / PathCodec.int("postId")).out[String].implement { postId =>
+          Endpoint.get(literal("posts") / int("postId")).out[String].implement { postId =>
             ZIO.succeed(s"path(posts, $postId)")
           }
         val boardPostsComments               =
           Endpoint
-            .get("posts" / PathCodec.int("postId") / "comments")
+            .get(literal("posts") / int("postId") / "comments")
             .out[String]
             .implement { postId =>
               ZIO.succeed(s"path(posts, $postId, comments)")
             }
         val boardPostsCommentsId             =
           Endpoint
-            .get("posts" / PathCodec.int("postId") / "comments" / PathCodec.int("commentId"))
+            .get(literal("posts") / int("postId") / "comments" / int("commentId"))
             .out[String]
             .implement { case (postId, commentId) =>
               ZIO.succeed(s"path(posts, $postId, comments, $commentId)")
             }
         val broadComments                    =
-          Endpoint.get("comments").out[String].implement { _ => ZIO.succeed("path(comments)") }
+          Endpoint.get(literal("comments")).out[String].implement { _ => ZIO.succeed("path(comments)") }
         val broadCommentsId                  =
-          Endpoint.get("comments" / PathCodec.int("commentId")).out[String].implement { commentId =>
+          Endpoint.get(literal("comments") / int("commentId")).out[String].implement { commentId =>
             ZIO.succeed(s"path(comments, $commentId)")
           }
         val broadUsersComments               =
           Endpoint
-            .get("users" / PathCodec.int("userId") / "comments")
+            .get(literal("users") / int("userId") / "comments")
             .out[String]
             .implement { userId =>
               ZIO.succeed(s"path(users, $userId, comments)")
             }
         val broadUsersCommentsId             =
           Endpoint
-            .get("users" / PathCodec.int("userId") / "comments" / PathCodec.int("commentId"))
+            .get(literal("users") / int("userId") / "comments" / int("commentId"))
             .out[String]
             .implement { case (userId, commentId) =>
               ZIO.succeed(s"path(users, $userId, comments, $commentId)")
@@ -150,11 +150,11 @@ object EndpointSpec extends ZIOSpecDefault {
         val boardUsersPostsCommentsReplies   =
           Endpoint
             .get(
-              "users" / PathCodec.int("userId") / "posts" / PathCodec.int("postId") / PathCodec
-                .literal("comments") / PathCodec.int("commentId") / PathCodec
-                .literal(
-                  "replies",
-                ),
+              literal("users") / int("userId") / "posts" / int("postId") / literal("comments") / int(
+                "commentId",
+              ) / literal(
+                "replies",
+              ),
             )
             .out[String]
             .implement { case (userId, postId, commentId) =>
@@ -163,11 +163,11 @@ object EndpointSpec extends ZIOSpecDefault {
         val boardUsersPostsCommentsRepliesId =
           Endpoint
             .get(
-              "users" / PathCodec.int("userId") / "posts" / PathCodec.int("postId") / PathCodec
-                .literal("comments") / PathCodec.int("commentId") / PathCodec
+              literal("users") / int("userId") / "posts" / int("postId") / PathCodec
+                .literal("comments") / int("commentId") / PathCodec
                 .literal(
                   "replies",
-                ) / PathCodec.int("replyId"),
+                ) / int("replyId"),
             )
             .out[String]
             .implement { case (userId, postId, commentId, replyId) =>

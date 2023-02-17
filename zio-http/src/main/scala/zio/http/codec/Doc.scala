@@ -1,6 +1,4 @@
-package zio.http.endpoint
-
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+package zio.http.codec
 
 /**
  * A `Doc` models documentation for an endpoint or input.
@@ -397,7 +395,7 @@ object Doc {
   }
 }
 
-private[endpoint] class DocWriter(stringBuilder: StringBuilder, startOffset: Int, columnWidth: Int) { self =>
+private[codec] class DocWriter(stringBuilder: StringBuilder, startOffset: Int, columnWidth: Int) { self =>
   private var marginStack: List[Int] = List(self.startOffset)
 
   def deleteLastChar(): Unit = stringBuilder.deleteCharAt(stringBuilder.length - 1)
@@ -453,7 +451,7 @@ private[endpoint] class DocWriter(stringBuilder: StringBuilder, startOffset: Int
 
   def unindent(): Unit = self.marginStack = self.marginStack.drop(1)
 }
-private[endpoint] object DocWriter                                                                  {
+private[codec] object DocWriter                                                                  {
   private def margin(n: Int): String                  = if (n <= 0) "" else List.fill(n)(" ").mkString
   def splitNewlines(s: String): Option[Array[String]] = {
     val count = s.count(_ == '\n')
