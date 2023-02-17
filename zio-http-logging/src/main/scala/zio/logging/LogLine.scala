@@ -1,8 +1,8 @@
 package zio.http.logging
 
-import zio.http.logging.Logger.SourcePos
-
 import java.time.LocalDateTime
+
+import zio.http.logging.Logger.SourcePos
 
 final case class LogLine(
   timestamp: LocalDateTime,

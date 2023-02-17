@@ -1,9 +1,9 @@
 package zio.http.logging
 
+import java.nio.file.Path
+
 import zio.http.logging.Logger.SourcePos
 import zio.http.logging.macros.LoggerMacroExtensions
-
-import java.nio.file.Path
 
 /**
  * This is the base class for all logging operations. Logger is a collection of

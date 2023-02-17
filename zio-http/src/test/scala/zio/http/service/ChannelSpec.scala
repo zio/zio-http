@@ -1,12 +1,14 @@
 package zio.http.service
 
-import io.netty.channel.embedded.EmbeddedChannel
-import zio.http.{Channel, ChannelNetty}
+import java.util
+
 import zio.test.TestAspect.timeout
 import zio.test.{TestClock, ZIOSpecDefault, assertTrue}
 import zio.{UIO, ZIO, durationInt}
 
-import java.util
+import zio.http.{Channel, ChannelNetty}
+
+import io.netty.channel.embedded.EmbeddedChannel
 
 object ChannelSpec extends ZIOSpecDefault {
   def spec = suite("Channel")(

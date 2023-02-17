@@ -1,11 +1,13 @@
 package zio.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
+import zio.test.Assertion._
+import zio.test._
+
 import zio.http.internal.HttpGen
 import zio.http.netty._
 import zio.http.netty.client._
-import zio.test.Assertion._
-import zio.test._
+
+import io.netty.handler.codec.http.HttpHeaderNames
 
 object ClientRequestEncoderSpec extends ZIOSpecDefault with ClientRequestEncoder {
 

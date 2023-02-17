@@ -4,8 +4,8 @@ import zio._
 import zio.http._
 import zio.http.endpoint._
 import zio.http.model.Headers
-import zio.schema._
-import zio.schema.codec._
+import zio.http.codec._
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[endpoint] final case class EndpointClient[I, E, O, M <: EndpointMiddleware](

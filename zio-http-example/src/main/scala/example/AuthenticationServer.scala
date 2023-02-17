@@ -1,13 +1,15 @@
 package example
 
-import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
+import java.time.Clock
+import javax.management.MBeanNotificationInfo
+
 import zio._
+
 import zio.http.Middleware.bearerAuth
 import zio.http._
 import zio.http.model.{Method, Status}
 
-import java.time.Clock
-import javax.management.MBeanNotificationInfo
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
 object AuthenticationServer extends ZIOAppDefault {
 

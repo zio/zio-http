@@ -1,9 +1,10 @@
 package zio.http
 
 import zio._
+import zio.test._
+
 import zio.http.model._
 import zio.http.netty.server.NettyDriver
-import zio.test._
 
 object TestServerSpec extends ZIOSpecDefault {
 

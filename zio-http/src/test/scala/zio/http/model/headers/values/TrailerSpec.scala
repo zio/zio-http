@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
 import zio.Scope
+import zio.test._
+
 import zio.http.model.headers.values.From.InvalidFromValue
 import zio.http.model.headers.values.Trailer.{InvalidTrailerValue, TrailerValue}
-import zio.test._
 
 object TrailerSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =

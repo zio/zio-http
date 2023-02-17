@@ -1,7 +1,8 @@
-package zio.http.endpoint.internal
+package zio.http.codec.internal
 
 import zio._
 import zio.http._
+import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.model._
 import zio.schema.codec._
@@ -9,14 +10,14 @@ import zio.schema.codec._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import scala.annotation.tailrec
 
-private[endpoint] trait EncoderDecoder[-AtomTypes, Value] {
+private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
     trace: Trace,
   ): Task[Value]
 
   def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z
 }
-private[endpoint] object EncoderDecoder                   {
+private[codec] object EncoderDecoder                   {
   def apply[AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value]): EncoderDecoder[AtomTypes, Value] = {
     val flattened = httpCodec.alternatives
 
@@ -41,8 +42,9 @@ private[endpoint] object EncoderDecoder                   {
           codec
             .decode(url, status, method, headers, body)
             .catchAllCause(cause =>
-              // TODO: Only on EndpointError
-              tryDecode(i + 1, lastError ++ cause),
+              if (shouldRetry(cause)) {
+                tryDecode(i + 1, lastError && cause)
+              } else ZIO.refailCause(cause),
             )
         }
       }
@@ -74,6 +76,9 @@ private[endpoint] object EncoderDecoder                   {
       if (encoded == null) throw lastError
       else encoded
     }
+
+    private def shouldRetry(cause: Cause[Any]): Boolean =
+      !cause.isFailure && cause.defects.forall(_.isInstanceOf[EndpointError])
   }
 
   private final case class Single[-AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value])
@@ -81,7 +86,7 @@ private[endpoint] object EncoderDecoder                   {
     private val constructor   = Mechanic.makeConstructor(httpCodec)
     private val deconstructor = Mechanic.makeDeconstructor(httpCodec)
 
-    private val flattened: AtomizedCodecs = Mechanic.flatten(httpCodec)
+    private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
     private val jsonEncoders = flattened.body.map { bodyCodec =>
       val erased    = bodyCodec.erase
@@ -95,10 +100,10 @@ private[endpoint] object EncoderDecoder                   {
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
-    ): Task[Value] = ZIO.suspend {
+    ): Task[Value] = ZIO.suspendSucceed {
       val inputsBuilder = flattened.makeInputsBuilder()
 
-      decodeRoutes(url.path, inputsBuilder.path)
+      decodePaths(url.path, inputsBuilder.path)
       decodeQuery(url.queryParams, inputsBuilder.query)
       decodeStatus(status, inputsBuilder.status)
       decodeMethod(method, inputsBuilder.method)
@@ -109,17 +114,17 @@ private[endpoint] object EncoderDecoder                   {
     final def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
       val inputs = deconstructor(value)
 
-      val route   = encodeRoute(inputs.path)
+      val path    = encodePath(inputs.path)
       val query   = encodeQuery(inputs.query)
       val status  = encodeStatus(inputs.status)
       val method  = encodeMethod(inputs.method)
       val headers = encodeHeaders(inputs.header)
       val body    = encodeBody(inputs.body)
 
-      f(URL(route, queryParams = query), status, method, headers, body)
+      f(URL(path, queryParams = query), status, method, headers, body)
     }
 
-    private def decodeRoutes(path: Path, inputs: Array[Any]): Unit = {
+    private def decodePaths(path: Path, inputs: Array[Any]): Unit = {
       assert(flattened.path.length == inputs.length)
 
       var i        = 0
@@ -136,7 +141,7 @@ private[endpoint] object EncoderDecoder                   {
             val textCodec = flattened.path(i).erase
 
             inputs(i) =
-              textCodec.decode(segment.text).getOrElse(throw EndpointError.MalformedRoute(path, segment, textCodec))
+              textCodec.decode(segment.text).getOrElse(throw EndpointError.MalformedPath(path, segment, textCodec))
 
             i = i + 1
           }
@@ -219,7 +224,7 @@ private[endpoint] object EncoderDecoder                   {
         }
       }
 
-    private def encodeRoute(inputs: Array[Any]): Path = {
+    private def encodePath(inputs: Array[Any]): Path = {
       var path = Path.empty
 
       var i = 0

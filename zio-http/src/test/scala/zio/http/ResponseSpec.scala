@@ -1,8 +1,9 @@
 package zio.http
 
-import zio.http.model._
 import zio.test.Assertion._
 import zio.test._
+
+import zio.http.model._
 
 object ResponseSpec extends ZIOSpecDefault {
   private val location = "www.google.com"

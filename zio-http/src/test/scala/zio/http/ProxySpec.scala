@@ -1,8 +1,9 @@
 package zio.http
 
-import zio.http.middleware.Auth.Credentials
 import zio.test.Assertion.{equalTo, isNone, isNull, isSome}
 import zio.test._
+
+import zio.http.middleware.Auth.Credentials
 
 object ProxySpec extends ZIOSpecDefault {
   private val validUrl = URL.fromString("http://localhost:8123").toOption.getOrElse(URL.empty)

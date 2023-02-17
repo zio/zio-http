@@ -1,7 +1,8 @@
 package zio.http.model.headers.values
 
-import zio.http.model.headers.values.Server.ServerName
 import zio.test._
+
+import zio.http.model.headers.values.Server.ServerName
 
 object ServerSpec extends ZIOSpecDefault {
   override def spec = suite("Server header suite")(

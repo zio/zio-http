@@ -1,12 +1,13 @@
-package zio.http.endpoint
+package zio.http.codec
 
 import zio.ZNothing
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A alternator is a type class responsible for combining invariant type
  * parameters using an either. It is used to compose parameters of the
- * [[zio.http.endpoint.HttpCodec]] data type.
+ * [[zio.http.codec.HttpCodec]] data type.
  */
 sealed trait Alternator[L, R] {
   type Out

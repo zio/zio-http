@@ -1,11 +1,12 @@
 package zio.http.model.headers.values
 
-import zio.Scope
-import zio.http.model.headers.values.LastModified.LastModifiedDateTime
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
+
+import zio.Scope
+import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+
+import zio.http.model.headers.values.LastModified.LastModifiedDateTime
 
 object LastModifiedSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("LastModified spec")(

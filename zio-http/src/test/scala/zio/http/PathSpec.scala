@@ -1,10 +1,11 @@
 package zio.http
 
-import zio.http.Path.Segment
-import zio.http.internal.HttpGen
+import scala.collection.Seq
+
 import zio.test._
 
-import scala.collection.Seq
+import zio.http.Path.Segment
+import zio.http.internal.HttpGen
 
 object PathSpec extends ZIOSpecDefault with ExitAssertion {
   val a = "a"

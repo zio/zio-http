@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
+import zio.test._
+
 import zio.http.internal.HttpGen
 import zio.http.model.headers.values.Origin.{InvalidOriginValue, OriginNull, OriginValue}
 import zio.http.{Path, QueryParams}
-import zio.test._
 
 object OriginSpec extends ZIOSpecDefault {
   override def spec = suite("Origin header suite")(

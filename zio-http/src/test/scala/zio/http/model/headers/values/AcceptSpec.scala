@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
 import zio.Chunk
+import zio.test._
+
 import zio.http.model.headers.values.Accept.{AcceptValue, InvalidAcceptValue, MediaTypeWithQFactor}
 import zio.http.model.{MediaType, MimeDB}
-import zio.test._
 
 object AcceptSpec extends ZIOSpecDefault with MimeDB {
   override def spec = suite("Accept header suite")(

@@ -2,6 +2,7 @@ package zio.http.model.headers.values
 
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, ZonedDateTime}
+
 import scala.util.Try
 
 sealed trait RetryAfter

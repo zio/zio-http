@@ -1,8 +1,9 @@
 package zio.http.model.headers.values
 
 import zio.Scope
-import zio.http.internal.HttpGen
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
+
+import zio.http.internal.HttpGen
 
 object AcceptEncodingSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AcceptEncoding suite")(

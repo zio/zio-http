@@ -1,10 +1,11 @@
 package zio.http.model.headers.values
 
+import java.time.Duration
+
 import zio.Scope
-import zio.http.model.headers.values.AccessControlMaxAge._
 import zio.test._
 
-import java.time.Duration
+import zio.http.model.headers.values.AccessControlMaxAge._
 
 object AccessControlMaxAgeSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Acc header suite")(

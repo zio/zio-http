@@ -1,11 +1,11 @@
-package zio.http.endpoint.internal
-
-import zio.http.endpoint.{Combiner, Doc}
-import zio.{Chunk, NonEmptyChunk}
+package zio.http.codec
 
 import java.lang.Integer.parseInt
+
 import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
+
+import zio.{Chunk, NonEmptyChunk}
 
 /**
  * A `RichTextCodec` is a more compositional version of `TextCodec`, which has
@@ -126,7 +126,7 @@ sealed trait RichTextCodec[A] { self =>
    * Converts this codec of `A` into a codec of `Unit` by specifying a canonical
    * value to use when an HTTP client needs to generate a value for this codec.
    */
-  final def unit(canonical: A): RichTextCodec[Unit] =
+  final def const(canonical: A): RichTextCodec[Unit] =
     self.transform[Unit](_ => (), _ => canonical)
 
   /**
@@ -139,25 +139,25 @@ sealed trait RichTextCodec[A] { self =>
     }
 }
 object RichTextCodec {
-  private[internal] case object Empty                                        extends RichTextCodec[Unit]
-  private[internal] final case class CharIn(set: BitSet)                     extends RichTextCodec[Char]
-  private[internal] final case class TransformOrFail[A, B](
+  private[codec] case object Empty                                        extends RichTextCodec[Unit]
+  private[codec] final case class CharIn(set: BitSet)                     extends RichTextCodec[Char]
+  private[codec] final case class TransformOrFail[A, B](
     codec: RichTextCodec[A],
     to: A => Either[String, B],
     from: B => Either[String, A],
   ) extends RichTextCodec[B]
-  private[internal] final case class Alt[A, B](left: RichTextCodec[A], right: RichTextCodec[B])
+  private[codec] final case class Alt[A, B](left: RichTextCodec[A], right: RichTextCodec[B])
       extends RichTextCodec[Either[A, B]]
-  private[internal] final case class Lazy[A](codec0: () => RichTextCodec[A]) extends RichTextCodec[A] {
+  private[codec] final case class Lazy[A](codec0: () => RichTextCodec[A]) extends RichTextCodec[A] {
     lazy val codec: RichTextCodec[A] = codec0()
   }
-  private[internal] final case class Zip[A, B, C](
+  private[codec] final case class Zip[A, B, C](
     left: RichTextCodec[A],
     right: RichTextCodec[B],
     combiner: Combiner.WithOut[A, B, C],
   ) extends RichTextCodec[C]
 
-  private[internal] final case class Tagged[A](
+  private[codec] final case class Tagged[A](
     name: String,
     codec: RichTextCodec[A],
     descriptionNotNeeded: Boolean = false,
@@ -205,7 +205,7 @@ object RichTextCodec {
     def loop(list: List[Char]): RichTextCodec[Unit] =
       list match {
         case head :: tail =>
-          char(head).unit(head) ~> loop(tail)
+          char(head).const(head) ~> loop(tail)
         case Nil          => empty
       }
 
@@ -219,7 +219,7 @@ object RichTextCodec {
     def loop(list: List[Char]): RichTextCodec[Unit] =
       list match {
         case head :: tail =>
-          CharIn(BitSet(head.toUpper.toInt, head.toLower.toInt)).unit(head) ~> loop(tail)
+          CharIn(BitSet(head.toUpper.toInt, head.toLower.toInt)).const(head) ~> loop(tail)
         case Nil          => empty
       }
 
@@ -235,7 +235,7 @@ object RichTextCodec {
   /**
    * A codec that describes a single whitespace character.
    */
-  lazy val whitespaceChar: RichTextCodec[Unit] = filter(_.isWhitespace).unit(' ')
+  lazy val whitespaceChar: RichTextCodec[Unit] = filter(_.isWhitespace).const(' ')
 
   private def describe[A](codec: RichTextCodec[A]): String = {
 

@@ -1,12 +1,13 @@
 package zio.http.middleware
 
 import zio._
+import zio.test.Assertion._
+import zio.test._
+
 import zio.http.Middleware._
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.model._
-import zio.test.Assertion._
-import zio.test._
 
 object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
   private val app  = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>

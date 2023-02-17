@@ -1,15 +1,16 @@
 package zio.http.endpoint
 
+import java.util.Base64
+
 import zio.ZIO
-import zio.http.endpoint.internal.TextCodec
+
+import zio.http.codec._
 import zio.http.middleware.Auth
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.BasicSchemeName
 import zio.http.model.headers.values._
 import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames, Headers, Method}
 import zio.http.{Request, Response}
-
-import java.util.Base64
 
 /**
  * A description of endpoint middleware, in terms of what the middleware
@@ -20,9 +21,9 @@ sealed trait EndpointMiddleware { self =>
   type Err
   type Out
 
-  def input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In]
-  def output: HttpCodec[CodecType.Header, Out]
-  def error: HttpCodec[CodecType.ResponseType, Err]
+  def input: HttpCodec[HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method, In]
+  def output: HttpCodec[HttpCodecType.Header, Out]
+  def error: HttpCodec[HttpCodecType.ResponseType, Err]
   def doc: Doc
 
   def ++(that: EndpointMiddleware)(implicit
@@ -43,28 +44,28 @@ sealed trait EndpointMiddleware { self =>
     RoutesMiddleware.make[this.type](this)(incoming)(outgoing)
 
   def mapIn[MiddlewareIn2](
-    f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In] => HttpCodec[
-      CodecType.Header with CodecType.Query with CodecType.Method,
+    f: HttpCodec[HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method, In] => HttpCodec[
+      HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method,
       MiddlewareIn2,
     ],
   ): EndpointMiddleware.Typed[MiddlewareIn2, Err, Out] =
     EndpointMiddleware(f(input), output, error, doc)
 
   def mapOut[MiddlewareOut2](
-    f: HttpCodec[CodecType.Header, Out] => HttpCodec[
-      CodecType.Header,
+    f: HttpCodec[HttpCodecType.Header, Out] => HttpCodec[
+      HttpCodecType.Header,
       MiddlewareOut2,
     ],
   ): EndpointMiddleware.Typed[In, Err, MiddlewareOut2] =
     EndpointMiddleware(input, f(output), error, doc)
 
   def mapBoth[MiddlewareIn2, MiddlewareOut2](
-    f: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In] => HttpCodec[
-      CodecType.Header with CodecType.Query with CodecType.Method,
+    f: HttpCodec[HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method, In] => HttpCodec[
+      HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method,
       MiddlewareIn2,
     ],
-    g: HttpCodec[CodecType.Header, Out] => HttpCodec[
-      CodecType.Header,
+    g: HttpCodec[HttpCodecType.Header, Out] => HttpCodec[
+      HttpCodecType.Header,
       MiddlewareOut2,
     ],
   ): EndpointMiddleware.Typed[MiddlewareIn2, Err, MiddlewareOut2] =
@@ -84,20 +85,20 @@ object EndpointMiddleware       {
   type None                   = EndpointMiddleware.None.type
 
   def apply[In0, Out0](
-    input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
-    output: HttpCodec[CodecType.Header, Out0],
+    input: HttpCodec[HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method, In0],
+    output: HttpCodec[HttpCodecType.Header, Out0],
   ): EndpointMiddleware.Typed[In0, Nothing, Out0] = Spec[In0, Nothing, Out0](input, output, HttpCodec.unused, Doc.empty)
 
   def apply[In0, Out0](
-    input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
-    output: HttpCodec[CodecType.Header, Out0],
+    input: HttpCodec[HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method, In0],
+    output: HttpCodec[HttpCodecType.Header, Out0],
     doc: Doc,
   ): EndpointMiddleware.Typed[In0, Nothing, Out0] = Spec[In0, Nothing, Out0](input, output, HttpCodec.unused, doc)
 
   def apply[In0, Err0, Out0](
-    input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
-    output: HttpCodec[CodecType.Header, Out0],
-    error: HttpCodec[CodecType.ResponseType, Err0],
+    input: HttpCodec[HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method, In0],
+    output: HttpCodec[HttpCodecType.Header, Out0],
+    error: HttpCodec[HttpCodecType.ResponseType, Err0],
     doc: Doc = Doc.empty,
   ): EndpointMiddleware.Typed[In0, Err0, Out0] = Spec(input, output, error, doc)
 
@@ -106,15 +107,16 @@ object EndpointMiddleware       {
     final type Err = zio.ZNothing
     final type Out = Unit
 
-    val input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, Unit] = HttpCodec.empty
-    val output: HttpCodec[CodecType.Header, Unit]                                           = HttpCodec.empty
-    val error: HttpCodec[CodecType.ResponseType, zio.ZNothing]                              = HttpCodec.unused
-    val doc: Doc                                                                            = Doc.empty
+    val input: HttpCodec[HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method, Unit] =
+      HttpCodec.empty
+    val output: HttpCodec[HttpCodecType.Header, Unit]              = HttpCodec.empty
+    val error: HttpCodec[HttpCodecType.ResponseType, zio.ZNothing] = HttpCodec.unused
+    val doc: Doc                                                   = Doc.empty
   }
   final case class Spec[In0, Err0, Out0](
-    input: HttpCodec[CodecType.Header with CodecType.Query with CodecType.Method, In0],
-    output: HttpCodec[CodecType.Header, Out0],
-    error: HttpCodec[CodecType.ResponseType, Err0],
+    input: HttpCodec[HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method, In0],
+    output: HttpCodec[HttpCodecType.Header, Out0],
+    error: HttpCodec[HttpCodecType.ResponseType, Err0],
     doc: Doc = Doc.empty,
   ) extends EndpointMiddleware { self =>
     final type In  = In0

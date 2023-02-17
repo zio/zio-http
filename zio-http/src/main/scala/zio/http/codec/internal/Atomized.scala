@@ -1,6 +1,6 @@
-package zio.http.endpoint.internal
+package zio.http.codec.internal
 
-import zio.http.endpoint.HttpCodec
+import zio.http.codec.HttpCodec
 
 final case class Atomized[A](
   method: A,

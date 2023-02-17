@@ -1,6 +1,5 @@
-package zio.http.endpoint.internal
+package zio.http.codec
 
-import zio.http.endpoint._
 import zio.test.Assertion.equalTo
 import zio.test._
 
@@ -212,7 +211,7 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         assertTrue(codec.decode("123").isLeft)
       },
       test("zip decoder") {
-        val codec = RichTextCodec.char('a').unit('a') ~> RichTextCodec.char('b').unit('b')
+        val codec = RichTextCodec.char('a').const('a') ~> RichTextCodec.char('b').const('b')
         assertTrue(success(()) == codec.decode("ab...")) &&
         assertTrue(codec.decode("..ab..").isLeft)
       },

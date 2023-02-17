@@ -1,10 +1,12 @@
 package zio.benchmarks
 
-import org.openjdk.jmh.annotations._
-import zio.http._
+import java.util.concurrent.TimeUnit
+
 import zio.{Trace, Unsafe}
 
-import java.util.concurrent.TimeUnit
+import zio.http._
+
+import org.openjdk.jmh.annotations._
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))

@@ -1,6 +1,7 @@
 package zio.http.model.headers.values
 
 import zio.Chunk
+
 import zio.http.model.headers.values.Via.ReceivedProtocol.InvalidProtocol
 
 sealed trait Via

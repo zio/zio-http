@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
 import zio.Scope
+import zio.test.{ZIOSpecDefault, _}
+
 import zio.http.internal.HttpGen
 import zio.http.{URL => Zurl}
-import zio.test.{ZIOSpecDefault, _}
 
 object LocationSpec extends ZIOSpecDefault {
 
