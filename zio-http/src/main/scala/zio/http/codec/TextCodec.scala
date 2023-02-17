@@ -117,7 +117,6 @@ object TextCodec {
 
     def encode(value: UUID): String = value.toString
 
-    // TODO: Make faster by hand-writing validation:
     def isDefinedAt(value: String): Boolean = {
       var i       = 0
       var defined = true

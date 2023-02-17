@@ -20,7 +20,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
 
   def spec = suite("HttpCodecSpec")(
     suite("fallback") {
-      test("route fallback") {
+      test("path fallback") {
         val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
         val postsURL = URL.fromString("http://mywebservice.com/posts").toOption.get
 

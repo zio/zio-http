@@ -102,7 +102,7 @@ private[endpoint] object EncoderDecoder                   {
     ): Task[Value] = ZIO.suspendSucceed {
       val inputsBuilder = flattened.makeInputsBuilder()
 
-      decodeRoutes(url.path, inputsBuilder.path)
+      decodePaths(url.path, inputsBuilder.path)
       decodeQuery(url.queryParams, inputsBuilder.query)
       decodeStatus(status, inputsBuilder.status)
       decodeMethod(method, inputsBuilder.method)
@@ -113,17 +113,17 @@ private[endpoint] object EncoderDecoder                   {
     final def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
       val inputs = deconstructor(value)
 
-      val route   = encodeRoute(inputs.path)
+      val path    = encodePath(inputs.path)
       val query   = encodeQuery(inputs.query)
       val status  = encodeStatus(inputs.status)
       val method  = encodeMethod(inputs.method)
       val headers = encodeHeaders(inputs.header)
       val body    = encodeBody(inputs.body)
 
-      f(URL(route, queryParams = query), status, method, headers, body)
+      f(URL(path, queryParams = query), status, method, headers, body)
     }
 
-    private def decodeRoutes(path: Path, inputs: Array[Any]): Unit = {
+    private def decodePaths(path: Path, inputs: Array[Any]): Unit = {
       assert(flattened.path.length == inputs.length)
 
       var i        = 0
@@ -140,7 +140,7 @@ private[endpoint] object EncoderDecoder                   {
             val textCodec = flattened.path(i).erase
 
             inputs(i) =
-              textCodec.decode(segment.text).getOrElse(throw EndpointError.MalformedRoute(path, segment, textCodec))
+              textCodec.decode(segment.text).getOrElse(throw EndpointError.MalformedPath(path, segment, textCodec))
 
             i = i + 1
           }
@@ -223,7 +223,7 @@ private[endpoint] object EncoderDecoder                   {
         }
       }
 
-    private def encodeRoute(inputs: Array[Any]): Path = {
+    private def encodePath(inputs: Array[Any]): Path = {
       var path = Path.empty
 
       var i = 0
