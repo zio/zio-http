@@ -16,13 +16,6 @@ private[zio] trait NettyRuntime { self =>
   )(implicit unsafe: Unsafe, trace: Trace): Unit = {
     val rtm: Runtime[Any] = runtime(ctx)
 
-    def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
-      (_: Future[_ >: Void]) => {
-        val _ = rtm.unsafe.fork {
-          fiber.interrupt.as(log.debug(s"Interrupted Fiber: [${fiber.id}]"))
-        }(implicitly[Trace], Unsafe.unsafe)
-      }
-
     def onFailure(cause: Cause[Throwable], ctx: ChannelHandlerContext): Unit = {
       cause.failureOption.orElse(cause.dieOption) match {
         case None        => ()
@@ -42,22 +35,29 @@ private[zio] trait NettyRuntime { self =>
     // When connection closes, interrupt the program
     var close: GenericFutureListener[Future[_ >: Void]] = null
 
-    val fiber = rtm.unsafe.fork(program)
-
-    log.debug(s"Started Fiber: [${fiber.id}]")
-    if (interruptOnClose) {
-      close = closeListener(rtm, fiber)
-      ctx.channel().closeFuture.addListener(close)
-    }
-    fiber.unsafe.addObserver {
-      case Exit.Success(_)     =>
-        log.debug(s"Completed Fiber: [${fiber.id}]")
-        removeListener(close)
-        ensured()
-      case Exit.Failure(cause) =>
-        onFailure(cause, ctx)
-        removeListener(close)
-        ensured()
+    rtm.unsafe.runOrFork(program) match {
+      case Left(fiber) =>
+        log.debug(s"Started Fiber: [${fiber.id}]")
+        if (interruptOnClose) {
+          close = closeListener(rtm, fiber)
+          ctx.channel().closeFuture.addListener(close)
+        }
+        fiber.unsafe.addObserver {
+          case Exit.Success(_)     =>
+            log.debug(s"Completed Fiber: [${fiber.id}]")
+            removeListener(close)
+            ensured()
+          case Exit.Failure(cause) =>
+            onFailure(cause, ctx)
+            removeListener(close)
+            ensured()
+        }
+      case Right(exit) =>
+        exit match {
+          case Exit.Success(_)     =>
+          case Exit.Failure(cause) =>
+            onFailure(cause, ctx)
+        }
     }
   }
 
@@ -65,6 +65,13 @@ private[zio] trait NettyRuntime { self =>
     program: ZIO[Any, Throwable, Any],
   )(implicit unsafe: Unsafe, trace: Trace): Unit =
     run(ctx, ensured, interruptOnClose = false)(program)
+
+  private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
+    (_: Future[_ >: Void]) => {
+      val _ = rtm.unsafe.fork {
+        fiber.interrupt.as(log.debug(s"Interrupted Fiber: [${fiber.id}]"))
+      }(implicitly[Trace], Unsafe.unsafe)
+    }
 }
 
 private[zio] object NettyRuntime {
