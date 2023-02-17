@@ -24,7 +24,7 @@ trait EndpointLocator { self =>
 }
 object EndpointLocator {
   def fromURL(url: URL): EndpointLocator = new EndpointLocator {
-    val effect = ZIO.succeedNow(url)
+    val effect = ZIO.succeed(url)
 
     def locate[A, E, B, M <: EndpointMiddleware](api: Endpoint[A, E, B, M])(implicit
       trace: Trace,
