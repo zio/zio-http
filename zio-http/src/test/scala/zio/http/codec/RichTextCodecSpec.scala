@@ -3,8 +3,6 @@ package zio.http.codec
 import zio.test.Assertion.equalTo
 import zio.test._
 
-import zio.http.codec.Doc
-import zio.http.endpoint._
 object RichTextCodecSpec extends ZIOSpecDefault {
 
   def success[A](a: A): Either[String, A] = Right(a)
