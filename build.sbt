@@ -82,6 +82,7 @@ lazy val root = (project in file("."))
   .aggregate(
     zioHttp,
     zioHttpBenchmarks,
+    zioHttpCli,
     zioHttpExample,
     zioHttpTestkit,
     docs,
@@ -123,6 +124,11 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
     ),
   )
+  .dependsOn(zioHttp)
+
+lazy val zioHttpCli = (project in file("zio-http-cli"))
+  .settings(stdSettings("zio-http-cli"))
+  .settings(libraryDependencies ++= Seq(`zio-cli`))
   .dependsOn(zioHttp)
 
 lazy val zioHttpExample = (project in file("zio-http-example"))

@@ -7,6 +7,7 @@ object Dependencies {
   val NettyIncubatorVersion         = "0.0.19.Final"
   val ScalaCompactCollectionVersion = "2.8.1"
   val ZioVersion                    = "2.0.12"
+  val ZioCliVersion                 = "0.4.0"
   val ZioSchemaVersion              = "0.4.8"
   val SttpVersion                   = "3.3.18"
 
@@ -29,6 +30,7 @@ object Dependencies {
     "io.netty.incubator" % "netty-incubator-transport-native-io_uring" % NettyIncubatorVersion classifier "linux-x86_64"
 
   val zio               = "dev.zio" %% "zio"             % ZioVersion
+  val `zio-cli`         = "dev.zio" %% "zio-cli"         % ZioCliVersion
   val `zio-streams`     = "dev.zio" %% "zio-streams"     % ZioVersion
   val `zio-schema`      = "dev.zio" %% "zio-schema"      % ZioSchemaVersion
   val `zio-schema-json` = "dev.zio" %% "zio-schema-json" % ZioSchemaVersion
