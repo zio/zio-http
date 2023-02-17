@@ -1,7 +1,7 @@
 package zio.http.codec
 
-import zio.http.codec.HttpCodec
 import zio.http.model.Status
+
 private[codec] trait StatusCodecs {
   val Continue: StatusCodec[Unit]           = HttpCodec.Status(TextCodec.constant(Status.Continue.text))
   val SwitchingProtocols: StatusCodec[Unit] = HttpCodec.Status(TextCodec.constant(Status.SwitchingProtocols.text))

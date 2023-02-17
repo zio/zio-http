@@ -2,9 +2,7 @@ package zio.http.codec
 
 import zio.http.model.HeaderNames
 import zio.http.model.headers.values._
-import zio.http.codec.TextCodec
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.http.codec.HttpCodec // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[codec] trait HeaderCodecs {
   private[http] def header[A](name: String, value: TextCodec[A]): HeaderCodec[A] =

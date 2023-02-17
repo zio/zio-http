@@ -2,7 +2,6 @@ package zio.http.codec
 
 import java.util.UUID
 
-import zio.http.codec.HttpCodec
 private[codec] trait PathCodecs {
   def literal(string: String): PathCodec[Unit] =
     HttpCodec.Path(TextCodec.constant(string), None)
