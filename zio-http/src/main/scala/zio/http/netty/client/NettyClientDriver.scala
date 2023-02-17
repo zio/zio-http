@@ -129,7 +129,7 @@ object NettyClientDriver {
   private implicit val trace: Trace = Trace.empty
 
   val fromConfig: ZLayer[ClientConfig, Throwable, ClientDriver] =
-    (EventLoopGroups.fromConfig ++ ChannelFactories.Client.fromConfig ++ NettyRuntime.usingDedicatedThreadPool) >>>
+    (EventLoopGroups.fromConfig ++ ChannelFactories.Client.fromConfig ++ NettyRuntime.default) >>>
       ZLayer {
         for {
           eventLoopGroup <- ZIO.service[EventLoopGroup]
