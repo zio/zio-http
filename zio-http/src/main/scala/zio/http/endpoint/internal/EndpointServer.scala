@@ -15,8 +15,10 @@ private[endpoint] final case class EndpointServer[R, E, I, O, M <: EndpointMiddl
   private val api     = single.endpoint
   private val handler = single.handler
 
-  def handle(request: Request)(implicit trace: Trace): ZIO[R, E, Response] =
+  def handle(request: Request)(implicit trace: Trace): ZIO[R, Nothing, Response] =
     api.input.decodeRequest(request).orDie.flatMap { value =>
-      handler(value).map(api.output.encodeResponse(_))
+      handler(value).map(api.output.encodeResponse(_)).catchAll { error =>
+        ZIO.succeed(single.endpoint.error.encodeResponse(error))
+      }
     }
 }

@@ -42,7 +42,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     suite("ServerClientIntegrationSpec")(
       test("server and client integration") {
         for {
-          _        <- Server.install(usersPostHandler.toHttpApp)
+          _        <- Server.install(usersPostHandler.toApp)
           _        <- ZIO.debug("Installed server")
           executor <- ZIO.service[EndpointExecutor[Unit]]
           // QUESTION: Do we want to encode `E` in an API?

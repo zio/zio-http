@@ -95,7 +95,7 @@ class ApiBenchmark {
       ZIO.succeed(ExampleData(userId, postId, limit))
     }
 
-  val apiHttpApp = handledUsersPosts.toHttpApp
+  val apiHttpApp = handledUsersPosts.toApp
 
   // Collect DSL
   val collectHttpApp = Http.collectZIO[Request] { //
@@ -218,7 +218,7 @@ class ApiBenchmark {
     .implement { _ =>
       ZIO.unit
     }
-    .toHttpApp
+    .toApp
 
   // Collect DSL
 
@@ -461,7 +461,7 @@ class ApiBenchmark {
         broadUsersCommentsId ++
         boardUsersPostsCommentsReplies ++
         boardUsersPostsCommentsRepliesId
-    ).toHttpApp
+    ).toApp
 
   // Collect DSL
 

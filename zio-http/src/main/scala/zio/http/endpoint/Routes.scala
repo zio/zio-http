@@ -21,15 +21,15 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
    * Converts the collection of routes into a [[zio.http.HttpApp]], which can be
    * executed.
    */
-  def toHttpApp[R1 <: R](implicit ev: EndpointMiddleware.None <:< M, trace: Trace): HttpApp[R1, E] = {
-    toHttpApp[R1, Unit](RoutesMiddleware.none.asInstanceOf[RoutesMiddleware[R1, Unit, M]])
+  def toApp[R1 <: R](implicit ev: EndpointMiddleware.None <:< M, trace: Trace): App[R1] = {
+    toApp[R1, Unit](RoutesMiddleware.none.asInstanceOf[RoutesMiddleware[R1, Unit, M]])
   }
 
   /**
    * Converts this service into a [[zio.http.HttpApp]], which can then be served
    * via [[zio.http.Server.serve]].
    */
-  def toHttpApp[R1 <: R, S](mh: RoutesMiddleware[R1, S, M])(implicit trace: Trace): HttpApp[R1, E] = {
+  def toApp[R1 <: R, S](mh: RoutesMiddleware[R1, S, M])(implicit trace: Trace): App[R1] = {
     import zio.http.endpoint.internal._
 
     val handlerTree     = HandlerTree.fromService(self)

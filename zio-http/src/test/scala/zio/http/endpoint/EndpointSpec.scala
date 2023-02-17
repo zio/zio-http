@@ -263,10 +263,10 @@ object EndpointSpec extends ZIOSpecDefault {
   def testEndpoint[R, E](service: Routes[R, E, EndpointMiddleware.None])(
     url: String,
     expected: String,
-  ): ZIO[R, E, TestResult] = {
+  ): ZIO[R, Response, TestResult] = {
     val request = Request.get(url = URL.fromString(url).toOption.get)
     for {
-      response <- service.toHttpApp.runZIO(request).mapError(_.get)
+      response <- service.toApp.runZIO(request).mapError(_.get)
       body     <- response.body.asString.orDie
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }
@@ -275,10 +275,10 @@ object EndpointSpec extends ZIOSpecDefault {
     url: String,
     method: Method,
     expected: Status,
-  ): ZIO[R, E, TestResult] = {
+  ): ZIO[R, Response, TestResult] = {
     val request = Request.default(method = method, url = URL.fromString(url).toOption.get)
     for {
-      response <- service.toHttpApp.runZIO(request).mapError(_.get)
+      response <- service.toApp.runZIO(request).mapError(_.get)
       status = response.status
     } yield assertTrue(status == expected)
   }
