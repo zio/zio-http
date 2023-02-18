@@ -6,7 +6,7 @@ import zio.http.model.Headers
 
 /**
  * Represents the Content-Transfer-Encoding header.
- * 
+ *
  * https://www.w3.org/Protocols/rfc1341/5_Content-Transfer-Encoding.html
  */
 sealed trait ContentTransferEncoding { self =>
