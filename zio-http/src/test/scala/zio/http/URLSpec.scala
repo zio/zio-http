@@ -1,10 +1,11 @@
 package zio.http
 
 import zio.Chunk
-import zio.http.internal.HttpGen
-import zio.http.model.Scheme
 import zio.test.Assertion._
 import zio.test._
+
+import zio.http.internal.HttpGen
+import zio.http.model.Scheme
 
 object URLSpec extends ZIOSpecDefault {
   def spec =

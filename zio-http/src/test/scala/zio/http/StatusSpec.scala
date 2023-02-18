@@ -1,8 +1,9 @@
 package zio.http
 
-import zio.http.internal.HttpGen
 import zio.test.Assertion._
 import zio.test._
+
+import zio.http.internal.HttpGen
 
 object StatusSpec extends ZIOSpecDefault {
   private val statusGen = HttpGen.status

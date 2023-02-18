@@ -1,11 +1,11 @@
-package zio.http.endpoint
+package zio.http.codec
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A combiner is a type class responsible for combining invariant type
  * parameters using a tuple. It is used to compose the parameters of the
- * [[zio.http.endpoint.HttpCodec]] data type.
+ * [[zio.http.codec.HttpCodec]] data type.
  */
 sealed trait Combiner[L, R] {
   type Out

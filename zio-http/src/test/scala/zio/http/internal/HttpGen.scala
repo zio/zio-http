@@ -1,16 +1,19 @@
 package zio.http.internal
 
-import io.netty.buffer.Unpooled
+import java.io.File
+
 import zio._
+import zio.test.{Gen, Sized}
+
+import zio.stream.ZStream
+
 import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
 import zio.http.model._
 import zio.http.model.headers.values._
-import zio.stream.ZStream
-import zio.test.{Gen, Sized}
 
-import java.io.File
+import io.netty.buffer.Unpooled
 
 object HttpGen {
   def anyPath: Gen[Sized, Path] = for {

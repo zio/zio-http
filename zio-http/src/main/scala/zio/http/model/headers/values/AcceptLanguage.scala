@@ -1,10 +1,10 @@
 package zio.http.model.headers.values
 
-import zio.Chunk
-
 import scala.annotation.tailrec
 import scala.util.Try
 import scala.util.matching.Regex
+
+import zio.Chunk
 
 /**
  * The Accept-Language request HTTP header indicates the natural language and

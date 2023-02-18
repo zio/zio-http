@@ -1,12 +1,14 @@
 package zio.benchmarks
 
-import org.openjdk.jmh.annotations._
+import java.util.concurrent.TimeUnit
+
+import zio.{Unsafe, http}
+
 import zio.http.Path
 import zio.http.model.Cookie
 import zio.http.model.Cookie.SameSite
-import zio.{Unsafe, http}
 
-import java.util.concurrent.TimeUnit
+import org.openjdk.jmh.annotations._
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))

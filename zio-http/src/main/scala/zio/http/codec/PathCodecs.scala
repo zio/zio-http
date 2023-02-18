@@ -1,10 +1,8 @@
-package zio.http.endpoint
+package zio.http.codec
 
 import java.util.UUID
-import zio.http.endpoint.internal.TextCodec
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-private[endpoint] trait PathCodecs {
+private[codec] trait PathCodecs {
   def literal(string: String): PathCodec[Unit] =
     HttpCodec.Path(TextCodec.constant(string), None)
 

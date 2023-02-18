@@ -1,8 +1,8 @@
 package zio.http.model.headers.values
 
-import zio.Chunk
-
 import scala.annotation.tailrec
+
+import zio.Chunk
 
 /**
  * The Allow header must be sent if the server responds with a 405 Method Not

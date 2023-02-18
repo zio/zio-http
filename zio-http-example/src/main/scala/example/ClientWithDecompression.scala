@@ -1,10 +1,12 @@
 package example
 
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zio._
+
 import zio.http.model.Headers
 import zio.http.netty.client.NettyConnectionPool
 import zio.http.{Client, ClientConfig}
+
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 
 object ClientWithDecompression extends ZIOAppDefault {
   val url = "http://sports.api.decathlon.com/groups/water-aerobics"

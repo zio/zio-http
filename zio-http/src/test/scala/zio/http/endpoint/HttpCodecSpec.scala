@@ -1,10 +1,12 @@
 package zio.http.endpoint
 
 import zio._
-import zio.http._
-import zio.http.endpoint.internal.TextCodec
-import zio.http.model._
 import zio.test._
+
+import zio.http._
+import zio.http.codec._
+import zio.http.model._
+
 object HttpCodecSpec extends ZIOSpecDefault {
   val googleUrl     = URL.fromString("http://google.com").toOption.get
   val usersUrl      = URL.fromString("http://mywebservice.com/users").toOption.get
@@ -20,7 +22,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
 
   def spec = suite("HttpCodecSpec")(
     suite("fallback") {
-      test("route fallback") {
+      test("path fallback") {
         val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
         val postsURL = URL.fromString("http://mywebservice.com/posts").toOption.get
 
@@ -88,6 +90,19 @@ object HttpCodecSpec extends ZIOSpecDefault {
             result1 <- fallback.decodeRequest(usersRequest)
             result2 <- fallback.decodeRequest(postsRequest)
           } yield assertTrue(result1 == (("10", "1234"))) && assertTrue(result2 == (("20", "567")))
+        } +
+        test("no fallback for defects") {
+          val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
+          val e        = new RuntimeException("boom")
+
+          val codec1 = PathCodec.literal("users").transform[Unit](_ => throw e, _ => ()).const("route1")
+          val codec2 = PathCodec.literal("users").const("route2")
+
+          val fallback = codec1 | codec2
+
+          for {
+            result <- fallback.decodeRequest(Request.get(url = usersURL)).exit
+          } yield assertTrue(result.causeOption.get.defects.forall(_ == e))
         }
     },
     suite("PathCodec") {

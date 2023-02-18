@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
-import zio.Chunk
-import zio.http.model.MediaType
-
 import scala.util.Try
+
+import zio.Chunk
+
+import zio.http.model.MediaType
 
 /** Accept header value. */
 sealed trait Accept

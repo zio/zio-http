@@ -1,10 +1,11 @@
 package zio.http.endpoint.internal
 
+import java.util.UUID
+
 import zio.Scope
-import zio.http.endpoint.internal.TextCodec.UUIDCodec
 import zio.test._
 
-import java.util.UUID
+import zio.http.codec.TextCodec.UUIDCodec
 
 object UUIDCodecSpec extends ZIOSpecDefault {
   val correctUUID                                          = UUID.randomUUID().toString

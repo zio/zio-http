@@ -1,14 +1,17 @@
 package zio.http
 
-import io.netty.channel.embedded.EmbeddedChannel
-import zio.http.model._
-import zio.stream.ZStream
+import java.io.File
+
 import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test._
 import zio.{Chunk, durationInt}
 
-import java.io.File
+import zio.stream.ZStream
+
+import zio.http.model._
+
+import io.netty.channel.embedded.EmbeddedChannel
 
 object BodySpec extends ZIOSpecDefault {
   private val testFile = new File(getClass.getResource("/TestFile.txt").getPath)

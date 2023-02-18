@@ -1,8 +1,8 @@
 package zio.http.logging.macros
 
-import zio.http.logging.{LogLevel, Logger}
-
 import scala.reflect.macros.whitebox
+
+import zio.http.logging.{LogLevel, Logger}
 
 /**
  * Macro inspired from log4s.

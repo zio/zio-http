@@ -1,13 +1,13 @@
-package zio.http.endpoint.internal
+package zio.http.codec
 
 import java.util.UUID
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import scala.util.control.NonFatal
 
 /**
- * A [[zio.http.endpoint.TextCodec]] defines a codec for a text fragment. The
- * text fragment can be decoded into a value, or the value can be encoded into a
- * text fragment.
+ * A [[zio.http.codec.TextCodec]] defines a codec for a text fragment. The text
+ * fragment can be decoded into a value, or the value can be encoded into a text
+ * fragment.
  *
  * Unlike parsers, text codecs operate on entire fragments. They do not consume
  * input and leave remainders. Also unlike parsers, text codecs do not fail with
@@ -15,11 +15,9 @@ import scala.util.control.NonFatal
  * decoding from a given text fragment. Finally, unlike ordinary parsers, text
  * codecs are fully invertible, and can therefore be used in client generation.
  */
-private[endpoint] sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
+sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
   def apply(value: String): A
 
-  // TODO: Implement this using `isDefinedAt` and `apply` but only after all
-  // subtypes properly & performantly implement `isDefinedAt`.
   final def decode(value: String): Option[A] =
     if (isDefinedAt(value)) Some(apply(value)) else None
 
@@ -29,19 +27,19 @@ private[endpoint] sealed trait TextCodec[A] extends PartialFunction[String, A] {
 
   def isDefinedAt(value: String): Boolean
 
-  private[endpoint] final def erase: TextCodec[Any] = self.asInstanceOf[TextCodec[Any]]
+  private[http] final def erase: TextCodec[Any] = self.asInstanceOf[TextCodec[Any]]
 }
 
-private[endpoint] object TextCodec {
-  implicit val boolean: TextCodec[Boolean] = BooleanCodec
+object TextCodec {
+  val boolean: TextCodec[Boolean] = BooleanCodec
 
   def constant(string: String): TextCodec[Unit] = Constant(string)
 
-  implicit val int: TextCodec[Int] = IntCodec
+  val int: TextCodec[Int] = IntCodec
 
-  implicit val string: TextCodec[String] = StringCodec
+  val string: TextCodec[String] = StringCodec
 
-  implicit val uuid: TextCodec[UUID] = UUIDCodec
+  val uuid: TextCodec[UUID] = UUIDCodec
 
   final case class Constant(string: String) extends TextCodec[Unit] {
 
@@ -103,7 +101,6 @@ private[endpoint] object TextCodec {
 
     def encode(value: Boolean): String = value.toString
 
-    // TODO: Make faster by hand-writing validation:
     def isDefinedAt(value: String): Boolean = value == "1" || value == "0" || value == "true" || value == "false" ||
       value == "no" || value == "off" || value == "yes" || value == "on"
 
@@ -117,7 +114,6 @@ private[endpoint] object TextCodec {
 
     def encode(value: UUID): String = value.toString
 
-    // TODO: Make faster by hand-writing validation:
     def isDefinedAt(value: String): Boolean = {
       var i       = 0
       var defined = true

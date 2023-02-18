@@ -1,9 +1,6 @@
-package zio.http.endpoint
+package zio.http.codec
 
-import zio.http.endpoint.internal.TextCodec
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-
-private[endpoint] trait QueryCodecs {
+private[codec] trait QueryCodecs {
   def query(name: String): QueryCodec[String] =
     HttpCodec.Query(name, TextCodec.string)
 

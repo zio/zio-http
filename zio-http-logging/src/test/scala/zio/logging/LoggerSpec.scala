@@ -1,8 +1,9 @@
 package zio.http.logging
-import zio.http.logging.LoggerTransport.DefaultLoggerTransport
+import scala.collection.mutable.ListBuffer
+
 import zio.test._
 
-import scala.collection.mutable.ListBuffer
+import zio.http.logging.LoggerTransport.DefaultLoggerTransport
 
 object LoggerSpec extends ZIOSpecDefault {
 

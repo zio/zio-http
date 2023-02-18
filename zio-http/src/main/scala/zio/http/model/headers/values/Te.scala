@@ -1,9 +1,9 @@
 package zio.http.model.headers.values
 
-import zio.Chunk
-
 import scala.annotation.tailrec
 import scala.util.Try
+
+import zio.Chunk
 
 sealed trait Te {
   def raw: String

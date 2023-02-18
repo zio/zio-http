@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
-import zio.http.internal.HttpGen
-import zio.http.model.headers.values.ContentEncoding.{InvalidEncoding, MultipleEncodings}
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
 import zio.{Chunk, Scope}
+
+import zio.http.internal.HttpGen
+import zio.http.model.headers.values.ContentEncoding.{InvalidEncoding, MultipleEncodings}
 
 object ContentEncodingSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ContentEncoding suite")(

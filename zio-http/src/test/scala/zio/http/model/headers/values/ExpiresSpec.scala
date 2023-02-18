@@ -1,11 +1,12 @@
 package zio.http.model.headers.values
 
-import zio.Scope
-import zio.http.model.headers.values.Expires.ValidExpires
-import zio.test._
-
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneId, ZonedDateTime}
+
+import zio.Scope
+import zio.test._
+
+import zio.http.model.headers.values.Expires.ValidExpires
 
 object ExpiresSpec extends ZIOSpecDefault {
 

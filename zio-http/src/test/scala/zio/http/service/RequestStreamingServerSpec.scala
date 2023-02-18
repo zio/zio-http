@@ -1,13 +1,14 @@
 package zio.http.service
 
-import zio.http._
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.model.Status
-import zio.http.service.ServerSpec.requestBodySpec
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, shrinks, timeout}
 import zio.test.assertZIO
 import zio.{Scope, ZIO, durationInt}
+
+import zio.http._
+import zio.http.internal.{DynamicServer, HttpRunnableSpec}
+import zio.http.model.Status
+import zio.http.service.ServerSpec.requestBodySpec
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
 

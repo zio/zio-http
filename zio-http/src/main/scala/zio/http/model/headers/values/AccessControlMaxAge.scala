@@ -1,6 +1,7 @@
 package zio.http.model.headers.values
 
 import java.time.Duration
+
 import scala.util.Try
 
 /**

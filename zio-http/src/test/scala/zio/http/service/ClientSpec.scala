@@ -1,15 +1,17 @@
 package zio.http.service
 
-import zio.http._
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model._
-import zio.stream.ZStream
+import java.net.ConnectException
+
 import zio.test.Assertion.{isLeft, _}
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.assertZIO
 import zio.{Scope, durationInt}
 
-import java.net.ConnectException
+import zio.stream.ZStream
+
+import zio.http._
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.model._
 
 object ClientSpec extends HttpRunnableSpec {
 

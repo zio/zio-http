@@ -1,13 +1,15 @@
 package zio.http.service
 
-import io.netty.handler.codec.http.HttpHeaderValues
-import zio.http._
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model._
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertZIO
 import zio.{Scope, durationInt}
+
+import zio.http._
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.model._
+
+import io.netty.handler.codec.http.HttpHeaderValues
 
 object KeepAliveSpec extends HttpRunnableSpec {
 

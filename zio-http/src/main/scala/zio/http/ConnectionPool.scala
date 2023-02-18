@@ -1,8 +1,8 @@
 package zio.http
 
-import zio.{Scope, Trace, ZIO}
-
 import java.net.InetSocketAddress
+
+import zio.{Scope, Trace, ZIO}
 
 trait ConnectionPool[Connection] {
 
