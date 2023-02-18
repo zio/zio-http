@@ -99,6 +99,7 @@ private[zio] final case class ServerInboundHandler(
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: Body.UnsafeAsync): Unit = {
     if (ctx.channel().attr(isReadKey).get())
       throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
+
     ctx
       .channel()
       .pipeline()
@@ -150,8 +151,11 @@ private[zio] final case class ServerInboundHandler(
               ctx.writeAndFlush(jResponse)
             }
             flushed   <-
-              if (!jResponse.isInstanceOf[FullHttpResponse]) NettyBodyWriter.write(response.body, ctx)
-              else ZIO.succeed(true)
+              if (!jResponse.isInstanceOf[FullHttpResponse])
+                NettyBodyWriter
+                  .write(response.body, ctx)
+              else
+                ZIO.succeed(true)
             _         <- ZIO.attempt(ctx.flush()).when(!flushed)
           } yield ()
 
@@ -198,6 +202,7 @@ private[zio] final case class ServerInboundHandler(
         val body = Body.fromAsync { async =>
           addAsyncBodyHandler(ctx, async)
         }
+
         Request(
           body,
           Headers.make(nettyReq.headers()),
