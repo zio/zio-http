@@ -1,8 +1,9 @@
 package zio.http.forms
 
 import zio.Scope
-import zio.http.forms.FormAST.Header
 import zio.test._
+
+import zio.http.forms.FormAST.Header
 object FormHeaderSpec extends ZIOSpecDefault {
 
   val contentType1 = "Content-Type: text/html; charset=utf-8".getBytes()

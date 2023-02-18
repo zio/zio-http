@@ -1,10 +1,11 @@
 package zio.http.forms
 
+import java.nio.charset.StandardCharsets
+
 import zio._
-import zio.http.forms.Fixtures._
 import zio.test._
 
-import java.nio.charset.StandardCharsets
+import zio.http.forms.Fixtures._
 
 object BoundarySpec extends ZIOSpecDefault {
 

@@ -1,4 +1,4 @@
-package zio.http // scalafix:ok;
+package zio.http
 
 package object netty {
 

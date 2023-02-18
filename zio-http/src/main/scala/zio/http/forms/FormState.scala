@@ -1,6 +1,7 @@
 package zio.http.forms
 
 import zio._
+
 import zio.http.forms.FormAST._
 
 private[forms] sealed trait FormState

@@ -1,11 +1,12 @@
 package zio.http.forms
 
-import zio.Chunk
-import zio.http.forms.FormAST.Header
-import zio.http.model.{Headers, MediaType}
-
 import java.nio.charset.{Charset, StandardCharsets}
 import java.security.SecureRandom
+
+import zio.Chunk
+
+import zio.http.forms.FormAST.Header
+import zio.http.model.{Headers, MediaType}
 
 final case class Boundary(id: String, charset: Charset = StandardCharsets.UTF_8) {
 

@@ -1,9 +1,10 @@
 package zio.http.forms
 
-import zio._
-import zio.http.model._
-
 import java.nio.charset._
+
+import zio._
+
+import zio.http.model._
 
 private[forms] sealed trait FormAST { def bytes: Chunk[Byte] }
 

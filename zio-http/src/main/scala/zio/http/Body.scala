@@ -2,18 +2,14 @@ package zio.http
 
 import java.io.FileInputStream
 import java.nio.charset._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import java.nio.file._
-import zio.http.model.Headers
-
-import zio.http.forms._
-import zio.http.model.MediaType
 
 import zio._
 
 import zio.stream.ZStream
 
-import zio.http.model.HTTP_CHARSET
+import zio.http.forms._
+import zio.http.model.{HTTP_CHARSET, Headers, MediaType}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{Channel => JChannel}
@@ -95,8 +91,10 @@ object Body {
    */
   def fromAsciiString(asciiString: AsciiString): Body = AsciiStringBody(asciiString, Headers.empty)
 
-  private[zio] final case class AsciiStringBody(asciiString: AsciiString, override val requestHeaders: Headers)
-      extends Body
+  private[zio] final case class AsciiStringBody(
+    asciiString: AsciiString,
+    override val requestHeaders: Headers = Headers.empty,
+  ) extends Body
       with UnsafeWriteable
       with UnsafeBytes {
 

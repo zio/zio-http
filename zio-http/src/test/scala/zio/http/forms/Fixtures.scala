@@ -1,8 +1,8 @@
 package zio.http.forms
 
-import zio._
-
 import java.nio.charset.StandardCharsets
+
+import zio._
 
 object Fixtures {
 

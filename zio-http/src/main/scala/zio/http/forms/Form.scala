@@ -1,17 +1,19 @@
 package zio.http.forms
 
+import java.io.UnsupportedEncodingException
+import java.net.{URLDecoder, URLEncoder}
+import java.nio.charset.{Charset, StandardCharsets}
+import java.security.SecureRandom
+
 import zio._
+
+import zio.stream._
+
 import zio.http.forms.FormAST._
 import zio.http.forms.FormData._
 import zio.http.forms.FormDecodingError._
 import zio.http.forms.FormState._
 import zio.http.model.Headers
-import zio.stream._
-
-import java.io.UnsupportedEncodingException
-import java.net.{URLDecoder, URLEncoder}
-import java.nio.charset.{Charset, StandardCharsets}
-import java.security.SecureRandom
 
 /**
  * Represents a form that can be either multipart or url encoded.

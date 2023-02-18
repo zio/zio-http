@@ -1,11 +1,12 @@
 package zio.http.forms
 
+import java.nio.charset._
+
 import zio._
+
 import zio.http.forms.FormAST._
 import zio.http.forms.FormDecodingError._
 import zio.http.model.MediaType
-
-import java.nio.charset._
 
 sealed trait FormData {
   def name: String

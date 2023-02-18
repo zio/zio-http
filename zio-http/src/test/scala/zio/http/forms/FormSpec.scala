@@ -1,12 +1,14 @@
 package zio.http.forms
 
+import java.nio.charset.StandardCharsets
+
+import scala.annotation.nowarn
+
 import zio._
-import zio.http.forms.Fixtures._
-import zio.http.model.MediaType
 import zio.test._
 
-import java.nio.charset.StandardCharsets
-import scala.annotation.nowarn
+import zio.http.forms.Fixtures._
+import zio.http.model.MediaType
 
 object FormSpec extends ZIOSpecDefault {
 
