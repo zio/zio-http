@@ -140,7 +140,7 @@ object NettyConnectionPool {
   )
 
   private final class ZioNettyConnectionPool(
-    pool: ZKeyedPoolTest[Throwable, PoolKey, JChannel],
+    pool: ZKeyedPool[Throwable, PoolKey, JChannel],
   ) extends NettyConnectionPool {
     override def get(
       location: Location.Absolute,
@@ -196,7 +196,7 @@ object NettyConnectionPool {
   )(implicit trace: Trace): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
     for {
       driver      <- ZIO.service[NettyClientDriver]
-      poolPromise <- Promise.make[Nothing, ZKeyedPoolTest[Throwable, PoolKey, JChannel]]
+      poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       poolFn = (key: PoolKey) =>
         createChannel(
           driver.channelFactory,
@@ -216,7 +216,7 @@ object NettyConnectionPool {
             )
             .forkDaemon
         }.uninterruptible
-      keyedPool <- ZKeyedPoolTest
+      keyedPool <- ZKeyedPool
         .make(poolFn, (key: PoolKey) => size(key.location))
         .tap(poolPromise.succeed)
         .tapErrorCause(poolPromise.failCause)
@@ -237,7 +237,7 @@ object NettyConnectionPool {
   )(implicit trace: Trace): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
     for {
       driver      <- ZIO.service[NettyClientDriver]
-      poolPromise <- Promise.make[Nothing, ZKeyedPoolTest[Throwable, PoolKey, JChannel]]
+      poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       poolFn = (key: PoolKey) =>
         createChannel(
           driver.channelFactory,
@@ -257,7 +257,7 @@ object NettyConnectionPool {
             )
             .forkDaemon
         }.uninterruptible
-      keyedPool <- ZKeyedPoolTest
+      keyedPool <- ZKeyedPool
         .make(poolFn, (key: PoolKey) => min(key.location) to max(key.location), (key: PoolKey) => ttl(key.location))
         .tap(poolPromise.succeed)
         .tapErrorCause(poolPromise.failCause)
