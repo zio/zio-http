@@ -43,12 +43,13 @@ object NettyBodyWriter {
         false
       }
     case StreamBody(stream)           =>
-      stream.runForeachChunk(c => ZIO.succeed(ctx.writeAndFlush(Unpooled.wrappedBuffer(c.toArray)))).flatMap { _ =>
-        ZIO.succeed {
-          ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-          true
+      stream
+        .runForeachChunk(chunk =>
+          NettyFutureExecutor.executed(ctx.writeAndFlush(Unpooled.wrappedBuffer(chunk.toArray))),
+        )
+        .flatMap { _ =>
+          NettyFutureExecutor.executed(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)).as(true)
         }
-      }
     case ChunkBody(data)              =>
       ZIO.succeed {
         ctx.write(Unpooled.wrappedBuffer(data.toArray))
@@ -84,5 +85,4 @@ object NettyBodyWriter {
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
         true
     }
-
 }

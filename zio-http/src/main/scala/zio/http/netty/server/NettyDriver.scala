@@ -56,7 +56,7 @@ private[zio] final case class NettyDriver(
     for {
       channelFactory <- ChannelFactories.Client.fromConfig.build
         .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](config))
-      nettyRuntime   <- NettyRuntime.usingDedicatedThreadPool.build
+      nettyRuntime   <- NettyRuntime.default.build
     } yield NettyClientDriver(channelFactory.get, eventLoopGroup, nettyRuntime.get, config)
 }
 
@@ -110,7 +110,7 @@ object NettyDriver {
         cf  <- ZIO.service[ChannelFactory[ServerChannel]]
       } yield ZEnvironment(elg, cf))
 
-      val nettyRuntime: ZLayer[EventLoopGroup, Nothing, NettyRuntime] = NettyRuntime.usingSharedThreadPool
+      val nettyRuntime: ZLayer[EventLoopGroup, Nothing, NettyRuntime] = NettyRuntime.default
       val serverChannelInitializer: ZLayer[ServerInboundHandler with ServerConfig, Nothing, ServerChannelInitializer] =
         ServerChannelInitializer.layer
       val serverInboundHandler: ZLayer[
