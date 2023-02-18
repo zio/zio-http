@@ -2,19 +2,16 @@ package zio.http.netty
 
 import zio._
 
-import zio.stream.Take
-
 import zio.http.Body
 import zio.http.Body._
 
-import io.netty.buffer.{ByteBuf, ByteBufAllocator, Unpooled}
+import io.netty.buffer.Unpooled
 import io.netty.channel._
-import io.netty.handler.codec.http.{DefaultHttpContent, HttpContent, LastHttpContent}
-import io.netty.handler.stream.{ChunkedInput, ChunkedWriteHandler}
+import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
 
 object NettyBodyWriter {
 
-  def write(body: Body, ctx: ChannelHandlerContext, isClient: Boolean): ZIO[Scope, Throwable, Boolean] =
+  def write(body: Body, ctx: ChannelHandlerContext): ZIO[Any, Throwable, Boolean] =
     body match {
       case body: ByteBufBody            =>
         ZIO.succeed {
