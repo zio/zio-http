@@ -53,6 +53,7 @@ private[zio] trait NettyRuntime { self =>
             ensured()
         }
       case Right(exit) =>
+        ensured()
         exit match {
           case Exit.Success(_)     =>
           case Exit.Failure(cause) =>
