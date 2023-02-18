@@ -2,13 +2,10 @@ package zio.http.netty.server
 
 import java.io.IOException
 import java.net.InetSocketAddress
-import java.util.concurrent.ConcurrentLinkedQueue
 
 import scala.annotation.tailrec
 
 import zio._
-
-import zio.stream.ZStream
 
 import zio.http._
 import zio.http.logging.Logger
