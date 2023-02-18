@@ -204,23 +204,9 @@ private[zio] final case class ServerInboundHandler(
           remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-        val queue  = new ConcurrentLinkedQueue[(Chunk[Byte], Boolean)]()
-        addAsyncBodyHandler(
-          ctx,
-          { (ctx, msg, isLast) =>
-            queue.offer((msg, isLast))
-            if (!isLast) ctx.read()
-            ()
-          },
-        )
-        val stream = ZStream
-          .repeatZIO(ZIO.blocking(ZIO.attempt(queue.poll())))
-          .filter { case (bytes, _) => bytes.nonEmpty }
-          .takeUntil { case (_, isLast) => isLast }
-          .map { case (msg, _) => msg }
-          .flattenChunks
-
-        val body = Body.fromStream(stream)
+        val body = Body.fromAsync { async =>
+          addAsyncBodyHandler(ctx, async)
+        }
 
         Request(
           body,
