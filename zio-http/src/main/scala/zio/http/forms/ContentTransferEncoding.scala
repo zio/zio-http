@@ -6,8 +6,8 @@ import zio.http.model.Headers
 
 /**
  * Represents the Content-Transfer-Encoding header.
- * @SEE:
- *   https://www.w3.org/Protocols/rfc1341/5_Content-Transfer-Encoding.html
+ * 
+ * https://www.w3.org/Protocols/rfc1341/5_Content-Transfer-Encoding.html
  */
 sealed trait ContentTransferEncoding { self =>
   val name: String = self match {
