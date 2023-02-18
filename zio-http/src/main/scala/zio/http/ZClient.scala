@@ -613,6 +613,7 @@ object ZClient {
                       clientConfig.requestDecompression,
                       clientConfig.localAddress,
                     )
+                    .tapErrorCause(cause => onResponse.failCause(cause))
                     .map(_.asInstanceOf[driver.Connection])
                   channelInterface <-
                     driver
@@ -626,6 +627,7 @@ object ZClient {
                         connectionPool.enableKeepAlive,
                         () => clientConfig.socketApp.getOrElse(SocketApp()),
                       )
+                      .tapErrorCause(cause => onResponse.failCause(cause))
                   _                <-
                     onComplete.await.interruptible.exit.flatMap { exit =>
                       if (exit.isInterrupted) {
