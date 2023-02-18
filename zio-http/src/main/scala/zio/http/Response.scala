@@ -1,17 +1,21 @@
 package zio.http
 
-import io.netty.buffer.Unpooled
-import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 import zio._
-import zio.http.Response._
-import zio.http.html.Html
 import zio.http.model._
+import zio.http.socket.SocketApp
+import Response._
+import io.netty.channel.ChannelHandlerContext
 import zio.http.model.headers.HeaderExtension
 import zio.http.netty._
-import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
+import zio.http.socket._
+import zio.http.html.Html
 import zio.http.service.{CLIENT_INBOUND_HANDLER, CLIENT_STREAMING_BODY_HANDLER}
-import zio.http.socket.{SocketApp, _}
+import io.netty.handler.codec.http.FullHttpResponse
+import io.netty.buffer.Unpooled
+import zio.http.netty.client.ChannelState
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import io.netty.handler.codec.http.HttpResponse
+import zio.http.netty.client.ClientResponseStreamHandler
 
 sealed trait Response extends HeaderExtension[Response] { self =>
 
@@ -99,7 +103,7 @@ sealed trait Response extends HeaderExtension[Response] { self =>
   /**
    * Creates an Http from a Response
    */
-  final def toHandler: Handler[Any, Nothing, Any, Response] = Handler.response(self)
+  final def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.response(self)
 
   def withServerTime: Response
 }
@@ -129,7 +133,7 @@ object Response {
   }
 
   private[zio] trait CloseableResponse extends Response {
-    def close: Task[Unit]
+    def close(implicit trace: Trace): Task[Unit]
   }
 
   private[zio] class BasicResponse(
@@ -226,7 +230,7 @@ object Response {
     val status: Status,
   ) extends CloseableResponse { self =>
 
-    override final def close: Task[Unit] = NettyFutureExecutor.executed(channelContext.close())
+    override final def close(implicit trace: Trace): Task[Unit] = NettyFutureExecutor.executed(channelContext.close())
 
     override final def copy(status: Status, headers: Headers, body: Body): Response =
       new NettyResponse(body, channelContext, headers, status) with InternalState {
@@ -269,6 +273,7 @@ object Response {
       keepAlive: Boolean,
     )(implicit
       unsafe: Unsafe,
+      trace: Trace,
     ): Response = {
       val status  = Status.fromHttpResponseStatus(jRes.status())
       val headers = Headers.decode(jRes.headers())
@@ -303,13 +308,13 @@ object Response {
    */
   def fromSocket[R](
     http: Handler[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
-  ): ZIO[R, Nothing, Response] =
+  )(implicit trace: Trace): ZIO[R, Nothing, Response] =
     fromSocketApp(http.toSocketApp)
 
   /**
    * Creates a new response for the provided socket app
    */
-  def fromSocketApp[R](app: SocketApp[R]): ZIO[R, Nothing, Response] = {
+  def fromSocketApp[R](app: SocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
       new SocketAppResponse(
         Body.empty,

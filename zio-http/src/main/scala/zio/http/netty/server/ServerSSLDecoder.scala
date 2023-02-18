@@ -16,6 +16,7 @@ import zio.http.{SSLConfig, ServerConfig}
 
 import java.io.FileInputStream
 import java.util
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 object SSLUtil {
 

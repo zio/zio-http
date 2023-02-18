@@ -1,8 +1,8 @@
 package zio.http.api
 
-import zio.http.api.internal.TextCodec
-
 import java.util.UUID
+import zio.http.api.internal.TextCodec
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[api] trait RouteCodecs {
   def literal(string: String): RouteCodec[Unit] =

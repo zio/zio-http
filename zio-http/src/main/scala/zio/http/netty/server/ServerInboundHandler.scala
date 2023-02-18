@@ -23,7 +23,8 @@ private[zio] final case class ServerInboundHandler(
   errCallbackRef: ErrorCallbackRef,
   runtime: NettyRuntime,
   time: service.ServerTime,
-) extends SimpleChannelInboundHandler[HttpObject](false) { self =>
+)(implicit trace: Trace)
+    extends SimpleChannelInboundHandler[HttpObject](false) { self =>
   import ServerInboundHandler.log
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
@@ -294,6 +295,7 @@ object ServerInboundHandler {
   val log: Logger = service.Log.withTags("Server", "Request")
 
   val layer = {
+    implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
         appRef      <- ZIO.service[AppRef]
