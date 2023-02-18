@@ -42,26 +42,11 @@ object NettyBodyWriter {
       }
     case StreamBody(stream)           =>
       stream
-        .runForeachChunk(c =>
-          ZIO.succeed {
-            if (ctx.channel().isWritable) {
-              ctx.writeAndFlush(Unpooled.wrappedBuffer(c.toArray))
-              true
-            } else {
-              false
-            }
-          }.flatMap { written =>
-            if (!written)
-              ZIO.yieldNow.repeatUntilZIO(_ => ZIO.succeed(ctx.channel().isWritable)) *>
-                ZIO.succeed(ctx.writeAndFlush(Unpooled.wrappedBuffer(c.toArray)))
-            else ZIO.unit
-          },
+        .runForeachChunk(chunk =>
+          NettyFutureExecutor.executed(ctx.writeAndFlush(Unpooled.wrappedBuffer(chunk.toArray))),
         )
         .flatMap { _ =>
-          ZIO.succeed {
-            ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-            true
-          }
+          NettyFutureExecutor.executed(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)).as(true)
         }
     case ChunkBody(data)              =>
       ZIO.succeed {

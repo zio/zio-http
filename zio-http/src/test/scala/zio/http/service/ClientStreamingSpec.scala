@@ -6,7 +6,7 @@ import zio.http.model.Method
 import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 import zio.stream.ZStream
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{sequential, timeout}
+import zio.test.TestAspect.{nonFlaky, sequential, timeout}
 import zio.test.{Spec, TestEnvironment, assertZIO}
 import zio.{Scope, durationInt}
 
