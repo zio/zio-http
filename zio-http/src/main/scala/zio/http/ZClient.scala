@@ -605,8 +605,6 @@ object ZClient {
         }
       }
 
-    val activeChannelScopes = new java.util.concurrent.atomic.AtomicInteger(0)
-
     /**
      * It handles both - Websocket and HTTP requests.
      */
@@ -625,17 +623,6 @@ object ZClient {
               channelScope <- Scope.make
               _            <- ZIO.uninterruptibleMask { restore =>
                 for {
-                  id               <- ZIO.succeed(scala.util.Random.nextInt())
-                  _                <- channelScope.addFinalizer {
-                    ZIO.succeed {
-                      val n = activeChannelScopes.decrementAndGet()
-                      println(s"channel scope $id closed, active scopes: $n")
-                    }
-                  }
-                  _                <- ZIO.succeed {
-                    val n = activeChannelScopes.incrementAndGet()
-                    println(s"channel scope $id created, active scopes: $n")
-                  }
                   connection       <-
                     restore {
                       connectionPool
