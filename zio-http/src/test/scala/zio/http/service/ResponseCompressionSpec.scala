@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets
 import java.util.zip.GZIPOutputStream
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Chunk, Scope, ZIO, ZLayer}
+import zio.{Chunk, Scope, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
 
@@ -89,9 +89,14 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
 
   private def decompressed(bytes: Chunk[Byte]): ZIO[Any, Throwable, String] =
     ZIO.attempt {
-      val inputStream       = new ByteArrayInputStream(bytes.toArray)
-      val stream            = new java.util.zip.GZIPInputStream(inputStream)
-      val decompressedBytes = stream.readAllBytes()
-      new String(decompressedBytes, StandardCharsets.UTF_8)
-    }
+      val inputStream = new ByteArrayInputStream(bytes.toArray)
+      new java.util.zip.GZIPInputStream(inputStream)
+    }.mapError(Some(_))
+      .flatMap { stream =>
+        ZInputStream.fromInputStream(stream).readAll(4096).map { decompressedBytes =>
+          new String(decompressedBytes.toArray, StandardCharsets.UTF_8)
+        }
+      }
+      .unsome
+      .map(_.getOrElse(""))
 }
