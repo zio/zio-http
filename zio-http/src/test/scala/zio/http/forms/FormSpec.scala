@@ -5,6 +5,7 @@ import zio.http.forms.Fixtures._
 import zio.http.model.MediaType
 import zio.test._
 
+import java.nio.charset.StandardCharsets
 import scala.annotation.nowarn
 
 object FormSpec extends ZIOSpecDefault {
@@ -20,7 +21,7 @@ object FormSpec extends ZIOSpecDefault {
         )
       },
       test("decoding") {
-        val form = Form.fromURLEncoded("name=John&age=30", `UTF-8`)
+        val form = Form.fromURLEncoded("name=John&age=30", StandardCharsets.UTF_8)
         form.map { form =>
           assertTrue(
             form.get("age").get.valueAsString.get == "30",
@@ -57,7 +58,7 @@ object FormSpec extends ZIOSpecDefault {
         assertTrue(
           actualBytes == multipartFormBytes2,
           form2 == form,
-        ).??(new String(actualBytes.toArray, `UTF-8`))
+        ).??(new String(actualBytes.toArray, StandardCharsets.UTF_8))
       }
 
     },

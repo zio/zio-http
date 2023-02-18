@@ -2,6 +2,8 @@ package zio.http.forms
 
 import zio._
 
+import java.nio.charset.StandardCharsets
+
 object Fixtures {
 
   val CR = '\r'
@@ -26,7 +28,7 @@ object Fixtures {
                         |Content-Transfer-Encoding: base64${CR}
                         |${CR}
                         |${base64Corgi}${CR}
-                        |--AaB03x--${CRLF}""".stripMargin.getBytes(`UTF-8`))
+                        |--AaB03x--${CRLF}""".stripMargin.getBytes(StandardCharsets.UTF_8))
 
   val multipartFormBytes2 =
     Chunk.fromArray(

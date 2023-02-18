@@ -4,10 +4,10 @@ import zio.Chunk
 import zio.http.forms.FormAST.Header
 import zio.http.model.{Headers, MediaType}
 
-import java.nio.charset.Charset
+import java.nio.charset.{Charset, StandardCharsets}
 import java.security.SecureRandom
 
-final case class Boundary(id: String, charset: Charset = `UTF-8`) {
+final case class Boundary(id: String, charset: Charset = StandardCharsets.UTF_8) {
 
   def isEncapsulating(bytes: Chunk[Byte]): Boolean = bytes == encapsulationBoundaryBytes
 
@@ -30,7 +30,7 @@ object Boundary {
   def generate(rng: () => String = () => new SecureRandom().nextLong.toString): Boundary =
     Boundary(s"(((${rng().toString()})))")
 
-  def fromContent(content: Chunk[Byte], charset: Charset = `UTF-8`): Option[Boundary] = {
+  def fromContent(content: Chunk[Byte], charset: Charset = StandardCharsets.UTF_8): Option[Boundary] = {
     var i = 0
     var j = 0
 
@@ -55,7 +55,7 @@ object Boundary {
       headers.contentType
         .flatMap(value => Header("Content-Type", value.toString()).fields.get("charset"))
         .map(Charset.forName)
-        .getOrElse(`UTF-8`)
+        .getOrElse(StandardCharsets.UTF_8)
 
     for {
       disp     <- headers.contentDisposition

@@ -1,7 +1,8 @@
 package zio.http
 
 import java.io.FileInputStream
-import java.nio.charset.Charset
+import java.nio.charset._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import java.nio.file._
 import zio.http.model.Headers
 
@@ -211,12 +212,12 @@ object Body {
 
   }
 
-  def fromURLEncodedForm(form: Form, charset: Charset = `UTF-8`): Body = {
+  def fromURLEncodedForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
     val contentType = Headers.contentType(MediaType.application.`x-www-form-urlencoded`.fullType)
     AsciiStringBody(new AsciiString(form.encodeAsURLEncoded(charset), charset), contentType)
   }
 
-  def fromMultipartForm(form: Form, charset: Charset = `UTF-8`): Body = {
+  def fromMultipartForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
     val (headers, bytes) = form.encodeAsMultipartBytes(charset)
 
     ChunkBody(bytes, headers)

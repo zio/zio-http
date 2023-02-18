@@ -10,7 +10,7 @@ import zio.stream._
 
 import java.io.UnsupportedEncodingException
 import java.net.{URLDecoder, URLEncoder}
-import java.nio.charset.Charset
+import java.nio.charset.{Charset, StandardCharsets}
 import java.security.SecureRandom
 
 /**
@@ -24,7 +24,7 @@ final case class Form(formData: Chunk[FormData]) {
 
   def get(name: String): Option[FormData] = formData.find(_.name == name)
 
-  def encodeAsURLEncoded(charset: Charset = `UTF-8`): String = {
+  def encodeAsURLEncoded(charset: Charset = StandardCharsets.UTF_8): String = {
 
     def makePair(name: String, value: String): String = {
       val encodedName  = URLEncoder.encode(name, charset.name())
@@ -42,7 +42,7 @@ final case class Form(formData: Chunk[FormData]) {
   }
 
   def encodeAsMultipartBytes(
-    charset: Charset = `UTF-8`,
+    charset: Charset = StandardCharsets.UTF_8,
     rng: () => String = () => new SecureRandom().nextLong().toString(),
   ): (Headers, Chunk[Byte]) = {
 
@@ -109,7 +109,7 @@ object Form {
 
   def fromMultipartBytes(
     bytes: Chunk[Byte],
-    charset: Charset = `UTF-8`,
+    charset: Charset = StandardCharsets.UTF_8,
   ): ZIO[Any, FormDecodingError, Form] = {
     def process(boundary: Boundary) = ZStream
       .fromChunk(bytes)

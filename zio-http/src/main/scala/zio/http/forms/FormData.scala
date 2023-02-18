@@ -5,7 +5,7 @@ import zio.http.forms.FormAST._
 import zio.http.forms.FormDecodingError._
 import zio.http.model.MediaType
 
-import java.nio.charset.Charset
+import java.nio.charset._
 
 sealed trait FormData {
   def name: String
@@ -60,7 +60,10 @@ object FormData {
     override val filename: Option[String] = None
   }
 
-  def fromFormAST(ast: Chunk[FormAST], defaultCharset: Charset = `UTF-8`): ZIO[Any, FormDecodingError, FormData] = {
+  def fromFormAST(
+    ast: Chunk[FormAST],
+    defaultCharset: Charset = StandardCharsets.UTF_8,
+  ): ZIO[Any, FormDecodingError, FormData] = {
     val extract =
       ast.foldLeft((Option.empty[Header], Option.empty[Header], Option.empty[Header], Option.empty[Content])) {
         case (accum, header: Header) if header.name == "Content-Disposition"       =>

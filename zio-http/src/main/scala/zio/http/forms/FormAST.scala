@@ -3,7 +3,7 @@ package zio.http.forms
 import zio._
 import zio.http.model._
 
-import java.nio.charset.Charset
+import java.nio.charset._
 
 private[forms] sealed trait FormAST { def bytes: Chunk[Byte] }
 
@@ -13,7 +13,11 @@ private[forms] object FormAST {
 
   sealed trait DecodingPart2AST extends DecodingPart1AST
 
-  def makePart1(bytes: Chunk[Byte], boundary: Boundary, encoding: Charset = `UTF-8`): DecodingPart1AST = {
+  def makePart1(
+    bytes: Chunk[Byte],
+    boundary: Boundary,
+    encoding: Charset = StandardCharsets.UTF_8,
+  ): DecodingPart1AST = {
     val header = Header.fromBytes(bytes.toArray, encoding)
     header match {
       case Some(header)                            => header
@@ -23,7 +27,11 @@ private[forms] object FormAST {
     }
   }
 
-  def makePart2(bytes: Chunk[Byte], boundary: Boundary, encoding: Charset = `UTF-8`): DecodingPart2AST = {
+  def makePart2(
+    bytes: Chunk[Byte],
+    boundary: Boundary,
+    encoding: Charset = StandardCharsets.UTF_8,
+  ): DecodingPart2AST = {
     if (boundary.isEncapsulating(bytes)) EncapsulatingBoundary(boundary)
     else if (boundary.isClosing(bytes)) ClosingBoundary(boundary)
     else Content(bytes)
@@ -66,7 +74,7 @@ private[forms] object FormAST {
 
     def toHeaders: Headers = Headers(name -> value)
 
-    def bytes: Chunk[Byte] = Chunk.fromArray(s"$name: $value".getBytes(`UTF-8`))
+    def bytes: Chunk[Byte] = Chunk.fromArray(s"$name: $value".getBytes(StandardCharsets.UTF_8))
   }
 
   object Header {
@@ -85,7 +93,7 @@ private[forms] object FormAST {
     def contentTransferEncoding(xferEncoding: ContentTransferEncoding): Header =
       Header("Content-Transfer-Encoding", xferEncoding.name)
 
-    def fromBytes(bytes: Array[Byte], encoding: Charset = `UTF-8`): Option[Header] = {
+    def fromBytes(bytes: Array[Byte], encoding: Charset = StandardCharsets.UTF_8): Option[Header] = {
       val i = bytes.indexOf(':')
 
       if (i > -1) {

@@ -3,6 +3,8 @@ package zio.http.forms
 import zio._
 import zio.test._
 
+import java.nio.charset.StandardCharsets
+
 object FormStateSpec extends ZIOSpecDefault {
 
   val CR = '\r'
@@ -17,7 +19,7 @@ object FormStateSpec extends ZIOSpecDefault {
                          |Content-Type: text/plain${CR}
                          |${CR}
                          |... contents of file1.txt ...${CR}
-                         |--AaB03x--${CR}""".stripMargin.getBytes(`UTF-8`)
+                         |--AaB03x--${CR}""".stripMargin.getBytes(StandardCharsets.UTF_8)
   def spec         = suite("FormStateSpec")(
     test("FormStateAccum") {
 

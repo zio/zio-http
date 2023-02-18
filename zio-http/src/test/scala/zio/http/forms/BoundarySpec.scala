@@ -4,13 +4,15 @@ import zio._
 import zio.http.forms.Fixtures._
 import zio.test._
 
+import java.nio.charset.StandardCharsets
+
 object BoundarySpec extends ZIOSpecDefault {
 
-  val multipartFormBytes3 = Chunk.fromArray(s"""------heythere--${CRLF}""".getBytes(`UTF-8`))
-  val bad1                = Chunk.fromArray(s"""-heythere${CRLF}""".getBytes(`UTF-8`))
-  val bad2                = Chunk.fromArray(s"""--heythere${CR}""".getBytes(`UTF-8`))
-  val bad3                = Chunk.fromArray(s"--heythere\n".getBytes(`UTF-8`))
-  val bad4                = Chunk.fromArray(s"--heythere".getBytes(`UTF-8`))
+  val multipartFormBytes3 = Chunk.fromArray(s"""------heythere--${CRLF}""".getBytes(StandardCharsets.UTF_8))
+  val bad1                = Chunk.fromArray(s"""-heythere${CRLF}""".getBytes(StandardCharsets.UTF_8))
+  val bad2                = Chunk.fromArray(s"""--heythere${CR}""".getBytes(StandardCharsets.UTF_8))
+  val bad3                = Chunk.fromArray(s"--heythere\n".getBytes(StandardCharsets.UTF_8))
+  val bad4                = Chunk.fromArray(s"--heythere".getBytes(StandardCharsets.UTF_8))
 
   val fromContentSuite = suite("fromContent")(
     test("parse success") {
