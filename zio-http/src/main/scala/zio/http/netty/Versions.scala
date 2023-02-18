@@ -1,7 +1,8 @@
 package zio.http.netty
 
-import io.netty.handler.codec.http.HttpVersion
 import zio.http.model.Version
+
+import io.netty.handler.codec.http.HttpVersion
 
 object Versions {
   import Version._

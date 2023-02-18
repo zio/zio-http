@@ -1,17 +1,20 @@
 package zio.http.service
 
-import io.netty.util.AsciiString
-import zio.http._
-import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
-import zio.http.model._
-import zio.stream.{ZPipeline, ZStream}
+import java.nio.charset.StandardCharsets
+import java.nio.file.Paths
+
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 import zio.{Chunk, Scope, ZIO, durationInt}
 
-import java.nio.charset.StandardCharsets
-import java.nio.file.Paths
+import zio.stream.{ZPipeline, ZStream}
+
+import zio.http._
+import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zio.http.model._
+
+import io.netty.util.AsciiString
 
 object ServerSpec extends HttpRunnableSpec {
   import html._

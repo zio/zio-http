@@ -1,7 +1,8 @@
 package zio.http.html
 
-import zio.http.html.HtmlGen.{tagGen, voidTagGen}
 import zio.test.{ZIOSpecDefault, assertTrue, check, checkAll}
+
+import zio.http.html.HtmlGen.{tagGen, voidTagGen}
 
 object DomSpec extends ZIOSpecDefault {
   def spec = suite("DomSpec")(

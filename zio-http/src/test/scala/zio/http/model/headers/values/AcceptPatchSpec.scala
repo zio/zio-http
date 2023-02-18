@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
 import zio.Chunk
+import zio.test._
+
 import zio.http.model.MimeDB
 import zio.http.model.headers.values.AcceptPatch._
-import zio.test._
 
 object AcceptPatchSpec extends ZIOSpecDefault with MimeDB {
   override def spec = suite("AcceptPatch header suite")(

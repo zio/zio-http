@@ -1,8 +1,9 @@
 package zio.http
 
 import zio.Scope
-import zio.http.model._
 import zio.test._
+
+import zio.http.model._
 
 object RequestSpec extends ZIOSpecDefault {
 

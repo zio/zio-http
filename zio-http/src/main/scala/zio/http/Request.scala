@@ -1,9 +1,9 @@
 package zio.http
 
+import java.net.InetAddress
+
 import zio.http.model._
 import zio.http.model.headers._
-
-import java.net.InetAddress
 
 final case class Request(
   body: Body,
@@ -24,6 +24,16 @@ final case class Request(
    */
   def dropTrailingSlash: Request = self.copy(url = self.url.dropTrailingSlash)
 
+  def patch(p: Request.Patch): Request =
+    Request(
+      body,
+      headers ++ p.addHeaders,
+      method,
+      url.copy(queryParams = url.queryParams ++ p.addQueryParams),
+      version,
+      remoteAddress,
+    )
+
   val path = url.path
 
   def updatePath(path: Path): Request = self.copy(url = self.url.copy(path = path))
@@ -36,6 +46,10 @@ final case class Request(
 }
 
 object Request {
+  final case class Patch(addHeaders: Headers, addQueryParams: QueryParams) { self =>
+    def ++(that: Patch): Patch =
+      Patch(self.addHeaders ++ that.addHeaders, self.addQueryParams ++ that.addQueryParams)
+  }
 
   def default(method: Method, url: URL, body: Body = Body.empty) =
     Request(body, Headers.empty, method, url, Version.`HTTP/1.1`, Option.empty)

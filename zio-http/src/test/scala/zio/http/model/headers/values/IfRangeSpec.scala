@@ -1,10 +1,10 @@
 package zio.http.model.headers.values
 
-import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+
+import zio.Scope
+import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
 object IfRangeSpec extends ZIOSpecDefault {
 

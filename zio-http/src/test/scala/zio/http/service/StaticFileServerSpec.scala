@@ -1,14 +1,15 @@
 package zio.http.service
 
-import zio.http._
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model._
+import java.io.File
+
 import zio.test.Assertion.{equalTo, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertZIO
 import zio.{Scope, ZIO, durationInt}
 
-import java.io.File
+import zio.http._
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.model._
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 

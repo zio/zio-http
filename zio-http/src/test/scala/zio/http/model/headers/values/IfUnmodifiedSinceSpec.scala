@@ -1,9 +1,9 @@
 package zio.http.model.headers.values
 
+import java.time.{ZoneOffset, ZonedDateTime}
+
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-
-import java.time.{ZoneOffset, ZonedDateTime}
 
 object IfUnmodifiedSinceSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("IfUnmodifiedSince suite")(

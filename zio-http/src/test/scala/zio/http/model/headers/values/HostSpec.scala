@@ -1,8 +1,9 @@
 package zio.http.model.headers.values
 
+import zio.test._
+
 import zio.http.internal.HttpGen
 import zio.http.model.headers.values.Host.{HostValue, InvalidHostValue}
-import zio.test._
 
 object HostSpec extends ZIOSpecDefault {
   override def spec = suite("Host header suite")(

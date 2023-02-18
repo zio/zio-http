@@ -1,12 +1,13 @@
 package zio.http.logging
 
-import zio.http.logging.Logger.SourcePos
-import zio.{LogLevel => _, _}
-
 import java.io.{PrintWriter, StringWriter}
 import java.nio.file.{Files, Path, StandardOpenOption}
 import java.time.LocalDateTime
 import java.util
+
+import zio.{LogLevel => _, _}
+
+import zio.http.logging.Logger.SourcePos
 
 /**
  * Provides a way to build and configure transports for logging. Transports are

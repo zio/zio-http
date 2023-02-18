@@ -1,8 +1,9 @@
 package zio.http
 
+import zio.{Promise, Scope, Trace, ZIO, ZLayer}
+
 import zio.http.netty.client.ChannelState
 import zio.http.socket.SocketApp
-import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
 trait ClientDriver {
   type Connection

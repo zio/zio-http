@@ -1,10 +1,12 @@
 package zio.benchmarks
 
-import org.openjdk.jmh.annotations._
+import java.util.concurrent.TimeUnit
+
+import scala.util.Random
+
 import zio.http.model.MediaType
 
-import java.util.concurrent.TimeUnit
-import scala.util.Random
+import org.openjdk.jmh.annotations._
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))

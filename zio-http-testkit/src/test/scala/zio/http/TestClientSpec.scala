@@ -1,10 +1,11 @@
 package zio.http
 
 import zio._
+import zio.test._
+
 import zio.http.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
 import zio.http.model.{Method, Status}
 import zio.http.socket._
-import zio.test._
 
 object TestClientSpec extends ZIOSpecDefault {
   def spec =

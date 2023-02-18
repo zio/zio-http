@@ -1,11 +1,12 @@
 package zio.http
 
 import zio._
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model.MediaType
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test._
+
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.model.MediaType
 
 object ContentTypeSpec extends HttpRunnableSpec {
 

@@ -1,10 +1,11 @@
 package zio.http.model
 
 import zio._
-import zio.http.model.Cookie.SameSite
-import zio.http.{Path, Request, Response}
 import zio.test.Assertion.{equalTo, isLeft, isRight, startsWithString}
 import zio.test._
+
+import zio.http.model.Cookie.SameSite
+import zio.http.{Path, Request, Response}
 
 object CookieSpec extends ZIOSpecDefault {
 

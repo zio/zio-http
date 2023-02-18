@@ -1,12 +1,13 @@
 package zio.http.model.headers.values
 
-import zio.http.model.headers.values.Authorization.AuthScheme.{Basic, Bearer, Digest, Unparsed}
-
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.util.Base64
+
 import scala.annotation.tailrec
 import scala.util.Try
+
+import zio.http.model.headers.values.Authorization.AuthScheme.{Basic, Bearer, Digest, Unparsed}
 
 /** Authorization header value. */
 sealed trait Authorization

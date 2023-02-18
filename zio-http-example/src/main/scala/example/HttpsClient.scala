@@ -1,6 +1,7 @@
 package example
 
 import zio._
+
 import zio.http.model.Headers
 import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 import zio.http.{Client, ClientConfig, ClientSSLConfig}
