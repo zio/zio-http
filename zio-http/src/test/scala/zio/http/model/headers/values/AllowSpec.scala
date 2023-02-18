@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
-import zio.http.internal.HttpGen
-import zio.http.model.headers.values.Allow._
 import zio.test._
 import zio.{Chunk, Scope}
+
+import zio.http.internal.HttpGen
+import zio.http.model.headers.values.Allow._
 
 object AllowSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Allow header suite")(

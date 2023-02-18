@@ -1,19 +1,22 @@
 package zio.http.service
 
+import zio.test.Assertion.equalTo
+import zio.test.TestAspect.{diagnose, sequential, shrinks, timeout}
+import zio.test.assertZIO
+import zio.{Scope, ZIO, durationInt}
+
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
 import zio.http.model.Status
 import zio.http.service.ServerSpec.requestBodySpec
-import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{sequential, shrinks, timeout}
-import zio.test.assertZIO
-import zio.{Scope, ZIO, durationInt}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
 
-  private val configAppWithRequestStreaming = ServerConfig.default
-    .requestDecompression(true)
-    .objectAggregator(-1)
+  private val configAppWithRequestStreaming =
+    ServerConfig.default
+      .port(0)
+      .requestDecompression(true)
+      .objectAggregator(-1)
 
   private val appWithReqStreaming = serve(DynamicServer.app)
 
@@ -56,13 +59,12 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       suite("app with request streaming") {
         ZIO.scoped(appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec)))
       }
-    }.provideShared(
+    }.provideSomeShared[Scope](
       DynamicServer.live,
       ServerConfig.live(configAppWithRequestStreaming),
       Server.live,
       Client.default,
-      Scope.default,
     ) @@
-      timeout(10 seconds) @@ sequential @@ shrinks(0)
+      timeout(30 seconds) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0)
 
 }

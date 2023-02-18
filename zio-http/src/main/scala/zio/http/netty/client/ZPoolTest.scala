@@ -196,10 +196,10 @@ object ZPoolTest {
                               println(s"acquire: invalidated item, $n items outstanding")
                             } *>
                               finalizeInvalid(attempted) *> acquire
-                          else ZIO.succeedNow(attempted)
+                          else ZIO.succeed(attempted)
                         }
                       case _                  =>
-                        ZIO.succeedNow(attempted)
+                        ZIO.succeed(attempted)
                     }
                   },
                   State(size, free - 1),

@@ -1,13 +1,15 @@
 package zio.http.service
 
-import io.netty.handler.codec.DecoderException
-import zio.http.model.Status
-import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
-import zio.http.{Client, ClientConfig, ClientSSLConfig}
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}
 import zio.{Scope, durationInt}
+
+import zio.http.model.Status
+import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
+import zio.http.{Client, ClientConfig, ClientSSLConfig}
+
+import io.netty.handler.codec.DecoderException
 
 object ClientHttpsSpec extends ZIOSpecDefault {
 

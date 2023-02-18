@@ -1,12 +1,13 @@
 package zio.http.middleware
 
 import zio._
+import zio.metrics.{Metric, MetricLabel, MetricState}
+import zio.test._
+
 import zio.http.Middleware.metrics
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.model._
-import zio.metrics.{Metric, MetricLabel, MetricState}
-import zio.test._
 
 object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   override def spec = suite("MetricsSpec")(

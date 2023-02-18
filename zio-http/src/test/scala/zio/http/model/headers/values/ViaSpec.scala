@@ -1,8 +1,9 @@
 package zio.http.model.headers.values
 
-import zio.http.model.headers.values.Via.ReceivedProtocol
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Chunk, Scope}
+
+import zio.http.model.headers.values.Via.ReceivedProtocol
 
 object ViaSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Via suite")(

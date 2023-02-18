@@ -1,15 +1,18 @@
 package zio.http.service
 
-import io.netty.handler.codec.http.HttpHeaderValues
 import zio._
+import zio.test.Assertion.{equalTo, hasSize}
+import zio.test.TestAspect._
+import zio.test._
+
+import zio.stream.ZStream
+
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.{Headers, Method, Version}
 import zio.http.netty.client.NettyClientDriver
-import zio.stream.ZStream
-import zio.test.Assertion.{equalTo, hasSize}
-import zio.test.TestAspect._
-import zio.test._
+
+import io.netty.handler.codec.http.HttpHeaderValues
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 

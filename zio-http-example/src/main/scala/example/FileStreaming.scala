@@ -1,12 +1,14 @@
 package example
 
-import zio._
-import zio.http._
-import zio.http.model.Method
-import zio.stream.ZStream
-
 import java.io.File
 import java.nio.file.Paths
+
+import zio._
+
+import zio.stream.ZStream
+
+import zio.http._
+import zio.http.model.Method
 
 object FileStreaming extends ZIOAppDefault {
 

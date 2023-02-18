@@ -1,11 +1,12 @@
 package zio.http.model.headers.values
 
+import java.net.URI
+
+import zio.test._
+
 import zio.http.model.MimeDB
 import zio.http.model.headers.values.Authorization.AuthScheme.Digest
 import zio.http.model.headers.values.Authorization.{AuthorizationValue, InvalidAuthorizationValue}
-import zio.test._
-
-import java.net.URI
 
 object AuthorizationSpec extends ZIOSpecDefault with MimeDB {
   override def spec = suite("Authorization header suite")(

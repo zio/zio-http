@@ -1,15 +1,18 @@
 package zio.http
 
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{Channel => JChannel}
-import io.netty.util.AsciiString
-import zio._
-import zio.http.model.HTTP_CHARSET
-import zio.stream.ZStream
-
 import java.io.FileInputStream
 import java.nio.charset.Charset
 import java.nio.file._
+
+import zio._
+
+import zio.stream.ZStream
+
+import zio.http.model.HTTP_CHARSET
+
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.channel.{Channel => JChannel}
+import io.netty.util.AsciiString
 
 /**
  * Holds Body that needs to be written on the HttpChannel
@@ -81,11 +84,11 @@ object Body {
       with UnsafeWriteable
       with UnsafeBytes {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeedNow(asciiString.array())
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
     override def isComplete: Boolean                               = true
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
-      ZIO.succeedNow(Chunk.fromArray(asciiString.array()))
+      ZIO.succeed(Chunk.fromArray(asciiString.array()))
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
@@ -132,11 +135,11 @@ object Body {
 
   private[zio] final case class ChunkBody(data: Chunk[Byte]) extends Body with UnsafeWriteable with UnsafeBytes {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeedNow(data.toArray)
+    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
 
     override def isComplete: Boolean = true
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeedNow(data)
+    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(data)
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
@@ -175,10 +178,10 @@ object Body {
         } yield ZStream
           .repeatZIOOption[Any, Throwable, Chunk[Byte]] {
             for {
-              buffer <- ZIO.succeedNow(new Array[Byte](size))
+              buffer <- ZIO.succeed(new Array[Byte](size))
               len    <- ZIO.attemptBlocking(fs.read(buffer)).mapError(Some(_))
               bytes  <-
-                if (len > 0) ZIO.succeedNow(Chunk.fromArray(buffer.slice(0, len)))
+                if (len > 0) ZIO.succeed(Chunk.fromArray(buffer.slice(0, len)))
                 else ZIO.fail(None)
             } yield bytes
           }
@@ -220,12 +223,9 @@ object Body {
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): Body = fromCharSequence(text, charset)
 
-  private[zio] def fromAsync(unsafeAsync: UnsafeAsync => Unit): Body = new AsyncBody(unsafeAsync)
+  private[zio] def fromAsync(unsafeAsync: UnsafeAsync => Unit): Body = AsyncBody(unsafeAsync)
 
   private[zio] final case class AsyncBody(unsafeAsync: UnsafeAsync => Unit) extends Body with UnsafeWriteable {
-
-    def async = unsafeAsync
-
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asStream.runCollect
@@ -233,7 +233,7 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
       ZStream
         .async[Any, Throwable, (JChannel, Chunk[Byte], Boolean)](emit =>
-          try { unsafeAsync { (ctx, msg, isLast) => emit(ZIO.succeedNow(Chunk((ctx, msg, isLast)))) } }
+          try { unsafeAsync { (ctx, msg, isLast) => emit(ZIO.succeed(Chunk((ctx, msg, isLast)))) } }
           catch { case e: Throwable => emit(ZIO.fail(Option(e))) },
         )
         .tap { case (ctx, _, isLast) => ZIO.attempt(ctx.read()).unless(isLast) }
@@ -245,9 +245,9 @@ object Body {
 
   }
 
-  private val zioEmptyArray = ZIO.succeedNow(Array.empty[Byte])
+  private val zioEmptyArray = ZIO.succeed(Array.empty[Byte])
 
-  private val zioEmptyChunk = ZIO.succeedNow(Chunk.empty[Byte])
+  private val zioEmptyChunk = ZIO.succeed(Chunk.empty[Byte])
   trait UnsafeAsync {
     def apply(ctx: JChannel, message: Chunk[Byte], isLast: Boolean): Unit
   }

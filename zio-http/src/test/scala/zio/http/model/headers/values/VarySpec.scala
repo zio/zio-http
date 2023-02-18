@@ -1,9 +1,10 @@
 package zio.http.model.headers.values
 
 import zio.Scope
+import zio.test._
+
 import zio.http.model.headers.values.From.InvalidFromValue
 import zio.http.model.headers.values.Vary.{HeadersVaryValue, InvalidVaryValue, StarVary}
-import zio.test._
 
 object VarySpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =

@@ -137,21 +137,21 @@ object ZKeyedPoolTest {
                 )
               } else {
                 previous match {
-                  case MapValue.Complete(pool)   => ZIO.succeedNow(pool)
+                  case MapValue.Complete(pool)   => ZIO.succeed(pool)
                   case MapValue.Pending(promise) => restore(promise.await)
                 }
               }
             }
           } else {
             value match {
-              case MapValue.Complete(pool)   => ZIO.succeedNow(pool)
+              case MapValue.Complete(pool)   => ZIO.succeed(pool)
               case MapValue.Pending(promise) => promise.await
             }
           }
         }
       activePools     = ZIO.suspendSucceed {
         ZIO.foreach(Chunk.fromJavaIterator(map.values.iterator)) {
-          case MapValue.Complete(pool)   => ZIO.succeedNow(pool)
+          case MapValue.Complete(pool)   => ZIO.succeed(pool)
           case MapValue.Pending(promise) => promise.await
         }
       }

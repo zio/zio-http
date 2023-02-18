@@ -1,8 +1,8 @@
 package zio.http.model.headers.values
 
-import zio.http.model.Method
-
 import scala.util.Try
+
+import zio.http.model.Method
 
 sealed trait AccessControlRequestMethod
 

@@ -1,6 +1,7 @@
 package zio.http
 
 import zio._
+
 import zio.http.Server.ErrorCallback
 
 /**

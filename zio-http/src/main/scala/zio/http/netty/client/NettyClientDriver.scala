@@ -1,18 +1,20 @@
 package zio.http.netty.client
 
-import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
-import io.netty.handler.codec.http.HttpObjectAggregator
-import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
-import io.netty.handler.flow.FlowControlHandler
+import scala.collection.mutable
+
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
 import zio.http.netty.{ChannelFactories, EventLoopGroups, NettyFutureExecutor, NettyRuntime, WebSocketAppHandler}
 import zio.http.service._
 import zio.http.socket.SocketApp
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import scala.collection.mutable
+import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
+import io.netty.handler.codec.http.HttpObjectAggregator
+import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
+import io.netty.handler.flow.FlowControlHandler
 
 final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],
@@ -142,7 +144,7 @@ object NettyClientDriver {
   private implicit val trace: Trace = Trace.empty
 
   val fromConfig: ZLayer[ClientConfig, Throwable, ClientDriver] =
-    (EventLoopGroups.fromConfig ++ ChannelFactories.Client.fromConfig ++ NettyRuntime.usingDedicatedThreadPool) >>>
+    (EventLoopGroups.fromConfig ++ ChannelFactories.Client.fromConfig ++ NettyRuntime.default) >>>
       ZLayer {
         for {
           eventLoopGroup <- ZIO.service[EventLoopGroup]

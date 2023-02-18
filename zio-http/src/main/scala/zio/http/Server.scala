@@ -16,7 +16,7 @@ trait Server {
 
 object Server {
 
-  type ErrorCallback = Throwable => ZIO[Any, Nothing, Unit]
+  type ErrorCallback = Cause[Nothing] => ZIO[Any, Nothing, Unit]
   def serve[R](
     httpApp: App[R],
     errorCallback: Option[ErrorCallback] = None,
@@ -30,9 +30,19 @@ object Server {
     ZIO.serviceWithZIO[Server](_.install(httpApp, errorCallback)) *> ZIO.service[Server].map(_.port)
   }
 
+  def defaultWithPort(port: Int)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
+    defaultWith(_.port(port))
+
+  def defaultWith(f: ServerConfig => ServerConfig)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
+    live(f(ServerConfig.default))
+
   val default: ZLayer[Any, Throwable, Server] = {
     implicit val trace = Trace.empty
     ServerConfig.live >>> live
+  }
+
+  def live(conf: ServerConfig)(implicit trace: Trace): ZLayer[Any, Throwable, Server] = {
+    ServerConfig.live(conf) >>> Server.live
   }
 
   val live: ZLayer[ServerConfig, Throwable, Server] = {

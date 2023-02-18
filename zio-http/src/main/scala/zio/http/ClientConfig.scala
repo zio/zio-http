@@ -1,10 +1,11 @@
 package zio.http
 
-import zio.http.netty.{ChannelType, EventLoopGroups}
-import zio.http.socket.SocketApp
+import java.net.InetSocketAddress
+
 import zio.{Duration, ZLayer}
 
-import java.net.InetSocketAddress
+import zio.http.netty.{ChannelType, EventLoopGroups}
+import zio.http.socket.SocketApp
 
 case class ClientConfig(
   socketApp: Option[SocketApp[Any]] = None,

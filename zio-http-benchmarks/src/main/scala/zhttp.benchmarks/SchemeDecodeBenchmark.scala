@@ -1,8 +1,9 @@
 package zio.benchmarks
-import org.openjdk.jmh.annotations._
+import java.util.concurrent.TimeUnit
+
 import zio.http.model.Scheme
 
-import java.util.concurrent.TimeUnit
+import org.openjdk.jmh.annotations._
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))

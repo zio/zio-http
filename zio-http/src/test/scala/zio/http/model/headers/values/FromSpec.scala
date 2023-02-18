@@ -1,8 +1,9 @@
 package zio.http.model.headers.values
 
 import zio.Scope
-import zio.http.model.headers.values.From.InvalidFromValue
 import zio.test._
+
+import zio.http.model.headers.values.From.InvalidFromValue
 
 object FromSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =

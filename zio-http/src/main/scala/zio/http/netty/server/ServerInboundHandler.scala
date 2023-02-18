@@ -1,20 +1,23 @@
 package zio.http.netty.server
 
-import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel._
-import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import io.netty.util.AttributeKey
+import java.io.IOException
+import java.net.InetSocketAddress
+
+import scala.annotation.tailrec
+
 import zio._
+
 import zio.http._
 import zio.http.logging.Logger
 import zio.http.model._
 import zio.http.netty._
 import zio.http.netty.server.ServerInboundHandler.isReadKey
 
-import java.io.IOException
-import java.net.InetSocketAddress
-import scala.annotation.tailrec
+import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel._
+import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
+import io.netty.util.AttributeKey
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -83,7 +86,7 @@ private[zio] final case class ServerInboundHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     if (errCallback != null) {
-      runtime.run(ctx, NettyRuntime.noopEnsuring)(errCallback(cause))
+      runtime.run(ctx, NettyRuntime.noopEnsuring)(errCallback(Cause.die(cause)))
     } else {
       cause match {
         case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
@@ -96,6 +99,7 @@ private[zio] final case class ServerInboundHandler(
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: Body.UnsafeAsync): Unit = {
     if (ctx.channel().attr(isReadKey).get())
       throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
+
     ctx
       .channel()
       .pipeline()
@@ -147,8 +151,11 @@ private[zio] final case class ServerInboundHandler(
               ctx.writeAndFlush(jResponse)
             }
             flushed   <-
-              if (!jResponse.isInstanceOf[FullHttpResponse]) NettyBodyWriter.write(response.body, ctx)
-              else ZIO.succeed(true)
+              if (!jResponse.isInstanceOf[FullHttpResponse])
+                NettyBodyWriter
+                  .write(response.body, ctx)
+              else
+                ZIO.succeed(true)
             _         <- ZIO.attempt(ctx.flush()).when(!flushed)
           } yield ()
 
@@ -195,6 +202,7 @@ private[zio] final case class ServerInboundHandler(
         val body = Body.fromAsync { async =>
           addAsyncBodyHandler(ctx, async)
         }
+
         Request(
           body,
           Headers.make(nettyReq.headers()),
@@ -248,7 +256,7 @@ private[zio] final case class ServerInboundHandler(
     // TODO: this can be done without ZIO
     runtime.run(ctx, ensured) {
       for {
-        response <- ZIO.succeedNow(HttpError.NotFound(jReq.uri()).toResponse)
+        response <- ZIO.succeed(HttpError.NotFound(jReq.uri()).toResponse)
         done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
         _        <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
       } yield ()
@@ -264,13 +272,14 @@ private[zio] final case class ServerInboundHandler(
     runtime.run(ctx, ensured) {
       val pgm = for {
         response <- exit.sandbox.catchAll { error =>
-          ZIO.succeedNow {
-            error.failureOrCause
-              .fold[Response](
-                identity,
-                cause => HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
-              )
-          }
+          error.failureOrCause
+            .fold[UIO[Response]](
+              response => ZIO.succeed(response),
+              cause =>
+                (if (errCallback ne null) errCallback(cause) else ZIO.unit).as(
+                  HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
+                ),
+            )
         }
         _        <-
           if (response ne null) {

@@ -1,6 +1,7 @@
 package example
 
 import zio._
+
 import zio.http._
 
 object HtmlTemplating extends ZIOAppDefault {

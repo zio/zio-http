@@ -1,10 +1,10 @@
 package zio.http.model.headers.values
 
-import zio.Scope
-import zio.test._
-
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, ZoneId, ZonedDateTime}
+
+import zio.Scope
+import zio.test._
 
 object RetryAfterEncodingSpec extends ZIOSpecDefault {
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
