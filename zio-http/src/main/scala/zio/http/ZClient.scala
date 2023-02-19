@@ -596,82 +596,70 @@ object ZClient {
     private def requestAsync(request: Request, clientConfig: ClientConfig)(implicit
       trace: Trace,
     ): ZIO[Any, Throwable, Response] =
-      for {
-        onResponse <- Promise.make[Throwable, Response]
-        _          <- internalRequest(request, onResponse, clientConfig)(Unsafe.unsafe, trace)
-          .catchAll(cause => onResponse.fail(cause))
-        res        <- onResponse.await
-      } yield res
-
-    /**
-     * It handles both - Websocket and HTTP requests.
-     */
-    private def internalRequest(
-      req: Request,
-      onResponse: Promise[Throwable, Response],
-      clientConfig: ClientConfig,
-    )(implicit unsafe: Unsafe, trace: Trace): ZIO[Any, Throwable, Unit] =
-      ZIO.scoped {
-        req.url.kind match {
-          case location: Location.Absolute =>
+      request.url.kind match {
+        case location: Location.Absolute =>
+          ZIO.uninterruptibleMask { restore =>
             for {
               onComplete   <- Promise.make[Throwable, ChannelState]
-              channelScope <- Scope.make
-              _            <- ZIO.uninterruptibleMask { restore =>
+              onResponse   <- Promise.make[Throwable, Response]
+              channelFiber <- ZIO.scoped {
                 for {
-                  connection   <-
-                    restore {
-                      connectionPool
-                        .get(
-                          location,
-                          clientConfig.proxy,
-                          clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
-                          clientConfig.maxHeaderSize,
-                          clientConfig.requestDecompression,
-                          clientConfig.localAddress,
-                        )
-                        .map(_.asInstanceOf[driver.Connection])
-                        .provideEnvironment(ZEnvironment(channelScope))
-                    }
-                  resetChannel <-
+                  connection       <- connectionPool
+                    .get(
+                      location,
+                      clientConfig.proxy,
+                      clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
+                      clientConfig.maxHeaderSize,
+                      clientConfig.requestDecompression,
+                      clientConfig.localAddress,
+                    )
+                    .tapErrorCause(cause => onResponse.failCause(cause))
+                    .map(_.asInstanceOf[driver.Connection])
+                  channelInterface <-
                     driver
                       .requestOnChannel(
                         connection,
                         location,
-                        req,
+                        request,
                         onResponse,
                         onComplete,
                         clientConfig.useAggregator,
                         connectionPool.enableKeepAlive,
                         () => clientConfig.socketApp.getOrElse(SocketApp()),
                       )
-                      .tapErrorCause { cause =>
-                        channelScope.close(Exit.failCause(cause))
-                      }
-                  // If request registration failed we release the channel immediately.
-                  // Otherwise we wait for completion signal from netty in a background fiber:
-                  _            <-
+                      .tapErrorCause(cause => onResponse.failCause(cause))
+                  _                <-
                     onComplete.await.interruptible.exit.flatMap { exit =>
-                      resetChannel
-                        .zip(exit)
-                        .map { case (s1, s2) => s1 && s2 }
-                        .catchAll(_ =>
-                          ZIO.succeed(ChannelState.Invalid),
-                        ) // In case resetting the channel fails we cannot reuse it
-                        .flatMap { channelState =>
-                          connectionPool
-                            .invalidate(connection)
-                            .when(channelState == ChannelState.Invalid)
-                        }
-                        .zipRight(channelScope.close(exit))
-                        .uninterruptible
-                    }.forkDaemon
+                      if (exit.isInterrupted) {
+                        channelInterface
+                          .interrupt()
+                          .zipRight(connectionPool.invalidate(connection))
+                          .uninterruptible
+                      } else {
+                        channelInterface
+                          .resetChannel()
+                          .zip(exit)
+                          .map { case (s1, s2) => s1 && s2 }
+                          .catchAllCause(_ =>
+                            ZIO.succeed(ChannelState.Invalid),
+                          ) // In case resetting the channel fails we cannot reuse it
+                          .flatMap { channelState =>
+                            connectionPool
+                              .invalidate(connection)
+                              .when(channelState == ChannelState.Invalid)
+                          }
+                          .uninterruptible
+                      }
+                    }
                 } yield ()
-              }
-            } yield ()
-          case Location.Relative           =>
-            ZIO.fail(throw new IllegalArgumentException("Absolute URL is required"))
-        }
+              }.forkDaemon // Needs to live as long as the channel is alive, as the response body may be streaming
+              response     <- restore(onResponse.await.onInterrupt {
+                onComplete.interrupt *> channelFiber.join.orDie
+              })
+            } yield response
+          }
+        case Location.Relative           =>
+          ZIO.fail(throw new IllegalArgumentException("Absolute URL is required"))
       }
   }
 
