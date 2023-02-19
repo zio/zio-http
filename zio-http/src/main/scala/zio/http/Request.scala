@@ -52,7 +52,7 @@ object Request {
   }
 
   def default(method: Method, url: URL, body: Body = Body.empty) =
-    Request(body, Headers.empty, method, url, Version.`HTTP/1.1`, Option.empty)
+    Request(body, body.requestHeaders, method, url, Version.`HTTP/1.1`, Option.empty)
 
   def delete(url: URL): Request = default(Method.DELETE, url)
 
