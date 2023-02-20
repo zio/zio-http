@@ -5,11 +5,13 @@ import zio.{Trace, ZIO}
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-trait Middleware[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
+trait Middleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn, +BOut] { self =>
+  type OutEnv[Env]
+  type OutErr[Err]
 
-  def apply[R1 <: R, Err1 >: Err](http: Http[R1, Err1, AIn, AOut])(implicit
-    trace: Trace,
-  ): Http[R1, Err1, BIn, BOut]
+  def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
+    handler: Http[Env, Err, AIn, AOut],
+  ): Http[OutEnv[Env], OutErr[Err], BIn, BOut]
 
   /**
    * Applies Middleware based only if the condition function evaluates to true

@@ -4,10 +4,13 @@ import zio.{Trace, ZIO}
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-trait HandlerAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
-  def apply[R1 <: R, Err1 >: Err](handler: Handler[R1, Err1, AIn, AOut])(implicit
-    trace: Trace,
-  ): Handler[R1, Err1, BIn, BOut]
+trait HandlerAspect[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn, +BOut] { self =>
+  type OutEnv[Env]
+  type OutErr[Err]
+
+  def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
+    handler: Handler[Env, Err, AIn, AOut],
+  ): Handler[OutEnv[Env], OutErr[Err], BIn, BOut]
 
   def toMiddleware[AIn1 >: AIn, BIn1 <: BIn](implicit
     ev: AIn1 <:< BIn1,

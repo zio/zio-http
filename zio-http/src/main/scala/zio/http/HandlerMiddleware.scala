@@ -3,8 +3,8 @@ import zio.{Trace, ZIO}
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-trait HandlerMiddleware[-R, +Err, +AIn, -AOut, -BIn <: AIn, +BOut]
-    extends HandlerAspect[R, Err, AIn, AOut, BIn, BOut]
+trait HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn <: AIn, +BOut]
+    extends HandlerAspect[LowerEnv, UpperEnv, LowerErr, UpperErr, AIn, AOut, BIn, BOut]
     with Middleware[R, Err, AIn, AOut, BIn, BOut] { self =>
 
   final def >>>[R1 <: R, Err1 >: Err, AIn1 <: BIn, AOut1 >: BOut, BIn1 <: AIn1, BOut1](
