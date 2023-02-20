@@ -11,7 +11,6 @@ import zio.http.{App, ClientConfig, ClientDriver, Driver, Http, Server, ServerCo
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] final case class NettyDriver(
   appRef: AppRef,
@@ -104,7 +103,8 @@ object NettyDriver {
     eventLoopGroup >+> serverChannelFactory >>> manual
   }
 
-  val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Nothing, Driver] =
+  val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Nothing, Driver] = {
+    implicit val trace: Trace = Trace.empty
     ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Driver](
       ZLayer.succeed(
         new AtomicReference[(App[Any], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
@@ -116,4 +116,5 @@ object NettyDriver {
       ServerInboundHandler.layer,
       ZLayer(make),
     )
+  }
 }
