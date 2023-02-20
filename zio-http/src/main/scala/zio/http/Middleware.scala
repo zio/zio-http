@@ -10,7 +10,7 @@ trait Middleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn, 
   type OutErr[Err]
 
   def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
-    handler: Http[Env, Err, AIn, AOut],
+    http: Http[Env, Err, AIn, AOut],
   ): Http[OutEnv[Env], OutErr[Err], BIn, BOut]
 
   /**
@@ -43,6 +43,11 @@ trait Middleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn, 
 }
 
 object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
+  type WithOut[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn, +BOut, OutEnv0[_], OutErr0[_]] =
+    Middleware[LowerEnv, UpperEnv, LowerErr, UpperErr, AIn, AOut, BIn, BOut] {
+      type OutEnv[Env] = OutEnv0[Env]
+      type OutErr[Err] = OutErr0[Err]
+    }
 
   /**
    * Creates a middleware which can allow or disallow access to an http based on
