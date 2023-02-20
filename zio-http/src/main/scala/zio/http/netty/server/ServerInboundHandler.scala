@@ -12,6 +12,7 @@ import zio.http.logging.Logger
 import zio.http.model._
 import zio.http.netty._
 import zio.http.netty.server.ServerInboundHandler.isReadKey
+import zio.http.service.ServerTime
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
@@ -32,9 +33,24 @@ private[zio] final case class ServerInboundHandler(
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
-  private lazy val (app, env) = appRef.get
+  private var app: App[Any]                     = _
+  private var env: ZEnvironment[Any]            = _
+  private var errCallback: Server.ErrorCallback = _
 
-  private lazy val errCallback = errCallbackRef.get.orNull
+  def refreshApp(): Unit = {
+    val pair     = appRef.get()
+    val callback = errCallbackRef.get()
+
+    this.app = pair._1
+    this.env = pair._2
+    this.errCallback = callback.orNull
+  }
+
+  private def ensureHasApp(): Unit = {
+    if (app eq null) {
+      refreshApp()
+    }
+  }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
@@ -50,6 +66,7 @@ private[zio] final case class ServerInboundHandler(
           }
         }
 
+        ensureHasApp()
         val exit = app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time))
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
@@ -60,6 +77,7 @@ private[zio] final case class ServerInboundHandler(
         log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req = makeZioRequest(ctx, jReq)
 
+        ensureHasApp()
         val exit = app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
 
@@ -303,7 +321,11 @@ object ServerInboundHandler {
 
   val log: Logger = service.Log.withTags("Server", "Request")
 
-  val layer = {
+  val layer: ZLayer[
+    ServerTime with ServerConfig with NettyRuntime with ErrorCallbackRef with AppRef,
+    Nothing,
+    ServerInboundHandler,
+  ] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
