@@ -11,14 +11,14 @@ private[zio] trait HttpRoutesMiddlewares extends Cors {
    * Creates a middleware which can allow or disallow access to an http based on
    * the predicate
    */
-  def allow(condition: Request => Boolean): HttpAppMiddleware[Any, Nothing] =
+  def allow(condition: Request => Boolean): Middleware[Nothing, Any, Any, Nothing, Request, Response, Request, Response] =
     Middleware.allow[Request, Response](condition)
 
   /**
    * Creates a middleware which can allow or disallow access to an http based on
    * the predicate effect
    */
-  def allowZIO[R, Err](condition: Request => ZIO[R, Err, Boolean]): HttpAppMiddleware[R, Err] =
+  def allowZIO[R, Err](condition: Request => ZIO[R, Err, Boolean]): Middleware[Nothing, R, Err, Nothing, Request, Response, Request, Response] =
     Middleware.allowZIO[Request, Response](condition)
 
   /**

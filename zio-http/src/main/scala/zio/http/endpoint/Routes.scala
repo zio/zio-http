@@ -50,7 +50,7 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
             requestHandlers.get(handlerMatch.handledApi).handle(request)(Trace.empty)
         }
       } @@ mh.toMiddleware
-  }
+  }.asInstanceOf[App[R1]] // TODO: why do we need this
 }
 
 object Routes {

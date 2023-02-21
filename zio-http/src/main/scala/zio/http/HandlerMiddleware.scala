@@ -78,22 +78,27 @@ trait HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut,
       override def apply[Env >: composeEnv.Lower <: composeEnv.Upper, Err >: composeErr.Lower <: composeErr.Upper](
         handler: Handler[Env, Err, AIn, AOut],
       )(implicit trace: Trace): Handler[OutEnv[Env], OutErr[Err], BIn1, BOut1] = {
-        val h0 = handler.asInstanceOf[Handler[Nothing, Any, AIn, AOut]]
-        val h1 = self.asInstanceOf[HandlerMiddleware[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut]].applyToHandler(handler)
-        val h2 = that.asInstanceOf[HandlerMiddleware[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut]].applyToHandler(h1)
+        val h1 =
+          self.asInstanceOf[HandlerMiddleware[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut]].applyToHandler(handler)
+        val h2 = that
+          .asInstanceOf[HandlerMiddleware[Nothing, Any, Nothing, Any, AIn1, AOut1, BIn1, BOut1]]
+          .applyToHandler(h1)
         h2.asInstanceOf[Handler[OutEnv[Env], OutErr[Err], BIn1, BOut1]]
       }
     }
 
   override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
     http: Http[Env, Err, AIn, AOut],
-  ): Http[OutEnv[Env], OutErr[Err], BIn, BOut] =
+  )(implicit trace: Trace): Http[OutEnv[Env], OutErr[Err], BIn, BOut] =
     http match {
       case Http.Empty                             => Http.empty
       case Http.Static(handler)                   => Http.Static(apply(handler))
       case route: Http.Route[Env, Err, AIn, AOut] =>
         Http.fromHttpZIO { (in: BIn) =>
-          route.run(in).map(_ @@ self)
+          route
+            .run(in)
+            .map { (http: Http[Env, Err, AIn, AOut]) => (http @@ self) }
+            .asInstanceOf[ZIO[OutEnv[Env], OutErr[Err], Http[OutEnv[Env], OutErr[Err], BIn, BOut]]] // TODO: can we avoid this?
         }
     }
 

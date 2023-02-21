@@ -84,7 +84,7 @@ object HandlerAspect {
         override type OutEnv[Env1] = Env1
         override type OutErr[Err1] = Err1
 
-        override def apply[Env >: Nothing <: R, Err1 >: Err <: Nothing](handler: Handler[Env, Err, AIn, AOut])(implicit
+        override def apply[Env >: Nothing <: R, Err1 >: Err <: Nothing](handler: Handler[Env, Err1, AIn, AOut])(implicit
           trace: Trace,
         ): Handler[Env, Err, BIn, BOut] =
           decoder >>> handler >>> encoder

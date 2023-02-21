@@ -184,7 +184,7 @@ private[zio] trait RequestHandlerMiddlewares
    */
   final def redirectTrailingSlash(isPermanent: Boolean)(implicit trace: Trace): RequestHandlerMiddleware[Any, Nothing] =
     ifRequestThenElseFunction(request => request.url.path.trailingSlash && request.url.queryParams.isEmpty)(
-      ifFalse = _ => HandlerAspect.identity,
+      ifFalse = _ => RequestHandlerMiddleware.identity,
       ifTrue = request => redirect(request.dropTrailingSlash.url, isPermanent),
     )
 
@@ -280,7 +280,7 @@ private[zio] trait RequestHandlerMiddlewares
   final def whenHeader[R, E](condition: Headers => Boolean)(
     middleware: RequestHandlerMiddleware[R, E],
   ): RequestHandlerMiddleware[R, E] =
-    ifHeaderThenElse(condition)(ifFalse = HandlerAspect.identity, ifTrue = middleware)
+    ifHeaderThenElse(condition)(ifFalse = RequestHandlerMiddleware.identity, ifTrue = middleware)
 
   /**
    * Applies the middleware only if status matches the condition
@@ -333,12 +333,12 @@ private[zio] trait RequestHandlerMiddlewares
   final def whenRequest[R, E](condition: Request => Boolean)(
     middleware: RequestHandlerMiddleware[R, E],
   ): RequestHandlerMiddleware[R, E] =
-    ifRequestThenElse(condition)(ifFalse = HandlerAspect.identity, ifTrue = middleware)
+    ifRequestThenElse(condition)(ifFalse = RequestHandlerMiddleware.identity, ifTrue = middleware)
 
   final def whenRequestZIO[R, E](condition: Request => ZIO[R, E, Boolean])(
     middleware: RequestHandlerMiddleware[R, E],
   ): RequestHandlerMiddleware[R, E] =
-    ifRequestThenElseZIO(condition)(ifFalse = HandlerAspect.identity, ifTrue = middleware)
+    ifRequestThenElseZIO(condition)(ifFalse = RequestHandlerMiddleware.identity, ifTrue = middleware)
 }
 
 object RequestHandlerMiddlewares extends RequestHandlerMiddlewares {

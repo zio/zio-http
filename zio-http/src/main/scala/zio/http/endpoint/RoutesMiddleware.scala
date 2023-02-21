@@ -36,11 +36,12 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
    * Converts this [[RoutesMiddleware]] to a [[Middleware]], which can be
    * applied in straightforward fashion to any request handler or HTTP.
    */
-  final def toMiddleware: Middleware[R, Nothing, Request, Response, Request, Response] =
-    (new HandlerAspect[R, Nothing, Request, Response, Request, Response] {
-      def apply[R1 <: R, E1 >: Nothing](handler: Handler[R1, E1, Request, Response])(implicit
-        trace: Trace,
-      ): Handler[R1, E1, Request, Response] = {
+  final def toMiddleware: Middleware[Nothing, R, Nothing, Any, Request, Response, Request, Response] =
+    (new RequestHandlerMiddleware[R, Nothing] {
+
+      override def apply[Env >: Nothing <: R, Err >: Nothing <: Any](
+        handler: Handler[Env, Err, Request, Response],
+      )(implicit trace: Trace): Handler[R, Err, Request, Response] = {
         Handler.fromFunctionZIO[Request] { request =>
           decodeMiddlewareInput(request).flatMap { input =>
             incoming(input).foldZIO(
