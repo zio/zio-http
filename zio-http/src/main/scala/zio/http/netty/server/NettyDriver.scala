@@ -11,12 +11,12 @@ import zio.http.{App, ClientConfig, ClientDriver, Driver, Http, Server, ServerCo
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] final case class NettyDriver(
   appRef: AppRef,
   channelFactory: ChannelFactory[ServerChannel],
   channelInitializer: ChannelInitializer[Channel],
+  serverInboundHandler: ServerInboundHandler,
   eventLoopGroup: EventLoopGroup,
   errorCallbackRef: ErrorCallbackRef,
   serverConfig: ServerConfig,
@@ -50,6 +50,7 @@ private[zio] final case class NettyDriver(
 
       if (appRef.compareAndSet(oldAppAndEnv, updatedAppAndEnv)) loop = false
     }
+    serverInboundHandler.refreshApp()
   }
 
   override def createClientDriver(config: ClientConfig)(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
@@ -64,14 +65,17 @@ object NettyDriver {
 
   implicit val trace: Trace = Trace.empty
 
-  private type Env = AppRef
-    with ChannelFactory[ServerChannel]
-    with ChannelInitializer[Channel]
-    with EventLoopGroup
-    with ErrorCallbackRef
-    with ServerConfig
-
-  val make: ZIO[Env, Nothing, Driver] =
+  val make: ZIO[
+    AppRef
+      & ChannelFactory[ServerChannel]
+      & ChannelInitializer[Channel]
+      & EventLoopGroup
+      & ErrorCallbackRef
+      & ServerConfig
+      & ServerInboundHandler,
+    Nothing,
+    Driver,
+  ] =
     for {
       app   <- ZIO.service[AppRef]
       cf    <- ZIO.service[ChannelFactory[ServerChannel]]
@@ -79,10 +83,12 @@ object NettyDriver {
       elg   <- ZIO.service[EventLoopGroup]
       ecb   <- ZIO.service[ErrorCallbackRef]
       sc    <- ZIO.service[ServerConfig]
+      sih   <- ZIO.service[ServerInboundHandler]
     } yield new NettyDriver(
       appRef = app,
       channelFactory = cf,
       channelInitializer = cInit,
+      serverInboundHandler = sih,
       eventLoopGroup = elg,
       errorCallbackRef = ecb,
       serverConfig = sc,
@@ -97,42 +103,18 @@ object NettyDriver {
     eventLoopGroup >+> serverChannelFactory >>> manual
   }
 
-  val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Nothing, Driver] =
-    ZLayer {
-      val app  = ZLayer.succeed(
+  val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Nothing, Driver] = {
+    implicit val trace: Trace = Trace.empty
+    ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Driver](
+      ZLayer.succeed(
         new AtomicReference[(App[Any], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
-      )
-      val ecb  = ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty))
-      val time = ZLayer.succeed(ServerTime.make(1000.millis))
-
-      val nettyBits = ZLayer.fromZIOEnvironment(for {
-        elg <- ZIO.service[EventLoopGroup]
-        cf  <- ZIO.service[ChannelFactory[ServerChannel]]
-      } yield ZEnvironment(elg, cf))
-
-      val nettyRuntime: ZLayer[EventLoopGroup, Nothing, NettyRuntime] = NettyRuntime.default
-      val serverChannelInitializer: ZLayer[ServerInboundHandler with ServerConfig, Nothing, ServerChannelInitializer] =
-        ServerChannelInitializer.layer
-      val serverInboundHandler: ZLayer[
-        ServerTime with ServerConfig with NettyRuntime with ErrorCallbackRef with AppRef,
-        Nothing,
-        ServerInboundHandler,
-      ] = ServerInboundHandler.layer
-
-      val serverLayers = app ++
-        nettyBits ++
-        (
-          (
-            (time ++ app ++ ecb) ++
-              (nettyBits >>> nettyRuntime) >+> serverInboundHandler
-          ) >>> serverChannelInitializer
-        ) ++ ecb
-
-      make
-        .provideSomeLayer[ServerConfig & EventLoopGroup & ChannelFactory[ServerChannel]](
-          serverLayers,
-        )
-
-    }
-
+      ),
+      ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty)),
+      ZLayer.succeed(ServerTime.make(1000.millis)),
+      NettyRuntime.default,
+      ServerChannelInitializer.layer,
+      ServerInboundHandler.layer,
+      ZLayer(make),
+    )
+  }
 }
