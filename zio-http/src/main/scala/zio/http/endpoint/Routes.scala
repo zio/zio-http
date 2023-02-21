@@ -7,7 +7,7 @@ import zio.http._
 import zio.http.model.HttpError
 
 /**
- * Represents a collection of API endpoints that all have handlers.
+ * Represents a collection of endpoints that all have handlers.
  */
 sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
 
@@ -40,12 +40,12 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
     }
 
     Http
-      .collectZIO[Request] {
-        case (request: Request) if routingTree.isDefinedAt(request) =>
-          val handlers = routingTree.lookup(request)
+      .fromOptionalHandler[Request] { request =>
+        val handlers = routingTree.lookup(request) // TODO: All handlers
 
-          // TODO: Multiple handlers
-          requestHandlers.get(handlers(0)).handle(request)(Trace.empty)
+        handlers.headOption.map { handler =>
+          Handler.fromZIO(requestHandlers.get(handler).handle(request))
+        }
       } @@ mh.toMiddleware
   }
 }

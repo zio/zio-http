@@ -376,6 +376,8 @@ object Http {
 
   def fromHttpZIO[In]: FromHttpZIO[In] = new FromHttpZIO[In](())
 
+  def fromOptionalHandler[In]: FromOptionalHandler[In] = new FromOptionalHandler[In](())
+
   def fromOptionalHandlerZIO[In]: FromOptionalHandlerZIO[In] = new FromOptionalHandlerZIO[In](())
 
   /**
@@ -480,6 +482,19 @@ object Http {
           f(in).map(Static(_)).catchAll {
             case None    => ZIO.succeed(Empty)
             case Some(e) => ZIO.fail(e)
+          }
+      }
+  }
+
+  final class FromOptionalHandler[In](val self: Unit) extends AnyVal {
+    def apply[R, Err, Out](f: In => Option[Handler[R, Err, In, Out]])(implicit
+      trace: Trace,
+    ): Http[R, Err, In, Out] =
+      new Route[R, Err, In, Out] {
+        override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
+          f(in) match {
+            case None    => ZIO.succeed(Empty)
+            case Some(h) => ZIO.succeed(Static(h))
           }
       }
   }
