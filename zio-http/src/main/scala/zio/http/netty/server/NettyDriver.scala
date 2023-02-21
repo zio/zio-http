@@ -61,7 +61,7 @@ private[zio] final case class NettyDriver(
     } yield NettyClientDriver(channelFactory.get, eventLoopGroup, nettyRuntime.get, config)
 }
 
-object NettyDriver {
+private[zio] object NettyDriver {
 
   implicit val trace: Trace = Trace.empty
 
