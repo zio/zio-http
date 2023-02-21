@@ -12,6 +12,11 @@ trait HandlerAspect[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BI
     handler: Handler[Env, Err, AIn, AOut],
   )(implicit trace: Trace): Handler[OutEnv[Env], OutErr[Err], BIn, BOut]
 
+  final def applyToHandler[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
+    handler: Handler[Env, Err, AIn, AOut],
+  )(implicit trace: Trace): Handler[OutEnv[Env], OutErr[Err], BIn, BOut] =
+    apply(handler)
+
   def toMiddleware[AIn1 >: AIn, BIn1 <: BIn](implicit
     ev: AIn1 <:< BIn1,
   ): HandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, AIn1, AOut, AIn1, BOut, OutEnv, OutErr] =
@@ -74,11 +79,14 @@ object HandlerAspect {
     def apply[R, Err, AIn, BOut](
       decoder: Handler[R, Err, BIn, AIn],
       encoder: Handler[R, Err, AOut, BOut],
-    ): HandlerAspect[R, Err, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[R, Err, AIn, AOut, BIn, BOut] {
-        override def apply[R1 <: R, Err1 >: Err](
-          handler: Handler[R1, Err1, AIn, AOut],
-        )(implicit trace: Trace): Handler[R1, Err1, BIn, BOut] =
+    ): HandlerAspect[Nothing, R, Err, Nothing, AIn, AOut, BIn, BOut] =
+      new HandlerAspect[Nothing, R, Err, Nothing, AIn, AOut, BIn, BOut] {
+        override type OutEnv[Env1] = Env1
+        override type OutErr[Err1] = Err1
+
+        override def apply[Env >: Nothing <: R, Err1 >: Err <: Nothing](handler: Handler[Env, Err, AIn, AOut])(implicit
+          trace: Trace,
+        ): Handler[Env, Err, BIn, BOut] =
           decoder >>> handler >>> encoder
       }
   }
@@ -87,8 +95,11 @@ object HandlerAspect {
     def apply[R, Err, AIn, BOut](
       decoder: BIn => ZIO[R, Err, AIn],
       encoder: AOut => ZIO[R, Err, BOut],
-    ): HandlerAspect[R, Err, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[R, Err, AIn, AOut, BIn, BOut] {
+    ): HandlerAspect[Nothing, R, Err, Nothing, AIn, AOut, BIn, BOut] =
+      new HandlerAspect[Nothing, R, Err, Nothing, AIn, AOut, BIn, BOut] {
+        override type OutEnv[Env1] = Env1
+        override type OutErr[Err1] = Err1
+
         override def apply[R1 <: R, Err1 >: Err](
           handler: Handler[R1, Err1, AIn, AOut],
         )(implicit trace: Trace): Handler[R1, Err1, BIn, BOut] =
@@ -99,8 +110,14 @@ object HandlerAspect {
   }
 
   final class Transform[BIn, AOut](val self: Unit) extends AnyVal {
-    def apply[AIn, BOut](in: BIn => AIn, out: AOut => BOut): HandlerAspect[Any, Nothing, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[Any, Nothing, AIn, AOut, BIn, BOut] {
+    def apply[AIn, BOut](
+      in: BIn => AIn,
+      out: AOut => BOut,
+    ): HandlerAspect[Nothing, Any, Any, Nothing, AIn, AOut, BIn, BOut] =
+      new HandlerAspect[Nothing, Any, Any, Nothing, AIn, AOut, BIn, BOut] {
+        override type OutEnv[Env] = Env
+        override type OutErr[Err] = Err
+
         override def apply[R1 <: Any, Err1 >: Nothing](handler: Handler[R1, Err1, AIn, AOut])(implicit
           trace: Trace,
         ): Handler[R1, Err1, BIn, BOut] =

@@ -13,32 +13,48 @@ trait Middleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn, 
     http: Http[Env, Err, AIn, AOut],
   ): Http[OutEnv[Env], OutErr[Err], BIn, BOut]
 
+  final def applyToHttp[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
+    http: Http[Env, Err, AIn, AOut],
+  ): Http[OutEnv[Env], OutErr[Err], BIn, BOut] =
+    apply(http)
+
   /**
    * Applies Middleware based only if the condition function evaluates to true
    */
   def when[BIn1 <: BIn](
     condition: BIn1 => Boolean,
-  )(implicit trace: Trace, ev: IsMono[AIn, AOut, BIn, BOut]): Middleware[R, Err, AIn, AOut, BIn1, BOut] =
-    new Middleware[R, Err, AIn, AOut, BIn1, BOut] {
-      override def apply[R1 <: R, Err1 >: Err](http: Http[R1, Err1, AIn, AOut])(implicit
-        trace: Trace,
-      ): Http[R1, Err1, BIn1, BOut] =
-        http.when(condition).asInstanceOf[Http[R1, Err1, BIn1, BOut]]
+  )(implicit
+    trace: Trace,
+    ev: IsMono[AIn, AOut, BIn, BOut],
+  ): Middleware[LowerEnv, UpperEnv, LowerErr, UpperErr, AIn, AOut, BIn1, BOut] =
+    new Middleware[LowerEnv, UpperEnv, LowerErr, UpperErr, AIn, AOut, BIn1, BOut] {
+      override type OutEnv[Env] = self.OutEnv[Env]
+      override type OutErr[Err] = self.OutErr[Err]
+
+      override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](http: Http[Env, Err, AIn, AOut])(
+        implicit trace: Trace,
+      ): Http[Env, Err, BIn1, BOut] =
+        http.when(condition).asInstanceOf[Http[Env, Err, BIn1, BOut]]
     }
 
   /**
    * Applies Middleware based only if the condition effectful function evaluates
    * to true
    */
-  def whenZIO[R1 <: R, Err1 >: Err, BIn1 <: BIn](
+  def whenZIO[R1 <: UpperEnv, Err1 >: LowerEnv, BIn1 <: BIn](
     condition: BIn1 => ZIO[R1, Err1, Boolean],
-  )(implicit trace: Trace, ev: IsMono[AIn, AOut, BIn, BOut]): Middleware[R1, Err1, AIn, AOut, BIn1, BOut] =
-    new Middleware[R1, Err1, AIn, AOut, BIn1, BOut] {
-      override def apply[R2 <: R1, Err2 >: Err1](http: Http[R2, Err2, AIn, AOut])(implicit
+  )(implicit
+    trace: Trace,
+    ev: IsMono[AIn, AOut, BIn, BOut],
+  ): Middleware[LowerEnv, R1, Err1, UpperErr, AIn, AOut, BIn1, BOut] =
+    new Middleware[LowerEnv, R1, Err1, UpperErr, AIn, AOut, BIn1, BOut] {
+      override type OutEnv[Env] = self.OutEnv[Env]
+      override type OutErr[Err] = self.OutErr[Err]
+
+      override def apply[R2 >: LowerEnv <: R1, Err2 >: Err1 <: UpperErr](http: Http[R2, Err2, AIn, AOut])(implicit
         trace: Trace,
       ): Http[R2, Err2, BIn1, BOut] =
         http.whenZIO(condition).asInstanceOf[Http[R2, Err2, BIn1, BOut]]
-
     }
 }
 
@@ -80,8 +96,11 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
    * An empty middleware that doesn't do perform any operations on the provided
    * Http and returns it as it is.
    */
-  def identity[AIn, AOut]: Middleware[Any, Nothing, AIn, AOut, AIn, AOut] =
-    new Middleware[Any, Nothing, AIn, AOut, AIn, AOut] {
+  def identity[AIn, AOut]: Middleware[Nothing, Any, Any, Nothing, AIn, AOut, AIn, AOut] =
+    new Middleware[Nothing, Any, Any, Nothing, AIn, AOut, AIn, AOut] {
+      override type OutEnv[Env] = Env
+      override type OutErr[Err] = Err
+
       override def apply[R1 <: Any, Err1 >: Nothing](http: Http[R1, Err1, AIn, AOut])(implicit
         trace: Trace,
       ): Http[R1, Err1, AIn, AOut] =
@@ -96,8 +115,11 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
   def transform[BIn, AOut]: HandlerAspect.Transform[BIn, AOut] = HandlerAspect.transform[BIn, AOut]
 
   final class Allow[AIn, AOut](val unit: Unit) extends AnyVal {
-    def apply(condition: AIn => Boolean): Middleware[Any, Nothing, AIn, AOut, AIn, AOut] =
-      new Middleware[Any, Nothing, AIn, AOut, AIn, AOut] {
+    def apply(condition: AIn => Boolean): Middleware[Nothing, Any, Any, Nothing, AIn, AOut, AIn, AOut] =
+      new Middleware[Nothing, Any, Any, Nothing, AIn, AOut, AIn, AOut] {
+        override type OutEnv[Env] = Env
+        override type OutErr[Err] = Err
+
         override def apply[R1 <: Any, Err1 >: Nothing](http: Http[R1, Err1, AIn, AOut])(implicit
           trace: Trace,
         ): Http[R1, Err1, AIn, AOut] =
@@ -106,8 +128,13 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
   }
 
   final class AllowZIO[AIn, AOut](val unit: Unit) extends AnyVal {
-    def apply[R, Err](condition: AIn => ZIO[R, Err, Boolean]): Middleware[R, Err, AIn, AOut, AIn, AOut] =
-      new Middleware[R, Err, AIn, AOut, AIn, AOut] {
+    def apply[R, Err](
+      condition: AIn => ZIO[R, Err, Boolean],
+    ): Middleware[Nothing, R, Err, Nothing, AIn, AOut, AIn, AOut] =
+      new Middleware[Nothing, R, Err, Nothing, AIn, AOut, AIn, AOut] {
+        override type OutEnv[Env]  = Env
+        override type OutErr[Err1] = Err1
+
         override def apply[R1 <: R, Err1 >: Err](http: Http[R1, Err1, AIn, AOut])(implicit
           trace: Trace,
         ): Http[R1, Err1, AIn, AOut] =

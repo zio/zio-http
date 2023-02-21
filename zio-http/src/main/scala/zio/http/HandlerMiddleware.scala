@@ -26,9 +26,23 @@ trait HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut,
   ] =
     self.andThen(that)
 
-  final def ++[R1 <: R, Err1 >: Err, AIn1 <: BIn, AOut1 >: BOut, BIn1 <: AIn1, BOut1](
-    that: HandlerMiddleware[R1, Err1, AIn1, AOut1, BIn1, BOut1],
-  ): HandlerMiddleware[R1, Err1, AIn, AOut, BIn1, BOut1] =
+  final def ++[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2, AIn1 <: BIn, AOut1 >: BOut, BIn1 <: AIn1, BOut1](
+    that: HandlerMiddleware[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2, AIn1, AOut1, BIn1, BOut1],
+  )(implicit
+    composeEnv: ZCompose[LowerEnv, UpperEnv, OutEnv, LowerEnv2, UpperEnv2, that.OutEnv],
+    composeErr: ZCompose[LowerErr, UpperErr, OutErr, LowerErr2, UpperErr2, that.OutErr],
+  ): HandlerMiddleware.WithOut[
+    composeEnv.Lower,
+    composeEnv.Upper,
+    composeErr.Lower,
+    composeErr.Upper,
+    AIn,
+    AOut,
+    BIn1,
+    BOut1,
+    composeEnv.Out,
+    composeErr.Out,
+  ] =
     self.andThen(that)
 
   final def andThen[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2, AIn1 <: BIn, AOut1 >: BOut, BIn1 <: AIn1, BOut1](
@@ -63,8 +77,12 @@ trait HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut,
 
       override def apply[Env >: composeEnv.Lower <: composeEnv.Upper, Err >: composeErr.Lower <: composeErr.Upper](
         handler: Handler[Env, Err, AIn, AOut],
-      ): Handler[OutEnv[Env], OutErr[Err], BIn1, BOut1] =
-        handler(self(handler))
+      )(implicit trace: Trace): Handler[OutEnv[Env], OutErr[Err], BIn1, BOut1] = {
+        val h0 = handler.asInstanceOf[Handler[Nothing, Any, AIn, AOut]]
+        val h1 = self.asInstanceOf[HandlerMiddleware[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut]].applyToHandler(handler)
+        val h2 = that.asInstanceOf[HandlerMiddleware[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut]].applyToHandler(h1)
+        h2.asInstanceOf[Handler[OutEnv[Env], OutErr[Err], BIn1, BOut1]]
+      }
     }
 
   override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
