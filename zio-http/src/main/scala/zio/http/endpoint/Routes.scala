@@ -33,22 +33,19 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
   def toApp[R1 <: R, S](mh: RoutesMiddleware[R1, S, M])(implicit trace: Trace): App[R1] = {
     import zio.http.endpoint.internal._
 
-    val handlerTree     = HandlerTree.fromService(self)
+    val routingTree     = RoutingTree.fromRoutes(self)
     val requestHandlers = Memoized[Routes.Single[R, _ <: E, _, _, M], EndpointServer[R, _ <: E, _, _, M]] {
       handledApi =>
         EndpointServer(handledApi)
     }
 
     Http
-      .collectZIO[Request] { case (request: Request) =>
-        val handler = handlerTree.lookup(request)
+      .collectZIO[Request] {
+        case (request: Request) if routingTree.isDefinedAt(request) =>
+          val handlers = routingTree.lookup(request)
 
-        handler match {
-          case None               =>
-            ZIO.succeed(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
-          case Some(handlerMatch) =>
-            requestHandlers.get(handlerMatch.handledApi).handle(request)(Trace.empty)
-        }
+          // TODO: Multiple handlers
+          requestHandlers.get(handlers(0)).handle(request)(Trace.empty)
       } @@ mh.toMiddleware
   }
 }

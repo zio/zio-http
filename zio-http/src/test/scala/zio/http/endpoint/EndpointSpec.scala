@@ -1,14 +1,16 @@
 package zio.http.endpoint
 
 import zio._
+import zio.schema.{DeriveSchema, Schema}
 import zio.test._
 
 import zio.http.codec.HttpCodec.{int, literal, query, string}
 import zio.http.codec._
 import zio.http.model.{Method, Status}
-import zio.http.{Request, Response, URL}
+import zio.http.{Body, Request, Response, URL}
 
 object EndpointSpec extends ZIOSpecDefault {
+  case class NewPost(value: String)
 
   def spec = suite("EndpointSpec")(
     suite("handler")(
@@ -217,9 +219,36 @@ object EndpointSpec extends ZIOSpecDefault {
         )
 
       },
+      suite("request bodies")(
+        test("simple input") {
+
+          implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
+
+          val endpoint =
+            Endpoint
+              .post(literal("posts"))
+              .in[NewPost]
+              .out[Int]
+
+          val routes =
+            endpoint.implement(_ => ZIO.succeed(42))
+
+          val request =
+            Request
+              .post(
+                Body.fromString("""{"value": "My new post!"}"""),
+                URL.fromString("/posts").toOption.get,
+              )
+
+          for {
+            response <- routes.toApp.runZIO(request).mapError(_.get)
+            body     <- response.body.asString.orDie
+          } yield assertTrue(response.status.isSuccess) && assertTrue(body == "42")
+        },
+      ),
       suite("404")(
         test("on wrong path") {
-          val testRoutes = testApiError(
+          val testRoutes = test404(
             Endpoint
               .get(literal("users") / int("userId"))
               .out[String]
@@ -234,11 +263,11 @@ object EndpointSpec extends ZIOSpecDefault {
                   ZIO.succeed(s"path(users, $userId, posts, $postId) query(name=$name)")
                 },
           ) _
-          testRoutes("/user/123", Method.GET, Status.NotFound) &&
-          testRoutes("/users/123/wrong", Method.GET, Status.NotFound)
+          testRoutes("/user/123", Method.GET) &&
+          testRoutes("/users/123/wrong", Method.GET)
         },
         test("on wrong method") {
-          val testRoutes = testApiError(
+          val testRoutes = test404(
             Endpoint
               .get(literal("users") / int("userId"))
               .out[String]
@@ -253,8 +282,8 @@ object EndpointSpec extends ZIOSpecDefault {
                   ZIO.succeed(s"path(users, $userId, posts, $postId) query(name=$name)")
                 },
           ) _
-          testRoutes("/users/123", Method.POST, Status.NotFound) &&
-          testRoutes("/users/123/posts/555?name=adam", Method.PUT, Status.NotFound)
+          testRoutes("/users/123", Method.POST) &&
+          testRoutes("/users/123/posts/555?name=adam", Method.PUT)
         },
       ),
     ),
@@ -271,16 +300,14 @@ object EndpointSpec extends ZIOSpecDefault {
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }
 
-  def testApiError[R, E](service: Routes[R, E, EndpointMiddleware.None])(
+  def test404[R, E](service: Routes[R, E, EndpointMiddleware.None])(
     url: String,
     method: Method,
-    expected: Status,
   ): ZIO[R, Response, TestResult] = {
     val request = Request.default(method = method, url = URL.fromString(url).toOption.get)
     for {
-      response <- service.toApp.runZIO(request).mapError(_.get)
-      status = response.status
-    } yield assertTrue(status == expected)
+      error <- service.toApp.runZIO(request).flip
+    } yield assertTrue(error == None)
   }
 
   def parseResponse(response: Response): UIO[String] =
