@@ -63,7 +63,7 @@ private[zio] final case class NettyDriver(
   override def toString: String = s"NettyDriver($serverConfig)"
 }
 
-object NettyDriver {
+private[zio] object NettyDriver {
 
   implicit val trace: Trace = Trace.empty
 
