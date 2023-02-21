@@ -33,11 +33,11 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
   def outgoing(state: S): ZIO[R, E, O]
 
   /**
-   * Converts this [[RoutesMiddleware]] to a [[Middleware]], which can be
-   * applied in straightforward fashion to any request handler or HTTP.
+   * Converts this [[RoutesMiddleware]] to a [[zio.http.HandlerAspect]], which
+   * can be applied in straightforward fashion to any request handler or HTTP.
    */
-  final def toMiddleware: Middleware[R, Nothing, Request, Response, Request, Response] =
-    (new HandlerAspect[R, Nothing, Request, Response, Request, Response] {
+  final def toHandlerAspect: HandlerAspect[R, Nothing, Request, Response, Request, Response] =
+    new HandlerAspect[R, Nothing, Request, Response, Request, Response] {
       def apply[R1 <: R, E1 >: Nothing](handler: Handler[R1, E1, Request, Response])(implicit
         trace: Trace,
       ): Handler[R1, E1, Request, Response] = {
@@ -59,7 +59,7 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
           }
         }
       }
-    }).toMiddleware
+    }
 
   private def decodeMiddlewareInput(request: Request): ZIO[R, Nothing, I] =
     middleware.input.decodeRequest(request).orDie
