@@ -13,7 +13,7 @@ private[http] final case class AtomizedCodecs(
   body: Chunk[BodyCodec[_]],
   status: Chunk[TextCodec[_]],
 ) { self =>
-  def append(atom: Atom[_, _]) = atom match {
+  def append(atom: Atom[_, _]): AtomizedCodecs = atom match {
     case path0: Path[_]         => self.copy(path = path :+ path0.textCodec)
     case method0: Method[_]     => self.copy(method = method :+ method0.methodCodec)
     case query0: Query[_]       => self.copy(query = query :+ query0)
@@ -33,17 +33,29 @@ private[http] final case class AtomizedCodecs(
       Array.ofDim(body.length),
     )
   }
+
+  def optimize: AtomizedCodecs =
+    AtomizedCodecs(
+      method.materialize,
+      path.materialize,
+      query.materialize,
+      header.materialize,
+      body.materialize,
+      status.materialize,
+    )
 }
 
 private[http] object AtomizedCodecs {
   val empty = AtomizedCodecs(Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty, Chunk.empty)
 
   def flatten[R, A](in: HttpCodec[R, A]): AtomizedCodecs = {
-    var result = AtomizedCodecs.empty
-    flattenedAtoms(in).foreach { atom =>
-      result = result.append(atom)
-    }
-    result
+    val atoms = flattenedAtoms(in)
+
+    atoms
+      .foldLeft(AtomizedCodecs.empty) { case (acc, atom) =>
+        acc.append(atom)
+      }
+      .optimize
   }
 
   private def flattenedAtoms[R, A](in: HttpCodec[R, A]): Chunk[Atom[_, _]] =

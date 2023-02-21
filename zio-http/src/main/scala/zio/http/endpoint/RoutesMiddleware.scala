@@ -75,7 +75,8 @@ object RoutesMiddleware                                 {
   /**
    * A [[RoutesMiddleware]] that does nothing.
    */
-  val none = EndpointMiddleware.none.implement(_ => ZIO.unit)(_ => ZIO.unit)
+  val none: RoutesMiddleware[Any, Unit, EndpointMiddleware.None] =
+    EndpointMiddleware.none.implement(_ => ZIO.unit)(_ => ZIO.unit)
 
   /**
    * Constructs a new [[RoutesMiddleware]] from both the definition of the

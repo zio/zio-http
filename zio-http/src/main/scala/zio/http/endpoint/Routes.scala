@@ -7,7 +7,7 @@ import zio.http._
 import zio.http.model.HttpError
 
 /**
- * Represents a collection of API endpoints that all have handlers.
+ * Represents a collection of endpoints that all have handlers.
  */
 sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
 
@@ -33,21 +33,18 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
   def toApp[R1 <: R, S](mh: RoutesMiddleware[R1, S, M])(implicit trace: Trace): App[R1] = {
     import zio.http.endpoint.internal._
 
-    val handlerTree     = HandlerTree.fromService(self)
+    val routingTree     = RoutingTree.fromRoutes(self)
     val requestHandlers = Memoized[Routes.Single[R, _ <: E, _, _, M], EndpointServer[R, _ <: E, _, _, M]] {
       handledApi =>
         EndpointServer(handledApi)
     }
 
     Http
-      .collectZIO[Request] { case (request: Request) =>
-        val handler = handlerTree.lookup(request)
+      .fromOptionalHandler[Request] { request =>
+        val handlers = routingTree.lookup(request) // TODO: All handlers
 
-        handler match {
-          case None               =>
-            ZIO.succeed(Response.fromHttpError(HttpError.NotFound(handlerTree.generateError(request))))
-          case Some(handlerMatch) =>
-            requestHandlers.get(handlerMatch.handledApi).handle(request)(Trace.empty)
+        handlers.headOption.map { handler =>
+          Handler.fromZIO(requestHandlers.get(handler).handle(request))
         }
       } @@ mh.toMiddleware
   }

@@ -1,0 +1,188 @@
+package zio.http.endpoint.internal
+
+import zio._
+import zio.http._
+import zio.http.codec.TextCodec
+import zio.http.codec.internal.AtomizedCodecs
+import zio.http.endpoint._
+import zio.http.model.Method
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
+import scala.annotation.tailrec
+
+import zio.http.codec.internal.Mechanic
+
+private[http] sealed trait RoutingTree[-R, E, M <: EndpointMiddleware] {
+  def isDefinedAt(request: Request): Boolean = lookup(request).nonEmpty // TODO: Optimize
+
+  final def lookup(request: Request): Chunk[Routes.Single[R, E, _, _, M]] = {
+    val segments = request.path.segments.collect { case Path.Segment.Text(text) => text }
+
+    lookup(segments, 0, request.method)
+  }
+
+  protected def lookup(segments: Vector[String], index: Int, method: Method): Chunk[Routes.Single[R, E, _, _, M]]
+
+  def merge[R1 <: R](that: RoutingTree[R1, E, M]): RoutingTree[R1, E, M]
+
+  def toPaths[R1 <: R]: RoutingTree.Paths[R1, E, M]
+}
+private[http] object RoutingTree                                       {
+  def single[R, E, M <: EndpointMiddleware](
+    single: Routes.Single[R, E, _, _, M],
+  ): RoutingTree[R, E, M] = {
+    def getMethodFromCodec(codec: TextCodec[_]): Option[Method] =
+      if (codec.isDefinedAt("GET")) Some(Method.GET)
+      else if (codec.isDefinedAt("POST")) Some(Method.POST)
+      else if (codec.isDefinedAt("PUT")) Some(Method.PUT)
+      else if (codec.isDefinedAt("DELETE")) Some(Method.DELETE)
+      else if (codec.isDefinedAt("PATCH")) Some(Method.PATCH)
+      else if (codec.isDefinedAt("HEAD")) Some(Method.HEAD)
+      else if (codec.isDefinedAt("OPTIONS")) Some(Method.OPTIONS)
+      else None
+
+    val inputs = single.endpoint.input.alternatives
+
+    inputs.foldLeft[RoutingTree[R, E, M]](RoutingTree.empty[E, M]) { case (tree, input) =>
+      val atomized = AtomizedCodecs.flatten(input)
+
+      def make(segments: List[TextCodec[_]]): RoutingTree[R, E, M] =
+        segments match {
+          case Nil =>
+            atomized.method.headOption match {
+              case Some(codec) =>
+                getMethodFromCodec(codec) match {
+                  case Some(method) =>
+                    Leaf(
+                      Map(method -> Chunk(single)),
+                      Chunk.empty,
+                    )
+
+                  case None =>
+                    Leaf(Map(), Chunk((m => codec.isDefinedAt(m.text), Chunk(single))))
+                }
+              case None        =>
+                Leaf(
+                  Map(Method.GET -> Chunk(single)),
+                  Chunk.empty,
+                )
+            }
+
+          case head :: tail =>
+            head match {
+              case TextCodec.Constant(string) =>
+                Paths[R, E, M](
+                  Map(string -> make(tail)),
+                  Chunk.empty,
+                  Leaf(Map.empty, Chunk.empty),
+                )
+
+              case codec =>
+                Paths[R, E, M](
+                  Map.empty,
+                  Chunk.single((s => codec.isDefinedAt(s), make(tail))),
+                  Leaf(Map.empty, Chunk.empty),
+                )
+            }
+        }
+
+      tree.merge(make(atomized.path.toList))
+    }
+  }
+
+  def empty[E, M <: EndpointMiddleware]: RoutingTree[Any, E, M] =
+    Paths(Map.empty, Chunk.empty, Leaf(Map.empty, Chunk.empty))
+
+  def fromRoutes[R, E, M <: EndpointMiddleware](routes: Routes[R, E, M]): RoutingTree[R, E, M] =
+    fromIterable(Routes.flatten(routes))
+
+  def fromIterable[R, E, M <: EndpointMiddleware](
+    routes: Iterable[Routes.Single[R, E, _, _, M]],
+  ): RoutingTree[R, E, M] =
+    routes.foldLeft[RoutingTree[R, E, M]](RoutingTree.empty[E, M])((a, b) => a.merge(single(b)))
+
+  final case class Paths[-R, E, M <: EndpointMiddleware](
+    literals: Map[String, RoutingTree[R, E, M]],
+    variables: Chunk[(String => Boolean, RoutingTree[R, E, M])],
+    here: Leaf[R, E, M],
+  ) extends RoutingTree[R, E, M] { self =>
+    def lookup(segments: Vector[String], index: Int, method: Method): Chunk[Routes.Single[R, E, _, _, M]] =
+      if (index > segments.length) {
+        Chunk.empty
+      } else if (index == segments.length) {
+        here.lookup(segments, index, method)
+      } else {
+        val segment = segments(index)
+
+        literals.get(segment) match {
+          case Some(handler) => handler.lookup(segments, index + 1, method)
+          case None          =>
+            variables.flatMap { case (predicate, handler) =>
+              if (predicate(segment)) handler.lookup(segments, index + 1, method) else Chunk.empty
+            }
+        }
+      }
+
+    def merge[R1 <: R](that: RoutingTree[R1, E, M]): RoutingTree[R1, E, M] =
+      that match {
+        case Paths(literals2, variables2, here2) =>
+          Paths(
+            mergeMaps(literals, literals2)(_.merge(_)),
+            variables ++ variables2,
+            here.mergeLeaf(here2),
+          )
+
+        case leaf2 @ Leaf(_, _) =>
+          Paths(
+            literals,
+            variables,
+            here.mergeLeaf(leaf2),
+          )
+      }
+
+    def toPaths[R1 <: R]: RoutingTree.Paths[R1, E, M] = self
+  }
+  final case class Leaf[-R, E, M <: EndpointMiddleware](
+    literals: Map[Method, Chunk[Routes.Single[R, E, _, _, M]]],
+    custom: Chunk[(Method => Boolean, Chunk[Routes.Single[R, E, _, _, M]])],
+  ) extends RoutingTree[R, E, M] { self =>
+    def lookup(segments: Vector[String], index: Int, method: Method): Chunk[Routes.Single[R, E, _, _, M]] =
+      if (index < segments.length) Chunk.empty
+      else {
+        val part1 =
+          literals.get(method) match {
+            case Some(chunk) => chunk
+            case None        => Chunk.empty
+          }
+
+        val part2 =
+          if (custom.nonEmpty) custom.flatMap { case (predicate, route) =>
+            if (predicate(method)) route else Chunk.empty
+          }
+          else Chunk.empty
+
+        part1 ++ part2
+      }
+
+    def merge[R1 <: R](that: RoutingTree[R1, E, M]): RoutingTree[R1, E, M] =
+      that match {
+        case leaf2 @ Leaf(_, _) => mergeLeaf(leaf2)
+        case _                  => that.merge(self)
+      }
+
+    def mergeLeaf[R1 <: R](that: Leaf[R1, E, M]): Leaf[R1, E, M] =
+      Leaf(mergeMaps(literals, that.literals)(_ ++ _), custom ++ that.custom)
+
+    def toPaths[R1 <: R]: RoutingTree.Paths[R1, E, M] =
+      Paths(Map.empty, Chunk.empty, self)
+  }
+
+  private def mergeMaps[K, V](m1: Map[K, V], m2: Map[K, V])(f: (V, V) => V): Map[K, V] =
+    m1.foldLeft(m2) { case (acc, (k, v)) =>
+      acc.get(k) match {
+        case Some(v2) => acc.updated(k, f(v, v2))
+        case None     => acc.updated(k, v)
+      }
+    }
+}

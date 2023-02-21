@@ -77,8 +77,9 @@ private[codec] object EncoderDecoder                   {
       else encoded
     }
 
-    private def shouldRetry(cause: Cause[Any]): Boolean =
-      !cause.isFailure && cause.defects.forall(_.isInstanceOf[EndpointError])
+    private def shouldRetry(cause: Cause[Any]): Boolean = {
+      !cause.isFailure && cause.defects.forall(e => e.isInstanceOf[EndpointError])
+    }
   }
 
   private final case class Single[-AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value])
@@ -214,15 +215,17 @@ private[codec] object EncoderDecoder                   {
       }
     }
 
-    private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] =
-      if (jsonDecoders.length == 0) ZIO.unit
-      else if (jsonDecoders.length == 1) {
+    private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] = {
+      if (jsonDecoders.length == 0) {
+        ZIO.unit
+      } else if (jsonDecoders.length == 1) {
         jsonDecoders(0)(body).map { result => inputs(0) = result }
       } else {
         ZIO.foreachDiscard(jsonDecoders.zipWithIndex) { case (decoder, index) =>
           decoder(body).map { result => inputs(index) = result }
         }
       }
+    }
 
     private def encodePath(inputs: Array[Any]): Path = {
       var path = Path.empty
