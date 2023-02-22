@@ -1,9 +1,12 @@
 package zio.http.endpoint
 
+import scala.annotation.tailrec
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
+import zio.http.codec.HttpCodecError
 import zio.http.model.HttpError
 
 /**
@@ -12,23 +15,26 @@ import zio.http.model.HttpError
 sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
 
   /**
-   * Combines this service and the specified service into a single service,
-   * which contains all endpoints and their associated handlers.
+   * Returns a new collection that contains all of these routes, plus the
+   * specified routes.
    */
   def ++[R1 <: R, E1 >: E, AllIds2](that: Routes[R1, E1, M]): Routes[R1, E1, M] =
     Routes.Concat(self, that)
 
   /**
-   * Converts the collection of routes into a [[zio.http.HttpApp]], which can be
-   * executed.
+   * Converts the collection of routes into a [[zio.http.App]], which can be
+   * executed by a server. This method may be used when the routes are not using
+   * any middleware.
    */
   def toApp[R1 <: R](implicit ev: EndpointMiddleware.None <:< M, trace: Trace): App[R1] = {
     toApp[R1, Unit](RoutesMiddleware.none.asInstanceOf[RoutesMiddleware[R1, Unit, M]])
   }
 
   /**
-   * Converts this service into a [[zio.http.HttpApp]], which can then be served
-   * via [[zio.http.Server.serve]].
+   * Converts the collection of routes into a [[zio.http.App]], which can be
+   * executed by a server. This method may be used when the routes are using
+   * middleware. You must provide a [[zio.http.endpoint.RoutesMiddleware]] that
+   * can properly provide the required middleware for the routes.
    */
   def toApp[R1 <: R, S](mh: RoutesMiddleware[R1, S, M])(implicit trace: Trace): App[R1] = {
     import zio.http.endpoint.internal._
@@ -39,15 +45,36 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
         EndpointServer(handledApi)
     }
 
+    def dispatch(
+      request: Request,
+      alternatives: Chunk[Routes.Single[R, E, _, _, M]],
+      index: Int,
+      cause: Cause[Nothing],
+    )(implicit trace: Trace): ZIO[R, Nothing, Response] =
+      if (index >= alternatives.length) ZIO.refailCause(cause)
+      else {
+        val alternative = alternatives(index)
+
+        requestHandlers
+          .get(alternative)
+          .handle(request)
+          .foldCauseZIO(
+            cause2 =>
+              if (HttpCodecError.isHttpCodecError(cause2)) dispatch(request, alternatives, index + 1, cause ++ cause2)
+              else ZIO.refailCause(cause),
+            ZIO.succeed(_),
+          )
+      }
+
     Http
       .fromOptionalHandler[Request] { request =>
-        val handlers = routingTree.lookup(request) // TODO: All handlers
+        val handlers = routingTree.lookup(request)
 
-        handlers.headOption.map { handler =>
-          Handler.fromZIO(requestHandlers.get(handler).handle(request))
-        }
-      } @@ mh.toMiddleware
+        if (handlers.isEmpty) None
+        else Some(Handler.fromZIO(dispatch(request, handlers, 0, Cause.empty)))
+      } @@ mh.toHandlerAspect.toMiddleware
   }
+
 }
 
 object Routes {

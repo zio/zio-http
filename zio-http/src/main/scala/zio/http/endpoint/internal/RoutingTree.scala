@@ -29,8 +29,8 @@ private[http] sealed trait RoutingTree[-R, E, M <: EndpointMiddleware] {
   def toPaths[R1 <: R]: RoutingTree.Paths[R1, E, M]
 }
 private[http] object RoutingTree                                       {
-  def single[R, E, M <: EndpointMiddleware](
-    single: Routes.Single[R, E, _, _, M],
+  def single[R, E, I, O, M <: EndpointMiddleware](
+    single0: Routes.Single[R, E, I, O, M],
   ): RoutingTree[R, E, M] = {
     def getMethodFromCodec(codec: TextCodec[_]): Option[Method] =
       if (codec.isDefinedAt("GET")) Some(Method.GET)
@@ -42,9 +42,20 @@ private[http] object RoutingTree                                       {
       else if (codec.isDefinedAt("OPTIONS")) Some(Method.OPTIONS)
       else None
 
-    val inputs = single.endpoint.input.alternatives
+    // Here we perform a complete rewrite of the endpoint to generate a set of
+    // endpoints that is equivalent to the endpoint, but each of which does
+    // not use the fallback operator. This allows us to "compile away" fallback
+    // and handle it using the relatively dumb process of trying each handler
+    // at a given point in the tree until we find one that works. Ultimately,
+    // this can be made more efficient by finding common subsequences between
+    // the different terms of the alternative and factoring them out to avoid
+    // duplicate decoding. But for now, it gets the job done.
+    val alternatives = single0.endpoint.input.alternatives.map { input =>
+      Routes.Single(endpoint = single0.endpoint.copy(input = input), single0.handler)
+    }
 
-    inputs.foldLeft[RoutingTree[R, E, M]](RoutingTree.empty[E, M]) { case (tree, input) =>
+    alternatives.foldLeft[RoutingTree[R, E, M]](RoutingTree.empty[E, M]) { case (tree, alternative) =>
+      val input    = alternative.endpoint.input
       val atomized = AtomizedCodecs.flatten(input)
 
       def make(segments: List[TextCodec[_]]): RoutingTree[R, E, M] =
@@ -55,16 +66,16 @@ private[http] object RoutingTree                                       {
                 getMethodFromCodec(codec) match {
                   case Some(method) =>
                     Leaf(
-                      Map(method -> Chunk(single)),
+                      Map(method -> Chunk(alternative)),
                       Chunk.empty,
                     )
 
                   case None =>
-                    Leaf(Map(), Chunk((m => codec.isDefinedAt(m.text), Chunk(single))))
+                    Leaf(Map(), Chunk((m => codec.isDefinedAt(m.text), Chunk(alternative))))
                 }
               case None        =>
                 Leaf(
-                  Map(Method.GET -> Chunk(single)),
+                  Map(Method.GET -> Chunk(alternative)),
                   Chunk.empty,
                 )
             }

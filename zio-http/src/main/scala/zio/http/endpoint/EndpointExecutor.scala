@@ -1,10 +1,11 @@
 package zio.http.endpoint
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
 import zio.http._
+import zio.http.codec.Alternator
 import zio.http.endpoint.internal.EndpointClient
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.http.codec.Alternator // scalafix:ok;
 
 /**
  * A [[zio.http.endpoint.EndpointExecutor]] is responsible for taking an
@@ -19,7 +20,7 @@ final case class EndpointExecutor[+MI](
   private val metadata = {
     implicit val trace0 = Trace.empty
     zio.http.endpoint.internal
-      .MemoizedZIO[Endpoint[_, _, _, _ <: EndpointMiddleware], EndpointError, EndpointClient[Any, Any, Any, _]] {
+      .MemoizedZIO[Endpoint[_, _, _, _ <: EndpointMiddleware], EndpointNotFound, EndpointClient[Any, Any, Any, _]] {
         (api: Endpoint[_, _, _, _ <: EndpointMiddleware]) =>
           locator.locate(api).map { location =>
             EndpointClient(
@@ -32,7 +33,7 @@ final case class EndpointExecutor[+MI](
 
   private def getClient[I, E, O, M <: EndpointMiddleware](
     endpoint: Endpoint[I, E, O, M],
-  )(implicit trace: Trace): IO[EndpointError, EndpointClient[I, E, O, M]] =
+  )(implicit trace: Trace): IO[EndpointNotFound, EndpointClient[I, E, O, M]] =
     metadata.get(endpoint).map(_.asInstanceOf[EndpointClient[I, E, O, M]])
 
   def apply[A, E, B, M <: EndpointMiddleware](
