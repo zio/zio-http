@@ -1,11 +1,11 @@
 package zio.http.endpoint
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
 import zio.http._
-import zio.http.endpoint.internal.EndpointClient
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.codec.Alternator
-import zio.http.endpoint.EndpointNotFound // scalafix:ok;
+import zio.http.endpoint.internal.EndpointClient
 
 /**
  * A [[zio.http.endpoint.EndpointExecutor]] is responsible for taking an
