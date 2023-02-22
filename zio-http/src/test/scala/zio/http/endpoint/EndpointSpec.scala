@@ -1,8 +1,9 @@
 package zio.http.endpoint
 
 import zio._
-import zio.schema.{DeriveSchema, Schema}
 import zio.test._
+
+import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.codec.HttpCodec.{int, literal, query, string}
 import zio.http.codec._

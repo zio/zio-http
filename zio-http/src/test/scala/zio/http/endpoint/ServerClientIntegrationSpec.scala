@@ -2,9 +2,10 @@ package zio.http.endpoint
 
 import scala.language.implicitConversions
 
-import zio.schema.{DeriveSchema, Schema}
 import zio.test.{ZIOSpecDefault, assertTrue}
 import zio.{Scope, ZIO, ZLayer}
+
+import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec.PathCodec.{int, literal}
