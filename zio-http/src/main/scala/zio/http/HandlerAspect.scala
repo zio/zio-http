@@ -44,12 +44,12 @@ object HandlerAspect {
 
   def codecZIO[BIn, AOut]: CodecZIO[BIn, AOut] = new CodecZIO[BIn, AOut](())
 
-  def identity[AIn, AOut]: HandlerMiddleware[Nothing, Any, Any, Nothing, AIn, AOut, AIn, AOut] =
-    new HandlerMiddleware[Nothing, Any, Any, Nothing, AIn, AOut, AIn, AOut] {
+  def identity[AIn, AOut]: HandlerMiddleware[Nothing, Any, Nothing, Any, AIn, AOut, AIn, AOut] =
+    new HandlerMiddleware[Nothing, Any, Nothing, Any, AIn, AOut, AIn, AOut] {
       override type OutEnv[Env] = Env
       override type OutErr[Err] = Err
 
-      override def apply[Env >: Nothing <: Any, Err >: Any <: Nothing](
+      override def apply[Env >: Nothing <: Any, Err >: Nothing <: Any](
         handler: Handler[Env, Err, AIn, AOut],
       )(implicit trace: Trace): Handler[Env, Err, AIn, AOut] =
         handler
@@ -61,12 +61,12 @@ object HandlerAspect {
     def apply[Err, AIn, BOut](
       decoder: BIn => Either[Err, AIn],
       encoder: AOut => Either[Err, BOut],
-    ): HandlerAspect[Nothing, Any, Err, Nothing, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[Nothing, Any, Err, Nothing, AIn, AOut, BIn, BOut] {
+    ): HandlerAspect[Nothing, Any, Err, Any, AIn, AOut, BIn, BOut] =
+      new HandlerAspect[Nothing, Any, Err, Any, AIn, AOut, BIn, BOut] {
         override type OutEnv[Env]  = Env
         override type OutErr[Err1] = Err1
 
-        override def apply[Env >: Nothing <: Any, Err1 >: Err <: Nothing](
+        override def apply[Env >: Nothing <: Any, Err1 >: Err <: Any](
           handler: Handler[Env, Err1, AIn, AOut],
         )(implicit trace: Trace): Handler[Env, Err1, BIn, BOut] =
           handler
@@ -79,14 +79,14 @@ object HandlerAspect {
     def apply[R, Err, AIn, BOut](
       decoder: Handler[R, Err, BIn, AIn],
       encoder: Handler[R, Err, AOut, BOut],
-    ): HandlerAspect[Nothing, R, Err, Nothing, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[Nothing, R, Err, Nothing, AIn, AOut, BIn, BOut] {
+    ): HandlerAspect[Nothing, R, Err, Any, AIn, AOut, BIn, BOut] =
+      new HandlerAspect[Nothing, R, Err, Any, AIn, AOut, BIn, BOut] {
         override type OutEnv[Env1] = Env1
         override type OutErr[Err1] = Err1
 
-        override def apply[Env >: Nothing <: R, Err1 >: Err <: Nothing](handler: Handler[Env, Err1, AIn, AOut])(implicit
+        override def apply[Env >: Nothing <: R, Err1 >: Err <: Any](handler: Handler[Env, Err1, AIn, AOut])(implicit
           trace: Trace,
-        ): Handler[Env, Err, BIn, BOut] =
+        ): Handler[Env, Err1, BIn, BOut] =
           decoder >>> handler >>> encoder
       }
   }
@@ -95,8 +95,8 @@ object HandlerAspect {
     def apply[R, Err, AIn, BOut](
       decoder: BIn => ZIO[R, Err, AIn],
       encoder: AOut => ZIO[R, Err, BOut],
-    ): HandlerAspect[Nothing, R, Err, Nothing, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[Nothing, R, Err, Nothing, AIn, AOut, BIn, BOut] {
+    ): HandlerAspect[Nothing, R, Err, Any, AIn, AOut, BIn, BOut] =
+      new HandlerAspect[Nothing, R, Err, Any, AIn, AOut, BIn, BOut] {
         override type OutEnv[Env1] = Env1
         override type OutErr[Err1] = Err1
 
@@ -113,8 +113,8 @@ object HandlerAspect {
     def apply[AIn, BOut](
       in: BIn => AIn,
       out: AOut => BOut,
-    ): HandlerAspect[Nothing, Any, Any, Nothing, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[Nothing, Any, Any, Nothing, AIn, AOut, BIn, BOut] {
+    ): HandlerAspect[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut] =
+      new HandlerAspect[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut] {
         override type OutEnv[Env] = Env
         override type OutErr[Err] = Err
 

@@ -1,7 +1,8 @@
 package zio.http
 import zio.{Trace, ZIO}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import scala.annotation.unchecked.uncheckedVariance // scalafix:ok;
 
 trait HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn <: AIn, +BOut]
     extends HandlerAspect[LowerEnv, UpperEnv, LowerErr, UpperErr, AIn, AOut, BIn, BOut]
@@ -10,8 +11,8 @@ trait HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut,
   final def >>>[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2, AIn1 <: BIn, AOut1 >: BOut, BIn1 <: AIn1, BOut1](
     that: HandlerMiddleware[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2, AIn1, AOut1, BIn1, BOut1],
   )(implicit
-    composeEnv: ZCompose[LowerEnv, UpperEnv, OutEnv, LowerEnv2, UpperEnv2, that.OutEnv],
-    composeErr: ZCompose[LowerErr, UpperErr, OutErr, LowerErr2, UpperErr2, that.OutErr],
+    composeEnv: ZCompose[LowerEnv, UpperEnv, OutEnv, LowerEnv2, UpperEnv2, that.OutEnv] @uncheckedVariance,
+    composeErr: ZCompose[LowerErr, UpperErr, OutErr, LowerErr2, UpperErr2, that.OutErr] @uncheckedVariance,
   ): HandlerMiddleware.WithOut[
     composeEnv.Lower,
     composeEnv.Upper,
@@ -29,8 +30,8 @@ trait HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut,
   final def ++[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2, AIn1 <: BIn, AOut1 >: BOut, BIn1 <: AIn1, BOut1](
     that: HandlerMiddleware[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2, AIn1, AOut1, BIn1, BOut1],
   )(implicit
-    composeEnv: ZCompose[LowerEnv, UpperEnv, OutEnv, LowerEnv2, UpperEnv2, that.OutEnv],
-    composeErr: ZCompose[LowerErr, UpperErr, OutErr, LowerErr2, UpperErr2, that.OutErr],
+    composeEnv: ZCompose[LowerEnv, UpperEnv, OutEnv, LowerEnv2, UpperEnv2, that.OutEnv] @uncheckedVariance,
+    composeErr: ZCompose[LowerErr, UpperErr, OutErr, LowerErr2, UpperErr2, that.OutErr] @uncheckedVariance,
   ): HandlerMiddleware.WithOut[
     composeEnv.Lower,
     composeEnv.Upper,
@@ -48,8 +49,8 @@ trait HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut,
   final def andThen[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2, AIn1 <: BIn, AOut1 >: BOut, BIn1 <: AIn1, BOut1](
     that: HandlerMiddleware[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2, AIn1, AOut1, BIn1, BOut1],
   )(implicit
-    composeEnv: ZCompose[LowerEnv, UpperEnv, OutEnv, LowerEnv2, UpperEnv2, that.OutEnv],
-    composeErr: ZCompose[LowerErr, UpperErr, OutErr, LowerErr2, UpperErr2, that.OutErr],
+    composeEnv: ZCompose[LowerEnv, UpperEnv, OutEnv, LowerEnv2, UpperEnv2, that.OutEnv] @uncheckedVariance,
+    composeErr: ZCompose[LowerErr, UpperErr, OutErr, LowerErr2, UpperErr2, that.OutErr] @uncheckedVariance,
   ): HandlerMiddleware.WithOut[
     composeEnv.Lower,
     composeEnv.Upper,

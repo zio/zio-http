@@ -41,7 +41,7 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
 
       override def apply[Env >: Nothing <: R, Err >: Nothing <: Any](
         handler: Handler[Env, Err, Request, Response],
-      )(implicit trace: Trace): Handler[R, Err, Request, Response] = {
+      )(implicit trace: Trace): Handler[Env, Err, Request, Response] = {
         Handler.fromFunctionZIO[Request] { request =>
           decodeMiddlewareInput(request).flatMap { input =>
             incoming(input).foldZIO(

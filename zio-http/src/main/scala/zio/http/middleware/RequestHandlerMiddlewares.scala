@@ -86,6 +86,9 @@ private[zio] trait RequestHandlerMiddlewares
     condition: Request => Boolean,
   )(ifTrue: RequestHandlerMiddleware[R, E], ifFalse: RequestHandlerMiddleware[R, E]): RequestHandlerMiddleware[R, E] =
     new RequestHandlerMiddleware[R, E] {
+      override type OutEnv[Env] = Env
+      override type OutErr[Err] = Err
+
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
@@ -101,6 +104,9 @@ private[zio] trait RequestHandlerMiddlewares
     ifFalse: Request => RequestHandlerMiddleware[R, E],
   ): RequestHandlerMiddleware[R, E] =
     new RequestHandlerMiddleware[R, E] {
+      override type OutEnv[Env] = Env
+      override type OutErr[Err] = Err
+
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
@@ -184,7 +190,7 @@ private[zio] trait RequestHandlerMiddlewares
    */
   final def redirectTrailingSlash(isPermanent: Boolean)(implicit trace: Trace): RequestHandlerMiddleware[Any, Nothing] =
     ifRequestThenElseFunction(request => request.url.path.trailingSlash && request.url.queryParams.isEmpty)(
-      ifFalse = _ => RequestHandlerMiddleware.identity,
+      ifFalse = _ => HandlerAspect.identity,
       ifTrue = request => redirect(request.dropTrailingSlash.url, isPermanent),
     )
 
@@ -280,7 +286,7 @@ private[zio] trait RequestHandlerMiddlewares
   final def whenHeader[R, E](condition: Headers => Boolean)(
     middleware: RequestHandlerMiddleware[R, E],
   ): RequestHandlerMiddleware[R, E] =
-    ifHeaderThenElse(condition)(ifFalse = RequestHandlerMiddleware.identity, ifTrue = middleware)
+    ifHeaderThenElse(condition)(ifFalse = HandlerAspect.identity, ifTrue = middleware)
 
   /**
    * Applies the middleware only if status matches the condition
@@ -333,12 +339,12 @@ private[zio] trait RequestHandlerMiddlewares
   final def whenRequest[R, E](condition: Request => Boolean)(
     middleware: RequestHandlerMiddleware[R, E],
   ): RequestHandlerMiddleware[R, E] =
-    ifRequestThenElse(condition)(ifFalse = RequestHandlerMiddleware.identity, ifTrue = middleware)
+    ifRequestThenElse(condition)(ifFalse = HandlerAspect.identity, ifTrue = middleware)
 
   final def whenRequestZIO[R, E](condition: Request => ZIO[R, E, Boolean])(
     middleware: RequestHandlerMiddleware[R, E],
   ): RequestHandlerMiddleware[R, E] =
-    ifRequestThenElseZIO(condition)(ifFalse = RequestHandlerMiddleware.identity, ifTrue = middleware)
+    ifRequestThenElseZIO(condition)(ifFalse = HandlerAspect.identity, ifTrue = middleware)
 }
 
 object RequestHandlerMiddlewares extends RequestHandlerMiddlewares {
