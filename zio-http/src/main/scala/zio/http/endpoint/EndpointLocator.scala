@@ -13,12 +13,14 @@ trait EndpointLocator { self =>
    * Returns the location to the specified endpoint, or fails with an endpoint
    * error.
    */
-  def locate[A, E, B, M <: EndpointMiddleware](api: Endpoint[A, E, B, M])(implicit trace: Trace): IO[EndpointError, URL]
+  def locate[A, E, B, M <: EndpointMiddleware](api: Endpoint[A, E, B, M])(implicit
+    trace: Trace,
+  ): IO[EndpointNotFound, URL]
 
   final def orElse(that: EndpointLocator): EndpointLocator = new EndpointLocator {
     def locate[A, E, B, M <: EndpointMiddleware](api: Endpoint[A, E, B, M])(implicit
       trace: Trace,
-    ): IO[EndpointError, URL] =
+    ): IO[EndpointNotFound, URL] =
       self.locate(api).orElse(that.locate(api))
   }
 }
@@ -28,7 +30,7 @@ object EndpointLocator {
 
     def locate[A, E, B, M <: EndpointMiddleware](api: Endpoint[A, E, B, M])(implicit
       trace: Trace,
-    ): IO[EndpointError, URL] =
+    ): IO[EndpointNotFound, URL] =
       effect
   }
 }

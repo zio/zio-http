@@ -6,8 +6,9 @@ package zio.http.benchmarks
 import java.util.concurrent.TimeUnit
 
 import zio.json.{DeriveJsonCodec, EncoderOps, JsonCodec}
-import zio.schema.{DeriveSchema, Schema}
 import zio.{Scope => _, _}
+
+import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec.{PathCodec, QueryCodec}

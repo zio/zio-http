@@ -172,8 +172,7 @@ object EndpointMiddleware       {
         StatusCodec.NoContent,
     )
 
-  val none: EndpointMiddleware.Typed[Unit, Nothing, Unit] =
-    EndpointMiddleware(HttpCodec.empty, HttpCodec.empty)
+  val none: EndpointMiddleware.None = None
 
   def requireHeader[A](codec: HeaderCodec[A]): EndpointMiddleware.Typed[A, Nothing, Unit] =
     EndpointMiddleware(codec, HttpCodec.empty)

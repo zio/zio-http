@@ -33,15 +33,17 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
   def outgoing(state: S): ZIO[R, E, O]
 
   /**
-   * Converts this [[RoutesMiddleware]] to a [[Middleware]], which can be
-   * applied in straightforward fashion to any request handler or HTTP.
+   * Converts this [[RoutesMiddleware]] to a [[zio.http.HandlerAspect]], which
+   * can be applied in straightforward fashion to any request handler or HTTP.
    */
-  final def toMiddleware: Middleware[Nothing, R, Nothing, Any, Request, Response, Request, Response] =
-    (new RequestHandlerMiddleware[R, Nothing] {
+  final def toHandlerAspect: HandlerAspect[Nothing, R, Nothing, Any, Request, Response, Request, Response] =
+    new HandlerAspect[Nothing, R, Nothing, Any, Request, Response, Request, Response] {
+      type OutEnv[Env] = Env
+      type OutErr[Err] = Err
 
-      override def apply[Env >: Nothing <: R, Err >: Nothing <: Any](
-        handler: Handler[Env, Err, Request, Response],
-      )(implicit trace: Trace): Handler[Env, Err, Request, Response] = {
+      def apply[R1 >: Nothing <: R, E1 >: Nothing <: Any](handler: Handler[R1, E1, Request, Response])(implicit
+        trace: Trace,
+      ): Handler[R1, E1, Request, Response] = {
         Handler.fromFunctionZIO[Request] { request =>
           decodeMiddlewareInput(request).flatMap { input =>
             incoming(input).foldZIO(
@@ -60,7 +62,7 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
           }
         }
       }
-    }).toMiddleware
+    }
 
   private def decodeMiddlewareInput(request: Request): ZIO[R, Nothing, I] =
     middleware.input.decodeRequest(request).orDie
@@ -76,7 +78,8 @@ object RoutesMiddleware                                 {
   /**
    * A [[RoutesMiddleware]] that does nothing.
    */
-  val none = EndpointMiddleware.none.implement(_ => ZIO.unit)(_ => ZIO.unit)
+  val none: RoutesMiddleware[Any, Unit, EndpointMiddleware.None] =
+    EndpointMiddleware.none.implement(_ => ZIO.unit)(_ => ZIO.unit)
 
   /**
    * Constructs a new [[RoutesMiddleware]] from both the definition of the

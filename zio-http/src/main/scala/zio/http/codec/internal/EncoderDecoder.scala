@@ -3,7 +3,6 @@ package zio.http.codec.internal
 import zio._
 import zio.http._
 import zio.http.codec._
-import zio.http.endpoint._
 import zio.http.model._
 import zio.schema.codec._
 
@@ -42,7 +41,7 @@ private[codec] object EncoderDecoder                   {
           codec
             .decode(url, status, method, headers, body)
             .catchAllCause(cause =>
-              if (shouldRetry(cause)) {
+              if (HttpCodecError.isHttpCodecError(cause)) {
                 tryDecode(i + 1, lastError && cause)
               } else ZIO.refailCause(cause),
             )
@@ -65,7 +64,7 @@ private[codec] object EncoderDecoder                   {
 
           i = singles.length // break
         } catch {
-          case error: EndpointError =>
+          case error: HttpCodecError =>
             // TODO: Aggregate all errors in disjunction:
             lastError = error
         }
@@ -76,9 +75,6 @@ private[codec] object EncoderDecoder                   {
       if (encoded == null) throw lastError
       else encoded
     }
-
-    private def shouldRetry(cause: Cause[Any]): Boolean =
-      !cause.isFailure && cause.defects.forall(_.isInstanceOf[EndpointError])
   }
 
   private final case class Single[-AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value])
@@ -133,15 +129,16 @@ private[codec] object EncoderDecoder                   {
       while (i < inputs.length) {
         val textCodec = flattened.path(i).erase
 
-        if (j >= segments.length) throw EndpointError.PathTooShort(path, textCodec)
+        if (j >= segments.length) throw HttpCodecError.PathTooShort(path, textCodec)
         else {
           val segment = segments(j)
 
           if (segment.text.length != 0) {
             val textCodec = flattened.path(i).erase
 
-            inputs(i) =
-              textCodec.decode(segment.text).getOrElse(throw EndpointError.MalformedPath(path, segment, textCodec))
+            inputs(i) = textCodec
+              .decode(segment.text)
+              .getOrElse(throw HttpCodecError.MalformedPath(path, segment.text, textCodec))
 
             i = i + 1
           }
@@ -165,7 +162,7 @@ private[codec] object EncoderDecoder                   {
           case Some(value) =>
             inputs(i) = value
           case None        =>
-            throw EndpointError.MissingQueryParam(query.name)
+            throw HttpCodecError.MissingQueryParam(query.name)
         }
 
         i = i + 1
@@ -177,7 +174,7 @@ private[codec] object EncoderDecoder                   {
       while (i < inputs.length) {
         val textCodec = flattened.status(i).erase
 
-        inputs(i) = textCodec.decode(status.text).getOrElse(throw EndpointError.MalformedStatus("200", textCodec))
+        inputs(i) = textCodec.decode(status.text).getOrElse(throw HttpCodecError.MalformedStatus("200", textCodec))
 
         i = i + 1
       }
@@ -189,7 +186,7 @@ private[codec] object EncoderDecoder                   {
         val textCodec = flattened.method(i)
 
         inputs(i) =
-          textCodec.decode(method.text).getOrElse(throw EndpointError.MalformedMethod(method.toString(), textCodec))
+          textCodec.decode(method.text).getOrElse(throw HttpCodecError.MalformedMethod(method.toString(), textCodec))
 
         i = i + 1
       }
@@ -204,25 +201,27 @@ private[codec] object EncoderDecoder                   {
           case Some(value) =>
             inputs(i) = header.textCodec
               .decode(value)
-              .getOrElse(throw EndpointError.MalformedHeader(header.name, header.textCodec))
+              .getOrElse(throw HttpCodecError.MalformedHeader(header.name, header.textCodec))
 
           case None =>
-            throw EndpointError.MissingHeader(header.name)
+            throw HttpCodecError.MissingHeader(header.name)
         }
 
         i = i + 1
       }
     }
 
-    private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] =
-      if (jsonDecoders.length == 0) ZIO.unit
-      else if (jsonDecoders.length == 1) {
+    private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] = {
+      if (jsonDecoders.length == 0) {
+        ZIO.unit
+      } else if (jsonDecoders.length == 1) {
         jsonDecoders(0)(body).map { result => inputs(0) = result }
       } else {
         ZIO.foreachDiscard(jsonDecoders.zipWithIndex) { case (decoder, index) =>
           decoder(body).map { result => inputs(index) = result }
         }
       }
+    }
 
     private def encodePath(inputs: Array[Any]): Path = {
       var path = Path.empty
