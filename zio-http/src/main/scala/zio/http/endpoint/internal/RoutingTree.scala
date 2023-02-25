@@ -2,7 +2,7 @@ package zio.http.endpoint.internal
 
 import zio._
 import zio.http._
-import zio.http.codec.TextCodec
+import zio.http.codec.{SimpleCodec, TextCodec}
 import zio.http.codec.internal.AtomizedCodecs
 import zio.http.endpoint._
 import zio.http.model.Method
@@ -13,8 +13,9 @@ import scala.annotation.tailrec
 
 import zio.http.codec.internal.Mechanic
 
-private[http] sealed trait RoutingTree[-R, E, M <: EndpointMiddleware] {
-  def isDefinedAt(request: Request): Boolean = lookup(request).nonEmpty // TODO: Optimize
+private[http] sealed trait RoutingTree[-R, E, M <: EndpointMiddleware] { self =>
+  final def add[R1 <: R](that: Routes.Single[R1, E, _, _, M]): RoutingTree[R1, E, M] =
+    self.merge(RoutingTree.single(that))
 
   final def lookup(request: Request): Chunk[Routes.Single[R, E, _, _, M]] = {
     val segments = request.path.segments.collect { case Path.Segment.Text(text) => text }
@@ -26,22 +27,12 @@ private[http] sealed trait RoutingTree[-R, E, M <: EndpointMiddleware] {
 
   def merge[R1 <: R](that: RoutingTree[R1, E, M]): RoutingTree[R1, E, M]
 
-  def toPaths[R1 <: R]: RoutingTree.Paths[R1, E, M]
+  protected def toPaths[R1 <: R]: RoutingTree.Paths[R1, E, M]
 }
 private[http] object RoutingTree                                       {
   def single[R, E, I, O, M <: EndpointMiddleware](
     single0: Routes.Single[R, E, I, O, M],
   ): RoutingTree[R, E, M] = {
-    def getMethodFromCodec(codec: TextCodec[_]): Option[Method] =
-      if (codec.isDefinedAt("GET")) Some(Method.GET)
-      else if (codec.isDefinedAt("POST")) Some(Method.POST)
-      else if (codec.isDefinedAt("PUT")) Some(Method.PUT)
-      else if (codec.isDefinedAt("DELETE")) Some(Method.DELETE)
-      else if (codec.isDefinedAt("PATCH")) Some(Method.PATCH)
-      else if (codec.isDefinedAt("HEAD")) Some(Method.HEAD)
-      else if (codec.isDefinedAt("OPTIONS")) Some(Method.OPTIONS)
-      else None
-
     // Here we perform a complete rewrite of the endpoint to generate a set of
     // endpoints that is equivalent to the endpoint, but each of which does
     // not use the fallback operator. This allows us to "compile away" fallback
@@ -62,18 +53,18 @@ private[http] object RoutingTree                                       {
         segments match {
           case Nil =>
             atomized.method.headOption match {
-              case Some(codec) =>
-                getMethodFromCodec(codec) match {
-                  case Some(method) =>
-                    Leaf(
-                      Map(method -> Chunk(alternative)),
-                      Chunk.empty,
-                    )
+              case Some(SimpleCodec.Specified(method)) =>
+                Leaf(
+                  Map(method -> Chunk(alternative)),
+                  Chunk.empty,
+                )
 
-                  case None =>
-                    Leaf(Map(), Chunk((m => codec.isDefinedAt(m.text), Chunk(alternative))))
-                }
-              case None        =>
+              case Some(SimpleCodec.Unspecified()) =>
+                Leaf(
+                  Map(),
+                  Chunk(((method: Method) => true) -> Chunk(alternative)),
+                )
+              case None                            =>
                 Leaf(
                   Map(Method.GET -> Chunk(alternative)),
                   Chunk.empty,
@@ -111,7 +102,7 @@ private[http] object RoutingTree                                       {
   def fromIterable[R, E, M <: EndpointMiddleware](
     routes: Iterable[Routes.Single[R, E, _, _, M]],
   ): RoutingTree[R, E, M] =
-    routes.foldLeft[RoutingTree[R, E, M]](RoutingTree.empty[E, M])((a, b) => a.merge(single(b)))
+    routes.foldLeft[RoutingTree[R, E, M]](RoutingTree.empty[E, M])((a, b) => a.add(b))
 
   final case class Paths[-R, E, M <: EndpointMiddleware](
     literals: Map[String, RoutingTree[R, E, M]],

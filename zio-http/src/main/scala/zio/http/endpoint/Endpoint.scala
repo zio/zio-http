@@ -98,18 +98,6 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     Invocation(self, ev((a, b, c, d, e, f, g, h, i, j, k, l)))
 
   /**
-   * Returns a new endpoint that can fail with the specified error type for the
-   * specified status code.
-   */
-  def err[Err2](status: Status)(implicit
-    schema: Schema[Err2],
-    alt: Alternator[Err, Err2],
-  ): Endpoint[Input, alt.Out, Output, Middleware] =
-    copy[Input, alt.Out, Output, Middleware](error =
-      self.error | (HttpCodec.Body(schema) ++ StatusCodec.status(status)),
-    )
-
-  /**
    * Returns a new endpoint that requires the specified headers to be present.
    */
   def header[A](codec: HeaderCodec[A])(implicit
@@ -134,7 +122,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     schema: Schema[Input2],
     combiner: Combiner[Input, Input2],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
-    copy(input = input ++ HttpCodec.Body(schema))
+    copy(input = input ++ HttpCodec.Content(schema))
 
   /**
    * Returns a new endpoint derived from this one whose middleware is composed
@@ -164,10 +152,22 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
-      output = (self.output | HttpCodec.Body(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),
+      output = (self.output | HttpCodec.Content(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),
       error,
       doc,
       mw,
+    )
+
+  /**
+   * Returns a new endpoint that can fail with the specified error type for the
+   * specified status code.
+   */
+  def outError[Err2](status: Status)(implicit
+    schema: Schema[Err2],
+    alt: Alternator[Err, Err2],
+  ): Endpoint[Input, alt.Out, Output, Middleware] =
+    copy[Input, alt.Out, Output, Middleware](error =
+      self.error | (ContentCodec.content[Err2] ++ StatusCodec.status(status)),
     )
 
   /**
@@ -188,7 +188,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
-      output = (self.output | HttpCodec.BodyStream(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),
+      output = (self.output | ContentCodec.contentStream[Output2]) ++ StatusCodec.status(status),
       error,
       doc,
       mw,
