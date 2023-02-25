@@ -2,7 +2,6 @@ package zio.http.codec.internal
 
 import zio.Chunk
 import zio.http.codec.HttpCodec._
-import zio.http.endpoint._
 import zio.http.model.Headers
 import zio.http.codec.HttpCodec
 

@@ -5,6 +5,7 @@ import scala.util.control.NoStackTrace
 import zio.Cause
 
 import zio.http.Path
+import zio.http.model.Status
 
 sealed trait HttpCodecError extends Exception with NoStackTrace {
   def message: String
@@ -13,8 +14,9 @@ object HttpCodecError {
   final case class MissingHeader(headerName: String)                                    extends HttpCodecError {
     def message = s"Missing header $headerName"
   }
-  final case class MalformedMethod(methodName: String, textCodec: TextCodec[_])         extends HttpCodecError {
-    def message = s"Malformed method $methodName failed to decode using $textCodec"
+  final case class MalformedMethod(expected: zio.http.model.Method, actual: zio.http.model.Method)
+      extends HttpCodecError {
+    def message = s"Expected $expected but found $actual"
   }
   final case class PathTooShort(path: Path, textCodec: TextCodec[_])                    extends HttpCodecError {
     def message = s"Expected to find ${textCodec} but found pre-mature end to the path ${path}"
@@ -22,8 +24,8 @@ object HttpCodecError {
   final case class MalformedPath(path: Path, segment: String, textCodec: TextCodec[_])  extends HttpCodecError {
     def message = "Malformed path segment \"" + segment + "\" of " + s"${path} failed to decode using $textCodec"
   }
-  final case class MalformedStatus(status: String, textCodec: TextCodec[_])             extends HttpCodecError {
-    def message = s"Malformed status $status failed to decode using $textCodec"
+  final case class MalformedStatus(expected: Status, actual: Status)                    extends HttpCodecError {
+    def message = s"Expected status code ${expected} but found ${actual}"
   }
   final case class MalformedHeader(headerName: String, textCodec: TextCodec[_])         extends HttpCodecError {
     def message = s"Malformed header $headerName failed to decode using $textCodec"

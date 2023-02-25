@@ -6,21 +6,21 @@ import zio.http.codec.HttpCodec._
 import zio.http.codec._
 
 private[http] final case class AtomizedCodecs(
-  method: Chunk[TextCodec[_]],
+  method: Chunk[SimpleCodec[zio.http.model.Method, _]],
   path: Chunk[TextCodec[_]],
   query: Chunk[Query[_]],
   header: Chunk[Header[_]],
-  body: Chunk[BodyCodec[_]],
-  status: Chunk[TextCodec[_]],
+  content: Chunk[BodyCodec[_]],
+  status: Chunk[SimpleCodec[zio.http.model.Status, _]],
 ) { self =>
   def append(atom: Atom[_, _]): AtomizedCodecs = atom match {
-    case path0: Path[_]         => self.copy(path = path :+ path0.textCodec)
-    case method0: Method[_]     => self.copy(method = method :+ method0.methodCodec)
-    case query0: Query[_]       => self.copy(query = query :+ query0)
-    case header0: Header[_]     => self.copy(header = header :+ header0)
-    case body0: Body[_]         => self.copy(body = body :+ BodyCodec.Single(body0.schema))
-    case status0: Status[_]     => self.copy(status = status :+ status0.textCodec)
-    case stream0: BodyStream[_] => self.copy(body = body :+ BodyCodec.Multiple(stream0.schema))
+    case path0: Path[_]            => self.copy(path = path :+ path0.textCodec)
+    case method0: Method[_]        => self.copy(method = method :+ method0.codec)
+    case query0: Query[_]          => self.copy(query = query :+ query0)
+    case header0: Header[_]        => self.copy(header = header :+ header0)
+    case content0: Content[_]      => self.copy(content = content :+ BodyCodec.Single(content0.schema))
+    case status0: Status[_]        => self.copy(status = status :+ status0.codec)
+    case stream0: ContentStream[_] => self.copy(content = content :+ BodyCodec.Multiple(stream0.schema))
   }
 
   def makeInputsBuilder(): Mechanic.InputsBuilder = {
@@ -30,7 +30,7 @@ private[http] final case class AtomizedCodecs(
       Array.ofDim(path.length),
       Array.ofDim(query.length),
       Array.ofDim(header.length),
-      Array.ofDim(body.length),
+      Array.ofDim(content.length),
     )
   }
 
@@ -40,7 +40,7 @@ private[http] final case class AtomizedCodecs(
       path.materialize,
       query.materialize,
       header.materialize,
-      body.materialize,
+      content.materialize,
       status.materialize,
     )
 }
