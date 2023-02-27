@@ -85,8 +85,10 @@ private[zio] trait Auth {
     verify: Headers => Boolean,
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  ): RequestHandlerMiddleware[Any, Nothing] =
+  ): RequestHandlerMiddleware.Mono[Any, Nothing] =
     new RequestHandlerMiddleware[Any, Nothing] {
+      type OutEnv[Env] = Env
+      type OutErr[Err] = Err
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
@@ -105,8 +107,10 @@ private[zio] trait Auth {
     verify: Headers => ZIO[R, E, Boolean],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  ): RequestHandlerMiddleware[R, E] =
+  ): RequestHandlerMiddleware.Mono[R, E] =
     new RequestHandlerMiddleware[R, E] {
+      type OutEnv[Env] = Env
+      type OutErr[Err] = Err
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =

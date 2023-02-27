@@ -37,6 +37,11 @@ object HandlerAspect {
       type OutEnv[Env] = OutEnv0[Env]
       type OutErr[Err] = OutErr0[Err]
     }
+  type Mono[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn, +BOut] =
+    HandlerAspect[LowerEnv, UpperEnv, LowerErr, UpperErr, AIn, AOut, BIn, BOut] {
+      type OutEnv[Env] = Env
+      type OutErr[Err] = Err
+    }
 
   def codec[BIn, AOut]: Codec[BIn, AOut] = new Codec[BIn, AOut](())
 
@@ -44,7 +49,7 @@ object HandlerAspect {
 
   def codecZIO[BIn, AOut]: CodecZIO[BIn, AOut] = new CodecZIO[BIn, AOut](())
 
-  def identity[AIn, AOut]: HandlerMiddleware[Nothing, Any, Nothing, Any, AIn, AOut, AIn, AOut] =
+  def identity[AIn, AOut]: HandlerMiddleware.Mono[Nothing, Any, Nothing, Any, AIn, AOut, AIn, AOut] =
     new HandlerMiddleware[Nothing, Any, Nothing, Any, AIn, AOut, AIn, AOut] {
       override type OutEnv[Env] = Env
       override type OutErr[Err] = Err
