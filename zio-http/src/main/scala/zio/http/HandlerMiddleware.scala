@@ -21,19 +21,16 @@ trait HandlerMiddleware[-RReq, -RProv, +Err, +AIn, -AOut, -BIn <: AIn, +BOut]
   ): HandlerMiddleware[RReq1, RProv1, Err1, AIn, AOut, BIn1, BOut1] =
     new HandlerMiddleware[RReq1, RProv1, Err1, AIn, AOut, BIn1, BOut1] {
 
-      override def applyMiddleware[R1 <: RReq1, RProv2 <: RProv1, Ctx >: RProv1, Err2 >: Err1, AIn0 <: AIn](
-        handler: Handler[R1, Ctx, Err2, AIn0, AOut],
-      )(implicit trace: Trace): AIn0 => ZIO[R1, Err2, (Handler[R1, Ctx, Err2, BIn1, BOut1], ZEnvironment[RProv2])] =
-        (in: AIn0) =>
-          self.applyMiddleware(handler).apply(in).flatMap { case (handler1, env1) =>
-            that.applyMiddleware(handler1).apply(in).map { case (handler2, env2) =>
-              (handler2, env1 ++ env2)
-            }
-          }
-
-      override def apply[R1 <: RReq1, Ctx, Err2 >: Err1](handler: Handler[R1, Ctx, Err2, AIn, AOut])(implicit
+      override def context[RReq2 <: RReq1, RProv2 <: RProv1, Err2 >: Err1, AIn2 >: AIn](in: AIn2)(implicit
         trace: Trace,
-      ): Handler[R1, Ctx, Err2, BIn1, BOut1] =
+      ): ZIO[RReq2, Err2, ZEnvironment[RProv2]] =
+        self
+          .context(in)
+          .flatMap(ctx1 => that.context(in).map(ctx2 => (ctx1 ++ ctx2).asInstanceOf[ZEnvironment[RProv2]]))
+
+      override def apply[RReq2 <: RReq1, Ctx, Err2 >: Err1](handler: Handler[RReq2, Ctx, Err2, AIn, AOut])(implicit
+        trace: Trace,
+      ): Handler[RReq2, Ctx, Err2, BIn1, BOut1] =
         that(self(handler))
     }
 
@@ -44,18 +41,16 @@ trait HandlerMiddleware[-RReq, -RProv, +Err, +AIn, -AOut, -BIn <: AIn, +BOut]
       case Http.Empty                                  => Http.empty
       case Http.Static(handler)                        => Http.Static(self(handler))
       case route: Http.Route[R1, Ctx, Err1, AIn, AOut] =>
-        Http.fromHttpZIO { (in: BIn) =>
-          route.run(in).map(http => self.apply(http))
+        Http.fromHttpZIOCtx[BIn, Ctx].apply[R1, Err1, BOut] { (in: BIn) =>
+          route.run(in).map { http: Http[R1, Ctx, Err1, AIn, AOut] =>
+            self.asInstanceOf[HandlerMiddleware[R1, Ctx, Err1, AIn, AOut, BIn, BOut]].apply(http)
+          }
         }
     }
 
-  def applyMiddlewareToHttp[R1 <: RReq, RProv1 <: RProv, Ctx >: RProv1, Err1 >: Err, AIn1 >: AIn](
-    http: Http[R1, Ctx, Err1, AIn1, AOut],
-  )(implicit trace: Trace): AIn1 => ZIO[R1, Err1, (Http[R1, Ctx, Err1, BIn, BOut], ZEnvironment[RProv1])]
-
-  def applyMiddleware[R1 <: RReq, RProv1 <: RProv, Ctx >: RProv1, Err1 >: Err, AIn1 >: AIn](
-    handler: Handler[R1, Ctx, Err1, AIn1, AOut],
-  )(implicit trace: Trace): AIn1 => ZIO[R1, Err1, (Handler[R1, Ctx, Err1, BIn, BOut], ZEnvironment[RProv1])]
+  def context[R1 <: RReq, RProv1 <: RProv, Err1 >: Err, AIn1 >: AIn](in: AIn1)(implicit
+    trace: Trace,
+  ): ZIO[R1, Err1, ZEnvironment[RProv1]]
 
   override def when[BIn1 <: BIn](
     condition: BIn1 => Boolean,
@@ -66,10 +61,10 @@ trait HandlerMiddleware[-RReq, -RProv, +Err, +AIn, -AOut, -BIn <: AIn, +BOut]
   ): HandlerMiddleware[RReq, Any, Err, AIn, AOut, BIn1, BOut] =
     new HandlerMiddleware[RReq, Any, Err, AIn, AOut, BIn1, BOut] {
 
-      override def applyMiddleware[R1 <: RReq, RProv1 <: Any, Ctx >: RProv1, Err1 >: Err, AIn1 >: AIn](
-        http: Http[R1, Ctx, Err1, AIn1, AOut],
-      )(implicit trace: Trace): AIn1 => ZIO[R1, Err1, (Http[R1, Ctx, Err1, BIn1, BOut], ZEnvironment[RProv1])] =
-        ??? // TODO
+      override def context[R1 <: RReq, RProv1 <: Any, Err1 >: Err, AIn1 >: AIn](in: AIn1)(implicit
+        trace: Trace,
+      ): ZIO[R1, Err1, ZEnvironment[RProv1]] =
+        ZIO.succeed(ZEnvironment.empty.asInstanceOf[ZEnvironment[RProv1]])
 
       override def apply[R1 <: RReq, Ctx <: RProv, Err1 >: Err](handler: Handler[R1, Ctx, Err1, AIn, AOut])(implicit
         trace: Trace,
@@ -89,10 +84,10 @@ trait HandlerMiddleware[-RReq, -RProv, +Err, +AIn, -AOut, -BIn <: AIn, +BOut]
   ): HandlerMiddleware[RReq1, Any, Err1, AIn, AOut, BIn1, BOut] =
     new HandlerMiddleware[RReq1, Any, Err1, AIn, AOut, BIn1, BOut] {
 
-      override def applyMiddleware[R1 <: RReq1, RProv1 <: Any, Ctx >: RProv1, Err2 >: Err1, AIn1 >: AIn](
-        handler: Handler[R1, Ctx, Err2, AIn1, AOut],
-      )(implicit trace: Trace): AIn1 => ZIO[R1, Err2, (Handler[R1, Ctx, Err2, BIn1, BOut], ZEnvironment[RProv1])] =
-        ??? // TODO
+      override def context[R1 <: RReq1, RProv1 <: Any, Err2 >: Err1, AIn1 >: AIn](in: AIn1)(implicit
+        trace: Trace,
+      ): ZIO[R1, Err2, ZEnvironment[RProv1]] =
+        ZIO.succeed(ZEnvironment.empty.asInstanceOf[ZEnvironment[RProv1]])
 
       override def apply[R2 <: RReq1, Ctx, Err2 >: Err1](handler: Handler[R2, Ctx, Err2, AIn, AOut])(implicit
         trace: Trace,

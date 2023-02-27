@@ -22,9 +22,8 @@ sealed trait Handler[-R, -Ctx, +Err, -In, +Out] { self =>
     middleware: HandlerMiddleware[R1, Ctx1, Err1, In1, Out1, In1, Out2],
   )(implicit trace: Trace): Handler[R1, Any, Err1, In1, Out2] =
     Handler.fromFunctionZIO { (in: In1) =>
-      middleware.applyMiddleware(self).apply(in).flatMap {
-        case (newHandler, ctx) =>
-          newHandler.provideContext(ctx).runZIO(in)
+      middleware.context(in).flatMap { ctx =>
+        middleware.apply(self).provideContext(ctx).runZIO(in)
       }
     }
 

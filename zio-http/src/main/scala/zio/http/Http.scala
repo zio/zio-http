@@ -1,8 +1,8 @@
 package zio.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
-import zio._
-import zio.http.Http.{Empty, Route}
+import zio.{ZIO, _}
+import zio.http.Http.{Empty, ProvideSomeEnvironment, ProvideSomeLayer, Route}
 import zio.http.model.{Headers, MediaType, Status}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
@@ -10,7 +10,6 @@ import zio.stream.ZStream
 import java.io.{File, FileNotFoundException}
 import java.nio.file.Paths
 import java.util.zip.ZipFile
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Http[-R, -Ctx, +Err, -In, +Out] { self =>
@@ -36,11 +35,11 @@ sealed trait Http[-R, -Ctx, +Err, -In, +Out] { self =>
     middleware: HandlerMiddleware[R1, Ctx1, Err1, In1, Out1, In1, Out2],
   )(implicit trace: Trace): Http[R1, Any, Err1, In1, Out2] =
     Http.fromHandlerZIO { (in: In1) =>
-      middleware.applyMiddlewareToHttp(self).apply(in).flatMap {
-        case (newHandler, ctx) =>
-          newHandler.provideContext(ctx).apply(in)
+      middleware.context(in).flatMap { ctx =>
+        middleware.apply(self).provideContext(ctx).runHandler(in)
       }
     }
+
   /**
    * Combines two Http into one.
    */
@@ -109,17 +108,29 @@ sealed trait Http[-R, -Ctx, +Err, -In, +Out] { self =>
         }
     }
 
-  /* TODO
+  final def provideContext[Ctx1 <: Ctx](
+    ctx: ZEnvironment[Ctx1],
+  )(implicit tagCtx: Tag[Ctx1], trace: Trace): Http[R, Any, Err, In, Out] =
+    self match {
+      case Http.Empty                         => Http.Empty
+      case Http.Static(handler)               => Http.Static(handler.provideContext(ctx))
+      case route: Route[R, Ctx, Err, In, Out] =>
+        new Route[R, Any, Err, In, Out] {
+          override def run(in: In): ZIO[R, Err, Http[R, Any, Err, In, Out]] =
+            route.run(in).fastMap(_.provideContext(ctx)).provideSomeEnvironment[R](_.union[Ctx1](ctx))
+        }
+    }
+
   /**
-   * Provides the environment to Http.
+   * Provides the environment to Handler.
    */
   final def provideEnvironment[R1 <: R](
     r: ZEnvironment[R1],
   )(implicit tagR: Tag[R1], trace: Trace): Http[Any, Ctx, Err, In, Out] =
     self match {
-      case Http.Empty                          => Http.Empty
-      case Http.Static(handler)                => Http.Static(handler.provideEnvironment(r))
-      case route: Route[R1, Ctx, Err, In, Out] =>
+      case Http.Empty                         => Http.Empty
+      case Http.Static(handler)               => Http.Static(handler.provideEnvironment(r))
+      case route: Route[R, Ctx, Err, In, Out] =>
         new Route[Any, Ctx, Err, In, Out] {
           override def run(in: In): ZIO[Ctx, Err, Http[Any, Ctx, Err, In, Out]] =
             route.run(in).fastMap(_.provideEnvironment(r)).provideSomeEnvironment[Ctx](_.union[R1](r))
@@ -127,52 +138,44 @@ sealed trait Http[-R, -Ctx, +Err, -In, +Out] { self =>
     }
 
   /**
-   * Provides layer to Http.
+   * Provides layer to Handler.
    */
   final def provideLayer[Err1 >: Err, R0, R1 <: R, Ctx1 <: Ctx](layer: ZLayer[R0, Err1, R1])(implicit
-    tagR: Tag[R1], tagCtx: Tag[Ctx1], trace: Trace,
-  ): Http[R0, Ctx, Err1, In, Out] =
+    tagR: Tag[R1],
+    tagCtx: Tag[Ctx1],
+    trace: Trace,
+  ): Http[R0, Ctx1, Err1, In, Out] =
     self match {
       case Http.Empty                         => Http.Empty
       case Http.Static(handler)               => Http.Static(handler.provideLayer(layer))
-      case route: Route[R, Ctx1, Err, In, Out] =>
+      case route: Route[R, Ctx, Err, In, Out] =>
         new Route[R0, Ctx1, Err1, In, Out] {
           override def run(in: In): ZIO[R0 with Ctx1, Err1, Http[R0, Ctx1, Err1, In, Out]] =
-            route.run(in).map(_.provideLayer(layer)).provideSomeLayer[R0 with Ctx1](layer)
+            ZIO.scoped[R0 with Ctx1] {
+              for {
+                env    <- layer.build
+                ctx    <- ZIO.environment[Ctx1]
+                result <- route
+                  .run(in)
+                  .fastMap(_.provideLayer(layer))
+                  .provideSomeEnvironment[R1](_.union[Ctx1](ctx))
+                  .provideSomeEnvironment[R0](_.union[R1](env))
+              } yield result
+            }
         }
     }
 
   /**
-   * Provides some of the environment to Http.
+   * Provides some of the environment to Handler.
    */
-  final def provideSomeEnvironment[R1](f: ZEnvironment[R1] => ZEnvironment[R])(implicit
-    trace: Trace,
-  ): Http[R1, Ctx, Err, In, Out] =
-    self match {
-      case Http.Empty                         => Http.Empty
-      case Http.Static(handler)               => Http.Static(handler.provideSomeEnvironment(f))
-      case route: Route[R, Ctx, Err, In, Out] =>
-        new Route[R1, Ctx, Err, In, Out] {
-          override def run(in: In): ZIO[R1 with Ctx, Err, Http[R1, Ctx, Err, In, Out]] =
-            route.run(in).fastMap(_.provideSomeEnvironment(f)).provideSomeEnvironment(f)
-        }
-    }
+  final def provideSomeEnvironment[R1]: ProvideSomeEnvironment[R, Ctx, Err, In, Out, R1] =
+    new ProvideSomeEnvironment[R, Ctx, Err, In, Out, R1](self)
 
   /**
-   * Provides some of the environment to Http leaving the remainder `R0`.
+   * Provides some of the environment to Handler leaving the remainder `R0`.
    */
-  final def provideSomeLayer[R0, R1: Tag, Err1 >: Err](
-    layer: ZLayer[R0, Err1, R1],
-  )(implicit ev: R0 with R1 <:< R, trace: Trace): Http[R0, Ctx, Err1, In, Out] =
-    self match {
-      case Http.Empty                         => Http.Empty
-      case Http.Static(handler)               => Http.Static(handler.provideSomeLayer(layer))
-      case route: Route[R, Ctx, Err, In, Out] =>
-        new Route[R0, Ctx, Err1, In, Out] {
-          override def run(in: In): ZIO[R0 with Ctx, Err1, Http[R0, Ctx, Err1, In, Out]] =
-            route.run(in).fastMap(_.provideSomeLayer(layer)).provideSomeLayer(layer)
-        }
-    }*/
+  final def provideSomeLayer[R0]: ProvideSomeLayer[R, Ctx, Err, In, Out, R0] =
+    new ProvideSomeLayer[R, Ctx, Err, In, Out, R0](self)
 
   final def runHandler(in: In)(implicit trace: Trace): ZIO[R with Ctx, Err, Option[Handler[R, Ctx, Err, In, Out]]] =
     self match {
@@ -389,6 +392,8 @@ object Http {
 
   def fromHttpZIO[In]: FromHttpZIO[In] = new FromHttpZIO[In](())
 
+  def fromHttpZIOCtx[In, Ctx]: FromHttpZIOCtx[In, Ctx] = new FromHttpZIOCtx[In, Ctx](()) // TODO: WithCtx API
+
   def fromOptionalHandler[In]: FromOptionalHandler[In] = new FromOptionalHandler[In](())
 
   def fromOptionalHandlerZIO[In]: FromOptionalHandlerZIO[In] = new FromOptionalHandlerZIO[In](())
@@ -530,12 +535,73 @@ object Http {
       }
   }
 
+  final class FromHttpZIOCtx[In, Ctx](val self: Unit) extends AnyVal {
+    def apply[R, Err, Out](f: In => ZIO[R with Ctx, Err, Http[R, Ctx, Err, In, Out]]): Http[R, Ctx, Err, In, Out] =
+      new Route[R, Ctx, Err, In, Out] {
+        override def run(in: In): ZIO[R with Ctx, Err, Http[R, Ctx, Err, In, Out]] =
+          f(in)
+      }
+  }
+
   implicit class HttpRouteSyntax[R, Ctx, Err](val self: HttpApp[R, Ctx, Err]) extends AnyVal {
     def whenPathEq(path: Path)(implicit trace: Trace): HttpApp[R, Ctx, Err] =
       self.when[Request](_.path == path)
 
     def whenPathEq(path: String)(implicit trace: Trace): HttpApp[R, Ctx, Err] =
       self.when[Request](_.path.encode == path)
+  }
+
+  final class ProvideSomeEnvironment[-R, -Ctx, +Err, -In, +Out, R1](self: Http[R, Ctx, Err, In, Out]) {
+    import zio.http.Handler.FastZIOSyntax
+
+    def apply[Ctx1 <: Ctx](
+      f: ZEnvironment[R1] => ZEnvironment[R],
+    )(implicit tagCtx: Tag[Ctx1], trace: Trace): Http[R1, Ctx1, Err, In, Out] =
+      self match {
+        case Http.Empty                         => Http.Empty
+        case Http.Static(handler)               => Http.Static(handler.provideSomeEnvironment(f))
+        case route: Route[R, Ctx, Err, In, Out] =>
+          new Route[R1, Ctx1, Err, In, Out] {
+            override def run(in: In): ZIO[R1 with Ctx1, Err, Http[R1, Ctx1, Err, In, Out]] =
+              ZIO.scoped[R1 with Ctx1] {
+                for {
+                  ctx    <- ZIO.environment[Ctx1]
+                  result <- route
+                    .run(in)
+                    .fastMap(_.provideSomeEnvironment(f))
+                    .provideSomeEnvironment[R](_.union[Ctx1](ctx))
+                    .provideSomeEnvironment[R1](f)
+                } yield result
+              }
+          }
+      }
+  }
+
+  final class ProvideSomeLayer[-R, -Ctx, +Err, -In, +Out, R0](self: Http[R, Ctx, Err, In, Out]) {
+    import zio.http.Handler.FastZIOSyntax
+
+    def apply[R1 <: R, Ctx1 <: Ctx, Err1 >: Err](
+      layer: ZLayer[R0, Err1, R1],
+    )(implicit tagCtx: Tag[Ctx1], tagR: Tag[R1], trace: Trace): Http[R0, Ctx1, Err1, In, Out] =
+      self match {
+        case Http.Empty                         => Http.Empty
+        case Http.Static(handler)               => Http.Static(handler.provideSomeLayer(layer))
+        case route: Route[R, Ctx, Err, In, Out] =>
+          new Route[R0, Ctx1, Err1, In, Out] {
+            override def run(in: In): ZIO[R0 with Ctx1, Err1, Http[R0, Ctx1, Err1, In, Out]] =
+              ZIO.scoped[R0 with Ctx1] {
+                for {
+                  env    <- layer.build
+                  ctx    <- ZIO.environment[Ctx1]
+                  result <- route
+                    .run(in)
+                    .fastMap(_.provideSomeLayer(layer))
+                    .provideSomeEnvironment[R1](_.union[Ctx1](ctx))
+                    .provideSomeEnvironment[R0](_.union[R1](env))
+                } yield result
+              }
+          }
+      }
   }
 
   final implicit class ResponseOutputSyntax[-R, -Ctx, +Err, -In](val self: Http[R, Ctx, Err, In, Response])

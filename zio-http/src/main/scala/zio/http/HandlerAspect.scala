@@ -13,10 +13,10 @@ trait HandlerAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
   ): HandlerMiddleware[R, Any, Err, AIn0, AOut, AIn0, BOut] =
     new HandlerMiddleware[R, Any, Err, AIn0, AOut, AIn0, BOut] {
 
-      override def applyMiddleware[R1 <: R, RProv1 <: Any, Ctx >: RProv1, Err1 >: Err, AIn1 >: AIn0](
-        handler: Handler[R1, Ctx, Err1, AIn1, AOut],
-      )(implicit trace: Trace): AIn1 => ZIO[R1, Err1, (Handler[R1, Ctx, Err1, AIn0, BOut], ZEnvironment[RProv1])] =
-        (_: AIn1) => ZIO.succeed((apply(handler), ZEnvironment.empty.asInstanceOf[ZEnvironment[RProv1]]))
+      override def context[R1 <: R, RProv1 <: Any, Err1 >: Err, AIn1 >: AIn0](in: AIn1)(implicit
+        trace: Trace,
+      ): ZIO[R1, Err1, ZEnvironment[RProv1]] =
+        ZIO.succeed(ZEnvironment.empty.asInstanceOf[ZEnvironment[RProv1]])
 
       override def apply[R1 <: R, Ctx, Err1 >: Err](handler: Handler[R1, Ctx, Err1, AIn0, AOut])(implicit
         trace: Trace,
@@ -63,6 +63,7 @@ object HandlerAspect {
       encoder: Handler[R, Ctx, Err, AOut, BOut],
     ): HandlerAspect[R, Err, AIn, AOut, BIn, BOut] =
       new HandlerAspect[R, Err, AIn, AOut, BIn, BOut] {
+
         override def apply[R1 <: R, Ctx1 <: Ctx, Err1 >: Err](
           handler: Handler[R1, Ctx1, Err1, AIn, AOut],
         )(implicit trace: Trace): Handler[R1, Ctx1, Err1, BIn, BOut] =
