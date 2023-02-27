@@ -52,16 +52,11 @@ final case class CliRoutes[A](commands: Chunk[Command[A]])
 GET    /users           cli get     users 1
 GET    /users/{id}      cli get     users 1
 DELETE /users/{id}      cli delete  users 1
-POST   /users           cli create  users 1
+POST   /users           cli create  users --email test@test.com --name Jorge
 PUT    /users/{id}      cli update  users 1
- */
 
-/*
 GET    /users?order=asc                   cli get     users --order asc
 GET    /users/{group}/{id}?order=desc     cli get     users --group 1 --id 100 --order desc
-DELETE /users/{group}/{id}                cli delete  users id
-POST   /users                             cli create  users --email test@test.com --name Jorge
-PUT    /users/{group}/{id}                cli update  users id
  */
 
 // final case class HeaderOutput()
