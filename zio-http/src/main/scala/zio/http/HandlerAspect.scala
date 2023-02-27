@@ -14,7 +14,7 @@ trait HandlerAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
     new HandlerMiddleware[R, Any, Err, AIn0, AOut, AIn0, BOut] {
 
       override def applyMiddleware[R1 <: R, RProv1 <: Any, Ctx >: RProv1, Err1 >: Err, AIn1 >: AIn0](
-        handler: Handler[R1, Ctx, Err1, AIn0, AOut],
+        handler: Handler[R1, Ctx, Err1, AIn1, AOut],
       )(implicit trace: Trace): AIn1 => ZIO[R1, Err1, (Handler[R1, Ctx, Err1, AIn0, BOut], ZEnvironment[RProv1])] =
         (_: AIn1) => ZIO.succeed((apply(handler), ZEnvironment.empty.asInstanceOf[ZEnvironment[RProv1]]))
 

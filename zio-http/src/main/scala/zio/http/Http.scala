@@ -35,8 +35,12 @@ sealed trait Http[-R, -Ctx, +Err, -In, +Out] { self =>
   final def @@[R1 <: R, Ctx1 <: Ctx, Err1 >: Err, In1 <: In, Out1 >: Out, Out2](
     middleware: HandlerMiddleware[R1, Ctx1, Err1, In1, Out1, In1, Out2],
   )(implicit trace: Trace): Http[R1, Any, Err1, In1, Out2] =
-    middleware(self)
-
+    Http.fromHandlerZIO { (in: In1) =>
+      middleware.applyMiddlewareToHttp(self).apply(in).flatMap {
+        case (newHandler, ctx) =>
+          newHandler.provideContext(ctx).apply(in)
+      }
+    }
   /**
    * Combines two Http into one.
    */

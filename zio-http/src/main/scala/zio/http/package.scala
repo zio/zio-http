@@ -5,7 +5,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
 
   type RequestHandler[-R, -Ctx, +Err]     = Handler[R, Ctx, Err, Request, Response]
-  type RequestHandlerMiddleware[-R, +Err] = HandlerMiddleware[R, Err, Request, Response, Request, Response]
+  type RequestHandlerMiddleware[-R, +Err] = HandlerMiddleware[R, Any, Err, Request, Response, Request, Response]
 
   type HttpApp[-R, -Ctx, +Err] = Http[R, Ctx, Err, Request, Response]
   type UHttpApp                = HttpApp[Any, Any, Nothing]
