@@ -1,19 +1,17 @@
 package zio.http.service
 
+import io.netty.handler.codec.PrematureChannelClosureException
+
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
-
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 import zio.{Chunk, Scope, ZIO, durationInt}
-
 import zio.stream.{ZPipeline, ZStream}
-
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zio.http.model._
-
 import io.netty.util.AsciiString
 
 object ServerSpec extends HttpRunnableSpec {
@@ -185,7 +183,15 @@ object ServerSpec extends HttpRunnableSpec {
               assertZIO(result.flatMap(_.body.asString))(not(equalTo(body)))
             }
           }
-      },
+      } +
+      suite("interruption")(
+        test("interrupt closes the channel without response") {
+          val app = Http.collectZIO[Request] { case req =>
+            ZIO.interrupt.as(Response.text("not interrupted"))
+          }
+          assertZIO(app.deploy.run().exit)(failsWithA[PrematureChannelClosureException])
+        },
+      ),
   )
 
   def requestSpec = suite("RequestSpec") {
