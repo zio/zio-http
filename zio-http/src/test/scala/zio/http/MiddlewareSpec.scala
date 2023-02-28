@@ -1,8 +1,8 @@
 package zio.http
 
 import java.io.IOException
-
 import zio._
+import zio.http.HandlerMiddleware.WithOut
 import zio.test.Assertion._
 import zio.test._
 
@@ -28,18 +28,19 @@ object MiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
         assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
       },
       test("runBefore and runAfter") {
-        val mid: RequestHandlerMiddleware[Any, IOException] =
+        val mid: RequestHandlerMiddleware.Mono[Any, IOException] =
           Middleware.runBefore(Console.printLine("A")) ++ Middleware.runAfter(Console.printLine("C"))
         val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("B").as(Response.ok)) @@ mid
         assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n", "C\n")))
       },
       suite("when") {
-        val mid = Middleware
-          .transform[Int, Int](
-            in = _ + 1,
-            out = _ + 1,
-          )
-          .toMiddleware
+        val mid: Middleware.Mono[Nothing, Any, Nothing, Any, RuntimeFlags, RuntimeFlags, RuntimeFlags, RuntimeFlags] =
+          Middleware
+            .transform[Int, Int](
+              in = _ + 1,
+              out = _ + 1,
+            )
+            .toMiddleware
 
         test("condition is true") {
           val app = Handler.identity[Int] @@ mid.when((_: Any) => true)

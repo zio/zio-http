@@ -20,18 +20,18 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Sets cookie in response headers
    */
-  final def addCookie(cookie: Cookie[Response]): RequestHandlerMiddleware[Any, Nothing] =
+  final def addCookie(cookie: Cookie[Response]): RequestHandlerMiddleware.Mono[Any, Nothing] =
     withSetCookie(cookie)
 
   final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]])(implicit
     trace: Trace,
-  ): RequestHandlerMiddleware[R, E] =
+  ): RequestHandlerMiddleware.Mono[R, E] =
     updateResponseZIO(response => cookie.map(response.addCookie))
 
   /**
    * Beautify the error response.
    */
-  final def beautifyErrors: RequestHandlerMiddleware[Any, Nothing] =
+  final def beautifyErrors: RequestHandlerMiddleware.Mono[Any, Nothing] =
     intercept(replaceErrorResponse)
 
   /**
@@ -54,7 +54,9 @@ private[zio] trait RequestHandlerMiddlewares
         }
     }
 
-  final def intercept(fromRequestAndResponse: (Request, Response) => Response): RequestHandlerMiddleware.Mono[Any, Nothing] =
+  final def intercept(
+    fromRequestAndResponse: (Request, Response) => Response,
+  ): RequestHandlerMiddleware.Mono[Any, Nothing] =
     new RequestHandlerMiddleware[Any, Nothing] {
       type OutEnv[Env] = Env
       type OutErr[Err] = Err
@@ -71,7 +73,10 @@ private[zio] trait RequestHandlerMiddlewares
    */
   final def ifHeaderThenElse[R, E, OutEnv0[_], OutErr0[_]](
     condition: Headers => Boolean,
-  )(ifTrue: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0], ifFalse: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0]): RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0] =
+  )(
+    ifTrue: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0],
+    ifFalse: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0],
+  ): RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0] =
     ifRequestThenElse(request => condition(request.headers))(ifTrue, ifFalse)
 
   /**
@@ -79,7 +84,10 @@ private[zio] trait RequestHandlerMiddlewares
    */
   final def ifMethodThenElse[R, E, OutEnv0[_], OutErr0[_]](
     condition: Method => Boolean,
-  )(ifTrue: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0], ifFalse: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0]): RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0] =
+  )(
+    ifTrue: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0],
+    ifFalse: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0],
+  ): RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0] =
     ifRequestThenElse(request => condition(request.method))(ifTrue, ifFalse)
 
   /**
@@ -88,7 +96,10 @@ private[zio] trait RequestHandlerMiddlewares
    */
   final def ifRequestThenElse[R, E, OutEnv0[_], OutErr0[_]](
     condition: Request => Boolean,
-  )(ifTrue: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0], ifFalse: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0]): RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0] =
+  )(
+    ifTrue: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0],
+    ifFalse: RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0],
+  ): RequestHandlerMiddleware.WithOut[R, E, OutEnv0, OutErr0] =
     new RequestHandlerMiddleware[R, E] {
       override type OutEnv[Env] = OutEnv0[Env]
       override type OutErr[Err] = OutErr0[Err]
@@ -125,7 +136,10 @@ private[zio] trait RequestHandlerMiddlewares
    */
   final def ifRequestThenElseZIO[R, E](
     condition: Request => ZIO[R, E, Boolean],
-  )(ifTrue: RequestHandlerMiddleware.Mono[R, E], ifFalse: RequestHandlerMiddleware.Mono[R, E]): RequestHandlerMiddleware.Mono[R, E] =
+  )(
+    ifTrue: RequestHandlerMiddleware.Mono[R, E],
+    ifFalse: RequestHandlerMiddleware.Mono[R, E],
+  ): RequestHandlerMiddleware.Mono[R, E] =
     new RequestHandlerMiddleware[R, E] {
       override type OutEnv[Env] = Env
       override type OutErr[Err] = Err
@@ -186,7 +200,7 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Creates a middleware that produces a Patch for the Response effectfully.
    */
-  final def patchZIO[R, E](f: Response => ZIO[R, E, Patch]): RequestHandlerMiddleware[R, E] =
+  final def patchZIO[R, E](f: Response => ZIO[R, E, Patch]): RequestHandlerMiddleware.Mono[R, E] =
     interceptPatchZIO(_ => ZIO.unit)((response, _) => f(response))
 
   /**
@@ -198,7 +212,9 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Permanent redirect if the trailing slash is present in the request URL.
    */
-  final def redirectTrailingSlash(isPermanent: Boolean)(implicit trace: Trace): RequestHandlerMiddleware[Any, Nothing] =
+  final def redirectTrailingSlash(
+    isPermanent: Boolean,
+  )(implicit trace: Trace): RequestHandlerMiddleware.Mono[Any, Nothing] =
     ifRequestThenElseFunction(request => request.url.path.trailingSlash && request.url.queryParams.isEmpty)(
       ifFalse = _ => HandlerAspect.identity,
       ifTrue = request => redirect(request.dropTrailingSlash.url, isPermanent),
@@ -217,7 +233,7 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Runs the effect after the middleware is applied
    */
-  final def runAfter[R, E](effect: ZIO[R, E, Any])(implicit trace: Trace): RequestHandlerMiddleware[R, E] =
+  final def runAfter[R, E](effect: ZIO[R, E, Any])(implicit trace: Trace): RequestHandlerMiddleware.Mono[R, E] =
     updateResponseZIO(response => effect.as(response))
 
   /**

@@ -13,7 +13,7 @@ private[zio] trait Auth {
   /**
    * Creates a middleware for basic authentication
    */
-  final def basicAuth(f: Credentials => Boolean): RequestHandlerMiddleware[Any, Nothing] =
+  final def basicAuth(f: Credentials => Boolean): RequestHandlerMiddleware.Mono[Any, Nothing] =
     customAuth(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -26,7 +26,7 @@ private[zio] trait Auth {
    * Creates a middleware for basic authentication that checks if the
    * credentials are same as the ones given
    */
-  final def basicAuth(u: String, p: String): RequestHandlerMiddleware[Any, Nothing] =
+  final def basicAuth(u: String, p: String): RequestHandlerMiddleware.Mono[Any, Nothing] =
     basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
 
   /**
@@ -35,7 +35,7 @@ private[zio] trait Auth {
    */
   final def basicAuthZIO[R, E](f: Credentials => ZIO[R, E, Boolean])(implicit
     trace: Trace,
-  ): RequestHandlerMiddleware[R, E] =
+  ): RequestHandlerMiddleware.Mono[R, E] =
     customAuthZIO(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -50,7 +50,7 @@ private[zio] trait Auth {
    * @param f:
    *   function that validates the token string inside the Bearer Header
    */
-  final def bearerAuth(f: String => Boolean): RequestHandlerMiddleware[Any, Nothing] =
+  final def bearerAuth(f: String => Boolean): RequestHandlerMiddleware.Mono[Any, Nothing] =
     customAuth(
       _.bearerToken match {
         case Some(token) => f(token)
@@ -68,7 +68,7 @@ private[zio] trait Auth {
    */
   final def bearerAuthZIO[R, E](
     f: String => ZIO[R, E, Boolean],
-  )(implicit trace: Trace): RequestHandlerMiddleware[R, E] =
+  )(implicit trace: Trace): RequestHandlerMiddleware.Mono[R, E] =
     customAuthZIO(
       _.bearerToken match {
         case Some(token) => f(token)

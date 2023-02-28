@@ -37,7 +37,7 @@ object HandlerAspect {
       type OutEnv[Env] = OutEnv0[Env]
       type OutErr[Err] = OutErr0[Err]
     }
-  type Mono[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn, +BOut] =
+  type Mono[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn, +BOut]                            =
     HandlerAspect[LowerEnv, UpperEnv, LowerErr, UpperErr, AIn, AOut, BIn, BOut] {
       type OutEnv[Env] = Env
       type OutErr[Err] = Err
@@ -84,7 +84,7 @@ object HandlerAspect {
     def apply[R, Err, AIn, BOut](
       decoder: Handler[R, Err, BIn, AIn],
       encoder: Handler[R, Err, AOut, BOut],
-    ): HandlerAspect[Nothing, R, Err, Any, AIn, AOut, BIn, BOut] =
+    ): HandlerAspect.Mono[Nothing, R, Err, Any, AIn, AOut, BIn, BOut] =
       new HandlerAspect[Nothing, R, Err, Any, AIn, AOut, BIn, BOut] {
         override type OutEnv[Env1] = Env1
         override type OutErr[Err1] = Err1
@@ -100,7 +100,7 @@ object HandlerAspect {
     def apply[R, Err, AIn, BOut](
       decoder: BIn => ZIO[R, Err, AIn],
       encoder: AOut => ZIO[R, Err, BOut],
-    ): HandlerAspect[Nothing, R, Err, Any, AIn, AOut, BIn, BOut] =
+    ): HandlerAspect.Mono[Nothing, R, Err, Any, AIn, AOut, BIn, BOut] =
       new HandlerAspect[Nothing, R, Err, Any, AIn, AOut, BIn, BOut] {
         override type OutEnv[Env1] = Env1
         override type OutErr[Err1] = Err1
@@ -118,7 +118,7 @@ object HandlerAspect {
     def apply[AIn, BOut](
       in: BIn => AIn,
       out: AOut => BOut,
-    ): HandlerAspect[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut] =
+    ): HandlerAspect.Mono[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut] =
       new HandlerAspect[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut] {
         override type OutEnv[Env] = Env
         override type OutErr[Err] = Err

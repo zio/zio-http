@@ -98,8 +98,10 @@ trait HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut,
         Http.fromHttpZIO { (in: BIn) =>
           route
             .run(in)
-            .map { (http: Http[Env, Err, AIn, AOut]) => (http @@ self) }
-            .asInstanceOf[ZIO[OutEnv[Env], OutErr[Err], Http[OutEnv[Env], OutErr[Err], BIn, BOut]]] // TODO: can we avoid this?
+            .map { (http: Http[Env, Err, AIn, AOut]) => http @@ self }
+            .asInstanceOf[ZIO[OutEnv[Env], OutErr[Err], Http[OutEnv[Env], OutErr[
+              Err,
+            ], BIn, BOut]]] // TODO: can we avoid this?
         }
     }
 
@@ -152,7 +154,7 @@ object HandlerMiddleware {
       type OutEnv[Env] = OutEnv0[Env]
       type OutErr[Err] = OutErr0[Err]
     }
-  type Mono[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn <: AIn, +BOut] =
+  type Mono[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, +AIn, -AOut, -BIn <: AIn, +BOut]                            =
     HandlerMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr, AIn, AOut, BIn, BOut] {
       type OutEnv[Env] = Env
       type OutErr[Err] = Err
