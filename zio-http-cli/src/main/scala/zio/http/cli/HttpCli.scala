@@ -49,17 +49,14 @@ object CliEndpoint                                                              
 final case class CliRoutes[A](commands: Chunk[Command[A]])
 
 /*
-GET    /users           cli get     users 1
-GET    /users/{id}      cli get     users 1
-DELETE /users/{id}      cli delete  users 1
-POST   /users           cli create  users --email test@test.com --name Jorge
-PUT    /users/{id}      cli update  users 1
+GET    /users                               cli get     users --id 1                                     Command[Long]
+GET    /users/{id}                          cli get     users --id 1                                     Command[Long]
+DELETE /users/{id}                          cli delete  users --id 1                                     Command[Long]
+POST   /users                               cli create  users --email test@test.com --name Jorge         Command[(String, String)]
+PUT    /users/{id}                          cli update  users --id 1                                     Command[Long]
+GET    /users?order=asc                     cli get     users --order asc                                Command[String]
+GET    /users/{group}/{id}?order=desc       cli get     users --group 1 --id 100 --order desc            Command[(Long, Long, String)]
 
-GET    /users?order=asc                   cli get     users --order asc
-GET    /users/{group}/{id}?order=desc     cli get     users --group 1 --id 100 --order desc
+Problem: How to unify all subcommands under a common parent type?
+Command#subcommands requires that all subcommands have the same type
  */
-
-// final case class HeaderOutput()
-// final case class ContentOutput()
-
-// final case class EndpointOutput(headerOutputs: Chunk[HeaderOutput], contentOutput: ContentOutput)
