@@ -189,9 +189,9 @@ object ServerSpec extends HttpRunnableSpec {
       } +
       suite("interruption")(
         test("interrupt closes the channel without response") {
-          val app = Http.collectZIO[Request] { _ =>
+          val app = Handler.fromZIO {
             ZIO.interrupt.as(Response.text("not interrupted"))
-          }
+          }.toHttp
           assertZIO(app.deploy.run().exit)(failsWithA[PrematureChannelClosureException])
         },
       ),
