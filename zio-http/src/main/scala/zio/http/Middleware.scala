@@ -110,13 +110,15 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
       }
   }
 
-  implicit class MonoMethods[R, Err, AIn, AOut, BIn, BOut](
+  // TODO: if we have this, it gets picked up instead of HandlerMiddleware.MonoMethods
+  /*
+  implicit final class MonoMethods[R, Err, AIn, AOut, BIn, BOut](
     val self: Middleware.Mono[Nothing, R, Err, Any, AIn, AOut, BIn, BOut],
-  ) {
+  ) extends AnyVal {
 
     /**
-     * Applies Middleware based only if the condition function evaluates to true
-     */
+   * Applies Middleware based only if the condition function evaluates to true
+   */
     def when[BIn1 <: BIn](
       condition: BIn1 => Boolean,
     )(implicit
@@ -134,9 +136,9 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
       }
 
     /**
-     * Applies Middleware based only if the condition effectful function
-     * evaluates to true
-     */
+   * Applies Middleware based only if the condition effectful function
+   * evaluates to true
+   */
     def whenZIO[R1 <: R, Err1 >: Err, BIn1 <: BIn](
       condition: BIn1 => ZIO[R1, Err1, Boolean],
     )(implicit
@@ -153,4 +155,5 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
           http.whenZIO(condition).asInstanceOf[Http[OutEnv[Env2], OutErr[Err2], BIn1, BOut]]
       }
   }
+   */
 }

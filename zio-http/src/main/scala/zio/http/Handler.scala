@@ -91,7 +91,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    */
   final def \/[R1 <: R, Err1 >: Err, In1, Out1](
     that: Handler[R1, Err1, In1, Out1],
-  )(implicit trace: Trace): HandlerAspect.Mono[Nothing, R1, Err1, Nothing, Out, In1, In, Out1] =
+  )(implicit trace: Trace): HandlerAspect.Mono[Nothing, R1, Err1, Any, Out, In1, In, Out1] =
     self.codecMiddleware(that)
 
   /**
@@ -191,7 +191,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    */
   final def codecMiddleware[R1 <: R, Err1 >: Err, In1, Out1](
     that: Handler[R1, Err1, In1, Out1],
-  )(implicit trace: Trace): HandlerAspect.Mono[Nothing, R1, Err1, Nothing, Out, In1, In, Out1] =
+  )(implicit trace: Trace): HandlerAspect.Mono[Nothing, R1, Err1, Any, Out, In1, In, Out1] =
     HandlerAspect.codecHttp(self, that)
 
   /**

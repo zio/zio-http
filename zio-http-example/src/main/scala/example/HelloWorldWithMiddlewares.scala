@@ -23,7 +23,7 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
       withHeader = Patch.addHeader("X-Time", currentMilliseconds.toString)
     } yield withHeader,
   )
-  val middlewares: RequestHandlerMiddleware.Mono[Any, IOException] =
+  val middlewares =
     // print debug info about request and response
     Middleware.debug ++
       // close connection if request takes more than 3 seconds

@@ -194,7 +194,7 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Creates a middleware that produces a Patch for the Response
    */
-  final def patch(f: Response => Patch): RequestHandlerMiddleware[Any, Nothing] =
+  final def patch(f: Response => Patch): RequestHandlerMiddleware.Mono[Any, Nothing] =
     interceptPatch(_ => ())((response, _) => f(response))
 
   /**
@@ -254,13 +254,13 @@ private[zio] trait RequestHandlerMiddlewares
    * Creates a new middleware that always sets the response status to the
    * provided value
    */
-  final def setStatus(status: Status): RequestHandlerMiddleware[Any, Nothing] =
+  final def setStatus(status: Status): RequestHandlerMiddleware.Mono[Any, Nothing] =
     patch(_ => Patch.setStatus(status))
 
   /**
    * Creates a middleware for signing cookies
    */
-  final def signCookies(secret: String): RequestHandlerMiddleware[Any, Nothing] =
+  final def signCookies(secret: String): RequestHandlerMiddleware.Mono[Any, Nothing] =
     updateHeaders {
       case h if h.header(HeaderNames.setCookie).isDefined =>
         Cookie

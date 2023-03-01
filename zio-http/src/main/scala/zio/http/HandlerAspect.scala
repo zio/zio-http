@@ -66,7 +66,7 @@ object HandlerAspect {
     def apply[Err, AIn, BOut](
       decoder: BIn => Either[Err, AIn],
       encoder: AOut => Either[Err, BOut],
-    ): HandlerAspect[Nothing, Any, Err, Any, AIn, AOut, BIn, BOut] =
+    ): HandlerAspect.Mono[Nothing, Any, Err, Any, AIn, AOut, BIn, BOut] =
       new HandlerAspect[Nothing, Any, Err, Any, AIn, AOut, BIn, BOut] {
         override type OutEnv[Env]  = Env
         override type OutErr[Err1] = Err1
