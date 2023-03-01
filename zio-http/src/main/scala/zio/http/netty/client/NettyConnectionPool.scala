@@ -13,10 +13,8 @@ import io.netty.handler.proxy.HttpProxyHandler
 import zio._
 import zio.http.URL.Location
 import zio.http._
-import zio.http.logging.LogLevel
 import zio.http.netty.NettyFutureExecutor
 import zio.http.service._
-import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 import java.net.InetSocketAddress
@@ -24,7 +22,6 @@ import java.net.InetSocketAddress
 trait NettyConnectionPool extends ConnectionPool[JChannel]
 
 object NettyConnectionPool {
-  private val log = Log.withTags("Client", "Channel")
 
   protected def createChannel(
     channelFactory: JChannelFactory[JChannel],
@@ -39,12 +36,6 @@ object NettyConnectionPool {
     val initializer = new ChannelInitializer[JChannel] {
       override def initChannel(ch: JChannel): Unit = {
         val pipeline = ch.pipeline()
-
-        if (EnableNettyLogging) {
-          import io.netty.util.internal.logging.InternalLoggerFactory
-          InternalLoggerFactory.setDefaultFactory(zio.http.service.logging.NettyLoggerFactory(log))
-          pipeline.addLast(LOW_LEVEL_LOGGING, new LoggingHandler(LogLevel.Debug.toNettyLogLevel))
-        }
 
         proxy match {
           case Some(proxy) =>

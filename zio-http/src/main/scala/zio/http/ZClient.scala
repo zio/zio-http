@@ -751,7 +751,4 @@ object ZClient {
   val scalaVersion: CharSequence   = util.Properties.versionString
   val userAgentValue: CharSequence = s"Zio-Http-Client ${zioHttpVersionNormalized} Scala $scalaVersion"
   val defaultUAHeader: Headers     = Headers(HeaderNames.userAgent, userAgentValue)
-
-  private[zio] val log = Log.withTags("Client")
-
 }
