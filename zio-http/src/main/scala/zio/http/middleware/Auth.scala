@@ -5,7 +5,7 @@ import zio.http._
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http.model.{Headers, Status}
-import zio.{Trace, ZIO}
+import zio.{Tag, Trace, ZEnvironment, ZIO}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait Auth {
@@ -95,6 +95,42 @@ private[zio] trait Auth {
         Handler.fromFunctionHandler[Request] { request =>
           if (verify(request.headers)) handler
           else Handler.status(responseStatus).addHeaders(responseHeaders)
+        }
+    }
+
+  /**
+   * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app, and provides a context to the request
+   * handlers.
+   */
+  final def customAuthProviding[R0, Context: Tag](
+    provide: Headers => Option[Context],
+    responseHeaders: Headers = Headers.empty,
+    responseStatus: Status = Status.Unauthorized,
+  ): HandlerMiddleware.WithOut[
+    R0 with Context,
+    Any,
+    Any,
+    Nothing,
+    Request,
+    Response,
+    Request,
+    Response,
+    ({ type OutEnv[Env] = R0 })#OutEnv,
+    ({ type OutErr[Err] = Err })#OutErr,
+  ] =
+    new HandlerMiddleware[R0 with Context, Any, Any, Nothing, Request, Response, Request, Response] {
+      type OutEnv[Env] = R0
+      type OutErr[Err] = Err
+
+      override def apply[R1 >: R0 with Context <: Any, Err1 >: Nothing](
+        handler: Handler[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Handler[R0, Err1, Request, Response] =
+        Handler.fromFunctionHandler[Request] { request =>
+          provide(request.headers) match {
+            case Some(context) => handler.provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context)))
+            case None          => Handler.status(responseStatus).addHeaders(responseHeaders)
+          }
         }
     }
 

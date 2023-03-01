@@ -123,5 +123,39 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         )
       },
     ),
+    suite("custom")(
+      test("Providing context from auth middleware") {
+        def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((headers: Headers) =>
+          headers.get("Authorization").map(AuthContext),
+        )
+
+        val app1 = Handler.text("ok") @@ auth[Any]
+        val app2 = Handler.fromZIO {
+          for {
+            base <- ZIO.service[BaseService]
+            auth <- ZIO.service[AuthContext]
+          } yield Response.text(s"${base.value} ${auth.value}")
+        } @@ auth[BaseService]
+
+        for {
+          r1     <- app1.runZIO(Request.get(URL.empty))
+          r2     <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("auth")))
+          r2body <- r2.body.asString
+          r3     <- app2.runZIO(Request.get(URL.empty))
+          r4     <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("auth")))
+          r4body <- r4.body.asString
+        } yield assertTrue(
+          r1.status == Status.Unauthorized,
+          r2.status == Status.Ok,
+          r2body == "ok",
+          r3.status == Status.Unauthorized,
+          r4.status == Status.Ok,
+          r4body == "base auth",
+        )
+      },
+    ),
   )
+
+  final case class BaseService(value: String)
+  final case class AuthContext(value: String)
 }
