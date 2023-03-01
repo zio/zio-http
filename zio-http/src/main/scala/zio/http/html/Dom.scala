@@ -1,8 +1,6 @@
 package zio.http.html
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import scala.collection.immutable.{AbstractSeq, LinearSeq} // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Light weight DOM implementation that can be rendered as a html string.
