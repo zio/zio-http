@@ -2,23 +2,19 @@ package zio.http.netty.server
 
 import java.io.IOException
 import java.net.InetSocketAddress
-
 import scala.annotation.tailrec
-
 import zio._
-
 import zio.http._
 import zio.http.logging.Logger
 import zio.http.model._
 import zio.http.netty._
 import zio.http.netty.server.ServerInboundHandler.isReadKey
-import zio.http.service.ServerTime
-
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import io.netty.util.AttributeKey
+import zio.http.netty.model.Conversions
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -26,7 +22,7 @@ private[zio] final case class ServerInboundHandler(
   config: ServerConfig,
   errCallbackRef: ErrorCallbackRef,
   runtime: NettyRuntime,
-  time: service.ServerTime,
+  time: ServerTime,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
   import ServerInboundHandler.log
@@ -128,7 +124,7 @@ private[zio] final case class ServerInboundHandler(
   private def attemptFastWrite(
     ctx: ChannelHandlerContext,
     response: Response,
-    time: service.ServerTime,
+    time: ServerTime,
   ): Boolean = {
 
     response.body match {
@@ -154,7 +150,7 @@ private[zio] final case class ServerInboundHandler(
     ctx: ChannelHandlerContext,
     response: Response,
     jRequest: HttpRequest,
-    time: service.ServerTime,
+    time: ServerTime,
     runtime: NettyRuntime,
   ): Task[Unit] = {
 
@@ -184,7 +180,7 @@ private[zio] final case class ServerInboundHandler(
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
     exit: ZIO[Any, Response, Response],
-    time: service.ServerTime,
+    time: ServerTime,
   ): Boolean = {
     exit match {
       case Exit.Success(response) if response ne null =>
@@ -210,8 +206,8 @@ private[zio] final case class ServerInboundHandler(
       case nettyReq: FullHttpRequest =>
         Request(
           Body.fromByteBuf(nettyReq.content()),
-          Headers.make(nettyReq.headers()),
-          Method.fromHttpMethod(nettyReq.method()),
+          Conversions.headersFromNetty(nettyReq.headers()),
+          Conversions.methodFromNetty(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
           remoteAddress,
@@ -223,8 +219,8 @@ private[zio] final case class ServerInboundHandler(
 
         Request(
           body,
-          Headers.make(nettyReq.headers()),
-          Method.fromHttpMethod(nettyReq.method()),
+          Conversions.headersFromNetty(nettyReq.headers()),
+          Conversions.methodFromNetty(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
           remoteAddress,
@@ -233,7 +229,7 @@ private[zio] final case class ServerInboundHandler(
 
   }
 
-  private def setServerTime(time: service.ServerTime, response: Response, jResponse: HttpResponse): Unit = {
+  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
     val _ =
       if (response.serverTime)
         jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
@@ -346,7 +342,7 @@ object ServerInboundHandler {
         errCallback <- ZIO.service[ErrorCallbackRef]
         rtm         <- ZIO.service[NettyRuntime]
         config      <- ZIO.service[ServerConfig]
-        time        <- ZIO.service[service.ServerTime]
+        time        <- ZIO.service[ServerTime]
 
       } yield ServerInboundHandler(appRef, config, errCallback, rtm, time)
     }

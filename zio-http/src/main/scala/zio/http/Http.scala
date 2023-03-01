@@ -1,16 +1,14 @@
 package zio.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zio._
 import zio.http.Http.{Empty, Route}
-import zio.http.model.{Headers, MediaType, Status}
+import zio.http.model.{HeaderNames, Headers, MediaType, Status}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
 import java.io.{File, FileNotFoundException}
 import java.nio.file.Paths
 import java.util.zip.ZipFile
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Http[-R, +Err, -In, +Out] { self =>
@@ -532,7 +530,7 @@ object Http {
       self.map(_.contentLength)
 
     def contentType(implicit trace: Trace): Http[R, Err, In, Option[String]] =
-      headerValue(HttpHeaderNames.CONTENT_TYPE)
+      headerValue(HeaderNames.contentType)
 
     def headers(implicit trace: Trace): Http[R, Err, In, Headers] =
       self.map(_.headers)

@@ -1,12 +1,10 @@
 package zio.http.middleware
 
-import io.netty.handler.codec.http.HttpHeaderValues
 import zio.http.html._
-import zio.http.model.{HeaderNames, Headers}
+import zio.http.model.{HeaderNames, HeaderValues, Headers}
 import zio.http.{Body, Request, Response, model}
 
 import java.io.{PrintWriter, StringWriter}
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait HtmlErrorResponses {
@@ -37,7 +35,7 @@ private[zio] trait HtmlErrorResponses {
 
     if (response.status.isError) {
       request.accept match {
-        case Some(value) if value.toString.contains(HttpHeaderValues.TEXT_HTML) =>
+        case Some(value) if value.toString.contains(HeaderValues.textHtml) =>
           response.copy(
             body = htmlResponse,
             headers = Headers(HeaderNames.contentType, model.HeaderValues.textHtml),
@@ -70,6 +68,6 @@ private[zio] trait HtmlErrorResponses {
     val status               = response.status.code
     s"${scala.Console.BOLD}${scala.Console.RED}${response.status} ${scala.Console.RESET} - " +
       s"${scala.Console.BOLD}${scala.Console.CYAN}$status ${scala.Console.RESET} - " +
-      s"${errorMessage}\n${formatCause(response)}"
+      s"$errorMessage\n${formatCause(response)}"
   }
 }

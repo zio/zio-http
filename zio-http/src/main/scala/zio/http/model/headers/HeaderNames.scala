@@ -9,80 +9,80 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  * one needs to send them over the wire.
  */
 trait HeaderNames {
-  final val accept: CharSequence                        = HttpHeaderNames.ACCEPT
-  final val acceptEncoding: CharSequence                = HttpHeaderNames.ACCEPT_ENCODING
-  final val acceptLanguage: CharSequence                = HttpHeaderNames.ACCEPT_LANGUAGE
-  final val acceptRanges: CharSequence                  = HttpHeaderNames.ACCEPT_RANGES
-  final val acceptPatch: CharSequence                   = HttpHeaderNames.ACCEPT_PATCH
-  final val accessControlAllowCredentials: CharSequence = HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS
-  final val accessControlAllowHeaders: CharSequence     = HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS
-  final val accessControlAllowMethods: CharSequence     = HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS
-  final val accessControlAllowOrigin: CharSequence      = HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN
-  final val accessControlExposeHeaders: CharSequence    = HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS
-  final val accessControlMaxAge: CharSequence           = HttpHeaderNames.ACCESS_CONTROL_MAX_AGE
-  final val accessControlRequestHeaders: CharSequence   = HttpHeaderNames.ACCESS_CONTROL_REQUEST_HEADERS
-  final val accessControlRequestMethod: CharSequence    = HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD
-  final val age: CharSequence                           = HttpHeaderNames.AGE
-  final val allow: CharSequence                         = HttpHeaderNames.ALLOW
-  final val authorization: CharSequence                 = HttpHeaderNames.AUTHORIZATION
-  final val cacheControl: CharSequence                  = HttpHeaderNames.CACHE_CONTROL
-  final val connection: CharSequence                    = HttpHeaderNames.CONNECTION
-  final val contentBase: CharSequence                   = HttpHeaderNames.CONTENT_BASE
-  final val contentEncoding: CharSequence               = HttpHeaderNames.CONTENT_ENCODING
-  final val contentLanguage: CharSequence               = HttpHeaderNames.CONTENT_LANGUAGE
-  final val contentLength: CharSequence                 = HttpHeaderNames.CONTENT_LENGTH
-  final val contentLocation: CharSequence               = HttpHeaderNames.CONTENT_LOCATION
-  final val contentTransferEncoding: CharSequence       = HttpHeaderNames.CONTENT_TRANSFER_ENCODING
-  final val contentDisposition: CharSequence            = HttpHeaderNames.CONTENT_DISPOSITION
-  final val contentMd5: CharSequence                    = HttpHeaderNames.CONTENT_MD5
-  final val contentRange: CharSequence                  = HttpHeaderNames.CONTENT_RANGE
-  final val contentSecurityPolicy: CharSequence         = HttpHeaderNames.CONTENT_SECURITY_POLICY
-  final val contentType: CharSequence                   = HttpHeaderNames.CONTENT_TYPE
-  final val cookie: CharSequence                        = HttpHeaderNames.COOKIE
-  final val date: CharSequence                          = HttpHeaderNames.DATE
-  final val dnt: CharSequence                           = HttpHeaderNames.DNT
-  final val etag: CharSequence                          = HttpHeaderNames.ETAG
-  final val expect: CharSequence                        = HttpHeaderNames.EXPECT
-  final val expires: CharSequence                       = HttpHeaderNames.EXPIRES
-  final val from: CharSequence                          = HttpHeaderNames.FROM
-  final val host: CharSequence                          = HttpHeaderNames.HOST
-  final val ifMatch: CharSequence                       = HttpHeaderNames.IF_MATCH
-  final val ifModifiedSince: CharSequence               = HttpHeaderNames.IF_MODIFIED_SINCE
-  final val ifNoneMatch: CharSequence                   = HttpHeaderNames.IF_NONE_MATCH
-  final val ifRange: CharSequence                       = HttpHeaderNames.IF_RANGE
-  final val ifUnmodifiedSince: CharSequence             = HttpHeaderNames.IF_UNMODIFIED_SINCE
-  final val lastModified: CharSequence                  = HttpHeaderNames.LAST_MODIFIED
-  final val location: CharSequence                      = HttpHeaderNames.LOCATION
-  final val maxForwards: CharSequence                   = HttpHeaderNames.MAX_FORWARDS
-  final val origin: CharSequence                        = HttpHeaderNames.ORIGIN
-  final val pragma: CharSequence                        = HttpHeaderNames.PRAGMA
-  final val proxyAuthenticate: CharSequence             = HttpHeaderNames.PROXY_AUTHENTICATE
-  final val proxyAuthorization: CharSequence            = HttpHeaderNames.PROXY_AUTHORIZATION
-  final val range: CharSequence                         = HttpHeaderNames.RANGE
-  final val referer: CharSequence                       = HttpHeaderNames.REFERER
-  final val retryAfter: CharSequence                    = HttpHeaderNames.RETRY_AFTER
-  final val secWebSocketLocation: CharSequence          = HttpHeaderNames.SEC_WEBSOCKET_LOCATION
-  final val secWebSocketOrigin: CharSequence            = HttpHeaderNames.SEC_WEBSOCKET_ORIGIN
-  final val secWebSocketProtocol: CharSequence          = HttpHeaderNames.SEC_WEBSOCKET_PROTOCOL
-  final val secWebSocketVersion: CharSequence           = HttpHeaderNames.SEC_WEBSOCKET_VERSION
-  final val secWebSocketKey: CharSequence               = HttpHeaderNames.SEC_WEBSOCKET_KEY
-  final val secWebSocketAccept: CharSequence            = HttpHeaderNames.SEC_WEBSOCKET_ACCEPT
-  final val secWebSocketExtensions: CharSequence        = HttpHeaderNames.SEC_WEBSOCKET_EXTENSIONS
-  final val server: CharSequence                        = HttpHeaderNames.SERVER
-  final val setCookie: CharSequence                     = HttpHeaderNames.SET_COOKIE
-  final val te: CharSequence                            = HttpHeaderNames.TE
-  final val trailer: CharSequence                       = HttpHeaderNames.TRAILER
-  final val transferEncoding: CharSequence              = HttpHeaderNames.TRANSFER_ENCODING
-  final val upgrade: CharSequence                       = HttpHeaderNames.UPGRADE
-  final val upgradeInsecureRequests: CharSequence       = HttpHeaderNames.UPGRADE_INSECURE_REQUESTS
-  final val userAgent: CharSequence                     = HttpHeaderNames.USER_AGENT
-  final val vary: CharSequence                          = HttpHeaderNames.VARY
-  final val via: CharSequence                           = HttpHeaderNames.VIA
-  final val warning: CharSequence                       = HttpHeaderNames.WARNING
-  final val webSocketLocation: CharSequence             = HttpHeaderNames.WEBSOCKET_LOCATION
-  final val webSocketOrigin: CharSequence               = HttpHeaderNames.WEBSOCKET_ORIGIN
-  final val webSocketProtocol: CharSequence             = HttpHeaderNames.WEBSOCKET_PROTOCOL
-  final val wwwAuthenticate: CharSequence               = HttpHeaderNames.WWW_AUTHENTICATE
-  final val xFrameOptions: CharSequence                 = HttpHeaderNames.X_FRAME_OPTIONS
-  final val xRequestedWith: CharSequence                = HttpHeaderNames.X_REQUESTED_WITH
+  val accept: CharSequence
+  val acceptEncoding: CharSequence
+  val acceptLanguage: CharSequence
+  val acceptRanges: CharSequence
+  val acceptPatch: CharSequence
+  val accessControlAllowCredentials: CharSequence
+  val accessControlAllowHeaders: CharSequence
+  val accessControlAllowMethods: CharSequence
+  val accessControlAllowOrigin: CharSequence
+  val accessControlExposeHeaders: CharSequence
+  val accessControlMaxAge: CharSequence
+  val accessControlRequestHeaders: CharSequence
+  val accessControlRequestMethod: CharSequence
+  val age: CharSequence
+  val allow: CharSequence
+  val authorization: CharSequence
+  val cacheControl: CharSequence
+  val connection: CharSequence
+  val contentBase: CharSequence
+  val contentEncoding: CharSequence
+  val contentLanguage: CharSequence
+  val contentLength: CharSequence
+  val contentLocation: CharSequence
+  val contentTransferEncoding: CharSequence
+  val contentDisposition: CharSequence
+  val contentMd5: CharSequence
+  val contentRange: CharSequence
+  val contentSecurityPolicy: CharSequence
+  val contentType: CharSequence
+  val cookie: CharSequence
+  val date: CharSequence
+  val dnt: CharSequence
+  val etag: CharSequence
+  val expect: CharSequence
+  val expires: CharSequence
+  val from: CharSequence
+  val host: CharSequence
+  val ifMatch: CharSequence
+  val ifModifiedSince: CharSequence
+  val ifNoneMatch: CharSequence
+  val ifRange: CharSequence
+  val ifUnmodifiedSince: CharSequence
+  val lastModified: CharSequence
+  val location: CharSequence
+  val maxForwards: CharSequence
+  val origin: CharSequence
+  val pragma: CharSequence
+  val proxyAuthenticate: CharSequence
+  val proxyAuthorization: CharSequence
+  val range: CharSequence
+  val referer: CharSequence
+  val retryAfter: CharSequence
+  val secWebSocketLocation: CharSequence
+  val secWebSocketOrigin: CharSequence
+  val secWebSocketProtocol: CharSequence
+  val secWebSocketVersion: CharSequence
+  val secWebSocketKey: CharSequence
+  val secWebSocketAccept: CharSequence
+  val secWebSocketExtensions: CharSequence
+  val server: CharSequence
+  val setCookie: CharSequence
+  val te: CharSequence
+  val trailer: CharSequence
+  val transferEncoding: CharSequence
+  val upgrade: CharSequence
+  val upgradeInsecureRequests: CharSequence
+  val userAgent: CharSequence
+  val vary: CharSequence
+  val via: CharSequence
+  val warning: CharSequence
+  val webSocketLocation: CharSequence
+  val webSocketOrigin: CharSequence
+  val webSocketProtocol: CharSequence
+  val wwwAuthenticate: CharSequence
+  val xFrameOptions: CharSequence
+  val xRequestedWith: CharSequence
 }

@@ -9,7 +9,6 @@ import zio.http.model.headers.HeaderExtension
 import zio.http.netty._
 import zio.http.socket._
 import zio.http.html.Html
-import zio.http.service.{CLIENT_INBOUND_HANDLER, CLIENT_STREAMING_BODY_HANDLER}
 import io.netty.handler.codec.http.FullHttpResponse
 import io.netty.buffer.Unpooled
 import zio.http.netty.client.ChannelState
@@ -281,8 +280,8 @@ object Response {
         ctx
           .pipeline()
           .addAfter(
-            CLIENT_INBOUND_HANDLER,
-            CLIENT_STREAMING_BODY_HANDLER,
+            Names.ClientInboundHandler,
+            Names.ClientStreamingBodyHandler,
             new ClientResponseStreamHandler(callback, zExec, onComplete, keepAlive),
           ): Unit
       }
@@ -295,7 +294,7 @@ object Response {
       Patch(self.addHeaders ++ that.addHeaders, self.setStatus.orElse(that.setStatus))
   }
 
-  def apply[R, E](
+  def apply(
     status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     body: Body = Body.empty,

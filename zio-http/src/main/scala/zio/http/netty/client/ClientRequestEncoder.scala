@@ -4,8 +4,9 @@ import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
 import zio.http.Request
 import zio.{Task, Trace}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.netty._
+import zio.http.netty.model.Conversions
 
 trait ClientRequestEncoder {
 
@@ -15,14 +16,14 @@ trait ClientRequestEncoder {
   def encode(req: Request)(implicit trace: Trace): Task[FullHttpRequest] =
     req.body.asChunk.map { chunk =>
       val content  = Unpooled.wrappedBuffer(chunk.toArray)
-      val method   = req.method.toJava
+      val method   = Conversions.methodToNetty(req.method)
       val jVersion = Versions.convertToZIOToNetty(req.version)
 
       // As per the spec, the path should contain only the relative path.
       // Host and port information should be in the headers.
       val path = req.url.relative.encode
 
-      val encodedReqHeaders = req.headers.encode
+      val encodedReqHeaders = Conversions.headersToNetty(req.headers)
 
       val headers = req.url.hostWithOptionalPort match {
         case Some(host) => encodedReqHeaders.set(HttpHeaderNames.HOST, host)

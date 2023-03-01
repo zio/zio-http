@@ -6,7 +6,6 @@ import io.netty.util.ResourceLeakDetector
 import zio._
 import zio.http.netty._
 import zio.http.netty.client.NettyClientDriver
-import zio.http.service.ServerTime
 import zio.http.{App, ClientConfig, ClientDriver, Driver, Http, Server, ServerConfig} // scalafix:ok
 
 import java.net.InetSocketAddress

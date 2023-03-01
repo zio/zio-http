@@ -1,7 +1,6 @@
 package zio.http.middleware
 
-import io.netty.handler.codec.http.HttpHeaderNames
-import zio.{Trace, Unsafe}
+import zio.Trace
 import zio.http._
 import zio.http.middleware.Cors.{CorsConfig, buildHeaders}
 import zio.http.model._
@@ -27,16 +26,16 @@ private[zio] trait Cors {
       }
     def corsHeaders(origin: Header, method: Method, isPreflight: Boolean): Headers = {
       Headers.ifThenElse(isPreflight)(
-        onTrue = buildHeaders(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS.toString(), config.allowedHeaders),
-        onFalse = buildHeaders(HttpHeaderNames.ACCESS_CONTROL_EXPOSE_HEADERS.toString(), config.exposedHeaders),
+        onTrue = buildHeaders(HeaderNames.accessControlAllowHeaders, config.allowedHeaders),
+        onFalse = buildHeaders(HeaderNames.accessControlExposeHeaders, config.exposedHeaders),
       ) ++
-        Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN.toString(), origin._2) ++
+        Headers(HeaderNames.accessControlAllowOrigin, origin._2) ++
         buildHeaders(
-          HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS.toString(),
-          config.allowedMethods.map(_.map(_.toJava.name())),
+          HeaderNames.accessControlAllowMethods,
+          config.allowedMethods.map(_.map(_.name)),
         ) ++
         Headers.when(config.allowCredentials) {
-          Headers(HttpHeaderNames.ACCESS_CONTROL_ALLOW_CREDENTIALS, config.allowCredentials.toString)
+          Headers(HeaderNames.accessControlAllowCredentials, config.allowCredentials.toString)
         }
     }
 
@@ -47,8 +46,8 @@ private[zio] trait Cors {
         Http.fromHttp[Request] { request =>
           (
             request.method,
-            request.headers.header(HttpHeaderNames.ORIGIN),
-            request.headers.header(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD),
+            request.headers.header(HeaderNames.origin),
+            request.headers.header(HeaderNames.accessControlRequestMethod),
           ) match {
             case (Method.OPTIONS, Some(origin), Some(acrm))
                 if allowCORS(origin, Method.fromString(acrm.value.toString)) =>
@@ -77,13 +76,13 @@ object Cors {
     allowCredentials: Boolean = true,
     allowedOrigins: String => Boolean = _ => false,
     allowedMethods: Option[Set[Method]] = None,
-    allowedHeaders: Option[Set[String]] = Some(
-      Set(HttpHeaderNames.CONTENT_TYPE.toString, HttpHeaderNames.AUTHORIZATION.toString, "*"),
+    allowedHeaders: Option[Set[CharSequence]] = Some(
+      Set(HeaderNames.contentType, HeaderNames.authorization, "*"),
     ),
-    exposedHeaders: Option[Set[String]] = Some(Set("*")),
+    exposedHeaders: Option[Set[CharSequence]] = Some(Set("*")),
   )
 
-  private def buildHeaders(headerName: String, values: Option[Set[String]]): Headers = {
+  private def buildHeaders(headerName: CharSequence, values: Option[Set[CharSequence]]): Headers = {
     values match {
       case Some(headerValues) =>
         Headers(headerValues.toList.map(value => Header(headerName, value)))

@@ -1,10 +1,10 @@
-package zio.http.service
+package zio.http.netty.server
 
 import io.netty.util.AsciiString
+import zio.http.service.Log
 
 import java.text.SimpleDateFormat
-import java.util.Date
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import java.util.Date // scalafix:ok;
 
 private[zio] final class ServerTime(minDuration: Long) {
 

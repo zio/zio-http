@@ -1,13 +1,12 @@
-package zio.http
-
-import zio.test.Assertion._
-import zio.test._
-
-import zio.http.internal.HttpGen
-import zio.http.netty._
-import zio.http.netty.client._
+package zio.http.netty.client
 
 import io.netty.handler.codec.http.HttpHeaderNames
+import zio.http.internal.HttpGen
+import zio.http.netty._
+import zio.http.netty.model.Conversions
+import zio.http.{Body, Request}
+import zio.test.Assertion._
+import zio.test._
 
 object ClientRequestEncoderSpec extends ZIOSpecDefault with ClientRequestEncoder {
 
@@ -35,13 +34,13 @@ object ClientRequestEncoderSpec extends ZIOSpecDefault with ClientRequestEncoder
     test("method") {
       check(anyClientParam) { params =>
         val req = encode(params).map(_.method())
-        assertZIO(req)(equalTo(params.method.toJava))
+        assertZIO(req)(equalTo(Conversions.methodToNetty(params.method)))
       }
     },
     test("method on Body.RandomAccessFile") {
       check(HttpGen.clientParamsForFileBody()) { params =>
         val req = encode(params).map(_.method())
-        assertZIO(req)(equalTo(params.method.toJava))
+        assertZIO(req)(equalTo(Conversions.methodToNetty(params.method)))
       }
     },
     suite("uri")(

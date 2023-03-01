@@ -20,7 +20,7 @@ object AccessControlRequestMethodSpec extends ZIOSpecDefault {
       assertTrue(
         AccessControlRequestMethod.fromAccessControlRequestMethod(
           AccessControlRequestMethod.RequestMethod(method),
-        ) == method.text,
+        ) == method.name,
       )
     },
     test("AccessControlRequestMethod.toAccessControlRequestMethod invalid input") {

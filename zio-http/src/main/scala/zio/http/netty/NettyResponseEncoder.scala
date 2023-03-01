@@ -1,13 +1,11 @@
 package zio.http.netty
 
 import java.util.concurrent.ConcurrentHashMap
-
 import zio._
-
 import zio.http._
-
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
+import zio.http.netty.model.Conversions
 
 private[zio] object NettyResponseEncoder {
 
@@ -22,7 +20,7 @@ private[zio] object NettyResponseEncoder {
       else
         body.asArray.flatMap(bytes => ZIO.attemptUnsafe(implicit unsafe => fastEncode(response, bytes)))
     } else {
-      val jHeaders         = response.headers.encode
+      val jHeaders         = Conversions.headersToNetty(response.headers)
       val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
       ZIO.succeed(new DefaultHttpResponse(HttpVersion.HTTP_1_1, response.status.asJava, jHeaders))
@@ -45,7 +43,7 @@ private[zio] object NettyResponseEncoder {
     } else doEncode(response, bytes)
 
   private def doEncode(response: Response, bytes: Array[Byte]): HttpResponse = {
-    val jHeaders         = response.headers.encode
+    val jHeaders         = Conversions.headersToNetty(response.headers)
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
 
     val jContent  = Unpooled.wrappedBuffer(bytes)

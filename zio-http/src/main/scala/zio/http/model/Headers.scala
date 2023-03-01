@@ -1,11 +1,6 @@
 package zio.http.model
 
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zio.Trace
 import zio.http.model.headers._
-
-import scala.jdk.CollectionConverters._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Represents an immutable collection of headers. It extends HeaderExtensions
@@ -26,8 +21,6 @@ sealed trait Headers extends HeaderExtension[Headers] with HeaderIterable {
 
   final def combineIf(cond: Boolean)(other: Headers): Headers =
     if (cond) self ++ other else self
-
-  private[http] def encode: HttpHeaders
 
   final def get(key: String): Option[String] = Option(getUnsafe(key))
 
@@ -62,8 +55,6 @@ object Headers extends HeaderConstructors {
 
     private[http] override def getUnsafe(key: String): String =
       if (key == _1.toString) _2.toString else null
-
-    override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
 
     override def hashCode(): Int = {
       var h       = 0
@@ -118,8 +109,6 @@ object Headers extends HeaderConstructors {
   private[zio] final case class FromIterable(iter: Iterable[Header]) extends Headers {
     self =>
 
-    private[http] def encode: HttpHeaders = Headers.encode(self.toList)
-
     override def iterator: Iterator[Header] =
       iter.iterator.flatMap(_.iterator)
 
@@ -136,32 +125,14 @@ object Headers extends HeaderConstructors {
     }
   }
 
-  private[zio] final case class FromJHeaders(toJHeaders: HttpHeaders) extends Headers {
-    self =>
+  private[zio] final case class Native[T](value: T, iterate: T => Iterator[Header], unsafeGet: (T, String) => String) extends Headers {
+    override def iterator: Iterator[Header] = iterate(value)
 
-    override private[http] def encode: HttpHeaders = toJHeaders
-
-    override def iterator: Iterator[Header] =
-      toJHeaders.entries().asScala.map(e => Header(e.getKey, e.getValue)).iterator
-
-    private[http] override def getUnsafe(key: String): String = {
-      val iterator = toJHeaders.iteratorCharSequence()
-      while (iterator.hasNext) {
-        val entry = iterator.next()
-        if (entry.getKey.toString == key) {
-          return entry.getValue.toString
-        }
-      }
-
-      null
-    }
-
+    override private[http] def getUnsafe(key: String): String = unsafeGet(value, key)
   }
 
   private[zio] final case class Concat(first: Headers, second: Headers) extends Headers {
     self =>
-
-    override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
 
     override def iterator: Iterator[Header] =
       first.iterator ++ second.iterator
@@ -174,8 +145,6 @@ object Headers extends HeaderConstructors {
 
   private[zio] case object EmptyHeaders extends Headers {
     self =>
-
-    override private[http] def encode: HttpHeaders = new DefaultHttpHeaders()
 
     override def iterator: Iterator[Header] =
       Iterator.empty
@@ -194,27 +163,9 @@ object Headers extends HeaderConstructors {
 
   def apply(iter: Iterable[Header]): Headers = FromIterable(iter)
 
-  private[http] def decode(headers: HttpHeaders): Headers = FromJHeaders(headers)
-
   def empty: Headers = EmptyHeaders
 
-  private[http] def encode(headersList: List[Product2[CharSequence, CharSequence]]): HttpHeaders = {
-    val (exceptions, regularHeaders) =
-      headersList.partition(h => h._1.toString.contains(HeaderNames.setCookie.toString))
-    val combinedHeaders              = regularHeaders
-      .groupBy(_._1)
-      .map { case (key, tuples) =>
-        key -> tuples.map(_._2).mkString(",")
-      }
-    (exceptions ++ combinedHeaders)
-      .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>
-        headers.add(entry._1, entry._2)
-      }
-  }
-
   def ifThenElse(cond: Boolean)(onTrue: => Headers, onFalse: => Headers): Headers = if (cond) onTrue else onFalse
-
-  def make(headers: HttpHeaders): Headers = FromJHeaders(headers)
 
   def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else EmptyHeaders
 
