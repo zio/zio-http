@@ -88,79 +88,48 @@ object DocSpec extends ZIOSpecDefault {
           )
       ).toHtmlSnippet
       val expected   = """|<h1>Awesome Test!</h1>
-                        |
-                        |
-                        |<p>
-                        |  This is a test
-                        |</p>
+                        |<p>This is a test</p>
                         |<h2>Subsection</h2>
-                        |
-                        |
-                        |<p>
-                        |  This is a subsection
-                        |</p>
+                        |<p>This is a subsection</p>
                         |<h3>Subsubsection</h3>
-                        |
-                        |
-                        |<p>
-                        |  This is a subsubsection
-                        |</p>
-                        |
+                        |<p>This is a subsubsection</p>
                         |<p>
                         |  <a href="https://www.google.com">https://www.google.com</a>
                         |</p>
-                        |
                         |<p>
                         |  <span style="color:red">This is an error</span>
                         |</p>
-                        |
                         |<p>
                         |  <code>ZIO.succeed(1)</code>
                         |</p>
-                        |
                         |<p>
                         |  <b>This is strong</b>
                         |</p>
-                        |
                         |<p>
                         |  <i>This is italic</i>
                         |</p>
                         |<dl>
-                        |  <dt>
-                        |    This is a description list item
-                        |  </dt>
+                        |  <dt>This is a description list item</dt>
                         |  <dd>
-                        |    <p>
-                        |      This is the description
-                        |    </p>
+                        |    <p>This is the description</p>
                         |  </dd>
                         |</dl>
-                        |
                         |<ol>
                         |  <li>
-                        |    <p>
-                        |      This is an enumeration item
-                        |    </p>
+                        |    <p>This is an enumeration item</p>
                         |  </li>
                         |  <li>
-                        |    <p>
-                        |      This is another enumeration item
-                        |    </p>
+                        |    <p>This is another enumeration item</p>
                         |    <ul>
                         |      <li>
-                        |        <p>
-                        |          This is a nested enumeration item
-                        |        </p>
+                        |        <p>This is a nested enumeration item</p>
                         |      </li>
                         |      <li>
-                        |        <p>
-                        |          This is another nested enumeration item
-                        |        </p>
+                        |        <p>This is another nested enumeration item</p>
                         |      </li>
                         |    </ul>
                         |  </li>
-                        |</ol>
-                        |""".stripMargin
+                        |</ol>""".stripMargin
       assertTrue(complexDoc == expected)
     },
     test("plain text rendering") {

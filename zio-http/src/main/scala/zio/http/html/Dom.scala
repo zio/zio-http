@@ -1,6 +1,8 @@
 package zio.http.html
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import scala.collection.immutable.{AbstractSeq, LinearSeq} // scalafix:ok;
 
 /**
  * Light weight DOM implementation that can be rendered as a html string.
@@ -12,23 +14,40 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
  *   elements.
  */
 sealed trait Dom { self =>
-  def encode: CharSequence = self match {
+  def encode: CharSequence =
+    encode(EncodingState.NoIndentation)
+
+  def encode(spaces: Int): CharSequence =
+    encode(EncodingState.Indentation(0, spaces))
+
+  private[html] def encode(state: EncodingState): CharSequence = self match {
     case Dom.Element(name, children) =>
       val attributes = children.collect { case self: Dom.Attribute => self.encode }
 
-      val elements = children.collect {
-        case self: Dom.Element => self.encode
-        case self: Dom.Text    => self.encode
+      val innerState = state.inner
+      val elements   = children.collect {
+        case self: Dom.Element => self
+        case self: Dom.Text    => self
       }
 
       val noElements   = elements.isEmpty
       val noAttributes = attributes.isEmpty
       val isVoid       = Element.isVoid(name)
 
+      def inner: CharSequence =
+        elements match {
+          case Seq(singleText: Dom.Text) => singleText.encode(innerState)
+          case _                         =>
+            s"${innerState.nextElemSeparator}${elements.map(_.encode(innerState)).mkString(innerState.nextElemSeparator)}${state.nextElemSeparator}"
+        }
+
       if (noElements && noAttributes && isVoid) s"<$name/>"
-      else if (noElements && isVoid) s"<$name ${attributes.mkString(" ")}/>"
-      else if (noAttributes) s"<$name>${elements.mkString("")}</$name>"
-      else s"<$name ${attributes.mkString(" ")}>${elements.mkString}</$name>"
+      else if (noElements && isVoid)
+        s"<$name ${attributes.mkString(" ")}/>"
+      else if (noAttributes)
+        s"<$name>$inner</$name>"
+      else
+        s"<$name ${attributes.mkString(" ")}>$inner</$name>"
 
     case Dom.Text(data)             => data
     case Dom.Attribute(name, value) => s"""$name="$value""""
