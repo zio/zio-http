@@ -294,9 +294,13 @@ private[zio] final case class ServerInboundHandler(
             .fold[UIO[Response]](
               response => ZIO.succeed(response),
               cause =>
-                (if (errCallback ne null) errCallback(cause) else ZIO.unit).as(
-                  HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
-                ),
+                if (cause.isInterruptedOnly) {
+                  interrupted(ctx).as(null)
+                } else {
+                  (if (errCallback ne null) errCallback(cause) else ZIO.unit).as(
+                    HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
+                  )
+                },
             )
         }
         _        <-
@@ -306,13 +310,22 @@ private[zio] final case class ServerInboundHandler(
               _    <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
             } yield ()
           } else {
-            ZIO.attempt(writeNotFound(ctx, jReq)(() => ()))
+            ZIO.attempt(
+              if (ctx.channel().isOpen) {
+                writeNotFound(ctx, jReq)(() => ())
+              },
+            )
           }
       } yield ()
 
       pgm.provideEnvironment(env)
     }
   }
+
+  private def interrupted(ctx: ChannelHandlerContext): ZIO[Any, Nothing, Unit] =
+    ZIO.attempt {
+      ctx.channel().close()
+    }.unit.orDie
 }
 
 object ServerInboundHandler {
