@@ -1,10 +1,10 @@
 package zio.http.netty.model
 
+import io.netty.handler.codec.http.websocketx.WebSocketScheme
+
 import scala.jdk.CollectionConverters.CollectionHasAsScala
-
-import zio.http.model.{Header, HeaderNames, Headers, Method, Status}
-
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpMethod, HttpResponseStatus}
+import zio.http.model.{Header, HeaderNames, Headers, Method, Scheme, Status}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpMethod, HttpResponseStatus, HttpScheme}
 
 private[netty] object Conversions {
   def methodFromNetty(method: HttpMethod): Method =
@@ -195,5 +195,29 @@ private[netty] object Conversions {
     case HttpResponseStatus.NOT_EXTENDED                    => Status.NotExtended
     case HttpResponseStatus.NETWORK_AUTHENTICATION_REQUIRED => Status.NetworkAuthenticationRequired
     case status: HttpResponseStatus                         => Status.Custom(status.code)
+  }
+
+  def schemeToNetty(scheme: Scheme): Option[HttpScheme] = scheme match {
+    case Scheme.HTTP  => Option(HttpScheme.HTTP)
+    case Scheme.HTTPS => Option(HttpScheme.HTTPS)
+    case _            => None
+  }
+
+  def schemeToNettyWebSocketScheme(scheme: Scheme): Option[WebSocketScheme] = scheme match {
+    case Scheme.WS  => Option(WebSocketScheme.WS)
+    case Scheme.WSS => Option(WebSocketScheme.WSS)
+    case _          => None
+  }
+
+  def schemeFromNetty(scheme: HttpScheme): Option[Scheme] = scheme match {
+    case HttpScheme.HTTPS => Option(Scheme.HTTPS)
+    case HttpScheme.HTTP  => Option(Scheme.HTTP)
+    case _                => None
+  }
+
+  def schemeFromNetty(scheme: WebSocketScheme): Option[Scheme] = scheme match {
+    case WebSocketScheme.WSS => Option(Scheme.WSS)
+    case WebSocketScheme.WS  => Option(Scheme.WS)
+    case _                   => None
   }
 }

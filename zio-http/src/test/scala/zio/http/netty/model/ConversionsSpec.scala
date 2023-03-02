@@ -1,11 +1,10 @@
 package zio.http.netty.model
 
+import io.netty.handler.codec.http.websocketx.WebSocketScheme
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpScheme}
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-
 import zio.http.model.{HeaderNames, Headers}
-
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
+import zio.test.{Gen, Spec, TestEnvironment, ZIOSpecDefault, assertTrue, checkAll}
 
 object ConversionsSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -29,5 +28,27 @@ object ConversionsSpec extends ZIOSpecDefault {
           assertTrue(Conversions.headersToNetty(headers) == expected)
         },
       ),
+      suite("scheme")(
+        test("java http scheme") {
+          checkAll(jHttpScheme) { jHttpScheme =>
+            assertTrue(Conversions.schemeFromNetty(jHttpScheme).flatMap(Conversions.schemeToNetty).get == jHttpScheme)
+          }
+        },
+        test("java websocket scheme") {
+          checkAll(jWebSocketScheme) { jWebSocketScheme =>
+            assertTrue(
+              Conversions
+                .schemeFromNetty(jWebSocketScheme)
+                .flatMap(Conversions.schemeToNettyWebSocketScheme)
+                .get == jWebSocketScheme,
+            )
+          }
+        },
+      ),
     )
+
+  private def jHttpScheme: Gen[Any, HttpScheme] = Gen.fromIterable(List(HttpScheme.HTTP, HttpScheme.HTTPS))
+
+  private def jWebSocketScheme: Gen[Any, WebSocketScheme] =
+    Gen.fromIterable(List(WebSocketScheme.WS, WebSocketScheme.WSS))
 }

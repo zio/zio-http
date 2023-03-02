@@ -1,13 +1,11 @@
 package zio.http.model.headers
 
-import zio.test.Assertion._
-import zio.test.{Gen, ZIOSpecDefault, assert, assertTrue, check}
-
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.{BearerSchemeName, Header}
 import zio.http.model._
-
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
+import zio.test.Assertion._
+import zio.test.{Gen, ZIOSpecDefault, assert, assertTrue, check}
 
 object HeaderSpec extends ZIOSpecDefault {
 

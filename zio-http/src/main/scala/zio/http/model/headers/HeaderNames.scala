@@ -1,6 +1,5 @@
 package zio.http.model.headers
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
