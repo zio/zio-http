@@ -1,13 +1,11 @@
 package zio.http.netty
 
+import zio._
+
 import io.netty.channel._
 import io.netty.util.concurrent.{Future, GenericFutureListener}
-import zio._
-import zio.http.service.Log // scalafix:ok;
 
 private[zio] trait NettyRuntime { self =>
-
-  private val log = Log.withTags("NettyRuntime")
 
   def runtime(ctx: ChannelHandlerContext): Runtime[Any]
 
@@ -20,7 +18,6 @@ private[zio] trait NettyRuntime { self =>
       cause.failureOption.orElse(cause.dieOption) match {
         case None        => ()
         case Some(error) =>
-          log.error("HttpRuntimeException:" + cause.prettyPrint)
           ctx.fireExceptionCaught(error)
       }
       if (ctx.channel().isOpen) ctx.close(): Unit
@@ -37,14 +34,12 @@ private[zio] trait NettyRuntime { self =>
 
     rtm.unsafe.runOrFork(program) match {
       case Left(fiber) =>
-        log.debug(s"Started Fiber: [${fiber.id}]")
         if (interruptOnClose) {
           close = closeListener(rtm, fiber)
           ctx.channel().closeFuture.addListener(close)
         }
         fiber.unsafe.addObserver {
           case Exit.Success(_)     =>
-            log.debug(s"Completed Fiber: [${fiber.id}]")
             removeListener(close)
             ensured()
           case Exit.Failure(cause) =>
@@ -70,7 +65,7 @@ private[zio] trait NettyRuntime { self =>
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
     (_: Future[_ >: Void]) => {
       val _ = rtm.unsafe.fork {
-        fiber.interrupt.as(log.debug(s"Interrupted Fiber: [${fiber.id}]"))
+        fiber.interrupt
       }(implicitly[Trace], Unsafe.unsafe)
     }
 }
