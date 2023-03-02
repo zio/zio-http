@@ -7,7 +7,6 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.model.Cookie
 import zio.http.model.Cookie.SameSite
-import zio.http.service.Log
 
 import io.netty.handler.codec.http.{cookie => jCookie}
 
@@ -25,8 +24,6 @@ sealed trait CookieDecoder[A] {
 }
 
 object CookieDecoder {
-  val log = Log.withTags("Cookie")
-
   implicit object RequestCookieDecoder extends CookieDecoder[Request] {
     override type Out = List[Cookie[Request]]
 

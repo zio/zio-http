@@ -4,7 +4,6 @@ import zio._
 import zio.http.URL.Location
 import zio.http.model._
 import zio.http.netty.client._
-import zio.http.service._
 import zio.http.socket.SocketApp
 
 import java.net.URI // scalafix:ok;
@@ -751,7 +750,4 @@ object ZClient {
   val scalaVersion: CharSequence   = util.Properties.versionString
   val userAgentValue: CharSequence = s"Zio-Http-Client ${zioHttpVersionNormalized} Scala $scalaVersion"
   val defaultUAHeader: Headers     = Headers(HeaderNames.userAgent, userAgentValue)
-
-  private[zio] val log = Log.withTags("Client")
-
 }
