@@ -125,7 +125,8 @@ object Headers extends HeaderConstructors {
     }
   }
 
-  private[zio] final case class Native[T](value: T, iterate: T => Iterator[Header], unsafeGet: (T, String) => String) extends Headers {
+  private[zio] final case class Native[T](value: T, iterate: T => Iterator[Header], unsafeGet: (T, String) => String)
+      extends Headers {
     override def iterator: Iterator[Header] = iterate(value)
 
     override private[http] def getUnsafe(key: String): String = unsafeGet(value, key)

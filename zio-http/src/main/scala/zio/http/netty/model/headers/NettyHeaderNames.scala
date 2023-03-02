@@ -1,7 +1,8 @@
 package zio.http.netty.model.headers
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zio.http.model.headers.HeaderNames
+
+import io.netty.handler.codec.http.HttpHeaderNames
 
 private[zio] trait NettyHeaderNames extends HeaderNames {
   final val accept: CharSequence                        = HttpHeaderNames.ACCEPT

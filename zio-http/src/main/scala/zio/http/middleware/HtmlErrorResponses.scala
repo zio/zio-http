@@ -40,12 +40,12 @@ private[zio] trait HtmlErrorResponses {
             body = htmlResponse,
             headers = Headers(HeaderNames.contentType, model.HeaderValues.textHtml),
           )
-        case Some(value) if value.toString.equals("*/*")                        =>
+        case Some(value) if value.toString.equals("*/*")                   =>
           response.copy(
             body = textResponse,
             headers = Headers(HeaderNames.contentType, model.HeaderValues.textPlain),
           )
-        case _                                                                  => response
+        case _                                                             => response
       }
 
     } else

@@ -1,11 +1,12 @@
-package zio.http
+package zio.http.netty
 
 import zio.test.Assertion.{equalTo, isNone, isNull, isSome}
 import zio.test._
 
 import zio.http.middleware.Auth.Credentials
+import zio.http.{Proxy, URL}
 
-object ProxySpec extends ZIOSpecDefault {
+object NettyProxySpec extends ZIOSpecDefault {
   private val validUrl = URL.fromString("http://localhost:8123").toOption.getOrElse(URL.empty)
 
   override def spec = suite("Proxy")(
@@ -14,7 +15,7 @@ object ProxySpec extends ZIOSpecDefault {
         val username = "unameTest"
         val password = "upassTest"
         val proxy    = Proxy(validUrl, Some(Credentials(username, password)))
-        val encoded  = proxy.encode
+        val encoded  = NettyProxy.fromProxy(proxy).encode
 
         assert(encoded.map(_.username()))(isSome(equalTo(username))) &&
         assert(encoded.map(_.password()))(isSome(equalTo(password))) &&
@@ -22,7 +23,7 @@ object ProxySpec extends ZIOSpecDefault {
       },
       test("fail to encode invalid proxy") {
         val proxy   = Proxy(URL.empty)
-        val encoded = proxy.encode
+        val encoded = NettyProxy.fromProxy(proxy).encode
 
         assert(encoded.map(_.username()))(isNone)
       },
@@ -30,7 +31,7 @@ object ProxySpec extends ZIOSpecDefault {
     suite("Unauthenticated proxy")(
       test("successfully encode valid proxy") {
         val proxy   = Proxy(validUrl)
-        val encoded = proxy.encode
+        val encoded = NettyProxy.fromProxy(proxy).encode
 
         assert(encoded)(isSome) &&
         assert(encoded.map(_.username()))(isSome(isNull)) &&

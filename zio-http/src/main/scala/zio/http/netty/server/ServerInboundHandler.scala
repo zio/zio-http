@@ -2,19 +2,23 @@ package zio.http.netty.server
 
 import java.io.IOException
 import java.net.InetSocketAddress
+
 import scala.annotation.tailrec
+
 import zio._
+
 import zio.http._
 import zio.http.logging.Logger
 import zio.http.model._
 import zio.http.netty._
+import zio.http.netty.model.Conversions
 import zio.http.netty.server.ServerInboundHandler.isReadKey
+
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
 import io.netty.util.AttributeKey
-import zio.http.netty.model.Conversions
 
 @Sharable
 private[zio] final case class ServerInboundHandler(

@@ -1,7 +1,8 @@
 package zio.http.netty.model.headers
 
-import io.netty.handler.codec.http.HttpHeaderValues
 import zio.http.model.headers.HeaderValues
+
+import io.netty.handler.codec.http.HttpHeaderValues
 
 private[zio] trait NettyHeaderValues extends HeaderValues {
   final val applicationJson: CharSequence               = HttpHeaderValues.APPLICATION_JSON

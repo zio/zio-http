@@ -242,25 +242,6 @@ object HeaderSpec extends ZIOSpecDefault {
         assertTrue(mt == Some(MediaType.application.json))
       },
     ),
-    suite("encode")(
-      test("should encode multiple cookie headers as two separate headers") {
-        val cookieHeaders = Headers(HeaderNames.setCookie, "x1") ++ Headers(HeaderNames.setCookie, "x2")
-        val result        = cookieHeaders.encode.entries().size()
-        assertTrue(result == 2)
-      },
-      test("should encode multiple cookie headers as two separate headers also if other headers are present") {
-        val cookieHeaders = Headers(HeaderNames.setCookie, "x1") ++ Headers(HeaderNames.setCookie, "x2")
-        val otherHeaders  = Headers(HeaderNames.contentType, "application/json")
-        val result        = (otherHeaders ++ cookieHeaders).encode.entries().size()
-        assertTrue(result == 3)
-      },
-      test("header with multiple values should not be escaped") {
-        val headers               = Headers("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-        val expected: HttpHeaders =
-          new DefaultHttpHeaders(true).add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-        assertTrue(headers.encode == expected)
-      },
-    ),
   )
 
   private val contentTypeXhtmlXml       = Headers(HeaderNames.contentType, HeaderValues.applicationXhtml)

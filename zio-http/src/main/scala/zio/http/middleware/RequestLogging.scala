@@ -61,7 +61,7 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
 
                 ZIO.logAnnotate(
                   Set(
-                    LogAnnotation("status_code", response.status.asJava.code().toString),
+                    LogAnnotation("status_code", response.status.text),
                     LogAnnotation("method", request.method.toString()),
                     LogAnnotation("url", request.url.encode),
                     LogAnnotation("duration_ms", durationMs.toString),

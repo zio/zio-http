@@ -1,20 +1,12 @@
 package zio.http
 
 import zio._
-import zio.http.model._
-import zio.http.socket.SocketApp
-import Response._
-import io.netty.channel.ChannelHandlerContext
-import zio.http.model.headers.HeaderExtension
-import zio.http.netty._
-import zio.http.socket._
+import zio.http.Response._
 import zio.http.html.Html
-import io.netty.handler.codec.http.FullHttpResponse
-import io.netty.buffer.Unpooled
-import zio.http.netty.client.ChannelState
+import zio.http.model._
+import zio.http.model.headers.HeaderExtension
+import zio.http.socket._
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-import io.netty.handler.codec.http.HttpResponse
-import zio.http.netty.client.ClientResponseStreamHandler
 
 sealed trait Response extends HeaderExtension[Response] { self =>
 
@@ -77,7 +69,7 @@ sealed trait Response extends HeaderExtension[Response] { self =>
   }
 
   final def isWebSocket: Boolean = self match {
-    case _: SocketAppResponse => self.status.asJava.code() == Response.switchingProtocols
+    case _: SocketAppResponse => self.status == Status.SwitchingProtocols
     case _                    => false
   }
 
@@ -221,71 +213,32 @@ object Response {
     }
   }
 
-  // TODO: This needs to eventually be implementation agnostic.
-  private[zio] class NettyResponse(
+  private[zio] class NativeResponse(
     val body: Body,
-    val channelContext: ChannelHandlerContext,
     val headers: Headers,
     val status: Status,
+    onClose: () => Task[Unit],
   ) extends CloseableResponse { self =>
 
-    override final def close(implicit trace: Trace): Task[Unit] = NettyFutureExecutor.executed(channelContext.close())
+    override final def close(implicit trace: Trace): Task[Unit] = onClose()
 
     override final def copy(status: Status, headers: Headers, body: Body): Response =
-      new NettyResponse(body, channelContext, headers, status) with InternalState {
+      new NativeResponse(body, headers, status, onClose) with InternalState {
         override val parent: Response = self
       }
 
-    override final def freeze: Response = new NettyResponse(body, channelContext, headers, status) with InternalState {
+    override final def freeze: Response = new NativeResponse(body, headers, status, onClose) with InternalState {
       override val parent: Response = self
       override def frozen: Boolean  = true
     }
 
     override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
-    override final def withServerTime: Response = new NettyResponse(body, channelContext, headers, status)
+    override final def withServerTime: Response = new NativeResponse(body, headers, status, onClose)
       with InternalState {
       override val parent: Response = self
 
       override def serverTime: Boolean = true
-    }
-  }
-
-  object NettyResponse {
-
-    final def make(ctx: ChannelHandlerContext, jRes: FullHttpResponse)(implicit
-      unsafe: Unsafe,
-    ): Response = {
-      val status       = Status.fromHttpResponseStatus(jRes.status())
-      val headers      = Headers.decode(jRes.headers())
-      val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
-      val data         = Body.fromByteBuf(copiedBuffer)
-
-      new NettyResponse(data, ctx, headers, status)
-    }
-
-    final def make(
-      ctx: ChannelHandlerContext,
-      jRes: HttpResponse,
-      zExec: NettyRuntime,
-      onComplete: Promise[Throwable, ChannelState],
-      keepAlive: Boolean,
-    )(implicit
-      unsafe: Unsafe,
-      trace: Trace,
-    ): Response = {
-      val status  = Status.fromHttpResponseStatus(jRes.status())
-      val headers = Headers.decode(jRes.headers())
-      val data    = Body.fromAsync { callback =>
-        ctx
-          .pipeline()
-          .addAfter(
-            Names.ClientInboundHandler,
-            Names.ClientStreamingBodyHandler,
-            new ClientResponseStreamHandler(callback, zExec, onComplete, keepAlive),
-          ): Unit
-      }
-      new NettyResponse(data, ctx, headers, status)
     }
   }
 
@@ -379,7 +332,4 @@ object Response {
       Headers(HeaderNames.contentType, HeaderValues.textPlain),
       Status.Ok,
     )
-
-  private val switchingProtocols = Status.SwitchingProtocols.asJava.code()
-
 }

@@ -1,7 +1,12 @@
 package zio.http.netty.client
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{ChannelInitializer, Channel => JChannel, ChannelFactory => JChannelFactory, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{
+  ChannelInitializer,
+  Channel => JChannel,
+  ChannelFactory => JChannelFactory,
+  EventLoopGroup => JEventLoopGroup,
+}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
@@ -9,10 +14,10 @@ import zio._
 import zio.http.URL.Location
 import zio.http._
 import zio.http.logging.LogLevel
-import zio.http.netty.{Names, NettyFutureExecutor}
+import zio.http.netty.{Names, NettyFutureExecutor, NettyProxy}
 import zio.http.service._
 import zio.http.service.logging.LogLevelTransform.LogLevelWrapper
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok
 
 import java.net.InetSocketAddress
 
@@ -45,7 +50,10 @@ object NettyConnectionPool {
           case Some(proxy) =>
             pipeline.addLast(
               Names.ProxyHandler,
-              proxy.encode.getOrElse(new HttpProxyHandler(new InetSocketAddress(location.host, location.port))),
+              NettyProxy
+                .fromProxy(proxy)
+                .encode
+                .getOrElse(new HttpProxyHandler(new InetSocketAddress(location.host, location.port))),
             )
           case None        =>
         }

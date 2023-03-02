@@ -1,12 +1,14 @@
 package zio.http.netty.client
 
-import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
-import zio.http.Request
-import zio.{Task, Trace}
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Task, Trace}
+
+import zio.http.Request
 import zio.http.netty._
 import zio.http.netty.model.Conversions
+
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.http.{DefaultFullHttpRequest, FullHttpRequest, HttpHeaderNames}
 
 trait ClientRequestEncoder {
 

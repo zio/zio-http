@@ -30,7 +30,7 @@ final class ClientInboundStreamingHandler(
         rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
           onResponse
             .succeed(
-              Response.NettyResponse.make(
+              NettyResponse.make(
                 ctx,
                 response,
                 rtm,
