@@ -1,6 +1,6 @@
 package zio.http.middleware
 
-import zio.ZIO
+import zio.{ZIO, ZLayer}
 import zio.test.Assertion._
 import zio.test._
 
@@ -152,7 +152,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           r4.status == Status.Ok,
           r4body == "base auth",
         )
-      },
+      }.provideLayer(ZLayer.succeed(BaseService("base"))),
     ),
   )
 
