@@ -2,7 +2,7 @@ package zio.http.netty.model
 
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 
-import scala.jdk.CollectionConverters.CollectionHasAsScala
+import scala.jdk.CollectionConverters._
 import zio.http.model.{Header, HeaderNames, Headers, Method, Scheme, Status}
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpMethod, HttpResponseStatus, HttpScheme}
 
