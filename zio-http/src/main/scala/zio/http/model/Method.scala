@@ -21,7 +21,7 @@ object Method {
       case DELETE.name  => Method.DELETE
       case TRACE.name   => Method.TRACE
       case CONNECT.name => Method.CONNECT
-      case x            => Method.CUSTOM(x)
+      case _            => Method.CUSTOM(method)
     }
 
   final case class CUSTOM(name: String) extends Method
