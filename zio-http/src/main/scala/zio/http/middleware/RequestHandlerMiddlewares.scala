@@ -1,14 +1,14 @@
 package zio.http.middleware
 
+import java.io.IOException
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Console, Duration, Trace, ZIO}
+
 import zio.http._
 import zio.http.middleware.RequestHandlerMiddlewares.{InterceptPatch, InterceptPatchZIO}
 import zio.http.model.headers.HeaderModifier
 import zio.http.model.{Cookie, HeaderNames, Headers, Method, Status}
-import zio.{Console, Duration, Trace, ZIO}
-
-import java.io.IOException
-
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait RequestHandlerMiddlewares
     extends RequestLogging

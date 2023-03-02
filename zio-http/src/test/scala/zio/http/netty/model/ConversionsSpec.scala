@@ -1,10 +1,12 @@
 package zio.http.netty.model
 
+import zio.Scope
+import zio.test._
+
+import zio.http.model.{HeaderNames, Headers}
+
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpScheme}
-import zio.Scope
-import zio.http.model.{HeaderNames, Headers}
-import zio.test.{Gen, Spec, TestEnvironment, ZIOSpecDefault, assertTrue, checkAll}
 
 object ConversionsSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =

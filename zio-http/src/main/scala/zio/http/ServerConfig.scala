@@ -1,13 +1,15 @@
 package zio.http
 
-import io.netty.handler.codec.compression.{StandardCompressionOptions, CompressionOptions => JCompressionOptions}
-import io.netty.util.ResourceLeakDetector
+import java.net.{InetAddress, InetSocketAddress}
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Trace, ZLayer}
+
 import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
 import zio.http.netty.{ChannelType, EventLoopGroups}
 
-import java.net.{InetAddress, InetSocketAddress}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
+import io.netty.util.ResourceLeakDetector
 
 final case class ServerConfig(
   leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,

@@ -1,9 +1,10 @@
 package zio.http
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.Server.ErrorCallback
 import zio.http.netty.server._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait Server {
   def install[R](httpApp: App[R], errorCallback: Option[ErrorCallback] = None)(implicit

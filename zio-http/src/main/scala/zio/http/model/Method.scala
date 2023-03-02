@@ -1,6 +1,6 @@
 package zio.http.model
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 sealed trait Method { self =>
   val name: String

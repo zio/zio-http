@@ -1,11 +1,13 @@
 package zio.http.netty.client
 
-import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpUtil}
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.Response
 import zio.http.netty.{NettyFutureExecutor, NettyResponse, NettyRuntime}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpUtil}
 
 /**
  * Handles HTTP response

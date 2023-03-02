@@ -1,8 +1,9 @@
 package zio.http.model
 
 import zio.Trace
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Status extends Product with Serializable { self =>
 

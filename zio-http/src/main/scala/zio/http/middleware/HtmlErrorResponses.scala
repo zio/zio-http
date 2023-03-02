@@ -1,11 +1,12 @@
 package zio.http.middleware
 
+import java.io.{PrintWriter, StringWriter}
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.html._
 import zio.http.model.{HeaderNames, HeaderValues, Headers}
 import zio.http.{Body, Request, Response, model}
-
-import java.io.{PrintWriter, StringWriter}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait HtmlErrorResponses {
 

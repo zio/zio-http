@@ -1,15 +1,17 @@
 package zio.http
 
-import zio._
-import zio.http.Http.{Empty, Route}
-import zio.http.model.{HeaderNames, Headers, MediaType, Status}
-import zio.http.socket.{SocketApp, WebSocketChannelEvent}
-import zio.stream.ZStream
-
 import java.io.{File, FileNotFoundException}
 import java.nio.file.Paths
 import java.util.zip.ZipFile
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
+import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.stream.ZStream
+
+import zio.http.Http.{Empty, Route}
+import zio.http.model.{HeaderNames, Headers, MediaType, Status}
+import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 
 sealed trait Http[-R, +Err, -In, +Out] { self =>
 

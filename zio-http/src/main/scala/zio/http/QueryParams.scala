@@ -1,10 +1,11 @@
 package zio.http
 
-import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
-import zio.Chunk
-
 import scala.jdk.CollectionConverters._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
+import zio.Chunk
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 
 final case class QueryParams private[http] (map: Map[String, Chunk[String]])
     extends scala.collection.Map[String, Chunk[String]] {

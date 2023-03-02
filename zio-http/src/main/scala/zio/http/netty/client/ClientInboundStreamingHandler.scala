@@ -1,12 +1,14 @@
 package zio.http.netty.client
 
-import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Promise, Trace, Unsafe, ZIO}
+
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.{Request, Response}
-import zio.{Promise, Trace, Unsafe, ZIO}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.codec.http._
 
 final class ClientInboundStreamingHandler(
   val rtm: NettyRuntime,

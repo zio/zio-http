@@ -1,5 +1,15 @@
 package zio.http.netty.server
 
+import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http.ServerConfig
+import zio.http.logging.LogLevel
+import zio.http.netty.Names
+import zio.http.netty.server.ServerChannelInitializer.log
+import zio.http.service.Log
+import zio.http.service.logging.LogLevelTransform._
+
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http.HttpObjectDecoder.{
@@ -11,14 +21,6 @@ import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
 import io.netty.handler.logging.LoggingHandler
-import zio._
-import zio.http.ServerConfig
-import zio.http.netty.Names
-import zio.http.netty.server.ServerChannelInitializer.log
-import zio.http.service.Log
-import zio.http.service.logging.LogLevelTransform._
-import zio.http.logging.LogLevel
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Initializes the netty channel with default handlers

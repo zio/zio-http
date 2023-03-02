@@ -1,8 +1,9 @@
 package zio.http.endpoint
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.URL
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * An endpoint locator is responsible for locating endpoints.

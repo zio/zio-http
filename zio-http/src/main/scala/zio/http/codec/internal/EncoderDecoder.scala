@@ -3,12 +3,13 @@ package zio.http.codec.internal
 import scala.annotation.tailrec
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.schema.codec._
+
 import zio.http._
 import zio.http.codec._
 import zio.http.model._
-import zio.schema.codec._
-
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit

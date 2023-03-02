@@ -1,11 +1,12 @@
 package zio.http.middleware
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Trace, ZIO}
+
 import zio.http._
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http.model.{HeaderNames, Headers, Status}
-import zio.{Trace, ZIO}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait Auth {
 

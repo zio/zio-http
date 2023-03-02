@@ -1,7 +1,8 @@
 package zio.http
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.Path.Segment
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait PathSyntax { module =>
   val !! : Path = Path.root

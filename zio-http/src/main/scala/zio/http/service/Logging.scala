@@ -1,7 +1,8 @@
 package zio.http.service
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.logging.{LogFormat, Logger}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Base trait to configure logging. Feel free to edit this file as per your

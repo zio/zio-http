@@ -1,13 +1,15 @@
 package zio.http
 
-import io.netty.handler.codec.http.{cookie => jCookie}
+import scala.jdk.CollectionConverters._
+
 import zio.Unsafe
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.model.Cookie
 import zio.http.model.Cookie.SameSite
 import zio.http.service.Log
 
-import scala.jdk.CollectionConverters._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import io.netty.handler.codec.http.{cookie => jCookie}
 
 sealed trait CookieDecoder[A] {
   type Out

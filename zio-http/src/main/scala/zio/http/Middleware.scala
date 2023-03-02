@@ -1,9 +1,9 @@
 package zio.http
 
-import zio.http.middleware.{HttpRoutesMiddlewares, RequestHandlerMiddlewares}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Trace, ZIO}
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.http.middleware.{HttpRoutesMiddlewares, RequestHandlerMiddlewares}
 
 trait Middleware[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
 

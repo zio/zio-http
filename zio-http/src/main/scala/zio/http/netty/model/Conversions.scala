@@ -1,9 +1,10 @@
 package zio.http.netty.model
 
-import io.netty.handler.codec.http.websocketx.WebSocketScheme
-
 import scala.jdk.CollectionConverters._
-import zio.http.model.{Header, HeaderNames, Headers, Method, Scheme, Status}
+
+import zio.http.model._
+
+import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpMethod, HttpResponseStatus, HttpScheme}
 
 private[netty] object Conversions {

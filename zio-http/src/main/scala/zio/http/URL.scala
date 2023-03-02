@@ -1,13 +1,16 @@
 package zio.http
 
-import io.netty.handler.codec.http.QueryStringEncoder
+import java.net.{MalformedURLException, URI}
+
+import scala.util.Try
+
 import zio.Chunk
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.URL.{Fragment, Location, portFromScheme}
 import zio.http.model.Scheme
 
-import java.net.{MalformedURLException, URI}
-import scala.util.Try
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import io.netty.handler.codec.http.QueryStringEncoder
 
 final case class URL(
   path: Path,

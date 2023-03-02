@@ -1,16 +1,18 @@
 package zio.http.netty
 
+import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http.ChannelEvent
+import zio.http.ChannelEvent.UserEvent
+import zio.http.logging.Logger
+import zio.http.service.Log
+import zio.http.socket.{SocketApp, WebSocketFrame}
+
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
-import zio._
-import zio.http.ChannelEvent
-import zio.http.ChannelEvent.UserEvent
-import zio.http.service.Log
-import zio.http.socket.{SocketApp, WebSocketFrame}
-import zio.http.logging.Logger
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * A generic SocketApp handler that can be used on both - the client and the

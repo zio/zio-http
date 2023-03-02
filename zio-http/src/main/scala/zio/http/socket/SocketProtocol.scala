@@ -1,12 +1,13 @@
 package zio.http.socket
 
+import zio.Duration
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import io.netty.handler.codec.http.websocketx.{
   WebSocketClientProtocolConfig,
   WebSocketCloseStatus,
   WebSocketServerProtocolConfig,
 }
-import zio.Duration
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Server side websocket configuration

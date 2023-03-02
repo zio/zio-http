@@ -1,13 +1,13 @@
 package zio.http.middleware
 
+import java.nio.charset.{Charset, StandardCharsets}
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Clock, LogAnnotation, LogLevel, Trace, ZIO}
+
 import zio.http._
 import zio.http.model.Headers.Header
 import zio.http.model.Status
-import zio.{Clock, LogAnnotation, LogLevel, Trace, ZIO}
-
-import java.nio.charset.{Charset, StandardCharsets}
-
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
 

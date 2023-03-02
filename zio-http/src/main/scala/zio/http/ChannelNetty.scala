@@ -1,9 +1,11 @@
 package zio.http
 
-import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
-import zio.http.netty.NettyFutureExecutor
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Task, Trace, UIO, ZIO}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
+import zio.http.netty.NettyFutureExecutor
+
+import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
 
 final case class ChannelNetty[-A](
   private val channel: JChannel,

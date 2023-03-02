@@ -1,6 +1,6 @@
 package zio.http.codec
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A combiner is a type class responsible for combining invariant type

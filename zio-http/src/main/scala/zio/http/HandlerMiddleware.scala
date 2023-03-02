@@ -1,7 +1,6 @@
 package zio.http
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Trace, ZIO}
-
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait HandlerMiddleware[-R, +Err, +AIn, -AOut, -BIn <: AIn, +BOut]
     extends HandlerAspect[R, Err, AIn, AOut, BIn, BOut]

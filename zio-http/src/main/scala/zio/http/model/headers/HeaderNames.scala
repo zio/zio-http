@@ -1,6 +1,6 @@
 package zio.http.model.headers
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * List of commonly use HeaderNames. They are provided to reduce bugs caused by

@@ -1,17 +1,15 @@
 package zio.http.endpoint.internal
 
-import zio._
-import zio.http._
-import zio.http.codec.{SimpleCodec, TextCodec}
-import zio.http.codec.internal.AtomizedCodecs
-import zio.http.endpoint._
-import zio.http.model.Method
-
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-
 import scala.annotation.tailrec
 
-import zio.http.codec.internal.Mechanic
+import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http._
+import zio.http.codec.internal.{AtomizedCodecs, Mechanic}
+import zio.http.codec.{SimpleCodec, TextCodec}
+import zio.http.endpoint._
+import zio.http.model.Method
 
 private[http] sealed trait RoutingTree[-R, E, M <: EndpointMiddleware] { self =>
   final def add[R1 <: R](that: Routes.Single[R1, E, _, _, M]): RoutingTree[R1, E, M] =

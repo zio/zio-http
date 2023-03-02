@@ -1,12 +1,13 @@
 package zio.http
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.Response._
 import zio.http.html.Html
 import zio.http.model._
 import zio.http.model.headers.HeaderExtension
 import zio.http.socket._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Response extends HeaderExtension[Response] { self =>
 
