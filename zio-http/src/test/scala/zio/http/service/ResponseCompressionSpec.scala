@@ -1,17 +1,14 @@
 package zio.http.service
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
+import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
-import java.util.zip.GZIPOutputStream
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Chunk, Scope, ZIO, ZInputStream, ZLayer}
+import zio.test.{ZIOSpecDefault, assertTrue}
+import zio.{Chunk, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
 
-import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http._
-import zio.http.internal.{DynamicServer, HttpRunnableSpec}
 import zio.http.model.{Headers, Method, Scheme, Status}
 
 object ResponseCompressionSpec extends ZIOSpecDefault {

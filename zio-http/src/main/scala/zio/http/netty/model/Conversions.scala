@@ -2,8 +2,10 @@ package zio.http.netty.model
 
 import scala.jdk.CollectionConverters._
 
+import zio.http.ServerConfig.CompressionOptions
 import zio.http.model._
 
+import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpMethod, HttpResponseStatus, HttpScheme}
 
@@ -221,4 +223,12 @@ private[netty] object Conversions {
     case WebSocketScheme.WS  => Option(Scheme.WS)
     case _                   => None
   }
+
+  def compressionOptionsToNetty(compressionOptions: CompressionOptions): DeflateOptions =
+    compressionOptions.kind match {
+      case CompressionOptions.GZip    =>
+        StandardCompressionOptions.gzip(compressionOptions.level, compressionOptions.bits, compressionOptions.mem)
+      case CompressionOptions.Deflate =>
+        StandardCompressionOptions.deflate(compressionOptions.level, compressionOptions.bits, compressionOptions.mem)
+    }
 }

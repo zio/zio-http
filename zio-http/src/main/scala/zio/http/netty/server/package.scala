@@ -14,6 +14,7 @@ package object server {
   def default: ZLayer[ServerConfig, Throwable, Driver] =
     NettyDriver.default
 
-  def manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Nothing, Driver] =
+  def manual
+    : ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig & NettyServerConfig, Nothing, Driver] =
     NettyDriver.manual
 }

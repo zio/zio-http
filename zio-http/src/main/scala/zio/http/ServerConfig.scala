@@ -5,14 +5,10 @@ import java.net.{InetAddress, InetSocketAddress}
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Trace, ZLayer}
 
-import zio.http.ServerConfig.{LeakDetectionLevel, ResponseCompressionConfig}
+import zio.http.ServerConfig.ResponseCompressionConfig
 import zio.http.netty.{ChannelType, EventLoopGroups}
 
-import io.netty.handler.codec.compression.{CompressionOptions => JCompressionOptions, StandardCompressionOptions}
-import io.netty.util.ResourceLeakDetector
-
 final case class ServerConfig(
-  leakDetectionLevel: LeakDetectionLevel = LeakDetectionLevel.SIMPLE,
   sslConfig: Option[SSLConfig] = None,
   address: InetSocketAddress = new InetSocketAddress(8080),
   acceptContinue: Boolean = false,
@@ -71,12 +67,6 @@ final case class ServerConfig(
    * href="https://netty.io/4.1/api/io/netty/handler/codec/http/HttpServerKeepAliveHandler.html">HttpServerKeepAliveHandler</a>).
    */
   def keepAlive(enable: Boolean): ServerConfig = self.copy(keepAlive = enable)
-
-  /**
-   * Configure the server to use the leak detection level provided (@see <a
-   * href="https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html">ResourceLeakDetector.Level</a>).
-   */
-  def leakDetection(level: LeakDetectionLevel): ServerConfig = self.copy(leakDetectionLevel = level)
 
   /**
    * Configure the server to use HttpObjectAggregator with the specified max
@@ -144,26 +134,6 @@ object ServerConfig {
     options: IndexedSeq[CompressionOptions] = IndexedSeq(CompressionOptions.gzip(), CompressionOptions.deflate()),
   ): ResponseCompressionConfig = ResponseCompressionConfig(contentThreshold, options)
 
-  sealed trait LeakDetectionLevel {
-    self =>
-    def jResourceLeakDetectionLevel: ResourceLeakDetector.Level = self match {
-      case LeakDetectionLevel.DISABLED => ResourceLeakDetector.Level.DISABLED
-      case LeakDetectionLevel.SIMPLE   => ResourceLeakDetector.Level.SIMPLE
-      case LeakDetectionLevel.ADVANCED => ResourceLeakDetector.Level.ADVANCED
-      case LeakDetectionLevel.PARANOID => ResourceLeakDetector.Level.PARANOID
-    }
-  }
-
-  object LeakDetectionLevel {
-    case object DISABLED extends LeakDetectionLevel
-
-    case object SIMPLE extends LeakDetectionLevel
-
-    case object ADVANCED extends LeakDetectionLevel
-
-    case object PARANOID extends LeakDetectionLevel
-  }
-
   final case class ResponseCompressionConfig(
     contentThreshold: Int = 0,
     options: IndexedSeq[CompressionOptions] = IndexedSeq.empty,
@@ -189,12 +159,7 @@ object ServerConfig {
     bits: Int,
     mem: Int,
     kind: CompressionOptions.CompressionType,
-  ) { self =>
-    def toJava: JCompressionOptions = self.kind match {
-      case CompressionOptions.GZip    => StandardCompressionOptions.gzip(self.level, self.bits, self.mem)
-      case CompressionOptions.Deflate => StandardCompressionOptions.deflate(self.level, self.bits, self.mem)
-    }
-  }
+  )
 
   object CompressionOptions {
     val DefaultLevel = 6
@@ -217,8 +182,8 @@ object ServerConfig {
 
     sealed trait CompressionType
 
-    private case object GZip extends CompressionType
+    private[http] case object GZip extends CompressionType
 
-    private case object Deflate extends CompressionType
+    private[http] case object Deflate extends CompressionType
   }
 }

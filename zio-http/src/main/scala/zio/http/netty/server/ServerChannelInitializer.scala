@@ -5,6 +5,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.ServerConfig
 import zio.http.netty.Names
+import zio.http.netty.model.Conversions
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
@@ -47,7 +48,7 @@ private[zio] final case class ServerChannelInitializer(
     cfg.responseCompression.foreach(ops => {
       pipeline.addLast(
         Names.HttpResponseCompression,
-        new HttpContentCompressor(ops.contentThreshold, ops.options.map(_.toJava): _*),
+        new HttpContentCompressor(ops.contentThreshold, ops.options.map(Conversions.compressionOptionsToNetty): _*),
       )
     })
 
