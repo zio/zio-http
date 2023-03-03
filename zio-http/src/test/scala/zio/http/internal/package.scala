@@ -17,6 +17,6 @@ package object internal {
     ZLayer.make[ServerConfig with Server](
       testServerConfig,
       testNettyServerConfig,
-      Server.live,
+      Server.customized,
     )
 }
