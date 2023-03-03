@@ -3,7 +3,6 @@ package zio.http.netty.server
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.{App, ClientConfig, ClientDriver, Driver, Http, Server, ServerConfig} // scalafix:ok;
 import zio.http.netty._
 import zio.http.netty.client.NettyClientDriver
