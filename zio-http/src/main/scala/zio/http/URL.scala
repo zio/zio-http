@@ -5,12 +5,10 @@ import java.net.{MalformedURLException, URI}
 import scala.util.Try
 
 import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.URL.{Fragment, Location, portFromScheme}
+import zio.http.internal.QueryParamEncoding
 import zio.http.model.Scheme
-
-import io.netty.handler.codec.http.QueryStringEncoder
 
 final case class URL(
   path: Path,
@@ -156,14 +154,10 @@ object URL {
   def empty: URL = URL(!!)
 
   def encode(url: URL): String = {
-    def path: String = {
-      val encoder = new QueryStringEncoder(s"${url.path.encode}")
-      url.queryParams.toMap.foreach { case (key, values) =>
-        if (key != "") values.foreach { value => encoder.addParam(key, value) }
-      }
-
-      encoder.toString + url.fragment.fold("")(f => "#" + f.raw)
-    }
+    def path: String =
+      QueryParamEncoding.default.encode(url.path.encode, url.queryParams.filter(_._2.nonEmpty)) + url.fragment.fold("")(
+        f => "#" + f.raw,
+      )
 
     url.kind match {
       case Location.Relative                     =>
@@ -178,7 +172,7 @@ object URL {
     def invalidURL = Left(new MalformedURLException(s"""Invalid URL: "$string""""))
     try {
       val uri = new URI(string)
-      val url = if (uri.isAbsolute()) fromAbsoluteURI(uri) else fromRelativeURI(uri)
+      val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
       url match {
         case None        => invalidURL

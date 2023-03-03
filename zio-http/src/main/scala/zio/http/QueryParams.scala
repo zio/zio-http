@@ -1,11 +1,8 @@
 package zio.http
 
-import scala.jdk.CollectionConverters._
-
 import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
+import zio.http.internal.QueryParamEncoding
 
 final case class QueryParams private[http] (map: Map[String, Chunk[String]])
     extends scala.collection.Map[String, Chunk[String]] {
@@ -36,19 +33,11 @@ final case class QueryParams private[http] (map: Map[String, Chunk[String]])
     QueryParams(map.updated(key, newValue))
   }
 
-  def encode: String = {
-    val encoder = new QueryStringEncoder(s"")
-    map.foreach { case (key, values) =>
-      if (key != "") {
-        if (values.isEmpty) {
-          encoder.addParam(key, "")
-        } else
-          values.foreach(value => encoder.addParam(key, value))
-      }
-    }
+  def encode: String =
+    QueryParamEncoding.default.encode("", self)
 
-    encoder.toString
-  }
+  override def filter(p: ((String, Chunk[String])) => Boolean): QueryParams =
+    QueryParams(map.filter(p))
 
   def toMap: Map[String, Chunk[String]] = map
 
@@ -71,15 +60,7 @@ object QueryParams {
     })
 
   def decode(queryStringFragment: String): QueryParams =
-    if (queryStringFragment == null || queryStringFragment.isEmpty) {
-      QueryParams.empty
-    } else {
-      val decoder = new QueryStringDecoder(queryStringFragment, false)
-      val params  = decoder.parameters()
-      QueryParams(params.asScala.view.map { case (k, v) =>
-        (k, Chunk.fromIterable(v.asScala))
-      }.toMap)
-    }
+    QueryParamEncoding.default.decode(queryStringFragment)
 
   val empty: QueryParams = QueryParams(Map.empty[String, Chunk[String]])
 
