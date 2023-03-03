@@ -334,12 +334,6 @@ object ServerSpec extends HttpRunnableSpec {
         )
       }
     },
-    test("FromASCIIString: toHttp") {
-      check(Gen.asciiString) { payload =>
-        val res = Body.fromAsciiString(AsciiString.cached(payload)).asString(HTTP_CHARSET)
-        assertZIO(res)(equalTo(payload))
-      }
-    },
   )
 
   def serverErrorSpec = suite("ServerErrorSpec") {

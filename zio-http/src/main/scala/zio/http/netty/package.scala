@@ -16,6 +16,10 @@
 
 package zio.http
 
+import zio.{Trace, ZIO}
+
+import io.netty.util.AsciiString
+
 package object netty {
 
   private[zio] object Names {
@@ -38,5 +42,13 @@ package object netty {
     val HttpRequestDecoder             = "HTTP_REQUEST_DECODER"
     val HttpResponseEncoder            = "HTTP_RESPONSE_ENCODER"
     val ProxyHandler                   = "PROXY_HANDLER"
+  }
+
+  implicit class BodyExtensions(val body: Body) extends AnyVal {
+
+    final def asCharSeq(implicit trace: Trace): ZIO[Any, Throwable, CharSequence] =
+      body match {
+        case _ => body.asArray.map { buf => new AsciiString(buf, false) }
+      }
   }
 }

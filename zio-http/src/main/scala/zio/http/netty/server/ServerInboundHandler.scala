@@ -124,7 +124,7 @@ private[zio] final case class ServerInboundHandler(
     }
   }
 
-  private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: Body.UnsafeAsync): Unit = {
+  private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: NettyBody.UnsafeAsync): Unit = {
     if (ctx.channel().attr(isReadKey).get())
       throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
 
@@ -208,7 +208,7 @@ private[zio] final case class ServerInboundHandler(
     val protocolVersion  = nettyHttpVersion match {
       case HttpVersion.HTTP_1_0 => Version.Http_1_0
       case HttpVersion.HTTP_1_1 => Version.Http_1_1
-      case _                    => throw new IllegalArgumentException(s"Unsupported HTTP version: ${nettyHttpVersion}")
+      case _                    => throw new IllegalArgumentException(s"Unsupported HTTP version: $nettyHttpVersion")
     }
 
     val remoteAddress = ctx.channel().remoteAddress() match {
@@ -219,7 +219,7 @@ private[zio] final case class ServerInboundHandler(
     nettyReq match {
       case nettyReq: FullHttpRequest =>
         Request(
-          Body.fromByteBuf(nettyReq.content()),
+          NettyBody.fromByteBuf(nettyReq.content()),
           Conversions.headersFromNetty(nettyReq.headers()),
           Conversions.methodFromNetty(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
@@ -227,7 +227,7 @@ private[zio] final case class ServerInboundHandler(
           remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-        val body = Body.fromAsync { async =>
+        val body = NettyBody.fromAsync { async =>
           addAsyncBodyHandler(ctx, async)
         }
 

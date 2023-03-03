@@ -36,7 +36,7 @@ object NettyResponse {
     val status       = Conversions.statusFromNetty(jRes.status())
     val headers      = Conversions.headersFromNetty(jRes.headers())
     val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
-    val data         = Body.fromByteBuf(copiedBuffer)
+    val data         = NettyBody.fromByteBuf(copiedBuffer)
 
     new NativeResponse(data, headers, status, () => NettyFutureExecutor.executed(ctx.close()))
   }
@@ -53,7 +53,7 @@ object NettyResponse {
   ): Response = {
     val status  = Conversions.statusFromNetty(jRes.status())
     val headers = Conversions.headersFromNetty(jRes.headers())
-    val data    = Body.fromAsync { callback =>
+    val data    = NettyBody.fromAsync { callback =>
       ctx
         .pipeline()
         .addAfter(

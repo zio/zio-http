@@ -2,21 +2,19 @@ package zio.http
 
 import java.io.File
 
-import zio.test.Assertion.{anything, equalTo, isLeft, isSubtype}
-import zio.test.TestAspect.{ignore, timeout}
+import zio.test.Assertion.equalTo
+import zio.test.TestAspect.timeout
 import zio.test._
-import zio.{Chunk, durationInt}
+import zio.{Scope, durationInt}
 
 import zio.stream.ZStream
 
 import zio.http.model._
 
-import io.netty.channel.embedded.EmbeddedChannel
-
 object BodySpec extends ZIOSpecDefault {
   private val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
 
-  override def spec =
+  override def spec: Spec[TestEnvironment with Scope, Throwable] =
     suite("BodySpec")(
       suite("outgoing")(
         suite("encode")(
@@ -40,19 +38,6 @@ object BodySpec extends ZIOSpecDefault {
               lazy val file = testFile
               val res       = Body.fromFile(file, 3).asString(HTTP_CHARSET)
               assertZIO(res)(equalTo("foo\nbar"))
-            },
-          ),
-          suite("fromAsync")(
-            test("success") {
-              val ctx     = new EmbeddedChannel()
-              val message = Chunk.fromArray("Hello World".getBytes(HTTP_CHARSET))
-              val chunk   = Body.fromAsync(async => async(ctx, message, true)).asChunk
-              assertZIO(chunk)(equalTo(message))
-            },
-            test("fail") {
-              val exception = new RuntimeException("Some Error")
-              val error     = Body.fromAsync(_ => throw exception).asChunk.flip
-              assertZIO(error)(equalTo(exception))
             },
           ),
         ),

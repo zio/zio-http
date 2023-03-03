@@ -19,7 +19,7 @@ package zio.http.netty.client
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Chunk, Promise, Trace, Unsafe}
 
-import zio.http.Body.UnsafeAsync
+import zio.http.netty.NettyBody.UnsafeAsync
 import zio.http.netty.{NettyFutureExecutor, NettyRuntime}
 
 import io.netty.buffer.ByteBufUtil

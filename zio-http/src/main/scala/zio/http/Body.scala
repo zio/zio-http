@@ -25,24 +25,15 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http.forms._
+import zio.http.internal.BodyEncoding
 import zio.http.model.{HTTP_CHARSET, Headers, MediaType}
-
-import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{Channel => JChannel}
-import io.netty.util.AsciiString
 
 /**
  * Holds Body that needs to be written on the HttpChannel
  */
-sealed trait Body { self =>
+trait Body { self =>
 
   def asArray(implicit trace: Trace): Task[Array[Byte]]
-
-  /**
-   * Decodes the content of request as CharSequence
-   */
-  final def asCharSeq(implicit trace: Trace): ZIO[Any, Throwable, CharSequence] =
-    asArray.map { buf => new AsciiString(buf, false) }
 
   def asChunk(implicit trace: Trace): Task[Chunk[Byte]]
 
@@ -71,22 +62,68 @@ sealed trait Body { self =>
 
   def isComplete: Boolean
 
-  private[zio] def requestHeaders: Headers = Headers.empty
+  private[zio] def mediaType: Option[MediaType]
+  private[zio] def boundary: Option[CharSequence]
 
+  private[zio] def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body
 }
 
 object Body {
 
-  private[zio] sealed trait UnsafeWriteable extends Body
+  val empty: Body = EmptyBody
 
-  private[zio] sealed trait UnsafeBytes extends Body {
+  /**
+   * Helper to create Body from CharSequence
+   */
+  def fromCharSequence(charSequence: CharSequence, charset: Charset = HTTP_CHARSET): Body =
+    BodyEncoding.default.fromCharSequence(charSequence, charset)
+
+  /**
+   * Helper to create Body from chunk of bytes
+   */
+  def fromChunk(data: Chunk[Byte]): Body = new ChunkBody(data)
+
+  /**
+   * Helper to create Body from contents of a file
+   */
+  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4): Body = new FileBody(file, chunkSize)
+
+  def fromURLEncodedForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
+    fromString(form.encodeAsURLEncoded(charset), charset).withContentType(MediaType.application.`x-www-form-urlencoded`)
+  }
+
+  def fromMultipartForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
+    val (boundary, bytes) = form.encodeAsMultipartBytes(charset)
+    ChunkBody(bytes).withContentType(MediaType.multipart.`form-data`, Some(boundary))
+  }
+
+  /**
+   * Helper to create Body from Stream of string
+   */
+  def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET)(implicit
+    trace: Trace,
+  ): Body =
+    fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
+
+  /**
+   * Helper to create Body from Stream of bytes
+   */
+  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body = new StreamBody(stream)
+
+  /**
+   * Helper to create Body from String
+   */
+  def fromString(text: String, charset: Charset = HTTP_CHARSET): Body = fromCharSequence(text, charset)
+
+  private[zio] trait UnsafeWriteable extends Body
+
+  private[zio] trait UnsafeBytes extends Body {
     private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte]
   }
 
   /**
    * Helper to create empty Body
    */
-  val empty: Body = EmptyBody
 
   private[zio] object EmptyBody extends Body with UnsafeWriteable with UnsafeBytes {
 
@@ -100,71 +137,19 @@ object Body {
     override def toString(): String = "Body.empty"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = Array.empty[Byte]
+
+    override private[zio] def mediaType: Option[MediaType] = None
+
+    override private[zio] def boundary: Option[CharSequence] = None
+
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body = EmptyBody
   }
 
-  /**
-   * Helper to create Body from AsciiString
-   */
-  def fromAsciiString(asciiString: AsciiString): Body = AsciiStringBody(asciiString, Headers.empty)
-
-  private[zio] final case class AsciiStringBody(
-    asciiString: AsciiString,
-    override val requestHeaders: Headers = Headers.empty,
+  private[zio] final case class ChunkBody(
+    data: Chunk[Byte],
+    override val mediaType: Option[MediaType] = None,
+    override val boundary: Option[CharSequence] = None,
   ) extends Body
-      with UnsafeWriteable
-      with UnsafeBytes {
-
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
-    override def isComplete: Boolean                               = true
-
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
-      ZIO.succeed(Chunk.fromArray(asciiString.array()))
-
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-      ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
-
-    override def toString(): String = s"Body.fromAsciiString($asciiString)"
-
-    private[zio] override def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = asciiString.array()
-
-  }
-
-  /**
-   * Helper to create Body from ByteBuf
-   */
-  def fromByteBuf(byteBuf: ByteBuf): Body = new ByteBufBody(byteBuf)
-
-  private[zio] final class ByteBufBody(val byteBuf: ByteBuf) extends Body with UnsafeWriteable with UnsafeBytes {
-
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(ByteBufUtil.getBytes(byteBuf))
-
-    override def isComplete: Boolean = true
-
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asArray.map(Chunk.fromArray)
-
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-      ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
-
-    override def toString(): String = s"Body.fromByteBuf($byteBuf)"
-
-    override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
-      ByteBufUtil.getBytes(byteBuf)
-
-  }
-
-  /**
-   * Helper to create Body from CharSequence
-   */
-  def fromCharSequence(charSequence: CharSequence, charset: Charset = HTTP_CHARSET): Body =
-    fromAsciiString(new AsciiString(charSequence, charset))
-
-  /**
-   * Helper to create Body from chunk of bytes
-   */
-  def fromChunk(data: Chunk[Byte]): Body = new ChunkBody(data)
-
-  private[zio] final case class ChunkBody(data: Chunk[Byte], override val requestHeaders: Headers = Headers.empty)
-      extends Body
       with UnsafeWriteable
       with UnsafeBytes {
 
@@ -181,15 +166,16 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
 
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body =
+      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
-  /**
-   * Helper to create Body from contents of a file
-   */
-  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4): Body = new FileBody(file, chunkSize)
-
-  private[zio] final class FileBody(val file: java.io.File, chunkSize: Int = 1024 * 4)
-      extends Body
+  private[zio] final case class FileBody(
+    val file: java.io.File,
+    chunkSize: Int = 1024 * 4,
+    override val mediaType: Option[MediaType] = None,
+    override val boundary: Option[CharSequence] = None,
+  ) extends Body
       with UnsafeWriteable
       with UnsafeBytes {
 
@@ -224,33 +210,15 @@ object Body {
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       Files.readAllBytes(file.toPath)
 
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body =
+      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
-  def fromURLEncodedForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
-    val contentType = Headers.contentType(MediaType.application.`x-www-form-urlencoded`.fullType)
-    AsciiStringBody(new AsciiString(form.encodeAsURLEncoded(charset), charset), contentType)
-  }
-
-  def fromMultipartForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
-    val (headers, bytes) = form.encodeAsMultipartBytes(charset)
-
-    ChunkBody(bytes, headers)
-  }
-
-  /**
-   * Helper to create Body from Stream of string
-   */
-  def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET)(implicit
-    trace: Trace,
-  ): Body =
-    fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
-
-  /**
-   * Helper to create Body from Stream of bytes
-   */
-  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body = new StreamBody(stream)
-
-  private[zio] final case class StreamBody(stream: ZStream[Any, Throwable, Byte]) extends Body {
+  private[zio] final case class StreamBody(
+    stream: ZStream[Any, Throwable, Byte],
+    override val mediaType: Option[MediaType] = None,
+    override val boundary: Option[CharSequence] = None,
+  ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
 
@@ -260,39 +228,12 @@ object Body {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
 
-  }
-
-  /**
-   * Helper to create Body from String
-   */
-  def fromString(text: String, charset: Charset = HTTP_CHARSET): Body = fromCharSequence(text, charset)
-
-  private[zio] def fromAsync(unsafeAsync: UnsafeAsync => Unit): Body = AsyncBody(unsafeAsync)
-
-  private[zio] final case class AsyncBody(unsafeAsync: UnsafeAsync => Unit) extends Body with UnsafeWriteable {
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
-
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asStream.runCollect
-
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-      ZStream
-        .async[Any, Throwable, (JChannel, Chunk[Byte], Boolean)](emit =>
-          try { unsafeAsync { (ctx, msg, isLast) => emit(ZIO.succeed(Chunk((ctx, msg, isLast)))) } }
-          catch { case e: Throwable => emit(ZIO.fail(Option(e))) },
-        )
-        .tap { case (ctx, _, isLast) => ZIO.attempt(ctx.read()).unless(isLast) }
-        .takeUntil { case (_, _, isLast) => isLast }
-        .map { case (_, msg, _) => msg }
-        .flattenChunks
-
-    override def isComplete: Boolean = false
-
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body =
+      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
   private val zioEmptyArray = ZIO.succeed(Array.empty[Byte])
 
   private val zioEmptyChunk = ZIO.succeed(Chunk.empty[Byte])
-  trait UnsafeAsync {
-    def apply(ctx: JChannel, message: Chunk[Byte], isLast: Boolean): Unit
-  }
+
 }

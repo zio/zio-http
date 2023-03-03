@@ -19,13 +19,13 @@ package zio.http.netty.server
 import zio.Chunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.Body
+import zio.http.netty.NettyBody
 
 import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 
-private[zio] final class ServerAsyncBodyHandler(val async: Body.UnsafeAsync)
+private[zio] final class ServerAsyncBodyHandler(val async: NettyBody.UnsafeAsync)
     extends SimpleChannelInboundHandler[HttpContent](true) {
   self =>
 
