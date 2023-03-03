@@ -25,7 +25,7 @@ import io.netty.channel.{
 }
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-package object service extends Logging {
+package object service {
   type ChannelFactory       = JChannelFactory[JChannel]
   type EventLoopGroup       = JEventLoopGroup
   type ServerChannelFactory = JChannelFactory[ServerChannel]

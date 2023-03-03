@@ -21,7 +21,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * List of commonly use HeaderNames. They are provided to reduce bugs caused by
- * typos and also to improve performance. `HeaderNames` arent encoded everytime
+ * typos and also to improve performance. `HeaderNames` aren't encoded everytime
  * one needs to send them over the wire.
  */
 trait HeaderNames {

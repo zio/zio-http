@@ -24,7 +24,6 @@ import scala.annotation.tailrec
 import zio._
 
 import zio.http._
-import zio.http.logging.Logger
 import zio.http.model._
 import zio.http.netty._
 import zio.http.netty.server.ServerInboundHandler.isReadKey
@@ -45,7 +44,6 @@ private[zio] final case class ServerInboundHandler(
   time: service.ServerTime,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
-  import ServerInboundHandler.log
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
@@ -70,10 +68,8 @@ private[zio] final case class ServerInboundHandler(
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
-    log.debug(s"Message: [${msg.getClass.getName}]")
     msg match {
       case jReq: FullHttpRequest =>
-        log.debug(s"FullHttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req = makeZioRequest(ctx, jReq)
 
         val releaseRequest = { () =>
@@ -90,7 +86,6 @@ private[zio] final case class ServerInboundHandler(
           releaseRequest()
 
       case jReq: HttpRequest =>
-        log.debug(s"HttpRequest: [${jReq.method()} ${jReq.uri()}]")
         val req = makeZioRequest(ctx, jReq)
 
         ensureHasApp()
@@ -124,7 +119,6 @@ private[zio] final case class ServerInboundHandler(
     } else {
       cause match {
         case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
-          log.info("Connection reset by peer")
         case t => super.exceptionCaught(ctx, t)
       }
     }
@@ -194,7 +188,7 @@ private[zio] final case class ServerInboundHandler(
           } yield ()
 
       _ <- ZIO.attempt(ctx.channel().attr(isReadKey).set(false))
-    } yield log.debug("Full write performed")
+    } yield ()
   }
 
   private def attemptImmediateWrite(
@@ -269,7 +263,6 @@ private[zio] final case class ServerInboundHandler(
     val app = res.socketApp
     jReq match {
       case jReq: FullHttpRequest =>
-        log.debug(s"Upgrading to WebSocket: [${jReq.uri()}].  SocketApp: [${app.orNull}]")
         ctx
           .channel()
           .pipeline()
@@ -310,9 +303,13 @@ private[zio] final case class ServerInboundHandler(
             .fold[UIO[Response]](
               response => ZIO.succeed(response),
               cause =>
-                (if (errCallback ne null) errCallback(cause) else ZIO.unit).as(
-                  HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
-                ),
+                if (cause.isInterruptedOnly) {
+                  interrupted(ctx).as(null)
+                } else {
+                  (if (errCallback ne null) errCallback(cause) else ZIO.unit).as(
+                    HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
+                  )
+                },
             )
         }
         _        <-
@@ -322,20 +319,27 @@ private[zio] final case class ServerInboundHandler(
               _    <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
             } yield ()
           } else {
-            ZIO.attempt(writeNotFound(ctx, jReq)(() => ()))
+            ZIO.attempt(
+              if (ctx.channel().isOpen) {
+                writeNotFound(ctx, jReq)(() => ())
+              },
+            )
           }
       } yield ()
 
       pgm.provideEnvironment(env)
     }
   }
+
+  private def interrupted(ctx: ChannelHandlerContext): ZIO[Any, Nothing, Unit] =
+    ZIO.attempt {
+      ctx.channel().close()
+    }.unit.orDie
 }
 
 object ServerInboundHandler {
 
   private[zio] val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
-
-  val log: Logger = service.Log.withTags("Server", "Request")
 
   val layer: ZLayer[
     ServerTime with ServerConfig with NettyRuntime with ErrorCallbackRef with AppRef,

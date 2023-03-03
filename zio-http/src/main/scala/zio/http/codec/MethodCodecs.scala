@@ -20,15 +20,10 @@ private[codec] trait MethodCodecs {
   import HttpCodecType.Method
 
   def method(method: zio.http.model.Method): HttpCodec[HttpCodecType.Method, Unit] =
-    HttpCodec.Method(TextCodec.constant(method.toString()))
+    HttpCodec.Method(SimpleCodec.Specified(method))
 
-  def method: HttpCodec[HttpCodecType.Method, zio.http.model.Method] =
-    HttpCodec
-      .Method(TextCodec.string)
-      .transform(
-        methodStr => zio.http.model.Method.fromString(methodStr),
-        method => method.text,
-      )
+  val method: HttpCodec[HttpCodecType.Method, zio.http.model.Method] =
+    HttpCodec.Method(SimpleCodec.Unspecified())
 
   def connect: HttpCodec[Method, Unit] = method(zio.http.model.Method.CONNECT)
   def delete: HttpCodec[Method, Unit]  = method(zio.http.model.Method.DELETE)
@@ -36,5 +31,4 @@ private[codec] trait MethodCodecs {
   def options: HttpCodec[Method, Unit] = method(zio.http.model.Method.OPTIONS)
   def post: HttpCodec[Method, Unit]    = method(zio.http.model.Method.POST)
   def put: HttpCodec[Method, Unit]     = method(zio.http.model.Method.PUT)
-
 }

@@ -26,14 +26,9 @@ import io.netty.handler.codec.http.HttpObjectDecoder.{
 import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
-import io.netty.handler.logging.LoggingHandler
 import zio._
 import zio.http.ServerConfig
 import zio.http.netty.Names
-import zio.http.netty.server.ServerChannelInitializer.log
-import zio.http.service.Log
-import zio.http.service.logging.LogLevelTransform._
-import zio.http.logging.LogLevel
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
@@ -43,14 +38,12 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 private[zio] final case class ServerChannelInitializer(
   cfg: ServerConfig,
   reqHandler: ChannelInboundHandler,
-  enableNettyLogging: Boolean = false,
 ) extends ChannelInitializer[Channel] {
 
   override def initChannel(channel: Channel): Unit = {
     // !! IMPORTANT !!
     // Order of handlers are critical to make this work
     val pipeline = channel.pipeline()
-    log.debug(s"Connection initialized: ${channel.remoteAddress()}")
     // SSL
     // Add SSL Handler if CTX is available
     cfg.sslConfig.foreach { sslCfg =>
@@ -98,12 +91,6 @@ private[zio] final case class ServerChannelInitializer(
     // Flushing content is done in batches. Can potentially improve performance.
     if (cfg.consolidateFlush) pipeline.addLast(Names.HttpServerFlushConsolidation, new FlushConsolidationHandler)
 
-    if (enableNettyLogging) {
-      import io.netty.util.internal.logging.InternalLoggerFactory
-      InternalLoggerFactory.setDefaultFactory(zio.http.service.logging.NettyLoggerFactory(log))
-      pipeline.addLast(Names.LowLevelLogging, new LoggingHandler(LogLevel.Debug.toNettyLogLevel))
-    }
-
     // RequestHandler
     // Always add ZIO Http Request Handler
     pipeline.addLast(Names.HttpRequestHandler, reqHandler)
@@ -116,12 +103,10 @@ private[zio] final case class ServerChannelInitializer(
 object ServerChannelInitializer {
   implicit val trace: Trace = Trace.empty
 
-  private val log = Log.withTags("Server", "Channel")
-
   val layer = ZLayer.fromZIO {
     for {
       cfg     <- ZIO.service[ServerConfig]
       handler <- ZIO.service[SimpleChannelInboundHandler[HttpObject]]
-    } yield ServerChannelInitializer(cfg, handler, false) // TODO add Netty logging flag to ServerConfig.
+    } yield ServerChannelInitializer(cfg, handler)
   }
 }

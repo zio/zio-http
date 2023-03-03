@@ -16,7 +16,10 @@ Setup via `build.sbt`:
 libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 ```
 
-**NOTE:** ZIO Http is compatible with `ZIO 1.x` and `ZIO 2.x`.
+**NOTES ON VERSIONING:**
+
+- Older library versions `1.x` or `2.x` of ZIO Http are derived from Dream11, the organization that donated ZIO Http to the ZIO organization in 2022. 
+- Newer library versions, starting in 2023 and resulting from the ZIO organization start with `0.x`.
 
 ## Getting Started
 

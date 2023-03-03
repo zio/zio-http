@@ -19,7 +19,7 @@ package zio.http.netty.client
 import scala.collection.mutable
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
@@ -39,7 +39,6 @@ final case class NettyClientDriver private (
   clientConfig: ClientConfig,
 ) extends ClientDriver
     with ClientRequestEncoder {
-  import zio.http.ZClient.log
 
   override type Connection = Channel
 
@@ -61,8 +60,6 @@ final case class NettyClientDriver private (
           }
         }.ignore.when(exit.isFailure)
       }.as {
-        log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
-
         val pipeline                              = channel.pipeline()
         val toRemove: mutable.Set[ChannelHandler] = new mutable.HashSet[ChannelHandler]()
 

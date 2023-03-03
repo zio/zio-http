@@ -32,7 +32,6 @@ import scala.util.control.NonFatal
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
-  import Handler.FastZIOSyntax
 
   final def @@[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out, In2, Out2](
     that: HandlerAspect[R1, Err1, In1, Out1, In2, Out2],
@@ -124,7 +123,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   )(implicit trace: Trace): Handler[R1, Err1, In, Out1] =
     new Handler[R1, Err1, In, Out1] {
       override def apply(in: In): ZIO[R1, Err1, Out1] =
-        self(in).fastFlatMap(that(_))
+        self(in).flatMap(that(_))
     }
 
   /**
@@ -958,30 +957,6 @@ object Handler {
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[R, Err, Out] =
           f(in)
-      }
-  }
-
-  // TODO: Remove after https://github.com/zio/zio/pull/7714 is released
-  implicit class FastZIOSyntax[R, E, A](val zio: ZIO[R, E, A]) extends AnyVal {
-    def fastFlatMap[R1 <: R, E1 >: E, B](f: A => ZIO[R1, E1, B])(implicit trace: Trace): ZIO[R1, E1, B] =
-      zio match {
-        case Exit.Success(a)     => f(a)
-        case e @ Exit.Failure(_) => e
-        case _                   => zio.flatMap(f)
-      }
-
-    def fastMap[B](f: A => B)(implicit trace: Trace): ZIO[R, E, B] =
-      zio match {
-        case Exit.Success(a)     => Exit.Success(f(a))
-        case e @ Exit.Failure(_) => e
-        case _                   => zio.map(f)
-      }
-
-    def fastMapBoth[E2, B](f: E => E2, g: A => B)(implicit trace: Trace): ZIO[R, E2, B] =
-      zio match {
-        case Exit.Success(a) => Exit.Success(g(a))
-        case Exit.Failure(e) => Exit.Failure(e.map(f))
-        case _               => zio.mapBoth(f, g)
       }
   }
 }

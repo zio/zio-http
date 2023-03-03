@@ -24,8 +24,6 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] final class ServerTime(minDuration: Long) {
 
-  import ServerTime.log
-
   private var last: Long               = System.currentTimeMillis()
   private var lastString: CharSequence = ServerTime.format(new Date(last))
 
@@ -33,7 +31,6 @@ private[zio] final class ServerTime(minDuration: Long) {
     val now  = System.currentTimeMillis()
     val diff = now - last
     if (diff > minDuration) {
-      log.debug(s"Server time threshold (${minDuration}) exceeded: [${diff}]")
       last = now
       lastString = ServerTime.format(new Date(last))
       true
@@ -51,7 +48,6 @@ private[zio] final class ServerTime(minDuration: Long) {
 }
 
 object ServerTime {
-  val log            = Log.withTags("Time")
   private val format = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss z")
 
   def format(d: Date): CharSequence = new AsciiString(format.format(d))
