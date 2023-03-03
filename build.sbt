@@ -90,6 +90,7 @@ lazy val root = (project in file("."))
 lazy val zioHttp = (project in file("zio-http"))
   .settings(stdSettings("zio-http"))
   .settings(publishSetting(true))
+  .settings(settingsWithHeaderLicense)
   .settings(meta)
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),

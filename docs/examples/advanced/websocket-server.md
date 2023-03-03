@@ -5,61 +5,70 @@ sidebar_label: "WebSocket Server"
 ---
 
 ```scala
-import zio.http._
-import zio.http.Server
-import zio.socket._
 import zio._
-import zio.duration._
-import zio.stream.ZStream
 
-object WebSocketAdvanced extends App {
-  // Message Handlers
-  private val open = Socket.succeed(WebSocketFrame.text("Greetings!"))
+import zio.http.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
+import zio.http._
+import zio.http.model.Method
+import zio.http.socket._
 
-  private val echo = Socket.collect[WebSocketFrame] { case WebSocketFrame.Text(text) =>
-    ZStream.repeat(WebSocketFrame.text(s"Received: $text")).schedule(Schedule.spaced(1 second)).take(3)
-  }
+object WebSocketAdvanced extends ZIOAppDefault {
+  val messageFilter: Http[Any, Nothing, WebSocketChannelEvent, (Channel[WebSocketFrame], String)] =
+    Http.collect[WebSocketChannelEvent] { case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
+      (channel, message)
+    }
 
-  private val fooBar = Socket.collect[WebSocketFrame] {
-    case WebSocketFrame.Text("FOO") => ZStream.succeed(WebSocketFrame.text("BAR"))
-    case WebSocketFrame.Text("BAR") => ZStream.succeed(WebSocketFrame.text("FOO"))
-  }
+  val messageSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    messageFilter >>> Handler.fromFunctionZIO[(WebSocketChannel, String)] {
+      case (ch, "end") => ch.close()
 
-  // Setup protocol settings
-  private val protocol = SocketProtocol.subProtocol("json")
+      // Send a "bar" if the server sends a "foo"
+      case (ch, "foo") => ch.writeAndFlush(WebSocketFrame.text("bar"))
 
-  // Setup decoder settings
-  private val decoder = SocketDecoder.allowExtensions
+      // Send a "foo" if the server sends a "bar"
+      case (ch, "bar") => ch.writeAndFlush(WebSocketFrame.text("foo"))
 
-  // Combine all channel handlers together
-  private val socketApp = {
+      // Echo the same message 10 times if it's not "foo" or "bar"
+      // Improve performance by writing multiple frames at once
+      // And flushing it on the channel only once.
+      case (ch, text) =>
+        ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
+    }
 
-    SocketApp(echo merge fooBar) // Called after each message being received on the channel
+  val channelSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Http.collectZIO[WebSocketChannelEvent] {
 
-      // Called after the request is successfully upgraded to websocket
-      .onOpen(open)
+      // Send a "greeting" message to the server once the connection is established
+      case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete))  =>
+        ch.writeAndFlush(WebSocketFrame.text("Greetings!"))
 
-      // Called after the connection is closed
-      .onClose(_ => console.putStrLn("Closed!").ignore)
+      // Log when the channel is getting closed
+      case ChannelEvent(_, ChannelRead(WebSocketFrame.Close(status, reason))) =>
+        Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
 
-      // Called whenever there is an error on the socket channel
-      .onError(_ => console.putStrLn("Error!").ignore)
+      // Print the exception if it's not a normal close
+      case ChannelEvent(_, ExceptionCaught(cause))                            =>
+        Console.printLine(s"Channel error!: ${cause.getMessage}")
+    }
 
-      // Setup websocket decoder config
-      .withDecoder(decoder)
+  val httpSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    messageSocket ++ channelSocket
 
-      // Setup websocket protocol config
-      .withProtocol(protocol)
-  }
+  val protocol = SocketProtocol.default.withSubProtocol(Some("json")) // Setup protocol settings
 
-  private val app =
+  val decoder = SocketDecoder.default.withExtensions(allowed = true) // Setup decoder settings
+
+  val socketApp: SocketApp[Any] = // Combine all channel handlers together
+    httpSocket.toSocketApp
+      .withDecoder(decoder)   // Setup websocket decoder config
+      .withProtocol(protocol) // Setup websocket protocol config
+
+  val app: Http[Any, Nothing, Request, Response] =
     Http.collectZIO[Request] {
-      case Method.GET -> !! / "greet" / name  => UIO(Response.text(s"Greetings ${name}!"))
+      case Method.GET -> !! / "greet" / name  => ZIO.succeed(Response.text(s"Greetings ${name}!"))
       case Method.GET -> !! / "subscriptions" => socketApp.toResponse
     }
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  override val run = Server.serve(app).provide(Server.default)
 }
-
 ```
