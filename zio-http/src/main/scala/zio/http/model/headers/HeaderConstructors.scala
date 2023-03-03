@@ -3,7 +3,6 @@ package zio.http.model.headers
 import java.util.Base64
 
 import zio.Duration
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}

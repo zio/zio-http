@@ -1,7 +1,6 @@
 package zio.http.model.headers
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Duration, Trace}
+import zio.Duration
 
 import zio.http._
 import zio.http.model._

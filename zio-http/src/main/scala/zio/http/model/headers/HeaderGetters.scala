@@ -5,16 +5,14 @@ import java.util.{Base64, Date}
 
 import scala.util.control.NonFatal
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http._
+import zio.http.internal.{CaseMode, HeaderEncoding}
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http.model._
 import zio.http.netty.server.ServerTime
 
 import io.netty.handler.codec.http.HttpUtil
-import io.netty.util.AsciiString.contentEqualsIgnoreCase
 
 /**
  * Maintains a list of operators that parse and extract data from the headers.
@@ -110,7 +108,7 @@ trait HeaderGetters[+A] { self =>
 
   final def charset: Charset =
     headerValue(HeaderNames.contentType) match {
-      case Some(value) => HttpUtil.getCharset(value, HTTP_CHARSET)
+      case Some(value) => HeaderEncoding.default.getCharset(value, HTTP_CHARSET)
       case None        => HTTP_CHARSET
     }
 
@@ -191,13 +189,13 @@ trait HeaderGetters[+A] { self =>
 
   final def header(headerName: CharSequence): Option[Header] =
     headers.toList
-      .find(h => contentEqualsIgnoreCase(h._1, headerName))
+      .find(h => equals(h._1, headerName, CaseMode.Insensitive))
 
   final def headerValue(headerName: CharSequence): Option[String] =
     header(headerName).map(_._2.toString)
 
   final def headerValues(headerName: CharSequence): List[String] =
-    headers.toList.collect { case h if contentEqualsIgnoreCase(h._1, headerName) => h._2.toString }
+    headers.toList.collect { case h if equals(h._1, headerName, CaseMode.Insensitive) => h._2.toString }
 
   /**
    * Returns the Headers object on the current type A
@@ -238,7 +236,7 @@ trait HeaderGetters[+A] { self =>
 
   final def mediaType: Option[MediaType] =
     contentType
-      .flatMap(ct => Option(HttpUtil.getMimeType(ct)))
+      .flatMap(ct => HeaderEncoding.default.getMimeType(ct))
       .flatMap(ct => MediaType.forContentType(ct.toString))
 
   final def origin: Option[CharSequence] =

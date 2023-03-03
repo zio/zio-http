@@ -10,7 +10,7 @@ import zio.http.internal.QueryParamEncoding
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 
 private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
-  override def decode(queryStringFragment: String): QueryParams = {
+  override final def decode(queryStringFragment: String): QueryParams = {
     if (queryStringFragment == null || queryStringFragment.isEmpty) {
       QueryParams.empty
     } else {
@@ -22,7 +22,7 @@ private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
     }
   }
 
-  override def encode(baseUri: String, queryParams: QueryParams): String = {
+  override final def encode(baseUri: String, queryParams: QueryParams): String = {
     val encoder = new QueryStringEncoder(baseUri)
     queryParams.map.foreach { case (key, values) =>
       if (key != "") {

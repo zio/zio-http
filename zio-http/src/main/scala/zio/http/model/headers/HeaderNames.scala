@@ -1,7 +1,5 @@
 package zio.http.model.headers
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 /**
  * List of commonly use HeaderNames. They are provided to reduce bugs caused by
  * typos and also to improve performance. `HeaderNames` aren't encoded everytime

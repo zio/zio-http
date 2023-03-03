@@ -1,7 +1,5 @@
 package zio.http.model.headers
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.model.Headers.Header
 
 /**

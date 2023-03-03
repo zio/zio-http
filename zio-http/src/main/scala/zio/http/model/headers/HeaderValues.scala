@@ -1,10 +1,5 @@
 package zio.http.model.headers
 
-import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import io.netty.handler.codec.http.HttpHeaderValues
-
 /**
  * List of commonly use HeaderValues. They are provided to reduce bugs caused by
  * typos and also to improve performance. `HeaderValues` arent encoded everytime

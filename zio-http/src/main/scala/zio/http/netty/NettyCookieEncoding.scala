@@ -10,20 +10,20 @@ import zio.http.{Path, Request, Response}
 import io.netty.handler.codec.http.{cookie => jCookie}
 
 private[http] object NettyCookieEncoding extends CookieEncoding {
-  override def encodeRequestCookie(cookie: Cookie[Request], validate: Boolean): String = {
+  override final def encodeRequestCookie(cookie: Cookie[Request], validate: Boolean): String = {
     val encoder = if (validate) jCookie.ClientCookieEncoder.STRICT else jCookie.ClientCookieEncoder.LAX
     val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
     encoder.encode(builder)
   }
 
-  override def decodeRequestCookie(header: String, validate: Boolean): List[Cookie[Request]] = {
+  override final def decodeRequestCookie(header: String, validate: Boolean): List[Cookie[Request]] = {
     val decoder = if (validate) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
     decoder.decodeAll(header).asScala.toList.map { cookie =>
       Cookie(cookie.name(), cookie.value()).toRequest
     }
   }
 
-  override def encodeResponseCookie(cookie: Cookie[Response], validate: Boolean): String = {
+  override final def encodeResponseCookie(cookie: Cookie[Response], validate: Boolean): String = {
     val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
 
     val encoder = if (validate) jCookie.ServerCookieEncoder.STRICT else jCookie.ServerCookieEncoder.LAX
@@ -43,7 +43,7 @@ private[http] object NettyCookieEncoding extends CookieEncoding {
     encoder.encode(builder)
   }
 
-  override def decodeResponseCookie(header: String, validate: Boolean): Cookie[Response] = {
+  override final def decodeResponseCookie(header: String, validate: Boolean): Cookie[Response] = {
     val decoder = if (validate) jCookie.ClientCookieDecoder.STRICT else jCookie.ClientCookieDecoder.LAX
 
     val cookie = decoder.decode(header).asInstanceOf[jCookie.DefaultCookie]
