@@ -1,9 +1,7 @@
 package zio.http.model.headers
 
-import zio.http.internal.{CaseMode, HeaderEncoding}
+import zio.http.internal.{CaseMode, CharSequenceExtensions, HeaderEncoding}
 import zio.http.model._
-
-import io.netty.handler.codec.http.HttpUtil
 
 /**
  * Maintains a list of operators that checks if the Headers meet the give
@@ -17,7 +15,7 @@ trait HeaderChecks[+A] { self: HeaderExtension[A] with A =>
     contentType
       .flatMap(ct => HeaderEncoding.default.getMimeType(ct))
       .fold(false)(
-        equals(_, value, CaseMode.Insensitive),
+        CharSequenceExtensions.equals(_, value, CaseMode.Insensitive),
       )
   }
 
