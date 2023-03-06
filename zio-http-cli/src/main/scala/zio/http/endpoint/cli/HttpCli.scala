@@ -1,6 +1,6 @@
 package zio.http.endpoint.cli
 
-import java.util.UUID
+import scala.util.Try
 
 import zio._
 import zio.cli._
@@ -72,22 +72,18 @@ object CliEndpoint                                                              
         textCodec.asInstanceOf[TextCodec[_]] match {
           case TextCodec.UUIDCodec        =>
             Set(
-              CliEndpoint[UUID](
+              CliEndpoint[java.util.UUID](
                 (uuid, request) =>
                   request.copy(url = request.url.copy(queryParams = request.url.queryParams.add(name, uuid.toString))),
                 Options
                   .text(name)
                   .mapOrFail(str =>
-                    scala.util
-                      .Try(UUID.fromString(str))
-                      .toEither
-                      .left
-                      .map(error =>
-                        ValidationError(
-                          ValidationErrorType.InvalidValue,
-                          HelpDoc.p(HelpDoc.Span.code(error.getMessage())),
-                        ),
-                      ),
+                    Try(java.util.UUID.fromString(str)).toEither.left.map { error =>
+                      ValidationError(
+                        ValidationErrorType.InvalidValue,
+                        HelpDoc.p(HelpDoc.Span.code(error.getMessage())),
+                      )
+                    },
                   ),
               ),
             )
