@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http.netty
 
 import java.util
 
@@ -7,11 +7,10 @@ import zio.test.{TestClock, ZIOSpecDefault, assertTrue}
 import zio.{UIO, ZIO, durationInt}
 
 import zio.http.Channel
-import zio.http.netty.NettyChannel
 
 import io.netty.channel.embedded.EmbeddedChannel
 
-object ChannelSpec extends ZIOSpecDefault {
+object NettyChannelSpec extends ZIOSpecDefault {
   def spec = suite("Channel")(
     suite("writeAndFlush")(
       test("await = false") {

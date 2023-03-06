@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http
 
 import java.io.File
 
@@ -7,7 +7,6 @@ import zio.test.TestAspect.timeout
 import zio.test.assertZIO
 import zio.{Scope, ZIO, durationInt}
 
-import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model._
 

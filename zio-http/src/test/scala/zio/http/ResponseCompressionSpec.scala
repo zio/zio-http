@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http
 
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
@@ -8,7 +8,6 @@ import zio.{Chunk, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
 
-import zio.http._
 import zio.http.model.{Headers, Method, Scheme, Status}
 
 object ResponseCompressionSpec extends ZIOSpecDefault {

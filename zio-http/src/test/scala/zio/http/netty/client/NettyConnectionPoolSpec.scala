@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http.netty.client
 
 import zio._
 import zio.test.Assertion.{equalTo, hasSize}
@@ -10,7 +10,6 @@ import zio.stream.ZStream
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.{Headers, Method, Version}
-import zio.http.netty.client.NettyClientDriver
 
 import io.netty.handler.codec.http.HttpHeaderValues
 

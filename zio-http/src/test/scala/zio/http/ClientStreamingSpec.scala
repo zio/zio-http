@@ -1,16 +1,15 @@
-package zio.http.service
+package zio.http
 
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{nonFlaky, sequential, timeout}
+import zio.test.TestAspect.{sequential, timeout}
 import zio.test.{Spec, TestEnvironment, assertZIO}
 import zio.{Scope, durationInt}
 
 import zio.stream.ZStream
 
-import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.Method
-import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
+import zio.http.netty.client.NettyClientDriver
 
 object ClientStreamingSpec extends HttpRunnableSpec {
 

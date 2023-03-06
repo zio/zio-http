@@ -3,6 +3,8 @@ package zio.http.html
 import zio.test.Assertion.equalTo
 import zio.test._
 
+import zio.http.html._
+
 case object HtmlSpec extends ZIOSpecDefault {
   def spec = {
     suite("HtmlSpec")(

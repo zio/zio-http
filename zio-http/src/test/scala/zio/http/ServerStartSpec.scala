@@ -1,11 +1,10 @@
-package zio.http.service
+package zio.http
 
 import zio.test.Assertion.{equalTo, not}
 import zio.test._
 import zio.{Scope, ZIO}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.{Http, Server, ServerConfig}
 
 object ServerStartSpec extends HttpRunnableSpec {
 

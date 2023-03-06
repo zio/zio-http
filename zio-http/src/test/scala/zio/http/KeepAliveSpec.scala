@@ -1,11 +1,10 @@
-package zio.http.service
+package zio.http
 
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
 import zio.test.assertZIO
 import zio.{Scope, durationInt}
 
-import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model._
 

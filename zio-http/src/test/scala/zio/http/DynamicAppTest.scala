@@ -1,9 +1,8 @@
-package zio.http.service
+package zio.http
 
 import zio._
 import zio.test._
 
-import zio.http._
 import zio.http.model._
 import zio.http.netty.client.NettyClientDriver
 

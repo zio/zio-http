@@ -1,4 +1,4 @@
-package zio.http.service
+package zio.http
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
@@ -10,15 +10,13 @@ import zio.{Chunk, Scope, ZIO, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
-import zio.http._
+import zio.http.html._
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zio.http.model._
 
 import io.netty.handler.codec.PrematureChannelClosureException
-import io.netty.util.AsciiString
 
 object ServerSpec extends HttpRunnableSpec {
-  import html._
 
   private val nonEmptyContent = for {
     data    <- Gen.listOf(Gen.alphaNumericString)
