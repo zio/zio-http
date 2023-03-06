@@ -10,7 +10,7 @@ import zio.{Chunk, Scope, ZIO, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
-import zio.http.html._
+import zio.http.html.{body, div, html, id}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zio.http.model._
 
@@ -273,11 +273,12 @@ object ServerSpec extends HttpRunnableSpec {
     } @@ TestAspect.os(os => !os.isWindows),
     suite("html")(
       test("body") {
-        val res = Handler.html(html(body(div(id := "foo", "bar")))).toHttp.deploy.body.mapZIO(_.asString).run()
+        val res =
+          Handler.html(zio.http.html.html(body(div(id := "foo", "bar")))).toHttp.deploy.body.mapZIO(_.asString).run()
         assertZIO(res)(equalTo("""<!DOCTYPE html><html><body><div id="foo">bar</div></body></html>"""))
       },
       test("content-type") {
-        val app = Handler.html(html(body(div(id := "foo", "bar")))).toHttp
+        val app = Handler.html(zio.http.html.html(body(div(id := "foo", "bar")))).toHttp
         val res = app.deploy.headerValue(HeaderNames.contentType).run()
         assertZIO(res)(isSome(equalTo(HeaderValues.textHtml.toString)))
       },
