@@ -18,8 +18,6 @@ package zio.http.socket
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig
-
 /**
  * Frame decoder configuration
  */
@@ -31,16 +29,6 @@ final case class SocketDecoder(
   closeOnProtocolViolation: Boolean = true,
   withUTF8Validator: Boolean = true,
 ) { self =>
-
-  def javaConfig[zio]: WebSocketDecoderConfig = WebSocketDecoderConfig
-    .newBuilder()
-    .maxFramePayloadLength(maxFramePayloadLength)
-    .expectMaskedFrames(expectMaskedFrames)
-    .allowMaskMismatch(allowMaskMismatch)
-    .allowExtensions(allowExtensions)
-    .closeOnProtocolViolation(closeOnProtocolViolation)
-    .withUTF8Validator(withUTF8Validator)
-    .build()
 
   def withExtensions(allowed: Boolean): SocketDecoder = self.copy(allowExtensions = allowed)
 

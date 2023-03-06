@@ -20,9 +20,10 @@ import scala.jdk.CollectionConverters._
 
 import zio.http.ServerConfig.CompressionOptions
 import zio.http.model._
+import zio.http.socket.CloseStatus
 
 import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
-import io.netty.handler.codec.http.websocketx.WebSocketScheme
+import io.netty.handler.codec.http.websocketx.{WebSocketCloseStatus, WebSocketScheme}
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpMethod, HttpResponseStatus, HttpScheme}
 
 private[netty] object Conversions {

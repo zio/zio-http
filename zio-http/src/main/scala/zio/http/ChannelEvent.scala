@@ -18,8 +18,6 @@ package zio.http
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import io.netty.channel.ChannelHandlerContext
-
 /**
  * Immutable and type-safe representation of events that are triggered on a
  * netty channel. `A` represents the inbound message type and `B` represents the
@@ -31,20 +29,20 @@ final case class ChannelEvent[-A, +B](channel: Channel[A], event: ChannelEvent.E
 }
 
 object ChannelEvent {
-  def channelRead[B](ctx: ChannelHandlerContext, msg: B): ChannelEvent[Any, B] =
-    ChannelEvent(ChannelNetty.make(ctx.channel()), ChannelRead(msg))
+  def channelRead[A, B](channel: Channel[A], msg: B): ChannelEvent[A, B] =
+    ChannelEvent(channel, ChannelRead(msg))
 
-  def channelRegistered(ctx: ChannelHandlerContext): ChannelEvent[Any, Nothing] =
-    ChannelEvent(ChannelNetty.make(ctx.channel()), ChannelRegistered)
+  def channelRegistered[A](channel: Channel[A]): ChannelEvent[A, Nothing] =
+    ChannelEvent(channel, ChannelRegistered)
 
-  def channelUnregistered(ctx: ChannelHandlerContext): ChannelEvent[Any, Nothing] =
-    ChannelEvent(ChannelNetty.make(ctx.channel()), ChannelUnregistered)
+  def channelUnregistered[A](channel: Channel[A]): ChannelEvent[A, Nothing] =
+    ChannelEvent(channel, ChannelUnregistered)
 
-  def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): ChannelEvent[Any, Nothing] =
-    ChannelEvent(ChannelNetty.make(ctx.channel()), ExceptionCaught(cause))
+  def exceptionCaught[A](channel: Channel[A], cause: Throwable): ChannelEvent[A, Nothing] =
+    ChannelEvent(channel, ExceptionCaught(cause))
 
-  def userEventTriggered(ctx: ChannelHandlerContext, evt: UserEvent): ChannelEvent[Any, Nothing] =
-    ChannelEvent(ChannelNetty.make(ctx.channel()), UserEventTriggered(evt))
+  def userEventTriggered[A](channel: Channel[A], evt: UserEvent): ChannelEvent[A, Nothing] =
+    ChannelEvent(channel, UserEventTriggered(evt))
 
   /**
    * Immutable and type-safe representation of events that are triggered on a

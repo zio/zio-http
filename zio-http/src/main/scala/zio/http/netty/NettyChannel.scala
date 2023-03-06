@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-package zio.http
+package zio.http.netty
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Task, Trace, UIO, ZIO}
 
-import zio.http.netty.NettyFutureExecutor
+import zio.http.Channel
 
 import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
 
-final case class ChannelNetty[-A](
+final case class NettyChannel[-A](
   private val channel: JChannel,
   private val convert: A => Any,
 ) extends Channel[A] {
@@ -44,7 +43,7 @@ final case class ChannelNetty[-A](
 
   override def close(await: Boolean = false)(implicit trace: Trace): Task[Unit] = foreach(await) { _.close() }
 
-  override def contramap[A1](f: A1 => A): ChannelNetty[A1] = copy(convert = convert.compose(f))
+  override def contramap[A1](f: A1 => A): NettyChannel[A1] = copy(convert = convert.compose(f))
 
   override def flush(implicit trace: Trace): Task[Unit] = ZIO.attempt(channel.flush(): Unit)
 
@@ -63,6 +62,6 @@ final case class ChannelNetty[-A](
   }
 }
 
-object ChannelNetty {
-  def make[A](channel: JChannel): ChannelNetty[A] = ChannelNetty(channel, identity)
+object NettyChannel {
+  def make[A](channel: JChannel): NettyChannel[A] = NettyChannel(channel, identity)
 }

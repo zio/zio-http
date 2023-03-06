@@ -28,6 +28,7 @@ import zio.http.model._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.server.ServerInboundHandler.isReadKey
+import zio.http.netty.socket.NettySocketProtocol
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
@@ -266,8 +267,8 @@ private[zio] final case class ServerInboundHandler(
         ctx
           .channel()
           .pipeline()
-          .addLast(new WebSocketServerProtocolHandler(app.get.protocol.serverBuilder.build()))
-          .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, app.get, false))
+          .addLast(new WebSocketServerProtocolHandler(NettySocketProtocol.serverBuilder(app.get.protocol).build()))
+          .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, app.get))
 
         val retained = jReq.retainedDuplicate()
         val _        = ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }

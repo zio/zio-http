@@ -19,12 +19,13 @@ package zio.http.netty.client
 import scala.collection.mutable
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
+import zio.http.netty.socket.NettySocketProtocol
 import zio.http.socket.SocketApp
 
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
@@ -97,7 +98,8 @@ final case class NettyClientDriver private (
         if (location.scheme.isWebSocket) {
           val headers = Conversions.headersToNetty(req.headers)
           val app     = createSocketApp()
-          val config  = app.protocol.clientBuilder
+          val config  = NettySocketProtocol
+            .clientBuilder(app.protocol)
             .customHeaders(headers)
             .webSocketUri(req.url.encode)
             .build()
@@ -105,7 +107,7 @@ final case class NettyClientDriver private (
           // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
 
           val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
-          val webSocket               = new WebSocketAppHandler(nettyRuntime, app, true)
+          val webSocket               = new WebSocketAppHandler(nettyRuntime, app)
 
           pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
           pipeline.addLast(Names.WebSocketHandler, webSocket)
