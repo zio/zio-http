@@ -6,36 +6,36 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
 
-  type HttpAppMiddleware[-R, +Err] = Middleware[Nothing, R, Err, Any, Request, Response, Request, Response]
+  type HttpAppMiddleware[-R, +Err] = Middleware[Nothing, R, Err, Any]
   object HttpAppMiddleware {
     type WithOut[-R, +Err, OutEnv0[_], OutErr0[_]] =
-      Middleware[Nothing, R, Err, Any, Request, Response, Request, Response] {
+      Middleware[Nothing, R, Err, Any] {
         type OutEnv[Env0] = OutEnv0[Env0]
         type OutErr[Err0] = OutErr0[Err0]
       }
     type Mono[-R, +Err]                            =
-      Middleware[Nothing, R, Err, Any, Request, Response, Request, Response] {
+      Middleware[Nothing, R, Err, Any] {
         type OutEnv[Env0] = Env0
         type OutErr[Err0] = Err0
       }
   }
 
   type RequestHandlerMiddleware[-R, +Err] =
-    HandlerMiddleware[Nothing, R, Err, Any, Request, Response, Request, Response]
+    HandlerMiddleware[Nothing, R, Err, Any]
   object RequestHandlerMiddleware {
     type WithOut[-R, +Err, OutEnv0[_], OutErr0[_]] =
-      HandlerMiddleware[Nothing, R, Err, Any, Request, Response, Request, Response] {
+      HandlerMiddleware[Nothing, R, Err, Any] {
         type OutEnv[Env0] = OutEnv0[Env0]
         type OutErr[Err0] = OutErr0[Err0]
       }
     type Mono[-R, +Err]                            =
-      HandlerMiddleware[Nothing, R, Err, Any, Request, Response, Request, Response] {
+      HandlerMiddleware[Nothing, R, Err, Any] {
         type OutEnv[Env0] = Env0
         type OutErr[Err0] = Err0
       }
   }
 
-  type UMiddleware[+AIn, -AOut, -BIn, +BOut] = Middleware[Nothing, Any, Nothing, Any, AIn, AOut, BIn, BOut]
+  type UMiddleware = Middleware[Nothing, Any, Nothing, Any]
 
   type HttpApp[-R, +Err] = Http[R, Err, Request, Response]
   type UHttpApp          = HttpApp[Any, Nothing]

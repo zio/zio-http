@@ -112,14 +112,10 @@ private[zio] trait Auth {
     Any,
     Nothing,
     Any,
-    Request,
-    Response,
-    Request,
-    Response,
     ({ type OutEnv[Env] = R0 })#OutEnv,
     ({ type OutErr[Err] = Err })#OutErr,
   ] =
-    new HandlerMiddleware[R0 with Context, Any, Nothing, Any, Request, Response, Request, Response] {
+    new HandlerMiddleware[R0 with Context, Any, Nothing, Any] {
       type OutEnv[Env] = R0
       type OutErr[Err] = Err
 

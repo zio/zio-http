@@ -24,13 +24,14 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     LowerErr >: Err,
     UpperErr >: LowerErr,
     In1 <: In,
-    Out1 >: Out,
-    In2,
-    Out2,
   ](
-    aspect: HandlerAspect[LowerEnv, UpperEnv, LowerErr, UpperErr, In1, Out1, In2, Out2],
-  )(implicit trace: Trace): Handler[aspect.OutEnv[UpperEnv], aspect.OutErr[LowerErr], In2, Out2] =
-    aspect(self)
+    aspect: HandlerAspect[LowerEnv, UpperEnv, LowerErr, UpperErr],
+  )(implicit
+    trace: Trace,
+    ev: In1 <:< Request,
+    out: Out <:< Response,
+  ): Handler[aspect.OutEnv[UpperEnv], aspect.OutErr[LowerErr], Request, Response] =
+    aspect(self.asInstanceOf[Handler[R, Err, Request, Response]])
 
   /**
    * Alias for flatmap
@@ -84,15 +85,6 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     self.zipRight(that)
-
-  /**
-   * Combines two Handler instances into a middleware that works a codec for
-   * incoming and outgoing messages.
-   */
-  final def \/[R1 <: R, Err1 >: Err, In1, Out1](
-    that: Handler[R1, Err1, In1, Out1],
-  )(implicit trace: Trace): HandlerAspect.Mono[Nothing, R1, Err1, Any, Out, In1, In, Out1] =
-    self.codecMiddleware(that)
 
   /**
    * Returns a handler that submerges the error case of an `Either` into the
@@ -184,15 +176,6 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Handler[R1, Err1, In1, Out1] =
     self.catchAllDefect(err => pf.applyOrElse(err, (cause: Throwable) => Handler.die(cause)))
-
-  /**
-   * Combines two Handler instances into a middleware that works a codec for
-   * incoming and outgoing messages.
-   */
-  final def codecMiddleware[R1 <: R, Err1 >: Err, In1, Out1](
-    that: Handler[R1, Err1, In1, Out1],
-  )(implicit trace: Trace): HandlerAspect.Mono[Nothing, R1, Err1, Any, Out, In1, In, Out1] =
-    HandlerAspect.codecHttp(self, that)
 
   /**
    * Named alias for `<<<`

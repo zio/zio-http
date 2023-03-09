@@ -13,8 +13,8 @@ private[zio] trait HttpRoutesMiddlewares extends Cors {
    */
   def allow(
     condition: Request => Boolean,
-  ): Middleware[Nothing, Any, Any, Nothing, Request, Response, Request, Response] =
-    Middleware.allow[Request, Response](condition)
+  ): Middleware[Nothing, Any, Any, Nothing] =
+    Middleware.allow(condition)
 
   /**
    * Creates a middleware which can allow or disallow access to an http based on
@@ -22,8 +22,8 @@ private[zio] trait HttpRoutesMiddlewares extends Cors {
    */
   def allowZIO[R, Err](
     condition: Request => ZIO[R, Err, Boolean],
-  ): Middleware[Nothing, R, Err, Nothing, Request, Response, Request, Response] =
-    Middleware.allowZIO[Request, Response](condition)
+  ): Middleware[Nothing, R, Err, Nothing] =
+    Middleware.allowZIO(condition)
 
   /**
    * Removes the trailing slash from the path.

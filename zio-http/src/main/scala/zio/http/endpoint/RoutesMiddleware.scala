@@ -36,8 +36,8 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
    * Converts this [[RoutesMiddleware]] to a [[zio.http.HandlerAspect]], which
    * can be applied in straightforward fashion to any request handler or HTTP.
    */
-  final def toHandlerAspect: HandlerAspect.Mono[Nothing, R, Nothing, Any, Request, Response, Request, Response] =
-    new HandlerAspect[Nothing, R, Nothing, Any, Request, Response, Request, Response] {
+  final def toHandlerAspect: HandlerAspect.Mono[Nothing, R, Nothing, Any] =
+    new HandlerAspect[Nothing, R, Nothing, Any] {
       type OutEnv[Env] = Env
       type OutErr[Err] = Err
 

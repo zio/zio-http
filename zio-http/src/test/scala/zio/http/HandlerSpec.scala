@@ -68,25 +68,6 @@ object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
         assert(actual)(isSuccess(equalTo(0)))
       },
     ),
-    suite("codecMiddleware")(
-      test("codec success") {
-        val a      = Handler.fromFunction[Int] { v => v.toString }
-        val b      = Handler.fromFunction[String] { v => v.toInt }
-        val app    = Handler.identity[String] @@ (a \/ b)
-        val actual = app.apply(2)
-        assert(actual)(isSuccess(equalTo(2)))
-      },
-      test("encoder failure") {
-        val app    = Handler.identity[Int] @@ (Handler.succeed(1) \/ Handler.fail("fail"))
-        val actual = app.apply(())
-        assert(actual)(isFailure(equalTo("fail")))
-      },
-      test("decoder failure") {
-        val app    = Handler.identity[Int] @@ (Handler.fail("fail") \/ Handler.succeed(1))
-        val actual = app.apply(())
-        assert(actual)(isFailure(equalTo("fail")))
-      },
-    ),
     suite("fromFunctionExit")(
       test("should succeed if the ") {
         val a      = Handler.fromFunctionExit[Int] { a => Exit.succeed(a + 1) }
