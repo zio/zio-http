@@ -77,7 +77,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
   val schemeOption: Option[Scheme]       = None
   val sslConfig: Option[ClientSSLConfig] = None
 
-  override protected def requestInternal(
+  override def request(
     body: Body,
     headers: Headers,
     hostOption: Option[String],
@@ -105,7 +105,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       }
     } yield response
 
-  override protected def socketInternal[Env1](
+  override def socket[Env1](
     app: SocketApp[Env1],
     headers: Headers,
     hostOption: Option[String],
