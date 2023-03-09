@@ -1,7 +1,6 @@
 package zio.http.model
 
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
-import zio.Trace
 import zio.http.model.headers._
 
 import scala.jdk.CollectionConverters._
@@ -29,13 +28,13 @@ sealed trait Headers extends HeaderExtension[Headers] with HeaderIterable {
 
   private[http] def encode: HttpHeaders
 
-  final def get(key: String): Option[String] = Option(getUnsafe(key))
+  final def get(key: CharSequence): Option[String] = Option(getUnsafe(key))
 
   /**
    * @return
    *   null if header is not found
    */
-  private[http] def getUnsafe(key: String): String
+  private[http] def getUnsafe(key: CharSequence): String
 
   override final def headers: Headers = self
 
@@ -60,8 +59,8 @@ object Headers extends HeaderConstructors {
 
     override def _2: CharSequence = value
 
-    private[http] override def getUnsafe(key: String): String =
-      if (key == _1.toString) _2.toString else null
+    private[http] override def getUnsafe(key: CharSequence): String =
+      if (key == _1) _2.toString else null
 
     override private[http] def encode: HttpHeaders = Headers.encode(self.toList)
 
@@ -123,7 +122,7 @@ object Headers extends HeaderConstructors {
     override def iterator: Iterator[Header] =
       iter.iterator.flatMap(_.iterator)
 
-    private[http] override def getUnsafe(key: String): String = {
+    private[http] override def getUnsafe(key: CharSequence): String = {
       val it = iter.iterator
       while (it.hasNext) {
         val entry = iterator.next()
@@ -144,7 +143,7 @@ object Headers extends HeaderConstructors {
     override def iterator: Iterator[Header] =
       toJHeaders.entries().asScala.map(e => Header(e.getKey, e.getValue)).iterator
 
-    private[http] override def getUnsafe(key: String): String = {
+    private[http] override def getUnsafe(key: CharSequence): String = {
       val iterator = toJHeaders.iteratorCharSequence()
       while (iterator.hasNext) {
         val entry = iterator.next()
@@ -166,7 +165,7 @@ object Headers extends HeaderConstructors {
     override def iterator: Iterator[Header] =
       first.iterator ++ second.iterator
 
-    private[http] override def getUnsafe(key: String): String = {
+    private[http] override def getUnsafe(key: CharSequence): String = {
       val fromFirst = first.getUnsafe(key)
       if (fromFirst != null) fromFirst else second.getUnsafe(key)
     }
@@ -180,7 +179,7 @@ object Headers extends HeaderConstructors {
     override def iterator: Iterator[Header] =
       Iterator.empty
 
-    private[http] override def getUnsafe(key: String): String = null
+    private[http] override def getUnsafe(key: CharSequence): String = null
   }
 
   private[http] val BasicSchemeName  = "Basic"

@@ -6,7 +6,7 @@ import zio.{ZIO, ZLayer}
 
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
-import zio.http.model.{Headers, Method, Status}
+import zio.http.model.{HeaderNames, Headers, Method, Status}
 
 object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val successBasicHeader: Headers  = Headers.basicAuthorizationHeader("user", "resu")
@@ -126,7 +126,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     suite("custom")(
       test("Providing context from auth middleware") {
         def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((headers: Headers) =>
-          headers.get("Authorization").map(AuthContext),
+          headers.get(HeaderNames.authorization).map(AuthContext),
         )
 
         val app1 = Handler.text("ok") @@ auth[Any]
