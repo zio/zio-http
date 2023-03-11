@@ -17,7 +17,7 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
     case Method.GET -> !! / "long-running" => ZIO.succeed(Response.text("Hello World!")).delay(5 seconds)
   }
 
-  val serverTime: RequestHandlerMiddleware.Mono[Any, Nothing] = Middleware.patchZIO(_ =>
+  val serverTime: RequestHandlerMiddleware[Any, Nothing] = Middleware.patchZIO(_ =>
     for {
       currentMilliseconds <- Clock.currentTime(TimeUnit.MILLISECONDS)
       withHeader = Patch.addHeader("X-Time", currentMilliseconds.toString)

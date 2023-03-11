@@ -13,7 +13,7 @@ private[zio] trait Auth {
   /**
    * Creates a middleware for basic authentication
    */
-  final def basicAuth(f: Credentials => Boolean): RequestHandlerMiddleware.Mono[Any, Nothing] =
+  final def basicAuth(f: Credentials => Boolean): RequestHandlerMiddleware[Any, Nothing] =
     customAuth(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -26,7 +26,7 @@ private[zio] trait Auth {
    * Creates a middleware for basic authentication that checks if the
    * credentials are same as the ones given
    */
-  final def basicAuth(u: String, p: String): RequestHandlerMiddleware.Mono[Any, Nothing] =
+  final def basicAuth(u: String, p: String): RequestHandlerMiddleware[Any, Nothing] =
     basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
 
   /**
@@ -35,7 +35,7 @@ private[zio] trait Auth {
    */
   final def basicAuthZIO[R, E](f: Credentials => ZIO[R, E, Boolean])(implicit
     trace: Trace,
-  ): RequestHandlerMiddleware.Mono[R, E] =
+  ): RequestHandlerMiddleware[R, E] =
     customAuthZIO(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -50,7 +50,7 @@ private[zio] trait Auth {
    * @param f:
    *   function that validates the token string inside the Bearer Header
    */
-  final def bearerAuth(f: String => Boolean): RequestHandlerMiddleware.Mono[Any, Nothing] =
+  final def bearerAuth(f: String => Boolean): RequestHandlerMiddleware[Any, Nothing] =
     customAuth(
       _.bearerToken match {
         case Some(token) => f(token)
@@ -68,7 +68,7 @@ private[zio] trait Auth {
    */
   final def bearerAuthZIO[R, E](
     f: String => ZIO[R, E, Boolean],
-  )(implicit trace: Trace): RequestHandlerMiddleware.Mono[R, E] =
+  )(implicit trace: Trace): RequestHandlerMiddleware[R, E] =
     customAuthZIO(
       _.bearerToken match {
         case Some(token) => f(token)
@@ -85,10 +85,8 @@ private[zio] trait Auth {
     verify: Headers => Boolean,
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  ): RequestHandlerMiddleware.Mono[Any, Nothing] =
-    new RequestHandlerMiddleware[Any, Nothing] {
-      type OutEnv[Env] = Env
-      type OutErr[Err] = Err
+  ): RequestHandlerMiddleware[Any, Nothing] =
+    new RequestHandlerMiddleware.Mono[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
@@ -115,7 +113,7 @@ private[zio] trait Auth {
     ({ type OutEnv[Env] = R0 })#OutEnv,
     ({ type OutErr[Err] = Err })#OutErr,
   ] =
-    new HandlerMiddleware[R0 with Context, Any, Nothing, Any] {
+    new HandlerMiddleware.Contextual[R0 with Context, Any, Nothing, Any] {
       type OutEnv[Env] = R0
       type OutErr[Err] = Err
 
@@ -139,10 +137,8 @@ private[zio] trait Auth {
     verify: Headers => ZIO[R, E, Boolean],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  ): RequestHandlerMiddleware.Mono[R, E] =
-    new RequestHandlerMiddleware[R, E] {
-      type OutEnv[Env] = Env
-      type OutErr[Err] = Err
+  ): RequestHandlerMiddleware[R, E] =
+    new RequestHandlerMiddleware.Mono[R, E] {
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =

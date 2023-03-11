@@ -6,33 +6,47 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
 
+  type Middleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
+    Middleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+      type OutEnv[Env] = Env
+      type OutErr[Err] = Err
+    }
+
+  type HandlerAspect[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
+    HandlerAspect.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+      type OutEnv[Env] = Env
+      type OutErr[Err] = Err
+    }
+
+  type HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
+    HandlerMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+      type OutEnv[Env] = Env
+      type OutErr[Err] = Err
+    }
+
   type HttpAppMiddleware[-R, +Err] = Middleware[Nothing, R, Err, Any]
   object HttpAppMiddleware {
-    type WithOut[-R, +Err, OutEnv0[_], OutErr0[_]] =
-      Middleware[Nothing, R, Err, Any] {
-        type OutEnv[Env0] = OutEnv0[Env0]
-        type OutErr[Err0] = OutErr0[Err0]
-      }
-    type Mono[-R, +Err]                            =
-      Middleware[Nothing, R, Err, Any] {
-        type OutEnv[Env0] = Env0
-        type OutErr[Err0] = Err0
-      }
+    type WithOut[-R, +Err, OutEnv0[_], OutErr0[_]] = Contextual[R, Err] {
+      type OutEnv[Env]  = OutEnv0[Env]
+      type OutErr[Err1] = OutErr0[Err1]
+    }
+
+    trait Contextual[-R, +Err] extends Middleware.Contextual[Nothing, R, Err, Any]
+
+    trait Mono[-R, +Err] extends Middleware.Mono[Nothing, R, Err, Any]
   }
 
-  type RequestHandlerMiddleware[-R, +Err] =
-    HandlerMiddleware[Nothing, R, Err, Any]
+  type RequestHandlerMiddleware[-R, +Err] = HandlerMiddleware[Nothing, R, Err, Any]
   object RequestHandlerMiddleware {
     type WithOut[-R, +Err, OutEnv0[_], OutErr0[_]] =
-      HandlerMiddleware[Nothing, R, Err, Any] {
+      HandlerMiddleware.Contextual[Nothing, R, Err, Any] {
         type OutEnv[Env0] = OutEnv0[Env0]
         type OutErr[Err0] = OutErr0[Err0]
       }
-    type Mono[-R, +Err]                            =
-      HandlerMiddleware[Nothing, R, Err, Any] {
-        type OutEnv[Env0] = Env0
-        type OutErr[Err0] = Err0
-      }
+
+    trait Contextual[-R, +Err] extends HandlerMiddleware.Contextual[Nothing, R, Err, Any]
+
+    trait Mono[-R, +Err] extends HandlerMiddleware.Mono[Nothing, R, Err, Any]
   }
 
   type UMiddleware = Middleware[Nothing, Any, Nothing, Any]

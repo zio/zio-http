@@ -28,11 +28,9 @@ private[zio] trait HttpRoutesMiddlewares extends Cors {
   /**
    * Removes the trailing slash from the path.
    */
-  def dropTrailingSlash: HttpAppMiddleware.Mono[Any, Nothing] =
-    new HttpAppMiddleware[Any, Nothing] {
-      type OutEnv[Env] = Env
-      type OutErr[Err] = Err
-      override def apply[R1 <: Any, Err1 >: Nothing](
+  def dropTrailingSlash: HttpAppMiddleware[Any, Nothing] =
+    new HttpAppMiddleware.Mono[Any, Nothing] {
+      override def apply[R1, Err1](
         http: Http[R1, Err1, Request, Response],
       )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
         Http.fromHandlerZIO[Request] { request =>
