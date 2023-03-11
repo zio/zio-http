@@ -72,50 +72,35 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
       }
   }
 
-  // TODO: if we have this, it gets picked up instead of HandlerMiddleware.MonoMethods
-  /*
-  implicit final class MonoMethods[R, Err, Request, Response, Request, Response](
-    val self: Middleware.Mono[Nothing, R, Err, Any, Request, Response, Request, Response],
+  implicit final class MiddlewareSyntax[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr](
+    val self: Middleware[LowerEnv, UpperEnv, LowerErr, UpperErr],
   ) extends AnyVal {
 
     /**
-   * Applies Middleware based only if the condition function evaluates to true
-   */
-    def when[Request1 <: Request](
-      condition: Request1 => Boolean,
-    )(implicit
-      trace: Trace,
-      ev: IsMono[Request, Response, Request, Response],
-    ): Middleware.Mono[Nothing, R, Err, Any, Request, Response, Request1, Response] =
-      new Middleware[Nothing, R, Err, Any, Request, Response, Request1, Response] {
-        override type OutEnv[Env1] = self.OutEnv[Env1]
-        override type OutErr[Err1] = self.OutErr[Err1]
-
-        override def apply[Env1 >: Nothing <: R, Err1 >: Err <: Any](http: Http[Env1, Err1, Request, Response])(implicit
-          trace: Trace,
-        ): Http[self.OutEnv[Env1], self.OutErr[Err1], Request1, Response] =
-          http.when(condition).asInstanceOf[Http[self.OutEnv[Env1], self.OutErr[Err1], Request1, Response]]
+     * Applies Middleware based only if the condition function evaluates to true
+     */
+    def when(condition: Request => Boolean)(implicit trace: Trace): Middleware[LowerEnv, UpperEnv, LowerErr, UpperErr] =
+      new Middleware.Simple[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+        override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
+          http: Http[Env, Err, Request, Response],
+        )(implicit trace: Trace): Http[Env, Err, Request, Response] =
+          ???
       }
 
     /**
-   * Applies Middleware based only if the condition effectful function
-   * evaluates to true
-   */
-    def whenZIO[R1 <: R, Err1 >: Err, Request1 <: Request](
-      condition: Request1 => ZIO[R1, Err1, Boolean],
+     * Applies Middleware based only if the condition effectful function
+     * evaluates to true
+     */
+    def whenZIO[UpperEnv1 <: UpperEnv, LowerErr1 >: LowerErr](
+      condition: Request => ZIO[UpperEnv1, LowerErr1, Boolean],
     )(implicit
       trace: Trace,
-      ev: IsMono[Request, Response, Request, Response],
-    ): Middleware[Nothing, R1, Err1, Any, Request, Response, Request1, Response] =
-      new Middleware[Nothing, R1, Err1, Any, Request, Response, Request1, Response] {
-        override type OutEnv[Env2] = self.OutEnv[Env2]
-        override type OutErr[Err2] = self.OutErr[Err2]
-
-        override def apply[Env2 >: Nothing <: R1, Err2 >: Err1 <: Any](http: Http[Env2, Err2, Request, Response])(implicit
-          trace: Trace,
-        ): Http[OutEnv[Env2], OutErr[Err2], Request1, Response] =
-          http.whenZIO(condition).asInstanceOf[Http[OutEnv[Env2], OutErr[Err2], Request1, Response]]
+    ): Middleware[LowerEnv, UpperEnv1, LowerErr1, UpperErr] =
+      new Middleware.Simple[LowerEnv, UpperEnv1, LowerErr1, UpperErr] {
+        override def apply[Env >: LowerEnv <: UpperEnv1, Err >: LowerErr1 <: UpperErr](
+          http: Http[Env, Err, Request, Response],
+        )(implicit trace: Trace): Http[Env, Err, Request, Response] =
+          ???
       }
   }
-   */
 }
