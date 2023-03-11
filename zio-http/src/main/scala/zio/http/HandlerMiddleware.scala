@@ -107,7 +107,7 @@ object HandlerMiddleware {
       }
   }
 
-  trait Mono[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] extends Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+  trait Simple[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] extends Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
     self =>
     final type OutEnv[Env] = Env
     final type OutErr[Err] = Err
@@ -135,7 +135,7 @@ object HandlerMiddleware {
   }
 
   def identity: HandlerMiddleware[Nothing, Any, Nothing, Any] =
-    new HandlerMiddleware.Mono[Nothing, Any, Nothing, Any] {
+    new HandlerMiddleware.Simple[Nothing, Any, Nothing, Any] {
       override def apply[R, E](handler: Handler[R, E, Request, Response])(implicit
         trace: Trace,
       ): Handler[R, E, Request, Response] =
@@ -143,14 +143,14 @@ object HandlerMiddleware {
     }
 
   implicit final class MonoMethods[R, Err](
-    val self: HandlerMiddleware.Mono[Nothing, R, Err, Any],
+    val self: HandlerMiddleware.Simple[Nothing, R, Err, Any],
   ) extends AnyVal {
     def when(
       condition: Request => Boolean,
     )(implicit
       trace: Trace,
     ): HandlerMiddleware[Nothing, R, Err, Any] =
-      new HandlerMiddleware.Mono[Nothing, R, Err, Any] {
+      new HandlerMiddleware.Simple[Nothing, R, Err, Any] {
         override def apply[R1 <: R, Err1 >: Err](handler: Handler[R1, Err1, Request, Response])(implicit
           trace: Trace,
         ): Handler[R1, Err1, Request, Response] =
@@ -168,7 +168,7 @@ object HandlerMiddleware {
       trace: Trace,
       ev: IsMono[Request, Response, Request, Response],
     ): HandlerMiddleware[Nothing, R1, Err1, Any] =
-      new HandlerMiddleware.Mono[Nothing, R1, Err1, Any] {
+      new HandlerMiddleware.Simple[Nothing, R1, Err1, Any] {
         override def apply[R2 <: R1, Err2 >: Err1](handler: Handler[R2, Err2, Request, Response])(implicit
           trace: Trace,
         ): Handler[R2, Err2, Request, Response] =

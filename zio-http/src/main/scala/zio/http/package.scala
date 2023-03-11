@@ -33,7 +33,7 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
     trait Contextual[-R, +Err] extends Middleware.Contextual[Nothing, R, Err, Any]
 
-    trait Mono[-R, +Err] extends Middleware.Mono[Nothing, R, Err, Any]
+    trait Mono[-R, +Err] extends Middleware.Simple[Nothing, R, Err, Any]
   }
 
   type RequestHandlerMiddleware[-R, +Err] = HandlerMiddleware[Nothing, R, Err, Any]
@@ -46,7 +46,7 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
     trait Contextual[-R, +Err] extends HandlerMiddleware.Contextual[Nothing, R, Err, Any]
 
-    trait Mono[-R, +Err] extends HandlerMiddleware.Mono[Nothing, R, Err, Any]
+    trait Mono[-R, +Err] extends HandlerMiddleware.Simple[Nothing, R, Err, Any]
   }
 
   type UMiddleware = Middleware[Nothing, Any, Nothing, Any]

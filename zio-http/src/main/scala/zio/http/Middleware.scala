@@ -21,7 +21,7 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
     )(implicit trace: Trace): Http[OutEnv[Env], OutErr[Err], Request, Response]
   }
 
-  trait Mono[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] extends Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+  trait Simple[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] extends Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
     final type OutEnv[Env] = Env
     final type OutErr[Err] = Err
   }
@@ -43,7 +43,7 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
    * Http and returns it as it is.
    */
   def identity: Middleware[Nothing, Any, Nothing, Any] =
-    new Middleware.Mono[Nothing, Any, Nothing, Any] {
+    new Middleware.Simple[Nothing, Any, Nothing, Any] {
       override def apply[Env, Err](
         http: Http[Env, Err, Request, Response],
       )(implicit trace: Trace): Http[Env, Err, Request, Response] =
@@ -52,7 +52,7 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
 
   final class Allow(val unit: Unit) extends AnyVal {
     def apply(condition: Request => Boolean): Middleware[Nothing, Any, Nothing, Any] =
-      new Middleware.Mono[Nothing, Any, Nothing, Any] {
+      new Middleware.Simple[Nothing, Any, Nothing, Any] {
         override def apply[Env, Err](
           http: Http[Env, Err, Request, Response],
         )(implicit trace: Trace): Http[Env, Err, Request, Response] =
@@ -64,7 +64,7 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
     def apply[R, Err](
       condition: Request => ZIO[R, Err, Boolean],
     ): Middleware[Nothing, R, Err, Any] =
-      new Middleware.Mono[Nothing, R, Err, Any] {
+      new Middleware.Simple[Nothing, R, Err, Any] {
         override def apply[Env <: R, Err1 >: Err](
           http: Http[Env, Err1, Request, Response],
         )(implicit trace: Trace): Http[Env, Err1, Request, Response] =
