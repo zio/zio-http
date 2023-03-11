@@ -25,7 +25,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     UpperErr >: LowerErr,
     In1 <: In,
   ](
-    aspect: HandlerAspect[LowerEnv, UpperEnv, LowerErr, UpperErr],
+    aspect: HandlerAspect.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr],
   )(implicit
     trace: Trace,
     ev: In1 <:< Request,
