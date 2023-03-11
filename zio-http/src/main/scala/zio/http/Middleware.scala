@@ -84,7 +84,10 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
         override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
           http: Http[Env, Err, Request, Response],
         )(implicit trace: Trace): Http[Env, Err, Request, Response] =
-          ???
+          Http.fromHttp { request =>
+            val transformed = if (condition(request)) self(http) else http
+            transformed
+          }
       }
 
     /**
@@ -100,7 +103,12 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
         override def apply[Env >: LowerEnv <: UpperEnv1, Err >: LowerErr1 <: UpperErr](
           http: Http[Env, Err, Request, Response],
         )(implicit trace: Trace): Http[Env, Err, Request, Response] =
-          ???
+          Http.fromHttpZIO { request =>
+            condition(request).map { condition =>
+              val transformed = if (condition) self(http) else http
+              transformed
+            }
+          }
       }
   }
 }
