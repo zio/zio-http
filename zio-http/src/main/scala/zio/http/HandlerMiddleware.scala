@@ -164,10 +164,7 @@ object HandlerMiddleware {
 
     def whenZIO[R1 <: R, Err1 >: Err](
       condition: Request => ZIO[R1, Err1, Boolean],
-    )(implicit
-      trace: Trace,
-      ev: IsMono[Request, Response, Request, Response],
-    ): HandlerMiddleware[Nothing, R1, Err1, Any] =
+    )(implicit trace: Trace): HandlerMiddleware[Nothing, R1, Err1, Any] =
       new HandlerMiddleware.Simple[Nothing, R1, Err1, Any] {
         override def apply[R2 <: R1, Err2 >: Err1](handler: Handler[R2, Err2, Request, Response])(implicit
           trace: Trace,
