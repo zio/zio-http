@@ -142,8 +142,8 @@ object HandlerMiddleware {
         handler
     }
 
-  implicit final class MonoMethods[R, Err](
-    val self: HandlerMiddleware.Simple[Nothing, R, Err, Any],
+  implicit final class SimpleSyntax[R, Err](
+    val self: HandlerMiddleware[Nothing, R, Err, Any],
   ) extends AnyVal {
     def when(
       condition: Request => Boolean,
