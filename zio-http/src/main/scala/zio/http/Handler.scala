@@ -1,3 +1,19 @@
+/*
+ * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package zio.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
@@ -16,7 +32,6 @@ import scala.util.control.NonFatal
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
-  import Handler.FastZIOSyntax
 
   final def @@[
     LowerEnv <: UpperEnv,
@@ -109,7 +124,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   )(implicit trace: Trace): Handler[R1, Err1, In, Out1] =
     new Handler[R1, Err1, In, Out1] {
       override def apply(in: In): ZIO[R1, Err1, Out1] =
-        self(in).fastFlatMap(that(_))
+        self(in).flatMap(that(_))
     }
 
   /**
@@ -934,30 +949,6 @@ object Handler {
       new Handler[R, Err, In, Out] {
         override def apply(in: In): ZIO[R, Err, Out] =
           f(in)
-      }
-  }
-
-  // TODO: Remove after https://github.com/zio/zio/pull/7714 is released
-  implicit class FastZIOSyntax[R, E, A](val zio: ZIO[R, E, A]) extends AnyVal {
-    def fastFlatMap[R1 <: R, E1 >: E, B](f: A => ZIO[R1, E1, B])(implicit trace: Trace): ZIO[R1, E1, B] =
-      zio match {
-        case Exit.Success(a)     => f(a)
-        case e @ Exit.Failure(_) => e
-        case _                   => zio.flatMap(f)
-      }
-
-    def fastMap[B](f: A => B)(implicit trace: Trace): ZIO[R, E, B] =
-      zio match {
-        case Exit.Success(a)     => Exit.Success(f(a))
-        case e @ Exit.Failure(_) => e
-        case _                   => zio.map(f)
-      }
-
-    def fastMapBoth[E2, B](f: E => E2, g: A => B)(implicit trace: Trace): ZIO[R, E2, B] =
-      zio match {
-        case Exit.Success(a) => Exit.Success(g(a))
-        case Exit.Failure(e) => Exit.Failure(e.map(f))
-        case _               => zio.mapBoth(f, g)
       }
   }
 }

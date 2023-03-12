@@ -1,9 +1,25 @@
+/*
+ * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package zio.http.netty.client
 
 import scala.collection.mutable
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
@@ -23,7 +39,6 @@ final case class NettyClientDriver private (
   clientConfig: ClientConfig,
 ) extends ClientDriver
     with ClientRequestEncoder {
-  import zio.http.ZClient.log
 
   override type Connection = Channel
 
@@ -45,8 +60,6 @@ final case class NettyClientDriver private (
           }
         }.ignore.when(exit.isFailure)
       }.as {
-        log.debug(s"Request: [${jReq.method().asciiName()} ${req.url.encode}]")
-
         val pipeline                              = channel.pipeline()
         val toRemove: mutable.Set[ChannelHandler] = new mutable.HashSet[ChannelHandler]()
 

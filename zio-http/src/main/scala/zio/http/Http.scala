@@ -1,3 +1,19 @@
+/*
+ * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package zio.http
 
 import io.netty.handler.codec.http.HttpHeaderNames
@@ -14,7 +30,6 @@ import java.util.zip.ZipFile
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 sealed trait Http[-R, +Err, -In, +Out] { self =>
-  import Handler.FastZIOSyntax
 
   /**
    * Pipes the output of one app into the other
@@ -28,7 +43,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Http.Route[R, Err, In, Out] =>
         new Route[R1, Err1, In, Out1] {
           override def run(in: In): ZIO[R1, Err1, Http[R1, Err1, In, Out1]] =
-            route.run(in).fastMap(_ >>> handler)
+            route.run(in).map(_ >>> handler)
         }
     }
 
@@ -67,7 +82,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         new Route[R1, Err1, In1, Out1] {
           override def run(in: In1): ZIO[R1, Err1, Http[R1, Err1, In1, Out1]] =
-            route.run(in).fastMap(_.defaultWith(that))
+            route.run(in).map(_.defaultWith(that))
         }
     }
 
@@ -81,7 +96,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         new Route[R, Err, In, Out1] {
           override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out1]] =
-            route.run(in).fastMap(_.map(f))
+            route.run(in).map(_.map(f))
         }
     }
 
@@ -95,7 +110,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         new Route[R, Err1, In, Out] {
           override def run(in: In): ZIO[R, Err1, Http[R, Err1, In, Out]] =
-            route.run(in).fastMapBoth(f, _.mapError(f))
+            route.run(in).mapBoth(f, _.mapError(f))
         }
     }
 
@@ -111,7 +126,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         new Route[R1, Err1, In, Out1] {
           override def run(in: In): ZIO[R, Err1, Http[R1, Err1, In, Out1]] =
-            route.run(in).fastMap(_.mapZIO(f))
+            route.run(in).map(_.mapZIO(f))
         }
     }
 
@@ -125,7 +140,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         new Route[Any, Err, In, Out] {
           override def run(in: In): ZIO[Any, Err, Http[Any, Err, In, Out]] =
-            route.run(in).fastMap(_.provideEnvironment(r)).provideEnvironment(r)
+            route.run(in).map(_.provideEnvironment(r)).provideEnvironment(r)
         }
     }
 
@@ -157,7 +172,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         new Route[R1, Err, In, Out] {
           override def run(in: In): ZIO[R1, Err, Http[R1, Err, In, Out]] =
-            route.run(in).fastMap(_.provideSomeEnvironment(f)).provideSomeEnvironment(f)
+            route.run(in).map(_.provideSomeEnvironment(f)).provideSomeEnvironment(f)
         }
     }
 
@@ -173,7 +188,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         new Route[R0, Err1, In, Out] {
           override def run(in: In): ZIO[R0, Err1, Http[R0, Err1, In, Out]] =
-            route.run(in).fastMap(_.provideSomeLayer(layer)).provideSomeLayer(layer)
+            route.run(in).map(_.provideSomeLayer(layer)).provideSomeLayer(layer)
         }
     }
 
@@ -181,14 +196,14 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     self match {
       case Http.Empty                    => Exit.succeed(None)
       case Http.Static(handler)          => Exit.succeed(Some(handler))
-      case route: Route[R, Err, In, Out] => route.run(in).fastFlatMap(_.runHandler(in))
+      case route: Route[R, Err, In, Out] => route.run(in).flatMap(_.runHandler(in))
     }
 
   final def runZIOOrNull(in: In)(implicit unsafe: Unsafe, trace: Trace): ZIO[R, Err, Out] = // NOTE: Out can be null
     self match {
       case Http.Empty                    => Exit.succeed(null).asInstanceOf[ZIO[R, Err, Out]]
       case Http.Static(handler)          => handler(in)
-      case route: Route[R, Err, In, Out] => route.run(in).fastFlatMap(_.runZIOOrNull(in))
+      case route: Route[R, Err, In, Out] => route.run(in).flatMap(_.runZIOOrNull(in))
     }
 
   final def runZIO(in: In)(implicit trace: Trace): ZIO[R, Option[Err], Out] =
@@ -214,7 +229,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         new Route[R1, Err1, In, Out] {
           override def run(in: In): ZIO[R, Err1, Http[R1, Err1, In, Out]] =
-            route.run(in).fastMap(_.tapAllZIO(onFailure, onSuccess, onUnhandled))
+            route.run(in).map(_.tapAllZIO(onFailure, onSuccess, onUnhandled))
         }
     }
 
@@ -253,7 +268,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         Handler
           .fromFunctionZIO[In1] { in =>
-            route.run(in).fastMap(_.toHandler(default))
+            route.run(in).map(_.toHandler(default))
           }
           .flatten
     }
@@ -289,7 +304,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     f: In1 => ZIO[R1, Err1, Boolean],
   )(implicit trace: Trace): Http[R1, Err1, In1, Out] =
     Http.fromHttpZIO { (in: In1) =>
-      f(in).fastMap {
+      f(in).map {
         case true  => self
         case false => Empty
       }

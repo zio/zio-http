@@ -2,6 +2,7 @@ import sbt.Keys._
 import sbt._
 import scalafix.sbt.ScalafixPlugin.autoImport._
 import xerial.sbt.Sonatype.autoImport._
+import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.{headerLicense, HeaderLicense}
 
 object BuildHelper extends ScalaSettings {
   val Scala212         = "2.12.16"
@@ -33,11 +34,14 @@ object BuildHelper extends ScalaSettings {
       case _             => Seq.empty
     }
 
+  def settingsWithHeaderLicense() =
+    headerLicense := Some(HeaderLicense.ALv2("2021 - 2023", "Sporta Technologies PVT LTD & the ZIO HTTP contributors."))
+
   def publishSetting(publishArtifacts: Boolean) = {
     val publishSettings = Seq(
       organization           := "dev.zio",
       organizationName       := "zio",
-      licenses               := Seq("MIT License" -> url("https://github.com/zio/zio-http/blob/master/LICENSE")),
+      licenses               := Seq("Apache-2.0" -> url("https://github.com/zio/zio-http/blob/master/LICENSE")),
       sonatypeCredentialHost := "oss.sonatype.org",
       sonatypeRepository     := "https://oss.sonatype.org/service/local",
       sonatypeProfileName    := "dev.zio",

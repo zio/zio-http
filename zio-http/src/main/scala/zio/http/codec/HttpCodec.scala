@@ -1,3 +1,19 @@
+/*
+ * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package zio.http.codec
 
 import scala.language.implicitConversions
@@ -101,6 +117,17 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   final def asRoute(implicit ev: HttpCodecType.Path <:< AtomTypes): PathCodec[Value] =
     self.asInstanceOf[PathCodec[Value]]
 
+  /**
+   * Transforms the type parameter to `Unit` by specifying that all possible
+   * values that can be decoded from this `HttpCodec` are in fact equivalent to
+   * the provided canonical value.
+   *
+   * Note: You should NOT use this method on any codec which can decode
+   * semantically distinct values.
+   */
+  final def const(canonical: => Value): HttpCodec[AtomTypes, Unit] =
+    self.transform(_ => (), _ => canonical)
+
   final def const[Value2](value2: => Value2)(implicit ev: Unit <:< Value): HttpCodec[AtomTypes, Value2] =
     self.transform(_ => value2, _ => ev(()))
 
@@ -165,6 +192,18 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     encoderDecoder.encodeWith(value)(f)
 
   /**
+   * Returns a new codec that will expect the value to be equal to the specified
+   * value.
+   */
+  def expect(expected: Value): HttpCodec[AtomTypes, Unit] =
+    transformOrFailLeft(
+      actual =>
+        if (actual == expected) Right(())
+        else Left(s"Expected ${expected} but found ${actual}"),
+      _ => expected,
+    )
+
+  /**
    * Returns a new codec, where the value produced by this one is optional.
    */
   final def optional: HttpCodec[AtomTypes, Option[Value]] =
@@ -220,30 +259,25 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     g: Value2 => Either[String, Value],
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, in => Right(f(in)), g)
-
-  /**
-   * Transforms the type parameter to `Unit` by specifying that all possible
-   * values that can be decoded from this `HttpCodec` are in fact equivalent to
-   * the provided canonical value.
-   *
-   * Note: You should NOT use this method on any codec which can decode
-   * semantically distinct values.
-   */
-  final def const(canonical: Value): HttpCodec[AtomTypes, Unit] =
-    self.transform(_ => (), _ => canonical)
 }
 
-object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs with StatusCodecs with MethodCodecs {
+object HttpCodec
+    extends ContentCodecs
+    with HeaderCodecs
+    with MethodCodecs
+    with PathCodecs
+    with QueryCodecs
+    with StatusCodecs {
   implicit def stringToLiteral(string: String): PathCodec[Unit] = literal(string)
 
   private[http] sealed trait AtomTag
   private[http] object AtomTag {
-    case object Status extends AtomTag
-    case object Path   extends AtomTag
-    case object Body   extends AtomTag
-    case object Query  extends AtomTag
-    case object Header extends AtomTag
-    case object Method extends AtomTag
+    case object Status  extends AtomTag
+    case object Path    extends AtomTag
+    case object Content extends AtomTag
+    case object Query   extends AtomTag
+    case object Header  extends AtomTag
+    case object Method  extends AtomTag
   }
 
   def empty: HttpCodec[Any, Unit] =
@@ -259,8 +293,8 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs with Stat
     def withIndex(index: Int): Atom[AtomTypes, Value0]
   }
 
-  private[http] final case class Status[A](textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[HttpCodecType.Status, A]                      {
+  private[http] final case class Status[A](codec: SimpleCodec[zio.http.model.Status, A], index: Int = 0)
+      extends Atom[HttpCodecType.Status, A]                         {
     self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
 
@@ -269,27 +303,27 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs with Stat
     def withIndex(index: Int): Status[A] = copy(index = index)
   }
   private[http] final case class Path[A](textCodec: TextCodec[A], name: Option[String], index: Int = 0)
-      extends Atom[HttpCodecType.Path, A]                        { self =>
+      extends Atom[HttpCodecType.Path, A]                           { self =>
     def erase: Path[Any] = self.asInstanceOf[Path[Any]]
 
     def tag: AtomTag = AtomTag.Path
 
     def withIndex(index: Int): Path[A] = copy(index = index)
   }
-  private[http] final case class Body[A](schema: Schema[A], index: Int = 0) extends Atom[HttpCodecType.Body, A] {
+  private[http] final case class Content[A](schema: Schema[A], index: Int = 0) extends Atom[HttpCodecType.Content, A] {
     self =>
-    def tag: AtomTag = AtomTag.Body
+    def tag: AtomTag = AtomTag.Content
 
-    def withIndex(index: Int): Body[A] = copy(index = index)
+    def withIndex(index: Int): Content[A] = copy(index = index)
   }
-  private[http] final case class BodyStream[A](schema: Schema[A], index: Int = 0)
-      extends Atom[HttpCodecType.Body, ZStream[Any, Nothing, A]] {
-    def tag: AtomTag = AtomTag.Body
+  private[http] final case class ContentStream[A](schema: Schema[A], index: Int = 0)
+      extends Atom[HttpCodecType.Content, ZStream[Any, Nothing, A]] {
+    def tag: AtomTag = AtomTag.Content
 
-    def withIndex(index: Int): BodyStream[A] = copy(index = index)
+    def withIndex(index: Int): ContentStream[A] = copy(index = index)
   }
   private[http] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[HttpCodecType.Query, A]                       {
+      extends Atom[HttpCodecType.Query, A]                          {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 
@@ -298,12 +332,11 @@ object HttpCodec extends HeaderCodecs with QueryCodecs with PathCodecs with Stat
     def withIndex(index: Int): Query[A] = copy(index = index)
   }
 
-  private[http] final case class Method[A](methodCodec: TextCodec[A], index: Int = 0)
+  private[http] final case class Method[A](codec: SimpleCodec[zio.http.model.Method, A], index: Int = 0)
       extends Atom[HttpCodecType.Method, A] {
     self =>
     def erase: Method[Any] = self.asInstanceOf[Method[Any]]
-
-    def tag: AtomTag = AtomTag.Method
+    def tag: AtomTag       = AtomTag.Method
 
     def withIndex(index: Int): Method[A] = copy(index = index)
   }

@@ -7,14 +7,14 @@ import zio.http.middleware.Auth
 import zio.http.model.headers.values.WWWAuthenticate
 import zio.http.{Client, Request, Server, URL}
 
-object APIExamples extends ZIOAppDefault {
+object EndpointExamples extends ZIOAppDefault {
   import HttpCodec._
 
-  val middleware = EndpointMiddleware.auth
+  val auth = EndpointMiddleware.auth
 
   // MiddlewareSpec can be added at the service level as well
   val getUser =
-    Endpoint.get("users" / int("userId")).out[Int] @@ middleware
+    Endpoint.get("users" / int("userId")).out[Int] @@ auth
 
   val getUserRoute =
     getUser.implement { id =>
@@ -25,7 +25,7 @@ object APIExamples extends ZIOAppDefault {
     Endpoint
       .get("users" / int("userId") / "posts" / int("postId"))
       .query(query("name"))
-      .out[List[String]] @@ middleware
+      .out[List[String]] @@ auth
 
   val getUserPostsRoute =
     getUserPosts.implement[Any] { case (id1: Int, id2: Int, query: String) =>
@@ -34,13 +34,13 @@ object APIExamples extends ZIOAppDefault {
 
   val routes = getUserRoute ++ getUserPostsRoute
 
-  val app = routes.toApp(middleware.implement(_ => ZIO.unit)(_ => ZIO.unit))
+  val app = routes.toApp(auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
 
   val request = Request.get(url = URL.fromString("/users/1").toOption.get)
 
   val run = Server.serve(app).provide(Server.default)
 
-  object Client {
+  object ClientExample {
     def example(client: Client) = {
       val locator =
         EndpointLocator.fromURL(URL.fromString("http://localhost:8080").toOption.get)

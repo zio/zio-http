@@ -82,7 +82,6 @@ lazy val root = (project in file("."))
   .aggregate(
     zioHttp,
     zioHttpBenchmarks,
-    zioHttpLogging,
     zioHttpExample,
     zioHttpTestkit,
     docs,
@@ -91,6 +90,7 @@ lazy val root = (project in file("."))
 lazy val zioHttp = (project in file("zio-http"))
   .settings(stdSettings("zio-http"))
   .settings(publishSetting(true))
+  .settings(settingsWithHeaderLicense)
   .settings(meta)
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
@@ -110,7 +110,6 @@ lazy val zioHttp = (project in file("zio-http"))
       }
     },
   )
-  .dependsOn(zioHttpLogging)
 
 lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .enablePlugins(JmhPlugin)
@@ -119,26 +118,12 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .settings(
     libraryDependencies ++= Seq(
 //      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % "1.1.0",
-      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.2.9",
-      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.2.9",
+      "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % "1.2.10",
+      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"    % "1.2.10",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
     ),
   )
   .dependsOn(zioHttp)
-
-lazy val zioHttpLogging = (project in file("zio-http-logging"))
-  .settings(stdSettings("zio-http-logging"))
-  .settings(publishSetting(true))
-  .settings(
-    libraryDependencies ++= {
-      if (isScala3(scalaVersion.value)) Seq.empty
-      else Seq(reflect.value % Provided)
-    },
-  )
-  .settings(
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    libraryDependencies ++= Seq(`zio`, `zio-test`, `zio-test-sbt`),
-  )
 
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
@@ -158,7 +143,7 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
       `zio-test-sbt`,
     ),
   )
-  .dependsOn(zioHttp, zioHttpLogging)
+  .dependsOn(zioHttp)
 
 lazy val docs = project
   .in(file("zio-http-docs"))
@@ -170,8 +155,8 @@ lazy val docs = project
     mainModuleName                             := (zioHttp / moduleName).value,
     projectStage                               := ProjectStage.Development,
     docsPublishBranch                          := "main",
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttp, zioHttpLogging),
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttp),
     ciWorkflowName                             := "Continuous Integration",
   )
-  .dependsOn(zioHttp, zioHttpLogging)
+  .dependsOn(zioHttp)
   .enablePlugins(WebsitePlugin)

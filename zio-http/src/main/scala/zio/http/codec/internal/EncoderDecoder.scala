@@ -1,4 +1,22 @@
+/*
+ * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package zio.http.codec.internal
+
+import scala.annotation.tailrec
 
 import zio._
 import zio.http._
@@ -7,7 +25,6 @@ import zio.http.model._
 import zio.schema.codec._
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-import scala.annotation.tailrec
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
@@ -84,12 +101,12 @@ private[codec] object EncoderDecoder                   {
 
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
-    private val jsonEncoders = flattened.body.map { bodyCodec =>
+    private val jsonEncoders = flattened.content.map { bodyCodec =>
       val erased    = bodyCodec.erase
       val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
       erased.encodeToBody(_, jsonCodec)
     }
-    private val jsonDecoders = flattened.body.map { bodyCodec =>
+    private val jsonDecoders = flattened.content.map { bodyCodec =>
       val jsonCodec = JsonCodec.schemaBasedBinaryCodec(bodyCodec.schema)
       bodyCodec.decodeFromBody(_, jsonCodec)
     }
@@ -104,7 +121,7 @@ private[codec] object EncoderDecoder                   {
       decodeStatus(status, inputsBuilder.status)
       decodeMethod(method, inputsBuilder.method)
       decodeHeaders(headers, inputsBuilder.header)
-      decodeBody(body, inputsBuilder.body).as(constructor(inputsBuilder))
+      decodeBody(body, inputsBuilder.content).as(constructor(inputsBuilder))
     }
 
     final def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
@@ -115,7 +132,7 @@ private[codec] object EncoderDecoder                   {
       val status  = encodeStatus(inputs.status)
       val method  = encodeMethod(inputs.method)
       val headers = encodeHeaders(inputs.header)
-      val body    = encodeBody(inputs.body)
+      val body    = encodeBody(inputs.content)
 
       f(URL(path, queryParams = query), status, method, headers, body)
     }
@@ -172,9 +189,13 @@ private[codec] object EncoderDecoder                   {
     private def decodeStatus(status: Status, inputs: Array[Any]): Unit = {
       var i = 0
       while (i < inputs.length) {
-        val textCodec = flattened.status(i).erase
-
-        inputs(i) = textCodec.decode(status.text).getOrElse(throw HttpCodecError.MalformedStatus("200", textCodec))
+        inputs(i) = flattened.status(i) match {
+          case _: SimpleCodec.Unspecified[_]   => status
+          case SimpleCodec.Specified(expected) =>
+            if (status != expected)
+              throw HttpCodecError.MalformedStatus(expected, status)
+            else ()
+        }
 
         i = i + 1
       }
@@ -183,10 +204,12 @@ private[codec] object EncoderDecoder                   {
     private def decodeMethod(method: Method, inputs: Array[Any]): Unit = {
       var i = 0
       while (i < inputs.length) {
-        val textCodec = flattened.method(i)
-
-        inputs(i) =
-          textCodec.decode(method.text).getOrElse(throw HttpCodecError.MalformedMethod(method.toString(), textCodec))
+        inputs(i) = flattened.method(i) match {
+          case _: SimpleCodec.Unspecified[_]   => method
+          case SimpleCodec.Specified(expected) =>
+            if (method != expected) throw HttpCodecError.MalformedMethod(expected, method)
+            else ()
+        }
 
         i = i + 1
       }
@@ -262,9 +285,10 @@ private[codec] object EncoderDecoder                   {
       if (flattened.status.length == 0) {
         None
       } else {
-        val statusString = flattened.status(0).erase.encode(inputs(0))
-
-        Some(Status.fromInt(statusString.toInt).getOrElse(Status.Ok))
+        flattened.status(0) match {
+          case _: SimpleCodec.Unspecified[_] => Some(inputs(0).asInstanceOf[Status])
+          case SimpleCodec.Specified(status) => Some(status)
+        }
       }
     }
 
@@ -286,14 +310,13 @@ private[codec] object EncoderDecoder                   {
       headers
     }
 
-    private def encodeMethod(inputs: Array[Any]): Option[zio.http.model.Method] = {
+    private def encodeMethod(inputs: Array[Any]): Option[zio.http.model.Method] =
       if (flattened.method.nonEmpty) {
-        val method = flattened.method.head.erase
-        Some(zio.http.model.Method.fromString(method.encode(inputs(0))))
-      } else {
-        None
-      }
-    }
+        flattened.method.head match {
+          case _: SimpleCodec.Unspecified[_] => Some(inputs(0).asInstanceOf[Method])
+          case SimpleCodec.Specified(method) => Some(method)
+        }
+      } else None
 
     private def encodeBody(inputs: Array[Any]): Body = {
       if (jsonEncoders.length == 0) Body.empty
