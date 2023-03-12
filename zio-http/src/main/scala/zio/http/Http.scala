@@ -39,7 +39,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     UpperErr >: LowerErr,
     In1 <: In,
   ](
-    aspect: Middleware[LowerEnv, UpperEnv, LowerErr, UpperErr],
+    aspect: HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr],
   )(implicit
     trace: Trace,
     in: In1 <:< Request,

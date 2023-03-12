@@ -20,8 +20,8 @@ object HandlerAspect {
       handler: Handler[Env, Err, Request, Response],
     )(implicit trace: Trace): Handler[OutEnv[Env], OutErr[Err], Request, Response]
 
-    def toMiddleware: HandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv, OutErr] =
-      new HandlerMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+    def toMiddleware: RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv, OutErr] =
+      new RequestHandlerMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
         override type OutEnv[Env] = self.OutEnv[Env]
         override type OutErr[Err] = self.OutErr[Err]
 
@@ -41,8 +41,12 @@ object HandlerAspect {
       handler: Handler[Env, Err, Request, Response],
     )(implicit trace: Trace): Handler[Env, Err, Request, Response]
 
-    override def toMiddleware: HandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv, OutErr] =
-      new HandlerMiddleware.Simple[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+    override def toMiddleware
+      : RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv, OutErr] =
+      new RequestHandlerMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+        override type OutEnv[Env] = Env
+        override type OutErr[Err] = Err
+
         override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
           handler: Handler[Env, Err, Request, Response],
         )(implicit trace: Trace): Handler[Env, Err, Request, Response] =

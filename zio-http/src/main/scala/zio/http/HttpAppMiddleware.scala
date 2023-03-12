@@ -5,7 +5,7 @@ import zio.{Trace, ZIO}
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
-object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
+object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
   type WithOut[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, OutEnv0[_], OutErr0[_]] =
     Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
       type OutEnv[Env] = OutEnv0[Env]
@@ -42,8 +42,8 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
    * An empty middleware that doesn't do perform any operations on the provided
    * Http and returns it as it is.
    */
-  def identity: Middleware[Nothing, Any, Nothing, Any] =
-    new Middleware.Simple[Nothing, Any, Nothing, Any] {
+  def identity: HttpAppMiddleware[Nothing, Any, Nothing, Any] =
+    new HttpAppMiddleware.Simple[Nothing, Any, Nothing, Any] {
       override def apply[Env, Err](
         http: Http[Env, Err, Request, Response],
       )(implicit trace: Trace): Http[Env, Err, Request, Response] =
@@ -51,8 +51,8 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
     }
 
   final class Allow(val unit: Unit) extends AnyVal {
-    def apply(condition: Request => Boolean): Middleware[Nothing, Any, Nothing, Any] =
-      new Middleware.Simple[Nothing, Any, Nothing, Any] {
+    def apply(condition: Request => Boolean): HttpAppMiddleware[Nothing, Any, Nothing, Any] =
+      new HttpAppMiddleware.Simple[Nothing, Any, Nothing, Any] {
         override def apply[Env, Err](
           http: Http[Env, Err, Request, Response],
         )(implicit trace: Trace): Http[Env, Err, Request, Response] =
@@ -63,8 +63,8 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
   final class AllowZIO(val unit: Unit) extends AnyVal {
     def apply[R, Err](
       condition: Request => ZIO[R, Err, Boolean],
-    ): Middleware[Nothing, R, Err, Any] =
-      new Middleware.Simple[Nothing, R, Err, Any] {
+    ): HttpAppMiddleware[Nothing, R, Err, Any] =
+      new HttpAppMiddleware.Simple[Nothing, R, Err, Any] {
         override def apply[Env <: R, Err1 >: Err](
           http: Http[Env, Err1, Request, Response],
         )(implicit trace: Trace): Http[Env, Err1, Request, Response] =
@@ -73,14 +73,16 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
   }
 
   implicit final class MiddlewareSyntax[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr](
-    val self: Middleware[LowerEnv, UpperEnv, LowerErr, UpperErr],
+    val self: HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr],
   ) extends AnyVal {
 
     /**
      * Applies Middleware based only if the condition function evaluates to true
      */
-    def when(condition: Request => Boolean)(implicit trace: Trace): Middleware[LowerEnv, UpperEnv, LowerErr, UpperErr] =
-      new Middleware.Simple[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+    def when(
+      condition: Request => Boolean,
+    )(implicit trace: Trace): HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr] =
+      new HttpAppMiddleware.Simple[LowerEnv, UpperEnv, LowerErr, UpperErr] {
         override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
           http: Http[Env, Err, Request, Response],
         )(implicit trace: Trace): Http[Env, Err, Request, Response] =
@@ -98,8 +100,8 @@ object Middleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
       condition: Request => ZIO[UpperEnv1, LowerErr1, Boolean],
     )(implicit
       trace: Trace,
-    ): Middleware[LowerEnv, UpperEnv1, LowerErr1, UpperErr] =
-      new Middleware.Simple[LowerEnv, UpperEnv1, LowerErr1, UpperErr] {
+    ): HttpAppMiddleware[LowerEnv, UpperEnv1, LowerErr1, UpperErr] =
+      new HttpAppMiddleware.Simple[LowerEnv, UpperEnv1, LowerErr1, UpperErr] {
         override def apply[Env >: LowerEnv <: UpperEnv1, Err >: LowerErr1 <: UpperErr](
           http: Http[Env, Err, Request, Response],
         )(implicit trace: Trace): Http[Env, Err, Request, Response] =

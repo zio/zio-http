@@ -2,10 +2,9 @@ package zio.http
 import zio.{Trace, ZIO}
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import scala.annotation.nowarn
 import scala.annotation.unchecked.uncheckedVariance // scalafix:ok;
 
-object HandlerMiddleware {
+object RequestHandlerMiddleware {
   type WithOut[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, OutEnv0[_], OutErr0[_]] =
     Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
       type OutEnv[Env] = OutEnv0[Env]
@@ -14,15 +13,15 @@ object HandlerMiddleware {
 
   trait Contextual[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr]
       extends HandlerAspect.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr]
-      with Middleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+      with HttpAppMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
     self =>
 
     final def >>>[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2](
-      that: HandlerMiddleware[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2],
+      that: RequestHandlerMiddleware[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2],
     )(implicit
       composeEnv: ZCompose[LowerEnv, UpperEnv, OutEnv, LowerEnv2, UpperEnv2, that.OutEnv] @uncheckedVariance,
       composeErr: ZCompose[LowerErr, UpperErr, OutErr, LowerErr2, UpperErr2, that.OutErr] @uncheckedVariance,
-    ): HandlerMiddleware.WithOut[
+    ): RequestHandlerMiddleware.WithOut[
       composeEnv.Lower,
       composeEnv.Upper,
       composeErr.Lower,
@@ -30,7 +29,7 @@ object HandlerMiddleware {
       composeEnv.Out,
       composeErr.Out,
     ] =
-      self.andThen(that)
+      self.andThen(that)(composeEnv, composeErr)
 
     final def ++[
       LowerEnv2,
@@ -38,11 +37,11 @@ object HandlerMiddleware {
       LowerErr2,
       UpperErr2,
     ](
-      that: HandlerMiddleware[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2],
+      that: RequestHandlerMiddleware[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2],
     )(implicit
       composeEnv: ZCompose[LowerEnv, UpperEnv, OutEnv, LowerEnv2, UpperEnv2, that.OutEnv] @uncheckedVariance,
       composeErr: ZCompose[LowerErr, UpperErr, OutErr, LowerErr2, UpperErr2, that.OutErr] @uncheckedVariance,
-    ): HandlerMiddleware.WithOut[
+    ): RequestHandlerMiddleware.WithOut[
       composeEnv.Lower,
       composeEnv.Upper,
       composeErr.Lower,
@@ -50,14 +49,14 @@ object HandlerMiddleware {
       composeEnv.Out,
       composeErr.Out,
     ] =
-      self.andThen(that)
+      self.andThen(that)(composeEnv, composeErr)
 
     final def andThen[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2](
-      that: HandlerMiddleware[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2],
+      that: RequestHandlerMiddleware[LowerEnv2, UpperEnv2, LowerErr2, UpperErr2],
     )(implicit
       composeEnv: ZCompose[LowerEnv, UpperEnv, OutEnv, LowerEnv2, UpperEnv2, that.OutEnv] @uncheckedVariance,
       composeErr: ZCompose[LowerErr, UpperErr, OutErr, LowerErr2, UpperErr2, that.OutErr] @uncheckedVariance,
-    ): HandlerMiddleware.WithOut[
+    ): RequestHandlerMiddleware.WithOut[
       composeEnv.Lower,
       composeEnv.Upper,
       composeErr.Lower,
@@ -65,7 +64,7 @@ object HandlerMiddleware {
       composeEnv.Out,
       composeErr.Out,
     ] =
-      new HandlerMiddleware.Contextual[
+      new RequestHandlerMiddleware.Contextual[
         composeEnv.Lower,
         composeEnv.Upper,
         composeErr.Lower,
@@ -78,9 +77,9 @@ object HandlerMiddleware {
           handler: Handler[Env, Err, Request, Response],
         )(implicit trace: Trace): Handler[OutEnv[Env], OutErr[Err], Request, Response] = {
           val h1 =
-            self.asInstanceOf[HandlerMiddleware[Nothing, Any, Nothing, Any]].apply(handler)
+            self.asInstanceOf[RequestHandlerMiddleware[Nothing, Any, Nothing, Any]].apply(handler)
           val h2 = that
-            .asInstanceOf[HandlerMiddleware[Nothing, Any, Nothing, Any]]
+            .asInstanceOf[RequestHandlerMiddleware[Nothing, Any, Nothing, Any]]
             .apply(h1)
           h2.asInstanceOf[Handler[OutEnv[Env], OutErr[Err], Request, Response]]
         }
@@ -98,7 +97,7 @@ object HandlerMiddleware {
               .asInstanceOf[Http.Route[Env, Err, Request, Response]]
               .run(in)
               .map { (http: Http[Env, Err, Request, Response]) =>
-                http @@ self.asInstanceOf[Middleware[LowerEnv, UpperEnv, LowerErr, UpperErr]]
+                http @@ self.asInstanceOf[HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr]]
               }
               .asInstanceOf[ZIO[OutEnv[Env], OutErr[Err], Http[OutEnv[Env], OutErr[
                 Err,
@@ -107,16 +106,16 @@ object HandlerMiddleware {
       }
   }
 
-  trait Simple[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] extends Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+  trait Simple[-UpperEnv, +LowerErr] extends Contextual[Nothing, UpperEnv, LowerErr, Any] {
     self =>
     final type OutEnv[Env] = Env
     final type OutErr[Err] = Err
 
-    def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
+    def apply[Env <: UpperEnv, Err >: LowerErr](
       handler: Handler[Env, Err, Request, Response],
     )(implicit trace: Trace): Handler[Env, Err, Request, Response]
 
-    override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
+    override def apply[Env <: UpperEnv, Err >: LowerErr](
       http: Http[Env, Err, Request, Response],
     )(implicit trace: Trace): Http[Env, Err, Request, Response] =
       http.asInstanceOf[Http[_, _, _, _]] match {
@@ -128,14 +127,14 @@ object HandlerMiddleware {
               .asInstanceOf[Http.Route[Env, Err, Request, Response]]
               .run(in)
               .map { (http: Http[Env, Err, Request, Response]) =>
-                http @@ self.asInstanceOf[Middleware[LowerEnv, UpperEnv, LowerErr, UpperErr]]
+                http @@ self.asInstanceOf[HttpAppMiddleware[Nothing, UpperEnv, LowerErr, Any]]
               }
           }
       }
   }
 
-  def identity: HandlerMiddleware[Nothing, Any, Nothing, Any] =
-    new HandlerMiddleware.Simple[Nothing, Any, Nothing, Any] {
+  def identity: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
+    new RequestHandlerMiddleware.Simple[Any, Nothing] {
       override def apply[R, E](handler: Handler[R, E, Request, Response])(implicit
         trace: Trace,
       ): Handler[R, E, Request, Response] =
@@ -143,14 +142,14 @@ object HandlerMiddleware {
     }
 
   implicit final class SimpleSyntax[R, Err](
-    val self: HandlerMiddleware[Nothing, R, Err, Any],
+    val self: RequestHandlerMiddleware[Nothing, R, Err, Any],
   ) extends AnyVal {
     def when(
       condition: Request => Boolean,
     )(implicit
       trace: Trace,
-    ): HandlerMiddleware[Nothing, R, Err, Any] =
-      new HandlerMiddleware.Simple[Nothing, R, Err, Any] {
+    ): RequestHandlerMiddleware[Nothing, R, Err, Any] =
+      new RequestHandlerMiddleware.Simple[R, Err] {
         override def apply[R1 <: R, Err1 >: Err](handler: Handler[R1, Err1, Request, Response])(implicit
           trace: Trace,
         ): Handler[R1, Err1, Request, Response] =
@@ -164,8 +163,8 @@ object HandlerMiddleware {
 
     def whenZIO[R1 <: R, Err1 >: Err](
       condition: Request => ZIO[R1, Err1, Boolean],
-    )(implicit trace: Trace): HandlerMiddleware[Nothing, R1, Err1, Any] =
-      new HandlerMiddleware.Simple[Nothing, R1, Err1, Any] {
+    )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, R1, Err1, Any] =
+      new RequestHandlerMiddleware.Simple[R1, Err1] {
         override def apply[R2 <: R1, Err2 >: Err1](handler: Handler[R2, Err2, Request, Response])(implicit
           trace: Trace,
         ): Handler[R2, Err2, Request, Response] =

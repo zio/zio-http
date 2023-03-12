@@ -6,8 +6,8 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
 
-  type Middleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
-    Middleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+  type HttpAppMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
+    HttpAppMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
       type OutEnv[Env] = Env
       type OutErr[Err] = Err
     }
@@ -18,38 +18,11 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
       type OutErr[Err] = Err
     }
 
-  type HandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
-    HandlerMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+  type RequestHandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
+    RequestHandlerMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
       type OutEnv[Env] = Env
       type OutErr[Err] = Err
     }
-
-  type HttpAppMiddleware[-R, +Err] = Middleware[Nothing, R, Err, Any]
-  object HttpAppMiddleware {
-    type WithOut[-R, +Err, OutEnv0[_], OutErr0[_]] = Contextual[R, Err] {
-      type OutEnv[Env]  = OutEnv0[Env]
-      type OutErr[Err1] = OutErr0[Err1]
-    }
-
-    trait Contextual[-R, +Err] extends Middleware.Contextual[Nothing, R, Err, Any]
-
-    trait Mono[-R, +Err] extends Middleware.Simple[Nothing, R, Err, Any]
-  }
-
-  type RequestHandlerMiddleware[-R, +Err] = HandlerMiddleware[Nothing, R, Err, Any]
-  object RequestHandlerMiddleware {
-    type WithOut[-R, +Err, OutEnv0[_], OutErr0[_]] =
-      HandlerMiddleware.Contextual[Nothing, R, Err, Any] {
-        type OutEnv[Env0] = OutEnv0[Env0]
-        type OutErr[Err0] = OutErr0[Err0]
-      }
-
-    trait Contextual[-R, +Err] extends HandlerMiddleware.Contextual[Nothing, R, Err, Any]
-
-    trait Mono[-R, +Err] extends HandlerMiddleware.Simple[Nothing, R, Err, Any]
-  }
-
-  type UMiddleware = Middleware[Nothing, Any, Nothing, Any]
 
   type HttpApp[-R, +Err] = Http[R, Err, Request, Response]
   type UHttpApp          = HttpApp[Any, Nothing]

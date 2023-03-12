@@ -4,7 +4,7 @@ import zio._
 import zio.test.Assertion._
 import zio.test._
 
-import zio.http.Middleware._
+import zio.http.HttpAppMiddleware._
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.model._
@@ -13,8 +13,8 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
   private val app  = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
     ZIO.succeed(Response.ok).delay(1 second)
   }
-  private val midA = Middleware.addHeader("X-Custom", "A")
-  private val midB = Middleware.addHeader("X-Custom", "B")
+  private val midA = HttpAppMiddleware.addHeader("X-Custom", "A")
+  private val midB = HttpAppMiddleware.addHeader("X-Custom", "B")
 
   def spec = suite("HttpMiddleware")(
     suite("headers suite")(
@@ -122,51 +122,51 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("whenStatus")(
       test("if the condition is true apply middleware") {
-        val app = Handler.ok @@ Middleware.whenStatus(_ == Status.Ok)(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenStatus(_ == Status.Ok)(midA) header "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply the middleware") {
-        val app = Handler.ok @@ Middleware.whenStatus(_ == Status.NoContent)(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenStatus(_ == Status.NoContent)(midA) header "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("whenRequestZIO")(
       test("if the condition is true apply middleware") {
-        val app = (Handler.ok @@ Middleware.whenRequestZIO(condZIO(true))(midA)) header "X-Custom"
+        val app = (Handler.ok @@ HttpAppMiddleware.whenRequestZIO(condZIO(true))(midA)) header "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply any middleware") {
-        val app = (Handler.ok @@ Middleware.whenRequestZIO(condZIO(false))(midA)) header "X-Custom"
+        val app = (Handler.ok @@ HttpAppMiddleware.whenRequestZIO(condZIO(false))(midA)) header "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("whenRequest")(
       test("if the condition is true apply middleware") {
-        val app = Handler.ok @@ Middleware.whenRequest(cond(true))(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenRequest(cond(true))(midA) header "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply the middleware") {
-        val app = Handler.ok @@ Middleware.whenRequest(cond(false))(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenRequest(cond(false))(midA) header "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("whenResponseZIO")(
       test("if the condition is true apply middleware") {
-        val app = (Handler.ok @@ Middleware.whenResponseZIO(condZIO(true))(midA)) header "X-Custom"
+        val app = (Handler.ok @@ HttpAppMiddleware.whenResponseZIO(condZIO(true))(midA)) header "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply any middleware") {
-        val app = (Handler.ok @@ Middleware.whenResponseZIO(condZIO(false))(midA)) header "X-Custom"
+        val app = (Handler.ok @@ HttpAppMiddleware.whenResponseZIO(condZIO(false))(midA)) header "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("whenResponse")(
       test("if the condition is true apply middleware") {
-        val app = Handler.ok @@ Middleware.whenResponse(cond(true))(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenResponse(cond(true))(midA) header "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply the middleware") {
-        val app = Handler.ok @@ Middleware.whenResponse(cond(false))(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenResponse(cond(false))(midA) header "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),

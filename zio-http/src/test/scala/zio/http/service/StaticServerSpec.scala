@@ -5,7 +5,7 @@ import zio.test.TestAspect.timeout
 import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
 import zio.{Exit, Scope, ZIO, durationInt}
 
-import zio.http.Middleware.cors
+import zio.http.HttpAppMiddleware.cors
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Cors.CorsConfig
