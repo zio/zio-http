@@ -72,7 +72,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
       }
   }
 
-  implicit final class MiddlewareSyntax[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr](
+  implicit final class HttpAppMiddlewareSyntax[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr](
     val self: HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr],
   ) extends AnyVal {
 
