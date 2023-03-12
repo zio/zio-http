@@ -155,9 +155,51 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           r4body == "base auth",
         )
       }.provideLayer(ZLayer.succeed(BaseService("base"))),
+      test("Providing context from auth middleware effectfully") {
+        def auth[R0] = RequestHandlerMiddlewares.customAuthProvidingZIO[R0, UserService, Throwable, AuthContext](
+          (headers: Headers) =>
+            headers.get(HeaderNames.authorization) match {
+              case Some(value) if value.startsWith("_") =>
+                ZIO.service[UserService].map { usvc => Some(AuthContext(usvc.prefix + value)) }
+              case Some(value)                          =>
+                ZIO.fail(new RuntimeException(s"Invalid auth header $value"))
+              case None                                 =>
+                ZIO.none
+            },
+        )
+
+        val app1 = Handler.text("ok") @@ auth[Any]
+        val app2 = Handler.fromZIO {
+          for {
+            base <- ZIO.service[BaseService]
+            auth <- ZIO.service[AuthContext]
+          } yield Response.text(s"${base.value} ${auth.value}")
+        } @@ auth[BaseService]
+
+        for {
+          r1     <- app1.runZIO(Request.get(URL.empty))
+          r2     <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("auth"))).exit
+          r3     <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("_auth")))
+          r3body <- r3.body.asString
+          r4     <- app2.runZIO(Request.get(URL.empty))
+          r5     <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("auth"))).exit
+          r6     <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("_auth")))
+          r6body <- r6.body.asString
+        } yield assertTrue(
+          r1.status == Status.Unauthorized,
+          r2.isFailure,
+          r3.status == Status.Ok,
+          r3body == "ok",
+          r4.status == Status.Unauthorized,
+          r5.isFailure,
+          r6.status == Status.Ok,
+          r6body == "base user_auth",
+        )
+      }.provide(ZLayer.succeed(BaseService("base")), ZLayer.succeed(UserService("user"))),
     ),
   )
 
+  final case class UserService(prefix: String)
   final case class BaseService(value: String)
   final case class AuthContext(value: String)
 }

@@ -130,6 +130,42 @@ private[zio] trait Auth {
 
   /**
    * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app, and provides a context to the request
+   * handlers.
+   */
+  final def customAuthProvidingZIO[R0, R, E, Context: Tag](
+    provide: Headers => ZIO[R, E, Option[Context]],
+    responseHeaders: Headers = Headers.empty,
+    responseStatus: Status = Status.Unauthorized,
+  ): RequestHandlerMiddleware.WithOut[
+    R0 with R with Context,
+    R,
+    E,
+    Any,
+    ({ type OutEnv[Env] = R0 with R })#OutEnv,
+    ({ type OutErr[Err] = Err })#OutErr,
+  ] =
+    new RequestHandlerMiddleware.Contextual[R0 with R with Context, R, E, Any] {
+      type OutEnv[Env] = R0 with R
+      type OutErr[Err] = Err
+
+      override def apply[R1 >: R0 with R with Context <: R, Err1 >: E](
+        handler: Handler[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Handler[R0 with R, Err1, Request, Response] =
+        Handler
+          .fromFunctionZIO[Request] { request =>
+            provide(request.headers).flatMap {
+              case Some(context) =>
+                ZIO.succeed(handler.provideSomeEnvironment[R0 with R](_.union[Context](ZEnvironment(context))))
+              case None          =>
+                ZIO.succeed(Handler.status(responseStatus).addHeaders(responseHeaders))
+            }
+          }
+          .flatten
+    }
+
+  /**
+   * Creates an authentication middleware that only allows authenticated
    * requests to be passed on to the app using an effectful verification
    * function.
    */
