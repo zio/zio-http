@@ -67,60 +67,56 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Logical operator to decide which middleware to select based on the header
    */
-  final def ifHeaderThenElse[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0[_], OutErr0[_]](
+  final def ifHeaderThenElse[UpperEnv, LowerErr](
     condition: Headers => Boolean,
   )(
-    ifTrue: RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0],
-    ifFalse: RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0],
-  ): RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0] =
+    ifTrue: RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any],
+    ifFalse: RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any],
+  ): RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any] =
     ifRequestThenElse(request => condition(request.headers))(ifTrue, ifFalse)
 
   /**
    * Logical operator to decide which middleware to select based on the method.
    */
-  final def ifMethodThenElse[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0[_], OutErr0[_]](
+  final def ifMethodThenElse[UpperEnv, LowerErr](
     condition: Method => Boolean,
   )(
-    ifTrue: RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0],
-    ifFalse: RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0],
-  ): RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0] =
+    ifTrue: RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any],
+    ifFalse: RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any],
+  ): RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any] =
     ifRequestThenElse(request => condition(request.method))(ifTrue, ifFalse)
 
   /**
    * Logical operator to decide which middleware to select based on the
    * predicate.
    */
-  final def ifRequestThenElse[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0[_], OutErr0[_]](
+  final def ifRequestThenElse[UpperEnv, LowerErr](
     condition: Request => Boolean,
   )(
-    ifTrue: RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0],
-    ifFalse: RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0],
-  ): RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0] =
-    new RequestHandlerMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
-      override type OutEnv[Env] = OutEnv0[Env]
-      override type OutErr[Err] = OutErr0[Err]
+    ifTrue: RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any],
+    ifFalse: RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any],
+  ): RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any] =
+    new RequestHandlerMiddleware.Simple[UpperEnv, LowerErr] {
 
-      override def apply[R1 >: LowerEnv <: UpperEnv, Err1 >: LowerErr <: UpperErr](
+      override def apply[R1 <: UpperEnv, Err1 >: LowerErr](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[OutEnv[R1], OutErr[Err1], Request, Response] =
+      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
           if (condition(request)) ifTrue(handler) else ifFalse(handler)
         }
     }
 
-  final def ifRequestThenElseFunction[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0[_], OutErr0[_]](
+  final def ifRequestThenElseFunction[UpperEnv, LowerErr](
     condition: Request => Boolean,
   )(
-    ifTrue: Request => RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0],
-    ifFalse: Request => RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0],
-  ): RequestHandlerMiddleware.WithOut[LowerEnv, UpperEnv, LowerErr, UpperErr, OutEnv0, OutErr0] =
-    new RequestHandlerMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
-      override type OutEnv[Env] = OutEnv0[Env]
-      override type OutErr[Err] = OutErr0[Err]
+    ifTrue: Request => RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any],
+    ifFalse: Request => RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any],
+  ): RequestHandlerMiddleware[Nothing, UpperEnv, LowerErr, Any] =
+    new RequestHandlerMiddleware.Simple[UpperEnv, LowerErr] {
 
-      override def apply[R1 >: LowerEnv <: UpperEnv, Err1 >: LowerErr <: UpperErr](
+      override def apply[R1 <: UpperEnv, Err1 >: LowerErr](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[OutEnv[R1], OutErr[Err1], Request, Response] =
+      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
           if (condition(request)) ifTrue(request)(handler) else ifFalse(request)(handler)
         }

@@ -83,26 +83,17 @@ object RequestHandlerMiddleware {
             .apply(h1)
           h2.asInstanceOf[Handler[OutEnv[Env], OutErr[Err], Request, Response]]
         }
-      }
 
-    override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
-      http: Http[Env, Err, Request, Response],
-    )(implicit trace: Trace): Http[OutEnv[Env], OutErr[Err], Request, Response] =
-      http.asInstanceOf[Http[_, _, _, _]] match {
-        case Http.Empty           => Http.empty
-        case Http.Static(handler) => Http.Static(apply(handler.asInstanceOf[Handler[Env, Err, Request, Response]]))
-        case route: Http.Route[_, _, _, _] =>
-          Http.fromHttpZIO[Request] { in =>
-            route
-              .asInstanceOf[Http.Route[Env, Err, Request, Response]]
-              .run(in)
-              .map { (http: Http[Env, Err, Request, Response]) =>
-                http @@ self.asInstanceOf[HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr]]
-              }
-              .asInstanceOf[ZIO[OutEnv[Env], OutErr[Err], Http[OutEnv[Env], OutErr[
-                Err,
-              ], Request, Response]]] // TODO: can we avoid this?
-          }
+        override def apply[Env >: composeEnv.Lower <: composeEnv.Upper, Err >: composeErr.Lower <: composeErr.Upper](
+          http: Http[Env, Err, Request, Response],
+        )(implicit trace: Trace): Http[OutEnv[Env], OutErr[Err], Request, Response] = {
+          val h1 =
+            self.asInstanceOf[RequestHandlerMiddleware[Nothing, Any, Nothing, Any]].apply(http)
+          val h2 = that
+            .asInstanceOf[RequestHandlerMiddleware[Nothing, Any, Nothing, Any]]
+            .apply(h1)
+          h2.asInstanceOf[Http[OutEnv[Env], OutErr[Err], Request, Response]]
+        }
       }
   }
 

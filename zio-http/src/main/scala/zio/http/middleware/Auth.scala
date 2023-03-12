@@ -113,11 +113,11 @@ private[zio] trait Auth {
     ({ type OutEnv[Env] = R0 })#OutEnv,
     ({ type OutErr[Err] = Err })#OutErr,
   ] =
-    new RequestHandlerMiddleware.Contextual[R0 with Context, Any, Nothing, Any] {
+    new RequestHandlerMiddleware.Contextual[R0 with Context, Any, Nothing, Any] { self =>
       type OutEnv[Env] = R0
       type OutErr[Err] = Err
 
-      override def apply[R1 >: R0 with Context <: Any, Err1 >: Nothing](
+      override def apply[R1 >: R0 with Context, Err1](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R0, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
@@ -125,6 +125,33 @@ private[zio] trait Auth {
             case Some(context) => handler.provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context)))
             case None          => Handler.status(responseStatus).addHeaders(responseHeaders)
           }
+        }
+
+      override def apply[R1 >: R0 with Context, Err1](
+        http: Http[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Http[R0, Err1, Request, Response] =
+        Http.fromHttpZIO[Request] { request =>
+          ZIO.succeed(provide(request.headers)).map {
+            case Some(context) =>
+              http.asInstanceOf[Http[_, _, _, _]] match {
+                case Http.Empty                    => Http.empty
+                case Http.Static(handler)          =>
+                  Http.Static(apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]))
+                case route: Http.Route[_, _, _, _] =>
+                  Http.fromHttpZIO[Request] { in =>
+                    route
+                      .asInstanceOf[Http.Route[R1, Err1, Request, Response]]
+                      .run(in)
+                      .provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context)))
+                      .map { (http: Http[R1, Err1, Request, Response]) =>
+                        self.apply(http)
+                      }
+                  }
+              }
+            case None          =>
+              Handler.status(responseStatus).addHeaders(responseHeaders).toHttp
+          }
+
         }
     }
 
@@ -145,7 +172,7 @@ private[zio] trait Auth {
     ({ type OutEnv[Env] = R0 with R })#OutEnv,
     ({ type OutErr[Err] = Err })#OutErr,
   ] =
-    new RequestHandlerMiddleware.Contextual[R0 with R with Context, R, E, Any] {
+    new RequestHandlerMiddleware.Contextual[R0 with R with Context, R, E, Any] { self =>
       type OutEnv[Env] = R0 with R
       type OutErr[Err] = Err
 
@@ -162,6 +189,33 @@ private[zio] trait Auth {
             }
           }
           .flatten
+
+      override def apply[R1 >: R0 with R with Context <: R, Err1 >: E](
+        http: Http[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Http[R0 with R, Err1, Request, Response] =
+        Http.fromHttpZIO[Request] { request =>
+          provide(request.headers).map {
+            case Some(context) =>
+              http.asInstanceOf[Http[_, _, _, _]] match {
+                case Http.Empty                    => Http.empty
+                case Http.Static(handler)          =>
+                  Http.Static(apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]))
+                case route: Http.Route[_, _, _, _] =>
+                  Http.fromHttpZIO[Request] { in =>
+                    route
+                      .asInstanceOf[Http.Route[R1, Err1, Request, Response]]
+                      .run(in)
+                      .provideSomeEnvironment[R0 with R](_.union[Context](ZEnvironment(context)))
+                      .map { (http: Http[R1, Err1, Request, Response]) =>
+                        self.apply(http)
+                      }
+                  }
+              }
+            case None          =>
+              Handler.status(responseStatus).addHeaders(responseHeaders).toHttp
+          }
+
+        }
     }
 
   /**
