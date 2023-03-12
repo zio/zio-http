@@ -21,7 +21,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
     )(implicit trace: Trace): Http[OutEnv[Env], OutErr[Err], Request, Response]
   }
 
-  trait Simple[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] extends Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+  trait Simple[-UpperEnv, +LowerErr] extends Contextual[Nothing, UpperEnv, LowerErr, Any] {
     final type OutEnv[Env] = Env
     final type OutErr[Err] = Err
   }
@@ -43,7 +43,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
    * Http and returns it as it is.
    */
   def identity: HttpAppMiddleware[Nothing, Any, Nothing, Any] =
-    new HttpAppMiddleware.Simple[Nothing, Any, Nothing, Any] {
+    new HttpAppMiddleware.Simple[Any, Nothing] {
       override def apply[Env, Err](
         http: Http[Env, Err, Request, Response],
       )(implicit trace: Trace): Http[Env, Err, Request, Response] =
@@ -52,7 +52,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
 
   final class Allow(val unit: Unit) extends AnyVal {
     def apply(condition: Request => Boolean): HttpAppMiddleware[Nothing, Any, Nothing, Any] =
-      new HttpAppMiddleware.Simple[Nothing, Any, Nothing, Any] {
+      new HttpAppMiddleware.Simple[Any, Nothing] {
         override def apply[Env, Err](
           http: Http[Env, Err, Request, Response],
         )(implicit trace: Trace): Http[Env, Err, Request, Response] =
@@ -64,7 +64,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
     def apply[R, Err](
       condition: Request => ZIO[R, Err, Boolean],
     ): HttpAppMiddleware[Nothing, R, Err, Any] =
-      new HttpAppMiddleware.Simple[Nothing, R, Err, Any] {
+      new HttpAppMiddleware.Simple[R, Err] {
         override def apply[Env <: R, Err1 >: Err](
           http: Http[Env, Err1, Request, Response],
         )(implicit trace: Trace): Http[Env, Err1, Request, Response] =
@@ -82,7 +82,10 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
     def when(
       condition: Request => Boolean,
     )(implicit trace: Trace): HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr] =
-      new HttpAppMiddleware.Simple[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+      new HttpAppMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+        override type OutEnv[Env] = Env
+        override type OutErr[Err] = Err
+
         override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
           http: Http[Env, Err, Request, Response],
         )(implicit trace: Trace): Http[Env, Err, Request, Response] =
@@ -101,7 +104,10 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
     )(implicit
       trace: Trace,
     ): HttpAppMiddleware[LowerEnv, UpperEnv1, LowerErr1, UpperErr] =
-      new HttpAppMiddleware.Simple[LowerEnv, UpperEnv1, LowerErr1, UpperErr] {
+      new HttpAppMiddleware.Contextual[LowerEnv, UpperEnv1, LowerErr1, UpperErr] {
+        override type OutEnv[Env] = Env
+        override type OutErr[Err] = Err
+
         override def apply[Env >: LowerEnv <: UpperEnv1, Err >: LowerErr1 <: UpperErr](
           http: Http[Env, Err, Request, Response],
         )(implicit trace: Trace): Http[Env, Err, Request, Response] =

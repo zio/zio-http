@@ -37,7 +37,7 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
    * can be applied in straightforward fashion to any request handler or HTTP.
    */
   final def toHandlerAspect: HandlerAspect[Nothing, R, Nothing, Any] =
-    new HandlerAspect.Simple[Nothing, R, Nothing, Any] {
+    new HandlerAspect.Simple[R, Nothing] {
       def apply[R1 >: Nothing <: R, E1 >: Nothing <: Any](handler: Handler[R1, E1, Request, Response])(implicit
         trace: Trace,
       ): Handler[R1, E1, Request, Response] = {

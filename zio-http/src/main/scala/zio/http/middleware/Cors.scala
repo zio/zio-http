@@ -40,7 +40,7 @@ private[zio] trait Cors {
         }
     }
 
-    new HttpAppMiddleware.Simple[Nothing, Any, Nothing, Any] {
+    new HttpAppMiddleware.Simple[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         http: Http[R1, Err1, Request, Response],
       )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
