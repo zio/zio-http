@@ -20,7 +20,6 @@ import zio._
 import zio.http.URL.Location
 import zio.http.model._
 import zio.http.netty.client._
-import zio.http.service._
 import zio.http.socket.SocketApp
 
 import java.net.URI // scalafix:ok;

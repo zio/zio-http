@@ -16,20 +16,19 @@
 
 package zio.http.netty.server
 
+import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http.ServerConfig
+import zio.http.netty.Names
+import zio.http.netty.model.Conversions
+
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
-import io.netty.handler.codec.http.HttpObjectDecoder.{
-  DEFAULT_MAX_CHUNK_SIZE,
-  DEFAULT_MAX_HEADER_SIZE,
-  DEFAULT_MAX_INITIAL_LINE_LENGTH,
-}
+import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
 import io.netty.handler.flow.FlowControlHandler
 import io.netty.handler.flush.FlushConsolidationHandler
-import zio._
-import zio.http.ServerConfig
-import zio.http.netty.Names
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Initializes the netty channel with default handlers
@@ -65,7 +64,7 @@ private[zio] final case class ServerChannelInitializer(
     cfg.responseCompression.foreach(ops => {
       pipeline.addLast(
         Names.HttpResponseCompression,
-        new HttpContentCompressor(ops.contentThreshold, ops.options.map(_.toJava): _*),
+        new HttpContentCompressor(ops.contentThreshold, ops.options.map(Conversions.compressionOptionsToNetty): _*),
       )
     })
 

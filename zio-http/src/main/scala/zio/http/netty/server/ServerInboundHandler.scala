@@ -26,8 +26,9 @@ import zio._
 import zio.http._
 import zio.http.model._
 import zio.http.netty._
+import zio.http.netty.model.Conversions
 import zio.http.netty.server.ServerInboundHandler.isReadKey
-import zio.http.service.ServerTime
+import zio.http.netty.socket.NettySocketProtocol
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
@@ -41,7 +42,7 @@ private[zio] final case class ServerInboundHandler(
   config: ServerConfig,
   errCallbackRef: ErrorCallbackRef,
   runtime: NettyRuntime,
-  time: service.ServerTime,
+  time: ServerTime,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
@@ -124,7 +125,7 @@ private[zio] final case class ServerInboundHandler(
     }
   }
 
-  private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: Body.UnsafeAsync): Unit = {
+  private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: NettyBody.UnsafeAsync): Unit = {
     if (ctx.channel().attr(isReadKey).get())
       throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
 
@@ -138,7 +139,7 @@ private[zio] final case class ServerInboundHandler(
   private def attemptFastWrite(
     ctx: ChannelHandlerContext,
     response: Response,
-    time: service.ServerTime,
+    time: ServerTime,
   ): Boolean = {
 
     response.body match {
@@ -164,7 +165,7 @@ private[zio] final case class ServerInboundHandler(
     ctx: ChannelHandlerContext,
     response: Response,
     jRequest: HttpRequest,
-    time: service.ServerTime,
+    time: ServerTime,
     runtime: NettyRuntime,
   ): Task[Unit] = {
 
@@ -194,7 +195,7 @@ private[zio] final case class ServerInboundHandler(
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
     exit: ZIO[Any, Response, Response],
-    time: service.ServerTime,
+    time: ServerTime,
   ): Boolean = {
     exit match {
       case Exit.Success(response) if response ne null =>
@@ -208,7 +209,7 @@ private[zio] final case class ServerInboundHandler(
     val protocolVersion  = nettyHttpVersion match {
       case HttpVersion.HTTP_1_0 => Version.Http_1_0
       case HttpVersion.HTTP_1_1 => Version.Http_1_1
-      case _                    => throw new IllegalArgumentException(s"Unsupported HTTP version: ${nettyHttpVersion}")
+      case _                    => throw new IllegalArgumentException(s"Unsupported HTTP version: $nettyHttpVersion")
     }
 
     val remoteAddress = ctx.channel().remoteAddress() match {
@@ -219,22 +220,22 @@ private[zio] final case class ServerInboundHandler(
     nettyReq match {
       case nettyReq: FullHttpRequest =>
         Request(
-          Body.fromByteBuf(nettyReq.content()),
-          Headers.make(nettyReq.headers()),
-          Method.fromHttpMethod(nettyReq.method()),
+          NettyBody.fromByteBuf(nettyReq.content()),
+          Conversions.headersFromNetty(nettyReq.headers()),
+          Conversions.methodFromNetty(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
           remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-        val body = Body.fromAsync { async =>
+        val body = NettyBody.fromAsync { async =>
           addAsyncBodyHandler(ctx, async)
         }
 
         Request(
           body,
-          Headers.make(nettyReq.headers()),
-          Method.fromHttpMethod(nettyReq.method()),
+          Conversions.headersFromNetty(nettyReq.headers()),
+          Conversions.methodFromNetty(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
           remoteAddress,
@@ -243,7 +244,7 @@ private[zio] final case class ServerInboundHandler(
 
   }
 
-  private def setServerTime(time: service.ServerTime, response: Response, jResponse: HttpResponse): Unit = {
+  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
     val _ =
       if (response.serverTime)
         jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
@@ -266,8 +267,8 @@ private[zio] final case class ServerInboundHandler(
         ctx
           .channel()
           .pipeline()
-          .addLast(new WebSocketServerProtocolHandler(app.get.protocol.serverBuilder.build()))
-          .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, app.get, false))
+          .addLast(new WebSocketServerProtocolHandler(NettySocketProtocol.serverBuilder(app.get.protocol).build()))
+          .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, app.get))
 
         val retained = jReq.retainedDuplicate()
         val _        = ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }
@@ -353,7 +354,7 @@ object ServerInboundHandler {
         errCallback <- ZIO.service[ErrorCallbackRef]
         rtm         <- ZIO.service[NettyRuntime]
         config      <- ZIO.service[ServerConfig]
-        time        <- ZIO.service[service.ServerTime]
+        time        <- ZIO.service[ServerTime]
 
       } yield ServerInboundHandler(appRef, config, errCallback, rtm, time)
     }

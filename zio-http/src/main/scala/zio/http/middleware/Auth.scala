@@ -16,13 +16,13 @@
 
 package zio.http.middleware
 
-import io.netty.handler.codec.http.HttpHeaderNames
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Tag, Trace, ZEnvironment, ZIO}
+
 import zio.http._
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
-import zio.http.model.{Headers, Status}
-import zio.{Tag, Trace, ZEnvironment, ZIO}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.http.model.{HeaderNames, Headers, Status}
 
 private[zio] trait Auth {
 
@@ -35,7 +35,7 @@ private[zio] trait Auth {
         case Some(credentials) => f(credentials)
         case None              => false
       },
-      Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName),
+      Headers(HeaderNames.wwwAuthenticate, BasicSchemeName),
     )
 
   /**
@@ -57,7 +57,7 @@ private[zio] trait Auth {
         case Some(credentials) => f(credentials)
         case None              => ZIO.succeed(false)
       },
-      Headers(HttpHeaderNames.WWW_AUTHENTICATE, BasicSchemeName),
+      Headers(HeaderNames.wwwAuthenticate, BasicSchemeName),
     )
 
   /**
@@ -72,7 +72,7 @@ private[zio] trait Auth {
         case Some(token) => f(token)
         case None        => false
       },
-      Headers(HttpHeaderNames.WWW_AUTHENTICATE, BearerSchemeName),
+      Headers(HeaderNames.wwwAuthenticate, BearerSchemeName),
     )
 
   /**
@@ -90,7 +90,7 @@ private[zio] trait Auth {
         case Some(token) => f(token)
         case None        => ZIO.succeed(false)
       },
-      Headers(HttpHeaderNames.WWW_AUTHENTICATE, BearerSchemeName),
+      Headers(HeaderNames.wwwAuthenticate, BearerSchemeName),
     )
 
   /**

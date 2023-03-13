@@ -16,8 +16,9 @@
 
 package zio.http.html
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.html.Attributes.PartialAttribute
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 trait Attributes {
   final def acceptAttr: PartialAttribute[String] = PartialAttribute("accept")

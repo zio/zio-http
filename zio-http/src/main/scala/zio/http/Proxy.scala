@@ -15,12 +15,12 @@
  */
 
 package zio.http
-import io.netty.handler.proxy.HttpProxyHandler
+import java.net.InetSocketAddress
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers
-
-import java.net.InetSocketAddress
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Represents the connection to the forward proxy before running the request
@@ -42,30 +42,6 @@ final case class Proxy(
   def withUrl(url: URL): Proxy                         = self.copy(url = url)
   def withCredentials(credentials: Credentials): Proxy = self.copy(credentials = Some(credentials))
   def withHeaders(headers: Headers): Proxy             = self.copy(headers = headers)
-
-  /**
-   * Converts a Proxy to [io.netty.handler.proxy.HttpProxyHandler]
-   */
-  private[zio] def encode: Option[HttpProxyHandler] = credentials.fold(unauthorizedProxy)(authorizedProxy)
-
-  private def authorizedProxy(credentials: Credentials): Option[HttpProxyHandler] = for {
-    proxyAddress <- buildProxyAddress
-    uname          = credentials.uname
-    upassword      = credentials.upassword
-    encodedHeaders = headers.encode
-  } yield new HttpProxyHandler(proxyAddress, uname, upassword, encodedHeaders)
-
-  private def unauthorizedProxy: Option[HttpProxyHandler] = for {
-    proxyAddress <- buildProxyAddress
-    encodedHeaders = headers.encode
-  } yield {
-    new HttpProxyHandler(proxyAddress, encodedHeaders)
-  }
-
-  private def buildProxyAddress: Option[InetSocketAddress] = for {
-    proxyHost <- url.host
-    proxyPort <- url.port
-  } yield new InetSocketAddress(proxyHost, proxyPort)
 }
 
 object Proxy {

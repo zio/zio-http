@@ -17,9 +17,10 @@
 package zio.http.socket
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http._
 import zio.http.model.Headers
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final case class SocketApp[-R](
   decoder: SocketDecoder = SocketDecoder.default,

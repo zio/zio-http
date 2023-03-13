@@ -2,9 +2,10 @@ package example
 
 import zio._
 
-import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http._
 import zio.http.model.Method
+import zio.http.netty.NettyServerConfig
+import zio.http.netty.NettyServerConfig.LeakDetectionLevel
 
 import io.netty.util.AsciiString
 
@@ -28,14 +29,17 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
   private val config = ServerConfig.default
     .port(8080)
     .maxThreads(8)
-    .leakDetection(LeakDetectionLevel.DISABLED)
     .consolidateFlush(true)
     .flowControl(false)
     .objectAggregator(-1)
 
-  private val configLayer = ServerConfig.live(config)
+  private val nettyConfig = NettyServerConfig.default
+    .leakDetection(LeakDetectionLevel.DISABLED)
+
+  private val configLayer      = ServerConfig.live(config)
+  private val nettyConfigLayer = NettyServerConfig.live(nettyConfig)
 
   val run: UIO[ExitCode] =
-    Server.serve(app).provide(configLayer, Server.live).exitCode
+    Server.serve(app).provide(configLayer, nettyConfigLayer, Server.customized).exitCode
 
 }

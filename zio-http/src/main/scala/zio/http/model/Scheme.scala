@@ -16,10 +16,8 @@
 
 package zio.http.model
 
-import io.netty.handler.codec.http.HttpScheme
-import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import zio.Unsafe
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 sealed trait Scheme { self =>
   def encode: String = self match {
@@ -49,18 +47,6 @@ sealed trait Scheme { self =>
     case Scheme.WS    => 80
     case Scheme.WSS   => 443
   }
-
-  def toJHttpScheme: Option[HttpScheme] = self match {
-    case Scheme.HTTP  => Option(HttpScheme.HTTP)
-    case Scheme.HTTPS => Option(HttpScheme.HTTPS)
-    case _            => None
-  }
-
-  def toJWebSocketScheme: Option[WebSocketScheme] = self match {
-    case Scheme.WS  => Option(WebSocketScheme.WS)
-    case Scheme.WSS => Option(WebSocketScheme.WSS)
-    case _          => None
-  }
 }
 object Scheme       {
 
@@ -70,18 +56,6 @@ object Scheme       {
    */
   def decode(scheme: String): Option[Scheme] =
     Option(unsafe.decode(scheme)(Unsafe.unsafe))
-
-  def fromJScheme(scheme: HttpScheme): Option[Scheme] = scheme match {
-    case HttpScheme.HTTPS => Option(Scheme.HTTPS)
-    case HttpScheme.HTTP  => Option(Scheme.HTTP)
-    case _                => None
-  }
-
-  def fromJScheme(scheme: WebSocketScheme): Option[Scheme] = scheme match {
-    case WebSocketScheme.WSS => Option(Scheme.WSS)
-    case WebSocketScheme.WS  => Option(Scheme.WS)
-    case _                   => None
-  }
 
   private[zio] object unsafe {
     def decode(scheme: String)(implicit unsafe: Unsafe): Scheme = {

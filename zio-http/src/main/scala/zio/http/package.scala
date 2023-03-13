@@ -16,7 +16,7 @@
 
 package zio
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
 

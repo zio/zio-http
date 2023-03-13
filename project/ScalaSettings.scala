@@ -66,7 +66,8 @@ trait ScalaSettings {
     "-Wunused:privates", // Warn if a private member is unused.
     "-Wunused:locals",   // Warn if a local definition is unused.
     "-Wvalue-discard",   // Warn when non-Unit expression results are unused.
-//    "-Ywarn-unused:imports",
+    "-Ywarn-unused:params,-implicits",
+    "-P:silencer:globalFilters=[zio.stacktracer.TracingImplicits.disableAutoTrace]",
   )
 
   val scala212Settings: Seq[String] = baseSettings ++ Seq(
@@ -75,6 +76,10 @@ trait ScalaSettings {
     "-Xlint:_,-missing-interpolator,-type-parameter-shadow,-infer-any",
     "-Ywarn-numeric-widen",
     "-Ywarn-macros:after",
-    "-Ywarn-unused:-implicits",
+    "-Ywarn-extra-implicit",
+    "-Ywarn-unused:_,imports",
+    "-Ywarn-unused:imports",
+    "-Ywarn-unused:params,-implicits",
+    "-P:silencer:globalFilters=[zio.stacktracer.TracingImplicits.disableAutoTrace]",
   )
 }

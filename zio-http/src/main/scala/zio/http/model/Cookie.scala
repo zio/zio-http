@@ -16,17 +16,19 @@
 
 package zio.http.model
 
-import zio.http._
-import zio.http.model.Cookie.{SameSite, Type}
-import zio.{Duration, Unsafe}
-
 import java.security.MessageDigest
 import java.util.Base64.getEncoder
 import java.util.concurrent.TimeUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+
 import scala.collection.mutable
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Duration, Unsafe}
+
+import zio.http._
+import zio.http.model.Cookie.{SameSite, Type}
 
 /**
  * Cookie is an immutable and type-safe representation of an HTTP cookie. It can

@@ -16,13 +16,7 @@
 
 package zio.http.socket
 
-import io.netty.handler.codec.http.websocketx.{
-  WebSocketClientProtocolConfig,
-  WebSocketCloseStatus,
-  WebSocketServerProtocolConfig,
-}
 import zio.Duration
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Server side websocket configuration
@@ -32,42 +26,21 @@ final case class SocketProtocol(
   handshakeTimeoutMillis: Long = 10000L,
   forceCloseTimeoutMillis: Long = -1L,
   handleCloseFrames: Boolean = true,
-  sendCloseFrame: WebSocketCloseStatus = WebSocketCloseStatus.NORMAL_CLOSURE,
+  sendCloseFrame: CloseStatus = CloseStatus.NormalClosure,
   dropPongFrames: Boolean = true,
   decoderConfig: SocketDecoder = SocketDecoder.default,
 ) { self =>
-
-  def clientBuilder: WebSocketClientProtocolConfig.Builder = WebSocketClientProtocolConfig
-    .newBuilder()
-    .subprotocol(subprotocols.orNull)
-    .handshakeTimeoutMillis(handshakeTimeoutMillis)
-    .forceCloseTimeoutMillis(forceCloseTimeoutMillis)
-    .handleCloseFrames(handleCloseFrames)
-    .sendCloseFrame(sendCloseFrame)
-    .dropPongFrames(dropPongFrames)
-
-  def serverBuilder: WebSocketServerProtocolConfig.Builder = WebSocketServerProtocolConfig
-    .newBuilder()
-    .checkStartsWith(true)
-    .websocketPath("")
-    .subprotocols(subprotocols.orNull)
-    .handshakeTimeoutMillis(handshakeTimeoutMillis)
-    .forceCloseTimeoutMillis(forceCloseTimeoutMillis)
-    .handleCloseFrames(handleCloseFrames)
-    .sendCloseFrame(sendCloseFrame)
-    .dropPongFrames(dropPongFrames)
-    .decoderConfig(decoderConfig.javaConfig)
 
   /**
    * Close frame to send, when close frame was not send manually.
    */
   def withCloseFrame(code: Int, reason: String): SocketProtocol =
-    self.copy(sendCloseFrame = new WebSocketCloseStatus(code, reason))
+    self.copy(sendCloseFrame = CloseStatus.Custom(code, reason))
 
   /**
    * Close frame to send, when close frame was not send manually.
    */
-  def withCloseStatus(status: CloseStatus): SocketProtocol = self.copy(sendCloseFrame = status.asJava)
+  def withCloseStatus(status: CloseStatus): SocketProtocol = self.copy(sendCloseFrame = status)
 
   def withDecoderConfig(socketDecoder: SocketDecoder): SocketProtocol = self.copy(decoderConfig = socketDecoder)
 

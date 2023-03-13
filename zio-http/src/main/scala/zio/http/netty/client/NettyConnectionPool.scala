@@ -16,6 +16,15 @@
 
 package zio.http.netty.client
 
+import java.net.InetSocketAddress
+
+import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http.URL.Location
+import zio.http._
+import zio.http.netty.{Names, NettyFutureExecutor, NettyProxy}
+
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
   Channel => JChannel,
@@ -24,16 +33,7 @@ import io.netty.channel.{
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
-import io.netty.handler.logging.LoggingHandler
 import io.netty.handler.proxy.HttpProxyHandler
-import zio._
-import zio.http.URL.Location
-import zio.http._
-import zio.http.netty.NettyFutureExecutor
-import zio.http.service._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
-
-import java.net.InetSocketAddress
 
 trait NettyConnectionPool extends ConnectionPool[JChannel]
 
@@ -56,15 +56,18 @@ object NettyConnectionPool {
         proxy match {
           case Some(proxy) =>
             pipeline.addLast(
-              PROXY_HANDLER,
-              proxy.encode.getOrElse(new HttpProxyHandler(new InetSocketAddress(location.host, location.port))),
+              Names.ProxyHandler,
+              NettyProxy
+                .fromProxy(proxy)
+                .encode
+                .getOrElse(new HttpProxyHandler(new InetSocketAddress(location.host, location.port))),
             )
           case None        =>
         }
 
         if (location.scheme.isSecure) {
           pipeline.addLast(
-            SSL_HANDLER,
+            Names.SSLHandler,
             ClientSSLConverter
               .toNettySSLContext(sslOptions)
               .newHandler(ch.alloc, location.host, location.port),
@@ -80,12 +83,12 @@ object NettyConnectionPool {
         // This way, if the server closes the connection before the whole response has been sent,
         // we get an error. (We can also handle the channelInactive callback, but since for now
         // we always buffer the whole HTTP response we can letty Netty take care of this)
-        pipeline.addLast(HTTP_CLIENT_CODEC, new HttpClientCodec(4096, maxHeaderSize, 8192, true))
+        pipeline.addLast(Names.HttpClientCodec, new HttpClientCodec(4096, maxHeaderSize, 8192, true))
 
         // HttpContentDecompressor
         if (decompression.enabled)
           pipeline.addLast(
-            HTTP_REQUEST_DECOMPRESSION,
+            Names.HttpRequestDecompression,
             new HttpContentDecompressor(decompression.strict),
           )
 

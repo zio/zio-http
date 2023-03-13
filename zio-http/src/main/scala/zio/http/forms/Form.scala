@@ -62,7 +62,7 @@ final case class Form(formData: Chunk[FormData]) {
   def encodeAsMultipartBytes(
     charset: Charset = StandardCharsets.UTF_8,
     rng: () => String = () => new SecureRandom().nextLong().toString(),
-  ): (Headers, Chunk[Byte]) = {
+  ): (CharSequence, Chunk[Byte]) = {
 
     val boundary              = Boundary.generate(rng)
     val encapsulatingBoundary = EncapsulatingBoundary(boundary)
@@ -113,7 +113,7 @@ final case class Form(formData: Chunk[FormData]) {
           )
     } ++ Chunk(closingBoundary, EoL)
 
-    boundary.contentTypeHeader -> ast.flatMap(_.bytes)
+    boundary.id -> ast.flatMap(_.bytes)
   }
 }
 

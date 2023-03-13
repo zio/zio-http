@@ -23,7 +23,7 @@ import zio.http.middleware.Auth.Credentials
 import zio.http.model.Headers.{BearerSchemeName, Header}
 import zio.http.model._
 
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaderNames, HttpHeaderValues, HttpHeaders}
+import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 
 object HeaderSpec extends ZIOSpecDefault {
 
@@ -256,25 +256,6 @@ object HeaderSpec extends ZIOSpecDefault {
         val header = Headers(HeaderNames.contentType, "application/json; charset=UTF-8")
         val mt     = header.mediaType
         assertTrue(mt == Some(MediaType.application.json))
-      },
-    ),
-    suite("encode")(
-      test("should encode multiple cookie headers as two separate headers") {
-        val cookieHeaders = Headers(HeaderNames.setCookie, "x1") ++ Headers(HeaderNames.setCookie, "x2")
-        val result        = cookieHeaders.encode.entries().size()
-        assertTrue(result == 2)
-      },
-      test("should encode multiple cookie headers as two separate headers also if other headers are present") {
-        val cookieHeaders = Headers(HeaderNames.setCookie, "x1") ++ Headers(HeaderNames.setCookie, "x2")
-        val otherHeaders  = Headers(HeaderNames.contentType, "application/json")
-        val result        = (otherHeaders ++ cookieHeaders).encode.entries().size()
-        assertTrue(result == 3)
-      },
-      test("header with multiple values should not be escaped") {
-        val headers               = Headers("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-        val expected: HttpHeaders =
-          new DefaultHttpHeaders(true).add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-        assertTrue(headers.encode == expected)
       },
     ),
   )

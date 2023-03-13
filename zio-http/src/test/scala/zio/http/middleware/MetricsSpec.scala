@@ -107,7 +107,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
             Handler.fromZIO(promise.succeed(())) *> Handler.ok.delay(10.seconds)
           } @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
         before <- gauge.value
-        fiber  <- app.runZIO(Request.get(url = URL(!! / "slow"))).fork
+        _      <- app.runZIO(Request.get(url = URL(!! / "slow"))).fork
         _      <- promise.await
         during <- gauge.value
         _      <- TestClock.adjust(11.seconds)

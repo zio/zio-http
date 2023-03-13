@@ -16,12 +16,15 @@
 
 package zio.http.netty.client
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Promise, Trace, Unsafe, ZIO}
+
+import zio.http.netty._
+import zio.http.netty.model.Conversions
+import zio.http.{Request, Response}
+
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http._
-import zio.http.netty._
-import zio.http.{Request, Response}
-import zio.{Promise, Trace, Unsafe, ZIO}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 final class ClientInboundStreamingHandler(
   val rtm: NettyRuntime,
@@ -45,7 +48,7 @@ final class ClientInboundStreamingHandler(
         rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
           onResponse
             .succeed(
-              Response.NettyResponse.make(
+              NettyResponse.make(
                 ctx,
                 response,
                 rtm,
@@ -68,14 +71,14 @@ final class ClientInboundStreamingHandler(
   }
 
   private def encodeRequest(req: Request): HttpRequest = {
-    val method   = req.method.toJava
+    val method   = Conversions.methodToNetty(req.method)
     val jVersion = Versions.convertToZIOToNetty(req.version)
 
     // As per the spec, the path should contain only the relative path.
     // Host and port information should be in the headers.
     val path = req.url.relative.encode
 
-    val encodedReqHeaders = req.headers.encode
+    val encodedReqHeaders = Conversions.headersToNetty(req.headers)
 
     val headers = req.url.hostWithOptionalPort match {
       case Some(value) => encodedReqHeaders.set(HttpHeaderNames.HOST, value)

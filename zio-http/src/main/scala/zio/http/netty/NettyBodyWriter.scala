@@ -20,7 +20,7 @@ import zio._
 
 import zio.http.Body
 import zio.http.Body._
-import zio.http.model.Headers
+import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, ByteBufBody}
 
 import io.netty.buffer.Unpooled
 import io.netty.channel._
@@ -30,12 +30,12 @@ object NettyBodyWriter {
 
   def write(body: Body, ctx: ChannelHandlerContext): ZIO[Any, Throwable, Boolean] =
     body match {
-      case body: ByteBufBody               =>
+      case body: ByteBufBody                  =>
         ZIO.succeed {
           ctx.write(body.byteBuf)
           false
         }
-      case body: FileBody                  =>
+      case body: FileBody                     =>
         ZIO.succeed {
           val file = body.file
           // Write the content.
@@ -45,7 +45,7 @@ object NettyBodyWriter {
           ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
           true
         }
-      case AsyncBody(async)                =>
+      case AsyncBody(async, _, _)             =>
         ZIO.attempt {
           async { (ctx, msg, isLast) =>
             ctx.writeAndFlush(msg)
@@ -55,12 +55,12 @@ object NettyBodyWriter {
           }
           true
         }
-      case AsciiStringBody(asciiString, _) =>
+      case AsciiStringBody(asciiString, _, _) =>
         ZIO.attempt {
           ctx.write(Unpooled.wrappedBuffer(asciiString.array()))
           false
         }
-      case StreamBody(stream)              =>
+      case StreamBody(stream, _, _)           =>
         stream
           .runForeachChunk(chunk =>
             NettyFutureExecutor.executed(
@@ -70,11 +70,11 @@ object NettyBodyWriter {
           .flatMap { _ =>
             NettyFutureExecutor.executed(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)).as(true)
           }
-      case ChunkBody(data, _)              =>
+      case ChunkBody(data, _, _)              =>
         ZIO.succeed {
           ctx.write(Unpooled.wrappedBuffer(data.toArray))
           false
         }
-      case EmptyBody                       => ZIO.succeed(false)
+      case EmptyBody                          => ZIO.succeed(false)
     }
 }

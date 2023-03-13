@@ -16,9 +16,10 @@
 
 package zio.http.model
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.Response
 import zio.http.model.HttpError.HTTPErrorWithCause
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 import zio.http.security.OutputEncoder
 
 sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message) { self =>
