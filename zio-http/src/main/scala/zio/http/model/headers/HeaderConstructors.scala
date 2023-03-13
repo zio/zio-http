@@ -16,14 +16,13 @@
 
 package zio.http.model.headers
 
-import io.netty.handler.codec.http.HttpHeaderNames
+import java.util.Base64
+
 import zio.Duration
+
 import zio.http._
 import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http.model._
-
-import java.util.Base64
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Contains a list of helpful methods that can create `Headers`.
@@ -69,7 +68,7 @@ trait HeaderConstructors {
     Headers(HeaderNames.accessControlRequestHeaders, value)
 
   final def accessControlRequestMethod(method: Method): Headers =
-    Headers(HeaderNames.accessControlRequestMethod, method.toJava.name())
+    Headers(HeaderNames.accessControlRequestMethod, method.name)
 
   final def age(value: CharSequence): Headers =
     Headers(HeaderNames.age, value)
@@ -84,12 +83,12 @@ trait HeaderConstructors {
     val authString    = String.format("%s:%s", username, password)
     val encodedAuthCB = new String(Base64.getEncoder.encode(authString.getBytes(HTTP_CHARSET)), HTTP_CHARSET)
     val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB)
-    Headers(HttpHeaderNames.AUTHORIZATION, value)
+    Headers(HeaderNames.authorization, value)
   }
 
   final def bearerAuthorizationHeader(token: String): Headers = {
     val value = String.format("%s %s", BearerSchemeName, token)
-    Headers(HttpHeaderNames.AUTHORIZATION, value)
+    Headers(HeaderNames.authorization, value)
   }
 
   final def cacheControl(value: CharSequence): Headers =

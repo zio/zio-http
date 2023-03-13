@@ -19,12 +19,13 @@ package zio.http.netty.client
 import scala.collection.mutable
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
-import zio.http.netty.{ChannelFactories, EventLoopGroups, NettyFutureExecutor, NettyRuntime, WebSocketAppHandler}
-import zio.http.service._
+import zio.http.netty._
+import zio.http.netty.model.Conversions
+import zio.http.netty.socket.NettySocketProtocol
 import zio.http.socket.SocketApp
 
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
@@ -76,8 +77,8 @@ final case class NettyClientDriver private (
               location.scheme.isWebSocket,
               enableKeepAlive,
             )
-          pipeline.addLast(HTTP_OBJECT_AGGREGATOR, httpObjectAggregator)
-          pipeline.addLast(CLIENT_INBOUND_HANDLER, clientInbound)
+          pipeline.addLast(Names.HttpObjectAggregator, httpObjectAggregator)
+          pipeline.addLast(Names.ClientInboundHandler, clientInbound)
 
           toRemove.add(httpObjectAggregator)
           toRemove.add(clientInbound)
@@ -86,8 +87,8 @@ final case class NettyClientDriver private (
           val clientInbound =
             new ClientInboundStreamingHandler(nettyRuntime, req, onResponse, onComplete, enableKeepAlive)
 
-          pipeline.addLast(FLOW_CONTROL_HANDLER, flowControl)
-          pipeline.addLast(CLIENT_INBOUND_HANDLER, clientInbound)
+          pipeline.addLast(Names.FlowControlHandler, flowControl)
+          pipeline.addLast(Names.ClientInboundHandler, clientInbound)
 
           toRemove.add(flowControl)
           toRemove.add(clientInbound)
@@ -95,9 +96,10 @@ final case class NettyClientDriver private (
 
         // Add WebSocketHandlers if it's a `ws` or `wss` request
         if (location.scheme.isWebSocket) {
-          val headers = req.headers.encode
+          val headers = Conversions.headersToNetty(req.headers)
           val app     = createSocketApp()
-          val config  = app.protocol.clientBuilder
+          val config  = NettySocketProtocol
+            .clientBuilder(app.protocol)
             .customHeaders(headers)
             .webSocketUri(req.url.encode)
             .build()
@@ -105,10 +107,10 @@ final case class NettyClientDriver private (
           // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
 
           val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
-          val webSocket               = new WebSocketAppHandler(nettyRuntime, app, true)
+          val webSocket               = new WebSocketAppHandler(nettyRuntime, app)
 
-          pipeline.addLast(WEB_SOCKET_CLIENT_PROTOCOL_HANDLER, webSocketClientProtocol)
-          pipeline.addLast(WEB_SOCKET_HANDLER, webSocket)
+          pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
+          pipeline.addLast(Names.WebSocketHandler, webSocket)
 
           toRemove.add(webSocketClientProtocol)
           toRemove.add(webSocket)

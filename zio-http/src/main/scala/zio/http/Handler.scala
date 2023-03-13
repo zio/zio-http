@@ -16,7 +16,6 @@
 
 package zio.http
 
-import io.netty.handler.codec.http.HttpHeaderNames
 import zio._
 import zio.http.html.{Html, Template}
 import zio.http.model._
@@ -27,9 +26,7 @@ import zio.stream.ZStream
 import java.io.File
 import java.nio.charset.Charset
 import scala.reflect.ClassTag
-import scala.util.control.NonFatal
-
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import scala.util.control.NonFatal // scalafix:ok;
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
@@ -892,7 +889,7 @@ object Handler {
      * Extracts the value of ContentType header
      */
     def contentType(implicit trace: Trace): Handler[R, Err, In, Option[String]] =
-      headerValue(HttpHeaderNames.CONTENT_TYPE)
+      headerValue(HeaderNames.contentType)
 
     /**
      * Extracts the `Headers` from the type `B` if possible

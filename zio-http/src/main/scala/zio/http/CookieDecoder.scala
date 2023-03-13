@@ -16,13 +16,10 @@
 
 package zio.http
 
-import io.netty.handler.codec.http.{cookie => jCookie}
 import zio.Unsafe
-import zio.http.model.Cookie
-import zio.http.model.Cookie.SameSite
 
-import scala.jdk.CollectionConverters._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.http.internal.CookieEncoding
+import zio.http.model.Cookie
 
 sealed trait CookieDecoder[A] {
   type Out
@@ -43,10 +40,7 @@ object CookieDecoder {
 
     override final val unsafe: UnsafeAPI = new UnsafeAPI {
       override final def decode(header: String, validate: Boolean)(implicit unsafe: Unsafe): List[Cookie[Request]] = {
-        val decoder = if (validate) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
-        decoder.decodeAll(header).asScala.toList.map { cookie =>
-          Cookie(cookie.name(), cookie.value()).toRequest
-        }
+        CookieEncoding.default.decodeRequestCookie(header, validate)
       }
     }
   }
@@ -56,25 +50,7 @@ object CookieDecoder {
 
     override final val unsafe: UnsafeAPI = new UnsafeAPI {
       override final def decode(header: String, validate: Boolean)(implicit unsafe: Unsafe): Cookie[Response] = {
-        val decoder = if (validate) jCookie.ClientCookieDecoder.STRICT else jCookie.ClientCookieDecoder.LAX
-
-        val cookie = decoder.decode(header).asInstanceOf[jCookie.DefaultCookie]
-
-        Cookie(
-          name = cookie.name(),
-          content = cookie.value(),
-          domain = Option(cookie.domain()),
-          path = Option(cookie.path()).map(Path.decode),
-          maxAge = Option(cookie.maxAge()).filter(_ >= 0),
-          isSecure = cookie.isSecure(),
-          isHttpOnly = cookie.isHttpOnly(),
-          sameSite = cookie.sameSite() match {
-            case jCookie.CookieHeaderNames.SameSite.Strict => Option(SameSite.Strict)
-            case jCookie.CookieHeaderNames.SameSite.Lax    => Option(SameSite.Lax)
-            case jCookie.CookieHeaderNames.SameSite.None   => Option(SameSite.None)
-            case null                                      => None
-          },
-        )
+        CookieEncoding.default.decodeResponseCookie(header, validate)
       }
     }
   }

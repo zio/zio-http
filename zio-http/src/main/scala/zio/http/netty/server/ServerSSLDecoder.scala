@@ -16,6 +16,15 @@
 
 package zio.http.netty.server
 
+import java.io.FileInputStream
+import java.util
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http.SSLConfig.{HttpBehaviour, Provider}
+import zio.http.netty.Names
+import zio.http.{SSLConfig, ServerConfig}
+
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.ByteToMessageDecoder
@@ -26,13 +35,6 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
 }
 import io.netty.handler.ssl.util.SelfSignedCertificate
 import io.netty.handler.ssl.{SslContext, SslHandler, _}
-import zio.http.SSLConfig.{HttpBehaviour, Provider}
-import zio.http.netty.Names
-import zio.http.{SSLConfig, ServerConfig}
-
-import java.io.FileInputStream
-import java.util
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 object SSLUtil {
 

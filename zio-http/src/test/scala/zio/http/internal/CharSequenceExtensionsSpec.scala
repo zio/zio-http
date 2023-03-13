@@ -6,15 +6,18 @@ object CharSequenceExtensionsSpec extends ZIOSpecDefault {
 
   override def spec = suite("CharSequence extensions")(
     test("equals") {
-      check(Gen.string, Gen.string) { (input1, input2) =>
-        val checkNotEquals = if (!input1.equalsIgnoreCase(input2)) {
-          assertTrue(!CharSequenceExtensions.equals(input1, input2, CaseMode.Sensitive)) &&
-          assertTrue(!CharSequenceExtensions.equals(input1, input2, CaseMode.Insensitive))
-        } else assertTrue(true)
-
-        checkNotEquals &&
-        assertTrue(CharSequenceExtensions.equals(input1, input1, CaseMode.Sensitive)) &&
-        assertTrue(CharSequenceExtensions.equals(input1, input1, CaseMode.Insensitive))
+      check(Gen.alphaNumericString, Gen.alphaNumericString) { (input1, input2) =>
+        val input1Low = input1.toLowerCase
+        assertTrue(
+          CharSequenceExtensions.equals(input1, input2, CaseMode.Sensitive) == input1.equals(input2),
+          CharSequenceExtensions.equals(input1, input2, CaseMode.Insensitive) == input1.equalsIgnoreCase(input2),
+          CharSequenceExtensions.equals(input1, input1Low, CaseMode.Sensitive) == input1.equals(input1Low),
+          CharSequenceExtensions.equals(input1, input1Low, CaseMode.Insensitive) == input1.equalsIgnoreCase(input1Low),
+          CharSequenceExtensions.equals(input1, input1, CaseMode.Sensitive),
+          CharSequenceExtensions.equals(input1, input1, CaseMode.Insensitive),
+          CharSequenceExtensions.equals(input2, input2, CaseMode.Sensitive),
+          CharSequenceExtensions.equals(input2, input2, CaseMode.Insensitive),
+        )
       }
     },
     test("compare") {

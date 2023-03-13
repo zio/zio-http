@@ -4,9 +4,10 @@ import scala.util.Try
 
 import zio._
 
-import zio.http.ServerConfig.LeakDetectionLevel
 import zio.http._
 import zio.http.model.Method
+import zio.http.netty.NettyServerConfig
+import zio.http.netty.NettyServerConfig.LeakDetectionLevel
 
 object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
@@ -26,15 +27,17 @@ object HelloWorldAdvanced extends ZIOAppDefault {
     // Configure thread count using CLI
     val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
-    val config      = ServerConfig.default
+    val config           = ServerConfig.default
       .port(PORT)
-      .leakDetection(LeakDetectionLevel.PARANOID)
       .maxThreads(nThreads)
-    val configLayer = ServerConfig.live(config)
+    val nettyConfig      = NettyServerConfig.default
+      .leakDetection(LeakDetectionLevel.PARANOID)
+    val configLayer      = ServerConfig.live(config)
+    val nettyConfigLayer = NettyServerConfig.live(nettyConfig)
 
     (Server.install(fooBar ++ app).flatMap { port =>
       Console.printLine(s"Started server on port: $port")
     } *> ZIO.never)
-      .provide(configLayer, Server.live)
+      .provide(configLayer, nettyConfigLayer, Server.customized)
   }
 }

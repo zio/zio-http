@@ -16,10 +16,8 @@
 
 package zio.http.model.headers
 
-import io.netty.handler.codec.http.HttpUtil
-import io.netty.util.AsciiString.contentEqualsIgnoreCase
+import zio.http.internal.{CaseMode, CharSequenceExtensions, HeaderEncoding}
 import zio.http.model._
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Maintains a list of operators that checks if the Headers meet the give
@@ -31,9 +29,9 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 trait HeaderChecks[+A] { self: HeaderExtension[A] with A =>
   final def hasContentType(value: CharSequence): Boolean = {
     contentType
-      .flatMap(ct => Option(HttpUtil.getMimeType(ct)))
+      .flatMap(ct => HeaderEncoding.default.getMimeType(ct))
       .fold(false)(
-        contentEqualsIgnoreCase(_, value),
+        CharSequenceExtensions.equals(_, value, CaseMode.Insensitive),
       )
   }
 

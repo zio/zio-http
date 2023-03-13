@@ -16,12 +16,14 @@
 
 package zio.http.netty.client
 
+import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http.Response
+import zio.http.netty.{NettyFutureExecutor, NettyResponse, NettyRuntime}
+
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{FullHttpRequest, FullHttpResponse, HttpUtil}
-import zio._
-import zio.http.Response
-import zio.http.netty.{NettyFutureExecutor, NettyRuntime}
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Handles HTTP response
@@ -56,7 +58,7 @@ final class ClientInboundHandler(
     // NOTE: The promise is made uninterruptible to be able to complete the promise in a error situation.
     // It allows to avoid loosing the message from pipeline in case the channel pipeline is closed due to an error.
     zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
-      onResponse.succeed(Response.NettyResponse.make(ctx, msg))
+      onResponse.succeed(NettyResponse.make(ctx, msg))
     }(unsafeClass, trace)
 
     if (isWebSocket) {

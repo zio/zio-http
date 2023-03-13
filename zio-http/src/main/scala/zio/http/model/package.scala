@@ -16,11 +16,12 @@
 
 package zio.http
 
-import io.netty.util.CharsetUtil
-import zio.http.model.headers._
+import java.nio.charset.{Charset, StandardCharsets}
 
-import java.nio.charset.Charset
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.http.model.headers._
+import zio.http.netty.model.headers.{NettyHeaderNames, NettyHeaderValues}
 
 package object model {
   type Header = Headers.Header
@@ -29,9 +30,9 @@ package object model {
   /**
    * Default HTTP Charset
    */
-  val HTTP_CHARSET: Charset = CharsetUtil.UTF_8
+  val HTTP_CHARSET: Charset = StandardCharsets.UTF_8
 
-  object HeaderNames extends HeaderNames
+  object HeaderNames extends HeaderNames with NettyHeaderNames
 
-  object HeaderValues extends HeaderValues
+  object HeaderValues extends HeaderValues with NettyHeaderValues
 }

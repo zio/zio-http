@@ -68,7 +68,7 @@ object Request {
   }
 
   def default(method: Method, url: URL, body: Body = Body.empty) =
-    Request(body, body.requestHeaders, method, url, Version.`HTTP/1.1`, Option.empty)
+    Request(body, headersForBody(body), method, url, Version.`HTTP/1.1`, Option.empty)
 
   def delete(url: URL): Request = default(Method.DELETE, url)
 
@@ -82,4 +82,14 @@ object Request {
 
   def put(body: Body, url: URL): Request = default(Method.PUT, url, body)
 
+  private def headersForBody(body: Body): Headers =
+    body.mediaType match {
+      case Some(mediaType) =>
+        body.boundary match {
+          case Some(id) => Headers.contentType(s"${mediaType.fullType}; boundary=$id")
+          case None     => Headers.contentType(mediaType.fullType)
+        }
+      case None            =>
+        Headers.empty
+    }
 }

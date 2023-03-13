@@ -17,7 +17,8 @@
 package zio.http
 
 import scala.annotation.implicitNotFound
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * IsMono is a type-constraint that is used by the middleware api for allowing

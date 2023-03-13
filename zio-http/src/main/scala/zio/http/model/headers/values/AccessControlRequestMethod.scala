@@ -33,7 +33,7 @@ object AccessControlRequestMethod {
   }.getOrElse(InvalidMethod)
 
   def fromAccessControlRequestMethod(requestMethod: AccessControlRequestMethod): String = requestMethod match {
-    case RequestMethod(method) => method.text
+    case RequestMethod(method) => method.name
     case InvalidMethod         => ""
   }
 }

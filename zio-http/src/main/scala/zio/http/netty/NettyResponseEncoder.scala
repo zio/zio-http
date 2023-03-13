@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
 import zio._
 
 import zio.http._
+import zio.http.netty.model.Conversions
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
@@ -38,10 +39,11 @@ private[zio] object NettyResponseEncoder {
       else
         body.asArray.flatMap(bytes => ZIO.attemptUnsafe(implicit unsafe => fastEncode(response, bytes)))
     } else {
-      val jHeaders         = response.headers.encode
+      val jHeaders         = Conversions.headersToNetty(response.headers)
+      val jStatus          = Conversions.statusToNetty(response.status)
       val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-      ZIO.succeed(new DefaultHttpResponse(HttpVersion.HTTP_1_1, response.status.asJava, jHeaders))
+      ZIO.succeed(new DefaultHttpResponse(HttpVersion.HTTP_1_1, jStatus, jHeaders))
     }
   }
 
@@ -61,11 +63,13 @@ private[zio] object NettyResponseEncoder {
     } else doEncode(response, bytes)
 
   private def doEncode(response: Response, bytes: Array[Byte]): HttpResponse = {
-    val jHeaders         = response.headers.encode
+    val jHeaders         = Conversions.headersToNetty(response.headers)
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
 
+    val jStatus = Conversions.statusToNetty(response.status)
+
     val jContent  = Unpooled.wrappedBuffer(bytes)
-    val jResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, response.status.asJava, jContent, false)
+    val jResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, jStatus, jContent, false)
 
     // TODO: Unit test for this
     // Client can't handle chunked responses and currently treats them as a FullHttpResponse.

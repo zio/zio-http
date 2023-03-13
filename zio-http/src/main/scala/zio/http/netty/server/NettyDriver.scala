@@ -16,17 +16,15 @@
 
 package zio.http.netty.server
 
+import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicReference
+import zio._
+import zio.http.{App, ClientConfig, ClientDriver, Driver, Http, Server, ServerConfig} // scalafix:ok;
+import zio.http.netty._
+import zio.http.netty.client.NettyClientDriver
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.util.ResourceLeakDetector
-import zio._
-import zio.http.netty._
-import zio.http.netty.client.NettyClientDriver
-import zio.http.service.ServerTime
-import zio.http.{App, ClientConfig, ClientDriver, Driver, Http, Server, ServerConfig} // scalafix:ok
-
-import java.net.InetSocketAddress
-import java.util.concurrent.atomic.AtomicReference
 
 private[zio] final case class NettyDriver(
   appRef: AppRef,
@@ -36,6 +34,7 @@ private[zio] final case class NettyDriver(
   eventLoopGroup: EventLoopGroup,
   errorCallbackRef: ErrorCallbackRef,
   serverConfig: ServerConfig,
+  nettyServerConfig: NettyServerConfig,
 ) extends Driver { self =>
 
   def start(implicit trace: Trace): RIO[Scope, Int] =
@@ -43,8 +42,8 @@ private[zio] final case class NettyDriver(
       serverBootstrap <- ZIO.attempt(new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup))
       chf             <- ZIO.attempt(serverBootstrap.childHandler(channelInitializer).bind(serverConfig.address))
       _               <- NettyFutureExecutor.scoped(chf)
-      _    <- ZIO.succeed(ResourceLeakDetector.setLevel(serverConfig.leakDetectionLevel.jResourceLeakDetectionLevel))
-      port <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
+      _               <- ZIO.succeed(ResourceLeakDetector.setLevel(nettyServerConfig.leakDetectionLevel.toNetty))
+      port            <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield port
 
   def setErrorCallback(newCallback: Option[Server.ErrorCallback])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
@@ -90,6 +89,7 @@ private[zio] object NettyDriver {
       & EventLoopGroup
       & ErrorCallbackRef
       & ServerConfig
+      & NettyServerConfig
       & ServerInboundHandler,
     Nothing,
     Driver,
@@ -101,6 +101,7 @@ private[zio] object NettyDriver {
       elg   <- ZIO.service[EventLoopGroup]
       ecb   <- ZIO.service[ErrorCallbackRef]
       sc    <- ZIO.service[ServerConfig]
+      nsc   <- ZIO.service[NettyServerConfig]
       sih   <- ZIO.service[ServerInboundHandler]
     } yield new NettyDriver(
       appRef = app,
@@ -110,20 +111,13 @@ private[zio] object NettyDriver {
       eventLoopGroup = elg,
       errorCallbackRef = ecb,
       serverConfig = sc,
+      nettyServerConfig = nsc,
     )
 
-  val default: ZLayer[ServerConfig, Throwable, Driver] = {
-
-    val serverChannelFactory: ZLayer[ServerConfig, Nothing, ChannelFactory[ServerChannel]] =
-      ChannelFactories.Server.fromConfig
-    val eventLoopGroup: ZLayer[ServerConfig, Nothing, EventLoopGroup]                      = EventLoopGroups.fromConfig
-
-    eventLoopGroup >+> serverChannelFactory >>> manual
-  }
-
-  val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Nothing, Driver] = {
+  val manual
+    : ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig & NettyServerConfig, Nothing, Driver] = {
     implicit val trace: Trace = Trace.empty
-    ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig, Driver](
+    ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig & NettyServerConfig, Driver](
       ZLayer.succeed(
         new AtomicReference[(App[Any], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
       ),
@@ -135,4 +129,22 @@ private[zio] object NettyDriver {
       ZLayer(make),
     )
   }
+
+  val customized: ZLayer[ServerConfig & NettyServerConfig, Throwable, Driver] = {
+    val serverChannelFactory: ZLayer[ServerConfig, Nothing, ChannelFactory[ServerChannel]] =
+      ChannelFactories.Server.fromConfig
+    val eventLoopGroup: ZLayer[ServerConfig, Nothing, EventLoopGroup]                      = EventLoopGroups.fromConfig
+
+    ZLayer.makeSome[ServerConfig & NettyServerConfig, Driver](
+      eventLoopGroup,
+      serverChannelFactory,
+      manual,
+    )
+  }
+
+  val default: ZLayer[ServerConfig, Throwable, Driver] =
+    ZLayer.makeSome[ServerConfig, Driver](
+      NettyServerConfig.live,
+      customized,
+    )
 }

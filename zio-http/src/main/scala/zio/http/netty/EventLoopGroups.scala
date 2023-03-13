@@ -16,15 +16,16 @@
 
 package zio.http.netty
 
+import java.util.concurrent.Executor
+
+import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import io.netty.channel._
 import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}
 import io.netty.channel.kqueue.{KQueue, KQueueEventLoopGroup}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.incubator.channel.uring.IOUringEventLoopGroup
-import zio._
-
-import java.util.concurrent.Executor
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 /**
  * Simple wrapper over NioEventLoopGroup

@@ -2,12 +2,21 @@ package zio.http
 
 import zio.ZLayer
 
-import zio.http.ServerConfig.LeakDetectionLevel
+import zio.http.netty.NettyServerConfig
+import zio.http.netty.NettyServerConfig.LeakDetectionLevel
 
 package object internal {
 
   val testServerConfig: ZLayer[Any, Nothing, ServerConfig] =
-    ZLayer.succeed(ServerConfig.default.port(0).leakDetection(LeakDetectionLevel.PARANOID))
+    ZLayer.succeed(ServerConfig.default.port(0))
 
-  val severTestLayer: ZLayer[Any, Throwable, ServerConfig with Server] = testServerConfig >+> Server.live
+  val testNettyServerConfig: ZLayer[Any, Nothing, NettyServerConfig] =
+    ZLayer.succeed(NettyServerConfig.default.leakDetection(LeakDetectionLevel.PARANOID))
+
+  val severTestLayer: ZLayer[Any, Throwable, ServerConfig with Server] =
+    ZLayer.make[ServerConfig with Server](
+      testServerConfig,
+      testNettyServerConfig,
+      Server.customized,
+    )
 }
