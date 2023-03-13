@@ -24,13 +24,29 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
  * A view is a domain that used generate HTML.
  */
 sealed trait Html { self =>
-  def encode: CharSequence = {
+  def encode: CharSequence =
+    encode(EncodingState.NoIndentation)
+
+  def encode(spaces: Int): CharSequence =
+    encode(EncodingState.Indentation(0, spaces))
+
+  private[html] def encode(state: EncodingState): CharSequence = {
     self match {
       case Html.Empty                        => ""
-      case Html.Single(element)              => element.encode
-      case Html.Multiple(elements: Seq[Dom]) => elements.map(_.encode).mkString("")
+      case Html.Single(element)              => element.encode(state)
+      case Html.Multiple(elements: Seq[Dom]) => elements.map(_.encode(state)).mkString(state.nextElemSeparator)
     }
   }
+
+  def ++(that: Html): Html =
+    (self, that) match {
+      case (l, Html.Empty)                      => l
+      case (Html.Empty, r)                      => r
+      case (Html.Single(l), Html.Single(r))     => Html.Multiple(Seq(l, r))
+      case (Html.Multiple(l), Html.Single(r))   => Html.Multiple(l :+ r)
+      case (Html.Single(l), Html.Multiple(r))   => Html.Multiple(l +: r)
+      case (Html.Multiple(l), Html.Multiple(r)) => Html.Multiple(l ++ r)
+    }
 }
 
 object Html {

@@ -16,6 +16,8 @@
 
 package zio.http.codec
 
+import zio.http.html
+
 /**
  * A `Doc` models documentation for an endpoint or input.
  */
@@ -113,92 +115,49 @@ sealed trait Doc { self =>
     writer.toString()
   }
 
-  def toHtmlSnippet: String = {
-    val writer = new StringBuilder
+  def toHtml: html.Html = {
+    import html._
 
-    def renderSpan(span: Span, indent: Int): String = {
-      def render(s: String): String = ("  " * indent) + s
-
-      span match {
-        case Span.Text(value)           => render(value.replace("\n", "<br/>"))
-        case Span.Code(value)           => render(s"<code>${value.trim.replace("\n", "<br/>")}</code>")
-        case Span.Link(value, text)     => s"""<a href="${value}">${text.getOrElse(value)}</a>"""
-        case Span.Bold(value)           =>
-          s"${"<b>"}${renderSpan(value, indent).trim}${"</b>"}"
-        case Span.Italic(value)         =>
-          s"${"<i>"}${renderSpan(value, indent).trim}${"</i>"}"
-        case Span.Error(value)          =>
-          s"${s"""<span style="color:red">"""}${render(value).replace("\n", "<br/>")}${"</span>"}"
-        case Span.Sequence(left, right) =>
-          renderSpan(left, indent)
-          renderSpan(right, indent)
-      }
-    }
-
-    def render(doc: Doc, indent: Int = 0): Unit = {
-      def append(s: String, indent: Int = indent): Unit = {
-        writer.append("  " * indent).append(s)
-        ()
-      }
-      def newLine(): Unit                               = append("\n", 0)
-
-      doc match {
-
-        case Doc.Empty => ()
-
-        case Doc.Header(value, level) =>
-          append(s"<h$level>$value</h$level>\n\n")
-
-        case Doc.Paragraph(value) =>
-          newLine()
-          append(s"<p>")
-          newLine()
-          append(renderSpan(value, 0), indent + 1)
-          newLine()
-          append("</p>")
-          newLine()
-
-        case Doc.DescriptionList(definitions) =>
-          append("<dl>")
-          definitions.foreach { case (span, helpDoc) =>
-            newLine()
-            append("<dt>", indent + 1)
-            newLine()
-            append(renderSpan(span, indent + 2))
-            newLine()
-            append("</dt>", indent + 1)
-            newLine()
-            append("<dd>", indent + 1)
-            render(helpDoc, indent + 2)
-            append("</dd>", indent + 1)
-            newLine()
+    self match {
+      case Doc.Empty                      =>
+        Html.Empty
+      case Header(value, level)           =>
+        level match {
+          case 1 => h1(value)
+          case 2 => h2(value)
+          case 3 => h3(value)
+          case 4 => h4(value)
+          case 5 => h5(value)
+          case 6 => h6(value)
+          case _ => throw new IllegalArgumentException(s"Invalid header level: $level")
+        }
+      case Paragraph(value)               =>
+        p(value.toHtml)
+      case DescriptionList(definitions)   =>
+        dl(
+          definitions.flatMap { case (span, helpDoc) =>
+            Seq(
+              dt(span.toHtml),
+              dd(helpDoc.toHtml),
+            )
+          },
+        )
+      case Sequence(left, right)          =>
+        left.toHtml ++ right.toHtml
+      case Listing(elements, listingType) =>
+        val elementsHtml =
+          elements.map { doc =>
+            li(doc.toHtml)
           }
-          append("</dl>")
-          newLine()
-          newLine()
-
-        case Doc.Listing(elements, listingType) =>
-          if (listingType == ListingType.Ordered) append("<ol>") else append("<ul>")
-          newLine()
-          elements.foreach { doc =>
-            append("<li>", indent + 1)
-            render(doc, indent + 2)
-            append("</li>", indent + 1)
-            newLine()
-          }
-          if (listingType == ListingType.Ordered) append("</ol>") else append("</ul>")
-          newLine()
-
-        case Doc.Sequence(left, right) =>
-          render(left, indent)
-          render(right, indent)
-
-      }
+        listingType match {
+          case ListingType.Unordered => ul(elementsHtml)
+          case ListingType.Ordered   => ol(elementsHtml)
+        }
     }
-
-    render(this)
-    writer.toString()
   }
+
+  def toHtmlSnippet: String =
+    toHtml.encode(2).toString
 
   def toPlaintext(columnWidth: Int = 100, color: Boolean = true): String = {
     val _ = color
@@ -385,6 +344,21 @@ object Doc {
         case Span.Link(value, _)        => value.toString.length
         case Span.Sequence(left, right) => left.size + right.size
       }
+
+    def toHtml: html.Html = {
+      import html._
+
+      self match {
+        case Span.Text(value)           => value
+        case Span.Code(value)           => code(value)
+        case Span.Error(value)          => span(styleAttr := ("color", "red") :: Nil, value)
+        case Span.Bold(value)           => b(value.toHtml)
+        case Span.Italic(value)         => i(value.toHtml)
+        case Span.Link(value, text)     =>
+          a(href := value.toASCIIString, Html.fromString(text.getOrElse(value.toASCIIString)))
+        case Span.Sequence(left, right) => left.toHtml ++ right.toHtml
+      }
+    }
   }
   object Span       {
     final case class Text(value: String)                             extends Span
