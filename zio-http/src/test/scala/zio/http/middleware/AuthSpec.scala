@@ -144,7 +144,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     suite("custom")(
       test("Providing context from auth middleware") {
         def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((headers: Headers) =>
-          headers.get(HeaderNames.authorization).map(AuthContext),
+          headers.get(HeaderNames.authorization).map(AuthContext.apply),
         )
 
         val app1 = Handler.text("ok") @@ auth[Any]
