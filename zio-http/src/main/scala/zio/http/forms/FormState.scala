@@ -30,27 +30,22 @@ private[forms] object FormState {
     buffer: Chunk[Byte],
     lastByte: Option[Byte],
     boundary: Boundary,
-    eols: Int = 0,
   ) extends FormState { self =>
 
     def append(byte: Byte): FormState = {
 
       val crlf = lastByte.contains('\r') && byte == '\n'
 
-      val (eols0, phase0) = (eols, phase, crlf) match {
-        case (_, Phase.Part2, _)    => (0, Phase.Part2)
-        case (0, Phase.Part1, true) => (1, Phase.Part1)
-        case (1, Phase.Part1, true) => (0, Phase.Part2)
-        case _                      => (eols, phase)
-      }
+      val phase0 =
+        if (crlf && buffer.isEmpty && phase == Phase.Part1) Phase.Part2
+        else phase
 
-      def flush(ast: FormAST): FormState =
+      def flush(ast: FormAST): FormStateBuffer =
         self.copy(
           tree = tree :+ ast,
           buffer = Chunk.empty,
           lastByte = None,
           phase = phase0,
-          eols = eols0,
         )
 
       if (crlf && phase == Phase.Part1) {
@@ -67,7 +62,9 @@ private[forms] object FormState {
         val ast = FormAST.makePart2(buffer, boundary)
 
         ast match {
-          case content: Content         => flush(content)
+          case content: Content         =>
+            val next = flush(content)
+            next.copy(tree = next.tree :+ EoL) // preserving EoL for multiline content
           case EncapsulatingBoundary(_) => BoundaryEncapsulated(tree)
           case ClosingBoundary(_)       => BoundaryClosed(tree)
         }
@@ -75,7 +72,6 @@ private[forms] object FormState {
         self.copy(
           buffer = lastByte.map(buffer :+ _).getOrElse(buffer),
           lastByte = Some(byte),
-          eols = 0,
         )
       }
 

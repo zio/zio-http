@@ -62,9 +62,14 @@ final case class Form(formData: Chunk[FormData]) {
   def encodeAsMultipartBytes(
     charset: Charset = StandardCharsets.UTF_8,
     rng: () => String = () => new SecureRandom().nextLong().toString(),
+  ): (CharSequence, Chunk[Byte]) =
+    encodeAsMultipartBytes(charset, Boundary.generate(rng))
+
+  def encodeAsMultipartBytes(
+    charset: Charset,
+    boundary: Boundary,
   ): (CharSequence, Chunk[Byte]) = {
 
-    val boundary              = Boundary.generate(rng)
     val encapsulatingBoundary = EncapsulatingBoundary(boundary)
     val closingBoundary       = ClosingBoundary(boundary)
 
@@ -144,7 +149,8 @@ object Form {
         }
       }
       .collectZIO {
-        case chunk if chunk.nonEmpty => FormData.fromFormAST(chunk, charset)
+        case chunk if chunk.nonEmpty =>
+          FormData.fromFormAST(chunk, charset)
       }
       .runCollect
       .map(apply)

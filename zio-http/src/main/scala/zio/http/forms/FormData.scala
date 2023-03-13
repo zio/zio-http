@@ -82,11 +82,11 @@ object FormData {
     defaultCharset: Charset = StandardCharsets.UTF_8,
   ): ZIO[Any, FormDecodingError, FormData] = {
     val extract =
-      ast.foldLeft((Option.empty[Header], Option.empty[Header], Option.empty[Header], Option.empty[Content])) {
+      ast.foldLeft((Option.empty[Header], Option.empty[Header], Option.empty[Header], Chunk.empty[Content])) {
         case (accum, header: Header) if header.name == "Content-Disposition"       =>
           (Some(header), accum._2, accum._3, accum._4)
         case (accum, content: Content)                                             =>
-          (accum._1, accum._2, accum._3, Some(content))
+          (accum._1, accum._2, accum._3, accum._4 :+ content)
         case (accum, header: Header) if header.name == "Content-Type"              =>
           (accum._1, Some(header), accum._3, accum._4)
         case (accum, header: Header) if header.name == "Content-Transfer-Encoding" =>
@@ -100,7 +100,8 @@ object FormData {
       charset <- ZIO
         .attempt(extract._2.flatMap(x => x.fields.get("charset").map(Charset.forName)).getOrElse(defaultCharset))
         .mapError(e => InvalidCharset(e.getMessage))
-      content          = extract._4.map(_.bytes).getOrElse(Chunk.empty)
+      contentParts     = extract._4.tail // Skip the first empty line
+      content          = contentParts.foldLeft(Chunk.empty[Byte])(_ ++ _.bytes)
       contentType      = extract._2
         .flatMap(x => MediaType.forContentType(x.preposition))
         .getOrElse(MediaType.text.plain)

@@ -47,7 +47,6 @@ private[forms] object FormAST {
   def makePart2(
     bytes: Chunk[Byte],
     boundary: Boundary,
-    encoding: Charset = StandardCharsets.UTF_8,
   ): DecodingPart2AST = {
     if (boundary.isEncapsulating(bytes)) EncapsulatingBoundary(boundary)
     else if (boundary.isClosing(bytes)) ClosingBoundary(boundary)
