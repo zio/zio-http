@@ -21,25 +21,6 @@ import zio.{Trace, ZIO}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait HttpRoutesMiddlewares extends Cors {
-
-  /**
-   * Creates a middleware which can allow or disallow access to an http based on
-   * the predicate
-   */
-  def allow(
-    condition: Request => Boolean,
-  ): HttpAppMiddleware[Nothing, Any, Any, Nothing] =
-    HttpAppMiddleware.allow(condition)
-
-  /**
-   * Creates a middleware which can allow or disallow access to an http based on
-   * the predicate effect
-   */
-  def allowZIO[R, Err](
-    condition: Request => ZIO[R, Err, Boolean],
-  ): HttpAppMiddleware[Nothing, R, Err, Nothing] =
-    HttpAppMiddleware.allowZIO(condition)
-
   /**
    * Removes the trailing slash from the path.
    */
