@@ -557,19 +557,20 @@ object ZClient {
     )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
 
       for {
-        host     <- ZIO.fromOption(hostOption).orElseFail(new IllegalArgumentException("Host is required"))
-        port     <- ZIO.fromOption(portOption).orElseSucceed(sslConfig.fold(80)(_ => 443))
+        host <- ZIO.fromOption(hostOption).orElseFail(new IllegalArgumentException("Host is required"))
+        port <- ZIO.fromOption(portOption).orElseSucceed(sslConfig.fold(80)(_ => 443))
+        baseRequest = Request
+          .default(
+            method,
+            URL(path, URL.Location.Absolute(schemeOption.getOrElse(Scheme.HTTP), host, port)).setQueryParams(queries),
+            body,
+          )
+        request     = baseRequest.copy(
+          version = version,
+          headers = baseRequest.headers ++ headers,
+        )
         response <- requestAsync(
-          Request
-            .default(
-              method,
-              URL(path, URL.Location.Absolute(schemeOption.getOrElse(Scheme.HTTP), host, port)).setQueryParams(queries),
-              body,
-            )
-            .copy(
-              version = version,
-              headers = headers,
-            ),
+          request,
           sslConfig.fold(config)(config.ssl),
         )
       } yield response

@@ -30,8 +30,6 @@ object FormHeaderSpec extends ZIOSpecDefault {
 
       val header = Header.fromBytes(contentType1)
 
-      println(header.get.fields)
-
       assertTrue(
         header.get.name == "Content-Type",
         header.get.fields.get("charset").get == "utf-8",

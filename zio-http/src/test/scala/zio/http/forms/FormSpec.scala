@@ -23,6 +23,7 @@ import scala.annotation.nowarn
 import zio._
 import zio.test._
 
+import zio.http.forms
 import zio.http.forms.Fixtures._
 import zio.http.model.MediaType
 
@@ -86,11 +87,12 @@ object FormSpec extends ZIOSpecDefault {
       val form = Form.fromMultipartBytes(multipartFormBytes1)
 
       form.map { form =>
-        val bytes = form.encodeAsMultipartBytes()
+        val bytes = form.encodeAsMultipartBytes(StandardCharsets.UTF_8, boundary)
 
         val (text: FormData.Text) :: (image1: FormData.Binary) :: (image2: FormData.Binary) :: Nil =
           form.formData.toList
         assertTrue(
+          bytes._2 == multipartFormBytes1,
           form.formData.size == 3,
           text.name == "submit-name",
           text.value == "Larry",
@@ -107,6 +109,16 @@ object FormSpec extends ZIOSpecDefault {
           image2.data == Chunk.fromArray(base64Corgi.getBytes()),
         )
       }
+    },
+    test("decoding 2") {
+      Form.fromMultipartBytes(multipartFormBytes3).map { form =>
+        assertTrue(
+          form.get("file").get.filename.get == "test.jsonl",
+          form.get("file").get.valueAsString.isEmpty,
+          form.get("file").get.asInstanceOf[FormData.Binary].data.size == 67,
+        )
+      }
+
     },
   )
 
