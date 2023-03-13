@@ -17,7 +17,7 @@
 package zio.http.middleware
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Trace, ZIO}
+import zio.{Tag, Trace, ZEnvironment, ZIO}
 
 import zio.http._
 import zio.http.middleware.Auth.Credentials
@@ -29,7 +29,7 @@ private[zio] trait Auth {
   /**
    * Creates a middleware for basic authentication
    */
-  final def basicAuth(f: Credentials => Boolean): RequestHandlerMiddleware[Any, Nothing] =
+  final def basicAuth(f: Credentials => Boolean): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     customAuth(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -42,7 +42,7 @@ private[zio] trait Auth {
    * Creates a middleware for basic authentication that checks if the
    * credentials are same as the ones given
    */
-  final def basicAuth(u: String, p: String): RequestHandlerMiddleware[Any, Nothing] =
+  final def basicAuth(u: String, p: String): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
 
   /**
@@ -51,7 +51,7 @@ private[zio] trait Auth {
    */
   final def basicAuthZIO[R, E](f: Credentials => ZIO[R, E, Boolean])(implicit
     trace: Trace,
-  ): RequestHandlerMiddleware[R, E] =
+  ): RequestHandlerMiddleware[Nothing, R, E, Any] =
     customAuthZIO(
       _.basicAuthorizationCredentials match {
         case Some(credentials) => f(credentials)
@@ -66,7 +66,7 @@ private[zio] trait Auth {
    * @param f:
    *   function that validates the token string inside the Bearer Header
    */
-  final def bearerAuth(f: String => Boolean): RequestHandlerMiddleware[Any, Nothing] =
+  final def bearerAuth(f: String => Boolean): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     customAuth(
       _.bearerToken match {
         case Some(token) => f(token)
@@ -84,7 +84,7 @@ private[zio] trait Auth {
    */
   final def bearerAuthZIO[R, E](
     f: String => ZIO[R, E, Boolean],
-  )(implicit trace: Trace): RequestHandlerMiddleware[R, E] =
+  )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, R, E, Any] =
     customAuthZIO(
       _.bearerToken match {
         case Some(token) => f(token)
@@ -101,14 +101,136 @@ private[zio] trait Auth {
     verify: Headers => Boolean,
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  ): RequestHandlerMiddleware[Any, Nothing] =
-    new RequestHandlerMiddleware[Any, Nothing] {
+  ): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
+    new RequestHandlerMiddleware.Simple[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
           if (verify(request.headers)) handler
           else Handler.status(responseStatus).addHeaders(responseHeaders)
+        }
+    }
+
+  /**
+   * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app, and provides a context to the request
+   * handlers.
+   */
+  final def customAuthProviding[R0, Context: Tag](
+    provide: Headers => Option[Context],
+    responseHeaders: Headers = Headers.empty,
+    responseStatus: Status = Status.Unauthorized,
+  ): RequestHandlerMiddleware.WithOut[
+    R0 with Context,
+    Any,
+    Nothing,
+    Any,
+    ({ type OutEnv[Env] = R0 })#OutEnv,
+    ({ type OutErr[Err] = Err })#OutErr,
+  ] =
+    new RequestHandlerMiddleware.Contextual[R0 with Context, Any, Nothing, Any] { self =>
+      type OutEnv[Env] = R0
+      type OutErr[Err] = Err
+
+      override def apply[R1 >: R0 with Context, Err1](
+        handler: Handler[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Handler[R0, Err1, Request, Response] =
+        Handler.fromFunctionHandler[Request] { request =>
+          provide(request.headers) match {
+            case Some(context) => handler.provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context)))
+            case None          => Handler.status(responseStatus).addHeaders(responseHeaders)
+          }
+        }
+
+      override def apply[R1 >: R0 with Context, Err1](
+        http: Http[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Http[R0, Err1, Request, Response] =
+        Http.fromHttpZIO[Request] { request =>
+          ZIO.succeed(provide(request.headers)).map {
+            case Some(context) =>
+              http.asInstanceOf[Http[_, _, _, _]] match {
+                case Http.Empty                    => Http.empty
+                case Http.Static(handler)          =>
+                  Http.Static(apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]))
+                case route: Http.Route[_, _, _, _] =>
+                  Http.fromHttpZIO[Request] { in =>
+                    route
+                      .asInstanceOf[Http.Route[R1, Err1, Request, Response]]
+                      .run(in)
+                      .provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context)))
+                      .map { (http: Http[R1, Err1, Request, Response]) =>
+                        self.apply(http)
+                      }
+                  }
+              }
+            case None          =>
+              Handler.status(responseStatus).addHeaders(responseHeaders).toHttp
+          }
+
+        }
+    }
+
+  /**
+   * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app, and provides a context to the request
+   * handlers.
+   */
+  final def customAuthProvidingZIO[R0, R, E, Context: Tag](
+    provide: Headers => ZIO[R, E, Option[Context]],
+    responseHeaders: Headers = Headers.empty,
+    responseStatus: Status = Status.Unauthorized,
+  ): RequestHandlerMiddleware.WithOut[
+    R0 with R with Context,
+    R,
+    E,
+    Any,
+    ({ type OutEnv[Env] = R0 with R })#OutEnv,
+    ({ type OutErr[Err] = Err })#OutErr,
+  ] =
+    new RequestHandlerMiddleware.Contextual[R0 with R with Context, R, E, Any] { self =>
+      type OutEnv[Env] = R0 with R
+      type OutErr[Err] = Err
+
+      override def apply[R1 >: R0 with R with Context <: R, Err1 >: E](
+        handler: Handler[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Handler[R0 with R, Err1, Request, Response] =
+        Handler
+          .fromFunctionZIO[Request] { request =>
+            provide(request.headers).flatMap {
+              case Some(context) =>
+                ZIO.succeed(handler.provideSomeEnvironment[R0 with R](_.union[Context](ZEnvironment(context))))
+              case None          =>
+                ZIO.succeed(Handler.status(responseStatus).addHeaders(responseHeaders))
+            }
+          }
+          .flatten
+
+      override def apply[R1 >: R0 with R with Context <: R, Err1 >: E](
+        http: Http[R1, Err1, Request, Response],
+      )(implicit trace: Trace): Http[R0 with R, Err1, Request, Response] =
+        Http.fromHttpZIO[Request] { request =>
+          provide(request.headers).map {
+            case Some(context) =>
+              http.asInstanceOf[Http[_, _, _, _]] match {
+                case Http.Empty                    => Http.empty
+                case Http.Static(handler)          =>
+                  Http.Static(apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]))
+                case route: Http.Route[_, _, _, _] =>
+                  Http.fromHttpZIO[Request] { in =>
+                    route
+                      .asInstanceOf[Http.Route[R1, Err1, Request, Response]]
+                      .run(in)
+                      .provideSomeEnvironment[R0 with R](_.union[Context](ZEnvironment(context)))
+                      .map { (http: Http[R1, Err1, Request, Response]) =>
+                        self.apply(http)
+                      }
+                  }
+              }
+            case None          =>
+              Handler.status(responseStatus).addHeaders(responseHeaders).toHttp
+          }
+
         }
     }
 
@@ -121,8 +243,8 @@ private[zio] trait Auth {
     verify: Headers => ZIO[R, E, Boolean],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
-  ): RequestHandlerMiddleware[R, E] =
-    new RequestHandlerMiddleware[R, E] {
+  ): RequestHandlerMiddleware[Nothing, R, E, Any] =
+    new RequestHandlerMiddleware.Simple[R, E] {
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =

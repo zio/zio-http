@@ -68,7 +68,7 @@ private[netty] object Conversions {
     Headers.Native(
       headers,
       (headers: HttpHeaders) => headers.entries().asScala.map(e => Header(e.getKey, e.getValue)).iterator,
-      (headers: HttpHeaders, key: String) => {
+      (headers: HttpHeaders, key: CharSequence) => {
         val iterator       = headers.iteratorCharSequence()
         var result: String = null
         while (iterator.hasNext && (result eq null)) {

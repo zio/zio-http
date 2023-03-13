@@ -51,8 +51,8 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
     requestDurationName: String = "http_request_duration_seconds",
     requestDurationBoundaries: MetricKeyType.Histogram.Boundaries = Metrics.defaultBoundaries,
     extraLabels: Set[MetricLabel] = Set.empty,
-  ): HttpAppMiddleware[Any, Nothing] = {
-    new HttpAppMiddleware[Any, Nothing] {
+  ): HttpAppMiddleware[Nothing, Any, Nothing, Any] = {
+    new HttpAppMiddleware.Simple[Any, Nothing] {
       val requestsTotal: Counter[RuntimeFlags] = Metric.counterInt(totalRequestsName)
       val concurrentRequests: Gauge[Double]    = Metric.gauge(concurrentRequestsName)
       val requestDuration: Histogram[Double]   = Metric.histogram(requestDurationName, requestDurationBoundaries)
@@ -84,7 +84,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
           _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
         } yield ()
 
-      override def apply[R1 <: Any, Err1 >: Nothing](
+      override def apply[R1, Err1](
         http: HttpApp[R1, Err1],
       )(implicit trace: Trace): HttpApp[R1, Err1] =
         Http.fromOptionalHandlerZIO[Request] { req =>

@@ -17,19 +17,19 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
     case Method.GET -> !! / "long-running" => ZIO.succeed(Response.text("Hello World!")).delay(5 seconds)
   }
 
-  val serverTime: RequestHandlerMiddleware[Any, Nothing] = Middleware.patchZIO(_ =>
+  val serverTime: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] = HttpAppMiddleware.patchZIO(_ =>
     for {
       currentMilliseconds <- Clock.currentTime(TimeUnit.MILLISECONDS)
       withHeader = Patch.addHeader("X-Time", currentMilliseconds.toString)
     } yield withHeader,
   )
-  val middlewares: RequestHandlerMiddleware[Any, IOException] =
+  val middlewares =
     // print debug info about request and response
-    Middleware.debug ++
+    HttpAppMiddleware.debug ++
       // close connection if request takes more than 3 seconds
-      Middleware.timeout(3 seconds) ++
+      HttpAppMiddleware.timeout(3 seconds) ++
       // add static header
-      Middleware.addHeader("X-Environment", "Dev") ++
+      HttpAppMiddleware.addHeader("X-Environment", "Dev") ++
       // add dynamic header
       serverTime
 

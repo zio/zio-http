@@ -5,7 +5,7 @@ import javax.management.MBeanNotificationInfo
 
 import zio._
 
-import zio.http.Middleware.bearerAuth
+import zio.http.HttpAppMiddleware.bearerAuth
 import zio.http._
 import zio.http.model.{Method, Status}
 

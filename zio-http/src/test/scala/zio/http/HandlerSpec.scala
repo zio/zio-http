@@ -1,3 +1,19 @@
+/*
+ * Copyright 2021 - 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package zio.http
 
 import zio._
@@ -66,25 +82,6 @@ object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
         val a      = Handler.identity[Int]
         val actual = a.apply(0)
         assert(actual)(isSuccess(equalTo(0)))
-      },
-    ),
-    suite("codecMiddleware")(
-      test("codec success") {
-        val a      = Handler.fromFunction[Int] { v => v.toString }
-        val b      = Handler.fromFunction[String] { v => v.toInt }
-        val app    = Handler.identity[String] @@ (a \/ b)
-        val actual = app.apply(2)
-        assert(actual)(isSuccess(equalTo(2)))
-      },
-      test("encoder failure") {
-        val app    = Handler.identity[Int] @@ (Handler.succeed(1) \/ Handler.fail("fail"))
-        val actual = app.apply(())
-        assert(actual)(isFailure(equalTo("fail")))
-      },
-      test("decoder failure") {
-        val app    = Handler.identity[Int] @@ (Handler.fail("fail") \/ Handler.succeed(1))
-        val actual = app.apply(())
-        assert(actual)(isFailure(equalTo("fail")))
       },
     ),
     suite("fromFunctionExit")(

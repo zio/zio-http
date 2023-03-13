@@ -19,89 +19,46 @@ package zio.http
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Trace, ZIO}
 
-trait HandlerAspect[-R, +Err, +AIn, -AOut, -BIn, +BOut] { self =>
-  def apply[R1 <: R, Err1 >: Err](handler: Handler[R1, Err1, AIn, AOut])(implicit
-    trace: Trace,
-  ): Handler[R1, Err1, BIn, BOut]
-
-  def toMiddleware[AIn1 >: AIn, BIn1 <: BIn](implicit
-    ev: AIn1 <:< BIn1,
-  ): HandlerMiddleware[R, Err, AIn1, AOut, AIn1, BOut] =
-    new HandlerMiddleware[R, Err, AIn1, AOut, AIn1, BOut] {
-      override def apply[R1 <: R, Err1 >: Err](handler: Handler[R1, Err1, AIn1, AOut])(implicit
-        trace: Trace,
-      ): Handler[R1, Err1, AIn1, BOut] =
-        self(handler).contramap(ev.apply)
-    }
-}
-
 object HandlerAspect {
-  def codec[BIn, AOut]: Codec[BIn, AOut] = new Codec[BIn, AOut](())
+  type WithOut[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, OutEnv0[_], OutErr0[_]] =
+    Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
+      type OutEnv[Env] = OutEnv0[Env]
+      type OutErr[Err] = OutErr0[Err]
+    }
 
-  def codecHttp[BIn, AOut]: CodecHttp[BIn, AOut] = new CodecHttp[BIn, AOut](())
+  trait Contextual[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] {
+    self =>
+    type OutEnv[Env]
+    type OutErr[Err]
 
-  def codecZIO[BIn, AOut]: CodecZIO[BIn, AOut] = new CodecZIO[BIn, AOut](())
+    def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
+      handler: Handler[Env, Err, Request, Response],
+    )(implicit trace: Trace): Handler[OutEnv[Env], OutErr[Err], Request, Response]
+  }
 
-  def identity[AIn, AOut]: HandlerMiddleware[Any, Nothing, AIn, AOut, AIn, AOut] =
-    new HandlerMiddleware[Any, Nothing, AIn, AOut, AIn, AOut] {
-      override def apply[R1 <: Any, Err1 >: Nothing](handler: Handler[R1, Err1, AIn, AOut])(implicit
-        trace: Trace,
-      ): Handler[R1, Err1, AIn, AOut] =
+  trait Simple[-UpperEnv, +LowerErr] extends Contextual[Nothing, UpperEnv, LowerErr, Any] {
+    self =>
+    final type OutEnv[Env] = Env
+    final type OutErr[Err] = Err
+
+    def apply[Env <: UpperEnv, Err >: LowerErr](
+      handler: Handler[Env, Err, Request, Response],
+    )(implicit trace: Trace): Handler[Env, Err, Request, Response]
+
+    final def toMiddleware: RequestHandlerMiddleware.WithOut[Nothing, UpperEnv, LowerErr, Any, OutEnv, OutErr] =
+      new RequestHandlerMiddleware.Simple[UpperEnv, LowerErr] {
+        override def apply[Env <: UpperEnv, Err >: LowerErr](
+          handler: Handler[Env, Err, Request, Response],
+        )(implicit trace: Trace): Handler[Env, Err, Request, Response] =
+          self(handler)
+      }
+  }
+
+  def identity[AIn, AOut]: HandlerAspect[Nothing, Any, Nothing, Any] =
+    new HandlerAspect.Simple[Any, Nothing] {
+      override def apply[Env >: Nothing <: Any, Err >: Nothing <: Any](
+        handler: Handler[Env, Err, Request, Response],
+      )(implicit trace: Trace): Handler[Env, Err, Request, Response] =
         handler
     }
-
-  def transform[BIn, AOut]: Transform[BIn, AOut] = new Transform[BIn, AOut](())
-
-  final class Codec[BIn, AOut](val self: Unit) extends AnyVal {
-    def apply[Err, AIn, BOut](
-      decoder: BIn => Either[Err, AIn],
-      encoder: AOut => Either[Err, BOut],
-    ): HandlerAspect[Any, Err, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[Any, Err, AIn, AOut, BIn, BOut] {
-        override def apply[R1 <: Any, Err1 >: Err](
-          handler: Handler[R1, Err1, AIn, AOut],
-        )(implicit trace: Trace): Handler[R1, Err1, BIn, BOut] =
-          handler
-            .contramapZIO((in: BIn) => ZIO.fromEither(decoder(in)))
-            .mapZIO(out => ZIO.fromEither(encoder(out)))
-      }
-  }
-
-  final class CodecHttp[BIn, AOut](val self: Unit) extends AnyVal {
-    def apply[R, Err, AIn, BOut](
-      decoder: Handler[R, Err, BIn, AIn],
-      encoder: Handler[R, Err, AOut, BOut],
-    ): HandlerAspect[R, Err, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[R, Err, AIn, AOut, BIn, BOut] {
-        override def apply[R1 <: R, Err1 >: Err](
-          handler: Handler[R1, Err1, AIn, AOut],
-        )(implicit trace: Trace): Handler[R1, Err1, BIn, BOut] =
-          decoder >>> handler >>> encoder
-      }
-  }
-
-  final class CodecZIO[BIn, AOut](val self: Unit) extends AnyVal {
-    def apply[R, Err, AIn, BOut](
-      decoder: BIn => ZIO[R, Err, AIn],
-      encoder: AOut => ZIO[R, Err, BOut],
-    ): HandlerAspect[R, Err, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[R, Err, AIn, AOut, BIn, BOut] {
-        override def apply[R1 <: R, Err1 >: Err](
-          handler: Handler[R1, Err1, AIn, AOut],
-        )(implicit trace: Trace): Handler[R1, Err1, BIn, BOut] =
-          handler
-            .contramapZIO((in: BIn) => decoder(in))
-            .mapZIO(out => encoder(out))
-      }
-  }
-
-  final class Transform[BIn, AOut](val self: Unit) extends AnyVal {
-    def apply[AIn, BOut](in: BIn => AIn, out: AOut => BOut): HandlerAspect[Any, Nothing, AIn, AOut, BIn, BOut] =
-      new HandlerAspect[Any, Nothing, AIn, AOut, BIn, BOut] {
-        override def apply[R1 <: Any, Err1 >: Nothing](handler: Handler[R1, Err1, AIn, AOut])(implicit
-          trace: Trace,
-        ): Handler[R1, Err1, BIn, BOut] =
-          handler.contramap(in).map(out)
-      }
-  }
 }

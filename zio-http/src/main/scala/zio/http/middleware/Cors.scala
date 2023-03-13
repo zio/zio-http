@@ -30,7 +30,7 @@ private[zio] trait Cors {
    * @see
    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
    */
-  final def cors(config: CorsConfig = CorsConfig()): HttpAppMiddleware[Any, Nothing] = {
+  final def cors(config: CorsConfig = CorsConfig()): HttpAppMiddleware[Nothing, Any, Nothing, Any] = {
     def allowCORS(origin: Header, acrm: Method): Boolean                           =
       (config.anyOrigin, config.anyMethod, origin._2.toString, acrm) match {
         case (true, true, _, _)           => true
@@ -56,7 +56,7 @@ private[zio] trait Cors {
         }
     }
 
-    new HttpAppMiddleware[Any, Nothing] {
+    new HttpAppMiddleware.Simple[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         http: Http[R1, Err1, Request, Response],
       )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
@@ -77,7 +77,7 @@ private[zio] trait Cors {
                 )
                 .toHttp
             case (_, Some(origin), _) if allowCORS(origin, request.method) =>
-              http @@ Middleware.addHeaders(corsHeaders(origin, request.method, isPreflight = false))
+              http @@ HttpAppMiddleware.addHeaders(corsHeaders(origin, request.method, isPreflight = false))
             case _                                                         =>
               http
           }

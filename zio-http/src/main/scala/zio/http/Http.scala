@@ -47,10 +47,20 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
-  final def @@[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out, In2, Out2](
-    aspect: Middleware[R1, Err1, In1, Out1, In2, Out2],
-  )(implicit trace: Trace): Http[R1, Err1, In2, Out2] =
-    aspect(self)
+  final def @@[
+    LowerEnv <: UpperEnv,
+    UpperEnv <: R,
+    LowerErr >: Err,
+    UpperErr >: LowerErr,
+    In1 <: In,
+  ](
+    aspect: HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr],
+  )(implicit
+    trace: Trace,
+    in: In1 <:< Request,
+    out: Out <:< Response,
+  ): Http[aspect.OutEnv[UpperEnv], aspect.OutErr[LowerErr], Request, Response] =
+    aspect(self.asInstanceOf[Http[R, Err, Request, Response]])
 
   /**
    * Combines two Http into one.
