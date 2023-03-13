@@ -125,18 +125,10 @@ object RequestHandlerMiddleware {
     override def apply[Env <: UpperEnv, Err >: LowerErr](
       http: Http[Env, Err, Request, Response],
     )(implicit trace: Trace): Http[Env, Err, Request, Response] =
-      http.asInstanceOf[Http[_, _, _, _]] match {
-        case Http.Empty           => Http.empty
-        case Http.Static(handler) => Http.Static(apply(handler.asInstanceOf[Handler[Env, Err, Request, Response]]))
-        case route: Http.Route[_, _, _, _] =>
-          Http.fromHttpZIO[Request] { in =>
-            route
-              .asInstanceOf[Http.Route[Env, Err, Request, Response]]
-              .run(in)
-              .map { (http: Http[Env, Err, Request, Response]) =>
-                http @@ self.asInstanceOf[HttpAppMiddleware[Nothing, UpperEnv, LowerErr, Any]]
-              }
-          }
+      http match {
+        case Http.Empty                                     => Http.empty
+        case Http.Static(handler)                           => Http.Static(apply(handler))
+        case route: Http.Route[Env, Err, Request, Response] => Http.fromHttpZIO[Request](route.run(_).map(self(_)))
       }
   }
 
@@ -164,7 +156,7 @@ object RequestHandlerMiddleware {
             if (condition(in)) {
               val a = self.apply(handler)
               a
-            } else handler.asInstanceOf[Handler[R1, Err1, Request, Response]]
+            } else handler
           }
       }
 
