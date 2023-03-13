@@ -21,6 +21,7 @@ import zio.{Trace, ZIO}
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 private[zio] trait HttpRoutesMiddlewares extends Cors {
+
   /**
    * Removes the trailing slash from the path.
    */

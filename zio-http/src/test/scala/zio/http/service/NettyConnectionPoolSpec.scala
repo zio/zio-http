@@ -118,21 +118,20 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           test("interrupting the parallel clients") {
             val res =
               // ZIO.scoped {
-              ZIO.debug("beginning test") *>
-                ZIO.foreachPar(1 to 16) { idx =>
-                  app.deploy.body
-                    .run(
-                      method = Method.GET,
-                      path = !! / "slow",
-                      body = Body.fromString(idx.toString),
-                      headers = extraHeaders,
-                    )
-                    .flatMap(_.asString)
-                    .fork
-                    .flatMap { fib =>
-                      fib.interrupt.unit.delay(500.millis)
-                    }
-                }
+              ZIO.foreachPar(1 to 16) { idx =>
+                app.deploy.body
+                  .run(
+                    method = Method.GET,
+                    path = !! / "slow",
+                    body = Body.fromString(idx.toString),
+                    headers = extraHeaders,
+                  )
+                  .flatMap(_.asString)
+                  .fork
+                  .flatMap { fib =>
+                    fib.interrupt.unit.delay(500.millis)
+                  }
+              }
             // }
             assertZIO(res)(hasSize(equalTo(16)))
           },
