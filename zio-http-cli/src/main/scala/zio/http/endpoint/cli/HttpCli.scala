@@ -18,7 +18,26 @@ final case class CliRequest(
   queryParams: QueryParams,
   headers: model.Headers,
   body: Json,
-)
+) { self =>
+  def addFieldToBody(prefix: List[String], value: Json) = {
+    def sparseJson(prefix: List[String], json: Json): Json =
+      prefix match {
+        case Nil          => json
+        case head :: tail => Json.Obj(Chunk(head -> sparseJson(tail, json)))
+      }
+
+    self.copy(body = self.body.merge(sparseJson(prefix, value)))
+  }
+
+  def addHeader(name: String, value: String): CliRequest =
+    self.copy(headers = self.headers.addHeader(name, value))
+
+  def addPathParam(name: String, value: String) =
+    self.copy(url = self.url.copy(path = self.url.path / name / value))
+
+  def withMethod(method: model.Method): CliRequest =
+    self.copy(method = method)
+}
 final case class CliEndpoint[A](embed: (A, CliRequest) => CliRequest, options: Options[A]) { self =>
   type Type = A
 
@@ -37,6 +56,8 @@ final case class CliEndpoint[A](embed: (A, CliRequest) => CliRequest, options: O
     )
 }
 object CliEndpoint                                                                         {
+  val empty = CliEndpoint[Unit]((_, request) => request, Options.Empty)
+
   def fromEndpoint[In, Err, Out, M <: EndpointMiddleware](endpoint: Endpoint[In, Err, Out, M]): Set[CliEndpoint[_]] =
     fromInput(endpoint.input)
 
@@ -58,7 +79,7 @@ object CliEndpoint                                                              
           case TextCodec.UUIDCodec        =>
             Set(
               CliEndpoint[java.util.UUID](
-                (uuid, request) => request.copy(headers = request.headers.addHeader(name, uuid.toString)),
+                (uuid, request) => request.addHeader(name, uuid.toString),
                 Options
                   .text(name)
                   .mapOrFail(str =>
@@ -74,28 +95,28 @@ object CliEndpoint                                                              
           case TextCodec.StringCodec      =>
             Set(
               CliEndpoint[String](
-                (str, request) => request.copy(headers = request.headers.addHeader(name, str)),
+                (str, request) => request.addHeader(name, str),
                 Options.text(name),
               ),
             )
           case TextCodec.IntCodec         =>
             Set(
               CliEndpoint[BigInt](
-                (int, request) => request.copy(headers = request.headers.addHeader(name, int.toString)),
+                (int, request) => request.addHeader(name, int.toString),
                 Options.integer(name),
               ),
             )
           case TextCodec.BooleanCodec     =>
             Set(
               CliEndpoint[Boolean](
-                (bool, request) => request.copy(headers = request.headers.addHeader(name, bool.toString)),
+                (bool, request) => request.addHeader(name, bool.toString),
                 Options.boolean(name),
               ),
             )
           case TextCodec.Constant(string) =>
             Set(
               CliEndpoint[Unit](
-                (_, request) => request.copy(headers = request.headers.addHeader(name, string)),
+                (_, request) => request.addHeader(name, string),
                 Options.Empty,
               ),
             )
@@ -104,7 +125,7 @@ object CliEndpoint                                                              
         codec.asInstanceOf[SimpleCodec[_, _]] match {
           case SimpleCodec.Specified(method) =>
             Set(
-              CliEndpoint[Unit]((_, request) => request.copy(method = method.asInstanceOf[model.Method]), Options.none),
+              CliEndpoint[Unit]((_, request) => request.withMethod(method.asInstanceOf[model.Method]), Options.none),
             )
           case SimpleCodec.Unspecified()     =>
             Set.empty
@@ -157,14 +178,13 @@ object CliEndpoint                                                              
               ),
             )
         }
-      case HttpCodec.Path(_, None, _)               => Set.empty
+      case HttpCodec.Path(_, None, _)               => Set.empty // FIXME
       case HttpCodec.Query(name, textCodec, _)      =>
         textCodec.asInstanceOf[TextCodec[_]] match {
           case TextCodec.UUIDCodec        =>
             Set(
               CliEndpoint[java.util.UUID](
-                (uuid, request) =>
-                  request.copy(url = request.url.copy(queryParams = request.url.queryParams.add(name, uuid.toString))),
+                (uuid, request) => request.addPathParam(name, uuid.toString),
                 Options
                   .text(name)
                   .mapOrFail(str =>
@@ -180,32 +200,28 @@ object CliEndpoint                                                              
           case TextCodec.StringCodec      =>
             Set(
               CliEndpoint[String](
-                (str, request) =>
-                  request.copy(url = request.url.copy(queryParams = request.url.queryParams.add(name, str))),
+                (str, request) => request.addPathParam(name, str),
                 Options.text(name),
               ),
             )
           case TextCodec.IntCodec         =>
             Set(
               CliEndpoint[BigInt](
-                (int, request) =>
-                  request.copy(url = request.url.copy(queryParams = request.url.queryParams.add(name, int.toString))),
+                (int, request) => request.addPathParam(name, int.toString),
                 Options.integer(name),
               ),
             )
           case TextCodec.BooleanCodec     =>
             Set(
               CliEndpoint[Boolean](
-                (bool, request) =>
-                  request.copy(url = request.url.copy(queryParams = request.url.queryParams.add(name, bool.toString))),
+                (bool, request) => request.addPathParam(name, bool.toString),
                 Options.boolean(name),
               ),
             )
           case TextCodec.Constant(string) =>
             Set(
               CliEndpoint[Unit](
-                (_, request) =>
-                  request.copy(url = request.url.copy(queryParams = request.url.queryParams.add(name, string))),
+                (_, request) => request.addPathParam(name, string),
                 Options.Empty,
               ),
             )
@@ -216,53 +232,206 @@ object CliEndpoint                                                              
     }
 
   private def fromSchema[A](schema: zio.schema.Schema[A]): CliEndpoint[_] = {
-    def sparseJson(prefix: List[String], json: Json): Json =
-      prefix match {
-        case Nil          => json
-        case head :: tail => Json.Obj(Chunk(head -> sparseJson(tail, json)))
-      }
-
     def loop(prefix: List[String], schema: zio.schema.Schema[A]): CliEndpoint[_] =
       schema match {
         case record: Schema.Record[_]                                                  => ???
         case enumeration: Schema.Enum[_]                                               => ???
-        case Schema.Primitive(standardType, annotations)                               =>
+        case Schema.Primitive(standardType, _)                                         =>
           standardType match {
             case StandardType.InstantType        =>
               CliEndpoint[java.time.Instant](
-                (instant, request) =>
-                  request.copy(body = request.body.merge(sparseJson(prefix, Json.Str(instant.toString())))),
-                Options.instant(prefix.mkString(".")),
-              ) // FIXME
-            case StandardType.UnitType           => ???
-            case StandardType.PeriodType         => ???
-            case StandardType.LongType           => ???
-            case StandardType.StringType         => ???
-            case StandardType.UUIDType           => ???
-            case StandardType.ByteType           => ???
-            case StandardType.OffsetDateTimeType => ???
-            case StandardType.LocalDateType      => ???
-            case StandardType.OffsetTimeType     => ???
-            case StandardType.FloatType          => ???
-            case StandardType.BigDecimalType     => ???
-            case StandardType.BigIntegerType     => ???
-            case StandardType.DoubleType         => ???
-            case StandardType.BoolType           => ???
-            case StandardType.CharType           => ???
-            case StandardType.ZoneOffsetType     => ???
-            case StandardType.YearMonthType      => ???
+                (instant, request) => request.addFieldToBody(prefix, Json.Str(instant.toString())),
+                Options.instant(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.UnitType           =>
+              CliEndpoint.empty
+            case StandardType.PeriodType         =>
+              CliEndpoint[java.time.Period](
+                (period, request) => request.addFieldToBody(prefix, Json.Str(period.toString())),
+                Options.period(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.LongType           =>
+              CliEndpoint[BigInt](
+                (
+                  long,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(long))), // FIXME
+                Options.integer(prefix.mkString(".")),                           // FIXME
+              )
+            case StandardType.StringType         =>
+              CliEndpoint[String](
+                (str, request) => request.addFieldToBody(prefix, Json.Str(str)),
+                Options.text(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.UUIDType           =>
+              CliEndpoint[String](
+                (uuid, request) => request.addFieldToBody(prefix, Json.Str(uuid.toString())),
+                Options.text(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.ByteType           =>
+              CliEndpoint[BigInt](
+                (byte, request) => request.addFieldToBody(prefix, Json.Num(BigDecimal(byte))), // FIXME
+                Options.integer(prefix.mkString(".")),                                         // FIXME
+              )
+            case StandardType.OffsetDateTimeType =>
+              CliEndpoint[java.time.OffsetDateTime](
+                (
+                  offsetDateTime,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(offsetDateTime.toString())),
+                Options.offsetDateTime(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.LocalDateType      =>
+              CliEndpoint[java.time.LocalDate](
+                (
+                  localDate,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(localDate.toString())),
+                Options.localDate(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.OffsetTimeType     =>
+              CliEndpoint[java.time.OffsetTime](
+                (
+                  offsetTime,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(offsetTime.toString())),
+                Options.offsetTime(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.FloatType          =>
+              CliEndpoint[BigDecimal](
+                (float, request) => request.addFieldToBody(prefix, Json.Num(float)), // FIXME
+                Options.decimal(prefix.mkString(".")),                               // FIXME
+              )
+            case StandardType.BigDecimalType     =>
+              CliEndpoint[BigDecimal](
+                (bigDecimal, request) => request.addFieldToBody(prefix, Json.Num(bigDecimal)),
+                Options.decimal(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.BigIntegerType     =>
+              CliEndpoint[BigInt](
+                (bigInt, request) => request.addFieldToBody(prefix, Json.Num(BigDecimal(bigInt))), // FIXME
+                Options.integer(prefix.mkString(".")),                                             // FIXME
+              )
+            case StandardType.DoubleType         =>
+              CliEndpoint[BigDecimal](
+                (double, request) => request.addFieldToBody(prefix, Json.Num(double)), // FIXME
+                Options.decimal(prefix.mkString(".")),                                 // FIXME
+              )
+            case StandardType.BoolType           =>
+              CliEndpoint[Boolean](
+                (bool, request) => request.addFieldToBody(prefix, Json.Bool(bool)),
+                Options.boolean(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.CharType           =>
+              CliEndpoint[String](
+                (char, request) => request.addFieldToBody(prefix, Json.Str(char.toString())), // FIXME
+                Options.text(prefix.mkString(".")),                                           // FIXME
+              )
+            case StandardType.ZoneOffsetType     =>
+              CliEndpoint[java.time.ZoneOffset](
+                (
+                  zoneOffset,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(zoneOffset.toString())),
+                Options.zoneOffset(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.YearMonthType      =>
+              CliEndpoint[java.time.YearMonth](
+                (
+                  yearMonth,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(yearMonth.toString())),
+                Options.yearMonth(prefix.mkString(".")), // FIXME
+              )
             case StandardType.BinaryType         => ???
-            case StandardType.LocalTimeType      => ???
-            case StandardType.ZoneIdType         => ???
-            case StandardType.ZonedDateTimeType  => ???
-            case StandardType.DayOfWeekType      => ???
-            case StandardType.DurationType       => ???
-            case StandardType.IntType            => ???
-            case StandardType.MonthDayType       => ???
-            case StandardType.ShortType          => ???
-            case StandardType.LocalDateTimeType  => ???
-            case StandardType.MonthType          => ???
-            case StandardType.YearType           => ???
+            case StandardType.LocalTimeType      =>
+              CliEndpoint[java.time.LocalTime](
+                (
+                  localTime,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(localTime.toString())),
+                Options.localTime(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.ZoneIdType         =>
+              CliEndpoint[java.time.ZoneId](
+                (
+                  zoneId,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(zoneId.toString())),
+                Options.zoneId(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.ZonedDateTimeType  =>
+              CliEndpoint[java.time.ZonedDateTime](
+                (
+                  zonedDateTime,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(zonedDateTime.toString())),
+                Options.zonedDateTime(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.DayOfWeekType      =>
+              CliEndpoint[BigInt](
+                (
+                  dayOfWeek,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(dayOfWeek))), // FIXME
+                Options.integer(prefix.mkString(".")),                                // FIXME
+              )
+            case StandardType.DurationType       =>
+              CliEndpoint[BigInt](
+                (
+                  duration,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(duration))), // FIXME
+                Options.integer(prefix.mkString(".")),                               // FIXME
+              )
+            case StandardType.IntType            =>
+              CliEndpoint[BigInt](
+                (
+                  int,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(int))), // FIXME
+                Options.integer(prefix.mkString(".")),                          // FIXME
+              )
+            case StandardType.MonthDayType       =>
+              CliEndpoint[java.time.MonthDay](
+                (
+                  monthDay,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(monthDay.toString())),
+                Options.monthDay(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.ShortType          =>
+              CliEndpoint[BigInt](
+                (
+                  short,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(short))), // FIXME
+                Options.integer(prefix.mkString(".")),                            // FIXME
+              )
+            case StandardType.LocalDateTimeType  =>
+              CliEndpoint[java.time.LocalDateTime](
+                (
+                  localDateTime,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(localDateTime.toString())),
+                Options.localDateTime(prefix.mkString(".")), // FIXME
+              )
+            case StandardType.MonthType          =>
+              CliEndpoint[String](
+                (
+                  month,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Str(month)), // FIXME
+                Options.text(prefix.mkString(".")),                   // FIXME
+              )
+            case StandardType.YearType           =>
+              CliEndpoint[BigInt](
+                (
+                  year,
+                  request,
+                ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(year))), // FIXME
+                Options.integer(prefix.mkString(".")),                           // FIXME
+              )
           }
         case Schema.Fail(message, annotations)                                         => ???
         case Schema.Map(keySchema, valueSchema, annotations)                           => ???
