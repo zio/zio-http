@@ -156,7 +156,12 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         new Route[R0, Err1, In, Out] {
           override def run(in: In): ZIO[R0, Err1, Http[R0, Err1, In, Out]] =
-            route.run(in).map(_.provideLayer(layer)).provideLayer(layer)
+            ZIO
+              .environment[R]
+              .flatMap { env =>
+                route.run(in).map(_.provideEnvironment(env))
+              }
+              .provideLayer(layer)
         }
     }
 
@@ -188,7 +193,12 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out] =>
         new Route[R0, Err1, In, Out] {
           override def run(in: In): ZIO[R0, Err1, Http[R0, Err1, In, Out]] =
-            route.run(in).map(_.provideSomeLayer(layer)).provideSomeLayer(layer)
+            ZIO
+              .environment[R]
+              .flatMap { env =>
+                route.run(in).map(_.provideEnvironment(env))
+              }
+              .provideSomeLayer(layer)
         }
     }
 
