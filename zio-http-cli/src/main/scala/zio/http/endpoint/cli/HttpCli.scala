@@ -37,8 +37,6 @@ final case class CliEndpoint[A](embed: (A, CliRequest) => CliRequest, options: O
     )
 }
 object CliEndpoint                                                                         {
-  val empty = CliEndpoint[Unit]((_, request) => request, Options.Empty)
-
   def fromEndpoint[In, Err, Out, M <: EndpointMiddleware](endpoint: Endpoint[In, Err, Out, M]): Set[CliEndpoint[_]] =
     fromInput(endpoint.input)
 
@@ -50,25 +48,117 @@ object CliEndpoint                                                              
           r <- fromInput(right)
         } yield l ++ r
 
-      case HttpCodec.Content(schema, _)       => Set(fromSchema(schema))
-      case HttpCodec.ContentStream(schema, _) => Set(fromSchema(schema))
-      case HttpCodec.Empty                    => Set.empty
-      case HttpCodec.Fallback(left, right)    =>
-        fromInput(left) ++ fromInput(right)
-
+      case HttpCodec.Content(schema, _)             => Set(fromSchema(schema))
+      case HttpCodec.ContentStream(schema, _)       => Set(fromSchema(schema))
+      case HttpCodec.Empty                          => Set.empty
+      case HttpCodec.Fallback(left, right)          => fromInput(left) ++ fromInput(right)
       case HttpCodec.Halt                           => Set.empty
-      case HttpCodec.Header(name, textCodec, index) => ???
-      case HttpCodec.Method(codec, index)           =>
+      case HttpCodec.Header(name, textCodec, _)     =>
+        textCodec.asInstanceOf[TextCodec[_]] match {
+          case TextCodec.UUIDCodec        =>
+            Set(
+              CliEndpoint[java.util.UUID](
+                (uuid, request) => request.copy(headers = request.headers.addHeader(name, uuid.toString)),
+                Options
+                  .text(name)
+                  .mapOrFail(str =>
+                    Try(java.util.UUID.fromString(str)).toEither.left.map { error =>
+                      ValidationError(
+                        ValidationErrorType.InvalidValue,
+                        HelpDoc.p(HelpDoc.Span.code(error.getMessage())),
+                      )
+                    },
+                  ),
+              ),
+            )
+          case TextCodec.StringCodec      =>
+            Set(
+              CliEndpoint[String](
+                (str, request) => request.copy(headers = request.headers.addHeader(name, str)),
+                Options.text(name),
+              ),
+            )
+          case TextCodec.IntCodec         =>
+            Set(
+              CliEndpoint[BigInt](
+                (int, request) => request.copy(headers = request.headers.addHeader(name, int.toString)),
+                Options.integer(name),
+              ),
+            )
+          case TextCodec.BooleanCodec     =>
+            Set(
+              CliEndpoint[Boolean](
+                (bool, request) => request.copy(headers = request.headers.addHeader(name, bool.toString)),
+                Options.boolean(name),
+              ),
+            )
+          case TextCodec.Constant(string) =>
+            Set(
+              CliEndpoint[Unit](
+                (_, request) => request.copy(headers = request.headers.addHeader(name, string)),
+                Options.Empty,
+              ),
+            )
+        }
+      case HttpCodec.Method(codec, _)               =>
         codec.asInstanceOf[SimpleCodec[_, _]] match {
           case SimpleCodec.Specified(method) =>
             Set(
               CliEndpoint[Unit]((_, request) => request.copy(method = method.asInstanceOf[model.Method]), Options.none),
             )
           case SimpleCodec.Unspecified()     =>
-            Set(CliEndpoint[Unit]((_, request) => request, Options.none))
+            Set.empty
         }
-      case HttpCodec.Path(textCodec, name, index)   => ???
-      case HttpCodec.Query(name, textCodec, index)  =>
+      case HttpCodec.Path(textCodec, Some(name), _) =>
+        textCodec.asInstanceOf[TextCodec[_]] match {
+          case TextCodec.UUIDCodec        =>
+            Set(
+              CliEndpoint[java.util.UUID](
+                (uuid, request) => request.copy(url = request.url.copy(path = request.url.path / name / uuid.toString)),
+                Options
+                  .text(name)
+                  .mapOrFail(str =>
+                    Try(java.util.UUID.fromString(str)).toEither.left.map { error =>
+                      ValidationError(
+                        ValidationErrorType.InvalidValue,
+                        HelpDoc.p(HelpDoc.Span.code(error.getMessage())),
+                      )
+                    },
+                  ),
+              ),
+            )
+          case TextCodec.StringCodec      =>
+            Set(
+              CliEndpoint[String](
+                (str, request) => request.copy(url = request.url.copy(path = request.url.path / name / str)),
+                Options.text(name),
+              ),
+            )
+          case TextCodec.IntCodec         =>
+            Set(
+              CliEndpoint[BigInt](
+                (int, request) => request.copy(url = request.url.copy(path = request.url.path / name / int.toString)),
+                Options.integer(name),
+              ),
+            )
+          case TextCodec.BooleanCodec     =>
+            Set(
+              CliEndpoint[Boolean](
+                (bool, request) =>
+                  request.copy(url = request.url.copy(queryParams = request.url.queryParams.add(name, bool.toString))),
+                Options.boolean(name),
+              ),
+            )
+          case TextCodec.Constant(string) =>
+            Set(
+              CliEndpoint[Unit](
+                (_, request) => request.copy(url = request.url.copy(path = request.url.path / name / string)),
+                Options.Empty,
+              ),
+            )
+        }
+      case HttpCodec.Path(_, None, _)               => Set.empty
+      case HttpCodec.Query(name, textCodec, _)      =>
         textCodec.asInstanceOf[TextCodec[_]] match {
           case TextCodec.UUIDCodec        =>
             Set(
