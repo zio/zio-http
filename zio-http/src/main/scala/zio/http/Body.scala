@@ -92,8 +92,16 @@ object Body {
     fromString(form.encodeAsURLEncoded(charset), charset).withContentType(MediaType.application.`x-www-form-urlencoded`)
   }
 
-  def fromMultipartForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
-    val (boundary, bytes) = form.encodeAsMultipartBytes(charset)
+  def fromMultipartForm(
+    form: Form,
+    charset: Charset = StandardCharsets.UTF_8,
+    specificBoundary: Option[Boundary],
+  ): Body = {
+    val (boundary, bytes) =
+      specificBoundary match {
+        case Some(value) => form.encodeAsMultipartBytes(charset, value)
+        case None        => form.encodeAsMultipartBytes(charset)
+      }
     ChunkBody(bytes).withContentType(MediaType.multipart.`form-data`, Some(boundary))
   }
 
