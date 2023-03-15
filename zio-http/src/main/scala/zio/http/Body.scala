@@ -95,7 +95,7 @@ object Body {
   def fromMultipartForm(
     form: Form,
     charset: Charset = StandardCharsets.UTF_8,
-    specificBoundary: Option[Boundary],
+    specificBoundary: Option[Boundary] = None,
   ): Body = {
     val (boundary, bytes) =
       specificBoundary match {
