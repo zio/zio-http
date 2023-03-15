@@ -35,7 +35,7 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
-  )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, Any, Throwable, Any] =
+  )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     interceptPatchZIO { request =>
       Clock.nanoTime.map(start => (request, start))
     } { case (response, (request, start)) =>
@@ -55,8 +55,8 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
                   LogAnnotation(name.toString, value.toString)
               }.toSet
 
-            val requestBody  = if (request.body.isComplete) request.body.asChunk.map(Some(_)) else ZIO.none
-            val responseBody = if (response.body.isComplete) response.body.asChunk.map(Some(_)) else ZIO.none
+            val requestBody  = if (request.body.isComplete) request.body.asChunk.option else ZIO.none
+            val responseBody = if (response.body.isComplete) response.body.asChunk.option else ZIO.none
 
             requestBody.flatMap { requestBodyChunk =>
               responseBody.flatMap { responseBodyChunk =>
