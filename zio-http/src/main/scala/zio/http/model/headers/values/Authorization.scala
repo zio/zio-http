@@ -84,12 +84,19 @@ object Authorization {
     } else InvalidAuthorizationValue
   }
 
-  private def parseBasic(value: String) = {
-    val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(':')
-    if (partsOfBasic.length == 2) {
-      AuthorizationValue(Basic(partsOfBasic(0), partsOfBasic(1)))
-    } else {
-      InvalidAuthorizationValue
+  private def parseBasic(value: String): Authorization = {
+    try {
+      val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(':')
+      if (partsOfBasic.length == 2) {
+        AuthorizationValue(Basic(partsOfBasic(0), partsOfBasic(1)))
+      } else {
+        // the decoded value is not in the format username:password
+        InvalidAuthorizationValue
+      }
+    } catch {
+      case _: IllegalArgumentException =>
+        // value is not a valid base64 string
+        InvalidAuthorizationValue
     }
   }
 
@@ -98,7 +105,7 @@ object Authorization {
   private final val equalsChar        = '='
 
   // https://datatracker.ietf.org/doc/html/rfc7616
-  private def parseDigest(value: String) = try {
+  private def parseDigest(value: String): Authorization = try {
     def parseDigestKey(index: Int): (String, Int) = {
       val equalsIndex = value.indexOf(equalsChar, index)
       val currentKey  = value.substring(index, equalsIndex).toLowerCase.trim
