@@ -95,5 +95,9 @@ object AuthorizationSpec extends ZIOSpecDefault with MimeDB {
         acc && assertTrue(Authorization.toAuthorization(header) == expected)
       }
     },
+    test("Parsing an invalid basic auth header") {
+      val auth = Authorization.toAuthorization("Basic not-base64")
+      assertTrue(auth == InvalidAuthorizationValue)
+    },
   )
 }
