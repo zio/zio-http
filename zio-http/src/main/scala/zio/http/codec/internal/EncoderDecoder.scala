@@ -128,14 +128,15 @@ private[codec] object EncoderDecoder                   {
     final def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
       val inputs = deconstructor(value)
 
-      val path    = encodePath(inputs.path)
-      val query   = encodeQuery(inputs.query)
-      val status  = encodeStatus(inputs.status)
-      val method  = encodeMethod(inputs.method)
-      val headers = encodeHeaders(inputs.header)
-      val body    = encodeBody(inputs.content)
+      val path               = encodePath(inputs.path)
+      val query              = encodeQuery(inputs.query)
+      val status             = encodeStatus(inputs.status)
+      val method             = encodeMethod(inputs.method)
+      val headers            = encodeHeaders(inputs.header)
+      val body               = encodeBody(inputs.content)
+      val contentTypeHeaders = encodeContentType(inputs.content)
 
-      f(URL(path, queryParams = query), status, method, headers, body)
+      f(URL(path, queryParams = query), status, method, headers ++ contentTypeHeaders, body)
     }
 
     private def decodePaths(path: Path, inputs: Array[Any]): Unit = {
@@ -294,7 +295,7 @@ private[codec] object EncoderDecoder                   {
     }
 
     private def encodeHeaders(inputs: Array[Any]): Headers = {
-      var headers = Headers.contentType("application/json")
+      var headers = Headers.empty
 
       var i = 0
       while (i < inputs.length) {
@@ -325,6 +326,13 @@ private[codec] object EncoderDecoder                   {
         val encoder = jsonEncoders(0)
 
         encoder(inputs(0))
+      } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
+    }
+
+    private def encodeContentType(inputs: Array[Any]): Headers = {
+      if (jsonEncoders.length == 0) Headers.empty
+      else if (jsonEncoders.length == 1) {
+        Headers.contentType(MediaType.application.json.fullType)
       } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
     }
   }
