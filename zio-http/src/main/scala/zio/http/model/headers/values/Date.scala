@@ -19,6 +19,8 @@ package zio.http.model.headers.values
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 
+import scala.util.Try
+
 final case class Date(value: ZonedDateTime)
 
 /**
@@ -28,14 +30,10 @@ final case class Date(value: ZonedDateTime)
 object Date {
   private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
-  def parse(value: String): Either[String, Date] = {
-    try {
-      Right(Date(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC)))
-    } catch {
-      case _: Throwable =>
-        Left("Invalid Date header")
-    }
-  }
+  def parse(value: String): Either[String, Date] =
+    Try(Date(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC))).toEither.left.map(_ =>
+      "Invalid Date header",
+    )
 
   def render(date: Date): String =
     formatter.format(date.value)

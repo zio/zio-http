@@ -16,8 +16,8 @@
 
 package zio.http.model.headers.values
 
+import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
-import zio.{Chunk, Scope}
 
 import zio.http.internal.HttpGen
 
@@ -34,7 +34,7 @@ object AccessControlAllowHeadersSpec extends ZIOSpecDefault {
       )
     },
     test("AccessControlAllowHeaders should be parsed correctly for valid header names") {
-      check(HttpGen.headerNames) { headerNames =>
+      check(HttpGen.headerNames1) { headerNames =>
         val headerNamesString = headerNames.mkString(", ")
         if (headerNamesString.isEmpty)
           assertTrue(
@@ -46,9 +46,7 @@ object AccessControlAllowHeadersSpec extends ZIOSpecDefault {
           assertTrue(
             AccessControlAllowHeaders.parse(headerNamesString) == Right(
               AccessControlAllowHeaders
-                .Some(
-                  Chunk.fromIterable(headerNames),
-                ),
+                .Some(headerNames),
             ),
           )
       }

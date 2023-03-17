@@ -16,26 +16,27 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait Upgrade
 
 object Upgrade {
-  final case class Multiple(protocols: Chunk[Protocol])        extends Upgrade
-  final case class Protocol(protocol: String, version: String) extends Upgrade
+  final case class Multiple(protocols: NonEmptyChunk[Protocol]) extends Upgrade
+  final case class Protocol(protocol: String, version: String)  extends Upgrade
 
   def parse(value: String): Either[String, Upgrade] = {
-    Chunk.fromArray(value.split(",")).map(parseProtocol) match {
-      case Chunk()       => Left("Invalid Upgrade header")
-      case Chunk(single) => single
-      case multiple      =>
-        multiple
-          .foldLeft[Either[String, Chunk[Protocol]]](Right(Chunk.empty)) {
-            case (Right(protocols), Right(protocol)) => Right(protocols :+ protocol)
-            case (Left(error), _)                    => Left(error)
-            case (_, Left(error))                    => Left(error)
-          }
-          .map(Multiple(_))
+    NonEmptyChunk.fromChunk(Chunk.fromArray(value.split(",")).map(parseProtocol)) match {
+      case None        => Left("Invalid Upgrade header")
+      case Some(value) =>
+        if (value.size == 1) value.head
+        else
+          value.tail
+            .foldLeft(value.head.map(NonEmptyChunk.single(_))) {
+              case (Right(acc), Right(value)) => Right(acc :+ value)
+              case (Left(error), _)           => Left(error)
+              case (_, Left(value))           => Left(value)
+            }
+            .map(Multiple(_))
     }
   }
 

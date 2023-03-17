@@ -20,6 +20,8 @@ import java.net.URI
 
 import scala.util.Try
 
+import zio.Chunk
+
 //scalafmt: { maxColumn = 180 }
 sealed trait ContentSecurityPolicy
 
@@ -229,7 +231,7 @@ object ContentSecurityPolicy {
       value match {
         case "" => Some(Empty)
         case s  =>
-          s.split(' ').toList.foldLeft(Option(Empty): Option[SandboxValue]) {
+          Chunk.fromArray(s.split(" ")).foldLeft(Option(Empty): Option[SandboxValue]) {
             case (Some(acc), v) => parseOne(v).map(acc && _)
             case (None, _)      => None
           }

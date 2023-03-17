@@ -17,7 +17,7 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Chunk, Scope}
+import zio.{NonEmptyChunk, Scope}
 
 import zio.http.model.headers.values.Te.{Deflate, GZip, Multiple, Trailers}
 
@@ -27,7 +27,7 @@ object TeSpec extends ZIOSpecDefault {
       val te = "trailers, deflate;q=0.5, gzip;q=0.2"
       assertTrue(
         Te.parse(te) ==
-          Right(Multiple(Chunk(Trailers, Deflate(Some(0.5)), GZip(Some(0.2))))),
+          Right(Multiple(NonEmptyChunk(Trailers, Deflate(Some(0.5)), GZip(Some(0.2))))),
       )
     },
     test("parse TE header - simple value with weight") {

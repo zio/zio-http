@@ -17,7 +17,7 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Chunk, Scope}
+import zio.{Chunk, NonEmptyChunk, Scope}
 
 object SecWebSocketProtocolSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketProtocol suite")(
@@ -26,7 +26,7 @@ object SecWebSocketProtocolSpec extends ZIOSpecDefault {
       assertTrue(
         SecWebSocketProtocol.parse(probe) == Right(
           SecWebSocketProtocol(
-            Chunk.fromArray(probe.split(", ")),
+            NonEmptyChunk("chat", "superchat"),
           ),
         ),
       )
@@ -39,7 +39,7 @@ object SecWebSocketProtocolSpec extends ZIOSpecDefault {
       val probe = "chat, superchat"
       assertTrue(
         SecWebSocketProtocol.render(
-          SecWebSocketProtocol(Chunk.fromArray(probe.split(", "))),
+          SecWebSocketProtocol(NonEmptyChunk("chat", "superchat")),
         ) == probe,
       )
     },

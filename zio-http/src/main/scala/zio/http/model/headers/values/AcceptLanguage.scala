@@ -20,7 +20,7 @@ import scala.annotation.tailrec
 import scala.util.Try
 import scala.util.matching.Regex
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 /**
  * The Accept-Language request HTTP header indicates the natural language and
@@ -32,13 +32,13 @@ object AcceptLanguage {
 
   case class Single(language: String, weight: Option[Double]) extends AcceptLanguage
 
-  case class Multiple(languages: Chunk[AcceptLanguage]) extends AcceptLanguage
+  case class Multiple(languages: NonEmptyChunk[AcceptLanguage]) extends AcceptLanguage
 
   case object Any extends AcceptLanguage
 
   def parse(value: String): Either[String, AcceptLanguage] = {
-    @tailrec def loop(index: Int, value: String, acc: Multiple): Multiple = {
-      if (index == -1) acc.copy(languages = acc.languages :+ parseAcceptedLanguage(value.trim))
+    @tailrec def loop(index: Int, value: String, acc: Chunk[AcceptLanguage]): Chunk[AcceptLanguage] = {
+      if (index == -1) acc :+ parseAcceptedLanguage(value.trim)
       else {
         val valueChunk     = value.substring(0, index)
         val valueRemaining = value.substring(index + 1)
@@ -46,14 +46,18 @@ object AcceptLanguage {
         loop(
           newIndex,
           valueRemaining,
-          acc.copy(languages = acc.languages :+ parseAcceptedLanguage(valueChunk.trim)),
+          acc :+ parseAcceptedLanguage(valueChunk.trim),
         )
       }
     }
     if (validCharacters.findFirstIn(value).isEmpty) Left("Accept-Language contains invalid characters")
     else if (value.isEmpty) Left("Accept-Language cannot be empty")
     else if (value == "*") Right(AcceptLanguage.Any)
-    else Right(loop(value.indexOf(','), value, Multiple(Chunk.empty)))
+    else
+      NonEmptyChunk.fromChunk(loop(value.indexOf(','), value, Chunk.empty)) match {
+        case Some(value) => Right(Multiple(value))
+        case None        => Left("Accept-Language cannot be empty")
+      }
   }
 
   def render(acceptLanguage: AcceptLanguage): String =

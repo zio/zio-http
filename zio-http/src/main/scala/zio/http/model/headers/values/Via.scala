@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait Via
 
@@ -34,11 +34,11 @@ object Via {
   }
 
   final case class Detailed(receivedProtocol: ReceivedProtocol, receivedBy: String, comment: Option[String]) extends Via
-  final case class Multiple(values: Chunk[Via])                                                              extends Via
+  final case class Multiple(values: NonEmptyChunk[Via])                                                      extends Via
 
   def parse(values: String): Either[String, Via] = {
-    val viaValues = Chunk.fromArray(values.split(',')).map(_.trim).map { value =>
-      Chunk.fromArray(value.split(' ')) match {
+    val viaValues = Chunk.fromArray(values.split(",")).map(_.trim).map { value =>
+      Chunk.fromArray(value.split(" ")) match {
         case Chunk(receivedProtocol, receivedBy)          =>
           toReceivedProtocol(receivedProtocol).map { rp =>
             Detailed(rp, receivedBy, None)
@@ -52,17 +52,18 @@ object Via {
       }
     }
 
-    viaValues match {
-      case Chunk()       => Left("Invalid Via header")
-      case Chunk(single) => single
-      case multiple      =>
-        multiple
-          .foldLeft[Either[String, Chunk[Via]]](Right(Chunk.empty)) {
-            case (Right(vias), Right(via)) => Right(vias :+ via)
-            case (Left(error), _)          => Left(error)
-            case (_, Left(error))          => Left(error)
-          }
-          .map(Multiple(_))
+    NonEmptyChunk.fromChunk(viaValues) match {
+      case None        => Left("Invalid Via header")
+      case Some(value) =>
+        if (value.size == 1) value.head
+        else
+          value.tail
+            .foldLeft(value.head.map(NonEmptyChunk.single(_))) {
+              case (Right(acc), Right(value)) => Right(acc :+ value)
+              case (Left(error), _)           => Left(error)
+              case (_, Left(value))           => Left(value)
+            }
+            .map(Multiple(_))
     }
   }
 
@@ -81,7 +82,7 @@ object Via {
     }
 
   private def toReceivedProtocol(value: String): Either[String, ReceivedProtocol] = {
-    value.split('/').toList match {
+    value.split("/").toList match {
       case version :: Nil             => Right(ReceivedProtocol.Version(version))
       case protocol :: version :: Nil => Right(ReceivedProtocol.ProtocolVersion(protocol, version))
       case _                          => Left("Invalid received protocol")

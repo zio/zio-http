@@ -17,7 +17,7 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
-import zio.{Chunk, Scope}
+import zio.{Chunk, NonEmptyChunk, Scope}
 
 import zio.http.internal.HttpGen
 import zio.http.model.headers.values.TransferEncoding.Multiple
@@ -37,7 +37,7 @@ object TransferEncodingSpec extends ZIOSpecDefault {
         assertTrue(
           TransferEncoding.parse("deflate, chunked, compress") == Right(
             TransferEncoding.Multiple(
-              Chunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
+              NonEmptyChunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
             ),
           ),
         ) &&
@@ -47,16 +47,14 @@ object TransferEncodingSpec extends ZIOSpecDefault {
       test("edge cases") {
         assertTrue(
           TransferEncoding
-            .parse(
-              TransferEncoding.render(Multiple(Chunk())),
-            )
+            .parse(" ")
             .isLeft,
         ) &&
         assertTrue(
           TransferEncoding.parse(
             TransferEncoding.render(
               Multiple(
-                Chunk(
+                NonEmptyChunk(
                   TransferEncoding.Deflate,
                   TransferEncoding.Chunked,
                   TransferEncoding.Compress,
@@ -65,7 +63,7 @@ object TransferEncodingSpec extends ZIOSpecDefault {
             ),
           ) == Right(
             TransferEncoding.Multiple(
-              Chunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
+              NonEmptyChunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
             ),
           ),
         ) &&
@@ -73,7 +71,7 @@ object TransferEncodingSpec extends ZIOSpecDefault {
           TransferEncoding.parse(
             TransferEncoding.render(
               Multiple(
-                Chunk(TransferEncoding.Deflate),
+                NonEmptyChunk(TransferEncoding.Deflate),
               ),
             ),
           ) == Right(TransferEncoding.Deflate),

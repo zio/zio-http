@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 import zio.http.model.Method
 
@@ -24,7 +24,7 @@ sealed trait AccessControlAllowMethods
 
 object AccessControlAllowMethods {
 
-  final case class Some(methods: Chunk[Method]) extends AccessControlAllowMethods
+  final case class Some(methods: NonEmptyChunk[Method]) extends AccessControlAllowMethods
 
   case object All extends AccessControlAllowMethods
 
@@ -36,14 +36,17 @@ object AccessControlAllowMethods {
         case ""          => None
         case "*"         => All
         case methodNames =>
-          Some(
+          NonEmptyChunk.fromChunk(
             Chunk.fromArray(
               methodNames
                 .split(",")
                 .map(_.trim)
                 .map(Method.fromString),
             ),
-          )
+          ) match {
+            case scala.Some(value) => Some(value)
+            case scala.None        => None
+          }
       }
     }
   }

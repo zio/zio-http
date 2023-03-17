@@ -16,12 +16,12 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.NonEmptyChunk
 
 import zio.http.CookieEncoder._
 import zio.http.{CookieDecoder, Request, model}
 
-final case class RequestCookie(value: Chunk[model.Cookie[Request]])
+final case class RequestCookie(value: NonEmptyChunk[model.Cookie[Request]])
 
 /**
  * The Cookie HTTP request header contains stored HTTP cookies associated with
@@ -35,8 +35,10 @@ object RequestCookie {
     model.Cookie.decode(value) match {
       case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
       case Right(value) =>
-        if (value.isEmpty) Left("Invalid Cookie header")
-        else Right(RequestCookie(value))
+        NonEmptyChunk.fromChunk(value) match {
+          case Some(value) => Right(RequestCookie(value))
+          case None        => Left("Invalid Cookie header")
+        }
     }
   }
 

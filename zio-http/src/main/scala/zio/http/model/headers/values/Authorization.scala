@@ -58,7 +58,7 @@ object Authorization {
   }
 
   def parse(value: String): Either[String, Authorization] = {
-    val parts = value.split(' ')
+    val parts = value.split(" ")
     if (parts.length >= 2) {
       parts(0).toLowerCase match {
         case "basic"  => parseBasic(parts(1))
@@ -82,7 +82,7 @@ object Authorization {
 
   private def parseBasic(value: String): Either[String, Authorization] = {
     try {
-      val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(':')
+      val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(":")
       if (partsOfBasic.length == 2) {
         Right(Authorization(Basic(partsOfBasic(0), partsOfBasic(1))))
       } else {

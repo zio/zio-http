@@ -19,19 +19,17 @@ package zio.http.model.headers.values
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 
+import scala.util.Try
+
 final case class LastModified(value: ZonedDateTime)
 
 object LastModified {
   private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
-  def parse(value: String): Either[String, LastModified] = {
-    try {
-      Right(LastModified(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC)))
-    } catch {
-      case _: Throwable =>
-        Left("Invalid Last-Modified header")
-    }
-  }
+  def parse(value: String): Either[String, LastModified] =
+    Try(LastModified(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC))).toEither.left.map(_ =>
+      "Invalid Last-Modified header",
+    )
 
   def render(lastModified: LastModified): String =
     formatter.format(lastModified.value)

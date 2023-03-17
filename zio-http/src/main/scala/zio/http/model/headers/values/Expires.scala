@@ -19,6 +19,8 @@ package zio.http.model.headers.values
 import java.time._
 import java.time.format.DateTimeFormatter
 
+import scala.util.Try
+
 final case class Expires(value: ZonedDateTime)
 
 /**
@@ -40,11 +42,7 @@ object Expires {
   private val formatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
   def parse(date: String): Either[String, Expires] =
-    try {
-      Right(Expires(ZonedDateTime.parse(date, formatter)))
-    } catch {
-      case _: Exception => Left("Invalid Expires header")
-    }
+    Try(Expires(ZonedDateTime.parse(date, formatter))).toEither.left.map(_ => "Invalid Expires header")
 
   def render(expires: Expires): String =
     formatter.format(expires.value)

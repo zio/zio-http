@@ -16,9 +16,9 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
-final case class AccessControlRequestHeaders(values: Chunk[String])
+final case class AccessControlRequestHeaders(values: NonEmptyChunk[String])
 
 /**
  * The Access-Control-Request-Headers request header is used by browsers when
@@ -29,9 +29,9 @@ final case class AccessControlRequestHeaders(values: Chunk[String])
  */
 object AccessControlRequestHeaders {
   def parse(values: String): Either[String, AccessControlRequestHeaders] = {
-    Chunk.fromArray(values.trim().split(",")).filter(_.nonEmpty) match {
-      case Chunk() => Left("AccessControlRequestHeaders cannot be empty")
-      case xs      => Right(AccessControlRequestHeaders(xs))
+    NonEmptyChunk.fromChunk(Chunk.fromArray(values.trim().split(",")).filter(_.nonEmpty)) match {
+      case None     => Left("AccessControlRequestHeaders cannot be empty")
+      case Some(xs) => Right(AccessControlRequestHeaders(xs))
     }
   }
 

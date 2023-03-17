@@ -18,16 +18,14 @@ package zio.http.model.headers.values
 
 import java.net._
 
+import scala.util.Try
+
 final case class ContentBase(uri: URI)
 
 object ContentBase {
 
   def parse(s: CharSequence): Either[String, ContentBase] =
-    try {
-      Right(ContentBase(new URL(s.toString).toURI))
-    } catch {
-      case _: Throwable => Left("Invalid Content-Base header")
-    }
+    Try(ContentBase(new URL(s.toString).toURI)).toEither.left.map(_ => "Invalid Content-Base header")
 
   def render(cb: ContentBase): String =
     cb.uri.toString

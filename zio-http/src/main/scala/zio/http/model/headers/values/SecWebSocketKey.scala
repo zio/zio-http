@@ -16,6 +16,8 @@
 
 package zio.http.model.headers.values
 
+import scala.util.control.NonFatal
+
 final case class SecWebSocketKey(base64EncodedKey: String)
 
 /**
@@ -36,7 +38,7 @@ object SecWebSocketKey {
       if (decodedKey.length == 16) Right(SecWebSocketKey(key))
       else Left("Invalid Sec-WebSocket-Key header")
     } catch {
-      case _: Throwable => Left("Invalid Sec-WebSocket-Key header")
+      case NonFatal(_) => Left("Invalid Sec-WebSocket-Key header")
     }
 
   }

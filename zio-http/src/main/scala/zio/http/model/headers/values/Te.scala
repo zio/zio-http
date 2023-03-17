@@ -19,7 +19,7 @@ package zio.http.model.headers.values
 import scala.annotation.tailrec
 import scala.util.Try
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait Te {
   def raw: String
@@ -62,7 +62,7 @@ object Te {
   /**
    * Maintains a chunk of AcceptEncoding values.
    */
-  final case class Multiple(encodings: Chunk[Te]) extends Te {
+  final case class Multiple(encodings: NonEmptyChunk[Te]) extends Te {
     override def raw: String = encodings.mkString(",")
   }
 
@@ -88,10 +88,10 @@ object Te {
   def parse(value: String): Either[String, Te] = {
     val index = value.indexOf(",")
 
-    @tailrec def loop(value: String, index: Int, acc: Multiple): Either[String, Multiple] = {
+    @tailrec def loop(value: String, index: Int, acc: Chunk[Te]): Either[String, Chunk[Te]] = {
       if (index == -1) {
         identifyTeFull(value) match {
-          case Some(te) => Right(acc.copy(encodings = acc.encodings :+ te))
+          case Some(te) => Right(acc :+ te)
           case None     => Left("Invalid TE header")
         }
       } else {
@@ -99,7 +99,7 @@ object Te {
         val remaining  = value.substring(index + 1)
         val nextIndex  = remaining.indexOf(",")
         identifyTeFull(valueChunk) match {
-          case Some(te) => loop(remaining, nextIndex, acc.copy(encodings = acc.encodings :+ te))
+          case Some(te) => loop(remaining, nextIndex, acc :+ te)
           case None     => Left("Invalid TE header")
         }
       }
@@ -108,8 +108,9 @@ object Te {
     if (index == -1)
       identifyTeFull(value).toRight("Invalid TE header")
     else
-      loop(value, index, Multiple(Chunk.empty[Te]))
-
+      loop(value, index, Chunk.empty[Te]).flatMap { encodings =>
+        NonEmptyChunk.fromChunk(encodings).toRight("Invalid TE header").map(Multiple(_))
+      }
   }
 
   def render(encoding: Te): String = encoding match {

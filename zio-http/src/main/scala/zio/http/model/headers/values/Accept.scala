@@ -18,13 +18,13 @@ package zio.http.model.headers.values
 
 import scala.util.Try
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 import zio.http.model.MediaType
 import zio.http.model.headers.values.Accept.MediaTypeWithQFactor
 
 /** Accept header value. */
-final case class Accept(mimeTypes: Chunk[MediaTypeWithQFactor])
+final case class Accept(mimeTypes: NonEmptyChunk[MediaTypeWithQFactor])
 
 object Accept {
 
@@ -35,24 +35,28 @@ object Accept {
   final case class MediaTypeWithQFactor(mediaType: MediaType, qFactor: Option[Double])
 
   def parse(value: String): Either[String, Accept] = {
-    val acceptHeaderValues: Array[MediaTypeWithQFactor] = value
-      .split(',')
-      .map(_.trim)
-      .map { subValue =>
-        MediaType
-          .forContentType(subValue)
-          .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
-          .getOrElse {
-            MediaType
-              .parseCustomMediaType(subValue)
-              .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
-              .orNull
-          }
-      }
+    val acceptHeaderValues =
+      Chunk
+        .fromArray(
+          value
+            .split(",")
+            .map(_.trim)
+            .map { subValue =>
+              MediaType
+                .forContentType(subValue)
+                .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
+                .getOrElse {
+                  MediaType
+                    .parseCustomMediaType(subValue)
+                    .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
+                    .orNull
+                }
+            },
+        )
 
-    if (acceptHeaderValues.nonEmpty && acceptHeaderValues.length == acceptHeaderValues.count(_ != null))
-      Right(Accept(Chunk.fromArray(acceptHeaderValues)))
-    else Left("Invalid Accept header")
+    val valid = acceptHeaderValues.filter(_ != null)
+    if (valid.size != acceptHeaderValues.size) Left("Invalid Accept header")
+    else NonEmptyChunk.fromChunk(acceptHeaderValues).toRight("Invalid Accept header").map(Accept(_))
   }
 
   def render(header: Accept): String =

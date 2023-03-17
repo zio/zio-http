@@ -16,18 +16,17 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.NonEmptyChunk
 import zio.test._
 
 import zio.http.model.MimeDB
-import zio.http.model.headers.values.AcceptPatch._
 
 object AcceptPatchSpec extends ZIOSpecDefault with MimeDB {
   override def spec = suite("AcceptPatch header suite")(
     test("AcceptPatch header transformation must be symmetrical") {
       assertTrue(
-        AcceptPatch.parse(AcceptPatch.render(AcceptPatch(Chunk(text.`html`))))
-          == Right(AcceptPatch(Chunk(text.`html`))),
+        AcceptPatch.parse(AcceptPatch.render(AcceptPatch(NonEmptyChunk(text.`html`))))
+          == Right(AcceptPatch(NonEmptyChunk(text.`html`))),
       )
     },
     test("invalid values parsing") {

@@ -260,7 +260,12 @@ object HttpGen {
   } yield value
 
   def acceptEncoding: Gen[Any, AcceptEncoding] =
-    Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(AcceptEncoding.Multiple.apply)
+    Gen
+      .chunkOf1(acceptEncodingSingleValueWithWeight)
+      .map(ecs =>
+        if (ecs.size == 1) ecs.head
+        else AcceptEncoding.Multiple(ecs),
+      )
 
   def cacheControlSingleValue(seconds: Int): Gen[Any, CacheControl] =
     Gen.fromIterable(
@@ -290,7 +295,12 @@ object HttpGen {
   } yield value
 
   def cacheControl: Gen[Any, CacheControl] =
-    Gen.chunkOfBounded(1, 10)(cacheControlSingleValueWithSeconds).map(CacheControl.Multiple.apply)
+    Gen
+      .chunkOf1(cacheControlSingleValueWithSeconds)
+      .map(ccs =>
+        if (ccs.size == 1) ccs.head
+        else CacheControl.Multiple(ccs),
+      )
 
   def allowHeaderSingleValue: Gen[Any, Allow] = Gen.fromIterable(
     List(
@@ -317,7 +327,7 @@ object HttpGen {
       ContentEncoding.Br,
       ContentEncoding.Compress,
       ContentEncoding.GZip,
-      ContentEncoding.Multiple(Chunk(ContentEncoding.Br, ContentEncoding.Compress)),
+      ContentEncoding.Multiple(NonEmptyChunk(ContentEncoding.Br, ContentEncoding.Compress)),
       ContentEncoding.Deflate,
     ),
   )
@@ -330,12 +340,13 @@ object HttpGen {
       TransferEncoding.Chunked,
       TransferEncoding.Compress,
       TransferEncoding.GZip,
-      TransferEncoding.Multiple(Chunk(TransferEncoding.Chunked, TransferEncoding.Compress)),
+      TransferEncoding.Multiple(NonEmptyChunk(TransferEncoding.Chunked, TransferEncoding.Compress)),
       TransferEncoding.Deflate,
     ),
   )
 
-  def headerNames: Gen[Any, List[String]] = Gen.listOf(Gen.alphaNumericStringBounded(2, 200))
+  def headerNames: Gen[Any, List[String]]           = Gen.listOf(Gen.alphaNumericStringBounded(2, 200))
+  def headerNames1: Gen[Any, NonEmptyChunk[String]] = Gen.chunkOf1(Gen.alphaNumericStringBounded(2, 200))
 
   def authSchemes: Gen[Any, AuthenticationScheme] =
     Gen.elements(

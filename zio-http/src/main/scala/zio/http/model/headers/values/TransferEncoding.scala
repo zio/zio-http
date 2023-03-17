@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait TransferEncoding {
   val encoding: String
@@ -63,7 +63,7 @@ object TransferEncoding {
   /**
    * Maintains a list of TransferEncoding values.
    */
-  final case class Multiple(encodings: Chunk[TransferEncoding]) extends TransferEncoding {
+  final case class Multiple(encodings: NonEmptyChunk[TransferEncoding]) extends TransferEncoding {
     override val encoding: String = encodings.map(_.encoding).mkString(",")
   }
 
@@ -89,10 +89,11 @@ object TransferEncoding {
   def parse(value: String): Either[String, TransferEncoding] = {
     val encodings = Chunk.fromArray(value.split(",")).map(findEncoding).flatten
 
-    encodings match {
-      case Chunk()       => Left("Empty TransferEncoding")
-      case Chunk(single) => Right(single)
-      case encodings     => Right(Multiple(encodings))
+    NonEmptyChunk.fromChunk(encodings) match {
+      case Some(value) =>
+        if (value.size == 1) Right(value.head)
+        else Right(Multiple(value))
+      case None        => Left("Empty TransferEncoding")
     }
   }
 

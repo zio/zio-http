@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait ContentEncoding {
   val encoding: String
@@ -63,7 +63,7 @@ object ContentEncoding {
   /**
    * Maintains a list of ContentEncoding values.
    */
-  final case class Multiple(encodings: Chunk[ContentEncoding]) extends ContentEncoding {
+  final case class Multiple(encodings: NonEmptyChunk[ContentEncoding]) extends ContentEncoding {
     override val encoding: String = encodings.map(_.encoding).mkString(",")
   }
 
@@ -89,10 +89,11 @@ object ContentEncoding {
   def parse(value: CharSequence): Either[String, ContentEncoding] = {
     val encodings = Chunk.fromArray(value.toString.split(",").map(findEncoding)).flatten
 
-    encodings match {
-      case Chunk()       => Left("Empty ContentEncoding")
-      case Chunk(single) => Right(single)
-      case encodings     => Right(Multiple(encodings))
+    NonEmptyChunk.fromChunk(encodings) match {
+      case Some(value) =>
+        if (value.size == 1) Right(value.head)
+        else Right(Multiple(value))
+      case None        => Left("Empty ContentEncoding")
     }
   }
 

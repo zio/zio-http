@@ -16,6 +16,8 @@
 
 package zio.http.model.headers.values
 
+import scala.util.control.NonFatal
+
 final case class SecWebSocketVersion(version: Int)
 
 /**
@@ -35,7 +37,7 @@ object SecWebSocketVersion {
       if (v >= 0 && v <= 13) Right(SecWebSocketVersion(v))
       else Left("Invalid Sec-WebSocket-Version header")
     } catch {
-      case _: Throwable => Left("Invalid Sec-WebSocket-Version header")
+      case NonFatal(_) => Left("Invalid Sec-WebSocket-Version header")
     }
 
   def render(secWebSocketVersion: SecWebSocketVersion): String =

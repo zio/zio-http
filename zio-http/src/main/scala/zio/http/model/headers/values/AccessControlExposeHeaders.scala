@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 /**
  * The Access-Control-Expose-Headers response header allows a server to indicate
@@ -27,7 +27,7 @@ sealed trait AccessControlExposeHeaders
 
 object AccessControlExposeHeaders {
 
-  final case class Some(values: Chunk[CharSequence]) extends AccessControlExposeHeaders
+  final case class Some(values: NonEmptyChunk[CharSequence]) extends AccessControlExposeHeaders
 
   case object All extends AccessControlExposeHeaders
 
@@ -39,13 +39,16 @@ object AccessControlExposeHeaders {
         case ""          => None
         case "*"         => All
         case headerNames =>
-          Some(
+          NonEmptyChunk.fromChunk(
             Chunk.fromArray(
               headerNames
                 .split(",")
                 .map(_.trim),
             ),
-          )
+          ) match {
+            case scala.Some(value) => Some(value)
+            case scala.None        => None
+          }
       }
     }
   }

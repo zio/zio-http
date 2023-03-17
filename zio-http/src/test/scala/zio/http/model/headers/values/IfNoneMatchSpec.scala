@@ -17,7 +17,7 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Chunk, Scope}
+import zio.{NonEmptyChunk, Scope}
 
 object IfNoneMatchSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("IfNoneMatch suite")(
@@ -25,16 +25,16 @@ object IfNoneMatchSpec extends ZIOSpecDefault {
       val ifMatch = IfNoneMatch.parse("*")
       assertTrue(ifMatch == Right(IfNoneMatch.Any))
     },
-    test("IfMatch '' should be parsed correctly") {
+    test("IfMatch '' should be a failure") {
       val ifMatch = IfNoneMatch.parse("")
-      assertTrue(ifMatch == Right(IfNoneMatch.None))
+      assertTrue(ifMatch.isLeft)
     },
     test("IfMatch 'etag1, etag2' should be parsed correctly") {
       val ifMatch = IfNoneMatch.parse("etag1, etag2")
-      assertTrue(ifMatch == Right(IfNoneMatch.ETags(Chunk("etag1", "etag2"))))
+      assertTrue(ifMatch == Right(IfNoneMatch.ETags(NonEmptyChunk("etag1", "etag2"))))
     },
     test("IfMatch 'etag1, etag2' should be rendered correctly") {
-      val ifMatch = IfNoneMatch.ETags(Chunk("etag1", "etag2"))
+      val ifMatch = IfNoneMatch.ETags(NonEmptyChunk("etag1", "etag2"))
       assertTrue(IfNoneMatch.render(ifMatch) == "etag1,etag2")
     },
   )

@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait AccessControlAllowHeaders
 
@@ -27,7 +27,7 @@ sealed trait AccessControlAllowHeaders
  */
 object AccessControlAllowHeaders {
 
-  final case class Some(values: Chunk[CharSequence]) extends AccessControlAllowHeaders
+  final case class Some(values: NonEmptyChunk[CharSequence]) extends AccessControlAllowHeaders
 
   case object All extends AccessControlAllowHeaders
 
@@ -39,13 +39,16 @@ object AccessControlAllowHeaders {
         case ""          => None
         case "*"         => All
         case headerNames =>
-          Some(
+          NonEmptyChunk.fromChunk(
             Chunk.fromArray(
               headerNames
                 .split(",")
                 .map(_.trim),
             ),
-          )
+          ) match {
+            case scala.Some(value) => Some(value)
+            case scala.None        => None
+          }
       }
     }
 

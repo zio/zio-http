@@ -19,7 +19,7 @@ package zio.http.model.headers.values
 import scala.annotation.tailrec
 import scala.util.Try
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 /**
  * CacheControl header value.
@@ -86,7 +86,7 @@ object CacheControl {
   /**
    * Maintains a chunk of CacheControl values.
    */
-  final case class Multiple(values: Chunk[CacheControl]) extends CacheControl {
+  final case class Multiple(values: NonEmptyChunk[CacheControl]) extends CacheControl {
     override val raw: String = values.map(_.raw).mkString(",")
   }
 
@@ -183,11 +183,11 @@ object CacheControl {
   def parse(value: String): Either[String, CacheControl] = {
     val index = value.indexOf(",")
 
-    @tailrec def loop(value: String, index: Int, acc: Multiple): Either[String, Multiple] = {
+    @tailrec def loop(value: String, index: Int, acc: Chunk[CacheControl]): Either[String, Chunk[CacheControl]] = {
       if (index == -1) {
         identifyCacheControl(value) match {
           case Left(value)         => Left(value)
-          case Right(cacheControl) => Right(acc.copy(values = acc.values :+ cacheControl))
+          case Right(cacheControl) => Right(acc :+ cacheControl)
         }
       } else {
         val valueChunk = value.substring(0, index)
@@ -199,7 +199,7 @@ object CacheControl {
             loop(
               remaining,
               nextIndex,
-              acc.copy(values = acc.values :+ cacheControl),
+              acc :+ cacheControl,
             )
         }
       }
@@ -208,7 +208,12 @@ object CacheControl {
     if (index == -1)
       identifyCacheControl(value)
     else
-      loop(value, index, Multiple(Chunk.empty[CacheControl]))
+      loop(value, index, Chunk.empty[CacheControl]).flatMap { cacheControls =>
+        NonEmptyChunk.fromChunk(cacheControls) match {
+          case None        => Left("Cache-Control header must contain at least one value")
+          case Some(value) => Right(Multiple(value))
+        }
+      }
   }
 
   def render(value: CacheControl): String = {

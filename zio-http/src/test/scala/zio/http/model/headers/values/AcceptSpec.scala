@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.NonEmptyChunk
 import zio.test._
 
 import zio.http.model.headers.values.Accept.MediaTypeWithQFactor
@@ -31,27 +31,27 @@ object AcceptSpec extends ZIOSpecDefault with MimeDB {
     },
     test("parsing of valid Accept values") {
       assertTrue(
-        Accept.parse("text/html") == Right(Accept(Chunk(MediaTypeWithQFactor(text.`html`, None)))),
+        Accept.parse("text/html") == Right(Accept(NonEmptyChunk(MediaTypeWithQFactor(text.`html`, None)))),
       ) &&
       assertTrue(
         Accept.parse("text/html;q=0.8") ==
-          Right(Accept(Chunk(MediaTypeWithQFactor(text.`html`.withQFactor(0.8), Some(0.8))))),
+          Right(Accept(NonEmptyChunk(MediaTypeWithQFactor(text.`html`.withQFactor(0.8), Some(0.8))))),
       ) &&
       assertTrue(
-        Accept.parse("text/*") == Right(Accept(Chunk(MediaTypeWithQFactor(MediaType("text", "*"), None)))),
+        Accept.parse("text/*") == Right(Accept(NonEmptyChunk(MediaTypeWithQFactor(MediaType("text", "*"), None)))),
       ) &&
       assertTrue(
-        Accept.parse("*/*") == Right(Accept(Chunk(MediaTypeWithQFactor(MediaType("*", "*"), None)))),
+        Accept.parse("*/*") == Right(Accept(NonEmptyChunk(MediaTypeWithQFactor(MediaType("*", "*"), None)))),
       ) &&
       assertTrue(
         Accept.parse("*/*;q=0.1") ==
-          Right(Accept(Chunk(MediaTypeWithQFactor(MediaType("*", "*").withQFactor(0.1), Some(0.1))))),
+          Right(Accept(NonEmptyChunk(MediaTypeWithQFactor(MediaType("*", "*").withQFactor(0.1), Some(0.1))))),
       ) &&
       assertTrue(
         Accept.parse("text/html, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8") ==
           Right(
             Accept(
-              Chunk(
+              NonEmptyChunk(
                 MediaTypeWithQFactor(text.`html`, None),
                 MediaTypeWithQFactor(application.`xhtml+xml`, None),
                 MediaTypeWithQFactor(application.`xml`.withQFactor(0.9), Some(0.9)),

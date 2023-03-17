@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 import zio.http.model.MediaType
 
@@ -24,29 +24,32 @@ import zio.http.model.MediaType
  * The Accept-Patch response HTTP header advertises which media-type the server
  * is able to understand in a PATCH request.
  */
-final case class AcceptPatch(mediaTypes: Chunk[MediaType])
+final case class AcceptPatch(mediaTypes: NonEmptyChunk[MediaType])
 
 object AcceptPatch {
 
   def parse(value: String): Either[String, AcceptPatch] =
     if (value.nonEmpty) {
-      val parsedMediaTypes = Chunk.fromArray(
-        value
-          .split(",")
-          .map(mediaTypeStr =>
-            MediaType
-              .forContentType(mediaTypeStr)
-              .getOrElse(
-                MediaType
-                  .parseCustomMediaType(mediaTypeStr)
-                  .orNull,
-              ),
-          ),
-      )
-      if (parsedMediaTypes.length == parsedMediaTypes.count(_ != null))
-        Right(AcceptPatch(parsedMediaTypes))
-      else
-        Left("Invalid Accept-Patch header")
+      val parsedMediaTypes = Chunk
+        .fromArray(
+          value
+            .split(",")
+            .map(mediaTypeStr =>
+              MediaType
+                .forContentType(mediaTypeStr)
+                .getOrElse(
+                  MediaType
+                    .parseCustomMediaType(mediaTypeStr)
+                    .orNull,
+                ),
+            ),
+        )
+        .filter(_ != null)
+
+      NonEmptyChunk.fromChunk(parsedMediaTypes) match {
+        case Some(value) => Right(AcceptPatch(value))
+        case None        => Left("Invalid Accept-Patch header")
+      }
     } else Left("Accept-Patch header cannot be empty")
 
   def render(acceptPatch: AcceptPatch): String =

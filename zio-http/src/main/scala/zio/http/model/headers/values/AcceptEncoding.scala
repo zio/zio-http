@@ -19,7 +19,7 @@ package zio.http.model.headers.values
 import scala.annotation.tailrec
 import scala.util.Try
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 /**
  * Represents an AcceptEncoding header value.
@@ -72,7 +72,7 @@ object AcceptEncoding {
   /**
    * Maintains a chunk of AcceptEncoding values.
    */
-  final case class Multiple(encodings: Chunk[AcceptEncoding]) extends AcceptEncoding {
+  final case class Multiple(encodings: NonEmptyChunk[AcceptEncoding]) extends AcceptEncoding {
     override val raw: String = encodings.map(_.raw).mkString(",")
   }
 
@@ -108,11 +108,11 @@ object AcceptEncoding {
   def parse(value: String): Either[String, AcceptEncoding] = {
     val index = value.indexOf(",")
 
-    @tailrec def loop(value: String, index: Int, acc: Multiple): Either[String, Multiple] = {
+    @tailrec def loop(value: String, index: Int, acc: Chunk[AcceptEncoding]): Either[String, Chunk[AcceptEncoding]] = {
       if (index == -1) {
         identifyEncodingFull(value) match {
           case Some(encoding) =>
-            Right(acc.copy(encodings = acc.encodings :+ encoding))
+            Right(acc :+ encoding)
           case None           =>
             Left(s"Invalid accept encoding ($value)")
         }
@@ -126,7 +126,7 @@ object AcceptEncoding {
             loop(
               remaining,
               nextIndex,
-              acc.copy(encodings = acc.encodings :+ encoding),
+              acc :+ encoding,
             )
           case None           =>
             Left(s"Invalid accept encoding ($valueChunk)")
@@ -140,8 +140,12 @@ object AcceptEncoding {
         case None           => Left(s"Invalid accept encoding ($value)")
       }
     else
-      loop(value, index, Multiple(Chunk.empty[AcceptEncoding]))
-
+      loop(value, index, Chunk.empty[AcceptEncoding]).flatMap { encodings =>
+        NonEmptyChunk.fromChunk(encodings) match {
+          case Some(value) => Right(Multiple(value))
+          case None        => Left(s"Invalid accept encoding ($value)")
+        }
+      }
   }
 
   def render(encoding: AcceptEncoding): String =
