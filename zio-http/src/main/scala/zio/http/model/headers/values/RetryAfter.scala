@@ -16,10 +16,12 @@
 
 package zio.http.model.headers.values
 
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, ZonedDateTime}
 
 import scala.util.{Failure, Success, Try}
+
+import zio._
 
 sealed trait RetryAfter
 
@@ -52,7 +54,7 @@ object RetryAfter {
         }
       case Success(value) =>
         if (value >= 0)
-          Right(ByDuration(Duration.ofSeconds(value)))
+          Right(ByDuration(value.seconds))
         else
           Left("Invalid RetryAfter")
     }
@@ -61,6 +63,6 @@ object RetryAfter {
     retryAfter match {
       case ByDate(date)         => formatter.format(date)
       case ByDuration(duration) =>
-        duration.toSeconds.toString
+        duration.getSeconds.toString
     }
 }

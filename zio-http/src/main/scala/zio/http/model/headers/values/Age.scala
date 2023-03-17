@@ -35,5 +35,5 @@ object Age {
     }
 
   def render(age: Age): String =
-    age.duration.toSeconds.toString
+    age.duration.getSeconds.toString
 }

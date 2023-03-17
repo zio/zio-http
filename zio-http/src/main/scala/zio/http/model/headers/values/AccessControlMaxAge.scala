@@ -16,9 +16,9 @@
 
 package zio.http.model.headers.values
 
-import java.time.Duration
-
 import scala.util.Try
+
+import zio._
 
 /**
  * The Access-Control-Max-Age response header indicates how long the results of
@@ -37,11 +37,11 @@ object AccessControlMaxAge {
 
   def parse(seconds: String): Either[String, AccessControlMaxAge] =
     Try(seconds.toLong).toOption.flatMap { long =>
-      if (long > -1) Some(AccessControlMaxAge(Duration.ofSeconds(long)))
+      if (long > -1) Some(AccessControlMaxAge(long.seconds))
       else None
     }.toRight("Invalid Access-Control-Max-Age header value")
 
   def render(accessControlMaxAge: AccessControlMaxAge): String = {
-    accessControlMaxAge.duration.toSeconds.toString
+    accessControlMaxAge.duration.getSeconds.toString
   }
 }
