@@ -27,9 +27,11 @@ object RetryAfterEncodingSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Retry-After header encoder suite")(
     test("parsing invalid retry after values") {
-      assertTrue(RetryAfter.parse("").isLeft) &&
-      assertTrue(RetryAfter.parse("-1").isLeft) &&
-      assertTrue(RetryAfter.parse("21 Oct 2015 07:28:00 GMT").isLeft)
+      assertTrue(
+        RetryAfter.parse("").isLeft,
+        RetryAfter.parse("-1").isLeft,
+        RetryAfter.parse("21 Oct 2015 07:28:00 GMT").isLeft,
+      )
     },
     test("parsing valid Retry After values") {
       assertTrue(

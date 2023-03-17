@@ -27,19 +27,22 @@ object OriginSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Origin header suite")(
       test("Origin: null") {
-        assertTrue(Origin.parse("null") == Right(Null)) &&
-        assertTrue(Origin.render(Null) == "null")
+        assertTrue(Origin.parse("null") == Right(Null), Origin.render(Null) == "null")
       },
       test("parsing of invalid Origin values") {
-        assertTrue(Origin.parse("").isLeft) &&
-        assertTrue(Origin.parse("://host").isLeft) &&
-        assertTrue(Origin.parse("http://:").isLeft) &&
-        assertTrue(Origin.parse("http://:80").isLeft) &&
-        assertTrue(Origin.parse("host:80").isLeft)
+        assertTrue(
+          Origin.parse("").isLeft,
+          Origin.parse("://host").isLeft,
+          Origin.parse("http://:").isLeft,
+          Origin.parse("http://:80").isLeft,
+          Origin.parse("host:80").isLeft,
+        )
       },
       test("parsing of valid without a port ") {
-        assertTrue(Origin.parse("http://domain") == Right(Value("http", "domain", None))) &&
-        assertTrue(Origin.parse("https://domain") == Right(Value("https", "domain", None)))
+        assertTrue(
+          Origin.parse("http://domain") == Right(Value("http", "domain", None)),
+          Origin.parse("https://domain") == Right(Value("https", "domain", None)),
+        )
       },
       test("parsing of valid Origin values") {
         check(HttpGen.genAbsoluteURL) { url =>

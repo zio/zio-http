@@ -29,8 +29,10 @@ object HostSpec extends ZIOSpecDefault {
       },
       test("parsing of valid Host values") {
         check(HttpGen.genAbsoluteLocation) { url =>
-          assertTrue(Host.parse(url.host) == Right(Host(url.host))) &&
-          assertTrue(Host.parse(s"${url.host}:${url.port}") == Right(Host(url.host, url.port)))
+          assertTrue(
+            Host.parse(url.host) == Right(Host(url.host)),
+            Host.parse(s"${url.host}:${url.port}") == Right(Host(url.host, url.port)),
+          )
         }
       },
       test("parsing of invalid Host values") {
@@ -40,8 +42,10 @@ object HostSpec extends ZIOSpecDefault {
       },
       test("parsing and encoding is symmetrical") {
         check(HttpGen.genAbsoluteLocation) { url =>
-          assertTrue(Host.render(Host.parse(url.host).toOption.get) == url.host) &&
-          assertTrue(Host.render(Host.parse(s"${url.host}:${url.port}").toOption.get) == s"${url.host}:${url.port}")
+          assertTrue(
+            Host.render(Host.parse(url.host).toOption.get) == url.host,
+            Host.render(Host.parse(s"${url.host}:${url.port}").toOption.get) == s"${url.host}:${url.port}",
+          )
 
         }
       },

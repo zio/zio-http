@@ -26,9 +26,11 @@ import zio.http.model.headers.values.AccessControlMaxAge
 object AccessControlMaxAgeSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Acc header suite")(
     test("parsing of invalid AccessControlMaxAge values returns default") {
-      assertTrue(AccessControlMaxAge.parse("").isLeft) &&
-      assertTrue(AccessControlMaxAge.parse("any string").isLeft) &&
-      assertTrue(AccessControlMaxAge.parse("-1").isLeft)
+      assertTrue(
+        AccessControlMaxAge.parse("").isLeft,
+        AccessControlMaxAge.parse("any string").isLeft,
+        AccessControlMaxAge.parse("-1").isLeft,
+      )
     },
     test("parsing of valid AccessControlMaxAge values") {
       check(Gen.long(0, 1000000)) { long =>

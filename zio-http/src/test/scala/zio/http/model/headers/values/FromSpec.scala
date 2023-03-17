@@ -23,23 +23,25 @@ object FromSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("From header suite")(
       test("parse valid value") {
-        assertTrue(From.parse("test.test.tes@email.com") == Right(From("test.test.tes@email.com"))) &&
-        assertTrue(From.parse("test==@email.com") == Right(From("test==@email.com"))) &&
-        assertTrue(From.parse("test/d@email.com") == Right(From("test/d@email.com"))) &&
-        assertTrue(From.parse("test/d@email.com") == Right(From("test/d@email.com"))) &&
         assertTrue(
+          From.parse("test.test.tes@email.com") == Right(From("test.test.tes@email.com")),
+          From.parse("test==@email.com") == Right(From("test==@email.com")),
+          From.parse("test/d@email.com") == Right(From("test/d@email.com")),
+          From.parse("test/d@email.com") == Right(From("test/d@email.com")),
           From.parse("test11!#$%&'*+-/=?^_`{|}~@email.com") == Right(From("test11!#$%&'*+-/=?^_`{|}~@email.com")),
         )
 
       },
       test("parse invalid value") {
-        assertTrue(From.parse("t").isLeft) &&
-        assertTrue(From.parse("t@p").isLeft) &&
-        assertTrue(From.parse("").isLeft) &&
-        assertTrue(From.parse("test@email").isLeft) &&
-        assertTrue(From.parse("test.com").isLeft) &&
-        assertTrue(From.parse("@email.com").isLeft) &&
-        assertTrue(From.parse("@com").isLeft)
+        assertTrue(
+          From.parse("t").isLeft,
+          From.parse("t@p").isLeft,
+          From.parse("").isLeft,
+          From.parse("test@email").isLeft,
+          From.parse("test.com").isLeft,
+          From.parse("@email.com").isLeft,
+          From.parse("@com").isLeft,
+        )
       },
     )
 }

@@ -17,7 +17,7 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
-import zio.{Chunk, NonEmptyChunk, Scope}
+import zio.{NonEmptyChunk, Scope}
 
 import zio.http.internal.HttpGen
 import zio.http.model.headers.values.ContentEncoding.Multiple
@@ -31,17 +31,17 @@ object ContentEncodingSpec extends ZIOSpecDefault {
         }
       },
       test("single value") {
-        assertTrue(ContentEncoding.parse("br") == Right(ContentEncoding.Br)) &&
-        assertTrue(ContentEncoding.parse("compress") == Right(ContentEncoding.Compress)) &&
-        assertTrue(ContentEncoding.parse("deflate") == Right(ContentEncoding.Deflate)) &&
         assertTrue(
+          ContentEncoding.parse("br") == Right(ContentEncoding.Br),
+          ContentEncoding.parse("compress") == Right(ContentEncoding.Compress),
+          ContentEncoding.parse("deflate") == Right(ContentEncoding.Deflate),
           ContentEncoding.parse("deflate, br, compress") == Right(
             ContentEncoding.Multiple(
               NonEmptyChunk(ContentEncoding.Deflate, ContentEncoding.Br, ContentEncoding.Compress),
             ),
           ),
-        ) &&
-        assertTrue(ContentEncoding.parse("garbage").isLeft)
+          ContentEncoding.parse("garbage").isLeft,
+        )
 
       },
       test("edge cases") {
@@ -49,8 +49,6 @@ object ContentEncodingSpec extends ZIOSpecDefault {
           ContentEncoding
             .parse(" ")
             .isLeft,
-        ) &&
-        assertTrue(
           ContentEncoding.parse(
             ContentEncoding.render(
               Multiple(
@@ -62,8 +60,6 @@ object ContentEncodingSpec extends ZIOSpecDefault {
               NonEmptyChunk(ContentEncoding.Deflate, ContentEncoding.Br, ContentEncoding.Compress),
             ),
           ),
-        ) &&
-        assertTrue(
           ContentEncoding.parse(
             ContentEncoding.render(
               Multiple(

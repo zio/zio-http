@@ -27,11 +27,13 @@ object ExpiresSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Expires header suite")(
     test("parsing of invalid expires values") {
-      assertTrue(Expires.parse("").isLeft) &&
-      assertTrue(Expires.parse("any string").isLeft) &&
-      assertTrue(Expires.parse("Wed 21 Oct 2015 07:28:00").isLeft) &&
-      assertTrue(Expires.parse("21 Oct 2015 07:28:00 GMT").isLeft)
-      assertTrue(Expires.parse("Wed 21 Oct 2015 07:28:00 GMT").isLeft)
+      assertTrue(
+        Expires.parse("").isLeft,
+        Expires.parse("any string").isLeft,
+        Expires.parse("Wed 21 Oct 2015 07:28:00").isLeft,
+        Expires.parse("21 Oct 2015 07:28:00 GMT").isLeft,
+        Expires.parse("Wed 21 Oct 2015 07:28:00 GMT").isLeft,
+      )
     },
     test("parsing of valid Expires values") {
       assertTrue(

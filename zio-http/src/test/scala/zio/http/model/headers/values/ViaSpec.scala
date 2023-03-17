@@ -17,7 +17,7 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Chunk, NonEmptyChunk, Scope}
+import zio.{NonEmptyChunk, Scope}
 
 import zio.http.model.headers.values.Via.ReceivedProtocol
 

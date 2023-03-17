@@ -22,14 +22,18 @@ import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 object XFrameOptionsSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("XFrameOptions suite")(
     test("parsing of invalid XFrameOptions values") {
-      assertTrue(XFrameOptions.parse("").isLeft) &&
-      assertTrue(XFrameOptions.parse("any string").isLeft) &&
-      assertTrue(XFrameOptions.parse("DENY ") == Right(XFrameOptions.Deny)) &&
-      assertTrue(XFrameOptions.parse("SAMEORIGIN ") == Right(XFrameOptions.SameOrigin))
+      assertTrue(
+        XFrameOptions.parse("").isLeft,
+        XFrameOptions.parse("any string").isLeft,
+        XFrameOptions.parse("DENY ") == Right(XFrameOptions.Deny),
+        XFrameOptions.parse("SAMEORIGIN ") == Right(XFrameOptions.SameOrigin),
+      )
     },
     test("rendering of XFrameOptions values") {
-      assertTrue(XFrameOptions.render(XFrameOptions.Deny) == "DENY") &&
-      assertTrue(XFrameOptions.render(XFrameOptions.SameOrigin) == "SAMEORIGIN")
+      assertTrue(
+        XFrameOptions.render(XFrameOptions.Deny) == "DENY",
+        XFrameOptions.render(XFrameOptions.SameOrigin) == "SAMEORIGIN",
+      )
     },
   )
 }

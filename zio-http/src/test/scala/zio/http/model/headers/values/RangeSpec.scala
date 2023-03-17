@@ -22,38 +22,33 @@ import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 object RangeSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Range suite")(
     test("parsing of invalid Range values") {
-      assertTrue(Range.parse("").isLeft) &&
-      assertTrue(Range.parse("something").isLeft)
+      assertTrue(Range.parse("").isLeft, Range.parse("something").isLeft)
     },
     test("parsing and encoding is symmetrical") {
       val value = Range.Single("bytes", 0L, Some(100L))
       assertTrue(Range.parse(Range.render(value)) == Right(value))
     },
     test("parsing of valid Range values") {
-      assertTrue(Range.parse("bytes=0-100") == Right(Range.Single("bytes", 0L, Some(100L)))) &&
-      assertTrue(Range.parse("bytes=0-") == Right(Range.Single("bytes", 0L, None))) &&
       assertTrue(
+        Range.parse("bytes=0-100") == Right(Range.Single("bytes", 0L, Some(100L))),
+        Range.parse("bytes=0-") == Right(Range.Single("bytes", 0L, None)),
         Range.parse("bytes=0-100,200-300") == Right(
           Range.Multiple("bytes", List((0L, Some(100L)), (200L, Some(300L)))),
         ),
-      ) &&
-      assertTrue(
         Range.parse("bytes=0-100,200-") == Right(Range.Multiple("bytes", List((0L, Some(100L)), (200L, None)))),
-      ) &&
-      assertTrue(Range.parse("bytes=-100") == Right(Range.Suffix("bytes", 100L)))
+        Range.parse("bytes=-100") == Right(Range.Suffix("bytes", 100L)),
+      )
     },
     test("render Range values") {
-      assertTrue(Range.render(Range.Single("bytes", 0L, Some(100L))) == "bytes=0-100") &&
-      assertTrue(Range.render(Range.Single("bytes", 0L, None)) == "bytes=0-") &&
       assertTrue(
+        Range.render(Range.Single("bytes", 0L, Some(100L))) == "bytes=0-100",
+        Range.render(Range.Single("bytes", 0L, None)) == "bytes=0-",
         Range.render(
           Range.Multiple("bytes", List((0L, Some(100L)), (200L, Some(300L)))),
         ) == "bytes=0-100,200-300",
-      ) &&
-      assertTrue(
         Range.render(Range.Multiple("bytes", List((0L, Some(100L)), (200L, None)))) == "bytes=0-100,200-",
-      ) &&
-      assertTrue(Range.render(Range.Suffix("bytes", 100L)) == "bytes=-100")
+        Range.render(Range.Suffix("bytes", 100L)) == "bytes=-100",
+      )
     },
   )
 }

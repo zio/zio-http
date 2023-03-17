@@ -25,8 +25,8 @@ object ProxyAuthenticateSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("ProxyAuthenticateSpec")(
       test("parsing of invalid inputs") {
-        assertTrue(ProxyAuthenticate.parse("invalid").isLeft) &&
         assertTrue(
+          ProxyAuthenticate.parse("invalid").isLeft,
           ProxyAuthenticate.parse("!123456 realm=somerealm").isLeft,
         )
       },

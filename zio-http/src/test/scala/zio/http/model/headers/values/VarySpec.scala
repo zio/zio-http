@@ -17,23 +17,25 @@
 package zio.http.model.headers.values
 
 import zio.test._
-import zio.{Chunk, NonEmptyChunk, Scope}
+import zio.{NonEmptyChunk, Scope}
 
 object VarySpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Vary header suite")(
       test("parse valid values") {
-        assertTrue(Vary.parse("*") == Right(Vary.Star)) &&
         assertTrue(
+          Vary.parse("*") == Right(Vary.Star),
           Vary.parse("SOMEVALUE, ANOTHERVALUE") == Right(Vary.Headers(NonEmptyChunk("somevalue", "anothervalue"))),
-        ) &&
-        assertTrue(Vary.parse("some,another") == Right(Vary.Headers(NonEmptyChunk("some", "another")))) &&
-        assertTrue(Vary.parse("some") == Right(Vary.Headers(NonEmptyChunk("some"))))
+          Vary.parse("some,another") == Right(Vary.Headers(NonEmptyChunk("some", "another"))),
+          Vary.parse("some") == Right(Vary.Headers(NonEmptyChunk("some"))),
+        )
       },
       test("parse invalid value") {
-        assertTrue(Vary.parse(",").isLeft) &&
-        assertTrue(Vary.parse("").isLeft) &&
-        assertTrue(Vary.parse(" ").isLeft)
+        assertTrue(
+          Vary.parse(",").isLeft,
+          Vary.parse("").isLeft,
+          Vary.parse(" ").isLeft,
+        )
       },
     )
 }

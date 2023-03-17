@@ -25,12 +25,16 @@ object AcceptRangesSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Accept ranges header suite")(
       test("parsing valid values") {
-        assertTrue(AcceptRanges.parse("bytes") == Right(AcceptRanges.Bytes)) &&
-        assertTrue(AcceptRanges.parse("none") == Right(AcceptRanges.None))
+        assertTrue(
+          AcceptRanges.parse("bytes") == Right(AcceptRanges.Bytes),
+          AcceptRanges.parse("none") == Right(AcceptRanges.None),
+        )
       },
       test("parsing invalid values") {
-        assertTrue(AcceptRanges.parse("").isLeft) &&
-        assertTrue(AcceptRanges.parse("strings").isLeft)
+        assertTrue(
+          AcceptRanges.parse("").isLeft,
+          AcceptRanges.parse("strings").isLeft,
+        )
       },
       test("accept ranges header must be symmetrical") {
         check(HttpGen.acceptRanges) { acceptRanges =>

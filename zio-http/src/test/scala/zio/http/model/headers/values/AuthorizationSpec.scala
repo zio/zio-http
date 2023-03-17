@@ -28,8 +28,10 @@ object AuthorizationSpec extends ZIOSpecDefault with MimeDB {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Authorization header suite")(
       test("parsing of invalid Authorization values") {
-        assertTrue(Authorization.parse("").isLeft) &&
-        assertTrue(Authorization.parse("something").isLeft)
+        assertTrue(
+          Authorization.parse("").isLeft,
+          Authorization.parse("something").isLeft,
+        )
       },
       test("parsing and encoding is symmetrical") {
         val value = Authorization(

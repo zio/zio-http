@@ -17,7 +17,7 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
-import zio.{Chunk, NonEmptyChunk, Scope}
+import zio.{NonEmptyChunk, Scope}
 
 import zio.http.internal.HttpGen
 import zio.http.model.headers.values.TransferEncoding.Multiple
@@ -31,17 +31,17 @@ object TransferEncodingSpec extends ZIOSpecDefault {
         }
       },
       test("single value") {
-        assertTrue(TransferEncoding.parse("chunked") == Right(TransferEncoding.Chunked)) &&
-        assertTrue(TransferEncoding.parse("compress") == Right(TransferEncoding.Compress)) &&
-        assertTrue(TransferEncoding.parse("deflate") == Right(TransferEncoding.Deflate)) &&
         assertTrue(
+          TransferEncoding.parse("chunked") == Right(TransferEncoding.Chunked),
+          TransferEncoding.parse("compress") == Right(TransferEncoding.Compress),
+          TransferEncoding.parse("deflate") == Right(TransferEncoding.Deflate),
           TransferEncoding.parse("deflate, chunked, compress") == Right(
             TransferEncoding.Multiple(
               NonEmptyChunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
             ),
           ),
-        ) &&
-        assertTrue(TransferEncoding.parse("garbage").isLeft)
+          TransferEncoding.parse("garbage").isLeft,
+        )
 
       },
       test("edge cases") {
@@ -49,8 +49,6 @@ object TransferEncodingSpec extends ZIOSpecDefault {
           TransferEncoding
             .parse(" ")
             .isLeft,
-        ) &&
-        assertTrue(
           TransferEncoding.parse(
             TransferEncoding.render(
               Multiple(
@@ -66,8 +64,6 @@ object TransferEncodingSpec extends ZIOSpecDefault {
               NonEmptyChunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
             ),
           ),
-        ) &&
-        assertTrue(
           TransferEncoding.parse(
             TransferEncoding.render(
               Multiple(
