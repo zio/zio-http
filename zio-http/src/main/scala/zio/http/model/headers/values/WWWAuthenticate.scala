@@ -17,6 +17,7 @@
 package zio.http.model.headers.values
 
 import scala.collection.mutable
+import scala.util.Try
 
 sealed trait WWWAuthenticate
 
@@ -57,75 +58,75 @@ object WWWAuthenticate {
   ) extends WWWAuthenticate
   final case class Unknown(scheme: String, realm: String, params: Map[String, String]) extends WWWAuthenticate
 
-  private val challengeRegEx        = """(\w+) (.*)""".r
-  private val auth                  = """(\w+)=(?:"([^"]+)"|([^,]+))""".r
-  private final val nonQuotedValues = Set("max_age", "stale", "userhash", "algorithm", "charset")
+  private val challengeRegEx  = """(\w+) (.*)""".r
+  private val auth            = """(\w+)=(?:"([^"]+)"|([^,]+))""".r
+  private val nonQuotedValues = Set("max_age", "stale", "userhash", "algorithm", "charset")
 
-  def toWWWAuthenticate(value: String): WWWAuthenticate = {
+  def toWWWAuthenticate(value: String): Either[String, WWWAuthenticate] =
+    Try {
+      val challengeRegEx(scheme, challenge) = value
+      val params                            = auth
+        .findAllMatchIn(challenge)
+        .map { m =>
+          val key   = m.group(1)
+          val value = Option(m.group(2)).getOrElse(m.group(3))
+          key -> value
+        }
+        .toMap
 
-    val challengeRegEx(scheme, challenge) = value
-    val params                            = auth
-      .findAllMatchIn(challenge)
-      .map { m =>
-        val key   = m.group(1)
-        val value = Option(m.group(2)).getOrElse(m.group(3))
-        key -> value
+      AuthenticationScheme.toAuthenticationScheme(scheme).map {
+        case AuthenticationScheme.Basic              =>
+          Basic(params("realm"), params.getOrElse("charset", "UTF-8"))
+        case AuthenticationScheme.Bearer             =>
+          Bearer(
+            realm = params("realm"),
+            scope = params.get("scope"),
+            error = params.get("error"),
+            errorDescription = params.get("error_description"),
+          )
+        case AuthenticationScheme.Digest             =>
+          Digest(
+            realm = params.get("realm"),
+            domain = params.get("domain"),
+            nonce = params.get("nonce"),
+            opaque = params.get("opaque"),
+            stale = params.get("stale").map(_.toBoolean),
+            algorithm = params.get("algorithm"),
+            qop = params.get("qop"),
+            charset = params.get("charset"),
+            userhash = params.get("userhash").map(_.toBoolean),
+          )
+        case AuthenticationScheme.HOBA               =>
+          HOBA(
+            realm = params.get("realm"),
+            challenge = params("challenge"),
+            maxAge = params("max_age").toInt,
+          )
+        case AuthenticationScheme.Mutual             =>
+          Mutual(
+            realm = params("realm"),
+            error = params.get("error"),
+            errorDescription = params.get("error_description"),
+          )
+        case AuthenticationScheme.Negotiate          =>
+          Negotiate(Some(challenge))
+        case AuthenticationScheme.Scram              =>
+          SCRAM(
+            realm = params("realm"),
+            sid = params("sid"),
+            data = params("data"),
+          )
+        case AuthenticationScheme.`AWS4-HMAC-SHA256` =>
+          `AWS4-HMAC-SHA256`(
+            realm = params("realm"),
+            credentials = params.get("credentials"),
+            signedHeaders = params("signedHeaders"),
+            signature = params("signature"),
+          )
+        case _                                       =>
+          Unknown(scheme, params("realm"), params)
       }
-      .toMap
-
-    AuthenticationScheme.toAuthenticationScheme(scheme) match {
-      case AuthenticationScheme.Basic              =>
-        Basic(params("realm"), params.getOrElse("charset", "UTF-8"))
-      case AuthenticationScheme.Bearer             =>
-        Bearer(
-          realm = params("realm"),
-          scope = params.get("scope"),
-          error = params.get("error"),
-          errorDescription = params.get("error_description"),
-        )
-      case AuthenticationScheme.Digest             =>
-        Digest(
-          realm = params.get("realm"),
-          domain = params.get("domain"),
-          nonce = params.get("nonce"),
-          opaque = params.get("opaque"),
-          stale = params.get("stale").map(_.toBoolean),
-          algorithm = params.get("algorithm"),
-          qop = params.get("qop"),
-          charset = params.get("charset"),
-          userhash = params.get("userhash").map(_.toBoolean),
-        )
-      case AuthenticationScheme.HOBA               =>
-        HOBA(
-          realm = params.get("realm"),
-          challenge = params("challenge"),
-          maxAge = params("max_age").toInt,
-        )
-      case AuthenticationScheme.Mutual             =>
-        Mutual(
-          realm = params("realm"),
-          error = params.get("error"),
-          errorDescription = params.get("error_description"),
-        )
-      case AuthenticationScheme.Negotiate          =>
-        Negotiate(Some(challenge))
-      case AuthenticationScheme.Scram              =>
-        SCRAM(
-          realm = params("realm"),
-          sid = params("sid"),
-          data = params("data"),
-        )
-      case AuthenticationScheme.`AWS4-HMAC-SHA256` =>
-        `AWS4-HMAC-SHA256`(
-          realm = params("realm"),
-          credentials = params.get("credentials"),
-          signedHeaders = params("signedHeaders"),
-          signature = params("signature"),
-        )
-      case _                                       =>
-        Unknown(scheme, params("realm"), params)
-    }
-  }
+    }.toEither.left.map(_ => s"Invalid WWW-Authenticate header").flatten
 
   def fromWWWAuthenticate(wwwAuthenticate: WWWAuthenticate): String = {
     val (scheme, params) = wwwAuthenticate match {

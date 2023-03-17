@@ -18,30 +18,27 @@ package zio.http.model.headers.values
 
 import scala.util.Try
 
-sealed trait Host
-object Host {
-  final case class HostValue(hostAddress: String, port: Option[Int] = None) extends Host
-  object HostValue {
-    def apply(hostAddress: String, port: Int): HostValue = HostValue(hostAddress, Some(port))
-  }
-  case object EmptyHostValue extends Host
-  case object InvalidHostValue extends Host
+import zio.Chunk
 
-  private def parse(value: String): Host = {
-    value.split(":").toList match {
-      case host :: portS :: Nil => Try(portS.toInt).fold(_ => InvalidHostValue, port => HostValue(host, Some(port)))
-      case host :: Nil          => HostValue(host)
-      case _                    => InvalidHostValue
+final case class Host(hostAddress: String, port: Option[Int] = None)
+
+object Host {
+  def apply(hostAddress: String, port: Int): Host = Host(hostAddress, Some(port))
+
+  def toHost(value: String): Either[String, Host] = {
+    Chunk.fromArray(value.split(":")) match {
+      case Chunk(host, portS)           =>
+        Try(portS.toInt).map(port => Host(host, Some(port))).toEither.left.map(_ => "Invalid Host header")
+      case Chunk(host) if host.nonEmpty =>
+        Right(Host(host))
+      case _                            =>
+        Left("Invalid Host header")
     }
   }
 
   def fromHost(host: Host): String =
     host match {
-      case HostValue(address, None)          => address
-      case HostValue(address, Some(port))    => s"$address:$port"
-      case EmptyHostValue | InvalidHostValue => ""
+      case Host(address, None)       => address
+      case Host(address, Some(port)) => s"$address:$port"
     }
-
-  def toHost(value: String): Host =
-    if (value.isEmpty) EmptyHostValue else parse(value)
 }

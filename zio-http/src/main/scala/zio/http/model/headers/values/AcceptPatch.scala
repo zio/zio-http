@@ -24,20 +24,14 @@ import zio.http.model.MediaType
  * The Accept-Patch response HTTP header advertises which media-type the server
  * is able to understand in a PATCH request.
  */
-sealed trait AcceptPatch
+final case class AcceptPatch(mediaTypes: Chunk[MediaType])
 
 object AcceptPatch {
 
-  case class AcceptPatchValue(mediaTypes: Chunk[MediaType]) extends AcceptPatch
+  def fromAcceptPatch(acceptPatch: AcceptPatch): String =
+    acceptPatch.mediaTypes.map(_.fullType).mkString(",")
 
-  case object InvalidAcceptPatchValue extends AcceptPatch
-
-  def fromAcceptPatch(acceptPatch: AcceptPatch): String = acceptPatch match {
-    case AcceptPatchValue(mediaTypes) => mediaTypes.map(_.fullType).mkString(",")
-    case InvalidAcceptPatchValue      => ""
-  }
-
-  def toAcceptPatch(value: String): AcceptPatch = {
+  def toAcceptPatch(value: String): Either[String, AcceptPatch] =
     if (value.nonEmpty) {
       val parsedMediaTypes = Chunk.fromArray(
         value
@@ -53,10 +47,9 @@ object AcceptPatch {
           ),
       )
       if (parsedMediaTypes.length == parsedMediaTypes.count(_ != null))
-        AcceptPatchValue(parsedMediaTypes)
+        Right(AcceptPatch(parsedMediaTypes))
       else
-        InvalidAcceptPatchValue
-    } else InvalidAcceptPatchValue
-  }
+        Left("Invalid Accept-Patch header")
+    } else Left("Accept-Patch header cannot be empty")
 
 }

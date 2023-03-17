@@ -18,7 +18,7 @@ package zio.http.model.headers.values
 
 import zio.Chunk
 
-sealed trait SecWebSocketProtocol
+final case class SecWebSocketProtocol(subProtocols: Chunk[String])
 
 /**
  * The Sec-WebSocket-Protocol header field is used in the WebSocket opening
@@ -33,16 +33,10 @@ sealed trait SecWebSocketProtocol
 object SecWebSocketProtocol {
   // https://www.iana.org/assignments/websocket/websocket.xml#subprotocol-name
 
-  final case class Protocols(subProtocols: Chunk[String]) extends SecWebSocketProtocol
-  case object InvalidProtocol                             extends SecWebSocketProtocol
+  def toSecWebSocketProtocol(subProtocols: String): Either[String, SecWebSocketProtocol] =
+    if (subProtocols.trim.isEmpty) Left("Invalid Sec-WebSocket-Protocol header")
+    else Right(SecWebSocketProtocol(Chunk.fromArray(subProtocols.split(",").map(_.trim))))
 
-  def toSecWebSocketProtocol(subProtocols: String): SecWebSocketProtocol =
-    if (subProtocols.trim.isEmpty) InvalidProtocol
-    else Protocols(Chunk.fromArray(subProtocols.split(",").map(_.trim)))
-
-  def fromSecWebSocketProtocol(subProtocols: SecWebSocketProtocol): String =
-    subProtocols match {
-      case Protocols(subProtocols) => subProtocols.mkString(", ")
-      case InvalidProtocol         => ""
-    }
+  def fromSecWebSocketProtocol(secWebSocketProtocol: SecWebSocketProtocol): String =
+    secWebSocketProtocol.subProtocols.mkString(", ")
 }

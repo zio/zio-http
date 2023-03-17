@@ -26,13 +26,13 @@ object AcceptPatchSpec extends ZIOSpecDefault with MimeDB {
   override def spec = suite("AcceptPatch header suite")(
     test("AcceptPatch header transformation must be symmetrical") {
       assertTrue(
-        AcceptPatch.toAcceptPatch(AcceptPatch.fromAcceptPatch(AcceptPatchValue(Chunk(text.`html`))))
-          == AcceptPatchValue(Chunk(text.`html`)),
+        AcceptPatch.toAcceptPatch(AcceptPatch.fromAcceptPatch(AcceptPatch(Chunk(text.`html`))))
+          == Right(AcceptPatch(Chunk(text.`html`))),
       )
     },
     test("invalid values parsing") {
-      assertTrue(AcceptPatch.toAcceptPatch("invalidString") == InvalidAcceptPatchValue) &&
-      assertTrue(AcceptPatch.toAcceptPatch("") == InvalidAcceptPatchValue)
+      assertTrue(AcceptPatch.toAcceptPatch("invalidString").isLeft) &&
+      assertTrue(AcceptPatch.toAcceptPatch("").isLeft)
     },
   )
 }

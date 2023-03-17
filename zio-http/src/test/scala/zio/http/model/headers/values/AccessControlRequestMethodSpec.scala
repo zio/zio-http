@@ -26,8 +26,10 @@ object AccessControlRequestMethodSpec extends ZIOSpecDefault {
     test("AccessControlRequestMethod.toAccessControlRequestMethod") {
       val method = "connect"
       assertTrue(
-        AccessControlRequestMethod.toAccessControlRequestMethod(method) == AccessControlRequestMethod.RequestMethod(
-          Method.CONNECT,
+        AccessControlRequestMethod.toAccessControlRequestMethod(method) == Right(
+          AccessControlRequestMethod(
+            Method.CONNECT,
+          ),
         ),
       )
     },
@@ -35,20 +37,20 @@ object AccessControlRequestMethodSpec extends ZIOSpecDefault {
       val method = Method.CONNECT
       assertTrue(
         AccessControlRequestMethod.fromAccessControlRequestMethod(
-          AccessControlRequestMethod.RequestMethod(method),
+          AccessControlRequestMethod(method),
         ) == method.name,
       )
     },
     test("AccessControlRequestMethod.toAccessControlRequestMethod invalid input") {
       val method = "some dummy data"
       assertTrue(
-        AccessControlRequestMethod.toAccessControlRequestMethod(method) == AccessControlRequestMethod.InvalidMethod,
+        AccessControlRequestMethod.toAccessControlRequestMethod(method).isLeft,
       )
     },
     test("AccessControlRequestMethod.toAccessControlRequestMethod empty input") {
       val method = ""
       assertTrue(
-        AccessControlRequestMethod.toAccessControlRequestMethod(method) == AccessControlRequestMethod.InvalidMethod,
+        AccessControlRequestMethod.toAccessControlRequestMethod(method).isLeft,
       )
     },
   )

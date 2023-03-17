@@ -19,7 +19,7 @@ package zio.http.model.headers.values
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 
-sealed trait IfUnmodifiedSince
+final case class IfUnmodifiedSince(value: ZonedDateTime)
 
 /**
  * If-Unmodified-Since request header makes the request for the resource
@@ -28,23 +28,18 @@ sealed trait IfUnmodifiedSince
  * modified after the date specified by this HTTP header.
  */
 object IfUnmodifiedSince {
-  final case class UnmodifiedSince(value: ZonedDateTime) extends IfUnmodifiedSince
-
-  case object InvalidUnmodifiedSince extends IfUnmodifiedSince
 
   private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
-  def toIfUnmodifiedSince(value: String): IfUnmodifiedSince =
+  def toIfUnmodifiedSince(value: String): Either[String, IfUnmodifiedSince] =
     try {
-      UnmodifiedSince(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC))
+      Right(IfUnmodifiedSince(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC)))
     } catch {
       case _: Throwable =>
-        InvalidUnmodifiedSince
+        Left("Invalid If-Unmodified-Since header")
     }
 
-  def fromIfUnmodifiedSince(ifModifiedSince: IfUnmodifiedSince): String = ifModifiedSince match {
-    case UnmodifiedSince(value) => formatter.format(value)
-    case InvalidUnmodifiedSince => ""
-  }
+  def fromIfUnmodifiedSince(ifModifiedSince: IfUnmodifiedSince): String =
+    formatter.format(ifModifiedSince.value)
 
 }

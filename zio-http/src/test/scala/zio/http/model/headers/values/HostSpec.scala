@@ -16,36 +16,34 @@
 
 package zio.http.model.headers.values
 
+import zio.Scope
 import zio.test._
 
 import zio.http.internal.HttpGen
-import zio.http.model.headers.values.Host.{HostValue, InvalidHostValue}
 
 object HostSpec extends ZIOSpecDefault {
-  override def spec = suite("Host header suite")(
-    test("Empty Host") {
-      assertTrue(Host.toHost("") == Host.EmptyHostValue) &&
-      assertTrue(Host.fromHost(Host.EmptyHostValue) == "")
-    },
-    test("parsing of valid Host values") {
-      check(HttpGen.genAbsoluteLocation) { url =>
-        assertTrue(Host.toHost(url.host) == HostValue(url.host))
-        assertTrue(Host.toHost(s"${url.host}:${url.port}") == HostValue(url.host, url.port))
-      }
-    },
-    test("parsing of invalid Host values") {
-      assertTrue(Host.toHost("random.com:ds43") == InvalidHostValue)
-      assertTrue(Host.toHost("random.com:ds43:4434") == InvalidHostValue)
+  override def spec: Spec[TestEnvironment with Scope, Any] =
+    suite("Host header suite")(
+      test("Empty Host") {
+        assertTrue(Host.toHost("").isLeft)
+      },
+      test("parsing of valid Host values") {
+        check(HttpGen.genAbsoluteLocation) { url =>
+          assertTrue(Host.toHost(url.host) == Right(Host(url.host))) &&
+          assertTrue(Host.toHost(s"${url.host}:${url.port}") == Right(Host(url.host, url.port)))
+        }
+      },
+      test("parsing of invalid Host values") {
+        assertTrue(Host.toHost("random.com:ds43").isLeft) &&
+        assertTrue(Host.toHost("random.com:ds43:4434").isLeft)
 
-    },
-    test("parsing and encoding is symmetrical") {
-      check(HttpGen.genAbsoluteLocation) { url =>
-        assertTrue(Host.fromHost(Host.toHost("random.com:4ds")) == "")
-        assertTrue(Host.fromHost(Host.toHost("")) == "")
-        assertTrue(Host.fromHost(Host.toHost(url.host)) == url.host)
-        assertTrue(Host.fromHost(Host.toHost(s"${url.host}:${url.port}")) == s"${url.host}:${url.port}")
+      },
+      test("parsing and encoding is symmetrical") {
+        check(HttpGen.genAbsoluteLocation) { url =>
+          assertTrue(Host.fromHost(Host.toHost(url.host).toOption.get) == url.host) &&
+          assertTrue(Host.fromHost(Host.toHost(s"${url.host}:${url.port}").toOption.get) == s"${url.host}:${url.port}")
 
-      }
-    },
-  )
+        }
+      },
+    )
 }

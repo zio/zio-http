@@ -27,32 +27,33 @@ sealed trait AccessControlAllowHeaders
  */
 object AccessControlAllowHeaders {
 
-  final case class AccessControlAllowHeadersValue(values: Chunk[CharSequence]) extends AccessControlAllowHeaders
+  final case class Some(values: Chunk[CharSequence]) extends AccessControlAllowHeaders
 
   case object All extends AccessControlAllowHeaders
 
-  case object NoHeaders extends AccessControlAllowHeaders
+  case object None extends AccessControlAllowHeaders
 
   def fromAccessControlAllowHeaders(accessControlAllowHeaders: AccessControlAllowHeaders): String =
     accessControlAllowHeaders match {
-      case AccessControlAllowHeadersValue(value) => value.mkString(", ")
-      case All                                   => "*"
-      case NoHeaders                             => ""
+      case Some(value) => value.mkString(", ")
+      case All         => "*"
+      case None        => ""
     }
 
-  def toAccessControlAllowHeaders(value: String): AccessControlAllowHeaders = {
-    value match {
-      case ""          => NoHeaders
-      case "*"         => All
-      case headerNames =>
-        AccessControlAllowHeadersValue(
-          Chunk.fromArray(
-            headerNames
-              .split(",")
-              .map(_.trim),
-          ),
-        )
+  def toAccessControlAllowHeaders(value: String): Either[String, AccessControlAllowHeaders] =
+    Right {
+      value match {
+        case ""          => None
+        case "*"         => All
+        case headerNames =>
+          Some(
+            Chunk.fromArray(
+              headerNames
+                .split(",")
+                .map(_.trim),
+            ),
+          )
+      }
     }
-  }
 
 }

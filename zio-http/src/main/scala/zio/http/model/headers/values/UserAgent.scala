@@ -26,31 +26,29 @@ sealed trait UserAgent
  * regarding browser or operating system use
  */
 object UserAgent {
-  final case class CompleteUserAgent(product: Product, comment: Option[Comment]) extends UserAgent
-  final case class Product(name: String, version: Option[String])                extends UserAgent
-  final case class Comment(comment: String)                                      extends UserAgent
-  object InvalidUserAgent                                                        extends UserAgent
+  final case class Complete(product: Product, comment: Option[Comment]) extends UserAgent
+  final case class Product(name: String, version: Option[String])       extends UserAgent
+  final case class Comment(comment: String)                             extends UserAgent
 
-  def toUserAgent(userAgent: String): UserAgent = {
-    val productRegex  = """(?i)([a-z0-9]+)(?:/([a-z0-9.]+))?""".r
-    val commentRegex  = """(?i)\((.*)$""".r
-    val completeRegex = s"""^(?i)([a-z0-9]+)(?:/([a-z0-9.]+))(.*)$$""".r
+  private val productRegex  = """(?i)([a-z0-9]+)(?:/([a-z0-9.]+))?""".r
+  private val commentRegex  = """(?i)\((.*)$""".r
+  private val completeRegex = s"""^(?i)([a-z0-9]+)(?:/([a-z0-9.]+))(.*)$$""".r
 
+  def toUserAgent(userAgent: String): Either[String, UserAgent] = {
     userAgent match {
-      case productRegex(name, version)           => Product(name, Option(version))
-      case commentRegex(comment)                 => Comment(comment)
+      case productRegex(name, version)           => Right(Product(name, Option(version)))
+      case commentRegex(comment)                 => Right(Comment(comment))
       case completeRegex(name, version, comment) =>
-        CompleteUserAgent(Product(name, Option(version)), Option(Comment(comment)))
-      case _                                     => InvalidUserAgent
+        Right(Complete(Product(name, Option(version)), Option(Comment(comment))))
+      case _                                     => Left("Invalid User-Agent header")
     }
   }
 
   def fromUserAgent(userAgent: UserAgent): String = userAgent match {
-    case CompleteUserAgent(product, comment) =>
+    case Complete(product, comment) =>
       s"""${fromUserAgent(product)}${fromUserAgent(comment.getOrElse(Comment("")))}"""
-    case Product(name, version)              => s"""$name${version.map("/" + _).getOrElse("")}"""
-    case Comment(comment)                    => s" ($comment)"
-    case InvalidUserAgent                    => ""
+    case Product(name, version)     => s"""$name${version.map("/" + _).getOrElse("")}"""
+    case Comment(comment)           => s" ($comment)"
   }
 
 }

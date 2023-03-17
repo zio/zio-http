@@ -16,16 +16,13 @@
 
 package zio.http.model.headers.values
 
-sealed trait XRequestedWith
+final case class XRequestedWith(value: String)
 
 object XRequestedWith {
-  final case class XMLHttpRequest(value: String) extends XRequestedWith
 
   def fromXRequestedWith(xRequestedWith: XRequestedWith): String =
-    xRequestedWith match {
-      case XMLHttpRequest(value) => value
-    }
+    xRequestedWith.value
 
-  def toXRequestedWith(value: String): XRequestedWith =
-    XMLHttpRequest(value)
+  def toXRequestedWith(value: String): Either[String, XRequestedWith] =
+    Right(XRequestedWith(value))
 }

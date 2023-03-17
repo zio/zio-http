@@ -24,21 +24,21 @@ object WWWAuthenticateSpec extends ZIOSpecDefault {
     test("should properly parse WWWAuthenticate Basic header") {
       val header = WWWAuthenticate.Basic("realm")
       val parsed = WWWAuthenticate.toWWWAuthenticate("Basic realm=\"realm\"")
-      assertTrue(parsed == header)
+      assertTrue(parsed == Right(header))
     },
     test("should properly parse WWWAuthenticate Bearer header") {
       val header = WWWAuthenticate.Bearer("realm", Some("scope"), Some("error"), Some("errorDescription"))
       val parsed = WWWAuthenticate.toWWWAuthenticate(
         "Bearer realm=\"realm\", scope=\"scope\", error=\"error\", error_description=\"errorDescription\"",
       )
-      assertTrue(parsed == header)
+      assertTrue(parsed == Right(header))
     },
     test("should properly parse WWWAuthenticate Bearer header") {
       val header = WWWAuthenticate.Bearer("realm", Some("scope"), None, None)
       val parsed = WWWAuthenticate.toWWWAuthenticate(
         "Bearer realm=\"realm\", scope=\"scope\"",
       )
-      assertTrue(parsed == header)
+      assertTrue(parsed == Right(header))
     },
     test("should properly parse WWW Authenticate Digest header") {
       val header = WWWAuthenticate.Digest(
@@ -55,21 +55,21 @@ object WWWAuthenticateSpec extends ZIOSpecDefault {
       val parsed = WWWAuthenticate.toWWWAuthenticate(
         "Digest realm=\"http-auth@example.org\", nonce=\"7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v\", opaque=\"FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS\", stale=true, algorithm=SHA-256, qop=\"auth, auth-int\", charset=UTF-8, userhash=true",
       )
-      assertTrue(parsed == header)
+      assertTrue(parsed == Right(header))
     },
     test("should properly parse WWWAuthenticate Hoba header") {
       val header = WWWAuthenticate.HOBA(Some("realm"), "challenge", 10)
       val parsed = WWWAuthenticate.toWWWAuthenticate(
         "Hoba realm=\"realm\", challenge=\"challenge\", max_age=10",
       )
-      assertTrue(parsed == header)
+      assertTrue(parsed == Right(header))
     },
     test("should properly parse WWWAuthenticate Negotiate header") {
       val header = WWWAuthenticate.Negotiate(Some("749efa7b23409c20b92356"))
       val parsed = WWWAuthenticate.toWWWAuthenticate(
         "Negotiate 749efa7b23409c20b92356",
       )
-      assertTrue(parsed == header)
+      assertTrue(parsed == Right(header))
     },
     test("should properly render WWW Authenticate Digest header") {
       val header   = WWWAuthenticate.Digest(

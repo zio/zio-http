@@ -26,20 +26,16 @@ object SecWebSocketOriginSpec extends ZIOSpecDefault {
     test("SecWebSocketOrigin should be properly parsed for a valid string") {
       val probe    = "wss://example.com"
       val probeURL = URL.fromString(probe).fold(_ => URL.empty, url => url)
-      assertTrue(SecWebSocketOrigin.toSecWebSocketOrigin(probe) == SecWebSocketOrigin.OriginValue(probeURL))
+      assertTrue(SecWebSocketOrigin.toSecWebSocketOrigin(probe) == Right(SecWebSocketOrigin(probeURL)))
     },
     test("SecWebSocketOrigin should be properly parsed for an empty string") {
       val probe = ""
-      assertTrue(SecWebSocketOrigin.toSecWebSocketOrigin(probe) == SecWebSocketOrigin.EmptyOrigin)
+      assertTrue(SecWebSocketOrigin.toSecWebSocketOrigin(probe).isLeft)
     },
     test("SecWebSocketOrigin should properly render a valid string") {
       val probe    = "wss://example.com"
       val probeURL = URL.fromString(probe).fold(_ => URL.empty, url => url)
-      assertTrue(SecWebSocketOrigin.fromSecWebSocketOrigin(SecWebSocketOrigin.OriginValue(probeURL)) == probe)
-    },
-    test("SecWebSocketOrigin should properly render an empty string") {
-      val probe = ""
-      assertTrue(SecWebSocketOrigin.fromSecWebSocketOrigin(SecWebSocketOrigin.EmptyOrigin) == probe)
+      assertTrue(SecWebSocketOrigin.fromSecWebSocketOrigin(SecWebSocketOrigin(probeURL)) == probe)
     },
   )
 }

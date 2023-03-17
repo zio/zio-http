@@ -20,57 +20,63 @@ import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
 import zio.{Chunk, Scope}
 
 import zio.http.internal.HttpGen
-import zio.http.model.headers.values.TransferEncoding.{InvalidEncoding, MultipleEncodings}
+import zio.http.model.headers.values.TransferEncoding.Multiple
 
 object TransferEncodingSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("TransferEncoding suite")(
     suite("TransferEncoding header value transformation should be symmetrical")(
       test("gen single value") {
         check(HttpGen.allowTransferEncodingSingleValue) { value =>
-          assertTrue(TransferEncoding.toTransferEncoding(TransferEncoding.fromTransferEncoding(value)) == value)
+          assertTrue(TransferEncoding.toTransferEncoding(TransferEncoding.fromTransferEncoding(value)) == Right(value))
         }
       },
       test("single value") {
-        assertTrue(TransferEncoding.toTransferEncoding("chunked") == TransferEncoding.ChunkedEncoding) &&
-        assertTrue(TransferEncoding.toTransferEncoding("compress") == TransferEncoding.CompressEncoding) &&
-        assertTrue(TransferEncoding.toTransferEncoding("deflate") == TransferEncoding.DeflateEncoding) &&
+        assertTrue(TransferEncoding.toTransferEncoding("chunked") == Right(TransferEncoding.Chunked)) &&
+        assertTrue(TransferEncoding.toTransferEncoding("compress") == Right(TransferEncoding.Compress)) &&
+        assertTrue(TransferEncoding.toTransferEncoding("deflate") == Right(TransferEncoding.Deflate)) &&
         assertTrue(
-          TransferEncoding.toTransferEncoding("deflate, chunked, compress") == TransferEncoding.MultipleEncodings(
-            Chunk(TransferEncoding.DeflateEncoding, TransferEncoding.ChunkedEncoding, TransferEncoding.CompressEncoding),
+          TransferEncoding.toTransferEncoding("deflate, chunked, compress") == Right(
+            TransferEncoding.Multiple(
+              Chunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
+            ),
           ),
         ) &&
-        assertTrue(TransferEncoding.toTransferEncoding("garbage") == TransferEncoding.InvalidEncoding)
+        assertTrue(TransferEncoding.toTransferEncoding("garbage").isLeft)
 
       },
       test("edge cases") {
         assertTrue(
-          TransferEncoding.toTransferEncoding(
-            TransferEncoding.fromTransferEncoding(MultipleEncodings(Chunk())),
-          ) == InvalidEncoding,
+          TransferEncoding
+            .toTransferEncoding(
+              TransferEncoding.fromTransferEncoding(Multiple(Chunk())),
+            )
+            .isLeft,
         ) &&
         assertTrue(
           TransferEncoding.toTransferEncoding(
             TransferEncoding.fromTransferEncoding(
-              MultipleEncodings(
+              Multiple(
                 Chunk(
-                  TransferEncoding.DeflateEncoding,
-                  TransferEncoding.ChunkedEncoding,
-                  TransferEncoding.CompressEncoding,
+                  TransferEncoding.Deflate,
+                  TransferEncoding.Chunked,
+                  TransferEncoding.Compress,
                 ),
               ),
             ),
-          ) == TransferEncoding.MultipleEncodings(
-            Chunk(TransferEncoding.DeflateEncoding, TransferEncoding.ChunkedEncoding, TransferEncoding.CompressEncoding),
+          ) == Right(
+            TransferEncoding.Multiple(
+              Chunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
+            ),
           ),
         ) &&
         assertTrue(
           TransferEncoding.toTransferEncoding(
             TransferEncoding.fromTransferEncoding(
-              MultipleEncodings(
-                Chunk(TransferEncoding.DeflateEncoding),
+              Multiple(
+                Chunk(TransferEncoding.Deflate),
               ),
             ),
-          ) == TransferEncoding.DeflateEncoding,
+          ) == Right(TransferEncoding.Deflate),
         )
       },
     ),

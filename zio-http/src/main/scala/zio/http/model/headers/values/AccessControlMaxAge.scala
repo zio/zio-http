@@ -31,33 +31,20 @@ import scala.util.Try
  * (prior to v76) caps at 10 minutes (600 seconds). Chromium (starting in v76)
  * caps at 2 hours (7200 seconds). The default value is 5 seconds.
  */
-sealed trait AccessControlMaxAge {
-  val seconds: Duration
-}
+final case class AccessControlMaxAge(duration: Duration)
 
 object AccessControlMaxAge {
 
-  /**
-   * Valid AccessControlMaxAge with an unsigned non-negative negative for
-   * seconds
-   */
-  final case class ValidAccessControlMaxAge(private val duration: Duration = Duration.ofSeconds(5))
-      extends AccessControlMaxAge {
-    override val seconds: Duration = duration
-  }
-
-  case object InvalidAccessControlMaxAge extends AccessControlMaxAge {
-    override val seconds: Duration = Duration.ofSeconds(5)
-  }
-
   def fromAccessControlMaxAge(accessControlMaxAge: AccessControlMaxAge): String = {
-    accessControlMaxAge.seconds.getSeconds().toString
+    accessControlMaxAge.duration.toSeconds.toString
   }
 
-  def toAccessControlMaxAge(seconds: String): AccessControlMaxAge = {
+  def toAccessControlMaxAge(seconds: String): Either[String, AccessControlMaxAge] = {
     Try(seconds.toLong).fold(
-      _ => InvalidAccessControlMaxAge,
-      long => if (long > -1) ValidAccessControlMaxAge(Duration.ofSeconds(long)) else InvalidAccessControlMaxAge,
+      _ => Left(s"Invalid Access-Control-Max-Age header value"),
+      long =>
+        if (long > -1) Right(AccessControlMaxAge(Duration.ofSeconds(long)))
+        else Left(s"Invalid Access-Control-Max-Age header value"),
     )
   }
 }

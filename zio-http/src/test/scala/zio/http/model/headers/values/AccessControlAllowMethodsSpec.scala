@@ -24,7 +24,7 @@ import zio.http.model.Method
 object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlAllowMethods suite")(
     test("AccessControlAllowMethods should be parsed correctly") {
-      val accessControlAllowMethods       = AccessControlAllowMethods.AllowMethods(
+      val accessControlAllowMethods       = AccessControlAllowMethods.Some(
         Chunk(
           Method.GET,
           Method.POST,
@@ -38,37 +38,37 @@ object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
       val accessControlAllowMethodsString = "GET, POST, PUT, DELETE, HEAD, OPTIONS, PATCH"
       assertTrue(
         AccessControlAllowMethods
-          .toAccessControlAllowMethods(accessControlAllowMethodsString) == accessControlAllowMethods,
+          .toAccessControlAllowMethods(accessControlAllowMethodsString) == Right(accessControlAllowMethods),
       )
     },
     test("AccessControlAllowMethods should be parsed correctly when * is used") {
-      val accessControlAllowMethods       = AccessControlAllowMethods.AllowAllMethods
+      val accessControlAllowMethods       = AccessControlAllowMethods.All
       val accessControlAllowMethodsString = "*"
       assertTrue(
         AccessControlAllowMethods
-          .toAccessControlAllowMethods(accessControlAllowMethodsString) == accessControlAllowMethods,
+          .toAccessControlAllowMethods(accessControlAllowMethodsString) == Right(accessControlAllowMethods),
       )
     },
     test("AccessControlAllowMethods should be parsed correctly when empty string is used") {
-      val accessControlAllowMethods       = AccessControlAllowMethods.NoMethodsAllowed
+      val accessControlAllowMethods       = AccessControlAllowMethods.None
       val accessControlAllowMethodsString = ""
       assertTrue(
         AccessControlAllowMethods
-          .toAccessControlAllowMethods(accessControlAllowMethodsString) == accessControlAllowMethods,
+          .toAccessControlAllowMethods(accessControlAllowMethodsString) == Right(accessControlAllowMethods),
       )
     },
     test("AccessControlAllowMethods should properly render NoMethodsAllowed value") {
       assertTrue(
-        AccessControlAllowMethods.fromAccessControlAllowMethods(AccessControlAllowMethods.NoMethodsAllowed) == "",
+        AccessControlAllowMethods.fromAccessControlAllowMethods(AccessControlAllowMethods.None) == "",
       )
     },
     test("AccessControlAllowMethods should properly render AllowAllMethods value") {
       assertTrue(
-        AccessControlAllowMethods.fromAccessControlAllowMethods(AccessControlAllowMethods.AllowAllMethods) == "*",
+        AccessControlAllowMethods.fromAccessControlAllowMethods(AccessControlAllowMethods.All) == "*",
       )
     },
     test("AccessControlAllowMethods should properly render AllowMethods value") {
-      val accessControlAllowMethods       = AccessControlAllowMethods.AllowMethods(
+      val accessControlAllowMethods       = AccessControlAllowMethods.Some(
         Chunk(
           Method.GET,
           Method.POST,

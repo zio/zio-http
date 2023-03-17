@@ -19,28 +19,27 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
-import zio.http.model.headers.values.ETag.{InvalidETagValue, StrongETagValue, WeakETagValue}
+import zio.http.model.headers.values.ETag.{Strong, Weak}
 
 object ETagSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ETag header suite")(
     test("parse ETag header") {
-      assertTrue(ETag.toETag("""W/"testEtag"""") == WeakETagValue("testEtag"))
-      assertTrue(ETag.toETag("""w/"testEtag"""") == WeakETagValue("testEtag"))
-      assertTrue(ETag.toETag(""""testEtag"""") == StrongETagValue("testEtag"))
-      assertTrue(ETag.toETag("W/Etag") == InvalidETagValue)
-      assertTrue(ETag.toETag("Etag") == InvalidETagValue)
-      assertTrue(ETag.toETag("""W/""""") == WeakETagValue(""))
-      assertTrue(ETag.toETag("""""""") == StrongETagValue(""))
+      assertTrue(ETag.toETag("""W/"testEtag"""") == Right(Weak("testEtag"))) &&
+      assertTrue(ETag.toETag("""w/"testEtag"""") == Right(Weak("testEtag"))) &&
+      assertTrue(ETag.toETag(""""testEtag"""") == Right(Strong("testEtag"))) &&
+      assertTrue(ETag.toETag("W/Etag").isLeft) &&
+      assertTrue(ETag.toETag("Etag").isLeft) &&
+      assertTrue(ETag.toETag("""W/""""") == Right(Weak(""))) &&
+      assertTrue(ETag.toETag("""""""") == Right(Strong("")))
     },
     test("encode ETag header to String") {
-      assertTrue(ETag.fromETag(StrongETagValue("TestEtag")) == """"TestEtag"""")
-      assertTrue(ETag.fromETag(WeakETagValue("TestEtag")) == """W/"TestEtag"""")
-      assertTrue(ETag.fromETag(InvalidETagValue) == "")
+      assertTrue(ETag.fromETag(Strong("TestEtag")) == """"TestEtag"""") &&
+      assertTrue(ETag.fromETag(Weak("TestEtag")) == """W/"TestEtag"""")
     },
     test("parsing and encoding are symmetrical") {
-      assertTrue(ETag.fromETag(ETag.toETag("""w/"testEtag"""")) == """W/"testEtag"""")
-      assertTrue(ETag.fromETag(ETag.toETag("""W/"testEtag"""")) == """W/"testEtag"""")
-      assertTrue(ETag.fromETag(ETag.toETag(""""testEtag"""")) == """"testEtag"""")
+      assertTrue(ETag.fromETag(ETag.toETag("""w/"testEtag"""").toOption.get) == """W/"testEtag"""") &&
+      assertTrue(ETag.fromETag(ETag.toETag("""W/"testEtag"""").toOption.get) == """W/"testEtag"""") &&
+      assertTrue(ETag.fromETag(ETag.toETag(""""testEtag"""").toOption.get) == """"testEtag"""")
 
     },
   )

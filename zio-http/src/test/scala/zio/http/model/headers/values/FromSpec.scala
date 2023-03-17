@@ -19,29 +19,27 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
-import zio.http.model.headers.values.From.InvalidFromValue
-
 object FromSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("From header suite")(
       test("parse valid value") {
-        assertTrue(From.toFrom("test.test.tes@email.com") == From.FromValue("test.test.tes@email.com")) &&
-        assertTrue(From.toFrom("test==@email.com") == From.FromValue("test==@email.com")) &&
-        assertTrue(From.toFrom("test/d@email.com") == From.FromValue("test/d@email.com")) &&
-        assertTrue(From.toFrom("test/d@email.com") == From.FromValue("test/d@email.com")) &&
+        assertTrue(From.toFrom("test.test.tes@email.com") == Right(From("test.test.tes@email.com"))) &&
+        assertTrue(From.toFrom("test==@email.com") == Right(From("test==@email.com"))) &&
+        assertTrue(From.toFrom("test/d@email.com") == Right(From("test/d@email.com"))) &&
+        assertTrue(From.toFrom("test/d@email.com") == Right(From("test/d@email.com"))) &&
         assertTrue(
-          From.toFrom("test11!#$%&'*+-/=?^_`{|}~@email.com") == From.FromValue("test11!#$%&'*+-/=?^_`{|}~@email.com"),
+          From.toFrom("test11!#$%&'*+-/=?^_`{|}~@email.com") == Right(From("test11!#$%&'*+-/=?^_`{|}~@email.com")),
         )
 
       },
       test("parse invalid value") {
-        assertTrue(From.toFrom("t") == InvalidFromValue) &&
-        assertTrue(From.toFrom("t@p") == InvalidFromValue) &&
-        assertTrue(From.toFrom("") == InvalidFromValue) &&
-        assertTrue(From.toFrom("test@email") == InvalidFromValue) &&
-        assertTrue(From.toFrom("test.com") == InvalidFromValue) &&
-        assertTrue(From.toFrom("@email.com") == InvalidFromValue) &&
-        assertTrue(From.toFrom("@com") == InvalidFromValue)
+        assertTrue(From.toFrom("t").isLeft) &&
+        assertTrue(From.toFrom("t@p").isLeft) &&
+        assertTrue(From.toFrom("").isLeft) &&
+        assertTrue(From.toFrom("test@email").isLeft) &&
+        assertTrue(From.toFrom("test.com").isLeft) &&
+        assertTrue(From.toFrom("@email.com").isLeft) &&
+        assertTrue(From.toFrom("@com").isLeft)
       },
     )
 }

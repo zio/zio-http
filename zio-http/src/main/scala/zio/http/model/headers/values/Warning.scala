@@ -21,7 +21,10 @@ import java.time.format.DateTimeFormatter
 
 import scala.util.Try
 
-sealed trait Warning {}
+/*
+   A warning has the following syntax: <warn-code> <warn-agent> <warn-text> [<warn-date>]
+ */
+final case class Warning(code: Int, agent: String, text: String, date: Option[ZonedDateTime] = None)
 
 /*
 The Warning HTTP header contains information about possible problems with the status of the message.
@@ -33,18 +36,10 @@ Warning header fields can, in general, be applied to any message.
 
 object Warning {
 
-  /*
-     A warning has the following syntax: <warn-code> <warn-agent> <warn-text> [<warn-date>]
-   */
-  final case class WarningValue(code: Int, agent: String, text: String, date: Option[ZonedDateTime] = None)
-      extends Warning
-
   private val validCodes         = List(110, 111, 112, 113, 199, 214, 299)
   private val expectedDateFormat = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
-  case object InvalidWarning extends Warning
-
-  def toWarning(warningString: String): Warning = {
+  def toWarning(warningString: String): Either[String, Warning] = {
     /*
       <warn-code>
        A three-digit warning number.
@@ -84,7 +79,7 @@ object Warning {
       ZonedDateTime.parse(selectedDate, expectedDateFormat)
     }.toOption
 
-    val fullWarning = WarningValue(warnCode, warnAgent, description, warningDate)
+    val fullWarning = Warning(warnCode, warnAgent, description, warningDate)
 
     /*
     The HTTP Warn Codes registry at iana.org defines the namespace for warning codes.
@@ -114,20 +109,20 @@ object Warning {
     }
 
     if (isDateInvalid(warningString, warningDate)) {
-      InvalidWarning
+      Left("Invalid date format")
     } else if (isAgentMissing(warningString)) {
-      InvalidWarning
+      Left("Agent is missing")
     } else if (isCodeValid(fullWarning.code) && fullWarning.text.nonEmpty) {
-      fullWarning
+      Right(fullWarning)
     } else {
-      InvalidWarning
+      Left("Invalid warning")
     }
 
   }
 
-  def fromWarning(warning: Warning): String = {
-    val warningString = warning match {
-      case WarningValue(code, agent, text, date) => {
+  def fromWarning(warning: Warning): String =
+    warning match {
+      case Warning(code, agent, text, date) => {
         val formattedDate = date match {
           case Some(value) => value.format(expectedDateFormat)
           case None        => ""
@@ -138,9 +133,5 @@ object Warning {
           code.toString + " " + agent + " " + text + " " + '"' + formattedDate + '"'
         }
       }
-      case InvalidWarning                        => ""
     }
-    warningString
-  }
-
 }

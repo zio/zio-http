@@ -27,14 +27,15 @@ object IfNoneMatch {
 
   final case class ETags(etags: Chunk[String]) extends IfNoneMatch
 
-  def toIfNoneMatch(value: String): IfNoneMatch = {
-    val etags = value.split(",").map(_.trim).toList
-    etags match {
-      case "*" :: Nil => Any
-      case "" :: Nil  => None
-      case _          => ETags(Chunk.fromIterable(etags))
+  def toIfNoneMatch(value: String): Either[String, IfNoneMatch] =
+    Right {
+      val etags = value.split(",").map(_.trim).toList
+      etags match {
+        case "*" :: Nil => Any
+        case "" :: Nil  => None
+        case _          => ETags(Chunk.fromIterable(etags))
+      }
     }
-  }
 
   def fromIfNoneMatch(ifMatch: IfNoneMatch): String = ifMatch match {
     case Any          => "*"

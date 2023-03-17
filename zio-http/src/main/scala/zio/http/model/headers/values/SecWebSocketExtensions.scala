@@ -55,10 +55,9 @@ object SecWebSocketExtensions {
 
   final case class Token(extension: Chunk[Extension])   extends SecWebSocketExtensions
   final case class Extensions(extensions: Chunk[Token]) extends SecWebSocketExtensions
-  case object InvalidExtensions                         extends SecWebSocketExtensions
 
-  def toSecWebSocketExtensions(value: String): SecWebSocketExtensions =
-    if (value.trim().isEmpty) InvalidExtensions
+  def toSecWebSocketExtensions(value: String): Either[String, SecWebSocketExtensions] =
+    if (value.trim().isEmpty) Left("Invalid Sec-WebSocket-Extensions header")
     else {
       val extensions: Array[Token] = value
         .split(",")
@@ -78,7 +77,7 @@ object SecWebSocketExtensions {
             }
           Array(Token(Chunk.fromArray(tokens)))
         }
-      Extensions(Chunk.fromArray(extensions))
+      Right(Extensions(Chunk.fromArray(extensions)))
     }
 
   def fromSecWebSocketExtensions(secWebSocketExtensions: SecWebSocketExtensions): String =
@@ -89,7 +88,6 @@ object SecWebSocketExtensions {
           .map(extension => renderParams(extension))
           .mkString(", ")
       case Token(extensions: Chunk[Extension]) => renderParams(extensions)
-      case InvalidExtensions                   => ""
     }
 
   private def renderParams(extensions: Chunk[Extension]): String = {

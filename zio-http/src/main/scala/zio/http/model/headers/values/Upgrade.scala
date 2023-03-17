@@ -21,35 +21,33 @@ import zio.Chunk
 sealed trait Upgrade
 
 object Upgrade {
-  final case class UpgradeProtocols(protocols: Chunk[UpgradeValue]) extends Upgrade
-  final case class UpgradeValue(protocol: String, version: String)  extends Upgrade
-  case object InvalidUpgradeValue                                   extends Upgrade
+  final case class Multiple(protocols: Chunk[Protocol])        extends Upgrade
+  final case class Protocol(protocol: String, version: String) extends Upgrade
 
   def fromUpgrade(upgrade: Upgrade): String =
     upgrade match {
-      case UpgradeProtocols(protocols)     => protocols.map(fromUpgrade).mkString(", ")
-      case UpgradeValue(protocol, version) => s"$protocol/$version"
-      case InvalidUpgradeValue             => ""
+      case Multiple(protocols)         => protocols.map(fromUpgrade).mkString(", ")
+      case Protocol(protocol, version) => s"$protocol/$version"
     }
 
-  def toUpgrade(value: String): Upgrade = {
-    value.split(",").map(_.trim).toList match {
-      case Nil  => InvalidUpgradeValue
-      case list =>
-        val protocols: List[UpgradeValue] = list.map { protocol =>
-          protocol.split("/").map(_.trim).toList match {
-            case Nil                        => InvalidUpgradeValue
-            case protocol :: version :: Nil =>
-              UpgradeValue(protocol, version)
-            case _                          => InvalidUpgradeValue
+  private def parseProtocol(value: String): Either[String, Protocol] =
+    Chunk.fromArray(value.split("/")).map(_.trim) match {
+      case Chunk(protocol, version) => Right(Protocol(protocol, version))
+      case _                        => Left("Invalid Upgrade header")
+    }
+
+  def toUpgrade(value: String): Either[String, Upgrade] = {
+    Chunk.fromArray(value.split(",")).map(parseProtocol) match {
+      case Chunk()       => Left("Invalid Upgrade header")
+      case Chunk(single) => single
+      case multiple      =>
+        multiple
+          .foldLeft[Either[String, Chunk[Protocol]]](Right(Chunk.empty)) {
+            case (Right(protocols), Right(protocol)) => Right(protocols :+ protocol)
+            case (Left(error), _)                    => Left(error)
+            case (_, Left(error))                    => Left(error)
           }
-        }.collect { case v: UpgradeValue => v }
-        UpgradeProtocols(Chunk.fromIterable(protocols))
+          .map(Multiple(_))
     }
-
-//    value.split("/").toList match {
-//      case protocol :: version :: Nil => UpgradeValue(protocol, version)
-//      case _                          => InvalidUpgradeValue
-//    }
   }
 }

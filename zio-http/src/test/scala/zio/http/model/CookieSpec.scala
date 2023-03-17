@@ -99,7 +99,7 @@ object CookieSpec extends ZIOSpecDefault {
         test("request") {
           val cookie  = Cookie("name", "value")
           val program = cookie.encode.flatMap(Cookie.decode[Request](_))
-          assertTrue(program == Right(List(cookie.toRequest)))
+          assertTrue(program == Right(Chunk(cookie.toRequest)))
         },
         test("decode response") {
           val responseCookieGen = for {

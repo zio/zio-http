@@ -16,27 +16,27 @@
 
 package zio.http.model.headers.values
 
+import zio.Chunk
+
 /** Vary header value. */
 sealed trait Vary
 
 object Vary {
-  case class HeadersVaryValue(headers: List[String]) extends Vary
-  case object StarVary                               extends Vary
-  case object InvalidVaryValue                       extends Vary
+  case class Headers(headers: Chunk[String]) extends Vary
+  case object Star                           extends Vary
 
-  def toVary(value: String): Vary = {
-    value.toLowerCase().split("[, ]+").toList match {
-      case List("*")                               => StarVary
-      case list if list.nonEmpty && value.nonEmpty => HeadersVaryValue(list.map(_.trim))
-      case _                                       => InvalidVaryValue
+  def toVary(value: String): Either[String, Vary] = {
+    Chunk.fromArray(value.toLowerCase().split("[, ]+")) match {
+      case Chunk("*")                                => Right(Star)
+      case chunk if chunk.nonEmpty && value.nonEmpty => Right(Headers(chunk.map(_.trim)))
+      case _                                         => Left("Invalid Vary header")
     }
   }
 
   def fromVary(vary: Vary): String = {
     vary match {
-      case StarVary               => "*"
-      case HeadersVaryValue(list) => list.mkString(", ")
-      case InvalidVaryValue       => ""
+      case Star          => "*"
+      case Headers(list) => list.mkString(", ")
     }
   }
 }

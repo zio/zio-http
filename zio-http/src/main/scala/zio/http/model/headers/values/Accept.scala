@@ -21,9 +21,10 @@ import scala.util.Try
 import zio.Chunk
 
 import zio.http.model.MediaType
+import zio.http.model.headers.values.Accept.MediaTypeWithQFactor
 
 /** Accept header value. */
-sealed trait Accept
+final case class Accept(mimeTypes: Chunk[MediaTypeWithQFactor])
 
 object Accept {
 
@@ -31,22 +32,14 @@ object Accept {
    * The Accept header value one or more MIME types optionally weighed with
    * quality factor.
    */
-  final case class AcceptValue(mimeTypes: Chunk[MediaTypeWithQFactor]) extends Accept
-
   final case class MediaTypeWithQFactor(mediaType: MediaType, qFactor: Option[Double])
 
-  /** The Accept header value is invalid. */
-  case object InvalidAcceptValue extends Accept
+  def fromAccept(header: Accept): String =
+    header.mimeTypes.map { case MediaTypeWithQFactor(mime, maybeQFactor) =>
+      s"${mime.fullType}${maybeQFactor.map(qFactor => s";q=$qFactor").getOrElse("")}"
+    }.mkString(", ")
 
-  def fromAccept(header: Accept): String = header match {
-    case AcceptValue(mimeTypes) =>
-      mimeTypes.map { case MediaTypeWithQFactor(mime, maybeQFactor) =>
-        s"${mime.fullType}${maybeQFactor.map(qFactor => s";q=$qFactor").getOrElse("")}"
-      }.mkString(", ")
-    case InvalidAcceptValue     => ""
-  }
-
-  def toAccept(value: String): Accept = {
+  def toAccept(value: String): Either[String, Accept] = {
     val acceptHeaderValues: Array[MediaTypeWithQFactor] = value
       .split(',')
       .map(_.trim)
@@ -63,8 +56,8 @@ object Accept {
       }
 
     if (acceptHeaderValues.nonEmpty && acceptHeaderValues.length == acceptHeaderValues.count(_ != null))
-      AcceptValue(Chunk.fromArray(acceptHeaderValues))
-    else InvalidAcceptValue
+      Right(Accept(Chunk.fromArray(acceptHeaderValues)))
+    else Left("Invalid Accept header")
   }
 
   private def extractQFactor(mediaType: MediaType): Option[Double] =

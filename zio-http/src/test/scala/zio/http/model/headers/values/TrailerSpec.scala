@@ -19,22 +19,19 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
-import zio.http.model.headers.values.From.InvalidFromValue
-import zio.http.model.headers.values.Trailer.{InvalidTrailerValue, TrailerValue}
-
 object TrailerSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Trailer header suite")(
       test("parse valid value") {
-        assertTrue(Trailer.toTrailer("Trailer") == TrailerValue("trailer")) &&
-        assertTrue(Trailer.toTrailer("Max-Forwards") == TrailerValue("max-forwards")) &&
-        assertTrue(Trailer.toTrailer("Cache-Control") == TrailerValue("cache-control")) &&
-        assertTrue(Trailer.toTrailer("Content-Type") == TrailerValue("content-type"))
+        assertTrue(Trailer.toTrailer("Trailer") == Right(Trailer("trailer"))) &&
+        assertTrue(Trailer.toTrailer("Max-Forwards") == Right(Trailer("max-forwards"))) &&
+        assertTrue(Trailer.toTrailer("Cache-Control") == Right(Trailer("cache-control"))) &&
+        assertTrue(Trailer.toTrailer("Content-Type") == Right(Trailer("content-type")))
       },
       test("parse invalid value") {
-        assertTrue(Trailer.toTrailer(" ") == InvalidTrailerValue) &&
-        assertTrue(Trailer.toTrailer("Some Value") == InvalidTrailerValue) &&
-        assertTrue(Trailer.toTrailer("Cache-Control ") == InvalidTrailerValue)
+        assertTrue(Trailer.toTrailer(" ").isLeft) &&
+        assertTrue(Trailer.toTrailer("Some Value").isLeft) &&
+        assertTrue(Trailer.toTrailer("Cache-Control ").isLeft)
       },
     )
 }

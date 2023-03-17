@@ -245,13 +245,12 @@ object HttpGen {
 
   def acceptEncodingSingleValue(weight: Option[Double]): Gen[Any, AcceptEncoding] = Gen.fromIterable(
     List(
-      AcceptEncoding.GZipEncoding(weight),
-      AcceptEncoding.DeflateEncoding(weight),
-      AcceptEncoding.BrEncoding(weight),
-      AcceptEncoding.IdentityEncoding(weight),
-      AcceptEncoding.CompressEncoding(weight),
-      AcceptEncoding.NoPreferenceEncoding(weight),
-      AcceptEncoding.InvalidEncoding,
+      AcceptEncoding.GZip(weight),
+      AcceptEncoding.Deflate(weight),
+      AcceptEncoding.Br(weight),
+      AcceptEncoding.Identity(weight),
+      AcceptEncoding.Compress(weight),
+      AcceptEncoding.NoPreference(weight),
     ),
   )
 
@@ -261,13 +260,12 @@ object HttpGen {
   } yield value
 
   def acceptEncoding: Gen[Any, AcceptEncoding] =
-    Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(AcceptEncoding.MultipleEncodings.apply)
+    Gen.chunkOfBounded(1, 10)(acceptEncodingSingleValueWithWeight).map(AcceptEncoding.Multiple.apply)
 
   def cacheControlSingleValue(seconds: Int): Gen[Any, CacheControl] =
     Gen.fromIterable(
       List(
         CacheControl.Immutable,
-        CacheControl.InvalidCacheControl,
         CacheControl.MaxAge(seconds),
         CacheControl.MaxStale(seconds),
         CacheControl.MinFresh(seconds),
@@ -292,7 +290,7 @@ object HttpGen {
   } yield value
 
   def cacheControl: Gen[Any, CacheControl] =
-    Gen.chunkOfBounded(1, 10)(cacheControlSingleValueWithSeconds).map(CacheControl.MultipleCacheControlValues.apply)
+    Gen.chunkOfBounded(1, 10)(cacheControlSingleValueWithSeconds).map(CacheControl.Multiple.apply)
 
   def allowHeaderSingleValue: Gen[Any, Allow] = Gen.fromIterable(
     List(
@@ -309,33 +307,31 @@ object HttpGen {
   )
 
   def allowHeader: Gen[Any, Allow] =
-    Gen.chunkOfBounded(1, 9)(allowHeaderSingleValue).map(Allow.AllowMethods.apply)
+    Gen.chunkOfBounded(1, 9)(method).map(chunk => Allow(NonEmptyChunk.fromChunk(chunk).get))
 
   def connectionHeader: Gen[Any, Connection] =
-    Gen.elements(Connection.Close, Connection.KeepAlive, Connection.InvalidConnection)
+    Gen.elements(Connection.Close, Connection.KeepAlive)
 
   def allowContentEncodingSingleValue: Gen[Any, ContentEncoding] = Gen.fromIterable(
     List(
-      ContentEncoding.BrEncoding,
-      ContentEncoding.CompressEncoding,
-      ContentEncoding.GZipEncoding,
-      ContentEncoding.MultipleEncodings(Chunk(ContentEncoding.BrEncoding, ContentEncoding.CompressEncoding)),
-      ContentEncoding.DeflateEncoding,
-      ContentEncoding.InvalidEncoding,
+      ContentEncoding.Br,
+      ContentEncoding.Compress,
+      ContentEncoding.GZip,
+      ContentEncoding.Multiple(Chunk(ContentEncoding.Br, ContentEncoding.Compress)),
+      ContentEncoding.Deflate,
     ),
   )
 
   def acceptRanges: Gen[Any, AcceptRanges] =
-    Gen.elements(AcceptRanges.Bytes, AcceptRanges.None, AcceptRanges.InvalidAcceptRanges)
+    Gen.elements(AcceptRanges.Bytes, AcceptRanges.None)
 
   def allowTransferEncodingSingleValue: Gen[Any, TransferEncoding] = Gen.fromIterable(
     List(
-      TransferEncoding.ChunkedEncoding,
-      TransferEncoding.CompressEncoding,
-      TransferEncoding.GZipEncoding,
-      TransferEncoding.MultipleEncodings(Chunk(TransferEncoding.ChunkedEncoding, TransferEncoding.CompressEncoding)),
-      TransferEncoding.DeflateEncoding,
-      TransferEncoding.InvalidEncoding,
+      TransferEncoding.Chunked,
+      TransferEncoding.Compress,
+      TransferEncoding.GZip,
+      TransferEncoding.Multiple(Chunk(TransferEncoding.Chunked, TransferEncoding.Compress)),
+      TransferEncoding.Deflate,
     ),
   )
 

@@ -22,7 +22,7 @@ import zio.{Chunk, Scope}
 object AccessControlExposeHeadersSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlExposeHeaders suite")(
     test("AccessControlExposeHeaders should be parsed correctly") {
-      val accessControlExposeHeaders       = AccessControlExposeHeaders.AccessControlExposeHeadersValue(
+      val accessControlExposeHeaders       = AccessControlExposeHeaders.Some(
         Chunk(
           "X-Header1",
           "X-Header2",
@@ -32,7 +32,7 @@ object AccessControlExposeHeadersSpec extends ZIOSpecDefault {
       val accessControlExposeHeadersString = "X-Header1, X-Header2, X-Header3"
       assertTrue(
         AccessControlExposeHeaders
-          .toAccessControlExposeHeaders(accessControlExposeHeadersString) == accessControlExposeHeaders,
+          .toAccessControlExposeHeaders(accessControlExposeHeadersString) == Right(accessControlExposeHeaders),
       )
     },
     test("AccessControlExposeHeaders should be parsed correctly when * is used") {
@@ -40,20 +40,20 @@ object AccessControlExposeHeadersSpec extends ZIOSpecDefault {
       val accessControlExposeHeadersString = "*"
       assertTrue(
         AccessControlExposeHeaders
-          .toAccessControlExposeHeaders(accessControlExposeHeadersString) == accessControlExposeHeaders,
+          .toAccessControlExposeHeaders(accessControlExposeHeadersString) == Right(accessControlExposeHeaders),
       )
     },
     test("AccessControlExposeHeaders should be parsed correctly when empty string is used") {
-      val accessControlExposeHeaders       = AccessControlExposeHeaders.NoHeaders
+      val accessControlExposeHeaders       = AccessControlExposeHeaders.None
       val accessControlExposeHeadersString = ""
       assertTrue(
         AccessControlExposeHeaders
-          .toAccessControlExposeHeaders(accessControlExposeHeadersString) == accessControlExposeHeaders,
+          .toAccessControlExposeHeaders(accessControlExposeHeadersString) == Right(accessControlExposeHeaders),
       )
     },
     test("AccessControlExposeHeaders should properly render NoHeadersAllowed value") {
       assertTrue(
-        AccessControlExposeHeaders.fromAccessControlExposeHeaders(AccessControlExposeHeaders.NoHeaders) == "",
+        AccessControlExposeHeaders.fromAccessControlExposeHeaders(AccessControlExposeHeaders.None) == "",
       )
     },
     test("AccessControlExposeHeaders should properly render AllowAllHeaders value") {
@@ -62,7 +62,7 @@ object AccessControlExposeHeadersSpec extends ZIOSpecDefault {
       )
     },
     test("AccessControlExposeHeaders should properly render AllowHeaders value") {
-      val accessControlExposeHeaders       = AccessControlExposeHeaders.AccessControlExposeHeadersValue(
+      val accessControlExposeHeaders       = AccessControlExposeHeaders.Some(
         Chunk(
           "X-Header1",
           "X-Header2",

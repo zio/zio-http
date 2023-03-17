@@ -25,41 +25,41 @@ object AccessControlAllowCredentialsSpec extends ZIOSpecDefault {
       assertTrue(
         AccessControlAllowCredentials.toAccessControlAllowCredentials(
           "true",
-        ) == AccessControlAllowCredentials.AllowCredentials,
+        ) == Right(AccessControlAllowCredentials.Allow),
       )
     },
     test("AccessControlAllowCredentials should be parsed correctly for false") {
       assertTrue(
         AccessControlAllowCredentials.toAccessControlAllowCredentials(
           "false",
-        ) == AccessControlAllowCredentials.DoNotAllowCredentials,
+        ) == Right(AccessControlAllowCredentials.DoNotAllow),
       )
     },
     test("AccessControlAllowCredentials should be parsed correctly for invalid string") {
       assertTrue(
         AccessControlAllowCredentials.toAccessControlAllowCredentials(
           "some dummy string",
-        ) == AccessControlAllowCredentials.DoNotAllowCredentials,
+        ) == Right(AccessControlAllowCredentials.DoNotAllow),
       )
     },
     test("AccessControlAllowCredentials should be parsed correctly for empty string") {
       assertTrue(
         AccessControlAllowCredentials.toAccessControlAllowCredentials(
           "",
-        ) == AccessControlAllowCredentials.DoNotAllowCredentials,
+        ) == Right(AccessControlAllowCredentials.DoNotAllow),
       )
     },
     test("AccessControlAllowCredentials should be rendered correctly to false") {
       assertTrue(
         AccessControlAllowCredentials.fromAccessControlAllowCredentials(
-          AccessControlAllowCredentials.DoNotAllowCredentials,
+          AccessControlAllowCredentials.DoNotAllow,
         ) == "false",
       )
     },
     test("AccessControlAllowCredentials should be rendered correctly to true") {
       assertTrue(
         AccessControlAllowCredentials.fromAccessControlAllowCredentials(
-          AccessControlAllowCredentials.AllowCredentials,
+          AccessControlAllowCredentials.Allow,
         ) == "true",
       )
     },

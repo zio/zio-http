@@ -18,7 +18,7 @@ package zio.http.model.headers.values
 
 import zio.Chunk
 
-sealed trait AccessControlRequestHeaders
+final case class AccessControlRequestHeaders(values: Chunk[String])
 
 /**
  * The Access-Control-Request-Headers request header is used by browsers when
@@ -28,18 +28,13 @@ sealed trait AccessControlRequestHeaders
  * Access-Control-Allow-Headers will answer this browser-side header.
  */
 object AccessControlRequestHeaders {
-  final case class AccessControlRequestHeadersValue(values: Chunk[String]) extends AccessControlRequestHeaders
-  case object NoRequestHeaders                                             extends AccessControlRequestHeaders
-
-  def toAccessControlRequestHeaders(values: String): AccessControlRequestHeaders = {
-    values.trim().split(",").toList match {
-      case Nil => NoRequestHeaders
-      case xs  => AccessControlRequestHeadersValue(Chunk.fromIterable(xs))
+  def toAccessControlRequestHeaders(values: String): Either[String, AccessControlRequestHeaders] = {
+    Chunk.fromArray(values.trim().split(",")).filter(_.nonEmpty) match {
+      case Chunk() => Left("AccessControlRequestHeaders cannot be empty")
+      case xs      => Right(AccessControlRequestHeaders(xs))
     }
   }
 
-  def fromAccessControlRequestHeaders(headers: AccessControlRequestHeaders): String = headers match {
-    case AccessControlRequestHeadersValue(values) => values.mkString(",")
-    case NoRequestHeaders                         => ""
-  }
+  def fromAccessControlRequestHeaders(headers: AccessControlRequestHeaders): String =
+    headers.values.mkString(",")
 }

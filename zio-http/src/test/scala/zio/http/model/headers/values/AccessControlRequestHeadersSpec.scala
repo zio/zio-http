@@ -23,14 +23,14 @@ import zio.http.model.headers.values.AccessControlRequestHeaders.fromAccessContr
 
 object AccessControlRequestHeadersSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlRequestHeaders suite")(
-    test("AccessControlRequestHeadersValue") {
+    test("AccessControlRequestHeaders") {
       val values                      = Chunk.fromIterable(List("a", "b", "c"))
       val accessControlRequestHeaders = AccessControlRequestHeaders.toAccessControlRequestHeaders(values.mkString(","))
-      assertTrue(fromAccessControlRequestHeaders(accessControlRequestHeaders) == values.mkString(","))
+      assertTrue(fromAccessControlRequestHeaders(accessControlRequestHeaders.toOption.get) == values.mkString(","))
     },
-    test("NoRequestHeaders") {
+    test("Empty header is an error") {
       val accessControlRequestHeaders = AccessControlRequestHeaders.toAccessControlRequestHeaders("")
-      assertTrue(fromAccessControlRequestHeaders(accessControlRequestHeaders) == "")
+      assertTrue(accessControlRequestHeaders.isLeft)
     },
   )
 }

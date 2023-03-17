@@ -37,7 +37,6 @@ object ContentSecurityPolicy {
   final case class Sandbox(value: SandboxValue)                         extends ContentSecurityPolicy
   final case class TrustedTypes(value: TrustedTypesValue)               extends ContentSecurityPolicy
   case object UpgradeInsecureRequests                                   extends ContentSecurityPolicy
-  case object InvalidContentSecurityPolicy                              extends ContentSecurityPolicy
 
   sealed trait SourcePolicyType
   object SourcePolicyType {
@@ -367,19 +366,19 @@ object ContentSecurityPolicy {
   private val SandboxRegex      = "sandbox (.*)".r
   private val PolicyRegex       = "([a-z-]+) (.*)".r
 
-  def toContentSecurityPolicy(value: CharSequence): ContentSecurityPolicy =
+  def toContentSecurityPolicy(value: CharSequence): Either[String, ContentSecurityPolicy] =
     value.toString match {
-      case "block-all-mixed-content"       => ContentSecurityPolicy.BlockAllMixedContent
-      case PluginTypesRegex(types)         => ContentSecurityPolicy.PluginTypes(types)
-      case ReferrerRegex(referrer)         => ReferrerPolicy.fromString(referrer).map(ContentSecurityPolicy.Referrer(_)).getOrElse(InvalidContentSecurityPolicy)
-      case ReportToRegex(group)            => ContentSecurityPolicy.ReportTo(group)
-      case ReportUriRegex(uri)             => Try(new URI(uri)).map(ContentSecurityPolicy.ReportUri(_)).getOrElse(InvalidContentSecurityPolicy)
-      case RequireSriRegex(value)          => RequireSriForValue.fromString(value).map(ContentSecurityPolicy.RequireSriFor(_)).getOrElse(InvalidContentSecurityPolicy)
-      case TrustedTypesRegex(value)        => TrustedTypesValue.fromString(value).map(ContentSecurityPolicy.TrustedTypes(_)).getOrElse(InvalidContentSecurityPolicy)
-      case SandboxRegex(sandbox)           => SandboxValue.fromString(sandbox).map(ContentSecurityPolicy.Sandbox(_)).getOrElse(InvalidContentSecurityPolicy)
-      case "upgrade-insecure-requests"     => ContentSecurityPolicy.UpgradeInsecureRequests
+      case "block-all-mixed-content"       => Right(ContentSecurityPolicy.BlockAllMixedContent)
+      case PluginTypesRegex(types)         => Right(ContentSecurityPolicy.PluginTypes(types))
+      case ReferrerRegex(referrer)         => ReferrerPolicy.fromString(referrer).map(ContentSecurityPolicy.Referrer(_)).toRight("Invalid referrer policy")
+      case ReportToRegex(group)            => Right(ContentSecurityPolicy.ReportTo(group))
+      case ReportUriRegex(uri)             => Try(new URI(uri)).map(ContentSecurityPolicy.ReportUri(_)).toEither.left.map(_ => "Invalid report-uri")
+      case RequireSriRegex(value)          => RequireSriForValue.fromString(value).map(ContentSecurityPolicy.RequireSriFor(_)).toRight("Invalid require-sri-for value")
+      case TrustedTypesRegex(value)        => TrustedTypesValue.fromString(value).map(ContentSecurityPolicy.TrustedTypes(_)).toRight("Invalid trusted-types value")
+      case SandboxRegex(sandbox)           => SandboxValue.fromString(sandbox).map(ContentSecurityPolicy.Sandbox(_)).toRight("Invalid sandbox value")
+      case "upgrade-insecure-requests"     => Right(ContentSecurityPolicy.UpgradeInsecureRequests)
       case PolicyRegex(policyType, policy) => ContentSecurityPolicy.fromTypeAndPolicy(policyType, policy)
-      case _                               => InvalidContentSecurityPolicy
+      case _                               => Left("Invalid Content-Security-Policy")
 
     }
   def fromContentSecurityPolicy(csp: ContentSecurityPolicy): String =
@@ -394,13 +393,12 @@ object ContentSecurityPolicy {
       case ContentSecurityPolicy.Sandbox(value)          => s"sandbox ${SandboxValue.toString(value)}"
       case ContentSecurityPolicy.UpgradeInsecureRequests => "upgrade-insecure-requests"
       case SourcePolicy(policyType, policy)              => s"${SourcePolicyType.toString(policyType)} ${Source.toString(policy)}"
-      case InvalidContentSecurityPolicy                  => ""
     }
 
-  def fromTypeAndPolicy(policyType: String, policy: String): ContentSecurityPolicy =
+  def fromTypeAndPolicy(policyType: String, policy: String): Either[String, ContentSecurityPolicy] =
     SourcePolicyType
       .fromString(policyType)
       .flatMap(policyType => Source.fromString(policy).map(SourcePolicy(policyType, _)))
-      .getOrElse(InvalidContentSecurityPolicy)
+      .toRight("Invalid Content-Security-Policy")
 
 }

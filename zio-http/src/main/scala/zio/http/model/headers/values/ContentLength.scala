@@ -16,36 +16,29 @@
 
 package zio.http.model.headers.values
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /**
- * ContentLength header value
+ * The Content-Length header indicates the size of the message body, in bytes,
+ * sent to the recipient.
  */
-sealed trait ContentLength
+final case class ContentLength(length: Long)
 
 object ContentLength {
 
-  /**
-   * The Content-Length header indicates the size of the message body, in bytes,
-   * sent to the recipient.
-   */
-  final case class ContentLengthValue(length: Long) extends ContentLength
-
-  /**
-   * The ContentLength header value is invalid.
-   */
-  case object InvalidContentLengthValue extends ContentLength
-
   def fromContentLength(contentLength: ContentLength): String =
-    contentLength match {
-      case ContentLengthValue(length) => length.toString
-      case InvalidContentLengthValue  => ""
+    contentLength.length.toString
+
+  def toContentLength(value: String): Either[String, ContentLength] =
+    Try(value.trim.toLong) match {
+      case Failure(_)     => Left("Invalid Content-Length header")
+      case Success(value) => toContentLength(value)
     }
 
-  def toContentLength(value: String): ContentLength =
-    Try(value.trim.toLong).fold(_ => InvalidContentLengthValue, toContentLength)
-
-  def toContentLength(value: Long): ContentLength =
-    if (value >= 0) ContentLengthValue(value) else InvalidContentLengthValue
+  def toContentLength(value: Long): Either[String, ContentLength] =
+    if (value >= 0)
+      Right(ContentLength(value))
+    else
+      Left("Invalid Content-Length header")
 
 }

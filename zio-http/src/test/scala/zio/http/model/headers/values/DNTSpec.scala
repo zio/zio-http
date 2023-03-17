@@ -19,32 +19,25 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
-import zio.http.model.headers.values.DNT.{
-  InvalidDNTValue,
-  NotSpecifiedDNTValue,
-  TrackingAllowedDNTValue,
-  TrackingNotAllowedDNTValue,
-}
+import zio.http.model.headers.values.DNT.{NotSpecified, TrackingAllowed, TrackingNotAllowed}
 
 object DNTSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("DNT header suite")(
     test("parse DNT headers") {
-      assertTrue(DNT.toDNT("1") == TrackingAllowedDNTValue)
-      assertTrue(DNT.toDNT("0") == TrackingNotAllowedDNTValue)
-      assertTrue(DNT.toDNT("null") == NotSpecifiedDNTValue)
-      assertTrue(DNT.toDNT("test") == InvalidDNTValue)
+      assertTrue(DNT.toDNT("1") == Right(TrackingAllowed))
+      assertTrue(DNT.toDNT("0") == Right(TrackingNotAllowed))
+      assertTrue(DNT.toDNT("null") == Right(NotSpecified))
+      assertTrue(DNT.toDNT("test").isLeft)
     },
     test("encode DNT to String") {
-      assertTrue(DNT.fromDNT(TrackingAllowedDNTValue) == "1")
-      assertTrue(DNT.fromDNT(TrackingNotAllowedDNTValue) == "0")
-      assertTrue(DNT.fromDNT(NotSpecifiedDNTValue) == "null")
-      assertTrue(DNT.fromDNT(InvalidDNTValue) == "")
+      assertTrue(DNT.fromDNT(TrackingAllowed) == "1")
+      assertTrue(DNT.fromDNT(TrackingNotAllowed) == "0")
+      assertTrue(DNT.fromDNT(NotSpecified) == "null")
     },
     test("parsing and encoding is symmetrical") {
-      assertTrue(DNT.fromDNT(DNT.toDNT("1")) == "1")
-      assertTrue(DNT.fromDNT(DNT.toDNT("0")) == "0")
-      assertTrue(DNT.fromDNT(DNT.toDNT("null")) == "null")
-      assertTrue(DNT.fromDNT(DNT.toDNT("")) == "")
+      assertTrue(DNT.fromDNT(DNT.toDNT("1").toOption.get) == "1")
+      assertTrue(DNT.fromDNT(DNT.toDNT("0").toOption.get) == "0")
+      assertTrue(DNT.fromDNT(DNT.toDNT("null").toOption.get) == "null")
     },
   )
 }

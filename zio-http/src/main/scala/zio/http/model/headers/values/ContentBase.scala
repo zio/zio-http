@@ -18,23 +18,19 @@ package zio.http.model.headers.values
 
 import java.net._
 
-sealed trait ContentBase
+final case class ContentBase(uri: URI)
 
 object ContentBase {
-  final case class BaseUri(uri: URI) extends ContentBase
-  case object InvalidContentBase     extends ContentBase
 
-  def fromContentBase(cb: ContentBase): String = cb match {
-    case BaseUri(uri)       => uri.toString
-    case InvalidContentBase => ""
-  }
+  def fromContentBase(cb: ContentBase): String =
+    cb.uri.toString
 
-  def toContentBase(s: CharSequence): ContentBase =
+  def toContentBase(s: CharSequence): Either[String, ContentBase] =
     try {
-      BaseUri(new URL(s.toString).toURI)
+      Right(ContentBase(new URL(s.toString).toURI))
     } catch {
-      case _: Throwable => InvalidContentBase
+      case _: Throwable => Left("Invalid Content-Base header")
     }
 
-  def uri(uri: URI): ContentBase = BaseUri(uri)
+  def uri(uri: URI): ContentBase = ContentBase(uri)
 }

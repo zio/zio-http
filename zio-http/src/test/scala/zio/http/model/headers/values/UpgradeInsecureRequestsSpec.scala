@@ -25,15 +25,8 @@ object UpgradeInsecureRequestsSpec extends ZIOSpecDefault {
       test("single value") {
         assertTrue(
           UpgradeInsecureRequests.toUpgradeInsecureRequests(
-            UpgradeInsecureRequests.fromUpgradeInsecureRequests(UpgradeInsecureRequests.UpgradeInsecureRequests),
-          ) == UpgradeInsecureRequests.UpgradeInsecureRequests,
-        )
-      },
-      test("multiple values") {
-        assertTrue(
-          UpgradeInsecureRequests.toUpgradeInsecureRequests(
-            UpgradeInsecureRequests.fromUpgradeInsecureRequests(UpgradeInsecureRequests.InvalidUpgradeInsecureRequests),
-          ) == UpgradeInsecureRequests.InvalidUpgradeInsecureRequests,
+            UpgradeInsecureRequests.fromUpgradeInsecureRequests(UpgradeInsecureRequests()),
+          ) == Right(UpgradeInsecureRequests()),
         )
       },
     ),

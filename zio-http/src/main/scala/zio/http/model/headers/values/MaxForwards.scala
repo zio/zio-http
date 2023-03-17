@@ -21,22 +21,16 @@ import scala.util.{Success, Try}
 /**
  * Max-Forwards header value
  */
-sealed trait MaxForwards
+final case class MaxForwards(value: Int)
 object MaxForwards {
 
-  final case class MaxForwardsValue(value: Int) extends MaxForwards
-  case object InvalidMaxForwardsValue           extends MaxForwards
-
-  def toMaxForwards(value: String): MaxForwards = {
+  def toMaxForwards(value: String): Either[String, MaxForwards] = {
     Try(value.toInt) match {
-      case Success(value) if value >= 0L => MaxForwardsValue(value)
-      case _                             => InvalidMaxForwardsValue
+      case Success(value) if value >= 0L => Right(MaxForwards(value))
+      case _                             => Left("Invalid Max-Forwards header")
     }
   }
 
   def fromMaxForwards(maxForwards: MaxForwards): String =
-    maxForwards match {
-      case MaxForwardsValue(value) => value.toString
-      case InvalidMaxForwardsValue => ""
-    }
+    maxForwards.value.toString
 }

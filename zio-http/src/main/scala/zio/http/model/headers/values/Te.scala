@@ -28,16 +28,9 @@ sealed trait Te {
 object Te {
 
   /**
-   * Signals an invalid value present in the header value.
-   */
-  case object InvalidEncoding extends Te {
-    override def raw: String = "Invalid encoding"
-  }
-
-  /**
    * A compression format that uses the Lempel-Ziv-Welch (LZW) algorithm.
    */
-  final case class CompressEncoding(weight: Option[Double]) extends Te {
+  final case class Compress(weight: Option[Double]) extends Te {
     override def raw: String = "compress"
   }
 
@@ -45,7 +38,7 @@ object Te {
    * A compression format that uses the zlib structure with the deflate
    * compression algorithm.
    */
-  final case class DeflateEncoding(weight: Option[Double]) extends Te {
+  final case class Deflate(weight: Option[Double]) extends Te {
     override def raw: String = "deflate"
   }
 
@@ -53,7 +46,7 @@ object Te {
    * A compression format that uses the Lempel-Ziv coding (LZ77) with a 32-bit
    * CRC.
    */
-  final case class GZipEncoding(weight: Option[Double]) extends Te {
+  final case class GZip(weight: Option[Double]) extends Te {
     override def raw: String = "gzip"
   }
 
@@ -69,11 +62,11 @@ object Te {
   /**
    * Maintains a chunk of AcceptEncoding values.
    */
-  final case class MultipleEncodings(encodings: Chunk[Te]) extends Te {
+  final case class Multiple(encodings: Chunk[Te]) extends Te {
     override def raw: String = encodings.mkString(",")
   }
 
-  private def identifyTeFull(raw: String): Te = {
+  private def identifyTeFull(raw: String): Option[Te] = {
     val index = raw.indexOf(";q=")
     if (index == -1)
       identifyTe(raw)
@@ -82,48 +75,49 @@ object Te {
     }
   }
 
-  private def identifyTe(raw: String, weight: Option[Double] = None): Te = {
+  private def identifyTe(raw: String, weight: Option[Double] = None): Option[Te] = {
     raw.trim match {
-      case "compress" => CompressEncoding(weight)
-      case "deflate"  => DeflateEncoding(weight)
-      case "gzip"     => GZipEncoding(weight)
-      case "trailers" => Trailers
-      case _          => InvalidEncoding
+      case "compress" => Some(Compress(weight))
+      case "deflate"  => Some(Deflate(weight))
+      case "gzip"     => Some(GZip(weight))
+      case "trailers" => Some(Trailers)
+      case _          => None
     }
   }
 
-  def toTe(value: String): Te = {
+  def toTe(value: String): Either[String, Te] = {
     val index = value.indexOf(",")
 
-    @tailrec def loop(value: String, index: Int, acc: MultipleEncodings): MultipleEncodings = {
-      if (index == -1) acc.copy(encodings = acc.encodings ++ Chunk(identifyTeFull(value)))
-      else {
+    @tailrec def loop(value: String, index: Int, acc: Multiple): Either[String, Multiple] = {
+      if (index == -1) {
+        identifyTeFull(value) match {
+          case Some(te) => Right(acc.copy(encodings = acc.encodings :+ te))
+          case None     => Left("Invalid TE header")
+        }
+      } else {
         val valueChunk = value.substring(0, index)
         val remaining  = value.substring(index + 1)
         val nextIndex  = remaining.indexOf(",")
-        val te         = Chunk(identifyTeFull(valueChunk))
-        loop(
-          remaining,
-          nextIndex,
-          acc.copy(encodings = acc.encodings ++ te),
-        )
+        identifyTeFull(valueChunk) match {
+          case Some(te) => loop(remaining, nextIndex, acc.copy(encodings = acc.encodings :+ te))
+          case None     => Left("Invalid TE header")
+        }
       }
     }
 
     if (index == -1)
-      identifyTeFull(value)
+      identifyTeFull(value).toRight("Invalid TE header")
     else
-      loop(value, index, MultipleEncodings(Chunk.empty[Te]))
+      loop(value, index, Multiple(Chunk.empty[Te]))
 
   }
 
   def fromTe(encoding: Te): String = encoding match {
-    case c @ CompressEncoding(weight) => weight.fold(c.raw)(value => s"${c.raw};q=$value")
-    case d @ DeflateEncoding(weight)  => weight.fold(d.raw)(value => s"${d.raw};q=$value")
-    case g @ GZipEncoding(weight)     => weight.fold(g.raw)(value => s"${g.raw};q=$value")
-    case MultipleEncodings(encodings) => encodings.map(fromTe).mkString(", ")
-    case Trailers                     => Trailers.raw
-    case InvalidEncoding              => ""
+    case c @ Compress(weight) => weight.fold(c.raw)(value => s"${c.raw};q=$value")
+    case d @ Deflate(weight)  => weight.fold(d.raw)(value => s"${d.raw};q=$value")
+    case g @ GZip(weight)     => weight.fold(g.raw)(value => s"${g.raw};q=$value")
+    case Multiple(encodings)  => encodings.map(fromTe).mkString(", ")
+    case Trailers             => Trailers.raw
   }
 
 }

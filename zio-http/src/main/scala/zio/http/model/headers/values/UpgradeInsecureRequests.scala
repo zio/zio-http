@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-sealed trait UpgradeInsecureRequests
+final case class UpgradeInsecureRequests()
 
 /**
  * The HTTP Upgrade-Insecure-Requests request header sends a signal to the
@@ -24,16 +24,10 @@ sealed trait UpgradeInsecureRequests
  * response.
  */
 object UpgradeInsecureRequests {
-  case object UpgradeInsecureRequests        extends UpgradeInsecureRequests
-  case object InvalidUpgradeInsecureRequests extends UpgradeInsecureRequests
-
-  def toUpgradeInsecureRequests(value: String): UpgradeInsecureRequests =
-    if (value.trim == "1") UpgradeInsecureRequests
-    else InvalidUpgradeInsecureRequests
+  def toUpgradeInsecureRequests(value: String): Either[String, UpgradeInsecureRequests] =
+    if (value.trim == "1") Right(UpgradeInsecureRequests())
+    else Left("Invalid Upgrade-Insecure-Requests header")
 
   def fromUpgradeInsecureRequests(upgradeInsecureRequests: UpgradeInsecureRequests): String =
-    upgradeInsecureRequests match {
-      case UpgradeInsecureRequests        => "1"
-      case InvalidUpgradeInsecureRequests => ""
-    }
+    "1"
 }

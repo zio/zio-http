@@ -18,6 +18,8 @@ package zio.http.netty
 
 import scala.jdk.CollectionConverters._
 
+import zio.Chunk
+
 import zio.http.internal.CookieEncoding
 import zio.http.model.Cookie
 import zio.http.model.Cookie.SameSite
@@ -32,9 +34,9 @@ private[http] object NettyCookieEncoding extends CookieEncoding {
     encoder.encode(builder)
   }
 
-  override final def decodeRequestCookie(header: String, validate: Boolean): List[Cookie[Request]] = {
+  override final def decodeRequestCookie(header: String, validate: Boolean): Chunk[Cookie[Request]] = {
     val decoder = if (validate) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
-    decoder.decodeAll(header).asScala.toList.map { cookie =>
+    Chunk.fromJavaIterable(decoder.decodeAll(header)).map { cookie =>
       Cookie(cookie.name(), cookie.value()).toRequest
     }
   }

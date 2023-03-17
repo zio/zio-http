@@ -26,20 +26,16 @@ object SecWebSocketLocationSpec extends ZIOSpecDefault {
     test("SecWebSocketLocation should be properly parsed for a valid string") {
       val probe    = "ws://example.com"
       val probeURL = URL.fromString(probe).fold(_ => URL.empty, url => url)
-      assertTrue(SecWebSocketLocation.toSecWebSocketLocation(probe) == SecWebSocketLocation.LocationValue(probeURL))
+      assertTrue(SecWebSocketLocation.toSecWebSocketLocation(probe) == Right(SecWebSocketLocation(probeURL)))
     },
     test("SecWebSocketLocation should be properly parsed for an empty string") {
       val probe = ""
-      assertTrue(SecWebSocketLocation.toSecWebSocketLocation(probe) == SecWebSocketLocation.EmptyLocationValue)
+      assertTrue(SecWebSocketLocation.toSecWebSocketLocation(probe).isLeft)
     },
     test("SecWebSocketLocation should properly render a valid string") {
       val probe    = "ws://example.com"
       val probeURL = URL.fromString(probe).fold(_ => URL.empty, url => url)
-      assertTrue(SecWebSocketLocation.fromSecWebSocketLocation(SecWebSocketLocation.LocationValue(probeURL)) == probe)
-    },
-    test("SecWebSocketLocation should properly render an empty string") {
-      val probe = ""
-      assertTrue(SecWebSocketLocation.fromSecWebSocketLocation(SecWebSocketLocation.EmptyLocationValue) == probe)
+      assertTrue(SecWebSocketLocation.fromSecWebSocketLocation(SecWebSocketLocation(probeURL)) == probe)
     },
   )
 }

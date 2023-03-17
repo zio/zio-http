@@ -69,28 +69,24 @@ object AuthenticationScheme {
     override val name: String = "AWS4-HMAC-SHA256"
   }
 
-  case object Invalid extends AuthenticationScheme {
-    override val name: String = ""
-  }
-
   def fromAuthenticationScheme(authenticationScheme: AuthenticationScheme): String =
     authenticationScheme.name
 
-  def toAuthenticationScheme(name: String): AuthenticationScheme = {
+  def toAuthenticationScheme(name: String): Either[String, AuthenticationScheme] = {
     name.trim.toUpperCase match {
-      case "BASIC"            => Basic
-      case "BEARER"           => Bearer
-      case "DIGEST"           => Digest
-      case "HOBA"             => HOBA
-      case "MUTUAL"           => Mutual
-      case "NEGOTIATE"        => Negotiate
-      case "OAUTH"            => OAuth
-      case "SCRAM"            => Scram
-      case "SCRAM-SHA-1"      => ScramSha1
-      case "SCRAM-SHA-256"    => ScramSha256
-      case "VAPID"            => Vapid
-      case "AWS4-HMAC-SHA256" => `AWS4-HMAC-SHA256`
-      case _                  => Invalid
+      case "BASIC"            => Right(Basic)
+      case "BEARER"           => Right(Bearer)
+      case "DIGEST"           => Right(Digest)
+      case "HOBA"             => Right(HOBA)
+      case "MUTUAL"           => Right(Mutual)
+      case "NEGOTIATE"        => Right(Negotiate)
+      case "OAUTH"            => Right(OAuth)
+      case "SCRAM"            => Right(Scram)
+      case "SCRAM-SHA-1"      => Right(ScramSha1)
+      case "SCRAM-SHA-256"    => Right(ScramSha256)
+      case "VAPID"            => Right(Vapid)
+      case "AWS4-HMAC-SHA256" => Right(`AWS4-HMAC-SHA256`)
+      case name: String       => Left(s"Unsupported authentication scheme: $name")
     }
   }
 

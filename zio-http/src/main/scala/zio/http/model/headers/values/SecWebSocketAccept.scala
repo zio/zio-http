@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-sealed trait SecWebSocketAccept
+final case class SecWebSocketAccept(hashedKey: String)
 
 /**
  * The Sec-WebSocket-Accept header is used in the websocket opening handshake.
@@ -28,16 +28,11 @@ sealed trait SecWebSocketAccept
  * https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-WebSocket-Accept
  */
 object SecWebSocketAccept {
-  final case class HashedKey(value: String) extends SecWebSocketAccept
-  case object InvalidHashedKey              extends SecWebSocketAccept
 
-  def toSecWebSocketAccept(value: String): SecWebSocketAccept = {
-    if (value.trim.isEmpty) InvalidHashedKey
-    else HashedKey(value)
-  }
+  def toSecWebSocketAccept(value: String): Either[String, SecWebSocketAccept] =
+    if (value.trim.isEmpty) Left("Invalid Sec-WebSocket-Accept header")
+    else Right(SecWebSocketAccept(value))
 
-  def fromSecWebSocketAccept(secWebSocketAccept: SecWebSocketAccept): String = secWebSocketAccept match {
-    case HashedKey(value) => value
-    case InvalidHashedKey => ""
-  }
+  def fromSecWebSocketAccept(secWebSocketAccept: SecWebSocketAccept): String =
+    secWebSocketAccept.hashedKey
 }

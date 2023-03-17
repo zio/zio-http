@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.Unsafe
+import zio.{Chunk, Unsafe}
 
 import zio.http.internal.CookieEncoding
 import zio.http.model.Cookie
@@ -36,10 +36,10 @@ sealed trait CookieDecoder[A] {
 
 object CookieDecoder {
   implicit object RequestCookieDecoder extends CookieDecoder[Request] {
-    override type Out = List[Cookie[Request]]
+    override type Out = Chunk[Cookie[Request]]
 
     override final val unsafe: UnsafeAPI = new UnsafeAPI {
-      override final def decode(header: String, validate: Boolean)(implicit unsafe: Unsafe): List[Cookie[Request]] = {
+      override final def decode(header: String, validate: Boolean)(implicit unsafe: Unsafe): Chunk[Cookie[Request]] = {
         CookieEncoding.default.decodeRequestCookie(header, validate)
       }
     }

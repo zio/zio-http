@@ -22,24 +22,23 @@ import java.time.{ZoneId, ZonedDateTime}
 import zio.Scope
 import zio.test._
 
-import zio.http.model.headers.values.Expires.ValidExpires
-
 object ExpiresSpec extends ZIOSpecDefault {
-
-  val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
+  private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Expires header suite")(
     test("parsing of invalid expires values") {
-      assertTrue(Expires.toExpires("") == Expires.InvalidExpires) &&
-      assertTrue(Expires.toExpires("any string") == Expires.InvalidExpires) &&
-      assertTrue(Expires.toExpires("Wed 21 Oct 2015 07:28:00") == Expires.InvalidExpires) &&
-      assertTrue(Expires.toExpires("21 Oct 2015 07:28:00 GMT") == Expires.InvalidExpires)
-      assertTrue(Expires.toExpires("Wed 21 Oct 2015 07:28:00 GMT") == Expires.InvalidExpires)
+      assertTrue(Expires.toExpires("").isLeft) &&
+      assertTrue(Expires.toExpires("any string").isLeft) &&
+      assertTrue(Expires.toExpires("Wed 21 Oct 2015 07:28:00").isLeft) &&
+      assertTrue(Expires.toExpires("21 Oct 2015 07:28:00 GMT").isLeft)
+      assertTrue(Expires.toExpires("Wed 21 Oct 2015 07:28:00 GMT").isLeft)
     },
     test("parsing of valid Expires values") {
       assertTrue(
-        Expires.toExpires("Wed, 21 Oct 2015 07:28:00 GMT") == Expires.ValidExpires(
-          ZonedDateTime.parse("Wed, 21 Oct 2015 07:28:00 GMT", formatter),
+        Expires.toExpires("Wed, 21 Oct 2015 07:28:00 GMT") == Right(
+          Expires(
+            ZonedDateTime.parse("Wed, 21 Oct 2015 07:28:00 GMT", formatter),
+          ),
         ),
       )
     },
@@ -48,7 +47,9 @@ object ExpiresSpec extends ZIOSpecDefault {
         val zone = ZoneId.of("Australia/Sydney")
         assertTrue(
           Expires
-            .toExpires(Expires.fromExpires(ValidExpires(date.withZoneSameLocal(zone))))
+            .toExpires(Expires.fromExpires(Expires(date.withZoneSameLocal(zone))))
+            .toOption
+            .get
             .value
             .format(formatter) == date.withZoneSameLocal(zone).format(formatter),
         )

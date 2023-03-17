@@ -18,23 +18,19 @@ package zio.http.model.headers.values
 
 import zio.http.{CookieDecoder, Response, model}
 
-sealed trait ResponseCookie
+final case class ResponseCookie(value: model.Cookie[Response])
 
 object ResponseCookie {
-  final case class CookieValue(value: model.Cookie[Response]) extends ResponseCookie
-  final case class InvalidCookieValue(error: Exception)       extends ResponseCookie
 
-  def toCookie(value: String): zio.http.model.headers.values.ResponseCookie = {
+  def toCookie(value: String): Either[String, ResponseCookie] = {
     implicit val decoder = CookieDecoder.ResponseCookieDecoder
+
     model.Cookie.decode(value) match {
-      case Left(value)  => InvalidCookieValue(value)
-      case Right(value) => CookieValue(value)
+      case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
+      case Right(value) => Right(ResponseCookie(value))
     }
   }
 
-  def fromCookie(cookie: ResponseCookie): String = cookie match {
-    case CookieValue(value)    =>
-      value.encode.getOrElse("")
-    case InvalidCookieValue(_) => ""
-  }
+  def fromCookie(cookie: ResponseCookie): String =
+    cookie.value.encode.getOrElse("")
 }

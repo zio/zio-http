@@ -18,22 +18,17 @@ package zio.http.model.headers.values
 
 import java.net.URI
 
-sealed trait ContentLocation
+final case class ContentLocation(value: URI)
 
 object ContentLocation {
-  final case class ContentLocationValue(value: URI) extends ContentLocation
-  case object InvalidContentLocationValue           extends ContentLocation
 
-  def toContentLocation(value: CharSequence): ContentLocation =
+  def toContentLocation(value: CharSequence): Either[String, ContentLocation] =
     try {
-      ContentLocationValue(new URI(value.toString))
+      Right(ContentLocation(new URI(value.toString)))
     } catch {
-      case _: Throwable => InvalidContentLocationValue
+      case _: Throwable => Left("Invalid Content-Location header")
     }
 
   def fromContentLocation(contentLocation: ContentLocation): String =
-    contentLocation match {
-      case ContentLocationValue(value) => value.toString
-      case InvalidContentLocationValue => ""
-    }
+    contentLocation.value.toString
 }

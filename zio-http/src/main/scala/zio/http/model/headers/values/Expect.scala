@@ -26,20 +26,16 @@ sealed trait Expect {
 }
 
 object Expect {
-  case object ExpectValue extends Expect {
-    override val value: String = "100-continue"
-  }
-
-  case object InvalidExpectValue extends Expect {
-    override val value: String = ""
+  case object `100-continue` extends Expect {
+    val value = "100-continue"
   }
 
   def fromExpect(expect: Expect): String =
     expect.value
 
-  def toExpect(value: String): Expect =
+  def toExpect(value: String): Either[String, Expect] =
     value match {
-      case ExpectValue.value => ExpectValue
-      case _                 => InvalidExpectValue
+      case `100-continue`.value => Right(`100-continue`)
+      case _                    => Left("Invalid Expect header")
     }
 }

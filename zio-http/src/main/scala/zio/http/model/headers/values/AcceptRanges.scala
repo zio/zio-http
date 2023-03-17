@@ -28,23 +28,20 @@ sealed trait AcceptRanges {
 }
 
 object AcceptRanges {
-  case object Bytes               extends AcceptRanges {
+  case object Bytes extends AcceptRanges {
     override val name = "bytes"
   }
-  case object None                extends AcceptRanges {
+  case object None  extends AcceptRanges {
     override val name = "none"
-  }
-  case object InvalidAcceptRanges extends AcceptRanges {
-    override val name = ""
   }
 
   def from(acceptRangers: AcceptRanges): String =
     acceptRangers.name
 
-  def to(value: String): AcceptRanges =
+  def to(value: String): Either[String, AcceptRanges] =
     value match {
-      case Bytes.name => Bytes
-      case None.name  => None
-      case _          => InvalidAcceptRanges
+      case Bytes.name => Right(Bytes)
+      case None.name  => Right(None)
+      case _          => Left("Invalid Accept-Ranges header")
     }
 }

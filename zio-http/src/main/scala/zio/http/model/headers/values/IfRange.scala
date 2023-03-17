@@ -35,22 +35,22 @@ object IfRange {
   private val webDateTimeFormatter =
     DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
-  final case class ETagValue(value: String)            extends IfRange
-  final case class DateTimeValue(value: ZonedDateTime) extends IfRange
-  case object InvalidIfRangeValue                      extends IfRange
+  final case class ETag(value: String)            extends IfRange
+  final case class DateTime(value: ZonedDateTime) extends IfRange
 
-  def toIfRange(value: String): IfRange =
+  def toIfRange(value: String): Either[String, IfRange] =
     value match {
-      case value if value.startsWith("\"") && value.endsWith("\"") => ETagValue(value.drop(1).dropRight(1))
+      case value if value.startsWith("\"") && value.endsWith("\"") =>
+        Right(ETag(value.drop(1).dropRight(1)))
       case dateTime                                                =>
-        Try(DateTimeValue(ZonedDateTime.from(webDateTimeFormatter.parse(dateTime))))
-          .getOrElse(InvalidIfRangeValue)
+        Try(DateTime(ZonedDateTime.from(webDateTimeFormatter.parse(dateTime)))).toEither.left.map(_ =>
+          "Invalid If-Range header",
+        )
     }
 
   def fromIfRange(ifRange: IfRange): String =
     ifRange match {
-      case DateTimeValue(value) => webDateTimeFormatter.format(value)
-      case ETagValue(value)     => s""""$value""""
-      case InvalidIfRangeValue  => ""
+      case DateTime(value) => webDateTimeFormatter.format(value)
+      case ETag(value)     => s""""$value""""
     }
 }

@@ -30,29 +30,27 @@ sealed trait AcceptLanguage
 
 object AcceptLanguage {
 
-  case class AcceptedLanguage(language: String, weight: Option[Double]) extends AcceptLanguage
+  case class Single(language: String, weight: Option[Double]) extends AcceptLanguage
 
-  case class AcceptedLanguages(languages: Chunk[AcceptLanguage]) extends AcceptLanguage
+  case class Multiple(languages: Chunk[AcceptLanguage]) extends AcceptLanguage
 
-  case object AnyLanguage extends AcceptLanguage
+  case object Any extends AcceptLanguage
 
-  case object InvalidAcceptLanguageValue extends AcceptLanguage
+  def fromAcceptLanguage(acceptLanguage: AcceptLanguage): String =
+    acceptLanguage match {
+      case Single(language, weight) =>
+        val weightString = weight match {
+          case Some(w) => s";q=$w"
+          case None    => ""
+        }
+        s"$language$weightString"
+      case Multiple(languages)      => languages.map(fromAcceptLanguage).mkString(",")
+      case Any                      => "*"
+    }
 
-  def fromAcceptLanguage(acceptLanguage: AcceptLanguage): String = acceptLanguage match {
-    case AcceptedLanguage(language, weight) =>
-      val weightString = weight match {
-        case Some(w) => s";q=$w"
-        case None    => ""
-      }
-      s"$language$weightString"
-    case AcceptedLanguages(languages)       => languages.map(fromAcceptLanguage).mkString(",")
-    case AnyLanguage                        => "*"
-    case InvalidAcceptLanguageValue         => ""
-  }
-
-  def toAcceptLanguage(value: String): AcceptLanguage = {
-    @tailrec def loop(index: Int, value: String, acc: AcceptedLanguages): AcceptedLanguages = {
-      if (index == -1) acc.copy(languages = acc.languages ++ Chunk(parseAcceptedLanguage(value.trim)))
+  def toAcceptLanguage(value: String): Either[String, AcceptLanguage] = {
+    @tailrec def loop(index: Int, value: String, acc: Multiple): Multiple = {
+      if (index == -1) acc.copy(languages = acc.languages :+ parseAcceptedLanguage(value.trim))
       else {
         val valueChunk     = value.substring(0, index)
         val valueRemaining = value.substring(index + 1)
@@ -60,14 +58,14 @@ object AcceptLanguage {
         loop(
           newIndex,
           valueRemaining,
-          acc.copy(languages = acc.languages ++ Chunk(parseAcceptedLanguage(valueChunk.trim))),
+          acc.copy(languages = acc.languages :+ parseAcceptedLanguage(valueChunk.trim)),
         )
       }
     }
-    if (validCharacters.findFirstIn(value).isEmpty) InvalidAcceptLanguageValue
-    else if (value.isEmpty) InvalidAcceptLanguageValue
-    else if (value == "*") AnyLanguage
-    else loop(value.indexOf(','), value, AcceptedLanguages(Chunk.empty))
+    if (validCharacters.findFirstIn(value).isEmpty) Left("Accept-Language contains invalid characters")
+    else if (value.isEmpty) Left("Accept-Language cannot be empty")
+    else if (value == "*") Right(AcceptLanguage.Any)
+    else Right(loop(value.indexOf(','), value, Multiple(Chunk.empty)))
   }
 
   /**
@@ -80,11 +78,11 @@ object AcceptLanguage {
     if (weightIndex != -1) {
       val language = value.substring(0, weightIndex)
       val weight   = value.substring(weightIndex + 3)
-      AcceptedLanguage(
+      Single(
         language,
         Try(weight.toDouble).toOption
           .filter(w => w >= 0.0 && w <= 1.0),
       )
-    } else AcceptedLanguage(value, None)
+    } else Single(value, None)
   }
 }

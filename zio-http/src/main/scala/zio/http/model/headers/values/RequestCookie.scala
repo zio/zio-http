@@ -16,10 +16,12 @@
 
 package zio.http.model.headers.values
 
+import zio.Chunk
+
 import zio.http.CookieEncoder._
 import zio.http.{CookieDecoder, Request, model}
 
-sealed trait RequestCookie
+final case class RequestCookie(value: Chunk[model.Cookie[Request]])
 
 /**
  * The Cookie HTTP request header contains stored HTTP cookies associated with
@@ -27,23 +29,17 @@ sealed trait RequestCookie
  */
 object RequestCookie {
 
-  final case class CookieValue(value: List[model.Cookie[Request]]) extends RequestCookie
-  final case class InvalidCookieValue(error: Exception)            extends RequestCookie
-
-  def toCookie(value: String): zio.http.model.headers.values.RequestCookie = {
+  def toCookie(value: String): Either[String, RequestCookie] = {
     implicit val decoder = CookieDecoder.RequestCookieDecoder
+
     model.Cookie.decode(value) match {
-      case Left(value)  => InvalidCookieValue(value)
+      case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
       case Right(value) =>
-        if (value.isEmpty) InvalidCookieValue(new Exception("invalid cookie"))
-        else
-          CookieValue(value)
+        if (value.isEmpty) Left("Invalid Cookie header")
+        else Right(RequestCookie(value))
     }
   }
 
-  def fromCookie(cookie: RequestCookie): String = cookie match {
-    case CookieValue(value)    =>
-      value.map(_.encode.getOrElse("")).mkString("; ")
-    case InvalidCookieValue(_) => ""
-  }
+  def fromCookie(cookie: RequestCookie): String =
+    cookie.value.map(_.encode.getOrElse("")).mkString("; ")
 }

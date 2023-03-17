@@ -16,9 +16,18 @@
 
 package zio.http.model.headers.values
 
-sealed trait ProxyAuthorization {
-  val value: String
-}
+/**
+ * Proxy-Authorization: <type> <credentials>
+ *
+ * <type> - AuthenticationScheme
+ *
+ * <credentials> - The resulting string is base64 encoded
+ *
+ * Example
+ *
+ * Proxy-Authorization: Basic YWxhZGRpbjpvcGVuc2VzYW1l
+ */
+final case class ProxyAuthorization(authenticationScheme: AuthenticationScheme, credential: String)
 
 /**
  * The HTTP Proxy-Authorization request header contains the credentials to
@@ -28,38 +37,16 @@ sealed trait ProxyAuthorization {
  */
 object ProxyAuthorization {
 
-  /**
-   * Proxy-Authorization: <type> <credentials>
-   *
-   * <type> - AuthenticationScheme
-   *
-   * <credentials> - The resulting string is base64 encoded
-   *
-   * Example
-   *
-   * Proxy-Authorization: Basic YWxhZGRpbjpvcGVuc2VzYW1l
-   */
-  final case class ValidProxyAuthorization(authenticationScheme: AuthenticationScheme, credential: String)
-      extends ProxyAuthorization {
-    override val value = s"${authenticationScheme.name} ${credential}"
-  }
+  def fromProxyAuthorization(proxyAuthorization: ProxyAuthorization): String =
+    s"${proxyAuthorization.authenticationScheme.name} ${proxyAuthorization.credential}"
 
-  case object InvalidProxyAuthorization extends ProxyAuthorization {
-    override val value: String = ""
-  }
-
-  def fromProxyAuthorization(proxyAuthorization: ProxyAuthorization): String = {
-    proxyAuthorization.value
-  }
-
-  def toProxyAuthorization(value: String): ProxyAuthorization = {
+  def toProxyAuthorization(value: String): Either[String, ProxyAuthorization] = {
     value.split("\\s+") match {
-      case Array(authorization, credential) if !authorization.isEmpty && !credential.isEmpty =>
-        val authenticationScheme = AuthenticationScheme.toAuthenticationScheme(authorization)
-        if (authenticationScheme != AuthenticationScheme.Invalid) {
-          ValidProxyAuthorization(authenticationScheme, credential)
-        } else InvalidProxyAuthorization
-      case _ => InvalidProxyAuthorization
+      case Array(authorization, credential) if authorization.nonEmpty && credential.nonEmpty =>
+        AuthenticationScheme.toAuthenticationScheme(authorization).map { authenticationScheme =>
+          ProxyAuthorization(authenticationScheme, credential)
+        }
+      case _ => Left("Invalid Proxy-Authorization header")
     }
   }
 }

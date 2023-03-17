@@ -20,53 +20,59 @@ import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
 import zio.{Chunk, Scope}
 
 import zio.http.internal.HttpGen
-import zio.http.model.headers.values.ContentEncoding.{InvalidEncoding, MultipleEncodings}
+import zio.http.model.headers.values.ContentEncoding.Multiple
 
 object ContentEncodingSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ContentEncoding suite")(
     suite("ContentEncoding header value transformation should be symmetrical")(
       test("gen single value") {
         check(HttpGen.allowContentEncodingSingleValue) { value =>
-          assertTrue(ContentEncoding.toContentEncoding(ContentEncoding.fromContentEncoding(value)) == value)
+          assertTrue(ContentEncoding.toContentEncoding(ContentEncoding.fromContentEncoding(value)) == Right(value))
         }
       },
       test("single value") {
-        assertTrue(ContentEncoding.toContentEncoding("br") == ContentEncoding.BrEncoding) &&
-        assertTrue(ContentEncoding.toContentEncoding("compress") == ContentEncoding.CompressEncoding) &&
-        assertTrue(ContentEncoding.toContentEncoding("deflate") == ContentEncoding.DeflateEncoding) &&
+        assertTrue(ContentEncoding.toContentEncoding("br") == Right(ContentEncoding.Br)) &&
+        assertTrue(ContentEncoding.toContentEncoding("compress") == Right(ContentEncoding.Compress)) &&
+        assertTrue(ContentEncoding.toContentEncoding("deflate") == Right(ContentEncoding.Deflate)) &&
         assertTrue(
-          ContentEncoding.toContentEncoding("deflate, br, compress") == ContentEncoding.MultipleEncodings(
-            Chunk(ContentEncoding.DeflateEncoding, ContentEncoding.BrEncoding, ContentEncoding.CompressEncoding),
+          ContentEncoding.toContentEncoding("deflate, br, compress") == Right(
+            ContentEncoding.Multiple(
+              Chunk(ContentEncoding.Deflate, ContentEncoding.Br, ContentEncoding.Compress),
+            ),
           ),
         ) &&
-        assertTrue(ContentEncoding.toContentEncoding("garbage") == ContentEncoding.InvalidEncoding)
+        assertTrue(ContentEncoding.toContentEncoding("garbage").isLeft)
 
       },
       test("edge cases") {
         assertTrue(
-          ContentEncoding.toContentEncoding(
-            ContentEncoding.fromContentEncoding(MultipleEncodings(Chunk())),
-          ) == InvalidEncoding,
+          ContentEncoding
+            .toContentEncoding(
+              ContentEncoding.fromContentEncoding(Multiple(Chunk())),
+            )
+            .isLeft,
         ) &&
         assertTrue(
           ContentEncoding.toContentEncoding(
             ContentEncoding.fromContentEncoding(
-              MultipleEncodings(
-                Chunk(ContentEncoding.DeflateEncoding, ContentEncoding.BrEncoding, ContentEncoding.CompressEncoding),
+              Multiple(
+                Chunk(ContentEncoding.Deflate, ContentEncoding.Br, ContentEncoding.Compress),
               ),
             ),
-          ) == ContentEncoding.MultipleEncodings(
-            Chunk(ContentEncoding.DeflateEncoding, ContentEncoding.BrEncoding, ContentEncoding.CompressEncoding),
+          ) == Right(
+            ContentEncoding.Multiple(
+              Chunk(ContentEncoding.Deflate, ContentEncoding.Br, ContentEncoding.Compress),
+            ),
           ),
         ) &&
         assertTrue(
           ContentEncoding.toContentEncoding(
             ContentEncoding.fromContentEncoding(
-              MultipleEncodings(
-                Chunk(ContentEncoding.DeflateEncoding),
+              Multiple(
+                Chunk(ContentEncoding.Deflate),
               ),
             ),
-          ) == ContentEncoding.DeflateEncoding,
+          ) == Right(ContentEncoding.Deflate),
         )
       },
     ),

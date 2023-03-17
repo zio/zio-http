@@ -18,88 +18,62 @@ package zio.http.model.headers.values
 
 import scala.annotation.tailrec
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
+
+import zio.http.model.Method
 
 /**
  * The Allow header must be sent if the server responds with a 405 Method Not
  * Allowed status code to indicate which request methods can be used.
  */
-sealed trait Allow {
-  val raw: String
-}
+final case class Allow(methods: NonEmptyChunk[Method])
 
 object Allow {
+  val OPTIONS: Allow = Allow(NonEmptyChunk.single(Method.OPTIONS))
+  val GET: Allow     = Allow(NonEmptyChunk.single(Method.GET))
+  val HEAD: Allow    = Allow(NonEmptyChunk.single(Method.HEAD))
+  val POST: Allow    = Allow(NonEmptyChunk.single(Method.POST))
+  val PUT: Allow     = Allow(NonEmptyChunk.single(Method.PUT))
+  val PATCH: Allow   = Allow(NonEmptyChunk.single(Method.PATCH))
+  val DELETE: Allow  = Allow(NonEmptyChunk.single(Method.DELETE))
+  val TRACE: Allow   = Allow(NonEmptyChunk.single(Method.TRACE))
+  val CONNECT: Allow = Allow(NonEmptyChunk.single(Method.CONNECT))
 
-  case object OPTIONS                                  extends Allow {
-    override val raw: String = "OPTIONS"
-  }
-  case object GET                                      extends Allow {
-    override val raw: String = "GET"
-  }
-  case object HEAD                                     extends Allow {
-    override val raw: String = "HEAD"
-  }
-  case object POST                                     extends Allow {
-    override val raw: String = "POST"
-  }
-  case object PUT                                      extends Allow {
-    override val raw: String = "PUT"
-  }
-  case object PATCH                                    extends Allow {
-    override val raw: String = "PATCH"
-  }
-  case object DELETE                                   extends Allow {
-    override val raw: String = "DELETE"
-  }
-  case object TRACE                                    extends Allow {
-    override val raw: String = "TRACE"
-  }
-  case object CONNECT                                  extends Allow {
-    override val raw: String = "CONNECT"
-  }
-  case object InvalidAllowMethod                       extends Allow {
-    override val raw: String = ""
-  }
-  final case class AllowMethods(methods: Chunk[Allow]) extends Allow {
-    override val raw: String = methods.map(_.raw).mkString(", ")
-  }
-
-  private def parseAllowMethod(value: String): Allow =
-    value.toUpperCase match {
-      case POST.raw    => POST
-      case GET.raw     => GET
-      case OPTIONS.raw => OPTIONS
-      case HEAD.raw    => HEAD
-      case PUT.raw     => PUT
-      case PATCH.raw   => PATCH
-      case DELETE.raw  => DELETE
-      case TRACE.raw   => TRACE
-      case CONNECT.raw => CONNECT
-      case _           => InvalidAllowMethod
-    }
-
-  def toAllow(value: String): Allow = {
-    @tailrec def loop(index: Int, value: String, acc: AllowMethods): Allow = {
-      if (value.isEmpty) AllowMethods(Chunk.empty)
-      else if (index == -1) acc.copy(methods = acc.methods ++ Chunk(parseAllowMethod(value.trim)))
-      else {
+  def toAllow(value: String): Either[String, Allow] = {
+    @tailrec def loop(index: Int, value: String, acc: Chunk[Method]): Either[String, Chunk[Method]] = {
+      if (value.isEmpty) Left("Invalid Allow header: empty value")
+      else if (index == -1) {
+        Method.fromString(value.trim) match {
+          case Method.CUSTOM(name) => Left(s"Invalid Allow method: $name")
+          case method: Method      => Right(acc :+ method)
+        }
+      } else {
         val valueChunk     = value.substring(0, index)
         val valueRemaining = value.substring(index + 1)
         val newIndex       = valueRemaining.indexOf(',')
-        loop(
-          newIndex,
-          valueRemaining,
-          acc.copy(methods = acc.methods ++ Chunk(parseAllowMethod(valueChunk.trim))),
-        )
+
+        Method.fromString(valueChunk.trim) match {
+          case Method.CUSTOM(name) =>
+            Left(s"Invalid Allow method: $name")
+          case method: Method      =>
+            loop(
+              newIndex,
+              valueRemaining,
+              acc :+ method,
+            )
+        }
       }
     }
 
-    loop(value.indexOf(','), value, AllowMethods(Chunk.empty))
+    loop(value.indexOf(','), value, Chunk.empty).flatMap { methods =>
+      NonEmptyChunk.fromChunk(methods) match {
+        case Some(methods) => Right(Allow(methods))
+        case None          => Left("Invalid Allow header: empty value")
+      }
+    }
   }
 
-  def fromAllow(allow: Allow): String = allow match {
-    case AllowMethods(methods) => methods.map(fromAllow).filter(_.nonEmpty).mkString(", ")
-    case method                => method.raw
-  }
+  def fromAllow(allow: Allow): String =
+    allow.methods.map(_.name).mkString(", ")
 
 }
