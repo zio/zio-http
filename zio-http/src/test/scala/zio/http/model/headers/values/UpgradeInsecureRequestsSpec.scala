@@ -24,8 +24,8 @@ object UpgradeInsecureRequestsSpec extends ZIOSpecDefault {
     suite("UpgradeInsecureRequests header value transformation should be symmetrical")(
       test("single value") {
         assertTrue(
-          UpgradeInsecureRequests.toUpgradeInsecureRequests(
-            UpgradeInsecureRequests.fromUpgradeInsecureRequests(UpgradeInsecureRequests()),
+          UpgradeInsecureRequests.parse(
+            UpgradeInsecureRequests.render(UpgradeInsecureRequests()),
           ) == Right(UpgradeInsecureRequests()),
         )
       },

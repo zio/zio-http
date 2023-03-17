@@ -35,13 +35,13 @@ object AcceptRanges {
     override val name = "none"
   }
 
-  def from(acceptRangers: AcceptRanges): String =
-    acceptRangers.name
-
-  def to(value: String): Either[String, AcceptRanges] =
+  def parse(value: String): Either[String, AcceptRanges] =
     value match {
       case Bytes.name => Right(Bytes)
       case None.name  => Right(None)
       case _          => Left("Invalid Accept-Ranges header")
     }
+
+  def render(acceptRangers: AcceptRanges): String =
+    acceptRangers.name
 }

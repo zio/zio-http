@@ -29,7 +29,16 @@ object Origin {
   /** The Origin header value contains scheme, host and maybe port. */
   final case class Value(scheme: String, host: String, port: Option[Int]) extends Origin
 
-  def fromOrigin(origin: Origin): String = {
+  def parse(value: String): Either[String, Origin] =
+    if (value == "null") Right(Null)
+    else
+      URL.fromString(value) match {
+        case Left(_)                                              => Left("Invalid Origin header")
+        case Right(url) if url.host.isEmpty || url.scheme.isEmpty => Left("Invalid Origin header")
+        case Right(url) => Right(Value(url.scheme.get.encode, url.host.get, url.portIfNotDefault))
+      }
+
+  def render(origin: Origin): String = {
     origin match {
       case Null                           => "null"
       case Value(scheme, host, maybePort) =>
@@ -39,13 +48,4 @@ object Origin {
         }
     }
   }
-
-  def toOrigin(value: String): Either[String, Origin] =
-    if (value == "null") Right(Null)
-    else
-      URL.fromString(value) match {
-        case Left(_)                                              => Left("Invalid Origin header")
-        case Right(url) if url.host.isEmpty || url.scheme.isEmpty => Left("Invalid Origin header")
-        case Right(url) => Right(Value(url.scheme.get.encode, url.host.get, url.portIfNotDefault))
-      }
 }

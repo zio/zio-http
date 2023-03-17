@@ -28,7 +28,7 @@ object ContentTransferEncoding {
 
   private val XRegex = "x-(.*)".r
 
-  def toContentTransferEncoding(s: CharSequence): Either[String, ContentTransferEncoding] =
+  def parse(s: CharSequence): Either[String, ContentTransferEncoding] =
     s.toString.toLowerCase match {
       case "7bit"             => Right(SevenBit)
       case "8bit"             => Right(EightBit)
@@ -39,7 +39,7 @@ object ContentTransferEncoding {
       case _                  => Left("Invalid Content-Transfer-Encoding header")
     }
 
-  def fromContentTransferEncoding(contentTransferEncoding: ContentTransferEncoding): String =
+  def render(contentTransferEncoding: ContentTransferEncoding): String =
     contentTransferEncoding match {
       case SevenBit        => "7bit"
       case EightBit        => "8bit"

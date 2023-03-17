@@ -27,15 +27,15 @@ object LastModifiedSpec extends ZIOSpecDefault {
     test("LastModifiedDateTime") {
       val dateTime     = ZonedDateTime.parse("Sun, 06 Nov 1994 08:49:37 GMT", DateTimeFormatter.RFC_1123_DATE_TIME)
       val lastModified = LastModified(dateTime)
-      assertTrue(LastModified.fromLastModified(lastModified) == "Sun, 6 Nov 1994 08:49:37 GMT")
+      assertTrue(LastModified.render(lastModified) == "Sun, 6 Nov 1994 08:49:37 GMT")
     },
     test("LastModified  should be parsed correctly with invalid value") {
-      val lastModified = LastModified.toLastModified("Mon, 07 Nov 1994 08:49:37")
+      val lastModified = LastModified.parse("Mon, 07 Nov 1994 08:49:37")
       assertTrue(lastModified.isLeft)
     },
     test("LastModified should render correctly a valid date") {
       assertTrue(
-        LastModified.fromLastModified(
+        LastModified.render(
           LastModified(ZonedDateTime.of(1994, 11, 7, 8, 49, 37, 0, ZoneOffset.UTC)),
         ) == "Mon, 7 Nov 1994 08:49:37 GMT",
       )

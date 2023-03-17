@@ -86,7 +86,7 @@ object ContentEncoding {
    * Note: This implementation ignores the invalid string that might occur in
    * MultipleEncodings case.
    */
-  def toContentEncoding(value: CharSequence): Either[String, ContentEncoding] = {
+  def parse(value: CharSequence): Either[String, ContentEncoding] = {
     val encodings = Chunk.fromArray(value.toString.split(",").map(findEncoding)).flatten
 
     encodings match {
@@ -96,6 +96,6 @@ object ContentEncoding {
     }
   }
 
-  def fromContentEncoding(value: ContentEncoding): String = value.encoding
+  def render(value: ContentEncoding): String = value.encoding
 
 }

@@ -44,7 +44,7 @@ object ContentRange {
   private val contentRangeStartEndRegex      = """(\w+) (\d+)-(\d+)/*""".r
   private val contentRangeTotalRegex         = """(\w+) */(\d+)""".r
 
-  def toContentRange(s: CharSequence): Either[String, ContentRange] =
+  def parse(s: CharSequence): Either[String, ContentRange] =
     s match {
       case contentRangeStartEndTotalRegex(unit, start, end, total) =>
         Right(EndTotal(unit, start.toInt, end.toInt, total.toInt))
@@ -56,7 +56,7 @@ object ContentRange {
         Left("Invalid content range")
     }
 
-  def fromContentRange(c: ContentRange): String =
+  def render(c: ContentRange): String =
     c match {
       case EndTotal(unit, start, end, total) =>
         s"$unit $start-$end/$total"

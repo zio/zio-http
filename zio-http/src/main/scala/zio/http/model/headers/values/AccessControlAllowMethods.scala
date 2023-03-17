@@ -30,14 +30,7 @@ object AccessControlAllowMethods {
 
   case object None extends AccessControlAllowMethods
 
-  def fromAccessControlAllowMethods(accessControlAllowMethods: AccessControlAllowMethods): String =
-    accessControlAllowMethods match {
-      case Some(methods) => methods.map(_.toString()).mkString(", ")
-      case All           => "*"
-      case None          => ""
-    }
-
-  def toAccessControlAllowMethods(value: String): Either[String, AccessControlAllowMethods] = {
+  def parse(value: String): Either[String, AccessControlAllowMethods] = {
     Right {
       value match {
         case ""          => None
@@ -54,4 +47,11 @@ object AccessControlAllowMethods {
       }
     }
   }
+
+  def render(accessControlAllowMethods: AccessControlAllowMethods): String =
+    accessControlAllowMethods match {
+      case Some(methods) => methods.map(_.toString()).mkString(", ")
+      case All           => "*"
+      case None          => ""
+    }
 }

@@ -24,15 +24,15 @@ object DateSpec extends ZIOSpecDefault {
     suite("Date header value transformation should be symmetrical")(
       test("Date rendering should be reversible") {
         val value = "Wed, 21 Oct 2015 07:28:00 GMT"
-        assertTrue(Date.fromDate(Date.toDate(value).toOption.get) == value)
+        assertTrue(Date.render(Date.parse(value).toOption.get) == value)
       },
       test("Date parsing should fail for invalid date") {
         val value = "Wed, 21 Oct 20 07:28:00"
-        assertTrue(Date.toDate(value).isLeft)
+        assertTrue(Date.parse(value).isLeft)
       },
       test("Date parsing should fail for empty date") {
         val value = ""
-        assertTrue(Date.toDate(value).isLeft)
+        assertTrue(Date.parse(value).isLeft)
       },
     ),
   )

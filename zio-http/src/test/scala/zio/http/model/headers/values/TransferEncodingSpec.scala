@@ -27,34 +27,34 @@ object TransferEncodingSpec extends ZIOSpecDefault {
     suite("TransferEncoding header value transformation should be symmetrical")(
       test("gen single value") {
         check(HttpGen.allowTransferEncodingSingleValue) { value =>
-          assertTrue(TransferEncoding.toTransferEncoding(TransferEncoding.fromTransferEncoding(value)) == Right(value))
+          assertTrue(TransferEncoding.parse(TransferEncoding.render(value)) == Right(value))
         }
       },
       test("single value") {
-        assertTrue(TransferEncoding.toTransferEncoding("chunked") == Right(TransferEncoding.Chunked)) &&
-        assertTrue(TransferEncoding.toTransferEncoding("compress") == Right(TransferEncoding.Compress)) &&
-        assertTrue(TransferEncoding.toTransferEncoding("deflate") == Right(TransferEncoding.Deflate)) &&
+        assertTrue(TransferEncoding.parse("chunked") == Right(TransferEncoding.Chunked)) &&
+        assertTrue(TransferEncoding.parse("compress") == Right(TransferEncoding.Compress)) &&
+        assertTrue(TransferEncoding.parse("deflate") == Right(TransferEncoding.Deflate)) &&
         assertTrue(
-          TransferEncoding.toTransferEncoding("deflate, chunked, compress") == Right(
+          TransferEncoding.parse("deflate, chunked, compress") == Right(
             TransferEncoding.Multiple(
               Chunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
             ),
           ),
         ) &&
-        assertTrue(TransferEncoding.toTransferEncoding("garbage").isLeft)
+        assertTrue(TransferEncoding.parse("garbage").isLeft)
 
       },
       test("edge cases") {
         assertTrue(
           TransferEncoding
-            .toTransferEncoding(
-              TransferEncoding.fromTransferEncoding(Multiple(Chunk())),
+            .parse(
+              TransferEncoding.render(Multiple(Chunk())),
             )
             .isLeft,
         ) &&
         assertTrue(
-          TransferEncoding.toTransferEncoding(
-            TransferEncoding.fromTransferEncoding(
+          TransferEncoding.parse(
+            TransferEncoding.render(
               Multiple(
                 Chunk(
                   TransferEncoding.Deflate,
@@ -70,8 +70,8 @@ object TransferEncodingSpec extends ZIOSpecDefault {
           ),
         ) &&
         assertTrue(
-          TransferEncoding.toTransferEncoding(
-            TransferEncoding.fromTransferEncoding(
+          TransferEncoding.parse(
+            TransferEncoding.render(
               Multiple(
                 Chunk(TransferEncoding.Deflate),
               ),

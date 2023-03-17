@@ -27,7 +27,7 @@ object Range {
   final case class Suffix(unit: String, value: Long)                          extends Range
   final case class Prefix(unit: String, value: Long)                          extends Range
 
-  def toRange(value: String): Either[String, Range] = {
+  def parse(value: String): Either[String, Range] = {
     val parts = value.split("=")
     if (parts.length != 2) Left("Invalid Range header")
     else {
@@ -67,7 +67,7 @@ object Range {
     }
   }
 
-  def fromRange(range: Range): String = range match {
+  def render(range: Range): String = range match {
     case Single(unit, start, end)   => s"$unit=$start-${end.getOrElse("")}"
     case Multiple(unit, ranges)     =>
       s"$unit=${ranges.map { case (start, end) => s"$start-${end.getOrElse("")}" }.mkString(",")}"

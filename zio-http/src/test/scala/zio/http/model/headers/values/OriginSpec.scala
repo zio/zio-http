@@ -27,25 +27,25 @@ object OriginSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Origin header suite")(
       test("Origin: null") {
-        assertTrue(Origin.toOrigin("null") == Right(Null)) &&
-        assertTrue(Origin.fromOrigin(Null) == "null")
+        assertTrue(Origin.parse("null") == Right(Null)) &&
+        assertTrue(Origin.render(Null) == "null")
       },
       test("parsing of invalid Origin values") {
-        assertTrue(Origin.toOrigin("").isLeft) &&
-        assertTrue(Origin.toOrigin("://host").isLeft) &&
-        assertTrue(Origin.toOrigin("http://:").isLeft) &&
-        assertTrue(Origin.toOrigin("http://:80").isLeft) &&
-        assertTrue(Origin.toOrigin("host:80").isLeft)
+        assertTrue(Origin.parse("").isLeft) &&
+        assertTrue(Origin.parse("://host").isLeft) &&
+        assertTrue(Origin.parse("http://:").isLeft) &&
+        assertTrue(Origin.parse("http://:80").isLeft) &&
+        assertTrue(Origin.parse("host:80").isLeft)
       },
       test("parsing of valid without a port ") {
-        assertTrue(Origin.toOrigin("http://domain") == Right(Value("http", "domain", None))) &&
-        assertTrue(Origin.toOrigin("https://domain") == Right(Value("https", "domain", None)))
+        assertTrue(Origin.parse("http://domain") == Right(Value("http", "domain", None))) &&
+        assertTrue(Origin.parse("https://domain") == Right(Value("https", "domain", None)))
       },
       test("parsing of valid Origin values") {
         check(HttpGen.genAbsoluteURL) { url =>
           val justSchemeHostAndPort = url.copy(path = Path.empty, queryParams = QueryParams.empty, fragment = None)
           assertTrue(
-            Origin.toOrigin(justSchemeHostAndPort.encode) == Right(
+            Origin.parse(justSchemeHostAndPort.encode) == Right(
               Value(
                 url.scheme.map(_.encode).getOrElse(""),
                 url.host.getOrElse(""),
@@ -59,8 +59,8 @@ object OriginSpec extends ZIOSpecDefault {
         check(HttpGen.genAbsoluteURL) { url =>
           val justSchemeHostAndPort = url.copy(path = Path.empty, queryParams = QueryParams.empty, fragment = None)
           assertTrue(
-            Origin.fromOrigin(
-              Origin.toOrigin(justSchemeHostAndPort.encode).toOption.get,
+            Origin.render(
+              Origin.parse(justSchemeHostAndPort.encode).toOption.get,
             ) == justSchemeHostAndPort.encode,
           )
         }

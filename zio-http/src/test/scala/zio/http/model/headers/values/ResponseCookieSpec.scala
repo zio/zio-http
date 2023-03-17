@@ -22,7 +22,7 @@ import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 object ResponseCookieSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ResponseCookieSpec suite")(
     test("ResponseCookie handle valid cookie") {
-      val result = ResponseCookie.toCookie("foo=bar") match {
+      val result = ResponseCookie.parse("foo=bar") match {
         case Right(ResponseCookie(value)) =>
           value.name == "foo" && value.content == "bar"
         case _                            => false
@@ -30,7 +30,7 @@ object ResponseCookieSpec extends ZIOSpecDefault {
       assertTrue(result)
     },
     test("ResponseCookie handle invalid cookie") {
-      val result = ResponseCookie.toCookie("") match {
+      val result = ResponseCookie.parse("") match {
         case Right(ResponseCookie(_)) =>
           false
         case _                        => true
@@ -38,9 +38,9 @@ object ResponseCookieSpec extends ZIOSpecDefault {
       assertTrue(result)
     },
     test("ResponseCookie render valid cookie") {
-      val result = ResponseCookie.toCookie("foo=bar") match {
+      val result = ResponseCookie.parse("foo=bar") match {
         case Right(rc) =>
-          ResponseCookie.fromCookie(rc) == "foo=bar"
+          ResponseCookie.render(rc) == "foo=bar"
         case _         => false
       }
       assertTrue(result)

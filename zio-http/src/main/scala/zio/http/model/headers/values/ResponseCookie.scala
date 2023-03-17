@@ -22,7 +22,7 @@ final case class ResponseCookie(value: model.Cookie[Response])
 
 object ResponseCookie {
 
-  def toCookie(value: String): Either[String, ResponseCookie] = {
+  def parse(value: String): Either[String, ResponseCookie] = {
     implicit val decoder = CookieDecoder.ResponseCookieDecoder
 
     model.Cookie.decode(value) match {
@@ -31,6 +31,6 @@ object ResponseCookie {
     }
   }
 
-  def fromCookie(cookie: ResponseCookie): String =
+  def render(cookie: ResponseCookie): String =
     cookie.value.encode.getOrElse("")
 }

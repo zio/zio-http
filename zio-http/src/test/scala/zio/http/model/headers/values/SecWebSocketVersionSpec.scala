@@ -23,19 +23,19 @@ object SecWebSocketVersionSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketVersion suite")(
     test("SecWebSocketVersion should be properly parsed for a valid string") {
       val probe = "13"
-      assertTrue(SecWebSocketVersion.toSecWebSocketVersion(probe) == Right(SecWebSocketVersion(13)))
+      assertTrue(SecWebSocketVersion.parse(probe) == Right(SecWebSocketVersion(13)))
     },
     test("SecWebSocketVersion should be properly parsed for an invalid string value") {
       val probe = "22"
-      assertTrue(SecWebSocketVersion.toSecWebSocketVersion(probe).isLeft)
+      assertTrue(SecWebSocketVersion.parse(probe).isLeft)
     },
     test("SecWebSocketVersion should be properly parsed for an empty string") {
       val probe = ""
-      assertTrue(SecWebSocketVersion.toSecWebSocketVersion(probe).isLeft)
+      assertTrue(SecWebSocketVersion.parse(probe).isLeft)
     },
     test("SecWebSocketVersion should properly render a valid string") {
       val probe = "13"
-      assertTrue(SecWebSocketVersion.fromSecWebSocketVersion(SecWebSocketVersion(13)) == probe)
+      assertTrue(SecWebSocketVersion.render(SecWebSocketVersion(13)) == probe)
     },
   )
 }

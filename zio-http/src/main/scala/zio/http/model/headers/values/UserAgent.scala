@@ -34,7 +34,7 @@ object UserAgent {
   private val commentRegex  = """(?i)\((.*)$""".r
   private val completeRegex = s"""^(?i)([a-z0-9]+)(?:/([a-z0-9.]+))(.*)$$""".r
 
-  def toUserAgent(userAgent: String): Either[String, UserAgent] = {
+  def parse(userAgent: String): Either[String, UserAgent] = {
     userAgent match {
       case productRegex(name, version)           => Right(Product(name, Option(version)))
       case commentRegex(comment)                 => Right(Comment(comment))
@@ -44,9 +44,9 @@ object UserAgent {
     }
   }
 
-  def fromUserAgent(userAgent: UserAgent): String = userAgent match {
+  def render(userAgent: UserAgent): String = userAgent match {
     case Complete(product, comment) =>
-      s"""${fromUserAgent(product)}${fromUserAgent(comment.getOrElse(Comment("")))}"""
+      s"""${render(product)}${render(comment.getOrElse(Comment("")))}"""
     case Product(name, version)     => s"""$name${version.map("/" + _).getOrElse("")}"""
     case Comment(comment)           => s" ($comment)"
   }

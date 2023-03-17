@@ -24,19 +24,7 @@ object Upgrade {
   final case class Multiple(protocols: Chunk[Protocol])        extends Upgrade
   final case class Protocol(protocol: String, version: String) extends Upgrade
 
-  def fromUpgrade(upgrade: Upgrade): String =
-    upgrade match {
-      case Multiple(protocols)         => protocols.map(fromUpgrade).mkString(", ")
-      case Protocol(protocol, version) => s"$protocol/$version"
-    }
-
-  private def parseProtocol(value: String): Either[String, Protocol] =
-    Chunk.fromArray(value.split("/")).map(_.trim) match {
-      case Chunk(protocol, version) => Right(Protocol(protocol, version))
-      case _                        => Left("Invalid Upgrade header")
-    }
-
-  def toUpgrade(value: String): Either[String, Upgrade] = {
+  def parse(value: String): Either[String, Upgrade] = {
     Chunk.fromArray(value.split(",")).map(parseProtocol) match {
       case Chunk()       => Left("Invalid Upgrade header")
       case Chunk(single) => single
@@ -50,4 +38,16 @@ object Upgrade {
           .map(Multiple(_))
     }
   }
+
+  def render(upgrade: Upgrade): String =
+    upgrade match {
+      case Multiple(protocols)         => protocols.map(render).mkString(", ")
+      case Protocol(protocol, version) => s"$protocol/$version"
+    }
+
+  private def parseProtocol(value: String): Either[String, Protocol] =
+    Chunk.fromArray(value.split("/")).map(_.trim) match {
+      case Chunk(protocol, version) => Right(Protocol(protocol, version))
+      case _                        => Left("Invalid Upgrade header")
+    }
 }

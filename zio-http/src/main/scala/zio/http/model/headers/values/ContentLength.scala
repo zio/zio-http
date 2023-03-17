@@ -26,16 +26,16 @@ final case class ContentLength(length: Long)
 
 object ContentLength {
 
-  def fromContentLength(contentLength: ContentLength): String =
-    contentLength.length.toString
-
-  def toContentLength(value: String): Either[String, ContentLength] =
+  def parse(value: String): Either[String, ContentLength] =
     Try(value.trim.toLong) match {
       case Failure(_)     => Left("Invalid Content-Length header")
-      case Success(value) => toContentLength(value)
+      case Success(value) => fromLong(value)
     }
 
-  def toContentLength(value: Long): Either[String, ContentLength] =
+  def render(contentLength: ContentLength): String =
+    contentLength.length.toString
+
+  private def fromLong(value: Long): Either[String, ContentLength] =
     if (value >= 0)
       Right(ContentLength(value))
     else

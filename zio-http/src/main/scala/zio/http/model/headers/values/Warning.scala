@@ -39,7 +39,7 @@ object Warning {
   private val validCodes         = List(110, 111, 112, 113, 199, 214, 299)
   private val expectedDateFormat = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
-  def toWarning(warningString: String): Either[String, Warning] = {
+  def parse(warningString: String): Either[String, Warning] = {
     /*
       <warn-code>
        A three-digit warning number.
@@ -120,7 +120,7 @@ object Warning {
 
   }
 
-  def fromWarning(warning: Warning): String =
+  def render(warning: Warning): String =
     warning match {
       case Warning(code, agent, text, date) => {
         val formattedDate = date match {

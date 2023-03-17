@@ -34,12 +34,7 @@ object Accept {
    */
   final case class MediaTypeWithQFactor(mediaType: MediaType, qFactor: Option[Double])
 
-  def fromAccept(header: Accept): String =
-    header.mimeTypes.map { case MediaTypeWithQFactor(mime, maybeQFactor) =>
-      s"${mime.fullType}${maybeQFactor.map(qFactor => s";q=$qFactor").getOrElse("")}"
-    }.mkString(", ")
-
-  def toAccept(value: String): Either[String, Accept] = {
+  def parse(value: String): Either[String, Accept] = {
     val acceptHeaderValues: Array[MediaTypeWithQFactor] = value
       .split(',')
       .map(_.trim)
@@ -59,6 +54,11 @@ object Accept {
       Right(Accept(Chunk.fromArray(acceptHeaderValues)))
     else Left("Invalid Accept header")
   }
+
+  def render(header: Accept): String =
+    header.mimeTypes.map { case MediaTypeWithQFactor(mime, maybeQFactor) =>
+      s"${mime.fullType}${maybeQFactor.map(qFactor => s";q=$qFactor").getOrElse("")}"
+    }.mkString(", ")
 
   private def extractQFactor(mediaType: MediaType): Option[Double] =
     mediaType.parameters.get("q").flatMap(qFactor => Try(qFactor.toDouble).toOption)

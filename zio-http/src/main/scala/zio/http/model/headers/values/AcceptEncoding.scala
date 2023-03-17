@@ -105,7 +105,7 @@ object AcceptEncoding {
     }
   }
 
-  def toAcceptEncoding(value: String): Either[String, AcceptEncoding] = {
+  def parse(value: String): Either[String, AcceptEncoding] = {
     val index = value.indexOf(",")
 
     @tailrec def loop(value: String, index: Int, acc: Multiple): Either[String, Multiple] = {
@@ -144,14 +144,14 @@ object AcceptEncoding {
 
   }
 
-  def fromAcceptEncoding(encoding: AcceptEncoding): String =
+  def render(encoding: AcceptEncoding): String =
     encoding match {
       case b @ Br(weight)           => weight.fold(b.raw)(value => s"${b.raw};q=$value")
       case c @ Compress(weight)     => weight.fold(c.raw)(value => s"${c.raw};q=$value")
       case d @ Deflate(weight)      => weight.fold(d.raw)(value => s"${d.raw};q=$value")
       case g @ GZip(weight)         => weight.fold(g.raw)(value => s"${g.raw};q=$value")
       case i @ Identity(weight)     => weight.fold(i.raw)(value => s"${i.raw};q=$value")
-      case Multiple(encodings)      => encodings.map(fromAcceptEncoding).mkString(",")
+      case Multiple(encodings)      => encodings.map(render).mkString(",")
       case n @ NoPreference(weight) => weight.fold(n.raw)(value => s"${n.raw};q=$value")
     }
 

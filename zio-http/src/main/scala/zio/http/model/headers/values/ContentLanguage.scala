@@ -58,7 +58,7 @@ object ContentLanguage {
   case object Ukrainian  extends ContentLanguage
   case object Vietnamese extends ContentLanguage
 
-  def toContentLanguage(value: CharSequence): Either[String, ContentLanguage] =
+  def parse(value: CharSequence): Either[String, ContentLanguage] =
     value.toString.toLowerCase.take(2) match {
       case "ar" => Right(Arabic)
       case "bg" => Right(Bulgarian)
@@ -101,7 +101,7 @@ object ContentLanguage {
       case _    => Left(s"Invalid ContentLanguage: $value")
     }
 
-  def fromContentLanguage(contentLanguage: ContentLanguage): String =
+  def render(contentLanguage: ContentLanguage): String =
     contentLanguage match {
       case Arabic     => "ar"
       case Bulgarian  => "bg"

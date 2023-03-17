@@ -27,15 +27,15 @@ object RetryAfterEncodingSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Retry-After header encoder suite")(
     test("parsing invalid retry after values") {
-      assertTrue(RetryAfter.toRetryAfter("").isLeft) &&
-      assertTrue(RetryAfter.toRetryAfter("-1").isLeft) &&
-      assertTrue(RetryAfter.toRetryAfter("21 Oct 2015 07:28:00 GMT").isLeft)
+      assertTrue(RetryAfter.parse("").isLeft) &&
+      assertTrue(RetryAfter.parse("-1").isLeft) &&
+      assertTrue(RetryAfter.parse("21 Oct 2015 07:28:00 GMT").isLeft)
     },
     test("parsing valid Retry After values") {
       assertTrue(
-        RetryAfter.toRetryAfter("Wed, 21 Oct 2015 07:28:00 GMT") == Right(
+        RetryAfter.parse("Wed, 21 Oct 2015 07:28:00 GMT") == Right(
           RetryAfter.ByDate(ZonedDateTime.parse("Wed, 21 Oct 2015 07:28:00 GMT", formatter)),
-        ) && RetryAfter.toRetryAfter("20") == Right(RetryAfter.ByDuration(Duration.ofSeconds(20))),
+        ) && RetryAfter.parse("20") == Right(RetryAfter.ByDuration(Duration.ofSeconds(20))),
       )
     },
     suite("Encoding header value transformation should be symmetrical")(
@@ -43,8 +43,8 @@ object RetryAfterEncodingSpec extends ZIOSpecDefault {
         check(Gen.zonedDateTime(ZonedDateTime.now(), ZonedDateTime.now().plusDays(365))) { date =>
           val zone = ZoneId.of("Australia/Sydney")
           assertTrue(
-            RetryAfter.fromRetryAfter(
-              RetryAfter.toRetryAfter(date.withZoneSameLocal(zone).format(formatter)).toOption.get,
+            RetryAfter.render(
+              RetryAfter.parse(date.withZoneSameLocal(zone).format(formatter)).toOption.get,
             ) == date
               .withZoneSameLocal(zone)
               .format(formatter),
@@ -54,7 +54,7 @@ object RetryAfterEncodingSpec extends ZIOSpecDefault {
       test("seconds format") {
         check(Gen.int(10, 1000)) { seconds =>
           assertTrue(
-            RetryAfter.fromRetryAfter(RetryAfter.toRetryAfter(seconds.toString).toOption.get) == seconds.toString,
+            RetryAfter.render(RetryAfter.parse(seconds.toString).toOption.get) == seconds.toString,
           )
         }
       },

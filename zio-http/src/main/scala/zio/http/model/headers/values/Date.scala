@@ -28,7 +28,7 @@ final case class Date(value: ZonedDateTime)
 object Date {
   private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
-  def toDate(value: String): Either[String, Date] = {
+  def parse(value: String): Either[String, Date] = {
     try {
       Right(Date(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC)))
     } catch {
@@ -37,6 +37,6 @@ object Date {
     }
   }
 
-  def fromDate(date: Date): String =
+  def render(date: Date): String =
     formatter.format(date.value)
 }

@@ -35,16 +35,16 @@ final case class AccessControlMaxAge(duration: Duration)
 
 object AccessControlMaxAge {
 
-  def fromAccessControlMaxAge(accessControlMaxAge: AccessControlMaxAge): String = {
-    accessControlMaxAge.duration.toSeconds.toString
-  }
-
-  def toAccessControlMaxAge(seconds: String): Either[String, AccessControlMaxAge] = {
+  def parse(seconds: String): Either[String, AccessControlMaxAge] = {
     Try(seconds.toLong).fold(
       _ => Left(s"Invalid Access-Control-Max-Age header value"),
       long =>
         if (long > -1) Right(AccessControlMaxAge(Duration.ofSeconds(long)))
         else Left(s"Invalid Access-Control-Max-Age header value"),
     )
+  }
+
+  def render(accessControlMaxAge: AccessControlMaxAge): String = {
+    accessControlMaxAge.duration.toSeconds.toString
   }
 }

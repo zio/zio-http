@@ -24,22 +24,22 @@ import zio.http.model.headers.values.ETag.{Strong, Weak}
 object ETagSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ETag header suite")(
     test("parse ETag header") {
-      assertTrue(ETag.toETag("""W/"testEtag"""") == Right(Weak("testEtag"))) &&
-      assertTrue(ETag.toETag("""w/"testEtag"""") == Right(Weak("testEtag"))) &&
-      assertTrue(ETag.toETag(""""testEtag"""") == Right(Strong("testEtag"))) &&
-      assertTrue(ETag.toETag("W/Etag").isLeft) &&
-      assertTrue(ETag.toETag("Etag").isLeft) &&
-      assertTrue(ETag.toETag("""W/""""") == Right(Weak(""))) &&
-      assertTrue(ETag.toETag("""""""") == Right(Strong("")))
+      assertTrue(ETag.parse("""W/"testEtag"""") == Right(Weak("testEtag"))) &&
+      assertTrue(ETag.parse("""w/"testEtag"""") == Right(Weak("testEtag"))) &&
+      assertTrue(ETag.parse(""""testEtag"""") == Right(Strong("testEtag"))) &&
+      assertTrue(ETag.parse("W/Etag").isLeft) &&
+      assertTrue(ETag.parse("Etag").isLeft) &&
+      assertTrue(ETag.parse("""W/""""") == Right(Weak(""))) &&
+      assertTrue(ETag.parse("""""""") == Right(Strong("")))
     },
     test("encode ETag header to String") {
-      assertTrue(ETag.fromETag(Strong("TestEtag")) == """"TestEtag"""") &&
-      assertTrue(ETag.fromETag(Weak("TestEtag")) == """W/"TestEtag"""")
+      assertTrue(ETag.render(Strong("TestEtag")) == """"TestEtag"""") &&
+      assertTrue(ETag.render(Weak("TestEtag")) == """W/"TestEtag"""")
     },
     test("parsing and encoding are symmetrical") {
-      assertTrue(ETag.fromETag(ETag.toETag("""w/"testEtag"""").toOption.get) == """W/"testEtag"""") &&
-      assertTrue(ETag.fromETag(ETag.toETag("""W/"testEtag"""").toOption.get) == """W/"testEtag"""") &&
-      assertTrue(ETag.fromETag(ETag.toETag(""""testEtag"""").toOption.get) == """"testEtag"""")
+      assertTrue(ETag.render(ETag.parse("""w/"testEtag"""").toOption.get) == """W/"testEtag"""") &&
+      assertTrue(ETag.render(ETag.parse("""W/"testEtag"""").toOption.get) == """W/"testEtag"""") &&
+      assertTrue(ETag.render(ETag.parse(""""testEtag"""").toOption.get) == """"testEtag"""")
 
     },
   )

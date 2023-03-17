@@ -28,10 +28,7 @@ final case class AcceptPatch(mediaTypes: Chunk[MediaType])
 
 object AcceptPatch {
 
-  def fromAcceptPatch(acceptPatch: AcceptPatch): String =
-    acceptPatch.mediaTypes.map(_.fullType).mkString(",")
-
-  def toAcceptPatch(value: String): Either[String, AcceptPatch] =
+  def parse(value: String): Either[String, AcceptPatch] =
     if (value.nonEmpty) {
       val parsedMediaTypes = Chunk.fromArray(
         value
@@ -51,5 +48,8 @@ object AcceptPatch {
       else
         Left("Invalid Accept-Patch header")
     } else Left("Accept-Patch header cannot be empty")
+
+  def render(acceptPatch: AcceptPatch): String =
+    acceptPatch.mediaTypes.map(_.fullType).mkString(",")
 
 }

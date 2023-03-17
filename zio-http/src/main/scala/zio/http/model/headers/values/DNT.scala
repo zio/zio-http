@@ -22,7 +22,7 @@ object DNT {
   case object TrackingNotAllowed extends DNT
   case object NotSpecified       extends DNT
 
-  def toDNT(value: String): Either[String, DNT] = {
+  def parse(value: String): Either[String, DNT] = {
     value match {
       case "null" => Right(NotSpecified)
       case "1"    => Right(TrackingNotAllowed)
@@ -31,7 +31,7 @@ object DNT {
     }
   }
 
-  def fromDNT(dnt: DNT): String =
+  def render(dnt: DNT): String =
     dnt match {
       case NotSpecified       => "null"
       case TrackingAllowed    => "0"

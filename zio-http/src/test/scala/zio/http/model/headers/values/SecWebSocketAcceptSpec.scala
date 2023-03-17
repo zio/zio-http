@@ -23,15 +23,15 @@ object SecWebSocketAcceptSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketAccept suite")(
     test("SecWebSocketAccept should be properly parsed for a valid string") {
       val probe = "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
-      assertTrue(SecWebSocketAccept.toSecWebSocketAccept(probe) == Right(SecWebSocketAccept(probe)))
+      assertTrue(SecWebSocketAccept.parse(probe) == Right(SecWebSocketAccept(probe)))
     },
     test("SecWebSocketAccept should be properly parsed for an empty string") {
       val probe = ""
-      assertTrue(SecWebSocketAccept.toSecWebSocketAccept(probe).isLeft)
+      assertTrue(SecWebSocketAccept.parse(probe).isLeft)
     },
     test("SecWebSocketAccept should properly render a valid string") {
       val probe = "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
-      assertTrue(SecWebSocketAccept.fromSecWebSocketAccept(SecWebSocketAccept(probe)) == probe)
+      assertTrue(SecWebSocketAccept.render(SecWebSocketAccept(probe)) == probe)
     },
   )
 }

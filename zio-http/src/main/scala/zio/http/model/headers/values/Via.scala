@@ -36,7 +36,7 @@ object Via {
   final case class Detailed(receivedProtocol: ReceivedProtocol, receivedBy: String, comment: Option[String]) extends Via
   final case class Multiple(values: Chunk[Via])                                                              extends Via
 
-  def toVia(values: String): Either[String, Via] = {
+  def parse(values: String): Either[String, Via] = {
     val viaValues = Chunk.fromArray(values.split(',')).map(_.trim).map { value =>
       Chunk.fromArray(value.split(' ')) match {
         case Chunk(receivedProtocol, receivedBy)          =>
@@ -66,10 +66,10 @@ object Via {
     }
   }
 
-  def fromVia(via: Via): String =
+  def render(via: Via): String =
     via match {
       case Multiple(values)                                =>
-        values.map(fromVia).mkString(", ")
+        values.map(render).mkString(", ")
       case Detailed(receivedProtocol, receivedBy, comment) =>
         s"${fromReceivedProtocol(receivedProtocol)} $receivedBy ${comment.getOrElse("")}"
     }

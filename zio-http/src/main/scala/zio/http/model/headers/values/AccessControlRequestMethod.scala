@@ -24,12 +24,12 @@ final case class AccessControlRequestMethod(method: Method)
 
 object AccessControlRequestMethod {
 
-  def toAccessControlRequestMethod(value: String): Either[String, AccessControlRequestMethod] = {
+  def parse(value: String): Either[String, AccessControlRequestMethod] = {
     val method = Method.fromString(value)
     if (method == Method.CUSTOM(value)) Left(s"Invalid Access-Control-Request-Method")
     else Right(AccessControlRequestMethod(method))
   }
 
-  def fromAccessControlRequestMethod(requestMethod: AccessControlRequestMethod): String =
+  def render(requestMethod: AccessControlRequestMethod): String =
     requestMethod.method.name
 }

@@ -28,7 +28,7 @@ object ContentDisposition {
   private val FormDataRegex           = """form-data; name="(.*)"; filename="(.*)"""".r
   private val FormDataNoFileNameRegex = """form-data; name="(.*)"""".r
 
-  def toContentDisposition(contentDisposition: CharSequence): Either[String, ContentDisposition] = {
+  def parse(contentDisposition: CharSequence): Either[String, ContentDisposition] = {
     val asString = contentDisposition.toString
     if (asString.startsWith("attachment")) {
       Right(contentDisposition match {
@@ -51,7 +51,7 @@ object ContentDisposition {
     }
   }
 
-  def fromContentDisposition(contentDisposition: ContentDisposition): String = {
+  def render(contentDisposition: ContentDisposition): String = {
     contentDisposition match {
       case Attachment(filename)     => s"attachment; ${filename.map("filename=" + _).getOrElse("")}"
       case Inline(filename)         => s"inline; ${filename.map("filename=" + _).getOrElse("")}"

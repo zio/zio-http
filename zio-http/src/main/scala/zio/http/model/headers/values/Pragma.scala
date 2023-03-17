@@ -26,13 +26,13 @@ object Pragma {
 
   /** Invalid pragma value. */
 
-  def toPragma(value: String): Either[String, Pragma] =
+  def parse(value: String): Either[String, Pragma] =
     value.toLowerCase match {
       case "no-cache" => Right(NoCache)
       case _          => Left("Invalid Pragma header")
     }
 
-  def fromPragma(pragma: Pragma): String =
+  def render(pragma: Pragma): String =
     pragma match {
       case NoCache => "no-cache"
     }

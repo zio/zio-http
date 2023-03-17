@@ -62,7 +62,7 @@ object ContentSecurityPolicy {
     case object `upgrade-insecure-requests` extends SourcePolicyType
     case object `worker-src`                extends SourcePolicyType
 
-    def fromString(s: String): Option[SourcePolicyType] = s match {
+    def parse(s: String): Option[SourcePolicyType] = s match {
       case "base-uri"                  => Some(`base-uri`)
       case "child-src"                 => Some(`child-src`)
       case "connect-src"               => Some(`connect-src`)
@@ -87,7 +87,7 @@ object ContentSecurityPolicy {
       case _                           => None
     }
 
-    def toString(policyType: SourcePolicyType) =
+    def render(policyType: SourcePolicyType) =
       policyType match {
         case `base-uri`                  => "base-uri"
         case `child-src`                 => "child-src"
@@ -140,7 +140,7 @@ object ContentSecurityPolicy {
       case object Sha384 extends HashAlgorithm
       case object Sha512 extends HashAlgorithm
 
-      def fromString(s: String): Option[HashAlgorithm] = s match {
+      def parse(s: String): Option[HashAlgorithm] = s match {
         case "sha256" => Some(Sha256)
         case "sha384" => Some(Sha384)
         case "sha512" => Some(Sha512)
@@ -153,7 +153,7 @@ object ContentSecurityPolicy {
     private val Sha384Regex = "'sha384-(.*)'".r
     private val Sha512Regex = "'sha512-(.*)'".r
 
-    def fromString(s: String): Option[Source] = s match {
+    def parse(s: String): Option[Source] = s match {
       case "'none'"           => Some(none)
       case "'self'"           => Some(Self)
       case "'unsafe-eval'"    => Some(UnsafeEval)
@@ -169,7 +169,7 @@ object ContentSecurityPolicy {
       case s                  => Try(URI.create(s)).map(Host(_)).toOption
     }
 
-    def toString(source: Source): String = source match {
+    def render(source: Source): String = source match {
       case Source.none           => "'none'"
       case Self                  => "'self'"
       case UnsafeEval            => "'unsafe-eval'"
@@ -180,7 +180,7 @@ object ContentSecurityPolicy {
       case ReportSample          => "'report-sample'"
       case Nonce(nonce)          => s"'nonce-$nonce'"
       case Hash(algorithm, hash) => s"'$algorithm-$hash'"
-      case Sequence(left, right) => s"${toString(left)} ${toString(right)}"
+      case Sequence(left, right) => s"${render(left)} ${render(right)}"
       case Host(uri)             => uri.toString
       case Scheme(scheme)        => s"$scheme:"
     }
@@ -211,7 +211,7 @@ object ContentSecurityPolicy {
     case object AllowTopNavigation                                     extends SandboxValue
     final case class Sequence(left: SandboxValue, right: SandboxValue) extends SandboxValue
 
-    def fromString(value: String): Option[SandboxValue] = {
+    def parse(value: String): Option[SandboxValue] = {
       def parseOne: String => Option[SandboxValue] = {
         case "allow-forms"                    => Some(AllowForms)
         case "allow-same-origin"              => Some(AllowSameOrigin)
@@ -236,7 +236,7 @@ object ContentSecurityPolicy {
       }
     }
 
-    def toString(value: SandboxValue): String = {
+    def render(value: SandboxValue): String = {
       def toStringOne: SandboxValue => String = {
         case AllowForms                 => "allow-forms"
         case AllowSameOrigin            => "allow-same-origin"
@@ -270,7 +270,7 @@ object ContentSecurityPolicy {
 
     private val PolicyNameRegex = """\*|[a-zA-Z0-9-#=_/@.%]+|'allow-duplicates'|'none'""".r
 
-    def fromString(value: String): Option[TrustedTypesValue]    = {
+    def parse(value: String): Option[TrustedTypesValue]         = {
       val allValues = PolicyNameRegex.findAllIn(value).toList
       if (allValues.isEmpty) None
       else {
@@ -304,7 +304,7 @@ object ContentSecurityPolicy {
     case object `origin-when-cross-origin` extends ReferrerPolicy
     case object `unsafe-url`               extends ReferrerPolicy
 
-    def fromString(referrer: String): Option[ReferrerPolicy] =
+    def parse(referrer: String): Option[ReferrerPolicy] =
       referrer match {
         case "no-referrer"              => Some(`no-referrer`)
         case "none-when-downgrade"      => Some(`none-when-downgrade`)
@@ -314,7 +314,7 @@ object ContentSecurityPolicy {
         case _                          => None
       }
 
-    def toString(referrer: ReferrerPolicy): String = referrer.productPrefix
+    def render(referrer: ReferrerPolicy): String = referrer.productPrefix
   }
 
   sealed trait RequireSriForValue extends scala.Product with Serializable
@@ -323,7 +323,7 @@ object ContentSecurityPolicy {
     case object Style       extends RequireSriForValue
     case object ScriptStyle extends RequireSriForValue
 
-    def fromString(value: String): Option[RequireSriForValue]     =
+    def parse(value: String): Option[RequireSriForValue]          =
       value match {
         case "script"       => Some(Script)
         case "style"        => Some(Style)
@@ -366,39 +366,39 @@ object ContentSecurityPolicy {
   private val SandboxRegex      = "sandbox (.*)".r
   private val PolicyRegex       = "([a-z-]+) (.*)".r
 
-  def toContentSecurityPolicy(value: CharSequence): Either[String, ContentSecurityPolicy] =
+  def parse(value: CharSequence): Either[String, ContentSecurityPolicy] =
     value.toString match {
       case "block-all-mixed-content"       => Right(ContentSecurityPolicy.BlockAllMixedContent)
       case PluginTypesRegex(types)         => Right(ContentSecurityPolicy.PluginTypes(types))
-      case ReferrerRegex(referrer)         => ReferrerPolicy.fromString(referrer).map(ContentSecurityPolicy.Referrer(_)).toRight("Invalid referrer policy")
+      case ReferrerRegex(referrer)         => ReferrerPolicy.parse(referrer).map(ContentSecurityPolicy.Referrer(_)).toRight("Invalid referrer policy")
       case ReportToRegex(group)            => Right(ContentSecurityPolicy.ReportTo(group))
       case ReportUriRegex(uri)             => Try(new URI(uri)).map(ContentSecurityPolicy.ReportUri(_)).toEither.left.map(_ => "Invalid report-uri")
-      case RequireSriRegex(value)          => RequireSriForValue.fromString(value).map(ContentSecurityPolicy.RequireSriFor(_)).toRight("Invalid require-sri-for value")
-      case TrustedTypesRegex(value)        => TrustedTypesValue.fromString(value).map(ContentSecurityPolicy.TrustedTypes(_)).toRight("Invalid trusted-types value")
-      case SandboxRegex(sandbox)           => SandboxValue.fromString(sandbox).map(ContentSecurityPolicy.Sandbox(_)).toRight("Invalid sandbox value")
+      case RequireSriRegex(value)          => RequireSriForValue.parse(value).map(ContentSecurityPolicy.RequireSriFor(_)).toRight("Invalid require-sri-for value")
+      case TrustedTypesRegex(value)        => TrustedTypesValue.parse(value).map(ContentSecurityPolicy.TrustedTypes(_)).toRight("Invalid trusted-types value")
+      case SandboxRegex(sandbox)           => SandboxValue.parse(sandbox).map(ContentSecurityPolicy.Sandbox(_)).toRight("Invalid sandbox value")
       case "upgrade-insecure-requests"     => Right(ContentSecurityPolicy.UpgradeInsecureRequests)
       case PolicyRegex(policyType, policy) => ContentSecurityPolicy.fromTypeAndPolicy(policyType, policy)
       case _                               => Left("Invalid Content-Security-Policy")
 
     }
-  def fromContentSecurityPolicy(csp: ContentSecurityPolicy): String =
+  def render(csp: ContentSecurityPolicy): String =
     csp match {
       case ContentSecurityPolicy.BlockAllMixedContent    => "block-all-mixed-content"
       case ContentSecurityPolicy.PluginTypes(types)      => s"plugin-types $types"
-      case ContentSecurityPolicy.Referrer(referrer)      => s"referrer ${ReferrerPolicy.toString(referrer)}"
+      case ContentSecurityPolicy.Referrer(referrer)      => s"referrer ${ReferrerPolicy.render(referrer)}"
       case ContentSecurityPolicy.ReportTo(reportTo)      => s"report-to $reportTo"
       case ContentSecurityPolicy.ReportUri(uri)          => s"report-uri $uri"
       case ContentSecurityPolicy.RequireSriFor(value)    => s"require-sri-for ${RequireSriForValue.fromRequireSriForValue(value)}"
       case ContentSecurityPolicy.TrustedTypes(value)     => s"trusted-types ${TrustedTypesValue.fromTrustedTypesValue(value)}"
-      case ContentSecurityPolicy.Sandbox(value)          => s"sandbox ${SandboxValue.toString(value)}"
+      case ContentSecurityPolicy.Sandbox(value)          => s"sandbox ${SandboxValue.render(value)}"
       case ContentSecurityPolicy.UpgradeInsecureRequests => "upgrade-insecure-requests"
-      case SourcePolicy(policyType, policy)              => s"${SourcePolicyType.toString(policyType)} ${Source.toString(policy)}"
+      case SourcePolicy(policyType, policy)              => s"${SourcePolicyType.render(policyType)} ${Source.render(policy)}"
     }
 
   def fromTypeAndPolicy(policyType: String, policy: String): Either[String, ContentSecurityPolicy] =
     SourcePolicyType
-      .fromString(policyType)
-      .flatMap(policyType => Source.fromString(policy).map(SourcePolicy(policyType, _)))
+      .parse(policyType)
+      .flatMap(policyType => Source.parse(policy).map(SourcePolicy(policyType, _)))
       .toRight("Invalid Content-Security-Policy")
 
 }

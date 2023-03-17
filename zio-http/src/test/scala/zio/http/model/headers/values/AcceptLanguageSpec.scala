@@ -23,17 +23,17 @@ object AcceptLanguageSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Accept Language header suite")(
     test("accept language header transformation must be symmetrical") {
       check(acceptLanguageStr) { header =>
-        assertTrue(AcceptLanguage.fromAcceptLanguage(AcceptLanguage.toAcceptLanguage(header).toOption.get) == header)
+        assertTrue(AcceptLanguage.render(AcceptLanguage.parse(header).toOption.get) == header)
       } &&
       check(acceptLanguageWithWeightStr) { header =>
-        assertTrue(AcceptLanguage.fromAcceptLanguage(AcceptLanguage.toAcceptLanguage(header).toOption.get) == header)
+        assertTrue(AcceptLanguage.render(AcceptLanguage.parse(header).toOption.get) == header)
       }
     },
     test("empty input should yield invalid header value") {
-      assertTrue(AcceptLanguage.toAcceptLanguage("").isLeft)
+      assertTrue(AcceptLanguage.parse("").isLeft)
     },
     test("presence of invalid characters should yield invalid value") {
-      assertTrue(AcceptLanguage.toAcceptLanguage("!").isLeft)
+      assertTrue(AcceptLanguage.parse("!").isLeft)
     },
   )
 

@@ -25,20 +25,20 @@ object ProxyAuthenticateSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("ProxyAuthenticateSpec")(
       test("parsing of invalid inputs") {
-        assertTrue(ProxyAuthenticate.toProxyAuthenticate("invalid").isLeft) &&
+        assertTrue(ProxyAuthenticate.parse("invalid").isLeft) &&
         assertTrue(
-          ProxyAuthenticate.toProxyAuthenticate("!123456 realm=somerealm").isLeft,
+          ProxyAuthenticate.parse("!123456 realm=somerealm").isLeft,
         )
       },
       test("parsing of valid inputs") {
         check(HttpGen.authSchemes) { scheme =>
           assertTrue(
-            ProxyAuthenticate.toProxyAuthenticate(scheme.name) == Right(ProxyAuthenticate(scheme, None)),
+            ProxyAuthenticate.parse(scheme.name) == Right(ProxyAuthenticate(scheme, None)),
           )
         } &&
         check(HttpGen.authSchemes, Gen.alphaNumericStringBounded(4, 6)) { (scheme, realm) =>
           assertTrue(
-            ProxyAuthenticate.toProxyAuthenticate(s"${scheme.name} realm=$realm") == Right(
+            ProxyAuthenticate.parse(s"${scheme.name} realm=$realm") == Right(
               ProxyAuthenticate(scheme, Some(realm)),
             ),
           )
@@ -48,8 +48,8 @@ object ProxyAuthenticateSpec extends ZIOSpecDefault {
         check(HttpGen.authSchemes, Gen.alphaNumericStringBounded(4, 6)) { (scheme, realm) =>
           val header = s"${scheme.name} realm=$realm"
           assertTrue(
-            ProxyAuthenticate.fromProxyAuthenticate(
-              ProxyAuthenticate.toProxyAuthenticate(header).toOption.get,
+            ProxyAuthenticate.render(
+              ProxyAuthenticate.parse(header).toOption.get,
             ) == header,
           )
         }

@@ -25,23 +25,23 @@ object HostSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Host header suite")(
       test("Empty Host") {
-        assertTrue(Host.toHost("").isLeft)
+        assertTrue(Host.parse("").isLeft)
       },
       test("parsing of valid Host values") {
         check(HttpGen.genAbsoluteLocation) { url =>
-          assertTrue(Host.toHost(url.host) == Right(Host(url.host))) &&
-          assertTrue(Host.toHost(s"${url.host}:${url.port}") == Right(Host(url.host, url.port)))
+          assertTrue(Host.parse(url.host) == Right(Host(url.host))) &&
+          assertTrue(Host.parse(s"${url.host}:${url.port}") == Right(Host(url.host, url.port)))
         }
       },
       test("parsing of invalid Host values") {
-        assertTrue(Host.toHost("random.com:ds43").isLeft) &&
-        assertTrue(Host.toHost("random.com:ds43:4434").isLeft)
+        assertTrue(Host.parse("random.com:ds43").isLeft) &&
+        assertTrue(Host.parse("random.com:ds43:4434").isLeft)
 
       },
       test("parsing and encoding is symmetrical") {
         check(HttpGen.genAbsoluteLocation) { url =>
-          assertTrue(Host.fromHost(Host.toHost(url.host).toOption.get) == url.host) &&
-          assertTrue(Host.fromHost(Host.toHost(s"${url.host}:${url.port}").toOption.get) == s"${url.host}:${url.port}")
+          assertTrue(Host.render(Host.parse(url.host).toOption.get) == url.host) &&
+          assertTrue(Host.render(Host.parse(s"${url.host}:${url.port}").toOption.get) == s"${url.host}:${url.port}")
 
         }
       },

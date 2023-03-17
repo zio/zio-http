@@ -23,13 +23,13 @@ final case class Server(name: String)
 
 object Server {
 
-  def fromServer(server: Server): String =
-    server.name
-
-  def toServer(value: String): Either[String, Server] = {
+  def parse(value: String): Either[String, Server] = {
     val trimmedValue = value.trim
     if (trimmedValue.isEmpty)
       Left("Invalid Server header: empty value")
     else Right(Server(trimmedValue))
   }
+
+  def render(server: Server): String =
+    server.name
 }

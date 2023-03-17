@@ -23,15 +23,15 @@ object SecWebSocketKeySpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketKey suite")(
     test("SecWebSocketKey should be properly parsed for a valid string") {
       val probe = "dGhlIHNhbXBsZSBub25jZQ=="
-      assertTrue(SecWebSocketKey.toSecWebSocketKey(probe) == Right(SecWebSocketKey(probe)))
+      assertTrue(SecWebSocketKey.parse(probe) == Right(SecWebSocketKey(probe)))
     },
     test("SecWebSocketKey should be properly parsed for an empty string") {
       val probe = ""
-      assertTrue(SecWebSocketKey.toSecWebSocketKey(probe).isLeft)
+      assertTrue(SecWebSocketKey.parse(probe).isLeft)
     },
     test("SecWebSocketKey should properly render a valid string") {
       val probe = "dGhlIHNhbXBsZSBub25jZQ=="
-      assertTrue(SecWebSocketKey.fromSecWebSocketKey(SecWebSocketKey(probe)) == probe)
+      assertTrue(SecWebSocketKey.render(SecWebSocketKey(probe)) == probe)
     },
   )
 }

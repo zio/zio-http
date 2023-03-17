@@ -20,9 +20,9 @@ final case class XRequestedWith(value: String)
 
 object XRequestedWith {
 
-  def fromXRequestedWith(xRequestedWith: XRequestedWith): String =
-    xRequestedWith.value
-
-  def toXRequestedWith(value: String): Either[String, XRequestedWith] =
+  def parse(value: String): Either[String, XRequestedWith] =
     Right(XRequestedWith(value))
+
+  def render(xRequestedWith: XRequestedWith): String =
+    xRequestedWith.value
 }

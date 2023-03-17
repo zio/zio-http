@@ -25,7 +25,7 @@ final case class Host(hostAddress: String, port: Option[Int] = None)
 object Host {
   def apply(hostAddress: String, port: Int): Host = Host(hostAddress, Some(port))
 
-  def toHost(value: String): Either[String, Host] = {
+  def parse(value: String): Either[String, Host] = {
     Chunk.fromArray(value.split(":")) match {
       case Chunk(host, portS)           =>
         Try(portS.toInt).map(port => Host(host, Some(port))).toEither.left.map(_ => "Invalid Host header")
@@ -36,7 +36,7 @@ object Host {
     }
   }
 
-  def fromHost(host: Host): String =
+  def render(host: Host): String =
     host match {
       case Host(address, None)       => address
       case Host(address, Some(port)) => s"$address:$port"

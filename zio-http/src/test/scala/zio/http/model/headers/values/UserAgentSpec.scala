@@ -26,7 +26,7 @@ object UserAgentSpec extends ZIOSpecDefault {
         val userAgent =
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
         assertTrue(
-          UserAgent.toUserAgent(userAgent) == Right(
+          UserAgent.parse(userAgent) == Right(
             UserAgent.Complete(
               UserAgent.Product("Mozilla", Some("5.0")),
               Some(
@@ -48,7 +48,7 @@ object UserAgentSpec extends ZIOSpecDefault {
           ),
         )
         assertTrue(
-          UserAgent.fromUserAgent(
+          UserAgent.render(
             userAgent,
           ) == "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36)",
         )

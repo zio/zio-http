@@ -28,8 +28,8 @@ object AuthorizationSpec extends ZIOSpecDefault with MimeDB {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Authorization header suite")(
       test("parsing of invalid Authorization values") {
-        assertTrue(Authorization.toAuthorization("").isLeft) &&
-        assertTrue(Authorization.toAuthorization("something").isLeft)
+        assertTrue(Authorization.parse("").isLeft) &&
+        assertTrue(Authorization.parse("something").isLeft)
       },
       test("parsing and encoding is symmetrical") {
         val value = Authorization(
@@ -47,7 +47,7 @@ object AuthorizationSpec extends ZIOSpecDefault with MimeDB {
             userhash = true,
           ),
         )
-        assertTrue(Authorization.toAuthorization(Authorization.fromAuthorization(value)) == Right(value))
+        assertTrue(Authorization.parse(Authorization.render(value)) == Right(value))
       },
       test("parsing of Authorization header values") {
         val values = Map(
@@ -97,11 +97,11 @@ object AuthorizationSpec extends ZIOSpecDefault with MimeDB {
             """opaque="FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS",userhash=false""" -> None,
         )
         values.foldLeft(assertTrue(true)) { case (acc, (header, expected)) =>
-          acc && assertTrue(Authorization.toAuthorization(header).toOption == expected)
+          acc && assertTrue(Authorization.parse(header).toOption == expected)
         }
       },
       test("Parsing an invalid basic auth header") {
-        val auth = Authorization.toAuthorization("Basic not-base64")
+        val auth = Authorization.parse("Basic not-base64")
         assertTrue(auth.isLeft)
       },
     )

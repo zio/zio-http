@@ -85,7 +85,7 @@ object Te {
     }
   }
 
-  def toTe(value: String): Either[String, Te] = {
+  def parse(value: String): Either[String, Te] = {
     val index = value.indexOf(",")
 
     @tailrec def loop(value: String, index: Int, acc: Multiple): Either[String, Multiple] = {
@@ -112,11 +112,11 @@ object Te {
 
   }
 
-  def fromTe(encoding: Te): String = encoding match {
+  def render(encoding: Te): String = encoding match {
     case c @ Compress(weight) => weight.fold(c.raw)(value => s"${c.raw};q=$value")
     case d @ Deflate(weight)  => weight.fold(d.raw)(value => s"${d.raw};q=$value")
     case g @ GZip(weight)     => weight.fold(g.raw)(value => s"${g.raw};q=$value")
-    case Multiple(encodings)  => encodings.map(fromTe).mkString(", ")
+    case Multiple(encodings)  => encodings.map(render).mkString(", ")
     case Trailers             => Trailers.raw
   }
 

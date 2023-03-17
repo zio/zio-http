@@ -24,7 +24,7 @@ import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 object IfUnmodifiedSinceSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("IfUnmodifiedSince suite")(
     test("IfUnmodifiedSince should be parsed correctly") {
-      val ifModifiedSince = IfUnmodifiedSince.toIfUnmodifiedSince("Mon, 07 Nov 1994 08:49:37 GMT")
+      val ifModifiedSince = IfUnmodifiedSince.parse("Mon, 07 Nov 1994 08:49:37 GMT")
       assertTrue(
         ifModifiedSince == Right(
           IfUnmodifiedSince(
@@ -34,12 +34,12 @@ object IfUnmodifiedSinceSpec extends ZIOSpecDefault {
       )
     },
     test("IfUnmodifiedSince should be parsed correctly with invalid value") {
-      val ifModifiedSince = IfUnmodifiedSince.toIfUnmodifiedSince("Mon, 07 Nov 1994 08:49:37")
+      val ifModifiedSince = IfUnmodifiedSince.parse("Mon, 07 Nov 1994 08:49:37")
       assertTrue(ifModifiedSince.isLeft)
     },
     test("IfUnmodifiedSince should render correctly a valid date") {
       assertTrue(
-        IfUnmodifiedSince.fromIfUnmodifiedSince(
+        IfUnmodifiedSince.render(
           IfUnmodifiedSince(ZonedDateTime.of(1994, 11, 7, 8, 49, 37, 0, ZoneOffset.UTC)),
         ) == "Mon, 7 Nov 1994 08:49:37 GMT",
       )

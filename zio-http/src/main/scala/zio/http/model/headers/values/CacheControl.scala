@@ -180,29 +180,7 @@ object CacheControl {
     override val raw: String = "stale-while-revalidate"
   }
 
-  def fromCacheControl(value: CacheControl): String = {
-    value match {
-      case Immutable                         => Immutable.raw
-      case m @ MaxAge(freshForSeconds)       => s"${m.raw}=$freshForSeconds"
-      case m @ MaxStale(staleWithinSeconds)  => s"${m.raw}=$staleWithinSeconds"
-      case m @ MinFresh(freshAtLeastSeconds) => s"${m.raw}=$freshAtLeastSeconds"
-      case MustRevalidate                    => MustRevalidate.raw
-      case MustUnderstand                    => MustUnderstand.raw
-      case Multiple(values)                  => values.map(fromCacheControl).mkString(",")
-      case NoCache                           => NoCache.raw
-      case NoStore                           => NoStore.raw
-      case NoTransform                       => NoTransform.raw
-      case OnlyIfCached                      => OnlyIfCached.raw
-      case Private                           => Private.raw
-      case ProxyRevalidate                   => ProxyRevalidate.raw
-      case Public                            => Public.raw
-      case s @ SMaxAge(freshForSeconds)      => s"${s.raw}=$freshForSeconds"
-      case s @ StaleIfError(seconds)         => s"${s.raw}=$seconds"
-      case s @ StaleWhileRevalidate(seconds) => s"${s.raw}=$seconds"
-    }
-  }
-
-  def toCacheControl(value: String): Either[String, CacheControl] = {
+  def parse(value: String): Either[String, CacheControl] = {
     val index = value.indexOf(",")
 
     @tailrec def loop(value: String, index: Int, acc: Multiple): Either[String, Multiple] = {
@@ -231,6 +209,28 @@ object CacheControl {
       identifyCacheControl(value)
     else
       loop(value, index, Multiple(Chunk.empty[CacheControl]))
+  }
+
+  def render(value: CacheControl): String = {
+    value match {
+      case Immutable                         => Immutable.raw
+      case m @ MaxAge(freshForSeconds)       => s"${m.raw}=$freshForSeconds"
+      case m @ MaxStale(staleWithinSeconds)  => s"${m.raw}=$staleWithinSeconds"
+      case m @ MinFresh(freshAtLeastSeconds) => s"${m.raw}=$freshAtLeastSeconds"
+      case MustRevalidate                    => MustRevalidate.raw
+      case MustUnderstand                    => MustUnderstand.raw
+      case Multiple(values)                  => values.map(render).mkString(",")
+      case NoCache                           => NoCache.raw
+      case NoStore                           => NoStore.raw
+      case NoTransform                       => NoTransform.raw
+      case OnlyIfCached                      => OnlyIfCached.raw
+      case Private                           => Private.raw
+      case ProxyRevalidate                   => ProxyRevalidate.raw
+      case Public                            => Public.raw
+      case s @ SMaxAge(freshForSeconds)      => s"${s.raw}=$freshForSeconds"
+      case s @ StaleIfError(seconds)         => s"${s.raw}=$seconds"
+      case s @ StaleWhileRevalidate(seconds) => s"${s.raw}=$seconds"
+    }
   }
 
   private def identifyCacheControl(value: String): Either[String, CacheControl] = {

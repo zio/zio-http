@@ -18,10 +18,10 @@ package zio.http.model.headers.values
 
 sealed trait ETag
 object ETag {
-  case class Strong(validator: String) extends ETag
-  case class Weak(validator: String)   extends ETag
+  final case class Strong(validator: String) extends ETag
+  final case class Weak(validator: String)   extends ETag
 
-  def toETag(value: String): Either[String, ETag] = {
+  def parse(value: String): Either[String, ETag] = {
     value match {
       case str if str.startsWith("w/\"") && str.endsWith("\"") => Right(Weak(str.drop(3).dropRight(1)))
       case str if str.startsWith("W/\"") && str.endsWith("\"") => Right(Weak(str.drop(3).dropRight(1)))
@@ -30,7 +30,7 @@ object ETag {
     }
   }
 
-  def fromETag(eTag: ETag): String = {
+  def render(eTag: ETag): String = {
     eTag match {
       case Weak(value)   => s"""W/"$value""""
       case Strong(value) => s""""$value""""

@@ -26,7 +26,7 @@ object SecWebSocketExtensionsSpec extends ZIOSpecDefault {
     test("SecWebSocketExtensions should be properly parsed for a valid string") {
       val probe = "permessage-deflate; client_max_window_bits"
       assertTrue(
-        SecWebSocketExtensions.toSecWebSocketExtensions(probe) == Right(
+        SecWebSocketExtensions.parse(probe) == Right(
           SecWebSocketExtensions.Extensions(
             Chunk(
               Token(Chunk(Extension.TokenParam("permessage-deflate"), Extension.TokenParam("client_max_window_bits"))),
@@ -37,12 +37,12 @@ object SecWebSocketExtensionsSpec extends ZIOSpecDefault {
     },
     test("SecWebSocketExtensions should be properly parsed for an empty string") {
       val probe = ""
-      assertTrue(SecWebSocketExtensions.toSecWebSocketExtensions(probe).isLeft)
+      assertTrue(SecWebSocketExtensions.parse(probe).isLeft)
     },
     test("SecWebSocketExtensions should properly render a valid string") {
       val probe = "permessage-deflate; client_max_window_bits"
       assertTrue(
-        SecWebSocketExtensions.fromSecWebSocketExtensions(
+        SecWebSocketExtensions.render(
           SecWebSocketExtensions.Extensions(
             Chunk(
               Token(Chunk(Extension.TokenParam("permessage-deflate"), Extension.TokenParam("client_max_window_bits"))),
@@ -54,8 +54,8 @@ object SecWebSocketExtensionsSpec extends ZIOSpecDefault {
     test("SecWebSocket should properly parse and render a complex extension") {
       val probe = "permessage-deflate; client_max_window_bits; server_max_window_bits=15, deflate-stream"
       assertTrue(
-        SecWebSocketExtensions.fromSecWebSocketExtensions(
-          SecWebSocketExtensions.toSecWebSocketExtensions(probe).toOption.get,
+        SecWebSocketExtensions.render(
+          SecWebSocketExtensions.parse(probe).toOption.get,
         ) == probe,
       )
     },

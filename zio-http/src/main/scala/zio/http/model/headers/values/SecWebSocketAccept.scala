@@ -29,10 +29,10 @@ final case class SecWebSocketAccept(hashedKey: String)
  */
 object SecWebSocketAccept {
 
-  def toSecWebSocketAccept(value: String): Either[String, SecWebSocketAccept] =
+  def parse(value: String): Either[String, SecWebSocketAccept] =
     if (value.trim.isEmpty) Left("Invalid Sec-WebSocket-Accept header")
     else Right(SecWebSocketAccept(value))
 
-  def fromSecWebSocketAccept(secWebSocketAccept: SecWebSocketAccept): String =
+  def render(secWebSocketAccept: SecWebSocketAccept): String =
     secWebSocketAccept.hashedKey
 }

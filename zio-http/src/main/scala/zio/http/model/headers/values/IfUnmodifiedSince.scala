@@ -31,7 +31,7 @@ object IfUnmodifiedSince {
 
   private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
-  def toIfUnmodifiedSince(value: String): Either[String, IfUnmodifiedSince] =
+  def parse(value: String): Either[String, IfUnmodifiedSince] =
     try {
       Right(IfUnmodifiedSince(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC)))
     } catch {
@@ -39,7 +39,7 @@ object IfUnmodifiedSince {
         Left("Invalid If-Unmodified-Since header")
     }
 
-  def fromIfUnmodifiedSince(ifModifiedSince: IfUnmodifiedSince): String =
+  def render(ifModifiedSince: IfUnmodifiedSince): String =
     formatter.format(ifModifiedSince.value)
 
 }

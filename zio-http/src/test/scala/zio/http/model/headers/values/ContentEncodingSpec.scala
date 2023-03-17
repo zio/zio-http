@@ -27,34 +27,34 @@ object ContentEncodingSpec extends ZIOSpecDefault {
     suite("ContentEncoding header value transformation should be symmetrical")(
       test("gen single value") {
         check(HttpGen.allowContentEncodingSingleValue) { value =>
-          assertTrue(ContentEncoding.toContentEncoding(ContentEncoding.fromContentEncoding(value)) == Right(value))
+          assertTrue(ContentEncoding.parse(ContentEncoding.render(value)) == Right(value))
         }
       },
       test("single value") {
-        assertTrue(ContentEncoding.toContentEncoding("br") == Right(ContentEncoding.Br)) &&
-        assertTrue(ContentEncoding.toContentEncoding("compress") == Right(ContentEncoding.Compress)) &&
-        assertTrue(ContentEncoding.toContentEncoding("deflate") == Right(ContentEncoding.Deflate)) &&
+        assertTrue(ContentEncoding.parse("br") == Right(ContentEncoding.Br)) &&
+        assertTrue(ContentEncoding.parse("compress") == Right(ContentEncoding.Compress)) &&
+        assertTrue(ContentEncoding.parse("deflate") == Right(ContentEncoding.Deflate)) &&
         assertTrue(
-          ContentEncoding.toContentEncoding("deflate, br, compress") == Right(
+          ContentEncoding.parse("deflate, br, compress") == Right(
             ContentEncoding.Multiple(
               Chunk(ContentEncoding.Deflate, ContentEncoding.Br, ContentEncoding.Compress),
             ),
           ),
         ) &&
-        assertTrue(ContentEncoding.toContentEncoding("garbage").isLeft)
+        assertTrue(ContentEncoding.parse("garbage").isLeft)
 
       },
       test("edge cases") {
         assertTrue(
           ContentEncoding
-            .toContentEncoding(
-              ContentEncoding.fromContentEncoding(Multiple(Chunk())),
+            .parse(
+              ContentEncoding.render(Multiple(Chunk())),
             )
             .isLeft,
         ) &&
         assertTrue(
-          ContentEncoding.toContentEncoding(
-            ContentEncoding.fromContentEncoding(
+          ContentEncoding.parse(
+            ContentEncoding.render(
               Multiple(
                 Chunk(ContentEncoding.Deflate, ContentEncoding.Br, ContentEncoding.Compress),
               ),
@@ -66,8 +66,8 @@ object ContentEncodingSpec extends ZIOSpecDefault {
           ),
         ) &&
         assertTrue(
-          ContentEncoding.toContentEncoding(
-            ContentEncoding.fromContentEncoding(
+          ContentEncoding.parse(
+            ContentEncoding.render(
               Multiple(
                 Chunk(ContentEncoding.Deflate),
               ),

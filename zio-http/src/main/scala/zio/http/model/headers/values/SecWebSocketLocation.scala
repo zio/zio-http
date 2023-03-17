@@ -22,10 +22,7 @@ final case class SecWebSocketLocation(url: URL)
 
 object SecWebSocketLocation {
 
-  def fromSecWebSocketLocation(secWebSocketLocation: SecWebSocketLocation): String =
-    secWebSocketLocation.url.encode
-
-  def toSecWebSocketLocation(value: String): Either[String, SecWebSocketLocation] = {
+  def parse(value: String): Either[String, SecWebSocketLocation] = {
     if (value.trim == "") Left("Invalid Sec-WebSocket-Location header: empty value")
     else
       URL
@@ -34,4 +31,7 @@ object SecWebSocketLocation {
         .map(_ => "Invalid Sec-WebSocket-Location header: invalid URL")
         .map(url => SecWebSocketLocation(url))
   }
+
+  def render(secWebSocketLocation: SecWebSocketLocation): String =
+    secWebSocketLocation.url.encode
 }

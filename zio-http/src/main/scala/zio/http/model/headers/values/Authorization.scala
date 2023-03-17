@@ -57,18 +57,7 @@ object Authorization {
     final case class Unparsed(authScheme: String, authParameters: String) extends AuthScheme
   }
 
-  def fromAuthorization(header: Authorization): String = header match {
-    case Authorization(Basic(username, password)) =>
-      s"Basic ${Base64.getEncoder.encodeToString(s"$username:$password".getBytes(StandardCharsets.UTF_8))}"
-
-    case Authorization(Digest(response, username, realm, uri, opaque, algo, qop, cnonce, nonce, nc, userhash)) =>
-      s"""$Digest response="$response",username="$username",realm="$realm",uri=${uri.toString},opaque="$opaque",algorithm=$algo,""" +
-        s"""qop=$qop,cnonce="$cnonce",nonce="$nonce",nc=$nc,userhash=${userhash.toString}"""
-    case Authorization(Bearer(token))            => s"$Bearer $token"
-    case Authorization(Unparsed(scheme, params)) => s"$scheme $params"
-  }
-
-  def toAuthorization(value: String): Either[String, Authorization] = {
+  def parse(value: String): Either[String, Authorization] = {
     val parts = value.split(' ')
     if (parts.length >= 2) {
       parts(0).toLowerCase match {
@@ -78,6 +67,17 @@ object Authorization {
         case _        => Right(Authorization(Unparsed(parts(0), parts.tail.mkString(" "))))
       }
     } else Left(s"Invalid Authorization header value: $value")
+  }
+
+  def render(header: Authorization): String = header match {
+    case Authorization(Basic(username, password)) =>
+      s"Basic ${Base64.getEncoder.encodeToString(s"$username:$password".getBytes(StandardCharsets.UTF_8))}"
+
+    case Authorization(Digest(response, username, realm, uri, opaque, algo, qop, cnonce, nonce, nc, userhash)) =>
+      s"""$Digest response="$response",username="$username",realm="$realm",uri=${uri.toString},opaque="$opaque",algorithm=$algo,""" +
+        s"""qop=$qop,cnonce="$cnonce",nonce="$nonce",nc=$nc,userhash=${userhash.toString}"""
+    case Authorization(Bearer(token))            => s"$Bearer $token"
+    case Authorization(Unparsed(scheme, params)) => s"$scheme $params"
   }
 
   private def parseBasic(value: String): Either[String, Authorization] = {

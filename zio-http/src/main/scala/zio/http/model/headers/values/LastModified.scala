@@ -24,7 +24,7 @@ final case class LastModified(value: ZonedDateTime)
 object LastModified {
   private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
-  def toLastModified(value: String): Either[String, LastModified] = {
+  def parse(value: String): Either[String, LastModified] = {
     try {
       Right(LastModified(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC)))
     } catch {
@@ -33,6 +33,6 @@ object LastModified {
     }
   }
 
-  def fromLastModified(lastModified: LastModified): String =
+  def render(lastModified: LastModified): String =
     formatter.format(lastModified.value)
 }

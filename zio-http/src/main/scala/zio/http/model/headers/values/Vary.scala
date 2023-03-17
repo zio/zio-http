@@ -25,7 +25,7 @@ object Vary {
   case class Headers(headers: Chunk[String]) extends Vary
   case object Star                           extends Vary
 
-  def toVary(value: String): Either[String, Vary] = {
+  def parse(value: String): Either[String, Vary] = {
     Chunk.fromArray(value.toLowerCase().split("[, ]+")) match {
       case Chunk("*")                                => Right(Star)
       case chunk if chunk.nonEmpty && value.nonEmpty => Right(Headers(chunk.map(_.trim)))
@@ -33,7 +33,7 @@ object Vary {
     }
   }
 
-  def fromVary(vary: Vary): String = {
+  def render(vary: Vary): String = {
     vary match {
       case Star          => "*"
       case Headers(list) => list.mkString(", ")

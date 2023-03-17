@@ -23,15 +23,15 @@ object TrailerSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Trailer header suite")(
       test("parse valid value") {
-        assertTrue(Trailer.toTrailer("Trailer") == Right(Trailer("trailer"))) &&
-        assertTrue(Trailer.toTrailer("Max-Forwards") == Right(Trailer("max-forwards"))) &&
-        assertTrue(Trailer.toTrailer("Cache-Control") == Right(Trailer("cache-control"))) &&
-        assertTrue(Trailer.toTrailer("Content-Type") == Right(Trailer("content-type")))
+        assertTrue(Trailer.parse("Trailer") == Right(Trailer("trailer"))) &&
+        assertTrue(Trailer.parse("Max-Forwards") == Right(Trailer("max-forwards"))) &&
+        assertTrue(Trailer.parse("Cache-Control") == Right(Trailer("cache-control"))) &&
+        assertTrue(Trailer.parse("Content-Type") == Right(Trailer("content-type")))
       },
       test("parse invalid value") {
-        assertTrue(Trailer.toTrailer(" ").isLeft) &&
-        assertTrue(Trailer.toTrailer("Some Value").isLeft) &&
-        assertTrue(Trailer.toTrailer("Cache-Control ").isLeft)
+        assertTrue(Trailer.parse(" ").isLeft) &&
+        assertTrue(Trailer.parse("Some Value").isLeft) &&
+        assertTrue(Trailer.parse("Cache-Control ").isLeft)
       },
     )
 }

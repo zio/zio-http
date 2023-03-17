@@ -25,15 +25,15 @@ object ConnectionSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Connection header suite")(
     test("connection header transformation must be symmetrical") {
       check(HttpGen.connectionHeader) { connectionHeader =>
-        assertTrue(Connection.toConnection(Connection.fromConnection(connectionHeader)) == Right(connectionHeader))
+        assertTrue(Connection.parse(Connection.render(connectionHeader)) == Right(connectionHeader))
       }
     },
     test("invalid connection header value should be parsed to an empty string") {
-      assertTrue(Connection.toConnection("").isLeft)
+      assertTrue(Connection.parse("").isLeft)
     },
     test("invalid values parsing") {
       check(Gen.stringBounded(20, 25)(Gen.char)) { value =>
-        assertTrue(Connection.toConnection(value).isLeft)
+        assertTrue(Connection.parse(value).isLeft)
       }
     },
   )

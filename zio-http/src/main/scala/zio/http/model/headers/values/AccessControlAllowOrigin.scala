@@ -37,10 +37,7 @@ final case class AccessControlAllowOrigin(origin: String)
 
 object AccessControlAllowOrigin {
 
-  def fromAccessControlAllowOrigin(accessControlAllowOrigin: AccessControlAllowOrigin): String =
-    accessControlAllowOrigin.origin
-
-  def toAccessControlAllowOrigin(value: String): Either[String, AccessControlAllowOrigin] = {
+  def parse(value: String): Either[String, AccessControlAllowOrigin] = {
     if (value == "null" || value == "*") {
       Right(AccessControlAllowOrigin(value))
     } else {
@@ -55,4 +52,7 @@ object AccessControlAllowOrigin {
     }
 
   }
+
+  def render(accessControlAllowOrigin: AccessControlAllowOrigin): String =
+    accessControlAllowOrigin.origin
 }

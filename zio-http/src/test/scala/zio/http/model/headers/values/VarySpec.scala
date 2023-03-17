@@ -23,15 +23,15 @@ object VarySpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Vary header suite")(
       test("parse valid values") {
-        assertTrue(Vary.toVary("*") == Right(Vary.Star)) &&
-        assertTrue(Vary.toVary("SOMEVALUE, ANOTHERVALUE") == Right(Vary.Headers(Chunk("somevalue", "anothervalue")))) &&
-        assertTrue(Vary.toVary("some,another") == Right(Vary.Headers(Chunk("some", "another")))) &&
-        assertTrue(Vary.toVary("some") == Right(Vary.Headers(Chunk("some"))))
+        assertTrue(Vary.parse("*") == Right(Vary.Star)) &&
+        assertTrue(Vary.parse("SOMEVALUE, ANOTHERVALUE") == Right(Vary.Headers(Chunk("somevalue", "anothervalue")))) &&
+        assertTrue(Vary.parse("some,another") == Right(Vary.Headers(Chunk("some", "another")))) &&
+        assertTrue(Vary.parse("some") == Right(Vary.Headers(Chunk("some"))))
       },
       test("parse invalid value") {
-        assertTrue(Vary.toVary(",").isLeft) &&
-        assertTrue(Vary.toVary("").isLeft) &&
-        assertTrue(Vary.toVary(" ").isLeft)
+        assertTrue(Vary.parse(",").isLeft) &&
+        assertTrue(Vary.parse("").isLeft) &&
+        assertTrue(Vary.parse(" ").isLeft)
       },
     )
 }

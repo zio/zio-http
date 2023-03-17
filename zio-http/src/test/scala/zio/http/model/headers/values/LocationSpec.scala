@@ -26,11 +26,11 @@ object LocationSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Location header suite")(
       test("Location with Empty Value") {
-        assertTrue(Location.toLocation("").isLeft)
+        assertTrue(Location.parse("").isLeft)
       },
       test("parsing of valid Location values") {
         check(HttpGen.url) { url =>
-          val toLocation = Location.toLocation(url.normalize.encode)
+          val toLocation = Location.parse(url.normalize.encode)
           assertTrue(toLocation == Right(Location(url.normalize)))
         }
 

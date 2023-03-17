@@ -24,7 +24,7 @@ object SecWebSocketProtocolSpec extends ZIOSpecDefault {
     test("SecWebSocketProtocol should be properly parsed for a valid string") {
       val probe = "chat, superchat"
       assertTrue(
-        SecWebSocketProtocol.toSecWebSocketProtocol(probe) == Right(
+        SecWebSocketProtocol.parse(probe) == Right(
           SecWebSocketProtocol(
             Chunk.fromArray(probe.split(", ")),
           ),
@@ -33,12 +33,12 @@ object SecWebSocketProtocolSpec extends ZIOSpecDefault {
     },
     test("SecWebSocketProtocol should be properly parsed for an empty string") {
       val probe = ""
-      assertTrue(SecWebSocketProtocol.toSecWebSocketProtocol(probe).isLeft)
+      assertTrue(SecWebSocketProtocol.parse(probe).isLeft)
     },
     test("SecWebSocketProtocol should properly render a valid string") {
       val probe = "chat, superchat"
       assertTrue(
-        SecWebSocketProtocol.fromSecWebSocketProtocol(
+        SecWebSocketProtocol.render(
           SecWebSocketProtocol(Chunk.fromArray(probe.split(", "))),
         ) == probe,
       )

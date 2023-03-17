@@ -28,12 +28,7 @@ final case class SecWebSocketOrigin(url: URL)
  */
 object SecWebSocketOrigin {
 
-  def fromSecWebSocketOrigin(secWebSocketOrigin: SecWebSocketOrigin): String = {
-    secWebSocketOrigin.url.encode
-
-  }
-
-  def toSecWebSocketOrigin(value: String): Either[String, SecWebSocketOrigin] = {
+  def parse(value: String): Either[String, SecWebSocketOrigin] = {
     if (value.trim == "") Left("Invalid Sec-WebSocket-Origin header: empty value")
     else
       URL
@@ -41,5 +36,10 @@ object SecWebSocketOrigin {
         .left
         .map(_ => "Invalid Sec-WebSocket-Origin header: invalid URL")
         .map(url => SecWebSocketOrigin(url))
+  }
+
+  def render(secWebSocketOrigin: SecWebSocketOrigin): String = {
+    secWebSocketOrigin.url.encode
+
   }
 }

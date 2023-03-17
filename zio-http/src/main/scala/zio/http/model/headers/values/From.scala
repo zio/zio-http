@@ -23,12 +23,12 @@ object From {
   // Regex that does veery loose validation of email.
   private val emailRegex = "([^ ]+@[^ ]+[.][^ ]+)".r
 
-  def toFrom(fromHeader: String): Either[String, From] =
+  def parse(fromHeader: String): Either[String, From] =
     fromHeader match {
       case emailRegex(_) => Right(From(fromHeader))
       case _             => Left("Invalid From header")
     }
 
-  def fromFrom(from: From): String =
+  def render(from: From): String =
     from.email
 }

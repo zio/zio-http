@@ -27,362 +27,362 @@ private[codec] trait HeaderCodecs {
 
   final val accept: HeaderCodec[Accept] =
     header(HeaderNames.accept.toString, TextCodec.string)
-      .transformOrFailLeft(Accept.toAccept, Accept.fromAccept)
+      .transformOrFailLeft(Accept.parse, Accept.render)
 
   final val acceptEncoding: HeaderCodec[AcceptEncoding] =
     header(HeaderNames.acceptEncoding.toString, TextCodec.string)
-      .transformOrFailLeft(AcceptEncoding.toAcceptEncoding, AcceptEncoding.fromAcceptEncoding)
+      .transformOrFailLeft(AcceptEncoding.parse, AcceptEncoding.render)
 
   final val acceptLanguage: HeaderCodec[AcceptLanguage] =
     header(HeaderNames.acceptLanguage.toString, TextCodec.string)
-      .transformOrFailLeft(AcceptLanguage.toAcceptLanguage, AcceptLanguage.fromAcceptLanguage)
+      .transformOrFailLeft(AcceptLanguage.parse, AcceptLanguage.render)
 
   final val acceptRanges: HeaderCodec[AcceptRanges] =
     header(HeaderNames.acceptRanges.toString, TextCodec.string)
-      .transformOrFailLeft(AcceptRanges.to, AcceptRanges.from)
+      .transformOrFailLeft(AcceptRanges.parse, AcceptRanges.render)
 
   final val acceptPatch: HeaderCodec[AcceptPatch] =
     header(HeaderNames.acceptPatch.toString, TextCodec.string)
-      .transformOrFailLeft(AcceptPatch.toAcceptPatch, AcceptPatch.fromAcceptPatch)
+      .transformOrFailLeft(AcceptPatch.parse, AcceptPatch.render)
 
   final val accessControlAllowCredentials: HeaderCodec[AccessControlAllowCredentials] =
     header(HeaderNames.accessControlAllowCredentials.toString, TextCodec.string)
       .transformOrFailLeft(
-        AccessControlAllowCredentials.toAccessControlAllowCredentials,
-        AccessControlAllowCredentials.fromAccessControlAllowCredentials,
+        AccessControlAllowCredentials.parse,
+        AccessControlAllowCredentials.render,
       )
 
   final val accessControlAllowHeaders: HeaderCodec[AccessControlAllowHeaders] =
     header(HeaderNames.accessControlAllowHeaders.toString, TextCodec.string)
       .transformOrFailLeft(
-        AccessControlAllowHeaders.toAccessControlAllowHeaders,
-        AccessControlAllowHeaders.fromAccessControlAllowHeaders,
+        AccessControlAllowHeaders.parse,
+        AccessControlAllowHeaders.render,
       )
 
   final val accessControlAllowMethods: HeaderCodec[AccessControlAllowMethods] =
     header(HeaderNames.accessControlAllowMethods.toString, TextCodec.string)
       .transformOrFailLeft(
-        AccessControlAllowMethods.toAccessControlAllowMethods,
-        AccessControlAllowMethods.fromAccessControlAllowMethods,
+        AccessControlAllowMethods.parse,
+        AccessControlAllowMethods.render,
       )
 
   final val accessControlAllowOrigin: HeaderCodec[AccessControlAllowOrigin] =
     header(HeaderNames.accessControlAllowOrigin.toString, TextCodec.string)
       .transformOrFailLeft(
-        AccessControlAllowOrigin.toAccessControlAllowOrigin,
-        AccessControlAllowOrigin.fromAccessControlAllowOrigin,
+        AccessControlAllowOrigin.parse,
+        AccessControlAllowOrigin.render,
       )
 
   final val accessControlExposeHeaders: HeaderCodec[AccessControlExposeHeaders] =
     header(HeaderNames.accessControlExposeHeaders.toString, TextCodec.string)
       .transformOrFailLeft(
-        AccessControlExposeHeaders.toAccessControlExposeHeaders,
-        AccessControlExposeHeaders.fromAccessControlExposeHeaders,
+        AccessControlExposeHeaders.parse,
+        AccessControlExposeHeaders.render,
       )
 
   final val accessControlMaxAge: HeaderCodec[AccessControlMaxAge] =
     header(HeaderNames.accessControlMaxAge.toString, TextCodec.string)
       .transformOrFailLeft[AccessControlMaxAge](
-        AccessControlMaxAge.toAccessControlMaxAge,
-        AccessControlMaxAge.fromAccessControlMaxAge,
+        AccessControlMaxAge.parse,
+        AccessControlMaxAge.render,
       )
 
   final val accessControlRequestHeaders: HeaderCodec[AccessControlRequestHeaders] =
     header(HeaderNames.accessControlRequestHeaders.toString, TextCodec.string)
       .transformOrFailLeft(
-        AccessControlRequestHeaders.toAccessControlRequestHeaders,
-        AccessControlRequestHeaders.fromAccessControlRequestHeaders,
+        AccessControlRequestHeaders.parse,
+        AccessControlRequestHeaders.render,
       )
 
   final val accessControlRequestMethod: HeaderCodec[AccessControlRequestMethod] =
     header(HeaderNames.accessControlRequestMethod.toString, TextCodec.string)
       .transformOrFailLeft(
-        AccessControlRequestMethod.toAccessControlRequestMethod,
-        AccessControlRequestMethod.fromAccessControlRequestMethod,
+        AccessControlRequestMethod.parse,
+        AccessControlRequestMethod.render,
       )
 
   final val age: HeaderCodec[Age] =
-    header(HeaderNames.age.toString, TextCodec.string).transformOrFailLeft(Age.toAge, Age.fromAge)
+    header(HeaderNames.age.toString, TextCodec.string).transformOrFailLeft(Age.parse, Age.render)
 
   final val allow: HeaderCodec[Allow] =
     header(HeaderNames.allow.toString, TextCodec.string)
-      .transformOrFailLeft[Allow](Allow.toAllow, Allow.fromAllow)
+      .transformOrFailLeft[Allow](Allow.parse, Allow.render)
 
   final val authorization: HeaderCodec[Authorization] =
     header(HeaderNames.authorization.toString, TextCodec.string)
-      .transformOrFailLeft(Authorization.toAuthorization, Authorization.fromAuthorization)
+      .transformOrFailLeft(Authorization.parse, Authorization.render)
 
   final val cacheControl: HeaderCodec[CacheControl] =
     header(HeaderNames.cacheControl.toString, TextCodec.string)
-      .transformOrFailLeft[CacheControl](CacheControl.toCacheControl, CacheControl.fromCacheControl)
+      .transformOrFailLeft[CacheControl](CacheControl.parse, CacheControl.render)
 
   final val connection: HeaderCodec[Connection] = header(HeaderNames.connection.toString, TextCodec.string)
-    .transformOrFailLeft[Connection](Connection.toConnection, Connection.fromConnection)
+    .transformOrFailLeft[Connection](Connection.parse, Connection.render)
 
   final val contentBase: HeaderCodec[ContentBase] =
     header(HeaderNames.contentBase.toString, TextCodec.string)
-      .transformOrFailLeft(ContentBase.toContentBase, ContentBase.fromContentBase)
+      .transformOrFailLeft(ContentBase.parse, ContentBase.render)
 
   final val contentEncoding: HeaderCodec[ContentEncoding] =
     header(HeaderNames.contentEncoding.toString, TextCodec.string)
-      .transformOrFailLeft[ContentEncoding](ContentEncoding.toContentEncoding, ContentEncoding.fromContentEncoding)
+      .transformOrFailLeft[ContentEncoding](ContentEncoding.parse, ContentEncoding.render)
 
   final val contentLanguage: HeaderCodec[ContentLanguage] =
     header(HeaderNames.contentLanguage.toString, TextCodec.string)
-      .transformOrFailLeft[ContentLanguage](ContentLanguage.toContentLanguage, ContentLanguage.fromContentLanguage)
+      .transformOrFailLeft[ContentLanguage](ContentLanguage.parse, ContentLanguage.render)
 
   final val contentLength: HeaderCodec[ContentLength] =
     header(HeaderNames.contentLength.toString, TextCodec.string)
-      .transformOrFailLeft(ContentLength.toContentLength, ContentLength.fromContentLength)
+      .transformOrFailLeft(ContentLength.parse, ContentLength.render)
 
   final val contentLocation: HeaderCodec[ContentLocation] =
     header(HeaderNames.contentLocation.toString, TextCodec.string)
-      .transformOrFailLeft(ContentLocation.toContentLocation, ContentLocation.fromContentLocation)
+      .transformOrFailLeft(ContentLocation.parse, ContentLocation.render)
 
   final val contentTransferEncoding: HeaderCodec[ContentTransferEncoding] =
     header(HeaderNames.contentTransferEncoding.toString, TextCodec.string)
       .transformOrFailLeft[ContentTransferEncoding](
-        ContentTransferEncoding.toContentTransferEncoding,
-        ContentTransferEncoding.fromContentTransferEncoding,
+        ContentTransferEncoding.parse,
+        ContentTransferEncoding.render,
       )
 
   final val contentDisposition: HeaderCodec[ContentDisposition] =
     header(HeaderNames.contentDisposition.toString, TextCodec.string)
       .transformOrFailLeft[ContentDisposition](
-        ContentDisposition.toContentDisposition,
-        ContentDisposition.fromContentDisposition,
+        ContentDisposition.parse,
+        ContentDisposition.render,
       )
 
   final val contentMd5: HeaderCodec[ContentMd5] =
     header(HeaderNames.contentMd5.toString, TextCodec.string)
-      .transformOrFailLeft[ContentMd5](ContentMd5.toContentMd5, ContentMd5.fromContentMd5)
+      .transformOrFailLeft[ContentMd5](ContentMd5.parse, ContentMd5.render)
 
   final val contentRange: HeaderCodec[ContentRange] =
     header(HeaderNames.contentRange.toString, TextCodec.string)
-      .transformOrFailLeft[ContentRange](ContentRange.toContentRange, ContentRange.fromContentRange)
+      .transformOrFailLeft[ContentRange](ContentRange.parse, ContentRange.render)
 
   final val contentSecurityPolicy: HeaderCodec[ContentSecurityPolicy] =
     header(HeaderNames.contentSecurityPolicy.toString, TextCodec.string)
       .transformOrFailLeft[ContentSecurityPolicy](
-        ContentSecurityPolicy.toContentSecurityPolicy,
-        ContentSecurityPolicy.fromContentSecurityPolicy,
+        ContentSecurityPolicy.parse,
+        ContentSecurityPolicy.render,
       )
 
   final val contentType: HeaderCodec[ContentType] =
     header(HeaderNames.contentType.toString, TextCodec.string)
-      .transformOrFailLeft(ContentType.toContentType, ContentType.fromContentType)
+      .transformOrFailLeft(ContentType.parse, ContentType.render)
 
   final val cookie: HeaderCodec[RequestCookie] =
     header(HeaderNames.cookie.toString, TextCodec.string).transformOrFailLeft(
-      RequestCookie.toCookie,
-      RequestCookie.fromCookie,
+      RequestCookie.parse,
+      RequestCookie.render,
     )
 
   final val date: HeaderCodec[Date] = header(HeaderNames.date.toString, TextCodec.string)
-    .transformOrFailLeft(Date.toDate, Date.fromDate)
+    .transformOrFailLeft(Date.parse, Date.render)
 
   final val dnt: HeaderCodec[DNT] = header(HeaderNames.dnt.toString, TextCodec.string)
-    .transformOrFailLeft(DNT.toDNT, DNT.fromDNT)
+    .transformOrFailLeft(DNT.parse, DNT.render)
 
   final val etag: HeaderCodec[ETag] = header(HeaderNames.etag.toString, TextCodec.string)
-    .transformOrFailLeft(ETag.toETag, ETag.fromETag)
+    .transformOrFailLeft(ETag.parse, ETag.render)
 
   final val expect: HeaderCodec[Expect] =
     header(HeaderNames.expect.toString, TextCodec.string)
-      .transformOrFailLeft(Expect.toExpect, Expect.fromExpect)
+      .transformOrFailLeft(Expect.parse, Expect.render)
 
   final val expires: HeaderCodec[Expires] =
     header(HeaderNames.expires.toString, TextCodec.string)
-      .transformOrFailLeft[Expires](Expires.toExpires, Expires.fromExpires)
+      .transformOrFailLeft[Expires](Expires.parse, Expires.render)
 
   final val from: HeaderCodec[From] = header(HeaderNames.from.toString, TextCodec.string)
-    .transformOrFailLeft(From.toFrom, From.fromFrom)
+    .transformOrFailLeft(From.parse, From.render)
 
   final val host: HeaderCodec[Host] = header(HeaderNames.host.toString, TextCodec.string)
-    .transformOrFailLeft(Host.toHost, Host.fromHost)
+    .transformOrFailLeft(Host.parse, Host.render)
 
   final val ifMatch: HeaderCodec[IfMatch] = header(HeaderNames.ifMatch.toString, TextCodec.string)
-    .transformOrFailLeft(IfMatch.toIfMatch, IfMatch.fromIfMatch)
+    .transformOrFailLeft(IfMatch.parse, IfMatch.render)
 
   final val ifModifiedSince: HeaderCodec[IfModifiedSince] =
     header(HeaderNames.ifModifiedSince.toString, TextCodec.string)
       .transformOrFailLeft[IfModifiedSince](
-        IfModifiedSince.toIfModifiedSince,
-        IfModifiedSince.fromIfModifiedSince,
+        IfModifiedSince.parse,
+        IfModifiedSince.render,
       )
 
   final val ifNoneMatch: HeaderCodec[IfNoneMatch] =
     header(HeaderNames.ifNoneMatch.toString, TextCodec.string).transformOrFailLeft(
-      IfNoneMatch.toIfNoneMatch,
-      IfNoneMatch.fromIfNoneMatch,
+      IfNoneMatch.parse,
+      IfNoneMatch.render,
     )
 
   final val ifRange: HeaderCodec[IfRange] =
     header(HeaderNames.ifRange.toString, TextCodec.string)
-      .transformOrFailLeft(IfRange.toIfRange, IfRange.fromIfRange)
+      .transformOrFailLeft(IfRange.parse, IfRange.render)
 
   final val ifUnmodifiedSince: HeaderCodec[IfUnmodifiedSince] =
     header(HeaderNames.ifUnmodifiedSince.toString, TextCodec.string)
       .transformOrFailLeft(
-        IfUnmodifiedSince.toIfUnmodifiedSince,
-        IfUnmodifiedSince.fromIfUnmodifiedSince,
+        IfUnmodifiedSince.parse,
+        IfUnmodifiedSince.render,
       )
 
   final val lastModified: HeaderCodec[LastModified] =
     header(HeaderNames.lastModified.toString, TextCodec.string)
-      .transformOrFailLeft(LastModified.toLastModified, LastModified.fromLastModified)
+      .transformOrFailLeft(LastModified.parse, LastModified.render)
 
   final val location: HeaderCodec[Location] =
     header(HeaderNames.location.toString, TextCodec.string)
-      .transformOrFailLeft(Location.toLocation, Location.fromLocation)
+      .transformOrFailLeft(Location.parse, Location.render)
 
   final val maxForwards: HeaderCodec[MaxForwards] =
     header(HeaderNames.maxForwards.toString, TextCodec.string)
-      .transformOrFailLeft(MaxForwards.toMaxForwards, MaxForwards.fromMaxForwards)
+      .transformOrFailLeft(MaxForwards.parse, MaxForwards.render)
 
   final val origin: HeaderCodec[Origin] =
     header(HeaderNames.origin.toString, TextCodec.string)
-      .transformOrFailLeft(Origin.toOrigin, Origin.fromOrigin)
+      .transformOrFailLeft(Origin.parse, Origin.render)
 
   final val pragma: HeaderCodec[Pragma] = header(HeaderNames.pragma.toString, TextCodec.string)
-    .transformOrFailLeft(Pragma.toPragma, Pragma.fromPragma)
+    .transformOrFailLeft(Pragma.parse, Pragma.render)
 
   final val proxyAuthenticate: HeaderCodec[ProxyAuthenticate] =
     header(HeaderNames.proxyAuthenticate.toString, TextCodec.string)
-      .transformOrFailLeft(ProxyAuthenticate.toProxyAuthenticate, ProxyAuthenticate.fromProxyAuthenticate)
+      .transformOrFailLeft(ProxyAuthenticate.parse, ProxyAuthenticate.render)
 
   final val proxyAuthorization: HeaderCodec[ProxyAuthorization] =
     header(HeaderNames.proxyAuthorization.toString, TextCodec.string)
-      .transformOrFailLeft(ProxyAuthorization.toProxyAuthorization, ProxyAuthorization.fromProxyAuthorization)
+      .transformOrFailLeft(ProxyAuthorization.parse, ProxyAuthorization.render)
 
   final val range: HeaderCodec[Range] = header(HeaderNames.range.toString, TextCodec.string).transformOrFailLeft(
-    Range.toRange,
-    Range.fromRange,
+    Range.parse,
+    Range.render,
   )
 
   final val referer: HeaderCodec[Referer] = header(HeaderNames.referer.toString, TextCodec.string)
-    .transformOrFailLeft(Referer.toReferer, Referer.fromReferer)
+    .transformOrFailLeft(Referer.parse, Referer.render)
 
   final val retryAfter: HeaderCodec[RetryAfter] =
     header(HeaderNames.retryAfter.toString, TextCodec.string)
-      .transformOrFailLeft(RetryAfter.toRetryAfter, RetryAfter.fromRetryAfter)
+      .transformOrFailLeft(RetryAfter.parse, RetryAfter.render)
 
   final val secWebSocketLocation: HeaderCodec[SecWebSocketLocation] =
     header(HeaderNames.secWebSocketLocation.toString, TextCodec.string)
-      .transformOrFailLeft(SecWebSocketLocation.toSecWebSocketLocation, SecWebSocketLocation.fromSecWebSocketLocation)
+      .transformOrFailLeft(SecWebSocketLocation.parse, SecWebSocketLocation.render)
 
   final val secWebSocketOrigin: HeaderCodec[SecWebSocketOrigin] =
     header(HeaderNames.secWebSocketOrigin.toString, TextCodec.string)
-      .transformOrFailLeft(SecWebSocketOrigin.toSecWebSocketOrigin, SecWebSocketOrigin.fromSecWebSocketOrigin)
+      .transformOrFailLeft(SecWebSocketOrigin.parse, SecWebSocketOrigin.render)
 
   final val secWebSocketProtocol: HeaderCodec[SecWebSocketProtocol] =
     header(HeaderNames.secWebSocketProtocol.toString, TextCodec.string).transformOrFailLeft(
-      SecWebSocketProtocol.toSecWebSocketProtocol,
-      SecWebSocketProtocol.fromSecWebSocketProtocol,
+      SecWebSocketProtocol.parse,
+      SecWebSocketProtocol.render,
     )
 
   final val secWebSocketVersion: HeaderCodec[SecWebSocketVersion] =
     header(HeaderNames.secWebSocketVersion.toString, TextCodec.string).transformOrFailLeft(
-      SecWebSocketVersion.toSecWebSocketVersion,
-      SecWebSocketVersion.fromSecWebSocketVersion,
+      SecWebSocketVersion.parse,
+      SecWebSocketVersion.render,
     )
 
   final val secWebSocketKey: HeaderCodec[SecWebSocketKey] =
     header(HeaderNames.secWebSocketKey.toString, TextCodec.string).transformOrFailLeft(
-      SecWebSocketKey.toSecWebSocketKey,
-      SecWebSocketKey.fromSecWebSocketKey,
+      SecWebSocketKey.parse,
+      SecWebSocketKey.render,
     )
 
   final val secWebSocketAccept: HeaderCodec[SecWebSocketAccept] =
     header(HeaderNames.secWebSocketAccept.toString, TextCodec.string).transformOrFailLeft(
-      SecWebSocketAccept.toSecWebSocketAccept,
-      SecWebSocketAccept.fromSecWebSocketAccept,
+      SecWebSocketAccept.parse,
+      SecWebSocketAccept.render,
     )
 
   final val secWebSocketExtensions: HeaderCodec[SecWebSocketExtensions] =
     header(HeaderNames.secWebSocketExtensions.toString, TextCodec.string).transformOrFailLeft(
-      SecWebSocketExtensions.toSecWebSocketExtensions,
-      SecWebSocketExtensions.fromSecWebSocketExtensions,
+      SecWebSocketExtensions.parse,
+      SecWebSocketExtensions.render,
     )
 
   final val server: HeaderCodec[Server] =
-    header(HeaderNames.server.toString, TextCodec.string).transformOrFailLeft(Server.toServer, Server.fromServer)
+    header(HeaderNames.server.toString, TextCodec.string).transformOrFailLeft(Server.parse, Server.render)
 
   final val setCookie: HeaderCodec[ResponseCookie] = header(HeaderNames.setCookie.toString, TextCodec.string)
-    .transformOrFailLeft(ResponseCookie.toCookie, ResponseCookie.fromCookie)
+    .transformOrFailLeft(ResponseCookie.parse, ResponseCookie.render)
 
   final val te: HeaderCodec[Te] = header(HeaderNames.te.toString, TextCodec.string).transformOrFailLeft(
-    Te.toTe,
-    Te.fromTe,
+    Te.parse,
+    Te.render,
   )
 
   final val trailer: HeaderCodec[Trailer] = header(HeaderNames.trailer.toString, TextCodec.string)
-    .transformOrFailLeft(Trailer.toTrailer, Trailer.fromTrailer)
+    .transformOrFailLeft(Trailer.parse, Trailer.render)
 
   final val transferEncoding: HeaderCodec[TransferEncoding] = header(
     HeaderNames.transferEncoding.toString,
     TextCodec.string,
-  ).transformOrFailLeft(TransferEncoding.toTransferEncoding, TransferEncoding.fromTransferEncoding)
+  ).transformOrFailLeft(TransferEncoding.parse, TransferEncoding.render)
 
   final val upgrade: HeaderCodec[Upgrade] = header(HeaderNames.upgrade.toString, TextCodec.string)
-    .transformOrFailLeft(Upgrade.toUpgrade, Upgrade.fromUpgrade)
+    .transformOrFailLeft(Upgrade.parse, Upgrade.render)
 
   final val upgradeInsecureRequests: HeaderCodec[UpgradeInsecureRequests] =
     header(HeaderNames.upgradeInsecureRequests.toString, TextCodec.string)
       .transformOrFailLeft(
-        UpgradeInsecureRequests.toUpgradeInsecureRequests,
-        UpgradeInsecureRequests.fromUpgradeInsecureRequests,
+        UpgradeInsecureRequests.parse,
+        UpgradeInsecureRequests.render,
       )
 
   final val userAgent: HeaderCodec[UserAgent] =
     header(HeaderNames.userAgent.toString, TextCodec.string)
-      .transformOrFailLeft(UserAgent.toUserAgent, UserAgent.fromUserAgent)
+      .transformOrFailLeft(UserAgent.parse, UserAgent.render)
 
   final val vary: HeaderCodec[Vary] = header(HeaderNames.vary.toString, TextCodec.string)
-    .transformOrFailLeft(Vary.toVary, Vary.fromVary)
+    .transformOrFailLeft(Vary.parse, Vary.render)
 
   final val via: HeaderCodec[Via] = header(HeaderNames.via.toString, TextCodec.string).transformOrFailLeft(
-    Via.toVia,
-    Via.fromVia,
+    Via.parse,
+    Via.render,
   )
 
   final val warning: HeaderCodec[Warning] =
     header(HeaderNames.warning.toString, TextCodec.string)
-      .transformOrFailLeft[Warning](Warning.toWarning, Warning.fromWarning)
+      .transformOrFailLeft[Warning](Warning.parse, Warning.render)
 
   final val webSocketLocation: HeaderCodec[SecWebSocketLocation] =
     header(HeaderNames.webSocketLocation.toString, TextCodec.string).transformOrFailLeft(
-      SecWebSocketLocation.toSecWebSocketLocation,
-      SecWebSocketLocation.fromSecWebSocketLocation,
+      SecWebSocketLocation.parse,
+      SecWebSocketLocation.render,
     )
 
   final val webSocketOrigin: HeaderCodec[SecWebSocketOrigin] =
     header(HeaderNames.webSocketOrigin.toString, TextCodec.string).transformOrFailLeft(
-      SecWebSocketOrigin.toSecWebSocketOrigin,
-      SecWebSocketOrigin.fromSecWebSocketOrigin,
+      SecWebSocketOrigin.parse,
+      SecWebSocketOrigin.render,
     )
 
   final val webSocketProtocol: HeaderCodec[SecWebSocketProtocol] =
     header(HeaderNames.webSocketProtocol.toString, TextCodec.string).transformOrFailLeft(
-      SecWebSocketProtocol.toSecWebSocketProtocol,
-      SecWebSocketProtocol.fromSecWebSocketProtocol,
+      SecWebSocketProtocol.parse,
+      SecWebSocketProtocol.render,
     )
 
   final val wwwAuthenticate: HeaderCodec[WWWAuthenticate] =
     header(HeaderNames.wwwAuthenticate.toString, TextCodec.string).transformOrFailLeft(
-      WWWAuthenticate.toWWWAuthenticate,
-      WWWAuthenticate.fromWWWAuthenticate,
+      WWWAuthenticate.parse,
+      WWWAuthenticate.render,
     )
 
   final val xFrameOptions: HeaderCodec[XFrameOptions] =
     header(HeaderNames.xFrameOptions.toString, TextCodec.string).transformOrFailLeft(
-      XFrameOptions.toXFrameOptions,
-      XFrameOptions.fromXFrameOptions,
+      XFrameOptions.parse,
+      XFrameOptions.render,
     )
 
   final val xRequestedWith: HeaderCodec[XRequestedWith] =
     header(HeaderNames.xRequestedWith.toString, TextCodec.string).transformOrFailLeft(
-      XRequestedWith.toXRequestedWith,
-      XRequestedWith.fromXRequestedWith,
+      XRequestedWith.parse,
+      XRequestedWith.render,
     )
 }

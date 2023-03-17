@@ -86,7 +86,7 @@ object TransferEncoding {
    * Note: This implementation ignores the invalid string that might occur in
    * MultipleEncodings case.
    */
-  def toTransferEncoding(value: String): Either[String, TransferEncoding] = {
+  def parse(value: String): Either[String, TransferEncoding] = {
     val encodings = Chunk.fromArray(value.split(",")).map(findEncoding).flatten
 
     encodings match {
@@ -96,6 +96,6 @@ object TransferEncoding {
     }
   }
 
-  def fromTransferEncoding(value: TransferEncoding): String = value.encoding
+  def render(value: TransferEncoding): String = value.encoding
 
 }

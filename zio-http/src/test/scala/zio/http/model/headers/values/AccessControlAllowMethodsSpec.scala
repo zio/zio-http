@@ -38,7 +38,7 @@ object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
       val accessControlAllowMethodsString = "GET, POST, PUT, DELETE, HEAD, OPTIONS, PATCH"
       assertTrue(
         AccessControlAllowMethods
-          .toAccessControlAllowMethods(accessControlAllowMethodsString) == Right(accessControlAllowMethods),
+          .parse(accessControlAllowMethodsString) == Right(accessControlAllowMethods),
       )
     },
     test("AccessControlAllowMethods should be parsed correctly when * is used") {
@@ -46,7 +46,7 @@ object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
       val accessControlAllowMethodsString = "*"
       assertTrue(
         AccessControlAllowMethods
-          .toAccessControlAllowMethods(accessControlAllowMethodsString) == Right(accessControlAllowMethods),
+          .parse(accessControlAllowMethodsString) == Right(accessControlAllowMethods),
       )
     },
     test("AccessControlAllowMethods should be parsed correctly when empty string is used") {
@@ -54,17 +54,17 @@ object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
       val accessControlAllowMethodsString = ""
       assertTrue(
         AccessControlAllowMethods
-          .toAccessControlAllowMethods(accessControlAllowMethodsString) == Right(accessControlAllowMethods),
+          .parse(accessControlAllowMethodsString) == Right(accessControlAllowMethods),
       )
     },
     test("AccessControlAllowMethods should properly render NoMethodsAllowed value") {
       assertTrue(
-        AccessControlAllowMethods.fromAccessControlAllowMethods(AccessControlAllowMethods.None) == "",
+        AccessControlAllowMethods.render(AccessControlAllowMethods.None) == "",
       )
     },
     test("AccessControlAllowMethods should properly render AllowAllMethods value") {
       assertTrue(
-        AccessControlAllowMethods.fromAccessControlAllowMethods(AccessControlAllowMethods.All) == "*",
+        AccessControlAllowMethods.render(AccessControlAllowMethods.All) == "*",
       )
     },
     test("AccessControlAllowMethods should properly render AllowMethods value") {
@@ -81,7 +81,7 @@ object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
       )
       val accessControlAllowMethodsString = "GET, POST, PUT, DELETE, HEAD, OPTIONS, PATCH"
       assertTrue(
-        AccessControlAllowMethods.fromAccessControlAllowMethods(
+        AccessControlAllowMethods.render(
           accessControlAllowMethods,
         ) == accessControlAllowMethodsString,
       )

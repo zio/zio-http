@@ -39,7 +39,7 @@ object Allow {
   val TRACE: Allow   = Allow(NonEmptyChunk.single(Method.TRACE))
   val CONNECT: Allow = Allow(NonEmptyChunk.single(Method.CONNECT))
 
-  def toAllow(value: String): Either[String, Allow] = {
+  def parse(value: String): Either[String, Allow] = {
     @tailrec def loop(index: Int, value: String, acc: Chunk[Method]): Either[String, Chunk[Method]] = {
       if (value.isEmpty) Left("Invalid Allow header: empty value")
       else if (index == -1) {
@@ -73,7 +73,7 @@ object Allow {
     }
   }
 
-  def fromAllow(allow: Allow): String =
+  def render(allow: Allow): String =
     allow.methods.map(_.name).mkString(", ")
 
 }

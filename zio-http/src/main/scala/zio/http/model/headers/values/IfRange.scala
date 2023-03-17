@@ -38,7 +38,7 @@ object IfRange {
   final case class ETag(value: String)            extends IfRange
   final case class DateTime(value: ZonedDateTime) extends IfRange
 
-  def toIfRange(value: String): Either[String, IfRange] =
+  def parse(value: String): Either[String, IfRange] =
     value match {
       case value if value.startsWith("\"") && value.endsWith("\"") =>
         Right(ETag(value.drop(1).dropRight(1)))
@@ -48,7 +48,7 @@ object IfRange {
         )
     }
 
-  def fromIfRange(ifRange: IfRange): String =
+  def render(ifRange: IfRange): String =
     ifRange match {
       case DateTime(value) => webDateTimeFormatter.format(value)
       case ETag(value)     => s""""$value""""

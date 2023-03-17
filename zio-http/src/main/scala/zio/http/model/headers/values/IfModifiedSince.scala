@@ -25,7 +25,7 @@ object IfModifiedSince {
 
   private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
-  def toIfModifiedSince(value: String): Either[String, IfModifiedSince] =
+  def parse(value: String): Either[String, IfModifiedSince] =
     try {
       Right(IfModifiedSince(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC)))
     } catch {
@@ -33,6 +33,6 @@ object IfModifiedSince {
         Left("Invalid If-Modified-Since header")
     }
 
-  def fromIfModifiedSince(ifModifiedSince: IfModifiedSince): String =
+  def render(ifModifiedSince: IfModifiedSince): String =
     formatter.format(ifModifiedSince.value)
 }

@@ -45,13 +45,13 @@ object Connection {
     override val value: String = "keep-alive"
   }
 
-  def fromConnection(connection: Connection): String = connection.value
-
-  def toConnection(connection: String): Either[String, Connection] = {
+  def parse(connection: String): Either[String, Connection] = {
     connection.trim.toLowerCase() match {
       case Close.value     => Right(Close)
       case KeepAlive.value => Right(KeepAlive)
       case _               => Left("Invalid Connection")
     }
   }
+
+  def render(connection: Connection): String = connection.value
 }

@@ -22,12 +22,9 @@ final case class ContentType(value: MediaType)
 
 object ContentType {
 
-  def toContentType(s: CharSequence): Either[String, ContentType] =
+  def parse(s: CharSequence): Either[String, ContentType] =
     MediaType.forContentType(s.toString).toRight("Invalid Content-Type header").map(ContentType(_))
 
-  def fromContentType(contentType: ContentType): String =
+  def render(contentType: ContentType): String =
     contentType.value.fullType
-
-  def fromMediaType(mediaType: MediaType): ContentType = ContentType(mediaType)
-
 }

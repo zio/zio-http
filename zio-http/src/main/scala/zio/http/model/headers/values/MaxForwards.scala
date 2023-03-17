@@ -24,13 +24,13 @@ import scala.util.{Success, Try}
 final case class MaxForwards(value: Int)
 object MaxForwards {
 
-  def toMaxForwards(value: String): Either[String, MaxForwards] = {
+  def parse(value: String): Either[String, MaxForwards] = {
     Try(value.toInt) match {
       case Success(value) if value >= 0L => Right(MaxForwards(value))
       case _                             => Left("Invalid Max-Forwards header")
     }
   }
 
-  def fromMaxForwards(maxForwards: MaxForwards): String =
+  def render(maxForwards: MaxForwards): String =
     maxForwards.value.toString
 }

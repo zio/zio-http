@@ -26,16 +26,16 @@ object SecWebSocketOriginSpec extends ZIOSpecDefault {
     test("SecWebSocketOrigin should be properly parsed for a valid string") {
       val probe    = "wss://example.com"
       val probeURL = URL.fromString(probe).fold(_ => URL.empty, url => url)
-      assertTrue(SecWebSocketOrigin.toSecWebSocketOrigin(probe) == Right(SecWebSocketOrigin(probeURL)))
+      assertTrue(SecWebSocketOrigin.parse(probe) == Right(SecWebSocketOrigin(probeURL)))
     },
     test("SecWebSocketOrigin should be properly parsed for an empty string") {
       val probe = ""
-      assertTrue(SecWebSocketOrigin.toSecWebSocketOrigin(probe).isLeft)
+      assertTrue(SecWebSocketOrigin.parse(probe).isLeft)
     },
     test("SecWebSocketOrigin should properly render a valid string") {
       val probe    = "wss://example.com"
       val probeURL = URL.fromString(probe).fold(_ => URL.empty, url => url)
-      assertTrue(SecWebSocketOrigin.fromSecWebSocketOrigin(SecWebSocketOrigin(probeURL)) == probe)
+      assertTrue(SecWebSocketOrigin.render(SecWebSocketOrigin(probeURL)) == probe)
     },
   )
 }

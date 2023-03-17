@@ -22,13 +22,13 @@ final case class ContentLocation(value: URI)
 
 object ContentLocation {
 
-  def toContentLocation(value: CharSequence): Either[String, ContentLocation] =
+  def parse(value: CharSequence): Either[String, ContentLocation] =
     try {
       Right(ContentLocation(new URI(value.toString)))
     } catch {
       case _: Throwable => Left("Invalid Content-Location header")
     }
 
-  def fromContentLocation(contentLocation: ContentLocation): String =
+  def render(contentLocation: ContentLocation): String =
     contentLocation.value.toString
 }

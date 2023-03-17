@@ -43,7 +43,7 @@ object RetryAfter {
 
   private val formatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
-  def toRetryAfter(dateOrSeconds: String): Either[String, RetryAfter] =
+  def parse(dateOrSeconds: String): Either[String, RetryAfter] =
     Try(dateOrSeconds.toLong) match {
       case Failure(_)     =>
         Try(ZonedDateTime.parse(dateOrSeconds, formatter)) match {
@@ -57,7 +57,7 @@ object RetryAfter {
           Left("Invalid RetryAfter")
     }
 
-  def fromRetryAfter(retryAfter: RetryAfter): String =
+  def render(retryAfter: RetryAfter): String =
     retryAfter match {
       case ByDate(date)         => formatter.format(date)
       case ByDuration(duration) =>

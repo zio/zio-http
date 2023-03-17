@@ -26,28 +26,28 @@ object TeSpec extends ZIOSpecDefault {
     test("parse TE header") {
       val te = "trailers, deflate;q=0.5, gzip;q=0.2"
       assertTrue(
-        Te.toTe(te) ==
+        Te.parse(te) ==
           Right(Multiple(Chunk(Trailers, Deflate(Some(0.5)), GZip(Some(0.2))))),
       )
     },
     test("parse TE header - simple value with weight") {
       val te = "deflate;q=0.5"
       assertTrue(
-        Te.toTe(te) ==
+        Te.parse(te) ==
           Right(Deflate(Some(0.5))),
       )
     },
     test("parse TE header - simple value") {
       val te = "trailers"
       assertTrue(
-        Te.toTe(te) ==
+        Te.parse(te) ==
           Right(Trailers),
       )
     },
     test("render TE header") {
       val te = "trailers, deflate;q=0.5, gzip;q=0.2"
       assertTrue(
-        Te.fromTe(Te.toTe(te).toOption.get) == te,
+        Te.render(Te.parse(te).toOption.get) == te,
       )
     },
   )

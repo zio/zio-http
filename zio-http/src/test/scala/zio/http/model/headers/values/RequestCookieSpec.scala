@@ -26,7 +26,7 @@ object RequestCookieSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("RequestCookie suite")(
     test("RequestCookie handle valid cookie") {
-      val result = RequestCookie.toCookie("foo=bar") match {
+      val result = RequestCookie.parse("foo=bar") match {
         case Right(RequestCookie(value)) =>
           value == List(model.Cookie(name = "foo", content = "bar", target = RequestType))
         case _                           => false
@@ -34,7 +34,7 @@ object RequestCookieSpec extends ZIOSpecDefault {
       assertTrue(result)
     },
     test("RequestCookie handle invalid cookie") {
-      val result = RequestCookie.toCookie("") match {
+      val result = RequestCookie.parse("") match {
         case Right(RequestCookie(_)) =>
           false
         case _                       => true
@@ -42,7 +42,7 @@ object RequestCookieSpec extends ZIOSpecDefault {
       assertTrue(result)
     },
     test("RequestCookie handle multiple cookies") {
-      val result = RequestCookie.toCookie("foo=bar; foo2=bar2") match {
+      val result = RequestCookie.parse("foo=bar; foo2=bar2") match {
         case Right(RequestCookie(value)) =>
           value == List(
             model.Cookie(name = "foo", content = "bar", target = RequestType),
@@ -53,9 +53,9 @@ object RequestCookieSpec extends ZIOSpecDefault {
       assertTrue(result)
     },
     test("RequestCookie render valid cookie") {
-      val result = RequestCookie.toCookie("foo=bar") match {
+      val result = RequestCookie.parse("foo=bar") match {
         case Right(rc) =>
-          RequestCookie.fromCookie(rc) == "foo=bar"
+          RequestCookie.render(rc) == "foo=bar"
         case _         => false
       }
       assertTrue(result)

@@ -27,7 +27,7 @@ object IfNoneMatch {
 
   final case class ETags(etags: Chunk[String]) extends IfNoneMatch
 
-  def toIfNoneMatch(value: String): Either[String, IfNoneMatch] =
+  def parse(value: String): Either[String, IfNoneMatch] =
     Right {
       val etags = value.split(",").map(_.trim).toList
       etags match {
@@ -37,7 +37,7 @@ object IfNoneMatch {
       }
     }
 
-  def fromIfNoneMatch(ifMatch: IfNoneMatch): String = ifMatch match {
+  def render(ifMatch: IfNoneMatch): String = ifMatch match {
     case Any          => "*"
     case None         => ""
     case ETags(etags) => etags.mkString(",")

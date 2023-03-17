@@ -31,7 +31,7 @@ package zio.http.model.headers.values
 final case class ProxyAuthenticate(scheme: AuthenticationScheme, realm: Option[String])
 
 object ProxyAuthenticate {
-  def toProxyAuthenticate(value: String): Either[String, ProxyAuthenticate] = {
+  def parse(value: String): Either[String, ProxyAuthenticate] = {
     val parts = value.split(" realm=").map(_.trim).filter(_.nonEmpty)
     parts match {
       case Array(authScheme, realm) => toProxyAuthenticate(authScheme, Some(realm))
@@ -40,11 +40,11 @@ object ProxyAuthenticate {
     }
   }
 
-  def fromProxyAuthenticate(proxyAuthenticate: ProxyAuthenticate): String = proxyAuthenticate match {
+  def render(proxyAuthenticate: ProxyAuthenticate): String = proxyAuthenticate match {
     case ProxyAuthenticate(scheme, Some(realm)) => s"${scheme.name} realm=$realm"
     case ProxyAuthenticate(scheme, None)        => s"${scheme.name}"
   }
 
   private def toProxyAuthenticate(authScheme: String, realm: Option[String]): Either[String, ProxyAuthenticate] =
-    AuthenticationScheme.toAuthenticationScheme(authScheme).map(ProxyAuthenticate(_, realm))
+    AuthenticationScheme.parse(authScheme).map(ProxyAuthenticate(_, realm))
 }

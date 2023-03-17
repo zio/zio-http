@@ -30,7 +30,7 @@ final case class SecWebSocketKey(base64EncodedKey: String)
  * https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-WebSocket-Key
  */
 object SecWebSocketKey {
-  def toSecWebSocketKey(key: String): Either[String, SecWebSocketKey] = {
+  def parse(key: String): Either[String, SecWebSocketKey] = {
     try {
       val decodedKey = java.util.Base64.getDecoder.decode(key)
       if (decodedKey.length == 16) Right(SecWebSocketKey(key))
@@ -41,6 +41,6 @@ object SecWebSocketKey {
 
   }
 
-  def fromSecWebSocketKey(secWebSocketKey: SecWebSocketKey): String =
+  def render(secWebSocketKey: SecWebSocketKey): String =
     secWebSocketKey.base64EncodedKey
 }

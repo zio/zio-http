@@ -39,13 +39,13 @@ final case class Expires(value: ZonedDateTime)
 object Expires {
   private val formatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
-  def toExpires(date: String): Either[String, Expires] =
+  def parse(date: String): Either[String, Expires] =
     try {
       Right(Expires(ZonedDateTime.parse(date, formatter)))
     } catch {
       case _: Exception => Left("Invalid Expires header")
     }
 
-  def fromExpires(expires: Expires): String =
+  def render(expires: Expires): String =
     formatter.format(expires.value)
 }

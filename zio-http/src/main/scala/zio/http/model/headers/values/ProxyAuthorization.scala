@@ -37,16 +37,16 @@ final case class ProxyAuthorization(authenticationScheme: AuthenticationScheme, 
  */
 object ProxyAuthorization {
 
-  def fromProxyAuthorization(proxyAuthorization: ProxyAuthorization): String =
-    s"${proxyAuthorization.authenticationScheme.name} ${proxyAuthorization.credential}"
-
-  def toProxyAuthorization(value: String): Either[String, ProxyAuthorization] = {
+  def parse(value: String): Either[String, ProxyAuthorization] = {
     value.split("\\s+") match {
       case Array(authorization, credential) if authorization.nonEmpty && credential.nonEmpty =>
-        AuthenticationScheme.toAuthenticationScheme(authorization).map { authenticationScheme =>
+        AuthenticationScheme.parse(authorization).map { authenticationScheme =>
           ProxyAuthorization(authenticationScheme, credential)
         }
       case _ => Left("Invalid Proxy-Authorization header")
     }
   }
+
+  def render(proxyAuthorization: ProxyAuthorization): String =
+    s"${proxyAuthorization.authenticationScheme.name} ${proxyAuthorization.credential}"
 }

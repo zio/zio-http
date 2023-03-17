@@ -31,42 +31,42 @@ object WarningSpec extends ZIOSpecDefault {
     suite("Warning header suite")(
       test("Rejects Invalid Warning Code") {
         val invalidCode = "1 anderson/1.3.37 \"Response is stale\""
-        assertTrue(Warning.toWarning(invalidCode).isLeft)
+        assertTrue(Warning.parse(invalidCode).isLeft)
       },
       test("Rejects Invalid Warning Date") {
         val invalidDate = validWarning + " " + "invalidDate"
-        assertTrue(Warning.toWarning(invalidDate).isLeft)
+        assertTrue(Warning.parse(invalidDate).isLeft)
       },
       test("Rejects Missing Warning Code") {
         val missingCode = "anderson/1.3.37 \"Response is stale\""
-        assertTrue(Warning.toWarning(missingCode).isLeft)
+        assertTrue(Warning.parse(missingCode).isLeft)
       },
       test("Rejects Missing Warning Agent") {
         val missingAgent = "110 \"Response is stale\""
-        assertTrue(Warning.toWarning(missingAgent).isLeft)
+        assertTrue(Warning.parse(missingAgent).isLeft)
       },
       test("Rejects Missing Warning Agent with date") {
         val missingAgentWithDate = "112 \"cache down\" \"Wed, 21 Oct 2015 07:28:00 GMT\""
-        assertTrue(Warning.toWarning(missingAgentWithDate).isLeft)
+        assertTrue(Warning.parse(missingAgentWithDate).isLeft)
       },
       test("Rejects Missing Warning Description") {
         val missingDescription = "110 anderson/1.3.37 "
-        assertTrue(Warning.toWarning(missingDescription).isLeft)
+        assertTrue(Warning.parse(missingDescription).isLeft)
       },
       test("Accepts Valid Warning with Date") {
         assertTrue(
-          Warning.toWarning(validWarningWithDate) == Right(Warning(112, "-", "\"cache down\"", Some(stubDate))),
+          Warning.parse(validWarningWithDate) == Right(Warning(112, "-", "\"cache down\"", Some(stubDate))),
         )
       },
       test("Accepts Valid Warning without Date") {
-        assertTrue(Warning.toWarning(validWarning) == Right(Warning(110, "anderson/1.3.37", "\"Response is stale\"")))
+        assertTrue(Warning.parse(validWarning) == Right(Warning(110, "anderson/1.3.37", "\"Response is stale\"")))
       },
       test("parsing and encoding is symmetrical for warning with Date") {
-        val encodedWarningwithDate = Warning.fromWarning(Warning.toWarning(validWarningWithDate).toOption.get)
+        val encodedWarningwithDate = Warning.render(Warning.parse(validWarningWithDate).toOption.get)
         assertTrue(encodedWarningwithDate == validWarningWithDate)
       },
       test("parsing and encoding is symmetrical for warning without Date") {
-        val encodedWarning = Warning.fromWarning(Warning.toWarning(validWarning).toOption.get)
+        val encodedWarning = Warning.render(Warning.parse(validWarning).toOption.get)
         assertTrue(encodedWarning == validWarning)
       },
     )

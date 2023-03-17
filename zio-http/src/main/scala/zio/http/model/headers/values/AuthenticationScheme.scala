@@ -69,10 +69,7 @@ object AuthenticationScheme {
     override val name: String = "AWS4-HMAC-SHA256"
   }
 
-  def fromAuthenticationScheme(authenticationScheme: AuthenticationScheme): String =
-    authenticationScheme.name
-
-  def toAuthenticationScheme(name: String): Either[String, AuthenticationScheme] = {
+  def parse(name: String): Either[String, AuthenticationScheme] = {
     name.trim.toUpperCase match {
       case "BASIC"            => Right(Basic)
       case "BEARER"           => Right(Bearer)
@@ -89,5 +86,8 @@ object AuthenticationScheme {
       case name: String       => Left(s"Unsupported authentication scheme: $name")
     }
   }
+
+  def render(authenticationScheme: AuthenticationScheme): String =
+    authenticationScheme.name
 
 }

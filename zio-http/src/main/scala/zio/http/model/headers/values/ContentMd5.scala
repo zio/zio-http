@@ -21,12 +21,12 @@ final case class ContentMd5(value: String)
 object ContentMd5 {
   private val MD5Regex = """[A-Fa-f0-9]{32}""".r
 
-  def toContentMd5(value: CharSequence): Either[String, ContentMd5] =
+  def parse(value: CharSequence): Either[String, ContentMd5] =
     value match {
       case MD5Regex() => Right(ContentMd5(value.toString))
       case _          => Left("Invalid Content-MD5 header")
     }
 
-  def fromContentMd5(contentMd5: ContentMd5): String =
+  def render(contentMd5: ContentMd5): String =
     contentMd5.value
 }

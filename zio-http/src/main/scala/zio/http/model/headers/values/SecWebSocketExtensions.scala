@@ -56,7 +56,7 @@ object SecWebSocketExtensions {
   final case class Token(extension: Chunk[Extension])   extends SecWebSocketExtensions
   final case class Extensions(extensions: Chunk[Token]) extends SecWebSocketExtensions
 
-  def toSecWebSocketExtensions(value: String): Either[String, SecWebSocketExtensions] =
+  def parse(value: String): Either[String, SecWebSocketExtensions] =
     if (value.trim().isEmpty) Left("Invalid Sec-WebSocket-Extensions header")
     else {
       val extensions: Array[Token] = value
@@ -80,7 +80,7 @@ object SecWebSocketExtensions {
       Right(Extensions(Chunk.fromArray(extensions)))
     }
 
-  def fromSecWebSocketExtensions(secWebSocketExtensions: SecWebSocketExtensions): String =
+  def render(secWebSocketExtensions: SecWebSocketExtensions): String =
     secWebSocketExtensions match {
       case Extensions(extensions)              =>
         extensions

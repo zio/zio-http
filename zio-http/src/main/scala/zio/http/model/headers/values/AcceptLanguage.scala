@@ -36,19 +36,7 @@ object AcceptLanguage {
 
   case object Any extends AcceptLanguage
 
-  def fromAcceptLanguage(acceptLanguage: AcceptLanguage): String =
-    acceptLanguage match {
-      case Single(language, weight) =>
-        val weightString = weight match {
-          case Some(w) => s";q=$w"
-          case None    => ""
-        }
-        s"$language$weightString"
-      case Multiple(languages)      => languages.map(fromAcceptLanguage).mkString(",")
-      case Any                      => "*"
-    }
-
-  def toAcceptLanguage(value: String): Either[String, AcceptLanguage] = {
+  def parse(value: String): Either[String, AcceptLanguage] = {
     @tailrec def loop(index: Int, value: String, acc: Multiple): Multiple = {
       if (index == -1) acc.copy(languages = acc.languages :+ parseAcceptedLanguage(value.trim))
       else {
@@ -67,6 +55,18 @@ object AcceptLanguage {
     else if (value == "*") Right(AcceptLanguage.Any)
     else Right(loop(value.indexOf(','), value, Multiple(Chunk.empty)))
   }
+
+  def render(acceptLanguage: AcceptLanguage): String =
+    acceptLanguage match {
+      case Single(language, weight) =>
+        val weightString = weight match {
+          case Some(w) => s";q=$w"
+          case None    => ""
+        }
+        s"$language$weightString"
+      case Multiple(languages)      => languages.map(render).mkString(",")
+      case Any                      => "*"
+    }
 
   /**
    * Allowed characters in the header are 0-9, A-Z, a-z, space or *,-.;=

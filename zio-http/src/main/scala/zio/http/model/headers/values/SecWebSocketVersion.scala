@@ -29,7 +29,7 @@ final case class SecWebSocketVersion(version: Int)
 object SecWebSocketVersion {
   // https://www.iana.org/assignments/websocket/websocket.xml#version-number
 
-  def toSecWebSocketVersion(version: String): Either[String, SecWebSocketVersion] =
+  def parse(version: String): Either[String, SecWebSocketVersion] =
     try {
       val v = version.toInt
       if (v >= 0 && v <= 13) Right(SecWebSocketVersion(v))
@@ -38,7 +38,7 @@ object SecWebSocketVersion {
       case _: Throwable => Left("Invalid Sec-WebSocket-Version header")
     }
 
-  def fromSecWebSocketVersion(secWebSocketVersion: SecWebSocketVersion): String =
+  def render(secWebSocketVersion: SecWebSocketVersion): String =
     secWebSocketVersion.version.toString
 
 }

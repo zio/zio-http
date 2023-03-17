@@ -25,10 +25,7 @@ final case class Location(url: URL)
 
 object Location {
 
-  def fromLocation(urlLocation: Location): String =
-    urlLocation.url.toJavaURL.fold("")(_.toString())
-
-  def toLocation(value: String): Either[String, Location] = {
+  def parse(value: String): Either[String, Location] = {
     if (value == "") Left("Invalid Location header")
     else
       URL
@@ -37,4 +34,7 @@ object Location {
         .map(_ => "Invalid Location header")
         .map(url => Location(url))
   }
+
+  def render(urlLocation: Location): String =
+    urlLocation.url.toJavaURL.fold("")(_.toString())
 }

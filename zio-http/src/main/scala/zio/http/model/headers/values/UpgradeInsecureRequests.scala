@@ -24,10 +24,10 @@ final case class UpgradeInsecureRequests()
  * response.
  */
 object UpgradeInsecureRequests {
-  def toUpgradeInsecureRequests(value: String): Either[String, UpgradeInsecureRequests] =
+  def parse(value: String): Either[String, UpgradeInsecureRequests] =
     if (value.trim == "1") Right(UpgradeInsecureRequests())
     else Left("Invalid Upgrade-Insecure-Requests header")
 
-  def fromUpgradeInsecureRequests(upgradeInsecureRequests: UpgradeInsecureRequests): String =
+  def render(upgradeInsecureRequests: UpgradeInsecureRequests): String =
     "1"
 }

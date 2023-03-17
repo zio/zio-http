@@ -25,21 +25,21 @@ object ViaSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Via suite")(
     test("parsing of valid values") {
       assertTrue(
-        Via.toVia("1.1 vegur") == Right(
+        Via.parse("1.1 vegur") == Right(
           Via.Multiple(
             Chunk(Via.Detailed(ReceivedProtocol.Version("1.1"), "vegur", None)),
           ),
         ),
       ) &&
       assertTrue(
-        Via.toVia("HTTP/1.1 GWA") == Right(
+        Via.parse("HTTP/1.1 GWA") == Right(
           Via.Multiple(
             Chunk(Via.Detailed(ReceivedProtocol.ProtocolVersion("HTTP", "1.1"), "GWA", None)),
           ),
         ),
       ) &&
       assertTrue(
-        Via.toVia("1.0 fred, 1.1 p.example.net") == Right(
+        Via.parse("1.0 fred, 1.1 p.example.net") == Right(
           Via.Multiple(
             Chunk(
               Via.Detailed(ReceivedProtocol.Version("1.0"), "fred", None),
@@ -49,7 +49,7 @@ object ViaSpec extends ZIOSpecDefault {
         ),
       )
       assertTrue(
-        Via.toVia("1.0 fred, 1.1 p.example.net, 1.1 nowhere.com (Apache/1.1)") == Right(
+        Via.parse("1.0 fred, 1.1 p.example.net, 1.1 nowhere.com (Apache/1.1)") == Right(
           Via.Multiple(
             Chunk(
               Via.Detailed(ReceivedProtocol.Version("1.0"), "fred", None),

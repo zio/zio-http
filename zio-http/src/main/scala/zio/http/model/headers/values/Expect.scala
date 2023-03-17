@@ -30,12 +30,12 @@ object Expect {
     val value = "100-continue"
   }
 
-  def fromExpect(expect: Expect): String =
-    expect.value
-
-  def toExpect(value: String): Either[String, Expect] =
+  def parse(value: String): Either[String, Expect] =
     value match {
       case `100-continue`.value => Right(`100-continue`)
       case _                    => Left("Invalid Expect header")
     }
+
+  def render(expect: Expect): String =
+    expect.value
 }

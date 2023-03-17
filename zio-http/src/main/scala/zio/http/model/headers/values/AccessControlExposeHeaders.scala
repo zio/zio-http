@@ -33,14 +33,7 @@ object AccessControlExposeHeaders {
 
   case object None extends AccessControlExposeHeaders
 
-  def fromAccessControlExposeHeaders(accessControlExposeHeaders: AccessControlExposeHeaders): String =
-    accessControlExposeHeaders match {
-      case Some(value) => value.mkString(", ")
-      case All         => "*"
-      case None        => ""
-    }
-
-  def toAccessControlExposeHeaders(value: String): Either[String, AccessControlExposeHeaders] = {
+  def parse(value: String): Either[String, AccessControlExposeHeaders] = {
     Right {
       value match {
         case ""          => None
@@ -56,5 +49,12 @@ object AccessControlExposeHeaders {
       }
     }
   }
+
+  def render(accessControlExposeHeaders: AccessControlExposeHeaders): String =
+    accessControlExposeHeaders match {
+      case Some(value) => value.mkString(", ")
+      case All         => "*"
+      case None        => ""
+    }
 
 }

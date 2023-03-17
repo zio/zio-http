@@ -33,15 +33,13 @@ object AccessControlAllowCredentials {
    */
   case object DoNotAllow extends AccessControlAllowCredentials
 
-  def fromAccessControlAllowCredentials(
-    accessControlAllowCredentials: AccessControlAllowCredentials,
-  ): String =
-    accessControlAllowCredentials match {
-      case Allow      => "true"
-      case DoNotAllow => "false"
+  def allow(value: Boolean): AccessControlAllowCredentials =
+    value match {
+      case true  => Allow
+      case false => DoNotAllow
     }
 
-  def toAccessControlAllowCredentials(value: String): Either[String, AccessControlAllowCredentials] =
+  def parse(value: String): Either[String, AccessControlAllowCredentials] =
     Right {
       value match {
         case "true"  => Allow
@@ -50,9 +48,11 @@ object AccessControlAllowCredentials {
       }
     }
 
-  def toAccessControlAllowCredentials(value: Boolean): AccessControlAllowCredentials =
-    value match {
-      case true  => Allow
-      case false => DoNotAllow
+  def render(
+    accessControlAllowCredentials: AccessControlAllowCredentials,
+  ): String =
+    accessControlAllowCredentials match {
+      case Allow      => "true"
+      case DoNotAllow => "false"
     }
 }

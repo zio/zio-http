@@ -33,14 +33,7 @@ object AccessControlAllowHeaders {
 
   case object None extends AccessControlAllowHeaders
 
-  def fromAccessControlAllowHeaders(accessControlAllowHeaders: AccessControlAllowHeaders): String =
-    accessControlAllowHeaders match {
-      case Some(value) => value.mkString(", ")
-      case All         => "*"
-      case None        => ""
-    }
-
-  def toAccessControlAllowHeaders(value: String): Either[String, AccessControlAllowHeaders] =
+  def parse(value: String): Either[String, AccessControlAllowHeaders] =
     Right {
       value match {
         case ""          => None
@@ -54,6 +47,13 @@ object AccessControlAllowHeaders {
             ),
           )
       }
+    }
+
+  def render(accessControlAllowHeaders: AccessControlAllowHeaders): String =
+    accessControlAllowHeaders match {
+      case Some(value) => value.mkString(", ")
+      case All         => "*"
+      case None        => ""
     }
 
 }

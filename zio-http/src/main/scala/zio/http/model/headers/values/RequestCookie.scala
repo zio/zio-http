@@ -29,7 +29,7 @@ final case class RequestCookie(value: Chunk[model.Cookie[Request]])
  */
 object RequestCookie {
 
-  def toCookie(value: String): Either[String, RequestCookie] = {
+  def parse(value: String): Either[String, RequestCookie] = {
     implicit val decoder = CookieDecoder.RequestCookieDecoder
 
     model.Cookie.decode(value) match {
@@ -40,6 +40,6 @@ object RequestCookie {
     }
   }
 
-  def fromCookie(cookie: RequestCookie): String =
+  def render(cookie: RequestCookie): String =
     cookie.value.map(_.encode.getOrElse("")).mkString("; ")
 }

@@ -62,7 +62,7 @@ object WWWAuthenticate {
   private val auth            = """(\w+)=(?:"([^"]+)"|([^,]+))""".r
   private val nonQuotedValues = Set("max_age", "stale", "userhash", "algorithm", "charset")
 
-  def toWWWAuthenticate(value: String): Either[String, WWWAuthenticate] =
+  def parse(value: String): Either[String, WWWAuthenticate] =
     Try {
       val challengeRegEx(scheme, challenge) = value
       val params                            = auth
@@ -74,7 +74,7 @@ object WWWAuthenticate {
         }
         .toMap
 
-      AuthenticationScheme.toAuthenticationScheme(scheme).map {
+      AuthenticationScheme.parse(scheme).map {
         case AuthenticationScheme.Basic              =>
           Basic(params("realm"), params.getOrElse("charset", "UTF-8"))
         case AuthenticationScheme.Bearer             =>
@@ -128,7 +128,7 @@ object WWWAuthenticate {
       }
     }.toEither.left.map(_ => s"Invalid WWW-Authenticate header").flatten
 
-  def fromWWWAuthenticate(wwwAuthenticate: WWWAuthenticate): String = {
+  def render(wwwAuthenticate: WWWAuthenticate): String        = {
     val (scheme, params) = wwwAuthenticate match {
       case Basic(realm, charset)                                                          =>
         "Basic" -> mutable.LinkedHashMap("realm" -> realm, charset -> charset)
@@ -188,7 +188,7 @@ object WWWAuthenticate {
     }
       .mkString(" ", ", ", "")
   }
-  private def formatValue(key: String, value: String): String       = {
+  private def formatValue(key: String, value: String): String = {
     if (nonQuotedValues.contains(key)) value else "\"" + value + "\""
   }
 }

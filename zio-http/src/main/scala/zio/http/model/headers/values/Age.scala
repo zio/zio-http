@@ -27,13 +27,13 @@ final case class Age(duration: Duration)
 
 object Age {
 
-  def fromAge(age: Age): String =
-    age.duration.toSeconds.toString
-
-  def toAge(value: String): Either[String, Age] =
+  def parse(value: String): Either[String, Age] =
     Try(value.trim.toInt) match {
       case Failure(_)                  => Left(s"Invalid Age")
       case Success(value) if value > 0 => Right(Age(value.seconds))
       case Success(_)                  => Left(s"Negative Age")
     }
+
+  def render(age: Age): String =
+    age.duration.toSeconds.toString
 }

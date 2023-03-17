@@ -28,13 +28,13 @@ final case class AccessControlRequestHeaders(values: Chunk[String])
  * Access-Control-Allow-Headers will answer this browser-side header.
  */
 object AccessControlRequestHeaders {
-  def toAccessControlRequestHeaders(values: String): Either[String, AccessControlRequestHeaders] = {
+  def parse(values: String): Either[String, AccessControlRequestHeaders] = {
     Chunk.fromArray(values.trim().split(",")).filter(_.nonEmpty) match {
       case Chunk() => Left("AccessControlRequestHeaders cannot be empty")
       case xs      => Right(AccessControlRequestHeaders(xs))
     }
   }
 
-  def fromAccessControlRequestHeaders(headers: AccessControlRequestHeaders): String =
+  def render(headers: AccessControlRequestHeaders): String =
     headers.values.mkString(",")
 }

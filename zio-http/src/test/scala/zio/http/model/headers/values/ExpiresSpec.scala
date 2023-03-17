@@ -27,15 +27,15 @@ object ExpiresSpec extends ZIOSpecDefault {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Expires header suite")(
     test("parsing of invalid expires values") {
-      assertTrue(Expires.toExpires("").isLeft) &&
-      assertTrue(Expires.toExpires("any string").isLeft) &&
-      assertTrue(Expires.toExpires("Wed 21 Oct 2015 07:28:00").isLeft) &&
-      assertTrue(Expires.toExpires("21 Oct 2015 07:28:00 GMT").isLeft)
-      assertTrue(Expires.toExpires("Wed 21 Oct 2015 07:28:00 GMT").isLeft)
+      assertTrue(Expires.parse("").isLeft) &&
+      assertTrue(Expires.parse("any string").isLeft) &&
+      assertTrue(Expires.parse("Wed 21 Oct 2015 07:28:00").isLeft) &&
+      assertTrue(Expires.parse("21 Oct 2015 07:28:00 GMT").isLeft)
+      assertTrue(Expires.parse("Wed 21 Oct 2015 07:28:00 GMT").isLeft)
     },
     test("parsing of valid Expires values") {
       assertTrue(
-        Expires.toExpires("Wed, 21 Oct 2015 07:28:00 GMT") == Right(
+        Expires.parse("Wed, 21 Oct 2015 07:28:00 GMT") == Right(
           Expires(
             ZonedDateTime.parse("Wed, 21 Oct 2015 07:28:00 GMT", formatter),
           ),
@@ -47,7 +47,7 @@ object ExpiresSpec extends ZIOSpecDefault {
         val zone = ZoneId.of("Australia/Sydney")
         assertTrue(
           Expires
-            .toExpires(Expires.fromExpires(Expires(date.withZoneSameLocal(zone))))
+            .parse(Expires.render(Expires(date.withZoneSameLocal(zone))))
             .toOption
             .get
             .value

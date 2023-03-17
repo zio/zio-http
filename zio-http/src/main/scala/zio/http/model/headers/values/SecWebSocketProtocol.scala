@@ -33,10 +33,10 @@ final case class SecWebSocketProtocol(subProtocols: Chunk[String])
 object SecWebSocketProtocol {
   // https://www.iana.org/assignments/websocket/websocket.xml#subprotocol-name
 
-  def toSecWebSocketProtocol(subProtocols: String): Either[String, SecWebSocketProtocol] =
+  def parse(subProtocols: String): Either[String, SecWebSocketProtocol] =
     if (subProtocols.trim.isEmpty) Left("Invalid Sec-WebSocket-Protocol header")
     else Right(SecWebSocketProtocol(Chunk.fromArray(subProtocols.split(",").map(_.trim))))
 
-  def fromSecWebSocketProtocol(secWebSocketProtocol: SecWebSocketProtocol): String =
+  def render(secWebSocketProtocol: SecWebSocketProtocol): String =
     secWebSocketProtocol.subProtocols.mkString(", ")
 }

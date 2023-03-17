@@ -23,7 +23,7 @@ object XFrameOptions {
   case object Deny       extends XFrameOptions
   case object SameOrigin extends XFrameOptions
 
-  def toXFrameOptions(value: String): Either[String, XFrameOptions] = {
+  def parse(value: String): Either[String, XFrameOptions] = {
     value.trim.toUpperCase match {
       case "DENY"       => Right(Deny)
       case "SAMEORIGIN" => Right(SameOrigin)
@@ -31,7 +31,7 @@ object XFrameOptions {
     }
   }
 
-  def fromXFrameOptions(xFrameOptions: XFrameOptions): String =
+  def render(xFrameOptions: XFrameOptions): String =
     xFrameOptions match {
       case Deny       => "DENY"
       case SameOrigin => "SAMEORIGIN"

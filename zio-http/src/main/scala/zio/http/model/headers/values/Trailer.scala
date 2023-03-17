@@ -22,12 +22,12 @@ final case class Trailer(header: String)
 object Trailer {
   private val headerRegex = "([a-z-_]*)".r
 
-  def toTrailer(value: String): Either[String, Trailer] =
+  def parse(value: String): Either[String, Trailer] =
     value.toLowerCase match {
       case headerRegex(value) => Right(Trailer(value))
       case _                  => Left("Invalid Trailer header")
     }
 
-  def fromTrailer(trailer: Trailer): String =
+  def render(trailer: Trailer): String =
     trailer.header
 }

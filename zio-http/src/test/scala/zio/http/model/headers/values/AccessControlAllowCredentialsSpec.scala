@@ -23,42 +23,42 @@ object AccessControlAllowCredentialsSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlAllowCredentials suite")(
     test("AccessControlAllowCredentials should be parsed correctly for true") {
       assertTrue(
-        AccessControlAllowCredentials.toAccessControlAllowCredentials(
+        AccessControlAllowCredentials.parse(
           "true",
         ) == Right(AccessControlAllowCredentials.Allow),
       )
     },
     test("AccessControlAllowCredentials should be parsed correctly for false") {
       assertTrue(
-        AccessControlAllowCredentials.toAccessControlAllowCredentials(
+        AccessControlAllowCredentials.parse(
           "false",
         ) == Right(AccessControlAllowCredentials.DoNotAllow),
       )
     },
     test("AccessControlAllowCredentials should be parsed correctly for invalid string") {
       assertTrue(
-        AccessControlAllowCredentials.toAccessControlAllowCredentials(
+        AccessControlAllowCredentials.parse(
           "some dummy string",
         ) == Right(AccessControlAllowCredentials.DoNotAllow),
       )
     },
     test("AccessControlAllowCredentials should be parsed correctly for empty string") {
       assertTrue(
-        AccessControlAllowCredentials.toAccessControlAllowCredentials(
+        AccessControlAllowCredentials.parse(
           "",
         ) == Right(AccessControlAllowCredentials.DoNotAllow),
       )
     },
     test("AccessControlAllowCredentials should be rendered correctly to false") {
       assertTrue(
-        AccessControlAllowCredentials.fromAccessControlAllowCredentials(
+        AccessControlAllowCredentials.render(
           AccessControlAllowCredentials.DoNotAllow,
         ) == "false",
       )
     },
     test("AccessControlAllowCredentials should be rendered correctly to true") {
       assertTrue(
-        AccessControlAllowCredentials.fromAccessControlAllowCredentials(
+        AccessControlAllowCredentials.render(
           AccessControlAllowCredentials.Allow,
         ) == "true",
       )

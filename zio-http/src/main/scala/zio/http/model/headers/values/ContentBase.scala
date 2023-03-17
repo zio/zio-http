@@ -22,15 +22,15 @@ final case class ContentBase(uri: URI)
 
 object ContentBase {
 
-  def fromContentBase(cb: ContentBase): String =
-    cb.uri.toString
-
-  def toContentBase(s: CharSequence): Either[String, ContentBase] =
+  def parse(s: CharSequence): Either[String, ContentBase] =
     try {
       Right(ContentBase(new URL(s.toString).toURI))
     } catch {
       case _: Throwable => Left("Invalid Content-Base header")
     }
+
+  def render(cb: ContentBase): String =
+    cb.uri.toString
 
   def uri(uri: URI): ContentBase = ContentBase(uri)
 }

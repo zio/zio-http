@@ -38,14 +38,14 @@ final case class Referer(url: URL)
 
 object Referer {
 
-  def fromReferer(referer: Referer): String =
-    referer.url.toJavaURL.fold("")(_.toString())
-
-  def toReferer(value: String): Either[String, Referer] = {
+  def parse(value: String): Either[String, Referer] = {
     URL.fromString(value) match {
       case Left(_)                                              => Left("Invalid Referer header")
       case Right(url) if url.host.isEmpty || url.scheme.isEmpty => Left("Invalid Referer header")
       case Right(url)                                           => Right(Referer(url))
     }
   }
+
+  def render(referer: Referer): String =
+    referer.url.toJavaURL.fold("")(_.toString())
 }

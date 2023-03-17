@@ -25,12 +25,12 @@ object AccessControlAllowHeadersSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlAllowHeaders suite")(
     test("AccessControlAllowHeaders should be parsed correctly for *") {
       assertTrue(
-        AccessControlAllowHeaders.toAccessControlAllowHeaders("*") == Right(AccessControlAllowHeaders.All),
+        AccessControlAllowHeaders.parse("*") == Right(AccessControlAllowHeaders.All),
       )
     },
     test("AccessControlAllowHeaders should be rendered correctly for *") {
       assertTrue(
-        AccessControlAllowHeaders.fromAccessControlAllowHeaders(AccessControlAllowHeaders.All) == "*",
+        AccessControlAllowHeaders.render(AccessControlAllowHeaders.All) == "*",
       )
     },
     test("AccessControlAllowHeaders should be parsed correctly for valid header names") {
@@ -38,13 +38,13 @@ object AccessControlAllowHeadersSpec extends ZIOSpecDefault {
         val headerNamesString = headerNames.mkString(", ")
         if (headerNamesString.isEmpty)
           assertTrue(
-            AccessControlAllowHeaders.toAccessControlAllowHeaders(
+            AccessControlAllowHeaders.parse(
               headerNamesString,
             ) == Right(AccessControlAllowHeaders.None),
           )
         else
           assertTrue(
-            AccessControlAllowHeaders.toAccessControlAllowHeaders(headerNamesString) == Right(
+            AccessControlAllowHeaders.parse(headerNamesString) == Right(
               AccessControlAllowHeaders
                 .Some(
                   Chunk.fromIterable(headerNames),
