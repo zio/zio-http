@@ -16,8 +16,8 @@
 
 package zio.http.model.headers.values
 
+import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
-import zio.{Chunk, Scope}
 
 import zio.http.internal.HttpGen
 
@@ -25,29 +25,29 @@ object AccessControlAllowHeadersSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlAllowHeaders suite")(
     test("AccessControlAllowHeaders should be parsed correctly for *") {
       assertTrue(
-        AccessControlAllowHeaders.toAccessControlAllowHeaders("*") == AccessControlAllowHeaders.All,
+        AccessControlAllowHeaders.parse("*") == Right(AccessControlAllowHeaders.All),
       )
     },
     test("AccessControlAllowHeaders should be rendered correctly for *") {
       assertTrue(
-        AccessControlAllowHeaders.fromAccessControlAllowHeaders(AccessControlAllowHeaders.All) == "*",
+        AccessControlAllowHeaders.render(AccessControlAllowHeaders.All) == "*",
       )
     },
     test("AccessControlAllowHeaders should be parsed correctly for valid header names") {
-      check(HttpGen.headerNames) { headerNames =>
+      check(HttpGen.headerNames1) { headerNames =>
         val headerNamesString = headerNames.mkString(", ")
         if (headerNamesString.isEmpty)
           assertTrue(
-            AccessControlAllowHeaders.toAccessControlAllowHeaders(
+            AccessControlAllowHeaders.parse(
               headerNamesString,
-            ) == AccessControlAllowHeaders.NoHeaders,
+            ) == Right(AccessControlAllowHeaders.None),
           )
         else
           assertTrue(
-            AccessControlAllowHeaders.toAccessControlAllowHeaders(headerNamesString) == AccessControlAllowHeaders
-              .AccessControlAllowHeadersValue(
-                Chunk.fromIterable(headerNames),
-              ),
+            AccessControlAllowHeaders.parse(headerNamesString) == Right(
+              AccessControlAllowHeaders
+                .Some(headerNames),
+            ),
           )
       }
     },

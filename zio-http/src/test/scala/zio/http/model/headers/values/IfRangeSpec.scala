@@ -31,38 +31,39 @@ object IfRangeSpec extends ZIOSpecDefault {
     suite("If-Range header encoder suite")(
       test("parsing valid eTag value") {
         assertTrue(
-          IfRange.toIfRange(""""675af34563dc-tr34"""") ==
-            IfRange.ETagValue("675af34563dc-tr34"),
+          IfRange.parse(""""675af34563dc-tr34"""") ==
+            Right(IfRange.ETag("675af34563dc-tr34")),
         )
       },
       test("parsing valid date time value") {
         assertTrue(
-          IfRange.toIfRange("Wed, 21 Oct 2015 07:28:00 GMT") ==
-            IfRange.DateTimeValue(ZonedDateTime.parse("Wed, 21 Oct 2015 07:28:00 GMT", webDateTimeFormatter)),
+          IfRange.parse("Wed, 21 Oct 2015 07:28:00 GMT") ==
+            Right(IfRange.DateTime(ZonedDateTime.parse("Wed, 21 Oct 2015 07:28:00 GMT", webDateTimeFormatter))),
         )
       },
       test("parsing invalid eTag value") {
         assertTrue(
-          IfRange.toIfRange("675af34563dc-tr34") ==
-            IfRange.InvalidIfRangeValue,
+          IfRange.parse("675af34563dc-tr34").isLeft,
         )
       },
       test("parsing invalid date time value") {
         assertTrue(
-          IfRange.toIfRange("21 Oct 2015 07:28:00") ==
-            IfRange.InvalidIfRangeValue,
+          IfRange.parse("21 Oct 2015 07:28:00").isLeft,
         )
       },
       test("parsing empty value") {
         assertTrue(
-          IfRange.toIfRange("") ==
-            IfRange.InvalidIfRangeValue,
+          IfRange.parse("").isLeft,
         )
       },
       test("transformations are symmetrical") {
-        assertTrue(IfRange.fromIfRange(IfRange.toIfRange(""""975af34563dc-tr34"""")) == """"975af34563dc-tr34"""") &&
         assertTrue(
-          IfRange.fromIfRange(IfRange.toIfRange("Fri, 28 Oct 2022 01:01:01 GMT")) == "Fri, 28 Oct 2022 01:01:01 GMT",
+          IfRange.render(IfRange.parse(""""975af34563dc-tr34"""").toOption.get) == """"975af34563dc-tr34"""",
+        ) &&
+        assertTrue(
+          IfRange.render(
+            IfRange.parse("Fri, 28 Oct 2022 01:01:01 GMT").toOption.get,
+          ) == "Fri, 28 Oct 2022 01:01:01 GMT",
         )
       },
     )

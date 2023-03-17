@@ -16,17 +16,17 @@
 
 package zio.http.model.headers.values
 
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, ZonedDateTime}
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
+
+import zio._
 
 sealed trait RetryAfter
 
 /**
  * The RetryAfter HTTP header contains the date/time after which to retry
- *
- * Invalid RetryAfter with value 0
  *
  * RetryAfter: <Date>
  *
@@ -39,27 +39,30 @@ sealed trait RetryAfter
  * Or RetryAfter the delay seconds.
  */
 object RetryAfter {
+  final case class ByDate(date: ZonedDateTime) extends RetryAfter
+
+  final case class ByDuration(delay: Duration) extends RetryAfter
+
   private val formatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
-  final case class RetryAfterByDate(date: ZonedDateTime) extends RetryAfter
+  def parse(dateOrSeconds: String): Either[String, RetryAfter] =
+    Try(dateOrSeconds.toLong) match {
+      case Failure(_)     =>
+        Try(ZonedDateTime.parse(dateOrSeconds, formatter)) match {
+          case Success(value) => Right(ByDate(value))
+          case Failure(_)     => Left("Invalid RetryAfter")
+        }
+      case Success(value) =>
+        if (value >= 0)
+          Right(ByDuration(value.seconds))
+        else
+          Left("Invalid RetryAfter")
+    }
 
-  final case class RetryAfterByDuration(delay: Duration) extends RetryAfter
-
-  case object InvalidRetryAfter extends RetryAfter
-
-  def toRetryAfter(dateOrSeconds: String): RetryAfter = {
-    (Try(dateOrSeconds.toLong) orElse Try(ZonedDateTime.parse(dateOrSeconds, formatter)) map {
-      case long: Long if long > -1 => RetryAfterByDuration(Duration.ofSeconds(long))
-      case date: ZonedDateTime     => RetryAfterByDate(date)
-    } recover { case _: Throwable =>
-      InvalidRetryAfter
-    }).getOrElse(InvalidRetryAfter)
-  }
-
-  def fromRetryAfter(retryAfter: RetryAfter): String = retryAfter match {
-    case RetryAfterByDate(date)         => formatter.format(date)
-    case RetryAfterByDuration(duration) =>
-      duration.getSeconds().toString
-    case _                              => "0"
-  }
+  def render(retryAfter: RetryAfter): String =
+    retryAfter match {
+      case ByDate(date)         => formatter.format(date)
+      case ByDuration(duration) =>
+        duration.getSeconds.toString
+    }
 }

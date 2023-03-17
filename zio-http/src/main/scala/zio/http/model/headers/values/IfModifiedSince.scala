@@ -19,24 +19,19 @@ package zio.http.model.headers.values
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 
-sealed trait IfModifiedSince
+import scala.util.Try
+
+final case class IfModifiedSince(value: ZonedDateTime)
 
 object IfModifiedSince {
-  final case class ModifiedSince(value: ZonedDateTime) extends IfModifiedSince
-  case object InvalidModifiedSince                     extends IfModifiedSince
 
   private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
-  def toIfModifiedSince(value: String): IfModifiedSince =
-    try {
-      ModifiedSince(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC))
-    } catch {
-      case _: Throwable =>
-        InvalidModifiedSince
-    }
+  def parse(value: String): Either[String, IfModifiedSince] =
+    Try(IfModifiedSince(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC))).toEither.left.map(
+      _ => "Invalid If-Modified-Since header",
+    )
 
-  def fromIfModifiedSince(ifModifiedSince: IfModifiedSince): String = ifModifiedSince match {
-    case ModifiedSince(value) => formatter.format(value)
-    case InvalidModifiedSince => ""
-  }
+  def render(ifModifiedSince: IfModifiedSince): String =
+    formatter.format(ifModifiedSince.value)
 }

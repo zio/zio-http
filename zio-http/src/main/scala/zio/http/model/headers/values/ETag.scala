@@ -18,23 +18,22 @@ package zio.http.model.headers.values
 
 sealed trait ETag
 object ETag {
-  case object InvalidETagValue                  extends ETag
-  case class StrongETagValue(validator: String) extends ETag
-  case class WeakETagValue(validator: String)   extends ETag
-  def toETag(value: String): ETag = {
+  final case class Strong(validator: String) extends ETag
+  final case class Weak(validator: String)   extends ETag
+
+  def parse(value: String): Either[String, ETag] = {
     value match {
-      case str if str.startsWith("w/\"") && str.endsWith("\"") => WeakETagValue(str.drop(3).dropRight(1))
-      case str if str.startsWith("W/\"") && str.endsWith("\"") => WeakETagValue(str.drop(3).dropRight(1))
-      case str if str.startsWith("\"") && str.endsWith("\"")   => StrongETagValue(str.drop(1).dropRight(1))
-      case _                                                   => InvalidETagValue
+      case str if str.startsWith("w/\"") && str.endsWith("\"") => Right(Weak(str.drop(3).dropRight(1)))
+      case str if str.startsWith("W/\"") && str.endsWith("\"") => Right(Weak(str.drop(3).dropRight(1)))
+      case str if str.startsWith("\"") && str.endsWith("\"")   => Right(Strong(str.drop(1).dropRight(1)))
+      case _                                                   => Left("Invalid ETag header")
     }
   }
 
-  def fromETag(eTag: ETag): String = {
+  def render(eTag: ETag): String = {
     eTag match {
-      case WeakETagValue(value)   => s"""W/"$value""""
-      case StrongETagValue(value) => s""""$value""""
-      case InvalidETagValue       => ""
+      case Weak(value)   => s"""W/"$value""""
+      case Strong(value) => s""""$value""""
     }
   }
 }

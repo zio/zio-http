@@ -33,34 +33,26 @@ import zio.http.URL
  *
  * null Specifies the origin "null".
  */
-sealed trait AccessControlAllowOrigin {
-  val origin: String
-}
+final case class AccessControlAllowOrigin(origin: String)
 
 object AccessControlAllowOrigin {
 
-  final case class ValidAccessControlAllowOrigin(value: String) extends AccessControlAllowOrigin {
-    override val origin = value
-  }
-
-  case object InvalidAccessControlAllowOrigin extends AccessControlAllowOrigin {
-    override val origin = ""
-  }
-
-  def fromAccessControlAllowOrigin(accessControlAllowOrigin: AccessControlAllowOrigin): String = {
-    accessControlAllowOrigin.origin
-  }
-
-  def toAccessControlAllowOrigin(value: String): AccessControlAllowOrigin = {
+  def parse(value: String): Either[String, AccessControlAllowOrigin] = {
     if (value == "null" || value == "*") {
-      ValidAccessControlAllowOrigin(value)
+      Right(AccessControlAllowOrigin(value))
     } else {
       URL.fromString(value) match {
-        case Left(_)                                              => InvalidAccessControlAllowOrigin
-        case Right(url) if url.host.isEmpty || url.scheme.isEmpty => InvalidAccessControlAllowOrigin
-        case Right(_)                                             => ValidAccessControlAllowOrigin(value)
+        case Left(exception)                                      =>
+          Left(s"Invalid Access-Control-Allow-Origin: ${exception.getMessage}")
+        case Right(url) if url.host.isEmpty || url.scheme.isEmpty =>
+          Left(s"Invalid Access-Control-Allow-Origin: host or scheme is empty")
+        case Right(_)                                             =>
+          Right(AccessControlAllowOrigin(value))
       }
     }
 
   }
+
+  def render(accessControlAllowOrigin: AccessControlAllowOrigin): String =
+    accessControlAllowOrigin.origin
 }

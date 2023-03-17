@@ -16,23 +16,17 @@
 
 package zio.http.model.headers.values
 
-sealed trait ContentMd5
+final case class ContentMd5(value: String)
 
 object ContentMd5 {
-  final case class ContentMd5Value(value: String) extends ContentMd5
-  object InvalidContentMd5Value                   extends ContentMd5
+  private val MD5Regex = """[A-Fa-f0-9]{32}""".r
 
-  val MD5Regex = """[A-Fa-f0-9]{32}""".r
-
-  def toContentMd5(value: CharSequence): ContentMd5 =
+  def parse(value: CharSequence): Either[String, ContentMd5] =
     value match {
-      case MD5Regex() => ContentMd5Value(value.toString)
-      case _          => InvalidContentMd5Value
+      case MD5Regex() => Right(ContentMd5(value.toString))
+      case _          => Left("Invalid Content-MD5 header")
     }
 
-  def fromContentMd5(contentMd5: ContentMd5): String =
-    contentMd5 match {
-      case ContentMd5Value(value) => value
-      case _                      => ""
-    }
+  def render(contentMd5: ContentMd5): String =
+    contentMd5.value
 }

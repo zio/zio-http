@@ -16,9 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
-
-import zio.http.model.headers.values.Via.ReceivedProtocol.InvalidProtocol
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait Via
 
@@ -33,52 +31,61 @@ object Via {
   object ReceivedProtocol {
     final case class Version(version: String)                           extends ReceivedProtocol
     final case class ProtocolVersion(protocol: String, version: String) extends ReceivedProtocol
-
-    case object InvalidProtocol extends ReceivedProtocol
   }
 
-  final case class ViaValues(values: Chunk[Via]) extends Via
-  final case class DetailedValue(receivedProtocol: ReceivedProtocol, receivedBy: String, comment: Option[String])
-      extends Via
-  case object InvalidVia                         extends Via
+  final case class Detailed(receivedProtocol: ReceivedProtocol, receivedBy: String, comment: Option[String]) extends Via
+  final case class Multiple(values: NonEmptyChunk[Via])                                                      extends Via
 
-  def toVia(values: String): Via = if (values.isEmpty) InvalidVia
-  else {
-    val viaValues = values.split(",").map(_.trim).map { value =>
-      value.split(" ").toList match {
-        case receivedProtocol :: receivedBy :: Nil            =>
-          val rp = toReceivedProtocol(receivedProtocol)
-          if (rp == InvalidProtocol) InvalidVia
-          else DetailedValue(rp, receivedBy, None)
-        case receivedProtocol :: receivedBy :: comment :: Nil =>
-          val rp = toReceivedProtocol(receivedProtocol)
-          if (rp == InvalidProtocol) InvalidVia
-          else DetailedValue(rp, receivedBy, Some(comment))
-        case _                                                => InvalidVia
+  def parse(values: String): Either[String, Via] = {
+    val viaValues = Chunk.fromArray(values.split(",")).map(_.trim).map { value =>
+      Chunk.fromArray(value.split(" ")) match {
+        case Chunk(receivedProtocol, receivedBy)          =>
+          toReceivedProtocol(receivedProtocol).map { rp =>
+            Detailed(rp, receivedBy, None)
+          }
+        case Chunk(receivedProtocol, receivedBy, comment) =>
+          toReceivedProtocol(receivedProtocol).map { rp =>
+            Detailed(rp, receivedBy, Some(comment))
+          }
+        case _                                            =>
+          Left("Invalid Via header")
       }
     }
-    ViaValues(Chunk.fromArray(viaValues))
+
+    NonEmptyChunk.fromChunk(viaValues) match {
+      case None        => Left("Invalid Via header")
+      case Some(value) =>
+        if (value.size == 1) value.head
+        else
+          value.tail
+            .foldLeft(value.head.map(NonEmptyChunk.single(_))) {
+              case (Right(acc), Right(value)) => Right(acc :+ value)
+              case (Left(error), _)           => Left(error)
+              case (_, Left(value))           => Left(value)
+            }
+            .map(Multiple(_))
+    }
   }
 
-  def fromVia(via: Via): String = via match {
-    case ViaValues(values)                                    =>
-      values.map(fromVia).mkString(", ")
-    case DetailedValue(receivedProtocol, receivedBy, comment) =>
-      s"${fromReceivedProtocol(receivedProtocol)} $receivedBy ${comment.getOrElse("")}"
-    case InvalidVia                                           => ""
-  }
+  def render(via: Via): String =
+    via match {
+      case Multiple(values)                                =>
+        values.map(render).mkString(", ")
+      case Detailed(receivedProtocol, receivedBy, comment) =>
+        s"${fromReceivedProtocol(receivedProtocol)} $receivedBy ${comment.getOrElse("")}"
+    }
 
-  private def fromReceivedProtocol(receivedProtocol: ReceivedProtocol): String = receivedProtocol match {
-    case ReceivedProtocol.Version(version)                   => version
-    case ReceivedProtocol.ProtocolVersion(protocol, version) => s"$protocol/$version"
-    case ReceivedProtocol.InvalidProtocol                    => ""
-  }
+  private def fromReceivedProtocol(receivedProtocol: ReceivedProtocol): String =
+    receivedProtocol match {
+      case ReceivedProtocol.Version(version)                   => version
+      case ReceivedProtocol.ProtocolVersion(protocol, version) => s"$protocol/$version"
+    }
 
-  private def toReceivedProtocol(value: String): ReceivedProtocol = {
+  private def toReceivedProtocol(value: String): Either[String, ReceivedProtocol] = {
     value.split("/").toList match {
-      case version :: Nil             => ReceivedProtocol.Version(version)
-      case protocol :: version :: Nil => ReceivedProtocol.ProtocolVersion(protocol, version)
-      case _                          => InvalidProtocol
+      case version :: Nil             => Right(ReceivedProtocol.Version(version))
+      case protocol :: version :: Nil => Right(ReceivedProtocol.ProtocolVersion(protocol, version))
+      case _                          => Left("Invalid received protocol")
     }
   }
 

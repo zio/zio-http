@@ -18,7 +18,7 @@ package zio.http.model.headers.values
 
 import zio.http.URL
 
-sealed trait SecWebSocketOrigin
+final case class SecWebSocketOrigin(url: URL)
 
 /**
  * The Sec-WebSocket-Origin header is used to protect against unauthorized
@@ -27,20 +27,19 @@ sealed trait SecWebSocketOrigin
  * WebSocket connection request.
  */
 object SecWebSocketOrigin {
-  final case class OriginValue(url: URL) extends SecWebSocketOrigin
 
-  case object EmptyOrigin extends SecWebSocketOrigin
-
-  def fromSecWebSocketOrigin(urlLocation: SecWebSocketOrigin): String = {
-    urlLocation match {
-      case OriginValue(url) => url.encode
-      case EmptyOrigin      => ""
-    }
-
+  def parse(value: String): Either[String, SecWebSocketOrigin] = {
+    if (value.trim == "") Left("Invalid Sec-WebSocket-Origin header: empty value")
+    else
+      URL
+        .fromString(value)
+        .left
+        .map(_ => "Invalid Sec-WebSocket-Origin header: invalid URL")
+        .map(url => SecWebSocketOrigin(url))
   }
 
-  def toSecWebSocketOrigin(value: String): SecWebSocketOrigin = {
-    if (value.trim == "") EmptyOrigin
-    else URL.fromString(value).fold(_ => EmptyOrigin, url => OriginValue(url))
+  def render(secWebSocketOrigin: SecWebSocketOrigin): String = {
+    secWebSocketOrigin.url.encode
+
   }
 }

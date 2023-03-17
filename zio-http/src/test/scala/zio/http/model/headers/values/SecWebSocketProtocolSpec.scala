@@ -17,33 +17,31 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Chunk, Scope}
+import zio.{Chunk, NonEmptyChunk, Scope}
 
 object SecWebSocketProtocolSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketProtocol suite")(
     test("SecWebSocketProtocol should be properly parsed for a valid string") {
       val probe = "chat, superchat"
       assertTrue(
-        SecWebSocketProtocol.toSecWebSocketProtocol(probe) == SecWebSocketProtocol.Protocols(
-          Chunk.fromArray(probe.split(", ")),
+        SecWebSocketProtocol.parse(probe) == Right(
+          SecWebSocketProtocol(
+            NonEmptyChunk("chat", "superchat"),
+          ),
         ),
       )
     },
     test("SecWebSocketProtocol should be properly parsed for an empty string") {
       val probe = ""
-      assertTrue(SecWebSocketProtocol.toSecWebSocketProtocol(probe) == SecWebSocketProtocol.InvalidProtocol)
+      assertTrue(SecWebSocketProtocol.parse(probe).isLeft)
     },
     test("SecWebSocketProtocol should properly render a valid string") {
       val probe = "chat, superchat"
       assertTrue(
-        SecWebSocketProtocol.fromSecWebSocketProtocol(
-          SecWebSocketProtocol.Protocols(Chunk.fromArray(probe.split(", "))),
+        SecWebSocketProtocol.render(
+          SecWebSocketProtocol(NonEmptyChunk("chat", "superchat")),
         ) == probe,
       )
-    },
-    test("SecWebSocketProtocol should properly render an empty string") {
-      val probe = ""
-      assertTrue(SecWebSocketProtocol.fromSecWebSocketProtocol(SecWebSocketProtocol.InvalidProtocol) == probe)
     },
   )
 }

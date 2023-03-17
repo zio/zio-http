@@ -17,56 +17,56 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
-import zio.{Chunk, Scope}
+import zio.{NonEmptyChunk, Scope}
 
 import zio.http.internal.HttpGen
-import zio.http.model.headers.values.ContentEncoding.{InvalidEncoding, MultipleEncodings}
+import zio.http.model.headers.values.ContentEncoding.Multiple
 
 object ContentEncodingSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ContentEncoding suite")(
     suite("ContentEncoding header value transformation should be symmetrical")(
       test("gen single value") {
         check(HttpGen.allowContentEncodingSingleValue) { value =>
-          assertTrue(ContentEncoding.toContentEncoding(ContentEncoding.fromContentEncoding(value)) == value)
+          assertTrue(ContentEncoding.parse(ContentEncoding.render(value)) == Right(value))
         }
       },
       test("single value") {
-        assertTrue(ContentEncoding.toContentEncoding("br") == ContentEncoding.BrEncoding) &&
-        assertTrue(ContentEncoding.toContentEncoding("compress") == ContentEncoding.CompressEncoding) &&
-        assertTrue(ContentEncoding.toContentEncoding("deflate") == ContentEncoding.DeflateEncoding) &&
         assertTrue(
-          ContentEncoding.toContentEncoding("deflate, br, compress") == ContentEncoding.MultipleEncodings(
-            Chunk(ContentEncoding.DeflateEncoding, ContentEncoding.BrEncoding, ContentEncoding.CompressEncoding),
+          ContentEncoding.parse("br") == Right(ContentEncoding.Br),
+          ContentEncoding.parse("compress") == Right(ContentEncoding.Compress),
+          ContentEncoding.parse("deflate") == Right(ContentEncoding.Deflate),
+          ContentEncoding.parse("deflate, br, compress") == Right(
+            ContentEncoding.Multiple(
+              NonEmptyChunk(ContentEncoding.Deflate, ContentEncoding.Br, ContentEncoding.Compress),
+            ),
           ),
-        ) &&
-        assertTrue(ContentEncoding.toContentEncoding("garbage") == ContentEncoding.InvalidEncoding)
+          ContentEncoding.parse("garbage").isLeft,
+        )
 
       },
       test("edge cases") {
         assertTrue(
-          ContentEncoding.toContentEncoding(
-            ContentEncoding.fromContentEncoding(MultipleEncodings(Chunk())),
-          ) == InvalidEncoding,
-        ) &&
-        assertTrue(
-          ContentEncoding.toContentEncoding(
-            ContentEncoding.fromContentEncoding(
-              MultipleEncodings(
-                Chunk(ContentEncoding.DeflateEncoding, ContentEncoding.BrEncoding, ContentEncoding.CompressEncoding),
+          ContentEncoding
+            .parse(" ")
+            .isLeft,
+          ContentEncoding.parse(
+            ContentEncoding.render(
+              Multiple(
+                NonEmptyChunk(ContentEncoding.Deflate, ContentEncoding.Br, ContentEncoding.Compress),
               ),
             ),
-          ) == ContentEncoding.MultipleEncodings(
-            Chunk(ContentEncoding.DeflateEncoding, ContentEncoding.BrEncoding, ContentEncoding.CompressEncoding),
+          ) == Right(
+            ContentEncoding.Multiple(
+              NonEmptyChunk(ContentEncoding.Deflate, ContentEncoding.Br, ContentEncoding.Compress),
+            ),
           ),
-        ) &&
-        assertTrue(
-          ContentEncoding.toContentEncoding(
-            ContentEncoding.fromContentEncoding(
-              MultipleEncodings(
-                Chunk(ContentEncoding.DeflateEncoding),
+          ContentEncoding.parse(
+            ContentEncoding.render(
+              Multiple(
+                NonEmptyChunk(ContentEncoding.Deflate),
               ),
             ),
-          ) == ContentEncoding.DeflateEncoding,
+          ) == Right(ContentEncoding.Deflate),
         )
       },
     ),

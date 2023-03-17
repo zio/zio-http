@@ -17,60 +17,60 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
-import zio.{Chunk, Scope}
+import zio.{NonEmptyChunk, Scope}
 
 import zio.http.internal.HttpGen
-import zio.http.model.headers.values.TransferEncoding.{InvalidEncoding, MultipleEncodings}
+import zio.http.model.headers.values.TransferEncoding.Multiple
 
 object TransferEncodingSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("TransferEncoding suite")(
     suite("TransferEncoding header value transformation should be symmetrical")(
       test("gen single value") {
         check(HttpGen.allowTransferEncodingSingleValue) { value =>
-          assertTrue(TransferEncoding.toTransferEncoding(TransferEncoding.fromTransferEncoding(value)) == value)
+          assertTrue(TransferEncoding.parse(TransferEncoding.render(value)) == Right(value))
         }
       },
       test("single value") {
-        assertTrue(TransferEncoding.toTransferEncoding("chunked") == TransferEncoding.ChunkedEncoding) &&
-        assertTrue(TransferEncoding.toTransferEncoding("compress") == TransferEncoding.CompressEncoding) &&
-        assertTrue(TransferEncoding.toTransferEncoding("deflate") == TransferEncoding.DeflateEncoding) &&
         assertTrue(
-          TransferEncoding.toTransferEncoding("deflate, chunked, compress") == TransferEncoding.MultipleEncodings(
-            Chunk(TransferEncoding.DeflateEncoding, TransferEncoding.ChunkedEncoding, TransferEncoding.CompressEncoding),
+          TransferEncoding.parse("chunked") == Right(TransferEncoding.Chunked),
+          TransferEncoding.parse("compress") == Right(TransferEncoding.Compress),
+          TransferEncoding.parse("deflate") == Right(TransferEncoding.Deflate),
+          TransferEncoding.parse("deflate, chunked, compress") == Right(
+            TransferEncoding.Multiple(
+              NonEmptyChunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
+            ),
           ),
-        ) &&
-        assertTrue(TransferEncoding.toTransferEncoding("garbage") == TransferEncoding.InvalidEncoding)
+          TransferEncoding.parse("garbage").isLeft,
+        )
 
       },
       test("edge cases") {
         assertTrue(
-          TransferEncoding.toTransferEncoding(
-            TransferEncoding.fromTransferEncoding(MultipleEncodings(Chunk())),
-          ) == InvalidEncoding,
-        ) &&
-        assertTrue(
-          TransferEncoding.toTransferEncoding(
-            TransferEncoding.fromTransferEncoding(
-              MultipleEncodings(
-                Chunk(
-                  TransferEncoding.DeflateEncoding,
-                  TransferEncoding.ChunkedEncoding,
-                  TransferEncoding.CompressEncoding,
+          TransferEncoding
+            .parse(" ")
+            .isLeft,
+          TransferEncoding.parse(
+            TransferEncoding.render(
+              Multiple(
+                NonEmptyChunk(
+                  TransferEncoding.Deflate,
+                  TransferEncoding.Chunked,
+                  TransferEncoding.Compress,
                 ),
               ),
             ),
-          ) == TransferEncoding.MultipleEncodings(
-            Chunk(TransferEncoding.DeflateEncoding, TransferEncoding.ChunkedEncoding, TransferEncoding.CompressEncoding),
+          ) == Right(
+            TransferEncoding.Multiple(
+              NonEmptyChunk(TransferEncoding.Deflate, TransferEncoding.Chunked, TransferEncoding.Compress),
+            ),
           ),
-        ) &&
-        assertTrue(
-          TransferEncoding.toTransferEncoding(
-            TransferEncoding.fromTransferEncoding(
-              MultipleEncodings(
-                Chunk(TransferEncoding.DeflateEncoding),
+          TransferEncoding.parse(
+            TransferEncoding.render(
+              Multiple(
+                NonEmptyChunk(TransferEncoding.Deflate),
               ),
             ),
-          ) == TransferEncoding.DeflateEncoding,
+          ) == Right(TransferEncoding.Deflate),
         )
       },
     ),

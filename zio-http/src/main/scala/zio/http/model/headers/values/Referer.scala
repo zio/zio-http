@@ -34,33 +34,18 @@ import zio.http.URL
  * request's referrer policy defines the data that can be included. See
  * Referrer-Policy for more information and examples.
  */
-sealed trait Referer
+final case class Referer(url: URL)
 
 object Referer {
 
-  /**
-   * The Location header contains URL of the new Resource
-   */
-  final case class ValidReferer(url: URL) extends Referer
-
-  /**
-   * The URL header value is invalid.
-   */
-  case object InvalidReferer extends Referer
-
-  def fromReferer(url: Referer): String = {
-    url match {
-      case ValidReferer(url) => url.toJavaURL.fold("")(_.toString())
-      case InvalidReferer    => ""
-    }
-
-  }
-
-  def toReferer(value: String): Referer = {
+  def parse(value: String): Either[String, Referer] = {
     URL.fromString(value) match {
-      case Left(_)                                              => InvalidReferer
-      case Right(url) if url.host.isEmpty || url.scheme.isEmpty => InvalidReferer
-      case Right(url)                                           => ValidReferer(url)
+      case Left(_)                                              => Left("Invalid Referer header")
+      case Right(url) if url.host.isEmpty || url.scheme.isEmpty => Left("Invalid Referer header")
+      case Right(url)                                           => Right(Referer(url))
     }
   }
+
+  def render(referer: Referer): String =
+    referer.url.toJavaURL.fold("")(_.toString())
 }

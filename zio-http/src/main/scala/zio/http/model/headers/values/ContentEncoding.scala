@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait ContentEncoding {
   val encoding: String
@@ -25,16 +25,9 @@ sealed trait ContentEncoding {
 object ContentEncoding {
 
   /**
-   * InvalidEncoding is represented with ""
-   */
-  case object InvalidEncoding extends ContentEncoding {
-    override val encoding: String = ""
-  }
-
-  /**
    * A format using the Brotli algorithm.
    */
-  case object BrEncoding extends ContentEncoding {
+  case object Br extends ContentEncoding {
     override val encoding: String = "br"
   }
 
@@ -45,7 +38,7 @@ object ContentEncoding {
    * distributions, this content-encoding is not used by many browsers today,
    * partly because of a patent issue (it expired in 2003).
    */
-  case object CompressEncoding extends ContentEncoding {
+  case object Compress extends ContentEncoding {
     override val encoding: String = "compress"
   }
 
@@ -53,7 +46,7 @@ object ContentEncoding {
    * Using the zlib structure (defined in RFC 1950) with the deflate compression
    * algorithm (defined in RFC 1951).
    */
-  case object DeflateEncoding extends ContentEncoding {
+  case object Deflate extends ContentEncoding {
     override val encoding: String = "deflate"
   }
 
@@ -63,24 +56,24 @@ object ContentEncoding {
    * recommends that the servers supporting this content-encoding should
    * recognize x-gzip as an alias, for compatibility purposes.
    */
-  case object GZipEncoding extends ContentEncoding {
+  case object GZip extends ContentEncoding {
     override val encoding: String = "gzip"
   }
 
   /**
    * Maintains a list of ContentEncoding values.
    */
-  final case class MultipleEncodings(encodings: Chunk[ContentEncoding]) extends ContentEncoding {
+  final case class Multiple(encodings: NonEmptyChunk[ContentEncoding]) extends ContentEncoding {
     override val encoding: String = encodings.map(_.encoding).mkString(",")
   }
 
-  private def findEncoding(value: String): ContentEncoding = {
+  private def findEncoding(value: String): Option[ContentEncoding] = {
     value.trim match {
-      case "br"       => BrEncoding
-      case "compress" => CompressEncoding
-      case "deflate"  => DeflateEncoding
-      case "gzip"     => GZipEncoding
-      case _          => InvalidEncoding
+      case "br"       => Some(Br)
+      case "compress" => Some(Compress)
+      case "deflate"  => Some(Deflate)
+      case "gzip"     => Some(GZip)
+      case _          => None
     }
   }
 
@@ -93,21 +86,17 @@ object ContentEncoding {
    * Note: This implementation ignores the invalid string that might occur in
    * MultipleEncodings case.
    */
-  def toContentEncoding(value: CharSequence): ContentEncoding = {
-    val array = value.toString.split(",")
-    array.foldLeft[ContentEncoding](InvalidEncoding)((accum, elem) => {
-      val encoding = findEncoding(elem)
-      (accum, encoding) match {
-        case (InvalidEncoding, InvalidEncoding)              => InvalidEncoding
-        case (InvalidEncoding, other)                        => other
-        case (MultipleEncodings(encodings), InvalidEncoding) => MultipleEncodings(encodings)
-        case (MultipleEncodings(encodings), other)           => MultipleEncodings(encodings ++ Chunk(other))
-        case (other, InvalidEncoding)                        => other
-        case (other, other1)                                 => MultipleEncodings(Chunk(other, other1))
-      }
-    })
+  def parse(value: CharSequence): Either[String, ContentEncoding] = {
+    val encodings = Chunk.fromArray(value.toString.split(",").map(findEncoding)).flatten
+
+    NonEmptyChunk.fromChunk(encodings) match {
+      case Some(value) =>
+        if (value.size == 1) Right(value.head)
+        else Right(Multiple(value))
+      case None        => Left("Empty ContentEncoding")
+    }
   }
 
-  def fromContentEncoding(value: ContentEncoding): String = value.encoding
+  def render(value: ContentEncoding): String = value.encoding
 
 }

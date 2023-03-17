@@ -18,23 +18,20 @@ package zio.http.model.headers.values
 
 import zio.http.URL
 
-sealed trait SecWebSocketLocation
+final case class SecWebSocketLocation(url: URL)
 
 object SecWebSocketLocation {
-  final case class LocationValue(url: URL) extends SecWebSocketLocation
 
-  case object EmptyLocationValue extends SecWebSocketLocation
-
-  def fromSecWebSocketLocation(urlLocation: SecWebSocketLocation): String = {
-    urlLocation match {
-      case LocationValue(url) => url.encode
-      case EmptyLocationValue => ""
-    }
-
+  def parse(value: String): Either[String, SecWebSocketLocation] = {
+    if (value.trim == "") Left("Invalid Sec-WebSocket-Location header: empty value")
+    else
+      URL
+        .fromString(value)
+        .left
+        .map(_ => "Invalid Sec-WebSocket-Location header: invalid URL")
+        .map(url => SecWebSocketLocation(url))
   }
 
-  def toSecWebSocketLocation(value: String): SecWebSocketLocation = {
-    if (value.trim == "") EmptyLocationValue
-    else URL.fromString(value).fold(_ => EmptyLocationValue, url => LocationValue(url))
-  }
+  def render(secWebSocketLocation: SecWebSocketLocation): String =
+    secWebSocketLocation.url.encode
 }

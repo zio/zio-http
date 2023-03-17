@@ -18,25 +18,23 @@ package zio.http.model.headers.values
 
 sealed trait DNT
 object DNT {
-  case object InvalidDNTValue            extends DNT
-  case object TrackingAllowedDNTValue    extends DNT
-  case object TrackingNotAllowedDNTValue extends DNT
-  case object NotSpecifiedDNTValue       extends DNT
+  case object TrackingAllowed    extends DNT
+  case object TrackingNotAllowed extends DNT
+  case object NotSpecified       extends DNT
 
-  def toDNT(value: String): DNT = {
+  def parse(value: String): Either[String, DNT] = {
     value match {
-      case "null" => NotSpecifiedDNTValue
-      case "1"    => TrackingNotAllowedDNTValue
-      case "0"    => TrackingAllowedDNTValue
-      case _      => InvalidDNTValue
+      case "null" => Right(NotSpecified)
+      case "1"    => Right(TrackingNotAllowed)
+      case "0"    => Right(TrackingAllowed)
+      case _      => Left("Invalid DNT header")
     }
   }
 
-  def fromDNT(dnt: DNT): String =
+  def render(dnt: DNT): String =
     dnt match {
-      case NotSpecifiedDNTValue       => null
-      case TrackingAllowedDNTValue    => "0"
-      case TrackingNotAllowedDNTValue => "1"
-      case InvalidDNTValue            => ""
+      case NotSpecified       => "null"
+      case TrackingAllowed    => "0"
+      case TrackingNotAllowed => "1"
     }
 }

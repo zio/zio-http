@@ -26,15 +26,15 @@ object AllowSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Allow header suite")(
     test("allow header transformation must be symmetrical") {
       check(HttpGen.allowHeader) { allowHeader =>
-        assertTrue(Allow.toAllow(Allow.fromAllow(allowHeader)) == allowHeader)
+        assertTrue(Allow.parse(Allow.render(allowHeader)) == Right(allowHeader))
       }
     },
-    test("empty header value should be parsed to an empty chunk") {
-      assertTrue(Allow.toAllow("") == AllowMethods(Chunk.empty))
+    test("empty header value is an error") {
+      assertTrue(Allow.parse("").isLeft)
     },
     test("invalid values parsing") {
       check(Gen.stringBounded(10, 15)(Gen.char)) { value =>
-        assertTrue(Allow.toAllow(value) == AllowMethods(Chunk(InvalidAllowMethod)))
+        assertTrue(Allow.parse(value).isLeft)
       }
     },
   )

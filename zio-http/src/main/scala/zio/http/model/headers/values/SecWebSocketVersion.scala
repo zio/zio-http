@@ -16,7 +16,9 @@
 
 package zio.http.model.headers.values
 
-sealed trait SecWebSocketVersion
+import scala.util.control.NonFatal
+
+final case class SecWebSocketVersion(version: Int)
 
 /**
  * The Sec-WebSocket-Version header field is used in the WebSocket opening
@@ -29,21 +31,16 @@ sealed trait SecWebSocketVersion
 object SecWebSocketVersion {
   // https://www.iana.org/assignments/websocket/websocket.xml#version-number
 
-  final case class Version(version: Int) extends SecWebSocketVersion
-  case object InvalidVersion             extends SecWebSocketVersion
-
-  def toSecWebSocketVersion(version: String): SecWebSocketVersion =
+  def parse(version: String): Either[String, SecWebSocketVersion] =
     try {
       val v = version.toInt
-      if (v >= 0 && v <= 13) Version(v)
-      else InvalidVersion
+      if (v >= 0 && v <= 13) Right(SecWebSocketVersion(v))
+      else Left("Invalid Sec-WebSocket-Version header")
     } catch {
-      case _: Throwable => InvalidVersion
+      case NonFatal(_) => Left("Invalid Sec-WebSocket-Version header")
     }
 
-  def fromSecWebSocketVersion(version: SecWebSocketVersion): String = version match {
-    case Version(version) => version.toString
-    case InvalidVersion   => ""
-  }
+  def render(secWebSocketVersion: SecWebSocketVersion): String =
+    secWebSocketVersion.version.toString
 
 }

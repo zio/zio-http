@@ -16,46 +16,57 @@
 
 package zio.http.model.headers.values
 
+import zio.Scope
 import zio.test._
 
 import zio.http.internal.HttpGen
-import zio.http.model.headers.values.Origin.{InvalidOriginValue, OriginNull, OriginValue}
+import zio.http.model.headers.values.Origin.{Null, Value}
 import zio.http.{Path, QueryParams}
 
 object OriginSpec extends ZIOSpecDefault {
-  override def spec = suite("Origin header suite")(
-    test("Origin: null") {
-      assertTrue(Origin.toOrigin("null") == OriginNull) &&
-      assertTrue(Origin.fromOrigin(OriginNull) == "null")
-    },
-    test("parsing of invalid Origin values") {
-      assertTrue(Origin.toOrigin("") == InvalidOriginValue) &&
-      assertTrue(Origin.toOrigin("://host") == InvalidOriginValue) &&
-      assertTrue(Origin.toOrigin("http://:") == InvalidOriginValue) &&
-      assertTrue(Origin.toOrigin("http://:80") == InvalidOriginValue) &&
-      assertTrue(Origin.toOrigin("host:80") == InvalidOriginValue)
-    },
-    test("parsing of valid without a port ") {
-      assertTrue(Origin.toOrigin("http://domain") == OriginValue("http", "domain", None)) &&
-      assertTrue(Origin.toOrigin("https://domain") == OriginValue("https", "domain", None))
-    },
-    test("parsing of valid Origin values") {
-      check(HttpGen.genAbsoluteURL) { url =>
-        val justSchemeHostAndPort = url.copy(path = Path.empty, queryParams = QueryParams.empty, fragment = None)
+  override def spec: Spec[TestEnvironment with Scope, Nothing] =
+    suite("Origin header suite")(
+      test("Origin: null") {
+        assertTrue(Origin.parse("null") == Right(Null), Origin.render(Null) == "null")
+      },
+      test("parsing of invalid Origin values") {
         assertTrue(
-          Origin.toOrigin(justSchemeHostAndPort.encode) == OriginValue(
-            url.scheme.map(_.encode).getOrElse(""),
-            url.host.getOrElse(""),
-            url.portIfNotDefault,
-          ),
+          Origin.parse("").isLeft,
+          Origin.parse("://host").isLeft,
+          Origin.parse("http://:").isLeft,
+          Origin.parse("http://:80").isLeft,
+          Origin.parse("host:80").isLeft,
         )
-      }
-    },
-    test("parsing and encoding is symmetrical") {
-      check(HttpGen.genAbsoluteURL) { url =>
-        val justSchemeHostAndPort = url.copy(path = Path.empty, queryParams = QueryParams.empty, fragment = None)
-        assertTrue(Origin.fromOrigin(Origin.toOrigin(justSchemeHostAndPort.encode)) == justSchemeHostAndPort.encode)
-      }
-    },
-  )
+      },
+      test("parsing of valid without a port ") {
+        assertTrue(
+          Origin.parse("http://domain") == Right(Value("http", "domain", None)),
+          Origin.parse("https://domain") == Right(Value("https", "domain", None)),
+        )
+      },
+      test("parsing of valid Origin values") {
+        check(HttpGen.genAbsoluteURL) { url =>
+          val justSchemeHostAndPort = url.copy(path = Path.empty, queryParams = QueryParams.empty, fragment = None)
+          assertTrue(
+            Origin.parse(justSchemeHostAndPort.encode) == Right(
+              Value(
+                url.scheme.map(_.encode).getOrElse(""),
+                url.host.getOrElse(""),
+                url.portIfNotDefault,
+              ),
+            ),
+          )
+        }
+      },
+      test("parsing and encoding is symmetrical") {
+        check(HttpGen.genAbsoluteURL) { url =>
+          val justSchemeHostAndPort = url.copy(path = Path.empty, queryParams = QueryParams.empty, fragment = None)
+          assertTrue(
+            Origin.render(
+              Origin.parse(justSchemeHostAndPort.encode).toOption.get,
+            ) == justSchemeHostAndPort.encode,
+          )
+        }
+      },
+    )
 }

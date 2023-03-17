@@ -17,27 +17,18 @@
 package zio.http.model.headers.values
 
 /** From header value. */
-sealed trait From
+final case class From(email: String)
 
 object From {
   // Regex that does veery loose validation of email.
-  lazy val emailRegex = "([^ ]+@[^ ]+[.][^ ]+)".r
+  private val emailRegex = "([^ ]+@[^ ]+[.][^ ]+)".r
 
-  /**
-   * The From Header value is invalid
-   */
-  case object InvalidFromValue extends From
-
-  final case class FromValue(email: String) extends From
-
-  def toFrom(fromHeader: String): From =
+  def parse(fromHeader: String): Either[String, From] =
     fromHeader match {
-      case emailRegex(_) => FromValue(fromHeader)
-      case _             => InvalidFromValue
+      case emailRegex(_) => Right(From(fromHeader))
+      case _             => Left("Invalid From header")
     }
 
-  def fromFrom(from: From): String = from match {
-    case FromValue(value) => value
-    case InvalidFromValue => "z"
-  }
+  def render(from: From): String =
+    from.email
 }

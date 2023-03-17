@@ -25,32 +25,34 @@ object AccessControlAllowCredentials {
    * preflight request which includes the Access-Control-Request-Headers to
    * indicate whether or not the actual request can be made using credentials.
    */
-  case object AllowCredentials extends AccessControlAllowCredentials
+  case object Allow extends AccessControlAllowCredentials
 
   /**
    * The Access-Control-Allow-Credentials header is not sent in response to a
    * preflight request.
    */
-  case object DoNotAllowCredentials extends AccessControlAllowCredentials
+  case object DoNotAllow extends AccessControlAllowCredentials
 
-  def fromAccessControlAllowCredentials(
+  def allow(value: Boolean): AccessControlAllowCredentials =
+    value match {
+      case true  => Allow
+      case false => DoNotAllow
+    }
+
+  def parse(value: String): Either[String, AccessControlAllowCredentials] =
+    Right {
+      value match {
+        case "true"  => Allow
+        case "false" => DoNotAllow
+        case _       => DoNotAllow
+      }
+    }
+
+  def render(
     accessControlAllowCredentials: AccessControlAllowCredentials,
   ): String =
     accessControlAllowCredentials match {
-      case AllowCredentials      => "true"
-      case DoNotAllowCredentials => "false"
-    }
-
-  def toAccessControlAllowCredentials(value: String): AccessControlAllowCredentials =
-    value match {
-      case "true"  => AllowCredentials
-      case "false" => DoNotAllowCredentials
-      case _       => DoNotAllowCredentials
-    }
-
-  def toAccessControlAllowCredentials(value: Boolean): AccessControlAllowCredentials =
-    value match {
-      case true  => AllowCredentials
-      case false => DoNotAllowCredentials
+      case Allow      => "true"
+      case DoNotAllow => "false"
     }
 }

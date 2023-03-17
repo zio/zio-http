@@ -16,40 +16,39 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait Upgrade
 
 object Upgrade {
-  final case class UpgradeProtocols(protocols: Chunk[UpgradeValue]) extends Upgrade
-  final case class UpgradeValue(protocol: String, version: String)  extends Upgrade
-  case object InvalidUpgradeValue                                   extends Upgrade
+  final case class Multiple(protocols: NonEmptyChunk[Protocol]) extends Upgrade
+  final case class Protocol(protocol: String, version: String)  extends Upgrade
 
-  def fromUpgrade(upgrade: Upgrade): String =
-    upgrade match {
-      case UpgradeProtocols(protocols)     => protocols.map(fromUpgrade).mkString(", ")
-      case UpgradeValue(protocol, version) => s"$protocol/$version"
-      case InvalidUpgradeValue             => ""
+  def parse(value: String): Either[String, Upgrade] = {
+    NonEmptyChunk.fromChunk(Chunk.fromArray(value.split(",")).map(parseProtocol)) match {
+      case None        => Left("Invalid Upgrade header")
+      case Some(value) =>
+        if (value.size == 1) value.head
+        else
+          value.tail
+            .foldLeft(value.head.map(NonEmptyChunk.single(_))) {
+              case (Right(acc), Right(value)) => Right(acc :+ value)
+              case (Left(error), _)           => Left(error)
+              case (_, Left(value))           => Left(value)
+            }
+            .map(Multiple(_))
     }
-
-  def toUpgrade(value: String): Upgrade = {
-    value.split(",").map(_.trim).toList match {
-      case Nil  => InvalidUpgradeValue
-      case list =>
-        val protocols: List[UpgradeValue] = list.map { protocol =>
-          protocol.split("/").map(_.trim).toList match {
-            case Nil                        => InvalidUpgradeValue
-            case protocol :: version :: Nil =>
-              UpgradeValue(protocol, version)
-            case _                          => InvalidUpgradeValue
-          }
-        }.collect { case v: UpgradeValue => v }
-        UpgradeProtocols(Chunk.fromIterable(protocols))
-    }
-
-//    value.split("/").toList match {
-//      case protocol :: version :: Nil => UpgradeValue(protocol, version)
-//      case _                          => InvalidUpgradeValue
-//    }
   }
+
+  def render(upgrade: Upgrade): String =
+    upgrade match {
+      case Multiple(protocols)         => protocols.map(render).mkString(", ")
+      case Protocol(protocol, version) => s"$protocol/$version"
+    }
+
+  private def parseProtocol(value: String): Either[String, Protocol] =
+    Chunk.fromArray(value.split("/")).map(_.trim) match {
+      case Chunk(protocol, version) => Right(Protocol(protocol, version))
+      case _                        => Left("Invalid Upgrade header")
+    }
 }

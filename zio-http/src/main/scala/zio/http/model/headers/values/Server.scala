@@ -19,28 +19,17 @@ package zio.http.model.headers.values
 /**
  * Server header value.
  */
-sealed trait Server
+final case class Server(name: String)
 
 object Server {
 
-  /**
-   * A server value with a name
-   */
-  final case class ServerName(name: String) extends Server
-
-  /**
-   * No server name
-   */
-  object EmptyServerName extends Server
-
-  def fromServer(server: Server): String =
-    server match {
-      case ServerName(name) => name
-      case EmptyServerName  => ""
-    }
-
-  def toServer(value: String): Server = {
-    val serverTrim = value.trim
-    if (serverTrim.isEmpty) EmptyServerName else ServerName(serverTrim)
+  def parse(value: String): Either[String, Server] = {
+    val trimmedValue = value.trim
+    if (trimmedValue.isEmpty)
+      Left("Invalid Server header: empty value")
+    else Right(Server(trimmedValue))
   }
+
+  def render(server: Server): String =
+    server.name
 }

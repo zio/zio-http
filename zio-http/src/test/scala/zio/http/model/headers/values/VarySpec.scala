@@ -16,25 +16,26 @@
 
 package zio.http.model.headers.values
 
-import zio.Scope
 import zio.test._
-
-import zio.http.model.headers.values.From.InvalidFromValue
-import zio.http.model.headers.values.Vary.{HeadersVaryValue, InvalidVaryValue, StarVary}
+import zio.{NonEmptyChunk, Scope}
 
 object VarySpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Vary header suite")(
       test("parse valid values") {
-        assertTrue(Vary.toVary("*") == StarVary) &&
-        assertTrue(Vary.toVary("SOMEVALUE, ANOTHERVALUE") == HeadersVaryValue(List("somevalue", "anothervalue"))) &&
-        assertTrue(Vary.toVary("some,another") == HeadersVaryValue(List("some", "another"))) &&
-        assertTrue(Vary.toVary("some") == HeadersVaryValue(List("some")))
+        assertTrue(
+          Vary.parse("*") == Right(Vary.Star),
+          Vary.parse("SOMEVALUE, ANOTHERVALUE") == Right(Vary.Headers(NonEmptyChunk("somevalue", "anothervalue"))),
+          Vary.parse("some,another") == Right(Vary.Headers(NonEmptyChunk("some", "another"))),
+          Vary.parse("some") == Right(Vary.Headers(NonEmptyChunk("some"))),
+        )
       },
       test("parse invalid value") {
-        assertTrue(Vary.toVary(",") == InvalidVaryValue) &&
-        assertTrue(Vary.toVary("") == InvalidVaryValue) &&
-        assertTrue(Vary.toVary(" ") == InvalidVaryValue)
+        assertTrue(
+          Vary.parse(",").isLeft,
+          Vary.parse("").isLeft,
+          Vary.parse(" ").isLeft,
+        )
       },
     )
 }

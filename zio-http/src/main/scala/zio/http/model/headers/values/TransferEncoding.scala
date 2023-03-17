@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait TransferEncoding {
   val encoding: String
@@ -25,16 +25,9 @@ sealed trait TransferEncoding {
 object TransferEncoding {
 
   /**
-   * InvalidEncoding is represented with ""
-   */
-  case object InvalidEncoding extends TransferEncoding {
-    override val encoding: String = ""
-  }
-
-  /**
    * Data is sent in a series of chunks.
    */
-  case object ChunkedEncoding extends TransferEncoding {
+  case object Chunked extends TransferEncoding {
     override val encoding: String = "chunked"
   }
 
@@ -45,7 +38,7 @@ object TransferEncoding {
    * distributions, this content-encoding is not used by many browsers today,
    * partly because of a patent issue (it expired in 2003).
    */
-  case object CompressEncoding extends TransferEncoding {
+  case object Compress extends TransferEncoding {
     override val encoding: String = "compress"
   }
 
@@ -53,7 +46,7 @@ object TransferEncoding {
    * Using the zlib structure (defined in RFC 1950) with the deflate compression
    * algorithm (defined in RFC 1951).
    */
-  case object DeflateEncoding extends TransferEncoding {
+  case object Deflate extends TransferEncoding {
     override val encoding: String = "deflate"
   }
 
@@ -63,51 +56,47 @@ object TransferEncoding {
    * recommends that the servers supporting this content-encoding should
    * recognize x-gzip as an alias, for compatibility purposes.
    */
-  case object GZipEncoding extends TransferEncoding {
+  case object GZip extends TransferEncoding {
     override val encoding: String = "gzip"
   }
 
   /**
    * Maintains a list of TransferEncoding values.
    */
-  final case class MultipleEncodings(encodings: Chunk[TransferEncoding]) extends TransferEncoding {
+  final case class Multiple(encodings: NonEmptyChunk[TransferEncoding]) extends TransferEncoding {
     override val encoding: String = encodings.map(_.encoding).mkString(",")
   }
 
-  private def findEncoding(value: String): TransferEncoding = {
+  private def findEncoding(value: String): Option[TransferEncoding] = {
     value.trim match {
-      case "chunked"  => ChunkedEncoding
-      case "compress" => CompressEncoding
-      case "deflate"  => DeflateEncoding
-      case "gzip"     => GZipEncoding
-      case _          => InvalidEncoding
+      case "chunked"  => Some(Chunked)
+      case "compress" => Some(Compress)
+      case "deflate"  => Some(Deflate)
+      case "gzip"     => Some(GZip)
+      case _          => None
     }
   }
 
   /**
    * @param value
-   *   of string , seperated for multiple values
+   *   of string , separated for multiple values
    * @return
    *   TransferEncoding
    *
    * Note: This implementation ignores the invalid string that might occur in
    * MultipleEncodings case.
    */
-  def toTransferEncoding(value: String): TransferEncoding = {
-    val array = value.split(",")
-    array.foldLeft[TransferEncoding](InvalidEncoding)((accum, elem) => {
-      val encoding = findEncoding(elem)
-      (accum, encoding) match {
-        case (InvalidEncoding, InvalidEncoding)              => InvalidEncoding
-        case (InvalidEncoding, other)                        => other
-        case (MultipleEncodings(encodings), InvalidEncoding) => MultipleEncodings(encodings)
-        case (MultipleEncodings(encodings), other)           => MultipleEncodings(encodings ++ Chunk(other))
-        case (other, InvalidEncoding)                        => other
-        case (other, other1)                                 => MultipleEncodings(Chunk(other, other1))
-      }
-    })
+  def parse(value: String): Either[String, TransferEncoding] = {
+    val encodings = Chunk.fromArray(value.split(",")).map(findEncoding).flatten
+
+    NonEmptyChunk.fromChunk(encodings) match {
+      case Some(value) =>
+        if (value.size == 1) Right(value.head)
+        else Right(Multiple(value))
+      case None        => Left("Empty TransferEncoding")
+    }
   }
 
-  def fromTransferEncoding(value: TransferEncoding): String = value.encoding
+  def render(value: TransferEncoding): String = value.encoding
 
 }

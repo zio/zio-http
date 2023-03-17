@@ -20,22 +20,23 @@ import zio.Scope
 import zio.test._
 
 object AcceptLanguageSpec extends ZIOSpecDefault {
-  override def spec: Spec[TestEnvironment with Scope, Any] = suite("Accept Language header suite")(
-    test("accept language header transformation must be symmetrical") {
-      check(acceptLanguageStr) { header =>
-        assertTrue(AcceptLanguage.fromAcceptLanguage(AcceptLanguage.toAcceptLanguage(header)) == header)
-      } &&
-      check(acceptLanguageWithWeightStr) { header =>
-        assertTrue(AcceptLanguage.fromAcceptLanguage(AcceptLanguage.toAcceptLanguage(header)) == header)
-      }
-    },
-    test("empty input should yield invalid header value") {
-      assertTrue(AcceptLanguage.toAcceptLanguage("") == AcceptLanguage.InvalidAcceptLanguageValue)
-    },
-    test("presence of invalid characters should yield invalid value") {
-      assertTrue(AcceptLanguage.toAcceptLanguage("!") == AcceptLanguage.InvalidAcceptLanguageValue)
-    },
-  )
+  override def spec: Spec[TestEnvironment with Scope, Any] =
+    suite("Accept Language header suite")(
+      test("accept language header transformation must be symmetrical") {
+        check(acceptLanguageStr) { header =>
+          assertTrue(AcceptLanguage.render(AcceptLanguage.parse(header).toOption.get) == header)
+        } &&
+        check(acceptLanguageWithWeightStr) { header =>
+          assertTrue(AcceptLanguage.render(AcceptLanguage.parse(header).toOption.get) == header)
+        }
+      },
+      test("empty input should yield invalid header value") {
+        assertTrue(AcceptLanguage.parse("").isLeft)
+      },
+      test("presence of invalid characters should yield invalid value") {
+        assertTrue(AcceptLanguage.parse("!").isLeft)
+      },
+    )
 
   private def acceptLanguageStr: Gen[Any, String] =
     for {

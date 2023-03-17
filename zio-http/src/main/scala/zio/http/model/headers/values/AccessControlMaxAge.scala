@@ -16,9 +16,9 @@
 
 package zio.http.model.headers.values
 
-import java.time.Duration
-
 import scala.util.Try
+
+import zio._
 
 /**
  * The Access-Control-Max-Age response header indicates how long the results of
@@ -31,33 +31,17 @@ import scala.util.Try
  * (prior to v76) caps at 10 minutes (600 seconds). Chromium (starting in v76)
  * caps at 2 hours (7200 seconds). The default value is 5 seconds.
  */
-sealed trait AccessControlMaxAge {
-  val seconds: Duration
-}
+final case class AccessControlMaxAge(duration: Duration)
 
 object AccessControlMaxAge {
 
-  /**
-   * Valid AccessControlMaxAge with an unsigned non-negative negative for
-   * seconds
-   */
-  final case class ValidAccessControlMaxAge(private val duration: Duration = Duration.ofSeconds(5))
-      extends AccessControlMaxAge {
-    override val seconds: Duration = duration
-  }
+  def parse(seconds: String): Either[String, AccessControlMaxAge] =
+    Try(seconds.toLong).toOption.flatMap { long =>
+      if (long > -1) Some(AccessControlMaxAge(long.seconds))
+      else None
+    }.toRight("Invalid Access-Control-Max-Age header value")
 
-  case object InvalidAccessControlMaxAge extends AccessControlMaxAge {
-    override val seconds: Duration = Duration.ofSeconds(5)
-  }
-
-  def fromAccessControlMaxAge(accessControlMaxAge: AccessControlMaxAge): String = {
-    accessControlMaxAge.seconds.getSeconds().toString
-  }
-
-  def toAccessControlMaxAge(seconds: String): AccessControlMaxAge = {
-    Try(seconds.toLong).fold(
-      _ => InvalidAccessControlMaxAge,
-      long => if (long > -1) ValidAccessControlMaxAge(Duration.ofSeconds(long)) else InvalidAccessControlMaxAge,
-    )
+  def render(accessControlMaxAge: AccessControlMaxAge): String = {
+    accessControlMaxAge.duration.getSeconds.toString
   }
 }

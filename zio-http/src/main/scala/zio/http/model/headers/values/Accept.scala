@@ -18,12 +18,13 @@ package zio.http.model.headers.values
 
 import scala.util.Try
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 import zio.http.model.MediaType
+import zio.http.model.headers.values.Accept.MediaTypeWithQFactor
 
 /** Accept header value. */
-sealed trait Accept
+final case class Accept(mimeTypes: NonEmptyChunk[MediaTypeWithQFactor])
 
 object Accept {
 
@@ -31,41 +32,37 @@ object Accept {
    * The Accept header value one or more MIME types optionally weighed with
    * quality factor.
    */
-  final case class AcceptValue(mimeTypes: Chunk[MediaTypeWithQFactor]) extends Accept
-
   final case class MediaTypeWithQFactor(mediaType: MediaType, qFactor: Option[Double])
 
-  /** The Accept header value is invalid. */
-  case object InvalidAcceptValue extends Accept
+  def parse(value: String): Either[String, Accept] = {
+    val acceptHeaderValues =
+      Chunk
+        .fromArray(
+          value
+            .split(",")
+            .map(_.trim)
+            .map { subValue =>
+              MediaType
+                .forContentType(subValue)
+                .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
+                .getOrElse {
+                  MediaType
+                    .parseCustomMediaType(subValue)
+                    .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
+                    .orNull
+                }
+            },
+        )
 
-  def fromAccept(header: Accept): String = header match {
-    case AcceptValue(mimeTypes) =>
-      mimeTypes.map { case MediaTypeWithQFactor(mime, maybeQFactor) =>
-        s"${mime.fullType}${maybeQFactor.map(qFactor => s";q=$qFactor").getOrElse("")}"
-      }.mkString(", ")
-    case InvalidAcceptValue     => ""
+    val valid = acceptHeaderValues.filter(_ != null)
+    if (valid.size != acceptHeaderValues.size) Left("Invalid Accept header")
+    else NonEmptyChunk.fromChunk(acceptHeaderValues).toRight("Invalid Accept header").map(Accept(_))
   }
 
-  def toAccept(value: String): Accept = {
-    val acceptHeaderValues: Array[MediaTypeWithQFactor] = value
-      .split(',')
-      .map(_.trim)
-      .map { subValue =>
-        MediaType
-          .forContentType(subValue)
-          .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
-          .getOrElse {
-            MediaType
-              .parseCustomMediaType(subValue)
-              .map(mt => MediaTypeWithQFactor(mt, extractQFactor(mt)))
-              .orNull
-          }
-      }
-
-    if (acceptHeaderValues.nonEmpty && acceptHeaderValues.length == acceptHeaderValues.count(_ != null))
-      AcceptValue(Chunk.fromArray(acceptHeaderValues))
-    else InvalidAcceptValue
-  }
+  def render(header: Accept): String =
+    header.mimeTypes.map { case MediaTypeWithQFactor(mime, maybeQFactor) =>
+      s"${mime.fullType}${maybeQFactor.map(qFactor => s";q=$qFactor").getOrElse("")}"
+    }.mkString(", ")
 
   private def extractQFactor(mediaType: MediaType): Option[Double] =
     mediaType.parameters.get("q").flatMap(qFactor => Try(qFactor.toDouble).toOption)

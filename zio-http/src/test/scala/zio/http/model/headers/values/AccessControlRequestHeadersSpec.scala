@@ -19,18 +19,18 @@ package zio.http.model.headers.values
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Chunk, Scope}
 
-import zio.http.model.headers.values.AccessControlRequestHeaders.fromAccessControlRequestHeaders
+import zio.http.model.headers.values.AccessControlRequestHeaders.render
 
 object AccessControlRequestHeadersSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlRequestHeaders suite")(
-    test("AccessControlRequestHeadersValue") {
+    test("AccessControlRequestHeaders") {
       val values                      = Chunk.fromIterable(List("a", "b", "c"))
-      val accessControlRequestHeaders = AccessControlRequestHeaders.toAccessControlRequestHeaders(values.mkString(","))
-      assertTrue(fromAccessControlRequestHeaders(accessControlRequestHeaders) == values.mkString(","))
+      val accessControlRequestHeaders = AccessControlRequestHeaders.parse(values.mkString(","))
+      assertTrue(render(accessControlRequestHeaders.toOption.get) == values.mkString(","))
     },
-    test("NoRequestHeaders") {
-      val accessControlRequestHeaders = AccessControlRequestHeaders.toAccessControlRequestHeaders("")
-      assertTrue(fromAccessControlRequestHeaders(accessControlRequestHeaders) == "")
+    test("Empty header is an error") {
+      val accessControlRequestHeaders = AccessControlRequestHeaders.parse("")
+      assertTrue(accessControlRequestHeaders.isLeft)
     },
   )
 }

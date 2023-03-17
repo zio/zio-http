@@ -17,13 +17,13 @@
 package zio.http.model.headers.values
 
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Chunk, Scope}
+import zio.{Chunk, NonEmptyChunk, Scope}
 
 object AccessControlExposeHeadersSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlExposeHeaders suite")(
     test("AccessControlExposeHeaders should be parsed correctly") {
-      val accessControlExposeHeaders       = AccessControlExposeHeaders.AccessControlExposeHeadersValue(
-        Chunk(
+      val accessControlExposeHeaders       = AccessControlExposeHeaders.Some(
+        NonEmptyChunk(
           "X-Header1",
           "X-Header2",
           "X-Header3",
@@ -32,7 +32,7 @@ object AccessControlExposeHeadersSpec extends ZIOSpecDefault {
       val accessControlExposeHeadersString = "X-Header1, X-Header2, X-Header3"
       assertTrue(
         AccessControlExposeHeaders
-          .toAccessControlExposeHeaders(accessControlExposeHeadersString) == accessControlExposeHeaders,
+          .parse(accessControlExposeHeadersString) == Right(accessControlExposeHeaders),
       )
     },
     test("AccessControlExposeHeaders should be parsed correctly when * is used") {
@@ -40,30 +40,30 @@ object AccessControlExposeHeadersSpec extends ZIOSpecDefault {
       val accessControlExposeHeadersString = "*"
       assertTrue(
         AccessControlExposeHeaders
-          .toAccessControlExposeHeaders(accessControlExposeHeadersString) == accessControlExposeHeaders,
+          .parse(accessControlExposeHeadersString) == Right(accessControlExposeHeaders),
       )
     },
     test("AccessControlExposeHeaders should be parsed correctly when empty string is used") {
-      val accessControlExposeHeaders       = AccessControlExposeHeaders.NoHeaders
+      val accessControlExposeHeaders       = AccessControlExposeHeaders.None
       val accessControlExposeHeadersString = ""
       assertTrue(
         AccessControlExposeHeaders
-          .toAccessControlExposeHeaders(accessControlExposeHeadersString) == accessControlExposeHeaders,
+          .parse(accessControlExposeHeadersString) == Right(accessControlExposeHeaders),
       )
     },
     test("AccessControlExposeHeaders should properly render NoHeadersAllowed value") {
       assertTrue(
-        AccessControlExposeHeaders.fromAccessControlExposeHeaders(AccessControlExposeHeaders.NoHeaders) == "",
+        AccessControlExposeHeaders.render(AccessControlExposeHeaders.None) == "",
       )
     },
     test("AccessControlExposeHeaders should properly render AllowAllHeaders value") {
       assertTrue(
-        AccessControlExposeHeaders.fromAccessControlExposeHeaders(AccessControlExposeHeaders.All) == "*",
+        AccessControlExposeHeaders.render(AccessControlExposeHeaders.All) == "*",
       )
     },
     test("AccessControlExposeHeaders should properly render AllowHeaders value") {
-      val accessControlExposeHeaders       = AccessControlExposeHeaders.AccessControlExposeHeadersValue(
-        Chunk(
+      val accessControlExposeHeaders       = AccessControlExposeHeaders.Some(
+        NonEmptyChunk(
           "X-Header1",
           "X-Header2",
           "X-Header3",
@@ -71,7 +71,7 @@ object AccessControlExposeHeadersSpec extends ZIOSpecDefault {
       )
       val accessControlExposeHeadersString = "X-Header1, X-Header2, X-Header3"
       assertTrue(
-        AccessControlExposeHeaders.fromAccessControlExposeHeaders(
+        AccessControlExposeHeaders.render(
           accessControlExposeHeaders,
         ) == accessControlExposeHeadersString,
       )

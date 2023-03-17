@@ -16,7 +16,9 @@
 
 package zio.http.model.headers.values
 
-sealed trait SecWebSocketKey
+import scala.util.control.NonFatal
+
+final case class SecWebSocketKey(base64EncodedKey: String)
 
 /**
  * The Sec-WebSocket-Key header is used in the WebSocket handshake. It is sent
@@ -30,22 +32,17 @@ sealed trait SecWebSocketKey
  * https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Sec-WebSocket-Key
  */
 object SecWebSocketKey {
-  case class Base64EncodedKey(key: String) extends SecWebSocketKey
-  case object InvalidKey                   extends SecWebSocketKey
-
-  def toSecWebSocketKey(key: String): SecWebSocketKey = {
+  def parse(key: String): Either[String, SecWebSocketKey] = {
     try {
       val decodedKey = java.util.Base64.getDecoder.decode(key)
-      if (decodedKey.length == 16) Base64EncodedKey(key)
-      else InvalidKey
+      if (decodedKey.length == 16) Right(SecWebSocketKey(key))
+      else Left("Invalid Sec-WebSocket-Key header")
     } catch {
-      case _: Throwable => InvalidKey
+      case NonFatal(_) => Left("Invalid Sec-WebSocket-Key header")
     }
 
   }
 
-  def fromSecWebSocketKey(secWebSocketKey: SecWebSocketKey): String = secWebSocketKey match {
-    case Base64EncodedKey(key) => key
-    case InvalidKey            => ""
-  }
+  def render(secWebSocketKey: SecWebSocketKey): String =
+    secWebSocketKey.base64EncodedKey
 }

@@ -24,53 +24,46 @@ sealed trait ContentRange {
 }
 
 object ContentRange {
-  final case class ContentRangeStartEndTotal(unit: String, s: Int, e: Int, t: Int) extends ContentRange {
+  final case class EndTotal(unit: String, s: Int, e: Int, t: Int) extends ContentRange {
     def start: Option[Int] = Some(s)
     def end: Option[Int]   = Some(e)
     def total: Option[Int] = Some(t)
   }
-  final case class ContentRangeStartEnd(unit: String, s: Int, e: Int)              extends ContentRange {
+  final case class StartEnd(unit: String, s: Int, e: Int)         extends ContentRange {
     def start: Option[Int] = Some(s)
     def end: Option[Int]   = Some(e)
     def total: Option[Int] = None
   }
-  final case class ContentRangeTotal(unit: String, t: Int)                         extends ContentRange {
+  final case class RangeTotal(unit: String, t: Int)               extends ContentRange {
     def start: Option[Int] = None
     def end: Option[Int]   = None
     def total: Option[Int] = Some(t)
   }
-  case object InvalidContentRange                                                  extends ContentRange {
-    def start: Option[Int] = None
-    def end: Option[Int]   = None
-    def total: Option[Int] = None
-    def unit: String       = ""
-  }
 
-  val contentRangeStartEndTotalRegex = """(\w+) (\d+)-(\d+)/(\d+)""".r
-  val contentRangeStartEndRegex      = """(\w+) (\d+)-(\d+)/*""".r
-  val contentRangeTotalRegex         = """(\w+) */(\d+)""".r
+  private val contentRangeStartEndTotalRegex = """(\w+) (\d+)-(\d+)/(\d+)""".r
+  private val contentRangeStartEndRegex      = """(\w+) (\d+)-(\d+)/*""".r
+  private val contentRangeTotalRegex         = """(\w+) */(\d+)""".r
 
-  def toContentRange(s: CharSequence): ContentRange =
+  def parse(s: CharSequence): Either[String, ContentRange] =
     s match {
       case contentRangeStartEndTotalRegex(unit, start, end, total) =>
-        ContentRangeStartEndTotal(unit, start.toInt, end.toInt, total.toInt)
+        Right(EndTotal(unit, start.toInt, end.toInt, total.toInt))
       case contentRangeStartEndRegex(unit, start, end)             =>
-        ContentRangeStartEnd(unit, start.toInt, end.toInt)
+        Right(StartEnd(unit, start.toInt, end.toInt))
       case contentRangeTotalRegex(unit, total)                     =>
-        ContentRangeTotal(unit, total.toInt)
-      case _                                                       => InvalidContentRange
+        Right(RangeTotal(unit, total.toInt))
+      case _                                                       =>
+        Left("Invalid content range")
     }
 
-  def fromContentRange(c: ContentRange): String =
+  def render(c: ContentRange): String =
     c match {
-      case ContentRangeStartEndTotal(unit, start, end, total) =>
+      case EndTotal(unit, start, end, total) =>
         s"$unit $start-$end/$total"
-      case ContentRangeStartEnd(unit, start, end)             =>
+      case StartEnd(unit, start, end)        =>
         s"$unit $start-$end/*"
-      case ContentRangeTotal(unit, total)                     =>
+      case RangeTotal(unit, total)           =>
         s"$unit */$total"
-      case InvalidContentRange                                =>
-        ""
     }
 
 }

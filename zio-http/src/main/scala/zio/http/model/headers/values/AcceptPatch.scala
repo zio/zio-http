@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 import zio.http.model.MediaType
 
@@ -24,39 +24,35 @@ import zio.http.model.MediaType
  * The Accept-Patch response HTTP header advertises which media-type the server
  * is able to understand in a PATCH request.
  */
-sealed trait AcceptPatch
+final case class AcceptPatch(mediaTypes: NonEmptyChunk[MediaType])
 
 object AcceptPatch {
 
-  case class AcceptPatchValue(mediaTypes: Chunk[MediaType]) extends AcceptPatch
-
-  case object InvalidAcceptPatchValue extends AcceptPatch
-
-  def fromAcceptPatch(acceptPatch: AcceptPatch): String = acceptPatch match {
-    case AcceptPatchValue(mediaTypes) => mediaTypes.map(_.fullType).mkString(",")
-    case InvalidAcceptPatchValue      => ""
-  }
-
-  def toAcceptPatch(value: String): AcceptPatch = {
+  def parse(value: String): Either[String, AcceptPatch] =
     if (value.nonEmpty) {
-      val parsedMediaTypes = Chunk.fromArray(
-        value
-          .split(",")
-          .map(mediaTypeStr =>
-            MediaType
-              .forContentType(mediaTypeStr)
-              .getOrElse(
-                MediaType
-                  .parseCustomMediaType(mediaTypeStr)
-                  .orNull,
-              ),
-          ),
-      )
-      if (parsedMediaTypes.length == parsedMediaTypes.count(_ != null))
-        AcceptPatchValue(parsedMediaTypes)
-      else
-        InvalidAcceptPatchValue
-    } else InvalidAcceptPatchValue
-  }
+      val parsedMediaTypes = Chunk
+        .fromArray(
+          value
+            .split(",")
+            .map(mediaTypeStr =>
+              MediaType
+                .forContentType(mediaTypeStr)
+                .getOrElse(
+                  MediaType
+                    .parseCustomMediaType(mediaTypeStr)
+                    .orNull,
+                ),
+            ),
+        )
+        .filter(_ != null)
+
+      NonEmptyChunk.fromChunk(parsedMediaTypes) match {
+        case Some(value) => Right(AcceptPatch(value))
+        case None        => Left("Invalid Accept-Patch header")
+      }
+    } else Left("Accept-Patch header cannot be empty")
+
+  def render(acceptPatch: AcceptPatch): String =
+    acceptPatch.mediaTypes.map(_.fullType).mkString(",")
 
 }

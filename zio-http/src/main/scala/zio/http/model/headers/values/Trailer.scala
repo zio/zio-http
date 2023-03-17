@@ -17,24 +17,17 @@
 package zio.http.model.headers.values
 
 /** Trailer header value. */
-sealed trait Trailer
+final case class Trailer(header: String)
 
 object Trailer {
-  lazy val headerRegex = "([a-z-_]*)".r
-  case class TrailerValue(header: String) extends Trailer
+  private val headerRegex = "([a-z-_]*)".r
 
-  /** Invalid Trailer value. */
-  case object InvalidTrailerValue extends Trailer
-
-  def toTrailer(value: String): Trailer =
+  def parse(value: String): Either[String, Trailer] =
     value.toLowerCase match {
-      case headerRegex(value) => TrailerValue(value)
-      case _                  => InvalidTrailerValue
+      case headerRegex(value) => Right(Trailer(value))
+      case _                  => Left("Invalid Trailer header")
     }
 
-  def fromTrailer(trailer: Trailer): String =
-    trailer match {
-      case TrailerValue(header) => header
-      case InvalidTrailerValue  => ""
-    }
+  def render(trailer: Trailer): String =
+    trailer.header
 }

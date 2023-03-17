@@ -16,7 +16,7 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 /**
  * The Access-Control-Expose-Headers response header allows a server to indicate
@@ -27,32 +27,37 @@ sealed trait AccessControlExposeHeaders
 
 object AccessControlExposeHeaders {
 
-  final case class AccessControlExposeHeadersValue(values: Chunk[CharSequence]) extends AccessControlExposeHeaders
+  final case class Some(values: NonEmptyChunk[CharSequence]) extends AccessControlExposeHeaders
 
   case object All extends AccessControlExposeHeaders
 
-  case object NoHeaders extends AccessControlExposeHeaders
+  case object None extends AccessControlExposeHeaders
 
-  def fromAccessControlExposeHeaders(accessControlExposeHeaders: AccessControlExposeHeaders): String =
-    accessControlExposeHeaders match {
-      case AccessControlExposeHeadersValue(value) => value.mkString(", ")
-      case All                                    => "*"
-      case NoHeaders                              => ""
-    }
-
-  def toAccessControlExposeHeaders(value: String): AccessControlExposeHeaders = {
-    value match {
-      case ""          => NoHeaders
-      case "*"         => All
-      case headerNames =>
-        AccessControlExposeHeadersValue(
-          Chunk.fromArray(
-            headerNames
-              .split(",")
-              .map(_.trim),
-          ),
-        )
+  def parse(value: String): Either[String, AccessControlExposeHeaders] = {
+    Right {
+      value match {
+        case ""          => None
+        case "*"         => All
+        case headerNames =>
+          NonEmptyChunk.fromChunk(
+            Chunk.fromArray(
+              headerNames
+                .split(",")
+                .map(_.trim),
+            ),
+          ) match {
+            case scala.Some(value) => Some(value)
+            case scala.None        => None
+          }
+      }
     }
   }
+
+  def render(accessControlExposeHeaders: AccessControlExposeHeaders): String =
+    accessControlExposeHeaders match {
+      case Some(value) => value.mkString(", ")
+      case All         => "*"
+      case None        => ""
+    }
 
 }

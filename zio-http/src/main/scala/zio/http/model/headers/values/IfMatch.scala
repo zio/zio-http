@@ -16,27 +16,28 @@
 
 package zio.http.model.headers.values
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 sealed trait IfMatch
 
 object IfMatch {
-  case object Any                              extends IfMatch
-  case object None                             extends IfMatch
-  final case class ETags(etags: Chunk[String]) extends IfMatch
+  case object Any                                      extends IfMatch
+  final case class ETags(etags: NonEmptyChunk[String]) extends IfMatch
 
-  def toIfMatch(value: String): IfMatch = {
-    val etags = value.split(",").map(_.trim).toList
+  def parse(value: String): Either[String, IfMatch] = {
+    val etags = Chunk.fromArray(value.split(",").map(_.trim)).filter(_.nonEmpty)
     etags match {
-      case "*" :: Nil => Any
-      case "" :: Nil  => None
-      case _          => ETags(Chunk.fromIterable(etags))
+      case Chunk("*") => Right(Any)
+      case _          =>
+        NonEmptyChunk.fromChunk(etags) match {
+          case Some(value) => Right(ETags(value))
+          case scala.None  => Left("Invalid If-Match header")
+        }
     }
   }
 
-  def fromIfMatch(ifMatch: IfMatch): String = ifMatch match {
+  def render(ifMatch: IfMatch): String = ifMatch match {
     case Any          => "*"
-    case None         => ""
     case ETags(etags) => etags.mkString(",")
   }
 
