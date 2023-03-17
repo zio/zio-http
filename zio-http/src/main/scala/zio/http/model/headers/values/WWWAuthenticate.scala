@@ -126,7 +126,10 @@ object WWWAuthenticate {
         case _                                       =>
           Unknown(scheme, params("realm"), params)
       }
-    }.toEither.left.map(_ => s"Invalid WWW-Authenticate header").flatten
+    }.toEither.left.map(_ => s"Invalid WWW-Authenticate header").flatMap {
+      case Right(value) => Right(value)
+      case Left(value)  => Left(value)
+    }
 
   def render(wwwAuthenticate: WWWAuthenticate): String        = {
     val (scheme, params) = wwwAuthenticate match {

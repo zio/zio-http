@@ -16,8 +16,6 @@
 
 package zio.http.model.headers.values
 
-import scala.util.Try
-
 import zio.http.model.Method
 
 final case class AccessControlRequestMethod(method: Method)
