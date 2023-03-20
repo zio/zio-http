@@ -13,6 +13,7 @@ import zio.http.codec._
 import zio.http.endpoint._
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable
+import zio.ZNothing
 
 class description(val text: String) extends StaticAnnotation
 
@@ -666,6 +667,11 @@ object Test extends scala.App {
       .header(HeaderCodec.location ?? Doc.p("The user's location"))
       .out[User]
 
+  val getUserRoute =
+    getUser.implement { case (id, _) =>
+      ZIO.succeed(User(id, "Juanito", Some("juanito@test.com")))
+    }
+
   val getUserPosts =
     Endpoint
       .get(
@@ -676,11 +682,23 @@ object Test extends scala.App {
       .query(query("name") ?? Doc.p("The user's name"))
       .out[List[Post]]
 
+  val getUserPostsRoute =
+    getUserPosts.implement { case (userId, postId, name) =>
+      ZIO.succeed(List(Post(userId, postId, name)))
+    }
+
   val createUser =
     Endpoint
       .post("users")
       .in[User]
       .out[String]
+
+  val createUserRoute =
+    createUser.implement { user =>
+      ZIO.succeed(user.name)
+    }
+
+  val routes = getUserRoute ++ getUserPostsRoute ++ createUserRoute
 
   val cliRequest =
     CliRequest(
