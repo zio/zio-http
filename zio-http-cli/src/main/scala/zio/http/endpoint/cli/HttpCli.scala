@@ -11,6 +11,9 @@ import zio.schema._
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
+import scala.annotation.StaticAnnotation
+
+class description(val text: String) extends StaticAnnotation
 
 final case class CliRequest(
   url: URL,
@@ -48,6 +51,8 @@ final case class CliEndpoint[A](embed: (A, CliRequest) => CliRequest, options: O
       },
       self.options ++ that.options,
     )
+
+  def ??(description: String) = self.copy(options = options ?? description)
 
   lazy val optional: CliEndpoint[Option[A]] =
     CliEndpoint(
@@ -249,7 +254,7 @@ object CliEndpoint                                                              
         }
       case HttpCodec.Status(_, _)                   => Set.empty
       case HttpCodec.TransformOrFail(api, _, _)     => fromInput(api)
-      case HttpCodec.WithDoc(in, _)                 => fromInput(in)
+      case HttpCodec.WithDoc(in, doc)               => fromInput(in).map(_ ?? doc.toPlaintext())
     }
 
   private def fromSchema[A](schema: zio.schema.Schema[A]): Set[CliEndpoint[_]] = {
@@ -259,9 +264,14 @@ object CliEndpoint                                                              
           Set(
             record.fields
               .foldLeft(Set.empty[CliEndpoint[_]]) { (cliEndpoints, field) =>
-                cliEndpoints ++ loop(prefix :+ field.name, field.schema)
+                cliEndpoints ++ loop(prefix :+ field.name, field.schema).map { cliEndpoint =>
+                  field.annotations.headOption match {
+                    case Some(description) => cliEndpoint ?? description.asInstanceOf[description].text
+                    case None              => cliEndpoint
+                  }
+                }
               }
-              .reduce(_ ++ _),
+              .reduce(_ ++ _), // TODO review the case of nested sealed trait inside case class
           )
         case enumeration: Schema.Enum[A]          =>
           enumeration.cases.foldLeft(Set.empty[CliEndpoint[_]]) { (cliEndpoints, enumCase) =>
@@ -557,22 +567,43 @@ Command#subcommands requires that all subcommands have the same type
 object Test extends scala.App {
   import HttpCodec._
 
-  final case class User(id: Int, name: String, email: String)
+  final case class User(
+    @description("The unique identifier of the User")
+    id: Int,
+    @description("The user's name")
+    name: String,
+    @description("The user's email")
+    email: Option[String],
+  )
   object User {
     implicit val schema = DeriveSchema.gen[User]
   }
-  final case class Post(userId: Int, postId: Int, contents: String)
+  final case class Post(
+    @description("The unique identifier of the User")
+    userId: Int,
+    @description("The unique identifier of the Post")
+    postId: Int,
+    @description("The post's contents")
+    contents: String,
+  )
   object Post {
     implicit val schema = DeriveSchema.gen[Post]
   }
 
   val getUser =
-    Endpoint.get("users" / int("userId")).header(HeaderCodec.location).out[User]
+    Endpoint
+      .get("users" / int("userId") ?? Doc.p("The unique identifier of the user"))
+      .header(HeaderCodec.location ?? Doc.p("The user's location"))
+      .out[User]
 
   val getUserPosts =
     Endpoint
-      .get("users" / int("userId") / "posts" / int("postId"))
-      .query(query("name"))
+      .get(
+        "users" / int("userId") ?? Doc.p("The unique identifier of the user") / "posts" / int("postId") ?? Doc.p(
+          "The unique identifier of the post",
+        ),
+      )
+      .query(query("name") ?? Doc.p("The user's name"))
       .out[List[Post]]
 
   val createUser =
@@ -581,21 +612,22 @@ object Test extends scala.App {
       .in[User]
       .out[String]
 
-  val cliRequest = CliRequest(
-    URL.fromString("http://test.com").right.get,
-    model.Method.GET,
-    QueryParams.empty,
-    model.Headers.empty,
-    Json.Null,
-  )
+  val cliRequest =
+    CliRequest(
+      URL.fromString("http://test.com").right.get,
+      model.Method.GET,
+      QueryParams.empty,
+      model.Headers.empty,
+      Json.Null,
+    )
 
   val cliEndpoints1 = CliEndpoint.fromEndpoint(getUser).asInstanceOf[Set[CliEndpoint[(((Unit, BigInt), Unit), String)]]]
-  println(cliEndpoints1.map(_.options.helpDoc.toPlaintext()))
-  println(cliEndpoints1.map(_.embed(((((), 1000), ()), "test-location"), cliRequest)))
+  println(cliEndpoints1.map(_.options.helpDoc.toPlaintext()).head)
+  println(cliEndpoints1.map(_.embed(((((), 1000), ()), "test-location"), cliRequest)).head)
 
   val cliEndpoints2 = CliEndpoint.fromEndpoint(getUserPosts)
-  println(cliEndpoints2.map(_.options.helpDoc.toPlaintext()))
+  println(cliEndpoints2.map(_.options.helpDoc.toPlaintext()).head)
 
   val cliEndpoints3 = CliEndpoint.fromEndpoint(createUser)
-  println(cliEndpoints3.map(_.options.helpDoc.toPlaintext()))
+  println(cliEndpoints3.map(_.options.helpDoc.toPlaintext()).head)
 }
