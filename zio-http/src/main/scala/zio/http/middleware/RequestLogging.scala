@@ -22,8 +22,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Clock, LogAnnotation, LogLevel, Trace, ZIO}
 
 import zio.http._
-import zio.http.model.Headers.Header
-import zio.http.model.Status
+import zio.http.model.{Header, Status}
 
 private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
 
@@ -45,14 +44,14 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
         patch <- ZIO
           .logLevel(level(response.status)) {
             val requestHeaders  =
-              request.headers.toList.collect {
-                case Header(name, value) if loggedRequestHeaders.contains(name.toString) =>
-                  LogAnnotation(name.toString, value.toString)
+              request.headers.collect {
+                case header: Header if loggedRequestHeaders.contains(header.headerName.toString) =>
+                  LogAnnotation(header.headerName.toString, header.renderedValue.toString)
               }.toSet
             val responseHeaders =
-              response.headers.toList.collect {
-                case Header(name, value) if loggedResponseHeader.contains(name.toString) =>
-                  LogAnnotation(name.toString, value.toString)
+              response.headers.collect {
+                case header: Header if loggedResponseHeader.contains(header.headerName.toString) =>
+                  LogAnnotation(header.headerName.toString, header.renderedValue.toString)
               }.toSet
 
             val requestBody  = if (request.body.isComplete) request.body.asChunk.option else ZIO.none

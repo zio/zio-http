@@ -21,7 +21,6 @@ import java.util.Base64
 import zio.Duration
 
 import zio.http._
-import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
 import zio.http.model._
 
 /**
@@ -82,12 +81,12 @@ trait HeaderConstructors {
   final def basicAuthorizationHeader(username: String, password: String): Headers = {
     val authString    = String.format("%s:%s", username, password)
     val encodedAuthCB = new String(Base64.getEncoder.encode(authString.getBytes(HTTP_CHARSET)), HTTP_CHARSET)
-    val value         = String.format("%s %s", BasicSchemeName, encodedAuthCB)
+    val value         = String.format("Basic %s", encodedAuthCB)
     Headers(HeaderNames.authorization, value)
   }
 
   final def bearerAuthorizationHeader(token: String): Headers = {
-    val value = String.format("%s %s", BearerSchemeName, token)
+    val value = String.format("Bearer %s", token)
     Headers(HeaderNames.authorization, value)
   }
 

@@ -28,7 +28,7 @@ final case class Request(
   url: URL,
   version: Version,
   remoteAddress: Option[InetAddress],
-) extends HeaderExtension[Request] { self =>
+) extends HeaderOps[Request] { self =>
 
   /**
    * Add trailing slash to the path.

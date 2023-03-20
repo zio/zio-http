@@ -16,11 +16,9 @@
 
 package zio.http.model
 
-import scala.jdk.CollectionConverters._
+import zio.Chunk
 
 import zio.http.model.headers._
-
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
 
 /**
  * Represents an immutable collection of headers. It extends HeaderExtensions
@@ -32,7 +30,7 @@ import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders}
  * `HeaderExtension`.
  */
 
-sealed trait Headers extends HeaderExtension[Headers] with HeaderIterable {
+sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
   self =>
   final def ++(other: Headers): Headers = self.combine(other)
 
@@ -58,86 +56,24 @@ sealed trait Headers extends HeaderExtension[Headers] with HeaderIterable {
 
   override final def updateHeaders(update: Headers => Headers): Headers = update(self)
 
-  final def when(cond: Boolean): Headers = if (cond) self else Headers.EmptyHeaders
+  final def when(cond: Boolean): Headers = if (cond) self else Headers.Empty
 
 }
 
 object Headers extends HeaderConstructors {
 
-  final case class Header(key: CharSequence, value: CharSequence)
-      extends Product2[CharSequence, CharSequence]
-      with Headers {
-    self =>
-
-    override def _1: CharSequence = key
-
-    override def _2: CharSequence = value
-
-    private[http] override def getUnsafe(key: CharSequence): String =
-      if (key == _1) _2.toString else null
-
-    override def hashCode(): Int = {
-      var h       = 0
-      val kLength = key.length()
-      var i       = 0
-      while (i < kLength) {
-        h = 17 * h + key.charAt(i)
-        i = i + 1
-      }
-      i = 0
-      val vLength = value.length()
-      while (i < vLength) {
-        h = 17 * h + value.charAt(i)
-        i = i + 1
-      }
-      h
-    }
-
-    override def equals(that: Any): Boolean = {
-      that match {
-        case Header(k, v) =>
-          def eqs(l: CharSequence, r: CharSequence): Boolean = {
-            if (l.length() != r.length()) false
-            else {
-              var i     = 0
-              var equal = true
-
-              while (i < l.length()) {
-                if (l.charAt(i) != r.charAt(i)) {
-                  equal = false
-                  i = l.length()
-                }
-                i = i + 1
-              }
-              equal
-            }
-          }
-
-          eqs(self.key, k) && eqs(self.value, v)
-
-        case _ => false
-      }
-    }
-
-    override def iterator: Iterator[Header] =
-      Iterator.single(self)
-
-    override def toString(): String = (key, value).toString()
-
-  }
-
   private[zio] final case class FromIterable(iter: Iterable[Header]) extends Headers {
     self =>
 
     override def iterator: Iterator[Header] =
-      iter.iterator.flatMap(_.iterator)
+      iter.iterator
 
     private[http] override def getUnsafe(key: CharSequence): String = {
       val it = iter.iterator
       while (it.hasNext) {
         val entry = iterator.next()
-        if (entry.key == key) {
-          return entry.value.toString
+        if (entry.headerName == key) {
+          return entry.renderedValue.toString
         }
       }
 
@@ -167,8 +103,7 @@ object Headers extends HeaderConstructors {
     }
   }
 
-  private[zio] case object EmptyHeaders extends Headers {
-    self =>
+  private[zio] case object Empty extends Headers {
 
     override def iterator: Iterator[Header] =
       Iterator.empty
@@ -176,21 +111,18 @@ object Headers extends HeaderConstructors {
     private[http] override def getUnsafe(key: CharSequence): String = null
   }
 
-  private[http] val BasicSchemeName  = "Basic"
-  private[http] val BearerSchemeName = "Bearer"
+  def apply(name: CharSequence, value: CharSequence): Headers = Headers.FromIterable(Chunk(Header.Custom(name, value)))
 
-  def apply(name: CharSequence, value: CharSequence): Headers = Headers.Header(name, value)
-
-  def apply(tuple2: (CharSequence, CharSequence)): Headers = Headers.Header(tuple2._1, tuple2._2)
+  def apply(tuple2: (CharSequence, CharSequence)): Headers = apply(tuple2._1, tuple2._2)
 
   def apply(headers: Header*): Headers = FromIterable(headers)
 
   def apply(iter: Iterable[Header]): Headers = FromIterable(iter)
 
-  def empty: Headers = EmptyHeaders
+  def empty: Headers = Empty
 
   def ifThenElse(cond: Boolean)(onTrue: => Headers, onFalse: => Headers): Headers = if (cond) onTrue else onFalse
 
-  def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else EmptyHeaders
+  def when(cond: Boolean)(headers: => Headers): Headers = if (cond) headers else Empty
 
 }

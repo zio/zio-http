@@ -16,15 +16,13 @@
 
 package zio.http.middleware
 
-import java.io.IOException
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Console, Duration, Trace, ZIO}
 
 import zio.http._
 import zio.http.middleware.RequestHandlerMiddlewares.{InterceptPatch, InterceptPatchZIO}
+import zio.http.model._
 import zio.http.model.headers.HeaderModifier
-import zio.http.model.{Cookie, HeaderNames, Headers, Method, Status}
 
 private[zio] trait RequestHandlerMiddlewares
     extends RequestLogging
@@ -37,7 +35,7 @@ private[zio] trait RequestHandlerMiddlewares
    * Sets cookie in response headers
    */
   final def addCookie(cookie: Cookie[Response]): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    withSetCookie(cookie)
+    withHeader(Header.ResponseCookie(cookie))
 
   final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]])(implicit
     trace: Trace,
@@ -265,9 +263,9 @@ private[zio] trait RequestHandlerMiddlewares
    */
   final def signCookies(secret: String): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     updateHeaders {
-      case h if h.header(HeaderNames.setCookie).isDefined =>
+      case h if h.header(Header.ResponseCookie).isDefined =>
         Cookie
-          .decode[Response](h.header(HeaderNames.setCookie).get._2.toString)
+          .decode[Response](h.header(Header.ResponseCookie).get.value.toString)
           .map(_.sign(secret))
           .map { cookie => Headers.setCookie(cookie) }
           .getOrElse(h)

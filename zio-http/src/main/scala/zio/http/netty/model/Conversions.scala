@@ -57,17 +57,17 @@ private[netty] object Conversions {
 
   def headersToNetty(headers: Headers): HttpHeaders =
     headers match {
-      case Headers.Header(_, _)        => encodeHeaderListToNetty(headers.toList)
       case Headers.FromIterable(_)     => encodeHeaderListToNetty(headers.toList)
       case Headers.Native(value, _, _) => value.asInstanceOf[HttpHeaders]
       case Headers.Concat(_, _)        => encodeHeaderListToNetty(headers.toList)
-      case Headers.EmptyHeaders        => new DefaultHttpHeaders()
+      case Headers.Empty               => new DefaultHttpHeaders()
     }
 
   def headersFromNetty(headers: HttpHeaders): Headers =
     Headers.Native(
       headers,
-      (headers: HttpHeaders) => headers.entries().asScala.map(e => Header(e.getKey, e.getValue)).iterator,
+      (headers: HttpHeaders) =>
+        headers.iteratorCharSequence().asScala.map(e => Header.Custom(e.getKey, e.getValue)).iterator,
       (headers: HttpHeaders, key: CharSequence) => {
         val iterator       = headers.iteratorCharSequence()
         var result: String = null
@@ -82,17 +82,25 @@ private[netty] object Conversions {
       },
     )
 
-  private def encodeHeaderListToNetty(headersList: List[Product2[CharSequence, CharSequence]]): HttpHeaders = {
+  private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {
     val (exceptions, regularHeaders) =
-      headersList.partition(h => h._1.toString.contains(HeaderNames.setCookie.toString))
-    val combinedHeaders              = regularHeaders
-      .groupBy(_._1)
-      .map { case (key, tuples) =>
-        key -> tuples.map(_._2).mkString(",")
-      }
+      headers.partition(h => h.headerName.toString.contains(HeaderNames.setCookie.toString))
+    val combinedHeaders              =
+      regularHeaders
+        .groupBy(_.headerName)
+        .map { case (key, tuples) =>
+          Header.Custom(
+            key,
+            if (tuples.knownSize == 1)
+              tuples.head.renderedValue
+            else
+              tuples.map(_.renderedValue).mkString(","),
+          )
+        }
+
     (exceptions ++ combinedHeaders)
       .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>
-        headers.add(entry._1, entry._2)
+        headers.add(entry.headerName, entry.renderedValue)
       }
   }
 

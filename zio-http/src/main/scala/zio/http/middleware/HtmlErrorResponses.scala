@@ -18,10 +18,11 @@ package zio.http.middleware
 
 import java.io.{PrintWriter, StringWriter}
 
+import zio.NonEmptyChunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.html._
-import zio.http.model.{HeaderNames, HeaderValues, Headers}
+import zio.http.model.{Header, HeaderNames, Headers, MediaType}
 import zio.http.{Body, Request, Response, model}
 
 private[zio] trait HtmlErrorResponses {
@@ -51,18 +52,18 @@ private[zio] trait HtmlErrorResponses {
     }
 
     if (response.status.isError) {
-      request.accept match {
-        case Some(value) if value.toString.contains(HeaderValues.textHtml) =>
+      request.header(Header.Accept) match {
+        case Some(value) if value.mimeTypes.exists(_.mediaType == MediaType.text.`html`) =>
           response.copy(
             body = htmlResponse,
-            headers = Headers(HeaderNames.contentType, model.HeaderValues.textHtml),
+            headers = Headers(Header.ContentType(MediaType.text.`html`)),
           )
-        case Some(value) if value.toString.equals("*/*")                   =>
+        case Some(value) if value.renderedValue == "*/*"                                 =>
           response.copy(
             body = textResponse,
-            headers = Headers(HeaderNames.contentType, model.HeaderValues.textPlain),
+            headers = Headers(Header.ContentType(MediaType.text.`plain`)),
           )
-        case _                                                             => response
+        case _                                                                           => response
       }
 
     } else

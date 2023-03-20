@@ -22,10 +22,10 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.Response._
 import zio.http.html.Html
 import zio.http.model._
-import zio.http.model.headers.HeaderExtension
+import zio.http.model.headers.HeaderOps
 import zio.http.socket._
 
-sealed trait Response extends HeaderExtension[Response] { self =>
+sealed trait Response extends HeaderOps[Response] { self =>
 
   def addCookie(cookie: Cookie[Response]): Response =
     self.copy(headers = self.headers ++ Headers.setCookie(cookie))

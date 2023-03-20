@@ -26,7 +26,8 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.stream.ZStream
 
 import zio.http.Http.{Empty, Route}
-import zio.http.model.{HeaderNames, Headers, MediaType, Status}
+import zio.http.model.Header.HeaderType
+import zio.http.model.{Header, HeaderNames, Headers, MediaType, Status}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 
 sealed trait Http[-R, +Err, -In, +Out] { self =>
@@ -390,7 +391,13 @@ object Http {
             // case of RandomAccessFile transfers as browsers use the MIME type,
             // not the file extension, to determine how to process a URL.
             // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-            Some(Handler.succeed(determineMediaType(pathName).fold(response)(response.withMediaType)))
+            Some(
+              Handler.succeed(
+                determineMediaType(pathName).fold(response)(mediaType =>
+                  response.withHeader(Header.ContentType(mediaType)),
+                ),
+              ),
+            )
           } else None
         }.mapError(Some(_)).flatMap {
           case Some(value) => ZIO.succeed(value)
@@ -564,17 +571,20 @@ object Http {
     def body(implicit trace: Trace): Http[R, Err, In, Body] =
       self.map(_.body)
 
-    def contentLength(implicit trace: Trace): Http[R, Err, In, Option[Long]] =
-      self.map(_.contentLength)
+    def contentLength(implicit trace: Trace): Http[R, Err, In, Option[Header.ContentLength]] =
+      self.map(_.header(Header.ContentLength))
 
-    def contentType(implicit trace: Trace): Http[R, Err, In, Option[String]] =
-      headerValue(HeaderNames.contentType)
+    def contentType(implicit trace: Trace): Http[R, Err, In, Option[Header.ContentType]] =
+      self.map(_.header(Header.ContentType))
 
     def headers(implicit trace: Trace): Http[R, Err, In, Headers] =
       self.map(_.headers)
 
-    def headerValue(name: CharSequence)(implicit trace: Trace): Http[R, Err, In, Option[String]] =
-      self.map(_.headerValue(name))
+    def headerValue(headerType: HeaderType)(implicit trace: Trace): Http[R, Err, In, Option[headerType.HeaderValue]] =
+      self.map(_.header(headerType))
+
+    def rawHeaderValue(name: CharSequence)(implicit trace: Trace): Http[R, Err, In, Option[String]] =
+      self.map(_.rawHeader(name))
 
     def status(implicit trace: Trace): Http[R, Err, In, Status] =
       self.map(_.status)
@@ -623,7 +633,9 @@ object Http {
                 .flatMap { case (entry, jar) => ZStream.fromInputStream(jar.getInputStream(entry)) }
               response      = Response(body = Body.fromStream(inZStream))
             } yield mediaType.fold(response) { t =>
-              response.withMediaType(t).withContentLength(contentLength)
+              response
+                .withHeader(Header.ContentType(t))
+                .withHeader(Header.ContentLength(contentLength))
             }
           }
 

@@ -69,14 +69,15 @@ object Boundary {
   def fromHeaders(headers: Headers): Option[Boundary] = {
 
     val charset =
-      headers.contentType
-        .flatMap(value => Header("Content-Type", value.toString()).fields.get("charset"))
+      headers
+        .rawHeader(zio.http.model.Header.ContentType)
+        .flatMap(value => Header("Content-Type", value).fields.get("charset"))
         .map(Charset.forName)
         .getOrElse(StandardCharsets.UTF_8)
 
     for {
-      disp     <- headers.contentDisposition
-      boundary <- Header("Content-Disposition", disp.toString()).fields.get("boundary")
+      disp     <- headers.rawHeader(zio.http.model.Header.ContentDisposition)
+      boundary <- Header("Content-Disposition", disp).fields.get("boundary")
 
     } yield Boundary(boundary, charset)
 

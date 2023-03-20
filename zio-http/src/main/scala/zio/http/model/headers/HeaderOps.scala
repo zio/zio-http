@@ -14,27 +14,14 @@
  * limitations under the License.
  */
 
-package zio.http.model.headers.values
-
-import zio.http.URL
+package zio.http.model.headers
 
 /**
- * Location header value.
+ * A trait that provides a ton of powerful operators when extended. Any type
+ * that extends HeaderExtension needs to implement the two methods viz.
+ * `getHeaders` and `updateHeaders`. All other operators are built on top these
+ * two methods.
  */
-final case class Location(url: URL)
-
-object Location {
-
-  def parse(value: String): Either[String, Location] = {
-    if (value == "") Left("Invalid Location header")
-    else
-      URL
-        .fromString(value)
-        .left
-        .map(_ => "Invalid Location header")
-        .map(url => Location(url))
-  }
-
-  def render(urlLocation: Location): String =
-    urlLocation.url.toJavaURL.fold("")(_.toString())
+private[zio] trait HeaderOps[+A] extends HeaderModifier[A] with HeaderGetters with HeaderChecks[A] {
+  self: A =>
 }

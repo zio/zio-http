@@ -16,17 +16,10 @@
 
 package zio.http.endpoint
 
-import java.util.Base64
-
 import zio.ZIO
 
 import zio.http.codec._
-import zio.http.middleware.Auth
-import zio.http.middleware.Auth.Credentials
-import zio.http.model.Headers.BasicSchemeName
-import zio.http.model.headers.values._
-import zio.http.model.{Cookie, HTTP_CHARSET, HeaderNames, Headers, Method}
-import zio.http.{Request, Response}
+import zio.http.model.{Header, Method}
 
 /**
  * A description of endpoint middleware, in terms of what the middleware
@@ -146,29 +139,29 @@ object EndpointMiddleware       {
   def addHeader[A](headerCodec: HeaderCodec[A]): EndpointMiddleware.Typed[Unit, Nothing, A] =
     EndpointMiddleware(HttpCodec.empty, headerCodec)
 
-  val auth: EndpointMiddleware.Typed[WWWAuthenticate, Nothing, Unit] =
+  val auth: EndpointMiddleware.Typed[Header.WWWAuthenticate, Nothing, Unit] =
     requireHeader(HeaderCodec.wwwAuthenticate)
 
-  def cookie: EndpointMiddleware.Typed[RequestCookie, Nothing, Unit] =
+  def cookie: EndpointMiddleware.Typed[Header.RequestCookie, Nothing, Unit] =
     requireHeader(HeaderCodec.cookie)
 
   type CorsInput =
-    Either[(Origin, AccessControlRequestMethod), (Method, Origin)]
+    Either[(Header.Origin, Header.AccessControlRequestMethod), (Method, Header.Origin)]
 
   type CorsError =
     (
-      AccessControlAllowHeaders,
-      AccessControlAllowOrigin,
-      AccessControlAllowMethods,
-      Option[AccessControlAllowCredentials],
+      Header.AccessControlAllowHeaders,
+      Header.AccessControlAllowOrigin,
+      Header.AccessControlAllowMethods,
+      Option[Header.AccessControlAllowCredentials],
     )
 
   type CorsOutput =
     (
-      AccessControlExposeHeaders,
-      AccessControlAllowOrigin,
-      AccessControlAllowMethods,
-      Option[AccessControlAllowCredentials],
+      Header.AccessControlExposeHeaders,
+      Header.AccessControlAllowOrigin,
+      Header.AccessControlAllowMethods,
+      Option[Header.AccessControlAllowCredentials],
     )
 
   val cors: EndpointMiddleware.Typed[CorsInput, CorsError, CorsOutput] =
