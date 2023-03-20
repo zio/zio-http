@@ -61,7 +61,7 @@ final case class CliEndpoint[A](
 
   def ??(description: String) = self.copy(options = options ?? description)
 
-  lazy val command: Command[_] = {
+  lazy val command: Command[A] = {
     Command(
       self.commandNames
         .sortBy(_.isRight)
