@@ -417,7 +417,7 @@ object CliEndpoint                                                              
                   Options.yearMonth(prefix.mkString(".")), // FIXME
                 ),
               )
-            case StandardType.BinaryType         => ???
+            case StandardType.BinaryType         => ??? // TODO
             case StandardType.LocalTimeType      =>
               Set(
                 CliEndpoint[java.time.LocalTime](
@@ -530,9 +530,9 @@ object CliEndpoint                                                              
               )
           }
         case Schema.Fail(_, _)                    => Set.empty
-        case Schema.Map(_, _, _)                  => ???
-        case Schema.Sequence(_, _, _, _, _)       => ???
-        case Schema.Set(_, _)                     => ???
+        case Schema.Map(_, _, _)                  => ??? // TODO
+        case Schema.Sequence(_, _, _, _, _)       => ??? // TODO
+        case Schema.Set(_, _)                     => ??? // TODO
         case Schema.Lazy(schema0)                 => loop(prefix, schema0())
         case Schema.Dynamic(_)                    => Set.empty
         case Schema.Either(left, right, _)        => loop(prefix, left) ++ loop(prefix, right)
