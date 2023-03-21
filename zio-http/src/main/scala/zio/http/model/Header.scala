@@ -16,7 +16,6 @@ import zio._
 
 import zio.http._
 import zio.http.model.Header.Authorization.AuthScheme
-import zio.http.model.Header.HeaderType.Aux
 
 sealed trait Header {
   def headerName: CharSequence
@@ -35,11 +34,11 @@ object Header {
   }
 
   object HeaderType {
-    type Aux[HV] = HeaderType { type HeaderValue = HV }
+    type Typed[HV] = HeaderType { type HeaderValue = HV }
   }
 
   sealed trait HeaderValue[H <: Header] { self: H =>
-    def headerType: HeaderType.Aux[H]
+    def headerType: HeaderType.Typed[H]
 
     final def headerName: CharSequence = headerType.name
 
@@ -49,7 +48,7 @@ object Header {
   final case class Custom(customName: CharSequence, value: CharSequence) extends Header with HeaderValue[Custom] {
     self =>
 
-    override def headerType: HeaderType.Aux[Custom] = new HeaderType {
+    override def headerType: HeaderType.Typed[Custom] = new HeaderType {
       override type HeaderValue = Custom
 
       override def name: CharSequence = self.customName
@@ -108,7 +107,7 @@ object Header {
   final case class Accept(mimeTypes: NonEmptyChunk[Accept.MediaTypeWithQFactor])
       extends Header
       with HeaderValue[Accept] {
-    override def headerType: HeaderType.Aux[Accept] = Accept
+    override def headerType: HeaderType.Typed[Accept] = Accept
   }
 
   object Accept extends HeaderType {
@@ -160,7 +159,7 @@ object Header {
    * Represents an AcceptEncoding header value.
    */
   sealed trait AcceptEncoding extends Header with HeaderValue[AcceptEncoding] {
-    override def headerType: HeaderType.Aux[AcceptEncoding] = AcceptEncoding
+    override def headerType: HeaderType.Typed[AcceptEncoding] = AcceptEncoding
 
     val raw: String
   }
@@ -310,7 +309,7 @@ object Header {
    * locale that the client prefers.
    */
   sealed trait AcceptLanguage extends Header with HeaderValue[AcceptLanguage] {
-    override def headerType: HeaderType.Aux[AcceptLanguage] = AcceptLanguage
+    override def headerType: HeaderType.Typed[AcceptLanguage] = AcceptLanguage
   }
 
   object AcceptLanguage extends HeaderType {
@@ -385,7 +384,7 @@ object Header {
    * server is able to understand in a PATCH request.
    */
   final case class AcceptPatch(mediaTypes: NonEmptyChunk[MediaType]) extends Header with HeaderValue[AcceptPatch] {
-    override def headerType: HeaderType.Aux[AcceptPatch] = AcceptPatch
+    override def headerType: HeaderType.Typed[AcceptPatch] = AcceptPatch
   }
 
   object AcceptPatch extends HeaderType {
@@ -430,7 +429,7 @@ object Header {
    * possible values.
    */
   sealed trait AcceptRanges extends Header with HeaderValue[AcceptRanges] {
-    override def headerType: HeaderType.Aux[AcceptRanges] = AcceptRanges
+    override def headerType: HeaderType.Typed[AcceptRanges] = AcceptRanges
 
     val encodedName: String
   }
@@ -459,7 +458,7 @@ object Header {
   }
 
   sealed trait AccessControlAllowCredentials extends Header with HeaderValue[AccessControlAllowCredentials] {
-    override def headerType: HeaderType.Aux[AccessControlAllowCredentials] = AccessControlAllowCredentials
+    override def headerType: HeaderType.Typed[AccessControlAllowCredentials] = AccessControlAllowCredentials
   }
 
   object AccessControlAllowCredentials extends HeaderType {
@@ -505,7 +504,7 @@ object Header {
   }
 
   sealed trait AccessControlAllowHeaders extends Header with HeaderValue[AccessControlAllowHeaders] {
-    override def headerType: HeaderType.Aux[AccessControlAllowHeaders] = AccessControlAllowHeaders
+    override def headerType: HeaderType.Typed[AccessControlAllowHeaders] = AccessControlAllowHeaders
   }
 
   /**
@@ -553,7 +552,7 @@ object Header {
   }
 
   sealed trait AccessControlAllowMethods extends Header with HeaderValue[AccessControlAllowMethods] {
-    override def headerType: HeaderType.Aux[AccessControlAllowMethods] = AccessControlAllowMethods
+    override def headerType: HeaderType.Typed[AccessControlAllowMethods] = AccessControlAllowMethods
   }
 
   object AccessControlAllowMethods extends HeaderType {
@@ -612,7 +611,7 @@ object Header {
    * null Specifies the origin "null".
    */
   final case class AccessControlAllowOrigin(origin: String) extends Header with HeaderValue[AccessControlAllowOrigin] {
-    override def headerType: HeaderType.Aux[AccessControlAllowOrigin] = AccessControlAllowOrigin
+    override def headerType: HeaderType.Typed[AccessControlAllowOrigin] = AccessControlAllowOrigin
   }
 
   object AccessControlAllowOrigin extends HeaderType {
@@ -646,7 +645,7 @@ object Header {
    * in the browser, in response to a cross-origin request.
    */
   sealed trait AccessControlExposeHeaders extends Header with HeaderValue[AccessControlExposeHeaders] {
-    override def headerType: HeaderType.Aux[AccessControlExposeHeaders] = AccessControlExposeHeaders
+    override def headerType: HeaderType.Typed[AccessControlExposeHeaders] = AccessControlExposeHeaders
   }
 
   object AccessControlExposeHeaders extends HeaderType {
@@ -702,7 +701,7 @@ object Header {
    * seconds.
    */
   final case class AccessControlMaxAge(duration: Duration) extends Header with HeaderValue[AccessControlMaxAge] {
-    override def headerType: HeaderType.Aux[AccessControlMaxAge] = AccessControlMaxAge
+    override def headerType: HeaderType.Typed[AccessControlMaxAge] = AccessControlMaxAge
   }
 
   object AccessControlMaxAge extends HeaderType {
@@ -724,7 +723,7 @@ object Header {
   final case class AccessControlRequestHeaders(values: NonEmptyChunk[String])
       extends Header
       with HeaderValue[AccessControlRequestHeaders] {
-    override def headerType: HeaderType.Aux[AccessControlRequestHeaders] = AccessControlRequestHeaders
+    override def headerType: HeaderType.Typed[AccessControlRequestHeaders] = AccessControlRequestHeaders
   }
 
   /**
@@ -753,7 +752,7 @@ object Header {
   final case class AccessControlRequestMethod(method: Method)
       extends Header
       with HeaderValue[AccessControlRequestMethod] {
-    override def headerType: HeaderType.Aux[AccessControlRequestMethod] = AccessControlRequestMethod
+    override def headerType: HeaderType.Typed[AccessControlRequestMethod] = AccessControlRequestMethod
   }
 
   object AccessControlRequestMethod extends HeaderType {
@@ -775,7 +774,7 @@ object Header {
    * Age header value.
    */
   final case class Age(duration: Duration) extends Header with HeaderValue[Age] {
-    override def headerType: HeaderType.Aux[Age] = Age
+    override def headerType: HeaderType.Typed[Age] = Age
   }
 
   object Age extends HeaderType {
@@ -799,7 +798,7 @@ object Header {
    * Allowed status code to indicate which request methods can be used.
    */
   final case class Allow(methods: NonEmptyChunk[Method]) extends Header with HeaderValue[Allow] {
-    override def headerType: HeaderType.Aux[Allow] = Allow
+    override def headerType: HeaderType.Typed[Allow] = Allow
   }
 
   object Allow extends HeaderType {
@@ -940,7 +939,7 @@ object Header {
    * [[AuthScheme]].
    */
   final case class Authorization(authScheme: AuthScheme) extends Header with HeaderValue[Authorization] {
-    override def headerType: HeaderType.Aux[Authorization] = Authorization
+    override def headerType: HeaderType.Typed[Authorization] = Authorization
   }
 
   object Authorization extends HeaderType {
@@ -1080,7 +1079,7 @@ object Header {
    * CacheControl header value.
    */
   sealed trait CacheControl extends Header with HeaderValue[CacheControl] {
-    override def headerType: Aux[CacheControl] = CacheControl
+    override def headerType: HeaderType.Typed[CacheControl] = CacheControl
 
     val raw: String
   }
@@ -1336,7 +1335,7 @@ object Header {
    * Connection header value.
    */
   sealed trait Connection extends Header with HeaderValue[Connection] {
-    override def headerType: HeaderType.Aux[Connection] = Connection
+    override def headerType: HeaderType.Typed[Connection] = Connection
 
     val value: String
   }
@@ -1379,7 +1378,7 @@ object Header {
   }
 
   final case class ContentBase(uri: URI) extends Header with HeaderValue[ContentBase] {
-    override def headerType: HeaderType.Aux[ContentBase] = ContentBase
+    override def headerType: HeaderType.Typed[ContentBase] = ContentBase
   }
 
   object ContentBase extends HeaderType {
@@ -1397,7 +1396,7 @@ object Header {
   }
 
   sealed trait ContentDisposition extends Header with HeaderValue[ContentDisposition] {
-    override def headerType: HeaderType.Aux[ContentDisposition] = ContentDisposition
+    override def headerType: HeaderType.Typed[ContentDisposition] = ContentDisposition
   }
 
   object ContentDisposition extends HeaderType {
@@ -1453,7 +1452,7 @@ object Header {
   }
 
   sealed trait ContentEncoding extends Header with HeaderValue[ContentEncoding] {
-    override def headerType: HeaderType.Aux[ContentEncoding] = ContentEncoding
+    override def headerType: HeaderType.Typed[ContentEncoding] = ContentEncoding
 
     val encoding: String
   }
@@ -1541,7 +1540,7 @@ object Header {
   }
 
   sealed trait ContentLanguage extends Header with HeaderValue[ContentLanguage] {
-    override def headerType: HeaderType.Aux[ContentLanguage] = ContentLanguage
+    override def headerType: HeaderType.Typed[ContentLanguage] = ContentLanguage
   }
 
   object ContentLanguage extends HeaderType {
@@ -1716,7 +1715,7 @@ object Header {
    * sent to the recipient.
    */
   final case class ContentLength(length: Long) extends Header with HeaderValue[ContentLength] {
-    override def headerType: HeaderType.Aux[ContentLength] = ContentLength
+    override def headerType: HeaderType.Typed[ContentLength] = ContentLength
   }
 
   object ContentLength extends HeaderType {
@@ -1742,7 +1741,7 @@ object Header {
   }
 
   final case class ContentLocation(value: URI) extends Header with HeaderValue[ContentLocation] {
-    override def headerType: HeaderType.Aux[ContentLocation] = ContentLocation
+    override def headerType: HeaderType.Typed[ContentLocation] = ContentLocation
   }
 
   object ContentLocation extends HeaderType {
@@ -1758,7 +1757,7 @@ object Header {
   }
 
   final case class ContentMd5(value: String) extends Header with HeaderValue[ContentMd5] {
-    override def headerType: HeaderType.Aux[ContentMd5] = ContentMd5
+    override def headerType: HeaderType.Typed[ContentMd5] = ContentMd5
   }
 
   object ContentMd5 extends HeaderType {
@@ -1779,7 +1778,7 @@ object Header {
   }
 
   sealed trait ContentRange extends Header with HeaderValue[ContentRange] {
-    override def headerType: HeaderType.Aux[ContentRange] = ContentRange
+    override def headerType: HeaderType.Typed[ContentRange] = ContentRange
 
     def start: Option[Int]
 
@@ -1849,7 +1848,7 @@ object Header {
 
   // scalafmt: { maxColumn = 180 }
   sealed trait ContentSecurityPolicy extends Header with HeaderValue[ContentSecurityPolicy] {
-    override def headerType: HeaderType.Aux[ContentSecurityPolicy] = ContentSecurityPolicy
+    override def headerType: HeaderType.Typed[ContentSecurityPolicy] = ContentSecurityPolicy
   }
 
   // TODO: Should we make deprecated types deprecated in code?
@@ -2326,7 +2325,7 @@ object Header {
   }
 
   sealed trait ContentTransferEncoding extends Header with HeaderValue[ContentTransferEncoding] {
-    override def headerType: HeaderType.Aux[ContentTransferEncoding] = ContentTransferEncoding
+    override def headerType: HeaderType.Typed[ContentTransferEncoding] = ContentTransferEncoding
   }
 
   object ContentTransferEncoding extends HeaderType {
@@ -2371,7 +2370,7 @@ object Header {
   }
 
   final case class ContentType(value: MediaType) extends Header with HeaderValue[ContentType] {
-    override def headerType: HeaderType.Aux[ContentType] = ContentType
+    override def headerType: HeaderType.Typed[ContentType] = ContentType
   }
 
   object ContentType extends HeaderType {
@@ -2386,7 +2385,7 @@ object Header {
   }
 
   final case class Date(value: ZonedDateTime) extends Header with HeaderValue[Date] {
-    override def headerType: HeaderType.Aux[Date] = Date
+    override def headerType: HeaderType.Typed[Date] = Date
   }
 
   /**
@@ -2408,7 +2407,7 @@ object Header {
   }
 
   sealed trait DNT extends Header with HeaderValue[DNT] {
-    override def headerType: HeaderType.Aux[DNT] = DNT
+    override def headerType: HeaderType.Typed[DNT] = DNT
   }
 
   object DNT extends HeaderType {
@@ -2440,7 +2439,7 @@ object Header {
   }
 
   sealed trait ETag extends Header with HeaderValue[ETag] {
-    override def headerType: HeaderType.Aux[ETag] = ETag
+    override def headerType: HeaderType.Typed[ETag] = ETag
   }
 
   object ETag extends HeaderType {
@@ -2475,7 +2474,7 @@ object Header {
    * expectation: 100-continue
    */
   sealed trait Expect extends Header with HeaderValue[Expect] {
-    override def headerType: HeaderType.Aux[Expect] = Expect
+    override def headerType: HeaderType.Typed[Expect] = Expect
     val value: String
   }
 
@@ -2499,7 +2498,7 @@ object Header {
   }
 
   final case class Expires(value: ZonedDateTime) extends Header with HeaderValue[Expires] {
-    override def headerType: HeaderType.Aux[Expires] = Expires
+    override def headerType: HeaderType.Typed[Expires] = Expires
   }
 
   /**
@@ -2533,7 +2532,7 @@ object Header {
 
   /** From header value. */
   final case class From(email: String) extends Header with HeaderValue[From] {
-    override def headerType: HeaderType.Aux[From] = From
+    override def headerType: HeaderType.Typed[From] = From
   }
 
   object From extends HeaderType {
@@ -2555,7 +2554,7 @@ object Header {
   }
 
   final case class Host(hostAddress: String, port: Option[Int] = None) extends Header with HeaderValue[Host] {
-    override def headerType: HeaderType.Aux[Host] = Host
+    override def headerType: HeaderType.Typed[Host] = Host
   }
 
   object Host extends HeaderType {
@@ -2584,7 +2583,7 @@ object Header {
   }
 
   sealed trait IfMatch extends Header with HeaderValue[IfMatch] {
-    override def headerType: HeaderType.Aux[IfMatch] = IfMatch
+    override def headerType: HeaderType.Typed[IfMatch] = IfMatch
   }
 
   object IfMatch extends HeaderType {
@@ -2616,7 +2615,7 @@ object Header {
   }
 
   final case class IfModifiedSince(value: ZonedDateTime) extends Header with HeaderValue[IfModifiedSince] {
-    override def headerType: HeaderType.Aux[IfModifiedSince] = IfModifiedSince
+    override def headerType: HeaderType.Typed[IfModifiedSince] = IfModifiedSince
   }
 
   object IfModifiedSince extends HeaderType {
@@ -2634,7 +2633,7 @@ object Header {
   }
 
   sealed trait IfNoneMatch extends Header with HeaderValue[IfNoneMatch] {
-    override def headerType: HeaderType.Aux[IfNoneMatch] = IfNoneMatch
+    override def headerType: HeaderType.Typed[IfNoneMatch] = IfNoneMatch
   }
 
   object IfNoneMatch extends HeaderType {
@@ -2673,7 +2672,7 @@ object Header {
    *     be used in this header.
    */
   sealed trait IfRange extends Header with HeaderValue[IfRange] {
-    override def headerType: HeaderType.Aux[IfRange] = IfRange
+    override def headerType: HeaderType.Typed[IfRange] = IfRange
   }
 
   object IfRange extends HeaderType {
@@ -2704,7 +2703,7 @@ object Header {
   }
 
   final case class IfUnmodifiedSince(value: ZonedDateTime) extends Header with HeaderValue[IfUnmodifiedSince] {
-    override def headerType: HeaderType.Aux[IfUnmodifiedSince] = IfUnmodifiedSince
+    override def headerType: HeaderType.Typed[IfUnmodifiedSince] = IfUnmodifiedSince
   }
 
   /**
@@ -2729,7 +2728,7 @@ object Header {
   }
 
   final case class LastModified(value: ZonedDateTime) extends Header with HeaderValue[LastModified] {
-    override def headerType: HeaderType.Aux[LastModified] = LastModified
+    override def headerType: HeaderType.Typed[LastModified] = LastModified
   }
 
   object LastModified extends HeaderType {
@@ -2750,7 +2749,7 @@ object Header {
    * Location header value.
    */
   final case class Location(url: URL) extends Header with HeaderValue[Location] {
-    override def headerType: HeaderType.Aux[Location] = Location
+    override def headerType: HeaderType.Typed[Location] = Location
   }
 
   object Location extends HeaderType {
@@ -2776,7 +2775,7 @@ object Header {
    * Max-Forwards header value
    */
   final case class MaxForwards(value: Int) extends Header with HeaderValue[MaxForwards] {
-    override def headerType: HeaderType.Aux[MaxForwards] = MaxForwards
+    override def headerType: HeaderType.Typed[MaxForwards] = MaxForwards
   }
 
   object MaxForwards extends HeaderType {
@@ -2797,7 +2796,7 @@ object Header {
 
   /** Origin header value. */
   sealed trait Origin extends Header with HeaderValue[Origin] {
-    override def headerType: HeaderType.Aux[Origin] = Origin
+    override def headerType: HeaderType.Typed[Origin] = Origin
   }
 
   object Origin extends HeaderType {
@@ -2834,7 +2833,7 @@ object Header {
 
   /** Pragma header value. */
   sealed trait Pragma extends Header with HeaderValue[Pragma] {
-    override def headerType: HeaderType.Aux[Pragma] = Pragma
+    override def headerType: HeaderType.Typed[Pragma] = Pragma
   }
 
   object Pragma extends HeaderType {
@@ -2872,7 +2871,7 @@ object Header {
    *   clients often display a formatted host name instead.
    */
   final case class ProxyAuthenticate(scheme: AuthenticationScheme, realm: Option[String]) extends Header with HeaderValue[ProxyAuthenticate] {
-    override def headerType: HeaderType.Aux[ProxyAuthenticate] = ProxyAuthenticate
+    override def headerType: HeaderType.Typed[ProxyAuthenticate] = ProxyAuthenticate
   }
 
   object ProxyAuthenticate extends HeaderType {
@@ -2910,7 +2909,7 @@ object Header {
    * Proxy-Authorization: Basic YWxhZGRpbjpvcGVuc2VzYW1l
    */
   final case class ProxyAuthorization(authenticationScheme: AuthenticationScheme, credential: String) extends Header with HeaderValue[ProxyAuthorization] {
-    override def headerType: HeaderType.Aux[ProxyAuthorization] = ProxyAuthorization
+    override def headerType: HeaderType.Typed[ProxyAuthorization] = ProxyAuthorization
   }
 
   /**
@@ -2939,7 +2938,7 @@ object Header {
   }
 
   sealed trait Range extends Header with HeaderValue[Range] {
-    override def headerType: HeaderType.Aux[Range] = Range
+    override def headerType: HeaderType.Typed[Range] = Range
   }
 
   object Range extends HeaderType {
@@ -3022,7 +3021,7 @@ object Header {
    * Referrer-Policy for more information and examples.
    */
   final case class Referer(url: URL) extends Header with HeaderValue[Referer] {
-    override def headerType: HeaderType.Aux[Referer] = Referer
+    override def headerType: HeaderType.Typed[Referer] = Referer
   }
 
   object Referer extends HeaderType {
@@ -3043,7 +3042,7 @@ object Header {
   }
 
   final case class RequestCookie(value: NonEmptyChunk[model.Cookie[Request]]) extends Header with HeaderValue[RequestCookie] {
-    override def headerType: HeaderType.Aux[RequestCookie] = RequestCookie
+    override def headerType: HeaderType.Typed[RequestCookie] = RequestCookie
   }
 
   /**
@@ -3073,7 +3072,7 @@ object Header {
   }
 
   final case class ResponseCookie(value: model.Cookie[Response]) extends Header with HeaderValue[ResponseCookie] {
-    override def headerType: HeaderType.Aux[ResponseCookie] = ResponseCookie
+    override def headerType: HeaderType.Typed[ResponseCookie] = ResponseCookie
   }
 
   object ResponseCookie extends HeaderType {
@@ -3095,7 +3094,7 @@ object Header {
   }
 
   sealed trait RetryAfter extends Header with HeaderValue[RetryAfter] {
-    override def headerType: HeaderType.Aux[RetryAfter] = RetryAfter
+    override def headerType: HeaderType.Typed[RetryAfter] = RetryAfter
   }
 
   /**
@@ -3145,7 +3144,7 @@ object Header {
   }
 
   final case class SecWebSocketAccept(hashedKey: String) extends Header with HeaderValue[SecWebSocketAccept] {
-    override def headerType: HeaderType.Aux[SecWebSocketAccept] = SecWebSocketAccept
+    override def headerType: HeaderType.Typed[SecWebSocketAccept] = SecWebSocketAccept
   }
 
   /**
@@ -3171,7 +3170,7 @@ object Header {
   }
 
   sealed trait SecWebSocketExtensions extends Header with HeaderValue[SecWebSocketExtensions] {
-    override def headerType: HeaderType.Aux[SecWebSocketExtensions] = SecWebSocketExtensions
+    override def headerType: HeaderType.Typed[SecWebSocketExtensions] = SecWebSocketExtensions
   }
 
   /**
@@ -3261,7 +3260,7 @@ object Header {
   }
 
   final case class SecWebSocketKey(base64EncodedKey: String) extends Header with HeaderValue[SecWebSocketKey] {
-    override def headerType: HeaderType.Aux[SecWebSocketKey] = SecWebSocketKey
+    override def headerType: HeaderType.Typed[SecWebSocketKey] = SecWebSocketKey
   }
 
   /**
@@ -3296,7 +3295,7 @@ object Header {
   }
 
   final case class SecWebSocketLocation(url: URL) extends Header with HeaderValue[SecWebSocketLocation] {
-    override def headerType: HeaderType.Aux[SecWebSocketLocation] = SecWebSocketLocation
+    override def headerType: HeaderType.Typed[SecWebSocketLocation] = SecWebSocketLocation
   }
 
   object SecWebSocketLocation extends HeaderType {
@@ -3319,7 +3318,7 @@ object Header {
   }
 
   final case class SecWebSocketOrigin(url: URL) extends Header with HeaderValue[SecWebSocketOrigin] {
-    override def headerType: HeaderType.Aux[SecWebSocketOrigin] = SecWebSocketOrigin
+    override def headerType: HeaderType.Typed[SecWebSocketOrigin] = SecWebSocketOrigin
   }
 
   /**
@@ -3350,7 +3349,7 @@ object Header {
   }
 
   final case class SecWebSocketProtocol(subProtocols: NonEmptyChunk[String]) extends Header with HeaderValue[SecWebSocketProtocol] {
-    override def headerType: HeaderType.Aux[SecWebSocketProtocol] = SecWebSocketProtocol
+    override def headerType: HeaderType.Typed[SecWebSocketProtocol] = SecWebSocketProtocol
   }
 
   /**
@@ -3382,7 +3381,7 @@ object Header {
   }
 
   final case class SecWebSocketVersion(version: Int) extends Header with HeaderValue[SecWebSocketVersion] {
-    override def headerType: HeaderType.Aux[SecWebSocketVersion] = SecWebSocketVersion
+    override def headerType: HeaderType.Typed[SecWebSocketVersion] = SecWebSocketVersion
   }
 
   /**
@@ -3418,7 +3417,7 @@ object Header {
    * Server header value.
    */
   final case class Server(name: String) extends Header with HeaderValue[Server] {
-    override def headerType: HeaderType.Aux[Server] = Server
+    override def headerType: HeaderType.Typed[Server] = Server
   }
 
   object Server extends HeaderType {
@@ -3438,7 +3437,7 @@ object Header {
   }
 
   sealed trait Te extends Header with HeaderValue[Te] {
-    override def headerType: HeaderType.Aux[Te] = Te
+    override def headerType: HeaderType.Typed[Te] = Te
     def raw: String
   }
 
@@ -3545,7 +3544,7 @@ object Header {
 
   /** Trailer header value. */
   final case class Trailer(header: String) extends Header with HeaderValue[Trailer] {
-    override def headerType: HeaderType.Aux[Trailer] = Trailer
+    override def headerType: HeaderType.Typed[Trailer] = Trailer
   }
 
   object Trailer extends HeaderType {
@@ -3566,7 +3565,7 @@ object Header {
   }
 
   sealed trait TransferEncoding extends Header with HeaderValue[TransferEncoding] {
-    override def headerType: HeaderType.Aux[TransferEncoding] = TransferEncoding
+    override def headerType: HeaderType.Typed[TransferEncoding] = TransferEncoding
     val encoding: String
   }
 
@@ -3653,7 +3652,7 @@ object Header {
   }
 
   sealed trait Upgrade extends Header with HeaderValue[Upgrade] {
-    override def headerType: HeaderType.Aux[Upgrade] = Upgrade
+    override def headerType: HeaderType.Typed[Upgrade] = Upgrade
   }
 
   object Upgrade extends HeaderType {
@@ -3695,7 +3694,7 @@ object Header {
   }
 
   final case class UpgradeInsecureRequests() extends Header with HeaderValue[UpgradeInsecureRequests] {
-    override def headerType: HeaderType.Aux[UpgradeInsecureRequests] = UpgradeInsecureRequests
+    override def headerType: HeaderType.Typed[UpgradeInsecureRequests] = UpgradeInsecureRequests
   }
 
   /**
@@ -3717,7 +3716,7 @@ object Header {
   }
 
   sealed trait UserAgent extends Header with HeaderValue[UserAgent] {
-    override def headerType: HeaderType.Aux[UserAgent] = UserAgent
+    override def headerType: HeaderType.Typed[UserAgent] = UserAgent
   }
 
   /**
@@ -3763,7 +3762,7 @@ object Header {
 
   /** Vary header value. */
   sealed trait Vary extends Header with HeaderValue[Vary] {
-    override def headerType: HeaderType.Aux[Vary] = Vary
+    override def headerType: HeaderType.Typed[Vary] = Vary
   }
 
   object Vary extends HeaderType {
@@ -3796,7 +3795,7 @@ object Header {
   }
 
   sealed trait Via extends Header with HeaderValue[Via] {
-    override def headerType: HeaderType.Aux[Via] = Via
+    override def headerType: HeaderType.Typed[Via] = Via
   }
 
   /**
@@ -3881,7 +3880,7 @@ object Header {
      A warning has the following syntax: <warn-code> <warn-agent> <warn-text> [<warn-date>]
    */
   final case class Warning(code: Int, agent: String, text: String, date: Option[ZonedDateTime] = None) extends Header with HeaderValue[Warning] {
-    override def headerType: HeaderType.Aux[Warning] = Warning
+    override def headerType: HeaderType.Typed[Warning] = Warning
   }
 
   /*
@@ -4002,7 +4001,7 @@ object Header {
   }
 
   sealed trait WWWAuthenticate extends Header with HeaderValue[WWWAuthenticate] {
-    override def headerType: HeaderType.Aux[WWWAuthenticate] = WWWAuthenticate
+    override def headerType: HeaderType.Typed[WWWAuthenticate] = WWWAuthenticate
   }
 
   object WWWAuthenticate extends HeaderType {
@@ -4192,7 +4191,7 @@ object Header {
   }
 
   sealed trait XFrameOptions extends Header with HeaderValue[XFrameOptions] {
-    override def headerType: HeaderType.Aux[XFrameOptions] = XFrameOptions
+    override def headerType: HeaderType.Typed[XFrameOptions] = XFrameOptions
   }
 
   object XFrameOptions extends HeaderType {
@@ -4221,7 +4220,7 @@ object Header {
   }
 
   final case class XRequestedWith(value: String) extends Header with HeaderValue[XRequestedWith] {
-    override def headerType: HeaderType.Aux[XRequestedWith] = XRequestedWith
+    override def headerType: HeaderType.Typed[XRequestedWith] = XRequestedWith
   }
 
   object XRequestedWith extends HeaderType {
