@@ -44,7 +44,7 @@ object DynamicServer {
 
   def app: App[DynamicServer] =
     Http.fromHttpZIO { (req: Request) =>
-      req.headerValue(APP_ID) match {
+      req.rawHeader(APP_ID) match {
         case Some(id) =>
           get(id).map(_.getOrElse(Handler.notFound.toHttp))
         case None     =>

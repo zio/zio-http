@@ -20,6 +20,7 @@ import zio.Scope
 import zio.test.{ZIOSpecDefault, _}
 
 import zio.http.internal.HttpGen
+import zio.http.model.Header.Location
 
 object LocationSpec extends ZIOSpecDefault {
 

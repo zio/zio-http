@@ -139,8 +139,8 @@ object EndpointMiddleware       {
   def addHeader[A](headerCodec: HeaderCodec[A]): EndpointMiddleware.Typed[Unit, Nothing, A] =
     EndpointMiddleware(HttpCodec.empty, headerCodec)
 
-  val auth: EndpointMiddleware.Typed[Header.WWWAuthenticate, Nothing, Unit] =
-    requireHeader(HeaderCodec.wwwAuthenticate)
+  val auth: EndpointMiddleware.Typed[Header.Authorization, Nothing, Unit] =
+    requireHeader(HeaderCodec.authorization)
 
   def cookie: EndpointMiddleware.Typed[Header.RequestCookie, Nothing, Unit] =
     requireHeader(HeaderCodec.cookie)

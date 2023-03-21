@@ -383,7 +383,7 @@ object Http {
       getFile.mapError(Some(_)).flatMap { file =>
         ZIO.attempt {
           if (file.isFile) {
-            val length   = Headers.contentLength(file.length())
+            val length   = Headers(Header.ContentLength(file.length()))
             val response = http.Response(headers = length, body = Body.fromFile(file))
             val pathName = file.toPath.toString
 
@@ -577,13 +577,13 @@ object Http {
     def contentType(implicit trace: Trace): Http[R, Err, In, Option[Header.ContentType]] =
       self.map(_.header(Header.ContentType))
 
+    def header(headerType: HeaderType)(implicit trace: Trace): Http[R, Err, In, Option[headerType.HeaderValue]] =
+      self.map(_.header(headerType))
+
     def headers(implicit trace: Trace): Http[R, Err, In, Headers] =
       self.map(_.headers)
 
-    def headerValue(headerType: HeaderType)(implicit trace: Trace): Http[R, Err, In, Option[headerType.HeaderValue]] =
-      self.map(_.header(headerType))
-
-    def rawHeaderValue(name: CharSequence)(implicit trace: Trace): Http[R, Err, In, Option[String]] =
+    def rawHeader(name: CharSequence)(implicit trace: Trace): Http[R, Err, In, Option[String]] =
       self.map(_.rawHeader(name))
 
     def status(implicit trace: Trace): Http[R, Err, In, Status] =

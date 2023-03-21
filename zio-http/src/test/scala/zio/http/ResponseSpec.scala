@@ -22,31 +22,38 @@ import zio.test._
 import zio.http.model._
 
 object ResponseSpec extends ZIOSpecDefault {
-  private val location = "www.google.com"
-  def spec             = suite("Response")(
+  private val location: URL = URL.fromString("www.google.com").toOption.get
+
+  def spec = suite("Response")(
     suite("redirect")(
       test("Temporary redirect should produce a response with a TEMPORARY_REDIRECT") {
         val x = Response.redirect(location)
-        assertTrue(x.status == Status.TemporaryRedirect) &&
-        assertTrue(x.headerValue(HeaderNames.location).contains(location))
+        assertTrue(
+          x.status == Status.TemporaryRedirect,
+          x.header(Header.Location).contains(Header.Location(location)),
+        )
       },
       test("Temporary redirect should produce a response with a location") {
         val x = Response.redirect(location)
-        assertTrue(x.headerValue(HeaderNames.location).contains(location))
+        assertTrue(
+          x.header(Header.Location).contains(Header.Location(location)),
+        )
       },
       test("Permanent redirect should produce a response with a PERMANENT_REDIRECT") {
-        val x = Response.redirect(location, true)
+        val x = Response.redirect(location, isPermanent = true)
         assertTrue(x.status == Status.PermanentRedirect)
       },
       test("Permanent redirect should produce a response with a location") {
-        val x = Response.redirect(location, true)
-        assertTrue(x.headerValue(HeaderNames.location).contains(location))
+        val x = Response.redirect(location, isPermanent = true)
+        assertTrue(
+          x.header(Header.Location).contains(Header.Location(location)),
+        )
       },
     ),
     suite("json")(
       test("Json should set content type to ApplicationJson") {
         val x = Response.json("""{"message": "Hello"}""")
-        assertTrue(x.headerValue(HeaderNames.contentType).contains(HeaderValues.applicationJson.toString))
+        assertTrue(x.header(Header.ContentType).contains(Header.ContentType(MediaType.application.json)))
       },
     ),
     suite("toHttp")(

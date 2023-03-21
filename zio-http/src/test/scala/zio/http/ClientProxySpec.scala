@@ -41,7 +41,7 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request.get(url = serverUrl),
             )
-            .provideSome(
+            .provide(
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))),
               NettyClientDriver.fromConfig,
@@ -60,7 +60,7 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request.get(url = url),
             )
-            .provideSome(
+            .provide(
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(proxy)),
               NettyClientDriver.fromConfig,
@@ -71,10 +71,10 @@ object ClientProxySpec extends HttpRunnableSpec {
     test("proxy respond Ok for auth server") {
       val proxyAuthApp = Handler
         .fromFunction[Request] { req =>
-          val proxyAuthHeaderName = HeaderNames.proxyAuthorization.toString
-          req.headers.toList.collectFirst { case Header(`proxyAuthHeaderName`, _) =>
+          if (req.hasHeader(Header.ProxyAuthorization))
             Response.ok
-          }.getOrElse(Response.status(Status.Forbidden))
+          else
+            Response.status(Status.Forbidden)
         }
         .toHttp
 

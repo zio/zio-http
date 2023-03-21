@@ -209,7 +209,7 @@ private[zio] trait RequestHandlerMiddlewares
    * Client redirect temporary or permanent to specified url.
    */
   final def redirect(url: URL, isPermanent: Boolean): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    replace(Handler.succeed(Response.redirect(url.encode, isPermanent)))
+    replace(Handler.succeed(Response.redirect(url, isPermanent)))
 
   /**
    * Permanent redirect if the trailing slash is present in the request URL.
@@ -267,7 +267,7 @@ private[zio] trait RequestHandlerMiddlewares
         Cookie
           .decode[Response](h.header(Header.ResponseCookie).get.value.toString)
           .map(_.sign(secret))
-          .map { cookie => Headers.setCookie(cookie) }
+          .map { cookie => Headers(Header.ResponseCookie(cookie)) }
           .getOrElse(h)
 
       case h => h

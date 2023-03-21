@@ -28,7 +28,7 @@ import zio.http.socket._
 sealed trait Response extends HeaderOps[Response] { self =>
 
   def addCookie(cookie: Cookie[Response]): Response =
-    self.copy(headers = self.headers ++ Headers.setCookie(cookie))
+    self.copy(headers = self.headers ++ Headers(Header.ResponseCookie(cookie)))
 
   def body: Body
 
@@ -324,16 +324,16 @@ object Response {
    * Creates an empty response with status 301 or 302 depending on if it's
    * permanent or not.
    */
-  def redirect(location: CharSequence, isPermanent: Boolean = false): Response = {
+  def redirect(location: URL, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
-    new BasicResponse(Body.empty, Headers.location(location), status)
+    new BasicResponse(Body.empty, Headers(Header.Location(location)), status)
   }
 
   /**
    * Creates an empty response with status 303
    */
-  def seeOther(location: CharSequence): Response =
-    new BasicResponse(Body.empty, Headers.location(location), Status.SeeOther)
+  def seeOther(location: URL): Response =
+    new BasicResponse(Body.empty, Headers(Header.Location(location)), Status.SeeOther)
 
   /**
    * Creates an empty response with the provided Status

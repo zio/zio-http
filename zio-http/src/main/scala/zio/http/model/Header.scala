@@ -1,7 +1,7 @@
 package zio.http.model
 
 import java.net.URI
-import java.nio.charset.StandardCharsets
+import java.nio.charset.{Charset, StandardCharsets}
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 import java.util.Base64
@@ -15,7 +15,7 @@ import scala.util.{Either, Failure, Success, Try}
 import zio._
 
 import zio.http._
-import zio.http.model.Header.Authorization.AuthScheme
+import zio.http.internal.HeaderEncoding
 
 sealed trait Header {
   type Self <: Header
@@ -105,7 +105,7 @@ object Header {
 
   final case class Accept(mimeTypes: NonEmptyChunk[Accept.MediaTypeWithQFactor]) extends Header {
     override type Self = Accept
-    override def self: Self                          = this
+    override def self: Self                           = this
     override def headerType: HeaderType.Typed[Accept] = Accept
   }
 
@@ -119,6 +119,15 @@ object Header {
      * quality factor.
      */
     final case class MediaTypeWithQFactor(mediaType: MediaType, qFactor: Option[Double])
+
+    def apply(mediaType: MediaType, qFactor: Option[Double]): Accept =
+      Accept(NonEmptyChunk(MediaTypeWithQFactor(mediaType, qFactor)))
+
+    def apply(first: MediaType, rest: MediaType*): Accept =
+      Accept(NonEmptyChunk(first, rest: _*).map(MediaTypeWithQFactor(_, None)))
+
+    def apply(first: MediaTypeWithQFactor, rest: MediaTypeWithQFactor*): Accept =
+      Accept(NonEmptyChunk(first, rest: _*))
 
     def parse(value: String): Either[String, Accept] = {
       val acceptHeaderValues =
@@ -159,7 +168,7 @@ object Header {
    */
   sealed trait AcceptEncoding extends Header {
     override type Self = AcceptEncoding
-    override def self: Self                                  = this
+    override def self: Self                                   = this
     override def headerType: HeaderType.Typed[AcceptEncoding] = AcceptEncoding
 
     val raw: String
@@ -173,14 +182,14 @@ object Header {
     /**
      * A compression format that uses the Brotli algorithm.
      */
-    final case class Br(weight: Option[Double]) extends AcceptEncoding {
+    final case class Br(weight: Option[Double] = None) extends AcceptEncoding {
       override val raw: String = "br"
     }
 
     /**
      * A compression format that uses the Lempel-Ziv-Welch (LZW) algorithm.
      */
-    final case class Compress(weight: Option[Double]) extends AcceptEncoding {
+    final case class Compress(weight: Option[Double] = None) extends AcceptEncoding {
       override val raw: String = "compress"
     }
 
@@ -188,7 +197,7 @@ object Header {
      * A compression format that uses the zlib structure with the deflate
      * compression algorithm.
      */
-    final case class Deflate(weight: Option[Double]) extends AcceptEncoding {
+    final case class Deflate(weight: Option[Double] = None) extends AcceptEncoding {
       override val raw: String = "deflate"
     }
 
@@ -196,7 +205,7 @@ object Header {
      * A compression format that uses the Lempel-Ziv coding (LZ77) with a 32-bit
      * CRC.
      */
-    final case class GZip(weight: Option[Double]) extends AcceptEncoding {
+    final case class GZip(weight: Option[Double] = None) extends AcceptEncoding {
       override val raw: String = "gzip"
     }
 
@@ -205,7 +214,7 @@ object Header {
      * compression). This value is always considered as acceptable, even if
      * omitted.
      */
-    final case class Identity(weight: Option[Double]) extends AcceptEncoding {
+    final case class Identity(weight: Option[Double] = None) extends AcceptEncoding {
       override val raw: String = "identity"
     }
 
@@ -244,6 +253,9 @@ object Header {
         case _          => None
       }
     }
+
+    def apply(first: AcceptEncoding, rest: AcceptEncoding*): AcceptEncoding =
+      Multiple(NonEmptyChunk(first, rest: _*))
 
     def parse(value: String): Either[String, AcceptEncoding] = {
       val index = value.indexOf(",")
@@ -311,7 +323,7 @@ object Header {
    */
   sealed trait AcceptLanguage extends Header {
     override type Self = AcceptLanguage
-    override def self: Self                                  = this
+    override def self: Self                                   = this
     override def headerType: HeaderType.Typed[AcceptLanguage] = AcceptLanguage
   }
 
@@ -388,7 +400,7 @@ object Header {
    */
   final case class AcceptPatch(mediaTypes: NonEmptyChunk[MediaType]) extends Header {
     override type Self = AcceptPatch
-    override def self: Self                               = this
+    override def self: Self                                = this
     override def headerType: HeaderType.Typed[AcceptPatch] = AcceptPatch
   }
 
@@ -435,7 +447,7 @@ object Header {
    */
   sealed trait AcceptRanges extends Header {
     override type Self = AcceptRanges
-    override def self: Self                                = this
+    override def self: Self                                 = this
     override def headerType: HeaderType.Typed[AcceptRanges] = AcceptRanges
 
     val encodedName: String
@@ -466,7 +478,7 @@ object Header {
 
   sealed trait AccessControlAllowCredentials extends Header {
     override type Self = AccessControlAllowCredentials
-    override def self: Self                                                 = this
+    override def self: Self                                                  = this
     override def headerType: HeaderType.Typed[AccessControlAllowCredentials] = AccessControlAllowCredentials
   }
 
@@ -514,7 +526,7 @@ object Header {
 
   sealed trait AccessControlAllowHeaders extends Header {
     override type Self = AccessControlAllowHeaders
-    override def self: Self                                             = this
+    override def self: Self                                              = this
     override def headerType: HeaderType.Typed[AccessControlAllowHeaders] = AccessControlAllowHeaders
   }
 
@@ -533,6 +545,12 @@ object Header {
     case object All extends AccessControlAllowHeaders
 
     case object None extends AccessControlAllowHeaders
+
+    def apply(headers: CharSequence*) =
+      NonEmptyChunk.fromIterableOption(headers) match {
+        case scala.Some(value) => Some(value)
+        case scala.None        => None
+      }
 
     def parse(value: String): Either[String, AccessControlAllowHeaders] =
       Right {
@@ -564,7 +582,7 @@ object Header {
 
   sealed trait AccessControlAllowMethods extends Header {
     override type Self = AccessControlAllowMethods
-    override def self: Self                                             = this
+    override def self: Self                                              = this
     override def headerType: HeaderType.Typed[AccessControlAllowMethods] = AccessControlAllowMethods
   }
 
@@ -578,6 +596,12 @@ object Header {
     case object All extends AccessControlAllowMethods
 
     case object None extends AccessControlAllowMethods
+
+    def apply(methods: Method*): AccessControlAllowMethods =
+      NonEmptyChunk.fromIterableOption(methods) match {
+        case scala.Some(value) => Some(value)
+        case scala.None        => None
+      }
 
     def parse(value: String): Either[String, AccessControlAllowMethods] = {
       Right {
@@ -625,7 +649,7 @@ object Header {
    */
   final case class AccessControlAllowOrigin(origin: String) extends Header {
     override type Self = AccessControlAllowOrigin
-    override def self: Self                                            = this
+    override def self: Self                                             = this
     override def headerType: HeaderType.Typed[AccessControlAllowOrigin] = AccessControlAllowOrigin
   }
 
@@ -661,7 +685,7 @@ object Header {
    */
   sealed trait AccessControlExposeHeaders extends Header {
     override type Self = AccessControlExposeHeaders
-    override def self: Self                                              = this
+    override def self: Self                                               = this
     override def headerType: HeaderType.Typed[AccessControlExposeHeaders] = AccessControlExposeHeaders
   }
 
@@ -719,7 +743,7 @@ object Header {
    */
   final case class AccessControlMaxAge(duration: Duration) extends Header {
     override type Self = AccessControlMaxAge
-    override def self: Self                                       = this
+    override def self: Self                                        = this
     override def headerType: HeaderType.Typed[AccessControlMaxAge] = AccessControlMaxAge
   }
 
@@ -741,7 +765,7 @@ object Header {
 
   final case class AccessControlRequestHeaders(values: NonEmptyChunk[String]) extends Header {
     override type Self = AccessControlRequestHeaders
-    override def self: Self                                               = this
+    override def self: Self                                                = this
     override def headerType: HeaderType.Typed[AccessControlRequestHeaders] = AccessControlRequestHeaders
   }
 
@@ -770,7 +794,7 @@ object Header {
 
   final case class AccessControlRequestMethod(method: Method) extends Header {
     override type Self = AccessControlRequestMethod
-    override def self: Self                                              = this
+    override def self: Self                                               = this
     override def headerType: HeaderType.Typed[AccessControlRequestMethod] = AccessControlRequestMethod
   }
 
@@ -794,7 +818,7 @@ object Header {
    */
   final case class Age(duration: Duration) extends Header {
     override type Self = Age
-    override def self: Self                       = this
+    override def self: Self                        = this
     override def headerType: HeaderType.Typed[Age] = Age
   }
 
@@ -820,7 +844,7 @@ object Header {
    */
   final case class Allow(methods: NonEmptyChunk[Method]) extends Header {
     override type Self = Allow
-    override def self: Self                         = this
+    override def self: Self                          = this
     override def headerType: HeaderType.Typed[Allow] = Allow
   }
 
@@ -959,11 +983,10 @@ object Header {
    * Authorization header value.
    *
    * The Authorization header value contains one of the auth schemes
-   * [[AuthScheme]].
    */
-  final case class Authorization(authScheme: AuthScheme) extends Header {
+  sealed trait Authorization extends Header {
     override type Self = Authorization
-    override def self: Self                                 = this
+    override def self: Self                                  = this
     override def headerType: HeaderType.Typed[Authorization] = Authorization
   }
 
@@ -972,29 +995,25 @@ object Header {
 
     override def name: CharSequence = HeaderNames.authorization
 
-    sealed trait AuthScheme
+    final case class Basic(username: String, password: String) extends Authorization
 
-    object AuthScheme {
-      final case class Basic(username: String, password: String) extends AuthScheme
+    final case class Digest(
+      response: String,
+      username: String,
+      realm: String,
+      uri: URI,
+      opaque: String,
+      algorithm: String,
+      qop: String,
+      cnonce: String,
+      nonce: String,
+      nc: Int,
+      userhash: Boolean,
+    ) extends Authorization
 
-      final case class Digest(
-        response: String,
-        username: String,
-        realm: String,
-        uri: URI,
-        opaque: String,
-        algorithm: String,
-        qop: String,
-        cnonce: String,
-        nonce: String,
-        nc: Int,
-        userhash: Boolean,
-      ) extends AuthScheme
+    final case class Bearer(token: String) extends Authorization
 
-      final case class Bearer(token: String) extends AuthScheme
-
-      final case class Unparsed(authScheme: String, authParameters: String) extends AuthScheme
-    }
+    final case class Unparsed(authScheme: String, authParameters: String) extends Authorization
 
     def parse(value: String): Either[String, Authorization] = {
       val parts = value.split(" ")
@@ -1002,30 +1021,28 @@ object Header {
         parts(0).toLowerCase match {
           case "basic"  => parseBasic(parts(1))
           case "digest" => parseDigest(parts.tail.mkString(" "))
-          case "bearer" => Right(Authorization(AuthScheme.Bearer(parts(1))))
-          case _        => Right(Authorization(AuthScheme.Unparsed(parts(0), parts.tail.mkString(" "))))
+          case "bearer" => Right(Bearer(parts(1)))
+          case _        => Right(Unparsed(parts(0), parts.tail.mkString(" ")))
         }
       } else Left(s"Invalid Authorization header value: $value")
     }
 
     def render(header: Authorization): String = header match {
-      case Authorization(AuthScheme.Basic(username, password)) =>
+      case Basic(username, password) =>
         s"Basic ${Base64.getEncoder.encodeToString(s"$username:$password".getBytes(StandardCharsets.UTF_8))}"
 
-      case Authorization(
-            AuthScheme.Digest(response, username, realm, uri, opaque, algo, qop, cnonce, nonce, nc, userhash),
-          ) =>
+      case Digest(response, username, realm, uri, opaque, algo, qop, cnonce, nonce, nc, userhash) =>
         s"""Digest response="$response",username="$username",realm="$realm",uri=${uri.toString},opaque="$opaque",algorithm=$algo,""" +
           s"""qop=$qop,cnonce="$cnonce",nonce="$nonce",nc=$nc,userhash=${userhash.toString}"""
-      case Authorization(AuthScheme.Bearer(token))            => s"Bearer $token"
-      case Authorization(AuthScheme.Unparsed(scheme, params)) => s"$scheme $params"
+      case Bearer(token)                                                                          => s"Bearer $token"
+      case Unparsed(scheme, params)                                                               => s"$scheme $params"
     }
 
     private def parseBasic(value: String): Either[String, Authorization] = {
       try {
         val partsOfBasic = new String(Base64.getDecoder.decode(value)).split(":")
         if (partsOfBasic.length == 2) {
-          Right(Authorization(AuthScheme.Basic(partsOfBasic(0), partsOfBasic(1))))
+          Right(Basic(partsOfBasic(0), partsOfBasic(1)))
         } else {
           Left("Basic Authorization header value is not in the format username:password")
         }
@@ -1089,10 +1106,9 @@ object Header {
           cnonce        <- params.get("cnonce")
           nonce         <- params.get("nonce")
           nc            <- params.get("nc").flatMap(v => Try(v.toInt).toOption)
-        } yield AuthScheme.Digest(response, usernameFinal, realm, uri, opaque, algo, qop, cnonce, nonce, nc, userhash)
+        } yield Digest(response, usernameFinal, realm, uri, opaque, algo, qop, cnonce, nonce, nc, userhash)
 
         maybeDigest
-          .map(Authorization(_))
           .toRight("Digest Authorization header value is not in the correct format")
       } catch {
         case _: IndexOutOfBoundsException =>
@@ -1105,7 +1121,7 @@ object Header {
    */
   sealed trait CacheControl extends Header {
     override type Self = CacheControl
-    override def self: Self                                = this
+    override def self: Self                                 = this
     override def headerType: HeaderType.Typed[CacheControl] = CacheControl
 
     val raw: String
@@ -1363,7 +1379,7 @@ object Header {
    */
   sealed trait Connection extends Header {
     override type Self = Connection
-    override def self: Self                              = this
+    override def self: Self                               = this
     override def headerType: HeaderType.Typed[Connection] = Connection
 
     val value: String
@@ -1408,7 +1424,7 @@ object Header {
 
   final case class ContentBase(uri: URI) extends Header {
     override type Self = ContentBase
-    override def self: Self                               = this
+    override def self: Self                                = this
     override def headerType: HeaderType.Typed[ContentBase] = ContentBase
   }
 
@@ -1428,7 +1444,7 @@ object Header {
 
   sealed trait ContentDisposition extends Header {
     override type Self = ContentDisposition
-    override def self: Self                                      = this
+    override def self: Self                                       = this
     override def headerType: HeaderType.Typed[ContentDisposition] = ContentDisposition
   }
 
@@ -1486,7 +1502,7 @@ object Header {
 
   sealed trait ContentEncoding extends Header {
     override type Self = ContentEncoding
-    override def self: Self                                   = this
+    override def self: Self                                    = this
     override def headerType: HeaderType.Typed[ContentEncoding] = ContentEncoding
 
     val encoding: String
@@ -1576,7 +1592,7 @@ object Header {
 
   sealed trait ContentLanguage extends Header {
     override type Self = ContentLanguage
-    override def self: Self                                   = this
+    override def self: Self                                    = this
     override def headerType: HeaderType.Typed[ContentLanguage] = ContentLanguage
   }
 
@@ -1753,7 +1769,7 @@ object Header {
    */
   final case class ContentLength(length: Long) extends Header {
     override type Self = ContentLength
-    override def self: Self                                 = this
+    override def self: Self                                  = this
     override def headerType: HeaderType.Typed[ContentLength] = ContentLength
   }
 
@@ -1781,7 +1797,7 @@ object Header {
 
   final case class ContentLocation(value: URI) extends Header {
     override type Self = ContentLocation
-    override def self: Self                                   = this
+    override def self: Self                                    = this
     override def headerType: HeaderType.Typed[ContentLocation] = ContentLocation
   }
 
@@ -1799,7 +1815,7 @@ object Header {
 
   final case class ContentMd5(value: String) extends Header {
     override type Self = ContentMd5
-    override def self: Self                              = this
+    override def self: Self                               = this
     override def headerType: HeaderType.Typed[ContentMd5] = ContentMd5
   }
 
@@ -1822,7 +1838,7 @@ object Header {
 
   sealed trait ContentRange extends Header {
     override type Self = ContentRange
-    override def self: Self                                = this
+    override def self: Self                                 = this
     override def headerType: HeaderType.Typed[ContentRange] = ContentRange
 
     def start: Option[Int]
@@ -1894,7 +1910,7 @@ object Header {
   // scalafmt: { maxColumn = 180 }
   sealed trait ContentSecurityPolicy extends Header {
     override type Self = ContentSecurityPolicy
-    override def self: Self                                         = this
+    override def self: Self                                          = this
     override def headerType: HeaderType.Typed[ContentSecurityPolicy] = ContentSecurityPolicy
   }
 
@@ -2373,7 +2389,7 @@ object Header {
 
   sealed trait ContentTransferEncoding extends Header {
     override type Self = ContentTransferEncoding
-    override def self: Self                                           = this
+    override def self: Self                                            = this
     override def headerType: HeaderType.Typed[ContentTransferEncoding] = ContentTransferEncoding
   }
 
@@ -2420,8 +2436,10 @@ object Header {
 
   final case class ContentType(value: MediaType) extends Header {
     override type Self = ContentType
-    override def self: Self                               = this
+    override def self: Self                                = this
     override def headerType: HeaderType.Typed[ContentType] = ContentType
+
+    def charset: Charset = HeaderEncoding.default.getCharset(value.fullType, HTTP_CHARSET)
   }
 
   object ContentType extends HeaderType {
@@ -2437,7 +2455,7 @@ object Header {
 
   final case class Date(value: ZonedDateTime) extends Header {
     override type Self = Date
-    override def self: Self                        = this
+    override def self: Self                         = this
     override def headerType: HeaderType.Typed[Date] = Date
   }
 
@@ -2461,7 +2479,7 @@ object Header {
 
   sealed trait DNT extends Header {
     override type Self = DNT
-    override def self: Self                       = this
+    override def self: Self                        = this
     override def headerType: HeaderType.Typed[DNT] = DNT
   }
 
@@ -2495,7 +2513,7 @@ object Header {
 
   sealed trait ETag extends Header {
     override type Self = ETag
-    override def self: Self                        = this
+    override def self: Self                         = this
     override def headerType: HeaderType.Typed[ETag] = ETag
   }
 
@@ -2532,7 +2550,7 @@ object Header {
    */
   sealed trait Expect extends Header {
     override type Self = Expect
-    override def self: Self                          = this
+    override def self: Self                           = this
     override def headerType: HeaderType.Typed[Expect] = Expect
     val value: String
   }
@@ -2558,7 +2576,7 @@ object Header {
 
   final case class Expires(value: ZonedDateTime) extends Header {
     override type Self = Expires
-    override def self: Self                           = this
+    override def self: Self                            = this
     override def headerType: HeaderType.Typed[Expires] = Expires
   }
 
@@ -2594,7 +2612,7 @@ object Header {
   /** From header value. */
   final case class From(email: String) extends Header {
     override type Self = From
-    override def self: Self                        = this
+    override def self: Self                         = this
     override def headerType: HeaderType.Typed[From] = From
   }
 
@@ -2618,7 +2636,7 @@ object Header {
 
   final case class Host(hostAddress: String, port: Option[Int] = None) extends Header {
     override type Self = Host
-    override def self: Self                        = this
+    override def self: Self                         = this
     override def headerType: HeaderType.Typed[Host] = Host
   }
 
@@ -2649,7 +2667,7 @@ object Header {
 
   sealed trait IfMatch extends Header {
     override type Self = IfMatch
-    override def self: Self                           = this
+    override def self: Self                            = this
     override def headerType: HeaderType.Typed[IfMatch] = IfMatch
   }
 
@@ -2683,7 +2701,7 @@ object Header {
 
   final case class IfModifiedSince(value: ZonedDateTime) extends Header {
     override type Self = IfModifiedSince
-    override def self: Self                                   = this
+    override def self: Self                                    = this
     override def headerType: HeaderType.Typed[IfModifiedSince] = IfModifiedSince
   }
 
@@ -2703,7 +2721,7 @@ object Header {
 
   sealed trait IfNoneMatch extends Header {
     override type Self = IfNoneMatch
-    override def self: Self                               = this
+    override def self: Self                                = this
     override def headerType: HeaderType.Typed[IfNoneMatch] = IfNoneMatch
   }
 
@@ -2744,7 +2762,7 @@ object Header {
    */
   sealed trait IfRange extends Header {
     override type Self = IfRange
-    override def self: Self                           = this
+    override def self: Self                            = this
     override def headerType: HeaderType.Typed[IfRange] = IfRange
   }
 
@@ -2777,7 +2795,7 @@ object Header {
 
   final case class IfUnmodifiedSince(value: ZonedDateTime) extends Header {
     override type Self = IfUnmodifiedSince
-    override def self: Self                                     = this
+    override def self: Self                                      = this
     override def headerType: HeaderType.Typed[IfUnmodifiedSince] = IfUnmodifiedSince
   }
 
@@ -2804,7 +2822,7 @@ object Header {
 
   final case class LastModified(value: ZonedDateTime) extends Header {
     override type Self = LastModified
-    override def self: Self                                = this
+    override def self: Self                                 = this
     override def headerType: HeaderType.Typed[LastModified] = LastModified
   }
 
@@ -2827,7 +2845,7 @@ object Header {
    */
   final case class Location(url: URL) extends Header {
     override type Self = Location
-    override def self: Self                            = this
+    override def self: Self                             = this
     override def headerType: HeaderType.Typed[Location] = Location
   }
 
@@ -2855,7 +2873,7 @@ object Header {
    */
   final case class MaxForwards(value: Int) extends Header {
     override type Self = MaxForwards
-    override def self: Self                               = this
+    override def self: Self                                = this
     override def headerType: HeaderType.Typed[MaxForwards] = MaxForwards
   }
 
@@ -2878,7 +2896,7 @@ object Header {
   /** Origin header value. */
   sealed trait Origin extends Header {
     override type Self = Origin
-    override def self: Self                          = this
+    override def self: Self                           = this
     override def headerType: HeaderType.Typed[Origin] = Origin
   }
 
@@ -2891,7 +2909,7 @@ object Header {
     case object Null extends Origin
 
     /** The Origin header value contains scheme, host and maybe port. */
-    final case class Value(scheme: String, host: String, port: Option[Int]) extends Origin
+    final case class Value(scheme: String, host: String, port: Option[Int] = None) extends Origin
 
     def parse(value: String): Either[String, Origin] =
       if (value == "null") Right(Null)
@@ -2917,7 +2935,7 @@ object Header {
   /** Pragma header value. */
   sealed trait Pragma extends Header {
     override type Self = Pragma
-    override def self: Self                          = this
+    override def self: Self                           = this
     override def headerType: HeaderType.Typed[Pragma] = Pragma
   }
 
@@ -2957,7 +2975,7 @@ object Header {
    */
   final case class ProxyAuthenticate(scheme: AuthenticationScheme, realm: Option[String]) extends Header {
     override type Self = ProxyAuthenticate
-    override def self: Self                                     = this
+    override def self: Self                                      = this
     override def headerType: HeaderType.Typed[ProxyAuthenticate] = ProxyAuthenticate
   }
 
@@ -2997,7 +3015,7 @@ object Header {
    */
   final case class ProxyAuthorization(authenticationScheme: AuthenticationScheme, credential: String) extends Header {
     override type Self = ProxyAuthorization
-    override def self: Self                                      = this
+    override def self: Self                                       = this
     override def headerType: HeaderType.Typed[ProxyAuthorization] = ProxyAuthorization
   }
 
@@ -3028,7 +3046,7 @@ object Header {
 
   sealed trait Range extends Header {
     override type Self = Range
-    override def self: Self                         = this
+    override def self: Self                          = this
     override def headerType: HeaderType.Typed[Range] = Range
   }
 
@@ -3113,7 +3131,7 @@ object Header {
    */
   final case class Referer(url: URL) extends Header {
     override type Self = Referer
-    override def self: Self                           = this
+    override def self: Self                            = this
     override def headerType: HeaderType.Typed[Referer] = Referer
   }
 
@@ -3136,7 +3154,7 @@ object Header {
 
   final case class RequestCookie(value: NonEmptyChunk[model.Cookie[Request]]) extends Header {
     override type Self = RequestCookie
-    override def self: Self                                 = this
+    override def self: Self                                  = this
     override def headerType: HeaderType.Typed[RequestCookie] = RequestCookie
   }
 
@@ -3168,7 +3186,7 @@ object Header {
 
   final case class ResponseCookie(value: model.Cookie[Response]) extends Header {
     override type Self = ResponseCookie
-    override def self: Self                                  = this
+    override def self: Self                                   = this
     override def headerType: HeaderType.Typed[ResponseCookie] = ResponseCookie
   }
 
@@ -3192,7 +3210,7 @@ object Header {
 
   sealed trait RetryAfter extends Header {
     override type Self = RetryAfter
-    override def self: Self                              = this
+    override def self: Self                               = this
     override def headerType: HeaderType.Typed[RetryAfter] = RetryAfter
   }
 
@@ -3244,7 +3262,7 @@ object Header {
 
   final case class SecWebSocketAccept(hashedKey: String) extends Header {
     override type Self = SecWebSocketAccept
-    override def self: Self                                      = this
+    override def self: Self                                       = this
     override def headerType: HeaderType.Typed[SecWebSocketAccept] = SecWebSocketAccept
   }
 
@@ -3272,7 +3290,7 @@ object Header {
 
   sealed trait SecWebSocketExtensions extends Header {
     override type Self = SecWebSocketExtensions
-    override def self: Self                                          = this
+    override def self: Self                                           = this
     override def headerType: HeaderType.Typed[SecWebSocketExtensions] = SecWebSocketExtensions
   }
 
@@ -3364,7 +3382,7 @@ object Header {
 
   final case class SecWebSocketKey(base64EncodedKey: String) extends Header {
     override type Self = SecWebSocketKey
-    override def self: Self                                   = this
+    override def self: Self                                    = this
     override def headerType: HeaderType.Typed[SecWebSocketKey] = SecWebSocketKey
   }
 
@@ -3401,7 +3419,7 @@ object Header {
 
   final case class SecWebSocketLocation(url: URL) extends Header {
     override type Self = SecWebSocketLocation
-    override def self: Self                                        = this
+    override def self: Self                                         = this
     override def headerType: HeaderType.Typed[SecWebSocketLocation] = SecWebSocketLocation
   }
 
@@ -3426,7 +3444,7 @@ object Header {
 
   final case class SecWebSocketOrigin(url: URL) extends Header {
     override type Self = SecWebSocketOrigin
-    override def self: Self                                      = this
+    override def self: Self                                       = this
     override def headerType: HeaderType.Typed[SecWebSocketOrigin] = SecWebSocketOrigin
   }
 
@@ -3459,7 +3477,7 @@ object Header {
 
   final case class SecWebSocketProtocol(subProtocols: NonEmptyChunk[String]) extends Header {
     override type Self = SecWebSocketProtocol
-    override def self: Self                                        = this
+    override def self: Self                                         = this
     override def headerType: HeaderType.Typed[SecWebSocketProtocol] = SecWebSocketProtocol
   }
 
@@ -3493,7 +3511,7 @@ object Header {
 
   final case class SecWebSocketVersion(version: Int) extends Header {
     override type Self = SecWebSocketVersion
-    override def self: Self                                       = this
+    override def self: Self                                        = this
     override def headerType: HeaderType.Typed[SecWebSocketVersion] = SecWebSocketVersion
   }
 
@@ -3531,7 +3549,7 @@ object Header {
    */
   final case class Server(name: String) extends Header {
     override type Self = Server
-    override def self: Self                          = this
+    override def self: Self                           = this
     override def headerType: HeaderType.Typed[Server] = Server
   }
 
@@ -3553,7 +3571,7 @@ object Header {
 
   sealed trait Te extends Header {
     override type Self = Te
-    override def self: Self                      = this
+    override def self: Self                       = this
     override def headerType: HeaderType.Typed[Te] = Te
     def raw: String
   }
@@ -3662,7 +3680,7 @@ object Header {
   /** Trailer header value. */
   final case class Trailer(header: String) extends Header {
     override type Self = Trailer
-    override def self: Self                           = this
+    override def self: Self                            = this
     override def headerType: HeaderType.Typed[Trailer] = Trailer
   }
 
@@ -3685,7 +3703,7 @@ object Header {
 
   sealed trait TransferEncoding extends Header {
     override type Self = TransferEncoding
-    override def self: Self                                    = this
+    override def self: Self                                     = this
     override def headerType: HeaderType.Typed[TransferEncoding] = TransferEncoding
     val encoding: String
   }
@@ -3774,7 +3792,7 @@ object Header {
 
   sealed trait Upgrade extends Header {
     override type Self = Upgrade
-    override def self: Self                           = this
+    override def self: Self                            = this
     override def headerType: HeaderType.Typed[Upgrade] = Upgrade
   }
 
@@ -3818,7 +3836,7 @@ object Header {
 
   final case class UpgradeInsecureRequests() extends Header {
     override type Self = UpgradeInsecureRequests
-    override def self: Self                                           = this
+    override def self: Self                                            = this
     override def headerType: HeaderType.Typed[UpgradeInsecureRequests] = UpgradeInsecureRequests
   }
 
@@ -3842,7 +3860,7 @@ object Header {
 
   sealed trait UserAgent extends Header {
     override type Self = UserAgent
-    override def self: Self                             = this
+    override def self: Self                              = this
     override def headerType: HeaderType.Typed[UserAgent] = UserAgent
   }
 
@@ -3890,7 +3908,7 @@ object Header {
   /** Vary header value. */
   sealed trait Vary extends Header {
     override type Self = Vary
-    override def self: Self                        = this
+    override def self: Self                         = this
     override def headerType: HeaderType.Typed[Vary] = Vary
   }
 
@@ -3902,6 +3920,8 @@ object Header {
     case class Headers(headers: NonEmptyChunk[String]) extends Vary
 
     case object Star extends Vary
+
+    def apply(first: String, rest: String*): Vary = Headers(NonEmptyChunk(first, rest: _*))
 
     def parse(value: String): Either[String, Vary] = {
       Chunk.fromArray(value.toLowerCase().split("[, ]+")) match {
@@ -3925,7 +3945,7 @@ object Header {
 
   sealed trait Via extends Header {
     override type Self = Via
-    override def self: Self                       = this
+    override def self: Self                        = this
     override def headerType: HeaderType.Typed[Via] = Via
   }
 
@@ -4012,7 +4032,7 @@ object Header {
    */
   final case class Warning(code: Int, agent: String, text: String, date: Option[ZonedDateTime] = None) extends Header {
     override type Self = Warning
-    override def self: Self                           = this
+    override def self: Self                            = this
     override def headerType: HeaderType.Typed[Warning] = Warning
   }
 
@@ -4135,7 +4155,7 @@ object Header {
 
   sealed trait WWWAuthenticate extends Header {
     override type Self = WWWAuthenticate
-    override def self: Self                                   = this
+    override def self: Self                                    = this
     override def headerType: HeaderType.Typed[WWWAuthenticate] = WWWAuthenticate
   }
 
@@ -4327,7 +4347,7 @@ object Header {
 
   sealed trait XFrameOptions extends Header {
     override type Self = XFrameOptions
-    override def self: Self                                 = this
+    override def self: Self                                  = this
     override def headerType: HeaderType.Typed[XFrameOptions] = XFrameOptions
   }
 
@@ -4358,7 +4378,7 @@ object Header {
 
   final case class XRequestedWith(value: String) extends Header {
     override type Self = XRequestedWith
-    override def self: Self                                  = this
+    override def self: Self                                   = this
     override def headerType: HeaderType.Typed[XRequestedWith] = XRequestedWith
   }
 

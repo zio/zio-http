@@ -332,7 +332,7 @@ private[codec] object EncoderDecoder                   {
     private def encodeContentType(inputs: Array[Any]): Headers = {
       if (jsonEncoders.length == 0) Headers.empty
       else if (jsonEncoders.length == 1) {
-        Headers.contentType(MediaType.application.json.fullType)
+        Headers(Header.ContentType(MediaType.application.json))
       } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
     }
   }

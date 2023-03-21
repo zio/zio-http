@@ -19,6 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
+import zio.http.model.Header.UpgradeInsecureRequests
+
 object UpgradeInsecureRequestsSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("UpgradeInsecureRequests suite")(
     suite("UpgradeInsecureRequests header value transformation should be symmetrical")(

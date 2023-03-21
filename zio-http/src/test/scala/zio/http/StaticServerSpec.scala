@@ -43,7 +43,7 @@ object StaticServerSpec extends HttpRunnableSpec {
   }
 
   private val staticAppWithCors = Http.collectZIO[Request] { case Method.GET -> !! / "success-cors" =>
-    ZIO.succeed(Response.ok.withVary("test1").withVary("test2"))
+    ZIO.succeed(Response.ok.withHeader(Header.Vary("test1")).withHeader(Header.Vary("test2")))
   } @@ cors(CorsConfig(allowedMethods = Some(Set(Method.GET, Method.POST))))
 
   private val app = serve { (nonZIO ++ staticApp ++ staticAppWithCors).withDefaultErrorResponse }
@@ -137,16 +137,22 @@ object StaticServerSpec extends HttpRunnableSpec {
       for {
         result <- headers(Method.GET, !! / "success-cors")
       } yield {
-        assertTrue(result.hasHeader(HeaderNames.vary)) &&
-        assertTrue(result.vary.contains("test1,test2"))
+        assertTrue(
+          result.hasHeader(HeaderNames.vary),
+          result.header(Header.Vary).contains(Header.Vary("test1", "test2")),
+        )
       }
     },
     test("CORS headers should be properly encoded") {
       for {
-        result <- headers(Method.GET, !! / "success-cors", Headers.origin("example.com"))
+        result <- headers(Method.GET, !! / "success-cors", Headers(Header.Origin.Value("", "example.com")))
       } yield {
-        assertTrue(result.hasHeader(HeaderNames.accessControlAllowMethods)) &&
-        assertTrue(result.accessControlAllowMethods.contains("GET,POST"))
+        assertTrue(
+          result.hasHeader(HeaderNames.accessControlAllowMethods),
+          result
+            .header(Header.AccessControlAllowMethods)
+            .contains(Header.AccessControlAllowMethods(Method.GET, Method.POST)),
+        )
       }
     },
   )

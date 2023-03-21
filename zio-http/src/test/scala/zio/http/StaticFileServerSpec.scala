@@ -50,16 +50,16 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo(Status.Ok))
         },
         test("should have content-length") {
-          val res = fileOk.run().map(_.contentLength)
-          assertZIO(res)(isSome(equalTo(7L)))
+          val res = fileOk.run().map(_.header(Header.ContentLength))
+          assertZIO(res)(isSome(equalTo(Header.ContentLength(7L))))
         },
         test("should have content") {
           val res = fileOk.run().flatMap(_.body.asString)
           assertZIO(res)(equalTo("foo\nbar"))
         },
         test("should have content-type") {
-          val res = fileOk.run().map(_.mediaType)
-          assertZIO(res)(isSome(equalTo(MediaType.text.plain)))
+          val res = fileOk.run().map(_.header(Header.ContentType))
+          assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain))))
         },
         test("should respond with empty if file not found") {
           val res = fileNotFound.run().map(_.status)
@@ -92,16 +92,16 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo(Status.Ok))
         },
         test("should have content-length") {
-          val res = resourceOk.run().map(_.contentLength)
-          assertZIO(res)(isSome(equalTo(7L)))
+          val res = resourceOk.run().map(_.header(Header.ContentLength))
+          assertZIO(res)(isSome(equalTo(Header.ContentLength(7L))))
         },
         test("should have content") {
           val res = resourceOk.run().flatMap(_.body.asString)
           assertZIO(res)(equalTo("foo\nbar"))
         },
         test("should have content-type") {
-          val res = resourceOk.run().map(_.mediaType)
-          assertZIO(res)(isSome(equalTo(MediaType.text.plain)))
+          val res = resourceOk.run().map(_.header(Header.ContentType))
+          assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain))))
         },
         test("should respond with empty if not found") {
           val res = resourceNotFound.run().map(_.status)

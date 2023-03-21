@@ -20,6 +20,7 @@ import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
 
 import zio.http.internal.HttpGen
+import zio.http.model.Header.AccessControlAllowHeaders
 
 object AccessControlAllowHeadersSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlAllowHeaders suite")(

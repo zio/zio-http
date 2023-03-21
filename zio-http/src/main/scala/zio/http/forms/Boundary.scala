@@ -22,7 +22,7 @@ import java.security.SecureRandom
 import zio.Chunk
 
 import zio.http.forms.FormAST.Header
-import zio.http.model.{Headers, MediaType}
+import zio.http.model.{HeaderNames, Headers, MediaType}
 
 final case class Boundary(id: String, charset: Charset = StandardCharsets.UTF_8) {
 
@@ -30,7 +30,10 @@ final case class Boundary(id: String, charset: Charset = StandardCharsets.UTF_8)
 
   def isClosing(bytes: Chunk[Byte]): Boolean = bytes == closingBoundaryBytes
 
-  def contentTypeHeader: Headers = Headers.contentType(s"${MediaType.multipart.`form-data`.fullType}; boundary=$id")
+  def contentTypeHeader: Headers = Headers(
+    HeaderNames.contentType,
+    s"${MediaType.multipart.`form-data`.fullType}; boundary=$id",
+  ) // TODO: this should be supported by the header model
 
   val encapsulationBoundary: String = s"--$id"
 

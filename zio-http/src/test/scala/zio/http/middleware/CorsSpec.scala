@@ -33,24 +33,23 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       val request = Request
         .options(URL(!! / "success"))
         .copy(
-          headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
+          headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin.Value("", "test-env")),
         )
 
-      val initialHeaders = Headers
-        .accessControlAllowCredentials(true)
-        .withAccessControlAllowMethods(Method.GET)
-        .withAccessControlAllowOrigin("test-env")
+      val initialHeaders = Headers(
+        Header.AccessControlAllowCredentials.Allow,
+        Header.AccessControlAllowMethods(Method.GET),
+        Header.AccessControlAllowOrigin("test-env"),
+      )
 
       val expected = CorsConfig().allowedHeaders
         .fold(Headers.empty) { h =>
-          h
-            .map(value => Headers.empty.withAccessControlAllowHeaders(value))
-            .fold(initialHeaders)(_ ++ _)
+          initialHeaders ++ Headers(Header.AccessControlAllowHeaders(h.toSeq: _*))
         }
         .toList
       for {
         res <- app.runZIO(request)
-      } yield assert(res.headersAsList)(hasSubset(expected)) &&
+      } yield assert(res.headers)(hasSubset(expected)) &&
         assertTrue(res.status == Status.NoContent)
 
     },
@@ -59,19 +58,19 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         Request
           .get(URL(!! / "success"))
           .copy(
-            headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
+            headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin.Value("", "test-env")),
           )
 
-      val expected = Headers
-        .accessControlExposeHeaders("*")
-        .withAccessControlAllowOrigin("test-env")
-        .withAccessControlAllowMethods(Method.GET)
-        .withAccessControlAllowCredentials(true)
-        .toList
+      val expected = Headers(
+        Header.AccessControlExposeHeaders.All,
+        Header.AccessControlAllowOrigin("test-env"),
+        Header.AccessControlAllowMethods(Method.GET),
+        Header.AccessControlAllowCredentials.Allow,
+      )
 
       for {
         res <- app.runZIO(request)
-      } yield assert(res.headersAsList)(hasSubset(expected))
+      } yield assert(res.headers)(hasSubset(expected))
     },
   )
 }

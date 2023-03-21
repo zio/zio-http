@@ -19,18 +19,21 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
+import zio.http.model.Header.Upgrade
+
 object UpgradeSpec extends ZIOSpecDefault {
-  override def spec: Spec[TestEnvironment with Scope, Any] = suite("Upgrade suite")()
-  suite("Upgrade header value transformation should be symmetrical")(
-    test("single value") {
-      assertTrue(Upgrade.render(Upgrade.parse("h2c").toOption.get) == "h2c")
-    },
-    test("multiple values") {
-      assertTrue(
-        Upgrade.render(
-          Upgrade.parse("HTTP/2.0, SHTTP/1.3, IRC/6.9, RTA/x11").toOption.get,
-        ) == "HTTP/2.0, SHTTP/1.3, IRC/6.9, RTA/x11",
-      )
-    },
+  override def spec: Spec[TestEnvironment with Scope, Any] = suite("Upgrade suite")(
+    suite("Upgrade header value transformation should be symmetrical")(
+      test("single value") {
+        assertTrue(Upgrade.render(Upgrade.parse("h2c").toOption.get) == "h2c")
+      },
+      test("multiple values") {
+        assertTrue(
+          Upgrade.render(
+            Upgrade.parse("HTTP/2.0, SHTTP/1.3, IRC/6.9, RTA/x11").toOption.get,
+          ) == "HTTP/2.0, SHTTP/1.3, IRC/6.9, RTA/x11",
+        )
+      },
+    ),
   )
 }

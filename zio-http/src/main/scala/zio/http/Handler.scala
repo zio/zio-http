@@ -882,7 +882,7 @@ object Handler {
      * Extracts the value of ContentType header
      */
     def contentType(implicit trace: Trace): Handler[R, Err, In, Option[Header.ContentType]] =
-      headerValue(Header.ContentType)
+      header(Header.ContentType)
 
     /**
      * Extracts the `Headers` from the type `B` if possible
@@ -893,12 +893,12 @@ object Handler {
     /**
      * Extracts the value of the provided header name.
      */
-    def headerValue(headerType: HeaderType)(implicit
+    def header(headerType: HeaderType)(implicit
       trace: Trace,
     ): Handler[R, Err, In, Option[headerType.HeaderValue]] =
       self.map(_.header(headerType))
 
-    def headerValueOrFail(
+    def headerOrFail(
       headerType: HeaderType,
     )(implicit trace: Trace, ev: Err <:< String): Handler[R, String, In, Option[headerType.HeaderValue]] =
       self
@@ -911,7 +911,7 @@ object Handler {
           }
         }
 
-    def rawHeaderValue(name: CharSequence)(implicit trace: Trace): Handler[R, Err, In, Option[String]] =
+    def rawHeader(name: CharSequence)(implicit trace: Trace): Handler[R, Err, In, Option[String]] =
       self.map(_.rawHeader(name))
 
     /**

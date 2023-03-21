@@ -26,8 +26,8 @@ import zio.stream.ZStream
 import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
+import zio.http.model.Header._
 import zio.http.model._
-import zio.http.model.headers.values._
 import zio.http.netty.NettyBody
 
 import io.netty.buffer.Unpooled
@@ -75,7 +75,7 @@ object HttpGen {
   def header: Gen[Any, Header] = for {
     key   <- Gen.alphaNumericStringBounded(1, 4)
     value <- Gen.alphaNumericStringBounded(1, 4)
-  } yield Header(key, value)
+  } yield Header.Custom(key, value)
 
   def body[R](gen: Gen[R, List[String]]): Gen[R, Body] =
     for {
@@ -169,7 +169,7 @@ object HttpGen {
       content <- HttpGen.body(gContent)
       headers <- HttpGen.header
       status  <- HttpGen.status
-    } yield Response(status, headers, content)
+    } yield Response(status, Headers(headers), content)
   }
 
   def scheme: Gen[Any, Scheme] = Gen.fromIterable(

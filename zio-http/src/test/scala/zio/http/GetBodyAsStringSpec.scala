@@ -40,9 +40,11 @@ object GetBodyAsStringSpec extends ZIOSpecDefault {
               Body.fromChunk(Chunk.fromArray("abc".getBytes(charset))),
               URL(!!),
             )
-            .copy(headers = Headers.contentType(s"text/html; charset=$charset"))
+            .copy(headers =
+              Headers(HeaderNames.contentType, s"text/html; charset=$charset"),
+            ) // TODO: should be supported by the header model
 
-          val encoded  = request.body.asString(request.charset)
+          val encoded = request.body.asString(request.header(Header.ContentType).map(_.charset).getOrElse(HTTP_CHARSET))
           val expected = new String(Chunk.fromArray("abc".getBytes(charset)).toArray, charset)
           assertZIO(encoded)(equalTo(expected))
         }

@@ -52,7 +52,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       test("removeHeader") {
         val middleware = removeHeader("KeyA")
         val headers    =
-          (Handler.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware).toHttp header "KeyA"
+          (Handler.succeed(Response.ok.setHeaders(Headers("KeyA", "ValueA"))) @@ middleware).toHttp rawHeader "KeyA"
         assertZIO(headers.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
@@ -111,85 +111,85 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       },
       test("add and remove header") {
         val middleware = addHeader("KeyA", "ValueA") ++ removeHeader("KeyA")
-        val program    = (Handler.ok @@ middleware) header "KeyA"
+        val program    = (Handler.ok @@ middleware) rawHeader "KeyA"
         assertZIO(program.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("ifRequestThenElseZIO")(
       test("if the condition is true take first") {
-        val app = (Handler.ok @@ ifRequestThenElseZIO(condZIO(true))(midA, midB)) header "X-Custom"
+        val app = (Handler.ok @@ ifRequestThenElseZIO(condZIO(true))(midA, midB)) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false take 2nd") {
         val app =
-          (Handler.ok @@ ifRequestThenElseZIO(condZIO(false))(midA, midB)) header "X-Custom"
+          (Handler.ok @@ ifRequestThenElseZIO(condZIO(false))(midA, midB)) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("B")))
       },
     ),
     suite("ifRequestThenElse")(
       test("if the condition is true take first") {
-        val app = Handler.ok @@ ifRequestThenElse(cond(true))(midA, midB) header "X-Custom"
+        val app = Handler.ok @@ ifRequestThenElse(cond(true))(midA, midB) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false take 2nd") {
-        val app = Handler.ok @@ ifRequestThenElse(cond(false))(midA, midB) header "X-Custom"
+        val app = Handler.ok @@ ifRequestThenElse(cond(false))(midA, midB) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("B")))
       },
     ),
     suite("whenStatus")(
       test("if the condition is true apply middleware") {
-        val app = Handler.ok @@ HttpAppMiddleware.whenStatus(_ == Status.Ok)(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenStatus(_ == Status.Ok)(midA) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply the middleware") {
-        val app = Handler.ok @@ HttpAppMiddleware.whenStatus(_ == Status.NoContent)(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenStatus(_ == Status.NoContent)(midA) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("whenRequestZIO")(
       test("if the condition is true apply middleware") {
-        val app = (Handler.ok @@ HttpAppMiddleware.whenRequestZIO(condZIO(true))(midA)) header "X-Custom"
+        val app = (Handler.ok @@ HttpAppMiddleware.whenRequestZIO(condZIO(true))(midA)) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply any middleware") {
-        val app = (Handler.ok @@ HttpAppMiddleware.whenRequestZIO(condZIO(false))(midA)) header "X-Custom"
+        val app = (Handler.ok @@ HttpAppMiddleware.whenRequestZIO(condZIO(false))(midA)) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("whenRequest")(
       test("if the condition is true apply middleware") {
-        val app = Handler.ok @@ HttpAppMiddleware.whenRequest(cond(true))(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenRequest(cond(true))(midA) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply the middleware") {
-        val app = Handler.ok @@ HttpAppMiddleware.whenRequest(cond(false))(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenRequest(cond(false))(midA) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("whenResponseZIO")(
       test("if the condition is true apply middleware") {
-        val app = (Handler.ok @@ HttpAppMiddleware.whenResponseZIO(condZIO(true))(midA)) header "X-Custom"
+        val app = (Handler.ok @@ HttpAppMiddleware.whenResponseZIO(condZIO(true))(midA)) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply any middleware") {
-        val app = (Handler.ok @@ HttpAppMiddleware.whenResponseZIO(condZIO(false))(midA)) header "X-Custom"
+        val app = (Handler.ok @@ HttpAppMiddleware.whenResponseZIO(condZIO(false))(midA)) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("whenResponse")(
       test("if the condition is true apply middleware") {
-        val app = Handler.ok @@ HttpAppMiddleware.whenResponse(cond(true))(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenResponse(cond(true))(midA) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo("A")))
       },
       test("if the condition is false don't apply the middleware") {
-        val app = Handler.ok @@ HttpAppMiddleware.whenResponse(cond(false))(midA) header "X-Custom"
+        val app = Handler.ok @@ HttpAppMiddleware.whenResponse(cond(false))(midA) rawHeader "X-Custom"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
     ),
     suite("cookie")(
       test("addCookie") {
         val cookie = Cookie("test", "testValue")
-        val app    = (Handler.ok @@ addCookie(cookie)).header("set-cookie")
+        val app    = (Handler.ok @@ addCookie(cookie)).rawHeader("set-cookie")
         assertZIO(app.runZIO(Request.get(URL.empty)))(
           equalTo(cookie.encode.toOption),
         )
@@ -197,7 +197,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       test("addCookieM") {
         val cookie = Cookie("test", "testValue")
         val app    =
-          (Handler.ok @@ addCookieZIO(ZIO.succeed(cookie))).header("set-cookie")
+          (Handler.ok @@ addCookieZIO(ZIO.succeed(cookie))).rawHeader("set-cookie")
         assertZIO(app.runZIO(Request.get(URL.empty)))(
           equalTo(cookie.encode.toOption),
         )
@@ -206,8 +206,9 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     suite("signCookies")(
       test("should sign cookies") {
         val cookie = Cookie("key", "value").withHttpOnly(true)
-        val app    = Handler.ok.withSetCookie(cookie) @@ signCookies("secret") header "set-cookie"
-        assertZIO(app.runZIO(Request.get(URL.empty)))(equalTo(cookie.sign("secret").encode.toOption))
+        val app    =
+          (Handler.ok.withHeader(Header.ResponseCookie(cookie)) @@ signCookies("secret")).header(Header.ResponseCookie)
+        assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo(Header.ResponseCookie(cookie.sign("secret")))))
       },
       test("sign cookies no cookie header") {
         val app = (Handler.ok.addHeader("keyA", "ValueA") @@ signCookies("secret")).headerValues
@@ -259,7 +260,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
             response <- app.runZIO(Request.get(url = url))
           } yield assertTrue(
             response.status == status,
-            response.headers.location == location,
+            response.header(Header.Location) == location.map(l => Header.Location(URL.fromString(l).toOption.get)),
           )
         }
       },
@@ -284,33 +285,35 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("prettify error")(
       test("should not add anything to the body  as request do not have an accept header") {
-        val app = (Handler.error("Error !!!") @@ beautifyErrors) header "content-type"
+        val app = (Handler.error("Error !!!") @@ beautifyErrors) rawHeader "content-type"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
       test("should return a html body as the request has accept header set to text/html.") {
         val app = (Handler
-          .error("Error !!!") @@ beautifyErrors) header "content-type"
+          .error("Error !!!") @@ beautifyErrors) rawHeader "content-type"
         assertZIO(
           app.runZIO(
-            Request.get(URL.empty).copy(headers = Headers.accept(HeaderValues.textHtml)),
+            Request.get(URL.empty).copy(headers = Headers(Header.Accept(MediaType.text.`html`))),
           ),
         )(isSome(equalTo("text/html")))
       },
       test("should return a plain body as the request has accept header set to */*.") {
         val app = (Handler
-          .error("Error !!!") @@ beautifyErrors) header "content-type"
+          .error("Error !!!") @@ beautifyErrors) rawHeader "content-type"
         assertZIO(
           app.runZIO(
-            Request.get(URL.empty).copy(headers = Headers.accept("*/*")),
+            Request
+              .get(URL.empty)
+              .copy(headers = Headers(HeaderNames.accept, "*/*")), // TODO: this should be supported by the model
           ),
         )(isSome(equalTo("text/plain")))
       },
       test("should not add anything to the body as the request has accept header set to application/json.") {
         val app = (Handler
-          .error("Error !!!") @@ beautifyErrors) header "content-type"
+          .error("Error !!!") @@ beautifyErrors) rawHeader "content-type"
         assertZIO(
           app.runZIO(
-            Request.get(URL.empty).copy(headers = Headers.accept(HeaderValues.applicationJson)),
+            Request.get(URL.empty).copy(headers = Headers(Header.Accept(MediaType.application.json))),
           ),
         )(isNone)
       },

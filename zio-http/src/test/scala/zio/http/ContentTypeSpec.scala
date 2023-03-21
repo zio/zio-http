@@ -22,18 +22,18 @@ import zio.test.TestAspect.timeout
 import zio.test._
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model.MediaType
+import zio.http.model.{Header, MediaType}
 
 object ContentTypeSpec extends HttpRunnableSpec {
 
   val contentSpec = suite("Content type header on file response")(
     test("mp4") {
       val res = Http.fromResource("TestFile2.mp4").deploy.contentType.run()
-      assertZIO(res)(isSome(equalTo("video/mp4")))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.video.`mp4`))))
     },
     test("js") {
       val res = Http.fromResource("TestFile3.js").deploy.contentType.run()
-      assertZIO(res)(isSome(equalTo("application/javascript")))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.application.`javascript`))))
     },
     test("no extension") {
       val res = Http.fromResource("TestFile4").deploy.contentType.run()
@@ -41,11 +41,11 @@ object ContentTypeSpec extends HttpRunnableSpec {
     },
     test("css") {
       val res = Http.fromResource("TestFile5.css").deploy.contentType.run()
-      assertZIO(res)(isSome(equalTo("text/css")))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.`css`))))
     },
     test("mp3") {
       val res = Http.fromResource("TestFile6.mp3").deploy.contentType.run()
-      assertZIO(res)(isSome(equalTo("audio/mpeg")))
+      assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.audio.`mpeg`))))
     },
     test("unidentified extension") {
       val res = Http.fromResource("truststore.jks").deploy.contentType.run()
@@ -53,8 +53,9 @@ object ContentTypeSpec extends HttpRunnableSpec {
     },
     test("already set content-type") {
       val expected = MediaType.application.`json`
-      val res      = Http.fromResource("TestFile6.mp3").map(_.withMediaType(expected)).deploy.contentType.run()
-      assertZIO(res)(isSome(equalTo(expected.fullType)))
+      val res      =
+        Http.fromResource("TestFile6.mp3").map(_.withHeader(Header.ContentType(expected))).deploy.contentType.run()
+      assertZIO(res)(isSome(equalTo(Header.ContentType(expected))))
     },
   )
 

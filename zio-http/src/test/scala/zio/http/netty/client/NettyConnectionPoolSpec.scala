@@ -25,7 +25,7 @@ import zio.stream.ZStream
 
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model.{Headers, Method, Version}
+import zio.http.model.{Header, Headers, Method, Version}
 
 import io.netty.handler.codec.http.HttpHeaderValues
 
@@ -37,8 +37,8 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
     case req                                   => req.body.asString.map(Response.text(_))
   }
 
-  private val connectionCloseHeader = Headers.connection(HttpHeaderValues.CLOSE)
-  private val keepAliveHeader       = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
+  private val connectionCloseHeader = Headers(Header.Connection.Close)
+  private val keepAliveHeader       = Headers(Header.Connection.KeepAlive)
   private val appKeepAliveEnabled   = serve(DynamicServer.app)
 
   private val N = 64

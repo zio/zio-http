@@ -32,7 +32,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
   val postidfontURL = URL.fromString("http://mywebservice.com/users/42/post/42/fontstyle").toOption.get
 
   val headerExample =
-    Headers.contentType("application/json") ++ Headers("X-Trace-ID", "1234")
+    Headers(Header.ContentType(MediaType.application.json)) ++ Headers("X-Trace-ID", "1234")
 
   val emptyJson = Body.fromString("{}")
 

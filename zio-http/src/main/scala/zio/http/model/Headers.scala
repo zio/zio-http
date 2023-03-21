@@ -60,7 +60,7 @@ sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
 
 }
 
-object Headers extends HeaderConstructors {
+object Headers {
 
   private[zio] final case class FromIterable(iter: Iterable[Header]) extends Headers {
     self =>

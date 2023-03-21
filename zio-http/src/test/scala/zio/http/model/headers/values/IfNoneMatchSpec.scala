@@ -19,6 +19,8 @@ package zio.http.model.headers.values
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
+import zio.http.model.Header.IfNoneMatch
+
 object IfNoneMatchSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("IfNoneMatch suite")(
     test("IfMatch '*' should be parsed correctly") {
