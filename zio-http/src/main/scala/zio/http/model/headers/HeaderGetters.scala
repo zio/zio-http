@@ -32,7 +32,10 @@ trait HeaderGetters { self =>
    * be parsed
    */
   final def header(headerType: HeaderType): Option[headerType.HeaderValue] =
-    headers.get(headerType.name).flatMap(headerType.parse(_).toOption)
+    headers.get(headerType.name).flatMap { raw =>
+      val parsed = headerType.parse(raw)
+      parsed.toOption
+    }
 
   /**
    * Gets a header. If the header is not present, returns None. If the header

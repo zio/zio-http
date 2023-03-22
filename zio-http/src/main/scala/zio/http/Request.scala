@@ -85,13 +85,7 @@ object Request {
   private def headersForBody(body: Body): Headers =
     body.mediaType match {
       case Some(mediaType) =>
-        body.boundary match {
-          case Some(id) =>
-            Headers(
-              Header.Custom(HeaderNames.contentType, s"${mediaType.fullType}; boundary=$id"),
-            ) // TODO: this should be supported by the header model
-          case None     => Headers(Header.ContentType(mediaType))
-        }
+        Headers(Header.ContentType(mediaType, boundary = body.boundary.map(_.toString)))
       case None            =>
         Headers.empty
     }

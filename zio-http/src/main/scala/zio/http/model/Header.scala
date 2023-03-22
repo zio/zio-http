@@ -1,7 +1,7 @@
 package zio.http.model
 
 import java.net.URI
-import java.nio.charset.{Charset, StandardCharsets}
+import java.nio.charset.{Charset, StandardCharsets, UnsupportedCharsetException}
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 import java.util.Base64
@@ -24,6 +24,8 @@ sealed trait Header {
   def headerType: Header.HeaderType.Typed[Self]
   def headerName: CharSequence    = headerType.name
   def renderedValue: CharSequence = headerType.render(self)
+
+  lazy val untyped: Header.Custom = Header.Custom(headerName, renderedValue)
 }
 
 object Header {
@@ -2434,23 +2436,60 @@ object Header {
       }
   }
 
-  final case class ContentType(value: MediaType) extends Header {
+  final case class ContentType(mediaType: MediaType, charset: Option[Charset] = None, boundary: Option[String] = None) extends Header {
     override type Self = ContentType
     override def self: Self                                = this
     override def headerType: HeaderType.Typed[ContentType] = ContentType
-
-    def charset: Charset = HeaderEncoding.default.getCharset(value.fullType, HTTP_CHARSET)
   }
 
   object ContentType extends HeaderType {
     override type HeaderValue = ContentType
     override def name: CharSequence = HeaderNames.contentType
 
-    def parse(s: String): Either[String, ContentType] =
-      MediaType.forContentType(s).toRight("Invalid Content-Type header").map(ContentType(_))
+    def parse(s: String): Either[String, ContentType] = {
+      Chunk.fromArray(s.split(";")).map(_.trim) match {
+        case Chunk(mediaType)                                                                                                    =>
+          MediaType.forContentType(mediaType).toRight("Invalid Content-Type header").map(ContentType(_, None, None))
+        case Chunk(mediaType, directive) if directive.startsWith("charset=")                                                     =>
+          for {
+            mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
+            charset   <-
+              try Right(Charset.forName(directive.drop(8)))
+              catch { case _: UnsupportedCharsetException => Left("Invalid charset in Content-Type header") }
+          } yield ContentType(mediaType, Some(charset), None)
+        case Chunk(mediaType, directive) if directive.startsWith("boundary=")                                                    =>
+          for {
+            mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
+            boundary = directive.drop(9)
+          } yield ContentType(mediaType, None, Some(boundary))
+        case Chunk(mediaType, directive1, directive2) if directive1.startsWith("charset=") && directive2.startsWith("boundary=") =>
+          for {
+            mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
+            charset   <-
+              try Right(Charset.forName(directive1.drop(8)))
+              catch { case _: UnsupportedCharsetException => Left("Invalid charset in Content-Type header") }
+            boundary = directive2.drop(9)
+          } yield ContentType(mediaType, Some(charset), Some(boundary))
+        case Chunk(mediaType, directive1, directive2) if directive1.startsWith("boundary=") && directive2.startsWith("charset=") =>
+          for {
+            mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
+            charset   <-
+              try Right(Charset.forName(directive2.drop(8)))
+              catch { case _: UnsupportedCharsetException => Left("Invalid charset in Content-Type header") }
+            boundary = directive1.drop(9)
+          } yield ContentType(mediaType, Some(charset), Some(boundary))
+        case _                                                                                                                   =>
+          Left("Invalid Content-Type header")
+      }
+    }
 
     def render(contentType: ContentType): String =
-      contentType.value.fullType
+      (contentType.charset, contentType.boundary) match {
+        case (None, None)                    => contentType.mediaType.fullType
+        case (Some(charset), None)           => contentType.mediaType.fullType + "; charset=" + charset.toString
+        case (None, Some(boundary))          => contentType.mediaType.fullType + "; boundary=" + boundary
+        case (Some(charset), Some(boundary)) => contentType.mediaType.fullType + "; charset=" + charset.toString + "; boundary=" + boundary
+      }
   }
 
   final case class Date(value: ZonedDateTime) extends Header {

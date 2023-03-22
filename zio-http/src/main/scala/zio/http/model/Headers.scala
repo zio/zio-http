@@ -69,15 +69,16 @@ object Headers {
       iter.iterator
 
     private[http] override def getUnsafe(key: CharSequence): String = {
-      val it = iter.iterator
-      while (it.hasNext) {
-        val entry = iterator.next()
+      val it             = iter.iterator
+      var result: String = null
+      while (it.hasNext && (result eq null)) {
+        val entry = it.next()
         if (entry.headerName == key) {
-          return entry.renderedValue.toString
+          result = entry.renderedValue.toString
         }
       }
 
-      null
+      result
     }
   }
 
@@ -99,7 +100,7 @@ object Headers {
 
     private[http] override def getUnsafe(key: CharSequence): String = {
       val fromFirst = first.getUnsafe(key)
-      if (fromFirst != null) fromFirst else second.getUnsafe(key)
+      if (fromFirst ne null) fromFirst else second.getUnsafe(key)
     }
   }
 

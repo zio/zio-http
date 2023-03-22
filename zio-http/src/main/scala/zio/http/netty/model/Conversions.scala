@@ -73,7 +73,7 @@ private[netty] object Conversions {
         var result: String = null
         while (iterator.hasNext && (result eq null)) {
           val entry = iterator.next()
-          if (entry.getKey.toString == key) {
+          if (entry.getKey.toString == key.toString) {
             result = entry.getValue.toString
           }
         }

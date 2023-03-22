@@ -36,21 +36,17 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin.Value("", "test-env")),
         )
 
-      val initialHeaders = Headers(
-        Header.AccessControlAllowCredentials.Allow,
-        Header.AccessControlAllowMethods(Method.GET),
-        Header.AccessControlAllowOrigin("test-env"),
-      )
-
-      val expected = CorsConfig().allowedHeaders
-        .fold(Headers.empty) { h =>
-          initialHeaders ++ Headers(Header.AccessControlAllowHeaders(h.toSeq: _*))
-        }
-        .toList
       for {
         res <- app.runZIO(request)
-      } yield assert(res.headers)(hasSubset(expected)) &&
-        assertTrue(res.status == Status.NoContent)
+      } yield assertTrue(
+        res.status == Status.NoContent,
+        res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+        res.hasHeader(Header.AccessControlAllowMethods(Method.GET)),
+        res.hasHeader(Header.AccessControlAllowOrigin("test-env")),
+        CorsConfig().allowedHeaders.fold(true)(headers =>
+          res.hasHeader(Header.AccessControlAllowHeaders(headers.toSeq: _*)),
+        ),
+      )
 
     },
     test("GET request") {
@@ -61,16 +57,14 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin.Value("", "test-env")),
           )
 
-      val expected = Headers(
-        Header.AccessControlExposeHeaders.All,
-        Header.AccessControlAllowOrigin("test-env"),
-        Header.AccessControlAllowMethods(Method.GET),
-        Header.AccessControlAllowCredentials.Allow,
-      )
-
       for {
         res <- app.runZIO(request)
-      } yield assert(res.headers)(hasSubset(expected))
+      } yield assertTrue(
+        res.hasHeader(Header.AccessControlExposeHeaders.All),
+        res.hasHeader(Header.AccessControlAllowOrigin("test-env")),
+        res.hasHeader(Header.AccessControlAllowMethods(Method.GET)),
+        res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+      )
     },
   )
 }

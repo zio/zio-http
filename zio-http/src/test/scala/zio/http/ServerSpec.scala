@@ -264,7 +264,7 @@ object ServerSpec extends HttpRunnableSpec {
           .deploy
           .header(Header.ContentType)
           .run()
-          .map(_.map(_.value.fullType).getOrElse("Content type header not found."))
+          .map(_.map(_.mediaType.fullType).getOrElse("Content type header not found."))
       assertZIO(res)(equalTo("video/mp4"))
     },
     test("status") {
