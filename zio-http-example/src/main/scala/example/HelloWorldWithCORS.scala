@@ -1,6 +1,7 @@
 package example
 
 import zio._
+
 import zio.http.HttpAppMiddleware.cors
 import zio.http._
 import zio.http.middleware.Cors.CorsConfig
@@ -14,9 +15,9 @@ object HelloWorldWithCORS extends ZIOAppDefault {
     CorsConfig(
       allowedOrigin = {
         case origin @ Origin.Value(_, host, _) if host == "dev" => Some(AccessControlAllowOrigin.Specific(origin))
-        case _ => None
+        case _                                                  => None
       },
-      allowedMethods = AccessControlAllowMethods(Method.PUT, Method.DELETE)
+      allowedMethods = AccessControlAllowMethods(Method.PUT, Method.DELETE),
     )
 
   // Create HTTP route with CORS enabled
