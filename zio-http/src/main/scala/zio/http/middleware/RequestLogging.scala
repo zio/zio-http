@@ -45,13 +45,13 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
           .logLevel(level(response.status)) {
             val requestHeaders  =
               request.headers.collect {
-                case header: Header if loggedRequestHeaders.contains(header.headerName.toString) =>
-                  LogAnnotation(header.headerName.toString, header.renderedValue.toString)
+                case header: Header if loggedRequestHeaders.contains(header.headerName) =>
+                  LogAnnotation(header.headerName, header.renderedValue)
               }.toSet
             val responseHeaders =
               response.headers.collect {
-                case header: Header if loggedResponseHeader.contains(header.headerName.toString) =>
-                  LogAnnotation(header.headerName.toString, header.renderedValue.toString)
+                case header: Header if loggedResponseHeader.contains(header.headerName) =>
+                  LogAnnotation(header.headerName, header.renderedValue)
               }.toSet
 
             val requestBody  = if (request.body.isComplete) request.body.asChunk.option else ZIO.none

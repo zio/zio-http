@@ -21,81 +21,81 @@ package zio.http.model.headers
  * typos and also to improve performance. `HeaderNames` aren't encoded everytime
  * one needs to send them over the wire.
  */
-trait HeaderNames {
-  val accept: CharSequence
-  val acceptEncoding: CharSequence
-  val acceptLanguage: CharSequence
-  val acceptRanges: CharSequence
-  val acceptPatch: CharSequence
-  val accessControlAllowCredentials: CharSequence
-  val accessControlAllowHeaders: CharSequence
-  val accessControlAllowMethods: CharSequence
-  val accessControlAllowOrigin: CharSequence
-  val accessControlExposeHeaders: CharSequence
-  val accessControlMaxAge: CharSequence
-  val accessControlRequestHeaders: CharSequence
-  val accessControlRequestMethod: CharSequence
-  val age: CharSequence
-  val allow: CharSequence
-  val authorization: CharSequence
-  val cacheControl: CharSequence
-  val connection: CharSequence
-  val contentBase: CharSequence
-  val contentEncoding: CharSequence
-  val contentLanguage: CharSequence
-  val contentLength: CharSequence
-  val contentLocation: CharSequence
-  val contentTransferEncoding: CharSequence
-  val contentDisposition: CharSequence
-  val contentMd5: CharSequence
-  val contentRange: CharSequence
-  val contentSecurityPolicy: CharSequence
-  val contentType: CharSequence
-  val cookie: CharSequence
-  val date: CharSequence
-  val dnt: CharSequence
-  val etag: CharSequence
-  val expect: CharSequence
-  val expires: CharSequence
-  val from: CharSequence
-  val host: CharSequence
-  val ifMatch: CharSequence
-  val ifModifiedSince: CharSequence
-  val ifNoneMatch: CharSequence
-  val ifRange: CharSequence
-  val ifUnmodifiedSince: CharSequence
-  val lastModified: CharSequence
-  val location: CharSequence
-  val maxForwards: CharSequence
-  val origin: CharSequence
-  val pragma: CharSequence
-  val proxyAuthenticate: CharSequence
-  val proxyAuthorization: CharSequence
-  val range: CharSequence
-  val referer: CharSequence
-  val retryAfter: CharSequence
-  val secWebSocketLocation: CharSequence
-  val secWebSocketOrigin: CharSequence
-  val secWebSocketProtocol: CharSequence
-  val secWebSocketVersion: CharSequence
-  val secWebSocketKey: CharSequence
-  val secWebSocketAccept: CharSequence
-  val secWebSocketExtensions: CharSequence
-  val server: CharSequence
-  val setCookie: CharSequence
-  val te: CharSequence
-  val trailer: CharSequence
-  val transferEncoding: CharSequence
-  val upgrade: CharSequence
-  val upgradeInsecureRequests: CharSequence
-  val userAgent: CharSequence
-  val vary: CharSequence
-  val via: CharSequence
-  val warning: CharSequence
-  val webSocketLocation: CharSequence
-  val webSocketOrigin: CharSequence
-  val webSocketProtocol: CharSequence
-  val wwwAuthenticate: CharSequence
-  val xFrameOptions: CharSequence
-  val xRequestedWith: CharSequence
+object HeaderNames {
+  val accept: String                        = "accept"
+  val acceptEncoding: String                = "accept-encoding"
+  val acceptLanguage: String                = "accept-language"
+  val acceptRanges: String                  = "accept-ranges"
+  val acceptPatch: String                   = "accept-patch"
+  val accessControlAllowCredentials: String = "access-control-allow-credentials"
+  val accessControlAllowHeaders: String     = "access-control-allow-headers"
+  val accessControlAllowMethods: String     = "access-control-allow-methods"
+  val accessControlAllowOrigin: String      = "access-control-allow-origin"
+  val accessControlExposeHeaders: String    = "access-control-expose-headers"
+  val accessControlMaxAge: String           = "access-control-max-age"
+  val accessControlRequestHeaders: String   = "access-control-request-headers"
+  val accessControlRequestMethod: String    = "access-control-request-method"
+  val age: String                           = "age"
+  val allow: String                         = "allow"
+  val authorization: String                 = "authorization"
+  val cacheControl: String                  = "cache-control"
+  val connection: String                    = "connection"
+  val contentBase: String                   = "content-base"
+  val contentEncoding: String               = "content-encoding"
+  val contentLanguage: String               = "content-language"
+  val contentLength: String                 = "content-length"
+  val contentLocation: String               = "content-location"
+  val contentTransferEncoding: String       = "content-transfer-encoding"
+  val contentDisposition: String            = "content-disposition"
+  val contentMd5: String                    = "content-md5"
+  val contentRange: String                  = "content-range"
+  val contentSecurityPolicy: String         = "content-security-policy"
+  val contentType: String                   = "content-type"
+  val cookie: String                        = "cookie"
+  val date: String                          = "date"
+  val dnt: String                           = "dnt"
+  val etag: String                          = "etag"
+  val expect: String                        = "expect"
+  val expires: String                       = "expires"
+  val from: String                          = "from"
+  val host: String                          = "host"
+  val ifMatch: String                       = "if-match"
+  val ifModifiedSince: String               = "if-modified-since"
+  val ifNoneMatch: String                   = "if-none-match"
+  val ifRange: String                       = "if-range"
+  val ifUnmodifiedSince: String             = "if-unmodified-since"
+  val lastModified: String                  = "last-modified"
+  val location: String                      = "location"
+  val maxForwards: String                   = "max-forwards"
+  val origin: String                        = "origin"
+  val pragma: String                        = "pragma"
+  val proxyAuthenticate: String             = "proxy-authenticate"
+  val proxyAuthorization: String            = "proxy-authorization"
+  val range: String                         = "range"
+  val referer: String                       = "referer"
+  val retryAfter: String                    = "retry-after"
+  val secWebSocketLocation: String          = "sec-websocket-location"
+  val secWebSocketOrigin: String            = "sec-websocket-origin"
+  val secWebSocketProtocol: String          = "sec-websocket-protocol"
+  val secWebSocketVersion: String           = "sec-websocket-version"
+  val secWebSocketKey: String               = "sec-websocket-key"
+  val secWebSocketAccept: String            = "sec-websocket-accept"
+  val secWebSocketExtensions: String        = "sec-websocket-extensions"
+  val server: String                        = "server"
+  val setCookie: String                     = "set-cookie"
+  val te: String                            = "te"
+  val trailer: String                       = "trailer"
+  val transferEncoding: String              = "transfer-encoding"
+  val upgrade: String                       = "upgrade"
+  val upgradeInsecureRequests: String       = "upgrade-insecure-requests"
+  val userAgent: String                     = "user-agent"
+  val vary: String                          = "vary"
+  val via: String                           = "via"
+  val warning: String                       = "warning"
+  val webSocketLocation: String             = "websocket-location"
+  val webSocketOrigin: String               = "websocket-origin"
+  val webSocketProtocol: String             = "websocket-protocol"
+  val wwwAuthenticate: String               = "www-authenticate"
+  val xFrameOptions: String                 = "x-frame-options"
+  val xRequestedWith: String                = "x-requested-with"
 }

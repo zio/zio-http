@@ -26,7 +26,7 @@ private[codec] trait HeaderCodecs {
     HttpCodec.Header(name, value)
 
   def header(headerType: HeaderType): HeaderCodec[headerType.HeaderValue] =
-    headerCodec(headerType.name.toString, TextCodec.string)
+    headerCodec(headerType.name, TextCodec.string)
       .transformOrFailLeft(headerType.parse(_), headerType.render(_))
 
   final val accept: HeaderCodec[Header.Accept]                 = header(Header.Accept)

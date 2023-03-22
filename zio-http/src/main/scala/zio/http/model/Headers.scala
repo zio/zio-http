@@ -75,7 +75,7 @@ object Headers {
       while (it.hasNext && (result eq null)) {
         val entry = it.next()
         if (CharSequenceExtensions.equals(entry.headerName, key, CaseMode.Insensitive)) {
-          result = entry.renderedValue.toString
+          result = entry.renderedValue
         }
       }
 

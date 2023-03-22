@@ -18,12 +18,11 @@ package zio.http.middleware
 
 import java.io.{PrintWriter, StringWriter}
 
-import zio.NonEmptyChunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.html._
-import zio.http.model.{Header, HeaderNames, Headers, MediaType}
-import zio.http.{Body, Request, Response, model}
+import zio.http.model.{Header, Headers, MediaType}
+import zio.http.{Body, Request, Response}
 
 private[zio] trait HtmlErrorResponses {
 

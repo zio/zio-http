@@ -22,7 +22,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.Response._
 import zio.http.html.Html
 import zio.http.model._
-import zio.http.model.headers.HeaderOps
+import zio.http.model.headers.{HeaderNames, HeaderOps}
 import zio.http.socket._
 
 sealed trait Response extends HeaderOps[Response] { self =>
@@ -301,7 +301,7 @@ object Response {
   def html(data: Html, status: Status = Status.Ok): Response =
     new BasicResponse(
       Body.fromString("<!DOCTYPE html>" + data.encode),
-      Headers(HeaderNames.contentType, HeaderValues.textHtml),
+      contentTypeHtml,
       status,
     )
 
@@ -311,7 +311,7 @@ object Response {
   def json(data: CharSequence): Response =
     new BasicResponse(
       Body.fromCharSequence(data),
-      Headers(HeaderNames.contentType, HeaderValues.applicationJson),
+      contentTypeJson,
       Status.Ok,
     )
 
@@ -346,7 +346,11 @@ object Response {
   def text(text: CharSequence): Response =
     new BasicResponse(
       Body.fromCharSequence(text),
-      Headers(HeaderNames.contentType, HeaderValues.textPlain),
+      contentTypeText,
       Status.Ok,
     )
+
+  private lazy val contentTypeJson: Headers = Headers(Header.ContentType(MediaType.application.json).untyped)
+  private lazy val contentTypeHtml: Headers = Headers(Header.ContentType(MediaType.text.html).untyped)
+  private lazy val contentTypeText: Headers = Headers(Header.ContentType(MediaType.text.plain).untyped)
 }

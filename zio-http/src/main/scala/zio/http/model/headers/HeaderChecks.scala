@@ -31,7 +31,7 @@ trait HeaderChecks[+A] { self: HeaderOps[A] with A =>
     )
 
   final def hasFormUrlencodedContentType: Boolean =
-    hasContentType(HeaderValues.applicationXWWWFormUrlencoded)
+    hasContentType(MediaType.application.`x-www-form-urlencoded`.fullType)
 
   final def hasHeader(name: CharSequence): Boolean =
     rawHeader(name).nonEmpty
@@ -43,17 +43,17 @@ trait HeaderChecks[+A] { self: HeaderOps[A] with A =>
     self.header(header.headerType).contains(header)
 
   final def hasJsonContentType: Boolean =
-    hasContentType(HeaderValues.applicationJson)
+    hasContentType(MediaType.application.json.fullType)
 
   final def hasMediaType(mediaType: MediaType): Boolean =
     header(Header.ContentType).exists(ct => ct.mediaType == mediaType)
 
   final def hasTextPlainContentType: Boolean =
-    hasContentType(HeaderValues.textPlain)
+    hasContentType(MediaType.text.plain.fullType)
 
   final def hasXhtmlXmlContentType: Boolean =
-    hasContentType(HeaderValues.applicationXhtml)
+    hasContentType(MediaType.application.`xhtml+xml`.fullType)
 
   final def hasXmlContentType: Boolean =
-    hasContentType(HeaderValues.applicationXml)
+    hasContentType(MediaType.application.`xml`.fullType)
 }

@@ -27,7 +27,7 @@ import zio.stream.ZStream
 
 import zio.http.Http.{Empty, Route}
 import zio.http.model.Header.HeaderType
-import zio.http.model.{Header, HeaderNames, Headers, MediaType, Status}
+import zio.http.model.{Header, Headers, MediaType, Status}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 
 sealed trait Http[-R, +Err, -In, +Out] { self =>

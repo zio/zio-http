@@ -26,6 +26,7 @@ import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLay
 import zio.http.middleware.Cors.CorsConfig
 import zio.http.model.Header.AccessControlAllowMethods
 import zio.http.model._
+import zio.http.model.headers.HeaderNames
 
 object StaticServerSpec extends HttpRunnableSpec {
 

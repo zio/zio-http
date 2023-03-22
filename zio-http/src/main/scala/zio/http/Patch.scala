@@ -46,12 +46,12 @@ sealed trait Patch { self =>
 }
 
 object Patch {
-  case object Empty                                          extends Patch
-  final case class AddHeaders(headers: Headers)              extends Patch
-  final case class RemoveHeaders(headers: Set[CharSequence]) extends Patch
-  final case class SetStatus(status: Status)                 extends Patch
-  final case class Combine(left: Patch, right: Patch)        extends Patch
-  final case class UpdateHeaders(f: Headers => Headers)      extends Patch
+  case object Empty                                     extends Patch
+  final case class AddHeaders(headers: Headers)         extends Patch
+  final case class RemoveHeaders(headers: Set[String])  extends Patch
+  final case class SetStatus(status: Status)            extends Patch
+  final case class Combine(left: Patch, right: Patch)   extends Patch
+  final case class UpdateHeaders(f: Headers => Headers) extends Patch
 
   def empty: Patch = Empty
 

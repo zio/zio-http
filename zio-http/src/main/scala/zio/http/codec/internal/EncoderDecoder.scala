@@ -16,8 +16,6 @@
 
 package zio.http.codec.internal
 
-import scala.annotation.tailrec
-
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 

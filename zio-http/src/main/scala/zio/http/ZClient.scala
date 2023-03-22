@@ -813,10 +813,16 @@ object ZClient {
     ClientConfig.default >>> fromConfig
   }
 
-  val zioHttpVersion: CharSequence           = Client.getClass().getPackage().getImplementationVersion()
-  val zioHttpVersionNormalized: CharSequence = Option(zioHttpVersion).getOrElse("")
+  val zioHttpVersion: String                   = Client.getClass().getPackage().getImplementationVersion()
+  val zioHttpVersionNormalized: Option[String] = Option(zioHttpVersion)
 
-  val scalaVersion: CharSequence   = util.Properties.versionString
-  val userAgentValue: CharSequence = s"Zio-Http-Client ${zioHttpVersionNormalized} Scala $scalaVersion"
-  val defaultUAHeader: Headers     = Headers(HeaderNames.userAgent, userAgentValue)
+  val scalaVersion: String     = util.Properties.versionString
+  val defaultUAHeader: Headers = Headers(
+    Header.UserAgent
+      .Complete(
+        Header.UserAgent.Product("Zio-Http-Client", zioHttpVersionNormalized),
+        Some(Header.UserAgent.Comment(s"Scala $scalaVersion")),
+      )
+      .untyped,
+  )
 }

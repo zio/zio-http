@@ -40,9 +40,9 @@ trait HeaderModifier[+A] { self =>
 
   final def removeHeader(headerType: HeaderType): A = removeHeader(headerType.name)
 
-  final def removeHeader(name: CharSequence): A = removeHeaders(Set(name))
+  final def removeHeader(name: String): A = removeHeaders(Set(name))
 
-  final def removeHeaders(headers: Set[CharSequence]): A =
+  final def removeHeaders(headers: Set[String]): A =
     updateHeaders(orig => Headers(orig.filterNot(h => headers.contains(h.headerName))))
 
   final def setHeaders(headers: Headers): A = self.updateHeaders(_ => headers)

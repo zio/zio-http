@@ -17,9 +17,8 @@
 package zio.http.model.headers
 
 import zio.test.Assertion._
-import zio.test.{Gen, ZIOSpecDefault, assert, assertTrue, check}
+import zio.test.{ZIOSpecDefault, assert}
 
-import zio.http.middleware.Auth.Credentials
 import zio.http.model._
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
@@ -153,18 +152,16 @@ object HeaderSpec extends ZIOSpecDefault {
     ),
   )
 
-  private val contentTypeXhtmlXml       = Headers(HeaderNames.contentType, HeaderValues.applicationXhtml)
-  private val contentTypeTextPlain      = Headers(HeaderNames.contentType, HeaderValues.textPlain)
-  private val contentTypeXml            = Headers(HeaderNames.contentType, HeaderValues.applicationXml)
-  private val contentTypeJson           = Headers(HeaderNames.contentType, HeaderValues.applicationJson)
-  private val acceptJson                = Headers(HeaderNames.accept, HeaderValues.applicationJson)
-  private val contentTypeFormUrlEncoded =
-    Headers(HeaderNames.contentType, HeaderValues.applicationXWWWFormUrlencoded)
+  private val acceptJson                = Headers(Header.Accept(MediaType.application.json))
+  private val contentTypeXhtmlXml       = Headers(Header.ContentType(MediaType.application.`xhtml+xml`))
+  private val contentTypeTextPlain      = Headers(Header.ContentType(MediaType.text.plain))
+  private val contentTypeXml            = Headers(Header.ContentType(MediaType.application.xml))
+  private val contentTypeJson           = Headers(Header.ContentType(MediaType.application.json))
+  private val contentTypeFormUrlEncoded = Headers(Header.ContentType(MediaType.application.`x-www-form-urlencoded`))
   private def customAcceptJsonHeader    = Header.Accept(MediaType.application.json)
   private def customContentJsonHeader   = Header.ContentType(MediaType.application.json)
   private def customHeaders: Headers    = Headers(customContentJsonHeader, customAcceptJsonHeader)
 
   private def predefinedHeaders: Headers =
-    Headers(HeaderNames.accept, HeaderValues.applicationJson) ++
-      Headers(HeaderNames.contentType, HeaderValues.applicationJson)
+    Headers(Header.Accept(MediaType.application.json), Header.ContentType(MediaType.application.json))
 }

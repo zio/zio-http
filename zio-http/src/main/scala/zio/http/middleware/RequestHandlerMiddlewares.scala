@@ -264,14 +264,14 @@ private[zio] trait RequestHandlerMiddlewares
   final def signCookies(secret: String): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     updateHeaders { headers =>
       headers.modify {
-        case Header.ResponseCookie(cookie)                                                               =>
+        case Header.ResponseCookie(cookie)                                                      =>
           Header.ResponseCookie(cookie.sign(secret))
-        case header @ Header.Custom(name, value) if name.toString == Header.ResponseCookie.name.toString =>
+        case header @ Header.Custom(name, value) if name.toString == Header.ResponseCookie.name =>
           Header.ResponseCookie.parse(value.toString) match {
             case Left(_)               => header
             case Right(responseCookie) => Header.ResponseCookie(responseCookie.value.sign(secret))
           }
-        case header: Header                                                                              => header
+        case header: Header                                                                     => header
       }
     }
 
