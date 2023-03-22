@@ -416,21 +416,27 @@ trait ZClient[-Env, -In, +Err, +Out] { self =>
   final def ssl(ssl: ClientSSLConfig): ZClient[Env, In, Err, Out] =
     copy(sslConfig = Some(ssl))
 
-  final def uri(uri: URI): ZClient[Env, In, Err, Out] =
+  final def uri(uri: URI): ZClient[Env, In, Err, Out] = {
+    val scheme = Scheme.decode(uri.getScheme)
+
     copy(
       hostOption = Option(uri.getHost),
       pathPrefix = pathPrefix ++ Path.decode(uri.getRawPath),
-      portOption = Option(uri.getPort).filter(_ != -1).orElse(Scheme.decode(uri.getScheme).map(_.port)),
+      portOption = Option(uri.getPort).filter(_ != -1).orElse(scheme.map(_.port)),
       queries = queries ++ QueryParams.decode(uri.getRawQuery),
+      schemeOption = scheme,
     )
+  }
 
-  final def url(url: URL): ZClient[Env, In, Err, Out] =
+  final def url(url: URL): ZClient[Env, In, Err, Out] = {
     copy(
       hostOption = url.host,
       pathPrefix = pathPrefix ++ url.path,
       portOption = url.port,
       queries = queries ++ url.queryParams,
+      schemeOption = url.scheme,
     )
+  }
 
   protected def requestInternal(
     body: In,
