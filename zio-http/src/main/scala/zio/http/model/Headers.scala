@@ -18,6 +18,7 @@ package zio.http.model
 
 import zio.Chunk
 
+import zio.http.internal.{CaseMode, CharSequenceExtensions}
 import zio.http.model.headers._
 
 /**
@@ -73,7 +74,7 @@ object Headers {
       var result: String = null
       while (it.hasNext && (result eq null)) {
         val entry = it.next()
-        if (entry.headerName == key) {
+        if (CharSequenceExtensions.equals(entry.headerName, key, CaseMode.Insensitive)) {
           result = entry.renderedValue.toString
         }
       }

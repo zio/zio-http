@@ -16,24 +16,24 @@
 
 package zio.http.middleware
 
-import zio.test.Assertion.hasSubset
 import zio.test._
 
 import zio.http.HttpAppMiddleware.cors
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.middleware.Cors.CorsConfig
+import zio.http.model.Header.AccessControlAllowMethods
 import zio.http.model._
 
 object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
-  val app = Handler.ok.toHttp @@ cors(CorsConfig(allowedMethods = Some(Set(Method.GET))))
+  val app = Handler.ok.toHttp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
 
   override def spec = suite("CorsMiddlewares")(
     test("OPTIONS request") {
       val request = Request
         .options(URL(!! / "success"))
         .copy(
-          headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin.Value("", "test-env")),
+          headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
         )
 
       for {
@@ -42,10 +42,8 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         res.status == Status.NoContent,
         res.hasHeader(Header.AccessControlAllowCredentials.Allow),
         res.hasHeader(Header.AccessControlAllowMethods(Method.GET)),
-        res.hasHeader(Header.AccessControlAllowOrigin("test-env")),
-        CorsConfig().allowedHeaders.fold(true)(headers =>
-          res.hasHeader(Header.AccessControlAllowHeaders(headers.toSeq: _*)),
-        ),
+        res.hasHeader(Header.AccessControlAllowOrigin("http", "test-env")),
+        res.hasHeader(Header.AccessControlAllowHeaders.All),
       )
 
     },
@@ -54,14 +52,14 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         Request
           .get(URL(!! / "success"))
           .copy(
-            headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin.Value("", "test-env")),
+            headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )
 
       for {
         res <- app.runZIO(request)
       } yield assertTrue(
         res.hasHeader(Header.AccessControlExposeHeaders.All),
-        res.hasHeader(Header.AccessControlAllowOrigin("test-env")),
+        res.hasHeader(Header.AccessControlAllowOrigin("http", "test-env")),
         res.hasHeader(Header.AccessControlAllowMethods(Method.GET)),
         res.hasHeader(Header.AccessControlAllowCredentials.Allow),
       )

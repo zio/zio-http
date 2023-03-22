@@ -244,7 +244,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       test("should send a redirect response") {
         val urls = Gen.fromIterable(
           Seq(
-            "/"     -> "",
+            "/"     -> "/",
             "/a/"   -> "/a",
             "/a/b/" -> "/a/b",
           ),
@@ -252,12 +252,16 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
 
         checkAll(urls zip Gen.fromIterable(Seq(true, false))) { case (url, expected, perm) =>
           val app      = Handler.ok @@ redirectTrailingSlash(perm)
-          val location = Some(expected)
-          val status   = if (perm) Status.PermanentRedirect else Status.TemporaryRedirect
+          val location = if (url != expected) Some(expected) else None
+          val status   =
+            if (url == expected) Status.Ok
+            else if (perm) Status.PermanentRedirect
+            else Status.TemporaryRedirect
 
           for {
             url      <- ZIO.fromEither(URL.fromString(url))
             response <- app.runZIO(Request.get(url = url))
+            _        <- ZIO.debug(response.headerOrFail(Header.Location))
           } yield assertTrue(
             response.status == status,
             response.header(Header.Location) == location.map(l => Header.Location(URL.fromString(l).toOption.get)),
@@ -304,7 +308,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
           app.runZIO(
             Request
               .get(URL.empty)
-              .copy(headers = Headers(HeaderNames.accept, "*/*")), // TODO: this should be supported by the model
+              .copy(headers = Headers(Header.Accept(MediaType.any))),
           ),
         )(isSome(equalTo("text/plain")))
       },

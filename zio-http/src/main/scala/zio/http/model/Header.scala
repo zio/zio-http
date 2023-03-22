@@ -542,13 +542,13 @@ object Header {
 
     override def name: CharSequence = HeaderNames.accessControlAllowHeaders
 
-    final case class Some(values: NonEmptyChunk[CharSequence]) extends AccessControlAllowHeaders
+    final case class Some(values: NonEmptyChunk[String]) extends AccessControlAllowHeaders
 
     case object All extends AccessControlAllowHeaders
 
     case object None extends AccessControlAllowHeaders
 
-    def apply(headers: CharSequence*) =
+    def apply(headers: String*) =
       NonEmptyChunk.fromIterableOption(headers) match {
         case scala.Some(value) => Some(value)
         case scala.None        => None
@@ -586,6 +586,13 @@ object Header {
     override type Self = AccessControlAllowMethods
     override def self: Self                                              = this
     override def headerType: HeaderType.Typed[AccessControlAllowMethods] = AccessControlAllowMethods
+
+    def contains(method: Method): Boolean =
+      this match {
+        case AccessControlAllowMethods.All           => true
+        case AccessControlAllowMethods.Some(methods) => methods.contains(method)
+        case AccessControlAllowMethods.None          => false
+      }
   }
 
   object AccessControlAllowMethods extends HeaderType {
@@ -649,7 +656,7 @@ object Header {
    *
    * null Specifies the origin "null".
    */
-  final case class AccessControlAllowOrigin(origin: String) extends Header {
+  sealed trait AccessControlAllowOrigin extends Header {
     override type Self = AccessControlAllowOrigin
     override def self: Self                                             = this
     override def headerType: HeaderType.Typed[AccessControlAllowOrigin] = AccessControlAllowOrigin
@@ -660,24 +667,28 @@ object Header {
 
     override def name: CharSequence = HeaderNames.accessControlAllowOrigin
 
+    final case class Specific(origin: Origin) extends AccessControlAllowOrigin
+
+    case object All extends AccessControlAllowOrigin
+
+    def apply(scheme: String, host: String, port: Option[Int] = None): AccessControlAllowOrigin =
+      Specific(Origin(scheme, host, port))
+
     def parse(value: String): Either[String, AccessControlAllowOrigin] = {
-      if (value == "null" || value == "*") {
-        Right(AccessControlAllowOrigin(value))
+      if (value == "*") {
+        Right(AccessControlAllowOrigin.All)
       } else {
-        URL.fromString(value) match {
-          case Left(exception)                                      =>
-            Left(s"Invalid Access-Control-Allow-Origin: ${exception.getMessage}")
-          case Right(url) if url.host.isEmpty || url.scheme.isEmpty =>
-            Left(s"Invalid Access-Control-Allow-Origin: host or scheme is empty")
-          case Right(_)                                             =>
-            Right(AccessControlAllowOrigin(value))
+        Origin.parse(value).map { origin =>
+          AccessControlAllowOrigin.Specific(origin)
         }
       }
-
     }
 
     def render(accessControlAllowOrigin: AccessControlAllowOrigin): String =
-      accessControlAllowOrigin.origin
+      accessControlAllowOrigin match {
+        case Specific(origin) => Origin.render(origin)
+        case All              => "*"
+      }
   }
 
   /**
@@ -2894,17 +2905,17 @@ object Header {
     override def name: CharSequence = HeaderNames.location
 
     def parse(value: String): Either[String, Location] = {
-      if (value == "") Left("Invalid Location header")
+      if (value == "") Left("Invalid Location header (empty)")
       else
         URL
           .fromString(value)
           .left
-          .map(_ => "Invalid Location header")
+          .map(error => s"Invalid Location header: $error")
           .map(url => Location(url))
     }
 
     def render(urlLocation: Location): String =
-      urlLocation.url.toJavaURL.fold("")(_.toString())
+      urlLocation.url.encode
   }
 
   /**
@@ -2949,6 +2960,9 @@ object Header {
 
     /** The Origin header value contains scheme, host and maybe port. */
     final case class Value(scheme: String, host: String, port: Option[Int] = None) extends Origin
+
+    def apply(scheme: String, host: String, port: Option[Int] = None): Origin =
+      Value(scheme, host, port)
 
     def parse(value: String): Either[String, Origin] =
       if (value == "null") Right(Null)

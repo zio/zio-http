@@ -16,9 +16,11 @@
 
 package zio.http.netty.model
 
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 import zio.http.ServerConfig.CompressionOptions
+import zio.http.internal.{CaseMode, CharSequenceExtensions}
 import zio.http.model._
 import zio.http.socket.CloseStatus
 
@@ -73,7 +75,7 @@ private[netty] object Conversions {
         var result: String = null
         while (iterator.hasNext && (result eq null)) {
           val entry = iterator.next()
-          if (entry.getKey.toString == key.toString) {
+          if (CharSequenceExtensions.equals(entry.getKey, key, CaseMode.Insensitive)) {
             result = entry.getValue.toString
           }
         }
@@ -83,25 +85,15 @@ private[netty] object Conversions {
     )
 
   private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {
-    val (exceptions, regularHeaders) =
-      headers.partition(h => h.headerName.toString.contains(HeaderNames.setCookie.toString))
-    val combinedHeaders              =
-      regularHeaders
-        .groupBy(_.headerName)
-        .map { case (key, tuples) =>
-          Header.Custom(
-            key,
-            if (tuples.knownSize == 1)
-              tuples.head.renderedValue
-            else
-              tuples.map(_.renderedValue).mkString(","),
-          )
-        }
-
-    (exceptions ++ combinedHeaders)
-      .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>
-        headers.add(entry.headerName, entry.renderedValue)
+    val nettyHeaders = new DefaultHttpHeaders(true)
+    for (header <- headers) {
+      if (header.headerName == HeaderNames.setCookie || header.headerName.toString == HeaderNames.setCookie.toString) {
+        nettyHeaders.add(header.headerName, header.renderedValue)
+      } else {
+        nettyHeaders.set(header.headerName, header.renderedValue)
       }
+    }
+    nettyHeaders
   }
 
   def statusToNetty(status: Status): HttpResponseStatus =

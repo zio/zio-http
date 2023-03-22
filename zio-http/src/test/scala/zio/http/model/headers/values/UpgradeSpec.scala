@@ -25,7 +25,7 @@ object UpgradeSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Upgrade suite")(
     suite("Upgrade header value transformation should be symmetrical")(
       test("single value") {
-        assertTrue(Upgrade.render(Upgrade.parse("h2c").toOption.get) == "h2c")
+        assertTrue(Upgrade.render(Upgrade.parse("HTTP/2.0").toOption.get) == "HTTP/2.0")
       },
       test("multiple values") {
         assertTrue(

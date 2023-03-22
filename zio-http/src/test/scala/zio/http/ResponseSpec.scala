@@ -46,7 +46,7 @@ object ResponseSpec extends ZIOSpecDefault {
       test("Permanent redirect should produce a response with a location") {
         val x = Response.redirect(location, isPermanent = true)
         assertTrue(
-          x.header(Header.Location).contains(Header.Location(location)),
+          x.headerOrFail(Header.Location).contains(Right(Header.Location(location))),
         )
       },
     ),

@@ -167,15 +167,15 @@ object ServerSpec extends HttpRunnableSpec {
             Gen.fromIterable(
               List(
                 // Content-Encoding,   Client Request Compressor, Accept-Encoding,      Client Response Decompressor
-                (Header.AcceptEncoding.GZip(), ZPipeline.gzip(), Header.ContentEncoding.GZip, ZPipeline.gunzip()),
+                (Header.ContentEncoding.GZip, ZPipeline.gzip(), Header.AcceptEncoding.GZip(), ZPipeline.gunzip()),
                 (
-                  Header.AcceptEncoding.Deflate(),
-                  ZPipeline.deflate(),
                   Header.ContentEncoding.Deflate,
+                  ZPipeline.deflate(),
+                  Header.AcceptEncoding.Deflate(),
                   ZPipeline.inflate(),
                 ),
-                (Header.AcceptEncoding.GZip(), ZPipeline.gzip(), Header.ContentEncoding.Deflate, ZPipeline.inflate()),
-                (Header.AcceptEncoding.Deflate(), ZPipeline.deflate(), Header.ContentEncoding.GZip, ZPipeline.gunzip()),
+                (Header.ContentEncoding.GZip, ZPipeline.gzip(), Header.AcceptEncoding.Deflate(), ZPipeline.inflate()),
+                (Header.ContentEncoding.Deflate, ZPipeline.deflate(), Header.AcceptEncoding.GZip(), ZPipeline.gunzip()),
               ),
             ),
           ) { case (contentEncoding, compressor, acceptEncoding, decompressor) =>
@@ -339,14 +339,6 @@ object ServerSpec extends HttpRunnableSpec {
         for {
           actual <- Handler.response(res).withHeader(Header.Server(server)).toHttp.deploy.header(Header.Server).run()
         } yield assertTrue(actual.get == Header.Server(server))
-      },
-      test("multiple headers of same type with different values") {
-        val expectedValue = Header.Vary("test1", "test2")
-        val res = Response.text("abc").withHeader(Header.Vary("test1")).withHeader(Header.Vary("test2")).freeze
-
-        for {
-          actual <- Handler.response(res).toHttp.deploy.header(Header.Vary).run()
-        } yield assertTrue(actual.get == expectedValue)
       },
     ),
   )

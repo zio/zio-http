@@ -262,15 +262,17 @@ private[zio] trait RequestHandlerMiddlewares
    * Creates a middleware for signing cookies
    */
   final def signCookies(secret: String): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    updateHeaders {
-      case h if h.header(Header.ResponseCookie).isDefined =>
-        Cookie
-          .decode[Response](h.header(Header.ResponseCookie).get.value.toString)
-          .map(_.sign(secret))
-          .map { cookie => Headers(Header.ResponseCookie(cookie)) }
-          .getOrElse(h)
-
-      case h => h
+    updateHeaders { headers =>
+      headers.modify {
+        case Header.ResponseCookie(cookie)                                                               =>
+          Header.ResponseCookie(cookie.sign(secret))
+        case header @ Header.Custom(name, value) if name.toString == Header.ResponseCookie.name.toString =>
+          Header.ResponseCookie.parse(value.toString) match {
+            case Left(_)               => header
+            case Right(responseCookie) => Header.ResponseCookie(responseCookie.value.sign(secret))
+          }
+        case header: Header                                                                              => header
+      }
     }
 
   /**

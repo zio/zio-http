@@ -58,7 +58,7 @@ private[zio] trait HtmlErrorResponses {
             body = htmlResponse,
             headers = Headers(Header.ContentType(MediaType.text.`html`)),
           )
-        case Some(value) if value.renderedValue == "*/*"                                 =>
+        case Some(value) if value.mimeTypes.exists(_.mediaType == MediaType.any)         =>
           response.copy(
             body = textResponse,
             headers = Headers(Header.ContentType(MediaType.text.`plain`)),
