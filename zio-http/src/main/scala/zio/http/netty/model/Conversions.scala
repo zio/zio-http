@@ -16,14 +16,12 @@
 
 package zio.http.netty.model
 
-import scala.collection.mutable
+import scala.collection.{AbstractIterator, mutable}
 import scala.jdk.CollectionConverters._
-
 import zio.http.ServerConfig.CompressionOptions
 import zio.http.internal.{CaseMode, CharSequenceExtensions}
 import zio.http.model._
 import zio.http.socket.CloseStatus
-
 import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
 import io.netty.handler.codec.http.websocketx.{WebSocketCloseStatus, WebSocketScheme}
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpMethod, HttpResponseStatus, HttpScheme}
@@ -65,11 +63,22 @@ private[netty] object Conversions {
       case Headers.Empty               => new DefaultHttpHeaders()
     }
 
+  private def nettyHeadersIterator(headers: HttpHeaders): Iterator[Header] =
+    new AbstractIterator[Header] {
+      private val nettyIterator = headers.iteratorCharSequence()
+
+      override def hasNext: Boolean = nettyIterator.hasNext
+
+      override def next(): Header = {
+        val entry = nettyIterator.next()
+        Header.Custom(entry.getKey, entry.getValue)
+      }
+    }
+
   def headersFromNetty(headers: HttpHeaders): Headers =
     Headers.Native(
       headers,
-      (headers: HttpHeaders) =>
-        headers.iteratorCharSequence().asScala.map(e => Header.Custom(e.getKey, e.getValue)).iterator,
+      (headers: HttpHeaders) => nettyHeadersIterator(headers),
       (headers: HttpHeaders, key: CharSequence) => {
         val iterator       = headers.iteratorCharSequence()
         var result: String = null
