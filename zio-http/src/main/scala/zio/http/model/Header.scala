@@ -44,8 +44,6 @@ object Header {
   }
 
   final case class Custom(customName: CharSequence, value: CharSequence) extends Header {
-    self =>
-
     override type Self = Custom
     override def self: Self = this
 

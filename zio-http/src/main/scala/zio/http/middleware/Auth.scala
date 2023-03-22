@@ -33,7 +33,7 @@ private[zio] trait Auth {
       _.header(Header.Authorization) match {
         case Some(Header.Authorization.Basic(userName, password)) =>
           f(Credentials(userName, password))
-        case None                                                 => false
+        case _                                                    => false
       },
       Headers(Header.WWWAuthenticate.Basic()),
     )
@@ -56,7 +56,7 @@ private[zio] trait Auth {
       _.header(Header.Authorization) match {
         case Some(Header.Authorization.Basic(userName, password)) =>
           f(Credentials(userName, password))
-        case None                                                 => ZIO.succeed(false)
+        case _                                                    => ZIO.succeed(false)
       },
       Headers(Header.WWWAuthenticate.Basic()),
     )
@@ -71,7 +71,7 @@ private[zio] trait Auth {
     customAuth(
       _.header(Header.Authorization) match {
         case Some(Header.Authorization.Bearer(token)) => f(token)
-        case None                                     => false
+        case _                                        => false
       },
       Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
     )
@@ -89,7 +89,7 @@ private[zio] trait Auth {
     customAuthZIO(
       _.header(Header.Authorization) match {
         case Some(Header.Authorization.Bearer(token)) => f(token)
-        case None                                     => ZIO.succeed(false)
+        case _                                        => ZIO.succeed(false)
       },
       Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
     )

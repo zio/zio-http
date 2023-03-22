@@ -22,11 +22,11 @@ import zio.http.model.Header
 import zio.http.model.Header.HeaderType
 
 private[codec] trait HeaderCodecs {
-  private[http] def header[A](name: String, value: TextCodec[A]): HeaderCodec[A] =
+  private[http] def headerCodec[A](name: String, value: TextCodec[A]): HeaderCodec[A] =
     HttpCodec.Header(name, value)
 
   def header(headerType: HeaderType): HeaderCodec[headerType.HeaderValue] =
-    header(headerType.name.toString, TextCodec.string)
+    headerCodec(headerType.name.toString, TextCodec.string)
       .transformOrFailLeft(headerType.parse(_), headerType.render(_))
 
   final val accept: HeaderCodec[Header.Accept]                 = header(Header.Accept)
