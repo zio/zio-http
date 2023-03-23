@@ -18,8 +18,9 @@ package zio.http
 
 import zio._
 import zio.http.html.{Html, Template}
+import zio.http.model.Header.HeaderType
 import zio.http.model._
-import zio.http.model.headers.HeaderModifierZIO
+import zio.http.model.headers.HeaderModifier
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
@@ -827,7 +828,7 @@ object Handler {
     Handler.status(Status.RequestEntityTooLarge)
 
   final implicit class RequestHandlerSyntax[-R, +Err](val self: RequestHandler[R, Err])
-      extends HeaderModifierZIO[RequestHandler[R, Err]] {
+      extends HeaderModifier[RequestHandler[R, Err]] {
 
     /**
      * Patches the response produced by the app
@@ -859,7 +860,7 @@ object Handler {
      * Updates the current Headers with new one, using the provided update
      * function passed.
      */
-    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): RequestHandler[R, Err] =
+    override def updateHeaders(update: Headers => Headers): RequestHandler[R, Err] =
       self.map(_.updateHeaders(update))
   }
 
@@ -874,14 +875,14 @@ object Handler {
     /**
      * Extracts content-length from the response if available
      */
-    def contentLength(implicit trace: Trace): Handler[R, Err, In, Option[Long]] =
-      self.map(_.contentLength)
+    def contentLength(implicit trace: Trace): Handler[R, Err, In, Option[Header.ContentLength]] =
+      self.map(_.header(Header.ContentLength))
 
     /**
      * Extracts the value of ContentType header
      */
-    def contentType(implicit trace: Trace): Handler[R, Err, In, Option[String]] =
-      headerValue(HeaderNames.contentType)
+    def contentType(implicit trace: Trace): Handler[R, Err, In, Option[Header.ContentType]] =
+      header(Header.ContentType)
 
     /**
      * Extracts the `Headers` from the type `B` if possible
@@ -892,8 +893,26 @@ object Handler {
     /**
      * Extracts the value of the provided header name.
      */
-    def headerValue(name: CharSequence)(implicit trace: Trace): Handler[R, Err, In, Option[String]] =
-      self.map(_.headerValue(name))
+    def header(headerType: HeaderType)(implicit
+      trace: Trace,
+    ): Handler[R, Err, In, Option[headerType.HeaderValue]] =
+      self.map(_.header(headerType))
+
+    def headerOrFail(
+      headerType: HeaderType,
+    )(implicit trace: Trace, ev: Err <:< String): Handler[R, String, In, Option[headerType.HeaderValue]] =
+      self
+        .mapError(ev)
+        .flatMap { response =>
+          response.headerOrFail(headerType) match {
+            case Some(Left(error))  => Handler.fail(error)
+            case Some(Right(value)) => Handler.succeed(Some(value))
+            case None               => Handler.succeed(None)
+          }
+        }
+
+    def rawHeader(name: CharSequence)(implicit trace: Trace): Handler[R, Err, In, Option[String]] =
+      self.map(_.rawHeader(name))
 
     /**
      * Extracts `Status` from the type `B` is possible.

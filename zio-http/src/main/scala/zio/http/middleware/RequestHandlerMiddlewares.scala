@@ -16,15 +16,13 @@
 
 package zio.http.middleware
 
-import java.io.IOException
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Console, Duration, Trace, ZIO}
 
 import zio.http._
 import zio.http.middleware.RequestHandlerMiddlewares.{InterceptPatch, InterceptPatchZIO}
+import zio.http.model._
 import zio.http.model.headers.HeaderModifier
-import zio.http.model.{Cookie, HeaderNames, Headers, Method, Status}
 
 private[zio] trait RequestHandlerMiddlewares
     extends RequestLogging
@@ -37,7 +35,7 @@ private[zio] trait RequestHandlerMiddlewares
    * Sets cookie in response headers
    */
   final def addCookie(cookie: Cookie[Response]): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    withSetCookie(cookie)
+    withHeader(Header.ResponseCookie(cookie))
 
   final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]])(implicit
     trace: Trace,
@@ -211,7 +209,7 @@ private[zio] trait RequestHandlerMiddlewares
    * Client redirect temporary or permanent to specified url.
    */
   final def redirect(url: URL, isPermanent: Boolean): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    replace(Handler.succeed(Response.redirect(url.encode, isPermanent)))
+    replace(Handler.succeed(Response.redirect(url, isPermanent)))
 
   /**
    * Permanent redirect if the trailing slash is present in the request URL.
@@ -264,15 +262,17 @@ private[zio] trait RequestHandlerMiddlewares
    * Creates a middleware for signing cookies
    */
   final def signCookies(secret: String): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    updateHeaders {
-      case h if h.header(HeaderNames.setCookie).isDefined =>
-        Cookie
-          .decode[Response](h.header(HeaderNames.setCookie).get._2.toString)
-          .map(_.sign(secret))
-          .map { cookie => Headers.setCookie(cookie) }
-          .getOrElse(h)
-
-      case h => h
+    updateHeaders { headers =>
+      headers.modify {
+        case Header.ResponseCookie(cookie)                                                      =>
+          Header.ResponseCookie(cookie.sign(secret))
+        case header @ Header.Custom(name, value) if name.toString == Header.ResponseCookie.name =>
+          Header.ResponseCookie.parse(value.toString) match {
+            case Left(_)               => header
+            case Right(responseCookie) => Header.ResponseCookie(responseCookie.value.sign(secret))
+          }
+        case header: Header                                                                     => header
+      }
     }
 
   /**

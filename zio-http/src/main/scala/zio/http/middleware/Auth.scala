@@ -21,8 +21,7 @@ import zio.{Tag, Trace, ZEnvironment, ZIO}
 
 import zio.http._
 import zio.http.middleware.Auth.Credentials
-import zio.http.model.Headers.{BasicSchemeName, BearerSchemeName}
-import zio.http.model.{HeaderNames, Headers, Status}
+import zio.http.model.{Header, Headers, Status}
 
 private[zio] trait Auth {
 
@@ -31,11 +30,12 @@ private[zio] trait Auth {
    */
   final def basicAuth(f: Credentials => Boolean): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     customAuth(
-      _.basicAuthorizationCredentials match {
-        case Some(credentials) => f(credentials)
-        case None              => false
+      _.header(Header.Authorization) match {
+        case Some(Header.Authorization.Basic(userName, password)) =>
+          f(Credentials(userName, password))
+        case _                                                    => false
       },
-      Headers(HeaderNames.wwwAuthenticate, BasicSchemeName),
+      Headers(Header.WWWAuthenticate.Basic()),
     )
 
   /**
@@ -53,11 +53,12 @@ private[zio] trait Auth {
     trace: Trace,
   ): RequestHandlerMiddleware[Nothing, R, E, Any] =
     customAuthZIO(
-      _.basicAuthorizationCredentials match {
-        case Some(credentials) => f(credentials)
-        case None              => ZIO.succeed(false)
+      _.header(Header.Authorization) match {
+        case Some(Header.Authorization.Basic(userName, password)) =>
+          f(Credentials(userName, password))
+        case _                                                    => ZIO.succeed(false)
       },
-      Headers(HeaderNames.wwwAuthenticate, BasicSchemeName),
+      Headers(Header.WWWAuthenticate.Basic()),
     )
 
   /**
@@ -68,11 +69,11 @@ private[zio] trait Auth {
    */
   final def bearerAuth(f: String => Boolean): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     customAuth(
-      _.bearerToken match {
-        case Some(token) => f(token)
-        case None        => false
+      _.header(Header.Authorization) match {
+        case Some(Header.Authorization.Bearer(token)) => f(token)
+        case _                                        => false
       },
-      Headers(HeaderNames.wwwAuthenticate, BearerSchemeName),
+      Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
     )
 
   /**
@@ -86,11 +87,11 @@ private[zio] trait Auth {
     f: String => ZIO[R, E, Boolean],
   )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, R, E, Any] =
     customAuthZIO(
-      _.bearerToken match {
-        case Some(token) => f(token)
-        case None        => ZIO.succeed(false)
+      _.header(Header.Authorization) match {
+        case Some(Header.Authorization.Bearer(token)) => f(token)
+        case _                                        => ZIO.succeed(false)
       },
-      Headers(HeaderNames.wwwAuthenticate, BearerSchemeName),
+      Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
     )
 
   /**

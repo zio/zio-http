@@ -24,34 +24,32 @@ import zio.{Scope, durationInt}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model._
 
-import io.netty.handler.codec.http.HttpHeaderValues
-
 object KeepAliveSpec extends HttpRunnableSpec {
 
   val app                         = Handler.ok.toHttp
-  val connectionCloseHeader       = Headers.connection(HttpHeaderValues.CLOSE)
-  val keepAliveHeader             = Headers.connection(HttpHeaderValues.KEEP_ALIVE)
+  val connectionCloseHeader       = Headers(Header.Connection.Close)
+  val keepAliveHeader             = Headers(Header.Connection.KeepAlive)
   private val appKeepAliveEnabled = serve(DynamicServer.app)
 
   def keepAliveSpec = suite("KeepAlive")(
     suite("Http 1.1")(
       test("without connection close") {
-        val res = app.deploy.headerValue(HeaderNames.connection).run()
+        val res = app.deploy.header(Header.Connection).run()
         assertZIO(res)(isNone)
       },
       test("with connection close") {
-        val res = app.deploy.headerValue(HeaderNames.connection).run(headers = connectionCloseHeader)
-        assertZIO(res)(isSome(equalTo("close")))
+        val res = app.deploy.header(Header.Connection).run(headers = connectionCloseHeader)
+        assertZIO(res)(isSome(equalTo(Header.Connection.Close)))
       },
     ),
     suite("Http 1.0")(
       test("without keep-alive") {
-        val res = app.deploy.headerValue(HeaderNames.connection).run(version = Version.Http_1_0)
-        assertZIO(res)(isSome(equalTo("close")))
+        val res = app.deploy.header(Header.Connection).run(version = Version.Http_1_0)
+        assertZIO(res)(isSome(equalTo(Header.Connection.Close)))
       },
       test("with keep-alive") {
         val res = app.deploy
-          .headerValue(HeaderNames.connection)
+          .header(Header.Connection)
           .run(version = Version.Http_1_0, headers = keepAliveHeader)
         assertZIO(res)(isNone)
       },

@@ -19,6 +19,7 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
+import zio.http.model.Header.AccessControlRequestMethod
 import zio.http.model.Method
 
 object AccessControlRequestMethodSpec extends ZIOSpecDefault {

@@ -20,6 +20,7 @@ import java.nio.charset._
 
 import zio._
 
+import zio.http.model.Header.ContentTransferEncoding
 import zio.http.model._
 
 private[forms] sealed trait FormAST { def bytes: Chunk[Byte] }
@@ -107,7 +108,7 @@ private[forms] object FormAST {
       Header("Content-Disposition", s"""form-data${makeField("name", name)}${makeField("filename", filename)}""")
 
     def contentTransferEncoding(xferEncoding: ContentTransferEncoding): Header =
-      Header("Content-Transfer-Encoding", xferEncoding.name)
+      Header("Content-Transfer-Encoding", xferEncoding.renderedValue.toString)
 
     def fromBytes(bytes: Array[Byte], encoding: Charset = StandardCharsets.UTF_8): Option[Header] = {
       val i = bytes.indexOf(':')

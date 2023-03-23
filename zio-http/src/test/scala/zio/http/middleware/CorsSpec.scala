@@ -16,42 +16,35 @@
 
 package zio.http.middleware
 
-import zio.test.Assertion.hasSubset
 import zio.test._
 
 import zio.http.HttpAppMiddleware.cors
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.middleware.Cors.CorsConfig
+import zio.http.model.Header.AccessControlAllowMethods
 import zio.http.model._
 
 object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
-  val app = Handler.ok.toHttp @@ cors(CorsConfig(allowedMethods = Some(Set(Method.GET))))
+  val app = Handler.ok.toHttp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
 
   override def spec = suite("CorsMiddlewares")(
     test("OPTIONS request") {
       val request = Request
         .options(URL(!! / "success"))
         .copy(
-          headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
+          headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
         )
 
-      val initialHeaders = Headers
-        .accessControlAllowCredentials(true)
-        .withAccessControlAllowMethods(Method.GET)
-        .withAccessControlAllowOrigin("test-env")
-
-      val expected = CorsConfig().allowedHeaders
-        .fold(Headers.empty) { h =>
-          h
-            .map(value => Headers.empty.withAccessControlAllowHeaders(value))
-            .fold(initialHeaders)(_ ++ _)
-        }
-        .toList
       for {
         res <- app.runZIO(request)
-      } yield assert(res.headersAsList)(hasSubset(expected)) &&
-        assertTrue(res.status == Status.NoContent)
+      } yield assertTrue(
+        res.status == Status.NoContent,
+        res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+        res.hasHeader(Header.AccessControlAllowMethods(Method.GET)),
+        res.hasHeader(Header.AccessControlAllowOrigin("http", "test-env")),
+        res.hasHeader(Header.AccessControlAllowHeaders.All),
+      )
 
     },
     test("GET request") {
@@ -59,19 +52,17 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         Request
           .get(URL(!! / "success"))
           .copy(
-            headers = Headers.accessControlRequestMethod(Method.GET) ++ Headers.origin("test-env"),
+            headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )
-
-      val expected = Headers
-        .accessControlExposeHeaders("*")
-        .withAccessControlAllowOrigin("test-env")
-        .withAccessControlAllowMethods(Method.GET)
-        .withAccessControlAllowCredentials(true)
-        .toList
 
       for {
         res <- app.runZIO(request)
-      } yield assert(res.headersAsList)(hasSubset(expected))
+      } yield assertTrue(
+        res.hasHeader(Header.AccessControlExposeHeaders.All),
+        res.hasHeader(Header.AccessControlAllowOrigin("http", "test-env")),
+        res.hasHeader(Header.AccessControlAllowMethods(Method.GET)),
+        res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+      )
     },
   )
 }

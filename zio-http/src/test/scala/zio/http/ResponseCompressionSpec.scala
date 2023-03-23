@@ -24,7 +24,7 @@ import zio.{Chunk, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
 
-import zio.http.model.{Headers, Method, Scheme, Status}
+import zio.http.model._
 
 object ResponseCompressionSpec extends ZIOSpecDefault {
 
@@ -38,9 +38,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
       Response(
         Status.Ok,
         Headers(
-          Seq(
-            Headers.Header("Content-Type", "text/plain"),
-          ),
+          Header.ContentType(MediaType.text.plain),
         ),
         Body.fromStream(
           ZStream
@@ -69,7 +67,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
                 method = Method.GET,
                 url = URL(!! / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
               )
-              .withAcceptEncoding("gzip,deflate"),
+              .withHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
           res          <- response.body.asChunk
           decompressed <- decompressed(res)
@@ -86,7 +84,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
                 method = Method.GET,
                 url = URL(!! / "stream", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
               )
-              .withAcceptEncoding("gzip,deflate"),
+              .withHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
           res          <- response.body.asChunk
           decompressed <- decompressed(res)

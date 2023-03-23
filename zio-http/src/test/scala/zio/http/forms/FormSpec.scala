@@ -25,6 +25,7 @@ import zio.test._
 
 import zio.http.forms
 import zio.http.forms.Fixtures._
+import zio.http.model.Header.ContentTransferEncoding
 import zio.http.model.MediaType
 
 object FormSpec extends ZIOSpecDefault {

@@ -16,52 +16,44 @@
 
 package zio.http.model.headers
 
-import zio.http.internal.{CaseMode, CharSequenceExtensions, HeaderEncoding}
+import zio.http.internal.{CaseMode, CharSequenceExtensions}
+import zio.http.model.Header.HeaderType
 import zio.http.model._
 
 /**
  * Maintains a list of operators that checks if the Headers meet the give
  * constraints.
- *
- * NOTE: Add methods here, if it tests the Headers for something, and returns a
- * true or false based on if the conditions are met or not.
  */
-trait HeaderChecks[+A] { self: HeaderExtension[A] with A =>
-  final def hasContentType(value: CharSequence): Boolean = {
-    contentType
-      .flatMap(ct => HeaderEncoding.default.getMimeType(ct))
-      .fold(false)(
-        CharSequenceExtensions.equals(_, value, CaseMode.Insensitive),
-      )
-  }
+trait HeaderChecks[+A] { self: HeaderOps[A] with A =>
+  final def hasContentType(value: CharSequence): Boolean =
+    header(Header.ContentType).exists(ct =>
+      CharSequenceExtensions.equals(ct.mediaType.fullType, value, CaseMode.Insensitive),
+    )
 
   final def hasFormUrlencodedContentType: Boolean =
-    hasContentType(HeaderValues.applicationXWWWFormUrlencoded)
-
-  final def hasHeader(name: CharSequence, value: CharSequence): Boolean =
-    headerValue(name) match {
-      case Some(v1) => v1.contentEquals(value)
-      case None     => false
-    }
+    hasContentType(MediaType.application.`x-www-form-urlencoded`.fullType)
 
   final def hasHeader(name: CharSequence): Boolean =
-    headerValue(name).nonEmpty
+    rawHeader(name).nonEmpty
+
+  final def hasHeader(headerType: HeaderType): Boolean =
+    header(headerType).nonEmpty
+
+  final def hasHeader(header: Header): Boolean =
+    self.header(header.headerType).contains(header)
 
   final def hasJsonContentType: Boolean =
-    hasContentType(HeaderValues.applicationJson)
+    hasContentType(MediaType.application.json.fullType)
 
-  final def hasMediaType(other: MediaType): Boolean =
-    mediaType match {
-      case None     => false
-      case Some(mt) => mt == other
-    }
+  final def hasMediaType(mediaType: MediaType): Boolean =
+    header(Header.ContentType).exists(ct => ct.mediaType == mediaType)
 
   final def hasTextPlainContentType: Boolean =
-    hasContentType(HeaderValues.textPlain)
+    hasContentType(MediaType.text.plain.fullType)
 
   final def hasXhtmlXmlContentType: Boolean =
-    hasContentType(HeaderValues.applicationXhtml)
+    hasContentType(MediaType.application.`xhtml+xml`.fullType)
 
   final def hasXmlContentType: Boolean =
-    hasContentType(HeaderValues.applicationXml)
+    hasContentType(MediaType.application.`xml`.fullType)
 }

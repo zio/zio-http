@@ -25,6 +25,9 @@ private[zio] trait MimeDB {
   private val Uncompressible: Boolean                  = false
   private val Binary: Boolean                          = true
   private val NotBinary: Boolean                       = false
+
+  lazy val any: MediaType = new MediaType("*", "*")
+
   private[zio] object application_parts    {
     trait application_0 {
       lazy val `1d-interleaved-parityfec`: MediaType      =
@@ -6215,6 +6218,7 @@ private[zio] trait MimeDB {
       with application_parts.application_2
       with application_parts.application_3 {
     lazy val all: List[MediaType] = Nil ++ part_0 ++ part_1 ++ part_2 ++ part_3
+    lazy val any: MediaType       = new MediaType("application", "*")
   }
   object audio                             {
     lazy val `1d-interleaved-parityfec`: MediaType =
@@ -6659,6 +6663,7 @@ private[zio] trait MimeDB {
       `x-wav`,
       `xm`,
     )
+    lazy val any: MediaType                     = new MediaType("audio", "*")
   }
   object chemical                          {
     lazy val `x-cdx`: MediaType   =
@@ -6676,6 +6681,7 @@ private[zio] trait MimeDB {
       new MediaType("chemical", "x-xyz", Compressible, NotBinary, List("xyz"))
     lazy val all: List[MediaType] =
       List(`x-cdx`, `x-cif`, `x-cmdf`, `x-cml`, `x-csml`, `x-pdb`, `x-xyz`)
+    lazy val any: MediaType       = new MediaType("chemical", "*")
   }
   object font                              {
     lazy val `collection`: MediaType =
@@ -6688,6 +6694,7 @@ private[zio] trait MimeDB {
     lazy val `woff2`: MediaType      =
       new MediaType("font", "woff2", Compressible, NotBinary, List("woff2"))
     lazy val all: List[MediaType]    = List(`collection`, `otf`, `sfnt`, `ttf`, `woff`, `woff2`)
+    lazy val any: MediaType          = new MediaType("font", "*")
   }
   object image                             {
     lazy val `aces`: MediaType                = new MediaType("image", "aces", Compressible, Binary, List("exr"))
@@ -6959,6 +6966,7 @@ private[zio] trait MimeDB {
       `x-xpixmap`,
       `x-xwindowdump`,
     )
+    lazy val any: MediaType                  = new MediaType("image", "*")
   }
   object message                           {
     lazy val `cpim`: MediaType                            = new MediaType("message", "cpim", Compressible, NotBinary)
@@ -7025,6 +7033,7 @@ private[zio] trait MimeDB {
       `vnd.si.simp`,
       `vnd.wfa.wsc`,
     )
+    lazy val any: MediaType               = new MediaType("message", "*")
   }
   object model                             {
     lazy val `3mf`: MediaType               = new MediaType("model", "3mf", Compressible, NotBinary, List("3mf"))
@@ -7121,6 +7130,7 @@ private[zio] trait MimeDB {
       `x3d+xml`,
       `x3d-vrml`,
     )
+    lazy val any: MediaType                                = new MediaType("model", "*")
   }
   object multipart                         {
     lazy val `alternative`: MediaType       =
@@ -7167,6 +7177,7 @@ private[zio] trait MimeDB {
       `voice-message`,
       `x-mixed-replace`,
     )
+    lazy val any: MediaType                 = new MediaType("multipart", "*")
   }
   object text                              {
     lazy val `1d-interleaved-parityfec`: MediaType =
@@ -7519,6 +7530,7 @@ private[zio] trait MimeDB {
       `xml-external-parsed-entity`,
       `yaml`,
     )
+    lazy val any: MediaType                          = new MediaType("text", "*")
   }
   object video                             {
     lazy val `1d-interleaved-parityfec`: MediaType =
@@ -7790,16 +7802,19 @@ private[zio] trait MimeDB {
       `x-sgi-movie`,
       `x-smv`,
     )
+    lazy val any: MediaType           = new MediaType("video", "*")
   }
   object x_conference                      {
     lazy val `x-cooltalk`: MediaType =
       new MediaType("x-conference", "x-cooltalk", Compressible, NotBinary, List("ice"))
     lazy val all: List[MediaType]    = List(`x-cooltalk`)
+    lazy val any: MediaType          = new MediaType("x-conference", "*")
   }
   object x_shader                          {
     lazy val `x-fragment`: MediaType =
       new MediaType("x-shader", "x-fragment", Compressible, NotBinary)
     lazy val `x-vertex`: MediaType   = new MediaType("x-shader", "x-vertex", Compressible, NotBinary)
     lazy val all: List[MediaType]    = List(`x-fragment`, `x-vertex`)
+    lazy val any: MediaType          = new MediaType("x-shader", "*")
   }
 }

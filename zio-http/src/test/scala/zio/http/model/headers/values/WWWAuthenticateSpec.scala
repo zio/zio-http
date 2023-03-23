@@ -19,10 +19,12 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
+import zio.http.model.Header.WWWAuthenticate
+
 object WWWAuthenticateSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("WWAuthenticate suite")(
     test("should properly parse WWWAuthenticate Basic header") {
-      val header = WWWAuthenticate.Basic("realm")
+      val header = WWWAuthenticate.Basic(Some("realm"))
       val parsed = WWWAuthenticate.parse("Basic realm=\"realm\"")
       assertTrue(parsed == Right(header))
     },

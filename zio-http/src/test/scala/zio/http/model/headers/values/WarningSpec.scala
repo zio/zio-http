@@ -21,6 +21,8 @@ import java.time.{ZoneId, ZonedDateTime}
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
+import zio.http.model.Header.Warning
+
 object WarningSpec extends ZIOSpecDefault {
 
   private val validWarning            = "110 anderson/1.3.37 \"Response is stale\""

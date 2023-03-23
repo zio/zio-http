@@ -3,7 +3,7 @@ package example
 import zio._
 
 import zio.http.Client
-import zio.http.model.Headers
+import zio.http.model.{Header, Headers}
 
 object AuthenticationClient extends ZIOAppDefault {
 
@@ -18,7 +18,7 @@ object AuthenticationClient extends ZIOAppDefault {
     // Making a login request to obtain the jwt token. In this example the password should be the reverse string of username.
     token    <- Client.request(s"${url}/login/username/emanresu").flatMap(_.body.asString)
     // Once the jwt token is procured, adding it as a Barer token in Authorization header while accessing a protected route.
-    response <- Client.request(s"${url}/user/userName/greet", headers = Headers.bearerAuthorizationHeader(token))
+    response <- Client.request(s"${url}/user/userName/greet", headers = Headers(Header.Authorization.Bearer(token)))
     body     <- response.body.asString
     _        <- Console.printLine(body)
   } yield ()

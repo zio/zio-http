@@ -185,7 +185,7 @@ final case class Path private (segments: Vector[Segment]) { self =>
   /**
    * Checks if the path contains a trailing slash.
    */
-  def trailingSlash: Boolean = segments.lastOption.contains(Segment.root)
+  def trailingSlash: Boolean = segments.size > 1 && (segments.last == Segment.root)
 }
 
 object Path {

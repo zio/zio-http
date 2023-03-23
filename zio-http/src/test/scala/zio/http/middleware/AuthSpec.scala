@@ -22,14 +22,14 @@ import zio.{ZIO, ZLayer}
 
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
-import zio.http.model.{HeaderNames, Headers, Method, Status}
+import zio.http.model.{Header, Headers, Method, Status}
 
 object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
-  private val successBasicHeader: Headers  = Headers.basicAuthorizationHeader("user", "resu")
-  private val failureBasicHeader: Headers  = Headers.basicAuthorizationHeader("user", "user")
+  private val successBasicHeader: Headers  = Headers(Header.Authorization.Basic("user", "resu"))
+  private val failureBasicHeader: Headers  = Headers(Header.Authorization.Basic("user", "user"))
   private val bearerToken: String          = "dummyBearerToken"
-  private val successBearerHeader: Headers = Headers.bearerAuthorizationHeader(bearerToken)
-  private val failureBearerHeader: Headers = Headers.bearerAuthorizationHeader(bearerToken + "SomethingElse")
+  private val successBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerToken))
+  private val failureBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerToken + "SomethingElse"))
 
   private val basicAuthM: RequestHandlerMiddleware[Nothing, Any, Nothing, Any]     = HttpAppMiddleware.basicAuth { c =>
     c.uname.reverse == c.upassword
@@ -57,7 +57,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(equalTo(Status.Unauthorized))
       },
       test("Responses should have WWW-Authentication header if Basic Auth failed") {
-        val app = Handler.ok @@ basicAuthM header "WWW-AUTHENTICATE"
+        val app = (Handler.ok @@ basicAuthM).header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
       },
     ),
@@ -71,7 +71,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(equalTo(Status.Unauthorized))
       },
       test("Responses should have WWW-Authentication header if Basic Auth failed") {
-        val app = Handler.ok @@ basicAuthZIOM header "WWW-AUTHENTICATE"
+        val app = (Handler.ok @@ basicAuthZIOM).header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
       },
     ),
@@ -85,7 +85,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(equalTo(Status.Unauthorized))
       },
       test("Responses should have WWW-Authentication header if bearer Auth failed") {
-        val app = Handler.ok @@ bearerAuthM header "WWW-AUTHENTICATE"
+        val app = (Handler.ok @@ bearerAuthM).header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
@@ -118,7 +118,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(equalTo(Status.Unauthorized))
       },
       test("Responses should have WWW-Authentication header if bearer Auth failed") {
-        val app = Handler.ok @@ bearerAuthZIOM header "WWW-AUTHENTICATE"
+        val app = (Handler.ok @@ bearerAuthZIOM).header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
@@ -144,7 +144,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     suite("custom")(
       test("Providing context from auth middleware") {
         def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((headers: Headers) =>
-          headers.get(HeaderNames.authorization).map(AuthContext.apply),
+          headers.header(Header.Authorization).map(auth => AuthContext(auth.renderedValue.toString)),
         )
 
         val app1 = Handler.text("ok") @@ auth[Any]
@@ -157,10 +157,10 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
 
         for {
           r1     <- app1.runZIO(Request.get(URL.empty))
-          r2     <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("auth")))
+          r2     <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth"))))
           r2body <- r2.body.asString
           r3     <- app2.runZIO(Request.get(URL.empty))
-          r4     <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("auth")))
+          r4     <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth"))))
           r4body <- r4.body.asString
         } yield assertTrue(
           r1.status == Status.Unauthorized,
@@ -168,18 +168,18 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           r2body == "ok",
           r3.status == Status.Unauthorized,
           r4.status == Status.Ok,
-          r4body == "base auth",
+          r4body == "base Bearer auth",
         )
       }.provideLayer(ZLayer.succeed(BaseService("base"))),
       test("Providing context from auth middleware effectfully") {
         def auth[R0] = RequestHandlerMiddlewares.customAuthProvidingZIO[R0, UserService, Throwable, AuthContext](
           (headers: Headers) =>
-            headers.get(HeaderNames.authorization) match {
-              case Some(value) if value.startsWith("_") =>
+            headers.header(Header.Authorization) match {
+              case Some(Header.Authorization.Bearer(value)) if value.startsWith("_") =>
                 ZIO.service[UserService].map { usvc => Some(AuthContext(usvc.prefix + value)) }
-              case Some(value)                          =>
+              case Some(value)                                                       =>
                 ZIO.fail(new RuntimeException(s"Invalid auth header $value"))
-              case None                                 =>
+              case None                                                              =>
                 ZIO.none
             },
         )
@@ -193,13 +193,13 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         } @@ auth[BaseService]
 
         for {
-          r1     <- app1.runZIO(Request.get(URL.empty))
-          r2     <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("auth"))).exit
-          r3     <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("_auth")))
+          r1 <- app1.runZIO(Request.get(URL.empty))
+          r2 <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth")))).exit
+          r3 <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("_auth"))))
           r3body <- r3.body.asString
           r4     <- app2.runZIO(Request.get(URL.empty))
-          r5     <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("auth"))).exit
-          r6     <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers.authorization("_auth")))
+          r5 <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth")))).exit
+          r6 <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("_auth"))))
           r6body <- r6.body.asString
         } yield assertTrue(
           r1.status == Status.Unauthorized,

@@ -30,7 +30,9 @@ final case class Boundary(id: String, charset: Charset = StandardCharsets.UTF_8)
 
   def isClosing(bytes: Chunk[Byte]): Boolean = bytes == closingBoundaryBytes
 
-  def contentTypeHeader: Headers = Headers.contentType(s"${MediaType.multipart.`form-data`.fullType}; boundary=$id")
+  def contentTypeHeader: Headers = Headers(
+    zio.http.model.Header.ContentType(MediaType.multipart.`form-data`, boundary = Some(id)),
+  )
 
   val encapsulationBoundary: String = s"--$id"
 
@@ -69,14 +71,15 @@ object Boundary {
   def fromHeaders(headers: Headers): Option[Boundary] = {
 
     val charset =
-      headers.contentType
-        .flatMap(value => Header("Content-Type", value.toString()).fields.get("charset"))
+      headers
+        .rawHeader(zio.http.model.Header.ContentType)
+        .flatMap(value => Header("Content-Type", value).fields.get("charset"))
         .map(Charset.forName)
         .getOrElse(StandardCharsets.UTF_8)
 
     for {
-      disp     <- headers.contentDisposition
-      boundary <- Header("Content-Disposition", disp.toString()).fields.get("boundary")
+      disp     <- headers.rawHeader(zio.http.model.Header.ContentDisposition)
+      boundary <- Header("Content-Disposition", disp).fields.get("boundary")
 
     } yield Boundary(boundary, charset)
 

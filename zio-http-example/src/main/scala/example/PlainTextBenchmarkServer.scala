@@ -3,6 +3,7 @@ package example
 import zio._
 
 import zio.http._
+import zio.http.model.Header
 import zio.http.netty.NettyServerConfig
 import zio.http.netty.NettyServerConfig.LeakDetectionLevel
 
@@ -19,18 +20,18 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
   private val plaintextPath = "/plaintext"
   private val jsonPath      = "/json"
 
-  private val STATIC_SERVER_NAME = AsciiString.cached("zio-http")
+  private val STATIC_SERVER_NAME = "zio-http"
 
   private val frozenJsonResponse = Response
     .json(jsonMessage)
     .withServerTime
-    .withServer(STATIC_SERVER_NAME)
+    .withHeader(Header.Server(STATIC_SERVER_NAME))
     .freeze
 
   private val frozenPlainTextResponse = Response
     .text(plainTextMessage)
     .withServerTime
-    .withServer(STATIC_SERVER_NAME)
+    .withHeader(Header.Server(STATIC_SERVER_NAME))
     .freeze
 
   private def plainTextApp(response: Response): HttpApp[Any, Nothing] =

@@ -69,8 +69,8 @@ object ServerSpec extends HttpRunnableSpec {
         assertZIO(res)(equalTo(Status.NotFound))
       } +
         test("header is set") {
-          val res = app.deploy.headerValue(HeaderNames.contentLength).run()
-          assertZIO(res)(isSome(equalTo("0")))
+          val res = app.deploy.header(Header.ContentLength).run()
+          assertZIO(res)(isSome(equalTo(Header.ContentLength(0L))))
         }
     } +
       suite("error") {
@@ -84,7 +84,7 @@ object ServerSpec extends HttpRunnableSpec {
             assertZIO(res)(isEmptyString)
           } +
           test("header is set") {
-            val res = app.deploy.headerValue(HeaderNames.contentLength).run()
+            val res = app.deploy.header(Header.ContentLength).run()
             assertZIO(res)(isSome(anything))
           }
       } +
@@ -99,7 +99,7 @@ object ServerSpec extends HttpRunnableSpec {
             assertZIO(res)(isEmptyString)
           } +
           test("header is set") {
-            val res = app.deploy.headerValue(HeaderNames.contentLength).run()
+            val res = app.deploy.header(Header.ContentLength).run()
             assertZIO(res)(isSome(anything))
           }
       } +
@@ -134,7 +134,7 @@ object ServerSpec extends HttpRunnableSpec {
       suite("headers") {
         val app = Handler.ok.addHeader("Foo", "Bar").toHttp
         test("headers are set") {
-          val res = app.deploy.headerValue("Foo").run()
+          val res = app.deploy.rawHeader("Foo").run()
           assertZIO(res)(isSome(equalTo("Bar")))
         }
       } + suite("response") {
@@ -167,16 +167,21 @@ object ServerSpec extends HttpRunnableSpec {
             Gen.fromIterable(
               List(
                 // Content-Encoding,   Client Request Compressor, Accept-Encoding,      Client Response Decompressor
-                (HeaderValues.gzip, ZPipeline.gzip(), HeaderValues.gzip, ZPipeline.gunzip()),
-                (HeaderValues.deflate, ZPipeline.deflate(), HeaderValues.deflate, ZPipeline.inflate()),
-                (HeaderValues.gzip, ZPipeline.gzip(), HeaderValues.deflate, ZPipeline.inflate()),
-                (HeaderValues.deflate, ZPipeline.deflate(), HeaderValues.gzip, ZPipeline.gunzip()),
+                (Header.ContentEncoding.GZip, ZPipeline.gzip(), Header.AcceptEncoding.GZip(), ZPipeline.gunzip()),
+                (
+                  Header.ContentEncoding.Deflate,
+                  ZPipeline.deflate(),
+                  Header.AcceptEncoding.Deflate(),
+                  ZPipeline.inflate(),
+                ),
+                (Header.ContentEncoding.GZip, ZPipeline.gzip(), Header.AcceptEncoding.Deflate(), ZPipeline.inflate()),
+                (Header.ContentEncoding.Deflate, ZPipeline.deflate(), Header.AcceptEncoding.GZip(), ZPipeline.gunzip()),
               ),
             ),
           ) { case (contentEncoding, compressor, acceptEncoding, decompressor) =>
             val result = roundTrip(
               app,
-              Headers.acceptEncoding(acceptEncoding) ++ Headers.contentEncoding(contentEncoding),
+              Headers(acceptEncoding, contentEncoding),
               bodyAsStream,
               compressor,
               decompressor,
@@ -187,15 +192,23 @@ object ServerSpec extends HttpRunnableSpec {
           test("pass through for unsupported accept encoding request") {
             val result = app.run(
               body = Body.fromString(body),
-              headers = Headers.acceptEncoding(HeaderValues.br),
+              headers = Headers(Header.AcceptEncoding.Br()),
             )
             assertZIO(result.flatMap(_.body.asString))(equalTo(body))
           } +
           test("fail on getting compressed response") {
-            checkAll(Gen.fromIterable(List(HeaderValues.gzip, HeaderValues.deflate, HeaderValues.gzipDeflate))) { ae =>
+            checkAll(
+              Gen.fromIterable(
+                List(
+                  Header.AcceptEncoding.GZip(),
+                  Header.AcceptEncoding.Deflate(),
+                  Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate()),
+                ),
+              ),
+            ) { ae =>
               val result = app.run(
                 body = Body.fromString(body),
-                headers = Headers.acceptEncoding(ae),
+                headers = Headers(ae),
               )
               assertZIO(result.flatMap(_.body.asString))(not(equalTo(body)))
             }
@@ -213,7 +226,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   def requestSpec = suite("RequestSpec") {
     val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
-      Response.text(req.contentLength.getOrElse(-1).toString)
+      Response.text(req.header(Header.ContentLength).map(_.length).getOrElse(-1).toString)
     }
     test("has content-length") {
       check(Gen.alphaNumericString) { string =>
@@ -249,9 +262,9 @@ object ServerSpec extends HttpRunnableSpec {
         Http
           .fromResource("TestFile2.mp4")
           .deploy
-          .headerValue(HeaderNames.contentType)
+          .header(Header.ContentType)
           .run()
-          .map(_.getOrElse("Content type header not found."))
+          .map(_.map(_.mediaType.fullType).getOrElse("Content type header not found."))
       assertZIO(res)(equalTo("video/mp4"))
     },
     test("status") {
@@ -263,8 +276,8 @@ object ServerSpec extends HttpRunnableSpec {
     },
     test("header") {
       check(HttpGen.header) { header =>
-        val res = Handler.ok.addHeader(header).toHttp.deploy.headerValue(header.key).run()
-        assertZIO(res)(isSome(equalTo(header.value)))
+        val res = Handler.ok.addHeader(header).toHttp.deploy.rawHeader(header.headerName).run()
+        assertZIO(res)(isSome(equalTo(header.renderedValue)))
       }
     },
     test("text streaming") {
@@ -295,19 +308,19 @@ object ServerSpec extends HttpRunnableSpec {
       },
       test("content-type") {
         val app = Handler.html(zio.http.html.html(body(div(id := "foo", "bar")))).toHttp
-        val res = app.deploy.headerValue(HeaderNames.contentType).run()
-        assertZIO(res)(isSome(equalTo(HeaderValues.textHtml.toString)))
+        val res = app.deploy.header(Header.ContentType).run()
+        assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.html))))
       },
     ),
     suite("content-length")(
       suite("string") {
         test("unicode text") {
           val res = Handler.text("äöü").toHttp.deploy.contentLength.run()
-          assertZIO(res)(isSome(equalTo(6L)))
+          assertZIO(res)(isSome(equalTo(Header.ContentLength(6L))))
         } +
           test("already set") {
-            val res = Handler.text("1234567890").withContentLength(4L).toHttp.deploy.contentLength.run()
-            assertZIO(res)(isSome(equalTo(4L)))
+            val res = Handler.text("1234567890").withHeader(Header.ContentLength(4L)).toHttp.deploy.contentLength.run()
+            assertZIO(res)(isSome(equalTo(Header.ContentLength(4L))))
           }
       },
     ),
@@ -318,22 +331,14 @@ object ServerSpec extends HttpRunnableSpec {
         val response = Response.text("abc").freeze
         for {
           actual <- ZIO.foreachPar(0 to size)(_ => Handler.response(response).toHttp.deploy.status.run())
-        } yield assert(actual)(equalTo(expected))
+        } yield assertTrue(actual == expected)
       },
       test("update after cache") {
         val server = "ZIO-Http"
         val res    = Response.text("abc").freeze
         for {
-          actual <- Handler.response(res).withServer(server).toHttp.deploy.headerValue(HeaderNames.server).run()
-        } yield assert(actual)(isSome(equalTo(server)))
-      },
-      test("multiple headers of same type with different values") {
-        val expectedValue = "test1,test2"
-        val res           = Response.text("abc").withVary("test1").withVary("test2").freeze
-
-        for {
-          actual <- Handler.response(res).toHttp.deploy.headerValue(HeaderNames.vary).run()
-        } yield assert(actual)(isSome(equalTo(expectedValue)))
+          actual <- Handler.response(res).withHeader(Header.Server(server)).toHttp.deploy.header(Header.Server).run()
+        } yield assertTrue(actual.get == Header.Server(server))
       },
     ),
   )
@@ -362,7 +367,7 @@ object ServerSpec extends HttpRunnableSpec {
         assertZIO(res)(isEmptyString)
       } +
       test("header is set") {
-        val res = app.deploy.headers.run().map(_.headerValue("Content-Length"))
+        val res = app.deploy.headers.run().map(_.header(Header.ContentLength))
         assertZIO(res)(isSome(anything))
       }
   }

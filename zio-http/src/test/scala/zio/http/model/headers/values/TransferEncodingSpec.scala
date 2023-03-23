@@ -20,7 +20,8 @@ import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.internal.HttpGen
-import zio.http.model.headers.values.TransferEncoding.Multiple
+import zio.http.model.Header.TransferEncoding
+import zio.http.model.Header.TransferEncoding.Multiple
 
 object TransferEncodingSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("TransferEncoding suite")(

@@ -2,13 +2,13 @@ package example
 
 import zio._
 
-import zio.http.model.Headers
+import zio.http.model.{Header, Headers}
 import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 import zio.http.{Client, ClientConfig, ClientSSLConfig}
 
 object HttpsClient extends ZIOAppDefault {
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
-  val headers = Headers.host("sports.api.decathlon.com")
+  val headers = Headers(Header.Host("sports.api.decathlon.com"))
 
   val sslConfig = ClientSSLConfig.FromTrustStoreResource(
     trustStorePath = "truststore.jks",

@@ -24,7 +24,9 @@ import zio.{Exit, Scope, ZIO, durationInt}
 import zio.http.HttpAppMiddleware.cors
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Cors.CorsConfig
+import zio.http.model.Header.AccessControlAllowMethods
 import zio.http.model._
+import zio.http.model.headers.HeaderNames
 
 object StaticServerSpec extends HttpRunnableSpec {
 
@@ -43,8 +45,8 @@ object StaticServerSpec extends HttpRunnableSpec {
   }
 
   private val staticAppWithCors = Http.collectZIO[Request] { case Method.GET -> !! / "success-cors" =>
-    ZIO.succeed(Response.ok.withVary("test1").withVary("test2"))
-  } @@ cors(CorsConfig(allowedMethods = Some(Set(Method.GET, Method.POST))))
+    ZIO.succeed(Response.ok.withHeader(Header.Vary("test1", "test2")))
+  } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
 
   private val app = serve { (nonZIO ++ staticApp ++ staticAppWithCors).withDefaultErrorResponse }
 
@@ -133,20 +135,14 @@ object StaticServerSpec extends HttpRunnableSpec {
   }
 
   def multiHeadersSpec = suite("Multi headers spec")(
-    test("Multiple headers should have the value combined in a single header") {
-      for {
-        result <- headers(Method.GET, !! / "success-cors")
-      } yield {
-        assertTrue(result.hasHeader(HeaderNames.vary)) &&
-        assertTrue(result.vary.contains("test1,test2"))
-      }
-    },
     test("CORS headers should be properly encoded") {
       for {
-        result <- headers(Method.GET, !! / "success-cors", Headers.origin("example.com"))
+        result <- headers(Method.GET, !! / "success-cors", Headers(Header.Origin("http", "example.com")))
       } yield {
-        assertTrue(result.hasHeader(HeaderNames.accessControlAllowMethods)) &&
-        assertTrue(result.accessControlAllowMethods.contains("GET,POST"))
+        assertTrue(
+          result.hasHeader(HeaderNames.accessControlAllowMethods),
+          result.hasHeader(Header.AccessControlAllowMethods(Method.GET, Method.POST)),
+        )
       }
     },
   )

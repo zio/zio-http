@@ -22,13 +22,13 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.Response._
 import zio.http.html.Html
 import zio.http.model._
-import zio.http.model.headers.HeaderExtension
+import zio.http.model.headers.{HeaderNames, HeaderOps}
 import zio.http.socket._
 
-sealed trait Response extends HeaderExtension[Response] { self =>
+sealed trait Response extends HeaderOps[Response] { self =>
 
   def addCookie(cookie: Cookie[Response]): Response =
-    self.copy(headers = self.headers ++ Headers.setCookie(cookie))
+    self.copy(headers = self.headers ++ Headers(Header.ResponseCookie(cookie)))
 
   def body: Body
 
@@ -301,7 +301,7 @@ object Response {
   def html(data: Html, status: Status = Status.Ok): Response =
     new BasicResponse(
       Body.fromString("<!DOCTYPE html>" + data.encode),
-      Headers(HeaderNames.contentType, HeaderValues.textHtml),
+      contentTypeHtml,
       status,
     )
 
@@ -311,7 +311,7 @@ object Response {
   def json(data: CharSequence): Response =
     new BasicResponse(
       Body.fromCharSequence(data),
-      Headers(HeaderNames.contentType, HeaderValues.applicationJson),
+      contentTypeJson,
       Status.Ok,
     )
 
@@ -324,16 +324,16 @@ object Response {
    * Creates an empty response with status 301 or 302 depending on if it's
    * permanent or not.
    */
-  def redirect(location: CharSequence, isPermanent: Boolean = false): Response = {
+  def redirect(location: URL, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
-    new BasicResponse(Body.empty, Headers.location(location), status)
+    new BasicResponse(Body.empty, Headers(Header.Location(location)), status)
   }
 
   /**
    * Creates an empty response with status 303
    */
-  def seeOther(location: CharSequence): Response =
-    new BasicResponse(Body.empty, Headers.location(location), Status.SeeOther)
+  def seeOther(location: URL): Response =
+    new BasicResponse(Body.empty, Headers(Header.Location(location)), Status.SeeOther)
 
   /**
    * Creates an empty response with the provided Status
@@ -346,7 +346,11 @@ object Response {
   def text(text: CharSequence): Response =
     new BasicResponse(
       Body.fromCharSequence(text),
-      Headers(HeaderNames.contentType, HeaderValues.textPlain),
+      contentTypeText,
       Status.Ok,
     )
+
+  private lazy val contentTypeJson: Headers = Headers(Header.ContentType(MediaType.application.json).untyped)
+  private lazy val contentTypeHtml: Headers = Headers(Header.ContentType(MediaType.text.html).untyped)
+  private lazy val contentTypeText: Headers = Headers(Header.ContentType(MediaType.text.plain).untyped)
 }
