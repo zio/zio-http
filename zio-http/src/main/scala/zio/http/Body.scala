@@ -29,37 +29,62 @@ import zio.http.internal.BodyEncoding
 import zio.http.model.{HTTP_CHARSET, Headers, MediaType}
 
 /**
- * Holds Body that needs to be written on the HttpChannel
+ * Represents the body of a request or response. The body can be a fixed chunk of bytes, a stream
+ * of bytes, or form data, or any type that can be encoded into such representations (such as 
+ * textual data using some character encoding, the contents of files, JSON, etc.).
  */
 trait Body { self =>
-
+  /**
+    * Returns an effect that decodes the content of the body as array of bytes. Note that attempting
+    * to decode a large stream of bytes into an array could result in an out of memory error.
+    */
   def asArray(implicit trace: Trace): Task[Array[Byte]]
 
+  /**
+   * Returns an effect that decodes the content of the body as a chunk of bytes. Note that attempting
+   * to decode a large stream of bytes into a chunk could result in an out of memory error.
+   */
   def asChunk(implicit trace: Trace): Task[Chunk[Byte]]
 
-  def asURLEncodedForm(implicit trace: Trace): Task[Form] =
-    asString.flatMap(Form.fromURLEncoded(_, HTTP_CHARSET).mapError(_.asException))
-
+  /**
+   * Returns an effect that decodes the content of the body as a multipart form. Note that attempting
+   * to decode a large stream of bytes into a form could result in an out of memory error.
+   */
   def asMultipartForm(implicit trace: Trace): Task[Form] =
     for {
       bytes <- asChunk
       form  <- Form.fromMultipartBytes(bytes, HTTP_CHARSET).mapError(_.asException)
     } yield form
 
+  /**
+    * Returns a stream that contains the bytes of the body. This method is safe to use with large 
+    * bodies, because the elements of the returned stream are lazily produced from the body.
+    */
   def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte]
+  
+  /**
+   * Decodes the content of the body as a string with the default charset. Note that attempting to 
+   * decode a large stream of bytes into a string could result in an out of memory error.
+   */
+  final def asString(implicit trace: Trace): Task[String] =
+    asArray.map(new String(_, HTTP_CHARSET))
 
   /**
-   * Decodes the content of request as string with the provided charset.
+   * Decodes the content of the body as a string with the provided charset. Note that attempting to
+   * decode a large stream of bytes into a string could result in an out of memory error.
    */
   final def asString(charset: Charset)(implicit trace: Trace): Task[String] =
     asArray.map(new String(_, charset))
 
   /**
-   * Decodes the content of request as string with the default charset.
+   * Returns an effect that decodes the content of the body as form data.
    */
-  final def asString(implicit trace: Trace): Task[String] =
-    asArray.map(new String(_, HTTP_CHARSET))
+  def asURLEncodedForm(implicit trace: Trace): Task[Form] =
+    asString.flatMap(Form.fromURLEncoded(_, HTTP_CHARSET).mapError(_.asException))
 
+  /**
+    * Returns whether or not the bytes of the body have been fully read.
+    */
   def isComplete: Boolean
 
   private[zio] def mediaType: Option[MediaType]
@@ -69,29 +94,31 @@ trait Body { self =>
 }
 
 object Body {
-
+  /**
+   * A body that contains no data.
+   */
   val empty: Body = EmptyBody
 
   /**
-   * Helper to create Body from CharSequence
+   * Constructs a [[zio.http.Body]] from the contents of a file.
    */
   def fromCharSequence(charSequence: CharSequence, charset: Charset = HTTP_CHARSET): Body =
     BodyEncoding.default.fromCharSequence(charSequence, charset)
 
   /**
-   * Helper to create Body from chunk of bytes
+   * Constructs a [[zio.http.Body]] from a chunk of bytes.
    */
   def fromChunk(data: Chunk[Byte]): Body = new ChunkBody(data)
 
   /**
-   * Helper to create Body from contents of a file
+   * Constructs a [[zio.http.Body]] from the contents of a file.
    */
   def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4): Body = new FileBody(file, chunkSize)
 
-  def fromURLEncodedForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
-    fromString(form.encodeAsURLEncoded(charset), charset).withContentType(MediaType.application.`x-www-form-urlencoded`)
-  }
-
+  /**
+   * Constructs a [[zio.http.Body]] from from form data, using multipart encoding and the specified
+   * character set, which defaults to UTF-8.
+   */
   def fromMultipartForm(
     form: Form,
     charset: Charset = StandardCharsets.UTF_8,
@@ -106,7 +133,13 @@ object Body {
   }
 
   /**
-   * Helper to create Body from Stream of string
+   * Constructs a [[zio.http.Body]] from a stream of bytes.
+   */
+  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body = new StreamBody(stream)
+
+  /**
+   * Constructs a [[zio.http.Body]] from a stream of text, using the specified character set, which
+   * defaults to the HTTP character set.
    */
   def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET)(implicit
     trace: Trace,
@@ -114,14 +147,16 @@ object Body {
     fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
 
   /**
-   * Helper to create Body from Stream of bytes
-   */
-  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body = new StreamBody(stream)
-
-  /**
    * Helper to create Body from String
    */
   def fromString(text: String, charset: Charset = HTTP_CHARSET): Body = fromCharSequence(text, charset)
+
+  /**
+   * Constructs a [[zio.http.Body]] from form data using URL encoding and the default character set.
+   */
+  def fromURLEncodedForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
+    fromString(form.encodeAsURLEncoded(charset), charset).withContentType(MediaType.application.`x-www-form-urlencoded`)
+  }
 
   private[zio] trait UnsafeWriteable extends Body
 
