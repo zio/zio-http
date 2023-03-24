@@ -47,6 +47,7 @@ final case class CliEndpoint[A](
   embed: (A, CliRequest) => CliRequest,
   options: Options[A],
   commandNames: List[Either[model.Method, String]],
+  doc: Option[Doc],
 ) {
   self =>
   type Type = A
@@ -58,12 +59,13 @@ final case class CliEndpoint[A](
       },
       self.options ++ that.options,
       self.commandNames ++ that.commandNames,
+      self.doc,
     )
 
-  def ??(description: String) = self.copy(options = options ?? description)
+  def ??(doc: Doc): CliEndpoint[A] = self.copy(doc = Some(doc))
 
   lazy val command: Command[A] = {
-    Command(
+    val command0 = Command(
       self.commandNames
         .sortBy(_.isRight)
         .map {
@@ -73,7 +75,10 @@ final case class CliEndpoint[A](
         .mkString("-"),
       self.options,
     )
+    doc.fold(command0)(doc => command0.withHelp(doc.toPlaintext()))
   }
+
+  def describeOptions(description: String) = self.copy(options = options ?? description)
 
   lazy val optional: CliEndpoint[Option[A]] =
     CliEndpoint(
@@ -83,6 +88,7 @@ final case class CliEndpoint[A](
       },
       self.options.optional,
       self.commandNames,
+      self.doc,
     )
 
   def transform[B](f: A => B, g: B => A): CliEndpoint[B] =
@@ -90,11 +96,12 @@ final case class CliEndpoint[A](
       (b, request) => self.embed(g(b), request),
       self.options.map(f),
       self.commandNames,
+      self.doc,
     )
 }
 object CliEndpoint {
   def fromEndpoint[In, Err, Out, M <: EndpointMiddleware](endpoint: Endpoint[In, Err, Out, M]): Set[CliEndpoint[_]] =
-    fromInput(endpoint.input)
+    fromInput(endpoint.input).map(_ ?? endpoint.doc)
 
   private def fromInput[Input](input: HttpCodec[_, Input]): Set[CliEndpoint[_]] =
     input.asInstanceOf[HttpCodec[_, _]] match {
@@ -131,6 +138,7 @@ object CliEndpoint {
                     },
                   ),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.StringCodec      =>
@@ -139,6 +147,7 @@ object CliEndpoint {
                 (str, request) => request.addHeader(name, str),
                 Options.text(name),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.IntCodec         =>
@@ -147,6 +156,7 @@ object CliEndpoint {
                 (int, request) => request.addHeader(name, int.toString),
                 Options.integer(name),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.BooleanCodec     =>
@@ -155,6 +165,7 @@ object CliEndpoint {
                 (bool, request) => request.addHeader(name, bool.toString),
                 Options.boolean(name),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.Constant(string) =>
@@ -163,6 +174,7 @@ object CliEndpoint {
                 (_, request) => request.addHeader(name, string),
                 Options.Empty,
                 List.empty,
+                None,
               ),
             )
         }
@@ -174,6 +186,7 @@ object CliEndpoint {
                 (_, request) => request.withMethod(method.asInstanceOf[model.Method]),
                 Options.none,
                 List(Left(method.asInstanceOf[model.Method])),
+                None,
               ),
             )
           case SimpleCodec.Unspecified()     =>
@@ -196,6 +209,7 @@ object CliEndpoint {
                     },
                   ),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.StringCodec      =>
@@ -204,6 +218,7 @@ object CliEndpoint {
                 (str, request) => request.copy(url = request.url.copy(path = request.url.path / str)),
                 Options.text(name),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.IntCodec         =>
@@ -212,6 +227,7 @@ object CliEndpoint {
                 (int, request) => request.copy(url = request.url.copy(path = request.url.path / int.toString)),
                 Options.integer(name),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.BooleanCodec     =>
@@ -220,6 +236,7 @@ object CliEndpoint {
                 (bool, request) => request.copy(url = request.url.copy(path = request.url.path / bool.toString)),
                 Options.boolean(name),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.Constant(string) =>
@@ -228,6 +245,7 @@ object CliEndpoint {
                 (_, request) => request.copy(url = request.url.copy(path = request.url.path / string)),
                 Options.Empty,
                 List(Right(string)),
+                None,
               ),
             )
         }
@@ -239,6 +257,7 @@ object CliEndpoint {
                 (_, request) => request.copy(url = request.url.copy(path = request.url.path / string)),
                 Options.Empty,
                 List(Right(string)),
+                None,
               ),
             )
           case _                          => Set.empty
@@ -260,6 +279,7 @@ object CliEndpoint {
                     },
                   ),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.StringCodec      =>
@@ -268,6 +288,7 @@ object CliEndpoint {
                 (str, request) => request.addPathParam(name, str),
                 Options.text(name),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.IntCodec         =>
@@ -276,6 +297,7 @@ object CliEndpoint {
                 (int, request) => request.addPathParam(name, int.toString),
                 Options.integer(name),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.BooleanCodec     =>
@@ -284,6 +306,7 @@ object CliEndpoint {
                 (bool, request) => request.addPathParam(name, bool.toString),
                 Options.boolean(name),
                 List.empty,
+                None,
               ),
             )
           case TextCodec.Constant(string) =>
@@ -292,12 +315,13 @@ object CliEndpoint {
                 (_, request) => request.addPathParam(name, string),
                 Options.Empty,
                 List.empty,
+                None,
               ),
             )
         }
       case HttpCodec.Status(_, _)                   => Set.empty
       case HttpCodec.TransformOrFail(api, _, _)     => fromInput(api)
-      case HttpCodec.WithDoc(in, doc)               => fromInput(in).map(_ ?? doc.toPlaintext())
+      case HttpCodec.WithDoc(in, doc)               => fromInput(in).map(_ describeOptions doc.toPlaintext())
     }
 
   private def fromSchema[A](schema: zio.schema.Schema[A]): Set[CliEndpoint[_]] = {
@@ -309,7 +333,7 @@ object CliEndpoint {
               .foldLeft(Set.empty[CliEndpoint[_]]) { (cliEndpoints, field) =>
                 cliEndpoints ++ loop(prefix :+ field.name, field.schema).map { cliEndpoint =>
                   field.annotations.headOption match {
-                    case Some(description) => cliEndpoint ?? description.asInstanceOf[description].text
+                    case Some(description) => cliEndpoint describeOptions description.asInstanceOf[description].text
                     case None              => cliEndpoint
                   }
                 }
@@ -328,6 +352,7 @@ object CliEndpoint {
                   (instant, request) => request.addFieldToBody(prefix, Json.Str(instant.toString())),
                   Options.instant(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.UnitType           => Set.empty
@@ -337,6 +362,7 @@ object CliEndpoint {
                   (period, request) => request.addFieldToBody(prefix, Json.Str(period.toString())),
                   Options.period(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.LongType           =>
@@ -348,6 +374,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(long))), // FIXME
                   Options.integer(prefix.mkString(".")),                           // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.StringType         =>
@@ -356,6 +383,7 @@ object CliEndpoint {
                   (str, request) => request.addFieldToBody(prefix, Json.Str(str)),
                   Options.text(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.UUIDType           =>
@@ -364,6 +392,7 @@ object CliEndpoint {
                   (uuid, request) => request.addFieldToBody(prefix, Json.Str(uuid.toString())),
                   Options.text(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.ByteType           =>
@@ -372,6 +401,7 @@ object CliEndpoint {
                   (byte, request) => request.addFieldToBody(prefix, Json.Num(BigDecimal(byte))), // FIXME
                   Options.integer(prefix.mkString(".")),                                         // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.OffsetDateTimeType =>
@@ -383,6 +413,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(offsetDateTime.toString())),
                   Options.offsetDateTime(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.LocalDateType      =>
@@ -394,6 +425,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(localDate.toString())),
                   Options.localDate(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.OffsetTimeType     =>
@@ -405,6 +437,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(offsetTime.toString())),
                   Options.offsetTime(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.FloatType          =>
@@ -413,6 +446,7 @@ object CliEndpoint {
                   (float, request) => request.addFieldToBody(prefix, Json.Num(float)), // FIXME
                   Options.decimal(prefix.mkString(".")),                               // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.BigDecimalType     =>
@@ -421,6 +455,7 @@ object CliEndpoint {
                   (bigDecimal, request) => request.addFieldToBody(prefix, Json.Num(bigDecimal)),
                   Options.decimal(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.BigIntegerType     =>
@@ -429,6 +464,7 @@ object CliEndpoint {
                   (bigInt, request) => request.addFieldToBody(prefix, Json.Num(BigDecimal(bigInt))), // FIXME
                   Options.integer(prefix.mkString(".")),                                             // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.DoubleType         =>
@@ -437,6 +473,7 @@ object CliEndpoint {
                   (double, request) => request.addFieldToBody(prefix, Json.Num(double)), // FIXME
                   Options.decimal(prefix.mkString(".")),                                 // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.BoolType           =>
@@ -445,6 +482,7 @@ object CliEndpoint {
                   (bool, request) => request.addFieldToBody(prefix, Json.Bool(bool)),
                   Options.boolean(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.CharType           =>
@@ -453,6 +491,7 @@ object CliEndpoint {
                   (char, request) => request.addFieldToBody(prefix, Json.Str(char.toString())), // FIXME
                   Options.text(prefix.mkString(".")),                                           // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.ZoneOffsetType     =>
@@ -464,6 +503,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(zoneOffset.toString())),
                   Options.zoneOffset(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.YearMonthType      =>
@@ -475,6 +515,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(yearMonth.toString())),
                   Options.yearMonth(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.BinaryType         => ??? // TODO
@@ -487,6 +528,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(localTime.toString())),
                   Options.localTime(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.ZoneIdType         =>
@@ -498,6 +540,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(zoneId.toString())),
                   Options.zoneId(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.ZonedDateTimeType  =>
@@ -509,6 +552,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(zonedDateTime.toString())),
                   Options.zonedDateTime(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.DayOfWeekType      =>
@@ -520,6 +564,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(dayOfWeek))), // FIXME
                   Options.integer(prefix.mkString(".")),                                // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.DurationType       =>
@@ -531,6 +576,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(duration))), // FIXME
                   Options.integer(prefix.mkString(".")),                               // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.IntType            =>
@@ -542,6 +588,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(int))), // FIXME
                   Options.integer(prefix.mkString(".")),                          // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.MonthDayType       =>
@@ -553,6 +600,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(monthDay.toString())),
                   Options.monthDay(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.ShortType          =>
@@ -564,6 +612,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(short))), // FIXME
                   Options.integer(prefix.mkString(".")),                            // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.LocalDateTimeType  =>
@@ -575,6 +624,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(localDateTime.toString())),
                   Options.localDateTime(prefix.mkString(".")), // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.MonthType          =>
@@ -586,6 +636,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Str(month)), // FIXME
                   Options.text(prefix.mkString(".")),                   // FIXME
                   List.empty,
+                  None,
                 ),
               )
             case StandardType.YearType           =>
@@ -597,6 +648,7 @@ object CliEndpoint {
                   ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(year))), // FIXME
                   Options.integer(prefix.mkString(".")),                           // FIXME
                   List.empty,
+                  None,
                 ),
               )
           }
@@ -665,7 +717,7 @@ object Test extends scala.App {
     Endpoint
       .get("users" / int("userId") ?? Doc.p("The unique identifier of the user"))
       .header(HeaderCodec.location ?? Doc.p("The user's location"))
-      .out[User]
+      .out[User] ?? Doc.p("Get a user by ID")
 
   val getUserRoute =
     getUser.implement { case (id, _) =>
@@ -680,7 +732,7 @@ object Test extends scala.App {
         ),
       )
       .query(query("name") ?? Doc.p("The user's name"))
-      .out[List[Post]]
+      .out[List[Post]] ?? Doc.p("Get a user's posts by userId and postId")
 
   val getUserPostsRoute =
     getUserPosts.implement { case (userId, postId, name) =>
@@ -691,7 +743,7 @@ object Test extends scala.App {
     Endpoint
       .post("users")
       .in[User]
-      .out[String]
+      .out[String] ?? Doc.p("Create a new user")
 
   val createUserRoute =
     createUser.implement { user =>
