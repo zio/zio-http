@@ -22,6 +22,8 @@ import java.time.{ZoneOffset, ZonedDateTime}
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
+import zio.http.model.Header.LastModified
+
 object LastModifiedSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("LastModified spec")(
     test("LastModifiedDateTime") {

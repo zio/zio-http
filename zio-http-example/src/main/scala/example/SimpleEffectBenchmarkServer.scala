@@ -3,11 +3,9 @@ package example
 import zio._
 
 import zio.http._
-import zio.http.model.Method
+import zio.http.model.{Header, Method}
 import zio.http.netty.NettyServerConfig
 import zio.http.netty.NettyServerConfig.LeakDetectionLevel
-
-import io.netty.util.AsciiString
 
 /**
  * This server is used to run plaintext benchmarks on CI.
@@ -17,13 +15,25 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
   private val plainTextMessage: String = "hello, world!"
   private val jsonMessage: String      = s"""{"message": "$plainTextMessage"}"""
 
-  private val STATIC_SERVER_NAME = AsciiString.cached("zio-http")
+  private val STATIC_SERVER_NAME = "zio-http"
 
   private val app: HttpApp[Any, Nothing] = Http.collectZIO[Request] {
     case Method.GET -> !! / "plaintext" =>
-      ZIO.succeed(Response.text(plainTextMessage).withServerTime.withServer(STATIC_SERVER_NAME).freeze)
+      ZIO.succeed(
+        Response
+          .text(plainTextMessage)
+          .withServerTime
+          .withHeader(Header.Server(STATIC_SERVER_NAME))
+          .freeze,
+      )
     case Method.GET -> !! / "json"      =>
-      ZIO.succeed(Response.json(jsonMessage).withServerTime.withServer(STATIC_SERVER_NAME).freeze)
+      ZIO.succeed(
+        Response
+          .json(jsonMessage)
+          .withServerTime
+          .withHeader(Header.Server(STATIC_SERVER_NAME))
+          .freeze,
+      )
   }
 
   private val config = ServerConfig.default

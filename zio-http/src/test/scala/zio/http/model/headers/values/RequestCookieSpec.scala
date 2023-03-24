@@ -21,6 +21,7 @@ import zio.{NonEmptyChunk, Scope}
 
 import zio.http.model
 import zio.http.model.Cookie.Type.RequestType
+import zio.http.model.Header.RequestCookie
 
 object RequestCookieSpec extends ZIOSpecDefault {
 

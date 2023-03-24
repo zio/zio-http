@@ -19,6 +19,7 @@ package zio.http.model.headers.values
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Chunk, NonEmptyChunk, Scope}
 
+import zio.http.model.Header.AccessControlAllowMethods
 import zio.http.model.Method
 
 object AccessControlAllowMethodsSpec extends ZIOSpecDefault {

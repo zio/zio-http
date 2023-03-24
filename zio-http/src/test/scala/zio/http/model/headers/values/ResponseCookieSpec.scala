@@ -19,6 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
+import zio.http.model.Header.ResponseCookie
+
 object ResponseCookieSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ResponseCookieSpec suite")(
     test("ResponseCookie handle valid cookie") {

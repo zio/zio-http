@@ -19,6 +19,8 @@ package zio.http.model.headers.values
 import zio.test._
 import zio.{NonEmptyChunk, Scope}
 
+import zio.http.model.Header.Vary
+
 object VarySpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Vary header suite")(

@@ -19,7 +19,8 @@ package zio.http.model.headers.values
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
-import zio.http.model.headers.values.Te.{Deflate, GZip, Multiple, Trailers}
+import zio.http.model.Header.Te
+import zio.http.model.Header.Te.{Deflate, GZip, Multiple, Trailers}
 
 object TeSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("TE suite")(

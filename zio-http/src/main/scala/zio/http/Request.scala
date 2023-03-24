@@ -28,7 +28,7 @@ final case class Request(
   url: URL,
   version: Version,
   remoteAddress: Option[InetAddress],
-) extends HeaderExtension[Request] { self =>
+) extends HeaderOps[Request] { self =>
 
   /**
    * Add trailing slash to the path.
@@ -85,10 +85,7 @@ object Request {
   private def headersForBody(body: Body): Headers =
     body.mediaType match {
       case Some(mediaType) =>
-        body.boundary match {
-          case Some(id) => Headers.contentType(s"${mediaType.fullType}; boundary=$id")
-          case None     => Headers.contentType(mediaType.fullType)
-        }
+        Headers(Header.ContentType(mediaType, boundary = body.boundary.map(_.toString)))
       case None            =>
         Headers.empty
     }

@@ -54,7 +54,7 @@ object TestServerSpec extends ZIOSpecDefault {
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
-              testRequest.addHeaders(Headers.contentLanguage("French")),
+              testRequest.addHeaders(Headers(Header.ContentLanguage.French)),
             )
 
         } yield assertTrue(finalResponse.status == Status.Ok)
@@ -75,7 +75,7 @@ object TestServerSpec extends ZIOSpecDefault {
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             Client.request(
-              testRequest.copy(headers = Headers.cacheControl("cache")),
+              testRequest.copy(headers = Headers(Header.CacheControl.Public)),
             )
         } yield assertTrue(finalResponse.status == Status.NotFound)
       },
@@ -94,6 +94,6 @@ object TestServerSpec extends ZIOSpecDefault {
       port <- ZIO.serviceWith[Server](_.port)
     } yield Request
       .get(url = URL.root.setPort(port))
-      .addHeaders(Headers.accept("text"))
+      .addHeaders(Headers(Header.Accept(MediaType.text.`plain`)))
 
 }

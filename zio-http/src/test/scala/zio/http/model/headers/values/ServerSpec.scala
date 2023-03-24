@@ -18,6 +18,8 @@ package zio.http.model.headers.values
 
 import zio.test._
 
+import zio.http.model.Header.Server
+
 object ServerSpec extends ZIOSpecDefault {
   override def spec = suite("Server header suite")(
     test("empty server value") {

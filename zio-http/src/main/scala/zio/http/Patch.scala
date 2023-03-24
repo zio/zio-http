@@ -20,6 +20,7 @@ import scala.annotation.tailrec
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
+import zio.http.model.Header.HeaderType
 import zio.http.model._
 
 /**
@@ -47,16 +48,21 @@ sealed trait Patch { self =>
 object Patch {
   case object Empty                                     extends Patch
   final case class AddHeaders(headers: Headers)         extends Patch
-  final case class RemoveHeaders(headers: List[String]) extends Patch
+  final case class RemoveHeaders(headers: Set[String])  extends Patch
   final case class SetStatus(status: Status)            extends Patch
   final case class Combine(left: Patch, right: Patch)   extends Patch
   final case class UpdateHeaders(f: Headers => Headers) extends Patch
 
-  def empty: Patch                                              = Empty
-  def addHeader(header: Header): Patch                          = AddHeaders(header)
-  def addHeader(headers: Headers): Patch                        = AddHeaders(headers)
-  def addHeader(name: CharSequence, value: CharSequence): Patch = AddHeaders(Headers(name, value))
-  def removeHeaders(headers: List[String]): Patch               = RemoveHeaders(headers)
-  def setStatus(status: Status): Patch                          = SetStatus(status)
-  def updateHeaders(f: Headers => Headers): Patch               = UpdateHeaders(f)
+  def empty: Patch = Empty
+
+  def addHeader(headerType: HeaderType)(value: headerType.HeaderValue): Patch =
+    addHeader(headerType.name, headerType.render(value))
+
+  def addHeader(header: Header): Patch                          = addHeaders(Headers(header))
+  def addHeaders(headers: Headers): Patch                       = AddHeaders(headers)
+  def addHeader(name: CharSequence, value: CharSequence): Patch = addHeaders(Headers(name, value))
+
+  def removeHeaders(headerTypes: Set[HeaderType]): Patch = RemoveHeaders(headerTypes.map(_.name))
+  def setStatus(status: Status): Patch                   = SetStatus(status)
+  def updateHeaders(f: Headers => Headers): Patch        = UpdateHeaders(f)
 }

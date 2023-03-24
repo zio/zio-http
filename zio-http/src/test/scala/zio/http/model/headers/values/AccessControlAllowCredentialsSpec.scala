@@ -19,6 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
+import zio.http.model.Header.AccessControlAllowCredentials
+
 object AccessControlAllowCredentialsSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlAllowCredentials suite")(
     test("AccessControlAllowCredentials should be parsed correctly for true") {

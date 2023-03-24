@@ -19,7 +19,8 @@ package zio.http.model.headers.values
 import zio.NonEmptyChunk
 import zio.test._
 
-import zio.http.model.headers.values.Accept.MediaTypeWithQFactor
+import zio.http.model.Header.Accept
+import zio.http.model.Header.Accept.MediaTypeWithQFactor
 import zio.http.model.{MediaType, MimeDB}
 
 object AcceptSpec extends ZIOSpecDefault with MimeDB {

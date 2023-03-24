@@ -19,6 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
+import zio.http.model.Header.Expect
+
 object ExpectSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Expect header suite")(

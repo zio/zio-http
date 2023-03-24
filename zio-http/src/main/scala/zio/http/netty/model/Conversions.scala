@@ -16,10 +16,13 @@
 
 package zio.http.netty.model
 
+import scala.collection.{AbstractIterator, mutable}
 import scala.jdk.CollectionConverters._
 
 import zio.http.ServerConfig.CompressionOptions
+import zio.http.internal.{CaseMode, CharSequenceExtensions}
 import zio.http.model._
+import zio.http.model.headers.HeaderNames
 import zio.http.socket.CloseStatus
 
 import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
@@ -57,23 +60,34 @@ private[netty] object Conversions {
 
   def headersToNetty(headers: Headers): HttpHeaders =
     headers match {
-      case Headers.Header(_, _)        => encodeHeaderListToNetty(headers.toList)
       case Headers.FromIterable(_)     => encodeHeaderListToNetty(headers.toList)
       case Headers.Native(value, _, _) => value.asInstanceOf[HttpHeaders]
       case Headers.Concat(_, _)        => encodeHeaderListToNetty(headers.toList)
-      case Headers.EmptyHeaders        => new DefaultHttpHeaders()
+      case Headers.Empty               => new DefaultHttpHeaders()
+    }
+
+  private def nettyHeadersIterator(headers: HttpHeaders): Iterator[Header] =
+    new AbstractIterator[Header] {
+      private val nettyIterator = headers.iteratorCharSequence()
+
+      override def hasNext: Boolean = nettyIterator.hasNext
+
+      override def next(): Header = {
+        val entry = nettyIterator.next()
+        Header.Custom(entry.getKey, entry.getValue)
+      }
     }
 
   def headersFromNetty(headers: HttpHeaders): Headers =
     Headers.Native(
       headers,
-      (headers: HttpHeaders) => headers.entries().asScala.map(e => Header(e.getKey, e.getValue)).iterator,
+      (headers: HttpHeaders) => nettyHeadersIterator(headers),
       (headers: HttpHeaders, key: CharSequence) => {
         val iterator       = headers.iteratorCharSequence()
         var result: String = null
         while (iterator.hasNext && (result eq null)) {
           val entry = iterator.next()
-          if (entry.getKey.toString == key) {
+          if (CharSequenceExtensions.equals(entry.getKey, key, CaseMode.Insensitive)) {
             result = entry.getValue.toString
           }
         }
@@ -82,18 +96,16 @@ private[netty] object Conversions {
       },
     )
 
-  private def encodeHeaderListToNetty(headersList: List[Product2[CharSequence, CharSequence]]): HttpHeaders = {
-    val (exceptions, regularHeaders) =
-      headersList.partition(h => h._1.toString.contains(HeaderNames.setCookie.toString))
-    val combinedHeaders              = regularHeaders
-      .groupBy(_._1)
-      .map { case (key, tuples) =>
-        key -> tuples.map(_._2).mkString(",")
+  private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {
+    val nettyHeaders = new DefaultHttpHeaders(true)
+    for (header <- headers) {
+      if (header.headerName == HeaderNames.setCookie) {
+        nettyHeaders.add(header.headerName, header.renderedValueAsCharSequence)
+      } else {
+        nettyHeaders.set(header.headerName, header.renderedValueAsCharSequence)
       }
-    (exceptions ++ combinedHeaders)
-      .foldLeft[HttpHeaders](new DefaultHttpHeaders(true)) { case (headers, entry) =>
-        headers.add(entry._1, entry._2)
-      }
+    }
+    nettyHeaders
   }
 
   def statusToNetty(status: Status): HttpResponseStatus =

@@ -4,18 +4,14 @@ import zio.{Chunk, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import zio.http._
 import zio.http.forms.{Form, FormData}
-import zio.http.model.{MediaType, Method, Status}
+import zio.http.model.{Header, MediaType, Method, Status}
 
 object MultipartFormData extends ZIOAppDefault {
 
-  private def isMultipartFormData(contentType: CharSequence): Boolean =
-    MediaType
-      .forContentType(contentType.toString)
-      .exists(mediaType => mediaType.fullType == MediaType.multipart.`form-data`.fullType)
-
   private val app: App[Any] =
     Http.collectZIO[Request] {
-      case req @ Method.POST -> !! / "upload" if req.headers.contentType.exists(isMultipartFormData) =>
+      case req @ Method.POST -> !! / "upload"
+          if req.header(Header.ContentType).exists(_.mediaType == MediaType.multipart.`form-data`) =>
         for {
           form     <- req.body.asMultipartForm
             .mapError(ex =>

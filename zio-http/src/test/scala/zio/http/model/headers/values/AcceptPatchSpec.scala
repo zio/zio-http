@@ -19,6 +19,7 @@ package zio.http.model.headers.values
 import zio.test._
 import zio.{NonEmptyChunk, Scope}
 
+import zio.http.model.Header.AcceptPatch
 import zio.http.model.MimeDB
 
 object AcceptPatchSpec extends ZIOSpecDefault with MimeDB {

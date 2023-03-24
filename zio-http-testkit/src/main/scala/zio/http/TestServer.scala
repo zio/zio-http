@@ -38,7 +38,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
             //    expectedRequest == realRequest
             expectedRequest.url.relative == realRequest.url &&
             expectedRequest.method == realRequest.method &&
-            expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
+            expectedRequest.headers.forall(expectedHeader => realRequest.hasHeader(expectedHeader))
           } =>
         ZIO.succeed(response)
     }

@@ -19,6 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
+import zio.http.model.Header.SecWebSocketVersion
+
 object SecWebSocketVersionSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketVersion suite")(
     test("SecWebSocketVersion should be properly parsed for a valid string") {

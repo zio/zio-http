@@ -22,6 +22,7 @@ import zio._
 
 import zio.http.forms.FormAST._
 import zio.http.forms.FormDecodingError._
+import zio.http.model.Header.ContentTransferEncoding
 import zio.http.model.MediaType
 
 sealed trait FormData {
@@ -106,7 +107,7 @@ object FormData {
         .flatMap(x => MediaType.forContentType(x.preposition))
         .getOrElse(MediaType.text.plain)
       transferEncoding = extract._3
-        .flatMap(x => ContentTransferEncoding.parse(x.preposition))
+        .flatMap(x => ContentTransferEncoding.parse(x.preposition).toOption)
 
     } yield
       if (!contentType.binary)
