@@ -45,17 +45,21 @@ sealed trait Cookie { self =>
   def encodeValidate(validate: Boolean): Either[Exception, String]
 
   /**
-   * Converts cookie to a request cookie.
+   * Converts the cookie to a request cookie. If the cookie is a response
+   * cookie, then it is converted into a request cookie by discarding everything
+   * except the name and content.
    */
   def toRequest: Cookie.Request = Cookie.Request(name, content)
 
   /**
-   * Converts cookie to a response cookie.
+   * Converts the cookie to a response cookie, using, if necessary, default
+   * values for all the parameters of a response cookie.
    */
   def toResponse: Cookie.Response = toResponse()
 
   /**
-   * Converts cookie to a response cookie.
+   * Converts the cookie to a response cookie, using the specified values only
+   * if this cookie is a request cookie.
    */
   def toResponse(
     domain: Option[String] = None,
