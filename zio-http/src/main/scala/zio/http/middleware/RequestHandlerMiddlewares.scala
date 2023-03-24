@@ -34,10 +34,10 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Sets cookie in response headers
    */
-  final def addCookie(cookie: Cookie[Response]): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
+  final def addCookie(cookie: Cookie.Response): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     withHeader(Header.ResponseCookie(cookie))
 
-  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]])(implicit
+  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie.Response])(implicit
     trace: Trace,
   ): RequestHandlerMiddleware[Nothing, R, E, Any] =
     updateResponseZIO(response => cookie.map(response.addCookie))

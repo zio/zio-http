@@ -27,7 +27,7 @@ import zio.http.socket._
 
 sealed trait Response extends HeaderOps[Response] { self =>
 
-  def addCookie(cookie: Cookie[Response]): Response =
+  def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.ResponseCookie(cookie)))
 
   def body: Body
