@@ -41,7 +41,7 @@ sealed trait Scheme { self =>
     case _            => false
   }
 
-  def port: Int = self match {
+  def defaultPort: Int = self match {
     case Scheme.HTTP  => 80
     case Scheme.HTTPS => 443
     case Scheme.WS    => 80

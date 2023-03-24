@@ -88,7 +88,7 @@ object HttpGen {
             ),
             Body.fromString(list.mkString("")),
             Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
-            NettyBody.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
+            NettyBody.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), Charsets.Http)),
             Body.empty,
           ),
         )
@@ -126,7 +126,7 @@ object HttpGen {
             ),
             Body.fromString(list.mkString("")),
             Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
-            NettyBody.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), HTTP_CHARSET)),
+            NettyBody.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), Charsets.Http)),
           ),
         )
     } yield cnt

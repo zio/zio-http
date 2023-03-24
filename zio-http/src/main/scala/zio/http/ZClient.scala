@@ -473,7 +473,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
     copy(
       hostOption = Option(uri.getHost),
       pathPrefix = pathPrefix ++ Path.decode(uri.getRawPath),
-      portOption = Option(uri.getPort).filter(_ != -1).orElse(scheme.map(_.port)),
+      portOption = Option(uri.getPort).filter(_ != -1).orElse(scheme.map(_.defaultPort)),
       queries = queries ++ QueryParams.decode(uri.getRawQuery),
       schemeOption = scheme,
     )

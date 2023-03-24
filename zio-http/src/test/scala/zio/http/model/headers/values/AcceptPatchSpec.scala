@@ -20,9 +20,11 @@ import zio.test._
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.model.Header.AcceptPatch
-import zio.http.model.MimeDB
+import zio.http.model.MediaType
 
-object AcceptPatchSpec extends ZIOSpecDefault with MimeDB {
+object AcceptPatchSpec extends ZIOSpecDefault {
+  import MediaType._
+
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("AcceptPatch header suite")(
       test("AcceptPatch header transformation must be symmetrical") {

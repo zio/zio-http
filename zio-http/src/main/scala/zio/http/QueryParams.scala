@@ -16,31 +16,40 @@
 
 package zio.http
 
+import scala.collection.immutable.HashMapBuilder
+
 import zio.Chunk
 
 import zio.http.internal.QueryParamEncoding
 
+/**
+ * A collection of query parameters.
+ */
 final case class QueryParams private[http] (map: Map[String, Chunk[String]])
     extends scala.collection.Map[String, Chunk[String]] {
   self =>
 
-  override def -(key: String): QueryParams = QueryParams(map - key)
+  override final def -(key: String): QueryParams = QueryParams(map - key)
 
-  override def -(key1: String, key2: String, keys: String*): QueryParams =
+  override final def -(key1: String, key2: String, keys: String*): QueryParams =
     QueryParams(map.--(Chunk(key1, key2) ++ keys))
 
-  override def +[V1 >: Chunk[String]](kv: (String, V1)): Map[String, V1] =
-    map.+(kv)
+  override final def +[V1 >: Chunk[String]](kv: (String, V1)): Map[String, V1] = map.+(kv)
 
-  def ++(other: QueryParams): QueryParams =
-    QueryParams((Chunk.fromIterable(map) ++ Chunk.fromIterable(other.map)).groupBy(_._1).map { case (key, values) =>
-      (key, values.flatMap(_._2))
+  final def ++(that: QueryParams): QueryParams =
+    QueryParams(that.map.foldLeft(map) { case (map, (k, v)) =>
+      map.updated(
+        k,
+        map.get(k) match {
+          case Some(v1) => v1 ++ v
+          case None     => v
+        },
+      )
     })
 
-  def add(key: String, value: String): QueryParams =
-    addAll(key, Chunk(value))
+  final def add(key: String, value: String): QueryParams = addAll(key, Chunk(value))
 
-  def addAll(key: String, value: Chunk[String]): QueryParams = {
+  final def addAll(key: String, value: Chunk[String]): QueryParams = {
     val previousValue = map.get(key)
     val newValue      = previousValue match {
       case Some(prev) => prev ++ value
@@ -49,17 +58,18 @@ final case class QueryParams private[http] (map: Map[String, Chunk[String]])
     QueryParams(map.updated(key, newValue))
   }
 
-  def encode: String =
-    QueryParamEncoding.default.encode("", self)
+  final def encode: String = QueryParamEncoding.default.encode("", self)
 
   override def filter(p: ((String, Chunk[String])) => Boolean): QueryParams =
     QueryParams(map.filter(p))
 
-  def toMap: Map[String, Chunk[String]] = map
+  override final def isEmpty: Boolean = map.isEmpty
 
-  override def get(key: String): Option[Chunk[String]] = map.get(key)
+  final def toMap: Map[String, Chunk[String]] = map
 
-  override def iterator: Iterator[(String, Chunk[String])] = map.iterator
+  override final def get(key: String): Option[Chunk[String]] = map.get(key)
+
+  override final def iterator: Iterator[(String, Chunk[String])] = map.iterator
 
 }
 

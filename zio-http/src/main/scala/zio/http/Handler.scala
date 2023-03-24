@@ -691,7 +691,7 @@ object Handler {
    * Creates a Handler that always succeeds with a 200 status code and the
    * provided ZStream as the body
    */
-  def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET)(implicit
+  def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = Charsets.Http)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {

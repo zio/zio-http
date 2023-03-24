@@ -14,18 +14,15 @@
  * limitations under the License.
  */
 
-package zio.http
+package zio.http.model
 
 import java.nio.charset.{Charset, StandardCharsets}
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import zio.http.model.headers._
-
-package object model {
+object Charsets {
 
   /**
    * Default HTTP Charset
    */
-  val HTTP_CHARSET: Charset = StandardCharsets.UTF_8
+  val Http: Charset = StandardCharsets.UTF_8
 }

@@ -23,9 +23,11 @@ import zio.test._
 
 import zio.http.model.Header.Authorization
 import zio.http.model.Header.Authorization.Digest
-import zio.http.model.MimeDB
+import zio.http.model.MediaType
 
-object AuthorizationSpec extends ZIOSpecDefault with MimeDB {
+object AuthorizationSpec extends ZIOSpecDefault {
+  import MediaType._
+
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Authorization header suite")(
       test("parsing of invalid Authorization values") {

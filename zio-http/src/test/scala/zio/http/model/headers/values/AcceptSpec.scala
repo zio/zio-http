@@ -21,9 +21,11 @@ import zio.test._
 
 import zio.http.model.Header.Accept
 import zio.http.model.Header.Accept.MediaTypeWithQFactor
-import zio.http.model.{MediaType, MimeDB}
+import zio.http.model.MediaType
 
-object AcceptSpec extends ZIOSpecDefault with MimeDB {
+object AcceptSpec extends ZIOSpecDefault {
+  import MediaType._
+
   override def spec = suite("Accept header suite")(
     test("parsing of invalid Accept values") {
       assertTrue(

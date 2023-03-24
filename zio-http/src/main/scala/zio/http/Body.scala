@@ -26,7 +26,7 @@ import zio.stream.ZStream
 
 import zio.http.forms._
 import zio.http.internal.BodyEncoding
-import zio.http.model.{HTTP_CHARSET, Headers, MediaType}
+import zio.http.model.{Charsets, Headers, MediaType}
 
 /**
  * Represents the body of a request or response. The body can be a fixed chunk
@@ -58,7 +58,7 @@ trait Body { self =>
   def asMultipartForm(implicit trace: Trace): Task[Form] =
     for {
       bytes <- asChunk
-      form  <- Form.fromMultipartBytes(bytes, HTTP_CHARSET).mapError(_.asException)
+      form  <- Form.fromMultipartBytes(bytes, Charsets.Http).mapError(_.asException)
     } yield form
 
   /**
@@ -74,7 +74,7 @@ trait Body { self =>
    * result in an out of memory error.
    */
   final def asString(implicit trace: Trace): Task[String] =
-    asArray.map(new String(_, HTTP_CHARSET))
+    asArray.map(new String(_, Charsets.Http))
 
   /**
    * Decodes the content of the body as a string with the provided charset. Note
@@ -88,7 +88,7 @@ trait Body { self =>
    * Returns an effect that decodes the content of the body as form data.
    */
   def asURLEncodedForm(implicit trace: Trace): Task[Form] =
-    asString.flatMap(Form.fromURLEncoded(_, HTTP_CHARSET).mapError(_.asException))
+    asString.flatMap(Form.fromURLEncoded(_, Charsets.Http).mapError(_.asException))
 
   /**
    * Returns whether or not the bytes of the body have been fully read.
@@ -111,7 +111,7 @@ object Body {
   /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
-  def fromCharSequence(charSequence: CharSequence, charset: Charset = HTTP_CHARSET): Body =
+  def fromCharSequence(charSequence: CharSequence, charset: Charset = Charsets.Http): Body =
     BodyEncoding.default.fromCharSequence(charSequence, charset)
 
   /**
@@ -150,7 +150,7 @@ object Body {
    * Constructs a [[zio.http.Body]] from a stream of text, using the specified
    * character set, which defaults to the HTTP character set.
    */
-  def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = HTTP_CHARSET)(implicit
+  def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = Charsets.Http)(implicit
     trace: Trace,
   ): Body =
     fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
@@ -158,7 +158,7 @@ object Body {
   /**
    * Helper to create Body from String
    */
-  def fromString(text: String, charset: Charset = HTTP_CHARSET): Body = fromCharSequence(text, charset)
+  def fromString(text: String, charset: Charset = Charsets.Http): Body = fromCharSequence(text, charset)
 
   /**
    * Constructs a [[zio.http.Body]] from form data using URL encoding and the

@@ -37,9 +37,9 @@ object BodySpec extends ZIOSpecDefault {
           suite("fromStream")(
             test("success") {
               check(Gen.string) { payload =>
-                val stringBuffer    = payload.getBytes(HTTP_CHARSET)
+                val stringBuffer    = payload.getBytes(Charsets.Http)
                 val responseContent = ZStream.fromIterable(stringBuffer, chunkSize = 2)
-                val res             = Body.fromStream(responseContent).asString(HTTP_CHARSET)
+                val res             = Body.fromStream(responseContent).asString(Charsets.Http)
                 assertZIO(res)(equalTo(payload))
               }
             },
@@ -47,12 +47,12 @@ object BodySpec extends ZIOSpecDefault {
           suite("fromFile")(
             test("success") {
               lazy val file = testFile
-              val res       = Body.fromFile(file).asString(HTTP_CHARSET)
+              val res       = Body.fromFile(file).asString(Charsets.Http)
               assertZIO(res)(equalTo("foo\nbar"))
             },
             test("success small chunk") {
               lazy val file = testFile
-              val res       = Body.fromFile(file, 3).asString(HTTP_CHARSET)
+              val res       = Body.fromFile(file, 3).asString(Charsets.Http)
               assertZIO(res)(equalTo("foo\nbar"))
             },
           ),
