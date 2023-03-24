@@ -16,8 +16,6 @@
 
 package zio.http
 
-import scala.collection.immutable.HashMapBuilder
-
 import zio.Chunk
 
 import zio.http.internal.QueryParamEncoding
