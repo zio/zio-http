@@ -833,7 +833,7 @@ object Handler {
     /**
      * Patches the response produced by the app
      */
-    def patch(patch: Patch)(implicit trace: Trace): RequestHandler[R, Err] = self.map(patch(_))
+    def patch(patch: Response.Patch)(implicit trace: Trace): RequestHandler[R, Err] = self.map(patch(_))
 
     /**
      * Overwrites the method in the incoming request
@@ -849,7 +849,9 @@ object Handler {
     /**
      * Sets the status in the response produced by the app
      */
-    def setStatus(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(Patch.setStatus(status))
+    def setStatus(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(
+      Response.Patch.setStatus(status),
+    )
 
     /**
      * Overwrites the url in the incoming request

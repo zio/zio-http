@@ -87,7 +87,7 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
                 ) {
                   ZIO
                     .log("Http request served")
-                    .as(Patch.empty)
+                    .as(Response.Patch.empty)
                 }
               }
             }
