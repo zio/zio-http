@@ -76,32 +76,25 @@ sealed trait Cookie { self =>
     }
   }
 
-  def withName(name: String): Cookie
-
+  /**
+   * Returns a new cookie derived from this one, but where the content of the
+   * cookie is set to the specified value.
+   */
   def withContent(content: String): Cookie
+
+  /**
+   * Returns a new cookie derived from this one, but where the name of the
+   * cookie is set to the specified value.
+   */
+  def withName(name: String): Cookie
 }
 
 object Cookie {
 
   /**
-   * Creates a new cookie of response type
-   */
-  def apply(
-    name: String,
-    content: String,
-    domain: Option[String] = None,
-    path: Option[Path] = None,
-    isSecure: Boolean = false,
-    isHttpOnly: Boolean = false,
-    maxAge: Option[Duration] = None,
-    sameSite: Option[SameSite] = None,
-  ): Cookie.Response =
-    Cookie.Response(name, content, domain, path, isSecure, isHttpOnly, maxAge, sameSite)
-
-  /**
    * Creates a cookie with an expired maxAge
    */
-  def clear(name: String): Cookie.Response = Cookie(name, "").toResponse.copy(maxAge = Some(Duration.Zero))
+  def clear(name: String): Cookie.Response = Cookie.Response(name, "", maxAge = Some(Duration.Zero))
 
   def decodeRequest(header: String, validate: Boolean = false): Either[Exception, Chunk[Cookie.Request]] =
     Cookie.Request.decode(header, validate)

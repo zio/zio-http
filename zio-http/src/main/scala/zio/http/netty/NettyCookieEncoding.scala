@@ -39,7 +39,7 @@ private[http] object NettyCookieEncoding extends CookieEncoding {
   override final def decodeRequestCookie(header: String, validate: Boolean): Chunk[Cookie.Request] = {
     val decoder = if (validate) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
     Chunk.fromJavaIterable(decoder.decodeAll(header)).map { cookie =>
-      Cookie(cookie.name(), cookie.value()).toRequest
+      Cookie.Request(cookie.name(), cookie.value())
     }
   }
 
@@ -68,7 +68,7 @@ private[http] object NettyCookieEncoding extends CookieEncoding {
 
     val cookie = decoder.decode(header).asInstanceOf[jCookie.DefaultCookie]
 
-    Cookie(
+    Cookie.Response(
       name = cookie.name(),
       content = cookie.value(),
       domain = Option(cookie.domain()),

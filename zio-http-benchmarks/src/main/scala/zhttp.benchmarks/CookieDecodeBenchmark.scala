@@ -21,15 +21,16 @@ class CookieDecodeBenchmark {
   val path   = Path.decode((0 to 10).map { _ => random.alphanumeric.take(10).mkString("") }.mkString(""))
   val maxAge = java.time.Duration.ofSeconds(random.nextLong())
 
-  private val oldCookie = Cookie(name, value)
-    .copy(
-      maxAge = Some(maxAge),
-      domain = Some(domain),
-      path = Some(path),
-      isHttpOnly = true,
-      isSecure = true,
-      sameSite = Some(SameSite.Strict),
-    )
+  private val oldCookie = Cookie.Response(
+    name,
+    value,
+    maxAge = Some(maxAge),
+    domain = Some(domain),
+    path = Some(path),
+    isHttpOnly = true,
+    isSecure = true,
+    sameSite = Some(SameSite.Strict),
+  )
 
   private val oldCookieString = oldCookie.encode.getOrElse(throw new Exception("Failed to encode cookie"))
 

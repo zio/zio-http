@@ -32,7 +32,7 @@ object CookieSpec extends ZIOSpecDefault {
           val cookieGen = for {
             name    <- Gen.alphaNumericString
             content <- Gen.alphaNumericString
-          } yield (name, content) -> Cookie(name, content)
+          } yield (name, content) -> Cookie.Response(name, content)
           check(cookieGen) { case ((name, content), cookie) =>
             assertTrue(cookie.content == content) && assertTrue(cookie.name == name)
           }
@@ -64,7 +64,7 @@ object CookieSpec extends ZIOSpecDefault {
       ),
       suite("encode")(
         test("request") {
-          val cookie    = Cookie("name", "value")
+          val cookie    = Cookie.Response("name", "value")
           val cookieGen = Gen.fromIterable(
             Seq(
               cookie                      -> "name=value",
@@ -75,7 +75,7 @@ object CookieSpec extends ZIOSpecDefault {
           checkAll(cookieGen) { case (cookie, expected) => assertTrue(cookie.encode == Right(expected)) }
         },
         test("response") {
-          val cookie = Cookie("name", "content")
+          val cookie = Cookie.Response("name", "content")
 
           val cookieGen: Gen[Any, (Cookie.Response, Assertion[String])] = Gen.fromIterable(
             Seq(
@@ -92,15 +92,15 @@ object CookieSpec extends ZIOSpecDefault {
           checkAll(cookieGen) { case (cookie, assertion) => assert(cookie.encode)(isRight(assertion)) }
         },
         test("invalid encode") {
-          val cookie = Cookie("1", null)
+          val cookie = Cookie.Response("1", null)
           assert(cookie.encode)(isLeft)
         },
       ),
       suite("decode")(
         test("request") {
-          val cookie  = Cookie("name", "value")
+          val cookie  = Cookie.Request("name", "value")
           val program = cookie.encode.flatMap(Cookie.decodeRequest(_))
-          assertTrue(program == Right(Chunk(cookie.toRequest)))
+          assertTrue(program == Right(Chunk(cookie)))
         },
         test("decode response") {
           val responseCookieGen = for {
@@ -112,7 +112,7 @@ object CookieSpec extends ZIOSpecDefault {
             sameSite   <- Gen.option(Gen.fromIterable(Cookie.SameSite.values))
             isSecure   <- Gen.boolean
             isHttpOnly <- Gen.boolean
-          } yield Cookie(name, content, domain, path, isSecure, isHttpOnly, maxAge, sameSite)
+          } yield Cookie.Response(name, content, domain, path, isSecure, isHttpOnly, maxAge, sameSite)
 
           check(responseCookieGen) { cookie =>
             val encoded = cookie.encodeValidate(true)
@@ -122,11 +122,11 @@ object CookieSpec extends ZIOSpecDefault {
         },
       ),
       test("signature") {
-        val cookie = Cookie("name", "value")
-        val signed = cookie.sign("ABC")
+        val cookie = Cookie.Response("name", "value")
+        val signed = cookie.sign("ABC").toRequest
 
-        assertTrue(signed.toRequest.unSign("ABC").contains(cookie.toRequest)) &&
-        assertTrue(signed.toRequest.unSign("PQR").isEmpty)
+        assertTrue(signed.unSign("ABC").contains(cookie.toRequest)) &&
+        assertTrue(signed.unSign("PQR").isEmpty)
       },
     )
 }
