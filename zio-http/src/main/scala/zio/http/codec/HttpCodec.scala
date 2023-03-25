@@ -153,7 +153,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Uses this codec to encode the Scala value into a request.
    */
   final def encodeRequest(value: Value): Request =
-    encodeWith(value)((url, status, method, headers, body) =>
+    encodeWith(value)((url, _, method, headers, body) =>
       Request(
         url = url,
         method = method.getOrElse(Method.GET),
@@ -168,7 +168,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Uses this codec to encode the Scala value as a patch to a request.
    */
   final def encodeRequestPatch(value: Value): Request.Patch =
-    encodeWith(value)((url, status, method, headers, body) =>
+    encodeWith(value)((url, _, _, headers, _) =>
       Request.Patch(
         addQueryParams = url.queryParams,
         addHeaders = headers,
@@ -179,13 +179,17 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Uses this codec to encode the Scala value as a response.
    */
   final def encodeResponse[Z](value: Value): Response =
-    encodeWith(value)((url, status, method, headers, body) => Response(headers = headers, body = body))
+    encodeWith(value)((_, status, _, headers, body) =>
+      Response(headers = headers, body = body, status = status.getOrElse(Status.Ok)),
+    )
 
   /**
    * Uses this codec to encode the Scala value as a response patch.
    */
   final def encodeResponsePatch[Z](value: Value): Response.Patch =
-    encodeWith(value)((url, status, method, headers, body) => Response.Patch(addHeaders = headers, setStatus = status))
+    encodeWith(value)((_, status, _, headers, _) =>
+      Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.setStatus(_)).getOrElse(Response.Patch.empty),
+    )
 
   private final def encodeWith[Z](value: Value)(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,

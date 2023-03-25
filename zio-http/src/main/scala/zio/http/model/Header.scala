@@ -3209,7 +3209,7 @@ object Header {
       referer.url.toJavaURL.fold("")(_.toString())
   }
 
-  final case class RequestCookie(value: NonEmptyChunk[model.Cookie[Request]]) extends Header {
+  final case class RequestCookie(value: NonEmptyChunk[model.Cookie.Request]) extends Header {
     override type Self = RequestCookie
     override def self: Self                                  = this
     override def headerType: HeaderType.Typed[RequestCookie] = RequestCookie
@@ -3224,10 +3224,8 @@ object Header {
 
     override def name: String = HeaderNames.cookie
 
-    def parse(value: String): Either[String, RequestCookie] = {
-      implicit val decoder = CookieDecoder.RequestCookieDecoder
-
-      model.Cookie.decode(value) match {
+    def parse(value: String): Either[String, RequestCookie] =
+      model.Cookie.Request.decode(value) match {
         case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
         case Right(value) =>
           NonEmptyChunk.fromChunk(value) match {
@@ -3235,13 +3233,12 @@ object Header {
             case None        => Left("Invalid Cookie header")
           }
       }
-    }
 
     def render(cookie: RequestCookie): String =
       cookie.value.map(_.encode.getOrElse("")).mkString("; ")
   }
 
-  final case class ResponseCookie(value: model.Cookie[Response]) extends Header {
+  final case class ResponseCookie(value: model.Cookie.Response) extends Header {
     override type Self = ResponseCookie
     override def self: Self                                   = this
     override def headerType: HeaderType.Typed[ResponseCookie] = ResponseCookie
@@ -3252,14 +3249,11 @@ object Header {
 
     override def name: String = HeaderNames.setCookie
 
-    def parse(value: String): Either[String, ResponseCookie] = {
-      implicit val decoder = CookieDecoder.ResponseCookieDecoder
-
-      model.Cookie.decode(value) match {
+    def parse(value: String): Either[String, ResponseCookie] =
+      model.Cookie.Response.decode(value) match {
         case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
         case Right(value) => Right(ResponseCookie(value))
       }
-    }
 
     def render(cookie: ResponseCookie): String =
       cookie.value.encode.getOrElse("")

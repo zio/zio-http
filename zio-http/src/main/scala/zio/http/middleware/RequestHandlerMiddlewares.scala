@@ -34,10 +34,10 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Sets cookie in response headers
    */
-  final def addCookie(cookie: Cookie[Response]): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
+  final def addCookie(cookie: Cookie.Response): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     withHeader(Header.ResponseCookie(cookie))
 
-  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie[Response]])(implicit
+  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie.Response])(implicit
     trace: Trace,
   ): RequestHandlerMiddleware[Nothing, R, E, Any] =
     updateResponseZIO(response => cookie.map(response.addCookie))
@@ -196,13 +196,13 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Creates a middleware that produces a Patch for the Response
    */
-  final def patch(f: Response => Patch): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
+  final def patch(f: Response => Response.Patch): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     interceptPatch(_ => ())((response, _) => f(response))
 
   /**
    * Creates a middleware that produces a Patch for the Response effectfully.
    */
-  final def patchZIO[R, E](f: Response => ZIO[R, E, Patch]): RequestHandlerMiddleware[Nothing, R, E, Any] =
+  final def patchZIO[R, E](f: Response => ZIO[R, E, Response.Patch]): RequestHandlerMiddleware[Nothing, R, E, Any] =
     interceptPatchZIO(_ => ZIO.unit)((response, _) => f(response))
 
   /**
@@ -256,7 +256,7 @@ private[zio] trait RequestHandlerMiddlewares
    * provided value
    */
   final def setStatus(status: Status): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    patch(_ => Patch.setStatus(status))
+    patch(_ => Response.Patch.setStatus(status))
 
   /**
    * Creates a middleware for signing cookies
@@ -384,7 +384,7 @@ private[zio] trait RequestHandlerMiddlewares
 object RequestHandlerMiddlewares extends RequestHandlerMiddlewares {
 
   final class InterceptPatch[S](val fromRequest: Request => S) extends AnyVal {
-    def apply(result: (Response, S) => Patch): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
+    def apply(result: (Response, S) => Response.Patch): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
       new RequestHandlerMiddleware.Simple[Any, Nothing] {
         override def apply[R1 <: Any, Err1 >: Nothing](
           handler: Handler[R1, Err1, Request, Response],
@@ -400,7 +400,7 @@ object RequestHandlerMiddlewares extends RequestHandlerMiddlewares {
 
   final class InterceptPatchZIO[R, E, S](val fromRequest: Request => ZIO[R, E, S]) extends AnyVal {
     def apply[R1 <: R, E1 >: E](
-      result: (Response, S) => ZIO[R1, E1, Patch],
+      result: (Response, S) => ZIO[R1, E1, Response.Patch],
     ): RequestHandlerMiddleware[Nothing, R1, E1, Any] =
       new RequestHandlerMiddleware.Simple[R1, E1] {
         override def apply[R2 <: R1, Err2 >: E1](

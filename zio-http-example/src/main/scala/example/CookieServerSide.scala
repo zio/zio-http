@@ -11,15 +11,15 @@ import zio.http.model.{Cookie, Method}
 object CookieServerSide extends ZIOAppDefault {
 
   // Setting cookies with an expiry of 5 days
-  private val cookie = Cookie("key", "value").withMaxAge(5 days)
+  private val cookie = Cookie.Response("key", "value", maxAge = Some(5 days))
   val res            = Response.ok.addCookie(cookie)
 
   private val app = Http.collect[Request] {
     case Method.GET -> !! / "cookie" =>
-      Response.ok.addCookie(cookie.withPath(!! / "cookie").withHttpOnly)
+      Response.ok.addCookie(cookie.copy(path = Some(!! / "cookie"), isHttpOnly = true))
 
     case Method.GET -> !! / "secure-cookie" =>
-      Response.ok.addCookie(cookie.withSecure.withPath(!! / "secure-cookie"))
+      Response.ok.addCookie(cookie.copy(isSecure = true, path = Some(!! / "secure-cookie")))
 
     case Method.GET -> !! / "cookie" / "remove" =>
       res.addCookie(Cookie.clear("key"))

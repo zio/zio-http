@@ -32,7 +32,7 @@ final case class MediaType(
   def fullType: String = s"$mainType/$subType"
 }
 
-object MediaType extends MimeDB {
+object MediaType extends MediaTypes {
   private val extensionMap: Map[String, MediaType]   = allMediaTypes.flatMap(m => m.fileExtensions.map(_ -> m)).toMap
   private val contentTypeMap: Map[String, MediaType] = allMediaTypes.map(m => m.fullType -> m).toMap
 

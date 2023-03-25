@@ -18,7 +18,11 @@ package zio.http.model
 
 import zio.test._
 
-object MediaTypeSpec extends ZIOSpecDefault with MimeDB {
+import zio.http.model.MediaType
+
+object MediaTypeSpec extends ZIOSpecDefault {
+  import MediaType._
+
   override def spec = suite("MediaTypeSpec")(
     test("predefined mime type parsing") {
       assertTrue(MediaType.forContentType("application/json").contains(application.`json`))

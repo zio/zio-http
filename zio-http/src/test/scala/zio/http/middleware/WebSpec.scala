@@ -188,14 +188,14 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("cookie")(
       test("addCookie") {
-        val cookie = Cookie("test", "testValue")
+        val cookie = Cookie.Response("test", "testValue")
         val app    = (Handler.ok @@ addCookie(cookie)).rawHeader("set-cookie")
         assertZIO(app.runZIO(Request.get(URL.empty)))(
           equalTo(cookie.encode.toOption),
         )
       },
       test("addCookieM") {
-        val cookie = Cookie("test", "testValue")
+        val cookie = Cookie.Response("test", "testValue")
         val app    =
           (Handler.ok @@ addCookieZIO(ZIO.succeed(cookie))).rawHeader("set-cookie")
         assertZIO(app.runZIO(Request.get(URL.empty)))(
@@ -205,7 +205,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("signCookies")(
       test("should sign cookies") {
-        val cookie = Cookie("key", "value").withHttpOnly(true)
+        val cookie = Cookie.Response("key", "value").copy(isHttpOnly = true)
         val app    =
           (Handler.ok.withHeader(Header.ResponseCookie(cookie)) @@ signCookies("secret")).header(Header.ResponseCookie)
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo(Header.ResponseCookie(cookie.sign("secret")))))

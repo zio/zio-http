@@ -691,7 +691,7 @@ object Handler {
    * Creates a Handler that always succeeds with a 200 status code and the
    * provided ZStream as the body
    */
-  def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = HTTP_CHARSET)(implicit
+  def fromStream[R](stream: ZStream[R, Throwable, String], charset: Charset = Charsets.Http)(implicit
     trace: Trace,
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {
@@ -833,7 +833,7 @@ object Handler {
     /**
      * Patches the response produced by the app
      */
-    def patch(patch: Patch)(implicit trace: Trace): RequestHandler[R, Err] = self.map(patch(_))
+    def patch(patch: Response.Patch)(implicit trace: Trace): RequestHandler[R, Err] = self.map(patch(_))
 
     /**
      * Overwrites the method in the incoming request
@@ -849,7 +849,9 @@ object Handler {
     /**
      * Sets the status in the response produced by the app
      */
-    def setStatus(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(Patch.setStatus(status))
+    def setStatus(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(
+      Response.Patch.setStatus(status),
+    )
 
     /**
      * Overwrites the url in the incoming request

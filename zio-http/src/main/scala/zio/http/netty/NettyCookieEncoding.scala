@@ -16,6 +16,8 @@
 
 package zio.http.netty
 
+import java.time.Duration
+
 import scala.jdk.CollectionConverters._
 
 import zio.Chunk
@@ -28,20 +30,20 @@ import zio.http.{Path, Request, Response}
 import io.netty.handler.codec.http.{cookie => jCookie}
 
 private[http] object NettyCookieEncoding extends CookieEncoding {
-  override final def encodeRequestCookie(cookie: Cookie[Request], validate: Boolean): String = {
+  override final def encodeRequestCookie(cookie: Cookie.Request, validate: Boolean): String = {
     val encoder = if (validate) jCookie.ClientCookieEncoder.STRICT else jCookie.ClientCookieEncoder.LAX
     val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
     encoder.encode(builder)
   }
 
-  override final def decodeRequestCookie(header: String, validate: Boolean): Chunk[Cookie[Request]] = {
+  override final def decodeRequestCookie(header: String, validate: Boolean): Chunk[Cookie.Request] = {
     val decoder = if (validate) jCookie.ServerCookieDecoder.STRICT else jCookie.ServerCookieDecoder.LAX
     Chunk.fromJavaIterable(decoder.decodeAll(header)).map { cookie =>
-      Cookie(cookie.name(), cookie.value()).toRequest
+      Cookie.Request(cookie.name(), cookie.value())
     }
   }
 
-  override final def encodeResponseCookie(cookie: Cookie[Response], validate: Boolean): String = {
+  override final def encodeResponseCookie(cookie: Cookie.Response, validate: Boolean): String = {
     val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)
 
     val encoder = if (validate) jCookie.ServerCookieEncoder.STRICT else jCookie.ServerCookieEncoder.LAX
@@ -61,17 +63,17 @@ private[http] object NettyCookieEncoding extends CookieEncoding {
     encoder.encode(builder)
   }
 
-  override final def decodeResponseCookie(header: String, validate: Boolean): Cookie[Response] = {
+  override final def decodeResponseCookie(header: String, validate: Boolean): Cookie.Response = {
     val decoder = if (validate) jCookie.ClientCookieDecoder.STRICT else jCookie.ClientCookieDecoder.LAX
 
     val cookie = decoder.decode(header).asInstanceOf[jCookie.DefaultCookie]
 
-    Cookie(
+    Cookie.Response(
       name = cookie.name(),
       content = cookie.value(),
       domain = Option(cookie.domain()),
       path = Option(cookie.path()).map(Path.decode),
-      maxAge = Option(cookie.maxAge()).filter(_ >= 0),
+      maxAge = Option(cookie.maxAge()).filter(_ >= 0).map(i => Duration.ofSeconds(i)),
       isSecure = cookie.isSecure,
       isHttpOnly = cookie.isHttpOnly,
       sameSite = cookie.sameSite() match {

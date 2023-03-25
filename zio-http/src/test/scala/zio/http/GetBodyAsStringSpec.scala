@@ -43,7 +43,7 @@ object GetBodyAsStringSpec extends ZIOSpecDefault {
             .copy(headers = Headers(Header.ContentType(MediaType.text.html, charset = Some(charset))))
 
           val encoded  =
-            request.body.asString(request.header(Header.ContentType).flatMap(_.charset).getOrElse(HTTP_CHARSET))
+            request.body.asString(request.header(Header.ContentType).flatMap(_.charset).getOrElse(Charsets.Http))
           val expected = new String(Chunk.fromArray("abc".getBytes(charset)).toArray, charset)
           assertZIO(encoded)(equalTo(expected))
         }
@@ -51,7 +51,7 @@ object GetBodyAsStringSpec extends ZIOSpecDefault {
       test("should map bytes to default utf-8 if no charset given") {
         val request  = Request.post(Body.fromChunk(Chunk.fromArray("abc".getBytes())), URL(!!))
         val encoded  = request.body.asString
-        val expected = new String(Chunk.fromArray("abc".getBytes()).toArray, HTTP_CHARSET)
+        val expected = new String(Chunk.fromArray("abc".getBytes()).toArray, Charsets.Http)
         assertZIO(encoded)(equalTo(expected))
       },
     )

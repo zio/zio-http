@@ -18,7 +18,14 @@ package zio.http.model
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
+/**
+ * Represents an HTTP method, such as GET, PUT, POST, or DELETE.
+ */
 sealed trait Method { self =>
+
+  /**
+   * The name of the method, as it appears in the HTTP request.
+   */
   val name: String
 
   override def toString: String = name
