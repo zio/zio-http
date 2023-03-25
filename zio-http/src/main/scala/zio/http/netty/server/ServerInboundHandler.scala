@@ -217,6 +217,7 @@ private[zio] final case class ServerInboundHandler(
       case _                    => None
     }
 
+    // TODO: need to set pass boundary to the body if present
     nettyReq match {
       case nettyReq: FullHttpRequest =>
         Request(

@@ -133,35 +133,13 @@ object Form {
   def fromMultipartBytes(
     bytes: Chunk[Byte],
     charset: Charset = StandardCharsets.UTF_8,
-  ): ZIO[Any, FormDecodingError, Form] = {
-    def process(boundary: Boundary) = ZStream
-      .fromChunk(bytes)
-      .mapAccum(FormState.fromBoundary(boundary)) { (state, byte) =>
-        state match {
-          case BoundaryClosed(tree)       => (FormState.fromBoundary(boundary), tree)
-          case BoundaryEncapsulated(tree) => (FormState.fromBoundary(boundary, Some(byte)), tree)
-          case buffer: FormStateBuffer    =>
-            val state = buffer.append(byte)
-            state match {
-              case BoundaryClosed(prevContent) => (state, prevContent)
-              case _                           => (state, Chunk.empty[FormAST])
-            }
-        }
-      }
-      .collectZIO {
-        case chunk if chunk.nonEmpty =>
-          FormData.fromFormAST(chunk, charset)
-      }
-      .runCollect
-      .map(apply)
-
+  ): ZIO[Any, Throwable, Form] =
     for {
       boundary <- ZIO
         .fromOption(Boundary.fromContent(bytes, charset))
-        .mapError(_ => FormDecodingError.BoundaryNotFoundInContent)
-      form     <- process(boundary)
+        .orElseFail(FormDecodingError.BoundaryNotFoundInContent.asException)
+      form     <- StreamingForm(ZStream.fromChunk(bytes), boundary, charset).collectAll()
     } yield form
-  }
 
   def fromURLEncoded(encoded: String, encoding: Charset): ZIO[Any, FormDecodingError, Form] = {
     val fields = ZIO.foreach(encoded.split("&")) { pair =>

@@ -61,6 +61,18 @@ trait Body { self =>
       form  <- Form.fromMultipartBytes(bytes, Charsets.Http).mapError(_.asException)
     } yield form
 
+  def asMultipartFormStream(implicit trace: Trace): Task[StreamingForm] =
+    boundary match {
+      case Some(boundary) =>
+        ZIO.succeed(
+          StreamingForm(asStream, Boundary(boundary.toString), Charsets.Http),
+        )
+      case None           =>
+        ZIO.fail(
+          new IllegalStateException("Cannot decode body as streaming multipart/form-data without a known boundary"),
+        )
+    }
+
   /**
    * Returns a stream that contains the bytes of the body. This method is safe
    * to use with large bodies, because the elements of the returned stream are

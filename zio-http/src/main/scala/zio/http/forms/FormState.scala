@@ -30,6 +30,7 @@ private[forms] object FormState {
     buffer: Chunk[Byte],
     lastByte: Option[Byte],
     boundary: Boundary,
+    dropContents: Boolean
   ) extends FormState { self =>
 
     def append(byte: Byte): FormState = {
@@ -42,7 +43,7 @@ private[forms] object FormState {
 
       def flush(ast: FormAST): FormStateBuffer =
         self.copy(
-          tree = tree :+ ast,
+          tree = if (ast.isContent && dropContents) tree else tree :+ ast,
           buffer = Chunk.empty,
           lastByte = None,
           phase = phase0,
@@ -76,6 +77,8 @@ private[forms] object FormState {
       }
 
     }
+
+    def startIgnoringContents: FormStateBuffer = self.copy(dropContents = true)
   }
 
   final case class BoundaryEncapsulated(buffer: Chunk[FormAST]) extends FormState
@@ -83,7 +86,7 @@ private[forms] object FormState {
   final case class BoundaryClosed(buffer: Chunk[FormAST]) extends FormState
 
   def fromBoundary(boundary: Boundary, lastByte: Option[Byte] = None): FormState =
-    FormStateBuffer(Chunk.empty, Phase.Part1, Chunk.empty, lastByte, boundary)
+    FormStateBuffer(Chunk.empty, Phase.Part1, Chunk.empty, lastByte, boundary, dropContents = false)
 
   sealed trait Phase
 

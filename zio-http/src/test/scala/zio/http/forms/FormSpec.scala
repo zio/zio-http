@@ -17,16 +17,14 @@
 package zio.http.forms
 
 import java.nio.charset.StandardCharsets
-
 import scala.annotation.nowarn
-
 import zio._
 import zio.test._
-
 import zio.http.forms
 import zio.http.forms.Fixtures._
 import zio.http.model.Header.ContentTransferEncoding
 import zio.http.model.MediaType
+import zio.stream.{ZStream, ZStreamAspect}
 
 object FormSpec extends ZIOSpecDefault {
 
@@ -116,12 +114,64 @@ object FormSpec extends ZIOSpecDefault {
         assertTrue(
           form.get("file").get.filename.get == "test.jsonl",
           form.get("file").get.valueAsString.isEmpty,
-          form.get("file").get.asInstanceOf[FormData.Binary].data.size == 67,
+          form.get("file").get.asInstanceOf[FormData.Binary].data.size == 69,
         )
       }
 
     },
   )
 
-  def spec = suite("FormSpec")(urlEncodedSuite, multiFormSuite)
+  val multiFormStreamingSuite: Spec[Any, FormDecodingError] =
+    suite("multipart/form-data streaming")(
+      test("decoding") {
+        val boundary = Boundary("AaB03x")
+
+        val stream = ZStream.fromChunk(multipartFormBytes1) @@ ZStreamAspect.rechunk(4)
+        val form   = StreamingForm(stream, boundary, StandardCharsets.UTF_8)
+
+        form.data
+          .mapZIOPar(1) {
+            case sb: FormData.StreamingBinary =>
+              sb.collect()
+            case other: FormData              =>
+              ZIO.succeed(other)
+          }
+          .runCollect
+          .map { formData =>
+            val (text: FormData.Text) :: (image1: FormData.Binary) :: (image2: FormData.Binary) :: Nil = formData.toList
+            assertTrue(
+              formData.size == 3,
+              text.name == "submit-name",
+              text.value == "Larry",
+              text.contentType == MediaType.text.plain,
+              text.filename.isEmpty,
+              image1.name == "files",
+              image1.data == Chunk[Byte](0x50, 0x4e, 0x47),
+              image1.contentType == MediaType.image.png,
+              image1.transferEncoding.isEmpty,
+              image1.filename.get == "file1.txt",
+              image2.name == "corgi",
+              image2.contentType == MediaType.image.png,
+              image2.transferEncoding.get == ContentTransferEncoding.Base64,
+              image2.data == Chunk.fromArray(base64Corgi.getBytes()),
+            )
+          }
+      },
+      test("decoding 2") {
+        val boundary      = Boundary("X-INSOMNIA-BOUNDARY")
+        val stream        = ZStream.fromChunk(multipartFormBytes3) @@ ZStreamAspect.rechunk(16)
+        val streamingForm = StreamingForm(stream, boundary, StandardCharsets.UTF_8)
+        streamingForm.collectAll().map { form =>
+          assertTrue(
+            form.get("file").get.filename.get == "test.jsonl",
+            form.get("file").get.valueAsString.isEmpty,
+            form.get("file").get.asInstanceOf[FormData.Binary].data.size == 69,
+            new String(form.get("file").get.asInstanceOf[FormData.Binary].data.toArray, StandardCharsets.UTF_8) ==
+              """{"prompt": "<prompt text>", "completion": "<ideal generated text>"}""" + "\r\n",
+          )
+        }
+      },
+    )
+
+  def spec = suite("FormSpec")(urlEncodedSuite, multiFormSuite, multiFormStreamingSuite)
 }
