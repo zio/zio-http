@@ -80,7 +80,7 @@ private[zio] final case class ServerInboundHandler(
         }
 
         ensureHasApp()
-        val exit = app.runZIOOrNull(req)
+        val exit = failOnDecodingError(jReq) *> app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time))
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
         else
@@ -90,7 +90,7 @@ private[zio] final case class ServerInboundHandler(
         val req = makeZioRequest(ctx, jReq)
 
         ensureHasApp()
-        val exit = app.runZIOOrNull(req)
+        val exit = failOnDecodingError(jReq) *> app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
 
           if (
@@ -336,6 +336,9 @@ private[zio] final case class ServerInboundHandler(
     ZIO.attempt {
       ctx.channel().close()
     }.unit.orDie
+
+  private def failOnDecodingError(request: HttpRequest): ZIO[Any, Nothing, Unit] =
+    ZIO.die(request.decoderResult().cause()).when(request.decoderResult().isFailure).unit
 }
 
 object ServerInboundHandler {
