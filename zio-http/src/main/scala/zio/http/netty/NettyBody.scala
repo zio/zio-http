@@ -25,7 +25,7 @@ import zio.stream.ZStream
 import zio.http.Body
 import zio.http.Body.{UnsafeBytes, UnsafeWriteable}
 import zio.http.internal.BodyEncoding
-import zio.http.model.{Headers, MediaType}
+import zio.http.model.{Header, Headers, MediaType}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{Channel => JChannel}
@@ -38,12 +38,16 @@ object NettyBody extends BodyEncoding {
    */
   def fromAsciiString(asciiString: AsciiString): Body = AsciiStringBody(asciiString)
 
-  private[zio] def fromAsync(unsafeAsync: UnsafeAsync => Unit): Body = AsyncBody(unsafeAsync)
+  private[zio] def fromAsync(
+    unsafeAsync: UnsafeAsync => Unit,
+    contentTypeHeader: Option[Header.ContentType] = None,
+  ): Body = AsyncBody(unsafeAsync, contentTypeHeader.map(_.mediaType), contentTypeHeader.flatMap(_.boundary))
 
   /**
    * Helper to create Body from ByteBuf
    */
-  def fromByteBuf(byteBuf: ByteBuf): Body = new ByteBufBody(byteBuf)
+  def fromByteBuf(byteBuf: ByteBuf, contentTypeHeader: Option[Header.ContentType] = None): Body =
+    ByteBufBody(byteBuf, contentTypeHeader.map(_.mediaType), contentTypeHeader.flatMap(_.boundary))
 
   override def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
     fromAsciiString(new AsciiString(charSequence, charset))

@@ -17,12 +17,15 @@
 package zio.http.forms
 
 import java.nio.charset._
+
 import zio._
+
+import zio.stream.{Take, ZStream}
+
 import zio.http.forms.FormAST._
 import zio.http.forms.FormDecodingError._
 import zio.http.model.Header.ContentTransferEncoding
 import zio.http.model.MediaType
-import zio.stream.{Take, ZStream}
 
 sealed trait FormData {
   def name: String
@@ -134,7 +137,7 @@ object FormData {
         MediaType.forContentType(header.preposition)
     }.flatten.getOrElse(MediaType.text.plain)
 
-  private[http] def streamingBody(
+  private[http] def incomingStreamingBinary(
     ast: Chunk[FormAST],
     queue: Queue[Take[Nothing, Byte]],
   ): ZIO[Any, FormDecodingError, FormData] = {
@@ -179,4 +182,12 @@ object FormData {
     transferEncoding: Option[ContentTransferEncoding] = None,
     filename: Option[String] = None,
   ): FormData = Binary(name, data, mediaType, transferEncoding, filename)
+
+  def streamingBinaryField(
+    name: String,
+    data: ZStream[Any, Nothing, Byte],
+    mediaType: MediaType,
+    transferEncoding: Option[ContentTransferEncoding] = None,
+    filename: Option[String] = None,
+  ): FormData = StreamingBinary(name, mediaType, transferEncoding, filename, data)
 }

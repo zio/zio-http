@@ -19,7 +19,7 @@ package zio.http.netty
 import zio.{Promise, Trace, Unsafe}
 
 import zio.http.Response.NativeResponse
-import zio.http.model.{Headers, Status}
+import zio.http.model.{Header, Headers, Status}
 import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
 import zio.http.netty.model.Conversions
 import zio.http.{Body, Response}
@@ -36,7 +36,7 @@ object NettyResponse {
     val status       = Conversions.statusFromNetty(jRes.status())
     val headers      = Conversions.headersFromNetty(jRes.headers())
     val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
-    val data         = NettyBody.fromByteBuf(copiedBuffer)
+    val data         = NettyBody.fromByteBuf(copiedBuffer, headers.header(Header.ContentType))
 
     new NativeResponse(data, headers, status, () => NettyFutureExecutor.executed(ctx.close()))
   }

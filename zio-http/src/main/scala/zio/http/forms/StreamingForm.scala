@@ -1,13 +1,18 @@
 package zio.http.forms
 
-import zio.{Chunk, Queue, ZIO}
-import zio.stream.{Take, ZStream}
-
 import java.nio.charset.Charset
+
 import scala.collection.immutable
+
+import zio.{Chunk, Queue, ZIO}
+
+import zio.stream.{Take, ZStream}
 
 final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary, charset: Charset) {
 
+  /**
+   * Runs the streaming form and collects all parts in memory, returning a Form
+   */
   def collectAll(): ZIO[Any, Throwable, Form] =
     data
       .mapZIOPar(1) {
@@ -51,7 +56,9 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                         _        <- newQueue.offer(Take.chunk(newFormState.tree.collect { case FormAST.Content(bytes) =>
                           bytes
                         }.flatten))
-                        streamingFormData <- FormData.streamingBody(newFormState.tree, newQueue).mapError(_.asException)
+                        streamingFormData <- FormData
+                          .incomingStreamingBinary(newFormState.tree, newQueue)
+                          .mapError(_.asException)
                         nextState = state.copy(
                           formState = newFormState,
                           currentQueue = Some(newQueue),

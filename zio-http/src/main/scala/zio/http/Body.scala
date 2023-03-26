@@ -58,9 +58,17 @@ trait Body { self =>
   def asMultipartForm(implicit trace: Trace): Task[Form] =
     for {
       bytes <- asChunk
-      form  <- Form.fromMultipartBytes(bytes, Charsets.Http).mapError(_.asException)
+      form  <- Form.fromMultipartBytes(bytes, Charsets.Http)
     } yield form
 
+  /**
+   * Returns an effect that decodes the streaming body as a multipart form.
+   *
+   * The result is a stream of FormData objects, where each FormData may be a
+   * StreamingBinary or a Text object. The StreamingBinary object contains a
+   * stream of bytes, which has to be consumed asynchronously by the user to get
+   * the next FormData from the stream.
+   */
   def asMultipartFormStream(implicit trace: Trace): Task[StreamingForm] =
     boundary match {
       case Some(boundary) =>
@@ -150,7 +158,7 @@ object Body {
         case Some(value) => form.encodeAsMultipartBytes(charset, value)
         case None        => form.encodeAsMultipartBytes(charset)
       }
-    ChunkBody(bytes).withContentType(MediaType.multipart.`form-data`, Some(boundary))
+    StreamBody(bytes, Some(MediaType.multipart.`form-data`), Some(boundary))
   }
 
   /**

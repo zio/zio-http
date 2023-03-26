@@ -30,7 +30,7 @@ private[forms] object FormState {
     buffer: Chunk[Byte],
     lastByte: Option[Byte],
     boundary: Boundary,
-    dropContents: Boolean
+    dropContents: Boolean,
   ) extends FormState { self =>
 
     def append(byte: Byte): FormState = {
