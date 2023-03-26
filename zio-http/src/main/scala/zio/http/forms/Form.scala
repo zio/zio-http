@@ -145,7 +145,7 @@ final case class Form(formData: Chunk[FormData]) {
             Header.contentType(contentType),
             EoL,
           ) ++ xferEncoding :+ EoL,
-        ) ++ data.chunks.map(Content) ++ ZStream(EoL)
+        ) ++ data.chunks.map(Content(_)) ++ ZStream(EoL)
     }
 
     val stream = ZStream.fromChunk(astStreams).flatten ++ ZStream.fromChunk(Chunk(closingBoundary, EoL))
