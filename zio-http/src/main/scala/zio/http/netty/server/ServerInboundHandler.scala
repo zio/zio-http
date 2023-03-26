@@ -337,8 +337,8 @@ private[zio] final case class ServerInboundHandler(
       ctx.channel().close()
     }.unit.orDie
 
-  private def failOnDecodingError(request: HttpRequest): ZIO[Any, Nothing, Unit] =
-    ZIO.die(request.decoderResult().cause()).when(request.decoderResult().isFailure).unit
+  private def failOnDecodingError(request: HttpRequest): Exit[Nothing, Unit] =
+    if (request.decoderResult().isFailure) Exit.die(request.decoderResult().cause()) else Exit.unit
 }
 
 object ServerInboundHandler {
