@@ -80,7 +80,7 @@ object FormSpec extends ZIOSpecDefault {
       } yield assertTrue(
         actualBytes == multipartFormBytes2,
         form2 == form,
-      ).??(new String(actualBytes.toArray, StandardCharsets.UTF_8))
+      )
     },
     test("decoding") {
       val boundary = Boundary("AaB03x")
@@ -149,7 +149,7 @@ object FormSpec extends ZIOSpecDefault {
         } yield assertTrue(
           actualBytes == multipartFormBytes2,
           form2 == collectedForm,
-        ).??(new String(actualBytes.toArray, StandardCharsets.UTF_8))
+        )
       },
       test("decoding") {
         val boundary = Boundary("AaB03x")
@@ -190,12 +190,13 @@ object FormSpec extends ZIOSpecDefault {
         val stream        = ZStream.fromChunk(multipartFormBytes3) @@ ZStreamAspect.rechunk(16)
         val streamingForm = StreamingForm(stream, boundary, StandardCharsets.UTF_8)
         streamingForm.collectAll().map { form =>
+          val contents =
+            new String(form.get("file").get.asInstanceOf[FormData.Binary].data.toArray, StandardCharsets.UTF_8)
           assertTrue(
             form.get("file").get.filename.get == "test.jsonl",
             form.get("file").get.valueAsString.isEmpty,
             form.get("file").get.asInstanceOf[FormData.Binary].data.size == 69,
-            new String(form.get("file").get.asInstanceOf[FormData.Binary].data.toArray, StandardCharsets.UTF_8) ==
-              """{"prompt": "<prompt text>", "completion": "<ideal generated text>"}""" + "\r\n",
+            contents == """{"prompt": "<prompt text>", "completion": "<ideal generated text>"}""" + "\r\n",
           )
         }
       },
