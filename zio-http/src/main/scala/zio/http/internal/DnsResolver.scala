@@ -30,6 +30,12 @@ object DnsResolver {
     case object Drop    extends ExpireAction
   }
 
+  private sealed trait CachePatch
+  private object CachePatch {
+    final case class Remove(host: String)                           extends CachePatch
+    final case class Update(host: String, updatedEntry: CacheEntry) extends CachePatch
+  }
+
   private class CachingResolver(
     resolver: DnsResolver,
     ttl: Duration,
@@ -82,18 +88,18 @@ object DnsResolver {
       for {
         fiberId            <- ZIO.fiberId
         snapshot           <- entries.get
-        refreshed          <- refreshOrDropEntries(fiberId, snapshot)
-        withControlledSize <- ensureMaxSize(refreshed)
-        _                  <- entries.set(withControlledSize)
+        refreshPatches     <- refreshOrDropEntries(fiberId, snapshot)
+        sizeControlPatches <- ensureMaxSize(applyPatches(snapshot, refreshPatches))
+        _                  <- entries.update(applyPatches(_, refreshPatches ++ sizeControlPatches))
       } yield ()
 
     private def refreshOrDropEntries(
       fiberId: FiberId,
       entries: Map[String, CacheEntry],
-    ): ZIO[Any, Nothing, Map[String, CacheEntry]] =
+    ): ZIO[Any, Nothing, Chunk[CachePatch]] =
       Clock.instant.flatMap { now =>
         ZIO
-          .foreach(entries.toList) { case (host, entry) =>
+          .foreach(Chunk.fromIterable(entries)) { case (host, entry) =>
             entry.resolvedAddresses.poll.flatMap {
               case Some(getResolvedAddresses) =>
                 getResolvedAddresses.foldZIO(
@@ -105,13 +111,13 @@ object DnsResolver {
                           None,
                           now,
                         )
-                        startResolvingHost(host, newEntry.resolvedAddresses).as(Some((host, newEntry)))
+                        startResolvingHost(host, newEntry.resolvedAddresses).as(Some(CachePatch.Update(host, newEntry)))
                       } else {
-                        ZIO.none
+                        ZIO.some(CachePatch.Remove(host))
                       }
                     } else {
                       // failed entry not expired yet
-                      ZIO.some((host, entry))
+                      ZIO.none
                     }
                   },
                   success = addresses => {
@@ -122,33 +128,43 @@ object DnsResolver {
                           Some(addresses),
                           now,
                         )
-                        startResolvingHost(host, newEntry.resolvedAddresses).as(Some((host, newEntry)))
+                        startResolvingHost(host, newEntry.resolvedAddresses)
+                          .as(Some(CachePatch.Update(host, newEntry)))
                       } else {
-                        ZIO.none
+                        ZIO.some(CachePatch.Remove(host))
                       }
                     } else {
                       // successful entry not expired yet
-                      ZIO.some((host, entry))
+                      ZIO.none
                     }
                   },
                 )
               case None                       =>
-                ZIO.some((host, entry))
+                ZIO.none
             }
           }
-          .map(_.flatten.toMap)
+          .map(_.flatten)
       }
 
-    private def ensureMaxSize(value: Map[String, CacheEntry]): ZIO[Any, Nothing, Map[String, CacheEntry]] =
-      if (value.size > maxCount) {
-        val (toDrop, toKeep) = value.toList.sortBy(_._2.lastUpdatedAt).splitAt(value.size - maxCount)
+    private def ensureMaxSize(entries: Map[String, CacheEntry]): ZIO[Any, Nothing, Chunk[CachePatch]] =
+      if (entries.size > maxCount) {
+        val toDrop = Chunk.fromIterable(entries).sortBy(_._2.lastUpdatedAt).take(entries.size - maxCount)
         ZIO
-          .foreach(toDrop) { case (_, entry) =>
-            entry.resolvedAddresses.interrupt
+          .foreach(toDrop) { case (host, entry) =>
+            entry.resolvedAddresses.interrupt.as(CachePatch.Remove(host))
           }
-          .as(toKeep.toMap)
       } else {
-        ZIO.succeed(value)
+        ZIO.succeed(Chunk.empty)
+      }
+
+    private def applyPatches(entries: Map[String, CacheEntry], patches: Chunk[CachePatch]): Map[String, CacheEntry] =
+      patches.foldLeft(entries) { case (entries, patch) =>
+        patch match {
+          case CachePatch.Remove(host)               =>
+            entries - host
+          case CachePatch.Update(host, updatedEntry) =>
+            entries.updated(host, updatedEntry)
+        }
       }
   }
 
