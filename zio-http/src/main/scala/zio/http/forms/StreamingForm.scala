@@ -13,11 +13,11 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
   /**
    * Runs the streaming form and collects all parts in memory, returning a Form
    */
-  def collectAll(): ZIO[Any, Throwable, Form] =
+  def collectAll: ZIO[Any, Throwable, Form] =
     data
       .mapZIOPar(1) {
         case sb: FormData.StreamingBinary =>
-          sb.collect()
+          sb.collect
         case other: FormData              =>
           ZIO.succeed(other)
       }

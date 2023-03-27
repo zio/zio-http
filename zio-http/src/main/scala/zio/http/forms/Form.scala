@@ -48,7 +48,7 @@ final case class Form(formData: Chunk[FormData]) {
     ZIO
       .foreach(formData) {
         case streamingBinary: StreamingBinary =>
-          streamingBinary.collect()
+          streamingBinary.collect
         case other                            =>
           ZIO.succeed(other)
       }
@@ -170,7 +170,7 @@ object Form {
       boundary <- ZIO
         .fromOption(Boundary.fromContent(bytes, charset))
         .orElseFail(FormDecodingError.BoundaryNotFoundInContent.asException)
-      form     <- StreamingForm(ZStream.fromChunk(bytes), boundary, charset).collectAll()
+      form     <- StreamingForm(ZStream.fromChunk(bytes), boundary, charset).collectAll
     } yield form
 
   def fromURLEncoded(encoded: String, encoding: Charset): ZIO[Any, FormDecodingError, Form] = {

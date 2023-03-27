@@ -145,7 +145,7 @@ object FormSpec extends ZIOSpecDefault {
         for {
           form2         <- Form.fromMultipartBytes(multipartFormBytes2)
           actualBytes   <- actualByteStream.runCollect
-          collectedForm <- form.collectAll()
+          collectedForm <- form.collectAll
         } yield assertTrue(
           actualBytes == multipartFormBytes2,
           form2 == collectedForm,
@@ -160,7 +160,7 @@ object FormSpec extends ZIOSpecDefault {
         form.data
           .mapZIOPar(1) {
             case sb: FormData.StreamingBinary =>
-              sb.collect()
+              sb.collect
             case other: FormData              =>
               ZIO.succeed(other)
           }
@@ -189,7 +189,7 @@ object FormSpec extends ZIOSpecDefault {
         val boundary      = Boundary("X-INSOMNIA-BOUNDARY")
         val stream        = ZStream.fromChunk(multipartFormBytes3) @@ ZStreamAspect.rechunk(16)
         val streamingForm = StreamingForm(stream, boundary, StandardCharsets.UTF_8)
-        streamingForm.collectAll().map { form =>
+        streamingForm.collectAll.map { form =>
           val contents =
             new String(form.get("file").get.asInstanceOf[FormData.Binary].data.toArray, StandardCharsets.UTF_8)
           assertTrue(

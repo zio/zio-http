@@ -75,7 +75,7 @@ object FormData {
     filename: Option[String] = None,
     data: ZStream[Any, Nothing, Byte],
   ) extends FormData {
-    def collect(): ZIO[Any, Nothing, Binary] = {
+    def collect: ZIO[Any, Nothing, Binary] = {
       data.runCollect.map { bytes =>
         Binary(name, bytes, contentType, transferEncoding, filename)
       }
