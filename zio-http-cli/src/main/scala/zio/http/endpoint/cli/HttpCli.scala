@@ -14,13 +14,13 @@ import zio.http.endpoint._
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable
 import zio.ZNothing
+import zio.http.Client
 
 class description(val text: String) extends StaticAnnotation
 
 final case class CliRequest(
   url: URL,
   method: model.Method,
-  queryParams: QueryParams,
   headers: model.Headers,
   body: Json,
 ) { self =>
@@ -37,14 +37,17 @@ final case class CliRequest(
   def addHeader(name: String, value: String): CliRequest =
     self.copy(headers = self.headers.addHeader(name, value))
 
-  def addPathParam(name: String, value: String) =
-    self.copy(url = self.url.copy(path = self.url.path / name / value))
+  def addPathParam(value: String) =
+    self.copy(url = self.url.copy(path = self.url.path / value))
+
+  def addQueryParam(key: String, value: String) =
+    self.copy(url = self.url.setQueryParams(self.url.queryParams.add(key, value)))
 
   def withMethod(method: model.Method): CliRequest =
     self.copy(method = method)
 }
 object CliRequest  {
-  val empty = CliRequest(URL.empty, model.Method.GET, QueryParams.empty, model.Headers.empty, Json.Obj(Chunk.empty))
+  val empty = CliRequest(URL.empty, model.Method.GET, model.Headers.empty, Json.Obj(Chunk.empty))
 }
 final case class CliEndpoint[A](
   embed: (A, CliRequest) => CliRequest,
@@ -73,7 +76,7 @@ final case class CliEndpoint[A](
       .map {
         case Right(pathSegment)      => pathSegment
         case Left(model.Method.POST) => "create"
-        case Left(model.Method.PUT)  => "put"
+        case Left(model.Method.PUT)  => "update"
         case Left(method)            => method.name.toLowerCase
       }
       .mkString("-")
@@ -198,7 +201,7 @@ object CliEndpoint {
           case TextCodec.UUIDCodec        =>
             Set(
               CliEndpoint[java.util.UUID](
-                (uuid, request) => request.copy(url = request.url.copy(path = request.url.path / uuid.toString)),
+                (uuid, request) => request.addPathParam(uuid.toString),
                 Options
                   .text(name)
                   .mapOrFail(str =>
@@ -216,7 +219,7 @@ object CliEndpoint {
           case TextCodec.StringCodec      =>
             Set(
               CliEndpoint[String](
-                (str, request) => request.copy(url = request.url.copy(path = request.url.path / str)),
+                (str, request) => request.addPathParam(str),
                 Options.text(name),
                 List.empty,
                 Doc.empty,
@@ -225,7 +228,7 @@ object CliEndpoint {
           case TextCodec.IntCodec         =>
             Set(
               CliEndpoint[BigInt](
-                (int, request) => request.copy(url = request.url.copy(path = request.url.path / int.toString)),
+                (int, request) => request.addPathParam(int.toString),
                 Options.integer(name),
                 List.empty,
                 Doc.empty,
@@ -234,7 +237,7 @@ object CliEndpoint {
           case TextCodec.BooleanCodec     =>
             Set(
               CliEndpoint[Boolean](
-                (bool, request) => request.copy(url = request.url.copy(path = request.url.path / bool.toString)),
+                (bool, request) => request.addPathParam(bool.toString),
                 Options.boolean(name),
                 List.empty,
                 Doc.empty,
@@ -243,7 +246,7 @@ object CliEndpoint {
           case TextCodec.Constant(string) =>
             Set(
               CliEndpoint[Unit](
-                (_, request) => request.copy(url = request.url.copy(path = request.url.path / string)),
+                (_, request) => request.addPathParam(string),
                 Options.Empty,
                 List(Right(string)),
                 Doc.empty,
@@ -255,7 +258,7 @@ object CliEndpoint {
           case TextCodec.Constant(string) =>
             Set(
               CliEndpoint[Unit](
-                (_, request) => request.copy(url = request.url.copy(path = request.url.path / string)),
+                (_, request) => request.addPathParam(string),
                 Options.Empty,
                 List(Right(string)),
                 Doc.empty,
@@ -268,7 +271,7 @@ object CliEndpoint {
           case TextCodec.UUIDCodec        =>
             Set(
               CliEndpoint[java.util.UUID](
-                (uuid, request) => request.addPathParam(name, uuid.toString),
+                (uuid, request) => request.addQueryParam(name, uuid.toString),
                 Options
                   .text(name)
                   .mapOrFail(str =>
@@ -286,7 +289,7 @@ object CliEndpoint {
           case TextCodec.StringCodec      =>
             Set(
               CliEndpoint[String](
-                (str, request) => request.addPathParam(name, str),
+                (str, request) => request.addQueryParam(name, str),
                 Options.text(name),
                 List.empty,
                 Doc.empty,
@@ -295,7 +298,7 @@ object CliEndpoint {
           case TextCodec.IntCodec         =>
             Set(
               CliEndpoint[BigInt](
-                (int, request) => request.addPathParam(name, int.toString),
+                (int, request) => request.addQueryParam(name, int.toString),
                 Options.integer(name),
                 List.empty,
                 Doc.empty,
@@ -304,7 +307,7 @@ object CliEndpoint {
           case TextCodec.BooleanCodec     =>
             Set(
               CliEndpoint[Boolean](
-                (bool, request) => request.addPathParam(name, bool.toString),
+                (bool, request) => request.addQueryParam(name, bool.toString),
                 Options.boolean(name),
                 List.empty,
                 Doc.empty,
@@ -313,7 +316,7 @@ object CliEndpoint {
           case TextCodec.Constant(string) =>
             Set(
               CliEndpoint[Unit](
-                (_, request) => request.addPathParam(name, string),
+                (_, request) => request.addQueryParam(name, string),
                 Options.Empty,
                 List.empty,
                 Doc.empty,
@@ -680,7 +683,9 @@ object CliRoutes {
     summary: String,
     footer: String,
     endpoints: Chunk[Endpoint[_, _, _, M]],
-  ) = {
+    host: String,
+    port: Int,
+  ): CliApp[Any, Throwable, CliRequest] = {
     val cliEndpoints = endpoints.flatMap(CliEndpoint.fromEndpoint(_))
 
     val subcommand = cliEndpoints
@@ -716,7 +721,25 @@ object CliRoutes {
       summary = HelpDoc.Span.text(summary),
       footer = HelpDoc.p(footer),
       command = command,
-    ) { cliRequest => Console.printLine(s"Handling request $cliRequest") }
+    ) { case CliRequest(url, method, headers, body) =>
+      for {
+        response <- Client
+          .request(
+            Request
+              .default(
+                method,
+                url.setHost(host).setPort(port),
+                Body.fromString(body.toString),
+              )
+              .setHeaders(headers),
+          )
+          .provide(Client.default)
+        _        <- Console.printLine(s"Got response")
+        _        <- Console.printLine(s"Status: ${response.status}")
+        body     <- response.body.asString
+        _        <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
+      } yield ()
+    }
   }
 }
 
@@ -733,7 +756,67 @@ Problem: How to unify all subcommands under a common parent type?
 Command#subcommands requires that all subcommands have the same type
  */
 
-object Test extends zio.cli.ZIOCliDefault {
+object TestCliApp extends zio.cli.ZIOCliDefault {
+  import HttpCodec._
+
+  final case class User(
+    @description("The unique identifier of the User")
+    id: Int,
+    @description("The user's name")
+    name: String,
+    @description("The user's email")
+    email: Option[String],
+  )
+  object User {
+    implicit val schema = DeriveSchema.gen[User]
+  }
+  final case class Post(
+    @description("The unique identifier of the User")
+    userId: Int,
+    @description("The unique identifier of the Post")
+    postId: Int,
+    @description("The post's contents")
+    contents: String,
+  )
+  object Post {
+    implicit val schema = DeriveSchema.gen[Post]
+  }
+
+  val getUser =
+    Endpoint
+      .get("users" / int("userId") ?? Doc.p("The unique identifier of the user"))
+      .header(HeaderCodec.location ?? Doc.p("The user's location"))
+      .out[User] ?? Doc.p("Get a user by ID")
+
+  val getUserPosts =
+    Endpoint
+      .get(
+        "users" / int("userId") ?? Doc.p("The unique identifier of the user") / "posts" / int("postId") ?? Doc.p(
+          "The unique identifier of the post",
+        ),
+      )
+      .query(query("name") ?? Doc.p("The user's name"))
+      .out[List[Post]] ?? Doc.p("Get a user's posts by userId and postId")
+
+  val createUser =
+    Endpoint
+      .post("users")
+      .in[User]
+      .out[String] ?? Doc.p("Create a new user")
+
+  val cliApp =
+    CliRoutes.fromEndpoints(
+      name = "users-mgmt",
+      version = "0.0.1",
+      summary = "Users management CLI",
+      footer = "Copyright 2023",
+      host = "localhost",
+      port = 8080,
+      endpoints = Chunk(getUser, getUserPosts, createUser),
+    )
+}
+
+object TestServer extends zio.ZIOAppDefault {
   import HttpCodec._
 
   final case class User(
@@ -798,21 +881,5 @@ object Test extends zio.cli.ZIOCliDefault {
 
   val routes = getUserRoute ++ getUserPostsRoute ++ createUserRoute
 
-  val cliRequest =
-    CliRequest(
-      URL.fromString("http://test.com").right.get,
-      model.Method.GET,
-      QueryParams.empty,
-      model.Headers.empty,
-      Json.Null,
-    )
-
-  val cliApp =
-    CliRoutes.fromEndpoints(
-      name = "users-mgmt",
-      version = "0.0.1",
-      summary = "Users management CLI",
-      footer = "Copyright 2023",
-      Chunk(getUser, getUserPosts, createUser),
-    )
+  val run = Server.serve(routes.toApp).provide(Server.default)
 }
