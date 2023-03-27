@@ -136,7 +136,7 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(publishSetting(false))
   .settings(runSettings(Debug.Main))
   .settings(libraryDependencies ++= Seq(`jwt-core`))
-  .dependsOn(zioHttp)
+  .dependsOn(zioHttp, zioHttpCli)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .settings(stdSettings("zio-http-testkit"))
