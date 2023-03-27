@@ -23,7 +23,14 @@ import zio._
 import zio.http.model.Header.ContentTransferEncoding
 import zio.http.model._
 
-private[forms] sealed trait FormAST { def bytes: Chunk[Byte] }
+private[forms] sealed trait FormAST {
+  def bytes: Chunk[Byte]
+
+  def isContent: Boolean = this match {
+    case FormAST.Content(_) => true
+    case _                  => false
+  }
+}
 
 private[forms] object FormAST {
 

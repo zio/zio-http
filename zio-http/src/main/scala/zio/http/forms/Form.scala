@@ -40,6 +40,20 @@ final case class Form(formData: Chunk[FormData]) {
 
   def append(field: FormData): Form = Form(formData :+ field)
 
+  /**
+   * Runs all streaming form data and stores them in memory, returning a Form
+   * that has no streaming parts
+   */
+  def collectAll: ZIO[Any, Throwable, Form] =
+    ZIO
+      .foreach(formData) {
+        case streamingBinary: StreamingBinary =>
+          streamingBinary.collect
+        case other                            =>
+          ZIO.succeed(other)
+      }
+      .map(Form(_))
+
   def get(name: String): Option[FormData] = formData.find(_.name == name)
 
   def encodeAsURLEncoded(charset: Charset = StandardCharsets.UTF_8): String = {
@@ -61,64 +75,82 @@ final case class Form(formData: Chunk[FormData]) {
 
   def encodeAsMultipartBytes(
     charset: Charset = StandardCharsets.UTF_8,
-    rng: () => String = () => new SecureRandom().nextLong().toString(),
-  ): (CharSequence, Chunk[Byte]) =
+    rng: () => String = () => new SecureRandom().nextLong().toString,
+  ): (CharSequence, ZStream[Any, Nothing, Byte]) =
     encodeAsMultipartBytes(charset, Boundary.generate(rng))
 
   def encodeAsMultipartBytes(
     charset: Charset,
     boundary: Boundary,
-  ): (CharSequence, Chunk[Byte]) = {
+  ): (CharSequence, ZStream[Any, Nothing, Byte]) = {
 
     val encapsulatingBoundary = EncapsulatingBoundary(boundary)
     val closingBoundary       = ClosingBoundary(boundary)
 
-    val ast = formData.flatMap {
+    val astStreams = formData.map {
       case fd @ Simple(name, value) =>
-        Chunk(
-          encapsulatingBoundary,
-          EoL,
-          Header.contentDisposition(name),
-          EoL,
-          Header.contentType(fd.contentType),
-          EoL,
-          EoL,
-          Content(Chunk.fromArray(value.getBytes(charset))),
-          EoL,
+        ZStream.fromChunk(
+          Chunk(
+            encapsulatingBoundary,
+            EoL,
+            Header.contentDisposition(name),
+            EoL,
+            Header.contentType(fd.contentType),
+            EoL,
+            EoL,
+            Content(Chunk.fromArray(value.getBytes(charset))),
+            EoL,
+          ),
         )
 
       case Text(name, value, contentType, filename)                    =>
-        Chunk(
-          encapsulatingBoundary,
-          EoL,
-          Header.contentDisposition(name, filename),
-          EoL,
-          Header.contentType(contentType),
-          EoL,
-          EoL,
-          Content(Chunk.fromArray(value.getBytes(charset))),
-          EoL,
+        ZStream.fromChunk(
+          Chunk(
+            encapsulatingBoundary,
+            EoL,
+            Header.contentDisposition(name, filename),
+            EoL,
+            Header.contentType(contentType),
+            EoL,
+            EoL,
+            Content(Chunk.fromArray(value.getBytes(charset))),
+            EoL,
+          ),
         )
       case Binary(name, data, contentType, transferEncoding, filename) =>
         val xferEncoding =
           transferEncoding.map(enc => Chunk(Header.contentTransferEncoding(enc), EoL)).getOrElse(Chunk.empty)
 
-        Chunk(
-          encapsulatingBoundary,
-          EoL,
-          Header.contentDisposition(name, filename),
-          EoL,
-          Header.contentType(contentType),
-          EoL,
-        ) ++ xferEncoding ++
+        ZStream.fromChunk(
           Chunk(
+            encapsulatingBoundary,
             EoL,
-            Content(data),
+            Header.contentDisposition(name, filename),
             EoL,
-          )
-    } ++ Chunk(closingBoundary, EoL)
+            Header.contentType(contentType),
+            EoL,
+          ) ++ xferEncoding ++ Chunk(EoL, Content(data), EoL),
+        )
 
-    boundary.id -> ast.flatMap(_.bytes)
+      case StreamingBinary(name, contentType, transferEncoding, filename, data) =>
+        val xferEncoding =
+          transferEncoding.map(enc => Chunk(Header.contentTransferEncoding(enc), EoL)).getOrElse(Chunk.empty)
+
+        ZStream.fromChunk(
+          Chunk(
+            encapsulatingBoundary,
+            EoL,
+            Header.contentDisposition(name, filename),
+            EoL,
+            Header.contentType(contentType),
+            EoL,
+          ) ++ xferEncoding :+ EoL,
+        ) ++ data.chunks.map(Content(_)) ++ ZStream(EoL)
+    }
+
+    val stream = ZStream.fromChunk(astStreams).flatten ++ ZStream.fromChunk(Chunk(closingBoundary, EoL))
+
+    boundary.id -> stream.map(_.bytes).flattenChunks
   }
 }
 
@@ -133,35 +165,13 @@ object Form {
   def fromMultipartBytes(
     bytes: Chunk[Byte],
     charset: Charset = StandardCharsets.UTF_8,
-  ): ZIO[Any, FormDecodingError, Form] = {
-    def process(boundary: Boundary) = ZStream
-      .fromChunk(bytes)
-      .mapAccum(FormState.fromBoundary(boundary)) { (state, byte) =>
-        state match {
-          case BoundaryClosed(tree)       => (FormState.fromBoundary(boundary), tree)
-          case BoundaryEncapsulated(tree) => (FormState.fromBoundary(boundary, Some(byte)), tree)
-          case buffer: FormStateBuffer    =>
-            val state = buffer.append(byte)
-            state match {
-              case BoundaryClosed(prevContent) => (state, prevContent)
-              case _                           => (state, Chunk.empty[FormAST])
-            }
-        }
-      }
-      .collectZIO {
-        case chunk if chunk.nonEmpty =>
-          FormData.fromFormAST(chunk, charset)
-      }
-      .runCollect
-      .map(apply)
-
+  ): ZIO[Any, Throwable, Form] =
     for {
       boundary <- ZIO
         .fromOption(Boundary.fromContent(bytes, charset))
-        .mapError(_ => FormDecodingError.BoundaryNotFoundInContent)
-      form     <- process(boundary)
+        .orElseFail(FormDecodingError.BoundaryNotFoundInContent.asException)
+      form     <- StreamingForm(ZStream.fromChunk(bytes), boundary, charset).collectAll
     } yield form
-  }
 
   def fromURLEncoded(encoded: String, encoding: Charset): ZIO[Any, FormDecodingError, Form] = {
     val fields = ZIO.foreach(encoded.split("&")) { pair =>

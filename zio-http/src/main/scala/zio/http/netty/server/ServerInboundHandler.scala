@@ -217,24 +217,33 @@ private[zio] final case class ServerInboundHandler(
       case _                    => None
     }
 
+    val headers     = Conversions.headersFromNetty(nettyReq.headers())
+    val contentType = headers.header(Header.ContentType)
+
     nettyReq match {
       case nettyReq: FullHttpRequest =>
         Request(
-          NettyBody.fromByteBuf(nettyReq.content()),
-          Conversions.headersFromNetty(nettyReq.headers()),
+          NettyBody.fromByteBuf(
+            nettyReq.content(),
+            contentType,
+          ),
+          headers,
           Conversions.methodFromNetty(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
           remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-        val body = NettyBody.fromAsync { async =>
-          addAsyncBodyHandler(ctx, async)
-        }
+        val body = NettyBody.fromAsync(
+          { async =>
+            addAsyncBodyHandler(ctx, async)
+          },
+          contentType,
+        )
 
         Request(
           body,
-          Conversions.headersFromNetty(nettyReq.headers()),
+          headers,
           Conversions.methodFromNetty(nettyReq.method()),
           URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
