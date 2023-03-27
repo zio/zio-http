@@ -44,7 +44,7 @@ final case class Form(formData: Chunk[FormData]) {
    * Runs all streaming form data and stores them in memory, returning a Form
    * that has no streaming parts
    */
-  def collectAll(): ZIO[Any, Throwable, Form] =
+  def collectAll: ZIO[Any, Throwable, Form] =
     ZIO
       .foreach(formData) {
         case streamingBinary: StreamingBinary =>
