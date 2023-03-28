@@ -678,6 +678,26 @@ object HttpCliApp {
     }
   }
 
+  /**
+   * Generates a [[zio.cli.CliApp]] from the given endpoints.
+   *
+   * @param name
+   *   The name of the generated CLI
+   * @param version
+   *   The version of the generated CLI
+   * @param summary
+   *   The summary of the generated CLI
+   * @param footer
+   *   Footer for the help docs of the generated CLI
+   * @param endpoints
+   *   Chunk of [[Endpoint]]
+   * @param host
+   *   The server host where the generated CLI will send requests to
+   * @param port
+   *   The server port where the generated CLI will send requests to
+   * @return
+   *   a [[zio.cli.CliApp]]
+   */
   def fromEndpoints[M <: EndpointMiddleware](
     name: String,
     version: String,
