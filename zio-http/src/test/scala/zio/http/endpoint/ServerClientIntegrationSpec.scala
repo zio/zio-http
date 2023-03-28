@@ -75,5 +75,6 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       executorLayer,
       NettyDriver.default,
       ClientConfig.default,
+      DnsResolver.default,
     )
 }

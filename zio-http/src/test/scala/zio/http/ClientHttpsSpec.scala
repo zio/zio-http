@@ -62,6 +62,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
     ClientConfig.live(ClientConfig.empty.ssl(sslConfig)),
     Client.live,
     NettyClientDriver.fromConfig,
+    DnsResolver.default,
   ) @@ timeout(
     30 seconds,
   ) @@ ignore

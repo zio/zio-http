@@ -48,6 +48,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
     Client.live,
     ClientConfig.live(ClientConfig.empty.useObjectAggregator(false)),
     NettyClientDriver.fromConfig,
+    DnsResolver.default,
   ) @@
     timeout(5 seconds) @@ sequential
 }

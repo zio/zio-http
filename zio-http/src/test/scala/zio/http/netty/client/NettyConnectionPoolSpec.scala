@@ -180,6 +180,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         Client.live,
         ClientConfig.live(ClientConfig.empty.withFixedConnectionPool(2)),
         NettyClientDriver.fromConfig,
+        DnsResolver.default,
       ),
       suite("dynamic")(
         connectionPoolTests(
@@ -203,6 +204,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         Client.live,
         ClientConfig.live(ClientConfig.empty.withDynamicConnectionPool(4, 16, 100.millis)),
         NettyClientDriver.fromConfig,
+        DnsResolver.default,
       ),
     )
 

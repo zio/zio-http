@@ -1,15 +1,18 @@
-package zio.http.internal
-
-import zio._
+package zio.http
 
 import java.net.{InetAddress, UnknownHostException}
 import java.time.Instant
+
+import zio._
 
 trait DnsResolver {
   def resolve(host: String): ZIO[Any, UnknownHostException, Chunk[InetAddress]]
 }
 
 object DnsResolver {
+  def resolve(host: String): ZIO[DnsResolver, UnknownHostException, Chunk[InetAddress]] =
+    ZIO.serviceWithZIO(_.resolve(host))
+
   private final case class SystemResolver() extends DnsResolver {
     override def resolve(host: String): ZIO[Any, UnknownHostException, Chunk[InetAddress]] =
       ZIO
@@ -18,7 +21,7 @@ object DnsResolver {
         .map(Chunk.fromArray)
   }
 
-  private final case class CacheEntry(
+  private[http] final case class CacheEntry(
     resolvedAddresses: Promise[UnknownHostException, Chunk[InetAddress]],
     previousAddresses: Option[Chunk[InetAddress]],
     lastUpdatedAt: Instant,
@@ -28,6 +31,13 @@ object DnsResolver {
   object ExpireAction {
     case object Refresh extends ExpireAction
     case object Drop    extends ExpireAction
+
+    val config: Config[ExpireAction] =
+      Config.string.mapOrFail {
+        case "refresh" => Right(Refresh)
+        case "drop"    => Right(Drop)
+        case other     => Left(Config.Error.InvalidData(message = s"Invalid expire action: $other"))
+      }
   }
 
   private sealed trait CachePatch
@@ -75,6 +85,10 @@ object DnsResolver {
         result    <- getResult
       } yield result
 
+    /** Gets a snapshot of the cache state, for testing only */
+    private[http] def snapshot(): ZIO[DnsResolver, Nothing, Map[String, CacheEntry]] =
+      entries.get
+
     private def startResolvingHost(
       host: String,
       targetPromise: Promise[UnknownHostException, Chunk[InetAddress]],
@@ -111,7 +125,8 @@ object DnsResolver {
                           None,
                           now,
                         )
-                        startResolvingHost(host, newEntry.resolvedAddresses).as(Some(CachePatch.Update(host, newEntry)))
+                        startResolvingHost(host, newEntry.resolvedAddresses)
+                          .as(Some(CachePatch.Update(host, newEntry)))
                       } else {
                         ZIO.some(CachePatch.Remove(host))
                       }
@@ -168,7 +183,7 @@ object DnsResolver {
       }
   }
 
-  object CachingResolver {
+  private object CachingResolver {
     def make(
       resolver: DnsResolver,
       ttl: Duration,
@@ -182,7 +197,89 @@ object DnsResolver {
         semaphore <- Semaphore.make(maxConcurrentResolutions)
         entries   <- Ref.make(Map.empty[String, CacheEntry])
         cachingResolver = new CachingResolver(resolver, ttl, unknownHostTtl, maxCount, expireAction, semaphore, entries)
-        _ <- cachingResolver.refreshAndCleanup().scheduleFork(Schedule.spaced(refreshRate))
+        _ <- cachingResolver.refreshAndCleanup().scheduleFork(Schedule.fixed(refreshRate))
       } yield cachingResolver
   }
+
+  private[http] def snapshot(): ZIO[DnsResolver, Nothing, Map[String, CacheEntry]] =
+    ZIO.service[DnsResolver].flatMap {
+      case cachingResolver: CachingResolver => cachingResolver.snapshot()
+      case _ => ZIO.dieMessage(s"Unexpected DnsResolver implementation: ${getClass.getName}")
+    }
+
+  final case class DnsResolverConfig(
+    ttl: Duration,
+    unknownHostTtl: Duration,
+    maxCount: Int,
+    maxConcurrentResolutions: Int,
+    expireAction: ExpireAction,
+    refreshRate: Duration,
+  )
+
+  object DnsResolverConfig {
+    val default: DnsResolverConfig = DnsResolverConfig(
+      ttl = 10.minutes,
+      unknownHostTtl = 1.minute,
+      maxCount = 4096,
+      maxConcurrentResolutions = 16,
+      expireAction = ExpireAction.Refresh,
+      refreshRate = 2.seconds,
+    )
+
+    val config: Config[DnsResolverConfig] =
+      (Config.duration("ttl").withDefault(default.ttl) ++
+        Config.duration("unknown-host-ttl").withDefault(default.unknownHostTtl) ++
+        Config.int("max-count").withDefault(default.maxCount) ++
+        Config.int("max-concurrent-resolutions").withDefault(default.maxConcurrentResolutions) ++
+        ExpireAction.config.nested("expire-action").withDefault(default.expireAction) ++
+        Config.duration("refresh-rate").withDefault(default.refreshRate)).map {
+        case (ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate) =>
+          DnsResolverConfig(ttl, unknownHostTtl, maxCount, maxConcurrentResolutions, expireAction, refreshRate)
+      }
+  }
+
+  def cached(
+    ttl: Duration = 10.minutes,
+    unknownHostTtl: Duration = 1.minute,
+    maxCount: Int = 4096,
+    maxConcurrentResolutions: Int = 16,
+    expireAction: ExpireAction = ExpireAction.Refresh,
+    refreshRate: Duration = 2.seconds,
+    implementation: DnsResolver = SystemResolver(),
+  ): ZLayer[Any, Nothing, DnsResolver] =
+    ZLayer.scoped {
+      CachingResolver
+        .make(
+          implementation,
+          ttl,
+          unknownHostTtl,
+          maxCount,
+          maxConcurrentResolutions,
+          expireAction,
+          refreshRate,
+        )
+    }
+
+  val configured: ZLayer[Any, Config.Error, DnsResolver] =
+    ZLayer(ZIO.config(DnsResolverConfig.config.nested("zio.http.dns"))) >>> fromConfig
+
+  val default: ZLayer[Any, Nothing, DnsResolver] = ZLayer.succeed(DnsResolverConfig.default) >>> fromConfig
+
+  lazy val fromConfig: ZLayer[DnsResolverConfig, Nothing, DnsResolver] =
+    ZLayer.scoped {
+      for {
+        config   <- ZIO.service[DnsResolverConfig]
+        resolver <- CachingResolver.make(
+          SystemResolver(),
+          config.ttl,
+          config.unknownHostTtl,
+          config.maxCount,
+          config.maxConcurrentResolutions,
+          config.expireAction,
+          config.refreshRate,
+        )
+      } yield resolver
+    }
+
+  val system: ZLayer[Any, Nothing, DnsResolver] = ZLayer.succeed(SystemResolver())
 }
