@@ -6,6 +6,7 @@ import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.cli._
 import zio.schema._
+import zio.http.model.headers.values.Location
 
 trait TestCliEndpoints {
   import HttpCodec._
@@ -86,4 +87,21 @@ object TestCliServer extends zio.ZIOAppDefault with TestCliEndpoints {
   val routes = getUserRoute ++ getUserPostsRoute ++ createUserRoute
 
   val run = Server.serve(routes.toApp).provide(Server.default)
+}
+
+object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {
+  val run =
+    clientExample
+      .provide(
+        EndpointExecutor.make(serviceName = "test"),
+        Client.default,
+      )
+
+  lazy val clientExample: URIO[EndpointExecutor[Unit], Unit] =
+    for {
+      executor <- ZIO.service[EndpointExecutor[Unit]]
+      _        <- executor(getUser(42, Location.parse("some-location").toOption.get)).debug("result1")
+      _        <- executor(getUserPosts(42, 200, "adam")).debug("result2")
+      _        <- executor(createUser(User(2, "john", Some("john@test.com")))).debug("result3")
+    } yield ()
 }
