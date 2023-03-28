@@ -102,7 +102,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
               }
             }
           case _                                    =>
-            ZIO.succeed(state, None)
+            ZIO.succeed((state, None))
         }
       }
       .collect { case Some(formData) =>

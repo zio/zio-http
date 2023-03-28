@@ -19,8 +19,7 @@ package zio.http.netty.model
 import zio.Scope
 import zio.test._
 
-import zio.http.model.Headers
-import zio.http.model.headers.HeaderNames
+import zio.http.model.{Header, Headers}
 
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpScheme}
@@ -30,13 +29,13 @@ object ConversionsSpec extends ZIOSpecDefault {
     suite("Netty conversions")(
       suite("headers")(
         test("should encode multiple cookie headers as two separate headers") {
-          val cookieHeaders = Headers(HeaderNames.setCookie, "x1") ++ Headers(HeaderNames.setCookie, "x2")
+          val cookieHeaders = Headers(Header.SetCookie.name, "x1") ++ Headers(Header.SetCookie.name, "x2")
           val result        = Conversions.headersToNetty(cookieHeaders).entries().size()
           assertTrue(result == 2)
         },
         test("should encode multiple cookie headers as two separate headers also if other headers are present") {
-          val cookieHeaders = Headers(HeaderNames.setCookie, "x1") ++ Headers(HeaderNames.setCookie, "x2")
-          val otherHeaders  = Headers(HeaderNames.contentType, "application/json")
+          val cookieHeaders = Headers(Header.SetCookie.name, "x1") ++ Headers(Header.SetCookie.name, "x2")
+          val otherHeaders  = Headers(Header.ContentType.name, "application/json")
           val result        = Conversions.headersToNetty(otherHeaders ++ cookieHeaders).entries().size()
           assertTrue(result == 3)
         },

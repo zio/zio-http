@@ -40,8 +40,17 @@ sealed trait Cookie { self =>
 
   def content: String
 
+  /**
+   * Encodes the cookie into a string, or fails with an exception if there was a
+   * problem during encoding. This encoding method performs no validation.
+   */
   final def encode: Either[Exception, String] = encodeValidate(false)
 
+  /**
+   * Encodes the cookie into a string, or fails with an exception if there was a
+   * problem during encoding. This encoding method performs validation as
+   * specified.
+   */
   def encodeValidate(validate: Boolean): Either[Exception, String]
 
   /**

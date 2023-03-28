@@ -20,43 +20,42 @@ import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.model
-import zio.http.model.Cookie
-import zio.http.model.Header.RequestCookie
+import zio.http.model.Header.Cookie
 
-object RequestCookieSpec extends ZIOSpecDefault {
+object CookieSpec extends ZIOSpecDefault {
 
-  override def spec: Spec[TestEnvironment with Scope, Any] = suite("RequestCookie suite")(
-    test("RequestCookie handle valid cookie") {
-      val result = RequestCookie.parse("foo=bar") match {
-        case Right(RequestCookie(value)) =>
+  override def spec: Spec[TestEnvironment with Scope, Any] = suite("Cookie suite")(
+    test("Cookie handle valid cookie") {
+      val result = Cookie.parse("foo=bar") match {
+        case Right(Cookie(value)) =>
           value == NonEmptyChunk(model.Cookie.Request(name = "foo", content = "bar"))
-        case _                           => false
+        case _                    => false
       }
       assertTrue(result)
     },
-    test("RequestCookie handle invalid cookie") {
-      val result = RequestCookie.parse("") match {
-        case Right(RequestCookie(_)) =>
+    test("Cookie handle invalid cookie") {
+      val result = Cookie.parse("") match {
+        case Right(Cookie(_)) =>
           false
-        case _                       => true
+        case _                => true
       }
       assertTrue(result)
     },
-    test("RequestCookie handle multiple cookies") {
-      val result = RequestCookie.parse("foo=bar; foo2=bar2") match {
-        case Right(RequestCookie(value)) =>
+    test("Cookie handle multiple cookies") {
+      val result = Cookie.parse("foo=bar; foo2=bar2") match {
+        case Right(Cookie(value)) =>
           value == NonEmptyChunk(
             model.Cookie.Request(name = "foo", content = "bar"),
             model.Cookie.Request(name = "foo2", content = "bar2"),
           )
-        case _                           => false
+        case _                    => false
       }
       assertTrue(result)
     },
-    test("RequestCookie render valid cookie") {
-      val result = RequestCookie.parse("foo=bar") match {
+    test("Cookie render valid cookie") {
+      val result = Cookie.parse("foo=bar") match {
         case Right(rc) =>
-          RequestCookie.render(rc) == "foo=bar"
+          Cookie.render(rc) == "foo=bar"
         case _         => false
       }
       assertTrue(result)

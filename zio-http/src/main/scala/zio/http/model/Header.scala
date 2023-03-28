@@ -15,7 +15,6 @@ import scala.util.{Either, Failure, Success, Try}
 import zio._
 
 import zio.http._
-import zio.http.model.headers.HeaderNames
 
 sealed trait Header {
   type Self <: Header
@@ -118,7 +117,7 @@ object Header {
   object Accept extends HeaderType {
     override type HeaderValue = Accept
 
-    override def name: String = HeaderNames.accept
+    override def name: String = "accept"
 
     /**
      * The Accept header value one or more MIME types optionally weighed with
@@ -183,7 +182,7 @@ object Header {
   object AcceptEncoding extends HeaderType {
     override type HeaderValue = AcceptEncoding
 
-    override def name: String = HeaderNames.acceptEncoding
+    override def name: String = "accept-encoding"
 
     /**
      * A compression format that uses the Brotli algorithm.
@@ -336,7 +335,7 @@ object Header {
   object AcceptLanguage extends HeaderType {
     override type HeaderValue = AcceptLanguage
 
-    override def name: String = HeaderNames.acceptLanguage
+    override def name: String = "accept-language"
 
     case class Single(language: String, weight: Option[Double]) extends AcceptLanguage
 
@@ -413,7 +412,7 @@ object Header {
   object AcceptPatch extends HeaderType {
     override type HeaderValue = AcceptPatch
 
-    override def name: String = HeaderNames.acceptPatch
+    override def name: String = "accept-patch"
 
     def parse(value: String): Either[String, AcceptPatch] =
       if (value.nonEmpty) {
@@ -461,7 +460,7 @@ object Header {
 
   object AcceptRanges extends HeaderType {
     override type HeaderValue = AcceptRanges
-    override def name: String = HeaderNames.acceptRanges
+    override def name: String = "accept-ranges"
 
     case object Bytes extends AcceptRanges {
       override val encodedName = "bytes"
@@ -491,7 +490,7 @@ object Header {
   object AccessControlAllowCredentials extends HeaderType {
     override type HeaderValue = AccessControlAllowCredentials
 
-    override def name: String = HeaderNames.accessControlAllowCredentials
+    override def name: String = "access-control-allow-credentials"
 
     /**
      * The Access-Control-Allow-Credentials header is sent in response to a
@@ -544,7 +543,7 @@ object Header {
   object AccessControlAllowHeaders extends HeaderType {
     override type HeaderValue = AccessControlAllowHeaders
 
-    override def name: String = HeaderNames.accessControlAllowHeaders
+    override def name: String = "access-control-allow-headers"
 
     final case class Some(values: NonEmptyChunk[String]) extends AccessControlAllowHeaders
 
@@ -602,7 +601,7 @@ object Header {
   object AccessControlAllowMethods extends HeaderType {
     override type HeaderValue = AccessControlAllowMethods
 
-    override def name: String = HeaderNames.accessControlAllowMethods
+    override def name: String = "access-control-allow-methods"
 
     final case class Some(methods: NonEmptyChunk[Method]) extends AccessControlAllowMethods
 
@@ -669,7 +668,7 @@ object Header {
   object AccessControlAllowOrigin extends HeaderType {
     override type HeaderValue = AccessControlAllowOrigin
 
-    override def name: String = HeaderNames.accessControlAllowOrigin
+    override def name: String = "access-control-allow-origin"
 
     final case class Specific(origin: Origin) extends AccessControlAllowOrigin
 
@@ -709,7 +708,7 @@ object Header {
   object AccessControlExposeHeaders extends HeaderType {
     override type HeaderValue = AccessControlExposeHeaders
 
-    override def name: String = HeaderNames.accessControlExposeHeaders
+    override def name: String = "access-control-expose-headers"
 
     final case class Some(values: NonEmptyChunk[CharSequence]) extends AccessControlExposeHeaders
 
@@ -767,7 +766,7 @@ object Header {
   object AccessControlMaxAge extends HeaderType {
     override type HeaderValue = AccessControlMaxAge
 
-    override def name: String = HeaderNames.accessControlMaxAge
+    override def name: String = "access-control-max-age"
 
     def parse(seconds: String): Either[String, AccessControlMaxAge] =
       Try(seconds.toLong).toOption.flatMap { long =>
@@ -796,7 +795,7 @@ object Header {
   object AccessControlRequestHeaders extends HeaderType {
     override type HeaderValue = AccessControlRequestHeaders
 
-    override def name: String = HeaderNames.accessControlRequestHeaders
+    override def name: String = "access-control-request-headers"
 
     def parse(values: String): Either[String, AccessControlRequestHeaders] = {
       NonEmptyChunk.fromChunk(Chunk.fromArray(values.trim().split(",")).filter(_.nonEmpty)) match {
@@ -818,7 +817,7 @@ object Header {
   object AccessControlRequestMethod extends HeaderType {
     override type HeaderValue = AccessControlRequestMethod
 
-    override def name: String = HeaderNames.accessControlRequestMethod
+    override def name: String = "access-control-request-method"
 
     def parse(value: String): Either[String, AccessControlRequestMethod] = {
       val method = Method.fromString(value)
@@ -842,7 +841,7 @@ object Header {
   object Age extends HeaderType {
     override type HeaderValue = Age
 
-    override def name: String = HeaderNames.age
+    override def name: String = "age"
 
     def parse(value: String): Either[String, Age] =
       Try(value.trim.toInt) match {
@@ -868,7 +867,7 @@ object Header {
   object Allow extends HeaderType {
     override type HeaderValue = Allow
 
-    override def name: String = HeaderNames.allow
+    override def name: String = "allow"
 
     val OPTIONS: Allow = Allow(NonEmptyChunk.single(Method.OPTIONS))
     val GET: Allow     = Allow(NonEmptyChunk.single(Method.GET))
@@ -1010,7 +1009,7 @@ object Header {
   object Authorization extends HeaderType {
     override type HeaderValue = Authorization
 
-    override def name: String = HeaderNames.authorization
+    override def name: String = "authorization"
 
     final case class Basic(username: String, password: String) extends Authorization
 
@@ -1147,7 +1146,7 @@ object Header {
   object CacheControl extends HeaderType {
     override type HeaderValue = CacheControl
 
-    override def name: String = HeaderNames.cacheControl
+    override def name: String = "cache-control"
 
     /**
      * The immutable response directive indicates that the response will not be
@@ -1405,7 +1404,7 @@ object Header {
   object Connection extends HeaderType {
     override type HeaderValue = Connection
 
-    override def name: String = HeaderNames.connection
+    override def name: String = "connection"
 
     /**
      * This directive indicates that either the client or the server would like
@@ -1448,7 +1447,7 @@ object Header {
   object ContentBase extends HeaderType {
     override type HeaderValue = ContentBase
 
-    override def name: String = HeaderNames.contentBase
+    override def name: String = "content-base"
 
     def parse(s: String): Either[String, ContentBase] =
       Try(ContentBase(new java.net.URL(s).toURI)).toEither.left.map(_ => "Invalid Content-Base header")
@@ -1468,7 +1467,7 @@ object Header {
   object ContentDisposition extends HeaderType {
     override type HeaderValue = ContentDisposition
 
-    override def name: String = HeaderNames.contentDisposition
+    override def name: String = "content-disposition"
 
     final case class Attachment(filename: Option[String])             extends ContentDisposition
     final case class Inline(filename: Option[String])                 extends ContentDisposition
@@ -1528,7 +1527,7 @@ object Header {
   object ContentEncoding extends HeaderType {
     override type HeaderValue = ContentEncoding
 
-    override def name: String = HeaderNames.contentEncoding
+    override def name: String = "content-encoding"
 
     /**
      * A format using the Brotli algorithm.
@@ -1616,7 +1615,7 @@ object Header {
   object ContentLanguage extends HeaderType {
     override type HeaderValue = ContentLanguage
 
-    override def name: String = HeaderNames.contentLanguage
+    override def name: String = "content-language"
 
     case object Arabic extends ContentLanguage
 
@@ -1793,7 +1792,7 @@ object Header {
   object ContentLength extends HeaderType {
     override type HeaderValue = ContentLength
 
-    override def name: String = HeaderNames.contentLength
+    override def name: String = "content-length"
 
     def parse(value: String): Either[String, ContentLength] =
       Try(value.trim.toLong) match {
@@ -1821,7 +1820,7 @@ object Header {
   object ContentLocation extends HeaderType {
     override type HeaderValue = ContentLocation
 
-    override def name: String = HeaderNames.contentLocation
+    override def name: String = "content-location"
 
     def parse(value: String): Either[String, ContentLocation] =
       Try(ContentLocation(new URI(value))).toEither.left.map(_ => "Invalid Content-Location header")
@@ -1839,7 +1838,7 @@ object Header {
   object ContentMd5 extends HeaderType {
     override type HeaderValue = ContentMd5
 
-    override def name: String = HeaderNames.contentMd5
+    override def name: String = "content-md5"
 
     private val MD5Regex = """[A-Fa-f0-9]{32}""".r
 
@@ -1870,7 +1869,7 @@ object Header {
   object ContentRange extends HeaderType {
     override type HeaderValue = ContentRange
 
-    override def name: String = HeaderNames.contentRange
+    override def name: String = "content-range"
 
     final case class EndTotal(unit: String, s: Int, e: Int, t: Int) extends ContentRange {
       def start: Option[Int] = Some(s)
@@ -1935,7 +1934,7 @@ object Header {
   object ContentSecurityPolicy extends HeaderType {
     override type HeaderValue = ContentSecurityPolicy
 
-    override def name: String = HeaderNames.contentSecurityPolicy
+    override def name: String = "content-security-policy"
 
     final case class SourcePolicy(srcType: SourcePolicyType, src: Source) extends ContentSecurityPolicy
 
@@ -2413,7 +2412,7 @@ object Header {
   object ContentTransferEncoding extends HeaderType {
     override type HeaderValue = ContentTransferEncoding
 
-    override def name: String = HeaderNames.contentTransferEncoding
+    override def name: String = "content-transfer-encoding"
 
     case object SevenBit extends ContentTransferEncoding
 
@@ -2459,7 +2458,7 @@ object Header {
 
   object ContentType extends HeaderType {
     override type HeaderValue = ContentType
-    override def name: String = HeaderNames.contentType
+    override def name: String = "content-type"
 
     def parse(s: String): Either[String, ContentType] = {
       Chunk.fromArray(s.split(";")).map(_.trim) match {
@@ -2520,7 +2519,7 @@ object Header {
   object Date extends HeaderType {
     override type HeaderValue = Date
 
-    override def name: String = HeaderNames.date
+    override def name: String = "date"
 
     private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
@@ -2540,7 +2539,7 @@ object Header {
   object DNT extends HeaderType {
     override type HeaderValue = DNT
 
-    override def name: String = HeaderNames.dnt
+    override def name: String = "dnt"
 
     case object TrackingAllowed extends DNT
 
@@ -2574,7 +2573,7 @@ object Header {
   object ETag extends HeaderType {
     override type HeaderValue = ETag
 
-    override def name: String = HeaderNames.etag
+    override def name: String = "etag"
 
     final case class Strong(validator: String) extends ETag
 
@@ -2612,7 +2611,7 @@ object Header {
   object Expect extends HeaderType {
     override type HeaderValue = Expect
 
-    override def name: String = HeaderNames.expect
+    override def name: String = "expect"
 
     case object `100-continue` extends Expect {
       val value = "100-continue"
@@ -2652,7 +2651,7 @@ object Header {
   object Expires extends HeaderType {
     override type HeaderValue = Expires
 
-    override def name: String = HeaderNames.expires
+    override def name: String = "expires"
 
     private val formatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
@@ -2673,7 +2672,7 @@ object Header {
   object From extends HeaderType {
     override type HeaderValue = From
 
-    override def name: String = HeaderNames.from
+    override def name: String = "from"
 
     // Regex that does veery loose validation of email.
     private val emailRegex = "([^ ]+@[^ ]+[.][^ ]+)".r
@@ -2697,7 +2696,7 @@ object Header {
   object Host extends HeaderType {
     override type HeaderValue = Host
 
-    override def name: String = HeaderNames.host
+    override def name: String = "host"
 
     def apply(hostAddress: String, port: Int): Host = Host(hostAddress, Some(port))
 
@@ -2728,7 +2727,7 @@ object Header {
   object IfMatch extends HeaderType {
     override type HeaderValue = IfMatch
 
-    override def name: String = HeaderNames.ifMatch
+    override def name: String = "if-match"
 
     case object Any extends IfMatch
 
@@ -2762,7 +2761,7 @@ object Header {
   object IfModifiedSince extends HeaderType {
     override type HeaderValue = IfModifiedSince
 
-    override def name: String = HeaderNames.ifModifiedSince
+    override def name: String = "if-modified-since"
 
     private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
@@ -2782,7 +2781,7 @@ object Header {
   object IfNoneMatch extends HeaderType {
     override type HeaderValue = IfNoneMatch
 
-    override def name: String = HeaderNames.ifNoneMatch
+    override def name: String = "if-none-match"
 
     case object Any extends IfNoneMatch
 
@@ -2823,7 +2822,7 @@ object Header {
   object IfRange extends HeaderType {
     override type HeaderValue = IfRange
 
-    override def name: String = HeaderNames.ifRange
+    override def name: String = "if-range"
 
     private val webDateTimeFormatter =
       DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
@@ -2862,7 +2861,7 @@ object Header {
   object IfUnmodifiedSince extends HeaderType {
     override type HeaderValue = IfUnmodifiedSince
 
-    override def name: String = HeaderNames.ifUnmodifiedSince
+    override def name: String = "if-unmodified-since"
 
     private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
@@ -2883,7 +2882,7 @@ object Header {
   object LastModified extends HeaderType {
     override type HeaderValue = LastModified
 
-    override def name: String = HeaderNames.lastModified
+    override def name: String = "last-modified"
 
     private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
@@ -2906,7 +2905,7 @@ object Header {
   object Location extends HeaderType {
     override type HeaderValue = Location
 
-    override def name: String = HeaderNames.location
+    override def name: String = "location"
 
     def parse(value: String): Either[String, Location] = {
       if (value == "") Left("Invalid Location header (empty)")
@@ -2934,7 +2933,7 @@ object Header {
   object MaxForwards extends HeaderType {
     override type HeaderValue = MaxForwards
 
-    override def name: String = HeaderNames.maxForwards
+    override def name: String = "max-forwards"
 
     def parse(value: String): Either[String, MaxForwards] = {
       Try(value.toInt) match {
@@ -2957,7 +2956,7 @@ object Header {
   object Origin extends HeaderType {
     override type HeaderValue = Origin
 
-    override def name: String = HeaderNames.origin
+    override def name: String = "origin"
 
     /** The Origin header value is privacy sensitive or is an opaque origin. */
     case object Null extends Origin
@@ -2999,7 +2998,7 @@ object Header {
   object Pragma extends HeaderType {
     override type HeaderValue = Pragma
 
-    override def name: String = HeaderNames.pragma
+    override def name: String = "pragma"
 
     /** Pragma no-cache value. */
     case object NoCache extends Pragma
@@ -3039,7 +3038,7 @@ object Header {
   object ProxyAuthenticate extends HeaderType {
     override type HeaderValue = ProxyAuthenticate
 
-    override def name: String = HeaderNames.proxyAuthenticate
+    override def name: String = "proxy-authenticate"
 
     def parse(value: String): Either[String, ProxyAuthenticate] = {
       val parts = value.split(" realm=").map(_.trim).filter(_.nonEmpty)
@@ -3085,7 +3084,7 @@ object Header {
   object ProxyAuthorization extends HeaderType {
     override type HeaderValue = ProxyAuthorization
 
-    override def name: String = HeaderNames.proxyAuthorization
+    override def name: String = "proxy-authorization"
 
     def parse(value: String): Either[String, ProxyAuthorization] = {
       value.split("\\s+") match {
@@ -3110,7 +3109,7 @@ object Header {
   object Range extends HeaderType {
     override type HeaderValue = Range
 
-    override def name: String = HeaderNames.range
+    override def name: String = "range"
 
     final case class Single(unit: String, start: Long, end: Option[Long]) extends Range
 
@@ -3195,7 +3194,7 @@ object Header {
   object Referer extends HeaderType {
     override type HeaderValue = Referer
 
-    override def name: String = HeaderNames.referer
+    override def name: String = "referer"
 
     def parse(value: String): Either[String, Referer] = {
       URL.fromString(value) match {
@@ -3209,53 +3208,53 @@ object Header {
       referer.url.toJavaURL.fold("")(_.toString())
   }
 
-  final case class RequestCookie(value: NonEmptyChunk[model.Cookie.Request]) extends Header {
-    override type Self = RequestCookie
-    override def self: Self                                  = this
-    override def headerType: HeaderType.Typed[RequestCookie] = RequestCookie
+  final case class Cookie(value: NonEmptyChunk[model.Cookie.Request]) extends Header {
+    override type Self = Cookie
+    override def self: Self                           = this
+    override def headerType: HeaderType.Typed[Cookie] = Cookie
   }
 
   /**
    * The Cookie HTTP request header contains stored HTTP cookies associated with
    * the server.
    */
-  object RequestCookie extends HeaderType {
-    override type HeaderValue = RequestCookie
+  object Cookie extends HeaderType {
+    override type HeaderValue = Cookie
 
-    override def name: String = HeaderNames.cookie
+    override def name: String = "cookie"
 
-    def parse(value: String): Either[String, RequestCookie] =
+    def parse(value: String): Either[String, Cookie] =
       model.Cookie.Request.decode(value) match {
         case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
         case Right(value) =>
           NonEmptyChunk.fromChunk(value) match {
-            case Some(value) => Right(RequestCookie(value))
+            case Some(value) => Right(Cookie(value))
             case None        => Left("Invalid Cookie header")
           }
       }
 
-    def render(cookie: RequestCookie): String =
+    def render(cookie: Cookie): String =
       cookie.value.map(_.encode.getOrElse("")).mkString("; ")
   }
 
-  final case class ResponseCookie(value: model.Cookie.Response) extends Header {
-    override type Self = ResponseCookie
-    override def self: Self                                   = this
-    override def headerType: HeaderType.Typed[ResponseCookie] = ResponseCookie
+  final case class SetCookie(value: model.Cookie.Response) extends Header {
+    override type Self = SetCookie
+    override def self: Self                              = this
+    override def headerType: HeaderType.Typed[SetCookie] = SetCookie
   }
 
-  object ResponseCookie extends HeaderType {
-    override type HeaderValue = ResponseCookie
+  object SetCookie extends HeaderType {
+    override type HeaderValue = SetCookie
 
-    override def name: String = HeaderNames.setCookie
+    override def name: String = "set-cookie"
 
-    def parse(value: String): Either[String, ResponseCookie] =
+    def parse(value: String): Either[String, SetCookie] =
       model.Cookie.Response.decode(value) match {
         case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
-        case Right(value) => Right(ResponseCookie(value))
+        case Right(value) => Right(SetCookie(value))
       }
 
-    def render(cookie: ResponseCookie): String =
+    def render(cookie: SetCookie): String =
       cookie.value.encode.getOrElse("")
   }
 
@@ -3281,7 +3280,7 @@ object Header {
   object RetryAfter extends HeaderType {
     override type HeaderValue = RetryAfter
 
-    override def name: String = HeaderNames.retryAfter
+    override def name: String = "retry-after"
 
     final case class ByDate(date: ZonedDateTime) extends RetryAfter
 
@@ -3329,7 +3328,7 @@ object Header {
   object SecWebSocketAccept extends HeaderType {
     override type HeaderValue = SecWebSocketAccept
 
-    override def name: String = HeaderNames.secWebSocketAccept
+    override def name: String = "sec-websocket-accept"
 
     def parse(value: String): Either[String, SecWebSocketAccept] =
       if (value.trim.isEmpty) Left("Invalid Sec-WebSocket-Accept header")
@@ -3357,7 +3356,7 @@ object Header {
   object SecWebSocketExtensions extends HeaderType {
     override type HeaderValue = SecWebSocketExtensions
 
-    override def name: String = HeaderNames.secWebSocketExtensions
+    override def name: String = "sec-websocket-extensions"
 
     // Sec-WebSocket-Extensions: foo, bar; baz=2
 
@@ -3451,7 +3450,7 @@ object Header {
   object SecWebSocketKey extends HeaderType {
     override type HeaderValue = SecWebSocketKey
 
-    override def name: String = HeaderNames.secWebSocketKey
+    override def name: String = "sec-websocket-key"
 
     def parse(key: String): Either[String, SecWebSocketKey] = {
       try {
@@ -3477,7 +3476,7 @@ object Header {
   object SecWebSocketLocation extends HeaderType {
     override type HeaderValue = SecWebSocketLocation
 
-    override def name: String = HeaderNames.secWebSocketLocation
+    override def name: String = "sec-websocket-location"
 
     def parse(value: String): Either[String, SecWebSocketLocation] = {
       if (value.trim == "") Left("Invalid Sec-WebSocket-Location header: empty value")
@@ -3508,7 +3507,7 @@ object Header {
   object SecWebSocketOrigin extends HeaderType {
     override type HeaderValue = SecWebSocketOrigin
 
-    override def name: String = HeaderNames.secWebSocketOrigin
+    override def name: String = "sec-websocket-origin"
 
     def parse(value: String): Either[String, SecWebSocketOrigin] = {
       if (value.trim == "") Left("Invalid Sec-WebSocket-Origin header: empty value")
@@ -3545,9 +3544,7 @@ object Header {
   object SecWebSocketProtocol extends HeaderType {
     override type HeaderValue = SecWebSocketProtocol
 
-    override def name: String = HeaderNames.secWebSocketProtocol
-
-    // https://www.iana.org/assignments/websocket/websocket.xml#subprotocol-name
+    override def name: String = "sec-websocket-protocol"
 
     def parse(subProtocols: String): Either[String, SecWebSocketProtocol] = {
       NonEmptyChunk.fromChunk(Chunk.fromArray(subProtocols.split(",")).map(_.trim).filter(_.nonEmpty)) match {
@@ -3577,7 +3574,7 @@ object Header {
   object SecWebSocketVersion extends HeaderType {
     override type HeaderValue = SecWebSocketVersion
 
-    override def name: String = HeaderNames.secWebSocketVersion
+    override def name: String = "sec-websocket-version"
 
     // https://www.iana.org/assignments/websocket/websocket.xml#version-number
 
@@ -3607,7 +3604,7 @@ object Header {
   object Server extends HeaderType {
     override type HeaderValue = Server
 
-    override def name: String = HeaderNames.server
+    override def name: String = "server"
 
     def parse(value: String): Either[String, Server] = {
       val trimmedValue = value.trim
@@ -3630,7 +3627,7 @@ object Header {
   object Te extends HeaderType {
     override type HeaderValue = Te
 
-    override def name: String = HeaderNames.te
+    override def name: String = "te"
 
     /**
      * A compression format that uses the Lempel-Ziv-Welch (LZW) algorithm.
@@ -3738,7 +3735,7 @@ object Header {
   object Trailer extends HeaderType {
     override type HeaderValue = Trailer
 
-    override def name: String = HeaderNames.trailer
+    override def name: String = "trailer"
 
     private val headerRegex = "([a-z-_]*)".r
 
@@ -3762,7 +3759,7 @@ object Header {
   object TransferEncoding extends HeaderType {
     override type HeaderValue = TransferEncoding
 
-    override def name: String = HeaderNames.transferEncoding
+    override def name: String = "transfer-encoding"
 
     /**
      * Data is sent in a series of chunks.
@@ -3850,7 +3847,7 @@ object Header {
   object Upgrade extends HeaderType {
     override type HeaderValue = Upgrade
 
-    override def name: String = HeaderNames.upgrade
+    override def name: String = "upgrade"
 
     final case class Multiple(protocols: NonEmptyChunk[Protocol]) extends Upgrade
 
@@ -3899,7 +3896,7 @@ object Header {
   object UpgradeInsecureRequests extends HeaderType {
     override type HeaderValue = UpgradeInsecureRequests
 
-    override def name: String = HeaderNames.upgradeInsecureRequests
+    override def name: String = "upgrade-insecure-requests"
 
     def parse(value: String): Either[String, UpgradeInsecureRequests] =
       if (value.trim == "1") Right(UpgradeInsecureRequests())
@@ -3925,7 +3922,7 @@ object Header {
   object UserAgent extends HeaderType {
     override type HeaderValue = UserAgent
 
-    override def name: String = HeaderNames.userAgent
+    override def name: String = "user-agent"
 
     final case class Complete(product: Product, comment: Option[Comment]) extends UserAgent
 
@@ -3966,7 +3963,7 @@ object Header {
   object Vary extends HeaderType {
     override type HeaderValue = Vary
 
-    override def name: String = HeaderNames.vary
+    override def name: String = "vary"
 
     case class Headers(headers: NonEmptyChunk[String]) extends Vary
 
@@ -4009,7 +4006,7 @@ object Header {
   object Via extends HeaderType {
     override type HeaderValue = Via
 
-    override def name: String = HeaderNames.via
+    override def name: String = "via"
 
     sealed trait ReceivedProtocol
 
@@ -4098,7 +4095,7 @@ object Header {
   object Warning extends HeaderType {
     override type HeaderValue = Warning
 
-    override def name: String = HeaderNames.warning
+    override def name: String = "warning"
 
     private val validCodes         = List(110, 111, 112, 113, 199, 214, 299)
     private val expectedDateFormat = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
@@ -4213,7 +4210,7 @@ object Header {
   object WWWAuthenticate extends HeaderType {
     override type HeaderValue = WWWAuthenticate
 
-    override def name: String = HeaderNames.wwwAuthenticate
+    override def name: String = "www-authenticate"
 
     final case class Basic(realm: Option[String] = None, charset: String = "UTF-8") extends WWWAuthenticate
 
@@ -4405,7 +4402,7 @@ object Header {
   object XFrameOptions extends HeaderType {
     override type HeaderValue = XFrameOptions
 
-    override def name: String = HeaderNames.xFrameOptions
+    override def name: String = "x-frame-options"
 
     case object Deny extends XFrameOptions
 
@@ -4435,7 +4432,7 @@ object Header {
 
   object XRequestedWith extends HeaderType {
     override type HeaderValue = XRequestedWith
-    override def name: String = HeaderNames.xRequestedWith
+    override def name: String = "x-requested-with"
 
     def parse(value: String): Either[String, XRequestedWith] =
       Right(XRequestedWith(value))
