@@ -27,11 +27,15 @@ object ClientSSLConfig {
     val trustStorePath     = Config.string("trustStorePath")
     val trustStorePassword = Config.secret("trustStorePassword").map(d => new String(d.value.toArray))
 
-    val default                = Config.succeed(Default)
-    val fromCertFile           = certPath.map(FromCertFile(_))
-    val fromCertResource       = certPath.map(FromCertResource(_))
-    val fromTrustStoreFile     = trustStorePath.zip(trustStorePassword).map(FromTrustStoreFile.tupled)
-    val fromTrustStoreResource = trustStorePath.zip(trustStorePassword).map(FromTrustStoreResource.tupled)
+    val default            = Config.succeed(Default)
+    val fromCertFile       = certPath.map(certPath => FromCertFile(certPath))
+    val fromCertResource   = certPath.map(certPath => FromCertResource(certPath))
+    val fromTrustStoreFile = trustStorePath.zip(trustStorePassword).map { case (trustStorePath, trustStorePassword) =>
+      FromTrustStoreFile(trustStorePath, trustStorePassword)
+    }
+    val fromTrustStoreResource = trustStorePath.zip(trustStorePassword).map {
+      case (trustStorePath, trustStorePassword) => FromTrustStoreResource(trustStorePath, trustStorePassword)
+    }
 
     tpe
       .switch(
