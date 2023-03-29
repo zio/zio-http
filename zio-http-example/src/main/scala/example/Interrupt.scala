@@ -6,6 +6,7 @@ import scala.annotation.nowarn
 
 import zio._
 
+import zio.http.DnsResolver.DnsResolverConfig
 import zio.http._
 import zio.http.model.Method
 import zio.http.netty.client.NettyClientDriver
@@ -41,7 +42,11 @@ object MyClient extends ZIOAppDefault {
     reqWithTimeout.exit
       .debug("Client finished")
 //      .provide(Client.default)
-      .provide(Client.fromConfig, ClientConfig.live(ClientConfig().withFixedConnectionPool(2)))
+      .provide(
+        Client.fromConfig,
+        ClientConfig.live(ClientConfig().withFixedConnectionPool(2)),
+        ZLayer.succeed(DnsResolverConfig.default),
+      )
       // .provide(Client.live, NettyClientDriver.fromConfig, ClientConfig.live(ClientConfig().withFixedConnectionPool(2)))
       .debug("EXIT")
   }

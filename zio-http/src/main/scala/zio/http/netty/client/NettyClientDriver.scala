@@ -149,10 +149,12 @@ final case class NettyClientDriver private (
     }
   }
 
-  override def createConnectionPool(config: ConnectionPoolConfig)(implicit
+  override def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
     trace: Trace,
   ): ZIO[Scope, Nothing, ConnectionPool[Channel]] =
-    NettyConnectionPool.fromConfig(config).provideSomeEnvironment[Scope](_ ++ ZEnvironment(this))
+    NettyConnectionPool
+      .fromConfig(config)
+      .provideSomeEnvironment[Scope](_ ++ ZEnvironment[NettyClientDriver, DnsResolver](this, dnsResolver))
 }
 
 object NettyClientDriver {

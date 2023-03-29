@@ -60,6 +60,7 @@ object SSLSpec extends ZIOSpecDefault {
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
             NettyClientDriver.fromConfig,
+            DnsResolver.default,
           ),
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
@@ -72,6 +73,7 @@ object SSLSpec extends ZIOSpecDefault {
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL2)),
             NettyClientDriver.fromConfig,
+            DnsResolver.default,
           ),
           test("succeed when client has default SSL") {
             val actual = Client
@@ -82,6 +84,7 @@ object SSLSpec extends ZIOSpecDefault {
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(ClientSSLConfig.Default)),
             NettyClientDriver.fromConfig,
+            DnsResolver.default,
           ),
           test("Https Redirect when client makes http request") {
             val actual = Client
@@ -92,6 +95,7 @@ object SSLSpec extends ZIOSpecDefault {
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
             NettyClientDriver.fromConfig,
+            DnsResolver.default,
           ),
           test("Https request with a large payload should respond with 413") {
             check(payload) { payload =>
@@ -108,6 +112,7 @@ object SSLSpec extends ZIOSpecDefault {
             Client.live,
             ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
             NettyClientDriver.fromConfig,
+            DnsResolver.default,
           ),
         ),
       ),

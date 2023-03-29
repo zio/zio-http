@@ -3,8 +3,8 @@ package example
 import zio._
 
 import zio.http.model.{Header, Headers}
-import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
-import zio.http.{Client, ClientConfig, ClientSSLConfig}
+import zio.http.netty.client.NettyClientDriver
+import zio.http.{Client, ClientConfig, ClientSSLConfig, DnsResolver}
 
 object HttpsClient extends ZIOAppDefault {
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
@@ -23,6 +23,7 @@ object HttpsClient extends ZIOAppDefault {
     _    <- Console.printLine(data)
   } yield ()
 
-  val run = program.provide(ClientConfig.live(clientConfig), Client.live, NettyClientDriver.fromConfig)
+  val run =
+    program.provide(ClientConfig.live(clientConfig), Client.live, NettyClientDriver.fromConfig, DnsResolver.default)
 
 }

@@ -2,9 +2,10 @@ package example
 
 import zio._
 
+import zio.http.DnsResolver.DnsResolverConfig
 import zio.http.model.Headers
 import zio.http.netty.client.NettyConnectionPool
-import zio.http.{Client, ClientConfig}
+import zio.http.{Client, ClientConfig, DnsResolver}
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 
@@ -19,6 +20,6 @@ object ClientWithDecompression extends ZIOAppDefault {
 
   val config       = ClientConfig.empty.requestDecompression(true)
   override val run =
-    program.provide(ClientConfig.live(config), Client.fromConfig)
+    program.provide(ClientConfig.live(config), Client.fromConfig, ZLayer.succeed(DnsResolverConfig.default))
 
 }
