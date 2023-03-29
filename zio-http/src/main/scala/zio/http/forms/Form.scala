@@ -157,30 +157,23 @@ final case class Form(formData: Chunk[FormField]) {
     stream.map(_.bytes).flattenChunks
   }
 
+  def toQueryParams: QueryParams =
+    formData.foldLeft(QueryParams.empty) {
+      case (acc, FormField.Text(k, v, _, _)) => acc.add(k, v)
+      case (acc, FormField.Simple(k, v))     => acc.add(k, v)
+      case (acc, _)                          => acc
+    }
+
   /**
    * Encodes the form using URL encoding, using the default charset.
    */
   def urlEncoded: String = urlEncoded(Charsets.Utf8)
 
   /**
-   * Encodes the form using URL encoding, using the specified charset.
+   * Encodes the form using URL encoding, using the specified charset. Ignores
+   * any data that cannot be URL encoded.
    */
-  def urlEncoded(charset: Charset): String = {
-
-    def makePair(name: String, value: String): String = {
-      val encodedName  = URLEncoder.encode(name, charset.name())
-      val encodedValue = URLEncoder.encode(value, charset.name())
-      s"$encodedName=$encodedValue"
-    }
-
-    val urlEncoded = formData.foldLeft(Chunk.empty[String]) {
-      case (accum, FormField.Text(k, v, _, _)) => accum :+ makePair(k, v)
-      case (accum, FormField.Simple(k, v))     => accum :+ makePair(k, v)
-      case (accum, _)                          => accum
-    }
-
-    urlEncoded.mkString("&")
-  }
+  def urlEncoded(charset: Charset): String = toQueryParams.encode(charset).drop(1)
 }
 
 object Form {

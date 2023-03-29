@@ -27,12 +27,16 @@ import zio.http.forms.FormDecodingError._
 import zio.http.model.Header.ContentTransferEncoding
 import zio.http.model.MediaType
 
+/**
+ * Represents a field in a form. Every field contains name, content type
+ * (perhaps just plaintext), type-specific content, and an optional filename.
+ */
 sealed trait FormField {
   def name: String
   def contentType: MediaType
   def filename: Option[String]
 
-  def valueAsString: Option[String] = this match {
+  final def valueAsString: Option[String] = this match {
     case FormField.Text(_, value, _, _) => Some(value)
     case FormField.Simple(_, value)     => Some(value)
     case _                              => None
