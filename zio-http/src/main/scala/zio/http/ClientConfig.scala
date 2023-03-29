@@ -65,10 +65,9 @@ final case class ClientConfig(
 }
 
 object ClientConfig {
-  val default: ZLayer[Any, Nothing, ClientConfig] =
-    live(empty)
+  def default: ZLayer[Any, Nothing, ClientConfig] = live(empty)
 
-  val empty: ClientConfig = ClientConfig()
+  def empty: ClientConfig = ClientConfig()
 
   def live(clientConfig: ClientConfig): ZLayer[Any, Nothing, ClientConfig] =
     ZLayer.succeed(clientConfig)

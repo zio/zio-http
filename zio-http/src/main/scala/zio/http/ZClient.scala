@@ -706,13 +706,11 @@ object ZClient {
                   _                <-
                     onComplete.await.interruptible.exit.flatMap { exit =>
                       if (exit.isInterrupted) {
-                        channelInterface
-                          .interrupt()
+                        channelInterface.interrupt
                           .zipRight(connectionPool.invalidate(connection))
                           .uninterruptible
                       } else {
-                        channelInterface
-                          .resetChannel()
+                        channelInterface.resetChannel
                           .zip(exit)
                           .map { case (s1, s2) => s1 && s2 }
                           .catchAllCause(_ =>
@@ -812,12 +810,12 @@ object ZClient {
     }
   }
 
-  val fromConfig: ZLayer[ClientConfig with DnsResolverConfig, Throwable, Client] = {
+  def fromConfig: ZLayer[ClientConfig with DnsResolverConfig, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     (NettyClientDriver.fromConfig ++ DnsResolver.fromConfig) >>> live
   }.fresh
 
-  val default: ZLayer[Any, Throwable, Client] = {
+  def default: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     (ClientConfig.default ++ ZLayer.succeed(DnsResolverConfig.default)) >>> fromConfig
   }
