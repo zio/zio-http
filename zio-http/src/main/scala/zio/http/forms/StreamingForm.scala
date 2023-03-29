@@ -17,7 +17,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
    * Runs the streaming form and collects all parts in memory, returning a Form
    */
   def collectAll: ZIO[Any, Throwable, Form] =
-    data
+    fields
       .mapZIOPar(1) {
         case sb: FormField.StreamingBinary =>
           sb.collect
@@ -29,7 +29,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
         Form(formData)
       }
 
-  def data: ZStream[Any, Throwable, FormField] =
+  def fields: ZStream[Any, Throwable, FormField] =
     source
       .mapAccumZIO(initialState) { (state, byte) =>
         state.formState match {

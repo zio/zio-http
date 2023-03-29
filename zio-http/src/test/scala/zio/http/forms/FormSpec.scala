@@ -164,7 +164,7 @@ object FormSpec extends ZIOSpecDefault {
         val stream = ZStream.fromChunk(multipartFormBytes1) @@ ZStreamAspect.rechunk(4)
         val form   = StreamingForm(stream, boundary)
 
-        form.data
+        form.fields
           .mapZIOPar(1) {
             case sb: FormField.StreamingBinary =>
               sb.collect
