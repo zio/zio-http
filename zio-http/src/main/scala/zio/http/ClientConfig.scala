@@ -18,12 +18,12 @@ package zio.http
 
 import java.net.InetSocketAddress
 
-import zio.{Duration, ZLayer}
+import zio.{Config, Duration, ZLayer}
 
 import zio.http.netty.{ChannelType, EventLoopGroups}
 import zio.http.socket.SocketApp
 
-case class ClientConfig(
+final case class ClientConfig(
   socketApp: Option[SocketApp[Any]] = None,
   ssl: Option[ClientSSLConfig] = None,
   proxy: Option[Proxy] = None,
@@ -65,10 +65,10 @@ case class ClientConfig(
 }
 
 object ClientConfig {
-  def empty: ClientConfig = ClientConfig()
-
   val default: ZLayer[Any, Nothing, ClientConfig] =
     live(empty)
+
+  val empty: ClientConfig = ClientConfig()
 
   def live(clientConfig: ClientConfig): ZLayer[Any, Nothing, ClientConfig] =
     ZLayer.succeed(clientConfig)
