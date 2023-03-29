@@ -16,9 +16,32 @@
 
 package zio.http
 
+import zio._
+
 sealed trait ClientSSLConfig
 
 object ClientSSLConfig {
+  val config: Config[ClientSSLConfig] = {
+    val tpe                = Config.string("type")
+    val certPath           = Config.string("certPath")
+    val trustStorePath     = Config.string("trustStorePath")
+    val trustStorePassword = Config.secret("trustStorePassword").map(d => new String(d.value.toArray))
+
+    val default                = Config.succeed(Default)
+    val fromCertFile           = certPath.map(FromCertFile(_))
+    val fromCertResource       = certPath.map(FromCertResource(_))
+    val fromTrustStoreFile     = trustStorePath.zip(trustStorePassword).map(FromTrustStoreFile.tupled)
+    val fromTrustStoreResource = trustStorePath.zip(trustStorePassword).map(FromTrustStoreResource.tupled)
+
+    tpe.switch(
+      "Default"                -> default,
+      "FromCertFile"           -> fromCertFile,
+      "FromCertResource"       -> fromCertResource,
+      "FromTrustStoreFile"     -> fromTrustStoreFile,
+      "FromTrustStoreResource" -> fromTrustStoreResource,
+    )
+  }
+
   case object Default                                                                         extends ClientSSLConfig
   final case class FromCertFile(certPath: String)                                             extends ClientSSLConfig
   final case class FromCertResource(certPath: String)                                         extends ClientSSLConfig
