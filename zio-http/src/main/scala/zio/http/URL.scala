@@ -24,7 +24,7 @@ import zio.Chunk
 
 import zio.http.URL.{Fragment, Location, portFromScheme}
 import zio.http.internal.QueryParamEncoding
-import zio.http.model.Scheme
+import zio.http.model.{Charsets, Scheme}
 
 final case class URL(
   path: Path,
@@ -171,9 +171,11 @@ object URL {
 
   def encode(url: URL): String = {
     def path: String =
-      QueryParamEncoding.default.encode(url.path.encode, url.queryParams.filter(_._2.nonEmpty)) + url.fragment.fold("")(
-        f => "#" + f.raw,
-      )
+      QueryParamEncoding.default.encode(
+        url.path.encode,
+        url.queryParams.filter(_._2.nonEmpty),
+        Charsets.Http,
+      ) + url.fragment.fold("")(f => "#" + f.raw)
 
     url.kind match {
       case Location.Relative                     =>

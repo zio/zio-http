@@ -35,14 +35,14 @@ object FormSpec extends ZIOSpecDefault {
     suite("application/x-www-form-urlencoded ")(
       test("encoding") {
         val form    = Form.fromStrings("name" -> "John", "age" -> "30")
-        val encoded = form.encodeAsURLEncoded()
+        val encoded = form.urlEncoded
         assertTrue(
           encoded == "name=John&age=30",
           form.formData.size == 2,
         )
       },
       test("decoding") {
-        val form = Form.fromURLEncoded("name=John&age=30", StandardCharsets.UTF_8)
+        val form = ZIO.fromEither(Form.fromURLEncoded("name=John&age=30", StandardCharsets.UTF_8))
         form.map { form =>
           assertTrue(
             form.get("age").get.valueAsString.get == "30",
@@ -74,7 +74,7 @@ object FormSpec extends ZIOSpecDefault {
 
       val boundary = Boundary("(((AaB03x)))")
 
-      val actualByteStream = form.encodeAsMultipartBytes(boundary)
+      val actualByteStream = form.multipartBytes(boundary)
 
       for {
         form2       <- Form.fromMultipartBytes(multipartFormBytes2)
@@ -89,7 +89,7 @@ object FormSpec extends ZIOSpecDefault {
 
       for {
         form <- Form.fromMultipartBytes(multipartFormBytes1)
-        encoding = form.encodeAsMultipartBytes(boundary)
+        encoding = form.multipartBytes(boundary)
         bytes <- encoding.runCollect
         (text: FormData.Text) :: (image1: FormData.Binary) :: (image2: FormData.Binary) :: Nil = form.formData.toList
       } yield assertTrue(
@@ -142,7 +142,7 @@ object FormSpec extends ZIOSpecDefault {
           ),
         )
 
-        val actualByteStream = form.encodeAsMultipartBytes(Boundary("(((AaB03x)))"))
+        val actualByteStream = form.multipartBytes(Boundary("(((AaB03x)))"))
 
         def stringify(bytes: Chunk[Byte]): String =
           new String(bytes.toArray, StandardCharsets.UTF_8)

@@ -94,7 +94,7 @@ object FormData {
     override val filename: Option[String] = None
   }
 
-  def fromFormAST(
+  private[http] def fromFormAST(
     ast: Chunk[FormAST],
     defaultCharset: Charset = StandardCharsets.UTF_8,
   ): ZIO[Any, FormDecodingError, FormData] = {

@@ -108,7 +108,7 @@ trait Body { self =>
    * Returns an effect that decodes the content of the body as form data.
    */
   def asURLEncodedForm(implicit trace: Trace): Task[Form] =
-    asString.flatMap(Form.fromURLEncoded(_, Charsets.Http).mapError(_.asException))
+    asString.flatMap(string => ZIO.fromEither(Form.fromURLEncoded(string, Charsets.Http)))
 
   /**
    * Returns whether or not the bytes of the body have been fully read.
@@ -152,7 +152,7 @@ object Body {
     form: Form,
     specificBoundary: Boundary,
   ): Body = {
-    val bytes = form.encodeAsMultipartBytes(specificBoundary)
+    val bytes = form.multipartBytes(specificBoundary)
 
     StreamBody(bytes, Some(MediaType.multipart.`form-data`), Some(specificBoundary))
   }
@@ -165,7 +165,7 @@ object Body {
   def fromMultipartFormUUID(
     form: Form,
   ): UIO[Body] =
-    form.encodeAsMultipartBytesUUID.map { case (boundary, bytes) =>
+    form.multipartBytesUUID.map { case (boundary, bytes) =>
       StreamBody(bytes, Some(MediaType.multipart.`form-data`), Some(boundary))
     }
 
@@ -193,7 +193,7 @@ object Body {
    * default character set.
    */
   def fromURLEncodedForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
-    fromString(form.encodeAsURLEncoded(charset), charset).withContentType(MediaType.application.`x-www-form-urlencoded`)
+    fromString(form.urlEncoded(charset), charset).withContentType(MediaType.application.`x-www-form-urlencoded`)
   }
 
   private[zio] trait UnsafeWriteable extends Body

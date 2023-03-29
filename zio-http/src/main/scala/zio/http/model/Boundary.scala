@@ -82,7 +82,7 @@ object Boundary {
   }
 
   def randomUUID: zio.UIO[Boundary] =
-    zio.Random.nextLong.map { id =>
+    zio.Random.nextUUID.map { id =>
       Boundary(s"(((${id.toString()})))")
     }
 }
