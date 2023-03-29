@@ -37,7 +37,7 @@ final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,
   nettyRuntime: NettyRuntime,
-  clientConfig: ClientConfig,
+  clientConfig: NettyConfig,
 ) extends ClientDriver
     with ClientRequestEncoder {
 
@@ -160,14 +160,14 @@ final case class NettyClientDriver private (
 object NettyClientDriver {
   private implicit val trace: Trace = Trace.empty
 
-  val fromConfig: ZLayer[ClientConfig, Throwable, ClientDriver] =
-    (EventLoopGroups.fromConfig ++ ChannelFactories.Client.fromConfig ++ NettyRuntime.default) >>>
+  val live: ZLayer[NettyConfig, Throwable, ClientDriver] =
+    (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>
       ZLayer {
         for {
           eventLoopGroup <- ZIO.service[EventLoopGroup]
           channelFactory <- ZIO.service[ChannelFactory[Channel]]
           nettyRuntime   <- ZIO.service[NettyRuntime]
-          clientConfig   <- ZIO.service[ClientConfig]
+          clientConfig   <- ZIO.service[NettyConfig]
         } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
       }
 

@@ -39,7 +39,7 @@ import io.netty.util.AttributeKey
 @Sharable
 private[zio] final case class ServerInboundHandler(
   appRef: AppRef,
-  config: ServerConfig,
+  config: Server.Config,
   errCallbackRef: ErrorCallbackRef,
   runtime: NettyRuntime,
   time: ServerTime,
@@ -354,8 +354,8 @@ object ServerInboundHandler {
 
   private[zio] val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
-  val layer: ZLayer[
-    ServerTime with ServerConfig with NettyRuntime with ErrorCallbackRef with AppRef,
+  val live: ZLayer[
+    ServerTime with Server.Config with NettyRuntime with ErrorCallbackRef with AppRef,
     Nothing,
     ServerInboundHandler,
   ] = {
@@ -365,7 +365,7 @@ object ServerInboundHandler {
         appRef      <- ZIO.service[AppRef]
         errCallback <- ZIO.service[ErrorCallbackRef]
         rtm         <- ZIO.service[NettyRuntime]
-        config      <- ZIO.service[ServerConfig]
+        config      <- ZIO.service[Server.Config]
         time        <- ZIO.service[ServerTime]
 
       } yield ServerInboundHandler(appRef, config, errCallback, rtm, time)

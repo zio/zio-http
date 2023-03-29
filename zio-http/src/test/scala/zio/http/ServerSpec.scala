@@ -22,7 +22,7 @@ import java.nio.file.Paths
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{Chunk, Scope, ZIO, durationInt}
+import zio.{Chunk, Scope, ZIO, ZLayer, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
@@ -40,7 +40,7 @@ object ServerSpec extends HttpRunnableSpec {
   } yield (data.mkString(""), content)
 
   private val MaxSize = 1024 * 10
-  val configApp       = ServerConfig.default
+  val configApp       = Server.Config.default
     .requestDecompression(true)
     .objectAggregator(MaxSize)
     .responseCompression()
@@ -378,7 +378,7 @@ object ServerSpec extends HttpRunnableSpec {
       suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
     }.provideSomeShared[TestEnvironment](
       DynamicServer.live,
-      ServerConfig.live(configApp),
+      ZLayer.succeed(configApp),
       Server.live,
       Client.default,
       Scope.default,

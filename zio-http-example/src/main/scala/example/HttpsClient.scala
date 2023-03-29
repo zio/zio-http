@@ -3,8 +3,9 @@ package example
 import zio._
 
 import zio.http.model.{Header, Headers}
+import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
-import zio.http.{Client, ClientConfig, ClientSSLConfig, DnsResolver}
+import zio.http.{Client, ClientSSLConfig, DnsResolver, ZClient}
 
 object HttpsClient extends ZIOAppDefault {
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
@@ -15,7 +16,7 @@ object HttpsClient extends ZIOAppDefault {
     trustStorePassword = "changeit",
   )
 
-  val clientConfig = ClientConfig.empty.ssl(sslConfig)
+  val clientConfig = ZClient.Config.default.ssl(sslConfig)
 
   val program = for {
     res  <- Client.request(url, headers = headers)
@@ -24,6 +25,12 @@ object HttpsClient extends ZIOAppDefault {
   } yield ()
 
   val run =
-    program.provide(ClientConfig.live(clientConfig), Client.live, NettyClientDriver.fromConfig, DnsResolver.default)
+    program.provide(
+      ZLayer.succeed(clientConfig),
+      Client.customized,
+      NettyClientDriver.live,
+      DnsResolver.default,
+      ZLayer.succeed(NettyConfig.default),
+    )
 
 }

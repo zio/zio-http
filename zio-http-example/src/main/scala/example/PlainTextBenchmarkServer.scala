@@ -4,8 +4,8 @@ import zio._
 
 import zio.http._
 import zio.http.model.Header
-import zio.http.netty.NettyServerConfig
-import zio.http.netty.NettyServerConfig.LeakDetectionLevel
+import zio.http.netty.NettyConfig
+import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 import io.netty.util.AsciiString
 
@@ -42,18 +42,18 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
 
   val app = plainTextApp(frozenPlainTextResponse) ++ jsonApp(frozenJsonResponse)
 
-  private val config = ServerConfig.default
+  private val config = Server.Config.default
     .port(8080)
-    .maxThreads(8)
     .consolidateFlush(true)
     .flowControl(false)
     .objectAggregator(-1)
 
-  private val nettyConfig = NettyServerConfig.default
+  private val nettyConfig = NettyConfig.default
     .leakDetection(LeakDetectionLevel.DISABLED)
+    .maxThreads(8)
 
-  private val configLayer      = ServerConfig.live(config)
-  private val nettyConfigLayer = NettyServerConfig.live(nettyConfig)
+  private val configLayer      = ZLayer.succeed(config)
+  private val nettyConfigLayer = ZLayer.succeed(nettyConfig)
 
   val run: UIO[ExitCode] =
     Server.serve(app).provide(configLayer, nettyConfigLayer, Server.customized).exitCode

@@ -19,10 +19,11 @@ package zio.http
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
-import zio.{Scope, ZIO, durationInt}
+import zio.{Scope, ZIO, ZLayer, durationInt}
 
 import zio.http._
 import zio.http.model._
+import zio.http.netty.NettyConfig
 import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
 
 import io.netty.handler.codec.DecoderException
@@ -30,7 +31,7 @@ import io.netty.handler.codec.DecoderException
 object SSLSpec extends ZIOSpecDefault {
 
   val sslConfig = SSLConfig.fromResource("server.crt", "server.key")
-  val config    = ServerConfig.default.port(8073).ssl(sslConfig)
+  val config    = Server.Config.default.port(8073).ssl(sslConfig)
 
   val clientSSL1 = ClientSSLConfig.FromCertResource("server.crt")
   val clientSSL2 = ClientSSLConfig.FromCertResource("ss2.crt.pem")
@@ -57,10 +58,11 @@ object SSLSpec extends ZIOSpecDefault {
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
-            Client.live,
-            ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
-            NettyClientDriver.fromConfig,
+            Client.customized,
+            ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
+            NettyClientDriver.live,
             DnsResolver.default,
+            ZLayer.succeed(NettyConfig.default),
           ),
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
@@ -70,10 +72,11 @@ object SSLSpec extends ZIOSpecDefault {
               }
             assertZIO(actual)(equalTo("DecoderException"))
           }.provide(
-            Client.live,
-            ClientConfig.live(ClientConfig.empty.ssl(clientSSL2)),
-            NettyClientDriver.fromConfig,
+            Client.customized,
+            ZLayer.succeed(ZClient.Config.default.ssl(clientSSL2)),
+            NettyClientDriver.live,
             DnsResolver.default,
+            ZLayer.succeed(NettyConfig.default),
           ),
           test("succeed when client has default SSL") {
             val actual = Client
@@ -81,10 +84,11 @@ object SSLSpec extends ZIOSpecDefault {
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
-            Client.live,
-            ClientConfig.live(ClientConfig.empty.ssl(ClientSSLConfig.Default)),
-            NettyClientDriver.fromConfig,
+            Client.customized,
+            ZLayer.succeed(ZClient.Config.default.ssl(ClientSSLConfig.Default)),
+            NettyClientDriver.live,
             DnsResolver.default,
+            ZLayer.succeed(NettyConfig.default),
           ),
           test("Https Redirect when client makes http request") {
             val actual = Client
@@ -92,10 +96,11 @@ object SSLSpec extends ZIOSpecDefault {
               .map(_.status)
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
           }.provide(
-            Client.live,
-            ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
-            NettyClientDriver.fromConfig,
+            Client.customized,
+            ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
+            NettyClientDriver.live,
             DnsResolver.default,
+            ZLayer.succeed(NettyConfig.default),
           ),
           test("Https request with a large payload should respond with 413") {
             check(payload) { payload =>
@@ -109,16 +114,16 @@ object SSLSpec extends ZIOSpecDefault {
               assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
             }
           }.provide(
-            Client.live,
-            ClientConfig.live(ClientConfig.empty.ssl(clientSSL1)),
-            NettyClientDriver.fromConfig,
+            Client.customized,
+            ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
+            NettyClientDriver.live,
             DnsResolver.default,
+            ZLayer.succeed(NettyConfig.default),
           ),
         ),
       ),
   ).provideShared(
-    ServerConfig.live(config),
-    Server.live,
+    Server.default,
   ) @@
     timeout(5 second) @@ ignore
 

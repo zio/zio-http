@@ -182,7 +182,7 @@ object RichTextCodecSpec extends ZIOSpecDefault {
         }
       },
       test("encode lazy whitespace codec") {
-        check(Gen.whitespaceChars) { s =>
+        check(Gen.whitespaceChars) { _ =>
           val whitespaceCodec = RichTextCodec.whitespaceChar
           val result          = whitespaceCodec.encode(())
           assertTrue(result == Right(" "))

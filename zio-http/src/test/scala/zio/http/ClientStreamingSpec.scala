@@ -19,12 +19,13 @@ package zio.http
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test.{Spec, TestEnvironment, assertZIO}
-import zio.{Scope, durationInt}
+import zio.{Scope, ZLayer, durationInt}
 
 import zio.stream.ZStream
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.Method
+import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
 object ClientStreamingSpec extends HttpRunnableSpec {
@@ -45,10 +46,11 @@ object ClientStreamingSpec extends HttpRunnableSpec {
   }.provideShared(
     DynamicServer.live,
     severTestLayer,
-    Client.live,
-    ClientConfig.live(ClientConfig.empty.useObjectAggregator(false)),
-    NettyClientDriver.fromConfig,
+    Client.customized,
+    ZLayer.succeed(ZClient.Config.default.useObjectAggregator(false)),
+    NettyClientDriver.live,
     DnsResolver.default,
+    ZLayer.succeed(NettyConfig.default),
   ) @@
     timeout(5 seconds) @@ sequential
 }

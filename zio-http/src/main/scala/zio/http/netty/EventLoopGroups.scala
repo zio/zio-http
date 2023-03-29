@@ -65,7 +65,7 @@ object EventLoopGroups {
 
   implicit val trace: Trace = Trace.empty
 
-  val fromConfig: ZLayer[Config, Nothing, EventLoopGroup] =
+  val live: ZLayer[Config, Nothing, EventLoopGroup] =
     ZLayer.scoped {
       ZIO.service[Config].flatMap { config =>
         config.channelType match {
@@ -82,5 +82,4 @@ object EventLoopGroups {
         }
       }
     }
-
 }

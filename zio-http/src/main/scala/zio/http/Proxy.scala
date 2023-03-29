@@ -17,10 +17,11 @@
 package zio.http
 import java.net.InetSocketAddress
 
+import zio.Config
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.middleware.Auth.Credentials
-import zio.http.model.Headers
+import zio.http.model.{Header, Headers}
 
 /**
  * Represents the connection to the forward proxy before running the request
@@ -45,5 +46,20 @@ final case class Proxy(
 }
 
 object Proxy {
+  lazy val config: Config[Proxy] =
+    (
+      Config
+        .string("url")
+        .mapOrFail(s => URL.fromString(s).left.map(error => Config.Error.InvalidData(message = error.getMessage))) ++
+        (Config.string("user") ++ Config
+          .string("password")).nested("credentials").map { case (u, p) => Credentials(u, p) }.optional ++
+        Config.chunkOf("headers", Config.string("name").zip(Config.string("value"))).optional.map {
+          case Some(headers) => Headers(headers.map { case (name, value) => Header.Custom(name, value) }: _*)
+          case None          => Headers.empty
+        }
+    ).map { case (url, creds, headers) =>
+      Proxy(url, creds, headers)
+    }
+
   val empty: Proxy = Proxy(URL.empty)
 }

@@ -69,12 +69,12 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       },
     ).provide(
       Server.live,
-      ServerConfig.live,
-      Client.live,
+      ZLayer.succeed(Server.Config.default),
+      Client.customized,
       ClientDriver.shared,
       executorLayer,
-      NettyDriver.default,
-      ClientConfig.default,
+      NettyDriver.live,
+      ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
     )
 }

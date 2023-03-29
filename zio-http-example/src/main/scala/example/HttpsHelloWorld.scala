@@ -26,11 +26,11 @@ object HttpsHelloWorld extends ZIOAppDefault {
     keyPath = "server.key",
   )
 
-  private val config = ServerConfig.default
+  private val config = Server.Config.default
     .port(8090)
     .ssl(sslConfig)
 
-  private val configLayer = ServerConfig.live(config)
+  private val configLayer = ZLayer.succeed(config)
 
   override val run =
     Server.serve(app).provide(configLayer, Server.live)
