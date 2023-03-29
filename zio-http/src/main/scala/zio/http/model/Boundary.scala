@@ -22,6 +22,9 @@ import zio.Chunk
 
 import zio.http.forms.FormAST
 
+/**
+ * A multipart boundary, which consists of both the boundary and its charset.
+ */
 final case class Boundary(id: String, charset: Charset) { self =>
 
   def isEncapsulating(bytes: Chunk[Byte]): Boolean = bytes == encapsulationBoundaryBytes
@@ -45,6 +48,9 @@ final case class Boundary(id: String, charset: Charset) { self =>
 object Boundary {
   def apply(boundary: String): Boundary = Boundary(boundary, Charsets.Utf8)
 
+  def fromString(content: String, charset: Charset): Option[Boundary] =
+    fromContent(Chunk.fromArray(content.getBytes(charset)), charset)
+
   def fromContent(content: Chunk[Byte], charset: Charset = Charsets.Utf8): Option[Boundary] = {
     var i = 0
     var j = 0
@@ -64,22 +70,11 @@ object Boundary {
     else Option.empty
   }
 
-  def fromHeaders(headers: Headers): Option[Boundary] = {
-
-    val charset =
-      headers
-        .rawHeader(Header.ContentType)
-        .flatMap(value => FormAST.Header("Content-Type", value).fields.get("charset"))
-        .map(Charset.forName(_))
-        .getOrElse(Charsets.Utf8)
-
+  def fromHeaders(headers: Headers): Option[Boundary] =
     for {
-      disp     <- headers.rawHeader(zio.http.model.Header.ContentDisposition)
-      boundary <- FormAST.Header("Content-Disposition", disp).fields.get("boundary")
-
-    } yield Boundary(boundary, charset)
-
-  }
+      contentType <- headers.header(Header.ContentType)
+      boundary    <- contentType.boundary
+    } yield boundary
 
   def randomUUID: zio.UIO[Boundary] =
     zio.Random.nextUUID.map { id =>

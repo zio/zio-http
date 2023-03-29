@@ -27,25 +27,25 @@ import zio.stream._
 
 import zio.http.QueryParams
 import zio.http.forms.FormAST._
-import zio.http.forms.FormData._
 import zio.http.forms.FormDecodingError._
+import zio.http.forms.FormField._
 import zio.http.forms.FormState._
 import zio.http.model.{Boundary, Charsets, Headers}
 
 /**
  * Represents a form that can be either multipart or url encoded.
  */
-final case class Form(formData: Chunk[FormData]) {
+final case class Form(formData: Chunk[FormField]) {
 
   /**
    * Returns a new form with the specified field appended.
    */
-  def +(field: FormData): Form = append(field)
+  def +(field: FormField): Form = append(field)
 
   /**
    * Returns a new form with the specified field appended.
    */
-  def append(field: FormData): Form = Form(formData :+ field)
+  def append(field: FormField): Form = Form(formData :+ field)
 
   /**
    * Runs all streaming form data and stores them in memory, returning a Form
@@ -64,13 +64,13 @@ final case class Form(formData: Chunk[FormData]) {
   /**
    * Returns the first field with the specified name.
    */
-  def get(name: String): Option[FormData] = map.get(name)
+  def get(name: String): Option[FormField] = map.get(name)
 
   /**
    * Returns a map view of the form, where the keys in the map are the field
    * names, and the values are the field data.
    */
-  lazy val map: Map[String, FormData] = formData.map(fd => fd.name -> fd).toMap
+  lazy val map: Map[String, FormField] = formData.map(fd => fd.name -> fd).toMap
 
   /**
    * Encodes the form using multipart encoding, choosing a random UUID as the
@@ -174,9 +174,9 @@ final case class Form(formData: Chunk[FormData]) {
     }
 
     val urlEncoded = formData.foldLeft(Chunk.empty[String]) {
-      case (accum, FormData.Text(k, v, _, _)) => accum :+ makePair(k, v)
-      case (accum, FormData.Simple(k, v))     => accum :+ makePair(k, v)
-      case (accum, _)                         => accum
+      case (accum, FormField.Text(k, v, _, _)) => accum :+ makePair(k, v)
+      case (accum, FormField.Simple(k, v))     => accum :+ makePair(k, v)
+      case (accum, _)                          => accum
     }
 
     urlEncoded.mkString("&")
@@ -188,7 +188,7 @@ object Form {
   /**
    * Creates a form from the specified form data.
    */
-  def apply(formData: FormData*): Form = Form(Chunk.fromIterable(formData))
+  def apply(formData: FormField*): Form = Form(Chunk.fromIterable(formData))
 
   /**
    * An empty form, without any fields.
@@ -200,7 +200,7 @@ object Form {
    * string key-value pairs.
    */
   def fromStrings(formData: (String, String)*): Form = apply(
-    formData.map(pair => FormData.Simple(pair._1, pair._2)): _*,
+    formData.map(pair => FormField.Simple(pair._1, pair._2)): _*,
   )
 
   /**
@@ -214,12 +214,12 @@ object Form {
       boundary <- ZIO
         .fromOption(Boundary.fromContent(bytes, charset))
         .orElseFail(FormDecodingError.BoundaryNotFoundInContent.asException)
-      form     <- StreamingForm(ZStream.fromChunk(bytes), boundary, charset).collectAll
+      form     <- StreamingForm(ZStream.fromChunk(bytes), boundary).collectAll
     } yield form
 
   def fromQueryParams(queryParams: QueryParams): Form = {
     queryParams.map.foldLeft[Form](Form.empty) { case (acc, (key, values)) =>
-      acc + FormData.simpleField(key, values.mkString(","))
+      acc + FormField.simpleField(key, values.mkString(","))
     }
   }
 

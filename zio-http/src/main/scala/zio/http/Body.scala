@@ -64,16 +64,16 @@ trait Body { self =>
   /**
    * Returns an effect that decodes the streaming body as a multipart form.
    *
-   * The result is a stream of FormData objects, where each FormData may be a
+   * The result is a stream of FormField objects, where each FormField may be a
    * StreamingBinary or a Text object. The StreamingBinary object contains a
    * stream of bytes, which has to be consumed asynchronously by the user to get
-   * the next FormData from the stream.
+   * the next FormField from the stream.
    */
   def asMultipartFormStream(implicit trace: Trace): Task[StreamingForm] =
     boundary match {
       case Some(boundary) =>
         ZIO.succeed(
-          StreamingForm(asStream, Boundary(boundary.toString), Charsets.Http),
+          StreamingForm(asStream, boundary),
         )
       case None           =>
         ZIO.fail(

@@ -57,13 +57,13 @@ object FormSpec extends ZIOSpecDefault {
     test("encoding") {
 
       val form = Form(
-        FormData.textField("csv-data", "foo,bar,baz", MediaType.text.csv),
-        FormData.binaryField(
+        FormField.textField("csv-data", "foo,bar,baz", MediaType.text.csv),
+        FormField.binaryField(
           "file",
           Chunk[Byte](0x50, 0x4e, 0x47),
           MediaType.image.png,
         ),
-        FormData.binaryField(
+        FormField.binaryField(
           "corgi",
           Chunk.fromArray(base64Corgi.getBytes()),
           MediaType.image.png,
@@ -91,7 +91,7 @@ object FormSpec extends ZIOSpecDefault {
         form <- Form.fromMultipartBytes(multipartFormBytes1)
         encoding = form.multipartBytes(boundary)
         bytes <- encoding.runCollect
-        (text: FormData.Text) :: (image1: FormData.Binary) :: (image2: FormData.Binary) :: Nil = form.formData.toList
+        (text: FormField.Text) :: (image1: FormField.Binary) :: (image2: FormField.Binary) :: Nil = form.formData.toList
       } yield assertTrue(
         bytes == multipartFormBytes1,
         form.formData.size == 3,
@@ -115,7 +115,7 @@ object FormSpec extends ZIOSpecDefault {
         assertTrue(
           form.get("file").get.filename.get == "test.jsonl",
           form.get("file").get.valueAsString.isEmpty,
-          form.get("file").get.asInstanceOf[FormData.Binary].data.size == 69,
+          form.get("file").get.asInstanceOf[FormField.Binary].data.size == 69,
         )
       }
 
@@ -127,13 +127,13 @@ object FormSpec extends ZIOSpecDefault {
       test("encoding") {
 
         val form = Form(
-          FormData.textField("csv-data", "foo,bar,baz", MediaType.text.csv),
-          FormData.streamingBinaryField(
+          FormField.textField("csv-data", "foo,bar,baz", MediaType.text.csv),
+          FormField.streamingBinaryField(
             "file",
             ZStream.fromChunk(Chunk[Byte](0x50, 0x4e, 0x47)) @@ ZStreamAspect.rechunk(3),
             MediaType.image.png,
           ),
-          FormData.streamingBinaryField(
+          FormField.streamingBinaryField(
             "corgi",
             ZStream.fromChunk(Chunk.fromArray(base64Corgi.getBytes())) @@ ZStreamAspect.rechunk(8),
             MediaType.image.png,
@@ -162,18 +162,19 @@ object FormSpec extends ZIOSpecDefault {
         val boundary = Boundary("AaB03x")
 
         val stream = ZStream.fromChunk(multipartFormBytes1) @@ ZStreamAspect.rechunk(4)
-        val form   = StreamingForm(stream, boundary, StandardCharsets.UTF_8)
+        val form   = StreamingForm(stream, boundary)
 
         form.data
           .mapZIOPar(1) {
-            case sb: FormData.StreamingBinary =>
+            case sb: FormField.StreamingBinary =>
               sb.collect
-            case other: FormData              =>
+            case other: FormField              =>
               ZIO.succeed(other)
           }
           .runCollect
           .map { formData =>
-            val (text: FormData.Text) :: (image1: FormData.Binary) :: (image2: FormData.Binary) :: Nil = formData.toList
+            val (text: FormField.Text) :: (image1: FormField.Binary) :: (image2: FormField.Binary) :: Nil =
+              formData.toList
             assertTrue(
               formData.size == 3,
               text.name == "submit-name",
@@ -195,14 +196,14 @@ object FormSpec extends ZIOSpecDefault {
       test("decoding 2") {
         val boundary      = Boundary("X-INSOMNIA-BOUNDARY")
         val stream        = ZStream.fromChunk(multipartFormBytes3) @@ ZStreamAspect.rechunk(16)
-        val streamingForm = StreamingForm(stream, boundary, StandardCharsets.UTF_8)
+        val streamingForm = StreamingForm(stream, boundary)
         streamingForm.collectAll.map { form =>
           val contents =
-            new String(form.get("file").get.asInstanceOf[FormData.Binary].data.toArray, StandardCharsets.UTF_8)
+            new String(form.get("file").get.asInstanceOf[FormField.Binary].data.toArray, StandardCharsets.UTF_8)
           assertTrue(
             form.get("file").get.filename.get == "test.jsonl",
             form.get("file").get.valueAsString.isEmpty,
-            form.get("file").get.asInstanceOf[FormData.Binary].data.size == 69,
+            form.get("file").get.asInstanceOf[FormField.Binary].data.size == 69,
             contents == """{"prompt": "<prompt text>", "completion": "<ideal generated text>"}""" + "\r\n",
           )
         }

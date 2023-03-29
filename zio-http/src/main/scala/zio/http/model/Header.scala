@@ -1469,9 +1469,9 @@ object Header {
 
     override def name: String = "content-disposition"
 
-    final case class Attachment(filename: Option[String])             extends ContentDisposition
-    final case class Inline(filename: Option[String])                 extends ContentDisposition
-    final case class FormData(name: String, filename: Option[String]) extends ContentDisposition
+    final case class Attachment(filename: Option[String])              extends ContentDisposition
+    final case class Inline(filename: Option[String])                  extends ContentDisposition
+    final case class FormField(name: String, filename: Option[String]) extends ContentDisposition
 
     private val AttachmentRegex         = """attachment; filename="(.*)"""".r
     private val InlineRegex             = """inline; filename="(.*)"""".r
@@ -1491,8 +1491,8 @@ object Header {
         })
       } else if (contentDisposition.startsWith("form-data")) {
         contentDisposition match {
-          case FormDataRegex(name, filename) => Right(FormData(name, Some(filename)))
-          case FormDataNoFileNameRegex(name) => Right(FormData(name, None))
+          case FormDataRegex(name, filename) => Right(FormField(name, Some(filename)))
+          case FormDataNoFileNameRegex(name) => Right(FormField(name, None))
           case _                             => Left("Invalid form-data content disposition")
         }
       } else {
@@ -1502,9 +1502,9 @@ object Header {
 
     def render(contentDisposition: ContentDisposition): String = {
       contentDisposition match {
-        case Attachment(filename)     => s"attachment; ${filename.map("filename=" + _).getOrElse("")}"
-        case Inline(filename)         => s"inline; ${filename.map("filename=" + _).getOrElse("")}"
-        case FormData(name, filename) => s"form-data; name=$name; ${filename.map("filename=" + _).getOrElse("")}"
+        case Attachment(filename)      => s"attachment; ${filename.map("filename=" + _).getOrElse("")}"
+        case Inline(filename)          => s"inline; ${filename.map("filename=" + _).getOrElse("")}"
+        case FormField(name, filename) => s"form-data; name=$name; ${filename.map("filename=" + _).getOrElse("")}"
       }
     }
 
@@ -1512,8 +1512,8 @@ object Header {
     val attachment: ContentDisposition                               = Attachment(None)
     def inline(filename: String): ContentDisposition                 = Inline(Some(filename))
     def attachment(filename: String): ContentDisposition             = Attachment(Some(filename))
-    def formData(name: String): ContentDisposition                   = FormData(name, None)
-    def formData(name: String, filename: String): ContentDisposition = FormData(name, Some(filename))
+    def formData(name: String): ContentDisposition                   = FormField(name, None)
+    def formData(name: String, filename: String): ContentDisposition = FormField(name, Some(filename))
   }
 
   sealed trait ContentEncoding extends Header {
