@@ -8,6 +8,8 @@ import zio.{Chunk, Queue, ZIO}
 
 import zio.stream.{Take, ZStream}
 
+import zio.http.model.Boundary
+
 final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary, charset: Charset) {
 
   /**

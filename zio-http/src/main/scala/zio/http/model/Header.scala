@@ -2450,7 +2450,7 @@ object Header {
       }
   }
 
-  final case class ContentType(mediaType: MediaType, charset: Option[Charset] = None, boundary: Option[String] = None) extends Header {
+  final case class ContentType(mediaType: MediaType, boundary: Option[Boundary] = None, charset: Option[Charset] = None) extends Header {
     override type Self = ContentType
     override def self: Self                                = this
     override def headerType: HeaderType.Typed[ContentType] = ContentType
@@ -2470,12 +2470,12 @@ object Header {
             charset   <-
               try Right(Charset.forName(directive.drop(8)))
               catch { case _: UnsupportedCharsetException => Left("Invalid charset in Content-Type header") }
-          } yield ContentType(mediaType, Some(charset), None)
+          } yield ContentType(mediaType, None, Some(charset))
         case Chunk(mediaType, directive) if directive.startsWith("boundary=")                                                    =>
           for {
             mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
             boundary = directive.drop(9)
-          } yield ContentType(mediaType, None, Some(boundary))
+          } yield ContentType(mediaType, Some(Boundary(boundary)), None)
         case Chunk(mediaType, directive1, directive2) if directive1.startsWith("charset=") && directive2.startsWith("boundary=") =>
           for {
             mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
@@ -2483,7 +2483,7 @@ object Header {
               try Right(Charset.forName(directive1.drop(8)))
               catch { case _: UnsupportedCharsetException => Left("Invalid charset in Content-Type header") }
             boundary = directive2.drop(9)
-          } yield ContentType(mediaType, Some(charset), Some(boundary))
+          } yield ContentType(mediaType, Some(Boundary(boundary)), Some(charset))
         case Chunk(mediaType, directive1, directive2) if directive1.startsWith("boundary=") && directive2.startsWith("charset=") =>
           for {
             mediaType <- MediaType.forContentType(mediaType).toRight("Invalid Content-Type header")
@@ -2491,7 +2491,7 @@ object Header {
               try Right(Charset.forName(directive2.drop(8)))
               catch { case _: UnsupportedCharsetException => Left("Invalid charset in Content-Type header") }
             boundary = directive1.drop(9)
-          } yield ContentType(mediaType, Some(charset), Some(boundary))
+          } yield ContentType(mediaType, Some(Boundary(boundary)), Some(charset))
         case _                                                                                                                   =>
           Left("Invalid Content-Type header")
       }

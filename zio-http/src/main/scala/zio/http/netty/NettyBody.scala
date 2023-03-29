@@ -25,7 +25,7 @@ import zio.stream.ZStream
 import zio.http.Body
 import zio.http.Body.{UnsafeBytes, UnsafeWriteable}
 import zio.http.internal.BodyEncoding
-import zio.http.model.{Header, Headers, MediaType}
+import zio.http.model.{Boundary, Header, Headers, MediaType}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{Channel => JChannel}
@@ -55,7 +55,7 @@ object NettyBody extends BodyEncoding {
   private[zio] final case class AsciiStringBody(
     asciiString: AsciiString,
     override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[CharSequence] = None,
+    override val boundary: Option[Boundary] = None,
   ) extends Body
       with UnsafeWriteable
       with UnsafeBytes {
@@ -74,14 +74,14 @@ object NettyBody extends BodyEncoding {
 
     private[zio] override def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = asciiString.array()
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body =
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
   private[zio] final case class ByteBufBody(
     val byteBuf: ByteBuf,
     override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[CharSequence] = None,
+    override val boundary: Option[Boundary] = None,
   ) extends Body
       with UnsafeWriteable
       with UnsafeBytes {
@@ -100,14 +100,14 @@ object NettyBody extends BodyEncoding {
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       ByteBufUtil.getBytes(byteBuf)
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body =
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
   private[zio] final case class AsyncBody(
     unsafeAsync: UnsafeAsync => Unit,
     override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[CharSequence] = None,
+    override val boundary: Option[Boundary] = None,
   ) extends Body
       with UnsafeWriteable {
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
@@ -130,7 +130,7 @@ object NettyBody extends BodyEncoding {
 
     override def isComplete: Boolean = false
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body =
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 

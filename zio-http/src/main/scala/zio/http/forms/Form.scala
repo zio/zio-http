@@ -29,7 +29,7 @@ import zio.http.forms.FormAST._
 import zio.http.forms.FormData._
 import zio.http.forms.FormDecodingError._
 import zio.http.forms.FormState._
-import zio.http.model.{Charsets, Headers}
+import zio.http.model.{Boundary, Charsets, Headers}
 
 /**
  * Represents a form that can be either multipart or url encoded.
@@ -73,17 +73,14 @@ final case class Form(formData: Chunk[FormData]) {
     urlEncoded.mkString("&")
   }
 
-  def encodeAsMultipartBytesUUID(
-    charset: Charset = Charsets.Utf8,
-  ): zio.UIO[(CharSequence, ZStream[Any, Nothing, Byte])] =
+  def encodeAsMultipartBytesUUID: zio.UIO[(Boundary, ZStream[Any, Nothing, Byte])] =
     Boundary.randomUUID.map { boundary =>
-      encodeAsMultipartBytes(boundary, charset)
+      boundary -> encodeAsMultipartBytes(boundary)
     }
 
   def encodeAsMultipartBytes(
     boundary: Boundary,
-    charset: Charset = Charsets.Utf8,
-  ): (CharSequence, ZStream[Any, Nothing, Byte]) = {
+  ): ZStream[Any, Nothing, Byte] = {
 
     val encapsulatingBoundary = EncapsulatingBoundary(boundary)
     val closingBoundary       = ClosingBoundary(boundary)
@@ -99,7 +96,7 @@ final case class Form(formData: Chunk[FormData]) {
             Header.contentType(fd.contentType),
             EoL,
             EoL,
-            Content(Chunk.fromArray(value.getBytes(charset))),
+            Content(Chunk.fromArray(value.getBytes(boundary.charset))),
             EoL,
           ),
         )
@@ -114,7 +111,7 @@ final case class Form(formData: Chunk[FormData]) {
             Header.contentType(contentType),
             EoL,
             EoL,
-            Content(Chunk.fromArray(value.getBytes(charset))),
+            Content(Chunk.fromArray(value.getBytes(boundary.charset))),
             EoL,
           ),
         )
@@ -151,7 +148,7 @@ final case class Form(formData: Chunk[FormData]) {
 
     val stream = ZStream.fromChunk(astStreams).flatten ++ ZStream.fromChunk(Chunk(closingBoundary, EoL))
 
-    boundary.id -> stream.map(_.bytes).flattenChunks
+    stream.map(_.bytes).flattenChunks
   }
 }
 
@@ -165,7 +162,7 @@ object Form {
 
   def fromMultipartBytes(
     bytes: Chunk[Byte],
-    charset: Charset = StandardCharsets.UTF_8,
+    charset: Charset = Charsets.Utf8,
   ): ZIO[Any, Throwable, Form] =
     for {
       boundary <- ZIO

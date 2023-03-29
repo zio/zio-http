@@ -23,7 +23,7 @@ import zio._
 import zio.http.model.Header.ContentTransferEncoding
 import zio.http.model._
 
-private[forms] sealed trait FormAST {
+private[http] sealed trait FormAST {
   def bytes: Chunk[Byte]
 
   def isContent: Boolean = this match {
@@ -32,7 +32,7 @@ private[forms] sealed trait FormAST {
   }
 }
 
-private[forms] object FormAST {
+private[http] object FormAST {
 
   sealed trait DecodingPart1AST extends FormAST
 

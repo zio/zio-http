@@ -14,32 +14,31 @@
  * limitations under the License.
  */
 
-package zio.http.forms
+package zio.http.model
 
 import java.nio.charset.Charset
 
 import zio.Chunk
 
-import zio.http.forms.FormAST.Header
-import zio.http.model.{Charsets, Headers, MediaType}
+import zio.http.forms.FormAST
 
-final case class Boundary(id: String, charset: Charset) {
+final case class Boundary(id: String, charset: Charset) { self =>
 
   def isEncapsulating(bytes: Chunk[Byte]): Boolean = bytes == encapsulationBoundaryBytes
 
   def isClosing(bytes: Chunk[Byte]): Boolean = bytes == closingBoundaryBytes
 
   def contentTypeHeader: Headers = Headers(
-    zio.http.model.Header.ContentType(MediaType.multipart.`form-data`, boundary = Some(id)),
+    Header.ContentType(MediaType.multipart.`form-data`, Some(self)),
   )
 
   lazy val encapsulationBoundary: String = s"--$id"
 
   lazy val closingBoundary: String = s"--$id--"
 
-  private[forms] val encapsulationBoundaryBytes = Chunk.fromArray(encapsulationBoundary.getBytes(charset))
+  private[http] val encapsulationBoundaryBytes = Chunk.fromArray(encapsulationBoundary.getBytes(charset))
 
-  private[forms] val closingBoundaryBytes = Chunk.fromArray(closingBoundary.getBytes(charset))
+  private[http] val closingBoundaryBytes = Chunk.fromArray(closingBoundary.getBytes(charset))
 
 }
 
@@ -69,21 +68,21 @@ object Boundary {
 
     val charset =
       headers
-        .rawHeader(zio.http.model.Header.ContentType)
-        .flatMap(value => Header("Content-Type", value).fields.get("charset"))
-        .map(Charset.forName)
+        .rawHeader(Header.ContentType)
+        .flatMap(value => FormAST.Header("Content-Type", value).fields.get("charset"))
+        .map(Charset.forName(_))
         .getOrElse(Charsets.Utf8)
 
     for {
       disp     <- headers.rawHeader(zio.http.model.Header.ContentDisposition)
-      boundary <- Header("Content-Disposition", disp).fields.get("boundary")
+      boundary <- FormAST.Header("Content-Disposition", disp).fields.get("boundary")
 
     } yield Boundary(boundary, charset)
 
   }
 
   def randomUUID: zio.UIO[Boundary] =
-    zio.Random.nextUUID.map { id =>
+    zio.Random.nextLong.map { id =>
       Boundary(s"(((${id.toString()})))")
     }
 }

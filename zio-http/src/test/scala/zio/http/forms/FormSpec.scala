@@ -27,7 +27,7 @@ import zio.stream.{ZStream, ZStreamAspect}
 
 import zio.http.forms.Fixtures._
 import zio.http.model.Header.ContentTransferEncoding
-import zio.http.model.MediaType
+import zio.http.model.{Boundary, MediaType}
 
 object FormSpec extends ZIOSpecDefault {
 
@@ -72,7 +72,9 @@ object FormSpec extends ZIOSpecDefault {
         ),
       )
 
-      val (_, actualByteStream) = form.encodeAsMultipartBytes(Boundary("AaB03x"))
+      val boundary = Boundary("(((AaB03x)))")
+
+      val actualByteStream = form.encodeAsMultipartBytes(boundary)
 
       for {
         form2       <- Form.fromMultipartBytes(multipartFormBytes2)
@@ -88,7 +90,7 @@ object FormSpec extends ZIOSpecDefault {
       for {
         form <- Form.fromMultipartBytes(multipartFormBytes1)
         encoding = form.encodeAsMultipartBytes(boundary)
-        bytes <- encoding._2.runCollect
+        bytes <- encoding.runCollect
         (text: FormData.Text) :: (image1: FormData.Binary) :: (image2: FormData.Binary) :: Nil = form.formData.toList
       } yield assertTrue(
         bytes == multipartFormBytes1,
@@ -140,15 +142,20 @@ object FormSpec extends ZIOSpecDefault {
           ),
         )
 
-        val (_, actualByteStream) = form.encodeAsMultipartBytes(Boundary("AaB03x"))
+        val actualByteStream = form.encodeAsMultipartBytes(Boundary("(((AaB03x)))"))
+
+        def stringify(bytes: Chunk[Byte]): String =
+          new String(bytes.toArray, StandardCharsets.UTF_8)
 
         for {
           form2         <- Form.fromMultipartBytes(multipartFormBytes2)
           actualBytes   <- actualByteStream.runCollect
           collectedForm <- form.collectAll
+          l = stringify(actualBytes)
+          r = stringify(multipartFormBytes2)
         } yield assertTrue(
-          actualBytes == multipartFormBytes2,
-          form2 == collectedForm,
+          l == r &&
+            form2 == collectedForm,
         )
       },
       test("decoding") {
