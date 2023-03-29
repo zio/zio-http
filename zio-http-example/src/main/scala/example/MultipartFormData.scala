@@ -3,7 +3,7 @@ package example
 import zio.{Chunk, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import zio.http._
-import zio.http.forms.{Form, FormData}
+import zio.http.forms.{Boundary, Form, FormData}
 import zio.http.model.{Header, MediaType, Method, Status}
 
 object MultipartFormData extends ZIOAppDefault {
@@ -59,6 +59,7 @@ object MultipartFormData extends ZIOAppDefault {
                 filename = Some("hello.txt"),
               ),
             ),
+            Boundary("AaB03x"),
           ),
         )
       responseBody <- response.body.asString

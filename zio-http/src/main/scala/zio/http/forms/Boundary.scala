@@ -16,15 +16,14 @@
 
 package zio.http.forms
 
-import java.nio.charset.{Charset, StandardCharsets}
-import java.security.SecureRandom
+import java.nio.charset.Charset
 
 import zio.Chunk
 
 import zio.http.forms.FormAST.Header
-import zio.http.model.{Headers, MediaType}
+import zio.http.model.{Charsets, Headers, MediaType}
 
-final case class Boundary(id: String, charset: Charset = StandardCharsets.UTF_8) {
+final case class Boundary(id: String, charset: Charset) {
 
   def isEncapsulating(bytes: Chunk[Byte]): Boolean = bytes == encapsulationBoundaryBytes
 
@@ -34,9 +33,9 @@ final case class Boundary(id: String, charset: Charset = StandardCharsets.UTF_8)
     zio.http.model.Header.ContentType(MediaType.multipart.`form-data`, boundary = Some(id)),
   )
 
-  val encapsulationBoundary: String = s"--$id"
+  lazy val encapsulationBoundary: String = s"--$id"
 
-  val closingBoundary: String = s"--$id--"
+  lazy val closingBoundary: String = s"--$id--"
 
   private[forms] val encapsulationBoundaryBytes = Chunk.fromArray(encapsulationBoundary.getBytes(charset))
 
@@ -45,11 +44,9 @@ final case class Boundary(id: String, charset: Charset = StandardCharsets.UTF_8)
 }
 
 object Boundary {
+  def apply(boundary: String): Boundary = Boundary(boundary, Charsets.Utf8)
 
-  def generate(rng: () => String = () => new SecureRandom().nextLong.toString): Boundary =
-    Boundary(s"(((${rng().toString()})))")
-
-  def fromContent(content: Chunk[Byte], charset: Charset = StandardCharsets.UTF_8): Option[Boundary] = {
+  def fromContent(content: Chunk[Byte], charset: Charset = Charsets.Utf8): Option[Boundary] = {
     var i = 0
     var j = 0
 
@@ -75,7 +72,7 @@ object Boundary {
         .rawHeader(zio.http.model.Header.ContentType)
         .flatMap(value => Header("Content-Type", value).fields.get("charset"))
         .map(Charset.forName)
-        .getOrElse(StandardCharsets.UTF_8)
+        .getOrElse(Charsets.Utf8)
 
     for {
       disp     <- headers.rawHeader(zio.http.model.Header.ContentDisposition)
@@ -85,4 +82,8 @@ object Boundary {
 
   }
 
+  def randomUUID: zio.UIO[Boundary] =
+    zio.Random.nextUUID.map { id =>
+      Boundary(s"(((${id.toString()})))")
+    }
 }

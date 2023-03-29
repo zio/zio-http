@@ -63,15 +63,15 @@ private[forms] object FormAST {
 
   case object EoL extends FormAST { val bytes: Chunk[Byte] = Chunk('\r', '\n') }
 
-  case class EncapsulatingBoundary(boundary: Boundary) extends DecodingPart2AST {
+  final case class EncapsulatingBoundary(boundary: Boundary) extends DecodingPart2AST {
     def bytes: Chunk[Byte] = boundary.encapsulationBoundaryBytes
   }
 
-  case class ClosingBoundary(boundary: Boundary) extends DecodingPart2AST {
+  final case class ClosingBoundary(boundary: Boundary) extends DecodingPart2AST {
     def bytes: Chunk[Byte] = boundary.closingBoundaryBytes
   }
 
-  case class Header(name: String, value: String) extends DecodingPart1AST {
+  final case class Header(name: String, value: String) extends DecodingPart1AST {
 
     /**
      * The preposition is the first part of the header value before the first

@@ -150,16 +150,26 @@ object Body {
    */
   def fromMultipartForm(
     form: Form,
-    charset: Charset = StandardCharsets.UTF_8,
-    specificBoundary: Option[Boundary] = None,
+    specificBoundary: Boundary,
+    charset: Charset = Charsets.Utf8,
   ): Body = {
-    val (boundary, bytes) =
-      specificBoundary match {
-        case Some(value) => form.encodeAsMultipartBytes(charset, value)
-        case None        => form.encodeAsMultipartBytes(charset)
-      }
+    val (boundary, bytes) = form.encodeAsMultipartBytes(specificBoundary, charset)
+
     StreamBody(bytes, Some(MediaType.multipart.`form-data`), Some(boundary))
   }
+
+  /**
+   * Constructs a [[zio.http.Body]] from from form data, using multipart
+   * encoding and the specified character set, which defaults to UTF-8. Utilizes
+   * a random boundary based on a UUID.
+   */
+  def fromMultipartFormUUID(
+    form: Form,
+    charset: Charset = Charsets.Utf8,
+  ): UIO[Body] =
+    form.encodeAsMultipartBytesUUID(charset).map { case (boundary, bytes) =>
+      StreamBody(bytes, Some(MediaType.multipart.`form-data`), Some(boundary))
+    }
 
   /**
    * Constructs a [[zio.http.Body]] from a stream of bytes.

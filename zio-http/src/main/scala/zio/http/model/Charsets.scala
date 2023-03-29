@@ -25,4 +25,6 @@ object Charsets {
    * Default HTTP Charset
    */
   val Http: Charset = StandardCharsets.UTF_8
+
+  val Utf8: Charset = StandardCharsets.UTF_8
 }

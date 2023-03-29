@@ -72,7 +72,7 @@ object FormSpec extends ZIOSpecDefault {
         ),
       )
 
-      val (_, actualByteStream) = form.encodeAsMultipartBytes(rng = () => "AaB03x")
+      val (_, actualByteStream) = form.encodeAsMultipartBytes(Boundary("AaB03x"))
 
       for {
         form2       <- Form.fromMultipartBytes(multipartFormBytes2)
@@ -87,7 +87,7 @@ object FormSpec extends ZIOSpecDefault {
 
       for {
         form <- Form.fromMultipartBytes(multipartFormBytes1)
-        encoding = form.encodeAsMultipartBytes(StandardCharsets.UTF_8, boundary)
+        encoding = form.encodeAsMultipartBytes(boundary)
         bytes <- encoding._2.runCollect
         (text: FormData.Text) :: (image1: FormData.Binary) :: (image2: FormData.Binary) :: Nil = form.formData.toList
       } yield assertTrue(
@@ -140,7 +140,7 @@ object FormSpec extends ZIOSpecDefault {
           ),
         )
 
-        val (_, actualByteStream) = form.encodeAsMultipartBytes(rng = () => "AaB03x")
+        val (_, actualByteStream) = form.encodeAsMultipartBytes(Boundary("AaB03x"))
 
         for {
           form2         <- Form.fromMultipartBytes(multipartFormBytes2)

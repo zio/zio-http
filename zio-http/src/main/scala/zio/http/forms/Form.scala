@@ -29,7 +29,7 @@ import zio.http.forms.FormAST._
 import zio.http.forms.FormData._
 import zio.http.forms.FormDecodingError._
 import zio.http.forms.FormState._
-import zio.http.model.Headers
+import zio.http.model.{Charsets, Headers}
 
 /**
  * Represents a form that can be either multipart or url encoded.
@@ -73,15 +73,16 @@ final case class Form(formData: Chunk[FormData]) {
     urlEncoded.mkString("&")
   }
 
-  def encodeAsMultipartBytes(
-    charset: Charset = StandardCharsets.UTF_8,
-    rng: () => String = () => new SecureRandom().nextLong().toString,
-  ): (CharSequence, ZStream[Any, Nothing, Byte]) =
-    encodeAsMultipartBytes(charset, Boundary.generate(rng))
+  def encodeAsMultipartBytesUUID(
+    charset: Charset = Charsets.Utf8,
+  ): zio.UIO[(CharSequence, ZStream[Any, Nothing, Byte])] =
+    Boundary.randomUUID.map { boundary =>
+      encodeAsMultipartBytes(boundary, charset)
+    }
 
   def encodeAsMultipartBytes(
-    charset: Charset,
     boundary: Boundary,
+    charset: Charset = Charsets.Utf8,
   ): (CharSequence, ZStream[Any, Nothing, Byte]) = {
 
     val encapsulatingBoundary = EncapsulatingBoundary(boundary)
