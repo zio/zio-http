@@ -48,6 +48,7 @@ object NettyConnectionPool {
     maxHeaderSize: Int,
     decompression: Decompression,
     localAddress: Option[InetSocketAddress],
+    dnsResolver: DnsResolver,
   )(implicit trace: Trace): ZIO[Any, Throwable, JChannel] = {
     val initializer = new ChannelInitializer[JChannel] {
       override def initChannel(ch: JChannel): Unit = {
@@ -96,25 +97,31 @@ object NettyConnectionPool {
       }
     }
 
-    ZIO.attempt {
-      val bootstrap = new Bootstrap()
-        .channelFactory(channelFactory)
-        .group(eventLoopGroup)
-        .remoteAddress(new InetSocketAddress(location.host, location.port))
-        .handler(initializer)
-      (localAddress match {
-        case Some(addr) => bootstrap.localAddress(addr)
-        case _          => bootstrap
-      }).connect()
-    }.flatMap { channelFuture =>
-      NettyFutureExecutor.executed(channelFuture) *>
-        ZIO
-          .attempt(channelFuture.channel())
-    }
+    for {
+      resolvedHosts <- dnsResolver.resolve(location.host)
+      pickedHost    <- Random.nextIntBounded(resolvedHosts.size)
+      host = resolvedHosts(pickedHost)
+      channelFuture <- ZIO.attempt {
+        val bootstrap = new Bootstrap()
+          .channelFactory(channelFactory)
+          .group(eventLoopGroup)
+          .remoteAddress(new InetSocketAddress(host, location.port))
+          .handler(initializer)
+        (localAddress match {
+          case Some(addr) => bootstrap.localAddress(addr)
+          case _          => bootstrap
+        }).connect()
+      }
+      _             <- NettyFutureExecutor.executed(channelFuture)
+      result        <- ZIO.attempt(channelFuture.channel())
+    } yield result
   }
 
-  private final class NoNettyConnectionPool(channelFactory: JChannelFactory[JChannel], eventLoopGroup: JEventLoopGroup)
-      extends NettyConnectionPool {
+  private final class NoNettyConnectionPool(
+    channelFactory: JChannelFactory[JChannel],
+    eventLoopGroup: JEventLoopGroup,
+    dnsResolver: DnsResolver,
+  ) extends NettyConnectionPool {
     override def get(
       location: Location.Absolute,
       proxy: Option[Proxy],
@@ -132,6 +139,7 @@ object NettyConnectionPool {
         maxHeaderSize,
         decompression,
         localAddress,
+        dnsResolver,
       )
 
     override def invalidate(channel: JChannel)(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
@@ -171,7 +179,7 @@ object NettyConnectionPool {
 
   def fromConfig(
     config: ConnectionPoolConfig,
-  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
     for {
       pool <- config match {
         case ConnectionPoolConfig.Disabled                         =>
@@ -191,21 +199,25 @@ object NettyConnectionPool {
       }
     } yield pool
 
-  private def createDisabled(implicit trace: Trace): ZIO[NettyClientDriver, Nothing, NettyConnectionPool] =
+  private def createDisabled(implicit
+    trace: Trace,
+  ): ZIO[NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
     for {
-      driver <- ZIO.service[NettyClientDriver]
-    } yield new NoNettyConnectionPool(driver.channelFactory, driver.eventLoopGroup)
+      driver      <- ZIO.service[NettyClientDriver]
+      dnsResolver <- ZIO.service[DnsResolver]
+    } yield new NoNettyConnectionPool(driver.channelFactory, driver.eventLoopGroup, dnsResolver)
 
   private def createFixed(size: Int)(implicit
     trace: Trace,
-  ): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
+  ): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
     createFixedPerHost(_ => size)
 
   private def createFixedPerHost(
     size: URL.Location.Absolute => Int,
-  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
     for {
       driver      <- ZIO.service[NettyClientDriver]
+      dnsResolver <- ZIO.service[DnsResolver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       poolFn = (key: PoolKey) =>
         createChannel(
@@ -217,6 +229,7 @@ object NettyConnectionPool {
           key.maxHeaderSize,
           key.decompression,
           None,
+          dnsResolver,
         ).tap { channel =>
           NettyFutureExecutor
             .executed(channel.closeFuture())
@@ -237,16 +250,17 @@ object NettyConnectionPool {
     min: Int,
     max: Int,
     ttl: Duration,
-  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
     createDynamicPerHost(_ => min, _ => max, _ => ttl)
 
   private def createDynamicPerHost(
     min: URL.Location.Absolute => Int,
     max: URL.Location.Absolute => Int,
     ttl: URL.Location.Absolute => Duration,
-  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
     for {
       driver      <- ZIO.service[NettyClientDriver]
+      dnsResolver <- ZIO.service[DnsResolver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       poolFn = (key: PoolKey) =>
         createChannel(
@@ -258,6 +272,7 @@ object NettyConnectionPool {
           key.maxHeaderSize,
           key.decompression,
           None,
+          dnsResolver,
         ).tap { channel =>
           NettyFutureExecutor
             .executed(channel.closeFuture())

@@ -45,6 +45,7 @@ object ClientProxySpec extends HttpRunnableSpec {
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))),
               NettyClientDriver.fromConfig,
+              DnsResolver.default,
             )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
@@ -64,6 +65,7 @@ object ClientProxySpec extends HttpRunnableSpec {
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(proxy)),
               NettyClientDriver.fromConfig,
+              DnsResolver.default,
             )
         } yield out
       assertZIO(res.either)(isRight)
@@ -91,10 +93,11 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request.get(url = url),
             )
-            .provideSome(
+            .provide(
               Client.live,
               ClientConfig.live(ClientConfig.empty.proxy(proxy)),
               NettyClientDriver.fromConfig,
+              DnsResolver.default,
             )
         } yield out
       assertZIO(res.either)(isRight)

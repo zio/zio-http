@@ -36,7 +36,7 @@ trait ClientDriver {
     createSocketApp: () => SocketApp[Any],
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
 
-  def createConnectionPool(config: ConnectionPoolConfig)(implicit
+  def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
     trace: Trace,
   ): ZIO[Scope, Nothing, ConnectionPool[Connection]]
 }

@@ -17,6 +17,7 @@
 package zio.http
 
 import zio._
+import zio.http.DnsResolver.DnsResolverConfig
 import zio.http.URL.Location
 import zio.http.model._
 import zio.http.model.headers.HeaderOps
@@ -799,24 +800,26 @@ object ZClient {
       ZIO.serviceWithZIO[Client](_.socket(url, app, headers))
     }
 
-  val live: ZLayer[ClientConfig with ClientDriver, Throwable, Client] = {
+  val live: ZLayer[ClientConfig with ClientDriver with DnsResolver, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
       for {
         config         <- ZIO.service[ClientConfig]
         driver         <- ZIO.service[ClientDriver]
-        connectionPool <- driver.createConnectionPool(config.connectionPool)
+        dnsResolver    <- ZIO.service[DnsResolver]
+        connectionPool <- driver.createConnectionPool(dnsResolver, config.connectionPool)
       } yield new ClientLive(driver)(connectionPool)(config)
     }
   }
-  val fromConfig: ZLayer[ClientConfig, Throwable, Client]             = {
+
+  val fromConfig: ZLayer[ClientConfig with DnsResolverConfig, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
-    NettyClientDriver.fromConfig >>> live
+    (NettyClientDriver.fromConfig ++ DnsResolver.fromConfig) >>> live
   }.fresh
 
   val default: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
-    ClientConfig.default >>> fromConfig
+    (ClientConfig.default ++ ZLayer.succeed(DnsResolverConfig.default)) >>> fromConfig
   }
 
   val zioHttpVersion: String                   = Client.getClass().getPackage().getImplementationVersion()

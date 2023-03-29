@@ -43,6 +43,7 @@ object DynamicAppTest extends ZIOSpecDefault {
       Client.live,
       ServerConfig.live,
       Server.live,
+      DnsResolver.default,
     )
 
   def spec = suite("Server")(
