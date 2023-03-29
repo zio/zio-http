@@ -40,7 +40,6 @@ import io.netty.util.AttributeKey
 private[zio] final case class ServerInboundHandler(
   appRef: AppRef,
   config: ServerConfig,
-  errCallbackRef: ErrorCallbackRef,
   runtime: NettyRuntime,
   time: ServerTime,
 )(implicit trace: Trace)
@@ -48,17 +47,14 @@ private[zio] final case class ServerInboundHandler(
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
-  private var app: App[Any]                     = _
-  private var env: ZEnvironment[Any]            = _
-  private var errCallback: Server.ErrorCallback = _
+  private var app: App[Any]          = _
+  private var env: ZEnvironment[Any] = _
 
   def refreshApp(): Unit = {
-    val pair     = appRef.get()
-    val callback = errCallbackRef.get()
+    val pair = appRef.get()
 
     this.app = pair._1
     this.env = pair._2
-    this.errCallback = callback.orNull
   }
 
   private def ensureHasApp(): Unit = {
@@ -114,16 +110,11 @@ private[zio] final case class ServerInboundHandler(
 
   }
 
-  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    if (errCallback != null) {
-      runtime.run(ctx, NettyRuntime.noopEnsuring)(errCallback(Cause.die(cause)))
-    } else {
-      cause match {
-        case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
-        case t => super.exceptionCaught(ctx, t)
-      }
+  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
+    cause match {
+      case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
+      case t                                                                            => super.exceptionCaught(ctx, t)
     }
-  }
 
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: NettyBody.UnsafeAsync): Unit = {
     if (ctx.channel().attr(isReadKey).get())
@@ -316,7 +307,7 @@ private[zio] final case class ServerInboundHandler(
                 if (cause.isInterruptedOnly) {
                   interrupted(ctx).as(null)
                 } else {
-                  (if (errCallback ne null) errCallback(cause) else ZIO.unit).as(
+                  ZIO.succeed(
                     HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
                   )
                 },
@@ -355,20 +346,19 @@ object ServerInboundHandler {
   private[zio] val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
   val layer: ZLayer[
-    ServerTime with ServerConfig with NettyRuntime with ErrorCallbackRef with AppRef,
+    ServerTime with ServerConfig with NettyRuntime with AppRef,
     Nothing,
     ServerInboundHandler,
   ] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
-        appRef      <- ZIO.service[AppRef]
-        errCallback <- ZIO.service[ErrorCallbackRef]
-        rtm         <- ZIO.service[NettyRuntime]
-        config      <- ZIO.service[ServerConfig]
-        time        <- ZIO.service[ServerTime]
+        appRef <- ZIO.service[AppRef]
+        rtm    <- ZIO.service[NettyRuntime]
+        config <- ZIO.service[ServerConfig]
+        time   <- ZIO.service[ServerTime]
 
-      } yield ServerInboundHandler(appRef, config, errCallback, rtm, time)
+      } yield ServerInboundHandler(appRef, config, rtm, time)
     }
   }
 
