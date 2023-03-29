@@ -33,13 +33,15 @@ object ClientSSLConfig {
     val fromTrustStoreFile     = trustStorePath.zip(trustStorePassword).map(FromTrustStoreFile.tupled)
     val fromTrustStoreResource = trustStorePath.zip(trustStorePassword).map(FromTrustStoreResource.tupled)
 
-    tpe.switch(
-      "Default"                -> default,
-      "FromCertFile"           -> fromCertFile,
-      "FromCertResource"       -> fromCertResource,
-      "FromTrustStoreFile"     -> fromTrustStoreFile,
-      "FromTrustStoreResource" -> fromTrustStoreResource,
-    )
+    tpe
+      .switch(
+        "Default"                -> default,
+        "FromCertFile"           -> fromCertFile,
+        "FromCertResource"       -> fromCertResource,
+        "FromTrustStoreFile"     -> fromTrustStoreFile,
+        "FromTrustStoreResource" -> fromTrustStoreResource,
+      )
+      .nested("zio.http.ClientSSLConfig")
   }
 
   case object Default                                                                         extends ClientSSLConfig
