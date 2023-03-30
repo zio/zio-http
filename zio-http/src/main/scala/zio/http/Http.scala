@@ -24,7 +24,7 @@ import zio._
 
 import zio.stream.ZStream
 
-import zio.http.Http.{Empty, Route}
+import zio.http.Http.{Empty, FailedErrorHandler, Route}
 import zio.http.model.Header.HeaderType
 import zio.http.model.{Header, Headers, MediaType, Status}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
@@ -36,14 +36,20 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
     handler: Handler[R1, Err1, In1, Out1],
+    errorOutputMapper: Out => Out1,
   )(implicit trace: Trace): Http[R1, Err1, In, Out1] =
     self match {
-      case Http.Empty                         => Http.empty
-      case Http.Static(firstHandler)          => Http.Static(firstHandler.andThen(handler))
-      case route: Http.Route[R, Err, In, Out] =>
+      case Http.Empty(errorHandler)                =>
+        Http.Empty(errorHandler.map(_.andThen(_.map(errorOutputMapper))))
+      case Http.Static(firstHandler, errorHandler) =>
+        Http.Static(firstHandler.andThen(handler), errorHandler.map(_.andThen(_.map(errorOutputMapper))))
+      case route: Http.Route[R, Err, In, Out]      =>
         new Route[R1, Err1, In, Out1] {
           override def run(in: In): ZIO[R1, Err1, Http[R1, Err1, In, Out1]] =
-            route.run(in).map(_ >>> handler)
+            route.run(in).map(_ >>> (handler, errorOutputMapper))
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
+            route.errorHandler.map(_.andThen(_.map(errorOutputMapper)))
         }
     }
 
@@ -70,6 +76,11 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   )(implicit trace: Trace): Http[R1, Err1, In1, Out1] =
     self.defaultWith(that)
 
+  final def catchAllDefect[R1 <: R, Out1 >: Out](f: Cause[Nothing] => ZIO[R1, Nothing, Out1])(implicit
+    trace: Trace,
+  ): Http[R1, Err, In, Out1] =
+    self.withErrorHandler(Some(f))
+
   /**
    * Named alias for `++`
    */
@@ -77,26 +88,34 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     that: Http[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Http[R1, Err1, In1, Out1] =
     self match {
-      case Http.Empty                    => that
-      case Http.Static(handler)          => Http.Static(handler)
+      case Http.Empty(_)                 => that
+      case static @ Http.Static(_, _)    => static
       case route: Route[R, Err, In, Out] =>
         new Route[R1, Err1, In1, Out1] {
           override def run(in: In1): ZIO[R1, Err1, Http[R1, Err1, In1, Out1]] =
             route.run(in).map(_.defaultWith(that))
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
+            route.errorHandler
         }
     }
+
+  private[http] def errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]]
 
   /**
    * Transforms the output of the http app
    */
   final def map[Out1](f: Out => Out1)(implicit trace: Trace): Http[R, Err, In, Out1] =
     self match {
-      case Http.Empty                    => Http.Empty
-      case Http.Static(handler)          => Http.Static(handler.map(f))
-      case route: Route[R, Err, In, Out] =>
+      case Http.Empty(errorHandler)           => Http.Empty(errorHandler.map(_.andThen(_.map(f))))
+      case Http.Static(handler, errorHandler) => Http.Static(handler.map(f), errorHandler.map(_.andThen(_.map(f))))
+      case route: Route[R, Err, In, Out]      =>
         new Route[R, Err, In, Out1] {
           override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out1]] =
             route.run(in).map(_.map(f))
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out1]] =
+            route.errorHandler.map(_.andThen(_.map(f)))
         }
     }
 
@@ -105,12 +124,15 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def mapError[Err1](f: Err => Err1)(implicit trace: Trace): Http[R, Err1, In, Out] =
     self match {
-      case Http.Empty                    => Http.Empty
-      case Http.Static(handler)          => Http.Static(handler.mapError(f))
-      case route: Route[R, Err, In, Out] =>
+      case empty @ Http.Empty(_)              => empty
+      case Http.Static(handler, errorHandler) => Http.Static(handler.mapError(f), errorHandler)
+      case route: Route[R, Err, In, Out]      =>
         new Route[R, Err1, In, Out] {
           override def run(in: In): ZIO[R, Err1, Http[R, Err1, In, Out]] =
             route.run(in).mapBoth(f, _.mapError(f))
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] =
+            route.errorHandler
         }
     }
 
@@ -121,12 +143,20 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Http[R1, Err1, In, Out1] =
     self match {
-      case Http.Empty                    => Http.Empty
-      case Http.Static(handler)          => Http.Static(handler.mapZIO(f))
-      case route: Route[R, Err, In, Out] =>
+      case Http.Empty(errorHandler)           =>
+        Http.Empty(errorHandler.map(_.andThen(_.flatMap(f).orDieWith(FailedErrorHandler.apply))))
+      case Http.Static(handler, errorHandler) =>
+        Http.Static(
+          handler.mapZIO(f),
+          errorHandler.map(_.andThen(_.flatMap(f).orDieWith(FailedErrorHandler.apply))),
+        )
+      case route: Route[R, Err, In, Out]      =>
         new Route[R1, Err1, In, Out1] {
           override def run(in: In): ZIO[R, Err1, Http[R1, Err1, In, Out1]] =
             route.run(in).map(_.mapZIO(f))
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
+            route.errorHandler.map(_.andThen(_.flatMap(f).orDieWith(FailedErrorHandler.apply)))
         }
     }
 
@@ -135,12 +165,17 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def provideEnvironment(r: ZEnvironment[R])(implicit trace: Trace): Http[Any, Err, In, Out] =
     self match {
-      case Http.Empty                    => Http.Empty
-      case Http.Static(handler)          => Http.Static(handler.provideEnvironment(r))
-      case route: Route[R, Err, In, Out] =>
+      case Http.Empty(errorHandler)           =>
+        Http.Empty(errorHandler.map(_.andThen(_.provideEnvironment(r))))
+      case Http.Static(handler, errorHandler) =>
+        Http.Static(handler.provideEnvironment(r), errorHandler.map(_.andThen(_.provideEnvironment(r))))
+      case route: Route[R, Err, In, Out]      =>
         new Route[Any, Err, In, Out] {
           override def run(in: In): ZIO[Any, Err, Http[Any, Err, In, Out]] =
             route.run(in).map(_.provideEnvironment(r)).provideEnvironment(r)
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[Any, Nothing, Out]] =
+            route.errorHandler.map(_.andThen(_.provideEnvironment(r)))
         }
     }
 
@@ -151,9 +186,14 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Http[R0, Err1, In, Out] =
     self match {
-      case Http.Empty                    => Http.Empty
-      case Http.Static(handler)          => Http.Static(handler.provideLayer(layer))
-      case route: Route[R, Err, In, Out] =>
+      case Http.Empty(errorHandler)           =>
+        Http.Empty(errorHandler.map(_.andThen(_.provideLayer(layer).orDieWith(FailedErrorHandler.apply))))
+      case Http.Static(handler, errorHandler) =>
+        Http.Static(
+          handler.provideLayer(layer),
+          errorHandler.map(_.andThen(_.provideLayer(layer).orDieWith(FailedErrorHandler.apply))),
+        )
+      case route: Route[R, Err, In, Out]      =>
         new Route[R0, Err1, In, Out] {
           override def run(in: In): ZIO[R0, Err1, Http[R0, Err1, In, Out]] =
             ZIO
@@ -162,6 +202,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
                 route.run(in).map(_.provideEnvironment(env))
               }
               .provideLayer(layer)
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R0, Nothing, Out]] =
+            route.errorHandler.map(_.andThen(_.provideLayer(layer).orDieWith(FailedErrorHandler.apply)))
         }
     }
 
@@ -172,12 +215,17 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Http[R1, Err, In, Out] =
     self match {
-      case Http.Empty                    => Http.Empty
-      case Http.Static(handler)          => Http.Static(handler.provideSomeEnvironment(f))
-      case route: Route[R, Err, In, Out] =>
+      case Http.Empty(errorHandler)           =>
+        Http.Empty(errorHandler.map(_.andThen(_.provideSomeEnvironment(f))))
+      case Http.Static(handler, errorHandler) =>
+        Http.Static(handler.provideSomeEnvironment(f), errorHandler.map(_.andThen(_.provideSomeEnvironment(f))))
+      case route: Route[R, Err, In, Out]      =>
         new Route[R1, Err, In, Out] {
           override def run(in: In): ZIO[R1, Err, Http[R1, Err, In, Out]] =
             route.run(in).map(_.provideSomeEnvironment(f)).provideSomeEnvironment(f)
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out]] =
+            route.errorHandler.map(_.andThen(_.provideSomeEnvironment(f)))
         }
     }
 
@@ -188,9 +236,14 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     layer: ZLayer[R0, Err1, R1],
   )(implicit ev: R0 with R1 <:< R, trace: Trace): Http[R0, Err1, In, Out] =
     self match {
-      case Http.Empty                    => Http.Empty
-      case Http.Static(handler)          => Http.Static(handler.provideSomeLayer(layer))
-      case route: Route[R, Err, In, Out] =>
+      case Http.Empty(errorHandler)           =>
+        Http.Empty(errorHandler.map(_.andThen(_.provideSomeLayer(layer).orDieWith(FailedErrorHandler.apply))))
+      case Http.Static(handler, errorHandler) =>
+        Http.Static(
+          handler.provideSomeLayer(layer),
+          errorHandler.map(_.andThen(_.provideSomeLayer(layer).orDieWith(FailedErrorHandler.apply))),
+        )
+      case route: Route[R, Err, In, Out]      =>
         new Route[R0, Err1, In, Out] {
           override def run(in: In): ZIO[R0, Err1, Http[R0, Err1, In, Out]] =
             ZIO
@@ -199,21 +252,46 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
                 route.run(in).map(_.provideEnvironment(env))
               }
               .provideSomeLayer(layer)
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R0, Nothing, Out]] =
+            route.errorHandler.map(_.andThen(_.provideSomeLayer(layer).orDieWith(FailedErrorHandler.apply)))
         }
     }
 
   final def runHandler(in: In)(implicit trace: Trace): ZIO[R, Err, Option[Handler[R, Err, In, Out]]] =
     self match {
-      case Http.Empty                    => Exit.succeed(None)
-      case Http.Static(handler)          => Exit.succeed(Some(handler))
+      case Http.Empty(_)                 => Exit.succeed(None)
+      case Http.Static(handler, _)       => Exit.succeed(Some(handler))
       case route: Route[R, Err, In, Out] => route.run(in).flatMap(_.runHandler(in))
     }
 
+  private[http] final def runServerErrorOrNull(
+    cause: Cause[Nothing],
+  )(implicit unsafe: Unsafe, trace: Trace): ZIO[R, Nothing, Out] = // NOTE: Out can be null
+    self.errorHandler.fold(Exit.succeed(null).asInstanceOf[ZIO[R, Nothing, Out]])(_(cause))
+
   final def runZIOOrNull(in: In)(implicit unsafe: Unsafe, trace: Trace): ZIO[R, Err, Out] = // NOTE: Out can be null
     self match {
-      case Http.Empty                    => Exit.succeed(null).asInstanceOf[ZIO[R, Err, Out]]
-      case Http.Static(handler)          => handler(in)
-      case route: Route[R, Err, In, Out] => route.run(in).flatMap(_.runZIOOrNull(in))
+      case Http.Empty(_)                      =>
+        Exit.succeed(null).asInstanceOf[ZIO[R, Err, Out]]
+      case Http.Static(handler, errorHandler) =>
+        errorHandler match {
+          case Some(errorHandler) =>
+            handler(in).catchAllDefect { defect =>
+              errorHandler(Cause.die(defect))
+            }
+          case None               =>
+            handler(in)
+        }
+      case route: Route[R, Err, In, Out]      =>
+        route.errorHandler match {
+          case Some(errorHandler) =>
+            route.run(in).flatMap(_.runZIOOrNull(in)).catchAllDefect { defect =>
+              errorHandler(Cause.die(defect))
+            }
+          case None               =>
+            route.run(in).flatMap(_.runZIOOrNull(in))
+        }
     }
 
   final def runZIO(in: In)(implicit trace: Trace): ZIO[R, Option[Err], Out] =
@@ -234,12 +312,15 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     onUnhandled: ZIO[R1, Err1, Any],
   )(implicit trace: Trace): Http[R1, Err1, In, Out] =
     self match {
-      case Http.Empty                    => Http.fromHttpZIO[In] { _ => onUnhandled.as(Empty) }
-      case Http.Static(handler)          => Http.Static(handler.tapAllZIO(onFailure, onSuccess))
-      case route: Route[R, Err, In, Out] =>
+      case Http.Empty(errorHandler)           => Http.fromHttpZIO[In] { _ => onUnhandled.as(Empty(errorHandler)) }
+      case Http.Static(handler, errorHandler) => Http.Static(handler.tapAllZIO(onFailure, onSuccess), errorHandler)
+      case route: Route[R, Err, In, Out]      =>
         new Route[R1, Err1, In, Out] {
           override def run(in: In): ZIO[R, Err1, Http[R1, Err1, In, Out]] =
             route.run(in).map(_.tapAllZIO(onFailure, onSuccess, onUnhandled))
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out]] =
+            route.errorHandler
         }
     }
 
@@ -273,8 +354,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Handler[R1, Err1, In1, Out1] =
     self match {
-      case Http.Empty                    => default
-      case Http.Static(handler)          => handler
+      case Http.Empty(_)                 => default
+      case Http.Static(handler, _)       => handler
       case route: Route[R, Err, In, Out] =>
         Handler
           .fromFunctionZIO[In1] { in =>
@@ -304,9 +385,9 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   final def when[In1 <: In](f: In1 => Boolean)(implicit trace: Trace): Http[R, Err, In1, Out] =
     Http.fromHttp[In1] { in =>
       try {
-        if (f(in)) self else Empty
+        if (f(in)) self else Empty(self.errorHandler)
       } catch {
-        case failure: Throwable => Http.fromHandler(Handler.die(failure))
+        case failure: Throwable => Http.fromHandler(Handler.die(failure)).withErrorHandler(self.errorHandler)
       }
     }
 
@@ -316,7 +397,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     Http.fromHttpZIO { (in: In1) =>
       f(in).map {
         case true  => self
-        case false => Empty
+        case false => Empty(self.errorHandler)
       }
     }
 
@@ -324,16 +405,36 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     self.mapError { _ =>
       Response(status = Status.InternalServerError)
     }.asInstanceOf[App[R]]
+
+  final private[http] def withErrorHandler[R1 <: R, Out1 >: Out](
+    newErrorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]],
+  ): Http[R1, Err, In, Out1] =
+    self match {
+      case Http.Empty(_)                   => Http.Empty(newErrorHandler)
+      case Http.Static(handler, _)         => Http.Static(handler, newErrorHandler)
+      case route: Route[R1, Err, In, Out1] =>
+        new Route[R1, Err, In, Out1] {
+          override def run(in: In): ZIO[R1, Err, Http[R1, Err, In, Out1]] =
+            route.run(in)
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] = newErrorHandler
+        }
+    }
 }
 
 object Http {
 
-  case object Empty extends Http[Any, Nothing, Any, Nothing]
+  final case class Empty[-R, +Out](errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]])
+      extends Http[R, Nothing, Any, Out]
 
-  final case class Static[-R, +Err, -In, +Out](handler: Handler[R, Err, In, Out]) extends Http[R, Err, In, Out]
+  final case class Static[-R, +Err, -In, +Out](
+    handler: Handler[R, Err, In, Out],
+    errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]],
+  ) extends Http[R, Err, In, Out]
 
   sealed trait Route[-R, +Err, -In, +Out] extends Http[R, Err, In, Out] {
     def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]]
+    val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]]
   }
 
   /**
@@ -362,7 +463,7 @@ object Http {
   /**
    * Creates an empty Http value
    */
-  def empty: Http[Any, Nothing, Any, Nothing] = Empty
+  val empty: Http[Any, Nothing, Any, Nothing] = Empty(None)
 
   /**
    * Creates an Http app from the contents of a file.
@@ -406,10 +507,7 @@ object Http {
     }
 
   def fromHandler[R, Err, In, Out](handler: Handler[R, Err, In, Out]): Http[R, Err, In, Out] =
-    new Route[R, Err, In, Out] {
-      override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
-        Exit.succeed(Static(handler))
-    }
+    Static(handler, None)
 
   private[zio] def fromHandlerZIO[In] = new FromHandlerZIO[In](())
 
@@ -472,13 +570,15 @@ object Http {
           try {
             Exit.succeed {
               val handler = pf.applyOrElse(in, (_: In) => null)
-              if (handler eq null) Empty
-              else Static(handler)
+              if (handler eq null) Empty(None)
+              else Static(handler, None)
             }
           } catch {
             case failure: Throwable =>
               Exit.die(failure)
           }
+
+        override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
 
@@ -491,7 +591,9 @@ object Http {
     def apply[R, Err, Out](pf: PartialFunction[In, Http[R, Err, In, Out]]): Http[R, Err, In, Out] =
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
-          Exit.succeed(pf.applyOrElse(in, (_: In) => Empty))
+          Exit.succeed(pf.applyOrElse(in, (_: In) => empty))
+
+        override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
 
@@ -507,10 +609,12 @@ object Http {
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
           try {
-            f(in).map(_.fold[Http[R, Err, In, Out]](Empty)(Static(_)))
+            f(in).map(_.fold[Http[R, Err, In, Out]](Empty(None))(handler => Static(handler, None)))
           } catch {
             case error: Throwable => Exit.die(error)
           }
+
+        override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
 
@@ -520,10 +624,12 @@ object Http {
     ): Http[R, Err, In, Out] =
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
-          f(in).map(Static(_)).catchAll {
-            case None    => ZIO.succeed(Empty)
+          f(in).map(Static(_, None)).catchAll {
+            case None    => ZIO.succeed(Empty(None))
             case Some(e) => ZIO.fail(e)
           }
+
+        override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
 
@@ -534,9 +640,11 @@ object Http {
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
           f(in) match {
-            case None    => ZIO.succeed(Empty)
-            case Some(h) => ZIO.succeed(Static(h))
+            case None    => ZIO.succeed(Empty(None))
+            case Some(h) => ZIO.succeed(Static(h, None))
           }
+
+        override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
 
@@ -547,6 +655,8 @@ object Http {
           Exit.succeed {
             f(in)
           }
+
+        override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
 
@@ -555,6 +665,8 @@ object Http {
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
           f(in)
+
+        override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
 
@@ -654,4 +766,5 @@ object Http {
     }
   }
 
+  final case class FailedErrorHandler[E](error: E) extends Exception(s"Error raised in Http error handler: $error")
 }

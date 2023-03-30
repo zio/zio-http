@@ -16,7 +16,7 @@
 
 package zio.http.middleware
 
-import zio.{Tag, Trace, ZEnvironment, ZIO}
+import zio.{Cause, Tag, Trace, ZEnvironment, ZIO}
 
 import zio.http._
 import zio.http.middleware.Auth.Credentials
@@ -150,19 +150,26 @@ private[zio] trait Auth {
           ZIO.succeed(provide(request.headers)).map {
             case Some(context) =>
               http.asInstanceOf[Http[_, _, _, _]] match {
-                case Http.Empty                    => Http.empty
-                case Http.Static(handler)          =>
-                  Http.Static(apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]))
-                case route: Http.Route[_, _, _, _] =>
-                  Http.fromHttpZIO[Request] { in =>
-                    route
-                      .asInstanceOf[Http.Route[R1, Err1, Request, Response]]
-                      .run(in)
-                      .provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context)))
-                      .map { (http: Http[R1, Err1, Request, Response]) =>
-                        self.apply(http)
-                      }
-                  }
+                case empty @ Http.Empty(_)              => empty.asInstanceOf[Http.Empty[R0, Response]]
+                case Http.Static(handler, errorHandler) =>
+                  Http.Static(
+                    apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]),
+                    errorHandler.asInstanceOf[Option[Cause[Nothing] => ZIO[R0, Nothing, Response]]],
+                  )
+                case route: Http.Route[_, _, _, _]      =>
+                  Http
+                    .fromHttpZIO[Request] { in =>
+                      route
+                        .asInstanceOf[Http.Route[R1, Err1, Request, Response]]
+                        .run(in)
+                        .provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context)))
+                        .map { (http: Http[R1, Err1, Request, Response]) =>
+                          self.apply(http)
+                        }
+                    }
+                    .withErrorHandler(
+                      route.errorHandler.asInstanceOf[Option[Cause[Nothing] => ZIO[R0, Nothing, Response]]],
+                    )
               }
             case None          =>
               Handler.status(responseStatus).addHeaders(responseHeaders).toHttp
@@ -213,19 +220,28 @@ private[zio] trait Auth {
           provide(request.headers).map {
             case Some(context) =>
               http.asInstanceOf[Http[_, _, _, _]] match {
-                case Http.Empty                    => Http.empty
-                case Http.Static(handler)          =>
-                  Http.Static(apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]))
-                case route: Http.Route[_, _, _, _] =>
-                  Http.fromHttpZIO[Request] { in =>
-                    route
-                      .asInstanceOf[Http.Route[R1, Err1, Request, Response]]
-                      .run(in)
-                      .provideSomeEnvironment[R0 with R](_.union[Context](ZEnvironment(context)))
-                      .map { (http: Http[R1, Err1, Request, Response]) =>
-                        self.apply(http)
-                      }
-                  }
+                case empty @ Http.Empty(_)              => empty.asInstanceOf[Http.Empty[R0 with R, Response]]
+                case Http.Static(handler, errorHandler) =>
+                  Http.Static(
+                    apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]),
+                    errorHandler
+                      .asInstanceOf[Option[zio.Cause[Nothing] => zio.ZIO[R0 with R, Nothing, zio.http.Response]]],
+                  )
+                case route: Http.Route[_, _, _, _]      =>
+                  Http
+                    .fromHttpZIO[Request] { in =>
+                      route
+                        .asInstanceOf[Http.Route[R1, Err1, Request, Response]]
+                        .run(in)
+                        .provideSomeEnvironment[R0 with R](_.union[Context](ZEnvironment(context)))
+                        .map { (http: Http[R1, Err1, Request, Response]) =>
+                          self.apply(http)
+                        }
+                    }
+                    .withErrorHandler(
+                      route.errorHandler
+                        .asInstanceOf[Option[zio.Cause[Nothing] => zio.ZIO[R0 with R, Nothing, zio.http.Response]]],
+                    )
               }
             case None          =>
               Handler.status(responseStatus).addHeaders(responseHeaders).toHttp

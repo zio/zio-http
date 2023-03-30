@@ -14,7 +14,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
     }
 
   val messageSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-    messageFilter >>> Handler.fromFunctionZIO[(WebSocketChannel, String)] {
+    messageFilter >>> (Handler.fromFunctionZIO[(WebSocketChannel, String)] {
       case (ch, "end") => ch.close()
 
       // Send a "bar" if the server sends a "foo"
@@ -28,7 +28,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
       // And flushing it on the channel only once.
       case (ch, text) =>
         ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
-    }
+    }, _ => ())
 
   val channelSocket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
     Http.collectZIO[WebSocketChannelEvent] {

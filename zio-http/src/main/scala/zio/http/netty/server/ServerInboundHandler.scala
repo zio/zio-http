@@ -76,7 +76,12 @@ private[zio] final case class ServerInboundHandler(
         }
 
         ensureHasApp()
-        val exit = failOnDecodingError(jReq) *> app.runZIOOrNull(req)
+        val exit =
+          if (jReq.decoderResult().isFailure) {
+            val throwable = jReq.decoderResult().cause()
+            app.runServerErrorOrNull(Cause.die(throwable)).map(defaultErrorResponse(_, Some(throwable)))
+          } else
+            app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time))
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
         else
@@ -86,7 +91,12 @@ private[zio] final case class ServerInboundHandler(
         val req = makeZioRequest(ctx, jReq)
 
         ensureHasApp()
-        val exit = failOnDecodingError(jReq) *> app.runZIOOrNull(req)
+        val exit =
+          if (jReq.decoderResult().isFailure) {
+            val throwable = jReq.decoderResult().cause()
+            app.runServerErrorOrNull(Cause.die(throwable)).map(defaultErrorResponse(_, Some(throwable)))
+          } else
+            app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
 
           if (
@@ -113,7 +123,15 @@ private[zio] final case class ServerInboundHandler(
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
     cause match {
       case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
-      case t                                                                            => super.exceptionCaught(ctx, t)
+      case t                                                                            =>
+        if (app ne null) {
+          runtime.run(ctx, () => {}) {
+            // We cannot return the generated response from here, but still calling the handler for its side effect
+            // for example logging.
+            app.runServerErrorOrNull(Cause.die(t)).unit
+          }
+        }
+        super.exceptionCaught(ctx, t)
     }
 
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: NettyBody.UnsafeAsync): Unit = {
@@ -157,7 +175,6 @@ private[zio] final case class ServerInboundHandler(
     response: Response,
     jRequest: HttpRequest,
     time: ServerTime,
-    runtime: NettyRuntime,
   ): Task[Unit] = {
 
     for {
@@ -286,7 +303,7 @@ private[zio] final case class ServerInboundHandler(
       for {
         response <- ZIO.succeed(HttpError.NotFound(jReq.uri()).toResponse)
         done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-        _        <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
+        _        <- attemptFullWrite(ctx, response, jReq, time).unless(done)
       } yield ()
     }
   }
@@ -307,9 +324,7 @@ private[zio] final case class ServerInboundHandler(
                 if (cause.isInterruptedOnly) {
                   interrupted(ctx).as(null)
                 } else {
-                  ZIO.succeed(
-                    HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
-                  )
+                  ZIO.succeed(defaultErrorResponse(null, Some(FiberFailure(cause))))
                 },
             )
         }
@@ -317,7 +332,7 @@ private[zio] final case class ServerInboundHandler(
           if (response ne null) {
             for {
               done <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-              _    <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
+              _    <- attemptFullWrite(ctx, response, jReq, time).unless(done)
             } yield ()
           } else {
             ZIO.attempt(
@@ -337,8 +352,8 @@ private[zio] final case class ServerInboundHandler(
       ctx.channel().close()
     }.unit.orDie
 
-  private def failOnDecodingError(request: HttpRequest): Exit[Nothing, Unit] =
-    if (request.decoderResult().isFailure) Exit.die(request.decoderResult().cause()) else Exit.unit
+  private def defaultErrorResponse(responseOrNull: Response, cause: Option[Throwable]): Response =
+    if (responseOrNull ne null) responseOrNull else HttpError.InternalServerError(cause = cause).toResponse
 }
 
 object ServerInboundHandler {

@@ -39,19 +39,19 @@ object SocketContractSpec extends ZIOSpecDefault {
             .defaultWith(warnOnUnrecognizedEvent)
 
         val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
-          Handler.fromFunctionZIO[(WebSocketChannel, String)] {
+          (Handler.fromFunctionZIO[(WebSocketChannel, String)] {
             case (ch, text) if text.contains("Hi Server") =>
               printLine("Server got message: " + text) *> ch.close()
-          }
+          }, _ => ())
 
         messageSocketServer
           .defaultWith(channelSocketServer)
       } { _ =>
         val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageFilter >>>
-          Handler.fromFunctionZIO[(WebSocketChannel, String)] {
+          (Handler.fromFunctionZIO[(WebSocketChannel, String)] {
             case (ch, text) if text.contains("Hi Client") =>
               ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
-          }
+          }, _ => ())
 
         val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
           Http.collectZIO[WebSocketChannelEvent] {
