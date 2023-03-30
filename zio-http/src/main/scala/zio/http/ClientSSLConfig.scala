@@ -21,25 +21,30 @@ import zio.Config
 sealed trait ClientSSLConfig
 
 object ClientSSLConfig {
+  val config: Config[ClientSSLConfig] = {
+    val tpe                = Config.string("type")
+    val certPath           = Config.string("certPath")
+    val trustStorePath     = Config.string("trustStorePath")
+    val trustStorePassword = Config.secret("trustStorePassword").map(d => new String(d.value.toArray))
+
+    val default                = Config.succeed(Default)
+    val fromCertFile           = certPath.map(FromCertFile(_))
+    val fromCertResource       = certPath.map(FromCertResource(_))
+    val fromTrustStoreFile     = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreFile(_, _))
+    val fromTrustStoreResource = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreResource(_, _))
+
+    tpe.switch(
+      "Default"                -> default,
+      "FromCertFile"           -> fromCertFile,
+      "FromCertResource"       -> fromCertResource,
+      "FromTrustStoreFile"     -> fromTrustStoreFile,
+      "FromTrustStoreResource" -> fromTrustStoreResource,
+    )
+  }
+
   case object Default                                                                         extends ClientSSLConfig
   final case class FromCertFile(certPath: String)                                             extends ClientSSLConfig
   final case class FromCertResource(certPath: String)                                         extends ClientSSLConfig
   final case class FromTrustStoreResource(trustStorePath: String, trustStorePassword: String) extends ClientSSLConfig
   final case class FromTrustStoreFile(trustStorePath: String, trustStorePassword: String)     extends ClientSSLConfig
-
-  lazy val config: Config[ClientSSLConfig] = {
-    val default                = Config.string.mapOrFail {
-      case "default" => Right(Default)
-      case other     => Left(Config.Error.InvalidData(message = s"Invalid value for ClientSSLConfig: $other"))
-    }
-    val fromCertFile           = Config.string("cert-file").map(FromCertFile.apply)
-    val fromCertResource       = Config.string("cert-resource").map(FromCertResource.apply)
-    val fromTrustStoreResource = Config.string("trust-store-resource").zip(Config.string("trust-store-password")).map {
-      case (path, password) => FromTrustStoreResource(path, password)
-    }
-    val fromTrustStoreFile     = Config.string("trust-store-file").zip(Config.string("trust-store-password")).map {
-      case (path, password) => FromTrustStoreFile(path, password)
-    }
-    default.orElse(fromCertFile).orElse(fromCertResource).orElse(fromTrustStoreResource).orElse(fromTrustStoreFile)
-  }
 }
