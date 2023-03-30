@@ -202,6 +202,8 @@ object URL {
     }
   }
 
+  def fromURI(uri: URI): Option[URL] = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
+
   def root: URL = URL(!!)
 
   sealed trait Location
