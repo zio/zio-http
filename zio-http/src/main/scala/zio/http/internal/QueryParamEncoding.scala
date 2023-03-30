@@ -16,12 +16,14 @@
 
 package zio.http.internal
 
+import java.nio.charset.Charset
+
 import zio.http.QueryParams
 import zio.http.netty.NettyQueryParamEncoding
 
 private[http] trait QueryParamEncoding {
-  def decode(queryStringFragment: String): QueryParams
-  def encode(baseUri: String, queryParams: QueryParams): String
+  def decode(queryStringFragment: String, charset: Charset): QueryParams
+  def encode(baseUri: String, queryParams: QueryParams, charset: Charset): String
 }
 
 private[http] object QueryParamEncoding {

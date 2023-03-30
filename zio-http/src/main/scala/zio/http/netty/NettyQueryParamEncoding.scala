@@ -16,6 +16,8 @@
 
 package zio.http.netty
 
+import java.nio.charset.Charset
+
 import scala.jdk.CollectionConverters._
 
 import zio.Chunk
@@ -26,11 +28,11 @@ import zio.http.internal.QueryParamEncoding
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 
 private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
-  override final def decode(queryStringFragment: String): QueryParams = {
+  override final def decode(queryStringFragment: String, charset: Charset): QueryParams = {
     if (queryStringFragment == null || queryStringFragment.isEmpty) {
       QueryParams.empty
     } else {
-      val decoder = new QueryStringDecoder(queryStringFragment, false)
+      val decoder = new QueryStringDecoder(queryStringFragment, charset, false)
       val params  = decoder.parameters()
       QueryParams(params.asScala.view.map { case (k, v) =>
         (k, Chunk.fromIterable(v.asScala))
@@ -38,8 +40,8 @@ private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
     }
   }
 
-  override final def encode(baseUri: String, queryParams: QueryParams): String = {
-    val encoder = new QueryStringEncoder(baseUri)
+  override final def encode(baseUri: String, queryParams: QueryParams, charset: Charset): String = {
+    val encoder = new QueryStringEncoder(baseUri, charset)
     queryParams.map.foreach { case (key, values) =>
       if (key != "") {
         if (values.isEmpty) {

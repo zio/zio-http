@@ -774,13 +774,11 @@ object ZClient {
                   _                <-
                     onComplete.await.interruptible.exit.flatMap { exit =>
                       if (exit.isInterrupted) {
-                        channelInterface
-                          .interrupt()
+                        channelInterface.interrupt
                           .zipRight(connectionPool.invalidate(connection))
                           .uninterruptible
                       } else {
-                        channelInterface
-                          .resetChannel()
+                        channelInterface.resetChannel
                           .zip(exit)
                           .map { case (s1, s2) => s1 && s2 }
                           .catchAllCause(_ =>

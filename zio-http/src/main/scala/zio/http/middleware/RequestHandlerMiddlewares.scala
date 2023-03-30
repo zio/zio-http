@@ -34,7 +34,7 @@ private[zio] trait RequestHandlerMiddlewares
    * Sets cookie in response headers
    */
   final def addCookie(cookie: Cookie.Response): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    withHeader(Header.ResponseCookie(cookie))
+    withHeader(Header.SetCookie(cookie))
 
   final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie.Response])(implicit
     trace: Trace,
@@ -263,14 +263,14 @@ private[zio] trait RequestHandlerMiddlewares
   final def signCookies(secret: String): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     updateHeaders { headers =>
       headers.modify {
-        case Header.ResponseCookie(cookie)                                                      =>
-          Header.ResponseCookie(cookie.sign(secret))
-        case header @ Header.Custom(name, value) if name.toString == Header.ResponseCookie.name =>
-          Header.ResponseCookie.parse(value.toString) match {
+        case Header.SetCookie(cookie)                                                      =>
+          Header.SetCookie(cookie.sign(secret))
+        case header @ Header.Custom(name, value) if name.toString == Header.SetCookie.name =>
+          Header.SetCookie.parse(value.toString) match {
             case Left(_)               => header
-            case Right(responseCookie) => Header.ResponseCookie(responseCookie.value.sign(secret))
+            case Right(responseCookie) => Header.SetCookie(responseCookie.value.sign(secret))
           }
-        case header: Header                                                                     => header
+        case header: Header                                                                => header
       }
     }
 

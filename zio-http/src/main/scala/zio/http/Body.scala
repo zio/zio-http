@@ -26,7 +26,7 @@ import zio.stream.ZStream
 
 import zio.http.forms._
 import zio.http.internal.BodyEncoding
-import zio.http.model.{Charsets, MediaType}
+import zio.http.model.{Boundary, Charsets, Headers, MediaType}
 
 /**
  * Represents the body of a request or response. The body can be a fixed chunk
@@ -64,16 +64,16 @@ trait Body { self =>
   /**
    * Returns an effect that decodes the streaming body as a multipart form.
    *
-   * The result is a stream of FormData objects, where each FormData may be a
+   * The result is a stream of FormField objects, where each FormField may be a
    * StreamingBinary or a Text object. The StreamingBinary object contains a
    * stream of bytes, which has to be consumed asynchronously by the user to get
-   * the next FormData from the stream.
+   * the next FormField from the stream.
    */
   def asMultipartFormStream(implicit trace: Trace): Task[StreamingForm] =
     boundary match {
       case Some(boundary) =>
         ZIO.succeed(
-          StreamingForm(asStream, Boundary(boundary.toString), Charsets.Http),
+          StreamingForm(asStream, boundary),
         )
       case None           =>
         ZIO.fail(
@@ -108,7 +108,7 @@ trait Body { self =>
    * Returns an effect that decodes the content of the body as form data.
    */
   def asURLEncodedForm(implicit trace: Trace): Task[Form] =
-    asString.flatMap(Form.fromURLEncoded(_, Charsets.Http).mapError(_.asException))
+    asString.flatMap(string => ZIO.fromEither(Form.fromURLEncoded(string, Charsets.Http)))
 
   /**
    * Returns whether or not the bytes of the body have been fully read.
@@ -116,9 +116,9 @@ trait Body { self =>
   def isComplete: Boolean
 
   private[zio] def mediaType: Option[MediaType]
-  private[zio] def boundary: Option[CharSequence]
+  private[zio] def boundary: Option[Boundary]
 
-  private[zio] def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body
+  private[zio] def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body
 }
 
 object Body {
@@ -150,16 +150,24 @@ object Body {
    */
   def fromMultipartForm(
     form: Form,
-    charset: Charset = StandardCharsets.UTF_8,
-    specificBoundary: Option[Boundary] = None,
+    specificBoundary: Boundary,
   ): Body = {
-    val (boundary, bytes) =
-      specificBoundary match {
-        case Some(value) => form.encodeAsMultipartBytes(charset, value)
-        case None        => form.encodeAsMultipartBytes(charset)
-      }
-    StreamBody(bytes, Some(MediaType.multipart.`form-data`), Some(boundary))
+    val bytes = form.multipartBytes(specificBoundary)
+
+    StreamBody(bytes, Some(MediaType.multipart.`form-data`), Some(specificBoundary))
   }
+
+  /**
+   * Constructs a [[zio.http.Body]] from from form data, using multipart
+   * encoding and the specified character set, which defaults to UTF-8. Utilizes
+   * a random boundary based on a UUID.
+   */
+  def fromMultipartFormUUID(
+    form: Form,
+  ): UIO[Body] =
+    form.multipartBytesUUID.map { case (boundary, bytes) =>
+      StreamBody(bytes, Some(MediaType.multipart.`form-data`), Some(boundary))
+    }
 
   /**
    * Constructs a [[zio.http.Body]] from a stream of bytes.
@@ -185,7 +193,7 @@ object Body {
    * default character set.
    */
   def fromURLEncodedForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
-    fromString(form.encodeAsURLEncoded(charset), charset).withContentType(MediaType.application.`x-www-form-urlencoded`)
+    fromString(form.urlEncoded(charset), charset).withContentType(MediaType.application.`x-www-form-urlencoded`)
   }
 
   private[zio] trait UnsafeWriteable extends Body
@@ -213,15 +221,15 @@ object Body {
 
     override private[zio] def mediaType: Option[MediaType] = None
 
-    override private[zio] def boundary: Option[CharSequence] = None
+    override private[zio] def boundary: Option[Boundary] = None
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body = EmptyBody
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body = EmptyBody
   }
 
   private[zio] final case class ChunkBody(
     data: Chunk[Byte],
     override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[CharSequence] = None,
+    override val boundary: Option[Boundary] = None,
   ) extends Body
       with UnsafeWriteable
       with UnsafeBytes {
@@ -239,7 +247,7 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body =
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
@@ -247,7 +255,7 @@ object Body {
     val file: java.io.File,
     chunkSize: Int = 1024 * 4,
     override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[CharSequence] = None,
+    override val boundary: Option[Boundary] = None,
   ) extends Body
       with UnsafeWriteable
       with UnsafeBytes {
@@ -283,14 +291,14 @@ object Body {
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       Files.readAllBytes(file.toPath)
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body =
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
   private[zio] final case class StreamBody(
     stream: ZStream[Any, Throwable, Byte],
     override val mediaType: Option[MediaType] = None,
-    override val boundary: Option[CharSequence] = None,
+    override val boundary: Option[Boundary] = None,
   ) extends Body {
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
@@ -301,7 +309,7 @@ object Body {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[CharSequence] = None): Body =
+    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 

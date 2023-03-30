@@ -142,8 +142,8 @@ object EndpointMiddleware       {
   val auth: EndpointMiddleware.Typed[Header.Authorization, Nothing, Unit] =
     requireHeader(HeaderCodec.authorization)
 
-  def cookie: EndpointMiddleware.Typed[Header.RequestCookie, Nothing, Unit] =
-    requireHeader(HeaderCodec.cookie)
+  def setCookie: EndpointMiddleware.Typed[Header.SetCookie, Nothing, Unit] =
+    requireHeader(HeaderCodec.setCookie)
 
   type CorsInput =
     Either[(Header.Origin, Header.AccessControlRequestMethod), (Method, Header.Origin)]

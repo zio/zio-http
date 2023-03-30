@@ -327,6 +327,7 @@ private[codec] object EncoderDecoder                   {
     }
 
     private def encodeContentType(inputs: Array[Any]): Headers = {
+      val _ = inputs // TODO: Support multiple content types
       if (jsonEncoders.length == 0) Headers.empty
       else if (jsonEncoders.length == 1) {
         Headers(Header.ContentType(MediaType.application.json))

@@ -21,22 +21,29 @@ import java.net.{InetAddress, InetSocketAddress}
 import zio._
 
 import zio.http.Server.Config.ResponseCompressionConfig
-import zio.http.Server.ErrorCallback
 import zio.http.netty.NettyConfig
 import zio.http.netty.server._
 
+/**
+ * Represents a server, which is capable of serving zero or more HTTP
+ * applications.
+ */
 trait Server {
-  def install[R](httpApp: App[R], errorCallback: Option[ErrorCallback] = None)(implicit
-    trace: Trace,
-  ): URIO[R, Unit]
 
+  /**
+   * Installs the given HTTP application into the server.
+   */
+  def install[R](httpApp: App[R])(implicit trace: Trace): URIO[R, Unit]
+
+  /**
+   * The port on which the server is listening.
+   *
+   * @return
+   */
   def port: Int
-
 }
 
 object Server {
-  type ErrorCallback = Cause[Nothing] => ZIO[Any, Nothing, Unit]
-
   final case class Config(
     sslConfig: Option[SSLConfig],
     address: InetSocketAddress,
@@ -281,15 +288,11 @@ object Server {
 
   def serve[R](
     httpApp: App[R],
-    errorCallback: Option[ErrorCallback] = None,
   )(implicit trace: Trace): URIO[R with Server, Nothing] =
-    install(httpApp, errorCallback) *> ZIO.never
+    install(httpApp) *> ZIO.never
 
-  def install[R](
-    httpApp: App[R],
-    errorCallback: Option[ErrorCallback] = None,
-  )(implicit trace: Trace): URIO[R with Server, Int] = {
-    ZIO.serviceWithZIO[Server](_.install(httpApp, errorCallback)) *> ZIO.service[Server].map(_.port)
+  def install[R](httpApp: App[R])(implicit trace: Trace): URIO[R with Server, Int] = {
+    ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
   }
 
   private val base: ZLayer[Driver, Throwable, Server] = {
@@ -332,19 +335,11 @@ object Server {
     driver: Driver,
     bindPort: Int,
   ) extends Server {
-    override def install[R](httpApp: App[R], errorCallback: Option[ErrorCallback])(implicit
+    override def install[R](httpApp: App[R])(implicit
       trace: Trace,
     ): URIO[R, Unit] =
-      ZIO.environment[R].flatMap(driver.addApp(httpApp, _)) *> setErrorCallback(errorCallback)
+      ZIO.environment[R].flatMap(driver.addApp(httpApp, _))
 
     override def port: Int = bindPort
-
-    private def setErrorCallback(errorCallback: Option[ErrorCallback])(implicit trace: Trace): UIO[Unit] =
-      driver
-        .setErrorCallback(errorCallback)
-        .unless(errorCallback.isEmpty)
-        .map(_.getOrElse(()))
-
   }
-
 }

@@ -21,7 +21,7 @@ import scala.collection.AbstractIterator
 import zio.http.Server.Config.CompressionOptions
 import zio.http.internal.{CaseMode, CharSequenceExtensions}
 import zio.http.model._
-import zio.http.model.headers.HeaderNames
+import zio.http.socket.CloseStatus
 
 import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
@@ -97,7 +97,7 @@ private[netty] object Conversions {
   private def encodeHeaderListToNetty(headers: Iterable[Header]): HttpHeaders = {
     val nettyHeaders = new DefaultHttpHeaders(true)
     for (header <- headers) {
-      if (header.headerName == HeaderNames.setCookie) {
+      if (header.headerName == Header.SetCookie.name) {
         nettyHeaders.add(header.headerName, header.renderedValueAsCharSequence)
       } else {
         nettyHeaders.set(header.headerName, header.renderedValueAsCharSequence)

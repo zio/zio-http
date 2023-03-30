@@ -2,8 +2,6 @@ package zio.http
 
 import zio._
 
-import zio.http.Server.ErrorCallback
-
 /**
  * Enables tests that make calls against "localhost" with user-specified
  * Behavior/Responses.
@@ -77,7 +75,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
       _ <- driver.addApp(app.withDefaultErrorResponse, r)
     } yield ()
 
-  override def install[R](httpApp: App[R], errorCallback: Option[ErrorCallback])(implicit
+  override def install[R](httpApp: App[R])(implicit
     trace: zio.Trace,
   ): URIO[R, Unit] =
     ZIO
@@ -87,13 +85,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
           httpApp.withDefaultErrorResponse,
           _,
         ),
-      ) *> setErrorCallback(errorCallback)
-
-  private def setErrorCallback(errorCallback: Option[ErrorCallback]): UIO[Unit] =
-    driver
-      .setErrorCallback(errorCallback)
-      .unless(errorCallback.isEmpty)
-      .map(_.getOrElse(()))
+      )
 
   override def port: Int = bindPort
 }

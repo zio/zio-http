@@ -35,7 +35,6 @@ private[zio] final case class NettyDriver(
   channelInitializer: ChannelInitializer[Channel],
   serverInboundHandler: ServerInboundHandler,
   eventLoopGroup: EventLoopGroup,
-  errorCallbackRef: ErrorCallbackRef,
   serverConfig: Server.Config,
   nettyConfig: NettyConfig,
 ) extends Driver { self =>
@@ -48,14 +47,6 @@ private[zio] final case class NettyDriver(
       _               <- ZIO.succeed(ResourceLeakDetector.setLevel(nettyConfig.leakDetectionLevel.toNetty))
       port            <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield port
-
-  def setErrorCallback(newCallback: Option[Server.ErrorCallback])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
-    var loop = true
-    while (loop) {
-      val oldCallback = errorCallbackRef.get()
-      if (errorCallbackRef.compareAndSet(oldCallback, newCallback)) loop = false
-    }
-  }
 
   def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
     var loop = true
@@ -90,7 +81,6 @@ private[zio] object NettyDriver {
       & ChannelFactory[ServerChannel]
       & ChannelInitializer[Channel]
       & EventLoopGroup
-      & ErrorCallbackRef
       & Server.Config
       & NettyConfig
       & ServerInboundHandler,
@@ -102,7 +92,6 @@ private[zio] object NettyDriver {
       cf    <- ZIO.service[ChannelFactory[ServerChannel]]
       cInit <- ZIO.service[ChannelInitializer[Channel]]
       elg   <- ZIO.service[EventLoopGroup]
-      ecb   <- ZIO.service[ErrorCallbackRef]
       sc    <- ZIO.service[Server.Config]
       nsc   <- ZIO.service[NettyConfig]
       sih   <- ZIO.service[ServerInboundHandler]
@@ -112,7 +101,6 @@ private[zio] object NettyDriver {
       channelInitializer = cInit,
       serverInboundHandler = sih,
       eventLoopGroup = elg,
-      errorCallbackRef = ecb,
       serverConfig = sc,
       nettyConfig = nsc,
     )
@@ -123,7 +111,6 @@ private[zio] object NettyDriver {
       ZLayer.succeed(
         new AtomicReference[(App[Any], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
       ),
-      ZLayer.succeed(new AtomicReference[Option[Server.ErrorCallback]](Option.empty)),
       ZLayer.succeed(ServerTime.make(1000.millis)),
       NettyRuntime.live,
       ServerChannelInitializer.layer,

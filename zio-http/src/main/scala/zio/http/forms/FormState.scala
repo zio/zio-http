@@ -19,6 +19,7 @@ package zio.http.forms
 import zio._
 
 import zio.http.forms.FormAST._
+import zio.http.model.Boundary
 
 private[forms] sealed trait FormState
 

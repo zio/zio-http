@@ -14,42 +14,44 @@
  * limitations under the License.
  */
 
-package zio.http.forms
+package zio.http.model
 
-import java.nio.charset.{Charset, StandardCharsets}
-import java.security.SecureRandom
+import java.nio.charset.Charset
 
 import zio.Chunk
 
-import zio.http.forms.FormAST.Header
-import zio.http.model.{Headers, MediaType}
+import zio.http.forms.FormAST
 
-final case class Boundary(id: String, charset: Charset = StandardCharsets.UTF_8) {
+/**
+ * A multipart boundary, which consists of both the boundary and its charset.
+ */
+final case class Boundary(id: String, charset: Charset) { self =>
 
   def isEncapsulating(bytes: Chunk[Byte]): Boolean = bytes == encapsulationBoundaryBytes
 
   def isClosing(bytes: Chunk[Byte]): Boolean = bytes == closingBoundaryBytes
 
   def contentTypeHeader: Headers = Headers(
-    zio.http.model.Header.ContentType(MediaType.multipart.`form-data`, boundary = Some(id)),
+    Header.ContentType(MediaType.multipart.`form-data`, Some(self)),
   )
 
-  val encapsulationBoundary: String = s"--$id"
+  lazy val encapsulationBoundary: String = s"--$id"
 
-  val closingBoundary: String = s"--$id--"
+  lazy val closingBoundary: String = s"--$id--"
 
-  private[forms] val encapsulationBoundaryBytes = Chunk.fromArray(encapsulationBoundary.getBytes(charset))
+  private[http] val encapsulationBoundaryBytes = Chunk.fromArray(encapsulationBoundary.getBytes(charset))
 
-  private[forms] val closingBoundaryBytes = Chunk.fromArray(closingBoundary.getBytes(charset))
+  private[http] val closingBoundaryBytes = Chunk.fromArray(closingBoundary.getBytes(charset))
 
 }
 
 object Boundary {
+  def apply(boundary: String): Boundary = Boundary(boundary, Charsets.Utf8)
 
-  def generate(rng: () => String = () => new SecureRandom().nextLong.toString): Boundary =
-    Boundary(s"(((${rng().toString()})))")
+  def fromString(content: String, charset: Charset): Option[Boundary] =
+    fromContent(Chunk.fromArray(content.getBytes(charset)), charset)
 
-  def fromContent(content: Chunk[Byte], charset: Charset = StandardCharsets.UTF_8): Option[Boundary] = {
+  def fromContent(content: Chunk[Byte], charset: Charset = Charsets.Utf8): Option[Boundary] = {
     var i = 0
     var j = 0
 
@@ -68,21 +70,14 @@ object Boundary {
     else Option.empty
   }
 
-  def fromHeaders(headers: Headers): Option[Boundary] = {
-
-    val charset =
-      headers
-        .rawHeader(zio.http.model.Header.ContentType)
-        .flatMap(value => Header("Content-Type", value).fields.get("charset"))
-        .map(Charset.forName)
-        .getOrElse(StandardCharsets.UTF_8)
-
+  def fromHeaders(headers: Headers): Option[Boundary] =
     for {
-      disp     <- headers.rawHeader(zio.http.model.Header.ContentDisposition)
-      boundary <- Header("Content-Disposition", disp).fields.get("boundary")
+      contentType <- headers.header(Header.ContentType)
+      boundary    <- contentType.boundary
+    } yield boundary
 
-    } yield Boundary(boundary, charset)
-
-  }
-
+  def randomUUID: zio.UIO[Boundary] =
+    zio.Random.nextUUID.map { id =>
+      Boundary(s"(((${id.toString()})))")
+    }
 }

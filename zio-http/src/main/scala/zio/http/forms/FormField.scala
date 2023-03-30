@@ -27,19 +27,23 @@ import zio.http.forms.FormDecodingError._
 import zio.http.model.Header.ContentTransferEncoding
 import zio.http.model.MediaType
 
-sealed trait FormData {
+/**
+ * Represents a field in a form. Every field contains name, content type
+ * (perhaps just plaintext), type-specific content, and an optional filename.
+ */
+sealed trait FormField {
   def name: String
   def contentType: MediaType
   def filename: Option[String]
 
-  def valueAsString: Option[String] = this match {
-    case FormData.Text(_, value, _, _) => Some(value)
-    case FormData.Simple(_, value)     => Some(value)
-    case _                             => None
+  final def valueAsString: Option[String] = this match {
+    case FormField.Text(_, value, _, _) => Some(value)
+    case FormField.Simple(_, value)     => Some(value)
+    case _                              => None
   }
 }
 
-object FormData {
+object FormField {
 
   /**
    * A binary form data part.
@@ -66,7 +70,7 @@ object FormData {
     contentType: MediaType,
     transferEncoding: Option[ContentTransferEncoding] = None,
     filename: Option[String] = None,
-  ) extends FormData
+  ) extends FormField
 
   final case class StreamingBinary(
     name: String,
@@ -74,7 +78,7 @@ object FormData {
     transferEncoding: Option[ContentTransferEncoding] = None,
     filename: Option[String] = None,
     data: ZStream[Any, Nothing, Byte],
-  ) extends FormData {
+  ) extends FormField {
     def collect: ZIO[Any, Nothing, Binary] = {
       data.runCollect.map { bytes =>
         Binary(name, bytes, contentType, transferEncoding, filename)
@@ -87,17 +91,17 @@ object FormData {
     value: String,
     contentType: MediaType,
     filename: Option[String] = None,
-  ) extends FormData
+  ) extends FormField
 
-  final case class Simple(name: String, value: String) extends FormData {
+  final case class Simple(name: String, value: String) extends FormField {
     override val contentType: MediaType   = MediaType.text.plain
     override val filename: Option[String] = None
   }
 
-  def fromFormAST(
+  private[http] def fromFormAST(
     ast: Chunk[FormAST],
     defaultCharset: Charset = StandardCharsets.UTF_8,
-  ): ZIO[Any, FormDecodingError, FormData] = {
+  ): ZIO[Any, FormDecodingError, FormField] = {
     val extract =
       ast.foldLeft((Option.empty[Header], Option.empty[Header], Option.empty[Header], Chunk.empty[Content])) {
         case (accum, header: Header) if header.name == "Content-Disposition"       =>
@@ -140,7 +144,7 @@ object FormData {
   private[http] def incomingStreamingBinary(
     ast: Chunk[FormAST],
     queue: Queue[Take[Nothing, Byte]],
-  ): ZIO[Any, FormDecodingError, FormData] = {
+  ): ZIO[Any, FormDecodingError, FormField] = {
     val extract =
       ast.foldLeft((Option.empty[Header], Option.empty[Header], Option.empty[Header])) {
         case (accum, header: Header) if header.name == "Content-Disposition"       =>
@@ -170,10 +174,10 @@ object FormData {
     )
   }
 
-  def textField(name: String, value: String, mediaType: MediaType = MediaType.text.plain): FormData =
+  def textField(name: String, value: String, mediaType: MediaType = MediaType.text.plain): FormField =
     Text(name, value, mediaType, None)
 
-  def simpleField(name: String, value: String): FormData = Simple(name, value)
+  def simpleField(name: String, value: String): FormField = Simple(name, value)
 
   def binaryField(
     name: String,
@@ -181,7 +185,7 @@ object FormData {
     mediaType: MediaType,
     transferEncoding: Option[ContentTransferEncoding] = None,
     filename: Option[String] = None,
-  ): FormData = Binary(name, data, mediaType, transferEncoding, filename)
+  ): FormField = Binary(name, data, mediaType, transferEncoding, filename)
 
   def streamingBinaryField(
     name: String,
@@ -189,5 +193,5 @@ object FormData {
     mediaType: MediaType,
     transferEncoding: Option[ContentTransferEncoding] = None,
     filename: Option[String] = None,
-  ): FormData = StreamingBinary(name, mediaType, transferEncoding, filename, data)
+  ): FormField = StreamingBinary(name, mediaType, transferEncoding, filename, data)
 }

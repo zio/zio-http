@@ -19,30 +19,30 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
-import zio.http.model.Header.ResponseCookie
+import zio.http.model.Header.SetCookie
 
-object ResponseCookieSpec extends ZIOSpecDefault {
-  override def spec: Spec[TestEnvironment with Scope, Any] = suite("ResponseCookieSpec suite")(
-    test("ResponseCookie handle valid cookie") {
-      val result = ResponseCookie.parse("foo=bar") match {
-        case Right(ResponseCookie(value)) =>
+object SetCookieSpec extends ZIOSpecDefault {
+  override def spec: Spec[TestEnvironment with Scope, Any] = suite("SetCookieSpec suite")(
+    test("SetCookie handle valid cookie") {
+      val result = SetCookie.parse("foo=bar") match {
+        case Right(SetCookie(value)) =>
           value.name == "foo" && value.content == "bar"
-        case _                            => false
+        case _                       => false
       }
       assertTrue(result)
     },
-    test("ResponseCookie handle invalid cookie") {
-      val result = ResponseCookie.parse("") match {
-        case Right(ResponseCookie(_)) =>
+    test("SetCookie handle invalid cookie") {
+      val result = SetCookie.parse("") match {
+        case Right(SetCookie(_)) =>
           false
-        case _                        => true
+        case _                   => true
       }
       assertTrue(result)
     },
-    test("ResponseCookie render valid cookie") {
-      val result = ResponseCookie.parse("foo=bar") match {
+    test("SetCookie render valid cookie") {
+      val result = SetCookie.parse("foo=bar") match {
         case Right(rc) =>
-          ResponseCookie.render(rc) == "foo=bar"
+          SetCookie.render(rc) == "foo=bar"
         case _         => false
       }
       assertTrue(result)

@@ -85,7 +85,7 @@ object Request {
   private def headersForBody(body: Body): Headers =
     body.mediaType match {
       case Some(mediaType) =>
-        Headers(Header.ContentType(mediaType, boundary = body.boundary.map(_.toString)))
+        Headers(Header.ContentType(mediaType, body.boundary))
       case None            =>
         Headers.empty
     }

@@ -8,17 +8,20 @@ import zio.{Chunk, Queue, ZIO}
 
 import zio.stream.{Take, ZStream}
 
-final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary, charset: Charset) {
+import zio.http.model.Boundary
+
+final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary) {
+  def charset: Charset = boundary.charset
 
   /**
    * Runs the streaming form and collects all parts in memory, returning a Form
    */
   def collectAll: ZIO[Any, Throwable, Form] =
-    data
+    fields
       .mapZIOPar(1) {
-        case sb: FormData.StreamingBinary =>
+        case sb: FormField.StreamingBinary =>
           sb.collect
-        case other: FormData              =>
+        case other: FormField              =>
           ZIO.succeed(other)
       }
       .runCollect
@@ -26,7 +29,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
         Form(formData)
       }
 
-  def data: ZStream[Any, Throwable, FormData] =
+  def fields: ZStream[Any, Throwable, FormField] =
     source
       .mapAccumZIO(initialState) { (state, byte) =>
         state.formState match {
@@ -49,14 +52,14 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                     newFormState.phase == FormState.Phase.Part2 &&
                     !state.inNonStreamingPart
                   ) {
-                    val contentType = FormData.getContentType(newFormState.tree)
+                    val contentType = FormField.getContentType(newFormState.tree)
                     if (contentType.binary) {
                       for {
                         newQueue <- Queue.unbounded[Take[Nothing, Byte]]
                         _        <- newQueue.offer(Take.chunk(newFormState.tree.collect { case FormAST.Content(bytes) =>
                           bytes
                         }.flatten))
-                        streamingFormData <- FormData
+                        streamingFormData <- FormField
                           .incomingStreamingBinary(newFormState.tree, newQueue)
                           .mapError(_.asException)
                         nextState = state.copy(
@@ -75,7 +78,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                   }
                 case FormState.BoundaryEncapsulated(ast)     =>
                   if (state.inNonStreamingPart) {
-                    FormData
+                    FormField
                       .fromFormAST(ast, charset)
                       .mapBoth(
                         _.asException,
@@ -88,7 +91,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                   }
                 case FormState.BoundaryClosed(ast)           =>
                   if (state.inNonStreamingPart) {
-                    FormData
+                    FormField
                       .fromFormAST(ast, charset)
                       .mapBoth(
                         _.asException,
@@ -102,7 +105,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
               }
             }
           case _                                    =>
-            ZIO.succeed(state, None)
+            ZIO.succeed((state, None))
         }
       }
       .collect { case Some(formData) =>

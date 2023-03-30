@@ -43,8 +43,8 @@ trait ClientDriver {
 
 object ClientDriver {
   trait ChannelInterface {
-    def resetChannel(): ZIO[Any, Throwable, ChannelState]
-    def interrupt(): ZIO[Any, Throwable, Unit]
+    def resetChannel: ZIO[Any, Throwable, ChannelState]
+    def interrupt: ZIO[Any, Throwable, Unit]
   }
 
   val shared: ZLayer[Driver, Throwable, ClientDriver] =

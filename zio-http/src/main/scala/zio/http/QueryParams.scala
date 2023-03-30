@@ -16,25 +16,29 @@
 
 package zio.http
 
+import java.nio.charset.Charset
+
 import zio.Chunk
 
+import zio.http.forms.Form
 import zio.http.internal.QueryParamEncoding
+import zio.http.model.Charsets
 
 /**
  * A collection of query parameters.
  */
-final case class QueryParams private[http] (map: Map[String, Chunk[String]])
+case class QueryParams private[http] (map: Map[String, Chunk[String]])
     extends scala.collection.Map[String, Chunk[String]] {
   self =>
 
-  override final def -(key: String): QueryParams = QueryParams(map - key)
+  override def -(key: String): QueryParams = QueryParams(map - key)
 
-  override final def -(key1: String, key2: String, keys: String*): QueryParams =
+  override def -(key1: String, key2: String, keys: String*): QueryParams =
     QueryParams(map.--(Chunk(key1, key2) ++ keys))
 
-  override final def +[V1 >: Chunk[String]](kv: (String, V1)): Map[String, V1] = map.+(kv)
+  override def +[V1 >: Chunk[String]](kv: (String, V1)): Map[String, V1] = map.+(kv)
 
-  final def ++(that: QueryParams): QueryParams =
+  def ++(that: QueryParams): QueryParams =
     QueryParams(that.map.foldLeft(map) { case (map, (k, v)) =>
       map.updated(
         k,
@@ -45,9 +49,9 @@ final case class QueryParams private[http] (map: Map[String, Chunk[String]])
       )
     })
 
-  final def add(key: String, value: String): QueryParams = addAll(key, Chunk(value))
+  def add(key: String, value: String): QueryParams = addAll(key, Chunk(value))
 
-  final def addAll(key: String, value: Chunk[String]): QueryParams = {
+  def addAll(key: String, value: Chunk[String]): QueryParams = {
     val previousValue = map.get(key)
     val newValue      = previousValue match {
       case Some(prev) => prev ++ value
@@ -56,18 +60,22 @@ final case class QueryParams private[http] (map: Map[String, Chunk[String]])
     QueryParams(map.updated(key, newValue))
   }
 
-  final def encode: String = QueryParamEncoding.default.encode("", self)
+  def encode: String = encode(Charsets.Utf8)
+
+  def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
 
   override def filter(p: ((String, Chunk[String])) => Boolean): QueryParams =
     QueryParams(map.filter(p))
 
-  override final def isEmpty: Boolean = map.isEmpty
+  override def isEmpty: Boolean = map.isEmpty
 
-  final def toMap: Map[String, Chunk[String]] = map
+  def toForm: Form = Form.fromQueryParams(self)
 
-  override final def get(key: String): Option[Chunk[String]] = map.get(key)
+  def toMap: Map[String, Chunk[String]] = map
 
-  override final def iterator: Iterator[(String, Chunk[String])] = map.iterator
+  override def get(key: String): Option[Chunk[String]] = map.get(key)
+
+  override def iterator: Iterator[(String, Chunk[String])] = map.iterator
 
 }
 
@@ -83,8 +91,8 @@ object QueryParams {
       key -> values.map(_._2)
     })
 
-  def decode(queryStringFragment: String): QueryParams =
-    QueryParamEncoding.default.decode(queryStringFragment)
+  def decode(queryStringFragment: String, charset: Charset = Charsets.Utf8): QueryParams =
+    QueryParamEncoding.default.decode(queryStringFragment, charset)
 
   val empty: QueryParams = QueryParams(Map.empty[String, Chunk[String]])
 

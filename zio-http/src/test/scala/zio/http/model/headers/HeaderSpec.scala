@@ -66,7 +66,7 @@ object HeaderSpec extends ZIOSpecDefault {
     ),
     suite("hasContentType")(
       test("should match content type with charsets and boundaries") {
-        val header = Headers(HeaderNames.contentType, "application/json; charset=UTF-8")
+        val header = Headers(Header.ContentType.name, "application/json; charset=UTF-8")
         val actual = header.hasContentType("application/json")
         assert(actual)(isTrue)
       },

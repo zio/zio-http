@@ -29,7 +29,7 @@ import zio.http.socket._
 sealed trait Response extends HeaderOps[Response] { self =>
 
   def addCookie(cookie: Cookie.Response): Response =
-    self.copy(headers = self.headers ++ Headers(Header.ResponseCookie(cookie)))
+    self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
   def body: Body
 

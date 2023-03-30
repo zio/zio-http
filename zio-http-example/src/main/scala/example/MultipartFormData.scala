@@ -3,8 +3,8 @@ package example
 import zio.{Chunk, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import zio.http._
-import zio.http.forms.{Form, FormData}
-import zio.http.model.{Header, MediaType, Method, Status}
+import zio.http.forms.{Form, FormField}
+import zio.http.model.{Boundary, Header, MediaType, Method, Status}
 
 object MultipartFormData extends ZIOAppDefault {
 
@@ -23,13 +23,13 @@ object MultipartFormData extends ZIOAppDefault {
           response <- form.get("file") match {
             case Some(file) =>
               file match {
-                case FormData.Binary(_, data, contentType, transferEncoding, filename) =>
+                case FormField.Binary(_, data, contentType, transferEncoding, filename) =>
                   ZIO.succeed(
                     Response.text(
                       s"Received ${data.length} bytes of $contentType filename $filename and transfer encoding $transferEncoding",
                     ),
                   )
-                case _                                                                 =>
+                case _                                                                  =>
                   ZIO.fail(
                     Response(Status.BadRequest, body = Body.fromString("Parameter 'file' must be a binary file")),
                   )
@@ -52,13 +52,14 @@ object MultipartFormData extends ZIOAppDefault {
           "/upload",
           Body.fromMultipartForm(
             Form(
-              FormData.binaryField(
+              FormField.binaryField(
                 "file",
                 Chunk.fromArray("Hello, world!".getBytes),
                 MediaType.application.`octet-stream`,
                 filename = Some("hello.txt"),
               ),
             ),
+            Boundary("AaB03x"),
           ),
         )
       responseBody <- response.body.asString

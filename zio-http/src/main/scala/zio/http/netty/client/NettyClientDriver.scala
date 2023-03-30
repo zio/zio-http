@@ -118,12 +118,12 @@ final case class NettyClientDriver private (
           pipeline.fireChannelActive()
 
           new ChannelInterface {
-            override def resetChannel(): ZIO[Any, Throwable, ChannelState] =
+            override def resetChannel: ZIO[Any, Throwable, ChannelState] =
               ZIO.succeed(
                 ChannelState.Invalid,
               ) // channel becomes invalid - reuse of websocket channels not supported currently
 
-            override def interrupt(): ZIO[Any, Throwable, Unit] =
+            override def interrupt: ZIO[Any, Throwable, Unit] =
               NettyFutureExecutor.executed(channel.disconnect())
           }
         } else {
@@ -134,13 +134,13 @@ final case class NettyClientDriver private (
           val frozenToRemove = toRemove.toSet
 
           new ChannelInterface {
-            override def resetChannel(): ZIO[Any, Throwable, ChannelState] =
+            override def resetChannel: ZIO[Any, Throwable, ChannelState] =
               ZIO.attempt {
                 frozenToRemove.foreach(pipeline.remove)
                 ChannelState.Reusable // channel can be reused
               }
 
-            override def interrupt(): ZIO[Any, Throwable, Unit] =
+            override def interrupt: ZIO[Any, Throwable, Unit] =
               NettyFutureExecutor.executed(channel.disconnect())
           }
         }

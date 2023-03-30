@@ -23,7 +23,7 @@ import zio._
 import zio.http.model.Header.ContentTransferEncoding
 import zio.http.model._
 
-private[forms] sealed trait FormAST {
+private[http] sealed trait FormAST {
   def bytes: Chunk[Byte]
 
   def isContent: Boolean = this match {
@@ -32,7 +32,7 @@ private[forms] sealed trait FormAST {
   }
 }
 
-private[forms] object FormAST {
+private[http] object FormAST {
 
   sealed trait DecodingPart1AST extends FormAST
 
@@ -63,15 +63,15 @@ private[forms] object FormAST {
 
   case object EoL extends FormAST { val bytes: Chunk[Byte] = Chunk('\r', '\n') }
 
-  case class EncapsulatingBoundary(boundary: Boundary) extends DecodingPart2AST {
+  final case class EncapsulatingBoundary(boundary: Boundary) extends DecodingPart2AST {
     def bytes: Chunk[Byte] = boundary.encapsulationBoundaryBytes
   }
 
-  case class ClosingBoundary(boundary: Boundary) extends DecodingPart2AST {
+  final case class ClosingBoundary(boundary: Boundary) extends DecodingPart2AST {
     def bytes: Chunk[Byte] = boundary.closingBoundaryBytes
   }
 
-  case class Header(name: String, value: String) extends DecodingPart1AST {
+  final case class Header(name: String, value: String) extends DecodingPart1AST {
 
     /**
      * The preposition is the first part of the header value before the first

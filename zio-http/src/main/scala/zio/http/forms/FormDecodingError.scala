@@ -19,8 +19,10 @@ package zio.http.forms
 /**
  * Represents a form decoding error.
  */
-sealed trait FormDecodingError { self =>
+sealed trait FormDecodingError extends Exception { self =>
   import FormDecodingError._
+
+  override def getMessage(): String = message
 
   def message: String = self match {
     case ContentDispositionMissingName     => "Content-Disposition header is missing 'name' field"

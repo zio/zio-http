@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.forms
+package zio.http.model
 
 import java.nio.charset.StandardCharsets
 
@@ -24,6 +24,7 @@ import zio.test._
 import zio.http.forms.Fixtures._
 
 object BoundarySpec extends ZIOSpecDefault {
+  val CRLF = "\r\n"
 
   val multipartFormBytes3 = Chunk.fromArray(s"""------heythere--${CRLF}""".getBytes(StandardCharsets.UTF_8))
   val bad1                = Chunk.fromArray(s"""-heythere${CRLF}""".getBytes(StandardCharsets.UTF_8))

@@ -43,6 +43,8 @@ sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
 
   final def get(key: CharSequence): Option[String] = Option(getUnsafe(key))
 
+  final def get(headerType: Header.HeaderType): Option[headerType.HeaderValue] = header(headerType)
+
   /**
    * @return
    *   null if header is not found

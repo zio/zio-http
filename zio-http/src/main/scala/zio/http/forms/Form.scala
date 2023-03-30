@@ -25,22 +25,31 @@ import zio._
 
 import zio.stream._
 
+import zio.http.QueryParams
 import zio.http.forms.FormAST._
-import zio.http.forms.FormData._
 import zio.http.forms.FormDecodingError._
+import zio.http.forms.FormField._
+import zio.http.forms.FormState._
+import zio.http.model.{Boundary, Charsets, Headers}
 
 /**
  * Represents a form that can be either multipart or url encoded.
  */
-final case class Form(formData: Chunk[FormData]) {
+final case class Form(formData: Chunk[FormField]) {
 
-  def +(field: FormData): Form = append(field)
+  /**
+   * Returns a new form with the specified field appended.
+   */
+  def +(field: FormField): Form = append(field)
 
-  def append(field: FormData): Form = Form(formData :+ field)
+  /**
+   * Returns a new form with the specified field appended.
+   */
+  def append(field: FormField): Form = Form(formData :+ field)
 
   /**
    * Runs all streaming form data and stores them in memory, returning a Form
-   * that has no streaming parts
+   * that has no streaming parts.
    */
   def collectAll: ZIO[Any, Throwable, Form] =
     ZIO
@@ -52,35 +61,32 @@ final case class Form(formData: Chunk[FormData]) {
       }
       .map(Form(_))
 
-  def get(name: String): Option[FormData] = formData.find(_.name == name)
+  /**
+   * Returns the first field with the specified name.
+   */
+  def get(name: String): Option[FormField] = map.get(name)
 
-  def encodeAsURLEncoded(charset: Charset = StandardCharsets.UTF_8): String = {
+  /**
+   * Returns a map view of the form, where the keys in the map are the field
+   * names, and the values are the field data.
+   */
+  lazy val map: Map[String, FormField] = formData.map(fd => fd.name -> fd).toMap
 
-    def makePair(name: String, value: String): String = {
-      val encodedName  = URLEncoder.encode(name, charset.name())
-      val encodedValue = URLEncoder.encode(value, charset.name())
-      s"$encodedName=$encodedValue"
+  /**
+   * Encodes the form using multipart encoding, choosing a random UUID as the
+   * boundary.
+   */
+  def multipartBytesUUID: zio.UIO[(Boundary, ZStream[Any, Nothing, Byte])] =
+    Boundary.randomUUID.map { boundary =>
+      boundary -> multipartBytes(boundary)
     }
 
-    val urlEncoded = formData.foldLeft(Chunk.empty[String]) {
-      case (accum, FormData.Text(k, v, _, _)) => accum :+ makePair(k, v)
-      case (accum, FormData.Simple(k, v))     => accum :+ makePair(k, v)
-      case (accum, _)                         => accum
-    }
-
-    urlEncoded.mkString("&")
-  }
-
-  def encodeAsMultipartBytes(
-    charset: Charset = StandardCharsets.UTF_8,
-    rng: () => String = () => new SecureRandom().nextLong().toString,
-  ): (CharSequence, ZStream[Any, Nothing, Byte]) =
-    encodeAsMultipartBytes(charset, Boundary.generate(rng))
-
-  def encodeAsMultipartBytes(
-    charset: Charset,
+  /**
+   * Encodes the form using multipart encoding, using the specified boundary.
+   */
+  def multipartBytes(
     boundary: Boundary,
-  ): (CharSequence, ZStream[Any, Nothing, Byte]) = {
+  ): ZStream[Any, Nothing, Byte] = {
 
     val encapsulatingBoundary = EncapsulatingBoundary(boundary)
     val closingBoundary       = ClosingBoundary(boundary)
@@ -96,7 +102,7 @@ final case class Form(formData: Chunk[FormData]) {
             Header.contentType(fd.contentType),
             EoL,
             EoL,
-            Content(Chunk.fromArray(value.getBytes(charset))),
+            Content(Chunk.fromArray(value.getBytes(boundary.charset))),
             EoL,
           ),
         )
@@ -111,7 +117,7 @@ final case class Form(formData: Chunk[FormData]) {
             Header.contentType(contentType),
             EoL,
             EoL,
-            Content(Chunk.fromArray(value.getBytes(charset))),
+            Content(Chunk.fromArray(value.getBytes(boundary.charset))),
             EoL,
           ),
         )
@@ -148,46 +154,74 @@ final case class Form(formData: Chunk[FormData]) {
 
     val stream = ZStream.fromChunk(astStreams).flatten ++ ZStream.fromChunk(Chunk(closingBoundary, EoL))
 
-    boundary.id -> stream.map(_.bytes).flattenChunks
+    stream.map(_.bytes).flattenChunks
   }
+
+  def toQueryParams: QueryParams =
+    formData.foldLeft(QueryParams.empty) {
+      case (acc, FormField.Text(k, v, _, _)) => acc.add(k, v)
+      case (acc, FormField.Simple(k, v))     => acc.add(k, v)
+      case (acc, _)                          => acc
+    }
+
+  /**
+   * Encodes the form using URL encoding, using the default charset.
+   */
+  def urlEncoded: String = urlEncoded(Charsets.Utf8)
+
+  /**
+   * Encodes the form using URL encoding, using the specified charset. Ignores
+   * any data that cannot be URL encoded.
+   */
+  def urlEncoded(charset: Charset): String = toQueryParams.encode(charset).drop(1)
 }
 
 object Form {
 
-  def apply(formData: FormData*): Form = Form(Chunk.fromIterable(formData))
+  /**
+   * Creates a form from the specified form data.
+   */
+  def apply(formData: FormField*): Form = Form(Chunk.fromIterable(formData))
 
+  /**
+   * An empty form, without any fields.
+   */
+  val empty: Form = Form()
+
+  /**
+   * Creates a form from the specified form data, expressed as a sequence of
+   * string key-value pairs.
+   */
   def fromStrings(formData: (String, String)*): Form = apply(
-    formData.map(pair => FormData.Simple(pair._1, pair._2)): _*,
+    formData.map(pair => FormField.Simple(pair._1, pair._2)): _*,
   )
 
+  /**
+   * Creates a form from the specified form data, encoded as multipart bytes.
+   */
   def fromMultipartBytes(
     bytes: Chunk[Byte],
-    charset: Charset = StandardCharsets.UTF_8,
+    charset: Charset = Charsets.Utf8,
   ): ZIO[Any, Throwable, Form] =
     for {
       boundary <- ZIO
         .fromOption(Boundary.fromContent(bytes, charset))
         .orElseFail(FormDecodingError.BoundaryNotFoundInContent.asException)
-      form     <- StreamingForm(ZStream.fromChunk(bytes), boundary, charset).collectAll
+      form     <- StreamingForm(ZStream.fromChunk(bytes), boundary).collectAll
     } yield form
 
-  def fromURLEncoded(encoded: String, encoding: Charset): ZIO[Any, FormDecodingError, Form] = {
-    val fields = ZIO.foreach(encoded.split("&")) { pair =>
-      val array = pair.split("=")
-      if (array.length == 2)
-        ZIO
-          .attempt((URLDecoder.decode(array(0), encoding.name()), URLDecoder.decode(array(1), encoding.name)))
-          .mapError {
-            case e: UnsupportedEncodingException => InvalidCharset(e.getMessage)
-            case e                               => InvalidURLEncodedFormat(e.getMessage)
-          }
-      else
-        ZIO.fail(
-          InvalidURLEncodedFormat(s"Invalid form field.  Expected: '{name}={value}'', Got '$pair' instead."),
-        )
+  def fromQueryParams(queryParams: QueryParams): Form = {
+    queryParams.map.foldLeft[Form](Form.empty) { case (acc, (key, values)) =>
+      acc + FormField.simpleField(key, values.mkString(","))
     }
-
-    fields.map(fields => Form(Chunk.fromArray(fields.map(pair => FormData.Simple(pair._1, pair._2)))))
   }
 
+  /**
+   * Creates a form from the specified URL encoded data.
+   */
+  def fromURLEncoded(encoded: String, charset: Charset): Either[FormDecodingError, Form] =
+    scala.util.Try(fromQueryParams(QueryParams.decode(encoded, charset))).toEither.left.map {
+      case e: UnsupportedEncodingException => InvalidCharset(e.getMessage)
+      case e                               => InvalidURLEncodedFormat(e.getMessage)
+    }
 }

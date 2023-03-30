@@ -73,7 +73,7 @@ private[http] object RoutingTree                                       {
               case Some(SimpleCodec.Unspecified()) =>
                 Leaf(
                   Map(),
-                  Chunk(((method: Method) => true) -> Chunk(alternative)),
+                  Chunk(((_: Method) => true) -> Chunk(alternative)),
                 )
               case None                            =>
                 Leaf(
