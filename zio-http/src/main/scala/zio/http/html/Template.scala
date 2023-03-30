@@ -16,7 +16,7 @@
 
 package zio.http.html
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 
 /**
  * A ZIO Http styled general purpose templates

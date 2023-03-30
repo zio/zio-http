@@ -28,8 +28,6 @@ import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.{Header, Headers, Method, Version}
 import zio.http.netty.NettyConfig
 
-import io.netty.handler.codec.http.HttpHeaderValues
-
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
   private val app = Http.collectZIO[Request] {

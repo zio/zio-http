@@ -28,8 +28,6 @@ import zio.stream._
 import zio.http.forms.FormAST._
 import zio.http.forms.FormData._
 import zio.http.forms.FormDecodingError._
-import zio.http.forms.FormState._
-import zio.http.model.Headers
 
 /**
  * Represents a form that can be either multipart or url encoded.

@@ -16,8 +16,8 @@
 
 package zio.http.model.headers.values
 
+import zio.Scope
 import zio.test._
-import zio.{Chunk, Scope}
 
 import zio.http.internal.HttpGen
 import zio.http.model.Header.Allow

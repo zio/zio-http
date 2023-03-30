@@ -19,7 +19,6 @@ package zio.http.netty
 import java.util.concurrent.Executor
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.channel._
 import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}

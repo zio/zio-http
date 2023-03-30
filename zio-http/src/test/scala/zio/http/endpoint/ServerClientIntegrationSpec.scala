@@ -16,10 +16,8 @@
 
 package zio.http.endpoint
 
-import scala.language.implicitConversions
-
 import zio.test.{ZIOSpecDefault, assertTrue}
-import zio.{Scope, ZIO, ZLayer}
+import zio.{ZIO, ZLayer}
 
 import zio.schema.{DeriveSchema, Schema}
 

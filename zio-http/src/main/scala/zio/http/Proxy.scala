@@ -15,10 +15,7 @@
  */
 
 package zio.http
-import java.net.InetSocketAddress
-
 import zio.Config
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.middleware.Auth.Credentials
 import zio.http.model.{Header, Headers}

@@ -20,7 +20,6 @@ import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.model
-import zio.http.model.Cookie
 import zio.http.model.Header.RequestCookie
 
 object RequestCookieSpec extends ZIOSpecDefault {

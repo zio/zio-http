@@ -16,7 +16,7 @@
 
 package zio.http.model
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 
 /**
  * Represents an HTTP method, such as GET, PUT, POST, or DELETE.

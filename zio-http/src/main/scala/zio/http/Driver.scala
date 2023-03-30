@@ -17,7 +17,6 @@
 package zio.http
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.netty.server.NettyDriver
 

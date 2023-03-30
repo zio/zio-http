@@ -16,8 +16,6 @@
 
 package zio.http
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.model.Method
 
 private[zio] trait RequestSyntax {

@@ -26,7 +26,7 @@ import zio.{Chunk, Scope, ZIO, ZLayer, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
-import zio.http.html.{body, div, html, id}
+import zio.http.html.{body, div, id}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 import zio.http.model._
 

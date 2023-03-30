@@ -19,8 +19,6 @@ package zio.http.netty.server
 import java.io.FileInputStream
 import java.util
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.SSLConfig.{HttpBehaviour, Provider}
 import zio.http.netty.Names
 import zio.http.{SSLConfig, Server}

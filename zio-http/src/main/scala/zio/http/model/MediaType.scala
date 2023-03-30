@@ -18,8 +18,6 @@ package zio.http.model
 
 import scala.annotation.tailrec
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 final case class MediaType(
   mainType: String,
   subType: String,

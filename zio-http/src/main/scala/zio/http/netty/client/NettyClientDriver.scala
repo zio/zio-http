@@ -19,7 +19,6 @@ package zio.http.netty.client
 import scala.collection.mutable
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._

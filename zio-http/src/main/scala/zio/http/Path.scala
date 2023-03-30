@@ -18,8 +18,6 @@ package zio.http
 
 import scala.collection.mutable
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.Path.Segment
 import zio.http.Path.Segment.Text
 

@@ -17,7 +17,6 @@
 package zio.http.netty
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.channel._
 import io.netty.channel.embedded.EmbeddedChannel

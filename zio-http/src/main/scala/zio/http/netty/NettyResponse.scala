@@ -18,11 +18,11 @@ package zio.http.netty
 
 import zio.{Promise, Trace, Unsafe}
 
+import zio.http.Response
 import zio.http.Response.NativeResponse
-import zio.http.model.{Header, Headers, Status}
+import zio.http.model.Header
 import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
 import zio.http.netty.model.Conversions
-import zio.http.{Body, Response}
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext

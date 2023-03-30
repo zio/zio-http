@@ -21,7 +21,6 @@ import java.nio.file.Paths
 import java.util.zip.ZipFile
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 

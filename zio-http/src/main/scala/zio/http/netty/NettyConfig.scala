@@ -16,8 +16,7 @@
 
 package zio.http.netty
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Config, Trace, ZLayer}
+import zio.Config
 
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 

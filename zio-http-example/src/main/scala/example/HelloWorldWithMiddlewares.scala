@@ -1,6 +1,5 @@
 package example
 
-import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 import zio._

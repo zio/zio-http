@@ -16,14 +16,10 @@
 
 package zio.http.endpoint
 
-import scala.annotation.tailrec
-
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 import zio.http.codec.HttpCodecError
-import zio.http.model.HttpError
 
 /**
  * Represents a collection of endpoints that all have handlers.

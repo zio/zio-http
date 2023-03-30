@@ -6,11 +6,9 @@ import scala.annotation.nowarn
 
 import zio._
 
-import zio.http.DnsResolver.Config
 import zio.http._
 import zio.http.model.Method
 import zio.http.netty.NettyConfig
-import zio.http.netty.client.NettyClientDriver
 
 object MyServer extends ZIOAppDefault {
 

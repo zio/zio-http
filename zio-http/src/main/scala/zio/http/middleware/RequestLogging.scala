@@ -18,7 +18,6 @@ package zio.http.middleware
 
 import java.nio.charset.{Charset, StandardCharsets}
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Clock, LogAnnotation, LogLevel, Trace, ZIO}
 
 import zio.http._

@@ -7,8 +7,6 @@ import zio.http.model.Header
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
-import io.netty.util.AsciiString
-
 /**
  * This server is used to run plaintext benchmarks on CI.
  */

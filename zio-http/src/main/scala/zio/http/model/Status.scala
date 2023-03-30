@@ -17,7 +17,6 @@
 package zio.http.model
 
 import zio.Trace
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 

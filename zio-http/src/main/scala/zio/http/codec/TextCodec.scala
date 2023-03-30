@@ -18,10 +18,6 @@ package zio.http.codec
 
 import java.util.UUID
 
-import scala.util.control.NonFatal
-
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 /**
  * A [[zio.http.codec.TextCodec]] defines a codec for a text fragment. The text
  * fragment can be decoded into a value, or the value can be encoded into a text

@@ -19,12 +19,11 @@ package zio.http
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
-import zio.{Scope, ZIO, ZLayer, durationInt}
+import zio.{ZIO, ZLayer, durationInt}
 
-import zio.http._
 import zio.http.model._
 import zio.http.netty.NettyConfig
-import zio.http.netty.client.{NettyClientDriver, NettyConnectionPool}
+import zio.http.netty.client.NettyClientDriver
 
 import io.netty.handler.codec.DecoderException
 

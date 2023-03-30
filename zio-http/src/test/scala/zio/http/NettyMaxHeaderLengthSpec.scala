@@ -1,10 +1,14 @@
 package zio.http
 
 import zio.test._
-import zio.{Scope, ZIO, ZLayer}
+import zio.{Scope, ZLayer}
+
 import zio.http.model._
 
 object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
+
+  private val serverConfig: Server.Config = Server.Config.default.copy(maxHeaderSize = 1)
+
   override def spec: Spec[TestEnvironment with Scope, Any] =
     test("should get a failure instead of an empty body") {
       val app = Handler
@@ -29,6 +33,6 @@ object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
     }.provide(
       Client.default,
       Server.live,
-      ZLayer.succeed(Server.Config.default.copy(maxHeaderSize = 1)),
+      ZLayer.succeed(serverConfig),
     )
 }

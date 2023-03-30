@@ -16,7 +16,7 @@
 
 package zio.http.model
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 
 private[zio] trait MediaTypes {
   private[zio] lazy val allMediaTypes: List[MediaType] =

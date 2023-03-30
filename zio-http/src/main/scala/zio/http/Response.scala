@@ -19,12 +19,11 @@ package zio.http
 import scala.annotation.tailrec
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Response._
 import zio.http.html.Html
 import zio.http.model._
-import zio.http.model.headers.{HeaderNames, HeaderOps}
+import zio.http.model.headers.HeaderOps
 import zio.http.socket._
 
 sealed trait Response extends HeaderOps[Response] { self =>

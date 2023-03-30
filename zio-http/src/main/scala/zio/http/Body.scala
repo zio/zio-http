@@ -26,7 +26,7 @@ import zio.stream.ZStream
 
 import zio.http.forms._
 import zio.http.internal.BodyEncoding
-import zio.http.model.{Charsets, Headers, MediaType}
+import zio.http.model.{Charsets, MediaType}
 
 /**
  * Represents the body of a request or response. The body can be a fixed chunk
