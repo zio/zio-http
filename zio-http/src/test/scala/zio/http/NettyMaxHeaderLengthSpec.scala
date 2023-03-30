@@ -1,8 +1,7 @@
 package zio.http
 
 import zio.test._
-import zio.{Scope, ZIO}
-
+import zio.{Scope, ZIO, ZLayer}
 import zio.http.model._
 
 object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
@@ -30,6 +29,6 @@ object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
     }.provide(
       Client.default,
       Server.live,
-      ServerConfig.live(ServerConfig(maxHeaderSize = 1)),
+      ZLayer.succeed(Server.Config.default.copy(maxHeaderSize = 1)),
     )
 }

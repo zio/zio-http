@@ -32,8 +32,8 @@ object ClientSSLConfig {
       case "default" => Right(Default)
       case other     => Left(Config.Error.InvalidData(message = s"Invalid value for ClientSSLConfig: $other"))
     }
-    val fromCertFile           = Config.string("cert-file").map(FromCertFile)
-    val fromCertResource       = Config.string("cert-resource").map(FromCertResource)
+    val fromCertFile           = Config.string("cert-file").map(FromCertFile.apply)
+    val fromCertResource       = Config.string("cert-resource").map(FromCertResource.apply)
     val fromTrustStoreResource = Config.string("trust-store-resource").zip(Config.string("trust-store-password")).map {
       case (path, password) => FromTrustStoreResource(path, password)
     }

@@ -32,7 +32,7 @@ object ConnectionPoolConfig {
       case "disabled" => Right(Disabled)
       case other      => Left(Config.Error.InvalidData(message = s"Invalid value for ConnectionPoolConfig: $other"))
     }
-    val fixed          = Config.int("fixed").map(Fixed)
+    val fixed          = Config.int("fixed").map(Fixed.apply)
     val dynamic        =
       (Config.int("minimum") ++
         Config.int("maximum") ++
