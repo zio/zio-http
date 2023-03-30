@@ -16,8 +16,6 @@
 
 package zio.http
 
-
-
 package object forms {
   private[forms] val CRLF = "\r\n"
 

@@ -16,8 +16,6 @@
 
 package zio.http.html
 
-
-
 /**
  * A ZIO Http styled general purpose templates
  */

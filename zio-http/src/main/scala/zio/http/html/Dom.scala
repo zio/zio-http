@@ -16,8 +16,6 @@
 
 package zio.http.html
 
-
-
 /**
  * Light weight DOM implementation that can be rendered as a html string.
  *

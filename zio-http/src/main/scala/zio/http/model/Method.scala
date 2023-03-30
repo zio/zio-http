@@ -16,8 +16,6 @@
 
 package zio.http.model
 
-
-
 /**
  * Represents an HTTP method, such as GET, PUT, POST, or DELETE.
  */

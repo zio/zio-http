@@ -16,8 +16,6 @@
 
 package zio.http.socket
 
-
-
 /**
  * Frame decoder configuration
  */

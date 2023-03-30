@@ -16,8 +16,6 @@
 
 package zio.http.codec
 
-
-
 /**
  * A combiner is a type class responsible for combining invariant type
  * parameters using a tuple. It is used to compose the parameters of the

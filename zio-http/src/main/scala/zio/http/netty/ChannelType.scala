@@ -16,8 +16,6 @@
 
 package zio.http.netty
 
-
-
 sealed trait ChannelType
 
 object ChannelType {

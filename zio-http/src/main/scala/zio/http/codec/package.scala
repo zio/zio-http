@@ -16,8 +16,6 @@
 
 package zio.http
 
-
-
 package object codec {
   type ContentCodec[A] = HttpCodec[HttpCodecType.Content, A]
   type HeaderCodec[A]  = HttpCodec[HttpCodecType.Header, A]
