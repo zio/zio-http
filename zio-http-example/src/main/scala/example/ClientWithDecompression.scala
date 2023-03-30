@@ -23,7 +23,6 @@ object ClientWithDecompression extends ZIOAppDefault {
     program.provide(
       ZLayer.succeed(config),
       Client.live,
-      ZLayer.succeed(Config.default),
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
     )
