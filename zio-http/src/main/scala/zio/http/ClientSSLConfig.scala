@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio._
+import zio.Config
 
 sealed trait ClientSSLConfig
 
@@ -28,10 +28,10 @@ object ClientSSLConfig {
     val trustStorePassword = Config.secret("trustStorePassword").map(d => new String(d.value.toArray))
 
     val default                = Config.succeed(Default)
-    val fromCertFile           = certPath.map(FromCertFile)
-    val fromCertResource       = certPath.map(FromCertResource)
-    val fromTrustStoreFile     = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreFile)
-    val fromTrustStoreResource = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreResource)
+    val fromCertFile           = certPath.map(FromCertFile(_))
+    val fromCertResource       = certPath.map(FromCertResource(_))
+    val fromTrustStoreFile     = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreFile(_, _))
+    val fromTrustStoreResource = trustStorePath.zipWith(trustStorePassword)(FromTrustStoreResource(_, _))
 
     tpe
       .switch(
