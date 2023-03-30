@@ -18,8 +18,6 @@ package zio.http.html
 
 import scala.language.implicitConversions
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 /**
  * Checks if the value A can be represented as a valid html attribute.
  */

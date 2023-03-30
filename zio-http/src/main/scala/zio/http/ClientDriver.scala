@@ -47,12 +47,11 @@ object ClientDriver {
     def interrupt(): ZIO[Any, Throwable, Unit]
   }
 
-  val shared: ZLayer[ClientConfig with Driver, Throwable, ClientDriver] =
+  val shared: ZLayer[Driver, Throwable, ClientDriver] =
     ZLayer.scoped {
       for {
-        config       <- ZIO.service[ClientConfig]
         driver       <- ZIO.service[Driver]
-        clientDriver <- driver.createClientDriver(config)
+        clientDriver <- driver.createClientDriver()
       } yield clientDriver
     }
 }

@@ -17,9 +17,8 @@
 package zio.http.netty.server
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.ServerConfig
+import zio.http.Server
 import zio.http.netty.Names
 import zio.http.netty.model.Conversions
 
@@ -35,7 +34,7 @@ import io.netty.handler.flush.FlushConsolidationHandler
  */
 @Sharable
 private[zio] final case class ServerChannelInitializer(
-  cfg: ServerConfig,
+  cfg: Server.Config,
   reqHandler: ChannelInboundHandler,
 ) extends ChannelInitializer[Channel] {
 
@@ -104,7 +103,7 @@ object ServerChannelInitializer {
 
   val layer = ZLayer.fromZIO {
     for {
-      cfg     <- ZIO.service[ServerConfig]
+      cfg     <- ZIO.service[Server.Config]
       handler <- ZIO.service[SimpleChannelInboundHandler[HttpObject]]
     } yield ServerChannelInitializer(cfg, handler)
   }

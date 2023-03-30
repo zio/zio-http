@@ -17,7 +17,6 @@
 package zio.http.netty.server
 
 import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.netty.NettyBody
 

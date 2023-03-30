@@ -17,14 +17,13 @@
 package zio.http.endpoint
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
 import zio.schema._
 
 import zio.http.codec._
-import zio.http.model.{Header, Headers, Method, Status}
+import zio.http.model.Status
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP

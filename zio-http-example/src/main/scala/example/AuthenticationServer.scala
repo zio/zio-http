@@ -1,7 +1,6 @@
 package example
 
 import java.time.Clock
-import javax.management.MBeanNotificationInfo
 
 import zio._
 

@@ -19,7 +19,6 @@ package zio.http.middleware
 import zio._
 import zio.metrics.Metric.{Counter, Gauge, Histogram}
 import zio.metrics.{Metric, MetricKeyType, MetricLabel}
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 

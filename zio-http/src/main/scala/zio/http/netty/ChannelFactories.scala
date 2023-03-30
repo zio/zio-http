@@ -17,7 +17,6 @@
 package zio.http.netty
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.channel._
 import io.netty.channel.embedded.EmbeddedChannel
@@ -70,8 +69,8 @@ object ChannelFactories {
     def uring(implicit trace: Trace)    = clientChannel(new IOUringSocketChannel())
     def embedded(implicit trace: Trace) = clientChannel(new EmbeddedChannel(false, false))
 
-    implicit val trace: Trace                                                    = Trace.empty
-    val fromConfig: ZLayer[ChannelType.Config, Nothing, ChannelFactory[Channel]] =
+    implicit val trace: Trace                                              = Trace.empty
+    val live: ZLayer[ChannelType.Config, Nothing, ChannelFactory[Channel]] =
       ZLayer.fromZIO {
         ZIO.service[ChannelType.Config].flatMap {
           _.channelType match {

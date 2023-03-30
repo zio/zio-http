@@ -18,14 +18,12 @@ package zio.http.netty
 
 import java.time.Duration
 
-import scala.jdk.CollectionConverters._
-
 import zio.Chunk
 
+import zio.http.Path
 import zio.http.internal.CookieEncoding
 import zio.http.model.Cookie
 import zio.http.model.Cookie.SameSite
-import zio.http.{Path, Request, Response}
 
 import io.netty.handler.codec.http.{cookie => jCookie}
 

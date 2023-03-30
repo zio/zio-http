@@ -17,14 +17,15 @@
 package zio.http
 
 import zio._
-import zio.http.DnsResolver.DnsResolverConfig
+import zio.http.DnsResolver.Config
 import zio.http.URL.Location
 import zio.http.model._
 import zio.http.model.headers.HeaderOps
+import zio.http.netty.{ChannelType, EventLoopGroups, NettyConfig}
 import zio.http.netty.client._
 import zio.http.socket.SocketApp
 
-import java.net.URI // scalafix:ok;
+import java.net.{InetSocketAddress, URI} // scalafix:ok;
 
 trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out]] { self =>
 
@@ -537,6 +538,73 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
 
 object ZClient {
 
+  case class Config(
+    socketApp: Option[SocketApp[Any]],
+    ssl: Option[ClientSSLConfig],
+    proxy: Option[zio.http.Proxy],
+    useAggregator: Boolean,
+    connectionPool: ConnectionPoolConfig,
+    maxHeaderSize: Int,
+    requestDecompression: Decompression,
+    localAddress: Option[InetSocketAddress],
+  ) {
+    self =>
+    def ssl(ssl: ClientSSLConfig): Config = self.copy(ssl = Some(ssl))
+
+    def socketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
+
+    def proxy(proxy: zio.http.Proxy): Config = self.copy(proxy = Some(proxy))
+
+    def useObjectAggregator(objectAggregator: Boolean): Config = self.copy(useAggregator = objectAggregator)
+
+    def withFixedConnectionPool(size: Int): Config =
+      self.copy(connectionPool = ConnectionPoolConfig.Fixed(size))
+
+    def withDynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): Config =
+      self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
+
+    /**
+     * Configure the client to use `maxHeaderSize` value when encode/decode
+     * headers.
+     */
+    def maxHeaderSize(headerSize: Int): Config = self.copy(maxHeaderSize = headerSize)
+
+    def requestDecompression(isStrict: Boolean): Config =
+      self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
+  }
+
+  object Config {
+    lazy val config: zio.Config[Config] =
+      (
+        ClientSSLConfig.config.nested("ssl").optional.withDefault(Config.default.ssl) ++
+          zio.http.Proxy.config.nested("proxy").optional.withDefault(Config.default.proxy) ++
+          zio.Config.boolean("use-aggregator").withDefault(Config.default.useAggregator) ++
+          ConnectionPoolConfig.config.nested("connection-pool").withDefault(Config.default.connectionPool) ++
+          zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
+          Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression)
+      ).map { case (ssl, proxy, useAggregator, connectionPool, maxHeaderSize, requestDecompression) =>
+        default.copy(
+          ssl = ssl,
+          proxy = proxy,
+          useAggregator = useAggregator,
+          connectionPool = connectionPool,
+          maxHeaderSize = maxHeaderSize,
+          requestDecompression = requestDecompression,
+        )
+      }
+
+    lazy val default: Config = Config(
+      socketApp = None,
+      ssl = None,
+      proxy = None,
+      useAggregator = true,
+      connectionPool = ConnectionPoolConfig.Disabled,
+      maxHeaderSize = 8192,
+      requestDecompression = Decompression.No,
+      localAddress = None,
+    )
+  }
+
   private final case class Proxy[-Env, -In, +Err, +Out](
     client: ZClient[Env, In, Err, Out],
     headers: Headers,
@@ -587,11 +655,11 @@ object ZClient {
 
   }
 
-  final class ClientLive private (config: ClientConfig, driver: ClientDriver, connectionPool: ConnectionPool[Any])
+  final class ClientLive private (config: Config, driver: ClientDriver, connectionPool: ConnectionPool[Any])
       extends Client
       with ClientRequestEncoder { self =>
 
-    def this(driver: ClientDriver)(connectionPool: ConnectionPool[driver.Connection])(settings: ClientConfig) =
+    def this(driver: ClientDriver)(connectionPool: ConnectionPool[driver.Connection])(settings: Config) =
       this(settings, driver, connectionPool.asInstanceOf[ConnectionPool[Any]])
 
     val headers: Headers                   = Headers.empty
@@ -668,7 +736,7 @@ object ZClient {
         }
       } yield res
 
-    private def requestAsync(request: Request, clientConfig: ClientConfig)(implicit
+    private def requestAsync(request: Request, clientConfig: Config)(implicit
       trace: Trace,
     ): ZIO[Any, Throwable, Response] =
       request.url.kind match {
@@ -800,11 +868,18 @@ object ZClient {
       ZIO.serviceWithZIO[Client](_.socket(url, app, headers))
     }
 
-  val live: ZLayer[ClientConfig with ClientDriver with DnsResolver, Throwable, Client] = {
+  def configured(path: String = "zio.http.client"): ZLayer[DnsResolver, Throwable, Client] =
+    (
+      ZLayer.service[DnsResolver] ++
+        ZLayer(ZIO.config(Config.config.nested(path))) ++
+        ZLayer(ZIO.config(NettyConfig.config.nested(path)))
+    ).mapError(error => new RuntimeException(s"Configuration error: $error")) >>> live
+
+  val customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
       for {
-        config         <- ZIO.service[ClientConfig]
+        config         <- ZIO.service[Config]
         driver         <- ZIO.service[ClientDriver]
         dnsResolver    <- ZIO.service[DnsResolver]
         connectionPool <- driver.createConnectionPool(dnsResolver, config.connectionPool)
@@ -812,21 +887,22 @@ object ZClient {
     }
   }
 
-  val fromConfig: ZLayer[ClientConfig with DnsResolverConfig, Throwable, Client] = {
-    implicit val trace: Trace = Trace.empty
-    (NettyClientDriver.fromConfig ++ DnsResolver.fromConfig) >>> live
-  }.fresh
-
   val default: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
-    (ClientConfig.default ++ ZLayer.succeed(DnsResolverConfig.default)) >>> fromConfig
+    (ZLayer.succeed(Config.default) ++ ZLayer.succeed(NettyConfig.default) ++
+      DnsResolver.default) >>> live
   }
 
-  val zioHttpVersion: String                   = Client.getClass().getPackage().getImplementationVersion()
-  val zioHttpVersionNormalized: Option[String] = Option(zioHttpVersion)
+  lazy val live: ZLayer[ZClient.Config with NettyConfig with DnsResolver, Throwable, Client] = {
+    implicit val trace: Trace = Trace.empty
+    (NettyClientDriver.live ++ ZLayer.service[DnsResolver]) >>> customized
+  }.fresh
 
-  val scalaVersion: String     = util.Properties.versionString
-  val defaultUAHeader: Headers = Headers(
+  private val zioHttpVersion: String                   = Client.getClass().getPackage().getImplementationVersion()
+  private val zioHttpVersionNormalized: Option[String] = Option(zioHttpVersion)
+
+  private val scalaVersion: String = util.Properties.versionString
+  val defaultUAHeader: Headers     = Headers(
     Header.UserAgent
       .Complete(
         Header.UserAgent.Product("Zio-Http-Client", zioHttpVersionNormalized),

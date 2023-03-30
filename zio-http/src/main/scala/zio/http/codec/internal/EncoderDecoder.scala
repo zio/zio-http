@@ -17,7 +17,6 @@
 package zio.http.codec.internal
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.schema.codec._
 

@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.Duration
+import zio.{Config, Duration}
 
 sealed trait ConnectionPoolConfig
 object ConnectionPoolConfig {
@@ -26,4 +26,60 @@ object ConnectionPoolConfig {
   final case class Dynamic(minimum: Int, maximum: Int, ttl: Duration)                     extends ConnectionPoolConfig
   final case class DynamicPerHost(configs: Map[URL.Location.Absolute, Dynamic], default: Dynamic)
       extends ConnectionPoolConfig
+
+  lazy val config: Config[ConnectionPoolConfig] = {
+    val disabled       = Config.string.mapOrFail {
+      case "disabled" => Right(Disabled)
+      case other      => Left(Config.Error.InvalidData(message = s"Invalid value for ConnectionPoolConfig: $other"))
+    }
+    val fixed          = Config.int("fixed").map(Fixed.apply)
+    val dynamic        =
+      (Config.int("minimum") ++
+        Config.int("maximum") ++
+        Config.duration("ttl")).nested("dynamic").map { case (minimum, maximum, ttl) =>
+        Dynamic(minimum, maximum, ttl)
+      }
+    val fixedPerHost   =
+      (Config
+        .chunkOf(
+          "per-host",
+          (Config.string("url") ++ fixed).mapOrFail { case (s, fixed) =>
+            URL
+              .fromString(s)
+              .left
+              .map(error => Config.Error.InvalidData(message = s"Invalid URL: ${error.getMessage}"))
+              .flatMap { url =>
+                url.kind match {
+                  case url: URL.Location.Absolute => Right(url -> fixed)
+                  case _ => Left(Config.Error.InvalidData(message = s"Invalid value for ConnectionPoolConfig: $s"))
+                }
+              }
+          },
+        ) ++
+        fixed.nested("default")).nested("fixed").map { case (perHost, default) =>
+        FixedPerHost(perHost.toMap, default)
+      }
+    val dynamicPerHost =
+      (Config
+        .chunkOf(
+          "per-host",
+          (Config.string("url") ++ dynamic).mapOrFail { case (s, fixed) =>
+            URL
+              .fromString(s)
+              .left
+              .map(error => Config.Error.InvalidData(message = s"Invalid URL: ${error.getMessage}"))
+              .flatMap { url =>
+                url.kind match {
+                  case url: URL.Location.Absolute => Right(url -> fixed)
+                  case _ => Left(Config.Error.InvalidData(message = s"Invalid value for ConnectionPoolConfig: $s"))
+                }
+              }
+          },
+        ) ++
+        dynamic.nested("default")).nested("dynamic").map { case (perHost, default) =>
+        DynamicPerHost(perHost.toMap, default)
+      }
+
+    disabled orElse fixed orElse dynamic orElse fixedPerHost orElse dynamicPerHost
+  }
 }

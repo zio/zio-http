@@ -16,13 +16,10 @@
 
 package zio.http
 
-import java.io.IOException
-
 import zio._
 import zio.test.Assertion._
 import zio.test._
 
-import zio.http.RequestHandlerMiddleware.WithOut
 import zio.http.model.Method
 
 object HttpAppMiddlewareSpec extends ZIOSpecDefault with ExitAssertion {

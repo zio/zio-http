@@ -16,8 +16,7 @@
 
 package zio.http.netty.client
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Trace, Unsafe, ZIO}
+import zio.{Promise, Trace, Unsafe}
 
 import zio.http.netty._
 import zio.http.netty.model.Conversions

@@ -16,6 +16,8 @@
 
 package zio.http
 
+import zio.Config
+
 sealed trait Decompression {
   def enabled: Boolean
   def strict: Boolean
@@ -34,4 +36,12 @@ object Decompression {
     override def enabled: Boolean = true
     override def strict: Boolean  = false
   }
+
+  lazy val config: Config[Decompression] =
+    Config.string.mapOrFail {
+      case "no"        => Right(No)
+      case "strict"    => Right(Strict)
+      case "nonstrict" => Right(NonStrict)
+      case other       => Left(Config.Error.InvalidData(message = s"Invalid decompression value: $other"))
+    }
 }

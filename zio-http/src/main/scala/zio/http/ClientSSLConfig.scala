@@ -49,4 +49,20 @@ object ClientSSLConfig {
   final case class FromCertResource(certPath: String)                                         extends ClientSSLConfig
   final case class FromTrustStoreResource(trustStorePath: String, trustStorePassword: String) extends ClientSSLConfig
   final case class FromTrustStoreFile(trustStorePath: String, trustStorePassword: String)     extends ClientSSLConfig
+
+  lazy val config: Config[ClientSSLConfig] = {
+    val default                = Config.string.mapOrFail {
+      case "default" => Right(Default)
+      case other     => Left(Config.Error.InvalidData(message = s"Invalid value for ClientSSLConfig: $other"))
+    }
+    val fromCertFile           = Config.string("cert-file").map(FromCertFile.apply)
+    val fromCertResource       = Config.string("cert-resource").map(FromCertResource.apply)
+    val fromTrustStoreResource = Config.string("trust-store-resource").zip(Config.string("trust-store-password")).map {
+      case (path, password) => FromTrustStoreResource(path, password)
+    }
+    val fromTrustStoreFile     = Config.string("trust-store-file").zip(Config.string("trust-store-password")).map {
+      case (path, password) => FromTrustStoreFile(path, password)
+    }
+    default.orElse(fromCertFile).orElse(fromCertResource).orElse(fromTrustStoreResource).orElse(fromTrustStoreFile)
+  }
 }

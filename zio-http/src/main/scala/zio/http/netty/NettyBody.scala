@@ -25,7 +25,7 @@ import zio.stream.ZStream
 import zio.http.Body
 import zio.http.Body.{UnsafeBytes, UnsafeWriteable}
 import zio.http.internal.BodyEncoding
-import zio.http.model.{Header, Headers, MediaType}
+import zio.http.model.{Header, MediaType}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{Channel => JChannel}

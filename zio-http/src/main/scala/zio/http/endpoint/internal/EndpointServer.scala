@@ -17,14 +17,9 @@
 package zio.http.endpoint.internal
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import zio.schema._
-import zio.schema.codec._
 
 import zio.http._
 import zio.http.endpoint.{EndpointMiddleware, Routes}
-import zio.http.model.Headers
 
 private[endpoint] final case class EndpointServer[R, E, I, O, M <: EndpointMiddleware](
   single: Routes.Single[R, E, I, O, M],

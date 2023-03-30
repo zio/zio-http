@@ -21,11 +21,12 @@ import java.net.ConnectException
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
-import zio.{Scope, ZIO, durationInt}
+import zio.{Scope, ZIO, ZLayer, durationInt}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Auth.Credentials
 import zio.http.model._
+import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
 object ClientProxySpec extends HttpRunnableSpec {
@@ -42,10 +43,11 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = serverUrl),
             )
             .provide(
-              Client.live,
-              ClientConfig.live(ClientConfig.empty.proxy(Proxy(proxyUrl))),
-              NettyClientDriver.fromConfig,
+              Client.customized,
+              ZLayer.succeed(ZClient.Config.default.proxy(Proxy(proxyUrl))),
+              NettyClientDriver.live,
               DnsResolver.default,
+              ZLayer.succeed(NettyConfig.default),
             )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
@@ -62,10 +64,11 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = url),
             )
             .provide(
-              Client.live,
-              ClientConfig.live(ClientConfig.empty.proxy(proxy)),
-              NettyClientDriver.fromConfig,
+              Client.customized,
+              ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
+              NettyClientDriver.live,
               DnsResolver.default,
+              ZLayer.succeed(NettyConfig.default),
             )
         } yield out
       assertZIO(res.either)(isRight)
@@ -94,10 +97,11 @@ object ClientProxySpec extends HttpRunnableSpec {
               Request.get(url = url),
             )
             .provide(
-              Client.live,
-              ClientConfig.live(ClientConfig.empty.proxy(proxy)),
-              NettyClientDriver.fromConfig,
+              Client.customized,
+              ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
+              NettyClientDriver.live,
               DnsResolver.default,
+              ZLayer.succeed(NettyConfig.default),
             )
         } yield out
       assertZIO(res.either)(isRight)

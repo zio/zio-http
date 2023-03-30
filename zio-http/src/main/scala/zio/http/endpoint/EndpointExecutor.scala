@@ -17,7 +17,6 @@
 package zio.http.endpoint
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 import zio.http.codec.Alternator

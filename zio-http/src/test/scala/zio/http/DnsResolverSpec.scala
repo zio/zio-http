@@ -23,7 +23,7 @@ object DnsResolverSpec extends ZIOSpecDefault {
           entries2.size == 10,
         )
       }.provide(
-        DnsResolver.cached(
+        DnsResolver.explicit(
           maxCount = 10,
           refreshRate = 1.second,
           implementation = TestResolver(),
@@ -55,7 +55,7 @@ object DnsResolverSpec extends ZIOSpecDefault {
           ),
         )
       }.provide(
-        DnsResolver.cached(
+        DnsResolver.explicit(
           maxCount = 10,
           refreshRate = 1.second,
           implementation = TestResolver(),
@@ -80,7 +80,7 @@ object DnsResolverSpec extends ZIOSpecDefault {
           entries3 == Set("/127.0.0.2", "/127.0.0.3"),
         )
       }.provide(
-        DnsResolver.cached(
+        DnsResolver.explicit(
           maxCount = 10,
           refreshRate = 1.second,
           ttl = 10.seconds,
@@ -105,7 +105,7 @@ object DnsResolverSpec extends ZIOSpecDefault {
           entries2.filter(_._1 != "unknown").values.map(_.previousAddresses).forall(_.nonEmpty),
         )
       }.provide(
-        DnsResolver.cached(
+        DnsResolver.explicit(
           maxCount = 10,
           refreshRate = 1.second,
           ttl = 10.seconds,

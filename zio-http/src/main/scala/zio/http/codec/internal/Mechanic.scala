@@ -16,12 +16,8 @@
 
 package zio.http.codec.internal
 
-import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.codec.HttpCodec
 import zio.http.codec.HttpCodec._
-import zio.http.model.Headers
 
 private[http] object Mechanic {
   type InputsBuilder = Atomized[Array[Any]]

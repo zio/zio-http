@@ -26,7 +26,6 @@ import zio.http.model.Header.Authorization.Digest
 import zio.http.model.MediaType
 
 object AuthorizationSpec extends ZIOSpecDefault {
-  import MediaType._
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Authorization header suite")(

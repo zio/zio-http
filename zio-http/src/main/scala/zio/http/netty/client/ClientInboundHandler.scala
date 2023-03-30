@@ -17,7 +17,6 @@
 package zio.http.netty.client
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Response
 import zio.http.netty.{NettyFutureExecutor, NettyResponse, NettyRuntime}
