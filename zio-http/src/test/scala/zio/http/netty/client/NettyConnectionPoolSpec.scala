@@ -26,8 +26,7 @@ import zio.stream.ZStream
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.{Header, Headers, Method, Version}
-
-import io.netty.handler.codec.http.HttpHeaderValues
+import zio.http.netty.NettyConfig
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
@@ -177,10 +176,11 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         severTestLayer,
-        Client.live,
-        ClientConfig.live(ClientConfig.empty.withFixedConnectionPool(2)),
-        NettyClientDriver.fromConfig,
+        Client.customized,
+        ZLayer.succeed(ZClient.Config.default.withFixedConnectionPool(2)),
+        NettyClientDriver.live,
         DnsResolver.default,
+        ZLayer.succeed(NettyConfig.default),
       ),
       suite("dynamic")(
         connectionPoolTests(
@@ -201,10 +201,11 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         severTestLayer,
-        Client.live,
-        ClientConfig.live(ClientConfig.empty.withDynamicConnectionPool(4, 16, 100.millis)),
-        NettyClientDriver.fromConfig,
+        Client.customized,
+        ZLayer.succeed(ZClient.Config.default.withDynamicConnectionPool(4, 16, 100.millis)),
+        NettyClientDriver.live,
         DnsResolver.default,
+        ZLayer.succeed(NettyConfig.default),
       ),
     )
 

@@ -17,8 +17,6 @@
 package zio.http.model
 
 import java.nio.charset.{Charset, StandardCharsets}
-
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 object Charsets {
 
   /**

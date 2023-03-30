@@ -20,7 +20,6 @@ import zio.Chunk
 
 import zio.http.model.Cookie
 import zio.http.netty.NettyCookieEncoding
-import zio.http.{Request, Response}
 
 private[http] trait CookieEncoding {
   def encodeRequestCookie(cookie: Cookie.Request, validate: Boolean): String

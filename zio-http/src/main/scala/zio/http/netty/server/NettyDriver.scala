@@ -18,10 +18,13 @@ package zio.http.netty.server
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
+
 import zio._
-import zio.http.{App, ClientConfig, ClientDriver, Driver, Http, Server, ServerConfig} // scalafix:ok;
+
 import zio.http.netty._
 import zio.http.netty.client.NettyClientDriver
+import zio.http.{App, ClientDriver, Driver, Http, Server}
+
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.util.ResourceLeakDetector
@@ -32,8 +35,8 @@ private[zio] final case class NettyDriver(
   channelInitializer: ChannelInitializer[Channel],
   serverInboundHandler: ServerInboundHandler,
   eventLoopGroup: EventLoopGroup,
-  serverConfig: ServerConfig,
-  nettyServerConfig: NettyServerConfig,
+  serverConfig: Server.Config,
+  nettyConfig: NettyConfig,
 ) extends Driver { self =>
 
   def start(implicit trace: Trace): RIO[Scope, Int] =
@@ -41,7 +44,7 @@ private[zio] final case class NettyDriver(
       serverBootstrap <- ZIO.attempt(new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup))
       chf             <- ZIO.attempt(serverBootstrap.childHandler(channelInitializer).bind(serverConfig.address))
       _               <- NettyFutureExecutor.scoped(chf)
-      _               <- ZIO.succeed(ResourceLeakDetector.setLevel(nettyServerConfig.leakDetectionLevel.toNetty))
+      _               <- ZIO.succeed(ResourceLeakDetector.setLevel(nettyConfig.leakDetectionLevel.toNetty))
       port            <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
     } yield port
 
@@ -59,12 +62,12 @@ private[zio] final case class NettyDriver(
     serverInboundHandler.refreshApp()
   }
 
-  override def createClientDriver(config: ClientConfig)(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
+  override def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
     for {
-      channelFactory <- ChannelFactories.Client.fromConfig.build
-        .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](config))
-      nettyRuntime   <- NettyRuntime.default.build
-    } yield NettyClientDriver(channelFactory.get, eventLoopGroup, nettyRuntime.get, config)
+      channelFactory <- ChannelFactories.Client.live.build
+        .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](nettyConfig))
+      nettyRuntime   <- NettyRuntime.live.build
+    } yield NettyClientDriver(channelFactory.get, eventLoopGroup, nettyRuntime.get, nettyConfig)
 
   override def toString: String = s"NettyDriver($serverConfig)"
 }
@@ -78,8 +81,8 @@ private[zio] object NettyDriver {
       & ChannelFactory[ServerChannel]
       & ChannelInitializer[Channel]
       & EventLoopGroup
-      & ServerConfig
-      & NettyServerConfig
+      & Server.Config
+      & NettyConfig
       & ServerInboundHandler,
     Nothing,
     Driver,
@@ -89,8 +92,8 @@ private[zio] object NettyDriver {
       cf    <- ZIO.service[ChannelFactory[ServerChannel]]
       cInit <- ZIO.service[ChannelInitializer[Channel]]
       elg   <- ZIO.service[EventLoopGroup]
-      sc    <- ZIO.service[ServerConfig]
-      nsc   <- ZIO.service[NettyServerConfig]
+      sc    <- ZIO.service[Server.Config]
+      nsc   <- ZIO.service[NettyConfig]
       sih   <- ZIO.service[ServerInboundHandler]
     } yield new NettyDriver(
       appRef = app,
@@ -99,39 +102,38 @@ private[zio] object NettyDriver {
       serverInboundHandler = sih,
       eventLoopGroup = elg,
       serverConfig = sc,
-      nettyServerConfig = nsc,
+      nettyConfig = nsc,
     )
 
-  val manual
-    : ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig & NettyServerConfig, Nothing, Driver] = {
+  val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] = {
     implicit val trace: Trace = Trace.empty
-    ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig & NettyServerConfig, Driver](
+    ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Driver](
       ZLayer.succeed(
         new AtomicReference[(App[Any], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),
       ),
       ZLayer.succeed(ServerTime.make(1000.millis)),
-      NettyRuntime.default,
+      NettyRuntime.live,
       ServerChannelInitializer.layer,
-      ServerInboundHandler.layer,
+      ServerInboundHandler.live,
       ZLayer(make),
     )
   }
 
-  val customized: ZLayer[ServerConfig & NettyServerConfig, Throwable, Driver] = {
-    val serverChannelFactory: ZLayer[ServerConfig, Nothing, ChannelFactory[ServerChannel]] =
+  val customized: ZLayer[Server.Config & NettyConfig, Throwable, Driver] = {
+    val serverChannelFactory: ZLayer[NettyConfig, Nothing, ChannelFactory[ServerChannel]] =
       ChannelFactories.Server.fromConfig
-    val eventLoopGroup: ZLayer[ServerConfig, Nothing, EventLoopGroup]                      = EventLoopGroups.fromConfig
+    val eventLoopGroup: ZLayer[NettyConfig, Nothing, EventLoopGroup]                      = EventLoopGroups.live
 
-    ZLayer.makeSome[ServerConfig & NettyServerConfig, Driver](
+    ZLayer.makeSome[Server.Config & NettyConfig, Driver](
       eventLoopGroup,
       serverChannelFactory,
       manual,
     )
   }
 
-  val default: ZLayer[ServerConfig, Throwable, Driver] =
-    ZLayer.makeSome[ServerConfig, Driver](
-      NettyServerConfig.live,
+  val live: ZLayer[Server.Config, Throwable, Driver] =
+    ZLayer.makeSome[Server.Config, Driver](
+      ZLayer.succeed(NettyConfig.default),
       customized,
     )
 }

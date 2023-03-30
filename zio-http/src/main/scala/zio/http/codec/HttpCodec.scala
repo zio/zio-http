@@ -19,7 +19,6 @@ package zio.http.codec
 import scala.language.implicitConversions
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 

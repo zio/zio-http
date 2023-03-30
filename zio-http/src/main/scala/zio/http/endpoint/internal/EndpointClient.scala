@@ -17,12 +17,10 @@
 package zio.http.endpoint.internal
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.http.model.Headers
 
 private[endpoint] final case class EndpointClient[I, E, O, M <: EndpointMiddleware](
   endpointRoot: URL,

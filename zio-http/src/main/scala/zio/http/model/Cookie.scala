@@ -18,14 +18,12 @@ package zio.http.model
 
 import java.security.MessageDigest
 import java.util.Base64.getEncoder
-import java.util.concurrent.TimeUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 import scala.collection.mutable
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Chunk, Duration, Unsafe}
+import zio.{Chunk, Duration}
 
 import zio.http._
 import zio.http.internal.CookieEncoding

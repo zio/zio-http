@@ -17,7 +17,6 @@
 package zio.http
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.netty.server.NettyDriver
 
@@ -26,10 +25,10 @@ trait Driver {
 
   def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
 
-  def createClientDriver(config: ClientConfig)(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver]
+  def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver]
 }
 
 object Driver {
-  def default: ZLayer[ServerConfig, Throwable, Driver] =
-    NettyDriver.default
+  def default: ZLayer[Server.Config, Throwable, Driver] =
+    NettyDriver.live
 }

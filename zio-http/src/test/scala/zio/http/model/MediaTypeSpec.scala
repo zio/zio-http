@@ -18,8 +18,6 @@ package zio.http.model
 
 import zio.test._
 
-import zio.http.model.MediaType
-
 object MediaTypeSpec extends ZIOSpecDefault {
   import MediaType._
 

@@ -16,10 +16,8 @@
 
 package zio.http.endpoint
 
-import scala.language.implicitConversions
-
 import zio.test.{ZIOSpecDefault, assertTrue}
-import zio.{Scope, ZIO, ZLayer}
+import zio.{ZIO, ZLayer}
 
 import zio.schema.{DeriveSchema, Schema}
 
@@ -69,12 +67,12 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       },
     ).provide(
       Server.live,
-      ServerConfig.live,
-      Client.live,
+      ZLayer.succeed(Server.Config.default),
+      Client.customized,
       ClientDriver.shared,
       executorLayer,
-      NettyDriver.default,
-      ClientConfig.default,
+      NettyDriver.live,
+      ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
     )
 }

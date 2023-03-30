@@ -51,8 +51,8 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
       )
     }
 
-  private val app                             = text ++ stream
-  private lazy val serverConfig: ServerConfig = ServerConfig.default.port(0).responseCompression()
+  private val app                              = text ++ stream
+  private lazy val serverConfig: Server.Config = Server.Config.default.port(0).responseCompression()
 
   override def spec =
     suite("Response compression")(

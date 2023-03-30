@@ -16,8 +16,6 @@
 
 package zio.http.netty.server
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.SSLConfig.HttpBehaviour
 
 import io.netty.channel.{ChannelFutureListener, ChannelHandlerContext, SimpleChannelInboundHandler}

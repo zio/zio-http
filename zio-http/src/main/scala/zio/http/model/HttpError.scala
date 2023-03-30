@@ -16,8 +16,6 @@
 
 package zio.http.model
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.Response
 import zio.http.model.HttpError.HTTPErrorWithCause
 import zio.http.security.OutputEncoder

@@ -26,10 +26,9 @@ package object server {
   private[server] type AppRef = AtomicReference[(App[Any], ZEnvironment[Any])]
   private[server] type EnvRef = AtomicReference[ZEnvironment[Any]]
 
-  def default: ZLayer[ServerConfig, Throwable, Driver] =
-    NettyDriver.default
+  def live: ZLayer[Server.Config, Throwable, Driver] =
+    NettyDriver.live
 
-  def manual
-    : ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & ServerConfig & NettyServerConfig, Nothing, Driver] =
+  def manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] =
     NettyDriver.manual
 }

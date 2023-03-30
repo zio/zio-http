@@ -16,7 +16,6 @@
 
 package zio.http.endpoint
 
-import zio._
 import zio.test._
 
 import zio.http._

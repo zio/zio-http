@@ -23,7 +23,7 @@ import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.codec.HttpCodec.{int, literal, query, string}
 import zio.http.codec._
-import zio.http.model.{Method, Status}
+import zio.http.model.Method
 import zio.http.{Body, Request, Response, URL}
 
 object EndpointSpec extends ZIOSpecDefault {

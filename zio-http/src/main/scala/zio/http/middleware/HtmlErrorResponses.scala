@@ -18,8 +18,6 @@ package zio.http.middleware
 
 import java.io.{PrintWriter, StringWriter}
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.html._
 import zio.http.model.{Header, Headers, MediaType}
 import zio.http.{Body, Request, Response}
