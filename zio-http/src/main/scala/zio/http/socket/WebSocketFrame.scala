@@ -17,7 +17,6 @@
 package zio.http.socket
 
 import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 sealed trait WebSocketFrame extends Product with Serializable { self =>
   def isFinal: Boolean = true

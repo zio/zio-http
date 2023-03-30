@@ -16,8 +16,7 @@
 
 package zio.http
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Trace, ZIO}
+import zio.Trace
 
 object HandlerAspect {
   type WithOut[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, OutEnv0[_], OutErr0[_]] =

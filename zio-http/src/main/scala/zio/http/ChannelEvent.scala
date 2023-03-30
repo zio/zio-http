@@ -16,8 +16,6 @@
 
 package zio.http
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 /**
  * Immutable and type-safe representation of events that are triggered on a
  * netty channel. `A` represents the inbound message type and `B` represents the

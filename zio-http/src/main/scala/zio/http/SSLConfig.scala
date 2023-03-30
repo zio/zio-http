@@ -16,6 +16,8 @@
 
 package zio.http
 
+import zio.Config
+
 import zio.http.SSLConfig._
 
 final case class SSLConfig(behaviour: HttpBehaviour, data: Data, provider: Provider)
@@ -24,6 +26,15 @@ object SSLConfig {
 
   def apply(data: Data): SSLConfig =
     new SSLConfig(HttpBehaviour.Redirect, data, Provider.JDK)
+
+  val config: Config[SSLConfig] =
+    (
+      HttpBehaviour.config.nested("behaviour") ++
+        Data.config.nested("data") ++
+        Provider.config.nested("provider")
+    ).map { case (behaviour, data, provider) =>
+      SSLConfig(behaviour, data, provider)
+    }
 
   def fromFile(certPath: String, keyPath: String): SSLConfig =
     new SSLConfig(HttpBehaviour.Redirect, Data.FromFile(certPath, keyPath), Provider.JDK)
@@ -48,6 +59,14 @@ object SSLConfig {
     case object Accept   extends HttpBehaviour
     case object Fail     extends HttpBehaviour
     case object Redirect extends HttpBehaviour
+
+    val config: Config[HttpBehaviour] =
+      Config.string.mapOrFail {
+        case "accept"   => Right(Accept)
+        case "fail"     => Right(Fail)
+        case "redirect" => Right(Redirect)
+        case other      => Left(Config.Error.InvalidData(message = s"Invalid Http behaviour: $other"))
+      }
   }
 
   sealed trait Data
@@ -62,11 +81,34 @@ object SSLConfig {
     final case class FromFile(certPath: String, keyPath: String) extends Data
 
     final case class FromResource(certPath: String, keyPath: String) extends Data
+
+    val config: Config[Data] = {
+      val generate     = Config.string.mapOrFail {
+        case "generate" => Right(Generate)
+        case other      => Left(Config.Error.InvalidData(message = s"Invalid Data.Generate: $other"))
+      }
+      val fromFile     =
+        (Config.string("certPath") ++ Config.string("keyPath")).map { case (certPath, keyPath) =>
+          FromFile(certPath, keyPath)
+        }
+      val fromResource =
+        (Config.string("certResource") ++ Config.string("keyResource")).map { case (certPath, keyPath) =>
+          FromResource(certPath, keyPath)
+        }
+      generate orElse fromFile orElse fromResource
+    }
   }
 
   sealed trait Provider
   object Provider {
     case object JDK     extends Provider
     case object OpenSSL extends Provider
+
+    val config: Config[Provider] =
+      Config.string.mapOrFail {
+        case "jdk"     => Right(JDK)
+        case "openssl" => Right(OpenSSL)
+        case other     => Left(Config.Error.InvalidData(message = s"Invalid Provider: $other"))
+      }
   }
 }

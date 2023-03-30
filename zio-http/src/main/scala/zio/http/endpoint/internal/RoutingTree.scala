@@ -16,13 +16,10 @@
 
 package zio.http.endpoint.internal
 
-import scala.annotation.tailrec
-
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
-import zio.http.codec.internal.{AtomizedCodecs, Mechanic}
+import zio.http.codec.internal.AtomizedCodecs
 import zio.http.codec.{SimpleCodec, TextCodec}
 import zio.http.endpoint._
 import zio.http.model.Method

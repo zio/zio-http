@@ -16,7 +16,6 @@
 
 package zio.http.netty.client
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Chunk, Promise, Trace, Unsafe}
 
 import zio.http.netty.NettyBody.UnsafeAsync

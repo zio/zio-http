@@ -16,12 +16,13 @@
 
 package zio.http
 
-import zio.durationInt
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}
+import zio.{ZLayer, durationInt}
 
 import zio.http.model.Status
+import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
 import io.netty.handler.codec.DecoderException
@@ -59,10 +60,11 @@ object ClientHttpsSpec extends ZIOSpecDefault {
       assertZIO(actual)(fails(isSubtype[DecoderException](anything)))
     },
   ).provide(
-    ClientConfig.live(ClientConfig.empty.ssl(sslConfig)),
-    Client.live,
-    NettyClientDriver.fromConfig,
+    ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
+    Client.customized,
+    NettyClientDriver.live,
     DnsResolver.default,
+    ZLayer.succeed(NettyConfig.default),
   ) @@ timeout(
     30 seconds,
   ) @@ ignore

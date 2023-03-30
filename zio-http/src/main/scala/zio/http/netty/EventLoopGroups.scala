@@ -19,7 +19,6 @@ package zio.http.netty
 import java.util.concurrent.Executor
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.channel._
 import io.netty.channel.epoll.{Epoll, EpollEventLoopGroup}
@@ -65,7 +64,7 @@ object EventLoopGroups {
 
   implicit val trace: Trace = Trace.empty
 
-  val fromConfig: ZLayer[Config, Nothing, EventLoopGroup] =
+  val live: ZLayer[Config, Nothing, EventLoopGroup] =
     ZLayer.scoped {
       ZIO.service[Config].flatMap { config =>
         config.channelType match {
@@ -82,5 +81,4 @@ object EventLoopGroups {
         }
       }
     }
-
 }

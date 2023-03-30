@@ -16,7 +16,6 @@
 
 package zio.http.middleware
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Console, Duration, Trace, ZIO}
 
 import zio.http._

@@ -1,6 +1,6 @@
 package example
 
-import zio.{Scope, ZIO, ZIOAppDefault}
+import zio.{ZIO, ZIOAppDefault}
 
 import zio.http._
 import zio.http.model.Method

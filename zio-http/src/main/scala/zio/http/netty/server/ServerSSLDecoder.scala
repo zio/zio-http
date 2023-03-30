@@ -19,11 +19,9 @@ package zio.http.netty.server
 import java.io.FileInputStream
 import java.util
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.SSLConfig.{HttpBehaviour, Provider}
 import zio.http.netty.Names
-import zio.http.{SSLConfig, ServerConfig}
+import zio.http.{SSLConfig, Server}
 
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandlerContext
@@ -81,7 +79,7 @@ object SSLUtil {
 
 }
 
-private[zio] class ServerSSLDecoder(sslConfig: SSLConfig, cfg: ServerConfig) extends ByteToMessageDecoder {
+private[zio] class ServerSSLDecoder(sslConfig: SSLConfig, cfg: Server.Config) extends ByteToMessageDecoder {
 
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     val pipeline      = context.channel().pipeline()

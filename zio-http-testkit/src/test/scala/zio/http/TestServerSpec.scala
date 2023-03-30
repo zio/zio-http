@@ -84,9 +84,9 @@ object TestServerSpec extends ZIOSpecDefault {
         TestServer.layer,
       ),
   ).provide(
-    ServerConfig.liveOnOpenPort,
+    ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     Client.default,
-    NettyDriver.default,
+    NettyDriver.live,
   )
 
   private def requestToCorrectPort =

@@ -16,8 +16,6 @@
 
 package zio.http.html
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.html.Element.PartialElement
 
 trait Elements {

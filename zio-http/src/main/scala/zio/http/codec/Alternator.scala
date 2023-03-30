@@ -17,7 +17,6 @@
 package zio.http.codec
 
 import zio.ZNothing
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A alternator is a type class responsible for combining invariant type

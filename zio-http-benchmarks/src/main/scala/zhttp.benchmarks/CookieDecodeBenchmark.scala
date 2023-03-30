@@ -2,8 +2,6 @@ package zio.benchmarks
 
 import java.util.concurrent.TimeUnit
 
-import zio.{Unsafe, http}
-
 import zio.http.Path
 import zio.http.model.Cookie
 import zio.http.model.Cookie.SameSite

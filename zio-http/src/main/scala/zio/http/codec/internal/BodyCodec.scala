@@ -16,14 +16,12 @@
 
 package zio.http.codec.internal
 
-import java.io.IOException
-
 import zio._
 
 import zio.stream.ZStream
 
 import zio.schema._
-import zio.schema.codec.{BinaryCodec, Codec, DecodeError}
+import zio.schema.codec.BinaryCodec
 
 import zio.http.Body
 

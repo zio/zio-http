@@ -16,7 +16,6 @@
 
 package zio.http.forms
 
-import zio.Scope
 import zio.test._
 
 import zio.http.forms.FormAST.Header

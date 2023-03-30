@@ -19,7 +19,6 @@ package zio.http.netty.client
 import java.net.InetSocketAddress
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.URL.Location
 import zio.http._

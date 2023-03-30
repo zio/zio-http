@@ -16,17 +16,15 @@
 
 package zio.http.netty.model
 
-import scala.collection.{AbstractIterator, mutable}
-import scala.jdk.CollectionConverters._
+import scala.collection.AbstractIterator
 
-import zio.http.ServerConfig.CompressionOptions
+import zio.http.Server.Config.CompressionOptions
 import zio.http.internal.{CaseMode, CharSequenceExtensions}
 import zio.http.model._
 import zio.http.model.headers.HeaderNames
-import zio.http.socket.CloseStatus
 
 import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
-import io.netty.handler.codec.http.websocketx.{WebSocketCloseStatus, WebSocketScheme}
+import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpMethod, HttpResponseStatus, HttpScheme}
 
 private[netty] object Conversions {
@@ -255,9 +253,9 @@ private[netty] object Conversions {
 
   def compressionOptionsToNetty(compressionOptions: CompressionOptions): DeflateOptions =
     compressionOptions.kind match {
-      case CompressionOptions.GZip    =>
+      case CompressionOptions.CompressionType.GZip    =>
         StandardCompressionOptions.gzip(compressionOptions.level, compressionOptions.bits, compressionOptions.mem)
-      case CompressionOptions.Deflate =>
+      case CompressionOptions.CompressionType.Deflate =>
         StandardCompressionOptions.deflate(compressionOptions.level, compressionOptions.bits, compressionOptions.mem)
     }
 }
