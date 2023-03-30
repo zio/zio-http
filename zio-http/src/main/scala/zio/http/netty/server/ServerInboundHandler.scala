@@ -353,10 +353,10 @@ object ServerInboundHandler {
     implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
-        appRef      <- ZIO.service[AppRef]
-        rtm         <- ZIO.service[NettyRuntime]
-        config      <- ZIO.service[Server.Config]
-        time        <- ZIO.service[ServerTime]
+        appRef <- ZIO.service[AppRef]
+        rtm    <- ZIO.service[NettyRuntime]
+        config <- ZIO.service[Server.Config]
+        time   <- ZIO.service[ServerTime]
 
       } yield ServerInboundHandler(appRef, config, rtm, time)
     }
