@@ -293,7 +293,7 @@ val app: HttpApp[Any, Nothing] = Http.response(Response.ok)
 
 These are some special operators for `HttpApps`.
 
-### setMethod
+### withMethod
 
 Overwrites the method in the incoming request to the `HttpApp`
 
@@ -301,7 +301,7 @@ Overwrites the method in the incoming request to the `HttpApp`
 val a: HttpApp[Any, Nothing] = Http.collect[Request] {
   case Method.GET -> !! / "text" => Response.text("Hello World!")
 }
-val app = a setMethod (Method.POST)
+val app = a withMethod (Method.POST)
 ```
 
 ### patch
@@ -312,7 +312,7 @@ Patches the response produced by the HTTP application using a `Patch`.
 val a: HttpApp[Any, Nothing] = Http.collect[Request] {
   case Method.GET -> !! / "text" => Response.text("Hello World!")
 }
-val app = a.patch(Patch.setStatus(Status.ACCEPTED))
+val app = a.patch(Patch.withStatus(Status.ACCEPTED))
 ```
 
 ### getBodyAsString

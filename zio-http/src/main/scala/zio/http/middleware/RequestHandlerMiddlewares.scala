@@ -254,8 +254,8 @@ private[zio] trait RequestHandlerMiddlewares
    * Creates a new middleware that always sets the response status to the
    * provided value
    */
-  final def setStatus(status: Status): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    patch(_ => Response.Patch.setStatus(status))
+  final def withStatus(status: Status): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
+    patch(_ => Response.Patch.withStatus(status))
 
   /**
    * Creates a middleware for signing cookies

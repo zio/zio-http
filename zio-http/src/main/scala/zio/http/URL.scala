@@ -93,7 +93,7 @@ final case class URL(
     case Location.Relative               => None
   }
 
-  def setHost(host: String): URL = {
+  def withHost(host: String): URL = {
     val location = kind match {
       case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP))
       case abs: URL.Location.Absolute => abs.copy(host = host)
@@ -101,12 +101,12 @@ final case class URL(
     copy(kind = location)
   }
 
-  def setPath(path: Path): URL =
+  def withPath(path: Path): URL =
     copy(path = path)
 
-  def setPath(path: String): URL = copy(path = Path.decode(path))
+  def withPath(path: String): URL = copy(path = Path.decode(path))
 
-  def setPort(port: Int): URL = {
+  def withPort(port: Int): URL = {
     val location = kind match {
       case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, "", port)
       case abs: URL.Location.Absolute => abs.copy(port = port)
@@ -115,19 +115,19 @@ final case class URL(
     copy(kind = location)
   }
 
-  def setQueryParams(queryParams: QueryParams): URL =
+  def withQueryParams(queryParams: QueryParams): URL =
     copy(queryParams = queryParams)
 
-  def setQueryParams(queryParams: Map[String, Chunk[String]]): URL =
+  def withQueryParams(queryParams: Map[String, Chunk[String]]): URL =
     copy(queryParams = QueryParams(queryParams))
 
-  def setQueryParams(queryParams: (String, Chunk[String])*): URL =
+  def withQueryParams(queryParams: (String, Chunk[String])*): URL =
     copy(queryParams = QueryParams(queryParams.toMap))
 
-  def setQueryParams(query: String): URL =
+  def withQueryParams(query: String): URL =
     copy(queryParams = QueryParams.decode(query))
 
-  def setScheme(scheme: Scheme): URL = {
+  def withScheme(scheme: Scheme): URL = {
     val location = kind match {
       case URL.Location.Relative      => URL.Location.Absolute(scheme, "", URL.portFromScheme(scheme))
       case abs: URL.Location.Absolute => abs.copy(scheme = scheme)

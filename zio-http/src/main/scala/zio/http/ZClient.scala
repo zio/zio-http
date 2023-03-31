@@ -177,7 +177,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
     head(pathSuffix, Body.empty)
 
   final def host(host: String): ZClient[Env, In, Err, Out] =
-    copy(url = url.setHost(host))
+    copy(url = url.withHost(host))
 
   final def map[Out2](f: Out => Out2): ZClient[Env, In, Err, Out2] =
     mapZIO(out => ZIO.succeed(f(out)))
@@ -240,7 +240,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
     copy(url = url.copy(path = url.path / segment))
 
   final def port(port: Int): ZClient[Env, In, Err, Out] =
-    copy(url = url.setPort(port))
+    copy(url = url.withPort(port))
 
   final def patch(pathSuffix: String, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
     request(Method.PATCH, pathSuffix, body)
@@ -386,7 +386,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
     }
 
   final def scheme(scheme: Scheme): ZClient[Env, In, Err, Out] =
-    copy(url = url.setScheme(scheme))
+    copy(url = url.withScheme(scheme))
 
   final def socket[Env1 <: Env](
     pathSuffix: String,
@@ -584,7 +584,7 @@ object ZClient {
     val headers: Headers                   = Headers.empty
     val method: Method                     = Method.GET
     val sslConfig: Option[ClientSSLConfig] = config.ssl
-    val url: URL                           = config.localAddress.map(_.getPort).fold(URL.empty)(URL.empty.setPort(_))
+    val url: URL                           = config.localAddress.map(_.getPort).fold(URL.empty)(URL.empty.withPort(_))
     val version: Version                   = Version.Http_1_1
 
     def request(
