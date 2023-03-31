@@ -150,11 +150,18 @@ private[zio] trait Auth {
           ZIO.succeed(provide(request.headers)).map {
             case Some(context) =>
               http.asInstanceOf[Http[_, _, _, _]] match {
-                case empty @ Http.Empty(_)              => empty.asInstanceOf[Http.Empty[R0, Response]]
+                case Http.Empty(errorHandler)           =>
+                  Http.Empty(
+                    errorHandler
+                      .asInstanceOf[Option[Cause[Nothing] => ZIO[R1, Nothing, Response]]]
+                      .map(_.andThen(_.provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context))))),
+                  )
                 case Http.Static(handler, errorHandler) =>
                   Http.Static(
                     apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]),
-                    errorHandler.asInstanceOf[Option[Cause[Nothing] => ZIO[R0, Nothing, Response]]],
+                    errorHandler
+                      .asInstanceOf[Option[Cause[Nothing] => ZIO[R1, Nothing, Response]]]
+                      .map(_.andThen(_.provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context))))),
                   )
                 case route: Http.Route[_, _, _, _]      =>
                   Http
@@ -168,7 +175,9 @@ private[zio] trait Auth {
                         }
                     }
                     .withErrorHandler(
-                      route.errorHandler.asInstanceOf[Option[Cause[Nothing] => ZIO[R0, Nothing, Response]]],
+                      route.errorHandler
+                        .asInstanceOf[Option[Cause[Nothing] => ZIO[R1, Nothing, Response]]]
+                        .map(_.andThen(_.provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context))))),
                     )
               }
             case None          =>
@@ -220,12 +229,18 @@ private[zio] trait Auth {
           provide(request.headers).map {
             case Some(context) =>
               http.asInstanceOf[Http[_, _, _, _]] match {
-                case empty @ Http.Empty(_)              => empty.asInstanceOf[Http.Empty[R0 with R, Response]]
+                case Http.Empty(errorHandler)           =>
+                  Http.Empty(
+                    errorHandler
+                      .asInstanceOf[Option[Cause[Nothing] => ZIO[R1, Nothing, Response]]]
+                      .map(_.andThen(_.provideSomeEnvironment[R0 with R](_.union[Context](ZEnvironment(context))))),
+                  )
                 case Http.Static(handler, errorHandler) =>
                   Http.Static(
                     apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]),
                     errorHandler
-                      .asInstanceOf[Option[zio.Cause[Nothing] => zio.ZIO[R0 with R, Nothing, zio.http.Response]]],
+                      .asInstanceOf[Option[Cause[Nothing] => ZIO[R1, Nothing, Response]]]
+                      .map(_.andThen(_.provideSomeEnvironment[R0 with R](_.union[Context](ZEnvironment(context))))),
                   )
                 case route: Http.Route[_, _, _, _]      =>
                   Http
@@ -240,7 +255,8 @@ private[zio] trait Auth {
                     }
                     .withErrorHandler(
                       route.errorHandler
-                        .asInstanceOf[Option[zio.Cause[Nothing] => zio.ZIO[R0 with R, Nothing, zio.http.Response]]],
+                        .asInstanceOf[Option[Cause[Nothing] => ZIO[R1, Nothing, Response]]]
+                        .map(_.andThen(_.provideSomeEnvironment[R0 with R](_.union[Context](ZEnvironment(context))))),
                     )
               }
             case None          =>

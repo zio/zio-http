@@ -53,6 +53,26 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
+  final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
+    handler: Handler[R1, Err1, In1, Out1],
+  )(implicit trace: Trace, ev: Out1 =:= Unit): Http[R1, Err1, In, Out1] = {
+    val errorOutputMapper: Out => Out1 = (_: Out) => ev.flip(())
+    self match {
+      case Http.Empty(errorHandler)                =>
+        Http.Empty(errorHandler.map(_.andThen(_.map(errorOutputMapper))))
+      case Http.Static(firstHandler, errorHandler) =>
+        Http.Static(firstHandler.andThen(handler), errorHandler.map(_.andThen(_.map(errorOutputMapper))))
+      case route: Http.Route[R, Err, In, Out]      =>
+        new Route[R1, Err1, In, Out1] {
+          override def run(in: In): ZIO[R1, Err1, Http[R1, Err1, In, Out1]] =
+            route.run(in).map(_ >>> (handler, errorOutputMapper))
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
+            route.errorHandler.map(_.andThen(_.map(errorOutputMapper)))
+        }
+    }
+  }
+
   final def @@[
     LowerEnv <: UpperEnv,
     UpperEnv <: R,
