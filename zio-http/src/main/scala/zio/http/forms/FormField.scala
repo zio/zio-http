@@ -125,7 +125,7 @@ object FormField {
       content          = contentParts.foldLeft(Chunk.empty[Byte])(_ ++ _.bytes)
       contentType      = extract._2
         .flatMap(x => MediaType.forContentType(x.preposition))
-        .getOrElse(MediaType.text.plain)
+        .getOrElse(MediaType.application.`octet-stream`)
       transferEncoding = extract._3
         .flatMap(x => ContentTransferEncoding.parse(x.preposition).toOption)
 
