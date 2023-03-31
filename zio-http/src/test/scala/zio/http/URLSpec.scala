@@ -24,18 +24,20 @@ import zio.http.internal.HttpGen
 import zio.http.model.Scheme
 
 object URLSpec extends ZIOSpecDefault {
+  def asURL(string: String): URL = URL.fromString(string).toOption.get
+
   def spec =
     suite("URL")(
       suite("encode-decode symmetry")(
         test("auto-gen") {
           check(HttpGen.url) { url =>
-            val expected        = url.normalize
+            val expected        = url
             val expectedEncoded = expected.encode
-            val actual          = URL.fromString(url.encode).map(_.normalize)
+            val actual          = URL.fromString(url.encode)
             val actualEncoded   = actual.map(_.encode)
 
-            assertTrue(actualEncoded == Right(expectedEncoded)) &&
-            assertTrue(actual == Right(expected))
+            assertTrue(asURL(actualEncoded.toOption.get) == asURL(expectedEncoded)) &&
+            assertTrue(actual.toOption.get == expected)
           }
         },
         test("manual") {
@@ -75,7 +77,7 @@ object URLSpec extends ZIOSpecDefault {
       ),
       suite("relative")(
         test("converts an url to a relative url") {
-          val actual   = URL.fromString("http://abc.com/users?a=1&b=2").map(_.relative.normalize.encode)
+          val actual   = URL.fromString("http://abc.com/users?a=1&b=2").map(_.relative.encode)
           val expected = Right("/users?a=1&b=2")
           assertTrue(actual == expected)
         },
@@ -85,7 +87,7 @@ object URLSpec extends ZIOSpecDefault {
           val host     = "http://abc.com"
           val channels = "/channels"
           val users    = "/users"
-          val actual   = URL.fromString(host + users).map(_.setPath(channels).normalize.encode)
+          val actual   = URL.fromString(host + users).map(_.setPath(channels).encode)
           val expected = Right(host + channels)
           assertTrue(actual == expected)
         },
@@ -99,16 +101,15 @@ object URLSpec extends ZIOSpecDefault {
             .setScheme(Scheme.HTTPS)
             .setQueryParams("?type=builder&query=provided")
 
-          assertTrue(builderUrl.normalize.encode == "https://www.abc.com:8080/list?query=provided&type=builder")
+          assertTrue(builderUrl == asURL("https://www.abc.com:8080/list?query=provided&type=builder"))
         },
         test("returns relative URL if port, host, and scheme are not set") {
           val actual = URL.empty
             .setPath(Path.decode("/list"))
             .setQueryParams(QueryParams(Map("type" -> Chunk("builder"), "query" -> Chunk("provided"))))
-            .normalize
             .encode
 
-          assertTrue(actual == "/list?query=provided&type=builder")
+          assertTrue(asURL(actual) == asURL("/list?query=provided&type=builder"))
         },
       ),
       suite("java interop")(

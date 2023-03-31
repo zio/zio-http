@@ -175,7 +175,7 @@ object URL {
     def path: String =
       QueryParamEncoding.default.encode(
         url.path.encode,
-        url.queryParams.filter(_._2.nonEmpty),
+        url.queryParams.normalize,
         Charsets.Http,
       ) + url.fragment.fold("")(f => "#" + f.raw)
 
