@@ -169,7 +169,7 @@ object URL {
     case Scheme.HTTPS | Scheme.WSS => 443
   }
 
-  def empty: URL = URL(!!)
+  def empty: URL = URL(Path.empty)
 
   def encode(url: URL): String = {
     def path: String =

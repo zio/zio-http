@@ -28,6 +28,12 @@ object URLSpec extends ZIOSpecDefault {
 
   def spec =
     suite("URL")(
+      test("empty") {
+        check(HttpGen.url) { url =>
+          assertTrue(url == url ++ URL.empty) &&
+          assertTrue(url == URL.empty ++ url)
+        }
+      },
       suite("encode-decode symmetry")(
         test("auto-gen") {
           check(HttpGen.url) { url =>

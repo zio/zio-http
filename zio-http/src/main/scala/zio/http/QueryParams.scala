@@ -30,10 +30,6 @@ import zio.http.model.Charsets
 final case class QueryParams(map: Map[String, Chunk[String]]) {
   self =>
 
-  def -(key: String): QueryParams = QueryParams(map - key)
-
-  def -(key1: String, key2: String, keys: String*): QueryParams = QueryParams(map - (key1, key2, keys: _*))
-
   def ++(that: QueryParams): QueryParams =
     QueryParams(that.map.foldLeft(map) { case (map, (k, v)) =>
       map.updated(
@@ -83,6 +79,10 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
     if (isEmpty) self
     else QueryParams(map.filter(i => i._1.nonEmpty && i._2.nonEmpty))
 
+  def remove(key: String): QueryParams = QueryParams(map - key)
+
+  def removeAll(key1: String, key2: String, keys: String*): QueryParams = QueryParams(map - (key1, key2, keys: _*))
+
   def toForm: Form = Form.fromQueryParams(self)
 }
 
@@ -103,4 +103,5 @@ object QueryParams {
 
   val empty: QueryParams = QueryParams(Map.empty[String, Chunk[String]])
 
+  def fromForm(form: Form): QueryParams = form.toQueryParams
 }
