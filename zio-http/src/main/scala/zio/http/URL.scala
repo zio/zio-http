@@ -34,7 +34,12 @@ final case class URL(
 ) { self =>
 
   def ++(that: URL): URL =
-    URL(self.path ++ that.path, self.kind, self.queryParams ++ that.queryParams, self.fragment.orElse(that.fragment))
+    URL(
+      self.path ++ that.path,
+      self.kind ++ that.kind,
+      self.queryParams ++ that.queryParams,
+      self.fragment.orElse(that.fragment),
+    )
 
   def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
 
@@ -42,10 +47,11 @@ final case class URL(
 
   def encode: String = URL.encode(self)
 
-  def host: Option[String]                 = kind match {
+  def host: Option[String] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.host)
   }
+
   def hostWithOptionalPort: Option[String] =
     kind match {
       case URL.Location.Relative                     => None
@@ -63,11 +69,7 @@ final case class URL(
 
   def isRelative: Boolean = !isAbsolute
 
-  private[zio] def normalize: URL = {
-    val queryParamsMap =
-      self.queryParams.toMap.toList.filter(i => i._1.nonEmpty && i._2.nonEmpty).sortBy(_._1).toMap
-    self.copy(queryParams = QueryParams(queryParamsMap))
-  }
+  def normalize: URL = self.copy(queryParams = queryParams.normalize)
 
   def port: Option[Int] = kind match {
     case URL.Location.Relative      => None
@@ -81,7 +83,7 @@ final case class URL(
       if (abs.port == portFromScheme(abs.scheme)) None else Some(abs.port)
   }
 
-  private[zio] def relative: URL = self.kind match {
+  def relative: URL = self.kind match {
     case URL.Location.Relative => self
     case _                     => self.copy(kind = URL.Location.Relative)
   }
@@ -206,9 +208,17 @@ object URL {
 
   def root: URL = URL(!!)
 
-  sealed trait Location
+  sealed trait Location { self =>
+    def ++(that: Location): Location =
+      if (that.isRelative) self
+      else that
 
-  case class Fragment private (raw: String, decoded: String)
+    def isAbsolute: Boolean = !isRelative
+
+    def isRelative: Boolean = self match { case Location.Relative => true; case _ => false }
+  }
+
+  final case class Fragment private (raw: String, decoded: String)
 
   object Location {
     final case class Absolute(scheme: Scheme, host: String, port: Int) extends Location

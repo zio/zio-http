@@ -596,8 +596,9 @@ object ZClient {
       sslConfig: Option[ClientSSLConfig],
     )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
       val request = Request(body, headers, method, url, version, None)
+      val cfg     = sslConfig.fold(config)(config.ssl)
 
-      requestAsync(request, sslConfig.fold(config)(config.ssl))
+      requestAsync(request, cfg)
     }
 
     override def socket[R](

@@ -75,7 +75,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
 
   def sslConfig: Option[ClientSSLConfig] = None
 
-  def url: URL = URL.empty
+  def url: URL = URL(Path.root)
 
   def version: Version = Version.Http_1_1
 
@@ -93,7 +93,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
         body = body,
         headers = headers,
         method = method,
-        url = url.copy(kind = URL.Location.Relative),
+        url = url.relative,
         version = version,
         remoteAddress = None,
       )

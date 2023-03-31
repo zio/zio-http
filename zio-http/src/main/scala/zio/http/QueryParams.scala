@@ -27,7 +27,7 @@ import zio.http.model.Charsets
 /**
  * A collection of query parameters.
  */
-case class QueryParams private[http] (map: Map[String, Chunk[String]])
+final case class QueryParams private[http] (map: Map[String, Chunk[String]])
     extends scala.collection.Map[String, Chunk[String]] {
   self =>
 
@@ -64,19 +64,29 @@ case class QueryParams private[http] (map: Map[String, Chunk[String]])
 
   def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
 
+  override def equals(that: Any): Boolean = that match {
+    case that: QueryParams => self.normalize.map == that.normalize.map
+    case _                 => false
+  }
+
   override def filter(p: ((String, Chunk[String])) => Boolean): QueryParams =
     QueryParams(map.filter(p))
 
+  override def hashCode: Int = normalize.map.hashCode
+
   override def isEmpty: Boolean = map.isEmpty
-
-  def toForm: Form = Form.fromQueryParams(self)
-
-  def toMap: Map[String, Chunk[String]] = map
 
   override def get(key: String): Option[Chunk[String]] = map.get(key)
 
   override def iterator: Iterator[(String, Chunk[String])] = map.iterator
 
+  def normalize: QueryParams =
+    if (isEmpty) self
+    else QueryParams(map.filter(i => i._1.nonEmpty && i._2.nonEmpty))
+
+  def toForm: Form = Form.fromQueryParams(self)
+
+  def toMap: Map[String, Chunk[String]] = map
 }
 
 object QueryParams {

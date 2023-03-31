@@ -13,7 +13,7 @@ object TestClientSpec extends ZIOSpecDefault {
       suite("addRequestResponse")(
         test("New behavior does not overwrite old") {
           val request  = Request.get(URL.root)
-          val request2 = Request.get(URL(Path.decode("users")))
+          val request2 = Request.get(URL(Path.decode("/users")))
           for {
             _             <- TestClient.addRequestResponse(request, Response.ok)
             goodResponse  <- Client.request(request)
