@@ -351,7 +351,7 @@ object Http {
   /**
    * Create an HTTP app from a partial function from A to Http[R,E,A,B]
    */
-  def collectRoute[In]: CollectHttp[In] = new CollectHttp[In](())
+  def collectHttp[In]: CollectHttp[In] = new CollectHttp[In](())
 
   /**
    * Creates an HTTP app which accepts a request and produces response

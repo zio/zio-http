@@ -74,7 +74,7 @@ object EndpointExecutor {
         .uri("url")
         .map { uri =>
           URL
-            .fromString(uri.toString())
+            .decode(uri.toString())
             .getOrElse(throw new RuntimeException(s"Illegal format of URI ${uri} for endpoint executor configuration"))
         }
         .map(Config(_))

@@ -254,7 +254,7 @@ object EndpointSpec extends ZIOSpecDefault {
             Request
               .post(
                 Body.fromString("""{"value": "My new post!"}"""),
-                URL.fromString("/posts").toOption.get,
+                URL.decode("/posts").toOption.get,
               )
 
           for {
@@ -310,7 +310,7 @@ object EndpointSpec extends ZIOSpecDefault {
     url: String,
     expected: String,
   ): ZIO[R, Response, TestResult] = {
-    val request = Request.get(url = URL.fromString(url).toOption.get)
+    val request = Request.get(url = URL.decode(url).toOption.get)
     for {
       response <- service.toApp.runZIO(request).mapError(_.get)
       body     <- response.body.asString.orDie
@@ -321,7 +321,7 @@ object EndpointSpec extends ZIOSpecDefault {
     url: String,
     method: Method,
   ): ZIO[R, Response, TestResult] = {
-    val request = Request.default(method = method, url = URL.fromString(url).toOption.get)
+    val request = Request.default(method = method, url = URL.decode(url).toOption.get)
     for {
       error <- service.toApp.runZIO(request).flip
     } yield assertTrue(error == None)

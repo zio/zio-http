@@ -22,7 +22,7 @@ import zio.test._
 import zio.http.model._
 
 object ResponseSpec extends ZIOSpecDefault {
-  private val location: URL = URL.fromString("www.google.com").toOption.get
+  private val location: URL = URL.decode("www.google.com").toOption.get
 
   def spec = suite("Response")(
     suite("redirect")(

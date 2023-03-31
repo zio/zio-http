@@ -23,7 +23,7 @@ import zio.http.middleware.Auth.Credentials
 import zio.http.{Proxy, URL}
 
 object NettyProxySpec extends ZIOSpecDefault {
-  private val validUrl = URL.fromString("http://localhost:8123").toOption.getOrElse(URL.empty)
+  private val validUrl = URL.decode("http://localhost:8123").toOption.getOrElse(URL.empty)
 
   override def spec = suite("Proxy")(
     suite("Authenticated Proxy")(

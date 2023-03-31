@@ -87,14 +87,14 @@ object ClientRequestEncoderSpec extends ZIOSpecDefault with ClientRequestEncoder
       check(anyClientParam) { params =>
         val req =
           encode(params).map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
-        assertZIO(req)(equalTo(params.url.hostWithOptionalPort))
+        assertZIO(req)(equalTo(params.url.hostPort))
       }
     },
     test("host header when absolute url") {
       check(clientParamWithAbsoluteUrl) { params =>
         val req = encode(params)
           .map(i => Option(i.headers().get(HttpHeaderNames.HOST)))
-        assertZIO(req)(equalTo(params.url.hostWithOptionalPort))
+        assertZIO(req)(equalTo(params.url.hostPort))
       }
     },
     test("only one host header exists") {

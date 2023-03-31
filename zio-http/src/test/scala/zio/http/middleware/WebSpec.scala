@@ -233,7 +233,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
           val app = Http
             .collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash
           for {
-            url      <- ZIO.fromEither(URL.fromString(url))
+            url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
             text     <- response.body.asString
           } yield assertTrue(text == expected)
@@ -259,12 +259,12 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
             else Status.TemporaryRedirect
 
           for {
-            url      <- ZIO.fromEither(URL.fromString(url))
+            url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
             _        <- ZIO.debug(response.headerOrFail(Header.Location))
           } yield assertTrue(
             response.status == status,
-            response.header(Header.Location) == location.map(l => Header.Location(URL.fromString(l).toOption.get)),
+            response.header(Header.Location) == location.map(l => Header.Location(URL.decode(l).toOption.get)),
           )
         }
       },
@@ -281,7 +281,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         checkAll(urls) { url =>
           val app = Handler.ok @@ redirectTrailingSlash(true)
           for {
-            url      <- ZIO.fromEither(URL.fromString(url))
+            url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
           } yield assertTrue(response.status == Status.Ok)
         }

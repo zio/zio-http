@@ -41,6 +41,12 @@ final case class URL(
       self.fragment.orElse(that.fragment),
     )
 
+  def absolute(host: String): URL =
+    self.copy(kind = URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP)))
+
+  def absolute(scheme: Scheme, host: String, port: Int): URL =
+    self.copy(kind = URL.Location.Absolute(scheme, host, port))
+
   def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
 
   def dropTrailingSlash: URL = self.copy(path = path.dropTrailingSlash)
@@ -52,7 +58,7 @@ final case class URL(
     case abs: URL.Location.Absolute => Option(abs.host)
   }
 
-  def hostWithOptionalPort: Option[String] =
+  def hostPort: Option[String] =
     kind match {
       case URL.Location.Relative                     => None
       case URL.Location.Absolute(scheme, host, port) =>
@@ -92,6 +98,17 @@ final case class URL(
     case Location.Absolute(scheme, _, _) => Some(scheme)
     case Location.Relative               => None
   }
+
+  /**
+   * Returns a new java.net.URI representing this URL.
+   */
+  def toJavaURI: java.net.URI = new URI(encode)
+
+  /**
+   * Returns a new java.net.URL only if this URL represents an absolute
+   * location.
+   */
+  def toJavaURL: Option[java.net.URL] = if (self.kind == URL.Location.Relative) None else Try(toJavaURI.toURL).toOption
 
   def withHost(host: String): URL = {
     val location = kind match {
@@ -135,60 +152,12 @@ final case class URL(
 
     copy(kind = location)
   }
-
-  /**
-   * Returns a new java.net.URI representing this URL.
-   */
-  def toJavaURI: java.net.URI = new URI(encode)
-
-  /**
-   * Returns a new java.net.URL only if this URL represents an absolute
-   * location.
-   */
-  def toJavaURL: Option[java.net.URL] = if (self.kind == URL.Location.Relative) None else Try(toJavaURI.toURL).toOption
-
 }
 
 object URL {
-  private def fromAbsoluteURI(uri: URI): Option[URL] = {
-    for {
-      scheme <- Scheme.decode(uri.getScheme)
-      host   <- Option(uri.getHost)
-      path   <- Option(uri.getRawPath)
-      port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
-      connection = URL.Location.Absolute(scheme, host, port)
-    } yield URL(Path.decode(path), connection, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
-  }
-
-  private def fromRelativeURI(uri: URI): Option[URL] = for {
-    path <- Option(uri.getRawPath)
-  } yield URL(Path.decode(path), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
-
-  private def portFromScheme(scheme: Scheme): Int = scheme match {
-    case Scheme.HTTP | Scheme.WS   => 80
-    case Scheme.HTTPS | Scheme.WSS => 443
-  }
-
   def empty: URL = URL(Path.empty)
 
-  def encode(url: URL): String = {
-    def path: String =
-      QueryParamEncoding.default.encode(
-        url.path.encode,
-        url.queryParams.normalize,
-        Charsets.Http,
-      ) + url.fragment.fold("")(f => "#" + f.raw)
-
-    url.kind match {
-      case Location.Relative                     =>
-        path
-      case Location.Absolute(scheme, host, port) =>
-        if (port == portFromScheme(scheme)) s"${scheme.encode}://$host$path"
-        else s"${scheme.encode}://$host:$port$path"
-    }
-  }
-
-  def fromString(string: String): Either[Exception, URL] = {
+  def decode(string: String): Either[Exception, URL] = {
     def invalidURL = Left(new MalformedURLException(s"""Invalid URL: "$string""""))
     try {
       val uri = new URI(string)
@@ -218,19 +187,55 @@ object URL {
     def isRelative: Boolean = self match { case Location.Relative => true; case _ => false }
   }
 
-  final case class Fragment private (raw: String, decoded: String)
-
   object Location {
     final case class Absolute(scheme: Scheme, host: String, port: Int) extends Location
 
     case object Relative extends Location
   }
 
+  final case class Fragment private (raw: String, decoded: String)
+
   object Fragment {
     def fromURI(uri: URI): Option[Fragment] = for {
       raw     <- Option(uri.getRawFragment)
       decoded <- Option(uri.getFragment)
     } yield Fragment(raw, decoded)
+  }
+
+  private def encode(url: URL): String = {
+    def path: String =
+      QueryParamEncoding.default.encode(
+        url.path.encode,
+        url.queryParams.normalize,
+        Charsets.Http,
+      ) + url.fragment.fold("")(f => "#" + f.raw)
+
+    url.kind match {
+      case Location.Relative                     =>
+        path
+      case Location.Absolute(scheme, host, port) =>
+        if (port == portFromScheme(scheme)) s"${scheme.encode}://$host$path"
+        else s"${scheme.encode}://$host:$port$path"
+    }
+  }
+
+  private def fromAbsoluteURI(uri: URI): Option[URL] = {
+    for {
+      scheme <- Scheme.decode(uri.getScheme)
+      host   <- Option(uri.getHost)
+      path   <- Option(uri.getRawPath)
+      port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
+      connection = URL.Location.Absolute(scheme, host, port)
+    } yield URL(Path.decode(path), connection, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
+  }
+
+  private def fromRelativeURI(uri: URI): Option[URL] = for {
+    path <- Option(uri.getRawPath)
+  } yield URL(Path.decode(path), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
+
+  private def portFromScheme(scheme: Scheme): Int = scheme match {
+    case Scheme.HTTP | Scheme.WS   => 80
+    case Scheme.HTTPS | Scheme.WSS => 443
   }
 
 }

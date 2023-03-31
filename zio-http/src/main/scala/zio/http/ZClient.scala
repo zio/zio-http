@@ -408,7 +408,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
     headers: Headers = Headers.empty,
   )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
     for {
-      url <- ZIO.fromEither(URL.fromString(url)).orDie
+      url <- ZIO.fromEither(URL.decode(url)).orDie
       out <- socket(
         app,
         headers,
@@ -710,7 +710,7 @@ object ZClient {
     addZioUserAgentHeader: Boolean = false,
   )(implicit trace: Trace): ZIO[Client, Throwable, Response] = {
     for {
-      uri      <- ZIO.fromEither(URL.fromString(url))
+      uri      <- ZIO.fromEither(URL.decode(url))
       response <- ZIO.serviceWithZIO[Client](
         _.request(
           Request

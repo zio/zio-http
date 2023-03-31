@@ -24,7 +24,7 @@ import zio.http.internal.HttpGen
 import zio.http.model.Scheme
 
 object URLSpec extends ZIOSpecDefault {
-  def asURL(string: String): URL = URL.fromString(string).toOption.get
+  def asURL(string: String): URL = URL.decode(string).toOption.get
 
   def spec =
     suite("URL")(
@@ -39,7 +39,7 @@ object URLSpec extends ZIOSpecDefault {
           check(HttpGen.url) { url =>
             val expected        = url
             val expectedEncoded = expected.encode
-            val actual          = URL.fromString(url.encode)
+            val actual          = URL.decode(url.encode)
             val actualEncoded   = actual.map(_.encode)
 
             assertTrue(asURL(actualEncoded.toOption.get) == asURL(expectedEncoded)) &&
@@ -69,7 +69,7 @@ object URLSpec extends ZIOSpecDefault {
           )
 
           checkAll(urls) { url =>
-            val decoded = URL.fromString(url)
+            val decoded = URL.decode(url)
             val encoded = decoded.map(_.encode)
             assertTrue(encoded == Right(url))
           }
@@ -77,13 +77,13 @@ object URLSpec extends ZIOSpecDefault {
       ),
       suite("fromString")(
         test("should Handle invalid url String with restricted chars") {
-          val actual = URL.fromString("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg")
+          val actual = URL.decode("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg")
           assert(actual)(isLeft)
         },
       ),
       suite("relative")(
         test("converts an url to a relative url") {
-          val actual   = URL.fromString("http://abc.com/users?a=1&b=2").map(_.relative.encode)
+          val actual   = URL.decode("http://abc.com/users?a=1&b=2").map(_.relative.encode)
           val expected = Right("/users?a=1&b=2")
           assertTrue(actual == expected)
         },
@@ -93,7 +93,7 @@ object URLSpec extends ZIOSpecDefault {
           val host     = "http://abc.com"
           val channels = "/channels"
           val users    = "/users"
-          val actual   = URL.fromString(host + users).map(_.withPath(channels).encode)
+          val actual   = URL.decode(host + users).map(_.withPath(channels).encode)
           val expected = Right(host + channels)
           assertTrue(actual == expected)
         },
@@ -132,25 +132,25 @@ object URLSpec extends ZIOSpecDefault {
           }
         },
       ),
-      suite("hostWithOptionalPort")(
+      suite("hostPort")(
         test("does not add the port 80 for http") {
           assertTrue(
-            URL.fromString("http://localhost:80").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost"),
+            URL.decode("http://localhost:80").toOption.flatMap(_.hostPort) == Some("localhost"),
           )
         },
         test("adds the port 8080 for http") {
           assertTrue(
-            URL.fromString("http://localhost:8080").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost:8080"),
+            URL.decode("http://localhost:8080").toOption.flatMap(_.hostPort) == Some("localhost:8080"),
           )
         },
         test("does not add the port 443 for https") {
           assertTrue(
-            URL.fromString("https://localhost:443").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost"),
+            URL.decode("https://localhost:443").toOption.flatMap(_.hostPort) == Some("localhost"),
           )
         },
         test("adds the port 80 for https") {
           assertTrue(
-            URL.fromString("https://localhost:80").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost:80"),
+            URL.decode("https://localhost:80").toOption.flatMap(_.hostPort) == Some("localhost:80"),
           )
         },
       ),

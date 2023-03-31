@@ -35,14 +35,14 @@ object EndpointExamples extends ZIOAppDefault {
 
   val app = routes.toApp(auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
 
-  val request = Request.get(url = URL.fromString("/users/1").toOption.get)
+  val request = Request.get(url = URL.decode("/users/1").toOption.get)
 
   val run = Server.serve(app).provide(Server.default)
 
   object ClientExample {
     def example(client: Client) = {
       val locator =
-        EndpointLocator.fromURL(URL.fromString("http://localhost:8080").toOption.get)
+        EndpointLocator.fromURL(URL.decode("http://localhost:8080").toOption.get)
 
       val executor: EndpointExecutor[Authorization] =
         EndpointExecutor(client, locator, ZIO.succeed(Authorization.Basic("user", "pass")))

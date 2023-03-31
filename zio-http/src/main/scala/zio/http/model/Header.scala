@@ -2911,7 +2911,7 @@ object Header {
       if (value == "") Left("Invalid Location header (empty)")
       else
         URL
-          .fromString(value)
+          .decode(value)
           .left
           .map(error => s"Invalid Location header: $error")
           .map(url => Location(url))
@@ -2970,7 +2970,7 @@ object Header {
     def parse(value: String): Either[String, Origin] =
       if (value == "null") Right(Null)
       else
-        URL.fromString(value) match {
+        URL.decode(value) match {
           case Left(_)                                              => Left("Invalid Origin header")
           case Right(url) if url.host.isEmpty || url.scheme.isEmpty => Left("Invalid Origin header")
           case Right(url)                                           => Right(Value(url.scheme.get.encode, url.host.get, url.portIfNotDefault))
@@ -3197,7 +3197,7 @@ object Header {
     override def name: String = "referer"
 
     def parse(value: String): Either[String, Referer] = {
-      URL.fromString(value) match {
+      URL.decode(value) match {
         case Left(_)                                              => Left("Invalid Referer header")
         case Right(url) if url.host.isEmpty || url.scheme.isEmpty => Left("Invalid Referer header")
         case Right(url)                                           => Right(Referer(url))
@@ -3482,7 +3482,7 @@ object Header {
       if (value.trim == "") Left("Invalid Sec-WebSocket-Location header: empty value")
       else
         URL
-          .fromString(value)
+          .decode(value)
           .left
           .map(_ => "Invalid Sec-WebSocket-Location header: invalid URL")
           .map(url => SecWebSocketLocation(url))
@@ -3513,7 +3513,7 @@ object Header {
       if (value.trim == "") Left("Invalid Sec-WebSocket-Origin header: empty value")
       else
         URL
-          .fromString(value)
+          .decode(value)
           .left
           .map(_ => "Invalid Sec-WebSocket-Origin header: invalid URL")
           .map(url => SecWebSocketOrigin(url))

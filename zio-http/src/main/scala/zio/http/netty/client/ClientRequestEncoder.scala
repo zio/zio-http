@@ -42,7 +42,7 @@ trait ClientRequestEncoder {
 
       val encodedReqHeaders = Conversions.headersToNetty(req.headers)
 
-      val headers = req.url.hostWithOptionalPort match {
+      val headers = req.url.hostPort match {
         case Some(host) => encodedReqHeaders.set(HttpHeaderNames.HOST, host)
         case _          => encodedReqHeaders
       }
