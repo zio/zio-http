@@ -81,8 +81,6 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
 
   def remove(key: String): QueryParams = QueryParams(map - key)
 
-  def removeAll(keys: String*): QueryParams = QueryParams(map.removedAll(keys))
-
   def removeAll(keys: Iterable[String]): QueryParams = QueryParams(map.removedAll(keys))
 
   def toForm: Form = Form.fromQueryParams(self)
