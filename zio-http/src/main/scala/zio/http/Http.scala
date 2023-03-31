@@ -55,8 +55,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
 
   final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
     handler: Handler[R1, Err1, In1, Out1],
-  )(implicit trace: Trace, ev: Out1 =:= Unit): Http[R1, Err1, In, Out1] = {
-    val errorOutputMapper: Out => Out1 = (_: Out) => ev.flip(())
+  )(implicit ev: Unit =:= Out1, trace: Trace): Http[R1, Err1, In, Out1] = {
+    val errorOutputMapper: Out => Out1 = (_: Out) => ev(())
     self match {
       case Http.Empty(errorHandler)                =>
         Http.Empty(errorHandler.map(_.andThen(_.map(errorOutputMapper))))
