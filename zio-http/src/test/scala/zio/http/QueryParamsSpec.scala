@@ -69,7 +69,7 @@ object QueryParamsSpec extends ZIOSpecDefault {
           )
 
           checkAll(gens) { case (initialQueryParams, key1, key2, otherKeysToRemove, expectedResult) =>
-            val actualResult = initialQueryParams.removeAll(key1, key2, otherKeysToRemove: _*)
+            val actualResult = initialQueryParams.removeAll(key1 :: key2 :: (otherKeysToRemove.toList))
             assert(actualResult)(equalTo(expectedResult))
           }
         },
