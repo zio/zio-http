@@ -43,10 +43,10 @@ The below snippet creates a response with default params, `status` as `Status.OK
 
 ### Specialized Response Operators
 
-- `setStatus` to update the `status` of `Response`
+- `withStatus` to update the `status` of `Response`
 
 ```scala
-val res: Response = Response.text("Hello World!").setStatus(Status.NOT_FOUND)
+val res: Response = Response.text("Hello World!").withStatus(Status.NOT_FOUND)
 ```
 
 - `updateHeaders` to update the `headers` of `Response`

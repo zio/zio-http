@@ -26,7 +26,7 @@ object SecWebSocketLocationSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketLocation suite")(
     test("SecWebSocketLocation should be properly parsed for a valid string") {
       val probe    = "ws://example.com"
-      val probeURL = URL.fromString(probe).fold(_ => URL.empty, url => url)
+      val probeURL = URL.decode(probe).fold(_ => URL.empty, url => url)
       assertTrue(SecWebSocketLocation.parse(probe) == Right(SecWebSocketLocation(probeURL)))
     },
     test("SecWebSocketLocation should be properly parsed for an empty string") {
@@ -35,7 +35,7 @@ object SecWebSocketLocationSpec extends ZIOSpecDefault {
     },
     test("SecWebSocketLocation should properly render a valid string") {
       val probe    = "ws://example.com"
-      val probeURL = URL.fromString(probe).fold(_ => URL.empty, url => url)
+      val probeURL = URL.decode(probe).fold(_ => URL.empty, url => url)
       assertTrue(SecWebSocketLocation.render(SecWebSocketLocation(probeURL)) == probe)
     },
   )

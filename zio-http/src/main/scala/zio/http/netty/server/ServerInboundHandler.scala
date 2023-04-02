@@ -220,7 +220,7 @@ private[zio] final case class ServerInboundHandler(
           ),
           headers,
           Conversions.methodFromNetty(nettyReq.method()),
-          URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
+          URL.decode(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
           remoteAddress,
         )
@@ -236,7 +236,7 @@ private[zio] final case class ServerInboundHandler(
           body,
           headers,
           Conversions.methodFromNetty(nettyReq.method()),
-          URL.fromString(nettyReq.uri()).getOrElse(URL.empty),
+          URL.decode(nettyReq.uri()).getOrElse(URL.empty),
           protocolVersion,
           remoteAddress,
         )

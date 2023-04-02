@@ -17,6 +17,13 @@
 package zio.http.model
 
 sealed trait Version { self =>
+  def ++(that: Version): Version = (self, that) match {
+    case (Version.Http_1_0, Version.Http_1_0) => Version.Http_1_0
+    case _                                    => Version.Http_1_1
+  }
+
+  def combine(that: Version): Version = self ++ that
+
   def isHttp1_0: Boolean = self == Version.Http_1_0
 
   def isHttp1_1: Boolean = self == Version.Http_1_1

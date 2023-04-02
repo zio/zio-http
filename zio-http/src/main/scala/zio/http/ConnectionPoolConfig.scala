@@ -45,7 +45,7 @@ object ConnectionPoolConfig {
           "per-host",
           (Config.string("url") ++ fixed).mapOrFail { case (s, fixed) =>
             URL
-              .fromString(s)
+              .decode(s)
               .left
               .map(error => Config.Error.InvalidData(message = s"Invalid URL: ${error.getMessage}"))
               .flatMap { url =>
@@ -65,7 +65,7 @@ object ConnectionPoolConfig {
           "per-host",
           (Config.string("url") ++ dynamic).mapOrFail { case (s, fixed) =>
             URL
-              .fromString(s)
+              .decode(s)
               .left
               .map(error => Config.Error.InvalidData(message = s"Invalid URL: ${error.getMessage}"))
               .flatMap { url =>

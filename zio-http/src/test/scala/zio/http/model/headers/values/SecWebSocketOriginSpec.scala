@@ -26,7 +26,7 @@ object SecWebSocketOriginSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketOrigin suite")(
     test("SecWebSocketOrigin should be properly parsed for a valid string") {
       val probe    = "wss://example.com"
-      val probeURL = URL.fromString(probe).fold(_ => URL.empty, url => url)
+      val probeURL = URL.decode(probe).fold(_ => URL.empty, url => url)
       assertTrue(SecWebSocketOrigin.parse(probe) == Right(SecWebSocketOrigin(probeURL)))
     },
     test("SecWebSocketOrigin should be properly parsed for an empty string") {
@@ -35,7 +35,7 @@ object SecWebSocketOriginSpec extends ZIOSpecDefault {
     },
     test("SecWebSocketOrigin should properly render a valid string") {
       val probe    = "wss://example.com"
-      val probeURL = URL.fromString(probe).fold(_ => URL.empty, url => url)
+      val probeURL = URL.decode(probe).fold(_ => URL.empty, url => url)
       assertTrue(SecWebSocketOrigin.render(SecWebSocketOrigin(probeURL)) == probe)
     },
   )

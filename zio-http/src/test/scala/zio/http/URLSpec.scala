@@ -24,18 +24,26 @@ import zio.http.internal.HttpGen
 import zio.http.model.Scheme
 
 object URLSpec extends ZIOSpecDefault {
+  def asURL(string: String): URL = URL.decode(string).toOption.get
+
   def spec =
     suite("URL")(
+      test("empty") {
+        check(HttpGen.url) { url =>
+          assertTrue(url == url ++ URL.empty) &&
+          assertTrue(url == URL.empty ++ url)
+        }
+      },
       suite("encode-decode symmetry")(
         test("auto-gen") {
           check(HttpGen.url) { url =>
-            val expected        = url.normalize
+            val expected        = url
             val expectedEncoded = expected.encode
-            val actual          = URL.fromString(url.encode).map(_.normalize)
+            val actual          = URL.decode(url.encode)
             val actualEncoded   = actual.map(_.encode)
 
-            assertTrue(actualEncoded == Right(expectedEncoded)) &&
-            assertTrue(actual == Right(expected))
+            assertTrue(asURL(actualEncoded.toOption.get) == asURL(expectedEncoded)) &&
+            assertTrue(actual.toOption.get == expected)
           }
         },
         test("manual") {
@@ -61,7 +69,7 @@ object URLSpec extends ZIOSpecDefault {
           )
 
           checkAll(urls) { url =>
-            val decoded = URL.fromString(url)
+            val decoded = URL.decode(url)
             val encoded = decoded.map(_.encode)
             assertTrue(encoded == Right(url))
           }
@@ -69,23 +77,23 @@ object URLSpec extends ZIOSpecDefault {
       ),
       suite("fromString")(
         test("should Handle invalid url String with restricted chars") {
-          val actual = URL.fromString("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg")
+          val actual = URL.decode("http://mw1.google.com/$[level]/r$[y]_c$[x].jpg")
           assert(actual)(isLeft)
         },
       ),
       suite("relative")(
         test("converts an url to a relative url") {
-          val actual   = URL.fromString("http://abc.com/users?a=1&b=2").map(_.relative.normalize.encode)
+          val actual   = URL.decode("http://abc.com/users?a=1&b=2").map(_.relative.encode)
           val expected = Right("/users?a=1&b=2")
           assertTrue(actual == expected)
         },
       ),
-      suite("setPath")(
+      suite("withPath")(
         test("updates the path without needed to know the host") {
           val host     = "http://abc.com"
           val channels = "/channels"
           val users    = "/users"
-          val actual   = URL.fromString(host + users).map(_.setPath(channels).normalize.encode)
+          val actual   = URL.decode(host + users).map(_.withPath(channels).encode)
           val expected = Right(host + channels)
           assertTrue(actual == expected)
         },
@@ -93,22 +101,21 @@ object URLSpec extends ZIOSpecDefault {
       suite("builder")(
         test("creates a URL with all attributes set") {
           val builderUrl = URL.empty
-            .setHost("www.abc.com")
-            .setPath("/list")
-            .setPort(8080)
-            .setScheme(Scheme.HTTPS)
-            .setQueryParams("?type=builder&query=provided")
+            .withHost("www.abc.com")
+            .withPath("/list")
+            .withPort(8080)
+            .withScheme(Scheme.HTTPS)
+            .withQueryParams("?type=builder&query=provided")
 
-          assertTrue(builderUrl.normalize.encode == "https://www.abc.com:8080/list?query=provided&type=builder")
+          assertTrue(builderUrl == asURL("https://www.abc.com:8080/list?query=provided&type=builder"))
         },
         test("returns relative URL if port, host, and scheme are not set") {
           val actual = URL.empty
-            .setPath(Path.decode("/list"))
-            .setQueryParams(QueryParams(Map("type" -> Chunk("builder"), "query" -> Chunk("provided"))))
-            .normalize
+            .withPath(Path.decode("/list"))
+            .withQueryParams(QueryParams(Map("type" -> Chunk("builder"), "query" -> Chunk("provided"))))
             .encode
 
-          assertTrue(actual == "/list?query=provided&type=builder")
+          assertTrue(asURL(actual) == asURL("/list?query=provided&type=builder"))
         },
       ),
       suite("java interop")(
@@ -125,25 +132,25 @@ object URLSpec extends ZIOSpecDefault {
           }
         },
       ),
-      suite("hostWithOptionalPort")(
+      suite("hostPort")(
         test("does not add the port 80 for http") {
           assertTrue(
-            URL.fromString("http://localhost:80").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost"),
+            URL.decode("http://localhost:80").toOption.flatMap(_.hostPort) == Some("localhost"),
           )
         },
         test("adds the port 8080 for http") {
           assertTrue(
-            URL.fromString("http://localhost:8080").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost:8080"),
+            URL.decode("http://localhost:8080").toOption.flatMap(_.hostPort) == Some("localhost:8080"),
           )
         },
         test("does not add the port 443 for https") {
           assertTrue(
-            URL.fromString("https://localhost:443").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost"),
+            URL.decode("https://localhost:443").toOption.flatMap(_.hostPort) == Some("localhost"),
           )
         },
         test("adds the port 80 for https") {
           assertTrue(
-            URL.fromString("https://localhost:80").toOption.flatMap(_.hostWithOptionalPort) == Some("localhost:80"),
+            URL.decode("https://localhost:80").toOption.flatMap(_.hostPort) == Some("localhost:80"),
           )
         },
       ),

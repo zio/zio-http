@@ -13,7 +13,7 @@ import zio.http.model.Method
 object FileStreaming extends ZIOAppDefault {
 
   // Create HTTP route
-  val app = Http.collectRoute[Request] {
+  val app = Http.collectHttp[Request] {
     case Method.GET -> !! / "health" => Handler.ok.toHttp
 
     // Read the file as ZStream

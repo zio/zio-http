@@ -27,16 +27,8 @@ import zio.http.model.Charsets
 /**
  * A collection of query parameters.
  */
-case class QueryParams private[http] (map: Map[String, Chunk[String]])
-    extends scala.collection.Map[String, Chunk[String]] {
+final case class QueryParams(map: Map[String, Chunk[String]]) {
   self =>
-
-  override def -(key: String): QueryParams = QueryParams(map - key)
-
-  override def -(key1: String, key2: String, keys: String*): QueryParams =
-    QueryParams(map.--(Chunk(key1, key2) ++ keys))
-
-  override def +[V1 >: Chunk[String]](kv: (String, V1)): Map[String, V1] = map.+(kv)
 
   def ++(that: QueryParams): QueryParams =
     QueryParams(that.map.foldLeft(map) { case (map, (k, v)) =>
@@ -64,19 +56,34 @@ case class QueryParams private[http] (map: Map[String, Chunk[String]])
 
   def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
 
-  override def filter(p: ((String, Chunk[String])) => Boolean): QueryParams =
+  override def equals(that: Any): Boolean = that match {
+    case that: QueryParams => self.normalize.map == that.normalize.map
+    case _                 => false
+  }
+
+  def filter(p: ((String, Chunk[String])) => Boolean): QueryParams =
     QueryParams(map.filter(p))
 
-  override def isEmpty: Boolean = map.isEmpty
+  def get(key: String): Option[Chunk[String]] = map.get(key)
+
+  def getOrElse(key: String, default: => Iterable[String]): Chunk[String] =
+    map.getOrElse(key, Chunk.fromIterable(default))
+
+  override def hashCode: Int = normalize.map.hashCode
+
+  def isEmpty: Boolean = map.isEmpty
+
+  def nonEmpty: Boolean = map.nonEmpty
+
+  def normalize: QueryParams =
+    if (isEmpty) self
+    else QueryParams(map.filter(i => i._1.nonEmpty && i._2.nonEmpty))
+
+  def remove(key: String): QueryParams = QueryParams(map - key)
+
+  def removeAll(keys: Iterable[String]): QueryParams = QueryParams(map -- keys)
 
   def toForm: Form = Form.fromQueryParams(self)
-
-  def toMap: Map[String, Chunk[String]] = map
-
-  override def get(key: String): Option[Chunk[String]] = map.get(key)
-
-  override def iterator: Iterator[(String, Chunk[String])] = map.iterator
-
 }
 
 object QueryParams {
@@ -96,4 +103,5 @@ object QueryParams {
 
   val empty: QueryParams = QueryParams(Map.empty[String, Chunk[String]])
 
+  def fromForm(form: Form): QueryParams = form.toQueryParams
 }

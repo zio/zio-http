@@ -69,25 +69,23 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       _ <- behavior.set(previousBehavior.defaultWith(app))
     } yield ()
 
-  val headers: Headers                   = Headers.empty
-  val hostOption: Option[String]         = None
-  val pathPrefix: Path                   = Path.empty
-  val portOption: Option[Int]            = None
-  val queries: QueryParams               = QueryParams.empty
-  val schemeOption: Option[Scheme]       = None
-  val sslConfig: Option[ClientSSLConfig] = None
+  def headers: Headers = Headers.empty
+
+  def method: Method = Method.GET
+
+  def sslConfig: Option[ClientSSLConfig] = None
+
+  def url: URL = URL(Path.root)
+
+  def version: Version = Version.Http_1_1
 
   override def request(
-    body: Body,
-    headers: Headers,
-    hostOption: Option[String],
-    method: Method,
-    pathPrefix: Path,
-    portOption: Option[Int],
-    queries: QueryParams,
-    schemeOption: Option[Scheme],
-    sslConfig: Option[ClientSSLConfig],
     version: Version,
+    method: Method,
+    url: URL,
+    headers: Headers,
+    body: Body,
+    sslConfig: Option[zio.http.ClientSSLConfig],
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] =
     for {
       currentBehavior <- behavior.get
@@ -95,7 +93,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
         body = body,
         headers = headers,
         method = method,
-        url = URL(pathPrefix, kind = URL.Location.Relative),
+        url = url.relative,
         version = version,
         remoteAddress = None,
       )

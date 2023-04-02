@@ -46,7 +46,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
 
   def makeExecutor(client: Client) = {
     val locator = EndpointLocator.fromURL(
-      URL.fromString("http://localhost:8080").getOrElse(???),
+      URL.decode("http://localhost:8080").getOrElse(???),
     )
 
     EndpointExecutor(client, locator, ZIO.unit)

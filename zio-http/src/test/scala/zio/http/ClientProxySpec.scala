@@ -36,8 +36,8 @@ object ClientProxySpec extends HttpRunnableSpec {
       val res =
         for {
           validServerPort <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
-          serverUrl       <- ZIO.fromEither(URL.fromString(s"http://localhost:$validServerPort"))
-          proxyUrl        <- ZIO.fromEither(URL.fromString("http://localhost:0001"))
+          serverUrl       <- ZIO.fromEither(URL.decode(s"http://localhost:$validServerPort"))
+          proxyUrl        <- ZIO.fromEither(URL.decode("http://localhost:0001"))
           out             <- Client
             .request(
               Request.get(url = serverUrl),
@@ -56,7 +56,7 @@ object ClientProxySpec extends HttpRunnableSpec {
       val res =
         for {
           port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
-          url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
+          url  <- ZIO.fromEither(URL.decode(s"http://localhost:$port"))
           id   <- DynamicServer.deploy(Handler.ok.toHttp)
           proxy = Proxy.empty.withUrl(url).withHeaders(Headers(DynamicServer.APP_ID, id))
           out <- Client
@@ -86,7 +86,7 @@ object ClientProxySpec extends HttpRunnableSpec {
       val res =
         for {
           port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
-          url  <- ZIO.fromEither(URL.fromString(s"http://localhost:$port"))
+          url  <- ZIO.fromEither(URL.decode(s"http://localhost:$port"))
           id   <- DynamicServer.deploy(proxyAuthApp)
           proxy = Proxy.empty
             .withUrl(url)

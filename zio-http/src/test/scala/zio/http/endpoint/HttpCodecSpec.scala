@@ -23,12 +23,12 @@ import zio.http.codec._
 import zio.http.model._
 
 object HttpCodecSpec extends ZIOSpecDefault {
-  val googleUrl     = URL.fromString("http://google.com").toOption.get
-  val usersUrl      = URL.fromString("http://mywebservice.com/users").toOption.get
-  val usersIdUrl    = URL.fromString("http://mywebservice.com/users/42").toOption.get
-  val postURL       = URL.fromString("http://mywebservice.com/users/42/post").toOption.get
-  val postidURL     = URL.fromString("http://mywebservice.com/users/42/post/42").toOption.get
-  val postidfontURL = URL.fromString("http://mywebservice.com/users/42/post/42/fontstyle").toOption.get
+  val googleUrl     = URL.decode("http://google.com").toOption.get
+  val usersUrl      = URL.decode("http://mywebservice.com/users").toOption.get
+  val usersIdUrl    = URL.decode("http://mywebservice.com/users/42").toOption.get
+  val postURL       = URL.decode("http://mywebservice.com/users/42/post").toOption.get
+  val postidURL     = URL.decode("http://mywebservice.com/users/42/post/42").toOption.get
+  val postidfontURL = URL.decode("http://mywebservice.com/users/42/post/42/fontstyle").toOption.get
 
   val headerExample =
     Headers(Header.ContentType(MediaType.application.json)) ++ Headers("X-Trace-ID", "1234")
@@ -38,8 +38,8 @@ object HttpCodecSpec extends ZIOSpecDefault {
   def spec = suite("HttpCodecSpec")(
     suite("fallback") {
       test("path fallback") {
-        val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
-        val postsURL = URL.fromString("http://mywebservice.com/posts").toOption.get
+        val usersURL = URL.decode("http://mywebservice.com/users").toOption.get
+        val postsURL = URL.decode("http://mywebservice.com/posts").toOption.get
 
         val codec1 = PathCodec.literal("users")
         val codec2 = PathCodec.literal("posts")
@@ -80,8 +80,8 @@ object HttpCodecSpec extends ZIOSpecDefault {
           } yield assertTrue(result1 == "1234") && assertTrue(result2 == "5678")
         } +
         test("composite fallback") {
-          val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
-          val postsURL = URL.fromString("http://mywebservice.com/posts").toOption.get
+          val usersURL = URL.decode("http://mywebservice.com/users").toOption.get
+          val postsURL = URL.decode("http://mywebservice.com/posts").toOption.get
 
           val codec1 = PathCodec.literal("users") ++ QueryCodec.query("skip") ++ HeaderCodec.headerCodec(
             "Authentication",
@@ -107,7 +107,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
           } yield assertTrue(result1 == (("10", "1234"))) && assertTrue(result2 == (("20", "567")))
         } +
         test("no fallback for defects") {
-          val usersURL = URL.fromString("http://mywebservice.com/users").toOption.get
+          val usersURL = URL.decode("http://mywebservice.com/users").toOption.get
           val e        = new RuntimeException("boom")
 
           val codec1 = PathCodec.literal("users").transform[Unit](_ => throw e, _ => ()).const("route1")

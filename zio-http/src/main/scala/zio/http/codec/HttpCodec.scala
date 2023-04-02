@@ -187,7 +187,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    */
   final def encodeResponsePatch[Z](value: Value): Response.Patch =
     encodeWith(value)((_, status, _, headers, _) =>
-      Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.setStatus(_)).getOrElse(Response.Patch.empty),
+      Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.withStatus(_)).getOrElse(Response.Patch.empty),
     )
 
   private final def encodeWith[Z](value: Value)(

@@ -838,25 +838,25 @@ object Handler {
     /**
      * Overwrites the method in the incoming request
      */
-    def setMethod(method: Method): RequestHandler[R, Err] =
+    def withMethod(method: Method): RequestHandler[R, Err] =
       self.contramap[Request](_.copy(method = method))
 
     /**
      * Overwrites the path in the incoming request
      */
-    def setPath(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.updatePath(path))
+    def withPath(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.updatePath(path))
 
     /**
      * Sets the status in the response produced by the app
      */
-    def setStatus(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(
-      Response.Patch.setStatus(status),
+    def withStatus(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(
+      Response.Patch.withStatus(status),
     )
 
     /**
      * Overwrites the url in the incoming request
      */
-    def setUrl(url: URL): RequestHandler[R, Err] = self.contramap[Request](_.copy(url = url))
+    def withUrl(url: URL): RequestHandler[R, Err] = self.contramap[Request](_.copy(url = url))
 
     /**
      * Updates the current Headers with new one, using the provided update

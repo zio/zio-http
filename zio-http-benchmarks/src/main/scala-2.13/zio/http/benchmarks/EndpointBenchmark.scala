@@ -686,7 +686,7 @@ class EndpointBenchmark {
 //  }
 
   private def httpRequestFromString(url: String): Request =
-    Request.get(url = URL.fromString(url).toOption.get)
+    Request.get(url = URL.decode(url).toOption.get)
 
 //  private def akkaHttpRequestFromString(url: String): HttpRequest =
 //    HttpRequest(uri = url)

@@ -98,7 +98,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
   /**
    * Sets the status of the response
    */
-  final def setStatus(status: Status): Response =
+  final def withStatus(status: Status): Response =
     self.copy(status = status)
 
   private[zio] final def socketApp: Option[SocketApp[Any]] = self match {
@@ -272,7 +272,7 @@ object Response {
           case Patch.Empty                  => res
           case Patch.AddHeaders(headers)    => res.addHeaders(headers)
           case Patch.RemoveHeaders(headers) => res.removeHeaders(headers)
-          case Patch.SetStatus(status)      => res.setStatus(status)
+          case Patch.SetStatus(status)      => res.withStatus(status)
           case Patch.Combine(self, other)   => loop(self(res), other)
           case Patch.UpdateHeaders(f)       => res.updateHeaders(f)
         }
@@ -301,7 +301,7 @@ object Response {
     def addHeader(name: CharSequence, value: CharSequence): Patch = addHeaders(Headers(name, value))
 
     def removeHeaders(headerTypes: Set[HeaderType]): Patch = RemoveHeaders(headerTypes.map(_.name))
-    def setStatus(status: Status): Patch                   = SetStatus(status)
+    def withStatus(status: Status): Patch                  = SetStatus(status)
     def updateHeaders(f: Headers => Headers): Patch        = UpdateHeaders(f)
   }
 
