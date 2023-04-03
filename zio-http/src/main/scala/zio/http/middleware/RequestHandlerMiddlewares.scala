@@ -16,7 +16,7 @@
 
 package zio.http.middleware
 
-import zio.{Console, Duration, Trace, ZIO}
+import zio.{Console, Duration, Exit, Trace, ZIO}
 
 import zio.http._
 import zio.http.middleware.RequestHandlerMiddlewares.{InterceptPatch, InterceptPatchZIO}
@@ -55,13 +55,26 @@ private[zio] trait RequestHandlerMiddlewares
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
-        Handler.fromFunctionZIO { request =>
-          handler.runZIO(request).timed.flatMap { case (duration, response) =>
-            Console
-              .printLine(s"${response.status.code} ${request.method} ${request.url.encode} ${duration.toMillis}ms")
-              .as(response)
-              .orDie
-          }
+        Handler.fromFunctionZIO { (request: Request) =>
+          handler
+            .runZIO(request)
+            .sandbox
+            .exit
+            .timed
+            .tap {
+              case (duration, Exit.Success(response)) =>
+                Console
+                  .printLine(s"${response.status.code} ${request.method} ${request.url.encode} ${duration.toMillis}ms")
+                  .orDie
+              case (duration, Exit.Failure(cause))    =>
+                Console
+                  .printLine(
+                    s"Failed ${request.method} ${request.url.encode} ${duration.toMillis}ms: " + cause.prettyPrint,
+                  )
+                  .orDie
+            }
+            .flatMap(_._2)
+            .unsandbox
         }
     }
 
