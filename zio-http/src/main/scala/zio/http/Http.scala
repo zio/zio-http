@@ -96,10 +96,29 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   )(implicit trace: Trace): Http[R1, Err1, In1, Out1] =
     self.defaultWith(that)
 
-  final def catchAllDefect[R1 <: R, Out1 >: Out](f: Cause[Nothing] => ZIO[R1, Nothing, Out1])(implicit
+  final def catchAllZIO[R1 <: R, Err1 >: Err, Out1 >: Out](
+    f: Err => ZIO[R1, Err1, Out1],
+  )(implicit trace: Trace): Http[R1, Err1, In, Out1] =
+    self match {
+      case Http.Empty(errorHandler)           => Http.Empty(errorHandler)
+      case Http.Static(handler, errorHandler) =>
+        Http.Static(handler.catchAll(err => Handler.fromZIO(f(err))), errorHandler)
+      case route: Route[R, Err, In, Out]      =>
+        new Route[R1, Err1, In, Out1] {
+          override def run(in: In): ZIO[R1, Err1, Http[R1, Err1, In, Out1]] =
+            route.run(in).map(_.catchAllZIO(f))
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
+            route.errorHandler
+        }
+    }
+
+  final def catchAllCauseZIO[R1 <: R, Out1 >: Out](f: Cause[Err] => ZIO[R1, Nothing, Out1])(implicit
     trace: Trace,
   ): Http[R1, Err, In, Out1] =
-    self.withErrorHandler(Some(f))
+    self
+      .catchAllZIO(err => f(Cause.fail(err)))
+      .withErrorHandler(Some(f))
 
   /**
    * Named alias for `++`

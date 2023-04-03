@@ -170,12 +170,12 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           assertZIO(actual.exit)(dies(equalTo(t)))
         },
       ),
-      suite("catchAllDefect")(
+      suite("catchAllCauseZIO")(
         test("calling from outside") {
           val app1 = Handler
             .succeed("X")
             .toHttp
-            .catchAllDefect(cause => ZIO.succeed(cause.dieOption.map(_.getMessage).getOrElse("")))
+            .catchAllCauseZIO(cause => ZIO.succeed(cause.dieOption.map(_.getMessage).getOrElse("")))
           val app2 = Handler.succeed("X").toHttp
           for {
             out1 <- app1.runServerErrorOrNull(Cause.die(new RuntimeException("boom")))
@@ -200,7 +200,7 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
                             case _ => ZIO.succeed(Handler.succeed("OK").toHttp)
                           },
                         )
-                        .catchAllDefect(cause =>
+                        .catchAllCauseZIO(cause =>
                           ZIO.succeed(cause.dieOption.map(t => "#1 " + t.getMessage).getOrElse("")),
                         )
                     }
@@ -208,7 +208,7 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
                     ZIO.succeed(Http.empty)
                 },
               )
-              .catchAllDefect(cause => ZIO.succeed(cause.dieOption.map(t => "#0 " + t.getMessage).getOrElse("")))
+              .catchAllCauseZIO(cause => ZIO.succeed(cause.dieOption.map(t => "#0 " + t.getMessage).getOrElse("")))
 
           for {
             out0 <- app.runZIOOrNull(0)
@@ -229,7 +229,7 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
                   else "OK1"
                 }
               }
-              .catchAllDefect(cause => ZIO.succeed(cause.dieOption.map(t => "#1 " + t.getMessage).getOrElse("")))
+              .catchAllCauseZIO(cause => ZIO.succeed(cause.dieOption.map(t => "#1 " + t.getMessage).getOrElse("")))
 
           val app2 =
             Http
@@ -239,7 +239,7 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
                   else "OK2"
                 }
               }
-              .catchAllDefect(cause => ZIO.succeed(cause.dieOption.map(t => "#2 " + t.getMessage).getOrElse("")))
+              .catchAllCauseZIO(cause => ZIO.succeed(cause.dieOption.map(t => "#2 " + t.getMessage).getOrElse("")))
 
           val app = app1 ++ app2
 
