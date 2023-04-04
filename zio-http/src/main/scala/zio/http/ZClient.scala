@@ -471,7 +471,6 @@ object ZClient {
     socketApp: Option[SocketApp[Any]],
     ssl: Option[ClientSSLConfig],
     proxy: Option[zio.http.Proxy],
-    useAggregator: Boolean,
     connectionPool: ConnectionPoolConfig,
     maxHeaderSize: Int,
     requestDecompression: Decompression,
@@ -483,8 +482,6 @@ object ZClient {
     def socketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
 
     def proxy(proxy: zio.http.Proxy): Config = self.copy(proxy = Some(proxy))
-
-    def useObjectAggregator(objectAggregator: Boolean): Config = self.copy(useAggregator = objectAggregator)
 
     def withFixedConnectionPool(size: Int): Config =
       self.copy(connectionPool = ConnectionPoolConfig.Fixed(size))
@@ -507,15 +504,13 @@ object ZClient {
       (
         ClientSSLConfig.config.nested("ssl").optional.withDefault(Config.default.ssl) ++
           zio.http.Proxy.config.nested("proxy").optional.withDefault(Config.default.proxy) ++
-          zio.Config.boolean("use-aggregator").withDefault(Config.default.useAggregator) ++
           ConnectionPoolConfig.config.nested("connection-pool").withDefault(Config.default.connectionPool) ++
           zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
           Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression)
-      ).map { case (ssl, proxy, useAggregator, connectionPool, maxHeaderSize, requestDecompression) =>
+      ).map { case (ssl, proxy, connectionPool, maxHeaderSize, requestDecompression) =>
         default.copy(
           ssl = ssl,
           proxy = proxy,
-          useAggregator = useAggregator,
           connectionPool = connectionPool,
           maxHeaderSize = maxHeaderSize,
           requestDecompression = requestDecompression,
@@ -526,7 +521,6 @@ object ZClient {
       socketApp = None,
       ssl = None,
       proxy = None,
-      useAggregator = true,
       connectionPool = ConnectionPoolConfig.Disabled,
       maxHeaderSize = 8192,
       requestDecompression = Decompression.No,
@@ -575,8 +569,7 @@ object ZClient {
   }
 
   final class ClientLive private (config: Config, driver: ClientDriver, connectionPool: ConnectionPool[Any])
-      extends Client
-      with ClientRequestEncoder { self =>
+      extends Client { self =>
 
     def this(driver: ClientDriver)(connectionPool: ConnectionPool[driver.Connection])(settings: Config) =
       this(settings, driver, connectionPool.asInstanceOf[ConnectionPool[Any]])
@@ -664,7 +657,6 @@ object ZClient {
                         request,
                         onResponse,
                         onComplete,
-                        clientConfig.useAggregator,
                         connectionPool.enableKeepAlive,
                         () => clientConfig.socketApp.getOrElse(SocketApp()),
                       )

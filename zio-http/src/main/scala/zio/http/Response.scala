@@ -33,6 +33,20 @@ sealed trait Response extends HeaderOps[Response] { self =>
 
   def body: Body
 
+  /**
+   * Collects the potentially streaming body of the response into a single
+   * chunk.
+   */
+  def collect: ZIO[Any, Throwable, Response] =
+    self.body match {
+      case streamBody: Body.StreamBody =>
+        streamBody.asChunk.map { bytes =>
+          self.copy(body = Body.fromChunk(bytes))
+        }
+      case _                           =>
+        ZIO.succeed(self)
+    }
+
   def copy(
     status: Status = self.status,
     headers: Headers = self.headers,

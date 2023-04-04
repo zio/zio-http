@@ -26,7 +26,8 @@ import zio.http.{Body, Request}
 
 import io.netty.handler.codec.http.HttpHeaderNames
 
-object ClientRequestEncoderSpec extends ZIOSpecDefault with ClientRequestEncoder {
+object NettyRequestEncoderSpec extends ZIOSpecDefault {
+  import NettyRequestEncoder._
 
   val anyClientParam: Gen[Sized, Request] = HttpGen.requestGen(
     HttpGen.body(

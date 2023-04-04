@@ -81,12 +81,15 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         for {
           port     <- Handler.fromZIO(DynamicServer.port)
           id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
+          client   <- Handler.fromZIO(ZIO.service[Client])
           response <- Handler.fromFunctionZIO[Request] { params =>
-            Client.request(
-              params
-                .addHeader(DynamicServer.APP_ID, id)
-                .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            )
+            client
+              .request(
+                params
+                  .addHeader(DynamicServer.APP_ID, id)
+                  .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+              )
+              .flatMap(_.collect)
           }
         } yield response
       }

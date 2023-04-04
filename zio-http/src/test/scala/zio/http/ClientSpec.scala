@@ -72,7 +72,7 @@ object ClientSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Client") {
       serve(DynamicServer.app).as(List(clientSpec))
-    }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
+    }.provideSomeShared[Scope](DynamicServer.live, severTestLayer, Client.default) @@
       timeout(5 seconds) @@ sequential
   }
 }

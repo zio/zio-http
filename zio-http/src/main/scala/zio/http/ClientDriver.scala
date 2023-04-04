@@ -31,7 +31,6 @@ trait ClientDriver {
     req: Request,
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
-    useAggregator: Boolean,
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]

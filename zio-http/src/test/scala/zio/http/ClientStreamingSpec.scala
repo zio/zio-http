@@ -47,7 +47,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
     DynamicServer.live,
     severTestLayer,
     Client.customized,
-    ZLayer.succeed(ZClient.Config.default.useObjectAggregator(false)),
+    ZLayer.succeed(ZClient.Config.default),
     NettyClientDriver.live,
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),

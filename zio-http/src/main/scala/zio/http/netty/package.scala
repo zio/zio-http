@@ -37,7 +37,6 @@ package object netty {
     val WebSocketClientProtocolHandler = "WEB_SOCKET_CLIENT_PROTOCOL_HANDLER"
     val HttpRequestDecompression       = "HTTP_REQUEST_DECOMPRESSION"
     val HttpResponseCompression        = "HTTP_RESPONSE_COMPRESSION"
-    val LowLevelLogging                = "LOW_LEVEL_LOGGING"
     val HttpContentHandler             = "HTTP_CONTENT_HANDLER"
     val HttpRequestDecoder             = "HTTP_REQUEST_DECODER"
     val HttpResponseEncoder            = "HTTP_RESPONSE_ENCODER"
