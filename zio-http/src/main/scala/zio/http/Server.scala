@@ -55,6 +55,7 @@ object Server {
     responseCompression: Option[ResponseCompressionConfig],
     objectAggregator: Int,
     maxHeaderSize: Int,
+    logWarningOnFatalError: Boolean,
   ) {
     self =>
     def useAggregator: Boolean = objectAggregator >= 0
@@ -101,6 +102,12 @@ object Server {
      * href="https://netty.io/4.1/api/io/netty/handler/codec/http/HttpServerKeepAliveHandler.html">HttpServerKeepAliveHandler</a>).
      */
     def keepAlive(enable: Boolean): Config = self.copy(keepAlive = enable)
+
+    /**
+     * Log a warning in case of fatal errors when an error response cannot be
+     * sent back to the client
+     */
+    def logWarningOnFatalError(enable: Boolean): Config = self.copy(logWarningOnFatalError = enable)
 
     /**
      * Configure the server to use HttpObjectAggregator with the specified max
@@ -159,7 +166,8 @@ object Server {
         Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
         ResponseCompressionConfig.config.nested("response-compression").optional ++
         zio.Config.int("max-aggregated-request-size").withDefault(Config.default.objectAggregator) ++
-        zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize)
+        zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
+        zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError)
     }.map {
       case (
             sslConfig,
@@ -173,6 +181,7 @@ object Server {
             responseCompression,
             objectAggregator,
             maxHeaderSize,
+            logWarningOnFatalError,
           ) =>
         Config(
           sslConfig = sslConfig,
@@ -185,6 +194,7 @@ object Server {
           responseCompression = responseCompression,
           objectAggregator = objectAggregator,
           maxHeaderSize = maxHeaderSize,
+          logWarningOnFatalError = logWarningOnFatalError,
         )
     }
 
@@ -199,6 +209,7 @@ object Server {
       responseCompression = None,
       objectAggregator = 1024 * 100,
       maxHeaderSize = 8192,
+      logWarningOnFatalError = true,
     )
 
     final case class ResponseCompressionConfig(
