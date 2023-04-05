@@ -100,6 +100,10 @@ sealed trait Response extends HeaderOps[Response] { self =>
     case _                        => None
   }
 
+  /** Consumes the streaming body fully and then drops it */
+  final def ignoreBody: ZIO[Any, Throwable, Response] =
+    self.collect.map(_.copy(body = Body.empty))
+
   final def isWebSocket: Boolean = self match {
     case _: SocketAppResponse => self.status == Status.SwitchingProtocols
     case _                    => false

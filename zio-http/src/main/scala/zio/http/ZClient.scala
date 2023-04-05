@@ -182,6 +182,36 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
   final def map[Out2](f: Out => Out2): ZClient[Env, In, Err, Out2] =
     mapZIO(out => ZIO.succeed(f(out)))
 
+  def mapError[Err2](f: Err => Err2): ZClient[Env, In, Err2, Out] =
+    new ZClient[Env, In, Err2, Out] {
+      override def headers: Headers                   = self.headers
+      override def method: Method                     = self.method
+      override def sslConfig: Option[ClientSSLConfig] = self.sslConfig
+      override def url: URL                           = self.url
+      override def version: Version                   = self.version
+      override def request(
+        version: Version,
+        method: Method,
+        url: URL,
+        headers: Headers,
+        body: In,
+        sslConfig: Option[ClientSSLConfig],
+      )(implicit trace: Trace): ZIO[Env, Err2, Out] =
+        self.request(version, method, url, headers, body, sslConfig).mapError(f)
+
+      override def socket[Env1 <: Env](
+        app: SocketApp[Env1],
+        headers: Headers,
+        hostOption: Option[String],
+        pathPrefix: Path,
+        portOption: Option[RuntimeFlags],
+        queries: QueryParams,
+        schemeOption: Option[Scheme],
+        version: Version,
+      )(implicit trace: Trace): ZIO[Env1 with Scope, Err2, Out] =
+        self.socket(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version).mapError(f)
+    }
+
   final def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): ZClient[Env1, In, Err1, Out2] =
     new ZClient[Env1, In, Err1, Out2] {
       override def headers: Headers = self.headers
@@ -463,6 +493,12 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
       version,
       self,
     )
+
+  def withDisabledStreaming(implicit
+    ev1: Out <:< Response,
+    ev2: Err <:< Throwable,
+  ): ZClient[Env, In, Throwable, Response] =
+    mapError(ev2).mapZIO(out => ev1(out).collect)
 }
 
 object ZClient {

@@ -29,7 +29,7 @@ final class ClientResponseStreamHandler(
   onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,
 )(implicit trace: Trace)
-    extends SimpleChannelInboundHandler[HttpContent](false) { self =>
+    extends SimpleChannelInboundHandler[HttpContent](true) { self =>
 
   private val unsafeClass: Unsafe = Unsafe.unsafe
 
