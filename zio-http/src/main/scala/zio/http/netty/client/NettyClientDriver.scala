@@ -130,7 +130,9 @@ final case class NettyClientDriver private (
           new ChannelInterface {
             override def resetChannel: ZIO[Any, Throwable, ChannelState] =
               ZIO.attempt {
+                println(s"resetChannel: removing ${frozenToRemove} from $pipeline")
                 frozenToRemove.foreach(pipeline.remove)
+                println(s"resetChannel: result: $pipeline")
                 ChannelState.Reusable // channel can be reused
               }
 

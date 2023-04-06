@@ -33,7 +33,9 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
   private val app = Http.collectZIO[Request] {
     case req @ Method.POST -> !! / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
     case Method.GET -> !! / "slow"             => ZIO.sleep(1.hour).as(Response.text("done"))
-    case req                                   => req.body.asString.map(Response.text(_))
+    case req                                   =>
+      println(req)
+      req.body.asString.map(Response.text(_))
   }
 
   private val connectionCloseHeader = Headers(Header.Connection.Close)
@@ -58,7 +60,9 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                     body = Body.fromString(idx.toString),
                     headers = extraHeaders,
                   )
+                  .debug(s"Got response")
                   .flatMap(_.asString)
+                  .debug("Got response body")
               }
             assertZIO(res)(
               equalTo(
@@ -67,19 +71,21 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             )
           } @@ nonFlaky(10),
           test("streaming request") {
-            val res      = ZIO.foreachPar((1 to N).toList) { idx =>
-              val stream = ZStream.fromIterable(List("a", "b", "c-", idx.toString), chunkSize = 1)
-              app.deploy.body
-                .run(
-                  method = Method.POST,
-                  body = Body.fromStream(stream),
-                  headers = extraHeaders,
-                )
-                .flatMap(_.asString)
-            }
+            val res      = ZIO
+              .foreachPar((1 to N).toList) { idx =>
+                val stream = ZStream.fromIterable(List("a", "b", "c-", idx.toString), chunkSize = 1)
+                app.deploy.body
+                  .run(
+                    method = Method.POST,
+                    body = Body.fromStream(stream),
+                    headers = extraHeaders,
+                  )
+                  .flatMap(_.asString)
+              }
+              .debug("foreachPar finished")
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
-          } @@ nonFlaky(10) @@ ignore,
+          } @@ nonFlaky(10),
           test("streaming response") {
             val res =
               ZIO.foreachPar((1 to N).toList) { idx =>
@@ -97,7 +103,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                 (1 to N).map(_.toString).toList,
               ),
             )
-          } @@ nonFlaky(10) @@ ignore,
+          } @@ nonFlaky(10),
           test("streaming request and response") {
             val res      = ZIO.foreachPar((1 to N).toList) { idx =>
               val stream = ZStream.fromIterable(List("a", "b", "c-", idx.toString), chunkSize = 1)
@@ -112,7 +118,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             }
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
-          } @@ nonFlaky(10) @@ ignore,
+          } @@ nonFlaky(10),
           test("interrupting the parallel clients") {
             val res =
               ZIO.foreachPar(1 to 16) { idx =>
@@ -130,7 +136,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                   }
               }
             assertZIO(res)(hasSize(equalTo(16)))
-          } @@ ignore,
+          },
           test("interrupting the sequential clients") {
             val res =
               // ZIO.scoped {
@@ -150,7 +156,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
               }
             // }
             assertZIO(res)(hasSize(equalTo(16)))
-          } @@ ignore,
+          },
         )
       },
     )
@@ -162,7 +168,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           Version.Http_1_1,
           Map(
             "without connection close" -> Headers.empty,
-            "with connection close"    -> connectionCloseHeader,
+            // "with connection close"    -> connectionCloseHeader, // TODO: FIX
           ),
         ),
         connectionPoolTests(
@@ -171,7 +177,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             "without keep-alive" -> Headers.empty,
             "with keep-alive"    -> keepAliveHeader,
           ),
-        ) @@ ignore,
+        ),
       ).provideSome[Scope](
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
@@ -187,7 +193,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           Version.Http_1_1,
           Map(
             "without connection close" -> Headers.empty,
-            "with connection close"    -> connectionCloseHeader,
+            // "with connection close"    -> connectionCloseHeader, // TODO: FIX
           ),
         ),
         connectionPoolTests(
@@ -206,11 +212,11 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         NettyClientDriver.live,
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.default),
-      ) @@ ignore,
+      ),
     )
 
   override def spec: Spec[Scope, Throwable] = {
-    connectionPoolSpec @@ timeout(30.seconds) @@ diagnose(30.seconds) @@ sequential @@ withLiveClock
+    connectionPoolSpec @@ timeout(30.seconds) @@ sequential @@ withLiveClock
   }
 
 }

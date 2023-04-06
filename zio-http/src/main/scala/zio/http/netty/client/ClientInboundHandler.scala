@@ -39,6 +39,7 @@ final class ClientInboundHandler(
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
+    ctx.channel().config().setAutoRead(true)
     sendRequest(ctx)
   }
 
@@ -46,6 +47,7 @@ final class ClientInboundHandler(
     jReq match {
       case fullRequest: FullHttpRequest =>
         ctx.writeAndFlush(fullRequest)
+        println(s"sendRequest completed ($fullRequest)")
       case _: HttpRequest               =>
         ctx.write(jReq)
         rtm.run(ctx, NettyRuntime.noopEnsuring) {
