@@ -63,12 +63,18 @@ object NettyBodyWriter {
       case StreamBody(stream, _, _)           =>
         stream
           .runForeachChunk(chunk =>
-            NettyFutureExecutor.executed(
-              ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(chunk.toArray))),
-            ),
+            NettyFutureExecutor.executed {
+              println(s"writing chunk ${new String(chunk.toArray)}")
+              ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(chunk.toArray)))
+            }
+              .debug("wrote chunk"),
           )
           .flatMap { _ =>
-            NettyFutureExecutor.executed(ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)).as(true)
+            println("starting to write last chunk")
+            NettyFutureExecutor.executed {
+              println("writing last chunk")
+              ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+            }.as(true).debug("wrote last chunk")
           }
       case ChunkBody(data, _, _)              =>
         ZIO.succeed {

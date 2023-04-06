@@ -52,26 +52,28 @@ final class ClientInboundHandler(
           NettyBodyWriter.write(req.body, ctx).unit
         }(Unsafe.unsafe, trace)
         ctx.flush(): Unit
+        println("sendRequest completed")
     }
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
     msg match {
       case response: HttpResponse =>
+        println(s"HttpResponse ${response}")
         ctx.channel().config().setAutoRead(false)
         rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
-          onResponse
-            .succeed(
-              NettyResponse.make(
-                ctx,
-                response,
-                rtm,
-                onComplete,
-                enableKeepAlive && HttpUtil.isKeepAlive(response),
-              ),
+          NettyResponse
+            .make(
+              ctx,
+              response,
+              rtm,
+              onComplete,
+              enableKeepAlive && HttpUtil.isKeepAlive(response),
             )
+            .flatMap(onResponse.succeed)
         }(unsafeClass, trace)
       case content: HttpContent   =>
+        println(s"HttpContent")
         ctx.fireChannelRead(content): Unit
 
       case err => throw new IllegalStateException(s"Client unexpected message type: ${err}")

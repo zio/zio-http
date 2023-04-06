@@ -699,6 +699,7 @@ object ZClient {
                       .tapErrorCause(cause => onResponse.failCause(cause))
                   _                <-
                     onComplete.await.interruptible.exit.flatMap { exit =>
+                      println(s"onComplete $exit")
                       if (exit.isInterrupted) {
                         channelInterface.interrupt
                           .zipRight(connectionPool.invalidate(connection))

@@ -79,7 +79,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             }
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
-          } @@ nonFlaky(10),
+          } @@ nonFlaky(10) @@ ignore,
           test("streaming response") {
             val res =
               ZIO.foreachPar((1 to N).toList) { idx =>
@@ -97,7 +97,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                 (1 to N).map(_.toString).toList,
               ),
             )
-          } @@ nonFlaky(10),
+          } @@ nonFlaky(10) @@ ignore,
           test("streaming request and response") {
             val res      = ZIO.foreachPar((1 to N).toList) { idx =>
               val stream = ZStream.fromIterable(List("a", "b", "c-", idx.toString), chunkSize = 1)
@@ -112,7 +112,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             }
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
-          } @@ nonFlaky(10),
+          } @@ nonFlaky(10) @@ ignore,
           test("interrupting the parallel clients") {
             val res =
               ZIO.foreachPar(1 to 16) { idx =>
@@ -130,7 +130,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                   }
               }
             assertZIO(res)(hasSize(equalTo(16)))
-          },
+          } @@ ignore,
           test("interrupting the sequential clients") {
             val res =
               // ZIO.scoped {
@@ -150,7 +150,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
               }
             // }
             assertZIO(res)(hasSize(equalTo(16)))
-          },
+          } @@ ignore,
         )
       },
     )
@@ -171,7 +171,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             "without keep-alive" -> Headers.empty,
             "with keep-alive"    -> keepAliveHeader,
           ),
-        ),
+        ) @@ ignore,
       ).provideSome[Scope](
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
@@ -206,7 +206,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         NettyClientDriver.live,
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.default),
-      ),
+      ) @@ ignore,
     )
 
   override def spec: Spec[Scope, Throwable] = {

@@ -16,13 +16,13 @@
 
 package zio.http.netty
 
-import zio.{Promise, Trace, Unsafe}
+import zio.{Promise, Trace, Unsafe, ZIO}
 
-import zio.http.Response
 import zio.http.Response.NativeResponse
 import zio.http.model.Header
 import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
 import zio.http.netty.model.Conversions
+import zio.http.{Body, Response}
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext
@@ -50,18 +50,27 @@ object NettyResponse {
   )(implicit
     unsafe: Unsafe,
     trace: Trace,
-  ): Response = {
+  ): ZIO[Any, Nothing, Response] = {
     val status  = Conversions.statusFromNetty(jRes.status())
     val headers = Conversions.headersFromNetty(jRes.headers())
-    val data    = NettyBody.fromAsync { callback =>
-      ctx
-        .pipeline()
-        .addAfter(
-          Names.ClientInboundHandler,
-          Names.ClientStreamingBodyHandler,
-          new ClientResponseStreamHandler(callback, zExec, onComplete, keepAlive),
-        ): Unit
+
+    if (headers.get(Header.ContentLength).map(_.length).contains(0L)) {
+      onComplete
+        .succeed(ChannelState.Reusable)
+        .as(
+          new NativeResponse(Body.empty, headers, status, () => NettyFutureExecutor.executed(ctx.close())),
+        )
+    } else {
+      val data = NettyBody.fromAsync { callback =>
+        ctx
+          .pipeline()
+          .addAfter(
+            Names.ClientInboundHandler,
+            Names.ClientStreamingBodyHandler,
+            new ClientResponseStreamHandler(callback, zExec, onComplete, keepAlive),
+          ): Unit
+      }
+      ZIO.succeed(new NativeResponse(data, headers, status, () => NettyFutureExecutor.executed(ctx.close())))
     }
-    new NativeResponse(data, headers, status, () => NettyFutureExecutor.executed(ctx.close()))
   }
 }

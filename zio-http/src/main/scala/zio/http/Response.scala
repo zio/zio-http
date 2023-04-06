@@ -38,14 +38,11 @@ sealed trait Response extends HeaderOps[Response] { self =>
    * chunk.
    */
   def collect: ZIO[Any, Throwable, Response] =
-    self.body match {
-      case streamBody: Body.StreamBody =>
-        streamBody.asChunk.map { bytes =>
-          self.copy(body = Body.fromChunk(bytes))
-        }
-      case _                           =>
-        ZIO.succeed(self)
-    }
+    if (self.body.isComplete) ZIO.succeed(self)
+    else
+      self.body.asChunk.map { bytes =>
+        self.copy(body = Body.fromChunk(bytes))
+      }
 
   def copy(
     status: Status = self.status,

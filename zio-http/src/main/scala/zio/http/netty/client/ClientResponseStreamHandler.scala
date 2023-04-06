@@ -16,12 +16,14 @@
 
 package zio.http.netty.client
 
+import zio.{Chunk, Promise, Trace, Unsafe}
+
+import zio.http.netty.NettyBody.UnsafeAsync
+import zio.http.netty.{NettyFutureExecutor, NettyRuntime}
+
 import io.netty.buffer.ByteBufUtil
 import io.netty.channel._
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
-import zio.http.netty.NettyBody.UnsafeAsync
-import zio.http.netty.{NettyFutureExecutor, NettyRuntime}
-import zio.{Chunk, Promise, Trace, Unsafe}
 
 final class ClientResponseStreamHandler(
   callback: UnsafeAsync,
@@ -40,6 +42,8 @@ final class ClientResponseStreamHandler(
     val isLast = msg.isInstanceOf[LastHttpContent]
     val chunk  = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
     callback(ctx.channel(), chunk, isLast)
+
+    println(s">> chunk read, $isLast")
     if (isLast) {
       ctx.channel().pipeline().remove(self)
 
