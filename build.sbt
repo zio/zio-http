@@ -102,7 +102,6 @@ lazy val zioHttp = (project in file("zio-http"))
       `zio-test`,
       `zio-test-sbt`,
       `netty-incubator`,
-      "dev.zio" %% "zio-logging-slf4j-bridge" % "2.1.11" % Test,
     ),
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {

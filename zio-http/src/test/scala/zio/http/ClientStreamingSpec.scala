@@ -22,6 +22,7 @@ import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.stream.{ZStream, ZStreamAspect}
 
+import zio.http.Server.RequestStreaming
 import zio.http.internal.HttpRunnableSpec
 import zio.http.model.{Headers, Method, Status, Version}
 import zio.http.netty.NettyConfig
@@ -213,7 +214,11 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         .zipRight(ZIO.never)
         .provide(
           ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID)),
-          ZLayer.succeed(Server.Config.default.objectAggregator(if (streaming) -1 else 1024).onAnyOpenPort),
+          ZLayer.succeed(
+            Server.Config.default
+              .requestStreaming(if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(1024))
+              .onAnyOpenPort,
+          ),
           Server.customized,
         )
         .fork

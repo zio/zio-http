@@ -50,14 +50,15 @@ final case class NettyClientDriver private (
     createSocketApp: () => SocketApp[Any],
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
     NettyRequestEncoder.encode(req).flatMap { jReq =>
-      Scope.addFinalizerExit { exit =>
+      Scope.addFinalizer {
         ZIO.attempt {
           jReq match {
             case fullRequest: FullHttpRequest =>
-              fullRequest.release(fullRequest.refCnt())
+              if (fullRequest.refCnt() > 0)
+                fullRequest.release(fullRequest.refCnt())
             case _                            =>
           }
-        }.ignore.when(exit.isFailure)
+        }.ignore
       }.as {
         val pipeline                              = channel.pipeline()
         val toRemove: mutable.Set[ChannelHandler] = new mutable.HashSet[ChannelHandler]()

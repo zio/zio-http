@@ -19,6 +19,7 @@ package zio.http.netty.server
 import zio._
 
 import zio.http.Server
+import zio.http.Server.RequestStreaming
 import zio.http.netty.Names
 import zio.http.netty.model.Conversions
 
@@ -26,8 +27,6 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
-import io.netty.handler.flow.FlowControlHandler
-import io.netty.handler.flush.FlushConsolidationHandler
 
 /**
  * Initializes the netty channel with default handlers
@@ -68,9 +67,11 @@ private[zio] final case class ServerChannelInitializer(
     })
 
     // ObjectAggregator
-    // Always add ObjectAggregator
-    if (cfg.useAggregator)
-      pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(cfg.objectAggregator))
+    cfg.requestStreaming match {
+      case RequestStreaming.Enabled                        =>
+      case RequestStreaming.Disabled(maximumContentLength) =>
+        pipeline.addLast(Names.HttpObjectAggregator, new HttpObjectAggregator(maximumContentLength))
+    }
 
     // ExpectContinueHandler
     // Add expect continue handler is settings is true
@@ -80,14 +81,9 @@ private[zio] final case class ServerChannelInitializer(
     // Add Keep-Alive handler is settings is true
     if (cfg.keepAlive) pipeline.addLast(Names.HttpKeepAliveHandler, new HttpServerKeepAliveHandler)
 
-    // FlushConsolidationHandler
-    // Flushing content is done in batches. Can potentially improve performance.
-    if (cfg.consolidateFlush) pipeline.addLast(Names.HttpServerFlushConsolidation, new FlushConsolidationHandler)
-
     // RequestHandler
     // Always add ZIO Http Request Handler
     pipeline.addLast(Names.HttpRequestHandler, reqHandler)
-    // TODO: find a different approach if (cfg.channelInitializer != null) { cfg.channelInitializer(pipeline) }
     ()
   }
 
@@ -96,10 +92,11 @@ private[zio] final case class ServerChannelInitializer(
 object ServerChannelInitializer {
   implicit val trace: Trace = Trace.empty
 
-  val layer = ZLayer.fromZIO {
-    for {
-      cfg     <- ZIO.service[Server.Config]
-      handler <- ZIO.service[SimpleChannelInboundHandler[HttpObject]]
-    } yield ServerChannelInitializer(cfg, handler)
-  }
+  val layer: ZLayer[SimpleChannelInboundHandler[HttpObject] with Server.Config, Nothing, ServerChannelInitializer] =
+    ZLayer.fromZIO {
+      for {
+        cfg     <- ZIO.service[Server.Config]
+        handler <- ZIO.service[SimpleChannelInboundHandler[HttpObject]]
+      } yield ServerChannelInitializer(cfg, handler)
+    }
 }

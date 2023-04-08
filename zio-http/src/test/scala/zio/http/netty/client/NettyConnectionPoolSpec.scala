@@ -23,14 +23,10 @@ import zio.test._
 
 import zio.stream.ZStream
 
-import zio.logging.slf4j.bridge.Slf4jBridge
-
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.{Header, Headers, Method, Version}
 import zio.http.netty.NettyConfig
-
-import io.netty.util.internal.logging.{InternalLoggerFactory, Slf4JLoggerFactory}
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
@@ -187,14 +183,6 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         NettyClientDriver.live,
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.default),
-        ZLayer(ZIO.attempt {
-          InternalLoggerFactory.setDefaultFactory(Slf4JLoggerFactory.INSTANCE)
-        }),
-      ).provideSome[Scope](
-        Slf4jBridge.initialize,
-      ).provideSome[Scope](
-        Runtime.removeDefaultLoggers,
-        Runtime.addLogger(ZLogger.default.map(println)),
       ),
       suite("dynamic")(
         connectionPoolTests(

@@ -18,7 +18,7 @@ package zio.http.netty.client
 
 import zio._
 
-import zio.http.netty.{NettyBodyWriter, NettyFutureExecutor, NettyResponse, NettyRuntime}
+import zio.http.netty.{NettyBodyWriter, NettyResponse, NettyRuntime}
 import zio.http.{Request, Response}
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
@@ -78,7 +78,7 @@ final class ClientInboundHandler(
       case content: HttpContent   =>
         ctx.fireChannelRead(content): Unit
 
-      case err => throw new IllegalStateException(s"Client unexpected message type: ${err}")
+      case err => throw new IllegalStateException(s"Client unexpected message type: $err")
     }
   }
 
@@ -86,14 +86,5 @@ final class ClientInboundHandler(
     rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
       onResponse.fail(error) *> onComplete.fail(error),
     )(unsafeClass, trace)
-    releaseRequest()
-  }
-
-  private def releaseRequest(): Unit = {
-    jReq match {
-      case fullRequest: FullHttpRequest =>
-        fullRequest.release(fullRequest.refCnt())
-      case _                            =>
-    }
   }
 }
