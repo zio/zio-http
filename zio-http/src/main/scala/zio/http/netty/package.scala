@@ -31,6 +31,7 @@ package object netty {
     val SSLHandler                     = "SSL_HANDLER"
     val HttpClientCodec                = "HTTP_CLIENT_CODEC"
     val HttpServerExpectContinue       = "HTTP_SERVER_EXPECT_CONTINUE"
+    val HttpServerFlushConsolidation   = "HTTP_SERVER_FLUSH_CONSOLIDATION"
     val ClientInboundHandler           = "CLIENT_INBOUND_HANDLER"
     val ClientStreamingBodyHandler     = "CLIENT_STREAMING_BODY_HANDLER"
     val WebSocketClientProtocolHandler = "WEB_SOCKET_CLIENT_PROTOCOL_HANDLER"

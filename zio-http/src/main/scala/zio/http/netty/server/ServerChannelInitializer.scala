@@ -27,6 +27,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
+import io.netty.handler.flush.FlushConsolidationHandler
 
 /**
  * Initializes the netty channel with default handlers
@@ -46,6 +47,8 @@ private[zio] final case class ServerChannelInitializer(
     cfg.sslConfig.foreach { sslCfg =>
       pipeline.addFirst(Names.SSLHandler, new ServerSSLDecoder(sslCfg, cfg))
     }
+
+    pipeline.addLast(Names.HttpServerFlushConsolidation, new FlushConsolidationHandler())
 
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
