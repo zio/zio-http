@@ -32,7 +32,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
     Server.Config.default
       .port(0)
       .requestDecompression(true)
-      .requestStreaming(RequestStreaming.Enabled)
+      .enableRequestStreaming
 
   private val appWithReqStreaming = serve(DynamicServer.app)
 

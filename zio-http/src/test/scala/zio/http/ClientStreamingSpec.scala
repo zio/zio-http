@@ -215,9 +215,8 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         .provide(
           ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID)),
           ZLayer.succeed(
-            Server.Config.default
-              .requestStreaming(if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(1024))
-              .onAnyOpenPort,
+            Server.Config.default.onAnyOpenPort
+              .withRequestStreaming(if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(1024)),
           ),
           Server.customized,
         )

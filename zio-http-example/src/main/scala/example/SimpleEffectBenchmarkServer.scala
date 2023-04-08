@@ -39,7 +39,7 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
 
   private val config = Server.Config.default
     .port(8080)
-    .requestStreaming(RequestStreaming.Enabled)
+    .enableRequestStreaming
 
   private val nettyConfig = NettyConfig.default
     .leakDetection(LeakDetectionLevel.DISABLED)

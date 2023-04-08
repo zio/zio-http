@@ -43,7 +43,7 @@ object ServerSpec extends HttpRunnableSpec {
   private val MaxSize = 1024 * 10
   val configApp       = Server.Config.default
     .requestDecompression(true)
-    .requestStreaming(RequestStreaming.Disabled(MaxSize))
+    .disableRequestStreaming(MaxSize)
     .responseCompression()
 
   private val app = serve(DynamicServer.app)

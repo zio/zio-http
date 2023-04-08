@@ -80,6 +80,16 @@ object Server {
     def binding(inetSocketAddress: InetSocketAddress): Config = self.copy(address = inetSocketAddress)
 
     /**
+     * Disables streaming of request bodies. Payloads larger than
+     * maxContentLength will be rejected
+     */
+    def disableRequestStreaming(maxContentLength: Int): Config =
+      self.copy(requestStreaming = RequestStreaming.Disabled(maxContentLength))
+
+    /** Enables streaming request bodies */
+    def enableRequestStreaming: Config = self.copy(requestStreaming = RequestStreaming.Enabled)
+
+    /**
      * Configure the server to use netty's HttpServerKeepAliveHandler to close
      * persistent connections when enable is true (@see <a
      * href="https://netty.io/4.1/api/io/netty/handler/codec/http/HttpServerKeepAliveHandler.html">HttpServerKeepAliveHandler</a>).
@@ -119,15 +129,13 @@ object Server {
       self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
 
     /**
-     * Enables or disables streaming of request bodies
-     */
-    def requestStreaming(requestStreaming: RequestStreaming): Config =
-      self.copy(requestStreaming = requestStreaming)
-
-    /**
      * Configure the server with the following ssl options.
      */
     def ssl(sslConfig: SSLConfig): Config = self.copy(sslConfig = Some(sslConfig))
+
+    /** Enables or disables request body streaming */
+    def withRequestStreaming(requestStreaming: RequestStreaming): Config =
+      self.copy(requestStreaming = requestStreaming)
   }
 
   object Config {
