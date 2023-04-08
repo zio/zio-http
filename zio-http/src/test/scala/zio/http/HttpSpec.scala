@@ -16,9 +16,9 @@
 
 package zio.http
 
-import zio.test.Assertion.{dies, equalTo, fails, isLeft, isNone}
+import zio.test.Assertion._
 import zio.test.{Spec, ZIOSpecDefault, assert, assertTrue, assertZIO}
-import zio.{Cause, Exit, Unsafe, ZIO}
+import zio.{Cause, Exit, Ref, Unsafe, ZIO}
 
 object HttpSpec extends ZIOSpecDefault with ExitAssertion {
   implicit val allowUnsafe: Unsafe = Unsafe.unsafe
@@ -150,6 +150,55 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           val app    = Http.collectHandler[Int](Map.empty)
           val actual = app.runZIO(1)
           assertZIO(actual.exit)(fails(isNone))
+        },
+      ),
+      suite("map")(
+        test("should execute http only when condition applies") {
+          val app    = Handler.succeed(1).toHttp.map(_ + 1)
+          val actual = app.runZIOOrNull(0)
+          assertZIO(actual.exit)(succeeds(equalTo(2)))
+        },
+      ),
+      suite("mapZIO")(
+        test("should map the result of a success") {
+          for {
+            _ <- ZIO.unit
+            app = Handler.succeed(1).toHttp.mapZIO(in => ZIO.succeed(in + 1))
+            actual <- app.runZIOOrNull(0)
+          } yield assert(actual)(equalTo(2))
+        },
+      ),
+      suite("mapError")(
+        test("should map in the http in an error") {
+          for {
+            _ <- ZIO.unit
+            app = Handler.fail(1).toHttp.mapError(_ + 1)
+            actual <- app.runZIOOrNull(0).exit
+          } yield assert(actual)(isFailure(equalTo(2)))
+        },
+      ),
+      suite("mapErrorZIO")(
+        test("should not be executed in case of success") {
+          for {
+            ref <- Ref.make(1)
+            app = Handler.succeed(1).toHttp.mapErrorZIO(_ => ref.set(2))
+            actual <- app.runZIOOrNull(0)
+            res    <- ref.get
+          } yield assert(actual)(equalTo(1)) && assert(res)(equalTo(1))
+        },
+        test("should remain an error in case of error") {
+          for {
+            _ <- ZIO.unit
+            app = Handler.fail(1).toHttp.mapErrorZIO(_ => ZIO.fail(2))
+            actual <- app.runZIOOrNull(0).exit
+          } yield assert(actual)(isFailure(equalTo(2)))
+        },
+        test("should become a success") {
+          for {
+            _ <- ZIO.unit
+            app = Handler.fail(1).toHttp.mapErrorZIO(in => ZIO.succeed(in + 1))
+            actual <- app.runZIOOrNull(0).exit
+          } yield assert(actual)(isSuccess(equalTo(2)))
         },
       ),
       suite("when")(
