@@ -16,9 +16,9 @@
 
 package zio.http
 
-import zio.test.Assertion.{dies, equalTo, fails, succeeds, isLeft, isNone}
+import zio.test.Assertion._
 import zio.test.{Spec, ZIOSpecDefault, assert, assertTrue, assertZIO}
-import zio.{Cause, Exit, Unsafe, ZIO, Ref}
+import zio.{Cause, Exit, Ref, Unsafe, ZIO}
 
 object HttpSpec extends ZIOSpecDefault with ExitAssertion {
   implicit val allowUnsafe: Unsafe = Unsafe.unsafe
