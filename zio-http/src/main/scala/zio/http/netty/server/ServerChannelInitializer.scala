@@ -48,8 +48,6 @@ private[zio] final case class ServerChannelInitializer(
       pipeline.addFirst(Names.SSLHandler, new ServerSSLDecoder(sslCfg, cfg))
     }
 
-    pipeline.addLast(Names.HttpServerFlushConsolidation, new FlushConsolidationHandler())
-
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
     pipeline.addLast(
@@ -83,6 +81,8 @@ private[zio] final case class ServerChannelInitializer(
     // KeepAliveHandler
     // Add Keep-Alive handler is settings is true
     if (cfg.keepAlive) pipeline.addLast(Names.HttpKeepAliveHandler, new HttpServerKeepAliveHandler)
+
+    pipeline.addLast(Names.HttpServerFlushConsolidation, new FlushConsolidationHandler())
 
     // RequestHandler
     // Always add ZIO Http Request Handler
