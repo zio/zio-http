@@ -38,31 +38,32 @@ final class ClientInboundHandler(
     extends SimpleChannelInboundHandler[HttpObject](false) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
+  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
+    super.handlerAdded(ctx)
+  }
+
   override def channelActive(ctx: ChannelHandlerContext): Unit = {
-    ctx.channel().config().setAutoRead(true)
     sendRequest(ctx)
   }
+
+  override def handlerRemoved(ctx: ChannelHandlerContext): Unit = super.handlerRemoved(ctx)
 
   private def sendRequest(ctx: ChannelHandlerContext): Unit = {
     jReq match {
       case fullRequest: FullHttpRequest =>
         ctx.writeAndFlush(fullRequest)
-        println(s"sendRequest completed ($fullRequest)")
       case _: HttpRequest               =>
         ctx.write(jReq)
         rtm.run(ctx, NettyRuntime.noopEnsuring) {
           NettyBodyWriter.write(req.body, ctx).unit
         }(Unsafe.unsafe, trace)
         ctx.flush(): Unit
-        println("sendRequest completed")
     }
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
     msg match {
       case response: HttpResponse =>
-        println(s"HttpResponse ${response}")
-        ctx.channel().config().setAutoRead(false)
         rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
           NettyResponse
             .make(
@@ -75,7 +76,6 @@ final class ClientInboundHandler(
             .flatMap(onResponse.succeed)
         }(unsafeClass, trace)
       case content: HttpContent   =>
-        println(s"HttpContent")
         ctx.fireChannelRead(content): Unit
 
       case err => throw new IllegalStateException(s"Client unexpected message type: ${err}")

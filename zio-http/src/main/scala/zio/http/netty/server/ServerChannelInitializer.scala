@@ -80,11 +80,6 @@ private[zio] final case class ServerChannelInitializer(
     // Add Keep-Alive handler is settings is true
     if (cfg.keepAlive) pipeline.addLast(Names.HttpKeepAliveHandler, new HttpServerKeepAliveHandler)
 
-    // FlowControlHandler
-    // Required because HttpObjectDecoder fires an HttpRequest that is immediately followed by a LastHttpContent event.
-    // For reference: https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html
-    if (cfg.flowControl) pipeline.addLast(Names.FlowControlHandler, new FlowControlHandler())
-
     // FlushConsolidationHandler
     // Flushing content is done in batches. Can potentially improve performance.
     if (cfg.consolidateFlush) pipeline.addLast(Names.HttpServerFlushConsolidation, new FlushConsolidationHandler)

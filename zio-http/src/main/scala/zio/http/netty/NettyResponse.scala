@@ -61,14 +61,17 @@ object NettyResponse {
           new NativeResponse(Body.empty, headers, status, () => NettyFutureExecutor.executed(ctx.close())),
         )
     } else {
+      val responseHandler = new ClientResponseStreamHandler(zExec, onComplete, keepAlive)
+      ctx
+        .pipeline()
+        .addAfter(
+          Names.ClientInboundHandler,
+          Names.ClientStreamingBodyHandler,
+          responseHandler,
+        ): Unit
+
       val data = NettyBody.fromAsync { callback =>
-        ctx
-          .pipeline()
-          .addAfter(
-            Names.ClientInboundHandler,
-            Names.ClientStreamingBodyHandler,
-            new ClientResponseStreamHandler(callback, zExec, onComplete, keepAlive),
-          ): Unit
+        responseHandler.connect(callback)
       }
       ZIO.succeed(new NativeResponse(data, headers, status, () => NettyFutureExecutor.executed(ctx.close())))
     }

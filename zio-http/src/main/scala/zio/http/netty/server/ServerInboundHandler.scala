@@ -88,17 +88,7 @@ private[zio] final case class ServerInboundHandler(
         ensureHasApp()
         val exit = failOnDecodingError(jReq) *> app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
-
-          if (
-            jReq.method() == HttpMethod.TRACE ||
-            jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
-            jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
-          )
-            ctx.channel().config().setAutoRead(false)
-
-          writeResponse(ctx, env, exit, jReq) { () =>
-            val _ = ctx.channel().config().setAutoRead(true)
-          }
+          writeResponse(ctx, env, exit, jReq) { () => }
         }
 
       case msg: HttpContent =>
@@ -116,15 +106,17 @@ private[zio] final case class ServerInboundHandler(
       case t                                                                            => super.exceptionCaught(ctx, t)
     }
 
-  private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: NettyBody.UnsafeAsync): Unit = {
+  private def addAsyncBodyHandler(ctx: ChannelHandlerContext): AsyncBodyReader = {
     if (ctx.channel().attr(isReadKey).get())
       throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
 
+    val handler = new ServerAsyncBodyHandler
     ctx
       .channel()
       .pipeline()
-      .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, new ServerAsyncBodyHandler(async))
+      .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, handler)
     ctx.channel().attr(isReadKey).set(true)
+    handler
   }
 
   private def attemptFastWrite(
@@ -225,9 +217,10 @@ private[zio] final case class ServerInboundHandler(
           remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-        val body = NettyBody.fromAsync(
+        val handler = addAsyncBodyHandler(ctx)
+        val body    = NettyBody.fromAsync(
           { async =>
-            addAsyncBodyHandler(ctx, async)
+            handler.connect(async)
           },
           contentType,
         )

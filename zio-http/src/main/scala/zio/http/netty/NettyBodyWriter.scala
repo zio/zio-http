@@ -49,9 +49,7 @@ object NettyBodyWriter {
         ZIO.attempt {
           async { (ctx, msg, isLast) =>
             ctx.writeAndFlush(msg)
-            val _ =
-              if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-              else ctx.read()
+            if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
           }
           true
         }
@@ -64,17 +62,13 @@ object NettyBodyWriter {
         stream
           .runForeachChunk(chunk =>
             NettyFutureExecutor.executed {
-              println(s"writing chunk ${new String(chunk.toArray)}")
               ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(chunk.toArray)))
-            }
-              .debug("wrote chunk"),
+            },
           )
-          .flatMap { _ =>
-            println("starting to write last chunk")
+          .zipRight {
             NettyFutureExecutor.executed {
-              println("writing last chunk")
               ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-            }.as(true).debug("wrote last chunk")
+            }.as(true)
           }
       case ChunkBody(data, _, _)              =>
         ZIO.succeed {

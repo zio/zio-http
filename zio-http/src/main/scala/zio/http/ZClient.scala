@@ -699,7 +699,6 @@ object ZClient {
                       .tapErrorCause(cause => onResponse.failCause(cause))
                   _                <-
                     onComplete.await.interruptible.exit.flatMap { exit =>
-                      println(s"onComplete $exit")
                       if (exit.isInterrupted) {
                         channelInterface.interrupt
                           .zipRight(connectionPool.invalidate(connection))
@@ -712,7 +711,6 @@ object ZClient {
                             ZIO.succeed(ChannelState.Invalid),
                           ) // In case resetting the channel fails we cannot reuse it
                           .flatMap { channelState =>
-                            println(s"Final channelState $channelState")
                             connectionPool
                               .invalidate(connection)
                               .when(channelState == ChannelState.Invalid)

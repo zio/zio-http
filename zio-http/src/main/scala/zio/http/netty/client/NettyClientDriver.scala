@@ -30,7 +30,6 @@ import zio.http.socket.SocketApp
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
-import io.netty.handler.flow.FlowControlHandler
 
 final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],
@@ -105,7 +104,6 @@ final case class NettyClientDriver private (
               NettyFutureExecutor.executed(channel.disconnect())
           }
         } else {
-          val flowControl   = new FlowControlHandler()
           val clientInbound =
             new ClientInboundHandler(
               nettyRuntime,
@@ -116,10 +114,8 @@ final case class NettyClientDriver private (
               enableKeepAlive,
             )
 
-          pipeline.addLast(Names.FlowControlHandler, flowControl)
           pipeline.addLast(Names.ClientInboundHandler, clientInbound)
 
-          toRemove.add(flowControl)
           toRemove.add(clientInbound)
 
           pipeline.fireChannelRegistered()
@@ -130,9 +126,7 @@ final case class NettyClientDriver private (
           new ChannelInterface {
             override def resetChannel: ZIO[Any, Throwable, ChannelState] =
               ZIO.attempt {
-                println(s"resetChannel: removing ${frozenToRemove} from $pipeline")
                 frozenToRemove.foreach(pipeline.remove)
-                println(s"resetChannel: result: $pipeline")
                 ChannelState.Reusable // channel can be reused
               }
 

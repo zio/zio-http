@@ -23,10 +23,14 @@ import zio.test._
 
 import zio.stream.ZStream
 
+import zio.logging.slf4j.bridge.Slf4jBridge
+
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.{Header, Headers, Method, Version}
 import zio.http.netty.NettyConfig
+
+import io.netty.util.internal.logging.{InternalLoggerFactory, Slf4JLoggerFactory}
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
@@ -34,7 +38,6 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
     case req @ Method.POST -> !! / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
     case Method.GET -> !! / "slow"             => ZIO.sleep(1.hour).as(Response.text("done"))
     case req                                   =>
-      println(req)
       req.body.asString.map(Response.text(_))
   }
 
@@ -60,9 +63,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                     body = Body.fromString(idx.toString),
                     headers = extraHeaders,
                   )
-                  .debug(s"Got response")
                   .flatMap(_.asString)
-                  .debug("Got response body")
               }
             assertZIO(res)(
               equalTo(
@@ -82,7 +83,6 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                   )
                   .flatMap(_.asString)
               }
-              .debug("foreachPar finished")
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
           } @@ nonFlaky(10),
@@ -168,7 +168,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           Version.Http_1_1,
           Map(
             "without connection close" -> Headers.empty,
-            // "with connection close"    -> connectionCloseHeader, // TODO: FIX
+            "with connection close"    -> connectionCloseHeader,
           ),
         ),
         connectionPoolTests(
@@ -187,13 +187,21 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         NettyClientDriver.live,
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.default),
+        ZLayer(ZIO.attempt {
+          InternalLoggerFactory.setDefaultFactory(Slf4JLoggerFactory.INSTANCE)
+        }),
+      ).provideSome[Scope](
+        Slf4jBridge.initialize,
+      ).provideSome[Scope](
+        Runtime.removeDefaultLoggers,
+        Runtime.addLogger(ZLogger.default.map(println)),
       ),
       suite("dynamic")(
         connectionPoolTests(
           Version.Http_1_1,
           Map(
             "without connection close" -> Headers.empty,
-            // "with connection close"    -> connectionCloseHeader, // TODO: FIX
+            "with connection close"    -> connectionCloseHeader,
           ),
         ),
         connectionPoolTests(

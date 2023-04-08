@@ -16,37 +16,28 @@
 
 package zio.http.netty.client
 
-import zio.{Chunk, Promise, Trace, Unsafe}
+import zio.{Promise, Trace}
 
-import zio.http.netty.NettyBody.UnsafeAsync
-import zio.http.netty.{NettyFutureExecutor, NettyRuntime}
+import zio.http.netty.{AsyncBodyReader, NettyFutureExecutor, NettyRuntime}
 
-import io.netty.buffer.ByteBufUtil
 import io.netty.channel._
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 
 final class ClientResponseStreamHandler(
-  callback: UnsafeAsync,
   rtm: NettyRuntime,
   onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,
 )(implicit trace: Trace)
-    extends SimpleChannelInboundHandler[HttpContent](true) { self =>
-
-  private val unsafeClass: Unsafe = Unsafe.unsafe
+    extends AsyncBodyReader { self =>
 
   override def channelRead0(
     ctx: ChannelHandlerContext,
     msg: HttpContent,
   ): Unit = {
     val isLast = msg.isInstanceOf[LastHttpContent]
-    val chunk  = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
-    callback(ctx.channel(), chunk, isLast)
+    super.channelRead0(ctx, msg)
 
-    println(s">> chunk read, $isLast")
     if (isLast) {
-      ctx.channel().pipeline().remove(self)
-
       if (keepAlive)
         rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.Reusable))(
           unsafeClass,
@@ -61,11 +52,7 @@ final class ClientResponseStreamHandler(
             .flatMap(onComplete.done(_)),
         )(unsafeClass, trace)
       }
-    }: Unit
-  }
-
-  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-    ctx.read(): Unit
+    }
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {

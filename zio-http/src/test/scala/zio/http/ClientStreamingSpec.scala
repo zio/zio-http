@@ -17,7 +17,7 @@
 package zio.http
 
 import zio._
-import zio.test.TestAspect.withLiveClock
+import zio.test.TestAspect.{nonFlaky, withLiveClock}
 import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.stream.{ZStream, ZStreamAspect}
@@ -188,7 +188,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           response.status == Status.Ok,
           body == expectedBody,
         )
-      },
+      } @@ nonFlaky,
     )
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -211,7 +211,6 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         .install(app)
         .intoPromise(portPromise)
         .zipRight(ZIO.never)
-        .ensuring(ZIO.debug(s"Shutting down server"))
         .provide(
           ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID)),
           ZLayer.succeed(Server.Config.default.objectAggregator(if (streaming) -1 else 1024).onAnyOpenPort),
