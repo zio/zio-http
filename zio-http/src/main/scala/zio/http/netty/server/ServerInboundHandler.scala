@@ -27,14 +27,12 @@ import zio.http._
 import zio.http.model._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
-import zio.http.netty.server.ServerInboundHandler.isReadKey
 import zio.http.netty.socket.NettySocketProtocol
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import io.netty.util.AttributeKey
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -107,15 +105,11 @@ private[zio] final case class ServerInboundHandler(
     }
 
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext): AsyncBodyReader = {
-    if (ctx.channel().attr(isReadKey).get())
-      throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
-
     val handler = new ServerAsyncBodyHandler
     ctx
       .channel()
       .pipeline()
       .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, handler)
-    ctx.channel().attr(isReadKey).set(true)
     handler
   }
 
@@ -170,8 +164,6 @@ private[zio] final case class ServerInboundHandler(
                 ZIO.succeed(true)
             _         <- ZIO.attempt(ctx.flush()).when(!flushed)
           } yield ()
-
-      _ <- ZIO.attempt(ctx.channel().attr(isReadKey).set(false))
     } yield ()
   }
 
@@ -335,8 +327,6 @@ private[zio] final case class ServerInboundHandler(
 }
 
 object ServerInboundHandler {
-
-  private[zio] val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
   val live: ZLayer[
     ServerTime with Server.Config with NettyRuntime with AppRef,
