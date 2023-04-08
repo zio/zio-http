@@ -30,6 +30,28 @@ object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
         val actual = app.apply(0)
         assert(actual)(isSuccess(equalTo(2)))
       },
+      test("should flatten with failure") {
+        val app    = Handler.succeed(1).flatMap(i => Handler.fail(i + 1))
+        val actual = app.apply(0)
+        assert(actual)(isFailure(equalTo(2)))
+      },
+    ),
+    suite("andThen")(
+      test("should execute the second handler after a success") {
+        val app    = Handler.succeed(1) >>> Handler.succeed(2)
+        val actual = app.apply(())
+        assertZIO(actual)(equalTo(2))
+      },
+      test("should execute the failure after the success") {
+        val app    = Handler.succeed(1) >>> Handler.fail(2)
+        val actual = app.apply(())
+        assertZIO(actual.exit)(equalTo(Exit.fail(2)))
+      },
+      test("should not execute the second handler after an failure") {
+        val app    = Handler.fail(1) >>> Handler.succeed(2)
+        val actual = app.apply(())
+        assertZIO(actual.exit)(equalTo(Exit.fail(1)))
+      },
     ),
     suite("orElse")(
       test("should succeed") {
@@ -112,6 +134,46 @@ object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
         val a      = Handler.fromExit(Exit.fail("fail"))
         val actual = a.apply(1)
         assert(actual)(isFailure(equalTo("fail")))
+      },
+    ),
+    suite("mapZIO")(
+      test("should remains a success") {
+        for {
+          _ <- ZIO.unit
+          app = Handler.succeed(1).mapZIO(out => ZIO.succeed(out + 1))
+          res <- app.apply(())
+        } yield assert(res)(equalTo(2))
+      },
+      test("should become an error") {
+        for {
+          _ <- ZIO.unit
+          app = Handler.succeed(1).mapZIO(out => ZIO.fail(out + 1))
+          actual <- app.apply(()).exit
+        } yield assert(actual)(equalTo(Exit.fail(2)))
+      },
+    ),
+    suite("mapErrorZIO")(
+      test("should not be executed if success") {
+        for {
+          ref <- Ref.make(1)
+          app = Handler.succeed(1).mapErrorZIO(_ => ref.set(2))
+          res  <- app.apply(())
+          res2 <- ref.get
+        } yield assert(res)(equalTo(1)) && assert(res2)(equalTo(1))
+      },
+      test("should become a success") {
+        for {
+          _ <- ZIO.unit
+          app = Handler.fail(1).mapErrorZIO(out => ZIO.succeed(out + 1))
+          actual <- app.apply(())
+        } yield assert(actual)(equalTo(2))
+      },
+      test("should remain an error") {
+        for {
+          _ <- ZIO.unit
+          app = Handler.fail(1).mapErrorZIO(out => ZIO.fail(out + 1))
+          actual <- app.apply(()).exit
+        } yield assert(actual)(equalTo(Exit.fail(2)))
       },
     ),
     suite("tapZIO")(
