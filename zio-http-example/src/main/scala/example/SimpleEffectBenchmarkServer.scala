@@ -2,6 +2,7 @@ package example
 
 import zio._
 
+import zio.http.Server.RequestStreaming
 import zio.http._
 import zio.http.model.{Header, Method}
 import zio.http.netty.NettyConfig
@@ -38,9 +39,7 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
 
   private val config = Server.Config.default
     .port(8080)
-    .consolidateFlush(true)
-    .flowControl(false)
-    .objectAggregator(-1)
+    .enableRequestStreaming
 
   private val nettyConfig = NettyConfig.default
     .leakDetection(LeakDetectionLevel.DISABLED)

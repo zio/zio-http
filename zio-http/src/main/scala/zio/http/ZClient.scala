@@ -182,6 +182,36 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
   final def map[Out2](f: Out => Out2): ZClient[Env, In, Err, Out2] =
     mapZIO(out => ZIO.succeed(f(out)))
 
+  def mapError[Err2](f: Err => Err2): ZClient[Env, In, Err2, Out] =
+    new ZClient[Env, In, Err2, Out] {
+      override def headers: Headers                   = self.headers
+      override def method: Method                     = self.method
+      override def sslConfig: Option[ClientSSLConfig] = self.sslConfig
+      override def url: URL                           = self.url
+      override def version: Version                   = self.version
+      override def request(
+        version: Version,
+        method: Method,
+        url: URL,
+        headers: Headers,
+        body: In,
+        sslConfig: Option[ClientSSLConfig],
+      )(implicit trace: Trace): ZIO[Env, Err2, Out] =
+        self.request(version, method, url, headers, body, sslConfig).mapError(f)
+
+      override def socket[Env1 <: Env](
+        app: SocketApp[Env1],
+        headers: Headers,
+        hostOption: Option[String],
+        pathPrefix: Path,
+        portOption: Option[RuntimeFlags],
+        queries: QueryParams,
+        schemeOption: Option[Scheme],
+        version: Version,
+      )(implicit trace: Trace): ZIO[Env1 with Scope, Err2, Out] =
+        self.socket(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version).mapError(f)
+    }
+
   final def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): ZClient[Env1, In, Err1, Out2] =
     new ZClient[Env1, In, Err1, Out2] {
       override def headers: Headers = self.headers
@@ -463,6 +493,12 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
       version,
       self,
     )
+
+  def withDisabledStreaming(implicit
+    ev1: Out <:< Response,
+    ev2: Err <:< Throwable,
+  ): ZClient[Env, In, Throwable, Response] =
+    mapError(ev2).mapZIO(out => ev1(out).collect)
 }
 
 object ZClient {
@@ -471,7 +507,6 @@ object ZClient {
     socketApp: Option[SocketApp[Any]],
     ssl: Option[ClientSSLConfig],
     proxy: Option[zio.http.Proxy],
-    useAggregator: Boolean,
     connectionPool: ConnectionPoolConfig,
     maxHeaderSize: Int,
     requestDecompression: Decompression,
@@ -483,8 +518,6 @@ object ZClient {
     def socketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
 
     def proxy(proxy: zio.http.Proxy): Config = self.copy(proxy = Some(proxy))
-
-    def useObjectAggregator(objectAggregator: Boolean): Config = self.copy(useAggregator = objectAggregator)
 
     def withFixedConnectionPool(size: Int): Config =
       self.copy(connectionPool = ConnectionPoolConfig.Fixed(size))
@@ -507,15 +540,13 @@ object ZClient {
       (
         ClientSSLConfig.config.nested("ssl").optional.withDefault(Config.default.ssl) ++
           zio.http.Proxy.config.nested("proxy").optional.withDefault(Config.default.proxy) ++
-          zio.Config.boolean("use-aggregator").withDefault(Config.default.useAggregator) ++
           ConnectionPoolConfig.config.nested("connection-pool").withDefault(Config.default.connectionPool) ++
           zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
           Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression)
-      ).map { case (ssl, proxy, useAggregator, connectionPool, maxHeaderSize, requestDecompression) =>
+      ).map { case (ssl, proxy, connectionPool, maxHeaderSize, requestDecompression) =>
         default.copy(
           ssl = ssl,
           proxy = proxy,
-          useAggregator = useAggregator,
           connectionPool = connectionPool,
           maxHeaderSize = maxHeaderSize,
           requestDecompression = requestDecompression,
@@ -526,7 +557,6 @@ object ZClient {
       socketApp = None,
       ssl = None,
       proxy = None,
-      useAggregator = true,
       connectionPool = ConnectionPoolConfig.Disabled,
       maxHeaderSize = 8192,
       requestDecompression = Decompression.No,
@@ -575,8 +605,7 @@ object ZClient {
   }
 
   final class ClientLive private (config: Config, driver: ClientDriver, connectionPool: ConnectionPool[Any])
-      extends Client
-      with ClientRequestEncoder { self =>
+      extends Client { self =>
 
     def this(driver: ClientDriver)(connectionPool: ConnectionPool[driver.Connection])(settings: Config) =
       this(settings, driver, connectionPool.asInstanceOf[ConnectionPool[Any]])
@@ -664,7 +693,6 @@ object ZClient {
                         request,
                         onResponse,
                         onComplete,
-                        clientConfig.useAggregator,
                         connectionPool.enableKeepAlive,
                         () => clientConfig.socketApp.getOrElse(SocketApp()),
                       )

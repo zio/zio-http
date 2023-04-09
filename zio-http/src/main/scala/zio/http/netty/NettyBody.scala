@@ -123,7 +123,6 @@ object NettyBody extends BodyEncoding {
             case e: Throwable => emit(ZIO.fail(Option(e)))
           },
         )
-        .tap { case (ctx, _, isLast) => ZIO.attempt(ctx.read()).unless(isLast) }
         .takeUntil { case (_, _, isLast) => isLast }
         .map { case (_, msg, _) => msg }
         .flattenChunks
