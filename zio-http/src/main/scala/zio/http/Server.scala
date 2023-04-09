@@ -103,7 +103,7 @@ object Server {
      */
     def logWarningOnFatalError(enable: Boolean): Config = self.copy(logWarningOnFatalError = enable)
 
-    /**     
+    /**
      * Configure the server to use `maxHeaderSize` value when encode/decode
      * headers.
      */
@@ -153,7 +153,7 @@ object Server {
         zio.Config.boolean("accept-continue").withDefault(Config.default.acceptContinue) ++
         zio.Config.boolean("keep-alive").withDefault(Config.default.keepAlive) ++
         Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
-        ResponseCompressionConfig.config.nested("response-compression").optional ++        
+        ResponseCompressionConfig.config.nested("response-compression").optional ++
         RequestStreaming.config.nested("request-streaming").withDefault(Config.default.requestStreaming) ++
         zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
         zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError)
