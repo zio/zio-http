@@ -29,9 +29,12 @@ object WebSocketSimpleClient extends ZIOAppDefault {
           ZIO.succeed(println("Goodbye!")) *> ch.writeAndFlush(WebSocketFrame.close(1000))
       }
 
-  val app: ZIO[Any with Client with Scope, Throwable, Response] =
+  val app: ZIO[Client with Scope, Throwable, Response] =
     httpSocket.toSocketApp.connect(url) *> ZIO.never
 
-  val run = app.provide(Client.default, Scope.default)
+  val run: ZIO[ZIOAppArgs with Scope, Throwable, Any] =
+    ZIO.scoped {
+      app.provideSome[Scope](Client.default)
+    }
 
 }

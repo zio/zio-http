@@ -16,41 +16,211 @@
 
 package zio.http
 
-import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{sequential, timeout}
-import zio.test.{Spec, TestEnvironment, assertZIO}
-import zio.{Scope, ZLayer, durationInt}
+import zio._
+import zio.test.TestAspect.{nonFlaky, withLiveClock}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
-import zio.stream.ZStream
+import zio.stream.{ZStream, ZStreamAspect}
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model.Method
+import zio.http.Server.RequestStreaming
+import zio.http.internal.HttpRunnableSpec
+import zio.http.model.{Headers, Method, Status, Version}
 import zio.http.netty.NettyConfig
-import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 object ClientStreamingSpec extends HttpRunnableSpec {
 
-  def clientStreamingSpec = suite("ClientStreamingSpec")(
-    test("streaming content from server - extended") {
-      val app    = Http.collect[Request] { case req => Response(body = Body.fromStream(req.body.asStream)) }
-      val stream = ZStream.fromIterable(List("This ", "is ", "a ", "longer ", "text."), chunkSize = 1)
-      val res    = app.deployChunked.body
-        .run(method = Method.POST, body = Body.fromStream(stream))
-        .flatMap(_.asString)
-      assertZIO(res)(equalTo("This is a longer text."))
-    },
-  )
+  val app = Http
+    .collectZIO[Request] {
+      case Method.GET -> !! / "simple-get"            =>
+        ZIO.succeed(Response.text("simple response"))
+      case Method.GET -> !! / "streaming-get"         =>
+        ZIO.succeed(
+          Response(body =
+            Body.fromStream(ZStream.fromIterable("streaming response".getBytes) @@ ZStreamAspect.rechunk(3)),
+          ),
+        )
+      case req @ Method.POST -> !! / "simple-post"    =>
+        req.ignoreBody.as(Response.ok)
+      case req @ Method.POST -> !! / "streaming-echo" =>
+        ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
+    }
+    .withDefaultErrorResponse
 
-  override def spec: Spec[TestEnvironment with Scope, Any] = suite("ClientProxy") {
-    serve(DynamicServer.app).as(List(clientStreamingSpec))
-  }.provideShared(
-    DynamicServer.live,
-    severTestLayer,
-    Client.customized,
-    ZLayer.succeed(ZClient.Config.default.useObjectAggregator(false)),
-    NettyClientDriver.live,
-    DnsResolver.default,
-    ZLayer.succeed(NettyConfig.default),
-  ) @@
-    timeout(5 seconds) @@ sequential
+  // TODO: test failure cases
+
+  private def tests(streamingServer: Boolean): Seq[Spec[Client, Throwable]] =
+    Seq(
+      test("simple get") {
+        for {
+          port     <- server(streamingServer)
+          client   <- ZIO.service[Client]
+          response <- client.request(
+            Version.Http_1_1,
+            Method.GET,
+            URL.decode(s"http://localhost:$port/simple-get").toOption.get,
+            Headers.empty,
+            Body.empty,
+            None,
+          )
+          body     <- response.body.asString
+        } yield assertTrue(response.status == Status.Ok, body == "simple response")
+      },
+      test("streaming get") {
+        for {
+          port     <- server(streamingServer)
+          client   <- ZIO.service[Client]
+          response <- client.request(
+            Version.Http_1_1,
+            Method.GET,
+            URL.decode(s"http://localhost:$port/streaming-get").toOption.get,
+            Headers.empty,
+            Body.empty,
+            None,
+          )
+          body     <- response.body.asStream.chunks.map(chunk => new String(chunk.toArray)).runCollect
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body == Chunk(
+            "str",
+            "eam",
+            "ing",
+            " re",
+            "spo",
+            "nse",
+            "",
+          ),
+        )
+      },
+      test("simple post") {
+        for {
+          port     <- server(streamingServer)
+          client   <- ZIO.service[Client]
+          response <- client
+            .request(
+              Version.Http_1_1,
+              Method.POST,
+              URL.decode(s"http://localhost:$port/simple-post").toOption.get,
+              Headers.empty,
+              Body.fromStream(
+                (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3))
+                  .schedule(Schedule.fixed(10.millis)),
+              ),
+              None,
+            )
+        } yield assertTrue(response.status == Status.Ok)
+      },
+      test("echo") {
+        for {
+          port     <- server(streamingServer)
+          client   <- ZIO.service[Client]
+          response <- client
+            .request(
+              Version.Http_1_1,
+              Method.POST,
+              URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
+              Headers.empty,
+              Body.fromStream(
+                ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3),
+              ),
+              None,
+            )
+          body     <- response.body.asStream.chunks.map(chunk => new String(chunk.toArray)).runCollect
+          expectedBody =
+            if (streamingServer)
+              Chunk(
+                "str",
+                "eam",
+                "ing",
+                " re",
+                "que",
+                "st",
+                "",
+              )
+            else
+              Chunk("streaming request", "")
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body == expectedBody,
+        )
+      },
+    )
+
+  private def streamingOnlyTests =
+    Seq(
+      test("echo with sync point") {
+        for {
+          port     <- server(streaming = true)
+          client   <- ZIO.service[Client]
+          sync     <- Promise.make[Nothing, Unit]
+          response <- client
+            .request(
+              Version.Http_1_1,
+              Method.POST,
+              URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
+              Headers.empty,
+              Body.fromStream(
+                (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3)).chunks.tap { chunk =>
+                  if (chunk == Chunk.fromArray(" re".getBytes))
+                    sync.await
+                  else
+                    ZIO.unit
+                }.flattenChunks,
+              ),
+              None,
+            )
+          body     <- response.body.asStream.chunks
+            .map(chunk => new String(chunk.toArray))
+            .tap { chunk =>
+              if (chunk == "ing") sync.succeed(()) else ZIO.unit
+            }
+            .runCollect
+          expectedBody =
+            Chunk(
+              "str",
+              "eam",
+              "ing",
+              " re",
+              "que",
+              "st",
+              "",
+            )
+        } yield assertTrue(
+          response.status == Status.Ok,
+          body == expectedBody,
+        )
+      } @@ nonFlaky,
+    )
+
+  override def spec: Spec[TestEnvironment with Scope, Any] =
+    suite("Client streaming")(
+      suite("streaming server")(
+        tests(streamingServer = true) ++
+          streamingOnlyTests: _*,
+      ),
+      suite("non-streaming server")(
+        tests(streamingServer = false): _*,
+      ),
+    ).provide(
+      Client.default,
+    ) @@ withLiveClock
+
+  private def server(streaming: Boolean): ZIO[Any, Throwable, Int] =
+    for {
+      portPromise <- Promise.make[Throwable, Int]
+      _           <- Server
+        .install(app)
+        .intoPromise(portPromise)
+        .zipRight(ZIO.never)
+        .provide(
+          ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID)),
+          ZLayer.succeed(
+            Server.Config.default.onAnyOpenPort
+              .withRequestStreaming(if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(1024)),
+          ),
+          Server.customized,
+        )
+        .fork
+      port        <- portPromise.await
+    } yield port
 }

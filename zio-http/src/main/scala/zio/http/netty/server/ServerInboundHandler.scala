@@ -27,14 +27,12 @@ import zio.http._
 import zio.http.model._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
-import zio.http.netty.server.ServerInboundHandler.isReadKey
 import zio.http.netty.socket.NettySocketProtocol
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import io.netty.util.AttributeKey
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -98,17 +96,7 @@ private[zio] final case class ServerInboundHandler(
           } else
             app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
-
-          if (
-            jReq.method() == HttpMethod.TRACE ||
-            jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
-            jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
-          )
-            ctx.channel().config().setAutoRead(false)
-
-          writeResponse(ctx, env, exit, jReq) { () =>
-            val _ = ctx.channel().config().setAutoRead(true)
-          }
+          writeResponse(ctx, env, exit, jReq) { () => }
         }
 
       case msg: HttpContent =>
@@ -134,15 +122,13 @@ private[zio] final case class ServerInboundHandler(
         super.exceptionCaught(ctx, t)
     }
 
-  private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: NettyBody.UnsafeAsync): Unit = {
-    if (ctx.channel().attr(isReadKey).get())
-      throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
-
+  private def addAsyncBodyHandler(ctx: ChannelHandlerContext): AsyncBodyReader = {
+    val handler = new ServerAsyncBodyHandler
     ctx
       .channel()
       .pipeline()
-      .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, new ServerAsyncBodyHandler(async))
-    ctx.channel().attr(isReadKey).set(true)
+      .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, handler)
+    handler
   }
 
   private def attemptFastWrite(
@@ -195,8 +181,6 @@ private[zio] final case class ServerInboundHandler(
                 ZIO.succeed(true)
             _         <- ZIO.attempt(ctx.flush()).when(!flushed)
           } yield ()
-
-      _ <- ZIO.attempt(ctx.channel().attr(isReadKey).set(false))
     } yield ()
   }
 
@@ -242,9 +226,10 @@ private[zio] final case class ServerInboundHandler(
           remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-        val body = NettyBody.fromAsync(
+        val handler = addAsyncBodyHandler(ctx)
+        val body    = NettyBody.fromAsync(
           { async =>
-            addAsyncBodyHandler(ctx, async)
+            handler.connect(async)
           },
           contentType,
         )
@@ -357,8 +342,6 @@ private[zio] final case class ServerInboundHandler(
 }
 
 object ServerInboundHandler {
-
-  private[zio] val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
   val live: ZLayer[
     ServerTime with Server.Config with NettyRuntime with AppRef,

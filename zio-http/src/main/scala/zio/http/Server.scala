@@ -49,15 +49,12 @@ object Server {
     address: InetSocketAddress,
     acceptContinue: Boolean,
     keepAlive: Boolean,
-    consolidateFlush: Boolean,
-    flowControl: Boolean,
     requestDecompression: Decompression,
     responseCompression: Option[ResponseCompressionConfig],
-    objectAggregator: Int,
+    requestStreaming: RequestStreaming,
     maxHeaderSize: Int,
   ) {
     self =>
-    def useAggregator: Boolean = objectAggregator >= 0
 
     /**
      * Configure the server to use HttpServerExpectContinueHandler to send a 100
@@ -83,17 +80,14 @@ object Server {
     def binding(inetSocketAddress: InetSocketAddress): Config = self.copy(address = inetSocketAddress)
 
     /**
-     * Configure the server to use FlushConsolidationHandler to control the
-     * flush operations in a more efficient way if enabled (@see <a
-     * href="https://netty.io/4.1/api/io/netty/handler/flush/FlushConsolidationHandler.html">FlushConsolidationHandler<a>).
+     * Disables streaming of request bodies. Payloads larger than
+     * maxContentLength will be rejected
      */
-    def consolidateFlush(enable: Boolean): Config = self.copy(consolidateFlush = enable)
+    def disableRequestStreaming(maxContentLength: Int): Config =
+      self.copy(requestStreaming = RequestStreaming.Disabled(maxContentLength))
 
-    /**
-     * Configure the server to use netty FlowControlHandler if enable (@see <a
-     * href="https://netty.io/4.1/api/io/netty/handler/flow/FlowControlHandler.html">FlowControlHandler</a>).
-     */
-    def flowControl(enable: Boolean): Config = self.copy(flowControl = enable)
+    /** Enables streaming request bodies */
+    def enableRequestStreaming: Config = self.copy(requestStreaming = RequestStreaming.Enabled)
 
     /**
      * Configure the server to use netty's HttpServerKeepAliveHandler to close
@@ -103,11 +97,10 @@ object Server {
     def keepAlive(enable: Boolean): Config = self.copy(keepAlive = enable)
 
     /**
-     * Configure the server to use HttpObjectAggregator with the specified max
-     * size of the aggregated content.
+     * Configure the server to use `maxHeaderSize` value when encode/decode
+     * headers.
      */
-    def objectAggregator(maxRequestSize: Int = 1024 * 100): Config =
-      self.copy(objectAggregator = maxRequestSize)
+    def maxHeaderSize(headerSize: Int): Config = self.copy(maxHeaderSize = headerSize)
 
     /**
      * Configure the server to listen on an available open port
@@ -120,14 +113,6 @@ object Server {
     def port(port: Int): Config = self.copy(address = new InetSocketAddress(port))
 
     /**
-     * Configure the server to use netty's HttpContentDecompressor to decompress
-     * Http requests (@see <a href =
-     * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentDecompressor.html">HttpContentDecompressor</a>).
-     */
-    def requestDecompression(isStrict: Boolean): Config =
-      self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
-
-    /**
      * Configure the new server with netty's HttpContentCompressor to compress
      * Http responses (@see <a href =
      * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentCompressor.html"HttpContentCompressor</a>).
@@ -136,15 +121,21 @@ object Server {
       self.copy(responseCompression = Option(rCfg))
 
     /**
+     * Configure the server to use netty's HttpContentDecompressor to decompress
+     * Http requests (@see <a href =
+     * "https://netty.io/4.1/api/io/netty/handler/codec/http/HttpContentDecompressor.html">HttpContentDecompressor</a>).
+     */
+    def requestDecompression(isStrict: Boolean): Config =
+      self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
+
+    /**
      * Configure the server with the following ssl options.
      */
     def ssl(sslConfig: SSLConfig): Config = self.copy(sslConfig = Some(sslConfig))
 
-    /**
-     * Configure the server to use `maxHeaderSize` value when encode/decode
-     * headers.
-     */
-    def maxHeaderSize(headerSize: Int): Config = self.copy(maxHeaderSize = headerSize)
+    /** Enables or disables request body streaming */
+    def withRequestStreaming(requestStreaming: RequestStreaming): Config =
+      self.copy(requestStreaming = requestStreaming)
   }
 
   object Config {
@@ -154,11 +145,9 @@ object Server {
         zio.Config.int("binding-port").withDefault(Config.default.address.getPort) ++
         zio.Config.boolean("accept-continue").withDefault(Config.default.acceptContinue) ++
         zio.Config.boolean("keep-alive").withDefault(Config.default.keepAlive) ++
-        zio.Config.boolean("consolidate-flush").withDefault(Config.default.consolidateFlush) ++
-        zio.Config.boolean("flow-control").withDefault(Config.default.flowControl) ++
         Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
         ResponseCompressionConfig.config.nested("response-compression").optional ++
-        zio.Config.int("max-aggregated-request-size").withDefault(Config.default.objectAggregator) ++
+        RequestStreaming.config.nested("request-streaming").withDefault(Config.default.requestStreaming) ++
         zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize)
     }.map {
       case (
@@ -167,11 +156,9 @@ object Server {
             port,
             acceptContinue,
             keepAlive,
-            consolidateFlush,
-            flowControl,
             requestDecompression,
             responseCompression,
-            objectAggregator,
+            requestStreaming,
             maxHeaderSize,
           ) =>
         Config(
@@ -179,11 +166,9 @@ object Server {
           address = new InetSocketAddress(host.getOrElse(Config.default.address.getHostName), port),
           acceptContinue = acceptContinue,
           keepAlive = keepAlive,
-          consolidateFlush = consolidateFlush,
-          flowControl = flowControl,
           requestDecompression = requestDecompression,
           responseCompression = responseCompression,
-          objectAggregator = objectAggregator,
+          requestStreaming = requestStreaming,
           maxHeaderSize = maxHeaderSize,
         )
     }
@@ -193,11 +178,9 @@ object Server {
       address = new InetSocketAddress(8080),
       acceptContinue = false,
       keepAlive = true,
-      consolidateFlush = false,
-      flowControl = true,
       requestDecompression = Decompression.No,
       responseCompression = None,
-      objectAggregator = 1024 * 100,
+      requestStreaming = RequestStreaming.Disabled(1024 * 100),
       maxHeaderSize = 8192,
     )
 
@@ -284,6 +267,27 @@ object Server {
           CompressionOptions(level, bits, mem, kind)
         }
     }
+  }
+
+  sealed trait RequestStreaming
+
+  object RequestStreaming {
+
+    /** Enable streaming request bodies */
+    case object Enabled extends RequestStreaming
+
+    /**
+     * Disable streaming request bodies. Bodies larger than the configured
+     * maximum content length will be rejected.
+     */
+    final case class Disabled(maximumContentLength: Int) extends RequestStreaming
+
+    lazy val config: zio.Config[RequestStreaming] =
+      (zio.Config.boolean("enabled").withDefault(true) ++
+        zio.Config.int("maximum-content-length").withDefault(1024 * 100)).map {
+        case (true, _)          => Enabled
+        case (false, maxLength) => Disabled(maxLength)
+      }
   }
 
   def serve[R](

@@ -16,26 +16,6 @@
 
 package zio.http.netty.server
 
-import zio.Chunk
+import zio.http.netty.AsyncBodyReader
 
-import zio.http.netty.NettyBody
-
-import io.netty.buffer.ByteBufUtil
-import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
-
-private[zio] final class ServerAsyncBodyHandler(val async: NettyBody.UnsafeAsync)
-    extends SimpleChannelInboundHandler[HttpContent](true) {
-  self =>
-
-  override def channelRead0(ctx: ChannelHandlerContext, msg: HttpContent): Unit = {
-    val isLast = msg.isInstanceOf[LastHttpContent]
-    val chunk  = Chunk.fromArray(ByteBufUtil.getBytes(msg.content()))
-    async(ctx.channel(), chunk, isLast)
-    if (isLast) ctx.channel().pipeline().remove(self): Unit
-  }
-
-  override def handlerAdded(ctx: ChannelHandlerContext): Unit = {
-    ctx.read(): Unit
-  }
-}
+private[zio] final class ServerAsyncBodyHandler extends AsyncBodyReader {}
