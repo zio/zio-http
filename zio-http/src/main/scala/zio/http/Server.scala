@@ -53,6 +53,7 @@ object Server {
     responseCompression: Option[ResponseCompressionConfig],
     requestStreaming: RequestStreaming,
     maxHeaderSize: Int,
+    logWarningOnFatalError: Boolean,
   ) {
     self =>
 
@@ -95,6 +96,12 @@ object Server {
      * href="https://netty.io/4.1/api/io/netty/handler/codec/http/HttpServerKeepAliveHandler.html">HttpServerKeepAliveHandler</a>).
      */
     def keepAlive(enable: Boolean): Config = self.copy(keepAlive = enable)
+
+    /**
+     * Log a warning in case of fatal errors when an error response cannot be
+     * sent back to the client
+     */
+    def logWarningOnFatalError(enable: Boolean): Config = self.copy(logWarningOnFatalError = enable)
 
     /**
      * Configure the server to use `maxHeaderSize` value when encode/decode
@@ -148,7 +155,8 @@ object Server {
         Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
         ResponseCompressionConfig.config.nested("response-compression").optional ++
         RequestStreaming.config.nested("request-streaming").withDefault(Config.default.requestStreaming) ++
-        zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize)
+        zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
+        zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError)
     }.map {
       case (
             sslConfig,
@@ -160,6 +168,7 @@ object Server {
             responseCompression,
             requestStreaming,
             maxHeaderSize,
+            logWarningOnFatalError,
           ) =>
         Config(
           sslConfig = sslConfig,
@@ -170,6 +179,7 @@ object Server {
           responseCompression = responseCompression,
           requestStreaming = requestStreaming,
           maxHeaderSize = maxHeaderSize,
+          logWarningOnFatalError = logWarningOnFatalError,
         )
     }
 
@@ -182,6 +192,7 @@ object Server {
       responseCompression = None,
       requestStreaming = RequestStreaming.Disabled(1024 * 100),
       maxHeaderSize = 8192,
+      logWarningOnFatalError = true,
     )
 
     final case class ResponseCompressionConfig(

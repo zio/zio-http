@@ -116,7 +116,15 @@ private[zio] final case class ServerInboundHandler(
           runtime.run(ctx, () => {}) {
             // We cannot return the generated response from here, but still calling the handler for its side effect
             // for example logging.
-            app.runServerErrorOrNull(Cause.die(t)).unit
+            app
+              .runServerErrorOrNull(Cause.die(t))
+              .tap { response =>
+                if (config.logWarningOnFatalError)
+                  ZIO.logWarningCause(s"Fatal exception in Netty, cannot send error response $response", Cause.die(t))
+                else
+                  ZIO.unit
+              }
+              .unit
           }
         }
         super.exceptionCaught(ctx, t)
