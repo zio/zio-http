@@ -50,7 +50,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         .runZIO(
           Request(
             body,
-            headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
+            headers.combineIf(addZioUserAgentHeader)(Headers(Client.defaultUAHeader)),
             method,
             url = URL(path), // url set here is overridden later via `deploy` method
             version,
