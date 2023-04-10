@@ -19,8 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
+import zio.http.Header.SecWebSocketOrigin
 import zio.http.URL
-import zio.http.model.Header.SecWebSocketOrigin
 
 object SecWebSocketOriginSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketOrigin suite")(

@@ -22,8 +22,8 @@ import zio.stream.ZStream
 
 import zio.schema._
 
+import zio.http.Status
 import zio.http.codec._
-import zio.http.model.Status
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP

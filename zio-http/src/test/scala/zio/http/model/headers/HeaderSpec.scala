@@ -19,7 +19,7 @@ package zio.http.model.headers
 import zio.test.Assertion._
 import zio.test.{ZIOSpecDefault, assert}
 
-import zio.http.model._
+import zio.http._
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 

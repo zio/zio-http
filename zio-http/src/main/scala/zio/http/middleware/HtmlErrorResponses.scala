@@ -18,9 +18,8 @@ package zio.http.middleware
 
 import java.io.{PrintWriter, StringWriter}
 
+import zio.http._
 import zio.http.html._
-import zio.http.model.{Header, Headers, MediaType}
-import zio.http.{Body, Request, Response}
 
 private[zio] trait HtmlErrorResponses {
 

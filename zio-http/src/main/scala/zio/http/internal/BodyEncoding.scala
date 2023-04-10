@@ -18,9 +18,8 @@ package zio.http.internal
 
 import java.nio.charset.Charset
 
-import zio.http.Body
-import zio.http.model.Charsets
 import zio.http.netty.NettyBody
+import zio.http.{Body, Charsets}
 
 trait BodyEncoding {
   def fromCharSequence(charSequence: CharSequence, charset: Charset = Charsets.Http): Body

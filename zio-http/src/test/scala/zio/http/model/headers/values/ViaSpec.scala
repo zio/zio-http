@@ -19,8 +19,8 @@ package zio.http.model.headers.values
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
-import zio.http.model.Header.Via
-import zio.http.model.Header.Via.ReceivedProtocol
+import zio.http.Header.Via
+import zio.http.Header.Via.ReceivedProtocol
 
 object ViaSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =

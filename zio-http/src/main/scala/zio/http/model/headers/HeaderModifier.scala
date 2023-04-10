@@ -16,8 +16,8 @@
 
 package zio.http.model.headers
 
-import zio.http.model.Header.HeaderType
-import zio.http.model._
+import zio.http.Header.HeaderType
+import zio.http._
 
 /**
  * Maintains a list of operators that modify the current Headers. Once modified,

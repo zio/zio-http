@@ -3,9 +3,8 @@ package example
 import zio._
 
 import zio.http.DnsResolver.Config
-import zio.http.model.Headers
 import zio.http.netty.NettyConfig
-import zio.http.{Client, DnsResolver, ZClient}
+import zio.http.{Client, DnsResolver, Headers, ZClient}
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 

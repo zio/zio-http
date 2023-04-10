@@ -19,7 +19,7 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
-import zio.http.model.Header.Range
+import zio.http.Header.Range
 
 object RangeSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Range suite")(

@@ -19,8 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
+import zio.http.Header.CacheControl
 import zio.http.internal.HttpGen
-import zio.http.model.Header.CacheControl
 
 object CacheControlSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("CacheControl suite")(

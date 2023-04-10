@@ -22,10 +22,10 @@ import scala.util.matching.Regex
 
 import zio.NonEmptyChunk
 
+import zio.http.Status
 import zio.http.codec.Doc
 import zio.http.endpoint.openapi
 import zio.http.endpoint.openapi.JsonRenderer._
-import zio.http.model.Status
 
 private[openapi] sealed trait OpenAPIBase {
   self =>

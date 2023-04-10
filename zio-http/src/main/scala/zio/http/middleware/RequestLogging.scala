@@ -21,7 +21,6 @@ import java.nio.charset.{Charset, StandardCharsets}
 import zio.{Exit, LogAnnotation, LogLevel, Trace, ZIO}
 
 import zio.http._
-import zio.http.model.{Header, Status}
 
 private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
 

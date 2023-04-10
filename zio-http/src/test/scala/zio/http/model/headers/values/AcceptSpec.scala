@@ -19,9 +19,9 @@ package zio.http.model.headers.values
 import zio.NonEmptyChunk
 import zio.test._
 
-import zio.http.model.Header.Accept
-import zio.http.model.Header.Accept.MediaTypeWithQFactor
-import zio.http.model.MediaType
+import zio.http.Header.Accept
+import zio.http.Header.Accept.MediaTypeWithQFactor
+import zio.http.MediaType
 
 object AcceptSpec extends ZIOSpecDefault {
   import MediaType._

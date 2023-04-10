@@ -16,8 +16,8 @@
 
 package zio.http.model.headers
 
-import zio.http.model.Header.HeaderType
-import zio.http.model._
+import zio.http.Header.HeaderType
+import zio.http.Headers
 
 /**
  * Maintains a list of operators that parse and extract data from the headers.

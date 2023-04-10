@@ -19,7 +19,7 @@ package zio.http.model.headers.values
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
-import zio.http.model.Header.IfMatch
+import zio.http.Header.IfMatch
 
 object IfMatchSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("IfMatch suite")(

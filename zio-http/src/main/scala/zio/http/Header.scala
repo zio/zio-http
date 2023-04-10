@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.model
+package zio.http
 
 import java.net.URI
 import java.nio.charset.{Charset, StandardCharsets, UnsupportedCharsetException}
@@ -3224,7 +3224,7 @@ object Header {
       referer.url.toJavaURL.fold("")(_.toString())
   }
 
-  final case class Cookie(value: NonEmptyChunk[model.Cookie.Request]) extends Header {
+  final case class Cookie(value: NonEmptyChunk[zio.http.Cookie.Request]) extends Header {
     override type Self = Cookie
     override def self: Self                           = this
     override def headerType: HeaderType.Typed[Cookie] = Cookie
@@ -3240,7 +3240,7 @@ object Header {
     override def name: String = "cookie"
 
     def parse(value: String): Either[String, Cookie] =
-      model.Cookie.Request.decode(value) match {
+      zio.http.Cookie.Request.decode(value) match {
         case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
         case Right(value) =>
           NonEmptyChunk.fromChunk(value) match {
@@ -3253,7 +3253,7 @@ object Header {
       cookie.value.map(_.encode.getOrElse("")).mkString("; ")
   }
 
-  final case class SetCookie(value: model.Cookie.Response) extends Header {
+  final case class SetCookie(value: zio.http.Cookie.Response) extends Header {
     override type Self = SetCookie
     override def self: Self                              = this
     override def headerType: HeaderType.Typed[SetCookie] = SetCookie
@@ -3265,7 +3265,7 @@ object Header {
     override def name: String = "set-cookie"
 
     def parse(value: String): Either[String, SetCookie] =
-      model.Cookie.Response.decode(value) match {
+      zio.http.Cookie.Response.decode(value) match {
         case Left(value)  => Left(s"Invalid Cookie header: ${value.getMessage}")
         case Right(value) => Right(SetCookie(value))
       }

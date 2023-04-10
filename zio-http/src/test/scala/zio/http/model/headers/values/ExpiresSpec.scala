@@ -22,7 +22,7 @@ import java.time.{ZoneId, ZonedDateTime}
 import zio.Scope
 import zio.test._
 
-import zio.http.model.Header.Expires
+import zio.http.Header.Expires
 
 object ExpiresSpec extends ZIOSpecDefault {
   private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")

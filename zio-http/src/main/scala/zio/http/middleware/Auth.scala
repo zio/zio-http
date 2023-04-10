@@ -20,7 +20,6 @@ import zio.{Cause, Tag, Trace, ZEnvironment, ZIO}
 
 import zio.http._
 import zio.http.middleware.Auth.Credentials
-import zio.http.model.{Header, Headers, Status}
 
 private[zio] trait Auth {
 

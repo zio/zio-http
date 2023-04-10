@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-package zio.http.model
+package zio.http
 
 import zio._
 import zio.test.Assertion.{equalTo, isLeft, isRight, startsWithString}
 import zio.test._
 
-import zio.http.Path
-import zio.http.model.Cookie.SameSite
+import zio.http.Cookie.SameSite
 
 object CookieSpec extends ZIOSpecDefault {
 

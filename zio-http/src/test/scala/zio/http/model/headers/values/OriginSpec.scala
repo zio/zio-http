@@ -19,9 +19,9 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
+import zio.http.Header.Origin
+import zio.http.Header.Origin.{Null, Value}
 import zio.http.internal.HttpGen
-import zio.http.model.Header.Origin
-import zio.http.model.Header.Origin.{Null, Value}
 import zio.http.{Path, QueryParams}
 
 object OriginSpec extends ZIOSpecDefault {

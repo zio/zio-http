@@ -25,12 +25,11 @@ import zio._
 
 import zio.stream._
 
-import zio.http.QueryParams
 import zio.http.forms.FormAST._
 import zio.http.forms.FormDecodingError._
 import zio.http.forms.FormField._
 import zio.http.forms.FormState._
-import zio.http.model.{Boundary, Charsets, Headers}
+import zio.http.{Boundary, Charsets, QueryParams}
 
 /**
  * Represents a form that can be either multipart or url encoded.

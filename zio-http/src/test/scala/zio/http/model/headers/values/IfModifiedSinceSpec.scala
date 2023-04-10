@@ -21,7 +21,7 @@ import java.time.{ZoneOffset, ZonedDateTime}
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
-import zio.http.model.Header.IfModifiedSince
+import zio.http.Header.IfModifiedSince
 
 object IfModifiedSinceSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("IfModifiedSinceSpec")(

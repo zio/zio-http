@@ -20,8 +20,7 @@ import scala.util.control.NoStackTrace
 
 import zio.Cause
 
-import zio.http.Path
-import zio.http.model.Status
+import zio.http.{Path, Status}
 
 sealed trait HttpCodecError extends Exception with NoStackTrace {
   def message: String
@@ -30,8 +29,7 @@ object HttpCodecError {
   final case class MissingHeader(headerName: String)                                    extends HttpCodecError {
     def message = s"Missing header $headerName"
   }
-  final case class MalformedMethod(expected: zio.http.model.Method, actual: zio.http.model.Method)
-      extends HttpCodecError {
+  final case class MalformedMethod(expected: zio.http.Method, actual: zio.http.Method)  extends HttpCodecError {
     def message = s"Expected $expected but found $actual"
   }
   final case class PathTooShort(path: Path, textCodec: TextCodec[_])                    extends HttpCodecError {

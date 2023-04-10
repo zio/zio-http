@@ -14,15 +14,27 @@
  * limitations under the License.
  */
 
-package zio.http.model
+package zio.http
 
-import java.nio.charset.{Charset, StandardCharsets}
-object Charsets {
+sealed trait Version { self =>
+  def ++(that: Version): Version = (self, that) match {
+    case (Version.Http_1_0, Version.Http_1_0) => Version.Http_1_0
+    case _                                    => Version.Http_1_1
+  }
 
-  /**
-   * Default HTTP Charset
-   */
-  val Http: Charset = StandardCharsets.UTF_8
+  def combine(that: Version): Version = self ++ that
 
-  val Utf8: Charset = StandardCharsets.UTF_8
+  def isHttp1_0: Boolean = self == Version.Http_1_0
+
+  def isHttp1_1: Boolean = self == Version.Http_1_1
+
+}
+
+object Version {
+  val `HTTP/1.0`: Version = Http_1_0
+  val `HTTP/1.1`: Version = Http_1_1
+
+  case object Http_1_0 extends Version
+
+  case object Http_1_1 extends Version
 }

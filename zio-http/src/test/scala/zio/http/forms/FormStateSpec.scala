@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets
 import zio._
 import zio.test._
 
-import zio.http.model.Boundary
+import zio.http.Boundary
 
 object FormStateSpec extends ZIOSpecDefault {
 

@@ -19,7 +19,7 @@ package zio.http.model.headers.values
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{Chunk, Scope}
 
-import zio.http.model.Header.AccessControlRequestHeaders
+import zio.http.Header.AccessControlRequestHeaders
 
 object AccessControlRequestHeadersSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlRequestHeaders suite")(

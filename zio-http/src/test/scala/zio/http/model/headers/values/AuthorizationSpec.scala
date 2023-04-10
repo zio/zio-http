@@ -21,9 +21,9 @@ import java.net.URI
 import zio.Scope
 import zio.test._
 
-import zio.http.model.Header.Authorization
-import zio.http.model.Header.Authorization.Digest
-import zio.http.model.MediaType
+import zio.http.Header.Authorization
+import zio.http.Header.Authorization.Digest
+import zio.http.MediaType
 
 object AuthorizationSpec extends ZIOSpecDefault {
 

@@ -19,7 +19,7 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
-import zio.http.model.Header.XFrameOptions
+import zio.http.Header.XFrameOptions
 
 object XFrameOptionsSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("XFrameOptions suite")(

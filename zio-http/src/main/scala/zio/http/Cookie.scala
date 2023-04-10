@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.model
+package zio.http
 
 import java.security.MessageDigest
 import java.util.Base64.getEncoder

@@ -3,7 +3,6 @@ package example
 import zio._
 
 import zio.http._
-import zio.http.model.{Cookie, Method}
 
 /**
  * Example to make app using signed-cookies

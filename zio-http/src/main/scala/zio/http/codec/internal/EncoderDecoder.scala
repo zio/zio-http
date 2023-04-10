@@ -309,7 +309,7 @@ private[codec] object EncoderDecoder                   {
       headers
     }
 
-    private def encodeMethod(inputs: Array[Any]): Option[zio.http.model.Method] =
+    private def encodeMethod(inputs: Array[Any]): Option[zio.http.Method] =
       if (flattened.method.nonEmpty) {
         flattened.method.head match {
           case _: SimpleCodec.Unspecified[_] => Some(inputs(0).asInstanceOf[Method])

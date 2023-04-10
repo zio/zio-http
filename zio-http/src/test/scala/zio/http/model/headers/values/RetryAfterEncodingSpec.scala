@@ -22,7 +22,7 @@ import java.time.{Duration, ZoneId, ZonedDateTime}
 import zio.Scope
 import zio.test._
 
-import zio.http.model.Header.RetryAfter
+import zio.http.Header.RetryAfter
 
 object RetryAfterEncodingSpec extends ZIOSpecDefault {
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")

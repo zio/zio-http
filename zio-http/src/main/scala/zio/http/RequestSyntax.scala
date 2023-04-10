@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.http.model.Method
+import zio.http.Method
 
 private[zio] trait RequestSyntax {
   object -> {

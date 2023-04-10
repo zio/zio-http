@@ -19,8 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
-import zio.http.model.Header.DNT
-import zio.http.model.Header.DNT.{NotSpecified, TrackingAllowed, TrackingNotAllowed}
+import zio.http.Header.DNT
+import zio.http.Header.DNT.{NotSpecified, TrackingAllowed, TrackingNotAllowed}
 
 object DNTSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("DNT header suite")(

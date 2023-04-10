@@ -13,7 +13,6 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http._
 import zio.http.codec.{PathCodec, QueryCodec}
 import zio.http.endpoint._
-import zio.http.model.Method
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO => CIO}

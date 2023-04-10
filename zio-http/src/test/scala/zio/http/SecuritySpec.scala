@@ -14,27 +14,22 @@
  * limitations under the License.
  */
 
-package zio.http.model
+package zio.http
 
-sealed trait Version { self =>
-  def ++(that: Version): Version = (self, that) match {
-    case (Version.Http_1_0, Version.Http_1_0) => Version.Http_1_0
-    case _                                    => Version.Http_1_1
-  }
+import zio.test.Assertion.equalTo
+import zio.test.{Spec, ZIOSpecDefault, assert}
 
-  def combine(that: Version): Version = self ++ that
-
-  def isHttp1_0: Boolean = self == Version.Http_1_0
-
-  def isHttp1_1: Boolean = self == Version.Http_1_1
-
-}
-
-object Version {
-  val `HTTP/1.0`: Version = Http_1_0
-  val `HTTP/1.1`: Version = Http_1_1
-
-  case object Http_1_0 extends Version
-
-  case object Http_1_1 extends Version
+object SecuritySpec extends ZIOSpecDefault {
+  def spec: Spec[Any, Nothing] = suite("HttpError")(
+    suite("security")(
+      test("should encode HTML output, to protect against XSS") {
+        val error = HttpError.NotFound("<script>alert(\"xss\")</script>").message
+        assert(error)(
+          equalTo(
+            "The requested URI \"&lt;script&gt;alert(&quot;xss&quot;)&lt;&#x2F;script&gt;\" was not found on this server\n",
+          ),
+        )
+      },
+    ),
+  )
 }

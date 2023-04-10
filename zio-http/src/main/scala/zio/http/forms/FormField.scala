@@ -22,10 +22,10 @@ import zio._
 
 import zio.stream.{Take, ZStream}
 
+import zio.http.Header.ContentTransferEncoding
+import zio.http.MediaType
 import zio.http.forms.FormAST._
 import zio.http.forms.FormDecodingError._
-import zio.http.model.Header.ContentTransferEncoding
-import zio.http.model.MediaType
 
 /**
  * Represents a field in a form. Every field contains name, content type

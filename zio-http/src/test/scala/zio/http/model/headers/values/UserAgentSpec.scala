@@ -19,7 +19,7 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
-import zio.http.model.Header.UserAgent
+import zio.http.Header.UserAgent
 
 object UserAgentSpec extends ZIOSpecDefault {
   def spec: Spec[TestEnvironment with Scope, Any] =

@@ -21,7 +21,7 @@ import java.time.{ZoneId, ZonedDateTime}
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
-import zio.http.model.Header.Warning
+import zio.http.Header.Warning
 
 object WarningSpec extends ZIOSpecDefault {
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.model
+package zio.http
 
 import zio.test.Assertion.isNone
 import zio.test._

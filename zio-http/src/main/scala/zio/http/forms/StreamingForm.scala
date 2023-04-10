@@ -24,7 +24,7 @@ import zio.{Chunk, Queue, ZIO}
 
 import zio.stream.{Take, ZStream}
 
-import zio.http.model.Boundary
+import zio.http.Boundary
 
 final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary) {
   def charset: Charset = boundary.charset

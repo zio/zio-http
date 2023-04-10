@@ -18,10 +18,9 @@ package zio.http.middleware
 
 import zio.{NonEmptyChunk, Trace}
 
+import zio.http.Header.AccessControlAllowHeaders
 import zio.http._
 import zio.http.middleware.Cors.CorsConfig
-import zio.http.model.Header.AccessControlAllowHeaders
-import zio.http.model._
 
 private[zio] trait Cors {
 

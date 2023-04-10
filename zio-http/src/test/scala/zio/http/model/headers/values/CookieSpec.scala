@@ -19,8 +19,7 @@ package zio.http.model.headers.values
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
-import zio.http.model
-import zio.http.model.Header.Cookie
+import zio.http.Header.Cookie
 
 object CookieSpec extends ZIOSpecDefault {
 
@@ -28,7 +27,7 @@ object CookieSpec extends ZIOSpecDefault {
     test("Cookie handle valid cookie") {
       val result = Cookie.parse("foo=bar") match {
         case Right(Cookie(value)) =>
-          value == NonEmptyChunk(model.Cookie.Request(name = "foo", content = "bar"))
+          value == NonEmptyChunk(zio.http.Cookie.Request(name = "foo", content = "bar"))
         case _                    => false
       }
       assertTrue(result)
@@ -45,8 +44,8 @@ object CookieSpec extends ZIOSpecDefault {
       val result = Cookie.parse("foo=bar; foo2=bar2") match {
         case Right(Cookie(value)) =>
           value == NonEmptyChunk(
-            model.Cookie.Request(name = "foo", content = "bar"),
-            model.Cookie.Request(name = "foo2", content = "bar2"),
+            zio.http.Cookie.Request(name = "foo", content = "bar"),
+            zio.http.Cookie.Request(name = "foo2", content = "bar2"),
           )
         case _                    => false
       }

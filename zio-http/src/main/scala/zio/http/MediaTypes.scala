@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.model
+package zio.http
 
 private[zio] trait MediaTypes {
   private[zio] lazy val allMediaTypes: List[MediaType] =

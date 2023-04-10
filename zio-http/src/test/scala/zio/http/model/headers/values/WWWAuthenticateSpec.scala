@@ -19,7 +19,7 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
-import zio.http.model.Header.WWWAuthenticate
+import zio.http.Header.WWWAuthenticate
 
 object WWWAuthenticateSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("WWAuthenticate suite")(

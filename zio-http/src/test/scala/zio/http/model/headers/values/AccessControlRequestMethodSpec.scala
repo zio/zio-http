@@ -19,8 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
-import zio.http.model.Header.AccessControlRequestMethod
-import zio.http.model.Method
+import zio.http.Header.AccessControlRequestMethod
+import zio.http.Method
 
 object AccessControlRequestMethodSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlRequestMethodSpec")(

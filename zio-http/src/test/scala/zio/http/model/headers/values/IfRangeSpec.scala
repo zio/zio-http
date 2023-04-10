@@ -22,7 +22,7 @@ import java.time.format.DateTimeFormatter
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 
-import zio.http.model.Header.IfRange
+import zio.http.Header.IfRange
 
 object IfRangeSpec extends ZIOSpecDefault {
 

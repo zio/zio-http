@@ -19,10 +19,9 @@ package zio.http.netty
 import zio.{Promise, Trace, Unsafe, ZIO}
 
 import zio.http.Response.NativeResponse
-import zio.http.model.Header
 import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
 import zio.http.netty.model.Conversions
-import zio.http.{Body, Response}
+import zio.http.{Body, Header, Response}
 
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext

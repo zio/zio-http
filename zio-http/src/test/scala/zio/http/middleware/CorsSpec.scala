@@ -18,12 +18,11 @@ package zio.http.middleware
 
 import zio.test._
 
+import zio.http.Header.AccessControlAllowMethods
 import zio.http.HttpAppMiddleware.cors
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.middleware.Cors.CorsConfig
-import zio.http.model.Header.AccessControlAllowMethods
-import zio.http.model._
 
 object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   val app = Handler.ok.toHttp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))

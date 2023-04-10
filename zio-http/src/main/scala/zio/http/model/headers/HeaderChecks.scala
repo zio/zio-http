@@ -16,9 +16,9 @@
 
 package zio.http.model.headers
 
+import zio.http.Header.HeaderType
+import zio.http._
 import zio.http.internal.{CaseMode, CharSequenceExtensions}
-import zio.http.model.Header.HeaderType
-import zio.http.model._
 
 /**
  * Maintains a list of operators that checks if the Headers meet the give

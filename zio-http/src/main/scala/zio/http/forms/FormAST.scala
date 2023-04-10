@@ -20,8 +20,8 @@ import java.nio.charset._
 
 import zio._
 
-import zio.http.model.Header.ContentTransferEncoding
-import zio.http.model._
+import zio.http.Header.ContentTransferEncoding
+import zio.http.{Boundary, Headers, MediaType}
 
 private[http] sealed trait FormAST {
   def bytes: Chunk[Byte]

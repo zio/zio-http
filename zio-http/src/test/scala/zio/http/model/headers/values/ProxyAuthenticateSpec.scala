@@ -19,8 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
+import zio.http.Header.ProxyAuthenticate
 import zio.http.internal.HttpGen
-import zio.http.model.Header.ProxyAuthenticate
 
 object ProxyAuthenticateSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =

@@ -1,7 +1,7 @@
 package zio.benchmarks
 import java.util.concurrent.TimeUnit
 
-import zio.http.model.Scheme
+import zio.http.Scheme
 
 import org.openjdk.jmh.annotations._
 

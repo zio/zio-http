@@ -19,8 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
+import zio.http.Header.AcceptRanges
 import zio.http.internal.HttpGen
-import zio.http.model.Header.AcceptRanges
 
 object AcceptRangesSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =

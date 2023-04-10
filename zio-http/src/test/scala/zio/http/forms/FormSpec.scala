@@ -25,9 +25,9 @@ import zio.test._
 
 import zio.stream.{ZStream, ZStreamAspect}
 
+import zio.http.Header.ContentTransferEncoding
 import zio.http.forms.Fixtures._
-import zio.http.model.Header.ContentTransferEncoding
-import zio.http.model.{Boundary, MediaType}
+import zio.http.{Boundary, MediaType}
 
 object FormSpec extends ZIOSpecDefault {
 

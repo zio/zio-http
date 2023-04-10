@@ -4,7 +4,6 @@ import zio.ZIOAppDefault
 
 import zio.http._
 import zio.http.html._
-import zio.http.model.Method
 
 object StaticServer extends ZIOAppDefault {
 

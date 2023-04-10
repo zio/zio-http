@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.model
+package zio.http
 
 /**
  * Represents an HTTP method, such as GET, PUT, POST, or DELETE.

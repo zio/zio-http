@@ -19,8 +19,8 @@ package zio.http.model.headers.values
 import zio.Scope
 import zio.test._
 
-import zio.http.model.Header.ETag
-import zio.http.model.Header.ETag.{Strong, Weak}
+import zio.http.Header.ETag
+import zio.http.Header.ETag.{Strong, Weak}
 
 object ETagSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ETag header suite")(

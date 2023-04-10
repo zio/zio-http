@@ -19,8 +19,8 @@ package zio.http.model.headers.values
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
-import zio.http.model.Header.AccessControlAllowMethods
-import zio.http.model.Method
+import zio.http.Header.AccessControlAllowMethods
+import zio.http.Method
 
 object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlAllowMethods suite")(
