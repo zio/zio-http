@@ -25,7 +25,7 @@ import zio.stream._
 
 import zio.http.FormDecodingError._
 import zio.http.FormField._
-import zio.http.internal.FormAST._
+import zio.http.internal.FormAST
 
 /**
  * Represents a form that can be either multipart or url encoded.
@@ -83,22 +83,22 @@ final case class Form(formData: Chunk[FormField]) {
     boundary: Boundary,
   ): ZStream[Any, Nothing, Byte] = {
 
-    val encapsulatingBoundary = EncapsulatingBoundary(boundary)
-    val closingBoundary       = ClosingBoundary(boundary)
+    val encapsulatingBoundary = FormAST.EncapsulatingBoundary(boundary)
+    val closingBoundary       = FormAST.ClosingBoundary(boundary)
 
     val astStreams = formData.map {
       case fd @ Simple(name, value) =>
         ZStream.fromChunk(
           Chunk(
             encapsulatingBoundary,
-            EoL,
-            Header.contentDisposition(name),
-            EoL,
-            Header.contentType(fd.contentType),
-            EoL,
-            EoL,
-            Content(Chunk.fromArray(value.getBytes(boundary.charset))),
-            EoL,
+            FormAST.EoL,
+            FormAST.Header.contentDisposition(name),
+            FormAST.EoL,
+            FormAST.Header.contentType(fd.contentType),
+            FormAST.EoL,
+            FormAST.EoL,
+            FormAST.Content(Chunk.fromArray(value.getBytes(boundary.charset))),
+            FormAST.EoL,
           ),
         )
 
@@ -106,48 +106,52 @@ final case class Form(formData: Chunk[FormField]) {
         ZStream.fromChunk(
           Chunk(
             encapsulatingBoundary,
-            EoL,
-            Header.contentDisposition(name, filename),
-            EoL,
-            Header.contentType(contentType),
-            EoL,
-            EoL,
-            Content(Chunk.fromArray(value.getBytes(boundary.charset))),
-            EoL,
+            FormAST.EoL,
+            FormAST.Header.contentDisposition(name, filename),
+            FormAST.EoL,
+            FormAST.Header.contentType(contentType),
+            FormAST.EoL,
+            FormAST.EoL,
+            FormAST.Content(Chunk.fromArray(value.getBytes(boundary.charset))),
+            FormAST.EoL,
           ),
         )
       case Binary(name, data, contentType, transferEncoding, filename) =>
         val xferEncoding =
-          transferEncoding.map(enc => Chunk(Header.contentTransferEncoding(enc), EoL)).getOrElse(Chunk.empty)
+          transferEncoding
+            .map(enc => Chunk(FormAST.Header.contentTransferEncoding(enc), FormAST.EoL))
+            .getOrElse(Chunk.empty)
 
         ZStream.fromChunk(
           Chunk(
             encapsulatingBoundary,
-            EoL,
-            Header.contentDisposition(name, filename),
-            EoL,
-            Header.contentType(contentType),
-            EoL,
-          ) ++ xferEncoding ++ Chunk(EoL, Content(data), EoL),
+            FormAST.EoL,
+            FormAST.Header.contentDisposition(name, filename),
+            FormAST.EoL,
+            FormAST.Header.contentType(contentType),
+            FormAST.EoL,
+          ) ++ xferEncoding ++ Chunk(FormAST.EoL, FormAST.Content(data), FormAST.EoL),
         )
 
       case StreamingBinary(name, contentType, transferEncoding, filename, data) =>
         val xferEncoding =
-          transferEncoding.map(enc => Chunk(Header.contentTransferEncoding(enc), EoL)).getOrElse(Chunk.empty)
+          transferEncoding
+            .map(enc => Chunk(FormAST.Header.contentTransferEncoding(enc), FormAST.EoL))
+            .getOrElse(Chunk.empty)
 
         ZStream.fromChunk(
           Chunk(
             encapsulatingBoundary,
-            EoL,
-            Header.contentDisposition(name, filename),
-            EoL,
-            Header.contentType(contentType),
-            EoL,
-          ) ++ xferEncoding :+ EoL,
-        ) ++ data.chunks.map(Content(_)) ++ ZStream(EoL)
+            FormAST.EoL,
+            FormAST.Header.contentDisposition(name, filename),
+            FormAST.EoL,
+            FormAST.Header.contentType(contentType),
+            FormAST.EoL,
+          ) ++ xferEncoding :+ FormAST.EoL,
+        ) ++ data.chunks.map(FormAST.Content(_)) ++ ZStream(FormAST.EoL)
     }
 
-    val stream = ZStream.fromChunk(astStreams).flatten ++ ZStream.fromChunk(Chunk(closingBoundary, EoL))
+    val stream = ZStream.fromChunk(astStreams).flatten ++ ZStream.fromChunk(Chunk(closingBoundary, FormAST.EoL))
 
     stream.map(_.bytes).flattenChunks
   }

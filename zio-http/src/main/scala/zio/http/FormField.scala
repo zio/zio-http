@@ -25,7 +25,6 @@ import zio.stream.{Take, ZStream}
 import zio.http.FormDecodingError._
 import zio.http.Header.ContentTransferEncoding
 import zio.http.internal.FormAST
-import zio.http.internal.FormAST._
 
 /**
  * Represents a field in a form. Every field contains name, content type
@@ -103,16 +102,23 @@ object FormField {
     defaultCharset: Charset = StandardCharsets.UTF_8,
   ): ZIO[Any, FormDecodingError, FormField] = {
     val extract =
-      ast.foldLeft((Option.empty[Header], Option.empty[Header], Option.empty[Header], Chunk.empty[Content])) {
-        case (accum, header: Header) if header.name == "Content-Disposition"       =>
+      ast.foldLeft(
+        (
+          Option.empty[FormAST.Header],
+          Option.empty[FormAST.Header],
+          Option.empty[FormAST.Header],
+          Chunk.empty[FormAST.Content],
+        ),
+      ) {
+        case (accum, header: FormAST.Header) if header.name == "Content-Disposition"       =>
           (Some(header), accum._2, accum._3, accum._4)
-        case (accum, content: Content)                                             =>
+        case (accum, content: FormAST.Content)                                             =>
           (accum._1, accum._2, accum._3, accum._4 :+ content)
-        case (accum, header: Header) if header.name == "Content-Type"              =>
+        case (accum, header: FormAST.Header) if header.name == "Content-Type"              =>
           (accum._1, Some(header), accum._3, accum._4)
-        case (accum, header: Header) if header.name == "Content-Transfer-Encoding" =>
+        case (accum, header: FormAST.Header) if header.name == "Content-Transfer-Encoding" =>
           (accum._1, accum._2, Some(header), accum._4)
-        case (accum, _)                                                            => accum
+        case (accum, _)                                                                    => accum
       }
 
     for {
@@ -137,7 +143,7 @@ object FormField {
 
   private[http] def getContentType(ast: Chunk[FormAST]): MediaType =
     ast.collectFirst {
-      case header: Header if header.name == "Content-Type" =>
+      case header: FormAST.Header if header.name == "Content-Type" =>
         MediaType.forContentType(header.preposition)
     }.flatten.getOrElse(MediaType.text.plain)
 
@@ -146,14 +152,14 @@ object FormField {
     queue: Queue[Take[Nothing, Byte]],
   ): ZIO[Any, FormDecodingError, FormField] = {
     val extract =
-      ast.foldLeft((Option.empty[Header], Option.empty[Header], Option.empty[Header])) {
-        case (accum, header: Header) if header.name == "Content-Disposition"       =>
+      ast.foldLeft((Option.empty[FormAST.Header], Option.empty[FormAST.Header], Option.empty[FormAST.Header])) {
+        case (accum, header: FormAST.Header) if header.name == "Content-Disposition"       =>
           (Some(header), accum._2, accum._3)
-        case (accum, header: Header) if header.name == "Content-Type"              =>
+        case (accum, header: FormAST.Header) if header.name == "Content-Type"              =>
           (accum._1, Some(header), accum._3)
-        case (accum, header: Header) if header.name == "Content-Transfer-Encoding" =>
+        case (accum, header: FormAST.Header) if header.name == "Content-Transfer-Encoding" =>
           (accum._1, accum._2, Some(header))
-        case (accum, _)                                                            => accum
+        case (accum, _)                                                                    => accum
       }
 
     for {
