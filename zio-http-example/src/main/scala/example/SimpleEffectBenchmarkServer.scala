@@ -2,9 +2,7 @@ package example
 
 import zio._
 
-import zio.http.Server.RequestStreaming
 import zio.http._
-import zio.http.model.{Header, Method}
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 

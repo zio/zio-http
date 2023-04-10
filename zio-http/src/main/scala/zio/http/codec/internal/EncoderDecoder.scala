@@ -22,7 +22,6 @@ import zio.schema.codec._
 
 import zio.http._
 import zio.http.codec._
-import zio.http.model._
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
@@ -309,7 +308,7 @@ private[codec] object EncoderDecoder                   {
       headers
     }
 
-    private def encodeMethod(inputs: Array[Any]): Option[zio.http.model.Method] =
+    private def encodeMethod(inputs: Array[Any]): Option[zio.http.Method] =
       if (flattened.method.nonEmpty) {
         flattened.method.head match {
           case _: SimpleCodec.Unspecified[_] => Some(inputs(0).asInstanceOf[Method])

@@ -2,8 +2,7 @@ package example
 
 import zio._
 
-import zio.http.model.Method
-import zio.http.{SSLConfig, _}
+import zio.http._
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route

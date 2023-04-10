@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.util.Random
 
-import zio.http.model.MediaType
+import zio.http.MediaType
 
 import org.openjdk.jmh.annotations._
 

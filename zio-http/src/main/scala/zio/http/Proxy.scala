@@ -17,8 +17,8 @@
 package zio.http
 import zio.Config
 
-import zio.http.middleware.Auth.Credentials
-import zio.http.model.{Header, Headers}
+import zio.http.internal.middlewares.Auth.Credentials
+import zio.http.{Header, Headers}
 
 /**
  * Represents the connection to the forward proxy before running the request

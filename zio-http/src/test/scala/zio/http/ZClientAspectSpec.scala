@@ -4,7 +4,6 @@ import zio.test._
 import zio.{Chunk, Scope, ZIO, ZLayer}
 
 import zio.http.URL.Location
-import zio.http.model.{Header, Scheme, Status}
 
 object ZClientAspectSpec extends ZIOSpecDefault {
 

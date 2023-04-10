@@ -26,7 +26,6 @@ import zio.{Scope, durationInt}
 import zio.stream.ZStream
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model._
 
 object ClientSpec extends HttpRunnableSpec {
 

@@ -24,8 +24,6 @@ import zio.{Chunk, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
 
-import zio.http.model._
-
 object ResponseCompressionSpec extends ZIOSpecDefault {
 
   private val text: HttpApp[Any, Nothing] =

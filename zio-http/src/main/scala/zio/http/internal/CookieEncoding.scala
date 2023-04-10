@@ -18,7 +18,7 @@ package zio.http.internal
 
 import zio.Chunk
 
-import zio.http.model.Cookie
+import zio.http.Cookie
 import zio.http.netty.NettyCookieEncoding
 
 private[http] trait CookieEncoding {

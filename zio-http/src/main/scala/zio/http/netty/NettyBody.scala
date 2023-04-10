@@ -22,10 +22,9 @@ import zio.{Chunk, Task, Trace, Unsafe, ZIO}
 
 import zio.stream.ZStream
 
-import zio.http.Body
 import zio.http.Body.{UnsafeBytes, UnsafeWriteable}
 import zio.http.internal.BodyEncoding
-import zio.http.model.{Boundary, Header, Headers, MediaType}
+import zio.http.{Body, Boundary, Header, Headers, MediaType}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{Channel => JChannel}

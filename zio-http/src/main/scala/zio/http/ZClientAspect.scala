@@ -19,8 +19,7 @@ import java.nio.charset.{Charset, StandardCharsets}
 
 import zio._
 
-import zio.http.model.Header.HeaderType
-import zio.http.model._
+import zio.http.Header.HeaderType
 import zio.http.socket.SocketApp
 
 /**

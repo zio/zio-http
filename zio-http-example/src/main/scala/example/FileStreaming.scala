@@ -8,7 +8,6 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http._
-import zio.http.model.Method
 
 object FileStreaming extends ZIOAppDefault {
 

@@ -3,8 +3,6 @@ package example
 import zio.{Chunk, Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 
 import zio.http._
-import zio.http.forms.{Form, FormField}
-import zio.http.model.{Boundary, Header, MediaType, Method, Status}
 
 object MultipartFormData extends ZIOAppDefault {
 

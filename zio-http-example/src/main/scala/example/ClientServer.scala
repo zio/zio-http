@@ -3,7 +3,6 @@ package example
 import zio.{ZIO, ZIOAppDefault}
 
 import zio.http._
-import zio.http.model.Method
 
 object ClientServer extends ZIOAppDefault {
 

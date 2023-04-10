@@ -24,7 +24,6 @@ import zio.stream.{ZStream, ZStreamAspect}
 
 import zio.http.Server.RequestStreaming
 import zio.http.internal.HttpRunnableSpec
-import zio.http.model.{Headers, Method, Status, Version}
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
