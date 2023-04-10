@@ -113,7 +113,8 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       Http.fromHandler {
         for {
           id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
-          url      <- Handler.fromZIO(DynamicServer.wsURL)
+          rawUrl   <- Handler.fromZIO(DynamicServer.wsURL)
+          url      <- Handler.fromEither(URL.decode(rawUrl)).orDie
           response <- Handler.fromFunctionZIO[SocketApp[Client with Scope]] { app =>
             ZIO.scoped[Client with Scope](
               Client
