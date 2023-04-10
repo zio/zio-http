@@ -24,7 +24,6 @@ import zio.test.assertZIO
 import zio.{Scope, ZIO, durationInt}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model._
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 

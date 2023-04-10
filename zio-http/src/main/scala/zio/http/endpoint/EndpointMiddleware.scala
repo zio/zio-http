@@ -19,7 +19,7 @@ package zio.http.endpoint
 import zio.ZIO
 
 import zio.http.codec._
-import zio.http.model.{Header, Method}
+import zio.http.{Header, Method}
 
 /**
  * A description of endpoint middleware, in terms of what the middleware

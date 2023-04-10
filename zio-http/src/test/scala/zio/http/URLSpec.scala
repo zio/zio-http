@@ -21,7 +21,6 @@ import zio.test.Assertion._
 import zio.test._
 
 import zio.http.internal.HttpGen
-import zio.http.model.Scheme
 
 object URLSpec extends ZIOSpecDefault {
   def asURL(string: String): URL = URL.decode(string).toOption.get

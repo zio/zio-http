@@ -20,7 +20,6 @@ import zio.test._
 
 import zio.http._
 import zio.http.codec._
-import zio.http.model._
 
 object HttpCodecSpec extends ZIOSpecDefault {
   val googleUrl     = URL.decode("http://google.com").toOption.get

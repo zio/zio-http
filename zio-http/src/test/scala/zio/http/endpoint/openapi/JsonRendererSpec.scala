@@ -22,12 +22,12 @@ import scala.util.Try
 
 import zio.test._
 
+import zio.http.Status
 import zio.http.codec.Doc
 import zio.http.endpoint.openapi.OpenAPI.Parameter.{Definition, QueryParameter}
 import zio.http.endpoint.openapi.OpenAPI.Schema.ResponseSchema
 import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.ApiKey
 import zio.http.endpoint.openapi.OpenAPI.{Info, Operation, PathItem}
-import zio.http.model.Status
 
 object JsonRendererSpec extends ZIOSpecDefault {
   case object Html

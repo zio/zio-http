@@ -21,10 +21,8 @@ import zio.test.TestAspect.{diagnose, sequential, shrinks, timeout}
 import zio.test.assertZIO
 import zio.{Scope, ZIO, ZLayer, durationInt}
 
-import zio.http.Server.RequestStreaming
 import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
-import zio.http.model.Status
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
 

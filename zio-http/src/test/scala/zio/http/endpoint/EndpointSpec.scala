@@ -23,8 +23,7 @@ import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.codec.HttpCodec.{int, literal, query, string}
 import zio.http.codec._
-import zio.http.model.Method
-import zio.http.{Body, Request, Response, URL}
+import zio.http.{Body, Method, Request, Response, URL}
 
 object EndpointSpec extends ZIOSpecDefault {
   case class NewPost(value: String)

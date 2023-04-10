@@ -21,7 +21,6 @@ import zio.{Scope, ZIO}
 
 import zio.http.URL.Location
 import zio.http._
-import zio.http.model._
 import zio.http.socket.SocketApp
 
 /**

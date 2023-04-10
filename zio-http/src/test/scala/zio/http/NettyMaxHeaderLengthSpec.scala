@@ -19,8 +19,6 @@ package zio.http
 import zio.test._
 import zio.{Scope, ZLayer}
 
-import zio.http.model._
-
 object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
 
   private val serverConfig: Server.Config = Server.Config.default.copy(maxHeaderSize = 1)

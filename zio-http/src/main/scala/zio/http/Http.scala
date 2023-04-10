@@ -24,10 +24,10 @@ import zio._
 
 import zio.stream.ZStream
 
+import zio.http.Header.HeaderType
 import zio.http.Http.{Empty, FailedErrorHandler, Route}
-import zio.http.model.Header.HeaderType
-import zio.http.model.{Header, Headers, MediaType, Status}
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
+import zio.http.{Header, Headers, MediaType, Status}
 
 sealed trait Http[-R, +Err, -In, +Out] { self =>
 

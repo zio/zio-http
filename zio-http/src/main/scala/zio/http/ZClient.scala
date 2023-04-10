@@ -18,9 +18,8 @@ package zio.http
 
 import zio._
 import zio.http.URL.Location
-import zio.http.model._
-import zio.http.model.headers.HeaderOps
 import zio.http.netty.NettyConfig
+import zio.http.internal.HeaderOps
 import zio.http.netty.client._
 import zio.http.socket.SocketApp
 

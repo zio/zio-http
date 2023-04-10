@@ -20,9 +20,8 @@ import java.nio.charset.Charset
 
 import zio.Chunk
 
-import zio.http.forms.Form
+import zio.http.Charsets
 import zio.http.internal.QueryParamEncoding
-import zio.http.model.Charsets
 
 /**
  * A collection of query parameters.

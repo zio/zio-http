@@ -23,8 +23,6 @@ import zio.Chunk
 import zio.test.Assertion._
 import zio.test._
 
-import zio.http.model._
-
 object GetBodyAsStringSpec extends ZIOSpecDefault {
 
   def spec = suite("getBodyAsString") {
