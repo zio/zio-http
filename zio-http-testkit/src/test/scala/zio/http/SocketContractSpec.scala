@@ -5,7 +5,7 @@ import zio._
 import zio.test._
 
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEvent, UserEventTriggered}
-import zio.http.model.Status
+import zio.http.Status
 import zio.http.netty.server.NettyDriver
 import zio.http.socket._
 

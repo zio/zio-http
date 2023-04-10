@@ -20,10 +20,9 @@ import java.time.Duration
 
 import zio.Chunk
 
-import zio.http.Path
+import zio.http.Cookie.SameSite
 import zio.http.internal.CookieEncoding
-import zio.http.model.Cookie
-import zio.http.model.Cookie.SameSite
+import zio.http.{Cookie, Path}
 
 import io.netty.handler.codec.http.{cookie => jCookie}
 

@@ -25,7 +25,6 @@ import zio.stream.ZStream
 
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model.{Header, Headers, Method, Version}
 import zio.http.netty.NettyConfig
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {

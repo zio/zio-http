@@ -16,8 +16,8 @@
 
 package zio.http.codec
 
-import zio.http.model.Header
-import zio.http.model.Header.HeaderType
+import zio.http.Header
+import zio.http.Header.HeaderType
 
 private[codec] trait HeaderCodecs {
   private[http] def headerCodec[A](name: String, value: TextCodec[A]): HeaderCodec[A] =

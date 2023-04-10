@@ -24,9 +24,7 @@ import zio._
 
 import zio.stream.ZStream
 
-import zio.http.forms._
 import zio.http.internal.BodyEncoding
-import zio.http.model.{Boundary, Charsets, Headers, MediaType}
 
 /**
  * Represents the body of a request or response. The body can be a fixed chunk
@@ -137,12 +135,12 @@ object Body {
   /**
    * Constructs a [[zio.http.Body]] from a chunk of bytes.
    */
-  def fromChunk(data: Chunk[Byte]): Body = new ChunkBody(data)
+  def fromChunk(data: Chunk[Byte]): Body = ChunkBody(data)
 
   /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
-  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4): Body = new FileBody(file, chunkSize)
+  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4): Body = FileBody(file, chunkSize)
 
   /**
    * Constructs a [[zio.http.Body]] from from form data, using multipart
@@ -172,7 +170,7 @@ object Body {
   /**
    * Constructs a [[zio.http.Body]] from a stream of bytes.
    */
-  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body = new StreamBody(stream)
+  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body = StreamBody(stream)
 
   /**
    * Constructs a [[zio.http.Body]] from a stream of text, using the specified

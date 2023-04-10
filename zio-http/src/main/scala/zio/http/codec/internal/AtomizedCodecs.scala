@@ -22,12 +22,12 @@ import zio.http.codec.HttpCodec._
 import zio.http.codec._
 
 private[http] final case class AtomizedCodecs(
-  method: Chunk[SimpleCodec[zio.http.model.Method, _]],
+  method: Chunk[SimpleCodec[zio.http.Method, _]],
   path: Chunk[TextCodec[_]],
   query: Chunk[Query[_]],
   header: Chunk[Header[_]],
   content: Chunk[BodyCodec[_]],
-  status: Chunk[SimpleCodec[zio.http.model.Status, _]],
+  status: Chunk[SimpleCodec[zio.http.Status, _]],
 ) { self =>
   def append(atom: Atom[_, _]): AtomizedCodecs = atom match {
     case path0: Path[_]            => self.copy(path = path :+ path0.textCodec)

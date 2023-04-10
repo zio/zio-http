@@ -4,7 +4,6 @@ import zio._
 
 import zio.http.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
 import zio.http._
-import zio.http.model.Method
 import zio.http.socket._
 
 object WebSocketAdvanced extends ZIOAppDefault {

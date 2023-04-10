@@ -19,7 +19,7 @@ package zio.http.netty
 import zio.test.Assertion.{equalTo, isNone, isNull, isSome}
 import zio.test._
 
-import zio.http.middleware.Auth.Credentials
+import zio.http.internal.middlewares.Auth.Credentials
 import zio.http.{Proxy, URL}
 
 object NettyProxySpec extends ZIOSpecDefault {

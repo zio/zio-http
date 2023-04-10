@@ -22,7 +22,6 @@ import zio.test.TestAspect.timeout
 import zio.test._
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model.{Header, MediaType}
 
 object ContentTypeSpec extends HttpRunnableSpec {
 

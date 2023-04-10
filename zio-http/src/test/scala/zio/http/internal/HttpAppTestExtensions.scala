@@ -17,7 +17,6 @@
 package zio.http.internal
 
 import zio.http._
-import zio.http.model._
 
 trait HttpAppTestExtensions {
   implicit class HttpAppSyntax[R, E](route: HttpApp[R, E]) {

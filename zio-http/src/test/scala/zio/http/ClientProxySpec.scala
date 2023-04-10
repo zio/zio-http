@@ -23,9 +23,8 @@ import zio.test.TestAspect.{sequential, timeout}
 import zio.test._
 import zio.{Scope, ZIO, ZLayer, durationInt}
 
+import zio.http.internal.middlewares.Auth.Credentials
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.middleware.Auth.Credentials
-import zio.http.model._
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 

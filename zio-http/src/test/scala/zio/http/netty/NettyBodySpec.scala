@@ -20,7 +20,7 @@ import zio.test.Assertion.equalTo
 import zio.test._
 import zio.{Chunk, Scope}
 
-import zio.http.model.Charsets
+import zio.http.Charsets
 
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.util.AsciiString
