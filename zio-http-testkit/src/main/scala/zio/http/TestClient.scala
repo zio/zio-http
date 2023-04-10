@@ -103,15 +103,11 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       }
     } yield response
 
-  override def socket[Env1](
-    app: SocketApp[Env1],
-    headers: Headers,
-    hostOption: Option[String],
-    pathPrefix: Path,
-    portOption: Option[Int],
-    queries: QueryParams,
-    schemeOption: Option[Scheme],
+  def socket[Env1](
     version: Version,
+    url: URL,
+    headers: Headers,
+    app: SocketApp[Env1],
   )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
     for {
       env                   <- ZIO.environment[Env1]

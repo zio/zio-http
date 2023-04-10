@@ -34,7 +34,13 @@ final case class SocketApp[-R](
     url: String,
     headers: Headers = Headers.empty,
   )(implicit trace: Trace): ZIO[R with Client with Scope, Throwable, Response] =
-    Client.socket(url, self, headers)
+    ZIO.fromEither(URL.decode(url)).orDie.flatMap(connect(_, headers))
+
+  def connect(
+    url: URL,
+    headers: Headers,
+  ): ZIO[R with Client with Scope, Throwable, Response] =
+    Client.socket(url = url, headers = headers, app = self)
 
   /**
    * Provides the socket app with its required environment, which eliminates its
@@ -71,6 +77,7 @@ final case class SocketApp[-R](
 }
 
 object SocketApp {
+  val empty: SocketApp[Any] = SocketApp()
 
   def apply[R](socket: ChannelEvent[WebSocketFrame, WebSocketFrame] => ZIO[R, Throwable, Any]): SocketApp[R] =
     SocketApp(message = Option(socket))

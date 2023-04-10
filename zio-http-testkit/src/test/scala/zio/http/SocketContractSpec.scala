@@ -5,9 +5,9 @@ import zio._
 import zio.test._
 
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEvent, UserEventTriggered}
-import zio.http.Status
 import zio.http.netty.server.NettyDriver
 import zio.http.socket._
+import zio.http.{Headers, Status, Version}
 
 object SocketContractSpec extends ZIOSpecDefault {
 
@@ -100,8 +100,9 @@ object SocketContractSpec extends ZIOSpecDefault {
         for {
           portAndPromise <- liveServerSetup(serverApp)
           (port, promise) = portAndPromise
+          url      <- ZIO.fromEither(URL.decode(s"ws://localhost:$port/")).orDie
           response <- ZIO.serviceWithZIO[Client](
-            _.socket(s"ws://localhost:$port/", clientApp(promise).toSocketApp),
+            _.socket(Version.Http_1_1, url, Headers.empty, clientApp(promise).toSocketApp),
           )
           _        <- promise.await.timeout(10.seconds)
         } yield assertTrue(response.status == Status.SwitchingProtocols)
@@ -115,8 +116,9 @@ object SocketContractSpec extends ZIOSpecDefault {
         for {
           portAndPromise <- testServerSetup(serverApp)
           (port, promise) = portAndPromise
+          url      <- ZIO.fromEither(URL.decode(s"ws://localhost:$port/")).orDie
           response <- ZIO.serviceWithZIO[Client](
-            _.socket(s"ws://localhost:$port/", clientApp(promise).toSocketApp),
+            _.socket(Version.Http_1_1, url, Headers.empty, clientApp(promise).toSocketApp),
           )
           _        <- promise.await.timeout(10.seconds)
         } yield assertTrue(response.status == Status.SwitchingProtocols)
