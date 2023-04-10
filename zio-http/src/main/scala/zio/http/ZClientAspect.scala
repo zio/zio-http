@@ -15,6 +15,13 @@
  */
 
 package zio.http
+import java.nio.charset.{Charset, StandardCharsets}
+
+import zio._
+
+import zio.http.model.Header.HeaderType
+import zio.http.model._
+import zio.http.socket.SocketApp
 
 /**
  * A `ZClientAspect` is capable on modifying some aspect of the execution of a
@@ -23,7 +30,7 @@ package zio.http
 trait ZClientAspect[+LowerEnv, -UpperEnv, +LowerIn, -UpperIn, +LowerErr, -UpperErr, +LowerOut, -UpperOut] { self =>
 
   /**
-   * Applies this metric to modify the execution of the specified client.
+   * Applies this aspect to modify the execution of the specified client.
    */
   def apply[
     Env >: LowerEnv <: UpperEnv,
@@ -95,5 +102,229 @@ trait ZClientAspect[+LowerEnv, -UpperEnv, +LowerIn, -UpperIn, +LowerErr, -UpperE
         Out >: LowerOut1 <: UpperOut1,
       ](client: ZClient[Env, In, Err, Out]): ZClient[Env, In, Err, Out] =
         that(self(client))
+    }
+}
+
+object ZClientAspect {
+
+  /**
+   * Client aspect that logs a debug message to the console after each request
+   */
+  final def debug(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
+    new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
+
+      /**
+       * Applies this aspect to modify the execution of the specified client.
+       */
+      override def apply[
+        Env >: Nothing <: Any,
+        In >: Nothing <: Body,
+        Err >: Nothing <: Any,
+        Out >: Nothing <: Response,
+      ](
+        client: ZClient[Env, In, Err, Out],
+      ): ZClient[Env, In, Err, Out] =
+        new ZClient[Env, In, Err, Out] {
+          override def headers: Headers                   = client.headers
+          override def method: Method                     = client.method
+          override def sslConfig: Option[ClientSSLConfig] = client.sslConfig
+          override def url: URL                           = client.url
+          override def version: Version                   = client.version
+
+          override def request(
+            version: Version,
+            method: Method,
+            url: URL,
+            headers: Headers,
+            body: In,
+            sslConfig: Option[ClientSSLConfig],
+          )(implicit trace: Trace): ZIO[Env, Err, Out] =
+            client
+              .request(version, method, url, headers, body, sslConfig)
+              .sandbox
+              .exit
+              .timed
+              .tap {
+                case (duration, Exit.Success(response)) =>
+                  Console
+                    .printLine(
+                      s"${response.status.code} $method ${url.encode} ${duration.toMillis}ms",
+                    )
+                    .orDie
+                case (duration, Exit.Failure(cause))    =>
+                  Console
+                    .printLine(
+                      s"Failed $method ${url.encode} ${duration.toMillis}ms: " + cause.prettyPrint,
+                    )
+                    .orDie
+              }
+              .flatMap(_._2)
+              .unsandbox
+
+          override def socket[Env1 <: Env](
+            app: SocketApp[Env1],
+            headers: Headers,
+            hostOption: Option[String],
+            pathPrefix: Path,
+            portOption: Option[Int],
+            queries: QueryParams,
+            schemeOption: Option[Scheme],
+            version: Version,
+          )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
+            client.socket(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
+        }
+    }
+
+  /**
+   * Client aspect that logs details of each request and response
+   */
+  final def requestLogging(
+    level: Status => LogLevel = (_: Status) => LogLevel.Info,
+    failureLevel: LogLevel = LogLevel.Warning,
+    loggedRequestHeaders: Set[HeaderType] = Set.empty,
+    loggedResponseHeader: Set[HeaderType] = Set.empty,
+    logRequestBody: Boolean = false,
+    logResponseBody: Boolean = false,
+    requestCharset: Charset = StandardCharsets.UTF_8,
+    responseCharset: Charset = StandardCharsets.UTF_8,
+  )(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
+    new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
+
+      /**
+       * Applies this aspect to modify the execution of the specified client.
+       */
+      override def apply[
+        Env >: Nothing <: Any,
+        In >: Nothing <: Body,
+        Err >: Nothing <: Any,
+        Out >: Nothing <: Response,
+      ](
+        client: ZClient[Env, In, Err, Out],
+      ): ZClient[Env, In, Err, Out] =
+        new ZClient[Env, In, Err, Out] {
+          override def headers: Headers = client.headers
+
+          override def method: Method = client.method
+
+          override def sslConfig: Option[ClientSSLConfig] = client.sslConfig
+
+          override def url: URL = client.url
+
+          override def version: Version = client.version
+
+          override def request(
+            version: Version,
+            method: Method,
+            url: URL,
+            headers: Headers,
+            body: In,
+            sslConfig: Option[ClientSSLConfig],
+          )(implicit trace: Trace): ZIO[Env, Err, Out] =
+            client
+              .request(version, method, url, headers, body, sslConfig)
+              .sandbox
+              .exit
+              .timed
+              .tap {
+                case (duration, Exit.Success(response)) =>
+                  ZIO
+                    .logLevel(level(response.status)) {
+                      val requestHeaders  =
+                        headers.collect {
+                          case header: Header if loggedRequestHeaders.contains(header.headerType) =>
+                            LogAnnotation(header.headerName, header.renderedValue)
+                        }.toSet
+                      val responseHeaders =
+                        response.headers.collect {
+                          case header: Header if loggedResponseHeader.contains(header.headerType) =>
+                            LogAnnotation(header.headerName, header.renderedValue)
+                        }.toSet
+
+                      val requestBody  = if (body.isComplete) body.asChunk.option else ZIO.none
+                      val responseBody = if (response.body.isComplete) response.body.asChunk.option else ZIO.none
+
+                      requestBody.flatMap { requestBodyChunk =>
+                        responseBody.flatMap { responseBodyChunk =>
+                          val bodyAnnotations = Set(
+                            requestBodyChunk.map(chunk => LogAnnotation("request_size", chunk.size.toString)),
+                            requestBodyChunk.flatMap(chunk =>
+                              if (logRequestBody)
+                                Some(LogAnnotation("request", new String(chunk.toArray, requestCharset)))
+                              else None,
+                            ),
+                            responseBodyChunk.map(chunk => LogAnnotation("response_size", chunk.size.toString)),
+                            responseBodyChunk.flatMap(chunk =>
+                              if (logResponseBody)
+                                Some(LogAnnotation("response", new String(chunk.toArray, responseCharset)))
+                              else None,
+                            ),
+                          ).flatten
+
+                          ZIO.logAnnotate(
+                            Set(
+                              LogAnnotation("status_code", response.status.text),
+                              LogAnnotation("method", method.toString()),
+                              LogAnnotation("url", url.encode),
+                              LogAnnotation("duration_ms", duration.toMillis.toString),
+                            ) union
+                              requestHeaders union
+                              responseHeaders union
+                              bodyAnnotations,
+                          ) {
+                            ZIO.log("Http client request")
+                          }
+                        }
+                      }
+                    }
+                case (duration, Exit.Failure(cause))    =>
+                  ZIO
+                    .logLevel(failureLevel) {
+                      val requestHeaders =
+                        headers.collect {
+                          case header: Header if loggedRequestHeaders.contains(header.headerType) =>
+                            LogAnnotation(header.headerName, header.renderedValue)
+                        }.toSet
+
+                      val requestBody = if (body.isComplete) body.asChunk.option else ZIO.none
+
+                      requestBody.flatMap { requestBodyChunk =>
+                        val bodyAnnotations = Set(
+                          requestBodyChunk.map(chunk => LogAnnotation("request_size", chunk.size.toString)),
+                          requestBodyChunk.flatMap(chunk =>
+                            if (logRequestBody)
+                              Some(LogAnnotation("request", new String(chunk.toArray, requestCharset)))
+                            else None,
+                          ),
+                        ).flatten
+
+                        ZIO.logAnnotate(
+                          Set(
+                            LogAnnotation("method", method.toString()),
+                            LogAnnotation("url", url.encode),
+                            LogAnnotation("duration_ms", duration.toMillis.toString),
+                          ) union
+                            requestHeaders union
+                            bodyAnnotations,
+                        ) {
+                          ZIO.logCause("Http client request failed", cause)
+                        }
+                      }
+                    }
+              }
+              .flatMap(_._2)
+              .unsandbox
+
+          override def socket[Env1 <: Env](
+            app: SocketApp[Env1],
+            headers: Headers,
+            hostOption: Option[String],
+            pathPrefix: Path,
+            portOption: Option[Int],
+            queries: QueryParams,
+            schemeOption: Option[Scheme],
+            version: Version,
+          )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
+            client.socket(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
+        }
     }
 }

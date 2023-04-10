@@ -511,8 +511,13 @@ object ZClient {
     maxHeaderSize: Int,
     requestDecompression: Decompression,
     localAddress: Option[InetSocketAddress],
+    addUserAgentHeader: Boolean,
   ) {
     self =>
+
+    def addUserAgentHeader(addUserAgentHeader: Boolean): Config =
+      self.copy(addUserAgentHeader = addUserAgentHeader)
+
     def ssl(ssl: ClientSSLConfig): Config = self.copy(ssl = Some(ssl))
 
     def socketApp(socketApp: SocketApp[Any]): Config = self.copy(socketApp = Some(socketApp))
@@ -542,14 +547,16 @@ object ZClient {
           zio.http.Proxy.config.nested("proxy").optional.withDefault(Config.default.proxy) ++
           ConnectionPoolConfig.config.nested("connection-pool").withDefault(Config.default.connectionPool) ++
           zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
-          Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression)
-      ).map { case (ssl, proxy, connectionPool, maxHeaderSize, requestDecompression) =>
+          Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
+          zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader)
+      ).map { case (ssl, proxy, connectionPool, maxHeaderSize, requestDecompression, addUserAgentHeader) =>
         default.copy(
           ssl = ssl,
           proxy = proxy,
           connectionPool = connectionPool,
           maxHeaderSize = maxHeaderSize,
           requestDecompression = requestDecompression,
+          addUserAgentHeader = addUserAgentHeader,
         )
       }
 
@@ -561,6 +568,7 @@ object ZClient {
       maxHeaderSize = 8192,
       requestDecompression = Decompression.No,
       localAddress = None,
+      addUserAgentHeader = true,
     )
   }
 
@@ -735,17 +743,12 @@ object ZClient {
     method: Method = Method.GET,
     headers: Headers = Headers.empty,
     content: Body = Body.empty,
-    addZioUserAgentHeader: Boolean = false,
   )(implicit trace: Trace): ZIO[Client, Throwable, Response] = {
     for {
       uri      <- ZIO.fromEither(URL.decode(url))
       response <- ZIO.serviceWithZIO[Client](
         _.request(
-          Request
-            .default(method, uri, content)
-            .copy(
-              headers = headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
-            ),
+          Request.default(method, uri, content).addHeaders(headers),
         ),
       )
     } yield response
@@ -807,7 +810,12 @@ object ZClient {
         driver         <- ZIO.service[ClientDriver]
         dnsResolver    <- ZIO.service[DnsResolver]
         connectionPool <- driver.createConnectionPool(dnsResolver, config.connectionPool)
-      } yield new ClientLive(driver)(connectionPool)(config)
+        baseClient = new ClientLive(driver)(connectionPool)(config)
+      } yield
+        if (config.addUserAgentHeader)
+          baseClient.addHeader(defaultUAHeader)
+        else
+          baseClient
     }
   }
 
@@ -825,13 +833,9 @@ object ZClient {
   private val zioHttpVersion: String                   = Client.getClass().getPackage().getImplementationVersion()
   private val zioHttpVersionNormalized: Option[String] = Option(zioHttpVersion)
 
-  private val scalaVersion: String = util.Properties.versionString
-  val defaultUAHeader: Headers     = Headers(
-    Header.UserAgent
-      .Complete(
-        Header.UserAgent.Product("Zio-Http-Client", zioHttpVersionNormalized),
-        Some(Header.UserAgent.Comment(s"Scala $scalaVersion")),
-      )
-      .untyped,
+  private val scalaVersion: String           = util.Properties.versionString
+  lazy val defaultUAHeader: Header.UserAgent = Header.UserAgent.Complete(
+    Header.UserAgent.Product("Zio-Http-Client", zioHttpVersionNormalized),
+    Some(Header.UserAgent.Comment(s"Scala $scalaVersion")),
   )
 }

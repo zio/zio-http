@@ -21,6 +21,7 @@ import java.nio.charset.{Charset, StandardCharsets}
 import zio.{Exit, LogAnnotation, LogLevel, Trace, ZIO}
 
 import zio.http._
+import zio.http.model.Header.HeaderType
 import zio.http.model.{Header, Status}
 
 private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
@@ -28,8 +29,8 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
   final def requestLogging(
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
     failureLevel: LogLevel = LogLevel.Warning,
-    loggedRequestHeaders: Set[String] = Set.empty,
-    loggedResponseHeader: Set[String] = Set.empty,
+    loggedRequestHeaders: Set[HeaderType] = Set.empty,
+    loggedResponseHeader: Set[HeaderType] = Set.empty,
     logRequestBody: Boolean = false,
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
@@ -51,12 +52,12 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
                   .logLevel(level(response.status)) {
                     val requestHeaders  =
                       request.headers.collect {
-                        case header: Header if loggedRequestHeaders.contains(header.headerName) =>
+                        case header: Header if loggedRequestHeaders.contains(header.headerType) =>
                           LogAnnotation(header.headerName, header.renderedValue)
                       }.toSet
                     val responseHeaders =
                       response.headers.collect {
-                        case header: Header if loggedResponseHeader.contains(header.headerName) =>
+                        case header: Header if loggedResponseHeader.contains(header.headerType) =>
                           LogAnnotation(header.headerName, header.renderedValue)
                       }.toSet
 
@@ -101,7 +102,7 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
                   .logLevel(failureLevel) {
                     val requestHeaders =
                       request.headers.collect {
-                        case header: Header if loggedRequestHeaders.contains(header.headerName) =>
+                        case header: Header if loggedRequestHeaders.contains(header.headerType) =>
                           LogAnnotation(header.headerName, header.renderedValue)
                       }.toSet
 
