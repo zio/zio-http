@@ -16,12 +16,13 @@
 
 package zio.http.headers
 
+import java.time.temporal.ChronoUnit
+import java.time.{ZoneOffset, ZonedDateTime}
+
 import zio.Scope
-import zio.http.Header.Expires
 import zio.test._
 
-import java.time.{ZoneOffset, ZonedDateTime}
-import java.time.temporal.ChronoUnit
+import zio.http.Header.Expires
 
 object ExpiresSpec extends ZIOSpecDefault {
 
