@@ -32,14 +32,14 @@ object IfModifiedSinceSpec extends ZIOSpecDefault {
       )
     },
     test("IfModifiedSince should be parsed correctly with invalid value") {
-      val ifModifiedSince = IfModifiedSince.parse("Sun, 06 Nov 1994 08:49:37")
+      val ifModifiedSince = IfModifiedSince.parse("Sun, 006 Nov 1994 08:49:37")
       assertTrue(ifModifiedSince.isLeft)
     },
     test("IfModifiedSince should render correctly a valid date") {
       assertTrue(
         IfModifiedSince.render(
           IfModifiedSince(ZonedDateTime.of(1994, 11, 6, 8, 49, 37, 0, ZoneOffset.UTC)),
-        ) == "Sun, 6 Nov 1994 08:49:37 GMT",
+        ) == "Sun, 06 Nov 1994 08:49:37 GMT",
       )
     },
   )

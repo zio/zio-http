@@ -18,8 +18,7 @@ package zio.http
 
 import java.net.URI
 import java.nio.charset.{Charset, StandardCharsets, UnsupportedCharsetException}
-import java.time.format.DateTimeFormatter
-import java.time.{ZoneOffset, ZonedDateTime}
+import java.time.ZonedDateTime
 import java.util.Base64
 
 import scala.annotation.tailrec
@@ -30,7 +29,7 @@ import scala.util.{Either, Failure, Success, Try}
 
 import zio._
 
-import zio.http._
+import zio.http.internal.DateEncoding
 
 sealed trait Header {
   type Self <: Header
@@ -2537,13 +2536,11 @@ object Header {
 
     override def name: String = "date"
 
-    private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
-
     def parse(value: String): Either[String, Date] =
-      Try(Date(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC))).toEither.left.map(_ => "Invalid Date header")
+      DateEncoding.default.decodeDate(value).toRight("Invalid Date header").map(Date(_))
 
     def render(date: Date): String =
-      formatter.format(date.value)
+      DateEncoding.default.encodeDate(date.value)
   }
 
   sealed trait DNT extends Header {
@@ -2669,13 +2666,11 @@ object Header {
 
     override def name: String = "expires"
 
-    private val formatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
-
     def parse(date: String): Either[String, Expires] =
-      Try(Expires(ZonedDateTime.parse(date, formatter))).toEither.left.map(_ => "Invalid Expires header")
+      DateEncoding.default.decodeDate(date).toRight("Invalid Expires header").map(Expires(_))
 
     def render(expires: Expires): String =
-      formatter.format(expires.value)
+      DateEncoding.default.encodeDate(expires.value)
   }
 
   /** From header value. */
@@ -2779,13 +2774,11 @@ object Header {
 
     override def name: String = "if-modified-since"
 
-    private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
-
     def parse(value: String): Either[String, IfModifiedSince] =
-      Try(IfModifiedSince(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC))).toEither.left.map(_ => "Invalid If-Modified-Since header")
+      DateEncoding.default.decodeDate(value).toRight("Invalid If-Modified-Since header").map(IfModifiedSince(_))
 
     def render(ifModifiedSince: IfModifiedSince): String =
-      formatter.format(ifModifiedSince.value)
+      DateEncoding.default.encodeDate(ifModifiedSince.value)
   }
 
   sealed trait IfNoneMatch extends Header {
@@ -2840,9 +2833,6 @@ object Header {
 
     override def name: String = "if-range"
 
-    private val webDateTimeFormatter =
-      DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
-
     final case class ETag(value: String) extends IfRange
 
     final case class DateTime(value: ZonedDateTime) extends IfRange
@@ -2852,12 +2842,12 @@ object Header {
         case value if value.startsWith("\"") && value.endsWith("\"") =>
           Right(ETag(value.drop(1).dropRight(1)))
         case dateTime                                                =>
-          Try(DateTime(ZonedDateTime.from(webDateTimeFormatter.parse(dateTime)))).toEither.left.map(_ => "Invalid If-Range header")
+          DateEncoding.default.decodeDate(dateTime).toRight("Invalid If-Range header").map(DateTime(_))
       }
 
     def render(ifRange: IfRange): String =
       ifRange match {
-        case DateTime(value) => webDateTimeFormatter.format(value)
+        case DateTime(value) => DateEncoding.default.encodeDate(value)
         case ETag(value)     => s""""$value""""
       }
   }
@@ -2879,13 +2869,11 @@ object Header {
 
     override def name: String = "if-unmodified-since"
 
-    private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
-
     def parse(value: String): Either[String, IfUnmodifiedSince] =
-      Try(IfUnmodifiedSince(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC))).toEither.left.map(_ => "Invalid If-Unmodified-Since header")
+      DateEncoding.default.decodeDate(value).toRight("Invalid If-Unmodified-Since header").map(IfUnmodifiedSince(_))
 
     def render(ifModifiedSince: IfUnmodifiedSince): String =
-      formatter.format(ifModifiedSince.value)
+      DateEncoding.default.encodeDate(ifModifiedSince.value)
 
   }
 
@@ -2900,13 +2888,11 @@ object Header {
 
     override def name: String = "last-modified"
 
-    private val formatter = DateTimeFormatter.RFC_1123_DATE_TIME
-
     def parse(value: String): Either[String, LastModified] =
-      Try(LastModified(ZonedDateTime.parse(value, formatter).withZoneSameInstant(ZoneOffset.UTC))).toEither.left.map(_ => "Invalid Last-Modified header")
+      DateEncoding.default.decodeDate(value).toRight("Invalid Last-Modified header").map(LastModified(_))
 
     def render(lastModified: LastModified): String =
-      formatter.format(lastModified.value)
+      DateEncoding.default.encodeDate(lastModified.value)
   }
 
   /**
@@ -3302,14 +3288,12 @@ object Header {
 
     final case class ByDuration(delay: Duration) extends RetryAfter
 
-    private val formatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
-
     def parse(dateOrSeconds: String): Either[String, RetryAfter] =
       Try(dateOrSeconds.toLong) match {
         case Failure(_)     =>
-          Try(ZonedDateTime.parse(dateOrSeconds, formatter)) match {
-            case Success(value) => Right(ByDate(value))
-            case Failure(_)     => Left("Invalid RetryAfter")
+          DateEncoding.default.decodeDate(dateOrSeconds) match {
+            case Some(value) => Right(ByDate(value))
+            case None        => Left("Invalid RetryAfter")
           }
         case Success(value) =>
           if (value >= 0)
@@ -3320,7 +3304,7 @@ object Header {
 
     def render(retryAfter: RetryAfter): String =
       retryAfter match {
-        case ByDate(date)         => formatter.format(date)
+        case ByDate(date)         => DateEncoding.default.encodeDate(date)
         case ByDuration(duration) =>
           duration.getSeconds.toString
       }
@@ -4113,8 +4097,7 @@ object Header {
 
     override def name: String = "warning"
 
-    private val validCodes         = List(110, 111, 112, 113, 199, 214, 299)
-    private val expectedDateFormat = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
+    private val validCodes = List(110, 111, 112, 113, 199, 214, 299)
 
     def parse(warningString: String): Either[String, Warning] = {
       /*
@@ -4157,8 +4140,8 @@ object Header {
       val dateEndIndex   = warningString.indexOf("\"", dateStartIndex + 1)
       val warningDate    = Try {
         val selectedDate = warningString.substring(dateStartIndex + 1, dateEndIndex)
-        ZonedDateTime.parse(selectedDate, expectedDateFormat)
-      }.toOption
+        DateEncoding.default.decodeDate(selectedDate)
+      }.toOption.flatten
 
       val fullWarning = Warning(warnCode, warnAgent, description, warningDate)
 
@@ -4205,7 +4188,7 @@ object Header {
       warning match {
         case Warning(code, agent, text, date) => {
           val formattedDate = date match {
-            case Some(value) => value.format(expectedDateFormat)
+            case Some(value) => DateEncoding.default.encodeDate(value)
             case None        => ""
           }
           if (formattedDate.isEmpty) {

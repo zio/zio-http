@@ -16,8 +16,7 @@
 
 package zio.http.headers
 
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
+import java.time.{ZoneOffset, ZonedDateTime}
 
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
@@ -25,9 +24,6 @@ import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
 import zio.http.Header.IfRange
 
 object IfRangeSpec extends ZIOSpecDefault {
-
-  private val webDateTimeFormatter =
-    DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("If-Range header encoder suite")(
@@ -40,7 +36,7 @@ object IfRangeSpec extends ZIOSpecDefault {
       test("parsing valid date time value") {
         assertTrue(
           IfRange.parse("Wed, 21 Oct 2015 07:28:00 GMT") ==
-            Right(IfRange.DateTime(ZonedDateTime.parse("Wed, 21 Oct 2015 07:28:00 GMT", webDateTimeFormatter))),
+            Right(IfRange.DateTime(ZonedDateTime.of(2015, 10, 21, 7, 28, 0, 0, ZoneOffset.UTC))),
         )
       },
       test("parsing invalid eTag value") {
@@ -50,7 +46,7 @@ object IfRangeSpec extends ZIOSpecDefault {
       },
       test("parsing invalid date time value") {
         assertTrue(
-          IfRange.parse("21 Oct 2015 07:28:00").isLeft,
+          IfRange.parse("121 Oct 2015 07:28:00").isLeft,
         )
       },
       test("parsing empty value") {

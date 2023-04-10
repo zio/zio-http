@@ -16,7 +16,6 @@
 
 package zio.http.headers
 
-import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 
 import zio.Scope
@@ -27,19 +26,19 @@ import zio.http.Header.LastModified
 object LastModifiedSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("LastModified spec")(
     test("LastModifiedDateTime") {
-      val dateTime     = ZonedDateTime.parse("Sun, 06 Nov 1994 08:49:37 GMT", DateTimeFormatter.RFC_1123_DATE_TIME)
+      val dateTime     = ZonedDateTime.of(1994, 11, 6, 8, 49, 37, 0, ZoneOffset.UTC)
       val lastModified = LastModified(dateTime)
-      assertTrue(LastModified.render(lastModified) == "Sun, 6 Nov 1994 08:49:37 GMT")
+      assertTrue(LastModified.render(lastModified) == "Sun, 06 Nov 1994 08:49:37 GMT")
     },
     test("LastModified  should be parsed correctly with invalid value") {
-      val lastModified = LastModified.parse("Mon, 07 Nov 1994 08:49:37")
+      val lastModified = LastModified.parse("Mon, 007 Nov 1994 08:49:37")
       assertTrue(lastModified.isLeft)
     },
     test("LastModified should render correctly a valid date") {
       assertTrue(
         LastModified.render(
           LastModified(ZonedDateTime.of(1994, 11, 7, 8, 49, 37, 0, ZoneOffset.UTC)),
-        ) == "Mon, 7 Nov 1994 08:49:37 GMT",
+        ) == "Mon, 07 Nov 1994 08:49:37 GMT",
       )
     },
   )

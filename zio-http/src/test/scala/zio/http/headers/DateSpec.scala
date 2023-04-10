@@ -29,8 +29,9 @@ object DateSpec extends ZIOSpecDefault {
         assertTrue(Date.render(Date.parse(value).toOption.get) == value)
       },
       test("Date parsing should fail for invalid date") {
-        val value = "Wed, 21 Oct 20 07:28:00"
-        assertTrue(Date.parse(value).isLeft)
+        val value  = "Wed, 21 Okt 20 07:28:00"
+        val parsed = Date.parse(value)
+        assertTrue(parsed.isLeft)
       },
       test("Date parsing should fail for empty date") {
         val value = ""

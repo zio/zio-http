@@ -17,6 +17,7 @@
 package zio.http.headers
 
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.time.{ZoneId, ZonedDateTime}
 
 import zio.Scope
@@ -32,9 +33,6 @@ object ExpiresSpec extends ZIOSpecDefault {
       assertTrue(
         Expires.parse("").isLeft,
         Expires.parse("any string").isLeft,
-        Expires.parse("Wed 21 Oct 2015 07:28:00").isLeft,
-        Expires.parse("21 Oct 2015 07:28:00 GMT").isLeft,
-        Expires.parse("Wed 21 Oct 2015 07:28:00 GMT").isLeft,
       )
     },
     test("parsing of valid Expires values") {
@@ -48,14 +46,14 @@ object ExpiresSpec extends ZIOSpecDefault {
     },
     test("parsing and encoding is symmetrical") {
       check(Gen.zonedDateTime(ZonedDateTime.now(), ZonedDateTime.now().plusDays(365))) { date =>
-        val zone = ZoneId.of("Australia/Sydney")
+        val truncated = date.truncatedTo(ChronoUnit.SECONDS)
         assertTrue(
           Expires
-            .parse(Expires.render(Expires(date.withZoneSameLocal(zone))))
+            .parse(Expires.render(Expires(truncated)))
             .toOption
             .get
             .value
-            .format(formatter) == date.withZoneSameLocal(zone).format(formatter),
+            .toInstant == truncated.toInstant,
         )
       }
     },

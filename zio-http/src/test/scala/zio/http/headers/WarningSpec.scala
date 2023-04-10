@@ -16,7 +16,7 @@
 
 package zio.http.headers
 
-import java.time.{ZoneId, ZonedDateTime}
+import java.time.{ZoneOffset, ZonedDateTime}
 
 import zio.Scope
 import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
@@ -27,7 +27,7 @@ object WarningSpec extends ZIOSpecDefault {
 
   private val validWarning            = "110 anderson/1.3.37 \"Response is stale\""
   private val validWarningWithDate    = "112 - \"cache down\" \"Wed, 21 Oct 2015 07:28:00 GMT\""
-  private val stubDate: ZonedDateTime = ZonedDateTime.of(2015, 10, 21, 7, 28, 0, 0, ZoneId.of("GMT"))
+  private val stubDate: ZonedDateTime = ZonedDateTime.of(2015, 10, 21, 7, 28, 0, 0, ZoneOffset.UTC)
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Warning header suite")(
