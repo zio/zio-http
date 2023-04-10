@@ -16,17 +16,14 @@
 
 package zio.http.headers
 
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.time.{ZoneId, ZonedDateTime}
-
 import zio.Scope
+import zio.http.Header.Expires
 import zio.test._
 
-import zio.http.Header.Expires
+import java.time.{ZoneOffset, ZonedDateTime}
+import java.time.temporal.ChronoUnit
 
 object ExpiresSpec extends ZIOSpecDefault {
-  private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz")
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Expires header suite")(
     test("parsing of invalid expires values") {
@@ -39,7 +36,7 @@ object ExpiresSpec extends ZIOSpecDefault {
       assertTrue(
         Expires.parse("Wed, 21 Oct 2015 07:28:00 GMT") == Right(
           Expires(
-            ZonedDateTime.parse("Wed, 21 Oct 2015 07:28:00 GMT", formatter),
+            ZonedDateTime.of(2015, 10, 21, 7, 28, 0, 0, ZoneOffset.UTC),
           ),
         ),
       )
