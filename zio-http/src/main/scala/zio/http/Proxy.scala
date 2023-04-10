@@ -17,7 +17,7 @@
 package zio.http
 import zio.Config
 
-import zio.http.middleware.Auth.Credentials
+import zio.http.internal.middlewares.Auth.Credentials
 import zio.http.{Header, Headers}
 
 /**

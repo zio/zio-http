@@ -20,8 +20,7 @@ import java.net.InetAddress
 
 import zio.ZIO
 
-import zio.http.model._
-import zio.http.model.headers._
+import zio.http.internal.HeaderOps
 
 final case class Request(
   body: Body,

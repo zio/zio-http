@@ -22,7 +22,6 @@ import zio.test.assertZIO
 import zio.{Scope, durationInt}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model._
 
 object KeepAliveSpec extends HttpRunnableSpec {
 

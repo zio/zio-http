@@ -20,8 +20,6 @@ import java.nio.charset.Charset
 
 import zio.Chunk
 
-import zio.http.forms.FormAST
-
 /**
  * A multipart boundary, which consists of both the boundary and its charset.
  */

@@ -27,7 +27,6 @@ import zio.http.Header._
 import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
-import zio.http.model._
 import zio.http.netty.NettyBody
 
 import io.netty.buffer.Unpooled

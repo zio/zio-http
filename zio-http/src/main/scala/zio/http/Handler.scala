@@ -19,7 +19,7 @@ package zio.http
 import zio._
 import zio.http.html.{Html, Template}
 import zio.http.Header.HeaderType
-import zio.http.model.headers.HeaderModifier
+import zio.http.internal.HeaderModifier
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 

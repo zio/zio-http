@@ -21,7 +21,6 @@ import java.nio.charset.Charset
 import zio.Chunk
 
 import zio.http.Charsets
-import zio.http.forms.Form
 import zio.http.internal.QueryParamEncoding
 
 /**

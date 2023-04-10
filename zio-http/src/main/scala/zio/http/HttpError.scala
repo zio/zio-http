@@ -18,7 +18,7 @@ package zio.http
 
 import zio.http.HttpError.HTTPErrorWithCause
 import zio.http.Response
-import zio.http.security.OutputEncoder
+import zio.http.internal.OutputEncoder
 
 sealed abstract class HttpError(val status: Status, val message: String) extends Throwable(message) { self =>
   def foldCause[A](a: A)(f: Throwable => A): A = self match {

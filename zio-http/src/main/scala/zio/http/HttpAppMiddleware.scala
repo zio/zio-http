@@ -16,7 +16,6 @@
 
 package zio.http
 
-import zio.http.middleware.{HttpRoutesMiddlewares, RequestHandlerMiddlewares}
 import zio.{Trace, ZIO}
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;

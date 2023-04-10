@@ -19,7 +19,6 @@ package zio.http
 import zio._
 import zio.test._
 
-import zio.http.model._
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 

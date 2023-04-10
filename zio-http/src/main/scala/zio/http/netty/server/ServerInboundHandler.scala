@@ -24,7 +24,6 @@ import scala.annotation.tailrec
 import zio._
 
 import zio.http._
-import zio.http.model._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol

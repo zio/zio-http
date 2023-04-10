@@ -18,8 +18,7 @@ package zio.http
 
 import zio.Chunk
 
-import zio.http.internal.{CaseMode, CharSequenceExtensions}
-import zio.http.model.headers._
+import zio.http.internal.{CaseMode, CharSequenceExtensions, HeaderOps}
 
 /**
  * Represents an immutable collection of headers. It extends HeaderExtensions

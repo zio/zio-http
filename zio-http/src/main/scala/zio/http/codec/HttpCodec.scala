@@ -25,7 +25,6 @@ import zio.stream.ZStream
 import zio.schema.Schema
 
 import zio.http._
-import zio.http.model._
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP

@@ -23,8 +23,8 @@ import zio.{Exit, Scope, ZIO, durationInt}
 
 import zio.http.Header.AccessControlAllowMethods
 import zio.http.HttpAppMiddleware.cors
+import zio.http.internal.middlewares.Cors.CorsConfig
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLayer}
-import zio.http.middleware.Cors.CorsConfig
 
 object StaticServerSpec extends HttpRunnableSpec {
 
