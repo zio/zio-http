@@ -18,7 +18,8 @@ package zio.http
 
 import zio.test._
 
-import zio.http.internal.FormAST.Header
+import zio.http.internal.FormAST
+
 object FormHeaderSpec extends ZIOSpecDefault {
 
   val contentType1 = "Content-Type: text/html; charset=utf-8".getBytes()
@@ -27,7 +28,7 @@ object FormHeaderSpec extends ZIOSpecDefault {
   def spec = suite("HeaderSpec")(
     test("Header parsing") {
 
-      val header = Header.fromBytes(contentType1)
+      val header = FormAST.Header.fromBytes(contentType1)
 
       assertTrue(
         header.get.name == "Content-Type",
