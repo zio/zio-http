@@ -6,7 +6,7 @@ import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.cli._
 import zio.schema._
-import zio.http.model.headers.values.Location
+import zio.http.model.Header.Location
 
 trait TestCliEndpoints {
   import HttpCodec._

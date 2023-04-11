@@ -42,7 +42,7 @@ object HttpCliApp {
       self.copy(url = self.url.copy(path = self.url.path / value))
 
     def addQueryParam(key: String, value: String) =
-      self.copy(url = self.url.setQueryParams(self.url.queryParams.add(key, value)))
+      self.copy(url = self.url.withQueryParams(self.url.queryParams.add(key, value)))
 
     def withMethod(method: model.Method): CliRequest =
       self.copy(method = method)
@@ -749,7 +749,7 @@ object HttpCliApp {
             Request
               .default(
                 method,
-                url.setHost(host).setPort(port),
+                url.withHost(host).withPort(port),
                 Body.fromString(body.toString),
               )
               .setHeaders(headers),
