@@ -22,16 +22,19 @@ import zio.http.internal.middlewares.Cors
 
 private[zio] trait HttpRoutesMiddlewares extends Cors {
 
+  def dropTrailingSlash: HttpAppMiddleware[Nothing, Any, Nothing, Any] =
+    dropTrailingSlash(onlyIfNoQueryParams = false)
+
   /**
    * Removes the trailing slash from the path.
    */
-  def dropTrailingSlash: HttpAppMiddleware[Nothing, Any, Nothing, Any] =
+  def dropTrailingSlash(onlyIfNoQueryParams: Boolean): HttpAppMiddleware[Nothing, Any, Nothing, Any] =
     new HttpAppMiddleware.Simple[Any, Nothing] {
       override def apply[R1, Err1](
         http: Http[R1, Err1, Request, Response],
       )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
         Http.fromHandlerZIO[Request] { request =>
-          if (request.url.queryParams.isEmpty)
+          if (!onlyIfNoQueryParams || request.url.queryParams.isEmpty)
             http.runHandler(request.dropTrailingSlash)
           else
             http.runHandler(request)
