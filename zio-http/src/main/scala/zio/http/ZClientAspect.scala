@@ -124,11 +124,15 @@ object ZClientAspect {
         client: ZClient[Env, In, Err, Out],
       ): ZClient[Env, In, Err, Out] =
         new ZClient[Env, In, Err, Out] {
-          override def headers: Headers                   = client.headers
-          override def method: Method                     = client.method
+          override def headers: Headers = client.headers
+
+          override def method: Method = client.method
+
           override def sslConfig: Option[ClientSSLConfig] = client.sslConfig
-          override def url: URL                           = client.url
-          override def version: Version                   = client.version
+
+          override def url: URL = client.url
+
+          override def version: Version = client.version
 
           override def request(
             version: Version,
@@ -160,17 +164,10 @@ object ZClientAspect {
               .flatMap(_._2)
               .unsandbox
 
-          override def socket[Env1 <: Env](
-            app: SocketApp[Env1],
-            headers: Headers,
-            hostOption: Option[String],
-            pathPrefix: Path,
-            portOption: Option[Int],
-            queries: QueryParams,
-            schemeOption: Option[Scheme],
-            version: Version,
-          )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
-            client.socket(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
+          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: SocketApp[Env1])(implicit
+            trace: Trace,
+          ): ZIO[Env1 with Scope, Err, Out] =
+            client.socket(version, url, headers, app)
         }
     }
 
@@ -313,17 +310,10 @@ object ZClientAspect {
               .flatMap(_._2)
               .unsandbox
 
-          override def socket[Env1 <: Env](
-            app: SocketApp[Env1],
-            headers: Headers,
-            hostOption: Option[String],
-            pathPrefix: Path,
-            portOption: Option[Int],
-            queries: QueryParams,
-            schemeOption: Option[Scheme],
-            version: Version,
-          )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
-            client.socket(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
+          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: SocketApp[Env1])(implicit
+            trace: Trace,
+          ): ZIO[Env1 with Scope, Err, Out] =
+            client.socket(version, url, headers, app)
         }
     }
 }
