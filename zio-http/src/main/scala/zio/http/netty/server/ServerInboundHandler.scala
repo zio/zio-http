@@ -18,7 +18,7 @@ package zio.http.netty.server
 
 import java.io.IOException
 import java.net.InetSocketAddress
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.LongAdder
 
 import scala.annotation.tailrec
 
@@ -48,7 +48,7 @@ private[zio] final case class ServerInboundHandler(
   private var app: App[Any]          = _
   private var env: ZEnvironment[Any] = _
 
-  val inFlightRequests: AtomicInteger = new AtomicInteger(0)
+  val inFlightRequests: LongAdder = new LongAdder()
 
   def refreshApp(): Unit = {
     val pair = appRef.get()
@@ -67,11 +67,11 @@ private[zio] final case class ServerInboundHandler(
 
     msg match {
       case jReq: FullHttpRequest =>
-        inFlightRequests.incrementAndGet()
+        inFlightRequests.increment()
         val req = makeZioRequest(ctx, jReq)
 
         val releaseRequest = { () =>
-          inFlightRequests.decrementAndGet()
+          inFlightRequests.decrement()
           if (jReq.refCnt() > 0) {
             val _ = jReq.release()
           }
@@ -90,11 +90,11 @@ private[zio] final case class ServerInboundHandler(
           releaseRequest()
 
       case jReq: HttpRequest =>
-        inFlightRequests.incrementAndGet()
+        inFlightRequests.increment()
         val req = makeZioRequest(ctx, jReq)
 
         val releaseRequest = { () =>
-          inFlightRequests.decrementAndGet()
+          inFlightRequests.decrement()
           ()
         }
 

@@ -17,7 +17,7 @@
 package zio.http
 
 import java.net.{InetAddress, InetSocketAddress}
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, LongAdder}
 
 import zio._
 
@@ -324,17 +324,17 @@ object Server {
       for {
         driver           <- ZIO.service[Driver]
         config           <- ZIO.service[Config]
-        inFlightRequests <- Promise.make[Throwable, AtomicInteger]
+        inFlightRequests <- Promise.make[Throwable, LongAdder]
         _                <- Scope.addFinalizer(
           inFlightRequests.await.flatMap { counter =>
             ZIO
-              .succeed(counter.get())
+              .succeed(counter.longValue())
               .repeat(
                 Schedule
-                  .identity[Int]
+                  .identity[Long]
                   .zip(Schedule.elapsed)
                   .untilOutput { case (inFlight, elapsed) =>
-                    inFlight == 0 || elapsed > config.gracefulShutdownTimeout
+                    inFlight == 0L || elapsed > config.gracefulShutdownTimeout
                   } &&
                   Schedule.fixed(10.millis),
               )

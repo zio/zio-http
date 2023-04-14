@@ -16,7 +16,7 @@
 
 package zio.http
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.LongAdder
 
 import zio._
 
@@ -32,7 +32,7 @@ trait Driver {
 }
 
 object Driver {
-  final case class StartResult(port: Int, inFlightRequests: AtomicInteger)
+  final case class StartResult(port: Int, inFlightRequests: LongAdder)
 
   def default: ZLayer[Server.Config, Throwable, Driver] =
     NettyDriver.live
