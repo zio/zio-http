@@ -74,6 +74,11 @@ private[http] object RoutingTree                                       {
                   Map(),
                   Chunk(((_: Method) => true) -> Chunk(alternative)),
                 )
+              case Some(SimpleCodec.Custom(f, _))  =>
+                Leaf(
+                  Map(),
+                  Chunk(((m: Method) => f.isDefinedAt(m)) -> Chunk(alternative)),
+                )
               case None                            =>
                 Leaf(
                   Map(Method.GET -> Chunk(alternative)),
