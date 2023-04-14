@@ -21,9 +21,9 @@ import zio.test._
 
 import zio.schema.{DeriveSchema, Schema}
 
-import zio.http._
 import zio.http.codec.HttpCodec.{int, literal, query, string}
 import zio.http.codec._
+import zio.http.{Body, Method, Request, Response, URL}
 
 object EndpointSpec extends ZIOSpecDefault {
   case class NewPost(value: String)
@@ -300,57 +300,6 @@ object EndpointSpec extends ZIOSpecDefault {
           ) _
           testRoutes("/users/123", Method.POST) &&
           testRoutes("/users/123/posts/555?name=adam", Method.PUT)
-        },
-      ),
-      suite("custom error")(
-        test("simple custom error response") {
-          val routes =
-            Endpoint
-              .get(literal("users") / int("userId"))
-              .out[String]
-              .outError[String](Status.Custom(999))
-              .implement { userId =>
-                ZIO.fail(s"path(users, $userId)")
-              }
-
-          val request =
-            Request
-              .get(
-                URL.decode("/users/123").toOption.get,
-              )
-
-          for {
-            response <- routes.toApp.runZIO(request).mapError(_.get)
-            body     <- response.body.asString.orDie
-          } yield assertTrue(response.status.code == 999, body == "\"path(users, 123)\"")
-        },
-        test("status depending on the error") {
-          val routes =
-            Endpoint
-              .get(literal("users") / int("userId"))
-              .out[String]
-              .outErrorWith[String](
-                toStatus = (err: String) =>
-                  err.toIntOption match {
-                    case Some(code) if code > 0 && code < 1000 => Status.Custom(code)
-                    case None                                  => Status.InternalServerError
-                  },
-                fromStatus = (status: Status) => status.code.toString,
-              )
-              .implement { userId =>
-                ZIO.fail(userId.toString)
-              }
-
-          val request =
-            Request
-              .get(
-                URL.decode("/users/123").toOption.get,
-              )
-
-          for {
-            response <- routes.toApp.runZIO(request).mapError(_.get)
-            body     <- response.body.asString.orDie
-          } yield assertTrue(response.status.code == 123, body == "\"123\"")
         },
       ),
     ),

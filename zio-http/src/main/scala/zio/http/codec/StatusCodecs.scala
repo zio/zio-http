@@ -21,9 +21,6 @@ import zio.http.Status
 private[codec] trait StatusCodecs {
   def status(status: Status): StatusCodec[Unit] = HttpCodec.Status(SimpleCodec.Specified(status))
 
-  def inputDependent[A](f: A => Status, g: PartialFunction[Status, A]): StatusCodec[A] =
-    HttpCodec.Status(SimpleCodec.Custom(g, f))
-
   val Continue: StatusCodec[Unit]                      = status(Status.Continue)
   val SwitchingProtocols: StatusCodec[Unit]            = status(Status.SwitchingProtocols)
   val Processing: StatusCodec[Unit]                    = status(Status.Processing)

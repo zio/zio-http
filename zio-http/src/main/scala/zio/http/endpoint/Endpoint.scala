@@ -187,17 +187,6 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
       self.error | (ContentCodec.content[Err2] ++ StatusCodec.status(status)),
     )
 
-  def outErrorWith[Err2](toStatus: Err2 => Status, fromStatus: PartialFunction[Status, Err2])(implicit
-    schema: Schema[Err2],
-    alt: Alternator[Err, Err2],
-  ): Endpoint[Input, alt.Out, Output, Middleware] =
-    copy[Input, alt.Out, Output, Middleware](error =
-      self.error | (ContentCodec.content[Err2] ++ StatusCodec.inputDependent(toStatus, fromStatus)).transform(
-        _._1,
-        (err2: Err2) => (err2, err2),
-      ),
-    )
-
   /**
    * Returns a new endpoint derived from this one, whose output type is a stream
    * of the specified type for the ok status code.
