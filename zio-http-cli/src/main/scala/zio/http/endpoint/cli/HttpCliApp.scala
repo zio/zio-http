@@ -377,8 +377,8 @@ object HttpCliApp {
                     (
                       long,
                       request,
-                    ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(long))), // FIXME
-                    Options.integer(prefix.mkString(".")),                           // FIXME
+                    ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(long))),
+                    Options.integer(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
@@ -404,8 +404,8 @@ object HttpCliApp {
               case StandardType.ByteType           =>
                 Set(
                   CliEndpoint[BigInt](
-                    (byte, request) => request.addFieldToBody(prefix, Json.Num(BigDecimal(byte))), // FIXME
-                    Options.integer(prefix.mkString(".")),                                         // FIXME
+                    (byte, request) => request.addFieldToBody(prefix, Json.Num(BigDecimal(byte))),
+                    Options.integer(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
@@ -449,8 +449,8 @@ object HttpCliApp {
               case StandardType.FloatType          =>
                 Set(
                   CliEndpoint[BigDecimal](
-                    (float, request) => request.addFieldToBody(prefix, Json.Num(float)), // FIXME
-                    Options.decimal(prefix.mkString(".")),                               // FIXME
+                    (float, request) => request.addFieldToBody(prefix, Json.Num(float)),
+                    Options.decimal(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
@@ -467,8 +467,8 @@ object HttpCliApp {
               case StandardType.BigIntegerType     =>
                 Set(
                   CliEndpoint[BigInt](
-                    (bigInt, request) => request.addFieldToBody(prefix, Json.Num(BigDecimal(bigInt))), // FIXME
-                    Options.integer(prefix.mkString(".")),                                             // FIXME
+                    (bigInt, request) => request.addFieldToBody(prefix, Json.Num(BigDecimal(bigInt))),
+                    Options.integer(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
@@ -476,8 +476,8 @@ object HttpCliApp {
               case StandardType.DoubleType         =>
                 Set(
                   CliEndpoint[BigDecimal](
-                    (double, request) => request.addFieldToBody(prefix, Json.Num(double)), // FIXME
-                    Options.decimal(prefix.mkString(".")),                                 // FIXME
+                    (double, request) => request.addFieldToBody(prefix, Json.Num(double)),
+                    Options.decimal(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
@@ -494,8 +494,8 @@ object HttpCliApp {
               case StandardType.CharType           =>
                 Set(
                   CliEndpoint[String](
-                    (char, request) => request.addFieldToBody(prefix, Json.Str(char.toString())), // FIXME
-                    Options.text(prefix.mkString(".")),                                           // FIXME
+                    (char, request) => request.addFieldToBody(prefix, Json.Str(char.toString())),
+                    Options.text(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
@@ -524,7 +524,15 @@ object HttpCliApp {
                     Doc.empty,
                   ),
                 )
-              case StandardType.BinaryType         => ??? // TODO
+              case StandardType.BinaryType         =>
+                Set(
+                  CliEndpoint[java.nio.file.Path](
+                    ???, // TODO modify CliRequest so it can store a binary body and not just Json
+                    Options.file(prefix.mkString("."), Exists.Yes),
+                    List.empty,
+                    Doc.empty,
+                  ),
+                )
               case StandardType.LocalTimeType      =>
                 Set(
                   CliEndpoint[java.time.LocalTime](
@@ -567,8 +575,8 @@ object HttpCliApp {
                     (
                       dayOfWeek,
                       request,
-                    ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(dayOfWeek))), // FIXME
-                    Options.integer(prefix.mkString(".")),                                // FIXME
+                    ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(dayOfWeek))),
+                    Options.integer(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
@@ -579,8 +587,8 @@ object HttpCliApp {
                     (
                       duration,
                       request,
-                    ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(duration))), // FIXME
-                    Options.integer(prefix.mkString(".")),                               // FIXME
+                    ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(duration))),
+                    Options.integer(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
@@ -615,8 +623,8 @@ object HttpCliApp {
                     (
                       short,
                       request,
-                    ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(short))), // FIXME
-                    Options.integer(prefix.mkString(".")),                            // FIXME
+                    ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(short))),
+                    Options.integer(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
@@ -639,8 +647,8 @@ object HttpCliApp {
                     (
                       month,
                       request,
-                    ) => request.addFieldToBody(prefix, Json.Str(month)), // FIXME
-                    Options.text(prefix.mkString(".")),                   // FIXME
+                    ) => request.addFieldToBody(prefix, Json.Str(month)),
+                    Options.text(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
@@ -651,8 +659,8 @@ object HttpCliApp {
                     (
                       year,
                       request,
-                    ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(year))), // FIXME
-                    Options.integer(prefix.mkString(".")),                           // FIXME
+                    ) => request.addFieldToBody(prefix, Json.Num(BigDecimal(year))),
+                    Options.integer(prefix.mkString(".")), // FIXME
                     List.empty,
                     Doc.empty,
                   ),
