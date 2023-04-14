@@ -16,8 +16,8 @@
 
 package zio.http.codec.internal
 
-import zio.http.codec.HttpCodec
 import zio.http.codec.HttpCodec._
+import zio.http.codec.{HttpCodec, HttpCodecError}
 
 private[http] object Mechanic {
   type InputsBuilder = Atomized[Array[Any]]
@@ -88,7 +88,7 @@ private[http] object Mechanic {
         val threaded = makeConstructorLoop(transform.api)
         results =>
           transform.f(threaded(results)) match {
-            case Left(value)  => throw new RuntimeException(value)
+            case Left(value)  => throw HttpCodecError.CustomError(value)
             case Right(value) => value
           }
 
@@ -129,7 +129,7 @@ private[http] object Mechanic {
         (input, inputsBuilder) =>
           deconstructor(
             transform.g(input) match {
-              case Left(value)  => throw new RuntimeException(value)
+              case Left(value)  => throw HttpCodecError.CustomError(value)
               case Right(value) => value
             },
             inputsBuilder,

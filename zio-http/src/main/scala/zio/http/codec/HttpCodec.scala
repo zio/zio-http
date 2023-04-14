@@ -24,7 +24,7 @@ import zio.stream.ZStream
 
 import zio.schema.Schema
 
-import zio.http._
+import zio.http.{Status, _}
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -272,6 +272,11 @@ object HttpCodec
     with QueryCodecs
     with StatusCodecs {
   implicit def stringToLiteral(string: String): PathCodec[Unit] = literal(string)
+
+  def statusAndContent[Body](status: zio.http.Status)(implicit
+    schema: Schema[Body],
+  ): HttpCodec[HttpCodecType.Status with HttpCodecType.Content, Body] =
+    content[Body] ++ this.status(status)
 
   private[http] sealed trait AtomTag
   private[http] object AtomTag {
