@@ -21,7 +21,7 @@ trait TestCliEndpoints {
     email: Option[String],
   )
   object User {
-    implicit val schema = DeriveSchema.gen[User]
+    implicit val schema: Schema[User] = DeriveSchema.gen[User]
   }
   final case class Post(
     @description("The unique identifier of the User")
@@ -32,7 +32,7 @@ trait TestCliEndpoints {
     contents: String,
   )
   object Post {
-    implicit val schema = DeriveSchema.gen[Post]
+    implicit val schema: Schema[Post] = DeriveSchema.gen[Post]
   }
 
   val getUser =
