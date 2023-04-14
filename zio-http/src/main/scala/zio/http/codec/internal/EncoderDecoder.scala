@@ -208,7 +208,6 @@ private[codec] object EncoderDecoder                   {
           case SimpleCodec.Specified(expected) =>
             if (method != expected) throw HttpCodecError.MalformedMethod(expected, method)
             else ()
-          case SimpleCodec.Custom(f, _)        => f(method)
         }
 
         i = i + 1
@@ -316,7 +315,6 @@ private[codec] object EncoderDecoder                   {
         flattened.method.head match {
           case _: SimpleCodec.Unspecified[_] => Some(inputs(0).asInstanceOf[Method])
           case SimpleCodec.Specified(method) => Some(method)
-          case SimpleCodec.Custom(_, g)      => Some(g.asInstanceOf[Any => Method](inputs(0)))
         }
       } else None
 
