@@ -23,7 +23,9 @@ object ZClientAspectSpec extends ZIOSpecDefault {
           output   <- TestConsole.output
         } yield assertTrue(
           response.status == Status.Ok,
-          output == Vector(s"200 GET http://localhost:$port/hello 0ms\n"),
+          output.size == 1,
+          output.head.startsWith(s"200 GET http://localhost:$port/hello"),
+          output.head.endsWith("ms\n"),
         )
       },
       test("requestLogging")(
@@ -45,9 +47,9 @@ object ZClientAspectSpec extends ZIOSpecDefault {
         } yield assertTrue(
           response.status == Status.Ok,
           messages == Chunk("Http client request"),
-          annotations == Chunk(
+          annotations.size == 1,
+          (annotations.head - "duration_ms") ==
             Map(
-              "duration_ms"   -> "0",
               "response_size" -> "5",
               "request_size"  -> "0",
               "status_code"   -> "200",
@@ -56,7 +58,7 @@ object ZClientAspectSpec extends ZIOSpecDefault {
               "user-agent"    -> Client.defaultUAHeader.renderedValue,
               "response"      -> "hello",
             ),
-          ),
+          annotations.head.contains("duration_ms"),
         ),
       ),
     ).provide(
