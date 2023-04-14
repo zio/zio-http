@@ -16,12 +16,15 @@
 
 package zio.http
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import zio._
 
+import zio.http.Driver.StartResult
 import zio.http.netty.server.NettyDriver
 
 trait Driver {
-  def start(implicit trace: Trace): RIO[Scope, Int]
+  def start(implicit trace: Trace): RIO[Scope, StartResult]
 
   def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
 
@@ -29,6 +32,8 @@ trait Driver {
 }
 
 object Driver {
+  final case class StartResult(port: Int, inFlightRequests: AtomicInteger)
+
   def default: ZLayer[Server.Config, Throwable, Driver] =
     NettyDriver.live
 }

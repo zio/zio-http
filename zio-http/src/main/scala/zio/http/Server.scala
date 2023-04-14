@@ -17,6 +17,7 @@
 package zio.http
 
 import java.net.{InetAddress, InetSocketAddress}
+import java.util.concurrent.atomic.AtomicInteger
 
 import zio._
 
@@ -54,6 +55,7 @@ object Server {
     requestStreaming: RequestStreaming,
     maxHeaderSize: Int,
     logWarningOnFatalError: Boolean,
+    gracefulShutdownTimeout: Duration,
   ) {
     self =>
 
@@ -89,6 +91,8 @@ object Server {
 
     /** Enables streaming request bodies */
     def enableRequestStreaming: Config = self.copy(requestStreaming = RequestStreaming.Enabled)
+
+    def gracefulShutdownTimeout(duration: Duration): Config = self.copy(gracefulShutdownTimeout = duration)
 
     /**
      * Configure the server to use netty's HttpServerKeepAliveHandler to close
@@ -156,7 +160,8 @@ object Server {
         ResponseCompressionConfig.config.nested("response-compression").optional ++
         RequestStreaming.config.nested("request-streaming").withDefault(Config.default.requestStreaming) ++
         zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
-        zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError)
+        zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError) ++
+        zio.Config.duration("graceful-shutdown-timeout").withDefault(Config.default.gracefulShutdownTimeout)
     }.map {
       case (
             sslConfig,
@@ -169,6 +174,7 @@ object Server {
             requestStreaming,
             maxHeaderSize,
             logWarningOnFatalError,
+            gracefulShutdownTimeout,
           ) =>
         Config(
           sslConfig = sslConfig,
@@ -180,6 +186,7 @@ object Server {
           requestStreaming = requestStreaming,
           maxHeaderSize = maxHeaderSize,
           logWarningOnFatalError = logWarningOnFatalError,
+          gracefulShutdownTimeout = gracefulShutdownTimeout,
         )
     }
 
@@ -193,6 +200,7 @@ object Server {
       requestStreaming = RequestStreaming.Disabled(1024 * 100),
       maxHeaderSize = 8192,
       logWarningOnFatalError = true,
+      gracefulShutdownTimeout = 10.seconds,
     )
 
     final case class ResponseCompressionConfig(
@@ -310,13 +318,31 @@ object Server {
     ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
   }
 
-  private val base: ZLayer[Driver, Throwable, Server] = {
+  private val base: ZLayer[Driver & Config, Throwable, Server] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
       for {
-        driver <- ZIO.service[Driver]
-        port   <- driver.start
-      } yield ServerLive(driver, port)
+        driver           <- ZIO.service[Driver]
+        config           <- ZIO.service[Config]
+        inFlightRequests <- Promise.make[Throwable, AtomicInteger]
+        _                <- Scope.addFinalizer(
+          inFlightRequests.await.flatMap { counter =>
+            ZIO
+              .succeed(counter.get())
+              .repeat(
+                Schedule
+                  .identity[Int]
+                  .zip(Schedule.elapsed)
+                  .untilOutput { case (inFlight, elapsed) =>
+                    inFlight == 0 || elapsed > config.gracefulShutdownTimeout
+                  } &&
+                  Schedule.fixed(10.millis),
+              )
+          }.ignoreLogged,
+        )
+        result <- driver.start.catchAllCause(cause => inFlightRequests.failCause(cause) *> ZIO.refailCause(cause))
+        _      <- inFlightRequests.succeed(result.inFlightRequests)
+      } yield ServerLive(driver, result.port)
     }
   }
 
@@ -343,7 +369,7 @@ object Server {
 
   lazy val live: ZLayer[Config, Throwable, Server] = {
     implicit val trace: Trace = Trace.empty
-    NettyDriver.live >>> base
+    NettyDriver.live >+> base
   }
 
   private final case class ServerLive(

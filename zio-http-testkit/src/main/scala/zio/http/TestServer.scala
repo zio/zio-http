@@ -106,8 +106,8 @@ object TestServer {
     ZLayer.scoped {
       for {
         driver <- ZIO.service[Driver]
-        port   <- driver.start
-      } yield TestServer(driver, port)
+        result <- driver.start
+      } yield TestServer(driver, result.port)
     }
 
 }

@@ -18,6 +18,7 @@ package zio.http.netty.server
 
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicInteger
 
 import scala.annotation.tailrec
 
@@ -47,6 +48,8 @@ private[zio] final case class ServerInboundHandler(
   private var app: App[Any]          = _
   private var env: ZEnvironment[Any] = _
 
+  val inFlightRequests: AtomicInteger = new AtomicInteger(0)
+
   def refreshApp(): Unit = {
     val pair = appRef.get()
 
@@ -64,9 +67,11 @@ private[zio] final case class ServerInboundHandler(
 
     msg match {
       case jReq: FullHttpRequest =>
+        inFlightRequests.incrementAndGet()
         val req = makeZioRequest(ctx, jReq)
 
         val releaseRequest = { () =>
+          inFlightRequests.decrementAndGet()
           if (jReq.refCnt() > 0) {
             val _ = jReq.release()
           }
@@ -85,7 +90,13 @@ private[zio] final case class ServerInboundHandler(
           releaseRequest()
 
       case jReq: HttpRequest =>
+        inFlightRequests.incrementAndGet()
         val req = makeZioRequest(ctx, jReq)
+
+        val releaseRequest = { () =>
+          inFlightRequests.decrementAndGet()
+          ()
+        }
 
         ensureHasApp()
         val exit =
@@ -95,7 +106,9 @@ private[zio] final case class ServerInboundHandler(
           } else
             app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
-          writeResponse(ctx, env, exit, jReq) { () => }
+          writeResponse(ctx, env, exit, jReq)(releaseRequest)
+        } else {
+          releaseRequest()
         }
 
       case msg: HttpContent =>
