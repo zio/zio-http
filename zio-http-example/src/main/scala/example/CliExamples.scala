@@ -1,12 +1,14 @@
 package example
 
 import zio._
+
+import zio.schema._
+
+import zio.http.Header.Location
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
 import zio.http.endpoint.cli._
-import zio.schema._
-import zio.http.Header.Location
 
 trait TestCliEndpoints {
   import HttpCodec._

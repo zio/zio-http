@@ -1,5 +1,7 @@
 package zio.http.endpoint.cli
 
+import scala.annotation.StaticAnnotation
+import scala.collection.immutable
 import scala.util.Try
 
 import zio._
@@ -11,10 +13,6 @@ import zio.schema._
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import scala.annotation.StaticAnnotation
-import scala.collection.immutable
-import zio.ZNothing
-import zio.http.Client
 
 class description(val text: String) extends StaticAnnotation // TODO move this to zio-schema
 
