@@ -21,8 +21,8 @@ class description(val text: String) extends StaticAnnotation
 object HttpCliApp {
   private[cli] final case class CliRequest(
     url: URL,
-    method: model.Method,
-    headers: model.Headers,
+    method: Method,
+    headers: Headers,
     body: Json,
   ) { self =>
     def addFieldToBody(prefix: List[String], value: Json) = {
@@ -44,17 +44,17 @@ object HttpCliApp {
     def addQueryParam(key: String, value: String) =
       self.copy(url = self.url.withQueryParams(self.url.queryParams.add(key, value)))
 
-    def withMethod(method: model.Method): CliRequest =
+    def withMethod(method: Method): CliRequest =
       self.copy(method = method)
   }
   private[cli] object CliRequest  {
-    val empty = CliRequest(URL.empty, model.Method.GET, model.Headers.empty, Json.Obj(Chunk.empty))
+    val empty = CliRequest(URL.empty, Method.GET, Headers.empty, Json.Obj(Chunk.empty))
   }
 
   private[cli] final case class CliEndpoint[A](
     embed: (A, CliRequest) => CliRequest,
     options: Options[A],
-    commandNameSegments: List[Either[model.Method, String]],
+    commandNameSegments: List[Either[Method, String]],
     doc: Doc,
   ) {
     self =>
@@ -76,10 +76,10 @@ object HttpCliApp {
       self.commandNameSegments
         .sortBy(_.isRight)
         .map {
-          case Right(pathSegment)      => pathSegment
-          case Left(model.Method.POST) => "create"
-          case Left(model.Method.PUT)  => "update"
-          case Left(method)            => method.name.toLowerCase
+          case Right(pathSegment) => pathSegment
+          case Left(Method.POST)  => "create"
+          case Left(Method.PUT)   => "update"
+          case Left(method)       => method.name.toLowerCase
         }
         .mkString("-")
     }
@@ -189,9 +189,9 @@ object HttpCliApp {
             case SimpleCodec.Specified(method) =>
               Set(
                 CliEndpoint[Unit](
-                  (_, request) => request.withMethod(method.asInstanceOf[model.Method]),
+                  (_, request) => request.withMethod(method.asInstanceOf[Method]),
                   Options.none,
-                  List(Left(method.asInstanceOf[model.Method])),
+                  List(Left(method.asInstanceOf[Method])),
                   Doc.empty,
                 ),
               )
