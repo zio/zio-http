@@ -16,7 +16,7 @@ import scala.collection.immutable
 import zio.ZNothing
 import zio.http.Client
 
-class description(val text: String) extends StaticAnnotation
+class description(val text: String) extends StaticAnnotation // TODO move this to zio-schema
 
 object HttpCliApp {
   private[cli] final case class CliRequest(
@@ -330,10 +330,10 @@ object HttpCliApp {
         case HttpCodec.WithDoc(in, doc)               => fromInput(in).map(_ describeOptions doc.toPlaintext())
       }
 
-    private def fromSchema[A](schema: zio.schema.Schema[A]): Set[CliEndpoint[_]] = {
+    private def fromSchema(schema: zio.schema.Schema[_]): Set[CliEndpoint[_]] = {
       def loop(prefix: List[String], schema: zio.schema.Schema[_]): Set[CliEndpoint[_]] =
         schema match {
-          case record: Schema.Record[A]             =>
+          case record: Schema.Record[_]             =>
             Set(
               record.fields
                 .foldLeft(Set.empty[CliEndpoint[_]]) { (cliEndpoints, field) =>
@@ -346,7 +346,7 @@ object HttpCliApp {
                 }
                 .reduce(_ ++ _), // TODO review the case of nested sealed trait inside case class
             )
-          case enumeration: Schema.Enum[A]          =>
+          case enumeration: Schema.Enum[_]          =>
             enumeration.cases.foldLeft(Set.empty[CliEndpoint[_]]) { (cliEndpoints, enumCase) =>
               cliEndpoints ++ loop(prefix, enumCase.schema)
             }
