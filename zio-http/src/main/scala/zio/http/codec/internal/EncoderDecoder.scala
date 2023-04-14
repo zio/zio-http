@@ -193,6 +193,7 @@ private[codec] object EncoderDecoder                   {
             if (status != expected)
               throw HttpCodecError.MalformedStatus(expected, status)
             else ()
+          case SimpleCodec.Custom(f, _)        => f(status)
         }
 
         i = i + 1
@@ -286,6 +287,7 @@ private[codec] object EncoderDecoder                   {
         flattened.status(0) match {
           case _: SimpleCodec.Unspecified[_] => Some(inputs(0).asInstanceOf[Status])
           case SimpleCodec.Specified(status) => Some(status)
+          case SimpleCodec.Custom(_, g)      => Some(g.asInstanceOf[Any => Status](inputs(0)))
         }
       }
     }

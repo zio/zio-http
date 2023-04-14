@@ -49,4 +49,16 @@ object SimpleCodec {
 
     def isDefinedAt(input: A): Boolean = true
   }
+
+  final case class Custom[Input, Output](f: PartialFunction[Input, Output], g: Output => Input)
+      extends SimpleCodec[Input, Output] {
+    override def apply(input: Input): Output = f(input)
+
+    override def isDefinedAt(input: Input): Boolean = f.isDefinedAt(input)
+
+    override def decode(input: Input): Either[String, Output] =
+      f.lift(input).toRight(s"Unsupported value $input")
+
+    override def encode(output: Output): Input = g(output)
+  }
 }
