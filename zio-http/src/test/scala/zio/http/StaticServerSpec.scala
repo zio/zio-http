@@ -17,7 +17,7 @@
 package zio.http
 
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{timeout, withLiveClock}
 import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
 import zio.{Exit, Scope, ZIO, durationInt}
 
@@ -93,8 +93,7 @@ object StaticServerSpec extends HttpRunnableSpec {
       severTestLayer,
       Client.default,
       Scope.default,
-    ) @@
-      timeout(30 seconds)
+    ) @@ timeout(30 seconds) @@ withLiveClock
 
   def staticAppSpec    =
     suite("StaticAppSpec")(

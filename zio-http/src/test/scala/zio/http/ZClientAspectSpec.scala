@@ -1,5 +1,6 @@
 package zio.http
 
+import zio.test.TestAspect.withLiveClock
 import zio.test._
 import zio.{Chunk, Scope, ZIO, ZLayer}
 
@@ -62,5 +63,5 @@ object ZClientAspectSpec extends ZIOSpecDefault {
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
       Server.live,
       Client.default,
-    )
+    ) @@ withLiveClock
 }

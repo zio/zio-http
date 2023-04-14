@@ -67,8 +67,8 @@ private[zio] final case class ServerInboundHandler(
 
     msg match {
       case jReq: FullHttpRequest =>
-        inFlightRequests.increment()
         val req = makeZioRequest(ctx, jReq)
+        inFlightRequests.increment()
 
         val releaseRequest = { () =>
           inFlightRequests.decrement()
@@ -90,8 +90,8 @@ private[zio] final case class ServerInboundHandler(
           releaseRequest()
 
       case jReq: HttpRequest =>
-        inFlightRequests.increment()
         val req = makeZioRequest(ctx, jReq)
+        inFlightRequests.increment()
 
         val releaseRequest = { () =>
           inFlightRequests.decrement()

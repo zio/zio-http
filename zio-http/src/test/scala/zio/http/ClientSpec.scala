@@ -19,7 +19,7 @@ package zio.http
 import java.net.ConnectException
 
 import zio.test.Assertion._
-import zio.test.TestAspect.{sequential, timeout}
+import zio.test.TestAspect.{sequential, timeout, withLiveClock}
 import zio.test.assertZIO
 import zio.{Scope, durationInt}
 
@@ -72,6 +72,6 @@ object ClientSpec extends HttpRunnableSpec {
     suite("Client") {
       serve(DynamicServer.app).as(List(clientSpec))
     }.provideSomeShared[Scope](DynamicServer.live, severTestLayer, Client.default) @@
-      timeout(5 seconds) @@ sequential
+      timeout(5 seconds) @@ sequential @@ withLiveClock
   }
 }
