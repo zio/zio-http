@@ -230,7 +230,9 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         )
         checkAll(urls) { case (url, expected) =>
           val app = Http
-            .collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash
+            .collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash(onlyIfNoQueryParams =
+            true,
+          )
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
