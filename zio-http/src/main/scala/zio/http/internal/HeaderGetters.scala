@@ -18,6 +18,7 @@ package zio.http.internal
 
 import zio.http.Header.HeaderType
 import zio.http.Headers
+import zio.http.internal.{CaseMode, CharSequenceExtensions}
 
 /**
  * Maintains a list of operators that parse and extract data from the headers.
@@ -36,6 +37,18 @@ trait HeaderGetters { self =>
       val parsed = headerType.parse(raw)
       parsed.toOption
     }
+
+  final def headers(headerType: HeaderType): Seq[headerType.HeaderValue] =
+    headers.iterator
+      .filter(header =>
+        CharSequenceExtensions
+          .equals(header.headerNameAsCharSequence, headerType.name, CaseMode.Insensitive),
+      )
+      .flatMap { raw =>
+        val parsed = headerType.parse(raw.renderedValue)
+        parsed.toOption
+      }
+      .toSeq
 
   /**
    * Gets a header. If the header is not present, returns None. If the header

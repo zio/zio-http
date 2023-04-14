@@ -84,6 +84,24 @@ object HeaderSpec extends ZIOSpecDefault {
         assert(actual)(isFalse)
       },
     ),
+    suite("cookie")(
+      test("should be able to extract more than one header with the same name") {
+        val firstCookie  = Cookie.Response("first", "value")
+        val secondCookie = Cookie.Response("second", "value2")
+        val headers      = Headers(
+          Header.SetCookie(firstCookie),
+          Header.SetCookie(secondCookie),
+        )
+
+        assert(headers.getAll(Header.SetCookie))(
+          hasSameElements(Seq(Header.SetCookie(firstCookie), Header.SetCookie(secondCookie))),
+        )
+      },
+      test("should return an empty sequence if no headers in the response") {
+        val headers = Headers()
+        assert(headers.getAll(Header.SetCookie))(hasSameElements(Seq.empty))
+      },
+    ),
     suite("hasMediaType")(
       test("should return true if content-type is application/json") {
         val actual = contentTypeJson.hasMediaType(MediaType.application.json)

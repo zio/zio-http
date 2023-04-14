@@ -48,6 +48,19 @@ object ResponseSpec extends ZIOSpecDefault {
         )
       },
     ),
+    suite("cookie")(
+      test("should include multiple SetCookie") {
+        val firstCookie  = Cookie.Response("first", "value")
+        val secondCookie = Cookie.Response("second", "value2")
+        val res          =
+          Response.ok.addCookie(firstCookie).addCookie(secondCookie)
+        assert(res.headers(Header.SetCookie))(
+          hasSameElements(
+            Seq(Header.SetCookie(firstCookie), Header.SetCookie(secondCookie)),
+          ),
+        )
+      },
+    ),
     suite("json")(
       test("Json should set content type to ApplicationJson") {
         val x = Response.json("""{"message": "Hello"}""")
