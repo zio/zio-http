@@ -18,7 +18,7 @@ package zio.http.netty
 
 import zio.test._
 
-import zio.http.model.Version
+import zio.http.Version
 
 import io.netty.handler.codec.http.HttpVersion
 

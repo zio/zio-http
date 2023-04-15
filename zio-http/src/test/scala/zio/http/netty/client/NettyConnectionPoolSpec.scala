@@ -25,7 +25,6 @@ import zio.stream.ZStream
 
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model.{Header, Headers, Method, Version}
 import zio.http.netty.NettyConfig
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
@@ -33,7 +32,8 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
   private val app = Http.collectZIO[Request] {
     case req @ Method.POST -> !! / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
     case Method.GET -> !! / "slow"             => ZIO.sleep(1.hour).as(Response.text("done"))
-    case req                                   => req.body.asString.map(Response.text(_))
+    case req                                   =>
+      req.body.asString.map(Response.text(_))
   }
 
   private val connectionCloseHeader = Headers(Header.Connection.Close)
@@ -67,16 +67,17 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             )
           } @@ nonFlaky(10),
           test("streaming request") {
-            val res      = ZIO.foreachPar((1 to N).toList) { idx =>
-              val stream = ZStream.fromIterable(List("a", "b", "c-", idx.toString), chunkSize = 1)
-              app.deploy.body
-                .run(
-                  method = Method.POST,
-                  body = Body.fromStream(stream),
-                  headers = extraHeaders,
-                )
-                .flatMap(_.asString)
-            }
+            val res      = ZIO
+              .foreachPar((1 to N).toList) { idx =>
+                val stream = ZStream.fromIterable(List("a", "b", "c-", idx.toString), chunkSize = 1)
+                app.deploy.body
+                  .run(
+                    method = Method.POST,
+                    body = Body.fromStream(stream),
+                    headers = extraHeaders,
+                  )
+                  .flatMap(_.asString)
+              }
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
           } @@ nonFlaky(10),
@@ -210,7 +211,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
     )
 
   override def spec: Spec[Scope, Throwable] = {
-    connectionPoolSpec @@ timeout(30.seconds) @@ diagnose(30.seconds) @@ sequential @@ withLiveClock
+    connectionPoolSpec @@ timeout(30.seconds) @@ sequential @@ withLiveClock
   }
 
 }

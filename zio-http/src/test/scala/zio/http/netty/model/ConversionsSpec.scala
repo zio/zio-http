@@ -19,7 +19,7 @@ package zio.http.netty.model
 import zio.Scope
 import zio.test._
 
-import zio.http.model.{Header, Headers}
+import zio.http.{Header, Headers}
 
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpScheme}

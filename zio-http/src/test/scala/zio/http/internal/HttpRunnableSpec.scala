@@ -21,7 +21,6 @@ import zio.{Scope, ZIO}
 
 import zio.http.URL.Location
 import zio.http._
-import zio.http.model._
 import zio.http.socket.SocketApp
 
 /**
@@ -51,7 +50,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         .runZIO(
           Request(
             body,
-            headers.combineIf(addZioUserAgentHeader)(Client.defaultUAHeader),
+            headers.combineIf(addZioUserAgentHeader)(Headers(Client.defaultUAHeader)),
             method,
             url = URL(path), // url set here is overridden later via `deploy` method
             version,
@@ -81,12 +80,15 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         for {
           port     <- Handler.fromZIO(DynamicServer.port)
           id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
+          client   <- Handler.fromZIO(ZIO.service[Client])
           response <- Handler.fromFunctionZIO[Request] { params =>
-            Client.request(
-              params
-                .addHeader(DynamicServer.APP_ID, id)
-                .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            )
+            client
+              .request(
+                params
+                  .addHeader(DynamicServer.APP_ID, id)
+                  .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+              )
+              .flatMap(_.collect)
           }
         } yield response
       }
@@ -110,7 +112,8 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       Http.fromHandler {
         for {
           id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
-          url      <- Handler.fromZIO(DynamicServer.wsURL)
+          rawUrl   <- Handler.fromZIO(DynamicServer.wsURL)
+          url      <- Handler.fromEither(URL.decode(rawUrl)).orDie
           response <- Handler.fromFunctionZIO[SocketApp[Client with Scope]] { app =>
             ZIO.scoped[Client with Scope](
               Client

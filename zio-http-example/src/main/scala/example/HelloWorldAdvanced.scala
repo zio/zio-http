@@ -5,7 +5,6 @@ import scala.util.Try
 import zio._
 
 import zio.http._
-import zio.http.model.Method
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 

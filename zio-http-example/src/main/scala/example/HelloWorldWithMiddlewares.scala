@@ -5,7 +5,6 @@ import java.util.concurrent.TimeUnit
 import zio._
 
 import zio.http._
-import zio.http.model.Method
 
 object HelloWorldWithMiddlewares extends ZIOAppDefault {
 

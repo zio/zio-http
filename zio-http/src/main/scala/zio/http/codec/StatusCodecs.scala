@@ -16,7 +16,7 @@
 
 package zio.http.codec
 
-import zio.http.model.Status
+import zio.http.Status
 
 private[codec] trait StatusCodecs {
   def status(status: Status): StatusCodec[Unit] = HttpCodec.Status(SimpleCodec.Specified(status))

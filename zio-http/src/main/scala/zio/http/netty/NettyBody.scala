@@ -22,10 +22,9 @@ import zio.{Chunk, Task, Trace, Unsafe, ZIO}
 
 import zio.stream.ZStream
 
-import zio.http.Body
 import zio.http.Body.{UnsafeBytes, UnsafeWriteable}
 import zio.http.internal.BodyEncoding
-import zio.http.model.{Boundary, Header, Headers, MediaType}
+import zio.http.{Body, Boundary, Header, Headers, MediaType}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
 import io.netty.channel.{Channel => JChannel}
@@ -123,7 +122,6 @@ object NettyBody extends BodyEncoding {
             case e: Throwable => emit(ZIO.fail(Option(e)))
           },
         )
-        .tap { case (ctx, _, isLast) => ZIO.attempt(ctx.read()).unless(isLast) }
         .takeUntil { case (_, _, isLast) => isLast }
         .map { case (_, msg, _) => msg }
         .flattenChunks

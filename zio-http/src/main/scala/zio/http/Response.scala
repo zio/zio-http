@@ -22,8 +22,7 @@ import zio._
 
 import zio.http.Response._
 import zio.http.html.Html
-import zio.http.model._
-import zio.http.model.headers.HeaderOps
+import zio.http.internal.HeaderOps
 import zio.http.socket._
 
 sealed trait Response extends HeaderOps[Response] { self =>
@@ -32,6 +31,17 @@ sealed trait Response extends HeaderOps[Response] { self =>
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
   def body: Body
+
+  /**
+   * Collects the potentially streaming body of the response into a single
+   * chunk.
+   */
+  def collect: ZIO[Any, Throwable, Response] =
+    if (self.body.isComplete) ZIO.succeed(self)
+    else
+      self.body.asChunk.map { bytes =>
+        self.copy(body = Body.fromChunk(bytes))
+      }
 
   def copy(
     status: Status = self.status,
@@ -85,6 +95,10 @@ sealed trait Response extends HeaderOps[Response] { self =>
     case Response.GetError(error) => Some(error)
     case _                        => None
   }
+
+  /** Consumes the streaming body fully and then drops it */
+  final def ignoreBody: ZIO[Any, Throwable, Response] =
+    self.collect.map(_.copy(body = Body.empty))
 
   final def isWebSocket: Boolean = self match {
     case _: SocketAppResponse => self.status == Status.SwitchingProtocols

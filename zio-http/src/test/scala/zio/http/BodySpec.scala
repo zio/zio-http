@@ -25,8 +25,6 @@ import zio.{Scope, durationInt}
 
 import zio.stream.ZStream
 
-import zio.http.model._
-
 object BodySpec extends ZIOSpecDefault {
   private val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
 

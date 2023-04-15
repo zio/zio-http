@@ -25,7 +25,6 @@ import zio.stream.ZStream
 import zio.schema.Schema
 
 import zio.http._
-import zio.http.model._
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -297,7 +296,7 @@ object HttpCodec
     def withIndex(index: Int): Atom[AtomTypes, Value0]
   }
 
-  private[http] final case class Status[A](codec: SimpleCodec[zio.http.model.Status, A], index: Int = 0)
+  private[http] final case class Status[A](codec: SimpleCodec[zio.http.Status, A], index: Int = 0)
       extends Atom[HttpCodecType.Status, A]                         {
     self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
@@ -336,7 +335,7 @@ object HttpCodec
     def withIndex(index: Int): Query[A] = copy(index = index)
   }
 
-  private[http] final case class Method[A](codec: SimpleCodec[zio.http.model.Method, A], index: Int = 0)
+  private[http] final case class Method[A](codec: SimpleCodec[zio.http.Method, A], index: Int = 0)
       extends Atom[HttpCodecType.Method, A] {
     self =>
     def erase: Method[Any] = self.asInstanceOf[Method[Any]]

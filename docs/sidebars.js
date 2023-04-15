@@ -11,7 +11,6 @@ const sidebars = {
         {
           type: "category",
           label: "DSL",
-          collapsed: false,
           link: { type: "doc", id: "index" },
           items: [
             "dsl/server",

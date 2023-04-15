@@ -21,7 +21,7 @@ import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}
 import zio.{ZLayer, durationInt}
 
-import zio.http.model.Status
+import zio.http.Status
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 

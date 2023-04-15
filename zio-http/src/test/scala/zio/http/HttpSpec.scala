@@ -16,9 +16,9 @@
 
 package zio.http
 
-import zio.test.Assertion.{dies, equalTo, fails, isLeft, isNone}
-import zio.test.{Spec, ZIOSpecDefault, assert, assertZIO}
-import zio.{Exit, Unsafe, ZIO}
+import zio.test.Assertion._
+import zio.test.{Spec, ZIOSpecDefault, assert, assertTrue, assertZIO}
+import zio.{Cause, Exit, Ref, Unsafe, ZIO}
 
 object HttpSpec extends ZIOSpecDefault with ExitAssertion {
   implicit val allowUnsafe: Unsafe = Unsafe.unsafe
@@ -152,6 +152,55 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           assertZIO(actual.exit)(fails(isNone))
         },
       ),
+      suite("map")(
+        test("should execute http only when condition applies") {
+          val app    = Handler.succeed(1).toHttp.map(_ + 1)
+          val actual = app.runZIOOrNull(0)
+          assertZIO(actual.exit)(succeeds(equalTo(2)))
+        },
+      ),
+      suite("mapZIO")(
+        test("should map the result of a success") {
+          for {
+            _ <- ZIO.unit
+            app = Handler.succeed(1).toHttp.mapZIO(in => ZIO.succeed(in + 1))
+            actual <- app.runZIOOrNull(0)
+          } yield assert(actual)(equalTo(2))
+        },
+      ),
+      suite("mapError")(
+        test("should map in the http in an error") {
+          for {
+            _ <- ZIO.unit
+            app = Handler.fail(1).toHttp.mapError(_ + 1)
+            actual <- app.runZIOOrNull(0).exit
+          } yield assert(actual)(isFailure(equalTo(2)))
+        },
+      ),
+      suite("mapErrorZIO")(
+        test("should not be executed in case of success") {
+          for {
+            ref <- Ref.make(1)
+            app = Handler.succeed(1).toHttp.mapErrorZIO(_ => ref.set(2))
+            actual <- app.runZIOOrNull(0)
+            res    <- ref.get
+          } yield assert(actual)(equalTo(1)) && assert(res)(equalTo(1))
+        },
+        test("should remain an error in case of error") {
+          for {
+            _ <- ZIO.unit
+            app = Handler.fail(1).toHttp.mapErrorZIO(_ => ZIO.fail(2))
+            actual <- app.runZIOOrNull(0).exit
+          } yield assert(actual)(isFailure(equalTo(2)))
+        },
+        test("should become a success") {
+          for {
+            _ <- ZIO.unit
+            app = Handler.fail(1).toHttp.mapErrorZIO(in => ZIO.succeed(in + 1))
+            actual <- app.runZIOOrNull(0).exit
+          } yield assert(actual)(isSuccess(equalTo(2)))
+        },
+      ),
       suite("when")(
         test("should execute http only when condition applies") {
           val app    = Handler.succeed(1).toHttp.when((_: Any) => true)
@@ -168,6 +217,92 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           val app    = Handler.succeed(1).toHttp.when((_: Any) => throw t)
           val actual = app.runZIO(0)
           assertZIO(actual.exit)(dies(equalTo(t)))
+        },
+      ),
+      suite("catchAllCauseZIO")(
+        test("calling from outside") {
+          val app1 = Handler
+            .succeed("X")
+            .toHttp
+            .catchAllCauseZIO(cause => ZIO.succeed(cause.dieOption.map(_.getMessage).getOrElse("")))
+          val app2 = Handler.succeed("X").toHttp
+          for {
+            out1 <- app1.runServerErrorOrNull(Cause.die(new RuntimeException("boom")))
+            out2 <- app2.runServerErrorOrNull(Cause.die(new RuntimeException("boom")))
+          } yield assertTrue(
+            out1 == "boom",
+            out2 eq null,
+          )
+        },
+        test("nested") {
+          val app =
+            Http
+              .fromHttpZIO((in: Int) =>
+                in match {
+                  case 0     => ZIO.die(new RuntimeException("input is 0"))
+                  case 1 | 2 =>
+                    ZIO.succeed {
+                      Http
+                        .fromHttpZIO((in: Int) =>
+                          in match {
+                            case 1 => ZIO.die(new RuntimeException("input is 1"))
+                            case _ => ZIO.succeed(Handler.succeed("OK").toHttp)
+                          },
+                        )
+                        .catchAllCauseZIO(cause =>
+                          ZIO.succeed(cause.dieOption.map(t => "#1 " + t.getMessage).getOrElse("")),
+                        )
+                    }
+                  case _     =>
+                    ZIO.succeed(Http.empty)
+                },
+              )
+              .catchAllCauseZIO(cause => ZIO.succeed(cause.dieOption.map(t => "#0 " + t.getMessage).getOrElse("")))
+
+          for {
+            out0 <- app.runZIOOrNull(0)
+            out1 <- app.runZIOOrNull(1)
+            out2 <- app.runZIOOrNull(2)
+          } yield assertTrue(
+            out0 == "#0 input is 0",
+            out1 == "#1 input is 1",
+            out2 == "OK",
+          )
+        },
+        test("relation with ++") {
+          val app1 =
+            Http
+              .collectHandler[Int] { case 0 | 1 =>
+                Handler.fromFunction { (in: Int) =>
+                  if (in == 0) throw new RuntimeException("input is 0")
+                  else "OK1"
+                }
+              }
+              .catchAllCauseZIO(cause => ZIO.succeed(cause.dieOption.map(t => "#1 " + t.getMessage).getOrElse("")))
+
+          val app2 =
+            Http
+              .collectHandler[Int] { case 2 | 3 =>
+                Handler.fromFunction { (in: Int) =>
+                  if (in == 2) throw new RuntimeException("input is 1")
+                  else "OK2"
+                }
+              }
+              .catchAllCauseZIO(cause => ZIO.succeed(cause.dieOption.map(t => "#2 " + t.getMessage).getOrElse("")))
+
+          val app = app1 ++ app2
+
+          for {
+            out0 <- app.runZIOOrNull(0)
+            out1 <- app.runZIOOrNull(1)
+            out2 <- app.runZIOOrNull(2)
+            out3 <- app.runZIOOrNull(3)
+          } yield assertTrue(
+            out0 == "#1 input is 0",
+            out1 == "OK1",
+            out2 == "#2 input is 1",
+            out3 == "OK2",
+          )
         },
       ),
     )

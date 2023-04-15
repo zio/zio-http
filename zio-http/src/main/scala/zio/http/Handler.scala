@@ -18,9 +18,8 @@ package zio.http
 
 import zio._
 import zio.http.html.{Html, Template}
-import zio.http.model.Header.HeaderType
-import zio.http.model._
-import zio.http.model.headers.HeaderModifier
+import zio.http.Header.HeaderType
+import zio.http.internal.HeaderModifier
 import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
@@ -316,6 +315,14 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     trace: Trace,
   ): Handler[R1, Err1, In, Out1] =
     self >>> Handler.fromFunctionZIO(f)
+
+  /**
+   * Transforms the failure of the handler effectfully
+   */
+  final def mapErrorZIO[R1 <: R, Err1 >: Err, Out1 >: Out](f: Err => ZIO[R1, Err1, Out1])(implicit
+    trace: Trace,
+  ): Handler[R1, Err1, In, Out1] =
+    self.foldHandler(err => Handler.fromZIO(f(err)), Handler.succeed)
 
   /**
    * Returns a new handler where the error channel has been merged into the

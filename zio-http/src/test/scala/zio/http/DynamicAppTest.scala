@@ -17,9 +17,9 @@
 package zio.http
 
 import zio._
+import zio.test.TestAspect.withLiveClock
 import zio.test._
 
-import zio.http.model._
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
@@ -59,6 +59,6 @@ object DynamicAppTest extends ZIOSpecDefault {
         okResponse.status == Status.Ok &&
           createdResponse.status == Status.Created,
       ) // fails here because the response is Status.NotFound
-    }.provideLayer(layer),
+    }.provideLayer(layer) @@ withLiveClock,
   )
 }

@@ -22,7 +22,6 @@ import zio.http._
 import zio.http.codec.internal.AtomizedCodecs
 import zio.http.codec.{SimpleCodec, TextCodec}
 import zio.http.endpoint._
-import zio.http.model.Method
 
 private[http] sealed trait RoutingTree[-R, E, M <: EndpointMiddleware] { self =>
   final def add[R1 <: R](that: Routes.Single[R1, E, _, _, M]): RoutingTree[R1, E, M] =

@@ -22,7 +22,6 @@ import zio._
 
 import zio.http._
 import zio.http.internal.DynamicServer.Id
-import zio.http.model.Scheme
 
 sealed trait DynamicServer {
   def add(app: App[Any]): UIO[Id]

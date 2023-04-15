@@ -19,12 +19,11 @@ package zio.http
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 
+import zio.test.TestAspect.withLiveClock
 import zio.test.{ZIOSpecDefault, assertTrue}
 import zio.{Chunk, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
-
-import zio.http.model._
 
 object ResponseCompressionSpec extends ZIOSpecDefault {
 
@@ -95,7 +94,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
       ZLayer.succeed(serverConfig),
       Server.live,
       Client.default,
-    )
+    ) @@ withLiveClock
 
   private def decompressed(bytes: Chunk[Byte]): ZIO[Any, Throwable, String] =
     ZIO.attempt {

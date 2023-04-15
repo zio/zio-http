@@ -1,10 +1,11 @@
-package zio.http.endpoint
+package example
 
 import zio._
 
+import zio.http.Header.Authorization
+import zio.http._
 import zio.http.codec.HttpCodec
-import zio.http.model.Header.Authorization
-import zio.http.{Client, Request, Server, URL}
+import zio.http.endpoint._
 
 object EndpointExamples extends ZIOAppDefault {
   import HttpCodec._

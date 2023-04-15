@@ -26,9 +26,9 @@ import zio.{Chunk, Scope, ZIO, ZLayer, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
+import zio.http.Server.RequestStreaming
 import zio.http.html.{body, div, id}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
-import zio.http.model._
 
 import io.netty.handler.codec.PrematureChannelClosureException
 
@@ -42,7 +42,7 @@ object ServerSpec extends HttpRunnableSpec {
   private val MaxSize = 1024 * 10
   val configApp       = Server.Config.default
     .requestDecompression(true)
-    .objectAggregator(MaxSize)
+    .disableRequestStreaming(MaxSize)
     .responseCompression()
 
   private val app = serve(DynamicServer.app)
@@ -382,6 +382,6 @@ object ServerSpec extends HttpRunnableSpec {
       Server.live,
       Client.default,
       Scope.default,
-    ) @@ timeout(30 seconds) @@ sequential
+    ) @@ timeout(30 seconds) @@ sequential @@ withLiveClock
 
 }

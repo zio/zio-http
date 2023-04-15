@@ -126,9 +126,12 @@ object RequestHandlerMiddleware {
       http: Http[Env, Err, Request, Response],
     )(implicit trace: Trace): Http[Env, Err, Request, Response] =
       http match {
-        case Http.Empty                                     => Http.empty
-        case Http.Static(handler)                           => Http.Static(apply(handler))
-        case route: Http.Route[Env, Err, Request, Response] => Http.fromHttpZIO[Request](route.run(_).map(self(_)))
+        case empty @ Http.Empty(_)                          =>
+          empty
+        case Http.Static(handler, errorHandler)             =>
+          Http.Static(apply(handler), errorHandler)
+        case route: Http.Route[Env, Err, Request, Response] =>
+          Http.fromHttpZIO[Request](route.run(_).map(self(_))).withErrorHandler(route.errorHandler)
       }
   }
 

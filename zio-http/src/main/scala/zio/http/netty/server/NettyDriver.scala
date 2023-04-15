@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import zio._
 
+import zio.http.Driver.StartResult
 import zio.http.netty._
 import zio.http.netty.client.NettyClientDriver
 import zio.http.{App, ClientDriver, Driver, Http, Server}
@@ -39,14 +40,19 @@ private[zio] final case class NettyDriver(
   nettyConfig: NettyConfig,
 ) extends Driver { self =>
 
-  def start(implicit trace: Trace): RIO[Scope, Int] =
+  def start(implicit trace: Trace): RIO[Scope, StartResult] =
     for {
       serverBootstrap <- ZIO.attempt(new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup))
       chf             <- ZIO.attempt(serverBootstrap.childHandler(channelInitializer).bind(serverConfig.address))
       _               <- NettyFutureExecutor.scoped(chf)
       _               <- ZIO.succeed(ResourceLeakDetector.setLevel(nettyConfig.leakDetectionLevel.toNetty))
-      port            <- ZIO.attempt(chf.channel().localAddress().asInstanceOf[InetSocketAddress].getPort)
-    } yield port
+      channel         <- ZIO.attempt(chf.channel())
+      port            <- ZIO.attempt(channel.localAddress().asInstanceOf[InetSocketAddress].getPort)
+
+      _ <- Scope.addFinalizer(
+        NettyFutureExecutor.executed(channel.close()).ignoreLogged,
+      )
+    } yield StartResult(port, serverInboundHandler.inFlightRequests)
 
   def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
     var loop = true

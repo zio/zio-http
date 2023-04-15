@@ -19,12 +19,11 @@ package zio.http
 import java.io.File
 
 import zio.test.Assertion.{equalTo, isSome}
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{timeout, withLiveClock}
 import zio.test.assertZIO
 import zio.{Scope, ZIO, durationInt}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.model._
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
@@ -40,7 +39,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
   override def spec = suite("StaticFileServer") {
     ZIO.scoped(serve(DynamicServer.app).as(List(staticSpec)))
   }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
-    timeout(5 seconds)
+    timeout(5 seconds) @@ withLiveClock
 
   private def staticSpec = suite("Static RandomAccessFile Server")(
     suite("fromResource")(

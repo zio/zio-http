@@ -3,7 +3,6 @@ package example
 import zio._
 
 import zio.http._
-import zio.http.model.Header
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
@@ -38,13 +37,11 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
   private def jsonApp(json: Response): HttpApp[Any, Nothing] =
     Handler.response(json).toHttp.whenPathEq(jsonPath)
 
-  val app = plainTextApp(frozenPlainTextResponse) ++ jsonApp(frozenJsonResponse)
+  val app: App[Any] = plainTextApp(frozenPlainTextResponse) ++ jsonApp(frozenJsonResponse)
 
   private val config = Server.Config.default
     .port(8080)
-    .consolidateFlush(true)
-    .flowControl(false)
-    .objectAggregator(-1)
+    .enableRequestStreaming
 
   private val nettyConfig = NettyConfig.default
     .leakDetection(LeakDetectionLevel.DISABLED)

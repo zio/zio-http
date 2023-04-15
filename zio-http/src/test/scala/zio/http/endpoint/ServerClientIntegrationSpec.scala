@@ -16,6 +16,7 @@
 
 package zio.http.endpoint
 
+import zio.test.TestAspect.withLiveClock
 import zio.test.{ZIOSpecDefault, assertTrue}
 import zio.{ZIO, ZLayer}
 
@@ -74,5 +75,5 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       NettyDriver.live,
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
-    )
+    ) @@ withLiveClock
 }

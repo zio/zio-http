@@ -20,7 +20,7 @@ import zio._
 import zio.test.Assertion._
 import zio.test._
 
-import zio.http.model.Method
+import zio.http.Method
 
 object HttpAppMiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
 

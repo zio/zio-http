@@ -18,23 +18,21 @@ package zio.http.netty.server
 
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.LongAdder
 
 import scala.annotation.tailrec
 
 import zio._
 
 import zio.http._
-import zio.http.model._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
-import zio.http.netty.server.ServerInboundHandler.isReadKey
 import zio.http.netty.socket.NettySocketProtocol
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
-import io.netty.util.AttributeKey
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -49,6 +47,8 @@ private[zio] final case class ServerInboundHandler(
 
   private var app: App[Any]          = _
   private var env: ZEnvironment[Any] = _
+
+  val inFlightRequests: LongAdder = new LongAdder()
 
   def refreshApp(): Unit = {
     val pair = appRef.get()
@@ -68,15 +68,22 @@ private[zio] final case class ServerInboundHandler(
     msg match {
       case jReq: FullHttpRequest =>
         val req = makeZioRequest(ctx, jReq)
+        inFlightRequests.increment()
 
         val releaseRequest = { () =>
+          inFlightRequests.decrement()
           if (jReq.refCnt() > 0) {
             val _ = jReq.release()
           }
         }
 
         ensureHasApp()
-        val exit = failOnDecodingError(jReq) *> app.runZIOOrNull(req)
+        val exit =
+          if (jReq.decoderResult().isFailure) {
+            val throwable = jReq.decoderResult().cause()
+            app.runServerErrorOrNull(Cause.die(throwable)).map(defaultErrorResponse(_, Some(throwable)))
+          } else
+            app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time))
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
         else
@@ -84,21 +91,24 @@ private[zio] final case class ServerInboundHandler(
 
       case jReq: HttpRequest =>
         val req = makeZioRequest(ctx, jReq)
+        inFlightRequests.increment()
+
+        val releaseRequest = { () =>
+          inFlightRequests.decrement()
+          ()
+        }
 
         ensureHasApp()
-        val exit = failOnDecodingError(jReq) *> app.runZIOOrNull(req)
+        val exit =
+          if (jReq.decoderResult().isFailure) {
+            val throwable = jReq.decoderResult().cause()
+            app.runServerErrorOrNull(Cause.die(throwable)).map(defaultErrorResponse(_, Some(throwable)))
+          } else
+            app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
-
-          if (
-            jReq.method() == HttpMethod.TRACE ||
-            jReq.headers().contains(HttpHeaderNames.CONTENT_LENGTH) ||
-            jReq.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)
-          )
-            ctx.channel().config().setAutoRead(false)
-
-          writeResponse(ctx, env, exit, jReq) { () =>
-            val _ = ctx.channel().config().setAutoRead(true)
-          }
+          writeResponse(ctx, env, exit, jReq)(releaseRequest)
+        } else {
+          releaseRequest()
         }
 
       case msg: HttpContent =>
@@ -113,18 +123,32 @@ private[zio] final case class ServerInboundHandler(
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
     cause match {
       case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
-      case t                                                                            => super.exceptionCaught(ctx, t)
+      case t                                                                            =>
+        if (app ne null) {
+          runtime.run(ctx, () => {}) {
+            // We cannot return the generated response from here, but still calling the handler for its side effect
+            // for example logging.
+            app
+              .runServerErrorOrNull(Cause.die(t))
+              .tap { response =>
+                if (config.logWarningOnFatalError)
+                  ZIO.logWarningCause(s"Fatal exception in Netty, cannot send error response $response", Cause.die(t))
+                else
+                  ZIO.unit
+              }
+              .unit
+          }
+        }
+        super.exceptionCaught(ctx, t)
     }
 
-  private def addAsyncBodyHandler(ctx: ChannelHandlerContext, async: NettyBody.UnsafeAsync): Unit = {
-    if (ctx.channel().attr(isReadKey).get())
-      throw new RuntimeException("Unable to add the async body handler as the content has already been read.")
-
+  private def addAsyncBodyHandler(ctx: ChannelHandlerContext): AsyncBodyReader = {
+    val handler = new ServerAsyncBodyHandler
     ctx
       .channel()
       .pipeline()
-      .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, new ServerAsyncBodyHandler(async))
-    ctx.channel().attr(isReadKey).set(true)
+      .addAfter(Names.HttpRequestHandler, Names.HttpContentHandler, handler)
+    handler
   }
 
   private def attemptFastWrite(
@@ -157,7 +181,6 @@ private[zio] final case class ServerInboundHandler(
     response: Response,
     jRequest: HttpRequest,
     time: ServerTime,
-    runtime: NettyRuntime,
   ): Task[Unit] = {
 
     for {
@@ -178,8 +201,6 @@ private[zio] final case class ServerInboundHandler(
                 ZIO.succeed(true)
             _         <- ZIO.attempt(ctx.flush()).when(!flushed)
           } yield ()
-
-      _ <- ZIO.attempt(ctx.channel().attr(isReadKey).set(false))
     } yield ()
   }
 
@@ -225,9 +246,10 @@ private[zio] final case class ServerInboundHandler(
           remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-        val body = NettyBody.fromAsync(
+        val handler = addAsyncBodyHandler(ctx)
+        val body    = NettyBody.fromAsync(
           { async =>
-            addAsyncBodyHandler(ctx, async)
+            handler.connect(async)
           },
           contentType,
         )
@@ -286,7 +308,7 @@ private[zio] final case class ServerInboundHandler(
       for {
         response <- ZIO.succeed(HttpError.NotFound(jReq.uri()).toResponse)
         done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-        _        <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
+        _        <- attemptFullWrite(ctx, response, jReq, time).unless(done)
       } yield ()
     }
   }
@@ -307,9 +329,7 @@ private[zio] final case class ServerInboundHandler(
                 if (cause.isInterruptedOnly) {
                   interrupted(ctx).as(null)
                 } else {
-                  ZIO.succeed(
-                    HttpError.InternalServerError(cause = Some(FiberFailure(cause))).toResponse,
-                  )
+                  ZIO.succeed(defaultErrorResponse(null, Some(FiberFailure(cause))))
                 },
             )
         }
@@ -317,7 +337,7 @@ private[zio] final case class ServerInboundHandler(
           if (response ne null) {
             for {
               done <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-              _    <- attemptFullWrite(ctx, response, jReq, time, runtime).unless(done)
+              _    <- attemptFullWrite(ctx, response, jReq, time).unless(done)
             } yield ()
           } else {
             ZIO.attempt(
@@ -337,13 +357,11 @@ private[zio] final case class ServerInboundHandler(
       ctx.channel().close()
     }.unit.orDie
 
-  private def failOnDecodingError(request: HttpRequest): Exit[Nothing, Unit] =
-    if (request.decoderResult().isFailure) Exit.die(request.decoderResult().cause()) else Exit.unit
+  private def defaultErrorResponse(responseOrNull: Response, cause: Option[Throwable]): Response =
+    if (responseOrNull ne null) responseOrNull else HttpError.InternalServerError(cause = cause).toResponse
 }
 
 object ServerInboundHandler {
-
-  private[zio] val isReadKey = AttributeKey.newInstance[Boolean]("IS_READ_KEY")
 
   val live: ZLayer[
     ServerTime with Server.Config with NettyRuntime with AppRef,

@@ -18,8 +18,9 @@ package zio.http
 
 import java.net.InetAddress
 
-import zio.http.model._
-import zio.http.model.headers._
+import zio.ZIO
+
+import zio.http.internal.HeaderOps
 
 final case class Request(
   body: Body,
@@ -36,9 +37,23 @@ final case class Request(
   def addTrailingSlash: Request = self.copy(url = self.url.addTrailingSlash)
 
   /**
+   * Collects the potentially streaming body of the request into a single chunk.
+   */
+  def collect: ZIO[Any, Throwable, Request] =
+    if (self.body.isComplete) ZIO.succeed(self)
+    else
+      self.body.asChunk.map { bytes =>
+        self.copy(body = Body.fromChunk(bytes))
+      }
+
+  /**
    * Drops trailing slash from the path.
    */
   def dropTrailingSlash: Request = self.copy(url = self.url.dropTrailingSlash)
+
+  /** Consumes the streaming body fully and then drops it */
+  def ignoreBody: ZIO[Any, Throwable, Request] =
+    self.collect.map(_.copy(body = Body.empty))
 
   def patch(p: Request.Patch): Request =
     Request(

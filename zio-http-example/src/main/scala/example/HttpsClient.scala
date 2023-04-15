@@ -2,10 +2,9 @@ package example
 
 import zio._
 
-import zio.http.model.{Header, Headers}
+import zio.http._
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
-import zio.http.{Client, ClientSSLConfig, DnsResolver, ZClient}
 
 object HttpsClient extends ZIOAppDefault {
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"

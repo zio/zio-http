@@ -19,8 +19,6 @@ package zio.http
 import zio.Scope
 import zio.test._
 
-import zio.http.model._
-
 object RequestSpec extends ZIOSpecDefault {
 
   def spec: Spec[TestEnvironment with Scope, Any] = suite("Result")(

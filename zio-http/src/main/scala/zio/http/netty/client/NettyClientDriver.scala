@@ -28,73 +28,51 @@ import zio.http.netty.socket.NettySocketProtocol
 import zio.http.socket.SocketApp
 
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
-import io.netty.handler.codec.http.HttpObjectAggregator
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
-import io.netty.handler.flow.FlowControlHandler
+import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
 
 final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,
   nettyRuntime: NettyRuntime,
   clientConfig: NettyConfig,
-) extends ClientDriver
-    with ClientRequestEncoder {
+) extends ClientDriver {
 
   override type Connection = Channel
 
-  def requestOnChannel(
+  override def requestOnChannel(
     channel: Channel,
     location: URL.Location.Absolute,
     req: Request,
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
-    useAggregator: Boolean,
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
-    encode(req).flatMap { jReq =>
-      Scope.addFinalizerExit { exit =>
+    NettyRequestEncoder.encode(req).flatMap { jReq =>
+      Scope.addFinalizer {
         ZIO.attempt {
-          if (jReq.refCnt() > 0) {
-            jReq.release(jReq.refCnt()): Unit
+          jReq match {
+            case fullRequest: FullHttpRequest =>
+              if (fullRequest.refCnt() > 0)
+                fullRequest.release(fullRequest.refCnt())
+            case _                            =>
           }
-        }.ignore.when(exit.isFailure)
+        }.ignore
       }.as {
         val pipeline                              = channel.pipeline()
         val toRemove: mutable.Set[ChannelHandler] = new mutable.HashSet[ChannelHandler]()
 
-        // ObjectAggregator is used to work with FullHttpRequests and FullHttpResponses
-        // This is also required to make WebSocketHandlers work
-        if (useAggregator) {
+        if (location.scheme.isWebSocket) {
           val httpObjectAggregator = new HttpObjectAggregator(Int.MaxValue)
-          val clientInbound        =
-            new ClientInboundHandler(
-              nettyRuntime,
-              jReq,
-              onResponse,
-              onComplete,
-              location.scheme.isWebSocket,
-              enableKeepAlive,
-            )
+          val inboundHandler       = new WebSocketClientInboundHandler(nettyRuntime, onResponse, onComplete)
+
           pipeline.addLast(Names.HttpObjectAggregator, httpObjectAggregator)
-          pipeline.addLast(Names.ClientInboundHandler, clientInbound)
+          pipeline.addLast(Names.ClientInboundHandler, inboundHandler)
 
           toRemove.add(httpObjectAggregator)
-          toRemove.add(clientInbound)
-        } else {
-          val flowControl   = new FlowControlHandler()
-          val clientInbound =
-            new ClientInboundStreamingHandler(nettyRuntime, req, onResponse, onComplete, enableKeepAlive)
+          toRemove.add(inboundHandler)
 
-          pipeline.addLast(Names.FlowControlHandler, flowControl)
-          pipeline.addLast(Names.ClientInboundHandler, clientInbound)
-
-          toRemove.add(flowControl)
-          toRemove.add(clientInbound)
-        }
-
-        // Add WebSocketHandlers if it's a `ws` or `wss` request
-        if (location.scheme.isWebSocket) {
           val headers = Conversions.headersToNetty(req.headers)
           val app     = createSocketApp()
           val config  = NettySocketProtocol
@@ -127,6 +105,19 @@ final case class NettyClientDriver private (
               NettyFutureExecutor.executed(channel.disconnect())
           }
         } else {
+          val clientInbound =
+            new ClientInboundHandler(
+              nettyRuntime,
+              req,
+              jReq,
+              onResponse,
+              onComplete,
+              enableKeepAlive,
+            )
+
+          pipeline.addLast(Names.ClientInboundHandler, clientInbound)
+
+          toRemove.add(clientInbound)
 
           pipeline.fireChannelRegistered()
           pipeline.fireChannelActive()
