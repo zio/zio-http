@@ -385,7 +385,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
         (self(in), that(in)) match {
           case (s @ Exit.Success(_), _)                        =>
             s
-          case (Exit.Failure(cause), _) if cause.isDie     =>
+          case (Exit.Failure(cause), _) if cause.isDie         =>
             Exit.die(cause.dieOption.get)
           case (Exit.Failure(cause), other) if cause.isFailure =>
             other

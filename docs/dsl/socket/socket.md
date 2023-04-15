@@ -5,12 +5,13 @@ title: "Socket"
 
 Websocket support can be added to your Http application using the same `Http` domain, something like this —
 
-```scala
+```scala mdoc:silent
 import zio.http._
-import zio.socket._
+import zio.http.socket._
+import zio._
 
 val socket = Http.collectZIO[WebSocketChannelEvent] {
-  case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("foo"))) =>
+  case ChannelEvent(ch, ChannelEvent.ChannelRead(WebSocketFrame.Text("foo"))) =>
     ch.writeAndFlush(WebSocketFrame.text("bar"))
 }
 
@@ -55,20 +56,6 @@ We can use `Http.collect` to select the events that we care about for our use ca
 only interested in the `ChannelRead` event. There are other life cycle events such as `ChannelRegistered`
 and `ChannelUnregistered` that one might want to hook onto for some other use cases.
 
-The main benefit of using `Http` is that one can write custom middlewares that can process incoming and outgoing
-messages, for example:
-
-```scala
-val userAction = Http.collect[ChannelEvent[Action, Command]] {
-  case CreateAccount(name, password) => ???
-  case DeleteAccount(id) => ???
-}
-
-val codec: Middleware[Any, Nothing, ChannelEvent[Action, Command], Unit, WebSocketChannelEvent, Unit]
-
-val socket = userAction @@ codec
-```
-
 ## SocketApp
 
 The `Http` that accepts `WebSocketChannelEvent` isn't enough to create a websocket connection. There are some other settings
@@ -77,10 +64,10 @@ those purposes a Http of the type `Http[R, E, WebSocketChannelEvent, Unit]` need
 the `toSocketApp` method first, before it can be sent as a response. Consider the following example where we set a few
 additional properties for the websocket connection.
 
-```scala
+```scala mdoc:silent
 socket
   .toSocketApp
-  .withDecoder(SocketDecoder.skipUTF8Validation)
-  .withEncoder(SocketProtocol.subProtocol("json") ++ SocketProtocol.handshakeTimeout(5 seconds))
+  .withDecoder(SocketDecoder.default.withUTF8Validation(false))
+  .withProtocol(SocketProtocol.default.withSubProtocol(Some("json")).withHandshakeTimeout(5.seconds))
   .toResponse
 ```
