@@ -18,7 +18,7 @@ package zio.http
 
 import zio._
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, nonFlaky, timeout}
+import zio.test.TestAspect.{diagnose, nonFlaky, timeout, withLiveClock}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
@@ -125,7 +125,7 @@ object WebSocketSpec extends HttpRunnableSpec {
     }
   }
     .provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
-    timeout(30 seconds) @@ diagnose(30.seconds)
+    timeout(30 seconds) @@ diagnose(30.seconds) @@ withLiveClock
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
     def add(a: A, isDone: Boolean = false): UIO[Unit] = ref.update(_ :+ a) <* promise.succeed(()).when(isDone)

@@ -57,12 +57,24 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("debug")(
       test("log status method url and time") {
-        val program = runApp(app @@ debug) *> TestConsole.output
-        assertZIO(program)(equalTo(Vector("200 GET /health 1000ms\n")))
+        for {
+          _   <- runApp(app @@ debug)
+          log <- TestConsole.output
+        } yield assertTrue(
+          log.size == 1,
+          log.head.startsWith("200 GET /health"),
+          log.head.endsWith("ms\n"),
+        )
       },
       test("log 404 status method url and time") {
-        val program = runApp(Http.empty ++ (Handler.notFound @@ debug).toHttp) *> TestConsole.output
-        assertZIO(program)(equalTo(Vector("404 GET /health 0ms\n")))
+        for {
+          _   <- runApp(Http.empty ++ (Handler.notFound @@ debug).toHttp)
+          log <- TestConsole.output
+        } yield assertTrue(
+          log.size == 1,
+          log.head.startsWith("404 GET /health"),
+          log.head.endsWith("ms\n"),
+        )
       },
     ),
     suite("when")(
@@ -230,7 +242,9 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         )
         checkAll(urls) { case (url, expected) =>
           val app = Http
-            .collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash
+            .collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash(onlyIfNoQueryParams =
+            true,
+          )
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))

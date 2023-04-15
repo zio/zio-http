@@ -17,7 +17,7 @@
 package zio.http
 
 import zio.test.Assertion.{equalTo, isNone, isSome}
-import zio.test.TestAspect.timeout
+import zio.test.TestAspect.{timeout, withLiveClock}
 import zio.test.assertZIO
 import zio.{Scope, durationInt}
 
@@ -60,7 +60,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
       appKeepAliveEnabled.as(List(keepAliveSpec))
     }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@ timeout(
       30.seconds,
-    )
+    ) @@ withLiveClock
   }
 
 }

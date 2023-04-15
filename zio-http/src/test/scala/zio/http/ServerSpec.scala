@@ -382,6 +382,6 @@ object ServerSpec extends HttpRunnableSpec {
       Server.live,
       Client.default,
       Scope.default,
-    ) @@ timeout(30 seconds) @@ sequential
+    ) @@ timeout(30 seconds) @@ sequential @@ withLiveClock
 
 }

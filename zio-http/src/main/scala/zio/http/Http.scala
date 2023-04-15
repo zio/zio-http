@@ -567,7 +567,7 @@ object Http {
   def fromHandler[R, Err, In, Out](handler: Handler[R, Err, In, Out]): Http[R, Err, In, Out] =
     Static(handler, None)
 
-  private[zio] def fromHandlerZIO[In] = new FromHandlerZIO[In](())
+  def fromHandlerZIO[In] = new FromHandlerZIO[In](())
 
   def fromHttp[In]: FromHttp[In] = new FromHttp[In](())
 
@@ -660,7 +660,7 @@ object Http {
       Http.collectHandler[In].apply(pf.andThen(Handler.fromZIO(_)))
   }
 
-  private[zio] final class FromHandlerZIO[In](val self: Unit) extends AnyVal {
+  final class FromHandlerZIO[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => ZIO[R, Err, Option[Handler[R, Err, In, Out]]])(implicit
       trace: Trace,
     ): Http[R, Err, In, Out] =
