@@ -163,6 +163,10 @@ lazy val docs = project
     docsPublishBranch                          := "main",
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttp),
     ciWorkflowName                             := "Continuous Integration",
+    libraryDependencies ++= Seq(
+      `jwt-core`,
+      "dev.zio" %% "zio-test" % ZioVersion,
+    ),
   )
   .dependsOn(zioHttp)
   .enablePlugins(WebsitePlugin)

@@ -11,60 +11,73 @@ It supports all HTTP status codes and headers along with custom methods and head
 `Response` can be created with `status`, `headers` and `data`.  
 
 The below snippet creates a response with default params, `status` as `Status.OK`, `headers` as `Headers.empty` and `data` as `Body.Empty`.
-```scala
- val res: Response = Response()
+```scala mdoc
+import zio.http._
+import zio._
+
+Response()
 ```
 ### Empty Response
 
-- `ok` creates an empty response with status code 200
-```scala
- val res: Response = Response.ok
+`ok` creates an empty response with status code 200
+
+```scala mdoc
+Response.ok
 ```
 
-- `status` creates an empty response with provided status code.
-```scala
- val res: Response = Response.status(Status.CONTINUE)
+`status` creates an empty response with provided status code.
+
+```scala mdoc
+Response.status(Status.Continue)
 ```
 
 ### Specialized Response Constructors
 
-- `text` creates a response with data as text, content-type header set to text/plain and status code 200 
-```scala
- val res: Response = Response.text("hey")
+`text` creates a response with data as text, content-type header set to text/plain and status code 200 
+
+```scala mdoc
+Response.text("hey")
 ```
-- `json` creates a response with data as json, content-type header set to application/json and status code 200 
-```scala
- val res: Response = Response.json("""{"greetings": "Hello World!"}""")
+
+`json` creates a response with data as json, content-type header set to application/json and status code 200 
+
+```scala mdoc
+Response.json("""{"greetings": "Hello World!"}""")
 ```
-- `html` creates a response with data as html, content-type header set to text/html and status code 200
-```scala
- val res: Response = Response.html(Html.fromString("html text"))
+
+`html` creates a response with data as html, content-type header set to text/html and status code 200
+```scala mdoc
+import zio.http.html._
+
+Response.html(Html.fromString("html text"))
 ```
 
 ### Specialized Response Operators
 
-- `withStatus` to update the `status` of `Response`
+`withStatus` to update the `status` of `Response`
 
-```scala
-val res: Response = Response.text("Hello World!").withStatus(Status.NOT_FOUND)
+```scal mdoca
+Response.text("Hello World!").withStatus(Status.NOT_FOUND)
 ```
 
-- `updateHeaders` to update the `headers` of `Response`
+`updateHeaders` to update the `headers` of `Response`
 
-```scala
- val res: Response = Response.ok.updateHeaders(_ => Headers("key", "value"))
+```scala mdoc
+Response.ok.updateHeaders(_ => Headers("key", "value"))
 ```
+
 ### Response from HttpError
 
 `fromHttpError` creates a response with provided `HttpError`
-```scala
- val res: Response = Response.fromHttpError(HttpError.BadRequest())
+
+```scala mdoc
+ Response.fromHttpError(HttpError.BadRequest())
 ```
 
 ## Adding Cookie to Response
 
 `addCookie` adds cookies in the headers of the response.
-```scala
- val cookie = Cookie("key", "value")
- val res = Response.ok.addCookie(cookie)
+```scala mdoc
+val cookie = Cookie.Response("key", "value")
+Response.ok.addCookie(cookie)
 ```

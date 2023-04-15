@@ -3,127 +3,137 @@ id: cookies
 title: Cookies
 ---
 
-**ZIO HTTP** has special support for Cookie headers using the `Cookie` Domain to add and invalidate cookies. Adding a cookie will generate the correct [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie) headers
+**ZIO HTTP** has special support for Cookie headers using the `Cookie` Domain to add and invalidate cookies. Adding a
+cookie will generate the correct [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)
+headers
 
-## Create a Cookie
+## Create a Request Cookie
 
-`Cookie` can be created with params `name`, `content`, `expires`, `domain`, `path`, `isSecure`, `isHttpOnly`, `maxAge`, `sameSite` and `secret` according to HTTP [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)  
+A request cookie consists of `name` and `content` and can be created with `Cookie.Request`:
 
-The below snippet creates a cookie `name` as `id` and `content` as `abc` with default params:
+```scala mdoc
+import zio._
+import zio.http._
 
-```scala
- val cookie: Cookie = Cookie("id", "abc")
+val cookie: Cookie = Cookie.Request("id", "abc")
 ```
 
-### Update a Cookie
+### Updating a request cookie
 
 - `withContent` updates the content of cookie
 
-```scala
- val newCookie = cookie.withContent("def")
+```scala mdoc
+cookie.withContent("def")
 ```
 
-- `withExpiry` updates the expiration date of cookie
+- `withName` updates the name of cookie
 
-```scala
- val newCookie = cookie.withExpiry(Instant.MAX)
+```scala mdoc
+cookie.withName("id2")
 ```
 
-- `withMaxAge` updates the max-age of the cookie
+## Create a Response Cookie
 
-```scala
- val newCookie = cookie.withMaxAge(5 days)
+A Response `Cookie` can be created with
+params `name`, `content`, `expires`, `domain`, `path`, `isSecure`, `isHttpOnly`, `maxAge`, `sameSite` and `secret`
+according to HTTP [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)
+
+The below snippet creates a response cookie from the above request cookie:
+
+```scala mdoc
+val responseCookie = cookie.toResponse
 ```
 
-- `withDomain` updates the host to which the cookie will be sent
+### Update a Response Cookie
 
-```scala
- val newCookie = cookie.withDomain("example.com")
+`Cookie.Response` is a case class so it can be updated by its `copy` method: 
+
+- `maxAge` updates the max-age of the cookie
+
+```scala mdoc
+responseCookie.copy(maxAge = Some(5.days))
 ```
 
-- `withPath` updates the path of the cookie
+- `domain` updates the host to which the cookie will be sent
 
-```scala
- val newCookie = cookie.withPath(!! / "cookie")
+```scala mdoc
+responseCookie.copy(domain = Some("example.com"))
 ```
 
-- `withSecure` enables cookie only on https server 
+- `path` updates the path of the cookie
 
-```scala
- val newCookie = cookie.withSecure
+```scala mdoc
+responseCookie.copy(path = Some(!! / "cookie"))
 ```
 
-- `withHttpOnly` forbids JavaScript from accessing the cookie
+- `isSecure` enables cookie only on https server
 
-```scala
- val newCookie = cookie.withHttpOnly
+```scala mdoc
+responseCookie.copy(isSecure = true)
 ```
 
-- `withSameSite` updates whether or not a cookie is sent with cross-origin requests
+- `isHttpOnly` forbids JavaScript from accessing the cookie
 
-```scala
- val newCookie = cookie.withSameSite(Instant.MAX)
+```scala mdoc
+responseCookie.copy(isHttpOnly = true)
 ```
 
-## Reset a Cookie
+- `sameSite` updates whether or not a cookie is sent with cross-origin requests
 
-you can reset cookie params using:
-- `withoutSecure` resets `isSecure` to `false` in cookie
-- `withoutHttpOnly` resets `isHttpOnly` to `false` in cookie
-- `withoutExpiry` resets `expires` to `None`
-- `withoutDomain` resets `domain` to `None`
-- `withoutPath` resets `path` to `None`
-- `withoutMaxAge` resets `maxAge` to `None`
-- `withoutSameSite` resets `sameSite` to `None`
+```scala mdoc
+responseCookie.copy(sameSite = Some(Cookie.SameSite.Strict))
+```
 
 ## Sign a Cookie
 
 The cookies can be signed with a signature:
- 
- - Using `sign`
- To sign a cookie, you can use `sign`
 
-```scala
- val cookie = Cookie("key", "hello").withMaxAge(5 days)
- val app = Http.collect[Request] { case Method.GET -> !! / "cookie" =>
-    Response.ok.addCookie(cookie.sign("secret"))
-  }
+- Using `sign`
+  To sign a cookie, you can use `sign`
+
+```scala mdoc
+val cookie2 = Cookie.Response("key", "hello", maxAge = Some(5.days))
+val app = Http.collect[Request] { case Method.GET -> !! / "cookie" =>
+  Response.ok.addCookie(cookie2.sign("secret"))
+}
 ```
 
 - Using `signCookies` middleware
 
 To sign all the cookies in your `HttpApp`, you can use `signCookies` middleware:
 
-```scala
-  private val cookie = Cookie("key", "hello").withMaxAge(5 days)
-  private val app = Http.collect[Request] {
-    case Method.GET -> !! / "cookie" => Response.ok.addCookie(cookie)
-    case Method.GET -> !! / "secure-cookie" => Response.ok.addCookie(cookie.withSecure)
-  }
+```scala mdoc
+import RequestHandlerMiddlewares.signCookies
 
-  // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app @@ signCookies("secret")).exitCode
+private val app2 = Http.collect[Request] {
+  case Method.GET -> !! / "cookie" => Response.ok.addCookie(cookie2)
+  case Method.GET -> !! / "secure-cookie" => Response.ok.addCookie(cookie2.copy(isSecure = true))
+}
+
+// Run it like any simple app
+def run(args: List[String]): ZIO[Any, Throwable, Nothing] =
+  Server.serve(app2 @@ signCookies("secret"))
+        .provide(Server.default)
 ``` 
 
 ## Adding Cookie in Response
 
 The cookies can be added in `Response` headers:
 
-```scala
- val cookie1: Cookie = Cookie("id", "abc")
- val res = Response.ok.addCookie(cookie1)
+```scala mdoc
+val res = Response.ok.addCookie(responseCookie)
 ```
 
 It updates the response header `Set-Cookie` as ```Set-Cookie: <cookie-name>=<cookie-value>```
 
 ## Getting Cookie from Request
 
-In HTTP requests, cookies are stored in the `cookie` header. `cookiesDecoded` can be used to get all the cookies in the request:
+In HTTP requests, cookies are stored in the `cookie` header. `cookiesDecoded` can be used to get all the cookies in the
+request:
 
-```scala
- private val app = Http.collect[Request] {
-    case req @  Method.GET -> !! / "cookie" =>
-      Response.text(req.cookiesDecoded.mkString(""))
-  }
+```scala mdoc
+ private val app3 = Http.collect[Request] {
+  case req@Method.GET -> !! / "cookie" =>
+    Response.text(req.header(Header.Cookie).map(_.value.toChunk).getOrElse(Chunk.empty).mkString(""))
+}
 ```

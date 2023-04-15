@@ -4,15 +4,16 @@ title: "Advanced Server Example"
 sidebar_label: "Server"
 ---
 
-```scala
-import zio.http._
-import zio.http.service._
-import zio.http.service.ServerChannelFactory
-import zio._
-
+```scala mdoc:silent
 import scala.util.Try
 
-object HelloWorldAdvanced extends App {
+import zio._
+
+import zio.http._
+import zio.http.netty.NettyConfig
+import zio.http.netty.NettyConfig.LeakDetectionLevel
+
+object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
   private val PORT = 0
 
@@ -22,30 +23,26 @@ object HelloWorldAdvanced extends App {
   }
 
   private val app = Http.collectZIO[Request] {
-    case Method.GET -> !! / "random" => random.nextString(10).map(Response.text(_))
-    case Method.GET -> !! / "utc"    => clock.currentDateTime.map(s => Response.text(s.toString))
+    case Method.GET -> !! / "random" => Random.nextString(10).map(Response.text(_))
+    case Method.GET -> !! / "utc"    => Clock.currentDateTime.map(s => Response.text(s.toString))
   }
 
-  private val server =
-    Server.port(PORT) ++              // Setup port
-      Server.paranoidLeakDetection ++ // Paranoid leak detection (affects performance)
-      Server.app(fooBar ++ app)       // Setup the Http app
-
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
+  val run = ZIOAppArgs.getArgs.flatMap { args =>
     // Configure thread count using CLI
     val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
-    // Create a new server
-    server.make
-      .use(start =>
-        // Waiting for the server to start
-        console.putStrLn(s"Server started on port ${start.port}")
+    val config           = Server.Config.default
+      .port(PORT)
+    val nettyConfig      = NettyConfig.default
+      .leakDetection(LeakDetectionLevel.PARANOID)
+      .maxThreads(nThreads)
+    val configLayer      = ZLayer.succeed(config)
+    val nettyConfigLayer = ZLayer.succeed(nettyConfig)
 
-        // Ensures the server doesn't die after printing
-          *> ZIO.never,
-      )
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(nThreads))
-      .exitCode
+    (Server.install(fooBar ++ app).flatMap { port =>
+      Console.printLine(s"Started server on port: $port")
+    } *> ZIO.never)
+      .provide(configLayer, nettyConfigLayer, Server.customized)
   }
 }
 ```

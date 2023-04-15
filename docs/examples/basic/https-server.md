@@ -4,14 +4,11 @@ title: Https Server Example
 sidebar_label: Https Server
 ---
 
-```scala
-import zio.http._
-import zio.http.service.ServerChannelFactory
-import zio.http.service.ServerSSLHandler._
-import zio.http.service.{EventLoopGroup}
+```scala mdoc:silent
 import zio._
+import zio.http._
 
-object HttpsHelloWorld extends App {
+object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
     case Method.GET -> !! / "text" => Response.text("Hello World!")
@@ -19,25 +16,28 @@ object HttpsHelloWorld extends App {
   }
 
   /**
-   * sslcontext can be created using SslContexBuilder. In this example an inbuilt API using keystore is used. For
-   * testing this example using curl, setup the certificate named "server.crt" from resources for the OS. Alternatively
-   * you can create the keystore and certificate using the following link
+   * In this example an inbuilt API using keystore is used. For testing this
+   * example using curl, setup the certificate named "server.crt" from resources
+   * for the OS. Alternatively you can create the keystore and certificate using
+   * the following link
    * https://medium.com/@maanadev/netty-with-https-tls-9bf699e07f01
    */
-  val sslctx = ctxFromCert(
-    getClass().getClassLoader().getResourceAsStream("server.crt"),
-    getClass().getClassLoader().getResourceAsStream("server.key"),
+
+  val sslConfig = SSLConfig.fromResource(
+    behaviour = SSLConfig.HttpBehaviour.Accept,
+    certPath = "server.crt",
+    keyPath = "server.key",
   )
 
-  private val server =
-    Server.port(8090) ++ Server.app(app) ++ Server.ssl(
-      ServerSSLOptions(sslctx, SSLHttpBehaviour.Accept),
-    )
+  private val config = Server.Config.default
+    .port(8090)
+    .ssl(sslConfig)
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    server.make.useForever
-      .provideCustomLayer(ServerChannelFactory.auto ++ EventLoopGroup.auto(0))
-      .exitCode
-  }
+  private val configLayer = ZLayer.succeed(config)
+
+  override val run =
+    Server.serve(app).provide(configLayer, Server.live)
+
 }
+
 ```

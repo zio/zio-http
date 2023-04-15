@@ -72,7 +72,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   /**
    * Runs self but if it fails, runs other, ignoring the result from self.
    */
-  final def <>[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](
+  final def <>[R1 <: R, Err1, In1 <: In, Out1 >: Out](
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     self.orElse(that)
@@ -377,7 +377,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   /**
    * Named alias for `<>`
    */
-  final def orElse[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](
+  final def orElse[R1 <: R, Err1, In1 <: In, Out1 >: Out](
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out1] =
     new Handler[R1, Err1, In1, Out1] {
@@ -385,8 +385,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
         (self(in), that(in)) match {
           case (s @ Exit.Success(_), _)                        =>
             s
-          case (s @ Exit.Failure(cause), _) if cause.isDie     =>
-            s
+          case (Exit.Failure(cause), _) if cause.isDie         =>
+            Exit.die(cause.dieOption.get)
           case (Exit.Failure(cause), other) if cause.isFailure =>
             other
           case (self, other)                                   =>

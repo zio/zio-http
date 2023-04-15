@@ -11,9 +11,12 @@ title: Request
 `Request` can be created with `method`, `url`, `headers`, `remoteAddress` and `data`. 
 Creating requests using `Request` is useful while writing unit tests.
 
-The below snippet creates a request with default params, `method` as `Method.GET`, `url` as `URL.root`, `headers` as `Headers.empty`, `data` as `Body.Empty`, `remoteAddress` as `None`
-```scala
-val request: Request = Request()
+The below snippet creates a request with default params, `headers` as `Headers.empty`, `data` as `Body.Empty`, `remoteAddress` as `None`
+```scala mdoc
+import zio.http._
+import zio._
+
+Request.default(Method.GET, URL(!!))
 ```
 
 ## Matching and Extracting Requests
@@ -39,7 +42,7 @@ According to the request path, it will respond with the corresponding response:
 - if the request has path `/name` it will match the first route.
 - if the request has path `/name/joe/wilson` it will match the second route as `/:` matches the path partially as well.  
 
-```scala
+```scala mdoc:silent
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
      case Method.GET -> !! / a => Response.text(s"$a")
      case Method.GET -> "" /: "name" /: a => Response.text(s"$a")
@@ -48,47 +51,20 @@ According to the request path, it will respond with the corresponding response:
 
 ## Accessing the Request
 
-- `getBody` to access the content of request as a Chunk[Byte]
-```scala
-  val app = Http.collectZIO[Request] { case req => req.getBody.as(Response.ok) }
-``` 
-- `getBodyAsString` to access the content of request as string
-```scala
-  val app = Http.collectZIO[Request] { case req => req.bodyAsString.as(Response.ok) }
-``` 
-- `getHeaders` to get all the headers in the Request
-```scala
-  val app = Http.collect[Request] { case req => Response.text(req.getHeaders.toList.mkString("")) }
-```
+- `body` to access the content of request as a `Body`
+- `headers` to get all the headers in the Request
 - `method` to access request method
-```scala
-val app = Http.collect[Request] { case req => Response.text(req.method.toString())}
-```
-- `path` to access request path
-```scala
-  val app = Http.collect[Request] { case req => Response.text(req.path.toString())}
-```
+- `url` to access request URL
 - `remoteAddress` to access request's remote address if available
-```scala
-  val app = Http.collect[Request] { case req => Response.text(req.remoteAddress.toString())}
-```
-- `url` to access the complete url
-```scala
-  val app = Http.collect[Request] { case req => Response.text(req.url.toString())}
-```
+- `version` to access the HTTP version
 
 ## Creating and reading a Request with query params
 
 Query params can be added in the request using `url` in `Request`, `URL` stores query params as `Map[String, List[String]]`.
 
 The below snippet creates a request with query params: `?q=a&q=b&q=c` 
-```scala
-      val request: Request = Request(url = URL(!!, queryParams = Map("q" -> List("a","b","c"))))
+```scala mdoc
+Request.get(url = URL(!!, queryParams = QueryParams("q" -> Chunk("a","b","c"))))
 ```
 
 `url.queryParams` can be used to read query params from the request
-
-The below snippet shows how to read query params from request
-```scala
-  val app = Http.collect[Request] { case req => Response.text(req.url.queryParams.mkString(""))}
-```
