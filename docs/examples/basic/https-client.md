@@ -4,43 +4,39 @@ title: Https Client Example
 sidebar_label: Https Client
 ---
 
-```scala
-import io.netty.handler.ssl.SslContextBuilder
-import zio.http.model.headers.Headers
-import zio.http.service.ClientSSLHandler.ClientSSLOptions
-import zio.http.service.{ChannelFactory, Client, EventLoopGroup}
+```scala mdoc:silent
 import zio._
 
-import java.io.InputStream
-import java.security.KeyStore
-import javax.net.ssl.TrustManagerFactory
+import zio.http._
+import zio.http.netty.NettyConfig
+import zio.http.netty.client.NettyClientDriver
 
-object HttpsClient extends App {
-  val env     = ChannelFactory.auto ++ EventLoopGroup.auto()
+object HttpsClient extends ZIOAppDefault {
   val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
-  val headers = Headers.host("sports.api.decathlon.com")
+  val headers = Headers(Header.Host("sports.api.decathlon.com"))
 
- // Configuring Truststore for https(optional)
-  val trustStore: KeyStore                     = KeyStore.getInstance("JKS")
-  val trustStorePath: InputStream              = getClass.getClassLoader.getResourceAsStream("truststore.jks")
-  val trustStorePassword: String               = "changeit"
-  val trustManagerFactory: TrustManagerFactory =
-    TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
+  val sslConfig = ClientSSLConfig.FromTrustStoreResource(
+    trustStorePath = "truststore.jks",
+    trustStorePassword = "changeit",
+  )
 
-  trustStore.load(trustStorePath, trustStorePassword.toCharArray)
-  trustManagerFactory.init(trustStore)
-
-  val sslOption: ClientSSLOptions =
-    ClientSSLOptions.CustomSSL(SslContextBuilder.forClient().trustManager(trustManagerFactory).build())
+  val clientConfig = ZClient.Config.default.ssl(sslConfig)
 
   val program = for {
-    res  <- Client.request(url, headers, sslOption)
-    data <- res.bodyAsString
-    _    <- console.putStrLn { data }
+    res  <- Client.request(url, headers = headers)
+    data <- res.body.asString
+    _    <- Console.printLine(data)
   } yield ()
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] 
-    = program.exitCode.provideCustomLayer(env)
+  val run =
+    program.provide(
+      ZLayer.succeed(clientConfig),
+      Client.customized,
+      NettyClientDriver.live,
+      DnsResolver.default,
+      ZLayer.succeed(NettyConfig.default),
+    )
 
 }
+
 ```

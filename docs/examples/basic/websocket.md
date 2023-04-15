@@ -4,12 +4,11 @@ title: WebSocket Example
 sidebar_label: WebSocket
 ---
 
-```scala
+```scala mdoc:silent
 import zio._
 
 import zio.http.ChannelEvent.ChannelRead
 import zio.http._
-import zio.http.model.Method
 import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
 
 object WebSocketEcho extends ZIOAppDefault {
@@ -33,4 +32,5 @@ object WebSocketEcho extends ZIOAppDefault {
 
   override val run = Server.serve(app).provide(Server.default)
 }
+
 ```

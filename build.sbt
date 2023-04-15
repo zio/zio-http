@@ -158,6 +158,7 @@ lazy val docs = project
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioHttp),
     ciWorkflowName                             := "Continuous Integration",
     libraryDependencies ++= Seq(
+      `jwt-core`,
       "dev.zio" %% "zio-test" % ZioVersion,
     ),
   )

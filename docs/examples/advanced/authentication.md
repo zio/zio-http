@@ -4,15 +4,28 @@ title: "Authentication Server Example"
 sidebar_label: "Authentication Server"
 ---
 
-```scala
-import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
-import zio.http._
-import zio.http.Server
-import zio._
+```scala mdoc:silent
 
 import java.time.Clock
 
-object Authentication extends App {
+import zio._
+
+import zio.http.HttpAppMiddleware.bearerAuth
+import zio.http._
+
+import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
+
+object AuthenticationServer extends ZIOAppDefault {
+
+  /**
+   * This is an example to demonstrate barer Authentication middleware. The
+   * Server has 2 routes. The first one is for login,Upon a successful login, it
+   * will return a jwt token for accessing protected routes. The second route is
+   * a protected route that is accessible only if the request has a valid jwt
+   * token. AuthenticationClient example can be used to makes requests to this
+   * server.
+   */
+
   // Secret Authentication key
   val SECRET_KEY = "secretKey"
 
@@ -21,7 +34,9 @@ object Authentication extends App {
   // Helper to encode the JWT token
   def jwtEncode(username: String): String = {
     val json  = s"""{"user": "${username}"}"""
-    val claim = JwtClaim { json }.issuedNow.expiresIn(60)
+    val claim = JwtClaim {
+      json
+    }.issuedNow.expiresIn(300)
     Jwt.encode(claim, SECRET_KEY, JwtAlgorithm.HS512)
   }
 
@@ -30,38 +45,22 @@ object Authentication extends App {
     Jwt.decode(token, SECRET_KEY, Seq(JwtAlgorithm.HS512)).toOption
   }
 
-  // Authentication middleware
-  // Takes in a Failing HttpApp and a Succeed HttpApp which are called based on Authentication success or failure
-  // For each request tries to read the `X-ACCESS-TOKEN` header
-  // Validates JWT Claim
-  def authenticate[R, E](fail: HttpApp[R, E], success: JwtClaim => HttpApp[R, E]): HttpApp[R, E] =
-    Http
-      .fromFunction[Request] {
-        _.getHeader("X-ACCESS-TOKEN")
-          .flatMap(header => jwtDecode(header._2.toString))
-          .fold[HttpApp[R, E]](fail)(success)
-      }
-      .flatten
-
-  // Http app that requires a JWT claim
-  def user(claim: JwtClaim): UHttpApp = Http.collect[Request] {
-    case Method.GET -> !! / "user" / name / "greet" => Response.text(s"Welcome to the ZIO party! ${name}")
-    case Method.GET -> !! / "user" / "expiration"   => Response.text(s"Expires in: ${claim.expiration.getOrElse(-1L)}")
-  }
+  // Http app that is accessible only via a jwt token
+  def user: HttpApp[Any, Nothing] = Http.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
+    Response.text(s"Welcome to the ZIO party! ${name}")
+  } @@ bearerAuth(jwtDecode(_).isDefined)
 
   // App that let's the user login
   // Login is successful only if the password is the reverse of the username
-  def login: UHttpApp = Http.collect[Request] { case Method.GET -> !! / "login" / username / password =>
-    if (password.reverse == username) Response.text(jwtEncode(username))
-    else Response.fromHttpError(HttpError.Unauthorized("Invalid username of password\n"))
+  def login: HttpApp[Any, Nothing] = Http.collect[Request] { case Method.GET -> !! / "login" / username / password =>
+    if (password.reverse.hashCode == username.hashCode) Response.text(jwtEncode(username))
+    else Response.text("Invalid username or password.").withStatus(Status.Unauthorized)
   }
 
   // Composing all the HttpApps together
-  val app: UHttpApp = login ++ authenticate(Http.forbidden("Not allowed!"), user)
+  val app: HttpApp[Any, Nothing] = login ++ user
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app).exitCode
+  override val run = Server.serve(app).provide(Server.default)
 }
-
 ```

@@ -4,12 +4,11 @@ title: Http Server Example
 sidebar_label: Http Server
 ---
 
-```scala
-import zio.http._
-import zio.http.Server
+```scala mdoc:silent
 import zio._
+import zio.http._
 
-object HelloWorld extends App {
+object HelloWorld extends ZIOAppDefault {
 
   // Create HTTP route
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
@@ -18,7 +17,7 @@ object HelloWorld extends App {
   }
 
   // Run it like any simple app
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8090, app.silent).exitCode
+  override val run = Server.serve(app).provide(Server.default)
 }
+
 ```
