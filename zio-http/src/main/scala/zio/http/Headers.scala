@@ -44,7 +44,7 @@ sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
 
   final def get(headerType: Header.HeaderType): Option[headerType.HeaderValue] = header(headerType)
 
-  final def getAll(headerType: Header.HeaderType): Iterable[headerType.HeaderValue] = headers(headerType)
+  final def getAll(headerType: Header.HeaderType): Chunk[headerType.HeaderValue] = headers(headerType)
 
   /**
    * @return

@@ -16,6 +16,8 @@
 
 package zio.http.internal
 
+import zio.Chunk
+
 import zio.http.Header.HeaderType
 import zio.http.Headers
 import zio.http.internal.{CaseMode, CharSequenceExtensions}
@@ -38,17 +40,18 @@ trait HeaderGetters { self =>
       parsed.toOption
     }
 
-  final def headers(headerType: HeaderType): Seq[headerType.HeaderValue] =
-    headers.iterator
-      .filter(header =>
-        CharSequenceExtensions
-          .equals(header.headerNameAsCharSequence, headerType.name, CaseMode.Insensitive),
-      )
-      .flatMap { raw =>
-        val parsed = headerType.parse(raw.renderedValue)
-        parsed.toOption
-      }
-      .toSeq
+  final def headers(headerType: HeaderType): Chunk[headerType.HeaderValue] =
+    Chunk.from(
+      headers.iterator
+        .filter(header =>
+          CharSequenceExtensions
+            .equals(header.headerNameAsCharSequence, headerType.name, CaseMode.Insensitive),
+        )
+        .flatMap { raw =>
+          val parsed = headerType.parse(raw.renderedValue)
+          parsed.toOption
+        },
+    )
 
   /**
    * Gets a header. If the header is not present, returns None. If the header
