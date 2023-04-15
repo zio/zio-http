@@ -274,8 +274,8 @@ object HttpCodec
     with StatusCodecs {
   implicit def stringToLiteral(string: String): PathCodec[Unit] = literal(string)
 
-  def enumeration[AtomType, Value]: Enumeration[AtomType, Value] =
-    new Enumeration[AtomType, Value](())
+  def enumeration[Value]: Enumeration[Value] =
+    new Enumeration[Value](())
 
   def error[Body](status: zio.http.Status)(implicit
     schema: Schema[Body],
@@ -297,8 +297,8 @@ object HttpCodec
 
   def unused: HttpCodec[Any, ZNothing] = Halt
 
-  final case class Enumeration[AtomTypes, Value](unit: Unit) extends AnyVal {
-    def apply[Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag](
+  final case class Enumeration[Value](unit: Unit) extends AnyVal {
+    def apply[AtomTypes, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag](
       codec1: HttpCodec[AtomTypes, Sub1],
       codec2: HttpCodec[AtomTypes, Sub2],
     ): HttpCodec[AtomTypes, Value] =
@@ -312,7 +312,7 @@ object HttpCodec
           },
       )
 
-    def apply[Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag, Sub3 <: Value: ClassTag](
+    def apply[AtomTypes, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag, Sub3 <: Value: ClassTag](
       codec1: HttpCodec[AtomTypes, Sub1],
       codec2: HttpCodec[AtomTypes, Sub2],
       codec3: HttpCodec[AtomTypes, Sub3],
@@ -329,6 +329,7 @@ object HttpCodec
       )
 
     def apply[
+      AtomTypes,
       Sub1 <: Value: ClassTag,
       Sub2 <: Value: ClassTag,
       Sub3 <: Value: ClassTag,
@@ -352,6 +353,7 @@ object HttpCodec
       )
 
     def apply[
+      AtomTypes,
       Sub1 <: Value: ClassTag,
       Sub2 <: Value: ClassTag,
       Sub3 <: Value: ClassTag,
@@ -378,6 +380,7 @@ object HttpCodec
       )
 
     def apply[
+      AtomTypes,
       Sub1 <: Value: ClassTag,
       Sub2 <: Value: ClassTag,
       Sub3 <: Value: ClassTag,
@@ -407,6 +410,7 @@ object HttpCodec
       )
 
     def apply[
+      AtomTypes,
       Sub1 <: Value: ClassTag,
       Sub2 <: Value: ClassTag,
       Sub3 <: Value: ClassTag,
@@ -440,6 +444,7 @@ object HttpCodec
       )
 
     def apply[
+      AtomTypes,
       Sub1 <: Value: ClassTag,
       Sub2 <: Value: ClassTag,
       Sub3 <: Value: ClassTag,
