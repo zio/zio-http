@@ -17,6 +17,7 @@
 package zio.http.codec
 
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 
 import zio._
 
@@ -272,6 +273,197 @@ object HttpCodec
     with QueryCodecs
     with StatusCodecs {
   implicit def stringToLiteral(string: String): PathCodec[Unit] = literal(string)
+
+  def `enum`[AtomTypes, Value, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag](
+    codec1: HttpCodec[AtomTypes, Sub1],
+    codec2: HttpCodec[AtomTypes, Sub2],
+  ): HttpCodec[AtomTypes, Value] =
+    (codec1 | codec2).transformOrFail(
+      either => Right(either.merge),
+      (value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(sub1))
+          case sub2: Sub2 => Right(Right(sub2))
+          case _          => Left(s"Unexpected error type")
+        },
+    )
+
+  def `enum`[AtomTypes, Value, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag, Sub3 <: Value: ClassTag](
+    codec1: HttpCodec[AtomTypes, Sub1],
+    codec2: HttpCodec[AtomTypes, Sub2],
+    codec3: HttpCodec[AtomTypes, Sub3],
+  ): HttpCodec[AtomTypes, Value] =
+    (codec1 | codec2 | codec3).transformOrFail(
+      either => Right(either.left.map(_.merge).merge),
+      (value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(sub1)))
+          case sub2: Sub2 => Right(Left(Right(sub2)))
+          case sub3: Sub3 => Right(Right(sub3))
+          case _          => Left(s"Unexpected error type")
+        },
+    )
+
+  def `enum`[
+    AtomTypes,
+    Value,
+    Sub1 <: Value: ClassTag,
+    Sub2 <: Value: ClassTag,
+    Sub3 <: Value: ClassTag,
+    Sub4 <: Value: ClassTag,
+  ](
+    codec1: HttpCodec[AtomTypes, Sub1],
+    codec2: HttpCodec[AtomTypes, Sub2],
+    codec3: HttpCodec[AtomTypes, Sub3],
+    codec4: HttpCodec[AtomTypes, Sub4],
+  ): HttpCodec[AtomTypes, Value] =
+    (codec1 | codec2 | codec3 | codec4).transformOrFail(
+      either => Right(either.left.map(_.left.map(_.merge).merge).merge),
+      (value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(sub1))))
+          case sub2: Sub2 => Right(Left(Left(Right(sub2))))
+          case sub3: Sub3 => Right(Left(Right(sub3)))
+          case sub4: Sub4 => Right(Right(sub4))
+          case _          => Left(s"Unexpected error type")
+        },
+    )
+
+  def `enum`[
+    AtomTypes,
+    Value,
+    Sub1 <: Value: ClassTag,
+    Sub2 <: Value: ClassTag,
+    Sub3 <: Value: ClassTag,
+    Sub4 <: Value: ClassTag,
+    Sub5 <: Value: ClassTag,
+  ](
+    codec1: HttpCodec[AtomTypes, Sub1],
+    codec2: HttpCodec[AtomTypes, Sub2],
+    codec3: HttpCodec[AtomTypes, Sub3],
+    codec4: HttpCodec[AtomTypes, Sub4],
+    codec5: HttpCodec[AtomTypes, Sub5],
+  ): HttpCodec[AtomTypes, Value] =
+    (codec1 | codec2 | codec3 | codec4 | codec5).transformOrFail(
+      either => Right(either.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge),
+      (value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(Left(sub1)))))
+          case sub2: Sub2 => Right(Left(Left(Left(Right(sub2)))))
+          case sub3: Sub3 => Right(Left(Left(Right(sub3))))
+          case sub4: Sub4 => Right(Left(Right(sub4)))
+          case sub5: Sub5 => Right(Right(sub5))
+          case _          => Left(s"Unexpected error type")
+        },
+    )
+
+  def `enum`[
+    AtomTypes,
+    Value,
+    Sub1 <: Value: ClassTag,
+    Sub2 <: Value: ClassTag,
+    Sub3 <: Value: ClassTag,
+    Sub4 <: Value: ClassTag,
+    Sub5 <: Value: ClassTag,
+    Sub6 <: Value: ClassTag,
+  ](
+    codec1: HttpCodec[AtomTypes, Sub1],
+    codec2: HttpCodec[AtomTypes, Sub2],
+    codec3: HttpCodec[AtomTypes, Sub3],
+    codec4: HttpCodec[AtomTypes, Sub4],
+    codec5: HttpCodec[AtomTypes, Sub5],
+    codec6: HttpCodec[AtomTypes, Sub6],
+  ): HttpCodec[AtomTypes, Value] =
+    (codec1 | codec2 | codec3 | codec4 | codec5 | codec6).transformOrFail(
+      either => Right(either.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge),
+      (value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(Left(Left(sub1))))))
+          case sub2: Sub2 => Right(Left(Left(Left(Left(Right(sub2))))))
+          case sub3: Sub3 => Right(Left(Left(Left(Right(sub3)))))
+          case sub4: Sub4 => Right(Left(Left(Right(sub4))))
+          case sub5: Sub5 => Right(Left(Right(sub5)))
+          case sub6: Sub6 => Right(Right(sub6))
+          case _          => Left(s"Unexpected error type")
+        },
+    )
+
+  def `enum`[
+    AtomTypes,
+    Value,
+    Sub1 <: Value: ClassTag,
+    Sub2 <: Value: ClassTag,
+    Sub3 <: Value: ClassTag,
+    Sub4 <: Value: ClassTag,
+    Sub5 <: Value: ClassTag,
+    Sub6 <: Value: ClassTag,
+    Sub7 <: Value: ClassTag,
+  ](
+    codec1: HttpCodec[AtomTypes, Sub1],
+    codec2: HttpCodec[AtomTypes, Sub2],
+    codec3: HttpCodec[AtomTypes, Sub3],
+    codec4: HttpCodec[AtomTypes, Sub4],
+    codec5: HttpCodec[AtomTypes, Sub5],
+    codec6: HttpCodec[AtomTypes, Sub6],
+    codec7: HttpCodec[AtomTypes, Sub7],
+  ): HttpCodec[AtomTypes, Value] =
+    (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7).transformOrFail(
+      either =>
+        Right(either.left.map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge).merge),
+      (value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(Left(Left(Left(sub1)))))))
+          case sub2: Sub2 => Right(Left(Left(Left(Left(Left(Right(sub2)))))))
+          case sub3: Sub3 => Right(Left(Left(Left(Left(Right(sub3))))))
+          case sub4: Sub4 => Right(Left(Left(Left(Right(sub4)))))
+          case sub5: Sub5 => Right(Left(Left(Right(sub5))))
+          case sub6: Sub6 => Right(Left(Right(sub6)))
+          case sub7: Sub7 => Right(Right(sub7))
+          case _          => Left(s"Unexpected error type")
+        },
+    )
+
+  def `enum`[
+    AtomTypes,
+    Value,
+    Sub1 <: Value: ClassTag,
+    Sub2 <: Value: ClassTag,
+    Sub3 <: Value: ClassTag,
+    Sub4 <: Value: ClassTag,
+    Sub5 <: Value: ClassTag,
+    Sub6 <: Value: ClassTag,
+    Sub7 <: Value: ClassTag,
+    Sub8 <: Value: ClassTag,
+  ](
+    codec1: HttpCodec[AtomTypes, Sub1],
+    codec2: HttpCodec[AtomTypes, Sub2],
+    codec3: HttpCodec[AtomTypes, Sub3],
+    codec4: HttpCodec[AtomTypes, Sub4],
+    codec5: HttpCodec[AtomTypes, Sub5],
+    codec6: HttpCodec[AtomTypes, Sub6],
+    codec7: HttpCodec[AtomTypes, Sub7],
+    codec8: HttpCodec[AtomTypes, Sub8],
+  ): HttpCodec[AtomTypes, Value] =
+    (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8).transformOrFail(
+      either =>
+        Right(
+          either.left
+            .map(_.left.map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge).merge)
+            .merge,
+        ),
+      (value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(Left(Left(Left(Left(sub1))))))))
+          case sub2: Sub2 => Right(Left(Left(Left(Left(Left(Left(Right(sub2))))))))
+          case sub3: Sub3 => Right(Left(Left(Left(Left(Left(Right(sub3)))))))
+          case sub4: Sub4 => Right(Left(Left(Left(Left(Right(sub4))))))
+          case sub5: Sub5 => Right(Left(Left(Left(Right(sub5)))))
+          case sub6: Sub6 => Right(Left(Left(Right(sub6))))
+          case sub7: Sub7 => Right(Left(Right(sub7)))
+          case sub8: Sub8 => Right(Right(sub8))
+          case _          => Left(s"Unexpected error type")
+        },
+    )
 
   def statusAndContent[Body](status: zio.http.Status)(implicit
     schema: Schema[Body],

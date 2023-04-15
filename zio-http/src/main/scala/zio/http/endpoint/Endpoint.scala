@@ -194,15 +194,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
     codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = (codec1 | codec2).transformOrFail(
-      either => Right(either.merge),
-      (err2: Err2) =>
-        err2 match {
-          case sub1: Sub1 => Right(Left(sub1))
-          case sub2: Sub2 => Right(Right(sub2))
-          case _          => Left(s"Unexpected error type")
-        },
-    )
+    val codec = HttpCodec.`enum`(codec1, codec2)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -211,16 +203,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
     codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = (codec1 | codec2 | codec3).transformOrFail(
-      either => Right(either.left.map(_.merge).merge),
-      (err2: Err2) =>
-        err2 match {
-          case sub1: Sub1 => Right(Left(Left(sub1)))
-          case sub2: Sub2 => Right(Left(Right(sub2)))
-          case sub3: Sub3 => Right(Right(sub3))
-          case _          => Left(s"Unexpected error type")
-        },
-    )
+    val codec = HttpCodec.`enum`(codec1, codec2, codec3)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -230,17 +213,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
     codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = (codec1 | codec2 | codec3 | codec4).transformOrFail(
-      either => Right(either.left.map(_.left.map(_.merge).merge).merge),
-      (err2: Err2) =>
-        err2 match {
-          case sub1: Sub1 => Right(Left(Left(Left(sub1))))
-          case sub2: Sub2 => Right(Left(Left(Right(sub2))))
-          case sub3: Sub3 => Right(Left(Right(sub3)))
-          case sub4: Sub4 => Right(Right(sub4))
-          case _          => Left(s"Unexpected error type")
-        },
-    )
+    val codec = HttpCodec.`enum`(codec1, codec2, codec3, codec4)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -258,18 +231,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
     codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = (codec1 | codec2 | codec3 | codec4 | codec5).transformOrFail(
-      either => Right(either.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge),
-      (err2: Err2) =>
-        err2 match {
-          case sub1: Sub1 => Right(Left(Left(Left(Left(sub1)))))
-          case sub2: Sub2 => Right(Left(Left(Left(Right(sub2)))))
-          case sub3: Sub3 => Right(Left(Left(Right(sub3))))
-          case sub4: Sub4 => Right(Left(Right(sub4)))
-          case sub5: Sub5 => Right(Right(sub5))
-          case _          => Left(s"Unexpected error type")
-        },
-    )
+    val codec = HttpCodec.`enum`(codec1, codec2, codec3, codec4, codec5)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -289,19 +251,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
     codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = (codec1 | codec2 | codec3 | codec4 | codec5 | codec6).transformOrFail(
-      either => Right(either.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge),
-      (err2: Err2) =>
-        err2 match {
-          case sub1: Sub1 => Right(Left(Left(Left(Left(Left(sub1))))))
-          case sub2: Sub2 => Right(Left(Left(Left(Left(Right(sub2))))))
-          case sub3: Sub3 => Right(Left(Left(Left(Right(sub3)))))
-          case sub4: Sub4 => Right(Left(Left(Right(sub4))))
-          case sub5: Sub5 => Right(Left(Right(sub5)))
-          case sub6: Sub6 => Right(Right(sub6))
-          case _          => Left(s"Unexpected error type")
-        },
-    )
+    val codec = HttpCodec.`enum`(codec1, codec2, codec3, codec4, codec5, codec6)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -323,21 +273,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
     codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7).transformOrFail(
-      either =>
-        Right(either.left.map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge).merge),
-      (err2: Err2) =>
-        err2 match {
-          case sub1: Sub1 => Right(Left(Left(Left(Left(Left(Left(sub1)))))))
-          case sub2: Sub2 => Right(Left(Left(Left(Left(Left(Right(sub2)))))))
-          case sub3: Sub3 => Right(Left(Left(Left(Left(Right(sub3))))))
-          case sub4: Sub4 => Right(Left(Left(Left(Right(sub4)))))
-          case sub5: Sub5 => Right(Left(Left(Right(sub5))))
-          case sub6: Sub6 => Right(Left(Right(sub6)))
-          case sub7: Sub7 => Right(Right(sub7))
-          case _          => Left(s"Unexpected error type")
-        },
-    )
+    val codec = HttpCodec.`enum`(codec1, codec2, codec3, codec4, codec5, codec6, codec7)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -361,26 +297,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
     codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8).transformOrFail(
-      either =>
-        Right(
-          either.left
-            .map(_.left.map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge).merge)
-            .merge,
-        ),
-      (err2: Err2) =>
-        err2 match {
-          case sub1: Sub1 => Right(Left(Left(Left(Left(Left(Left(Left(sub1))))))))
-          case sub2: Sub2 => Right(Left(Left(Left(Left(Left(Left(Right(sub2))))))))
-          case sub3: Sub3 => Right(Left(Left(Left(Left(Left(Right(sub3)))))))
-          case sub4: Sub4 => Right(Left(Left(Left(Left(Right(sub4))))))
-          case sub5: Sub5 => Right(Left(Left(Left(Right(sub5)))))
-          case sub6: Sub6 => Right(Left(Left(Right(sub6))))
-          case sub7: Sub7 => Right(Left(Right(sub7)))
-          case sub8: Sub8 => Right(Right(sub8))
-          case _          => Left(s"Unexpected error type")
-        },
-    )
+    val codec = HttpCodec.`enum`(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
