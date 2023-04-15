@@ -74,7 +74,7 @@ jobs:
         run: sbt ++2.13.8 doc
 
       - name: Compress target directories
-        run: tar cf targets.tar target zio-http/target zio-http-docs/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target project/target
+        run: tar cf targets.tar zio-http-cli/target target zio-http/target zio-http-docs/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target project/target
 
       - name: Upload target directories
         uses: actions/upload-artifact@v2
