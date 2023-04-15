@@ -329,9 +329,9 @@ object EndpointSpec extends ZIOSpecDefault {
             Endpoint
               .get(literal("users") / int("userId"))
               .out[String]
-              .outErrors[TestError, TestError.UnexpectedError, TestError.InvalidUser](
-                HttpCodec.statusAndContent[TestError.UnexpectedError](Status.InternalServerError),
-                HttpCodec.statusAndContent[TestError.InvalidUser](Status.NotFound),
+              .outErrors[TestError](
+                HttpCodec.error[TestError.UnexpectedError](Status.InternalServerError),
+                HttpCodec.error[TestError.InvalidUser](Status.NotFound),
               )
               .implement { userId =>
                 if (userId == 123) ZIO.fail(TestError.InvalidUser(userId))
