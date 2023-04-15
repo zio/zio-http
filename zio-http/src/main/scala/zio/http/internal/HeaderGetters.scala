@@ -41,7 +41,7 @@ trait HeaderGetters { self =>
     }
 
   final def headers(headerType: HeaderType): Chunk[headerType.HeaderValue] =
-    Chunk.from(
+    Chunk.fromIterator(
       headers.iterator
         .filter(header =>
           CharSequenceExtensions
