@@ -9,14 +9,18 @@ title: Body
 
 On the server-side, `ZIO-HTTP` models content in `Request` and `Response` as `Body` with `Body.Empty` as the default value. To add content while creating a `Response` you can use the `Response` constructor:
 
-```scala
+```scala mdoc:silent
+  import zio._
+  import zio.http._
+  import zio.stream._
+
   val res: Response = Response( body = Body.fromString("Some String"))
 ```
 
 To add content while creating a `Request` for unit tests, you can use the `Request` constructor:
 
-```scala
-  val req: Request = Request( body = Body.fromString("Some String"))
+```scala mdoc:silent
+  val req: Request = Request.post(Body.fromString("Some String"), URL(!! / "save"))
 ```
 
 ## Client-side usage of `Body`
@@ -25,8 +29,8 @@ On the client-side, `ZIO-HTTP` models content in `ClientRequest` as `Body` with 
 
 To add content while making a request using ZIO HTTP you can use the `Client.request` method:
 
-```scala
-  val actual: ZIO[EventLoopGroup with ChannelFactory, Throwable, Client.ClientResponse] = 
+```scala mdoc:silent
+  val actual: ZIO[Client, Throwable, Response] = 
     Client.request("https://localhost:8073/success", content = Body.fromString("Some string"))
 ```
 
@@ -36,24 +40,16 @@ To add content while making a request using ZIO HTTP you can use the `Client.req
 
 To create an `Body` that encodes a String you can use `Body.fromString`:
 
-```scala
-  val textHttpData: Body = Body.fromString("any string", CharsetUtil.UTF_8)
-```
-
-### Creating a Body from a `ByteBuf`
-
-To create an `Body` that encodes a ByteBuf you can use `Body.fromByteBuf`:
-
-```scala
-  val binaryByteBufHttpData: Body = Body.fromByteBuf(Unpooled.copiedBuffer("Some string", CharsetUtil.UTF_8))
+```scala mdoc:silent
+  val textHttpData: Body = Body.fromString("any string", Charsets.Http)
 ```
 
 ### Creating a Body from `Chunk of Bytes`
 
 To create an `Body` that encodes chunk of bytes you can use `Body.fromChunk`:
 
-```scala
-  val chunkHttpData: Body = Body.fromChunk(Chunk.fromArray("Some Sting".getBytes(CharsetUtil.UTF_8)))
+```scala mdoc:silent
+  val chunkHttpData: Body = Body.fromChunk(Chunk.fromArray("Some Sting".getBytes(Charsets.Http)))
 ```
 
 ### Creating a Body from a `Stream`
@@ -62,29 +58,20 @@ To create an `Body` that encodes a Stream you can use `Body.fromStream`.
 
 - Using a Stream of Bytes
 
-```scala
-  val streamHttpData: Body = Body.fromStream(ZStream.fromChunk(Chunk.fromArray("Some String".getBytes(HTTP_CHARSET))))
+```scala mdoc:silent
+  val streamHttpData1: Body = Body.fromStream(ZStream.fromChunk(Chunk.fromArray("Some String".getBytes(Charsets.Http))))
 ```
 
 - Using a Stream of String
 
-```scala
-  val streamHttpData: Body = Body.fromStream(ZStream("a", "b", "c"), CharsetUtil.UTF_8)
+```scala mdoc:silent
+  val streamHttpData2: Body = Body.fromStream(ZStream("a", "b", "c"), Charsets.Http)
 ```
 
 ### Creating a Body from a `File`
 
 To create an `Body` that encodes a File you can use `Body.fromFile`:
 
-```scala
-  val fileHttpData: Body = Body.fromFile(new io.File(getClass.getResource("/fileName.txt").getPath))
-```
-
-## Converting `Body` to `ByteBuf`
-
-To convert an `Body` to `ByteBuf`  you can call the `toButeBuf` method on it, which returns a `Task[ByteBuf]`:
-
-```scala
-  val textHttpData: Body = Body.fromString("any string", CharsetUtil.UTF_8)
-  val textByteBuf: Task[ByteBuf] = textHttpData.toByteBuf
+```scala mdoc:silent:crash
+  val fileHttpData: Body = Body.fromFile(new java.io.File(getClass.getResource("/fileName.txt").getPath))
 ```

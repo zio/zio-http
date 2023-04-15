@@ -96,7 +96,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   )(implicit trace: Trace): Http[R1, Err1, In1, Out1] =
     self.defaultWith(that)
 
-  final def catchAllZIO[R1 <: R, Err1 >: Err, Out1 >: Out](
+  final def catchAllZIO[R1 <: R, Err1, Out1 >: Out](
     f: Err => ZIO[R1, Err1, Out1],
   )(implicit trace: Trace): Http[R1, Err1, In, Out1] =
     self match {
@@ -106,7 +106,10 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out]      =>
         new Route[R1, Err1, In, Out1] {
           override def run(in: In): ZIO[R1, Err1, Http[R1, Err1, In, Out1]] =
-            route.run(in).map(_.catchAllZIO(f))
+            route
+              .run(in)
+              .map(_.catchAllZIO(f))
+              .catchAll(err => f(err).map(out => Handler.succeed(out).toHttp))
 
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
             route.errorHandler
@@ -115,7 +118,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
 
   final def catchAllCauseZIO[R1 <: R, Out1 >: Out](f: Cause[Err] => ZIO[R1, Nothing, Out1])(implicit
     trace: Trace,
-  ): Http[R1, Err, In, Out1] =
+  ): Http[R1, Nothing, In, Out1] =
     self
       .catchAllZIO(err => f(Cause.fail(err)))
       .withErrorHandler(Some(f))
