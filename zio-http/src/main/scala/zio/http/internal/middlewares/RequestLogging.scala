@@ -29,12 +29,14 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
     failureLevel: LogLevel = LogLevel.Warning,
     loggedRequestHeaders: Set[HeaderType] = Set.empty,
-    loggedResponseHeader: Set[HeaderType] = Set.empty,
+    loggedResponseHeaders: Set[HeaderType] = Set.empty,
     logRequestBody: Boolean = false,
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
-  )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
+  )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] = {
+    val loggedRequestHeaderNames  = loggedRequestHeaders.map(_.name.toLowerCase)
+    val loggedResponseHeaderNames = loggedResponseHeaders.map(_.name.toLowerCase)
     new RequestHandlerMiddleware.Simple[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
@@ -51,12 +53,12 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
                   .logLevel(level(response.status)) {
                     val requestHeaders  =
                       request.headers.collect {
-                        case header: Header if loggedRequestHeaders.contains(header.headerType) =>
+                        case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
                           LogAnnotation(header.headerName, header.renderedValue)
                       }.toSet
                     val responseHeaders =
                       response.headers.collect {
-                        case header: Header if loggedResponseHeader.contains(header.headerType) =>
+                        case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
                           LogAnnotation(header.headerName, header.renderedValue)
                       }.toSet
 
@@ -101,7 +103,7 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
                   .logLevel(failureLevel) {
                     val requestHeaders =
                       request.headers.collect {
-                        case header: Header if loggedRequestHeaders.contains(header.headerType) =>
+                        case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
                           LogAnnotation(header.headerName, header.renderedValue)
                       }.toSet
 
@@ -135,4 +137,5 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
             .unsandbox
         }
     }
+  }
 }
