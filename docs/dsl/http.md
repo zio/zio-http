@@ -287,7 +287,7 @@ Handler.ok
 
 ### Handler.text
 
-Creates an `Handler` that always responds with the same plain text.
+Creates a `Handler` that always responds with the same plain text.
 
 ```scala mdoc:silent
 Handler.text("Text Response")
@@ -295,116 +295,70 @@ Handler.text("Text Response")
 
 ### Handler.status
 
-Creates an `Handler` that always responds with the same status code and empty data.
+Creates a `Handler` that always responds with the same status code and empty data.
 
 ```scala mdoc:silent
 Handler.status(Status.Ok)
 ```
 
-### Http.error
+### Handler.error
 
-Creates an `HttpApp` that always fails with the given `HttpError`.
+Creates a `Handler` that always fails with the given `HttpError`.
 
-```scala
-val app: HttpApp[Any, Nothing] = Http.error(HttpError.Forbidden())
+```scala mdoc:silent
+Handler.error(HttpError.Forbidden())
 ```
 
-### Http.response
+### Handler.response
 
-Creates an `HttpApp` that always responds with the same `Response`.
+Creates an `Handler` that always responds with the same `Response`.
 
-```scala
-val app: HttpApp[Any, Nothing] = Http.response(Response.ok)
+```scala mdoc:silent
+Handler.response(Response.ok)
 ```
 
-## Special operators on HttpApp
+## Special operators on Handler
 
-These are some special operators for `HttpApps`.
+These are some special operators for `Handler`s.
 
 ### withMethod
 
-Overwrites the method in the incoming request to the `HttpApp`
+Overwrites the method in the incoming request to the `Handler`
 
-```scala
-val a: HttpApp[Any, Nothing] = Http.collect[Request] {
-  case Method.GET -> !! / "text" => Response.text("Hello World!")
-}
-val app = a withMethod (Method.POST)
+```scala mdoc:silent
+val handler11 = Handler.fromFunction((request: Request) => Response.text(request.method.toString))
+handler11.withMethod(Method.POST)
 ```
 
 ### patch
 
-Patches the response produced by the HTTP application using a `Patch`.
+Patches the response produced by the request handler using a `Patch`.
 
-```scala
-val a: HttpApp[Any, Nothing] = Http.collect[Request] {
-  case Method.GET -> !! / "text" => Response.text("Hello World!")
-}
-val app = a.patch(Patch.withStatus(Status.ACCEPTED))
+```scala mdoc:silent
+val handler12 = Handler.response(Response.text("Hello World!"))
+val handler13 = handler12.patch(Response.Patch.withStatus(Status.Accepted))
 ```
 
-### getBodyAsString
+## Converting an `Http` to `App`
 
-`getBodyAsString` extract the body of the response as a string and make it the output type.
+If you want to run an `Http[R, E, A, B]` app on the ZIO HTTP server you need to convert it to `App[R]` using
+operators like `map`, `contramap`, etc.
 
-```scala
-val a: HttpApp[Any, Nothing] = Http.collect[Request] {
-  case Method.GET -> !! / "text" => Response.text("Hello World!")
-}
-val app: Http[Any, Throwable, Request, String] = a.bodyAsString
-```
+Custom errors can be converted to `Response` using `mapError` or you can use `withDefaultErrorHandling` to convert
+all custom errors into internal server error responses.
 
-## Converting an `Http` to `HttpApp`
+If a `Http` can never fail (has `Nothing` as its error type), there is no need to use `withDefaultErrorHandling`
+or `mapError`.
 
-If you want to run an `Http[R, E, A, B]` app on the ZIO HTTP server you need to convert it to `HttpApp[R, E]` using
-operators like `map`, `contramap`, `codec` etc.
+## Running an App
 
-### Using map and contramap
+ZIO HTTP server needs an `App[R]` for running. We can use `Server.serve()` method to bootstrap the server with
+an `App[R]`:
 
-Below snippet shows an app of type `Http` which takes a string and responds with a string:
+```scala mdoc:silent
+object HelloWorld extends ZIOAppDefault {
+  val app: App[Any] = Handler.ok.toHttp
 
-```scala
-val http: Http[Any, Nothing, String, String] = Http.collect[String] {
-  case "GET" => "Ok"
-}
-```
-
-Now, to convert it into an `HttpApp`
-
-- use `contramap` to transform the input ie `String` to `Request`
-- use `map` to transform the output ie `String` to `Response`
-
-```scala
-val app: HttpApp[Any, Nothing] = http.contramap[Request](r => r.method.toString()).map[Response](s => Response.text(s))
-```
-
-### Using middleware
-
-We can also convert an `Http` to `HttpApp` using codec middlewares that take in 2
-functions `decoder: AOut => Either[E, AIn]` and `encoder: BIn => Either[E, BOut]`:
-
-```scala
-val a: Http[Any, Nothing, String, String] = Http.collect[String] {
-  case "GET" => "Ok"
-}
-val app: Http[Any, Nothing, Request, Response] = a @@ Middleware.codec[Request, String](r => Right(r.method.toString()), s => Right(Response.text(s)))
-```
-
-Please find more operators in middlewares.
-
-## Running an HttpApp
-
-ZIO HTTP server needs an `HttpApp[R,E]` for running. We can use `Server.app()` method to bootstrap the server with
-an `HttpApp[R,E]`:
-
-```scala
-import zio.http._
-import zio.http.Server
-import zio._
-
-object HelloWorld extends App {
-  val app: HttpApp[Any, Nothing] = Http.ok
-
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = Server.start(8090, app).exitCode
+  override def run = Server.serve(app).provide(Server.default)
 } 
 ```

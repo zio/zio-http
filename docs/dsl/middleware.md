@@ -81,12 +81,15 @@ Using middlewares we can compose out-of-the-box middlewares (or our custom middl
 #### Cleaned up code using middleware to address cross-cutting concerns like auth, request/response logging, etc.
 Observe, how we can address multiple cross-cutting concerns using neatly composed middlewares, in a single place.
 
-```scala
+```scala mdoc:silent
+import zio._
+import zio.http._
+
 // compose basic auth, request/response logging, timeouts middlewares
-val composedMiddlewares = Middleware.basicAuth("user","pw") ++ 
-        Middleware.debug ++ 
-        Middleware.timeout(5 seconds) 
-````
+val composedMiddlewares = RequestHandlerMiddlewares.basicAuth("user","pw") ++ 
+        RequestHandlerMiddlewares.debug ++ 
+        RequestHandlerMiddlewares.timeout(5.seconds) 
+```
 
 And then we can attach our composed bundle of middlewares to an Http using `@@`
 
