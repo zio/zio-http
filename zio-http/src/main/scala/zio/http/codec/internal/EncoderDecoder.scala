@@ -81,10 +81,6 @@ private[codec] object EncoderDecoder                   {
           case error: HttpCodecError =>
             // TODO: Aggregate all errors in disjunction:
             lastError = error
-
-          case other: Throwable =>
-            other.printStackTrace()
-            throw other
         }
 
         i = i + 1
