@@ -274,7 +274,7 @@ object HttpCodec
     with StatusCodecs {
   implicit def stringToLiteral(string: String): PathCodec[Unit] = literal(string)
 
-  def `enum`[AtomTypes, Value, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag](
+  def enumeration[AtomTypes, Value, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag](
     codec1: HttpCodec[AtomTypes, Sub1],
     codec2: HttpCodec[AtomTypes, Sub2],
   ): HttpCodec[AtomTypes, Value] =
@@ -288,7 +288,7 @@ object HttpCodec
         },
     )
 
-  def `enum`[AtomTypes, Value, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag, Sub3 <: Value: ClassTag](
+  def enumeration[AtomTypes, Value, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag, Sub3 <: Value: ClassTag](
     codec1: HttpCodec[AtomTypes, Sub1],
     codec2: HttpCodec[AtomTypes, Sub2],
     codec3: HttpCodec[AtomTypes, Sub3],
@@ -304,7 +304,7 @@ object HttpCodec
         },
     )
 
-  def `enum`[
+  def enumeration[
     AtomTypes,
     Value,
     Sub1 <: Value: ClassTag,
@@ -329,7 +329,7 @@ object HttpCodec
         },
     )
 
-  def `enum`[
+  def enumeration[
     AtomTypes,
     Value,
     Sub1 <: Value: ClassTag,
@@ -357,7 +357,7 @@ object HttpCodec
         },
     )
 
-  def `enum`[
+  def enumeration[
     AtomTypes,
     Value,
     Sub1 <: Value: ClassTag,
@@ -388,7 +388,7 @@ object HttpCodec
         },
     )
 
-  def `enum`[
+  def enumeration[
     AtomTypes,
     Value,
     Sub1 <: Value: ClassTag,
@@ -423,7 +423,7 @@ object HttpCodec
         },
     )
 
-  def `enum`[
+  def enumeration[
     AtomTypes,
     Value,
     Sub1 <: Value: ClassTag,

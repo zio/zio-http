@@ -194,7 +194,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec1: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub1],
     codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = HttpCodec.`enum`(codec1, codec2)
+    val codec = HttpCodec.enumeration(codec1, codec2)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -203,7 +203,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec2: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub2],
     codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = HttpCodec.`enum`(codec1, codec2, codec3)
+    val codec = HttpCodec.enumeration(codec1, codec2, codec3)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -213,7 +213,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec3: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub3],
     codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = HttpCodec.`enum`(codec1, codec2, codec3, codec4)
+    val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -231,7 +231,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec4: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub4],
     codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = HttpCodec.`enum`(codec1, codec2, codec3, codec4, codec5)
+    val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4, codec5)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -251,7 +251,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec5: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub5],
     codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = HttpCodec.`enum`(codec1, codec2, codec3, codec4, codec5, codec6)
+    val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4, codec5, codec6)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -273,7 +273,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec6: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub6],
     codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = HttpCodec.`enum`(codec1, codec2, codec3, codec4, codec5, codec6, codec7)
+    val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4, codec5, codec6, codec7)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
@@ -297,7 +297,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     codec7: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub7],
     codec8: HttpCodec[HttpCodecType.Status & HttpCodecType.Content, Sub8],
   )(implicit alt: Alternator[Err, Err2]): Endpoint[Input, alt.Out, Output, Middleware] = {
-    val codec = HttpCodec.`enum`(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8)
+    val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8)
     copy[Input, alt.Out, Output, Middleware](error = self.error | codec)
   }
 
