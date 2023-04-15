@@ -16,6 +16,7 @@
 
 package zio.http
 
+import zio.test.TestAspect.withLiveClock
 import zio.test._
 import zio.{Scope, ZLayer}
 
@@ -48,5 +49,5 @@ object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
       Client.default,
       Server.live,
       ZLayer.succeed(serverConfig),
-    )
+    ) @@ withLiveClock
 }

@@ -17,6 +17,7 @@
 package zio.http
 
 import zio.test.Assertion.{equalTo, not}
+import zio.test.TestAspect.withLiveClock
 import zio.test._
 import zio.{Scope, ZIO, ZLayer}
 
@@ -41,5 +42,5 @@ object ServerStartSpec extends HttpRunnableSpec {
     },
   )
 
-  override def spec: Spec[TestEnvironment with Scope, Any] = serverStartSpec
+  override def spec: Spec[TestEnvironment with Scope, Any] = serverStartSpec @@ withLiveClock
 }

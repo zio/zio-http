@@ -17,7 +17,7 @@
 package zio.http
 
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, sequential, shrinks, timeout}
+import zio.test.TestAspect.{diagnose, sequential, shrinks, timeout, withLiveClock}
 import zio.test.assertZIO
 import zio.{Scope, ZIO, ZLayer, durationInt}
 
@@ -78,7 +78,6 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       ZLayer.succeed(configAppWithRequestStreaming),
       Server.live,
       Client.default,
-    ) @@
-      timeout(30 seconds) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0)
+    ) @@ timeout(30 seconds) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
 
 }
