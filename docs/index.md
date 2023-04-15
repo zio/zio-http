@@ -43,7 +43,7 @@ object HelloWorld extends ZIOAppDefault {
 
 ## Steps to run an example
 
-1. Edit the [RunSettings](https://github.com/zio/zio-http/blob/main/project/BuildHelper.scala#L91) - modify `className` to the example you'd like to run.
+1. Edit the [RunSettings](https://github.com/zio/zio-http/blob/main/project/BuildHelper.scala#L107) - modify `className` to the example you'd like to run.
 2. From sbt shell, run `~example/reStart`. You should see `Server started on port: 8080`.
 3. Send curl request for defined `http Routes`, for eg : `curl -i "http://localhost:8080/text"` for `example.HelloWorld`.
 
