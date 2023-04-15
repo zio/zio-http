@@ -178,12 +178,14 @@ object ZClientAspect {
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
     failureLevel: LogLevel = LogLevel.Warning,
     loggedRequestHeaders: Set[HeaderType] = Set.empty,
-    loggedResponseHeader: Set[HeaderType] = Set.empty,
+    loggedResponseHeaders: Set[HeaderType] = Set.empty,
     logRequestBody: Boolean = false,
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
-  )(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
+  )(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] = {
+    val loggedRequestHeaderNames  = loggedRequestHeaders.map(_.name.toLowerCase)
+    val loggedResponseHeaderNames = loggedResponseHeaders.map(_.name.toLowerCase)
     new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
 
       /**
@@ -227,12 +229,12 @@ object ZClientAspect {
                     .logLevel(level(response.status)) {
                       val requestHeaders  =
                         headers.collect {
-                          case header: Header if loggedRequestHeaders.contains(header.headerType) =>
+                          case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
                             LogAnnotation(header.headerName, header.renderedValue)
                         }.toSet
                       val responseHeaders =
                         response.headers.collect {
-                          case header: Header if loggedResponseHeader.contains(header.headerType) =>
+                          case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
                             LogAnnotation(header.headerName, header.renderedValue)
                         }.toSet
 
@@ -277,7 +279,7 @@ object ZClientAspect {
                     .logLevel(failureLevel) {
                       val requestHeaders =
                         headers.collect {
-                          case header: Header if loggedRequestHeaders.contains(header.headerType) =>
+                          case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
                             LogAnnotation(header.headerName, header.renderedValue)
                         }.toSet
 
@@ -316,4 +318,5 @@ object ZClientAspect {
             client.socket(version, url, headers, app)
         }
     }
+  }
 }
