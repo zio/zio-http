@@ -53,6 +53,7 @@ object HttpCodecError {
   final case class MalformedBody(details: String)                                       extends HttpCodecError {
     def message = s"Malformed request body failed to decode: $details"
   }
+  final case class CustomError(message: String)                                         extends HttpCodecError
 
   def isHttpCodecError(cause: Cause[Any]): Boolean = {
     !cause.isFailure && cause.defects.forall(e => e.isInstanceOf[HttpCodecError])

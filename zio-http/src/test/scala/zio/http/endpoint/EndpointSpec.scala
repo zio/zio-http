@@ -21,9 +21,9 @@ import zio.test._
 
 import zio.schema.{DeriveSchema, Schema}
 
+import zio.http._
 import zio.http.codec.HttpCodec.{int, literal, query, string}
 import zio.http.codec._
-import zio.http.{Body, Method, Request, Response, URL}
 
 object EndpointSpec extends ZIOSpecDefault {
   case class NewPost(value: String)
@@ -302,6 +302,59 @@ object EndpointSpec extends ZIOSpecDefault {
           testRoutes("/users/123/posts/555?name=adam", Method.PUT)
         },
       ),
+      suite("custom error")(
+        test("simple custom error response") {
+          val routes =
+            Endpoint
+              .get(literal("users") / int("userId"))
+              .out[String]
+              .outError[String](Status.Custom(999))
+              .implement { userId =>
+                ZIO.fail(s"path(users, $userId)")
+              }
+
+          val request =
+            Request
+              .get(
+                URL.decode("/users/123").toOption.get,
+              )
+
+          for {
+            response <- routes.toApp.runZIO(request).mapError(_.get)
+            body     <- response.body.asString.orDie
+          } yield assertTrue(response.status.code == 999, body == "\"path(users, 123)\"")
+        },
+        test("status depending on the error subtype") {
+          val routes =
+            Endpoint
+              .get(literal("users") / int("userId"))
+              .out[String]
+              .outErrors[TestError](
+                HttpCodec.error[TestError.UnexpectedError](Status.InternalServerError),
+                HttpCodec.error[TestError.InvalidUser](Status.NotFound),
+              )
+              .implement { userId =>
+                if (userId == 123) ZIO.fail(TestError.InvalidUser(userId))
+                else ZIO.fail(TestError.UnexpectedError("something went wrong"))
+              }
+
+          val request1 = Request.get(URL.decode("/users/123").toOption.get)
+          val request2 = Request.get(URL.decode("/users/321").toOption.get)
+
+          for {
+            response1 <- routes.toApp.runZIO(request1).mapError(_.get)
+            body1     <- response1.body.asString.orDie
+
+            response2 <- routes.toApp.runZIO(request2).mapError(_.get)
+            body2     <- response2.body.asString.orDie
+          } yield assertTrue(
+            response1.status == Status.NotFound,
+            body1 == "{\"userId\":123}",
+            response2.status == Status.InternalServerError,
+            body2 == "{\"message\":\"something went wrong\"}",
+          )
+        },
+      ),
     ),
   )
 
@@ -328,4 +381,13 @@ object EndpointSpec extends ZIOSpecDefault {
 
   def parseResponse(response: Response): UIO[String] =
     response.body.asString.!
+
+  sealed trait TestError
+  object TestError {
+    final case class InvalidUser(userId: Int)         extends TestError
+    final case class UnexpectedError(message: String) extends TestError
+
+    implicit val invalidUserSchema: Schema[TestError.InvalidUser]         = DeriveSchema.gen[TestError.InvalidUser]
+    implicit val unexpectedErrorSchema: Schema[TestError.UnexpectedError] = DeriveSchema.gen[TestError.UnexpectedError]
+  }
 }
