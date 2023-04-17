@@ -1,6 +1,7 @@
 package example
 
 import zio._
+import zio.cli._
 
 import zio.schema._
 
@@ -59,15 +60,17 @@ trait TestCliEndpoints {
 
 object TestCliApp extends zio.cli.ZIOCliDefault with TestCliEndpoints {
   val cliApp =
-    HttpCliApp.fromEndpoints(
-      name = "users-mgmt",
-      version = "0.0.1",
-      summary = "Users management CLI",
-      footer = "Copyright 2023",
-      host = "localhost",
-      port = 8080,
-      endpoints = Chunk(getUser, getUserPosts, createUser),
-    )
+    HttpCliApp
+      .fromEndpoints(
+        name = "users-mgmt",
+        version = "0.0.1",
+        summary = HelpDoc.Span.text("Users management CLI"),
+        footer = HelpDoc.p("Copyright 2023"),
+        host = "localhost",
+        port = 8080,
+        endpoints = Chunk(getUser, getUserPosts, createUser),
+      )
+      .cliApp
 }
 
 object TestCliServer extends zio.ZIOAppDefault with TestCliEndpoints {
