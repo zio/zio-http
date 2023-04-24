@@ -689,11 +689,13 @@ object ZClient {
       ZIO.serviceWithZIO[Client](_.socket(version, url, headers, app))
     }
 
-  def configured(path: String = "zio.http.client"): ZLayer[DnsResolver, Throwable, Client] =
+  def configured(
+    path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "client"),
+  ): ZLayer[DnsResolver, Throwable, Client] =
     (
       ZLayer.service[DnsResolver] ++
-        ZLayer(ZIO.config(Config.config.nested(path))) ++
-        ZLayer(ZIO.config(NettyConfig.config.nested(path)))
+        ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*))) ++
+        ZLayer(ZIO.config(NettyConfig.config.nested(path.head, path.tail: _*)))
     ).mapError(error => new RuntimeException(s"Configuration error: $error")) >>> live
 
   val customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = {

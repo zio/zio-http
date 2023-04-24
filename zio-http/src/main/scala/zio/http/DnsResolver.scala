@@ -254,8 +254,10 @@ object DnsResolver {
     )
   }
 
-  def configured(path: String = "zio.http.dns"): ZLayer[Any, zio.Config.Error, DnsResolver] =
-    ZLayer(ZIO.config(Config.config.nested(path))) >>> live
+  def configured(
+    path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "dns"),
+  ): ZLayer[Any, zio.Config.Error, DnsResolver] =
+    ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*))) >>> live
 
   val default: ZLayer[Any, Nothing, DnsResolver] =
     ZLayer.succeed(Config.default) >>> live
