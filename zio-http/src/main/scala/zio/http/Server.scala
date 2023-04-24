@@ -346,8 +346,8 @@ object Server {
     }
   }
 
-  def configured(path: String = "zio.http.server"): ZLayer[Any, Throwable, Server] =
-    ZLayer(ZIO.config(Config.config.nested(path))).mapError(error =>
+  def configured(path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "server")): ZLayer[Any, Throwable, Server] =
+    ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*))).mapError(error =>
       new RuntimeException(s"Configuration error: $error"),
     ) >>> live
 
