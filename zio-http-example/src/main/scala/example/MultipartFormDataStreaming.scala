@@ -1,9 +1,7 @@
 package example
 
 import zio._
-
-import zio.stream.ZSink
-
+import zio.stream.{ZSink, ZStream}
 import zio.http._
 
 object MultipartFormDataStreaming extends ZIOAppDefault {
@@ -49,8 +47,11 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
                 ),
               )
             count <- form.fields
-              .flatMapPar(1) { case sb: FormField.StreamingBinary =>
-                sb.data
+              .flatMapPar(1) {
+                case sb: FormField.StreamingBinary =>
+                  sb.data
+                case _                             =>
+                  ZStream.empty
               }
               .run(ZSink.count)
 
