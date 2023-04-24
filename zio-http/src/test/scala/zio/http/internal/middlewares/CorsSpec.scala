@@ -16,6 +16,7 @@
 
 package zio.http.internal.middlewares
 
+import zio.ZIO
 import zio.test._
 
 import zio.http.Header.AccessControlAllowMethods
@@ -23,9 +24,18 @@ import zio.http.HttpAppMiddleware.cors
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.internal.middlewares.Cors.CorsConfig
+import zio.http.internal.middlewares.CorsSpec.app
 
 object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
-  val app = Handler.ok.toHttp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
+  val app = Http
+    .collectZIO[Request] {
+      case Method.GET -> !! / "success" => ZIO.succeed(Response.ok)
+      case Method.GET -> !! / "failure" => ZIO.fail("failure")
+      case Method.GET -> !! / "die"     => ZIO.dieMessage("die")
+    }
+    .catchAllCauseZIO { cause =>
+      ZIO.succeed(Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint)))
+    } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
 
   override def spec = suite("CorsMiddlewares")(
     test("OPTIONS request") {
@@ -50,6 +60,40 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       val request =
         Request
           .get(URL(!! / "success"))
+          .copy(
+            headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
+          )
+
+      for {
+        res <- app.runZIO(request)
+      } yield assertTrue(
+        res.hasHeader(Header.AccessControlExposeHeaders.All),
+        res.hasHeader(Header.AccessControlAllowOrigin("http", "test-env")),
+        res.hasHeader(Header.AccessControlAllowMethods(Method.GET)),
+        res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+      )
+    },
+    test("GET request with server side failure") {
+      val request =
+        Request
+          .get(URL(!! / "failure"))
+          .copy(
+            headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
+          )
+
+      for {
+        res <- app.runZIO(request)
+      } yield assertTrue(
+        res.hasHeader(Header.AccessControlExposeHeaders.All),
+        res.hasHeader(Header.AccessControlAllowOrigin("http", "test-env")),
+        res.hasHeader(Header.AccessControlAllowMethods(Method.GET)),
+        res.hasHeader(Header.AccessControlAllowCredentials.Allow),
+      )
+    },
+    test("GET request with server side defect") {
+      val request =
+        Request
+          .get(URL(!! / "die"))
           .copy(
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )

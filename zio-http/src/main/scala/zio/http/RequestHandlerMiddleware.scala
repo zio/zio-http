@@ -15,7 +15,7 @@
  */
 
 package zio.http
-import zio.{Trace, ZIO}
+import zio.{Cause, Trace, ZIO}
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import scala.annotation.unchecked.uncheckedVariance // scalafix:ok;
@@ -127,12 +127,19 @@ object RequestHandlerMiddleware {
     )(implicit trace: Trace): Http[Env, Err, Request, Response] =
       http match {
         case empty @ Http.Empty(_)                          =>
-          empty
+          empty.withErrorHandler(empty.errorHandler.map(applyToErrorHandler))
         case Http.Static(handler, errorHandler)             =>
-          Http.Static(apply(handler), errorHandler)
+          Http.Static(apply(handler), errorHandler.map(applyToErrorHandler))
         case route: Http.Route[Env, Err, Request, Response] =>
-          Http.fromHttpZIO[Request](route.run(_).map(self(_))).withErrorHandler(route.errorHandler)
+          Http
+            .fromHttpZIO[Request](route.run(_).map(self(_)))
+            .withErrorHandler(route.errorHandler.map(applyToErrorHandler))
       }
+
+    def applyToErrorHandler[Env <: UpperEnv](
+      f: Cause[Nothing] => ZIO[Env, Nothing, Response],
+    )(implicit trace: Trace): (Cause[Nothing] => ZIO[Env, Nothing, Response]) =
+      f
   }
 
   def identity: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =

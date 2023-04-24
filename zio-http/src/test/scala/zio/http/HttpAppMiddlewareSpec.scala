@@ -45,13 +45,15 @@ object HttpAppMiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
         assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
       },
       test("runAfter") {
-        val mid = HttpAppMiddleware.runAfter(Console.printLine("B"))
+        val mid = HttpAppMiddleware.runAfter(Console.printLine("B").orDie)
         val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("A").as(Response.ok)) @@ mid
         assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
       },
       test("runBefore and runAfter") {
         val mid =
-          HttpAppMiddleware.runBefore(Console.printLine("A")) ++ HttpAppMiddleware.runAfter(Console.printLine("C"))
+          HttpAppMiddleware.runBefore(Console.printLine("A")) ++ HttpAppMiddleware.runAfter(
+            Console.printLine("C").orDie,
+          )
         val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("B").as(Response.ok)) @@ mid
         assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n", "C\n")))
       },
