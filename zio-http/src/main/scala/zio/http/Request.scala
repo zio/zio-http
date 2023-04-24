@@ -31,6 +31,16 @@ final case class Request(
   remoteAddress: Option[InetAddress],
 ) extends HeaderOps[Request] { self =>
 
+  /** Custom headers and headers required by the used Body */
+  lazy val allHeaders: Headers = {
+    body.mediaType match {
+      case Some(mediaType) =>
+        headers ++ Headers(Header.ContentType(mediaType, body.boundary))
+      case None            =>
+        headers
+    }
+  }
+
   /**
    * Add trailing slash to the path.
    */
@@ -83,7 +93,7 @@ object Request {
   }
 
   def default(method: Method, url: URL, body: Body = Body.empty) =
-    Request(body, headersForBody(body), method, url, Version.`HTTP/1.1`, Option.empty)
+    Request(body, Headers.empty, method, url, Version.`HTTP/1.1`, Option.empty)
 
   def delete(url: URL): Request = default(Method.DELETE, url)
 
@@ -96,12 +106,4 @@ object Request {
   def post(body: Body, url: URL): Request = default(Method.POST, url, body)
 
   def put(body: Body, url: URL): Request = default(Method.PUT, url, body)
-
-  private def headersForBody(body: Body): Headers =
-    body.mediaType match {
-      case Some(mediaType) =>
-        Headers(Header.ContentType(mediaType, body.boundary))
-      case None            =>
-        Headers.empty
-    }
 }

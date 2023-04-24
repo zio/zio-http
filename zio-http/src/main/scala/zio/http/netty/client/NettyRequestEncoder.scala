@@ -38,7 +38,7 @@ private[zio] object NettyRequestEncoder {
     // Host and port information should be in the headers.
     val path = req.url.relative.encode
 
-    val encodedReqHeaders = Conversions.headersToNetty(req.headers)
+    val encodedReqHeaders = Conversions.headersToNetty(req.allHeaders)
 
     val headers = req.url.hostPort match {
       case Some(host) => encodedReqHeaders.set(HttpHeaderNames.HOST, host)
