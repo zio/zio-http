@@ -48,14 +48,12 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
                   body = Body.fromString(s"Failed to decode body as multipart/form-data (${ex.getMessage}"),
                 ),
               )
-            count <- form.fields
-              .flatMapPar(1) {
-                case sb: FormField.StreamingBinary =>
-                  sb.data
-                case _                             =>
-                  ZStream.empty
-              }
-              .run(ZSink.count)
+            count <- form.fields.flatMap {
+              case sb: FormField.StreamingBinary =>
+                sb.data
+              case _                             =>
+                ZStream.empty
+            }.run(ZSink.count)
 
             _ <- ZIO.debug(s"Finished reading multipart/form stream, received $count bytes of data")
           } yield Response.text(count.toString)
