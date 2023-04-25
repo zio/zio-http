@@ -1,7 +1,9 @@
 package example
 
 import zio._
+
 import zio.stream.{ZSink, ZStream}
+
 import zio.http._
 
 object MultipartFormDataStreaming extends ZIOAppDefault {
@@ -64,6 +66,7 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
     for {
       port <- Server.install(app)
       _    <- ZIO.logInfo(s"Server started on port $port")
+      _    <- ZIO.never
     } yield ()
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
