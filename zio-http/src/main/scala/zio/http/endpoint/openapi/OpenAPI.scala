@@ -20,78 +20,204 @@ import java.net.URI
 
 import scala.util.matching.Regex
 
-import zio.NonEmptyChunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.Chunk
+import zio.json.ast._
+
+import zio.schema._
+import zio.schema.annotation.{fieldName, noDiscriminator}
+import zio.schema.codec.JsonCodec
+import zio.schema.codec.json._
 
 import zio.http.Status
 import zio.http.codec.Doc
-import zio.http.endpoint.openapi
-import zio.http.endpoint.openapi.JsonRenderer._
+import zio.http.endpoint.openapi.OpenAPI.SecurityScheme.SecurityRequirement
 
-private[openapi] sealed trait OpenAPIBase {
-  self =>
-  def toJson: String
+/**
+ * This is the root document object of the OpenAPI document.
+ *
+ * @param openapi
+ *   This string MUST be the semantic version number of the OpenAPI
+ *   Specification version that the OpenAPI document uses. The openapi field
+ *   SHOULD be used by tooling specifications and clients to interpret the
+ *   OpenAPI document. This is not related to the API info.version string.
+ * @param info
+ *   Provides metadata about the API. The metadata MAY be used by tooling as
+ *   required.
+ * @param servers
+ *   A List of Server Objects, which provide connectivity information to a
+ *   target server. If the servers property is empty, the default value would be
+ *   a Server Object with a url value of /.
+ * @param paths
+ *   The available paths and operations for the API.
+ * @param components
+ *   An element to hold various schemas for the specification.
+ * @param security
+ *   A declaration of which security mechanisms can be used across the API. The
+ *   list of values includes alternative security requirement objects that can
+ *   be used. Only one of the security requirement objects need to be satisfied
+ *   to authorize a request. Individual operations can override this definition.
+ *   To make security optional, an empty security requirement ({}) can be
+ *   included in the List.
+ * @param tags
+ *   A list of tags used by the specification with additional metadata. The
+ *   order of the tags can be used to reflect on their order by the parsing
+ *   tools. Not all tags that are used by the Operation Object must be declared.
+ *   The tags that are not declared MAY be organized randomly or based on the
+ *   tools’ logic. Each tag name in the list MUST be unique.
+ * @param externalDocs
+ *   Additional external documentation.
+ */
+final case class OpenAPI(
+  openapi: String,
+  info: OpenAPI.Info,
+  servers: List[OpenAPI.Server] = List.empty,
+  paths: Map[OpenAPI.Path, OpenAPI.PathItem] = Map.empty,
+  components: Option[OpenAPI.Components],
+  security: List[SecurityRequirement] = List.empty,
+  tags: List[OpenAPI.Tag] = List.empty,
+  externalDocs: Option[OpenAPI.ExternalDoc],
+) {
+  def ++(other: OpenAPI): OpenAPI = OpenAPI(
+    openapi = openapi,
+    info = info,
+    servers = servers ++ other.servers,
+    paths = paths ++ other.paths,
+    components = (components.toSeq ++ other.components).reduceOption(_ ++ _),
+    security = security ++ other.security,
+    tags = tags ++ other.tags,
+    externalDocs = externalDocs,
+  )
+
+  def toJson: String =
+    JsonCodec
+      .jsonEncoder(JsonCodec.Config(ignoreEmptyCollections = true))(OpenAPI.schema)
+      .encodeJson(this, None)
+      .toString
+
+  def toJsonPretty: String =
+    JsonCodec
+      .jsonEncoder(JsonCodec.Config(ignoreEmptyCollections = true))(OpenAPI.schema)
+      .encodeJson(this, Some(0))
+      .toString
+
+  def title(title: String): OpenAPI = copy(info = info.copy(title = title))
+
+  def version(version: String): OpenAPI = copy(info = info.copy(version = version))
 }
 
 object OpenAPI {
 
-  /**
-   * This is the root document object of the OpenAPI document.
-   *
-   * @param openapi
-   *   This string MUST be the semantic version number of the OpenAPI
-   *   Specification version that the OpenAPI document uses. The openapi field
-   *   SHOULD be used by tooling specifications and clients to interpret the
-   *   OpenAPI document. This is not related to the API info.version string.
-   * @param info
-   *   Provides metadata about the API. The metadata MAY be used by tooling as
-   *   required.
-   * @param servers
-   *   A List of Server Objects, which provide connectivity information to a
-   *   target server. If the servers property is empty, the default value would
-   *   be a Server Object with a url value of /.
-   * @param paths
-   *   The available paths and operations for the API.
-   * @param components
-   *   An element to hold various schemas for the specification.
-   * @param security
-   *   A declaration of which security mechanisms can be used across the API.
-   *   The list of values includes alternative security requirement objects that
-   *   can be used. Only one of the security requirement objects need to be
-   *   satisfied to authorize a request. Individual operations can override this
-   *   definition. To make security optional, an empty security requirement ({})
-   *   can be included in the List.
-   * @param tags
-   *   A list of tags used by the specification with additional metadata. The
-   *   order of the tags can be used to reflect on their order by the parsing
-   *   tools. Not all tags that are used by the Operation Object must be
-   *   declared. The tags that are not declared MAY be organized randomly or
-   *   based on the tools’ logic. Each tag name in the list MUST be unique.
-   * @param externalDocs
-   *   Additional external documentation.
-   */
-  final case class OpenAPI(
-    openapi: String,
-    info: Info,
-    servers: List[Server],
-    paths: Paths,
-    components: Option[Components],
-    security: List[SecurityRequirement],
-    tags: List[Tag],
-    externalDocs: Option[ExternalDoc],
-  ) extends OpenAPIBase {
-    def toJson: String =
-      JsonRenderer.renderFields(
-        "openapi"      -> openapi,
-        "info"         -> info,
-        "servers"      -> servers,
-        "paths"        -> paths,
-        "components"   -> components,
-        "security"     -> security,
-        "tags"         -> tags,
-        "externalDocs" -> externalDocs,
+  implicit val schema: Schema[OpenAPI] =
+    DeriveSchema.gen[OpenAPI]
+
+  def empty: OpenAPI = OpenAPI(
+    openapi = "3.1.0",
+    info = Info(
+      title = "",
+      description = None,
+      termsOfService = None,
+      contact = None,
+      license = None,
+      version = "",
+    ),
+    servers = List.empty,
+    paths = Map.empty,
+    components = None,
+    security = List.empty,
+    tags = List.empty,
+    externalDocs = None,
+  )
+
+  implicit val statusSchema =
+    zio.schema
+      .Schema[String]
+      .transformOrFail[Status](
+        s => Status.fromInt(s.toInt).toRight("Invalid Status"),
+        p => Right(p.text),
       )
-  }
+
+  implicit val pathMapSchema: Schema[Map[Path, PathItem]] =
+    DeriveSchema
+      .gen[Map[String, PathItem]]
+      .transformOrFail(
+        m => {
+          val it                                       = m.iterator
+          var transformed                              = Map.empty[Path, PathItem]
+          var error: Left[String, Map[Path, PathItem]] = null
+          while (it.hasNext && error == null) {
+            val (k, v) = it.next()
+            Path.fromString(k) match {
+              case Some(path) => transformed += path -> v
+              case None       => error = Left(s"Invalid path: $k")
+            }
+          }
+          if (error != null) error
+          else Right(transformed)
+        },
+        (m: Map[Path, PathItem]) => Right(m.map { case (k, v) => k.name -> v }),
+      )
+
+  implicit def keyMapSchema[T](implicit
+    schema: Schema[T],
+  ): Schema[Map[Key, T]] =
+    DeriveSchema
+      .gen[Map[String, T]]
+      .transformOrFail(
+        m => {
+          val it                               = m.iterator
+          var transformed                      = Map.empty[Key, T]
+          var error: Left[String, Map[Key, T]] = null
+          while (it.hasNext && error == null) {
+            val (k, v) = it.next()
+            Key.fromString(k) match {
+              case Some(key) => transformed += key -> v
+              case None      => error = Left(s"Invalid key: $k")
+            }
+          }
+          if (error != null) error
+          else Right(transformed)
+        },
+        (m: Map[Key, T]) => Right(m.map { case (k, v) => k.name -> v }),
+      )
+
+  implicit def statusMapSchema[T](implicit
+    schema: Schema[T],
+  ): Schema[Map[StatusOrDefault, T]] =
+    DeriveSchema
+      .gen[Map[String, T]]
+      .transformOrFail(
+        m => {
+          val it                                           = m.iterator
+          var transformed                                  = Map.empty[StatusOrDefault, T]
+          var error: Left[String, Map[StatusOrDefault, T]] = null
+          while (it.hasNext && error == null) {
+            val (k, v) = it.next()
+            if (k == "default") transformed += StatusOrDefault.Default -> v
+            else {
+              zio.http.Status.fromString(k) match {
+                case Some(key) => transformed += StatusOrDefault.StatusValue(key) -> v
+                case None      => error = Left(s"Invalid status: $k")
+              }
+            }
+          }
+          if (error != null) error
+          else Right(transformed)
+        },
+        (m: Map[StatusOrDefault, T]) => Right(m.map { case (k, v) => k.text -> v }),
+      )
+
+  implicit val mediaTypeTupleSchema: Schema[(String, MediaType)] =
+    zio.schema
+      .Schema[Map[String, MediaType]]
+      .transformOrFail(
+        m => {
+          if (m.size == 1) {
+            val (k, v) = m.head
+            Right((k, v))
+          } else Left("Invalid media type")
+        },
+        t => Right(Map(t._1 -> t._2)),
+      )
 
   /**
    * Allows referencing an external resource for extended documentation.
@@ -102,9 +228,7 @@ object OpenAPI {
    * @param url
    *   The URL for the target documentation.
    */
-  final case class ExternalDoc(description: Option[Doc], url: URI) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields("description" -> description, "url" -> url)
-  }
+  final case class ExternalDoc(description: Option[Doc], url: URI)
 
   /**
    * The object provides metadata about the API. The metadata MAY be used by the
@@ -127,21 +251,12 @@ object OpenAPI {
    */
   final case class Info(
     title: String,
-    description: Doc,
-    termsOfService: URI,
+    description: Option[Doc],
+    termsOfService: Option[URI],
     contact: Option[Contact],
     license: Option[License],
     version: String,
-  ) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "title"          -> title,
-      "description"    -> description,
-      "termsOfService" -> termsOfService,
-      "contact"        -> contact,
-      "license"        -> license,
-      "version"        -> version,
-    )
-  }
+  )
 
   /**
    * Contact information for the exposed API.
@@ -154,9 +269,7 @@ object OpenAPI {
    *   The email address of the contact person/organization. MUST be in the
    *   format of an email address.
    */
-  final case class Contact(name: Option[String], url: Option[URI], email: String) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields("name" -> name, "url" -> url, "email" -> email)
-  }
+  final case class Contact(name: Option[String], url: Option[URI], email: Option[String])
 
   /**
    * License information for the exposed API.
@@ -166,9 +279,7 @@ object OpenAPI {
    * @param url
    *   A URL to the license used for the API.
    */
-  final case class License(name: String, url: Option[URI]) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields("name" -> name, "url" -> url)
-  }
+  final case class License(name: String, url: Option[URI])
 
   /**
    * An object representing a Server.
@@ -184,14 +295,11 @@ object OpenAPI {
    *   A map between a variable name and its value. The value is used for
    *   substitution in the server’s URL template.
    */
-  final case class Server(url: URI, description: Doc, variables: Map[String, ServerVariable])
-      extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "url"         -> url,
-      "description" -> description,
-      "variables"   -> variables,
-    )
-  }
+  final case class Server(
+    url: URI,
+    description: Option[Doc],
+    variables: Map[String, ServerVariable] = Map.empty,
+  )
 
   /**
    * An object representing a Server Variable for server URL template
@@ -209,13 +317,11 @@ object OpenAPI {
    * @param description
    *   A description for the server variable.
    */
-  final case class ServerVariable(`enum`: NonEmptyChunk[String], default: String, description: Doc)
-      extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "enum"        -> `enum`,
-      "default"     -> default,
-      "description" -> description,
-    )
+  final case class ServerVariable(`enum`: Chunk[String], default: String, description: Doc)
+
+  object ServerVariable {
+    implicit val schema: Schema[ServerVariable] =
+      DeriveSchema.gen[ServerVariable]
   }
 
   /**
@@ -244,39 +350,45 @@ object OpenAPI {
    *   An object to hold reusable Callback Objects.
    */
   final case class Components(
-    schemas: Map[Key, SchemaOrReference],
-    responses: Map[Key, ResponseOrReference],
-    parameters: Map[Key, ParameterOrReference],
-    examples: Map[Key, ExampleOrReference],
-    requestBodies: Map[Key, RequestBodyOrReference],
-    headers: Map[Key, HeaderOrReference],
-    securitySchemes: Map[Key, SecuritySchemeOrReference],
-    links: Map[Key, LinkOrReference],
-    callbacks: Map[Key, CallbackOrReference],
-  ) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "schemas"         -> schemas,
-      "responses"       -> responses,
-      "parameters"      -> parameters,
-      "examples"        -> examples,
-      "requestBodies"   -> requestBodies,
-      "headers"         -> headers,
-      "securitySchemes" -> securitySchemes,
-      "links"           -> links,
-      "callbacks"       -> callbacks,
+    schemas: Map[Key, ReferenceOr[JsonSchema]] = Map.empty,
+    responses: Map[Key, ReferenceOr[Response]] = Map.empty,
+    parameters: Map[Key, ReferenceOr[Parameter]] = Map.empty,
+    examples: Map[Key, ReferenceOr[Example]] = Map.empty,
+    requestBodies: Map[Key, ReferenceOr[RequestBody]] = Map.empty,
+    headers: Map[Key, ReferenceOr[Header]] = Map.empty,
+    securitySchemes: Map[Key, ReferenceOr[SecurityScheme]] = Map.empty,
+    links: Map[Key, ReferenceOr[Link]] = Map.empty,
+    callbacks: Map[Key, ReferenceOr[Callback]] = Map.empty,
+  ) {
+    def ++(other: Components): Components = Components(
+      schemas = schemas ++ other.schemas,
+      responses = responses ++ other.responses,
+      parameters = parameters ++ other.parameters,
+      examples = examples ++ other.examples,
+      requestBodies = requestBodies ++ other.requestBodies,
+      headers = headers ++ other.headers,
+      securitySchemes = securitySchemes ++ other.securitySchemes,
+      links = links ++ other.links,
+      callbacks = callbacks ++ other.callbacks,
     )
   }
 
-  sealed abstract case class Key private (name: String) extends openapi.OpenAPIBase {
-    override def toJson: String = name
-  }
+  sealed abstract case class Key private (name: String)
 
   object Key {
+
+    implicit val schema: Schema[Key] =
+      zio.schema
+        .Schema[String]
+        .transformOrFail[Key](
+          s => fromString(s).toRight(s"Invalid Key $s"),
+          p => Right(p.name),
+        )
 
     /**
      * All Components objects MUST use Keys that match the regular expression.
      */
-    val validName: Regex = "^[a-zA-Z0-9.\\-_]+$.".r
+    val validName: Regex = "^[a-zA-Z0-9.\\-_]+$".r
 
     def fromString(name: String): Option[Key] = name match {
       case validName() => Some(new Key(name) {})
@@ -303,16 +415,16 @@ object OpenAPI {
    * @param name
    *   The field name of the relative path MUST begin with a forward slash (/).
    */
-  sealed abstract case class Path private (name: String) extends openapi.OpenAPIBase {
-    override def toJson: String = name
-  }
+  case class Path private (name: String) extends AnyVal
 
   object Path {
+    implicit val schema: Schema[Path] = DeriveSchema.gen[Path]
+
     // todo maybe not the best regex, but the old one was not working at all
-    val validPath: Regex = "/[a-zA-Z0-9\\-_\\{\\}]+".r
+    val validPath: Regex = """/[/a-zA-Z0-9\-_{}]*""".r
 
     def fromString(name: String): Option[Path] = name match {
-      case validPath() => Some(new Path(name) {})
+      case validPath() => Some(Path(name))
       case _           => None
     }
   }
@@ -359,9 +471,9 @@ object OpenAPI {
    *   components/parameters.
    */
   final case class PathItem(
-    ref: String,
-    summary: String = "",
-    description: Doc,
+    @fieldName("$ref") ref: Option[String],
+    summary: Option[String],
+    description: Option[Doc],
     get: Option[Operation],
     put: Option[Operation],
     post: Option[Operation],
@@ -370,23 +482,48 @@ object OpenAPI {
     head: Option[Operation],
     patch: Option[Operation],
     trace: Option[Operation],
-    servers: List[Server],
-    parameters: Set[ParameterOrReference],
-  ) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      s"$$ref"      -> ref,
-      "summary"     -> summary,
-      "description" -> description,
-      "get"         -> get,
-      "put"         -> put,
-      "post"        -> post,
-      "delete"      -> delete,
-      "options"     -> options,
-      "head"        -> head,
-      "patch"       -> patch,
-      "trace"       -> trace,
-      "servers"     -> servers,
-      "parameters"  -> parameters,
+    servers: List[Server] = List.empty,
+    parameters: Set[ReferenceOr[Parameter]] = Set.empty,
+  ) {
+    def get(operation: Operation): PathItem     = copy(get = Some(operation))
+    def put(operation: Operation): PathItem     = copy(put = Some(operation))
+    def post(operation: Operation): PathItem    = copy(post = Some(operation))
+    def delete(operation: Operation): PathItem  = copy(delete = Some(operation))
+    def options(operation: Operation): PathItem = copy(options = Some(operation))
+    def head(operation: Operation): PathItem    = copy(head = Some(operation))
+    def patch(operation: Operation): PathItem   = copy(patch = Some(operation))
+    def trace(operation: Operation): PathItem   = copy(trace = Some(operation))
+    def any(operation: Operation): PathItem     =
+      copy(
+        get = Some(operation),
+        put = Some(operation),
+        post = Some(operation),
+        delete = Some(operation),
+        options = Some(operation),
+        head = Some(operation),
+        patch = Some(operation),
+        trace = Some(operation),
+      )
+  }
+
+  object PathItem {
+    implicit val schema: Schema[PathItem] =
+      DeriveSchema.gen[PathItem]
+
+    val empty: PathItem = PathItem(
+      ref = None,
+      summary = None,
+      description = None,
+      get = None,
+      put = None,
+      post = None,
+      delete = None,
+      options = None,
+      head = None,
+      patch = None,
+      trace = None,
+      servers = List.empty,
+      parameters = Set.empty,
     )
   }
 
@@ -445,97 +582,60 @@ object OpenAPI {
    *   be overridden by this value.
    */
   final case class Operation(
-    tags: List[String],
-    summary: String = "",
-    description: Doc,
+    tags: List[String] = List.empty,
+    summary: Option[String],
+    description: Option[Doc],
     externalDocs: Option[ExternalDoc],
     operationId: Option[String],
-    parameters: Set[ParameterOrReference],
-    requestBody: Option[RequestBodyOrReference],
-    responses: Responses,
-    callbacks: Map[String, CallbackOrReference],
+    parameters: Set[ReferenceOr[Parameter]] = Set.empty,
+    requestBody: Option[ReferenceOr[RequestBody]],
+    responses: Map[StatusOrDefault, ReferenceOr[Response]] = Map.empty,
+    callbacks: Map[String, ReferenceOr[Callback]] = Map.empty,
     deprecated: Boolean = false,
-    security: List[SecurityRequirement],
-    servers: List[Server],
-  ) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "tags"         -> tags,
-      "summary"      -> summary,
-      "description"  -> description,
-      "externalDocs" -> externalDocs,
-      "operationId"  -> operationId,
-      "parameters"   -> parameters,
-      "requestBody"  -> requestBody,
-      "responses"    -> responses,
-      "callbacks"    -> callbacks,
-      "deprecated"   -> deprecated,
-      "security"     -> security,
-      "servers"      -> servers,
-    )
-  }
-
-  sealed trait ParameterOrReference extends openapi.OpenAPIBase
+    security: List[SecurityRequirement] = List.empty,
+    servers: List[Server] = List.empty,
+  )
 
   /**
    * Describes a single operation parameter.
    */
-  sealed trait Parameter extends ParameterOrReference {
-    def name: String
-    def in: String
-    def description: Doc
-    def required: Boolean
-    def deprecated: Boolean
-    def allowEmptyValue: Boolean
-    def definition: Parameter.Definition
-    def explode: Boolean
-    def examples: Map[String, ExampleOrReference]
-
-    /**
-     * A unique parameter is defined by a combination of a name and location.
-     */
+  final case class Parameter(
+    name: String,
+    in: String,
+    description: Option[Doc],
+    required: Boolean = false,
+    deprecated: Boolean = false,
+    schema: Option[ReferenceOr[JsonSchema]],
+    explode: Boolean = false,
+    examples: Map[String, ReferenceOr[Example]] = Map.empty,
+    allowReserved: Option[Boolean],
+    style: Option[String],
+    content: Option[(String, MediaType)],
+  ) {
     override def equals(obj: Any): Boolean = obj match {
-      case p: Parameter.QueryParameter if name == p.name && in == p.in => true
-      case _                                                           => false
+      case p: Parameter if name == p.name && in == p.in => true
+      case _                                            => false
     }
-
-    override def toJson: String =
-      JsonRenderer.renderFields(
-        "name"            -> name,
-        "in"              -> in,
-        "description"     -> description,
-        "required"        -> required,
-        "deprecated"      -> deprecated,
-        "allowEmptyValue" -> allowEmptyValue,
-        "definition"      -> definition,
-        "explode"         -> explode,
-        "examples"        -> examples,
-      )
   }
 
   object Parameter {
-    sealed trait Definition extends SchemaOrReference
 
-    object Definition {
-      final case class Content(key: String, mediaType: String) extends Definition {
-        override def toJson: String = JsonRenderer.renderFields(
-          "key"       -> key,
-          "mediaType" -> mediaType,
-        )
-      }
-    }
+    implicit val schema: Schema[Parameter] =
+      DeriveSchema.gen[Parameter]
+
+    final case class Content(key: String, mediaType: MediaType)
 
     sealed trait PathStyle
-
     sealed trait QueryStyle
 
-    object QueryStyle {
+    object Style {
       case object Matrix extends PathStyle
 
       case object Label extends PathStyle
 
-      case object Simple extends PathStyle
-
       case object Form extends QueryStyle
+
+      case object Simple extends PathStyle
 
       case object SpaceDelimited extends QueryStyle
 
@@ -555,27 +655,35 @@ object OpenAPI {
      * @param deprecated
      *   Specifies that a parameter is deprecated and SHOULD be transitioned out
      *   of usage.
-     * @param allowEmptyValue
-     *   Sets the ability to pass empty-valued parameters. This is valid only
-     *   for query parameters and allows sending a parameter with an empty
-     *   value. If style is used, and if behavior is n/a (cannot be serialized),
-     *   the value of allowEmptyValue SHALL be ignored. Use of this property is
-     *   NOT RECOMMENDED, as it is likely to be removed in a later revision.
      */
-    final case class QueryParameter(
+    def queryParameter(
       name: String,
-      description: Doc,
+      description: Option[Doc],
+      schema: Option[ReferenceOr[JsonSchema]],
+      examples: Map[String, ReferenceOr[Example]],
       deprecated: Boolean = false,
-      allowEmptyValue: Boolean = false,
-      definition: Definition,
-      allowReserved: Boolean = false,
-      style: QueryStyle = QueryStyle.Form,
       explode: Boolean = true,
-      examples: Map[String, ExampleOrReference],
-    ) extends Parameter {
-      def in: String        = "query"
-      def required: Boolean = true
-    }
+      required: Boolean = false,
+      allowReserved: Boolean = false,
+      style: QueryStyle = Style.Form,
+    ): Parameter = Parameter(
+      name,
+      "query",
+      description,
+      required,
+      deprecated,
+      schema,
+      explode,
+      examples,
+      Some(allowReserved),
+      style = Some(style match {
+        case Style.Form           => "form"
+        case Style.SpaceDelimited => "spaceDelimited"
+        case Style.PipeDelimited  => "pipeDelimited"
+        case Style.DeepObject     => "deepObject"
+      }),
+      None,
+    )
 
     /**
      * Custom headers that are expected as part of the request. Note that
@@ -590,26 +698,28 @@ object OpenAPI {
      * @param deprecated
      *   Specifies that a parameter is deprecated and SHOULD be transitioned out
      *   of usage.
-     * @param allowEmptyValue
-     *   Sets the ability to pass empty-valued parameters. This is valid only
-     *   for query parameters and allows sending a parameter with an empty
-     *   value. If style is used, and if behavior is n/a (cannot be serialized),
-     *   the value of allowEmptyValue SHALL be ignored. Use of this property is
-     *   NOT RECOMMENDED, as it is likely to be removed in a later revision.
      */
-    final case class HeaderParameter(
+    def headerParameter(
       name: String,
-      description: Doc,
+      description: Option[Doc],
       required: Boolean,
       deprecated: Boolean = false,
-      allowEmptyValue: Boolean = false,
-      definition: Definition,
+      definition: Option[ReferenceOr[JsonSchema]] = None,
       explode: Boolean = false,
-      examples: Map[String, ExampleOrReference],
-    ) extends Parameter {
-      def in: String    = "header"
-      def style: String = "simple"
-    }
+      examples: Map[String, ReferenceOr[Example]],
+    ): Parameter = Parameter(
+      name,
+      "header",
+      description,
+      required,
+      deprecated,
+      definition,
+      explode,
+      examples,
+      allowReserved = None,
+      style = Some("simple"),
+      None,
+    )
 
     /**
      * Used together with Path Templating, where the parameter value is actually
@@ -621,31 +731,35 @@ object OpenAPI {
      *   The name of the parameter. Parameter names are case sensitive.
      * @param description
      *   A brief description of the parameter.
-     * @param required
-     *   Determines whether this parameter is mandatory.
      * @param deprecated
      *   Specifies that a parameter is deprecated and SHOULD be transitioned out
      *   of usage.
-     * @param allowEmptyValue
-     *   Sets the ability to pass empty-valued parameters. This is valid only
-     *   for query parameters and allows sending a parameter with an empty
-     *   value. If style is used, and if behavior is n/a (cannot be serialized),
-     *   the value of allowEmptyValue SHALL be ignored. Use of this property is
-     *   NOT RECOMMENDED, as it is likely to be removed in a later revision.
      */
-    final case class PathParameter(
+    def pathParameter(
       name: String,
-      description: Doc,
-      required: Boolean,
+      description: Option[Doc],
       deprecated: Boolean = false,
-      allowEmptyValue: Boolean = false,
-      definition: Definition,
-      style: PathStyle = QueryStyle.Simple,
+      definition: Option[ReferenceOr[JsonSchema]] = None,
+      style: PathStyle = Style.Simple,
       explode: Boolean = false,
-      examples: Map[String, ExampleOrReference],
-    ) extends Parameter {
-      def in: String = "path"
-    }
+      examples: Map[String, ReferenceOr[Example]],
+    ): Parameter = Parameter(
+      name,
+      "path",
+      description,
+      required = true,
+      deprecated,
+      definition,
+      explode,
+      examples,
+      allowReserved = None,
+      style = Some(style match {
+        case Style.Matrix => "matrix"
+        case Style.Label  => "label"
+        case Style.Simple => "simple"
+      }),
+      None,
+    )
 
     /**
      * Used to pass a specific cookie value to the API.
@@ -659,47 +773,42 @@ object OpenAPI {
      * @param deprecated
      *   Specifies that a parameter is deprecated and SHOULD be transitioned out
      *   of usage.
-     * @param allowEmptyValue
-     *   Sets the ability to pass empty-valued parameters. This is valid only
-     *   for query parameters and allows sending a parameter with an empty
-     *   value. If style is used, and if behavior is n/a (cannot be serialized),
-     *   the value of allowEmptyValue SHALL be ignored. Use of this property is
-     *   NOT RECOMMENDED, as it is likely to be removed in a later revision.
      */
-    final case class CookieParameter(
+    def cookieParameter(
       name: String,
-      description: Doc,
+      description: Option[Doc],
       required: Boolean,
       deprecated: Boolean = false,
-      allowEmptyValue: Boolean = false,
-      definition: Definition,
+      definition: Option[ReferenceOr[JsonSchema]] = None,
       explode: Boolean = false,
-      examples: Map[String, ExampleOrReference],
-    ) extends Parameter {
-      def in: String    = "cookie"
-      def style: String = "form"
-    }
-  }
-
-  sealed trait HeaderOrReference extends openapi.OpenAPIBase
-
-  final case class Header(
-    description: Doc,
-    required: Boolean,
-    deprecate: Boolean = false,
-    allowEmptyValue: Boolean = false,
-    content: (String, MediaType),
-  ) extends HeaderOrReference {
-    override def toJson: String = JsonRenderer.renderFields(
-      "description"     -> description,
-      "required"        -> required,
-      "deprecated"      -> deprecate,
-      "allowEmptyValue" -> allowEmptyValue,
-      "content"         -> content,
+      examples: Map[String, ReferenceOr[Example]],
+    ): Parameter = Parameter(
+      name,
+      "cookie",
+      description,
+      required,
+      deprecated,
+      definition,
+      explode,
+      examples,
+      allowReserved = None,
+      style = Some("form"),
+      None,
     )
   }
 
-  sealed trait RequestBodyOrReference extends openapi.OpenAPIBase
+  final case class Header(
+    description: Option[Doc],
+    required: Boolean = false,
+    deprecated: Boolean = false,
+    allowEmptyValue: Boolean = false,
+    schema: Option[JsonSchema],
+  )
+
+  object Header {
+    implicit val schema: Schema[Header] =
+      DeriveSchema.gen[Header]
+  }
 
   /**
    * Describes a single request body.
@@ -714,13 +823,15 @@ object OpenAPI {
    * @param required
    *   Determines if the request body is required in the request.
    */
-  final case class RequestBody(description: Doc, content: Map[String, MediaType], required: Boolean = false)
-      extends ResponseOrReference {
-    override def toJson: String = JsonRenderer.renderFields(
-      "description" -> description,
-      "content"     -> content,
-      "required"    -> required,
-    )
+  final case class RequestBody(
+    description: Option[Doc] = None,
+    content: Map[String, MediaType] = Map.empty,
+    required: Boolean = false,
+  )
+
+  object RequestBody {
+    implicit val schema: Schema[RequestBody] =
+      DeriveSchema.gen[RequestBody]
   }
 
   /**
@@ -741,15 +852,14 @@ object OpenAPI {
    *   type is multipart or application/x-www-form-urlencoded.
    */
   final case class MediaType(
-    schema: SchemaOrReference,
-    examples: Map[String, ExampleOrReference],
-    encoding: Map[String, Encoding],
-  ) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "schema"   -> schema,
-      "examples" -> examples,
-      "encoding" -> encoding,
-    )
+    schema: ReferenceOr[JsonSchema],
+    examples: Map[String, ReferenceOr[Example]] = Map.empty,
+    encoding: Map[String, Encoding] = Map.empty,
+  )
+
+  object MediaType {
+    implicit val schema: Schema[MediaType] =
+      DeriveSchema.gen[MediaType]
   }
 
   /**
@@ -780,18 +890,15 @@ object OpenAPI {
    */
   final case class Encoding(
     contentType: String,
-    headers: Map[String, HeaderOrReference],
+    headers: Map[String, ReferenceOr[Header]] = Map.empty,
     style: String = "form",
     explode: Boolean,
     allowReserved: Boolean = false,
-  ) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "contentType"   -> contentType,
-      "headers"       -> headers,
-      "style"         -> style,
-      "explode"       -> explode,
-      "allowReserved" -> allowReserved,
-    )
+  )
+
+  object Encoding {
+    implicit val schema: Schema[Encoding] =
+      DeriveSchema.gen[Encoding]
   }
 
   /**
@@ -800,9 +907,38 @@ object OpenAPI {
    * contain at least one response code, and it SHOULD be the response for a
    * successful operation call.
    */
-  type Responses = Map[Status, ResponseOrReference]
+  type Responses = Map[StatusOrDefault, ReferenceOr[Response]]
 
-  sealed trait ResponseOrReference extends openapi.OpenAPIBase
+  sealed trait StatusOrDefault extends Product with Serializable {
+    def text: String
+  }
+
+  object StatusOrDefault {
+    case class StatusValue(status: Status) extends StatusOrDefault {
+      override def text: String = status.text
+    }
+
+    object StatusValue {
+      implicit val schema: Schema[StatusValue] =
+        zio.schema
+          .Schema[Status]
+          .transformOrFail[StatusValue](
+            s => Right(StatusValue(s)),
+            p => Right(p.status),
+          )
+    }
+    case object Default extends StatusOrDefault {
+      implicit val schema: Schema[Default.type] =
+        zio.schema
+          .Schema[String]
+          .transformOrFail[Default.type](
+            s => if (s == "default") Right(Default) else Left("Invalid default status"),
+            _ => Right("default"),
+          )
+
+      override def text: String = "default"
+    }
+  }
 
   /**
    * Describes a single response from an API Operation, including design-time,
@@ -825,20 +961,16 @@ object OpenAPI {
    *   of the names for Component Objects.
    */
   final case class Response(
-    description: Doc,
-    headers: Map[String, HeaderOrReference],
-    content: Map[String, MediaType],
-    links: Map[String, LinkOrReference],
-  ) extends ResponseOrReference {
-    override def toJson: String = JsonRenderer.renderFields(
-      "description" -> description,
-      "headers"     -> headers,
-      "content"     -> content,
-      "links"       -> links,
-    )
-  }
+    description: Doc = Doc.Empty,
+    headers: Map[String, ReferenceOr[Header]] = Map.empty,
+    content: Map[String, MediaType] = Map.empty,
+    links: Map[String, ReferenceOr[Link]] = Map.empty,
+  )
 
-  sealed trait CallbackOrReference extends openapi.OpenAPIBase
+  object Response {
+    implicit val schema: Schema[Response] =
+      DeriveSchema.gen[Response]
+  }
 
   /**
    * A map of possible out-of band callbacks related to the parent operation.
@@ -852,16 +984,12 @@ object OpenAPI {
    *   A Path Item Object used to define a callback request and expected
    *   responses.
    */
-  final case class Callback(expressions: Map[String, PathItem]) extends CallbackOrReference {
-    override def toJson: String = {
-      val toRender = expressions.foldLeft(List.empty[(String, Renderer[PathItem])]) { case (acc, (k, v)) =>
-        (k, v: Renderer[PathItem]) :: acc
-      }
-      JsonRenderer.renderFields(toRender: _*)
-    }
-  }
+  final case class Callback(expressions: Map[String, PathItem] = Map.empty)
 
-  sealed trait ExampleOrReference extends openapi.OpenAPIBase
+  object Callback {
+    implicit val schema: Schema[Callback] =
+      DeriveSchema.gen[Callback]
+  }
 
   /**
    * In all cases, the example value is expected to be compatible with the type
@@ -878,15 +1006,18 @@ object OpenAPI {
    *   reference examples that cannot easily be included in JSON or YAML
    *   documents.
    */
-  final case class Example(summary: String = "", description: Doc, externalValue: URI) extends ExampleOrReference {
-    override def toJson: String = JsonRenderer.renderFields(
-      "summary"       -> summary,
-      "description"   -> description,
-      "externalValue" -> externalValue,
-    )
-  }
+  // There is currently no API to set the summary, description or externalValue
+  final case class Example(
+    value: Json,
+    summary: Option[String] = None,
+    description: Option[Doc] = None,
+    externalValue: Option[URI] = None,
+  )
 
-  sealed trait LinkOrReference extends openapi.OpenAPIBase
+  object Example {
+    implicit val schema: Schema[Example] =
+      DeriveSchema.gen[Example]
+  }
 
   /**
    * The Link object represents a possible design-time link for a response. The
@@ -923,29 +1054,52 @@ object OpenAPI {
    */
   final case class Link(
     operationRef: URI,
-    parameters: Map[String, LiteralOrExpression],
+    parameters: Map[String, LiteralOrExpression] = Map.empty,
     requestBody: LiteralOrExpression,
-    description: Doc,
+    description: Option[Doc],
     server: Option[Server],
-  ) extends LinkOrReference {
-    override def toJson: String = JsonRenderer.renderFields(
-      "operationRef" -> operationRef,
-      "parameters"   -> parameters,
-      "requestBody"  -> requestBody,
-      "description"  -> description,
-      "server"       -> server,
-    )
+  )
+
+  object Link {
+    implicit val schema: Schema[Link] =
+      DeriveSchema.gen[Link]
   }
 
   sealed trait LiteralOrExpression
   object LiteralOrExpression {
-    final case class NumberLiteral(value: Long)                   extends LiteralOrExpression
-    final case class DecimalLiteral(value: Double)                extends LiteralOrExpression
-    final case class StringLiteral(value: String)                 extends LiteralOrExpression
-    final case class BooleanLiteral(value: Boolean)               extends LiteralOrExpression
+    implicit val schema: Schema[LiteralOrExpression] =
+      DeriveSchema.gen[LiteralOrExpression]
+
+    final case class NumberLiteral(value: Long) extends LiteralOrExpression
+
+    object NumberLiteral {
+      implicit val schema: Schema[NumberLiteral] =
+        Schema[Long].transform[NumberLiteral](s => NumberLiteral(s), p => p.value)
+    }
+    final case class DecimalLiteral(value: Double) extends LiteralOrExpression
+
+    object DecimalLiteral {
+      implicit val schema: Schema[DecimalLiteral] =
+        Schema[Double].transform[DecimalLiteral](s => DecimalLiteral(s), p => p.value)
+    }
+    final case class StringLiteral(value: String) extends LiteralOrExpression
+
+    object StringLiteral {
+      implicit val schema: Schema[StringLiteral] =
+        Schema[String].transform[StringLiteral](s => StringLiteral(s), p => p.value)
+    }
+    final case class BooleanLiteral(value: Boolean) extends LiteralOrExpression
+
+    object BooleanLiteral {
+      implicit val schema: Schema[BooleanLiteral] =
+        Schema[Boolean].transform[BooleanLiteral](s => BooleanLiteral(s), p => p.value)
+    }
     sealed abstract case class Expression private (value: String) extends LiteralOrExpression
 
     object Expression {
+      implicit val schema: Schema[Expression] =
+        Schema[String].transform[Expression](s => Expression.create(s), p => p.value)
+
       private[openapi] def create(value: String): Expression = new Expression(value) {}
     }
 
@@ -972,13 +1126,7 @@ object OpenAPI {
    * @param externalDocs
    *   Additional external documentation for this tag.
    */
-  final case class Tag(name: String, description: Doc, externalDocs: URI) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "name"         -> name,
-      "description"  -> description,
-      "externalDocs" -> externalDocs,
-    )
-  }
+  final case class Tag(name: String, description: Option[Doc], externalDocs: Option[ExternalDoc])
 
   /**
    * A simple object to allow referencing other components in the specification,
@@ -987,130 +1135,40 @@ object OpenAPI {
    * @param ref
    *   The reference string.
    */
-  final case class Reference(ref: String)
-      extends SchemaOrReference
-      with ResponseOrReference
-      with ParameterOrReference
-      with ExampleOrReference
-      with RequestBodyOrReference
-      with HeaderOrReference
-      with SecuritySchemeOrReference
-      with LinkOrReference
-      with CallbackOrReference {
-    override def toJson: String = JsonRenderer.renderFields(s"$$ref" -> ref)
-  }
 
-  sealed trait SchemaOrReference extends openapi.OpenAPIBase
-
-  sealed trait Schema extends openapi.OpenAPIBase with SchemaOrReference {
-    def nullable: Boolean
-    def discriminator: Option[Discriminator]
-    def readOnly: Boolean
-    def writeOnly: Boolean
-    def xml: Option[XML]
-    def externalDocs: URI
-    def example: String
-    def deprecated: Boolean
-
-    override def toJson: String =
-      JsonRenderer.renderFields(
-        "nullable"      -> nullable,
-        "discriminator" -> discriminator,
-        "readOnly"      -> readOnly,
-        "writeOnly"     -> writeOnly,
-        "xml"           -> xml,
-        "externalDocs"  -> externalDocs,
-        "example"       -> example,
-        "deprecated"    -> deprecated,
-      )
-  }
-
-  object Schema {
-
-    /**
-     * The Schema Object allows the definition of input and output data types.
-     *
-     * Marked as readOnly. This means that it MAY be sent as part of a response
-     * but SHOULD NOT be sent as part of the request. If the property is in the
-     * required list, the required will take effect on the response only.
-     *
-     * @param nullable
-     *   A true value adds "null" to the allowed type specified by the type
-     *   keyword, only if type is explicitly defined within the same Schema
-     *   Object. Other Schema Object constraints retain their defined behavior,
-     *   and therefore may disallow the use of null as a value. A false value
-     *   leaves the specified or default type unmodified.
-     * @param discriminator
-     *   Adds support for polymorphism. The discriminator is an object name that
-     *   is used to differentiate between other schemas which may satisfy the
-     *   payload description.
-     * @param xml
-     *   This MAY be used only on properties schemas. It has no effect on root
-     *   schemas. Adds additional metadata to describe the XML representation of
-     *   this property.
-     * @param externalDocs
-     *   Additional external documentation for this schema.
-     * @param example
-     *   A free-form property to include an example of an instance for this
-     *   schema.
-     * @param deprecated
-     *   Specifies that a schema is deprecated and SHOULD be transitioned out of
-     *   usage.
-     */
-    final case class ResponseSchema(
-      nullable: Boolean = false,
-      discriminator: Option[Discriminator],
-      xml: Option[XML],
-      externalDocs: URI,
-      example: String,
-      deprecated: Boolean = false,
-    ) extends Schema
-        with Parameter.Definition {
-      def readOnly: Boolean  = true
-      def writeOnly: Boolean = false
+  @noDiscriminator
+  sealed trait ReferenceOr[+T] {
+    def asJsonSchema(implicit ev: T <:< JsonSchema): JsonSchema = this match {
+      case ReferenceOr.Reference(ref, summary, description) =>
+        JsonSchema
+          .RefSchema(ref)
+          .description((summary.getOrElse(Doc.empty) + description.getOrElse(Doc.empty)).toCommonMark)
+      case ReferenceOr.Or(value)                            => ev(value)
     }
 
-    /**
-     * The Schema Object allows the definition of input and output data types.
-     *
-     * Marked as writeOnly. This means that it MAY be sent as part of a request
-     * but SHOULD NOT be sent as part of the response. If the property is in the
-     * required list, the required will take effect on the request only.
-     *
-     * @param nullable
-     *   A true value adds "null" to the allowed type specified by the type
-     *   keyword, only if type is explicitly defined within the same Schema
-     *   Object. Other Schema Object constraints retain their defined behavior,
-     *   and therefore may disallow the use of null as a value. A false value
-     *   leaves the specified or default type unmodified.
-     * @param discriminator
-     *   Adds support for polymorphism. The discriminator is an object name that
-     *   is used to differentiate between other schemas which may satisfy the
-     *   payload description.
-     * @param xml
-     *   This MAY be used only on properties schemas. It has no effect on root
-     *   schemas. Adds additional metadata to describe the XML representation of
-     *   this property.
-     * @param externalDocs
-     *   Additional external documentation for this schema.
-     * @param example
-     *   A free-form property to include an example of an instance for this
-     *   schema.
-     * @param deprecated
-     *   Specifies that a schema is deprecated and SHOULD be transitioned out of
-     *   usage.
-     */
-    final case class RequestSchema(
-      nullable: Boolean = false,
-      discriminator: Option[Discriminator],
-      xml: Option[XML],
-      externalDocs: URI,
-      example: String,
-      deprecated: Boolean = false,
-    ) extends Schema
-        with Parameter.Definition {
-      def readOnly: Boolean  = false
-      def writeOnly: Boolean = true
+  }
+
+  object ReferenceOr {
+    implicit def schema[T: Schema]: Schema[ReferenceOr[T]] =
+      DeriveSchema.gen[ReferenceOr[T]]
+
+    final case class Reference(
+      @fieldName("$ref") ref: String,
+      summary: Option[Doc] = None,
+      description: Option[Doc] = None,
+    ) extends ReferenceOr[Nothing]
+
+    object Reference {
+      implicit val schema: Schema[Reference] =
+        DeriveSchema.gen[Reference]
+    }
+
+    final case class Or[T](value: T) extends ReferenceOr[T]
+
+    object Or {
+      implicit def schema[T: Schema]: Schema[Or[T]] =
+        Schema[T].transform(Or(_), _.value)
+
     }
   }
 
@@ -1131,11 +1189,14 @@ object OpenAPI {
    *   An object to hold mappings between payload values and schema names or
    *   references.
    */
-  final case class Discriminator(propertyName: String, mapping: Map[String, String]) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "propertyName" -> propertyName,
-      "mapping"      -> mapping,
-    )
+  final case class Discriminator(
+    propertyName: String,
+    mapping: Map[String, String] = Map.empty,
+  )
+
+  object Discriminator {
+    implicit val schema: Schema[Discriminator] =
+      DeriveSchema.gen[Discriminator]
   }
 
   /**
@@ -1164,24 +1225,16 @@ object OpenAPI {
    *   type being array (outside the items).
    */
   final case class XML(name: String, namespace: URI, prefix: String, attribute: Boolean = false, wrapped: Boolean)
-      extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "name"      -> name,
-      "namespace" -> namespace,
-      "prefix"    -> prefix,
-      "attribute" -> attribute,
-      "wrapped"   -> wrapped,
-    )
-  }
 
-  sealed trait SecuritySchemeOrReference extends openapi.OpenAPIBase
-
-  sealed trait SecurityScheme extends SecuritySchemeOrReference {
+  sealed trait SecurityScheme {
     def `type`: String
-    def description: Doc
+    def description: Option[Doc]
   }
 
   object SecurityScheme {
+
+    implicit val schema: Schema[SecurityScheme] =
+      DeriveSchema.gen[SecurityScheme]
 
     /**
      * Defines an HTTP security scheme that can be used by the operations.
@@ -1193,28 +1246,18 @@ object OpenAPI {
      * @param in
      *   The location of the API key.
      */
-    final case class ApiKey(description: Doc, name: String, in: ApiKey.In) extends SecurityScheme {
+    final case class ApiKey(description: Option[Doc], name: String, in: ApiKey.In) extends SecurityScheme {
       override def `type`: String = "apiKey"
-
-      override def toJson: String =
-        JsonRenderer.renderFields(
-          "type"        -> `type`,
-          "description" -> description,
-          "name"        -> name,
-          "in"          -> in,
-        )
     }
 
     object ApiKey {
-      sealed trait In extends openapi.OpenAPIBase {
-        self: Product =>
-        override def toJson: String =
-          s""""${self.productPrefix.updated(0, self.productPrefix.charAt(0).toLower)}""""
-      }
+      sealed trait In extends Product with Serializable
 
       object In {
-        case object Query  extends In
+        case object Query extends In
+
         case object Header extends In
+
         case object Cookie extends In
       }
     }
@@ -1231,16 +1274,10 @@ object OpenAPI {
      *   Bearer tokens are usually generated by an authorization server, so this
      *   information is primarily for documentation purposes.
      */
-    final case class Http(description: Doc, scheme: String, bearerFormat: Option[String]) extends SecurityScheme {
+    final case class Http(description: Option[Doc], scheme: String, bearerFormat: Option[String])
+        extends SecurityScheme {
       override def `type`: String = "http"
 
-      override def toJson: String =
-        JsonRenderer.renderFields(
-          "type"         -> `type`,
-          "description"  -> description,
-          "scheme"       -> scheme,
-          "bearerFormat" -> bearerFormat,
-        )
     }
 
     /**
@@ -1250,15 +1287,9 @@ object OpenAPI {
      *   An object containing configuration information for the flow types
      *   supported.
      */
-    final case class OAuth2(description: Doc, flows: OAuthFlows) extends SecurityScheme {
+    final case class OAuth2(description: Option[Doc], flows: OAuthFlows) extends SecurityScheme {
       override def `type`: String = "oauth2"
 
-      override def toJson: String =
-        JsonRenderer.renderFields(
-          "type"        -> `type`,
-          "description" -> description,
-          "flows"       -> flows,
-        )
     }
 
     /**
@@ -1267,165 +1298,124 @@ object OpenAPI {
      * @param openIdConnectUrl
      *   OpenId Connect URL to discover OAuth2 configuration values.
      */
-    final case class OpenIdConnect(description: Doc, openIdConnectUrl: URI) extends SecurityScheme {
+    final case class OpenIdConnect(description: Option[Doc], openIdConnectUrl: URI) extends SecurityScheme {
       override def `type`: String = "openIdConnect"
 
-      override def toJson: String =
-        JsonRenderer.renderFields(
-          "type"             -> `type`,
-          "description"      -> description,
-          "openIdConnectUrl" -> openIdConnectUrl,
-        )
     }
-  }
 
-  /**
-   * Allows configuration of the supported OAuth Flows.
-   *
-   * @param `implicit`
-   *   Configuration for the OAuth Implicit flow.
-   * @param password
-   *   Configuration for the OAuth Resource Owner Password flow
-   * @param clientCredentials
-   *   Configuration for the OAuth Client Credentials flow. Previously called
-   *   application in OpenAPI 2.0.
-   * @param authorizationCode
-   *   Configuration for the OAuth Authorization Code flow. Previously called
-   *   accessCode in OpenAPI 2.0.
-   */
-  final case class OAuthFlows(
-    `implicit`: Option[OAuthFlow.Implicit],
-    password: Option[OAuthFlow.Password],
-    clientCredentials: Option[OAuthFlow.ClientCredentials],
-    authorizationCode: Option[OAuthFlow.AuthorizationCode],
-  ) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "implicit"          -> `implicit`,
-      "password"          -> password,
-      "clientCredentials" -> clientCredentials,
-      "authorizationCode" -> authorizationCode,
+    /**
+     * Allows configuration of the supported OAuth Flows.
+     *
+     * @param `implicit`
+     *   Configuration for the OAuth Implicit flow.
+     * @param password
+     *   Configuration for the OAuth Resource Owner Password flow
+     * @param clientCredentials
+     *   Configuration for the OAuth Client Credentials flow. Previously called
+     *   application in OpenAPI 2.0.
+     * @param authorizationCode
+     *   Configuration for the OAuth Authorization Code flow. Previously called
+     *   accessCode in OpenAPI 2.0.
+     */
+    final case class OAuthFlows(
+      `implicit`: Option[OAuthFlow.Implicit],
+      password: Option[OAuthFlow.Password],
+      clientCredentials: Option[OAuthFlow.ClientCredentials],
+      authorizationCode: Option[OAuthFlow.AuthorizationCode],
     )
-  }
 
-  sealed trait OAuthFlow extends openapi.OpenAPIBase {
-    def refreshUrl: Option[URI]
-    def scopes: Map[String, String]
-  }
+    sealed trait OAuthFlow {
+      def refreshUrl: Option[URI]
 
-  object OAuthFlow {
+      def scopes: Map[String, String]
+    }
 
-    /**
-     * Configuration for the OAuth Implicit flow.
-     *
-     * @param authorizationUrl
-     *   The authorization URL to be used for this flow.
-     * @param refreshUrl
-     *   The URL to be used for obtaining refresh tokens.
-     * @param scopes
-     *   The available scopes for the OAuth2 security scheme. A map between the
-     *   scope name and a short description for it. The map MAY be empty.
-     */
-    final case class Implicit(authorizationUrl: URI, refreshUrl: Option[URI], scopes: Map[String, String])
-        extends OAuthFlow {
-      override def toJson: String = JsonRenderer.renderFields(
-        "authorizationUrl" -> authorizationUrl,
-        "refreshUrl"       -> refreshUrl,
-        "scopes"           -> scopes,
-      )
+    object OAuthFlow {
+
+      /**
+       * Configuration for the OAuth Implicit flow.
+       *
+       * @param authorizationUrl
+       *   The authorization URL to be used for this flow.
+       * @param refreshUrl
+       *   The URL to be used for obtaining refresh tokens.
+       * @param scopes
+       *   The available scopes for the OAuth2 security scheme. A map between
+       *   the scope name and a short description for it. The map MAY be empty.
+       */
+      final case class Implicit(authorizationUrl: URI, refreshUrl: Option[URI], scopes: Map[String, String])
+          extends OAuthFlow
+
+      /**
+       * Configuration for the OAuth Authorization Code flow. Previously called
+       * accessCode in OpenAPI 2.0.
+       *
+       * @param authorizationUrl
+       *   The authorization URL to be used for this flow.
+       * @param refreshUrl
+       *   The URL to be used for obtaining refresh tokens.
+       * @param scopes
+       *   The available scopes for the OAuth2 security scheme. A map between
+       *   the scope name and a short description for it. The map MAY be empty.
+       * @param tokenUrl
+       *   The token URL to be used for this flow.
+       */
+      final case class AuthorizationCode(
+        authorizationUrl: URI,
+        refreshUrl: Option[URI],
+        scopes: Map[String, String],
+        tokenUrl: URI,
+      ) extends OAuthFlow
+
+      /**
+       * Configuration for the OAuth Resource Owner Password flow.
+       *
+       * @param refreshUrl
+       *   The URL to be used for obtaining refresh tokens.
+       * @param scopes
+       *   The available scopes for the OAuth2 security scheme. A map between
+       *   the scope name and a short description for it. The map MAY be empty.
+       * @param tokenUrl
+       *   The token URL to be used for this flow.
+       */
+      final case class Password(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI) extends OAuthFlow
+
+      /**
+       * Configuration for the OAuth Client Credentials flow. Previously called
+       * application in OpenAPI 2.0.
+       *
+       * @param refreshUrl
+       *   The URL to be used for obtaining refresh tokens.
+       * @param scopes
+       *   The available scopes for the OAuth2 security scheme. A map between
+       *   the scope name and a short description for it. The map MAY be empty.
+       * @param tokenUrl
+       *   The token URL to be used for this flow.
+       */
+      final case class ClientCredentials(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI)
+          extends OAuthFlow {}
     }
 
     /**
-     * Configuration for the OAuth Authorization Code flow. Previously called
-     * accessCode in OpenAPI 2.0.
+     * Lists the required security schemes to execute this operation. The name
+     * used for each property MUST correspond to a security scheme declared in
+     * the Security Schemes under the Components Object.
      *
-     * @param authorizationUrl
-     *   The authorization URL to be used for this flow.
-     * @param refreshUrl
-     *   The URL to be used for obtaining refresh tokens.
-     * @param scopes
-     *   The available scopes for the OAuth2 security scheme. A map between the
-     *   scope name and a short description for it. The map MAY be empty.
-     * @param tokenUrl
-     *   The token URL to be used for this flow.
-     */
-    final case class AuthorizationCode(
-      authorizationUrl: URI,
-      refreshUrl: Option[URI],
-      scopes: Map[String, String],
-      tokenUrl: URI,
-    ) extends OAuthFlow {
-      override def toJson: String = JsonRenderer.renderFields(
-        "authorizationUrl" -> authorizationUrl,
-        "refreshUrl"       -> refreshUrl,
-        "scopes"           -> scopes,
-        "tokenUrl"         -> tokenUrl,
-      )
-    }
-
-    /**
-     * Configuration for the OAuth Resource Owner Password flow.
+     * Security Requirement Objects that contain multiple schemes require that
+     * all schemes MUST be satisfied for a request to be authorized. This
+     * enables support for scenarios where multiple query parameters or HTTP
+     * headers are required to convey security information.
      *
-     * @param refreshUrl
-     *   The URL to be used for obtaining refresh tokens.
-     * @param scopes
-     *   The available scopes for the OAuth2 security scheme. A map between the
-     *   scope name and a short description for it. The map MAY be empty.
-     * @param tokenUrl
-     *   The token URL to be used for this flow.
-     */
-    final case class Password(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI) extends OAuthFlow {
-      override def toJson: String = JsonRenderer.renderFields(
-        "refreshUrl" -> refreshUrl,
-        "scopes"     -> scopes,
-        "tokenUrl"   -> tokenUrl,
-      )
-    }
-
-    /**
-     * Configuration for the OAuth Client Credentials flow. Previously called
-     * application in OpenAPI 2.0.
+     * When a list of Security Requirement Objects is defined on the OpenAPI
+     * Object or Operation Object, only one of the Security Requirement Objects
+     * in the list needs to be satisfied to authorize the request.
      *
-     * @param refreshUrl
-     *   The URL to be used for obtaining refresh tokens.
-     * @param scopes
-     *   The available scopes for the OAuth2 security scheme. A map between the
-     *   scope name and a short description for it. The map MAY be empty.
-     * @param tokenUrl
-     *   The token URL to be used for this flow.
+     * @param securitySchemes
+     *   If the security scheme is of type "oauth2" or "openIdConnect", then the
+     *   value is a list of scope names required for the execution, and the list
+     *   MAY be empty if authorization does not require a specified scope. For
+     *   other security scheme types, the List MUST be empty.
      */
-    final case class ClientCredentials(refreshUrl: Option[URI], scopes: Map[String, String], tokenUrl: URI)
-        extends OAuthFlow {
-      override def toJson: String = JsonRenderer.renderFields(
-        "refreshUrl" -> refreshUrl,
-        "scopes"     -> scopes,
-        "tokenUrl"   -> tokenUrl,
-      )
-    }
-  }
-
-  /**
-   * Lists the required security schemes to execute this operation. The name
-   * used for each property MUST correspond to a security scheme declared in the
-   * Security Schemes under the Components Object.
-   *
-   * Security Requirement Objects that contain multiple schemes require that all
-   * schemes MUST be satisfied for a request to be authorized. This enables
-   * support for scenarios where multiple query parameters or HTTP headers are
-   * required to convey security information.
-   *
-   * When a list of Security Requirement Objects is defined on the OpenAPI
-   * Object or Operation Object, only one of the Security Requirement Objects in
-   * the list needs to be satisfied to authorize the request.
-   *
-   * @param securitySchemes
-   *   If the security scheme is of type "oauth2" or "openIdConnect", then the
-   *   value is a list of scope names required for the execution, and the list
-   *   MAY be empty if authorization does not require a specified scope. For
-   *   other security scheme types, the List MUST be empty.
-   */
-  final case class SecurityRequirement(securitySchemes: Map[String, List[String]]) extends openapi.OpenAPIBase {
-    override def toJson: String = JsonRenderer.renderFields(
-      "securitySchemes" -> securitySchemes,
-    )
+    final case class SecurityRequirement(securitySchemes: Map[String, List[String]])
   }
 }

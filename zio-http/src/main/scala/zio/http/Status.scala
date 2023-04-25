@@ -170,6 +170,9 @@ object Status {
 
   final case class Custom(override val code: Int) extends Status
 
+  def fromString(code: String): Option[Status] =
+    code.toIntOption.flatMap(fromInt)
+
   def fromInt(code: Int): Option[Status] = {
 
     if (code < 100 || code > 599) {

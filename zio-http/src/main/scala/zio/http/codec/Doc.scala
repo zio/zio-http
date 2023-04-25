@@ -17,6 +17,11 @@
 package zio.http.codec
 
 import zio.http.codec.Doc.Span.CodeStyle
+import zio.Chunk
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import zio.schema.Schema
+
 import zio.http.template
 
 /**
@@ -40,6 +45,13 @@ sealed trait Doc { self =>
       case Doc.Listing(xs, _)        => xs.forall(_.isEmpty)
       case Doc.Raw(value, _)         => value.isEmpty
       case _                         => false
+    }
+
+  private[zio] def flattened: Chunk[Doc] =
+    self match {
+      case Doc.Empty                 => Chunk.empty
+      case Doc.Sequence(left, right) => left.flattened ++ right.flattened
+      case x                         => Chunk(x)
     }
 
   def toCommonMark: String = {
@@ -314,6 +326,12 @@ sealed trait Doc { self =>
 
 }
 object Doc {
+
+  implicit val schemaDocSchema: Schema[Doc] =
+    Schema[String].transform(
+      fromCommonMark,
+      _.toCommonMark,
+      )
 
   def fromCommonMark(commonMark: String): Doc =
     Doc.Raw(commonMark, RawDocType.CommonMark)

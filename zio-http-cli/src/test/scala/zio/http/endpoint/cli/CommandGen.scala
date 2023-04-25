@@ -1,6 +1,5 @@
 package zio.http.endpoint.cli
 
-import zio.ZNothing
 import zio.cli._
 import zio.test._
 
@@ -9,7 +8,6 @@ import zio.schema._
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.http.endpoint.cli.AuxGen._
 import zio.http.endpoint.cli.CliRepr.HelpRepr
 import zio.http.endpoint.cli.EndpointGen._
 
@@ -22,14 +20,14 @@ object CommandGen {
   def getSegment(segment: SegmentCodec[_]): (String, String) = {
     def fromSegment[A](segment: SegmentCodec[A]): (String, String) =
       segment match {
-        case SegmentCodec.UUID(name, doc)     => (name, "text")
-        case SegmentCodec.Text(name, doc)     => (name, "text")
-        case SegmentCodec.IntSeg(name, doc)   => (name, "integer")
-        case SegmentCodec.LongSeg(name, doc)  => (name, "integer")
-        case SegmentCodec.BoolSeg(name, doc)  => (name, "boolean")
-        case SegmentCodec.Literal(value, doc) => ("", "")
-        case SegmentCodec.Trailing(doc)       => ("", "")
-        case SegmentCodec.Empty(_)            => ("", "")
+        case SegmentCodec.UUID(name)    => (name, "text")
+        case SegmentCodec.Text(name)    => (name, "text")
+        case SegmentCodec.IntSeg(name)  => (name, "integer")
+        case SegmentCodec.LongSeg(name) => (name, "integer")
+        case SegmentCodec.BoolSeg(name) => (name, "boolean")
+        case SegmentCodec.Literal(_)    => ("", "")
+        case SegmentCodec.Trailing      => ("", "")
+        case SegmentCodec.Empty         => ("", "")
       }
     fromSegment(segment)
   }

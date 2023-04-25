@@ -18,6 +18,7 @@ package zio.http.codec
 
 import java.util.concurrent.ConcurrentHashMap
 
+import scala.annotation.tailrec
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
@@ -191,6 +192,18 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     trace: Trace,
   ): Task[Value] =
     encoderDecoder(Chunk.empty).decode(url, status, method, headers, body)
+
+  def doc: Option[Doc] = {
+    @tailrec
+    def loop(codec: HttpCodec[_, _]): Option[Doc] =
+      codec match {
+        case Annotated(_, Metadata.Documented(doc)) => Some(doc)
+        case Annotated(codec, _)                    => loop(codec)
+        case _                                      => None
+      }
+
+    loop(self)
+  }
 
   /**
    * Uses this codec to encode the Scala value into a request.
@@ -630,6 +643,8 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     final case class Examples[A](examples: Map[String, A]) extends Metadata[A]
 
     final case class Documented[A](doc: Doc) extends Metadata[A]
+
+    final case class Deprecated[A](doc: Doc) extends Metadata[A]
   }
 
   private[http] final case class TransformOrFail[AtomType, X, A](

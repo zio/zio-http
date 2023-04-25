@@ -239,7 +239,7 @@ sealed trait PathCodec[A] { self =>
           rightPath <- loop(right, rightValue)
         } yield leftPath ++ rightPath
 
-      case PathCodec.Segment(segment, _) =>
+      case PathCodec.Segment(segment) =>
         Right(segment.format(value.asInstanceOf[segment.Type]))
 
       case PathCodec.TransformOrFail(api, _, g) =>
@@ -264,16 +264,16 @@ sealed trait PathCodec[A] { self =>
   private[http] def optimize: Array[Opt] = {
     def loop(pattern: PathCodec[_]): Chunk[Opt] =
       pattern match {
-        case PathCodec.Segment(segment, _) =>
+        case PathCodec.Segment(segment) =>
           Chunk(segment.asInstanceOf[SegmentCodec[_]] match {
-            case SegmentCodec.Empty(_)          => Opt.Unit
-            case SegmentCodec.Literal(value, _) => Opt.Match(value)
-            case SegmentCodec.IntSeg(_, _)      => Opt.IntOpt
-            case SegmentCodec.LongSeg(_, _)     => Opt.LongOpt
-            case SegmentCodec.Text(_, _)        => Opt.StringOpt
-            case SegmentCodec.UUID(_, _)        => Opt.UUIDOpt
-            case SegmentCodec.BoolSeg(_, _)     => Opt.BoolOpt
-            case SegmentCodec.Trailing(_)       => Opt.TrailingOpt
+            case SegmentCodec.Empty          => Opt.Unit
+            case SegmentCodec.Literal(value) => Opt.Match(value)
+            case SegmentCodec.IntSeg(_)      => Opt.IntOpt
+            case SegmentCodec.LongSeg(_)     => Opt.LongOpt
+            case SegmentCodec.Text(_)        => Opt.StringOpt
+            case SegmentCodec.UUID(_)        => Opt.UUIDOpt
+            case SegmentCodec.BoolSeg(_)     => Opt.BoolOpt
+            case SegmentCodec.Trailing       => Opt.TrailingOpt
           })
 
         case Concat(left, right, combiner, _) =>
@@ -296,10 +296,23 @@ sealed trait PathCodec[A] { self =>
       case PathCodec.Concat(left, right, _, _) =>
         loop(left) + loop(right)
 
-      case PathCodec.Segment(segment, _) => segment.render
+      case PathCodec.Segment(segment) => segment.render
 
       case PathCodec.TransformOrFail(api, _, _) =>
         loop(api)
+    }
+
+    loop(self)
+  }
+
+  def renderIgnoreTrailing: String = {
+    def loop(path: PathCodec[_]): String = path match {
+      case PathCodec.Concat(left, right, _, _) =>
+        loop(left) + loop(right)
+
+      case PathCodec.Segment(SegmentCodec.Trailing) => ""
+
+      case PathCodec.Segment(segment) => segment.render
     }
 
     loop(self)
@@ -310,7 +323,7 @@ sealed trait PathCodec[A] { self =>
    */
   def segments: Chunk[SegmentCodec[_]] = {
     def loop(path: PathCodec[_]): Chunk[SegmentCodec[_]] = path match {
-      case PathCodec.Segment(segment, _) => Chunk(segment)
+      case PathCodec.Segment(segment) => Chunk(segment)
 
       case PathCodec.Concat(left, right, _, _) =>
         loop(left) ++ loop(right)
@@ -354,7 +367,7 @@ object PathCodec          {
   /**
    * The empty / root path codec.
    */
-  def empty: PathCodec[Unit] = Segment[Unit](SegmentCodec.Empty())
+  def empty: PathCodec[Unit] = Segment[Unit](SegmentCodec.Empty)
 
   def int(name: String): PathCodec[Int] = Segment(SegmentCodec.int(name))
 
@@ -366,12 +379,13 @@ object PathCodec          {
 
   def string(name: String): PathCodec[String] = Segment(SegmentCodec.string(name))
 
-  def trailing: PathCodec[Path] = Segment(SegmentCodec.Trailing())
+  def trailing: PathCodec[Path] = Segment(SegmentCodec.Trailing)
 
   def uuid(name: String): PathCodec[java.util.UUID] = Segment(SegmentCodec.uuid(name))
 
-  private[http] final case class Segment[A](segment: SegmentCodec[A], doc: Doc = Doc.empty) extends PathCodec[A] {
-    def ??(doc: Doc): Segment[A] = copy(doc = this.doc + doc)
+  private[http] final case class Segment[A](segment: SegmentCodec[A]) extends PathCodec[A] {
+    def ??(doc: Doc): Segment[A] = copy(segment ?? doc)
+    def doc: Doc                 = segment.doc
   }
   private[http] final case class Concat[A, B, C](
     left: PathCodec[A],
@@ -502,14 +516,14 @@ object PathCodec          {
         .foldRight[SegmentSubtree[A]](SegmentSubtree(ListMap(), ListMap(), Chunk(value))) { case (segment, subtree) =>
           val literals =
             segment match {
-              case SegmentCodec.Literal(value, _) => ListMap(value -> subtree)
-              case _                              => ListMap.empty[String, SegmentSubtree[A]]
+              case SegmentCodec.Literal(value) => ListMap(value -> subtree)
+              case _                           => ListMap.empty[String, SegmentSubtree[A]]
             }
 
           val others =
             ListMap[SegmentCodec[_], SegmentSubtree[A]]((segment match {
-              case SegmentCodec.Literal(_, _) => Chunk.empty
-              case _                          => Chunk((segment, subtree))
+              case SegmentCodec.Literal(_) => Chunk.empty
+              case _                       => Chunk((segment, subtree))
             }): _*)
 
           SegmentSubtree(literals, others, Chunk.empty)

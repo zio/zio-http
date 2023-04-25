@@ -18,9 +18,9 @@ package zio.http.codec
 import scala.language.implicitConversions
 
 import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Path
+import zio.http.codec.SegmentCodec.{Annotated, MetaData}
 
 sealed trait SegmentCodec[A] { self =>
   private var _hashCode: Int  = 0
@@ -28,9 +28,24 @@ sealed trait SegmentCodec[A] { self =>
 
   final type Type = A
 
-  def ??(doc: Doc): SegmentCodec[A]
+  def ??(doc: Doc): SegmentCodec[A] =
+    SegmentCodec.Annotated(self, Chunk(MetaData.Documented(doc)))
+
+  def example(name: String, example: A): SegmentCodec[A] =
+    SegmentCodec.Annotated(self, Chunk(MetaData.Examples(Map(name -> example))))
+
+  def examples(examples: (String, A)*): SegmentCodec[A] =
+    SegmentCodec.Annotated(self, Chunk(MetaData.Examples(examples.toMap)))
+
+  lazy val doc: Doc = self.asInstanceOf[SegmentCodec[_]] match {
+    case SegmentCodec.Annotated(_, annotations) =>
+      annotations.collectFirst { case MetaData.Documented(doc) => doc }.getOrElse(Doc.Empty)
+    case _                                      =>
+      Doc.Empty
+  }
 
   override def equals(that: Any): Boolean = that match {
+    case Annotated(codec, _)   => codec == this
     case that: SegmentCodec[_] => (this.getClass == that.getClass) && (this.render == that.render)
     case _                     => false
   }
@@ -43,8 +58,8 @@ sealed trait SegmentCodec[A] { self =>
   }
 
   final def isEmpty: Boolean = self.asInstanceOf[SegmentCodec[_]] match {
-    case SegmentCodec.Empty(_) => true
-    case _                     => false
+    case SegmentCodec.Empty => true
+    case _                  => false
   }
 
   // Returns number of segments matched, or -1 if not matched:
@@ -54,14 +69,15 @@ sealed trait SegmentCodec[A] { self =>
 
   final def render: String = {
     if (_render == "") _render = self.asInstanceOf[SegmentCodec[_]] match {
-      case SegmentCodec.Empty(_)          => s""
-      case SegmentCodec.Literal(value, _) => s"/$value"
-      case SegmentCodec.IntSeg(name, _)   => s"/{$name}"
-      case SegmentCodec.LongSeg(name, _)  => s"/{$name}"
-      case SegmentCodec.Text(name, _)     => s"/{$name}"
-      case SegmentCodec.BoolSeg(name, _)  => s"/{$name}"
-      case SegmentCodec.UUID(name, _)     => s"/{$name}"
-      case SegmentCodec.Trailing(_)       => s"/..."
+      case _: SegmentCodec.Empty.type       => s""
+      case SegmentCodec.Literal(value)      => s"/$value"
+      case SegmentCodec.IntSeg(name)        => s"/{$name}"
+      case SegmentCodec.LongSeg(name)       => s"/{$name}"
+      case SegmentCodec.Text(name)          => s"/{$name}"
+      case SegmentCodec.BoolSeg(name)       => s"/{$name}"
+      case SegmentCodec.UUID(name)          => s"/{$name}"
+      case _: SegmentCodec.Trailing.type    => s"/..."
+      case SegmentCodec.Annotated(codec, _) => codec.render
     }
     _render
   }
@@ -81,7 +97,7 @@ sealed trait SegmentCodec[A] { self =>
 object SegmentCodec          {
   def bool(name: String): SegmentCodec[Boolean] = SegmentCodec.BoolSeg(name)
 
-  val empty: SegmentCodec[Unit] = SegmentCodec.Empty()
+  val empty: SegmentCodec[Unit] = SegmentCodec.Empty
 
   def int(name: String): SegmentCodec[Int] = SegmentCodec.IntSeg(name)
 
@@ -92,20 +108,43 @@ object SegmentCodec          {
 
   def string(name: String): SegmentCodec[String] = SegmentCodec.Text(name)
 
-  def trailing: SegmentCodec[Path] = SegmentCodec.Trailing()
+  def trailing: SegmentCodec[Path] = SegmentCodec.Trailing
 
   def uuid(name: String): SegmentCodec[java.util.UUID] = SegmentCodec.UUID(name)
 
-  private[http] final case class Empty(doc: Doc = Doc.empty) extends SegmentCodec[Unit] {
-    def ??(doc: Doc): Empty = copy(doc = this.doc + doc)
+  final case class Annotated[A](codec: SegmentCodec[A], annotations: Chunk[MetaData[A]]) extends SegmentCodec[A] {
+
+    override def equals(that: Any): Boolean =
+      codec.equals(that)
+    override def ??(doc: Doc): Annotated[A] =
+      copy(annotations = annotations :+ MetaData.Documented(doc))
+
+    override def example(name: String, example: A): Annotated[A] =
+      copy(annotations = annotations :+ MetaData.Examples(Map(name -> example)))
+
+    override def examples(examples: (String, A)*): Annotated[A] =
+      copy(annotations = annotations :+ MetaData.Examples(examples.toMap))
+
+    def format(value: A): Path = codec.format(value)
+
+    def matches(segments: Chunk[String], index: Int): Int = codec.matches(segments, index)
+  }
+
+  sealed trait MetaData[A]
+
+  object MetaData {
+    final case class Documented[A](value: Doc)             extends MetaData[A]
+    final case class Examples[A](examples: Map[String, A]) extends MetaData[A]
+  }
+
+  private[http] case object Empty extends SegmentCodec[Unit] { self =>
 
     def format(unit: Unit): Path = Path(s"")
 
     def matches(segments: Chunk[String], index: Int): Int = 0
   }
 
-  private[http] final case class Literal(value: String, doc: Doc = Doc.empty) extends SegmentCodec[Unit]           {
-    def ??(doc: Doc): Literal = copy(doc = this.doc + doc)
+  private[http] final case class Literal(value: String) extends SegmentCodec[Unit] {
 
     def format(unit: Unit): Path = Path(s"/$value")
 
@@ -115,8 +154,7 @@ object SegmentCodec          {
       else -1
     }
   }
-  private[http] final case class BoolSeg(name: String, doc: Doc = Doc.empty)  extends SegmentCodec[Boolean]        {
-    def ??(doc: Doc): BoolSeg = copy(doc = this.doc + doc)
+  private[http] final case class BoolSeg(name: String) extends SegmentCodec[Boolean] {
 
     def format(value: Boolean): Path = Path(s"/$value")
 
@@ -128,8 +166,7 @@ object SegmentCodec          {
         if (segment == "true" || segment == "false") 1 else -1
       }
   }
-  private[http] final case class IntSeg(name: String, doc: Doc = Doc.empty)   extends SegmentCodec[Int]            {
-    def ??(doc: Doc): IntSeg = copy(doc = this.doc + doc)
+  private[http] final case class IntSeg(name: String) extends SegmentCodec[Int] {
 
     def format(value: Int): Path = Path(s"/$value")
 
@@ -151,8 +188,7 @@ object SegmentCodec          {
       }
     }
   }
-  private[http] final case class LongSeg(name: String, doc: Doc = Doc.empty)  extends SegmentCodec[Long]           {
-    def ??(doc: Doc): LongSeg = copy(doc = this.doc + doc)
+  private[http] final case class LongSeg(name: String) extends SegmentCodec[Long] {
 
     def format(value: Long): Path = Path(s"/$value")
 
@@ -174,8 +210,7 @@ object SegmentCodec          {
       }
     }
   }
-  private[http] final case class Text(name: String, doc: Doc = Doc.empty)     extends SegmentCodec[String]         {
-    def ??(doc: Doc): Text = copy(doc = this.doc + doc)
+  private[http] final case class Text(name: String) extends SegmentCodec[String] {
 
     def format(value: String): Path = Path(s"/$value")
 
@@ -183,8 +218,7 @@ object SegmentCodec          {
       if (index < 0 || index >= segments.length) -1
       else 1
   }
-  private[http] final case class UUID(name: String, doc: Doc = Doc.empty)     extends SegmentCodec[java.util.UUID] {
-    def ??(doc: Doc): UUID = copy(doc = this.doc + doc)
+  private[http] final case class UUID(name: String) extends SegmentCodec[java.util.UUID] {
 
     def format(value: java.util.UUID): Path = Path(s"/$value")
 
@@ -221,9 +255,7 @@ object SegmentCodec          {
     }
   }
 
-  final case class Trailing(doc: Doc = Doc.empty) extends SegmentCodec[Path] { self =>
-    def ??(doc: Doc): SegmentCodec[Path] = copy(doc = this.doc + doc)
-
+  case object Trailing extends SegmentCodec[Path] { self =>
     def format(value: Path): Path = value
 
     def matches(segments: Chunk[String], index: Int): Int =
