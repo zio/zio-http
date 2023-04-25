@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.{Console, Duration, Exit, Trace, ZIO}
+import zio._
 
 import zio.http.RequestHandlerMiddlewares.{InterceptPatch, InterceptPatchZIO}
 import zio.http.internal.HeaderModifier
@@ -35,9 +35,9 @@ private[zio] trait RequestHandlerMiddlewares
   final def addCookie(cookie: Cookie.Response): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     withHeader(Header.SetCookie(cookie))
 
-  final def addCookieZIO[R, E](cookie: ZIO[R, E, Cookie.Response])(implicit
+  final def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie.Response])(implicit
     trace: Trace,
-  ): RequestHandlerMiddleware[Nothing, R, E, Any] =
+  ): RequestHandlerMiddleware[Nothing, R, Nothing, Any] =
     updateResponseZIO(response => cookie.map(response.addCookie))
 
   /**
@@ -244,9 +244,9 @@ private[zio] trait RequestHandlerMiddlewares
   /**
    * Runs the effect after the middleware is applied
    */
-  final def runAfter[R, E](effect: ZIO[R, E, Any])(implicit
+  final def runAfter[R](effect: ZIO[R, Nothing, Any])(implicit
     trace: Trace,
-  ): RequestHandlerMiddleware[Nothing, R, E, Any] =
+  ): RequestHandlerMiddleware[Nothing, R, Nothing, Any] =
     updateResponseZIO(response => effect.as(response))
 
   /**
@@ -315,14 +315,26 @@ private[zio] trait RequestHandlerMiddlewares
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         handler.map(f)
+
+      override def applyToErrorHandler[Env](g: Cause[Nothing] => ZIO[Env, Nothing, Response])(implicit
+        trace: Trace,
+      ): Cause[Nothing] => ZIO[Env, Nothing, Response] =
+        (cause: Cause[Nothing]) => g(cause).map(f)
     }
 
-  final def updateResponseZIO[R, E](f: Response => ZIO[R, E, Response]): RequestHandlerMiddleware[Nothing, R, E, Any] =
-    new RequestHandlerMiddleware.Simple[R, E] {
-      override def apply[R1 <: R, Err1 >: E](
+  final def updateResponseZIO[R](
+    f: Response => ZIO[R, Nothing, Response],
+  ): RequestHandlerMiddleware[Nothing, R, Nothing, Any] =
+    new RequestHandlerMiddleware.Simple[R, Nothing] {
+      override def apply[R1 <: R, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         handler.mapZIO(f)
+
+      override def applyToErrorHandler[Env <: R](g: Cause[Nothing] => ZIO[Env, Nothing, Response])(implicit
+        trace: Trace,
+      ): Cause[Nothing] => ZIO[Env, Nothing, Response] =
+        (cause: Cause[Nothing]) => g(cause).flatMap(f)
     }
 
   /**
