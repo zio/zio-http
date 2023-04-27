@@ -20,12 +20,13 @@ import zio._
 
 import zio.http.RequestHandlerMiddlewares.{InterceptPatch, InterceptPatchZIO}
 import zio.http.internal.HeaderModifier
-import zio.http.internal.middlewares.{Auth, HtmlErrorResponses, Metrics, RequestLogging}
+import zio.http.internal.middlewares.{Auth, Csrf, HtmlErrorResponses, Metrics, RequestLogging}
 
 private[zio] trait RequestHandlerMiddlewares
     extends RequestLogging
     with Metrics
     with Auth
+    with Csrf
     with HeaderModifier[RequestHandlerMiddleware[Nothing, Any, Nothing, Any]]
     with HtmlErrorResponses { self =>
 
