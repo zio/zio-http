@@ -18,140 +18,142 @@ package zio.http
 
 import java.nio.charset.Charset
 
-import scala.collection.immutable
-
-import zio.{Chunk, Queue, ZIO}
+import zio.{Chunk, Queue, Trace, Unsafe, ZIO}
 
 import zio.stream.{Take, ZStream}
 
+import zio.http.StreamingForm.Buffer
 import zio.http.internal.{FormAST, FormState}
 
-final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary) {
+final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
   def charset: Charset = boundary.charset
 
   /**
    * Runs the streaming form and collects all parts in memory, returning a Form
    */
   def collectAll: ZIO[Any, Throwable, Form] =
-    fields
-      .mapZIOPar(1) {
-        case sb: FormField.StreamingBinary =>
-          sb.collect
-        case other: FormField              =>
-          ZIO.succeed(other)
-      }
-      .runCollect
-      .map { formData =>
-        Form(formData)
-      }
+    fields.mapZIO {
+      case sb: FormField.StreamingBinary =>
+        sb.collect
+      case other: FormField              =>
+        ZIO.succeed(other)
+    }.runCollect.map { formData =>
+      Form(formData)
+    }
 
-  def fields: ZStream[Any, Throwable, FormField] =
-    source
-      .mapAccumZIO(initialState) { (state, byte) =>
-        state.formState match {
-          case formState: FormState.FormStateBuffer =>
-            val nextFormState = formState.append(byte)
-            (state.currentQueue match {
-              case Some(queue) =>
-                val (newBuffer, maybeTake) = addByteToBuffer(state.buffer, byte)
-                maybeTake match {
-                  case Some(take) => queue.offer(take).as(newBuffer)
-                  case None       => ZIO.succeed(newBuffer)
-                }
-              case None        =>
-                ZIO.succeed(state.buffer)
-            }).flatMap { newBuffer =>
-              nextFormState match {
-                case newFormState: FormState.FormStateBuffer =>
-                  if (
-                    state.currentQueue.isEmpty &&
-                    newFormState.phase == FormState.Phase.Part2 &&
-                    !state.inNonStreamingPart
-                  ) {
-                    val contentType = FormField.getContentType(newFormState.tree)
-                    if (contentType.binary) {
-                      for {
-                        newQueue <- Queue.unbounded[Take[Nothing, Byte]]
-                        _        <- newQueue.offer(Take.chunk(newFormState.tree.collect { case FormAST.Content(bytes) =>
-                          bytes
-                        }.flatten))
-                        streamingFormData <- FormField
-                          .incomingStreamingBinary(newFormState.tree, newQueue)
-                          .mapError(_.asException)
-                        nextState = state.copy(
-                          formState = newFormState,
-                          currentQueue = Some(newQueue),
-                          buffer = newBuffer,
-                        )
-                      } yield (nextState, Some(streamingFormData))
-                    } else {
-                      val nextState = state.copy(formState = newFormState, inNonStreamingPart = true)
-                      ZIO.succeed((nextState, None))
-                    }
-                  } else {
-                    val nextState = state.copy(formState = newFormState, buffer = newBuffer)
-                    ZIO.succeed((nextState, None))
+  def fields(implicit trace: Trace): ZStream[Any, Throwable, FormField] =
+    ZStream.unwrapScoped {
+      implicit val unsafe: Unsafe = Unsafe.unsafe
+
+      for {
+        runtime    <- ZIO.runtime[Any]
+        buffer     <- ZIO.succeed(new Buffer(bufferSize))
+        fieldQueue <- Queue.bounded[Take[Throwable, FormField]](4)
+        reader      =
+          source
+            .mapAccum(initialState) { (state, byte) =>
+              state.formState match {
+                case formState: FormState.FormStateBuffer =>
+                  val nextFormState = formState.append(byte)
+                  state.currentQueue match {
+                    case Some(queue) =>
+                      val takes = buffer.addByte(crlfBoundary, byte)
+                      if (takes.nonEmpty) {
+                        runtime.unsafe.run(queue.offerAll(takes)).getOrThrowFiberFailure()
+                      }
+                    case None        =>
                   }
-                case FormState.BoundaryEncapsulated(ast)     =>
-                  if (state.inNonStreamingPart) {
-                    FormField
-                      .fromFormAST(ast, charset)
-                      .mapBoth(
-                        _.asException,
-                        { formData =>
-                          (state.reset, Some(formData))
-                        },
-                      )
-                  } else {
-                    ZIO.succeed((state.reset, None))
+                  nextFormState match {
+                    case newFormState: FormState.FormStateBuffer =>
+                      if (
+                        state.currentQueue.isEmpty &&
+                        newFormState.phase == FormState.Phase.Part2 &&
+                        !state.inNonStreamingPart
+                      ) {
+                        val contentType = FormField.getContentType(newFormState.tree)
+                        if (contentType.binary) {
+                          runtime.unsafe.run {
+                            for {
+                              newQueue <- Queue.bounded[Take[Nothing, Byte]](3)
+                              _ <- newQueue.offer(Take.chunk(newFormState.tree.collect { case FormAST.Content(bytes) =>
+                                bytes
+                              }.flatten))
+                              streamingFormData <- FormField
+                                .incomingStreamingBinary(newFormState.tree, newQueue)
+                                .mapError(_.asException)
+                              nextState = state.copy(
+                                formState = newFormState,
+                                currentQueue = Some(newQueue),
+                              )
+                            } yield (nextState, Some(streamingFormData))
+                          }.getOrThrowFiberFailure()
+                        } else {
+                          val nextState = state.copy(formState = newFormState, inNonStreamingPart = true)
+                          (nextState, None)
+                        }
+                      } else {
+                        val nextState = state.copy(formState = newFormState)
+                        (nextState, None)
+                      }
+                    case FormState.BoundaryEncapsulated(ast)     =>
+                      if (state.inNonStreamingPart) {
+                        runtime.unsafe.run {
+                          FormField
+                            .fromFormAST(ast, charset)
+                            .mapBoth(
+                              _.asException,
+                              { formData =>
+                                buffer.reset()
+                                (state.reset, Some(formData))
+                              },
+                            )
+                        }.getOrThrowFiberFailure()
+                      } else {
+                        buffer.reset()
+                        (state.reset, None)
+                      }
+                    case FormState.BoundaryClosed(ast)           =>
+                      if (state.inNonStreamingPart) {
+                        runtime.unsafe.run {
+                          FormField
+                            .fromFormAST(ast, charset)
+                            .mapBoth(
+                              _.asException,
+                              { formData =>
+                                buffer.reset()
+                                (state.reset, Some(formData))
+                              },
+                            )
+                        }
+                          .getOrThrowFiberFailure()
+                      } else {
+                        buffer.reset()
+                        (state.reset, None)
+                      }
                   }
-                case FormState.BoundaryClosed(ast)           =>
-                  if (state.inNonStreamingPart) {
-                    FormField
-                      .fromFormAST(ast, charset)
-                      .mapBoth(
-                        _.asException,
-                        { formData =>
-                          (state.reset, Some(formData))
-                        },
-                      )
-                  } else {
-                    ZIO.succeed((state.reset, None))
-                  }
+
+                case _ =>
+                  (state, None)
               }
             }
-          case _                                    =>
-            ZIO.succeed((state, None))
+            .collectZIO { case Some(field) =>
+              fieldQueue.offer(Take.single(field))
+            }
+        _ <- reader.runDrain.catchAllCause { cause =>
+          fieldQueue.offer(Take.failCause(cause))
         }
-      }
-      .collect { case Some(formData) =>
-        formData
-      }
+          .ensuring(
+            fieldQueue.offer(Take.end),
+          )
+          .forkScoped
+        fieldStream = ZStream.fromQueue(fieldQueue).flattenTake
+      } yield fieldStream
+    }
 
   private def initialState: StreamingForm.State =
     StreamingForm.initialState(boundary)
 
   private val crlfBoundary: Chunk[Byte] = Chunk[Byte](13, 10) ++ boundary.encapsulationBoundaryBytes
-
-  private def addByteToBuffer(
-    buffer: immutable.Queue[Byte],
-    byte: Byte,
-  ): (immutable.Queue[Byte], Option[Take[Nothing, Byte]]) =
-    if (buffer.length < (crlfBoundary.length - 1)) {
-      // Not enough bytes to check if we have the boundary
-      (buffer.enqueue(byte), None)
-    } else {
-      val newBuffer      = buffer.enqueue(byte)
-      val newBufferChunk = Chunk.fromIterable(newBuffer)
-      if (newBufferChunk == crlfBoundary) {
-        // We have found the boundary
-        (immutable.Queue.empty, Some(Take.end))
-      } else {
-        // We don't have the boundary
-        val (out, remaining) = newBuffer.dequeue
-        (remaining, Some(Take.single(out)))
-      }
-    }
 }
 
 object StreamingForm {
@@ -159,14 +161,70 @@ object StreamingForm {
     boundary: Boundary,
     formState: FormState,
     currentQueue: Option[Queue[Take[Nothing, Byte]]],
-    buffer: immutable.Queue[Byte],
     inNonStreamingPart: Boolean,
   ) {
 
     def reset: State =
-      State(boundary, FormState.fromBoundary(boundary), None, immutable.Queue.empty, inNonStreamingPart = false)
+      State(
+        boundary,
+        FormState.fromBoundary(boundary),
+        None,
+        inNonStreamingPart = false,
+      )
   }
 
   private def initialState(boundary: Boundary): State =
-    State(boundary, FormState.fromBoundary(boundary), None, immutable.Queue.empty, inNonStreamingPart = false)
+    State(boundary, FormState.fromBoundary(boundary), None, inNonStreamingPart = false)
+
+  private final class Buffer(bufferSize: Int) {
+    private val buffer: Array[Byte] = new Array[Byte](bufferSize)
+    private var length: Int         = 0
+
+    def addByte(
+      crlfBoundary: Chunk[Byte],
+      byte: Byte,
+    ): Chunk[Take[Nothing, Byte]] = {
+      buffer(length) = byte
+      if (length < (crlfBoundary.length - 1)) {
+        // Not enough bytes to check if we have the boundary
+        length += 1
+        Chunk.empty
+      } else {
+        var foundBoundary = true
+        var i             = 0
+        while (i < crlfBoundary.length && foundBoundary) {
+          if (buffer(length - i) != crlfBoundary(crlfBoundary.length - 1 - i)) {
+            foundBoundary = false
+          }
+          i += 1
+        }
+
+        if (foundBoundary) {
+          // We have found the boundary
+          val preBoundary =
+            Chunk.fromArray(Chunk.fromArray(buffer).take(length + 1 - crlfBoundary.length).toArray[Byte])
+          length = 0
+          Chunk(Take.chunk(preBoundary), Take.end)
+        } else {
+          // We don't have the boundary
+          if (length < (buffer.length - 2)) {
+            length += 1
+            Chunk.empty
+          } else {
+            val preBoundary =
+              Chunk.fromArray(Chunk.fromArray(buffer).take(length + 1 - crlfBoundary.length).toArray[Byte])
+            for (i <- crlfBoundary.indices) {
+              buffer(i) = buffer(length + 1 - crlfBoundary.length + i)
+            }
+            length = crlfBoundary.length
+            Chunk(Take.chunk(preBoundary))
+          }
+        }
+      }
+    }
+
+    def reset(): Unit = {
+      length = 0
+    }
+  }
 }
