@@ -18,12 +18,12 @@ To use zio-http, add the following dependencies in your project:
 libraryDependencies += "dev.zio" %% "zio-http" % "@VERSION@"
 ```
 
-## Using Dream11's g8 template
+## Using our g8 template
 
-Run the following command on your terminal to set up a ZIO-HTTP project using the provided g8 template:
+Run the following command on your terminal to set up a ZIO Http project using the provided g8 template:
 
 ```shell
-sbt new dream11/zio-http.g8
+sbt new zio/zio-http.g8
 ```
 
 ### Includes
@@ -37,7 +37,7 @@ sbt new dream11/zio-http.g8
 
 ## Efficient development process
 
-The dependencies in the Dream11 g8 template were added to enable an efficient development process.
+The dependencies in the g8 template were added to enable an efficient development process.
 
 ### sbt-revolver "hot-reload" changes
 
