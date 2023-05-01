@@ -25,12 +25,9 @@ const sidebars = {
               type: "category",
               label: "DSL",
               collapsed: false,
-              items: [
-                "dsl/socket/socket",
-                "dsl/socket/websocketframe"
-              ]
-            }
-          ]
+              items: ["dsl/socket/socket", "dsl/socket/websocketframe"],
+            },
+          ],
         },
         {
           type: "category",
@@ -48,7 +45,7 @@ const sidebars = {
                 "examples/basic/http-server",
                 "examples/basic/https-server",
                 "examples/basic/websocket",
-              ]
+              ],
             },
             {
               type: "category",
@@ -62,14 +59,15 @@ const sidebars = {
                 "examples/advanced/server",
                 "examples/advanced/streaming-file",
                 "examples/advanced/streaming-response",
-                "examples/advanced/websocket-server"
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
+                "examples/advanced/websocket-server",
+                "examples/advanced/websocket-chat-docs",
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
 };
 
 module.exports = sidebars;
