@@ -27,8 +27,11 @@ private[codec] trait MethodCodecs {
 
   def connect: HttpCodec[Method, Unit] = method(zio.http.Method.CONNECT)
   def delete: HttpCodec[Method, Unit]  = method(zio.http.Method.DELETE)
+  def head: HttpCodec[Method, Unit]    = method(zio.http.Method.HEAD)
   def get: HttpCodec[Method, Unit]     = method(zio.http.Method.GET)
   def options: HttpCodec[Method, Unit] = method(zio.http.Method.OPTIONS)
+  def patch: HttpCodec[Method, Unit]   = method(zio.http.Method.PATCH)
   def post: HttpCodec[Method, Unit]    = method(zio.http.Method.POST)
   def put: HttpCodec[Method, Unit]     = method(zio.http.Method.PUT)
+  def trace: HttpCodec[Method, Unit]   = method(zio.http.Method.TRACE)
 }
