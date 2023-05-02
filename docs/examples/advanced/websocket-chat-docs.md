@@ -173,4 +173,6 @@ yield ExitCode.success
 ```
 
   <summary>Click to expand the code snippet to view the entire code.</summary>
+  <br>
 </details>
+<br>
