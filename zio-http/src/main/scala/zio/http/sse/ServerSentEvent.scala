@@ -42,10 +42,3 @@ object ServerSentEvent {
 
   def heartbeat(): ServerSentEvent = new ServerSentEvent("")
 }
-
-// Source
-//          .tick(2.seconds, 2.seconds, NotUsed)
-//          .map(_ => LocalTime.now())
-//          .map(time => ServerSentEvent(ISO_LOCAL_TIME.format(time)))
-//          .keepAlive(1.second, () => ServerSentEvent.heartbeat)
-//      }
