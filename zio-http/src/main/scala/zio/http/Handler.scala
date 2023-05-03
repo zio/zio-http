@@ -319,7 +319,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   /**
    * Transforms the failure of the handler effectfully
    */
-  final def mapErrorZIO[R1 <: R, Err1 >: Err, Out1 >: Out](f: Err => ZIO[R1, Err1, Out1])(implicit
+  final def mapErrorZIO[R1 <: R, Err1, Out1 >: Out](f: Err => ZIO[R1, Err1, Out1])(implicit
     trace: Trace,
   ): Handler[R1, Err1, In, Out1] =
     self.foldHandler(err => Handler.fromZIO(f(err)), Handler.succeed)
