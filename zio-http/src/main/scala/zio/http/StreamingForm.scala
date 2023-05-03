@@ -59,7 +59,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                     case Some(queue) =>
                       val takes = buffer.addByte(crlfBoundary, byte)
                       if (takes.nonEmpty) {
-                        runtime.unsafe.run(queue.offerAll(takes)).getOrThrowFiberFailure()
+                        runtime.unsafe.run(queue.offerAll(takes).forkDaemon).getOrThrowFiberFailure()
                       }
                     case None        =>
                   }
