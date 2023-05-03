@@ -7201,6 +7201,7 @@ private[zio] trait MediaTypes {
     lazy val `ecmascript`: MediaType               = new MediaType("text", "ecmascript", Compressible, NotBinary)
     lazy val `encaprtp`: MediaType                 = new MediaType("text", "encaprtp", Compressible, NotBinary)
     lazy val `enriched`: MediaType                 = new MediaType("text", "enriched", Compressible, NotBinary)
+    lazy val `event-stream`: MediaType             = new MediaType("text", "event-stream", Compressible, NotBinary)
     lazy val `fhirpath`: MediaType                 = new MediaType("text", "fhirpath", Compressible, NotBinary)
     lazy val `flexfec`: MediaType                  = new MediaType("text", "flexfec", Compressible, NotBinary)
     lazy val `fwdred`: MediaType                   = new MediaType("text", "fwdred", Compressible, NotBinary)
@@ -7419,6 +7420,7 @@ private[zio] trait MediaTypes {
       `ecmascript`,
       `encaprtp`,
       `enriched`,
+      `event-stream`,
       `fhirpath`,
       `flexfec`,
       `fwdred`,
