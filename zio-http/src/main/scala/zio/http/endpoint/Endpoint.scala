@@ -25,7 +25,6 @@ import zio.stream.ZStream
 import zio.schema._
 
 import zio.http.Status
-import zio.http.codec.HttpCodecType.ResponseType
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.OutErrors
 
@@ -117,6 +116,16 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     implicit ev: (A, B, C, D, E, F, G, H, I, J, K, L) <:< Input,
   ): Invocation[Input, Err, Output, Middleware] =
     Invocation(self, ev((a, b, c, d, e, f, g, h, i, j, k, l)))
+
+  def examplesIn(examples: Input*): Endpoint[Input, Err, Output, Middleware] =
+    copy(input = self.input.examples(examples))
+
+  def examplesIn: Chunk[Input] = self.input.examples
+
+  def examplesOut(examples: Output*): Endpoint[Input, Err, Output, Middleware] =
+    copy(output = self.output.examples(examples))
+
+  def examplesOut: Chunk[Output] = self.output.examples
 
   /**
    * Returns a new endpoint that requires the specified headers to be present.
