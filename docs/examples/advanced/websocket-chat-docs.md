@@ -23,7 +23,6 @@ object WebSocketEcho extends ZIOAppDefault {
 
 </br>
 <br>
-<hr>
 
 ### **chat** function
 
@@ -75,7 +74,6 @@ Http.collectZIO[WebSocketChannelEvent] {
 
   </br>
   <br>
-  <hr>
 
 ### **chatRoom** function
 
@@ -91,7 +89,6 @@ private def chatRoom(socketsRef: Ref[Map[String, Channel[WebSocketFrame]]]): Htt
 
 </br>
 <br>
-<hr>
 
 ### **run** function
 
@@ -109,7 +106,6 @@ yield ExitCode.success
 
 </br>
 <br>
-<hr>
 
 ## **CODE**
 
