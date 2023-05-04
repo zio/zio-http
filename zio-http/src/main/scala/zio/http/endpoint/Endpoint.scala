@@ -25,7 +25,6 @@ import zio.stream.ZStream
 import zio.schema._
 
 import zio.http.Status
-import zio.http.codec.HttpCodecType.ResponseType
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.OutErrors
 
@@ -146,6 +145,15 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     copy(input = input ++ HttpCodec.Content(schema))
 
   /**
+   * Returns a new endpoint derived from this one, whose request must satisfy
+   * the specified codec.
+   */
+  def inCodec[Input2](codec: HttpCodec[HttpCodecType.RequestType, Input2])(implicit
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ codec)
+
+  /**
    * Returns a new endpoint derived from this one whose middleware is composed
    * from the existing middleware of this endpoint, and the specified
    * middleware.
@@ -192,6 +200,15 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     )
 
   def outErrors[Err2]: OutErrors[Input, Err, Output, Middleware, Err2] = OutErrors(self)
+
+  /**
+   * Returns a new endpoint derived from this one, whose response must satisfy
+   * the specified codec.
+   */
+  def outCodec[Output2](codec: HttpCodec[HttpCodecType.ResponseType, Output2])(implicit
+    alt: Alternator[Output, Output2],
+  ): Endpoint[Input, Err, alt.Out, Middleware] =
+    copy(output = self.output | codec)
 
   /**
    * Returns a new endpoint derived from this one, whose output type is a stream

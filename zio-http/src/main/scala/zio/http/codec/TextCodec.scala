@@ -45,15 +45,15 @@ sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
 }
 
 object TextCodec {
-  val boolean: TextCodec[Boolean] = BooleanCodec
+  implicit val boolean: TextCodec[Boolean] = BooleanCodec
 
   def constant(string: String): TextCodec[Unit] = Constant(string)
 
-  val int: TextCodec[Int] = IntCodec
+  implicit val int: TextCodec[Int] = IntCodec
 
-  val string: TextCodec[String] = StringCodec
+  implicit val string: TextCodec[String] = StringCodec
 
-  val uuid: TextCodec[UUID] = UUIDCodec
+  implicit val uuid: TextCodec[UUID] = UUIDCodec
 
   final case class Constant(string: String) extends TextCodec[Unit] {
 
