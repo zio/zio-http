@@ -413,7 +413,7 @@ object Response {
    * @param data
    *   \- stream of data to be sent as Server Sent Events
    */
-  def sse(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
+  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
     new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
 
   private lazy val contentTypeJson: Headers        = Headers(Header.ContentType(MediaType.application.json).untyped)

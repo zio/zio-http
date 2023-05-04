@@ -16,7 +16,7 @@ object SSEServer extends ZIOAppDefault {
     ZStream.repeatWithSchedule(ServerSentEvent(ISO_LOCAL_TIME.format(LocalDateTime.now)), Schedule.spaced(1.second))
 
   val app: Http[Any, Nothing, Request, Response] = Http.collect[Request] { case Method.GET -> !! / "sse" =>
-    Response.sse(stream)
+    Response.fromServerSentEvents(stream)
   }
 
   val run: URIO[Any, ExitCode] = {

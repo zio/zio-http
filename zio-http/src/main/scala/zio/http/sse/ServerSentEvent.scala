@@ -38,7 +38,5 @@ final case class ServerSentEvent(
 }
 
 object ServerSentEvent {
-  def apply(data: String): ServerSentEvent = new ServerSentEvent(data)
-
-  def heartbeat(): ServerSentEvent = new ServerSentEvent("")
+  def heartbeat: ServerSentEvent = new ServerSentEvent("")
 }
