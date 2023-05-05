@@ -237,12 +237,12 @@ private[codec] object EncoderDecoder                   {
         ZIO.unit
       } else if (jsonDecoders.length == 1) {
         jsonDecoders(0)(body).map { result => inputs(0) = result }.mapError { err =>
-          HttpCodecError.MalformedBody(err.getMessage())
+          HttpCodecError.MalformedBody(err.getMessage(), Some(err))
         }
       } else {
         ZIO.foreachDiscard(jsonDecoders.zipWithIndex) { case (decoder, index) =>
           decoder(body).map { result => inputs(index) = result }.mapError { err =>
-            HttpCodecError.MalformedBody(err.getMessage())
+            HttpCodecError.MalformedBody(err.getMessage(), Some(err))
           }
         }
       }

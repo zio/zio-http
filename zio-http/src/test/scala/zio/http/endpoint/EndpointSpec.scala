@@ -20,6 +20,7 @@ import zio._
 import zio.test._
 
 import zio.schema.{DeriveSchema, Schema}
+import zio.schema.codec.DecodeError
 
 import zio.http._
 import zio.http.codec.HttpCodec.{int, literal, query, string}
@@ -358,7 +359,11 @@ object EndpointSpec extends ZIOSpecDefault {
           for {
             response <- routes.toApp.runZIO(request).mapError(_.get).catchAllDefect {
               case err: HttpCodecError.MalformedBody => {
-                ZIO.succeed(Response.text(err.details).withStatus(Status.UnprocessableEntity))
+                err.cause match {
+                  case Some(DecodeError.CastError(_, _)) =>
+                    ZIO.succeed(Response.text(err.details).withStatus(Status.UnprocessableEntity))
+                  case _                                 => ZIO.fail("Unexpected error cause")
+                }
               }
             }
             body     <- response.body.asString.orDie
