@@ -235,6 +235,77 @@ object EndpointSpec extends ZIOSpecDefault {
         )
 
       },
+      test("composite in codecs") {
+        val headerOrQuery = HeaderCodec.name[String]("X-Header") | QueryCodec.query("header")
+
+        val endpoint = Endpoint.get(literal("test")).out[String].inCodec(headerOrQuery)
+
+        val routes = endpoint.implement(header => ZIO.succeed(header))
+
+        val request = Request.get(
+          URL
+            .decode("/test?header=query-value")
+            .toOption
+            .get,
+        )
+
+        val requestWithHeaderAndQuery = request.addHeader("X-Header", "header-value")
+
+        val requestWithHeader = Request
+          .get(
+            URL
+              .decode("/test")
+              .toOption
+              .get,
+          )
+          .addHeader("X-Header", "header-value")
+
+        for {
+          response       <- routes.toApp.runZIO(request)
+          onlyQuery      <- response.body.asString.orDie
+          response       <- routes.toApp.runZIO(requestWithHeader)
+          onlyHeader     <- response.body.asString.orDie
+          response       <- routes.toApp.runZIO(requestWithHeaderAndQuery)
+          headerAndQuery <- response.body.asString.orDie
+        } yield assertTrue(
+          onlyQuery == """"query-value"""",
+          onlyHeader == """"header-value"""",
+          headerAndQuery == """"header-value"""",
+        )
+      },
+      test("composite out codecs") {
+        val headerOrQuery = HeaderCodec.name[String]("X-Header") | StatusCodec.status(Status.Created)
+
+        val endpoint = Endpoint.get(literal("test")).query(QueryCodec.queryBool("Created")).outCodec(headerOrQuery)
+
+        val routes =
+          endpoint.implement(created => if (created) ZIO.succeed(Right(())) else ZIO.succeed(Left("not created")))
+
+        val requestCreated = Request.get(
+          URL
+            .decode("/test?Created=true")
+            .toOption
+            .get,
+        )
+
+        val requestNotCreated = Request.get(
+          URL
+            .decode("/test?Created=false")
+            .toOption
+            .get,
+        )
+
+        for {
+          notCreated <- routes.toApp.runZIO(requestNotCreated)
+          header = notCreated.rawHeader("X-Header").get
+          response <- routes.toApp.runZIO(requestCreated)
+        } yield assertTrue(
+          header == "not created",
+          notCreated.status == Status.Ok,
+          response.status == Status.Created,
+        )
+
+      },
       suite("request bodies")(
         test("simple input") {
 
