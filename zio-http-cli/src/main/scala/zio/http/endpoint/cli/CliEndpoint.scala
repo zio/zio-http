@@ -288,6 +288,7 @@ private[cli] object CliEndpoint {
       case HttpCodec.Status(_, _)                   => Set.empty
       case HttpCodec.TransformOrFail(api, _, _)     => fromInput(api)
       case HttpCodec.WithDoc(in, doc)               => fromInput(in).map(_ describeOptions doc.toPlaintext())
+      case HttpCodec.WithExamples(in, _)            => fromInput(in)
     }
 
   private def fromSchema(schema: zio.schema.Schema[_]): Set[CliEndpoint[_]] = {

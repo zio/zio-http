@@ -117,6 +117,16 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   ): Invocation[Input, Err, Output, Middleware] =
     Invocation(self, ev((a, b, c, d, e, f, g, h, i, j, k, l)))
 
+  def examplesIn(examples: Input*): Endpoint[Input, Err, Output, Middleware] =
+    copy(input = self.input.examples(examples))
+
+  def examplesIn: Chunk[Input] = self.input.examples
+
+  def examplesOut(examples: Output*): Endpoint[Input, Err, Output, Middleware] =
+    copy(output = self.output.examples(examples))
+
+  def examplesOut: Chunk[Output] = self.output.examples
+
   /**
    * Returns a new endpoint that requires the specified headers to be present.
    */
