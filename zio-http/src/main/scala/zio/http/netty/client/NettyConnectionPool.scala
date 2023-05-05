@@ -16,7 +16,7 @@
 
 package zio.http.netty.client
 
-import java.net.InetSocketAddress
+import java.net.{InetAddress, InetSocketAddress}
 
 import zio._
 
@@ -28,6 +28,7 @@ import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
   Channel => JChannel,
   ChannelFactory => JChannelFactory,
+  ChannelFuture,
   ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
@@ -37,6 +38,12 @@ import io.netty.handler.proxy.HttpProxyHandler
 trait NettyConnectionPool extends ConnectionPool[JChannel]
 
 object NettyConnectionPool {
+
+  sealed trait ConnectionSetup
+  object ConnectionSetup {
+    case object Random        extends ConnectionSetup
+    case object HappyEyeballs extends ConnectionSetup
+  }
 
   protected def createChannel(
     channelFactory: JChannelFactory[JChannel],
@@ -48,6 +55,7 @@ object NettyConnectionPool {
     decompression: Decompression,
     localAddress: Option[InetSocketAddress],
     dnsResolver: DnsResolver,
+    connectionSetup: ConnectionSetup = ConnectionSetup.HappyEyeballs,
   )(implicit trace: Trace): ZIO[Any, Throwable, JChannel] = {
     val initializer = new ChannelInitializer[JChannel] {
       override def initChannel(ch: JChannel): Unit = {
@@ -96,11 +104,8 @@ object NettyConnectionPool {
       }
     }
 
-    for {
-      resolvedHosts <- dnsResolver.resolve(location.host)
-      pickedHost    <- Random.nextIntBounded(resolvedHosts.size)
-      host = resolvedHosts(pickedHost)
-      channelFuture <- ZIO.attempt {
+    def connect(host: InetAddress): Task[ChannelFuture] =
+      ZIO.attempt {
         val bootstrap = new Bootstrap()
           .channelFactory(channelFactory)
           .group(eventLoopGroup)
@@ -110,6 +115,38 @@ object NettyConnectionPool {
           case Some(addr) => bootstrap.localAddress(addr)
           case _          => bootstrap
         }).connect()
+      }
+
+    def connectRandom(resolvedHosts: Chunk[InetAddress]): Task[ChannelFuture] =
+      for {
+        pickedHost <- Random.nextIntBounded(resolvedHosts.size)
+        host = resolvedHosts(pickedHost)
+        channelFuture <- connect(host)
+      } yield channelFuture
+
+    def connectHappyEyeballs(
+      resolvedHosts: List[InetAddress],
+      delay: Duration = Duration.fromMillis(250),
+    ): Task[ChannelFuture] =
+      resolvedHosts match {
+        case Nil                =>
+          ZIO.fail(new IllegalStateException("No available hosts to connect"))
+        case host :: Nil        =>
+          connect(host)
+        case host :: otherHosts =>
+          for {
+            failedAttempts <- Queue.bounded[Unit](1)
+            attempt     = connect(host).onError(_ => failedAttempts.offer(()))
+            sleepOrFail = ZIO.sleep(delay).race(failedAttempts.take)
+            result <- attempt.race(sleepOrFail *> connectHappyEyeballs(otherHosts, delay))
+          } yield result
+      }
+
+    for {
+      resolvedHosts <- dnsResolver.resolve(location.host)
+      channelFuture <- connectionSetup match {
+        case ConnectionSetup.Random        => connectRandom(resolvedHosts)
+        case ConnectionSetup.HappyEyeballs => connectHappyEyeballs(resolvedHosts.toList)
       }
       _             <- NettyFutureExecutor.executed(channelFuture)
       result        <- ZIO.attempt(channelFuture.channel())
