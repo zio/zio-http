@@ -218,7 +218,7 @@ object FormSpec extends ZIOSpecDefault {
             ),
           )
           boundary       = Boundary("X-INSOMNIA-BOUNDARY")
-          formByteStream = form.multipartBytes(boundary)
+          formByteStream = form.multipartBytes(boundary).rechunk(1024)
           streamingForm  = StreamingForm(formByteStream, boundary)
           collected <- streamingForm.collectAll
         } yield assertTrue(
