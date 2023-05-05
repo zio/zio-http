@@ -22,7 +22,7 @@ package zio.http.html
 object Template {
 
   def container(heading: CharSequence)(element: Html): Html = {
-    html(
+    html5(
       head(
         title(s"ZIO Http - ${heading}"),
         style("""

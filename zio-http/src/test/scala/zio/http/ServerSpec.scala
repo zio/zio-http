@@ -303,11 +303,11 @@ object ServerSpec extends HttpRunnableSpec {
     suite("html")(
       test("body") {
         val res =
-          Handler.html(zio.http.html.html(body(div(id := "foo", "bar")))).toHttp.deploy.body.mapZIO(_.asString).run()
+          Handler.html(zio.http.html.html5(body(div(id := "foo", "bar")))).toHttp.deploy.body.mapZIO(_.asString).run()
         assertZIO(res)(equalTo("""<!DOCTYPE html><html><body><div id="foo">bar</div></body></html>"""))
       },
       test("content-type") {
-        val app = Handler.html(zio.http.html.html(body(div(id := "foo", "bar")))).toHttp
+        val app = Handler.html(zio.http.html.html5(body(div(id := "foo", "bar")))).toHttp
         val res = app.deploy.header(Header.ContentType).run()
         assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.html))))
       },

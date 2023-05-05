@@ -131,7 +131,7 @@ trait Elements {
 
   final def hr: PartialElement = PartialElement("hr")
 
-  final def html: PartialElement = PartialElement("html")
+  final def html5: PartialElement = PartialElement("html")
 
   final def i: PartialElement = PartialElement("i")
 

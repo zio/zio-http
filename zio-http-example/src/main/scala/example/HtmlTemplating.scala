@@ -1,19 +1,18 @@
 package example
 
 import zio._
-
 import zio.http._
 
-object HtmlTemplating extends ZIOAppDefault {
-  // Importing everything from `zio.html`
-  import zio.http.html._
+// Importing everything from `zio.html`
+import zio.http.html._
 
+object HtmlTemplating extends ZIOAppDefault {
   def app: Handler[Any, Nothing, Any, Response] = {
     // Html response takes in a `Html` instance.
     Handler.html {
 
       // Support for default Html tags
-      html(
+      html5(
         // Support for child nodes
         head(
           title("ZIO Http"),
