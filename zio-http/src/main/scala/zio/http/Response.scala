@@ -26,7 +26,6 @@ import zio.http.Response._
 import zio.http.html.Html
 import zio.http.internal.HeaderOps
 import zio.http.socket._
-import zio.http.sse.ServerSentEvent
 
 sealed trait Response extends HeaderOps[Response] { self =>
 

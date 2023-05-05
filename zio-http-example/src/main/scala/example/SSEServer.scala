@@ -8,7 +8,6 @@ import zio.{ExitCode, Schedule, URIO, ZIOAppDefault, durationInt}
 import zio.stream.ZStream
 
 import zio.http._
-import zio.http.sse.ServerSentEvent
 
 object SSEServer extends ZIOAppDefault {
 

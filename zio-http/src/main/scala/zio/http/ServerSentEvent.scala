@@ -1,4 +1,4 @@
-package zio.http.sse
+package zio.http
 
 /**
  * Server-Sent Event (SSE) as defined by
