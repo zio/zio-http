@@ -16,17 +16,21 @@
 
 package zio.http
 
-import java.nio.charset.Charset
-
-import zio.{Chunk, Queue, Trace, Unsafe, ZIO}
-
-import zio.stream.{Take, ZStream}
-
 import zio.http.StreamingForm.Buffer
 import zio.http.internal.{FormAST, FormState}
+import zio.stream.{Take, ZStream}
+import zio.{Chunk, Queue, Trace, Unsafe, ZIO, durationInt}
+
+import java.nio.charset.Charset
+import java.util.concurrent.TimeoutException
 
 final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
   def charset: Charset = boundary.charset
+
+  private val fullQueueErrorMessage =
+    """
+      |Internal form queue is full for 1 minute. Please ensure streaming parts are handled, if so report bug to https://github.com/zio/zio-http/issues
+      |""".stripMargin
 
   /**
    * Runs the streaming form and collects all parts in memory, returning a Form
@@ -51,6 +55,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
         fieldQueue <- Queue.bounded[Take[Throwable, FormField]](4)
         reader      =
           source
+            .rechunk(bufferSize)
             .mapAccum(initialState) { (state, byte) =>
               state.formState match {
                 case formState: FormState.FormStateBuffer =>
@@ -59,7 +64,11 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                     case Some(queue) =>
                       val takes = buffer.addByte(crlfBoundary, byte)
                       if (takes.nonEmpty) {
-                        runtime.unsafe.run(queue.offerAll(takes)).getOrThrowFiberFailure()
+                        runtime.unsafe
+                          .run(
+                            queue.offerAll(takes).timeoutFail(new TimeoutException(fullQueueErrorMessage))(10.seconds),
+                          )
+                          .getOrThrowFiberFailure()
                       }
                     case None        =>
                   }

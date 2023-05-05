@@ -218,7 +218,7 @@ object FormSpec extends ZIOSpecDefault {
             ),
           )
           boundary       = Boundary("X-INSOMNIA-BOUNDARY")
-          formByteStream = form.multipartBytes(boundary).rechunk(1024)
+          formByteStream = form.multipartBytes(boundary)
           streamingForm  = StreamingForm(formByteStream, boundary)
           collected <- streamingForm.collectAll
         } yield assertTrue(
@@ -226,6 +226,26 @@ object FormSpec extends ZIOSpecDefault {
           collected.map.contains("foo"),
           collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
         )
+      },
+      test("decoding form fields around buffer size should work") {
+        zio.test.check(Gen.int(8000, 8400)) { N =>
+          val bytes          = Chunk.fill(N)(0.toByte)
+          val form           = Form(
+            Chunk(
+              FormField.Binary("file1", bytes, MediaType.image.png),
+              FormField.Binary("file2", bytes, MediaType.image.png),
+              FormField.Binary("file3", bytes, MediaType.image.png),
+            ),
+          )
+          val boundary       = Boundary("X-INSOMNIA-BOUNDARY")
+          val formByteStream = form.multipartBytes(boundary).rechunk(N * 6) // I want one chunk
+          val streamingForm  = StreamingForm(formByteStream, boundary)
+          for {
+            collected <- streamingForm.collectAll
+          } yield assertTrue(
+            collected.map.size == 3,
+          )
+        }
       },
     )
 
