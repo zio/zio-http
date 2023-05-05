@@ -207,7 +207,7 @@ object FormSpec extends ZIOSpecDefault {
           )
         }
       },
-      test("decoding large") {
+      test("decoding large in small chunks") {
         val N = 1024 * 1024
         for {
           bytes <- Random.nextBytes(N)
@@ -219,6 +219,26 @@ object FormSpec extends ZIOSpecDefault {
           )
           boundary       = Boundary("X-INSOMNIA-BOUNDARY")
           formByteStream = form.multipartBytes(boundary).rechunk(1024)
+          streamingForm  = StreamingForm(formByteStream, boundary)
+          collected <- streamingForm.collectAll
+        } yield assertTrue(
+          collected.map.contains("file"),
+          collected.map.contains("foo"),
+          collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
+        )
+      },
+      test("decoding large in single chunk") {
+        val N = 1024 * 1024
+        for {
+          bytes <- Random.nextBytes(N)
+          form           = Form(
+            Chunk(
+              FormField.Simple("foo", "bar"),
+              FormField.Binary("file", bytes, MediaType.image.png),
+            ),
+          )
+          boundary       = Boundary("X-INSOMNIA-BOUNDARY")
+          formByteStream = form.multipartBytes(boundary).rechunk(N * 2)
           streamingForm  = StreamingForm(formByteStream, boundary)
           collected <- streamingForm.collectAll
         } yield assertTrue(

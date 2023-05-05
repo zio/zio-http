@@ -29,7 +29,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
 
   private val fullQueueErrorMessage =
     """
-      |Internal form queue is full for 1 minute. Please ensure streaming parts are handled, if so report bug to https://github.com/zio/zio-http/issues
+      |Internal form queue is full for 10 seconds. Please ensure streaming parts are handled, if so report bug to https://github.com/zio/zio-http/issues
       |""".stripMargin
 
   /**
@@ -84,9 +84,12 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                           runtime.unsafe.run {
                             for {
                               newQueue <- Queue.bounded[Take[Nothing, Byte]](3)
-                              _ <- newQueue.offer(Take.chunk(newFormState.tree.collect { case FormAST.Content(bytes) =>
-                                bytes
-                              }.flatten))
+                              _        <- newQueue
+                                .offer(Take.chunk(newFormState.tree.collect { case FormAST.Content(bytes) =>
+                                  bytes
+                                }.flatten))
+                                .timeoutFail(new TimeoutException(fullQueueErrorMessage))(10.seconds)
+
                               streamingFormData <- FormField
                                 .incomingStreamingBinary(newFormState.tree, newQueue)
                                 .mapError(_.asException)
