@@ -24,6 +24,6 @@ private[codec] trait ContentCodecs {
   def content[A](implicit schema: Schema[A]): ContentCodec[A] =
     HttpCodec.Content(schema)
 
-  def contentStream[A](implicit schema: Schema[A]): ContentCodec[ZStream[Any, Nothing, A]] =
+  def contentStream[A](implicit schema: Schema[A]): ContentCodec[ZStream[Any, Throwable, A]] =
     HttpCodec.ContentStream(schema)
 }

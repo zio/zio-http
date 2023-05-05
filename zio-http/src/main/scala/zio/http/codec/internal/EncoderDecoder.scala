@@ -18,6 +18,9 @@ package zio.http.codec.internal
 
 import zio._
 
+import zio.stream.ZStream
+
+import zio.schema.Schema
 import zio.schema.codec._
 
 import zio.http._
@@ -233,7 +236,9 @@ private[codec] object EncoderDecoder                   {
     }
 
     private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] = {
-      if (jsonDecoders.length == 0) {
+      if (isByteStream(flattened.content)) {
+        ZIO.attempt(inputs(0) = body.asStream)
+      } else if (jsonDecoders.length == 0) {
         ZIO.unit
       } else if (jsonDecoders.length == 1) {
         jsonDecoders(0)(body).map { result => inputs(0) = result }
@@ -317,7 +322,9 @@ private[codec] object EncoderDecoder                   {
       } else None
 
     private def encodeBody(inputs: Array[Any]): Body = {
-      if (jsonEncoders.length == 0) Body.empty
+      if (isByteStream(flattened.content)) {
+        Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, Byte]])
+      } else if (jsonEncoders.length == 0) Body.empty
       else if (jsonEncoders.length == 1) {
         val encoder = jsonEncoders(0)
 
@@ -326,11 +333,26 @@ private[codec] object EncoderDecoder                   {
     }
 
     private def encodeContentType(inputs: Array[Any]): Headers = {
-      val _ = inputs // TODO: Support multiple content types
-      if (jsonEncoders.length == 0) Headers.empty
-      else if (jsonEncoders.length == 1) {
-        Headers(Header.ContentType(MediaType.application.json))
-      } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
+      if (isByteStream(flattened.content)) {
+        Headers(Header.ContentType(MediaType.application.`octet-stream`)) // TODO: customizable content type
+      } else {
+        val _ = inputs // TODO: Support multiple content types
+        if (jsonEncoders.length == 0) Headers.empty
+        else if (jsonEncoders.length == 1) {
+          Headers(Header.ContentType(MediaType.application.json))
+        } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
+      }
     }
+
+    private def isByteStream(codecs: Chunk[BodyCodec[_]]): Boolean =
+      if (codecs.length == 1) {
+        codecs.headOption match {
+          case Some(BodyCodec.Multiple(schema)) =>
+            schema == Schema[Byte]
+          case _                                => false
+        }
+      } else {
+        false
+      }
   }
 }

@@ -19,8 +19,11 @@ package zio.http.endpoint
 import zio._
 import zio.test._
 
+import zio.stream.ZStream
+
 import zio.schema.{DeriveSchema, Schema}
 
+import zio.http.Header.ContentType
 import zio.http._
 import zio.http.codec.HttpCodec.{int, literal, query, string}
 import zio.http.codec._
@@ -423,6 +426,62 @@ object EndpointSpec extends ZIOSpecDefault {
             body1 == "{\"userId\":123}",
             response2.status == Status.InternalServerError,
             body2 == "{\"message\":\"something went wrong\"}",
+          )
+        },
+      ),
+      suite("byte stream input/output")(
+        test("responding with a byte stream") {
+          for {
+            bytes <- Random.nextBytes(1024)
+            route =
+              Endpoint
+                .get(literal("test-byte-stream"))
+                .outStream[Byte]
+                .implement { _ =>
+                  ZIO.succeed(ZStream.fromChunk(bytes).rechunk(16))
+                }
+            result   <- route.toApp.runZIO(Request.get(URL.decode("/test-byte-stream").toOption.get)).exit
+            response <- result match {
+              case Exit.Success(value) => ZIO.succeed(value)
+              case Exit.Failure(cause) =>
+                cause.failureOrCause match {
+                  case Left(Some(response)) => ZIO.succeed(response)
+                  case Left(None)           => ZIO.failCause(cause)
+                  case Right(cause)         => ZIO.failCause(cause)
+                }
+            }
+            body     <- response.body.asChunk.orDie
+          } yield assertTrue(
+            response.header(ContentType) == Some(ContentType(MediaType.application.`octet-stream`)),
+            body == bytes,
+          )
+        },
+        test("request body as a byte stream") {
+          for {
+            bytes <- Random.nextBytes(1024)
+            route =
+              Endpoint
+                .post(literal("test-byte-stream"))
+                .inStream[Byte]
+                .out[Long]
+                .implement { byteStream =>
+                  byteStream.runCount.orDie
+                }
+            result   <- route.toApp
+              .runZIO(Request.post(Body.fromChunk(bytes), URL.decode("/test-byte-stream").toOption.get))
+              .exit
+            response <- result match {
+              case Exit.Success(value) => ZIO.succeed(value)
+              case Exit.Failure(cause) =>
+                cause.failureOrCause match {
+                  case Left(Some(response)) => ZIO.succeed(response)
+                  case Left(None)           => ZIO.failCause(cause)
+                  case Right(cause)         => ZIO.failCause(cause)
+                }
+            }
+            body     <- response.body.asString.orDie
+          } yield assertTrue(
+            body == "1024",
           )
         },
       ),

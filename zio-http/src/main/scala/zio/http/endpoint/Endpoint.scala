@@ -154,6 +154,21 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     copy(input = input ++ codec)
 
   /**
+   * Returns a new endpoint derived from this one, whose input type is a stream
+   * of the specified typ
+   */
+  def inStream[Input2: Schema](implicit
+    combiner: Combiner[Input, ZStream[Any, Throwable, Input2]],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    Endpoint(
+      input = self.input ++ ContentCodec.contentStream[Input2],
+      output,
+      error,
+      doc,
+      mw,
+    )
+
+  /**
    * Returns a new endpoint derived from this one whose middleware is composed
    * from the existing middleware of this endpoint, and the specified
    * middleware.
@@ -215,7 +230,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    * of the specified type for the ok status code.
    */
   def outStream[Output2: Schema](implicit
-    alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
+    alt: Alternator[Output, ZStream[Any, Throwable, Output2]],
   ): Endpoint[Input, Err, alt.Out, Middleware] =
     outStream[Output2](Status.Ok)
 
@@ -225,7 +240,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    */
   def outStream[Output2: Schema](
     status: Status,
-  )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
+  )(implicit alt: Alternator[Output, ZStream[Any, Throwable, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
       output = (self.output | ContentCodec.contentStream[Output2]) ++ StatusCodec.status(status),
