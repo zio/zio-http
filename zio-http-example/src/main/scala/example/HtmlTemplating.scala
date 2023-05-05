@@ -3,7 +3,7 @@ package example
 import zio._
 import zio.http._
 
-// Importing everything from `zio.html`
+// Importing everything from `zio.http.html`
 import zio.http.html._
 
 object HtmlTemplating extends ZIOAppDefault {
