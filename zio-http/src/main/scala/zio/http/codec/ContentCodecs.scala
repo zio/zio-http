@@ -20,10 +20,18 @@ import zio.stream.ZStream
 
 import zio.schema.Schema
 
+import zio.http.MediaType
+
 private[codec] trait ContentCodecs {
   def content[A](implicit schema: Schema[A]): ContentCodec[A] =
-    HttpCodec.Content(schema)
+    HttpCodec.Content(schema, mediaType = None)
 
-  def contentStream[A](implicit schema: Schema[A]): ContentCodec[ZStream[Any, Throwable, A]] =
-    HttpCodec.ContentStream(schema)
+  def content[A](mediaType: MediaType)(implicit schema: Schema[A]): ContentCodec[A] =
+    HttpCodec.Content(schema, mediaType = Some(mediaType))
+
+  def contentStream[A](implicit schema: Schema[A]): ContentCodec[ZStream[Any, Nothing, A]] =
+    HttpCodec.ContentStream(schema, mediaType = None)
+
+  def contentStream[A](mediaType: MediaType)(implicit schema: Schema[A]): ContentCodec[ZStream[Any, Nothing, A]] =
+    HttpCodec.ContentStream(schema, mediaType = Some(mediaType))
 }

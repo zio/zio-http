@@ -456,6 +456,32 @@ object EndpointSpec extends ZIOSpecDefault {
             body == bytes,
           )
         },
+        test("responding with a byte stream, custom media type") {
+          for {
+            bytes <- Random.nextBytes(1024)
+            route =
+              Endpoint
+                .get(literal("test-byte-stream"))
+                .outStream[Byte](Status.Ok, MediaType.image.png)
+                .implement { _ =>
+                  ZIO.succeed(ZStream.fromChunk(bytes).rechunk(16))
+                }
+            result   <- route.toApp.runZIO(Request.get(URL.decode("/test-byte-stream").toOption.get)).exit
+            response <- result match {
+              case Exit.Success(value) => ZIO.succeed(value)
+              case Exit.Failure(cause) =>
+                cause.failureOrCause match {
+                  case Left(Some(response)) => ZIO.succeed(response)
+                  case Left(None)           => ZIO.failCause(cause)
+                  case Right(cause)         => ZIO.failCause(cause)
+                }
+            }
+            body     <- response.body.asChunk.orDie
+          } yield assertTrue(
+            response.header(ContentType) == Some(ContentType(MediaType.image.png)),
+            body == bytes,
+          )
+        },
         test("request body as a byte stream") {
           for {
             bytes <- Random.nextBytes(1024)
@@ -465,7 +491,7 @@ object EndpointSpec extends ZIOSpecDefault {
                 .inStream[Byte]
                 .out[Long]
                 .implement { byteStream =>
-                  byteStream.runCount.orDie
+                  byteStream.runCount
                 }
             result   <- route.toApp
               .runZIO(Request.post(Body.fromChunk(bytes), URL.decode("/test-byte-stream").toOption.get))

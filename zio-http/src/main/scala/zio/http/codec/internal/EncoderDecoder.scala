@@ -237,7 +237,7 @@ private[codec] object EncoderDecoder                   {
 
     private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] = {
       if (isByteStream(flattened.content)) {
-        ZIO.attempt(inputs(0) = body.asStream)
+        ZIO.attempt(inputs(0) = body.asStream.orDie)
       } else if (jsonDecoders.length == 0) {
         ZIO.unit
       } else if (jsonDecoders.length == 1) {
@@ -334,22 +334,24 @@ private[codec] object EncoderDecoder                   {
 
     private def encodeContentType(inputs: Array[Any]): Headers = {
       if (isByteStream(flattened.content)) {
-        Headers(Header.ContentType(MediaType.application.`octet-stream`)) // TODO: customizable content type
+        val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.`octet-stream`)
+        Headers(Header.ContentType(mediaType))
       } else {
         val _ = inputs // TODO: Support multiple content types
         if (jsonEncoders.length == 0) Headers.empty
         else if (jsonEncoders.length == 1) {
-          Headers(Header.ContentType(MediaType.application.json))
+          val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.json)
+          Headers(Header.ContentType(mediaType))
         } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
       }
     }
 
     private def isByteStream(codecs: Chunk[BodyCodec[_]]): Boolean =
       if (codecs.length == 1) {
-        codecs.headOption match {
-          case Some(BodyCodec.Multiple(schema)) =>
+        codecs(0) match {
+          case BodyCodec.Multiple(schema, _) =>
             schema == Schema[Byte]
-          case _                                => false
+          case _                             => false
         }
       } else {
         false

@@ -82,8 +82,8 @@ private[cli] object CliEndpoint {
             r <- fromInput(right)
           } yield l ++ r
 
-      case HttpCodec.Content(schema, _)             => fromSchema(schema)
-      case HttpCodec.ContentStream(schema, _)       => fromSchema(schema)
+      case HttpCodec.Content(schema, _, _)          => fromSchema(schema)
+      case HttpCodec.ContentStream(schema, _, _)    => fromSchema(schema)
       case HttpCodec.Empty                          => Set.empty
       case HttpCodec.Fallback(left, right)          => fromInput(left) ++ fromInput(right)
       case HttpCodec.Halt                           => Set.empty

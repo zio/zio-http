@@ -494,7 +494,7 @@ object HttpCodec
   }
 
   private[http] final case class Status[A](codec: SimpleCodec[zio.http.Status, A], index: Int = 0)
-      extends Atom[HttpCodecType.Status, A]                           {
+      extends Atom[HttpCodecType.Status, A]                         {
     self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
 
@@ -503,27 +503,28 @@ object HttpCodec
     def withIndex(index: Int): Status[A] = copy(index = index)
   }
   private[http] final case class Path[A](textCodec: TextCodec[A], name: Option[String], index: Int = 0)
-      extends Atom[HttpCodecType.Path, A]                             { self =>
+      extends Atom[HttpCodecType.Path, A]                           { self =>
     def erase: Path[Any] = self.asInstanceOf[Path[Any]]
 
     def tag: AtomTag = AtomTag.Path
 
     def withIndex(index: Int): Path[A] = copy(index = index)
   }
-  private[http] final case class Content[A](schema: Schema[A], index: Int = 0) extends Atom[HttpCodecType.Content, A] {
+  private[http] final case class Content[A](schema: Schema[A], mediaType: Option[MediaType], index: Int = 0)
+      extends Atom[HttpCodecType.Content, A]                        {
     self =>
     def tag: AtomTag = AtomTag.Content
 
     def withIndex(index: Int): Content[A] = copy(index = index)
   }
-  private[http] final case class ContentStream[A](schema: Schema[A], index: Int = 0)
-      extends Atom[HttpCodecType.Content, ZStream[Any, Throwable, A]] {
+  private[http] final case class ContentStream[A](schema: Schema[A], mediaType: Option[MediaType], index: Int = 0)
+      extends Atom[HttpCodecType.Content, ZStream[Any, Nothing, A]] {
     def tag: AtomTag = AtomTag.Content
 
     def withIndex(index: Int): ContentStream[A] = copy(index = index)
   }
   private[http] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[HttpCodecType.Query, A]                            {
+      extends Atom[HttpCodecType.Query, A]                          {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 
