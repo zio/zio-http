@@ -18,9 +18,13 @@ package zio.http.codec
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
+
 import zio._
+
 import zio.stream.ZStream
+
 import zio.schema.Schema
+
 import zio.http._
 
 /**

@@ -31,5 +31,3 @@ object HttpCodecType {
   type Status <: HttpCodecType
 
 }
-
-
