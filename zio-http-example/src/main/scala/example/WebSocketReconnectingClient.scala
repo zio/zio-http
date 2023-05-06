@@ -34,7 +34,6 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
 
           case _ =>
             ZIO.unit
-
         }.forever
       }
       .tapErrorZIO { f =>
