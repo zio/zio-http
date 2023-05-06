@@ -58,18 +58,6 @@ final case class SocketApp[-R](run: WebSocketChannel => ZIO[R, Throwable, Any]) 
     ZIO.environment[R].flatMap { env =>
       Response.fromSocketApp(self.provideEnvironment(env))
     }
-
-  // /**
-  //  * Frame decoder configuration
-  //  */
-  // def withDecoder(decoder: SocketDecoder): SocketApp[Env, Err, Out] =
-  //   copy(decoder = decoder, protocol = protocol.withDecoderConfig(decoder))
-
-  // /**
-  //  * Server side websocket configuration
-  //  */
-  // def withProtocol(protocol: SocketProtocol): SocketApp[Env, Err, Out] =
-  //   copy(protocol = protocol)
 }
 
 object SocketApp {
