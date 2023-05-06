@@ -19,7 +19,7 @@ package zio.http.netty
 import zio._
 
 import zio.http.ChannelEvent.UserEvent
-import zio.http.socket.{SocketApp, WebSocketFrame}
+import zio.http.socket.{SocketApp, WebSocketChannelEvent, WebSocketFrame}
 import zio.http.{Channel, ChannelEvent}
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
@@ -34,7 +34,7 @@ import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame
  */
 private[zio] final class WebSocketAppHandler(
   zExec: NettyRuntime,
-  queue: Queue[ChannelEvent[WebSocketFrame]],
+  queue: Queue[WebSocketChannelEvent],
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
