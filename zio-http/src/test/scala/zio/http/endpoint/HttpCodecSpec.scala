@@ -16,6 +16,9 @@
 
 package zio.http.endpoint
 
+import java.util.UUID
+
+import zio._
 import zio.test._
 
 import zio.http._
@@ -243,5 +246,20 @@ object HttpCodecSpec extends ZIOSpecDefault {
           assertTrue(true)
         }
       },
+    suite("Codec with examples") {
+      test("with examples") {
+        val userCodec = PathCodec.string("user").examples("John", "Jane")
+        val uuid1     = UUID.randomUUID
+        val uuid2     = UUID.randomUUID
+        val uuidCodec = PathCodec.uuid("userId").examples(uuid1, uuid2)
+
+        val userExamples = userCodec.examples
+        val uuidExamples = uuidCodec.examples
+        assertTrue(
+          userExamples == Chunk("John", "Jane"),
+          uuidExamples == Chunk(uuid1, uuid2),
+        )
+      }
+    },
   )
 }

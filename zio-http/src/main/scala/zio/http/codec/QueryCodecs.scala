@@ -28,4 +28,5 @@ private[codec] trait QueryCodecs {
 
   def queryAs[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
     HttpCodec.Query(name, codec)
+
 }

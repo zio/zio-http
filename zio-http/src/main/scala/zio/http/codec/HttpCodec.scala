@@ -25,7 +25,7 @@ import zio.stream.ZStream
 
 import zio.schema.Schema
 
-import zio.http.{Status, _}
+import zio.http._
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -194,6 +194,14 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z =
     encoderDecoder.encodeWith(value)(f)
+
+  def examples(examples: Iterable[Value]): HttpCodec[AtomTypes, Value] =
+    HttpCodec.WithExamples(self, Chunk.fromIterable(examples))
+
+  def examples(example1: Value, examples: Value*): HttpCodec[AtomTypes, Value] =
+    HttpCodec.WithExamples(self, example1 +: Chunk.fromIterable(examples))
+
+  def examples: Chunk[Value] = Chunk.empty
 
   /**
    * Returns a new codec that will expect the value to be equal to the specified
@@ -554,6 +562,9 @@ object HttpCodec
   private[http] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)
       extends HttpCodec[AtomType, A]
 
+  private[http] final case class WithExamples[AtomType, A](in: HttpCodec[AtomType, A], override val examples: Chunk[A])
+      extends HttpCodec[AtomType, A]
+
   private[http] final case class TransformOrFail[AtomType, X, A](
     api: HttpCodec[AtomType, X],
     f: X => Either[String, A],
@@ -603,6 +614,8 @@ object HttpCodec
           } yield HttpCodec.Combine(l, r, combiner)
 
         case HttpCodec.WithDoc(in, doc) => rewrite[T, B](in).map(_ ?? doc)
+
+        case HttpCodec.WithExamples(in, examples) => rewrite[T, B](in).map(_.examples(examples))
 
         case HttpCodec.Empty => Chunk.single(HttpCodec.Empty)
 

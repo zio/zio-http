@@ -205,7 +205,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   /**
    * Transforms the failure of the http app effectfully
    */
-  final def mapErrorZIO[R1 <: R, Err1 >: Err, Out1 >: Out](
+  final def mapErrorZIO[R1 <: R, Err1, Out1 >: Out](
     f: Err => ZIO[R1, Err1, Out1],
   )(implicit trace: Trace): Http[R1, Err1, In, Out1] =
     self match {
@@ -214,7 +214,10 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       case route: Route[R, Err, In, Out]      =>
         new Route[R1, Err1, In, Out1] {
           override def run(in: In): ZIO[R, Err1, Http[R1, Err1, In, Out1]] =
-            route.run(in).catchAll(err => ZIO.succeed(Handler.fromZIO(f(err)).toHttp))
+            route
+              .run(in)
+              .map(_.mapErrorZIO(f))
+              .catchAll(err => ZIO.succeed(Handler.fromZIO(f(err)).toHttp))
 
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
             route.errorHandler

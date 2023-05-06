@@ -2516,8 +2516,8 @@ object Header {
       (contentType.charset, contentType.boundary) match {
         case (None, None)                    => contentType.mediaType.fullType
         case (Some(charset), None)           => contentType.mediaType.fullType + "; charset=" + charset.toString
-        case (None, Some(boundary))          => contentType.mediaType.fullType + "; boundary=" + boundary
-        case (Some(charset), Some(boundary)) => contentType.mediaType.fullType + "; charset=" + charset.toString + "; boundary=" + boundary
+        case (None, Some(boundary))          => contentType.mediaType.fullType + "; boundary=" + boundary.id
+        case (Some(charset), Some(boundary)) => contentType.mediaType.fullType + "; charset=" + charset.toString + "; boundary=" + boundary.id
       }
   }
 
