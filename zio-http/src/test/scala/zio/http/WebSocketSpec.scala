@@ -37,7 +37,6 @@ object WebSocketSpec extends HttpRunnableSpec {
           Handler
             .fromFunctionZIO[WebSocketChannel] { case channel =>
               channel.receive
-                .debug("server received:")
                 .flatMap {
 
                   case event @ ChannelRead(frame)  => channel.send(ChannelRead(frame)) *> msg.add(event)
@@ -54,12 +53,9 @@ object WebSocketSpec extends HttpRunnableSpec {
           Http
             .collectZIO[WebSocketChannel] { case channel =>
               channel.receive
-                .debug("client received")
                 .flatMap {
                   case UserEventTriggered(HandshakeComplete)   =>
-                    ZIO.debug("client about to send foo") *>
-                      channel.send(ChannelRead(WebSocketFrame.text("FOO"))) *>
-                      ZIO.debug("client sent foo")
+                      channel.send(ChannelRead(WebSocketFrame.text("FOO")))
                   case ChannelRead(WebSocketFrame.Text("FOO")) =>
                     channel.send(ChannelRead(WebSocketFrame.text("BAR")))
                   case ChannelRead(WebSocketFrame.Text("BAR")) =>
