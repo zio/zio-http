@@ -30,7 +30,7 @@ val http = Http.collectZIO[Request] {
 The WebSocket API leverages the already powerful `Http` domain to write web socket apps. The difference is that instead
 of collecting `Request` we collect `Channel` or more specifically `WebSocketChannel`. And, instead of
 returning
-a `Response` we return `Any`, because we use the channel to write content directly.
+a `Response` we return `Unit`, because we use the channel to write content directly.
 
 ## Channel
 
