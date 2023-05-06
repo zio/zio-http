@@ -126,8 +126,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
   //     .withClock(Clock.ClockLive) *> ZIO.never
 
   private def eventLoop(name: String, channel: TestChannel, app: SocketApp[Any], otherChannel: TestChannel) = {
-    val _ = name
-    val _ = otherChannel
+    val _ = (name, otherChannel)
     app.run(channel)
   }
 
