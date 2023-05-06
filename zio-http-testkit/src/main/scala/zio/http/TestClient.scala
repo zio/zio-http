@@ -112,42 +112,15 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     for {
       env                   <- ZIO.environment[Env1]
       currentSocketBehavior <- serverSocketBehavior.get
-      serverToClient        <- Queue.unbounded[WebSocketChannelEvent]
-      clientToServer        <- Queue.unbounded[WebSocketChannelEvent]
-      testChannelClient     <- TestChannel.make(serverToClient, clientToServer)
-      testChannelServer     <- TestChannel.make(clientToServer, serverToClient)
-      _ <- eventLoop("Server", testChannelClient, currentSocketBehavior, testChannelServer).forkDaemon
-      _ <- eventLoop("Client", testChannelServer, app.provideEnvironment(env), testChannelClient).forkDaemon
+      in                    <- Queue.unbounded[WebSocketChannelEvent]
+      out                   <- Queue.unbounded[WebSocketChannelEvent]
+      promise               <- Promise.make[Nothing, Unit]
+      testChannelClient     <- TestChannel.make(in, out, promise)
+      testChannelServer     <- TestChannel.make(out, in, promise)
+      _                     <- currentSocketBehavior.run(testChannelClient).forkDaemon
+      _                     <- app.provideEnvironment(env).run(testChannelServer).forkDaemon
     } yield Response.status(Status.SwitchingProtocols)
   }
-
-  // private val warnLongRunning =
-  //   ZIO
-  //     .log("Socket Application is taking a long time to run. You might have logic that does not terminate.")
-  //     .delay(15.seconds)
-  //     .withClock(Clock.ClockLive) *> ZIO.never
-
-  private def eventLoop(name: String, channel: TestChannel, app: SocketApp[Any], otherChannel: TestChannel) = {
-    val _ = (name, otherChannel)
-    app.run(channel)
-  }
-
-  // private def shouldContinue(event: WebSocketChannelEvent) =
-  //   event match {
-  //     case ChannelEvent.ExceptionCaught(_)            => false
-  //     case ChannelEvent.ChannelRead(message)          =>
-  //       message match {
-  //         case WebSocketFrame.Close(_, _) => false
-  //         case _                          => true
-  //       }
-  //     case ChannelEvent.UserEventTriggered(userEvent) =>
-  //       userEvent match {
-  //         case UserEvent.HandshakeTimeout  => false
-  //         case UserEvent.HandshakeComplete => true
-  //       }
-  //     case ChannelEvent.ChannelRegistered             => true
-  //     case ChannelEvent.ChannelUnregistered           => false
-  //   }
 
   def installSocketApp[Env1](
     app: Http[Any, Throwable, WebSocketChannel, Unit],
