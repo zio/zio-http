@@ -57,6 +57,7 @@ object SocketContractSpec extends ZIOSpecDefault {
             case _                                               =>
               ZIO.unit
           }.forever
+            .ensuring(channel.shutdown)
         },
       ) { p =>
         Http.collectZIO[WebSocketChannel] { case channel =>
@@ -92,6 +93,7 @@ object SocketContractSpec extends ZIOSpecDefault {
               case _                                               => ZIO.unit
             }
             .forever
+            .ensuring(channel.shutdown)
         }
       },
     )

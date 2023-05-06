@@ -90,7 +90,7 @@ final case class NettyClientDriver private (
               import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame}
               val nettyChannel     = NettyChannel.make[JWebSocketFrame](channel)
               val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
-              app.run(webSocketChannel).ensuring(webSocketChannel.shutdown).forkDaemon
+              app.run(webSocketChannel).forkDaemon
             }.getOrThrowFiberFailure()
           }
 
