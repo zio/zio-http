@@ -9,19 +9,28 @@ import zio._
 
 import zio.http.ChannelEvent.ChannelRead
 import zio.http._
-import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
+import zio.http.socket.{WebSocketChannel, WebSocketFrame}
 
 object WebSocketEcho extends ZIOAppDefault {
-  private val socket: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-    Http.collectZIO[WebSocketChannelEvent] {
-      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("FOO"))) =>
-        ch.writeAndFlush(WebSocketFrame.text("BAR"))
+  private val socket: Http[Any, Throwable, WebSocketChannel, Unit] =
+    Http.collectZIO[WebSocketChannel] { case channel =>
 
-      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("BAR"))) =>
-        ch.writeAndFlush(WebSocketFrame.text("FOO"))
+      channel
+        .receive
+        .flatMap {
+          case ChannelRead(WebSocketFrame.Text("FOO")) =>
+            channel.send(ChannelRead(WebSocketFrame.text("BAR")))
 
-      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text(text))) =>
-        ch.write(WebSocketFrame.text(text)).repeatN(10) *> ch.flush
+          case ChannelRead(WebSocketFrame.Text("BAR")) =>
+            channel.send(ChannelRead(WebSocketFrame.text("FOO")))
+
+          case ChannelRead(WebSocketFrame.Text(text)) =>
+            channel.send(ChannelRead(WebSocketFrame.text(text))).repeatN(10)
+
+          case _ =>
+            ZIO.unit
+        }
+        .forever
     }
 
   private val app: Http[Any, Nothing, Request, Response] =
