@@ -118,17 +118,17 @@ object SocketContractSpec extends ZIOSpecDefault {
         ZLayer.succeed(Server.Config.default.onAnyOpenPort),
         Scope.default,
       ).provide(Client.default),
-      // test("Test") {
-      //   for {
-      //     portAndPromise <- testServerSetup(serverApp)
-      //     (port, promise) = portAndPromise
-      //     url      <- ZIO.fromEither(URL.decode(s"ws://localhost:$port/")).orDie
-      //     response <- ZIO.serviceWithZIO[Client](
-      //       _.socket(Version.Http_1_1, url, Headers.empty, clientApp(promise).toSocketApp),
-      //     )
-      //     _        <- promise.await.timeout(10.seconds)
-      //   } yield assertTrue(response.status == Status.SwitchingProtocols)
-      // }.provide(TestClient.layer, Scope.default),
+      test("Test") {
+        for {
+          portAndPromise <- testServerSetup(serverApp)
+          (port, promise) = portAndPromise
+          url      <- ZIO.fromEither(URL.decode(s"ws://localhost:$port/")).orDie
+          response <- ZIO.serviceWithZIO[Client](
+            _.socket(Version.Http_1_1, url, Headers.empty, clientApp(promise).toSocketApp),
+          )
+          _        <- promise.await.timeout(10.seconds)
+        } yield assertTrue(response.status == Status.SwitchingProtocols)
+      }.provide(TestClient.layer, Scope.default),
     )
   }
 

@@ -112,8 +112,10 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     for {
       env                   <- ZIO.environment[Env1]
       currentSocketBehavior <- serverSocketBehavior.get
-      testChannelClient     <- TestChannel.make
-      testChannelServer     <- TestChannel.make
+      serverToClient        <- Queue.unbounded[WebSocketChannelEvent]
+      clientToServer        <- Queue.unbounded[WebSocketChannelEvent]
+      testChannelClient     <- TestChannel.make(serverToClient, clientToServer)
+      testChannelServer     <- TestChannel.make(clientToServer, serverToClient)
       _ <- eventLoop("Server", testChannelClient, currentSocketBehavior, testChannelServer).forkDaemon
       _ <- eventLoop("Client", testChannelServer, app.provideEnvironment(env), testChannelClient).forkDaemon
     } yield Response.status(Status.SwitchingProtocols)
@@ -127,7 +129,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
 
   private def eventLoop(name: String, channel: TestChannel, app: SocketApp[Any], otherChannel: TestChannel) = {
     val _ = (name, otherChannel)
-    app.run(channel)
+    app.run(channel).ensuring(channel.shutdown)
   }
 
   // private def shouldContinue(event: WebSocketChannelEvent) =
