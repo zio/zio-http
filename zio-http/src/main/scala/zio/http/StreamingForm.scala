@@ -16,13 +16,15 @@
 
 package zio.http
 
-import zio.http.StreamingForm.Buffer
-import zio.http.internal.{FormAST, FormState}
-import zio.stream.{Take, ZStream}
-import zio.{Chunk, Queue, Trace, Unsafe, ZIO, durationInt}
-
 import java.nio.charset.Charset
 import java.util.concurrent.TimeoutException
+
+import zio._
+
+import zio.stream.{Take, ZStream}
+
+import zio.http.StreamingForm.Buffer
+import zio.http.internal.{FormAST, FormState}
 
 final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
   def charset: Charset = boundary.charset
