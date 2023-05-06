@@ -48,6 +48,7 @@ final case class NettyClientDriver private (
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
+    socketProtocol: SocketProtocol,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
     NettyRequestEncoder.encode(req).flatMap { jReq =>
       Scope.addFinalizer {

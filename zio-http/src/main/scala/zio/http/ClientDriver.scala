@@ -20,7 +20,7 @@ import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http.netty.client.ChannelState
-import zio.http.socket.SocketApp
+import zio.http.socket.{SocketApp, SocketProtocol}
 
 trait ClientDriver {
   type Connection
@@ -33,6 +33,7 @@ trait ClientDriver {
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
+    socketProtocol: SocketProtocol,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
 
   def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit

@@ -299,7 +299,7 @@ private[zio] final case class ServerInboundHandler(
           .channel()
           .pipeline()
           .addLast(
-            new WebSocketServerProtocolHandler(NettySocketProtocol.serverBuilder(SocketProtocol.default).build()),
+            new WebSocketServerProtocolHandler(NettySocketProtocol.serverBuilder(config.socketProtocol).build()),
           )
           .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue))
 
