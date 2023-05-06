@@ -25,7 +25,7 @@ import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
 final case class NettyChannel[-A](
   private val channel: JChannel,
   private val convert: A => Any,
-) extends Channel[A] {
+) {
   self =>
 
   private def foreach[S](await: Boolean)(run: JChannel => JChannelFuture)(implicit trace: Trace): Task[Unit] = {
@@ -33,31 +33,31 @@ final case class NettyChannel[-A](
     else ZIO.attempt(run(channel): Unit)
   }
 
-  override def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] =
+  def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] =
     ZIO.succeed(channel.config.setAutoRead(flag): Unit)
 
-  override def awaitClose(implicit trace: Trace): UIO[Unit] = ZIO.async[Any, Nothing, Unit] { register =>
+  def awaitClose(implicit trace: Trace): UIO[Unit] = ZIO.async[Any, Nothing, Unit] { register =>
     channel.closeFuture().addListener((_: JChannelFuture) => register(ZIO.unit))
     ()
   }
 
-  override def close(await: Boolean = false)(implicit trace: Trace): Task[Unit] = foreach(await) { _.close() }
+  def close(await: Boolean = false)(implicit trace: Trace): Task[Unit] = foreach(await) { _.close() }
 
-  override def contramap[A1](f: A1 => A): NettyChannel[A1] = copy(convert = convert.compose(f))
+  def contramap[A1](f: A1 => A): NettyChannel[A1] = copy(convert = convert.compose(f))
 
-  override def flush(implicit trace: Trace): Task[Unit] = ZIO.attempt(channel.flush(): Unit)
+  def flush(implicit trace: Trace): Task[Unit] = ZIO.attempt(channel.flush(): Unit)
 
-  override def id(implicit trace: Trace): String = channel.id().asLongText()
+  def id(implicit trace: Trace): String = channel.id().asLongText()
 
-  override def isAutoRead(implicit trace: Trace): UIO[Boolean] = ZIO.succeed(channel.config.isAutoRead)
+  def isAutoRead(implicit trace: Trace): UIO[Boolean] = ZIO.succeed(channel.config.isAutoRead)
 
-  override def read(implicit trace: Trace): UIO[Unit] = ZIO.succeed(channel.read(): Unit)
+  def read(implicit trace: Trace): UIO[Unit] = ZIO.succeed(channel.read(): Unit)
 
-  override def write(msg: A, await: Boolean = false)(implicit trace: Trace): Task[Unit] = foreach(await) {
+  def write(msg: A, await: Boolean = false)(implicit trace: Trace): Task[Unit] = foreach(await) {
     _.write(convert(msg))
   }
 
-  override def writeAndFlush(msg: A, await: Boolean = false)(implicit trace: Trace): Task[Unit] = foreach(await) {
+  def writeAndFlush(msg: A, await: Boolean = false)(implicit trace: Trace): Task[Unit] = foreach(await) {
     _.writeAndFlush(convert(msg))
   }
 }

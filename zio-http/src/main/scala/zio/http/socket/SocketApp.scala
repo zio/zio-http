@@ -20,11 +20,7 @@ import zio._
 
 import zio.http._
 
-final case class SocketApp[-R](
-  decoder: SocketDecoder = SocketDecoder.default,
-  protocol: SocketProtocol = SocketProtocol.default,
-  message: Option[ChannelEvent[WebSocketFrame, WebSocketFrame] => ZIO[R, Throwable, Any]] = None,
-) { self =>
+final case class SocketApp[-R](run: WebSocketChannel => ZIO[R, Throwable, Any]) { self =>
 
   /**
    * Creates a socket connection on the provided URL. Typically used to connect
@@ -47,7 +43,7 @@ final case class SocketApp[-R](
    * dependency on `R`.
    */
   def provideEnvironment(env: ZEnvironment[R])(implicit trace: Trace): SocketApp[Any] =
-    self.copy(message = self.message.map(cb => event => cb(event).provideEnvironment(env)))
+    self.copy(run = channel => self.run(channel).provideEnvironment(env))
 
   /**
    * Converts the socket app to a HTTP app.
@@ -63,22 +59,20 @@ final case class SocketApp[-R](
       Response.fromSocketApp(self.provideEnvironment(env))
     }
 
-  /**
-   * Frame decoder configuration
-   */
-  def withDecoder(decoder: SocketDecoder): SocketApp[R] =
-    copy(decoder = decoder, protocol = protocol.withDecoderConfig(decoder))
+  // /**
+  //  * Frame decoder configuration
+  //  */
+  // def withDecoder(decoder: SocketDecoder): SocketApp[Env, Err, Out] =
+  //   copy(decoder = decoder, protocol = protocol.withDecoderConfig(decoder))
 
-  /**
-   * Server side websocket configuration
-   */
-  def withProtocol(protocol: SocketProtocol): SocketApp[R] =
-    copy(protocol = protocol)
+  // /**
+  //  * Server side websocket configuration
+  //  */
+  // def withProtocol(protocol: SocketProtocol): SocketApp[Env, Err, Out] =
+  //   copy(protocol = protocol)
 }
 
 object SocketApp {
-  val empty: SocketApp[Any] = SocketApp()
-
-  def apply[R](socket: ChannelEvent[WebSocketFrame, WebSocketFrame] => ZIO[R, Throwable, Any]): SocketApp[R] =
-    SocketApp(message = Option(socket))
+  val empty: SocketApp[Any] =
+    SocketApp(_ => ZIO.unit)
 }

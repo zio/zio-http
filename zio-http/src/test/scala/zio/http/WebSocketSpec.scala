@@ -24,21 +24,24 @@ import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
+import zio.http.socket.{WebSocketChannel, WebSocketChannelEvent, WebSocketFrame}
 
 object WebSocketSpec extends HttpRunnableSpec {
 
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {
       for {
-        msg <- MessageCollector.make[ChannelEvent.Event[WebSocketFrame]]
+        msg <- MessageCollector.make[WebSocketChannelEvent]
         url <- DynamicServer.wsURL
         id  <- DynamicServer.deploy {
           Handler
-            .fromFunctionZIO[WebSocketChannelEvent] {
-              case ev @ ChannelEvent(ch, ChannelRead(frame)) => ch.writeAndFlush(frame) *> msg.add(ev.event)
-              case ev @ ChannelEvent(_, ChannelUnregistered) => msg.add(ev.event, true)
-              case ev @ ChannelEvent(_, _)                   => msg.add(ev.event)
+            .fromFunctionZIO[WebSocketChannel] { case channel =>
+              channel.receive.flatMap {
+
+                case event @ ChannelRead(frame)  => channel.send(ChannelRead(frame)) *> msg.add(event)
+                case event @ ChannelUnregistered => msg.add(event, true)
+                case event                       => msg.add(event)
+              }.forever
             }
             .toSocketApp
             .toRoute
@@ -46,13 +49,15 @@ object WebSocketSpec extends HttpRunnableSpec {
 
         res <- ZIO.scoped {
           Http
-            .collectZIO[WebSocketChannelEvent] {
-              case ChannelEvent(ch, UserEventTriggered(HandshakeComplete))   =>
-                ch.writeAndFlush(WebSocketFrame.text("FOO"))
-              case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("FOO"))) =>
-                ch.writeAndFlush(WebSocketFrame.text("BAR"))
-              case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("BAR"))) =>
-                ch.close()
+            .collectZIO[WebSocketChannel] { case channel =>
+              channel.receive.flatMap {
+                case UserEventTriggered(HandshakeComplete)   =>
+                  channel.send(ChannelRead(WebSocketFrame.text("FOO")))
+                case ChannelRead(WebSocketFrame.Text("FOO")) =>
+                  channel.send(ChannelRead(WebSocketFrame.text("BAR")))
+                case ChannelRead(WebSocketFrame.Text("BAR")) =>
+                  channel.shutdown
+              }.forever
             }
             .toSocketApp
             .connect(url, Headers(DynamicServer.APP_ID, id)) *> {
@@ -80,8 +85,13 @@ object WebSocketSpec extends HttpRunnableSpec {
         // Setup websocket server
 
         serverHttp   = Http
-          .collectZIO[WebSocketChannelEvent] { case ChannelEvent(_, ChannelUnregistered) =>
-            isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
+          .collectZIO[WebSocketChannel] { case channel =>
+            channel.receive.flatMap {
+              case ChannelUnregistered =>
+                isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
+              case _                   =>
+                ZIO.unit
+            }.forever
           }
           .toSocketApp
           .toRoute
@@ -90,8 +100,10 @@ object WebSocketSpec extends HttpRunnableSpec {
         // Setup Client
         // Client closes the connection after 1 second
         clientSocket = Http
-          .collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, UserEventTriggered(HandshakeComplete)) =>
-            ch.writeAndFlush(WebSocketFrame.close(1000)).delay(1 second).withClock(clock)
+          .collectZIO[WebSocketChannel] { case channel =>
+            channel.receive.flatMap { case UserEventTriggered(HandshakeComplete) =>
+              channel.send(ChannelRead(WebSocketFrame.close(1000))).delay(1 second).withClock(clock)
+            }.forever
           }
           .toSocketApp
 

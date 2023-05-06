@@ -56,43 +56,30 @@ object TestClientSpec extends ZIOSpecDefault {
       ),
       suite("socket ops")(
         test("happy path") {
-          val messageUnwrapper: Http[Any, Nothing, WebSocketChannelEvent, (WebSocketChannel, String)] =
-            Http.collect[WebSocketChannelEvent] {
-              case ChannelEvent(channel, ChannelRead(WebSocketFrame.Text(message))) =>
-                (channel, message)
+          val socketClient: Http[Any, Throwable, WebSocketChannel, Unit] =
+            Http.collectZIO[WebSocketChannel] { case channel =>
+              channel.receive.flatMap {
+                case ChannelEvent.ChannelRead(WebSocketFrame.Text("Hi Client")) =>
+                  channel.send(ChannelRead(WebSocketFrame.text("Hi Server")))
+
+                case _ =>
+                  ZIO.unit
+              }.forever
             }
 
-          val greetingToClient                                                       = "Hi Client"
-          val messageSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageUnwrapper >>>
-            Handler
-              .fromFunctionZIO[(WebSocketChannel, String)] { case (ch, `greetingToClient`) =>
-                ch.writeAndFlush(WebSocketFrame.text("Hi Server"), await = true)
-              }
+          val socketServer: Http[Any, Throwable, WebSocketChannel, Unit] =
+            Http.collectZIO[WebSocketChannel] { case channel =>
+              channel.receive.flatMap {
+                case ChannelEvent.ChannelRead(WebSocketFrame.Text("Hi Server")) =>
+                  channel.send(ChannelRead(WebSocketFrame.text("Hi Client")))
 
-          val channelSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-            Http.empty
-
-          val messageSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] = messageUnwrapper >>>
-            Handler
-              .fromFunctionZIO[(WebSocketChannel, String)] { case (ch, "Hi Server") =>
-                ch.close()
-              }
-
-          val channelSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-            Http.collectZIO[WebSocketChannelEvent] {
-              case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
-                ch.writeAndFlush(WebSocketFrame.text(greetingToClient))
+                case _ => ZIO.unit
+              }.forever
             }
-
-          val httpSocketClient: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-            messageSocketClient ++ channelSocketClient
-
-          val httpSocketServer: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-            messageSocketServer ++ channelSocketServer
 
           for {
-            _        <- TestClient.installSocketApp(httpSocketServer)
-            response <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(httpSocketClient.toSocketApp))
+            _        <- TestClient.installSocketApp(socketServer)
+            response <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(socketClient.toSocketApp))
           } yield assertTrue(response.status == Status.SwitchingProtocols)
         },
       ),

@@ -21,10 +21,10 @@ package object socket {
   /**
    * A channel that allows websocket frames to be written to it.
    */
-  type WebSocketChannel = Channel[WebSocketFrame]
+  type WebSocketChannel = Channel[WebSocketChannelEvent, WebSocketChannelEvent]
 
   /**
    * A channel that allows websocket frames to be read and write to it.
    */
-  type WebSocketChannelEvent = ChannelEvent[WebSocketFrame, WebSocketFrame]
+  type WebSocketChannelEvent = ChannelEvent[WebSocketFrame]
 }

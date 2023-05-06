@@ -76,7 +76,7 @@ final case class NettyClientDriver private (
           val headers = Conversions.headersToNetty(req.headers)
           val app     = createSocketApp()
           val config  = NettySocketProtocol
-            .clientBuilder(app.protocol)
+            .clientBuilder(???)
             .customHeaders(headers)
             .webSocketUri(req.url.encode)
             .build()
@@ -84,7 +84,7 @@ final case class NettyClientDriver private (
           // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
 
           val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
-          val webSocket               = new WebSocketAppHandler(nettyRuntime, app)
+          val webSocket               = new WebSocketAppHandler(nettyRuntime, ???)
 
           pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
           pipeline.addLast(Names.WebSocketHandler, webSocket)

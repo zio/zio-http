@@ -20,7 +20,7 @@ import zio._
 import zio.http.html.{Html, Template}
 import zio.http.Header.HeaderType
 import zio.http.internal.HeaderModifier
-import zio.http.socket.{SocketApp, WebSocketChannelEvent}
+import zio.http.socket.{SocketApp, WebSocketChannel, WebSocketChannelEvent}
 import zio.stream.ZStream
 
 import java.io.File
@@ -519,7 +519,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    * Converts a Handler into a websocket application
    */
   final def toSocketApp(implicit
-    ev1: WebSocketChannelEvent <:< In,
+    ev1: WebSocketChannel <:< In,
     ev2: Err <:< Throwable,
     trace: Trace,
   ): SocketApp[R] =
