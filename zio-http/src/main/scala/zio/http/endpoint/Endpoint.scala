@@ -155,6 +155,20 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     copy(input = input ++ HttpCodec.Content(schema))
 
   /**
+   * Returns a new endpoint derived from this one, whose request content must
+   * satisfy the specified schema.
+   */
+  /**
+   * Returns a new endpoint derived from this one, whose request content must
+   * satisfy the specified schema.
+   */
+  def withRequestBody[Input2](implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    in[Input2]
+
+  /**
    * Returns a new endpoint derived from this one, whose request must satisfy
    * the specified codec.
    */
@@ -252,6 +266,11 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
 
+  def ?[A](codec: QueryCodec[A])(implicit
+    combiner: Combiner[Input, A],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    copy(input = self.input ++ codec)
+
   /**
    * Returns a new endpoint that requires the specified query.
    */
@@ -281,7 +300,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP GET method, whose path is described by
    * the specified path codec.
    */
-  def get[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def get[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.get,
       HttpCodec.unused,

@@ -18,13 +18,9 @@ package zio.http.codec
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
-
 import zio._
-
 import zio.stream.ZStream
-
 import zio.schema.Schema
-
 import zio.http._
 
 /**
@@ -75,14 +71,19 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     HttpCodec.Combine[AtomTypes1, AtomTypes1, Value, Value2, combiner.Out](self, that, combiner)
 
   /**
-   * Combines two query codecs into another query codec.
+   * To end the route codec and begin with query codec
    */
+  final def :?[Value2](
+    that: QueryCodec[Value2],
+  )(implicit combiner: Combiner[Value, Value2], ev: HttpCodecType.Path <:< AtomTypes): PathQueryCodec[combiner.Out] =
+    self.asRoute ++ that
+
   final def &[Value2](
     that: QueryCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
-    ev: HttpCodecType.Query <:< AtomTypes,
-  ): QueryCodec[combiner.Out] =
+    ev: HttpCodecType.PathQueryType <:< AtomTypes,
+  ): PathQueryCodec[combiner.Out] =
     self.asQuery ++ that
 
   /**
@@ -107,8 +108,15 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Reinterprets this codec as a query codec assuming evidence that this
    * interpretation is sound.
    */
-  final def asQuery(implicit ev: HttpCodecType.Query <:< AtomTypes): QueryCodec[Value] =
+  final def asQuery(implicit ev: HttpCodecType.PathQueryType <:< AtomTypes): QueryCodec[Value] =
     self.asInstanceOf[QueryCodec[Value]]
+
+  /**
+   * Reinterprets this codec as a path query codec assuming evidence that this
+   * interpretation is sound.
+   */
+  final def asPathQuery(implicit ev: HttpCodecType.PathQueryType <:< AtomTypes): PathQueryCodec[Value] =
+    self.asInstanceOf[PathQueryCodec[Value]]
 
   /**
    * Reinterpets this codec as a route codec assuming evidence that this

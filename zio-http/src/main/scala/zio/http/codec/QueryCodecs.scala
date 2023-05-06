@@ -29,4 +29,28 @@ private[codec] trait QueryCodecs {
   def queryAs[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
     HttpCodec.Query(name, codec)
 
+  /**
+   * Alias to query
+   */
+  def paramStr(name: String): QueryCodec[String] =
+    query(name)
+
+  /**
+   * Alias to queryBool
+   */
+  def paramBool(name: String): QueryCodec[Boolean] =
+    queryBool(name)
+
+  /**
+   * Alias to paramInt
+   */
+  def paramInt(name: String): QueryCodec[Int] =
+    queryInt(name)
+
+  /**
+   * Alias to queryAs
+   */
+  def param[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
+    queryAs[A](name)
+
 }

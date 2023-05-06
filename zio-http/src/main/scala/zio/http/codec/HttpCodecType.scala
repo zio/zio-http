@@ -21,6 +21,7 @@ sealed trait HttpCodecType
 object HttpCodecType {
   type RequestType <: Path with Content with Query with Header with Method
   type ResponseType <: Content with Header with Status
+  type PathQueryType <: Path with Query
 
   type Path <: HttpCodecType
   type Content <: HttpCodecType
@@ -28,4 +29,7 @@ object HttpCodecType {
   type Header <: HttpCodecType
   type Method <: HttpCodecType
   type Status <: HttpCodecType
+
 }
+
+
