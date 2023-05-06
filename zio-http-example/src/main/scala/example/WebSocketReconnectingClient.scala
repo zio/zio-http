@@ -31,6 +31,10 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
           // Handle exception and convert it to failure to signal the shutdown of the socket connection via the promise
           case ExceptionCaught(t)                              =>
             ZIO.fail(t)
+
+          case _ =>
+            ZIO.unit
+
         }.forever
       }
       .tapErrorZIO { f =>

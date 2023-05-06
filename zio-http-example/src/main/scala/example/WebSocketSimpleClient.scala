@@ -28,6 +28,9 @@ object WebSocketSimpleClient extends ZIOAppDefault {
           // Close the connection if the server sends a "bar"
           case ChannelRead(WebSocketFrame.Text("bar"))         =>
             ZIO.succeed(println("Goodbye!")) *> channel.send(ChannelRead(WebSocketFrame.close(1000)))
+
+          case _ =>
+            ZIO.unit
         }.forever
       }
 

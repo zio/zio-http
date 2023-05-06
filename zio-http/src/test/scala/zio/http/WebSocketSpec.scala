@@ -111,8 +111,11 @@ object WebSocketSpec extends HttpRunnableSpec {
         // Client closes the connection after 1 second
         clientSocket = Http
           .collectZIO[WebSocketChannel] { case channel =>
-            channel.receive.flatMap { case UserEventTriggered(HandshakeComplete) =>
-              channel.send(ChannelRead(WebSocketFrame.close(1000))).delay(1 second).withClock(clock)
+            channel.receive.flatMap {
+              case UserEventTriggered(HandshakeComplete) =>
+                channel.send(ChannelRead(WebSocketFrame.close(1000))).delay(1 second).withClock(clock)
+              case _                                     =>
+                ZIO.unit
             }.forever
           }
           .toSocketApp

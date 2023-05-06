@@ -16,6 +16,8 @@ object WebSocketEcho extends ZIOAppDefault {
           channel.send(ChannelRead(WebSocketFrame.Text("FOO")))
         case ChannelRead(WebSocketFrame.Text(text))  =>
           channel.send(ChannelRead(WebSocketFrame.Text(text))).repeatN(10)
+        case _                                       =>
+          ZIO.unit
       }.forever
     }
 
