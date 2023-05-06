@@ -33,7 +33,7 @@ import zio.http.socket.{SocketApp, SocketProtocol, WebSocketChannel, WebSocketCh
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
+import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -289,11 +289,10 @@ private[zio] final case class ServerInboundHandler(
       case jReq: FullHttpRequest =>
         val queue = runtime.runtime(ctx).unsafe.run(Queue.unbounded[WebSocketChannelEvent]).getOrThrowFiberFailure()
         runtime.runtime(ctx).unsafe.run {
-          import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame}
           val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
           val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
           val webSocketApp     = app.getOrElse(SocketApp.empty)
-          webSocketApp.run(webSocketChannel).forkDaemon
+          webSocketApp.run(webSocketChannel).ignoreLogged.forkDaemon
         }
         ctx
           .channel()
