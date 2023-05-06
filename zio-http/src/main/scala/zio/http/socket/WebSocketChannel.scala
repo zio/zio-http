@@ -23,11 +23,11 @@ object WebSocketChannel {
         queue.take
       def send(in: WebSocketChannelEvent): UIO[Unit] =
         in match {
-          case ChannelRegistered         => ZIO.unit
-          case ChannelUnregistered       => ZIO.unit
-          case ExceptionCaught(cause)    => ZIO.unit
-          case UserEventTriggered(event) => ZIO.unit
-          case ChannelRead(message)      =>
+          case ChannelRegistered     => ZIO.unit
+          case ChannelUnregistered   => ZIO.unit
+          case ExceptionCaught(_)    => ZIO.unit
+          case UserEventTriggered(_) => ZIO.unit
+          case ChannelRead(message)  =>
             nettyChannel.writeAndFlush(frameToNetty(message)).debug("writeAndFlush").orDie
 
         }
