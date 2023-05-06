@@ -33,7 +33,7 @@ object WebSocketChannel {
         }
 
       def shutdown: UIO[Unit] =
-          nettyChannel.close(false).orDie
+        nettyChannel.close(false).orDie
     }
 
   def frameToNetty(frame: WebSocketFrame): JWebSocketFrame =
