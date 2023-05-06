@@ -18,7 +18,7 @@ object WebSocketChannel {
   ): WebSocketChannel =
     new WebSocketChannel {
       def awaitShutdown: UIO[Unit]                   =
-        ZIO.debug("await shutdown called") *> ZIO.dieMessage("not implemented")
+        ZIO.debug("await shutdown called") *> nettyChannel.awaitClose
       def receive: UIO[WebSocketChannelEvent]        =
         queue.take
       def send(in: WebSocketChannelEvent): UIO[Unit] =
@@ -34,6 +34,7 @@ object WebSocketChannel {
 
       def shutdown: UIO[Unit] =
         ZIO.debug("shutdown called") *>
+          // nettyChannel.writeAndFlush(frameToNetty(WebSocketFrame.Close(0, None))).orDie *>
           nettyChannel.close(false).orDie
       // *> ZIO.dieMessage("not implemented")
     }

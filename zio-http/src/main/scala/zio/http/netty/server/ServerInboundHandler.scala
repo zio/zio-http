@@ -293,7 +293,7 @@ private[zio] final case class ServerInboundHandler(
           val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
           val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
           val webSocketApp     = app.getOrElse(SocketApp.empty)
-          webSocketApp.run(webSocketChannel).forkDaemon
+          webSocketApp.run(webSocketChannel).ensuring(webSocketChannel.shutdown).forkDaemon
         }
         ctx
           .channel()
