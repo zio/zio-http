@@ -266,11 +266,6 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
 
-  def ?[A](codec: QueryCodec[A])(implicit
-    combiner: Combiner[Input, A],
-  ): Endpoint[combiner.Out, Err, Output, Middleware] =
-    copy(input = self.input ++ codec)
-
   /**
    * Returns a new endpoint that requires the specified query.
    */
