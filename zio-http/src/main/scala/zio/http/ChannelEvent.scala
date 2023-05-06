@@ -18,8 +18,7 @@ package zio.http
 
 /**
  * Immutable and type-safe representation of events that are triggered on a
- * netty channel. `A` represents the inbound message type and `B` represents the
- * outbound message type that's allowed on the channel.
+ * netty channel. `A` represents the message type.
  */
 sealed trait ChannelEvent[+A] { self =>
   import ChannelEvent._
@@ -51,7 +50,7 @@ object ChannelEvent {
     case object HandshakeComplete extends UserEvent
   }
 
-  def channelRead[B](msg: B): ChannelEvent[B] =
+  def channelRead[A](msg: A): ChannelEvent[A] =
     ChannelRead(msg)
 
   val channelRegistered: ChannelEvent[Nothing] =
