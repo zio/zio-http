@@ -14,7 +14,6 @@ import zio.http.socket.{WebSocketChannel, WebSocketFrame}
 object WebSocketEcho extends ZIOAppDefault {
   private val socket: Http[Any, Throwable, WebSocketChannel, Unit] =
     Http.collectZIO[WebSocketChannel] { case channel =>
-
       channel
         .receive
         .flatMap {
