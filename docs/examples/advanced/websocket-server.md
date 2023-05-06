@@ -15,23 +15,9 @@ object WebSocketAdvanced extends ZIOAppDefault {
 
   val httpSocket: Http[Any, Throwable, WebSocketChannel, Unit] =
     Http.collectZIO[WebSocketChannel] { case channel =>
-
       channel
         .receive
         .flatMap {
-
-          // Send a "greeting" message to the server once the connection is established
-          case UserEventTriggered(UserEvent.HandshakeComplete) =>
-            channel.send(ChannelRead(WebSocketFrame.text("Greetings!")))
-
-          // Log when the channel is getting closed
-          case ChannelRead(WebSocketFrame.Close(status, reason)) =>
-            Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
-
-          // Print the exception if it's not a normal close
-          case ExceptionCaught(cause) =>
-            Console.printLine(s"Channel error!: ${cause.getMessage}")
-
           case ChannelRead(WebSocketFrame.Text("end")) =>
             channel.shutdown
 
@@ -47,18 +33,25 @@ object WebSocketAdvanced extends ZIOAppDefault {
           case ChannelRead(WebSocketFrame.Text(text)) =>
             channel.send(ChannelRead(WebSocketFrame.text(text))).repeatN(10)
 
+          // Send a "greeting" message to the server once the connection is established
+          case UserEventTriggered(UserEvent.HandshakeComplete) =>
+            channel.send(ChannelRead(WebSocketFrame.text("Greetings!")))
+
+          // Log when the channel is getting closed
+          case ChannelRead(WebSocketFrame.Close(status, reason)) =>
+            Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
+
+          // Print the exception if it's not a normal close
+          case ExceptionCaught(cause) =>
+            Console.printLine(s"Channel error!: ${cause.getMessage}")
+
           case _ =>
             ZIO.unit
         }
         .forever
-
     }
 
-  val protocol = SocketProtocol.default.withSubProtocol(Some("json")) // Setup protocol settings
-
-  val decoder = SocketDecoder.default.withExtensions(allowed = true) // Setup decoder settings
-
-  val socketApp: SocketApp[Any] = // Combine all channel handlers together
+  val socketApp: SocketApp[Any] =
     httpSocket.toSocketApp
 
   val app: Http[Any, Nothing, Request, Response] =
