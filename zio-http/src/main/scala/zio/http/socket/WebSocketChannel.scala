@@ -18,7 +18,7 @@ object WebSocketChannel {
   ): WebSocketChannel =
     new WebSocketChannel {
       def awaitShutdown: UIO[Unit]                   =
-        ZIO.debug("await shutdown called") *> nettyChannel.awaitClose
+        nettyChannel.awaitClose
       def receive: UIO[WebSocketChannelEvent]        =
         queue.take
       def send(in: WebSocketChannelEvent): UIO[Unit] =
@@ -28,15 +28,12 @@ object WebSocketChannel {
           case ExceptionCaught(_)    => ZIO.unit
           case UserEventTriggered(_) => ZIO.unit
           case ChannelRead(message)  =>
-            nettyChannel.writeAndFlush(frameToNetty(message)).debug("writeAndFlush").orDie
+            nettyChannel.writeAndFlush(frameToNetty(message)).orDie
 
         }
 
       def shutdown: UIO[Unit] =
-        ZIO.debug("shutdown called") *>
-          // nettyChannel.writeAndFlush(frameToNetty(WebSocketFrame.Close(0, None))).orDie *>
           nettyChannel.close(false).orDie
-      // *> ZIO.dieMessage("not implemented")
     }
 
   def frameToNetty(frame: WebSocketFrame): JWebSocketFrame =

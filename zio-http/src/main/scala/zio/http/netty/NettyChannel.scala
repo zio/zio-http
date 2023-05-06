@@ -57,15 +57,8 @@ final case class NettyChannel[-A](
     _.write(convert(msg))
   }
 
-  def writeAndFlush(msg: A, await: Boolean = true)(implicit trace: Trace): Task[Unit] = foreach(await) { x =>
-    try {
-      println("about to write and flush")
-      val fut = x.writeAndFlush(convert(msg))
-      println("write and flush done")
-      fut
-    } catch {
-      case t: Throwable => t.printStackTrace(); throw t
-    }
+  def writeAndFlush(msg: A, await: Boolean = true)(implicit trace: Trace): Task[Unit] = foreach(await) {
+    _.writeAndFlush(convert(msg))
   }
 }
 
