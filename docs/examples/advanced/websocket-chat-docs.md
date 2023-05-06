@@ -2,13 +2,13 @@
 | ---------------- | ------------------------ | ------------------ |
 | websocket-server | WebSocket Server Example | zio-websocket-chat |
 
-<br>
+<br />
 
 # **Zio WebSocket Chat Documentation**
 
 This example code implements a WebSocket server that echoes messages sent to it by clients. It's built on top of zio-http, which provides an easy-to-use API for building HTTP and WebSocket servers in ZIO.
-</br>
-<br>
+
+<br />
 
 ## **How it works**
 
@@ -21,8 +21,7 @@ object WebSocketEcho extends ZIOAppDefault {
 
 ```
 
-</br>
-<br>
+ <br />
 
 ### **chat** function
 
@@ -34,7 +33,7 @@ private def chat(socketsRef: Ref[Map[String, Channel[WebSocketFrame]]], name: St
 
 ```
 
-</br>
+<br />
 
 - The _broadcast_ function sends a message to all connected websockets _except the channel where it came from_. It does this by getting a reference to the current _sockets_, filtering out the from channel, and then using _ZIO.foreachParDiscard_ to write the message to all remaining channels. The function returns a _ZIO_ effect that can be run to execute the broadcast.
 
@@ -49,7 +48,7 @@ private def broadcast(from: Channel[WebSocketFrame], msg: String) =
 
 ```
 
-<br>
+ <br />
 
 - This is a ZIO Http route that handles WebSocket events. It pattern matches WebSocketChannelEvents and handles them appropriately. On HandshakeComplete, it broadcasts a message that a new client has joined, sends a welcome message, and updates the socket references. On ChannelRead, it broadcasts the message sent by the client. On ChannelUnregistered, it removes the socket reference and broadcasts that the client has left.
 
@@ -72,8 +71,7 @@ Http.collectZIO[WebSocketChannelEvent] {
 
 ```
 
-  </br>
-  <br>
+   <br />
 
 ### **chatRoom** function
 
@@ -87,8 +85,7 @@ private def chatRoom(socketsRef: Ref[Map[String, Channel[WebSocketFrame]]]): Htt
 
 ```
 
-</br>
-<br>
+ <br />
 
 ### **run** function
 
@@ -104,13 +101,12 @@ yield ExitCode.success
 
 ```
 
-</br>
-<br>
+ <br />
 
 ## **CODE**
 
 <details>
-<br>
+ <br />
 
 ```scala
 import zio.*
@@ -169,6 +165,5 @@ yield ExitCode.success
 ```
 
   <summary>Click to expand the code snippet to view the entire code.</summary>
-  </br>
+   
 </details>
-</br>
