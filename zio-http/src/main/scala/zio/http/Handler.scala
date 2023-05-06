@@ -20,7 +20,7 @@ import zio._
 import zio.http.html.{Html, Template}
 import zio.http.Header.HeaderType
 import zio.http.internal.HeaderModifier
-import zio.http.socket.{SocketApp, WebSocketChannel, WebSocketChannelEvent}
+import zio.http.socket.{SocketApp, WebSocketChannel}
 import zio.stream.ZStream
 
 import java.io.File
