@@ -49,7 +49,7 @@ this:
 sealed trait ChannelEvent[A]
 ```
 
-It is the **Event** that was triggered. The type param `A` on the Channel represents the kind of message the event contains.
+It is the **Event** that was triggered. The type param `A` on the ChannelEvent represents the kind of message the event contains.
 
 The type `WebSocketChannelEvent` is a type alias to `ChannelEvent[WebsocketFrame]`. Meaning an event that contains `WebSocketFrame` typed messages.
 
