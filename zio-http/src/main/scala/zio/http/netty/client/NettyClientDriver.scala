@@ -25,7 +25,7 @@ import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-import zio.http.socket.SocketApp
+import zio.http.socket.{SocketApp, SocketProtocol, WebSocketChannel, WebSocketChannelEvent}
 
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
@@ -76,15 +76,28 @@ final case class NettyClientDriver private (
           val headers = Conversions.headersToNetty(req.headers)
           val app     = createSocketApp()
           val config  = NettySocketProtocol
-            .clientBuilder(???)
+            .clientBuilder(SocketProtocol.default)
             .customHeaders(headers)
             .webSocketUri(req.url.encode)
             .build()
 
+          val queue = Unsafe.unsafe { implicit unsafe =>
+            Runtime.default.unsafe.run(Queue.unbounded[WebSocketChannelEvent]).getOrThrowFiberFailure()
+          }
+
+          Unsafe.unsafe { implicit unsafe =>
+            Runtime.default.unsafe.run {
+              import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame}
+              val nettyChannel     = NettyChannel.make[JWebSocketFrame](channel)
+              val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
+              app.run(webSocketChannel).forkDaemon
+            }.getOrThrowFiberFailure()
+          }
+
           // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
 
           val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
-          val webSocket               = new WebSocketAppHandler(nettyRuntime, ???)
+          val webSocket               = new WebSocketAppHandler(nettyRuntime, queue)
 
           pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
           pipeline.addLast(Names.WebSocketHandler, webSocket)

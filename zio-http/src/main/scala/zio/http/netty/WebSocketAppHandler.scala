@@ -45,7 +45,8 @@ private[zio] final class WebSocketAppHandler(
     event: ChannelEvent[JWebSocketFrame],
   ): Unit = {
     zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
-      queue.offer(event.map(frameFromNetty)),
+      ZIO.debug(s"offering $event to queue") *>
+        queue.offer(event.map(frameFromNetty)),
     )
   }
 

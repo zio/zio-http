@@ -28,7 +28,7 @@ import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-import zio.http.socket.{SocketProtocol, WebSocketChannelEvent}
+import zio.http.socket.{SocketApp, SocketProtocol, WebSocketChannel, WebSocketChannelEvent}
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
@@ -288,6 +288,13 @@ private[zio] final case class ServerInboundHandler(
     jReq match {
       case jReq: FullHttpRequest =>
         val queue = runtime.runtime(ctx).unsafe.run(Queue.unbounded[WebSocketChannelEvent]).getOrThrowFiberFailure()
+        runtime.runtime(ctx).unsafe.run {
+          import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame}
+          val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
+          val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
+          val webSocketApp     = app.getOrElse(SocketApp.empty)
+          webSocketApp.run(webSocketChannel).forkDaemon
+        }
         ctx
           .channel()
           .pipeline()

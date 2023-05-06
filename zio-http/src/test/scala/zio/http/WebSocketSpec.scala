@@ -36,12 +36,15 @@ object WebSocketSpec extends HttpRunnableSpec {
         id  <- DynamicServer.deploy {
           Handler
             .fromFunctionZIO[WebSocketChannel] { case channel =>
-              channel.receive.flatMap {
+              channel.receive
+                .debug("server received:")
+                .flatMap {
 
-                case event @ ChannelRead(frame)  => channel.send(ChannelRead(frame)) *> msg.add(event)
-                case event @ ChannelUnregistered => msg.add(event, true)
-                case event                       => msg.add(event)
-              }.forever
+                  case event @ ChannelRead(frame)  => channel.send(ChannelRead(frame)) *> msg.add(event)
+                  case event @ ChannelUnregistered => msg.add(event, true)
+                  case event                       => msg.add(event)
+                }
+                .forever
             }
             .toSocketApp
             .toRoute
@@ -50,14 +53,21 @@ object WebSocketSpec extends HttpRunnableSpec {
         res <- ZIO.scoped {
           Http
             .collectZIO[WebSocketChannel] { case channel =>
-              channel.receive.flatMap {
-                case UserEventTriggered(HandshakeComplete)   =>
-                  channel.send(ChannelRead(WebSocketFrame.text("FOO")))
-                case ChannelRead(WebSocketFrame.Text("FOO")) =>
-                  channel.send(ChannelRead(WebSocketFrame.text("BAR")))
-                case ChannelRead(WebSocketFrame.Text("BAR")) =>
-                  channel.shutdown
-              }.forever
+              channel.receive
+                .debug("client received")
+                .flatMap {
+                  case UserEventTriggered(HandshakeComplete)   =>
+                    ZIO.debug("client about to send foo") *>
+                      channel.send(ChannelRead(WebSocketFrame.text("FOO"))) *>
+                      ZIO.debug("client sent foo")
+                  case ChannelRead(WebSocketFrame.Text("FOO")) =>
+                    channel.send(ChannelRead(WebSocketFrame.text("BAR")))
+                  case ChannelRead(WebSocketFrame.Text("BAR")) =>
+                    channel.shutdown
+                  case _                                       =>
+                    ZIO.unit
+                }
+                .forever
             }
             .toSocketApp
             .connect(url, Headers(DynamicServer.APP_ID, id)) *> {
