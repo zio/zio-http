@@ -36,14 +36,11 @@ object WebSocketSpec extends HttpRunnableSpec {
         id  <- DynamicServer.deploy {
           Handler
             .fromFunctionZIO[WebSocketChannel] { case channel =>
-              channel.receive
-                .flatMap {
-
-                  case event @ ChannelRead(frame)  => channel.send(ChannelRead(frame)) *> msg.add(event)
-                  case event @ ChannelUnregistered => msg.add(event, true)
-                  case event                       => msg.add(event)
-                }
-                .forever
+              channel.receive.flatMap {
+                case event @ ChannelRead(frame)  => channel.send(ChannelRead(frame)) *> msg.add(event)
+                case event @ ChannelUnregistered => msg.add(event, true)
+                case event                       => msg.add(event)
+              }.forever
             }
             .toSocketApp
             .toRoute
@@ -52,18 +49,16 @@ object WebSocketSpec extends HttpRunnableSpec {
         res <- ZIO.scoped {
           Http
             .collectZIO[WebSocketChannel] { case channel =>
-              channel.receive
-                .flatMap {
-                  case UserEventTriggered(HandshakeComplete)   =>
-                      channel.send(ChannelRead(WebSocketFrame.text("FOO")))
-                  case ChannelRead(WebSocketFrame.Text("FOO")) =>
-                    channel.send(ChannelRead(WebSocketFrame.text("BAR")))
-                  case ChannelRead(WebSocketFrame.Text("BAR")) =>
-                    channel.shutdown
-                  case _                                       =>
-                    ZIO.unit
-                }
-                .forever
+              channel.receive.flatMap {
+                case UserEventTriggered(HandshakeComplete)   =>
+                  channel.send(ChannelRead(WebSocketFrame.text("FOO")))
+                case ChannelRead(WebSocketFrame.Text("FOO")) =>
+                  channel.send(ChannelRead(WebSocketFrame.text("BAR")))
+                case ChannelRead(WebSocketFrame.Text("BAR")) =>
+                  channel.shutdown
+                case _                                       =>
+                  ZIO.unit
+              }.forever
             }
             .toSocketApp
             .connect(url, Headers(DynamicServer.APP_ID, id)) *> {
