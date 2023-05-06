@@ -471,7 +471,7 @@ object ZClient {
     lazy val default: Config = Config(
       ssl = None,
       proxy = None,
-      connectionPool = ConnectionPoolConfig.Disabled,
+      connectionPool = ConnectionPoolConfig.Fixed(10),
       maxHeaderSize = 8192,
       requestDecompression = Decompression.No,
       localAddress = None,
