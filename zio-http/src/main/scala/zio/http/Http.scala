@@ -606,12 +606,6 @@ object Http {
   def getResourceAsFile(path: String)(implicit trace: Trace): Http[Any, Throwable, Any, File] =
     getResource(path).map(url => new File(url.getPath))
 
-  /**
-   * Constructs an Http from a function that uses a web socket.
-   */
-  def webSocket[Env, Err, Out](f: WebSocketChannel => ZIO[Env, Err, Out]): Http[Env, Err, WebSocketChannel, Out] =
-    Http.collectZIO { case channel => f(channel) }
-
   final class Collect[In](val self: Unit) extends AnyVal {
     def apply[Out](pf: PartialFunction[In, Out]): Http[Any, Nothing, In, Out] =
       Http.collectHandler[In].apply(pf.andThen(Handler.succeed(_)))
