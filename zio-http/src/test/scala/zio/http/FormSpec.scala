@@ -44,8 +44,8 @@ object FormSpec extends ZIOSpecDefault {
         val form = ZIO.fromEither(Form.fromURLEncoded("name=John&age=30", StandardCharsets.UTF_8))
         form.map { form =>
           assertTrue(
-            form.get("age").get.valueAsString.get == "30",
-            form.get("name").get.valueAsString.get == "John",
+            form.get("age").get.stringValue.get == "30",
+            form.get("name").get.stringValue.get == "John",
           )
         }
       },
@@ -113,7 +113,7 @@ object FormSpec extends ZIOSpecDefault {
       Form.fromMultipartBytes(multipartFormBytes3).map { form =>
         assertTrue(
           form.get("file").get.filename.get == "test.jsonl",
-          form.get("file").get.valueAsString.isEmpty,
+          form.get("file").get.stringValue.isEmpty,
           form.get("file").get.asInstanceOf[FormField.Binary].data.size == 69,
         )
       }
@@ -201,7 +201,7 @@ object FormSpec extends ZIOSpecDefault {
             new String(form.get("file").get.asInstanceOf[FormField.Binary].data.toArray, StandardCharsets.UTF_8)
           assertTrue(
             form.get("file").get.filename.get == "test.jsonl",
-            form.get("file").get.valueAsString.isEmpty,
+            form.get("file").get.stringValue.isEmpty,
             form.get("file").get.asInstanceOf[FormField.Binary].data.size == 69,
             contents == """{"prompt": "<prompt text>", "completion": "<ideal generated text>"}""" + "\r\n",
           )

@@ -23,7 +23,8 @@ import zio.test._
 
 import zio.stream.ZStream
 
-import zio.schema.{DeriveSchema, Schema}
+import zio.schema.codec.JsonCodec
+import zio.schema.{DeriveSchema, Schema, StandardType}
 
 import zio.http.Header.ContentType
 import zio.http._
@@ -634,7 +635,6 @@ object EndpointSpec extends ZIOSpecDefault {
                 Request.post(Body.fromMultipartForm(form, boundary), URL.decode("/test-form").toOption.get),
               )
               .exit
-            _        <- ZIO.debug(result.toString)
             response <- result match {
               case Exit.Success(value) => ZIO.succeed(value)
               case Exit.Failure(cause) =>
@@ -648,6 +648,94 @@ object EndpointSpec extends ZIOSpecDefault {
           } yield assertTrue(
             result == """[[1024,"Hello world"],{"description":"some description","createdAt":"2020-01-01T00:00:00Z"}]""",
           )
+        },
+        test("multipart input/output roundtrip check") {
+          check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
+            val endpoint =
+              fields.foldLeft(
+                Endpoint
+                  .post(literal("test-form"))
+                  .copy(output = HttpCodec.status(Status.Ok))
+                  .asInstanceOf[Endpoint[Any, Any, Any, EndpointMiddleware.None]],
+              ) { case (ep, (_, schema, name, isStreaming)) =>
+                if (isStreaming)
+                  name match {
+                    case Some(name) =>
+                      ep.copy(
+                        input = (ep.input ++ HttpCodec.contentStream(name)(schema))
+                          .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]],
+                        output = (ep.output ++ HttpCodec
+                          .contentStream(name)(schema))
+                          .asInstanceOf[HttpCodec[HttpCodecType.ResponseType, Any]],
+                      )
+                    case None       =>
+                      ep.copy(
+                        input = (ep.input ++ HttpCodec.contentStream(schema))
+                          .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]],
+                        output = (ep.output ++ HttpCodec.contentStream(schema))
+                          .asInstanceOf[HttpCodec[HttpCodecType.ResponseType, Any]],
+                      )
+                  }
+                else
+                  name match {
+                    case Some(name) =>
+                      ep.copy(
+                        input = (ep.input ++ HttpCodec.content(name)(schema))
+                          .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]],
+                        output = (ep.output ++ HttpCodec.content(name)(schema))
+                          .asInstanceOf[HttpCodec[HttpCodecType.ResponseType, Any]],
+                      )
+                    case None       =>
+                      ep.copy(
+                        input = (ep.input ++ HttpCodec.content(schema))
+                          .asInstanceOf[HttpCodec[HttpCodecType.RequestType, Any]],
+                        output = (ep.output ++ HttpCodec.content(schema))
+                          .asInstanceOf[HttpCodec[HttpCodecType.ResponseType, Any]],
+                      )
+                  }
+              }
+            val route    =
+              endpoint.implement { in =>
+                ZIO.succeed(in)
+              }
+
+            val form =
+              Form(
+                fields.map(_._1).zipWithIndex.map { case (field, idx) =>
+                  if (field.name.isEmpty) field.withName(s"field$idx") else field
+                },
+              )
+
+            for {
+              boundary   <- Boundary.randomUUID
+              result     <- route.toApp
+                .runZIO(
+                  Request.post(Body.fromMultipartForm(form, boundary), URL.decode("/test-form").toOption.get),
+                )
+                .exit
+              response   <- result match {
+                case Exit.Success(value) => ZIO.succeed(value)
+                case Exit.Failure(cause) =>
+                  cause.failureOrCause match {
+                    case Left(Some(response)) => ZIO.succeed(response)
+                    case Left(None)           => ZIO.failCause(cause)
+                    case Right(cause)         => ZIO.failCause(cause)
+                  }
+              }
+              resultForm <- response.body.asMultipartForm.orDie
+              mediaType = response.header(Header.ContentType).map(_.mediaType)
+
+              normalizedIn  <- ZIO.foreach(form.formData) { field =>
+                field.asChunk.map(field.name -> _)
+              }
+              normalizedOut <- ZIO.foreach(resultForm.formData) { field =>
+                field.asChunk.map(field.name -> _)
+              }
+            } yield assertTrue(
+              mediaType == Some(MediaType.multipart.`form-data`),
+              normalizedIn == normalizedOut,
+            )
+          }
         },
       ),
     ),
@@ -677,6 +765,66 @@ object EndpointSpec extends ZIOSpecDefault {
       }
     },
   )
+
+  private def simpleFormField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
+    for {
+      name         <- Gen.option(Gen.string1(Gen.alphaNumericChar))
+      standardType <- Gen.oneOf(
+        Gen.const(StandardType.StringType),
+        Gen.const(StandardType.BoolType),
+        Gen.const(StandardType.IntType),
+        Gen.const(StandardType.UUIDType),
+      )
+      value        <- standardType match {
+        case StandardType.StringType => Gen.string
+        case StandardType.BoolType   => Gen.boolean
+        case StandardType.IntType    => Gen.int
+        case StandardType.UUIDType   => Gen.uuid
+      }
+    } yield (
+      FormField.Simple(name.getOrElse(""), value.toString),
+      Schema.primitive(standardType).asInstanceOf[Schema[Any]],
+      name,
+      false,
+    )
+
+  private def jsonTextFormField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
+    for {
+      name        <- Gen.option(Gen.string1(Gen.alphaNumericChar))
+      description <- Gen.string
+      createdAt   <- Gen.instant
+      value         = ImageMetadata(description, createdAt)
+      valueAsString = JsonCodec.jsonCodec(Schema[ImageMetadata]).encodeJson(value, None).toString
+    } yield (
+      FormField.Text(name.getOrElse(""), valueAsString, MediaType.application.json, None),
+      Schema[ImageMetadata].asInstanceOf[Schema[Any]],
+      name,
+      false,
+    )
+
+  private def binaryFormField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
+    for {
+      name   <- Gen.option(Gen.string1(Gen.alphaNumericChar))
+      bytes  <- Gen.chunkOf(Gen.byte)
+      result <-
+        Gen.oneOf(
+          Gen.const(FormField.Binary(name.getOrElse(""), bytes, MediaType.application.`octet-stream`, None)),
+          Gen.const(
+            FormField.StreamingBinary(
+              name.getOrElse(""),
+              MediaType.application.`octet-stream`,
+              data = ZStream.fromChunk(bytes),
+            ),
+          ),
+        )
+    } yield (result, Schema[Byte].asInstanceOf[Schema[Any]], name, true)
+
+  private def formField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
+    Gen.oneOf(
+      simpleFormField,
+      jsonTextFormField,
+      binaryFormField,
+    )
 
   def testEndpoint[R, E](service: Routes[R, E, EndpointMiddleware.None])(
     url: String,
