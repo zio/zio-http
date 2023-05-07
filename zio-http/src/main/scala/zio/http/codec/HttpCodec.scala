@@ -518,13 +518,14 @@ object HttpCodec
 
     def withIndex(index: Int): Path[A] = copy(index = index)
   }
-  private[http] final case class Content[A](schema: Schema[A], index: Int = 0) extends Atom[HttpCodecType.Content, A] {
+  private[http] final case class Content[A](schema: Schema[A], mediaType: Option[MediaType], index: Int = 0)
+      extends Atom[HttpCodecType.Content, A]                        {
     self =>
     def tag: AtomTag = AtomTag.Content
 
     def withIndex(index: Int): Content[A] = copy(index = index)
   }
-  private[http] final case class ContentStream[A](schema: Schema[A], index: Int = 0)
+  private[http] final case class ContentStream[A](schema: Schema[A], mediaType: Option[MediaType], index: Int = 0)
       extends Atom[HttpCodecType.Content, ZStream[Any, Nothing, A]] {
     def tag: AtomTag = AtomTag.Content
 
