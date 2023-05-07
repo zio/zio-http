@@ -23,7 +23,7 @@ import zio.stream.ZStream
 import zio.schema._
 import zio.schema.codec.BinaryCodec
 
-import zio.http.{Body, MediaType}
+import zio.http.{Body, FormField, MediaType}
 
 /**
  * A BodyCodec encapsulates the logic necessary to both encode and decode bodies
@@ -65,6 +65,14 @@ private[internal] sealed trait BodyCodec[A] { self =>
    * application/octet-stream for byte streams
    */
   def mediaType: Option[MediaType]
+
+  /**
+   * Name of the body part
+   *
+   * In case of multipart/form-data encoding one request or response can consist
+   * multiple named bodies
+   */
+  def name: Option[String]
 }
 private[internal] object BodyCodec {
   case object Empty extends BodyCodec[Unit] {
@@ -77,9 +85,12 @@ private[internal] object BodyCodec {
     def schema: Schema[Unit] = Schema[Unit]
 
     def mediaType: Option[MediaType] = None
+
+    def name: Option[String] = None
   }
 
-  final case class Single[A](schema: Schema[A], mediaType: Option[MediaType]) extends BodyCodec[A] {
+  final case class Single[A](schema: Schema[A], mediaType: Option[MediaType], name: Option[String])
+      extends BodyCodec[A] {
     def decodeFromBody(body: Body, codec: BinaryCodec[A]): IO[Throwable, A] = {
       if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
       else
@@ -94,7 +105,7 @@ private[internal] object BodyCodec {
     type Element = A
   }
 
-  final case class Multiple[E](schema: Schema[E], mediaType: Option[MediaType])
+  final case class Multiple[E](schema: Schema[E], mediaType: Option[MediaType], name: Option[String])
       extends BodyCodec[ZStream[Any, Nothing, E]] {
     def decodeFromBody(body: Body, codec: BinaryCodec[E]): IO[Throwable, ZStream[Any, Nothing, E]] =
       ZIO.succeed((body.asStream >>> codec.streamDecoder).orDie)
