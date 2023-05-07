@@ -267,7 +267,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP DELETE method, whose path is described
    * by the specified path codec.
    */
-  def delete[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
+  def delete[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
     Endpoint(
       path ++ MethodCodec.delete,
       HttpCodec.unused,
@@ -294,7 +294,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP HEAD method, whose path is described by
    * the specified path codec.
    */
-  def head[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
+  def head[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
     Endpoint(
       path ++ MethodCodec.head,
       HttpCodec.unused,
@@ -308,7 +308,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP OPTIONS method, whose path is described
    * by the specified path codec.
    */
-  def options[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def options[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.options,
       HttpCodec.unused,
@@ -321,7 +321,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP PATCH method, whose path is described by
    * the specified path codec.
    */
-  def patch[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def patch[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.patch,
       HttpCodec.unused,
@@ -334,7 +334,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP POST method, whose path is described by
    * the specified path codec.
    */
-  def post[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def post[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.post,
       HttpCodec.unused,
@@ -347,7 +347,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP PUT method, whose path is described by
    * the specified path codec.
    */
-  def put[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def put[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.put,
       HttpCodec.unused,
@@ -360,7 +360,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP TRACE method, whose path is described by
    * the specified path codec.
    */
-  def trace[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def trace[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.trace,
       HttpCodec.unused,
