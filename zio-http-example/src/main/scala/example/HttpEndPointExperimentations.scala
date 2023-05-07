@@ -13,13 +13,12 @@ object HttpEndPointExperimentations {
   val pathWithQuery: HttpCodec[HttpCodecType.PathQuery, String] =
     "organisation" / "accounts" :? paramStr("accountId")
 
-  // This doesn't compile :-)
-//   val s =
-//     "organisation" / "accounts" & paramStr("accountId")
+  // This doesn't compile as expected :-)
+  //   val s =
+  //     "organisation" / "accounts" & paramStr("accountId")
 
   //  HttpCodec[HttpCodecType.PathQuery with HttpCodecType.Query doesn't look nice
-  val pathWithMultipleQuery
-    : HttpCodec[HttpCodecType.PathQuery with HttpCodecType.Query, (String, String, String, String, Int)] =
+  val pathWithMultipleQuery: HttpCodec[HttpCodecType.PathQuery, (String, String, String, String, Int)] =
     "organisation" / "accounts" / string("accountId") :?
       paramStr("foo") &
       paramStr("bar") &

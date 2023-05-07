@@ -92,8 +92,8 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   )(implicit
     combiner: Combiner[Value, Value2],
     ev: HttpCodecType.PathQuery with HttpCodecType.Query <:< AtomTypes, // self can be either a query or it can be a combination of path and query
-  ): HttpCodec[AtomTypes with HttpCodecType.Query, combiner.Out] =
-    (self ++ that).asInstanceOf[HttpCodec[AtomTypes with HttpCodecType.Query, combiner.Out]]
+  ): HttpCodec[AtomTypes, combiner.Out] =
+    (self ++ that).asInstanceOf[HttpCodec[AtomTypes, combiner.Out]]
 
   /**
    * Combines two route codecs into another route codec.
