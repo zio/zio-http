@@ -868,7 +868,9 @@ object Handler {
   /**
    * Constructs a handler from a function that uses a web socket.
    */
-  final def webSocket[Env](f: WebSocketChannel => ZIO[Env, Throwable, Any]): SocketApp[Env] =
+  final def webSocket[Env, Err, Out](
+    f: WebSocketChannel => ZIO[Env, Err, Out],
+  ): Handler[Env, Err, WebSocketChannel, Out] =
     Handler.fromFunctionZIO(f)
 
   final implicit class RequestHandlerSyntax[-R, +Err](val self: RequestHandler[R, Err])
