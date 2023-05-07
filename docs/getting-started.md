@@ -159,7 +159,7 @@ import zio.stream._
 import zio._
 
 private val socket =
-  Http.collectZIO[WebSocketChannel] { case channel =>
+  Http.webSocket { channel =>
     channel
       .receive
       .flatMap {

@@ -14,25 +14,24 @@ object SocketContractSpec extends ZIOSpecDefault {
     suite("SocketOps")(
       contract("Successful Multi-message application") { p =>
         val socketServer: Http[Any, Throwable, WebSocketChannel, Unit] =
-          Http
-            .collectZIO[WebSocketChannel] { case channel =>
-              channel.receive.flatMap {
-                case Read(WebSocketFrame.Text("Hi Server"))          =>
-                  printLine("Server got message: Hi Server") *> channel.shutdown
-                case UserEventTriggered(UserEvent.HandshakeComplete) =>
-                  channel.send(ChannelEvent.Read(WebSocketFrame.text("Hi Client")))
-                case Unregistered                                    =>
-                  p.succeed(()) *>
-                    printLine("Server Channel unregistered")
-                case other                                           =>
-                  printLine("Server Unexpected: " + other)
-              }.forever
-            }
+          Http.webSocket { channel =>
+            channel.receive.flatMap {
+              case Read(WebSocketFrame.Text("Hi Server"))          =>
+                printLine("Server got message: Hi Server") *> channel.shutdown
+              case UserEventTriggered(UserEvent.HandshakeComplete) =>
+                channel.send(ChannelEvent.Read(WebSocketFrame.text("Hi Client")))
+              case Unregistered                                    =>
+                p.succeed(()) *>
+                  printLine("Server Channel unregistered")
+              case other                                           =>
+                printLine("Server Unexpected: " + other)
+            }.forever
+          }
 
         socketServer
       } { _ =>
         val socketClient: Http[Any, Throwable, WebSocketChannel, Unit] =
-          Http.collectZIO[WebSocketChannel] { case channel =>
+          Http.webSocket { channel =>
             channel.receive.flatMap {
               case ChannelEvent.Read(WebSocketFrame.Text("Hi Client")) =>
                 channel.send(Read(WebSocketFrame.text("Hi Server")))
@@ -46,7 +45,7 @@ object SocketContractSpec extends ZIOSpecDefault {
         socketClient
       },
       contract("Application where server app fails")(_ =>
-        Http.collectZIO[WebSocketChannel] { case channel =>
+        Http.webSocket { channel =>
           channel.receive.flatMap {
             case UserEventTriggered(UserEvent.HandshakeComplete) =>
               ZIO.fail(new Exception("Broken server"))
@@ -56,7 +55,7 @@ object SocketContractSpec extends ZIOSpecDefault {
             .ensuring(channel.shutdown)
         },
       ) { p =>
-        Http.collectZIO[WebSocketChannel] { case channel =>
+        Http.webSocket { channel =>
           channel.receive.flatMap {
             case Unregistered =>
               printLine("Server failed and killed socket. Should complete promise.") *>
@@ -67,7 +66,7 @@ object SocketContractSpec extends ZIOSpecDefault {
         }
       },
       contract("Application where client app fails")(p =>
-        Http.collectZIO[WebSocketChannel] { case channel =>
+        Http.webSocket { channel =>
           channel.receive.flatMap {
             case Unregistered =>
               printLine("Client failed and killed socket. Should complete promise.") *>
@@ -77,7 +76,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           }.forever
         },
       ) { _ =>
-        Http.collectZIO[WebSocketChannel] { case channel =>
+        Http.webSocket { channel =>
           channel.receive.flatMap {
             case UserEventTriggered(UserEvent.HandshakeComplete) =>
               ZIO.fail(new Exception("Broken client"))

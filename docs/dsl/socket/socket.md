@@ -9,7 +9,7 @@ Websocket support can be added to your Http application using the same `Http` do
 import zio.http._
 import zio._
 
-val socket = Http.collectZIO[WebSocketChannel] { case channel =>
+val socket = Http.webSocket { channel =>
   channel
     .receive
     .flatMap {

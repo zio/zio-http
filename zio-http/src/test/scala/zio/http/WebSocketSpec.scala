@@ -43,20 +43,18 @@ object WebSocketSpec extends HttpRunnableSpec {
         }
 
         res <- ZIO.scoped {
-          Http
-            .collectZIO[WebSocketChannel] { case channel =>
-              channel.receive.flatMap {
-                case UserEventTriggered(HandshakeComplete) =>
-                  channel.send(Read(WebSocketFrame.text("FOO")))
-                case Read(WebSocketFrame.Text("FOO"))      =>
-                  channel.send(Read(WebSocketFrame.text("BAR")))
-                case Read(WebSocketFrame.Text("BAR"))      =>
-                  channel.shutdown
-                case _                                     =>
-                  ZIO.unit
-              }.forever
-            }
-            .toSocketApp
+          Http.webSocket { channel =>
+            channel.receive.flatMap {
+              case UserEventTriggered(HandshakeComplete) =>
+                channel.send(Read(WebSocketFrame.text("FOO")))
+              case Read(WebSocketFrame.Text("FOO"))      =>
+                channel.send(Read(WebSocketFrame.text("BAR")))
+              case Read(WebSocketFrame.Text("BAR"))      =>
+                channel.shutdown
+              case _                                     =>
+                ZIO.unit
+            }.forever
+          }.toSocketApp
             .connect(url, Headers(DynamicServer.APP_ID, id)) *> {
             for {
               events <- msg.await
@@ -81,31 +79,25 @@ object WebSocketSpec extends HttpRunnableSpec {
 
         // Setup websocket server
 
-        serverHttp   = Http
-          .collectZIO[WebSocketChannel] { case channel =>
-            channel.receive.flatMap {
-              case Unregistered =>
-                isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
-              case _            =>
-                ZIO.unit
-            }.forever
-          }
-          .toSocketApp
-          .toRoute
-          .deployWS
+        serverHttp   = Http.webSocket { channel =>
+          channel.receive.flatMap {
+            case Unregistered =>
+              isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
+            case _            =>
+              ZIO.unit
+          }.forever
+        }.toSocketApp.toRoute.deployWS
 
         // Setup Client
         // Client closes the connection after 1 second
-        clientSocket = Http
-          .collectZIO[WebSocketChannel] { case channel =>
-            channel.receive.flatMap {
-              case UserEventTriggered(HandshakeComplete) =>
-                channel.send(Read(WebSocketFrame.close(1000))).delay(1 second).withClock(clock)
-              case _                                     =>
-                ZIO.unit
-            }.forever
-          }
-          .toSocketApp
+        clientSocket = Http.webSocket { channel =>
+          channel.receive.flatMap {
+            case UserEventTriggered(HandshakeComplete) =>
+              channel.send(Read(WebSocketFrame.close(1000))).delay(1 second).withClock(clock)
+            case _                                     =>
+              ZIO.unit
+          }.forever
+        }.toSocketApp
 
         // Deploy the server and send it a socket request
         _ <- serverHttp.runZIO(clientSocket)

@@ -13,7 +13,7 @@ object WebSocketSimpleClient extends ZIOAppDefault {
     Http
 
       // Listen for all websocket channel events
-      .collectZIO[WebSocketChannel] { case channel =>
+      .webSocket { channel =>
         channel.receive.flatMap {
 
           // Send a "foo" message to the server once the connection is established

@@ -13,7 +13,7 @@ import zio.http._
 object WebSocketAdvanced extends ZIOAppDefault {
 
   val httpSocket: Http[Any, Throwable, WebSocketChannel, Unit] =
-    Http.collectZIO[WebSocketChannel] { case channel =>
+    Http.webSocket { channel =>
       channel
         .receive
         .flatMap {

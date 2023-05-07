@@ -7,7 +7,7 @@ import zio.http._
 
 object WebSocketEcho extends ZIOAppDefault {
   private val socket: Http[Any, Throwable, WebSocketChannel, Unit] =
-    Http.collectZIO[WebSocketChannel] { case channel =>
+    Http.webSocket { channel =>
       channel.receive.flatMap {
         case Read(WebSocketFrame.Text("FOO")) =>
           channel.send(Read(WebSocketFrame.Text("BAR")))
