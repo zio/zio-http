@@ -33,15 +33,13 @@ object WebSocketSpec extends HttpRunnableSpec {
         msg <- MessageCollector.make[WebSocketChannelEvent]
         url <- DynamicServer.wsURL
         id  <- DynamicServer.deploy {
-          Handler
-            .fromFunctionZIO[WebSocketChannel] { case channel =>
-              channel.receive.flatMap {
-                case event @ Read(frame)  => channel.send(Read(frame)) *> msg.add(event)
-                case event @ Unregistered => msg.add(event, true)
-                case event                => msg.add(event)
-              }.forever
-            }
-            .toRoute
+          Handler.webSocket { channel =>
+            channel.receive.flatMap {
+              case event @ Read(frame)  => channel.send(Read(frame)) *> msg.add(event)
+              case event @ Unregistered => msg.add(event, true)
+              case event                => msg.add(event)
+            }.forever
+          }.toRoute
         }
 
         res <- ZIO.scoped {

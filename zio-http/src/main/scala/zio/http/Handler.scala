@@ -865,6 +865,9 @@ object Handler {
   val unit: Handler[Any, Nothing, Any, Unit] =
     fromExit(Exit.unit)
 
+  final def webSocket[Env](f: WebSocketChannel => ZIO[Env, Throwable, Any]): SocketApp[Env] =
+    Handler.fromFunctionZIO(f)
+
   final implicit class RequestHandlerSyntax[-R, +Err](val self: RequestHandler[R, Err])
       extends HeaderModifier[RequestHandler[R, Err]] {
 
