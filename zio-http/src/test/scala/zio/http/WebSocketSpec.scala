@@ -41,7 +41,6 @@ object WebSocketSpec extends HttpRunnableSpec {
                 case event                => msg.add(event)
               }.forever
             }
-            .toSocketApp
             .toRoute
         }
 
@@ -123,7 +122,7 @@ object WebSocketSpec extends HttpRunnableSpec {
       } yield assertCompletes
     } @@ nonFlaky,
     test("Multiple websocket upgrades") {
-      val app   = Handler.succeed(WebSocketFrame.text("BAR")).toSocketApp.toRoute.deployWS
+      val app   = Handler.succeed(WebSocketFrame.text("BAR")).toRoute.deployWS
       val codes = ZIO
         .foreach(1 to 1024)(_ => app.runZIO(Http.empty.toSocketApp).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))

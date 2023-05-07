@@ -197,6 +197,26 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that.andThen(self)
 
   /**
+   * Creates a socket connection on the provided URL. Typically used to connect
+   * as a client.
+   */
+  def connect(
+    url: String,
+    headers: Headers = Headers.empty,
+  )(implicit
+    ev: Err <:< Throwable,
+    ev2: WebSocketChannel <:< In,
+    trace: Trace,
+  ): ZIO[R with Client with Scope, Throwable, Response] =
+    ZIO.fromEither(URL.decode(url)).orDie.flatMap(connect(_, headers))
+
+  def connect(
+    url: URL,
+    headers: Headers,
+  )(implicit ev1: Err <:< Throwable, ev2: WebSocketChannel <:< In): ZIO[R with Client with Scope, Throwable, Response] =
+    Client.socket(url = url, headers = headers, app = self.asInstanceOf[SocketApp[R]])
+
+  /**
    * Transforms the input of the handler before passing it on to the current
    * Handler
    */
@@ -515,14 +535,23 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     Http.fromHandler(self)
 
   /**
-   * Converts a Handler into a websocket application
+   * Creates a new response from a socket app.
    */
-  final def toSocketApp(implicit
-    ev1: WebSocketChannel <:< In,
-    ev2: Err <:< Throwable,
+  def toResponse(implicit
+    ev1: Err <:< Throwable,
+    ev2: WebSocketChannel <:< In,
     trace: Trace,
-  ): SocketApp[R] =
-    SocketApp(event => self.runZIO(event).mapError(ev2))
+  ): ZIO[R, Nothing, Response] =
+    ZIO.environment[R].flatMap { env =>
+      Response.fromSocketApp(self.asInstanceOf[SocketApp[R]].provideEnvironment(env))
+    }
+
+  def toRoute(implicit
+    ev1: Err <:< Throwable,
+    ev2: WebSocketChannel <:< In,
+    trace: Trace,
+  ): Http[R, Nothing, Any, Response] =
+    Handler.fromZIO(toResponse).toHttp
 
   /**
    * Takes some defects and converts them into failures.
@@ -832,6 +861,9 @@ object Handler {
    */
   def tooLarge: Handler[Any, Nothing, Any, Response] =
     Handler.status(Status.RequestEntityTooLarge)
+
+  val unit: Handler[Any, Nothing, Any, Unit] =
+    fromExit(Exit.unit)
 
   final implicit class RequestHandlerSyntax[-R, +Err](val self: RequestHandler[R, Err])
       extends HeaderModifier[RequestHandler[R, Err]] {

@@ -332,7 +332,7 @@ object Response {
   def fromSocket[R](
     http: Handler[R, Throwable, WebSocketChannel, Unit],
   )(implicit trace: Trace): ZIO[R, Nothing, Response] =
-    fromSocketApp(http.toSocketApp)
+    fromSocketApp(http)
 
   /**
    * Creates a new response for the provided socket app

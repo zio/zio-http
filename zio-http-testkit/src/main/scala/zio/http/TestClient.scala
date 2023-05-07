@@ -116,8 +116,8 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       promise               <- Promise.make[Nothing, Unit]
       testChannelClient     <- TestChannel.make(in, out, promise)
       testChannelServer     <- TestChannel.make(out, in, promise)
-      _                     <- currentSocketBehavior.run(testChannelClient).forkDaemon
-      _                     <- app.provideEnvironment(env).run(testChannelServer).forkDaemon
+      _                     <- currentSocketBehavior.runZIO(testChannelClient).forkDaemon
+      _                     <- app.provideEnvironment(env).runZIO(testChannelServer).forkDaemon
     } yield Response.status(Status.SwitchingProtocols)
   }
 
@@ -129,7 +129,6 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       _   <- serverSocketBehavior.set(
         app
           .toHandler(Handler.response(Response(Status.NotFound)))
-          .toSocketApp
           .provideEnvironment(env),
       )
     } yield ()
@@ -181,7 +180,7 @@ object TestClient {
     ZLayer.scoped {
       for {
         behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
-        socketBehavior <- Ref.make[SocketApp[Any]](SocketApp.apply(_ => ZIO.unit))
+        socketBehavior <- Ref.make[SocketApp[Any]](Handler.unit)
       } yield TestClient(behavior, socketBehavior)
     }
 

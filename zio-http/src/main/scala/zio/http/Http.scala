@@ -435,12 +435,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     ev2: Err <:< Throwable,
     trace: Trace,
   ): SocketApp[R] =
-    SocketApp(event =>
-      self.runZIO(event).catchAll {
-        case Some(value) => ZIO.fail(value)
-        case None        => ZIO.unit
-      },
-    )
+    self.asInstanceOf[Http[R, Throwable, WebSocketChannel, Any]].toHandler(Handler.unit)
 
   /**
    * Applies Http based only if the condition function evaluates to true

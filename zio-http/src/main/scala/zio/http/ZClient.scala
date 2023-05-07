@@ -542,7 +542,7 @@ object ZClient {
       val request = Request(body, headers, method, url, version, None)
       val cfg     = sslConfig.fold(config)(config.ssl)
 
-      requestAsync(request, cfg, () => SocketApp.empty)
+      requestAsync(request, cfg, () => Handler.unit)
     }
 
     def socket[Env1](

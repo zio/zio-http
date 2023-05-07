@@ -65,7 +65,7 @@ final case class NettyClientDriver private (
         nettyChannel     = NettyChannel.make[JWebSocketFrame](channel)
         webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
         app              = createSocketApp()
-        _ <- app.run(webSocketChannel).ignoreLogged.forkScoped
+        _ <- app.runZIO(webSocketChannel).ignoreLogged.forkScoped
       } yield {
         val pipeline                              = channel.pipeline()
         val toRemove: mutable.Set[ChannelHandler] = new mutable.HashSet[ChannelHandler]()
