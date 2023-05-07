@@ -26,7 +26,7 @@ final case class SocketProtocol(
   handshakeTimeoutMillis: Long = 10000L,
   forceCloseTimeoutMillis: Long = -1L,
   handleCloseFrames: Boolean = true,
-  sendCloseFrame: CloseStatus = CloseStatus.NormalClosure,
+  sendCloseFrame: SocketProtocol.CloseStatus = SocketProtocol.CloseStatus.NormalClosure,
   dropPongFrames: Boolean = true,
   decoderConfig: SocketDecoder = SocketDecoder.default,
 ) { self =>
@@ -35,12 +35,12 @@ final case class SocketProtocol(
    * Close frame to send, when close frame was not send manually.
    */
   def withCloseFrame(code: Int, reason: String): SocketProtocol =
-    self.copy(sendCloseFrame = CloseStatus.Custom(code, reason))
+    self.copy(sendCloseFrame = SocketProtocol.CloseStatus.Custom(code, reason))
 
   /**
    * Close frame to send, when close frame was not send manually.
    */
-  def withCloseStatus(status: CloseStatus): SocketProtocol = self.copy(sendCloseFrame = status)
+  def withCloseStatus(status: SocketProtocol.CloseStatus): SocketProtocol = self.copy(sendCloseFrame = status)
 
   def withDecoderConfig(socketDecoder: SocketDecoder): SocketProtocol = self.copy(decoderConfig = socketDecoder)
 
@@ -77,4 +77,25 @@ object SocketProtocol {
    * Creates an default decoder configuration.
    */
   def default: SocketProtocol = SocketProtocol()
+
+  sealed trait CloseStatus
+
+  object CloseStatus {
+    case object NormalClosure                          extends CloseStatus
+    case object EndpointUnavailable                    extends CloseStatus
+    case object ProtocolError                          extends CloseStatus
+    case object InvalidMessageType                     extends CloseStatus
+    case object InvalidPayloadData                     extends CloseStatus
+    case object PolicyViolation                        extends CloseStatus
+    case object MessageTooBig                          extends CloseStatus
+    case object MandatoryExtension                     extends CloseStatus
+    case object InternalServerError                    extends CloseStatus
+    case object ServiceRestart                         extends CloseStatus
+    case object TryAgainLater                          extends CloseStatus
+    case object BadGateway                             extends CloseStatus
+    case object Empty                                  extends CloseStatus
+    case object AbnormalClosure                        extends CloseStatus
+    case object TlsHandshakeFailed                     extends CloseStatus
+    final case class Custom(code: Int, reason: String) extends CloseStatus
+  }
 }

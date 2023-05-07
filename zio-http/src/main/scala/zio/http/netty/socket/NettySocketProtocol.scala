@@ -16,7 +16,7 @@
 
 package zio.http.netty.socket
 
-import zio.http.socket.{CloseStatus, SocketDecoder, SocketProtocol}
+import zio.http.socket.{SocketDecoder, SocketProtocol}
 
 import io.netty.handler.codec.http.websocketx.{
   WebSocketClientProtocolConfig,
@@ -50,24 +50,24 @@ private[netty] object NettySocketProtocol {
       .dropPongFrames(socketProtocol.dropPongFrames)
       .decoderConfig(socketDecoderToNetty(socketProtocol.decoderConfig))
 
-  private def closeStatusToNetty(closeStatus: CloseStatus): WebSocketCloseStatus =
+  private def closeStatusToNetty(closeStatus: SocketProtocol.CloseStatus): WebSocketCloseStatus =
     closeStatus match {
-      case CloseStatus.NormalClosure         => WebSocketCloseStatus.NORMAL_CLOSURE
-      case CloseStatus.EndpointUnavailable   => WebSocketCloseStatus.ENDPOINT_UNAVAILABLE
-      case CloseStatus.ProtocolError         => WebSocketCloseStatus.PROTOCOL_ERROR
-      case CloseStatus.InvalidMessageType    => WebSocketCloseStatus.INVALID_MESSAGE_TYPE
-      case CloseStatus.InvalidPayloadData    => WebSocketCloseStatus.INVALID_PAYLOAD_DATA
-      case CloseStatus.PolicyViolation       => WebSocketCloseStatus.POLICY_VIOLATION
-      case CloseStatus.MessageTooBig         => WebSocketCloseStatus.MESSAGE_TOO_BIG
-      case CloseStatus.MandatoryExtension    => WebSocketCloseStatus.MANDATORY_EXTENSION
-      case CloseStatus.InternalServerError   => WebSocketCloseStatus.INTERNAL_SERVER_ERROR
-      case CloseStatus.ServiceRestart        => WebSocketCloseStatus.SERVICE_RESTART
-      case CloseStatus.TryAgainLater         => WebSocketCloseStatus.TRY_AGAIN_LATER
-      case CloseStatus.BadGateway            => WebSocketCloseStatus.BAD_GATEWAY
-      case CloseStatus.Empty                 => WebSocketCloseStatus.EMPTY
-      case CloseStatus.AbnormalClosure       => WebSocketCloseStatus.ABNORMAL_CLOSURE
-      case CloseStatus.TlsHandshakeFailed    => WebSocketCloseStatus.TLS_HANDSHAKE_FAILED
-      case CloseStatus.Custom(code, message) => new WebSocketCloseStatus(code, message)
+      case SocketProtocol.CloseStatus.NormalClosure         => WebSocketCloseStatus.NORMAL_CLOSURE
+      case SocketProtocol.CloseStatus.EndpointUnavailable   => WebSocketCloseStatus.ENDPOINT_UNAVAILABLE
+      case SocketProtocol.CloseStatus.ProtocolError         => WebSocketCloseStatus.PROTOCOL_ERROR
+      case SocketProtocol.CloseStatus.InvalidMessageType    => WebSocketCloseStatus.INVALID_MESSAGE_TYPE
+      case SocketProtocol.CloseStatus.InvalidPayloadData    => WebSocketCloseStatus.INVALID_PAYLOAD_DATA
+      case SocketProtocol.CloseStatus.PolicyViolation       => WebSocketCloseStatus.POLICY_VIOLATION
+      case SocketProtocol.CloseStatus.MessageTooBig         => WebSocketCloseStatus.MESSAGE_TOO_BIG
+      case SocketProtocol.CloseStatus.MandatoryExtension    => WebSocketCloseStatus.MANDATORY_EXTENSION
+      case SocketProtocol.CloseStatus.InternalServerError   => WebSocketCloseStatus.INTERNAL_SERVER_ERROR
+      case SocketProtocol.CloseStatus.ServiceRestart        => WebSocketCloseStatus.SERVICE_RESTART
+      case SocketProtocol.CloseStatus.TryAgainLater         => WebSocketCloseStatus.TRY_AGAIN_LATER
+      case SocketProtocol.CloseStatus.BadGateway            => WebSocketCloseStatus.BAD_GATEWAY
+      case SocketProtocol.CloseStatus.Empty                 => WebSocketCloseStatus.EMPTY
+      case SocketProtocol.CloseStatus.AbnormalClosure       => WebSocketCloseStatus.ABNORMAL_CLOSURE
+      case SocketProtocol.CloseStatus.TlsHandshakeFailed    => WebSocketCloseStatus.TLS_HANDSHAKE_FAILED
+      case SocketProtocol.CloseStatus.Custom(code, message) => new WebSocketCloseStatus(code, message)
     }
 
   private def socketDecoderToNetty(socketDecoder: SocketDecoder): WebSocketDecoderConfig = WebSocketDecoderConfig
