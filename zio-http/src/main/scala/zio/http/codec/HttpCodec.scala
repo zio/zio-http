@@ -86,12 +86,15 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   ): HttpCodec[HttpCodecType.PathQuery, combiner.Out] =
     (self ++ that).asInstanceOf[HttpCodec[HttpCodecType.PathQuery, combiner.Out]]
 
-  // AtomType can be either query or path & query
+  /**
+   * Append more query parameters to either a query codec, or to a pathQuery
+   * codec which is a combination of path and query
+   */
   final def &[Value2](
     that: QueryCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
-    ev: HttpCodecType.PathQuery with HttpCodecType.Query <:< AtomTypes, // self can be either a query or it can be a combination of path and query
+    ev: HttpCodecType.PathQuery with HttpCodecType.Query <:< AtomTypes,
   ): HttpCodec[AtomTypes, combiner.Out] =
     (self ++ that).asInstanceOf[HttpCodec[AtomTypes, combiner.Out]]
 
