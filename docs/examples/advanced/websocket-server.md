@@ -12,8 +12,8 @@ import zio.http._
 
 object WebSocketAdvanced extends ZIOAppDefault {
 
-  val httpSocket: Http[Any, Throwable, WebSocketChannel, Unit] =
-    Http.webSocket { channel =>
+  val socketApp: SocketApp[Any] =
+    Handler.webSocket { channel =>
       channel.receiveAll {
         case Read(WebSocketFrame.Text("end")) =>
           channel.shutdown
@@ -46,9 +46,6 @@ object WebSocketAdvanced extends ZIOAppDefault {
           ZIO.unit
       }
     }
-
-  val socketApp: SocketApp[Any] =
-    httpSocket.toSocketApp
 
   val app: Http[Any, Nothing, Request, Response] =
     Http.collectZIO[Request] {

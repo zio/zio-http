@@ -55,8 +55,8 @@ object TestClientSpec extends ZIOSpecDefault {
       ),
       suite("socket ops")(
         test("happy path") {
-          val socketClient: Http[Any, Throwable, WebSocketChannel, Unit] =
-            Http.webSocket { channel =>
+          val socketClient: Handler[Any, Throwable, WebSocketChannel, Unit] =
+            Handler.webSocket { channel =>
               channel.receiveAll {
                 case ChannelEvent.Read(WebSocketFrame.Text("Hi Client")) =>
                   channel.send(Read(WebSocketFrame.text("Hi Server")))
@@ -66,8 +66,8 @@ object TestClientSpec extends ZIOSpecDefault {
               }
             }
 
-          val socketServer: Http[Any, Throwable, WebSocketChannel, Unit] =
-            Http.webSocket { channel =>
+          val socketServer: Handler[Any, Throwable, WebSocketChannel, Unit] =
+            Handler.webSocket { channel =>
               channel.receiveAll {
                 case ChannelEvent.Read(WebSocketFrame.Text("Hi Server")) =>
                   channel.send(Read(WebSocketFrame.text("Hi Client")))
@@ -78,7 +78,7 @@ object TestClientSpec extends ZIOSpecDefault {
 
           for {
             _        <- TestClient.installSocketApp(socketServer)
-            response <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(socketClient.toSocketApp))
+            response <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(socketClient))
           } yield assertTrue(response.status == Status.SwitchingProtocols)
         },
       ),

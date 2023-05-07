@@ -39,11 +39,11 @@ object WebSocketSpec extends HttpRunnableSpec {
               case event @ Unregistered => msg.add(event, true)
               case event                => msg.add(event)
             }
-          }.toRoute
+          }.toHttpApp
         }
 
         res <- ZIO.scoped {
-          Http.webSocket { channel =>
+          Handler.webSocket { channel =>
             channel.receiveAll {
               case UserEventTriggered(HandshakeComplete) =>
                 channel.send(Read(WebSocketFrame.text("FOO")))
@@ -54,8 +54,7 @@ object WebSocketSpec extends HttpRunnableSpec {
               case _                                     =>
                 ZIO.unit
             }
-          }.toSocketApp
-            .connect(url, Headers(DynamicServer.APP_ID, id)) *> {
+          }.connect(url, Headers(DynamicServer.APP_ID, id)) *> {
             for {
               events <- msg.await
               expected = List(
@@ -79,25 +78,25 @@ object WebSocketSpec extends HttpRunnableSpec {
 
         // Setup websocket server
 
-        serverHttp   = Http.webSocket { channel =>
+        serverHttp   = Handler.webSocket { channel =>
           channel.receiveAll {
             case Unregistered =>
               isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
             case _            =>
               ZIO.unit
           }
-        }.toSocketApp.toRoute.deployWS
+        }.toHttpApp.deployWS
 
         // Setup Client
         // Client closes the connection after 1 second
-        clientSocket = Http.webSocket { channel =>
+        clientSocket = Handler.webSocket { channel =>
           channel.receiveAll {
             case UserEventTriggered(HandshakeComplete) =>
               channel.send(Read(WebSocketFrame.close(1000))).delay(1 second).withClock(clock)
             case _                                     =>
               ZIO.unit
           }
-        }.toSocketApp
+        }
 
         // Deploy the server and send it a socket request
         _ <- serverHttp.runZIO(clientSocket)
@@ -112,9 +111,9 @@ object WebSocketSpec extends HttpRunnableSpec {
       } yield assertCompletes
     } @@ nonFlaky,
     test("Multiple websocket upgrades") {
-      val app   = Handler.succeed(WebSocketFrame.text("BAR")).toRoute.deployWS
+      val app   = Handler.succeed(WebSocketFrame.text("BAR")).toHttpApp.deployWS
       val codes = ZIO
-        .foreach(1 to 1024)(_ => app.runZIO(Http.empty.toSocketApp).map(_.status))
+        .foreach(1 to 1024)(_ => app.runZIO(Handler.unit).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))
 
       assertZIO(codes)(equalTo(1024))

@@ -534,6 +534,13 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def toHttp(implicit trace: Trace): Http[R, Err, In, Out] =
     Http.fromHandler(self)
 
+  def toHttpApp(implicit
+    ev1: Err <:< Throwable,
+    ev2: WebSocketChannel <:< In,
+    trace: Trace,
+  ): Http[R, Nothing, Any, Response] =
+    Handler.fromZIO(toResponse).toHttp
+
   /**
    * Creates a new response from a socket app.
    */
@@ -545,13 +552,6 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     ZIO.environment[R].flatMap { env =>
       Response.fromSocketApp(self.asInstanceOf[SocketApp[R]].provideEnvironment(env))
     }
-
-  def toRoute(implicit
-    ev1: Err <:< Throwable,
-    ev2: WebSocketChannel <:< In,
-    trace: Trace,
-  ): Http[R, Nothing, Any, Response] =
-    Handler.fromZIO(toResponse).toHttp
 
   /**
    * Takes some defects and converts them into failures.

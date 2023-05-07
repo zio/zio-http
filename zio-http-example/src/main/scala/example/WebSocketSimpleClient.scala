@@ -9,8 +9,8 @@ object WebSocketSimpleClient extends ZIOAppDefault {
 
   val url = "ws://ws.vi-server.org/mirror"
 
-  val httpSocket: Http[Any, Throwable, WebSocketChannel, Unit] =
-    Http
+  val socketApp: SocketApp[Any] =
+    Handler
 
       // Listen for all websocket channel events
       .webSocket { channel =>
@@ -34,7 +34,7 @@ object WebSocketSimpleClient extends ZIOAppDefault {
       }
 
   val app: ZIO[Client with Scope, Throwable, Response] =
-    httpSocket.toSocketApp.connect(url) *> ZIO.never
+    socketApp.connect(url) *> ZIO.never
 
   val run: ZIO[ZIOAppArgs with Scope, Throwable, Any] =
     ZIO.scoped {

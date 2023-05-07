@@ -428,16 +428,6 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     }
 
   /**
-   * Converts an Http into a websocket application
-   */
-  final def toSocketApp(implicit
-    ev1: WebSocketChannel <:< In,
-    ev2: Err <:< Throwable,
-    trace: Trace,
-  ): SocketApp[R] =
-    self.asInstanceOf[Http[R, Throwable, WebSocketChannel, Any]].toHandler(Handler.unit)
-
-  /**
    * Applies Http based only if the condition function evaluates to true
    */
   final def when[In1 <: In](f: In1 => Boolean)(implicit trace: Trace): Http[R, Err, In1, Out] =

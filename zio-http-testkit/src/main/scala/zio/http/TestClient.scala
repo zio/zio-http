@@ -122,13 +122,12 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
   }
 
   def installSocketApp[Env1](
-    app: Http[Any, Throwable, WebSocketChannel, Unit],
+    app: Handler[Any, Throwable, WebSocketChannel, Unit],
   ): ZIO[Env1, Nothing, Unit] =
     for {
       env <- ZIO.environment[Env1]
       _   <- serverSocketBehavior.set(
         app
-          .toHandler(Handler.response(Response(Status.NotFound)))
           .provideEnvironment(env),
       )
     } yield ()
@@ -172,7 +171,7 @@ object TestClient {
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
   def installSocketApp(
-    app: Http[Any, Throwable, WebSocketChannel, Unit],
+    app: Handler[Any, Throwable, WebSocketChannel, Unit],
   ): ZIO[TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
 

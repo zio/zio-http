@@ -159,7 +159,7 @@ import zio.stream._
 import zio._
 
 private val socket =
-  Http.webSocket { channel =>
+  Handler.webSocket { channel =>
     channel.receiveAll {
       case ChannelEvent.Read(WebSocketFrame.Text("FOO")) =>
         channel.send(ChannelEvent.Read(WebSocketFrame.text("BAR")))
@@ -171,7 +171,7 @@ private val socket =
 private val app = 
   Http.collectZIO[Request] {
     case Method.GET -> !! / "greet" / name => ZIO.succeed(Response.text(s"Greetings {$name}!"))
-    case Method.GET -> !! / "ws" => socket.toSocketApp.toResponse
+    case Method.GET -> !! / "ws" => socket.toResponse
   }
 ```
 

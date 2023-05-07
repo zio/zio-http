@@ -9,7 +9,7 @@ Websocket support can be added to your Http application using the same `Http` do
 import zio.http._
 import zio._
 
-val socket = Http.webSocket { channel =>
+val socket = Handler.webSocket { channel =>
   channel.receiveAll {
     case ChannelEvent.Read(WebSocketFrame.Text("foo")) =>
       channel.send(ChannelEvent.Read(WebSocketFrame.text("bar")))
@@ -19,7 +19,7 @@ val socket = Http.webSocket { channel =>
 }
 
 val http = Http.collectZIO[Request] {
-  case Method.GET -> !! / "subscriptions" => socket.toSocketApp.toResponse
+  case Method.GET -> !! / "subscriptions" => socket.toResponse
 }
 ```
 
