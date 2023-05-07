@@ -24,7 +24,6 @@ import zio._
 import zio.http.Server.Config.ResponseCompressionConfig
 import zio.http.netty.NettyConfig
 import zio.http.netty.server._
-import zio.http.socket.WebSocketConfig
 
 /**
  * Represents a server, which is capable of serving zero or more HTTP

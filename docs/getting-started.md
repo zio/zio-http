@@ -155,7 +155,6 @@ BAR" on receiving WebsSocketTextFrame "FOO".
 
 ```scala mdoc:silent:reset
 import zio.http._
-import zio.http.socket._
 import zio.stream._
 import zio._
 

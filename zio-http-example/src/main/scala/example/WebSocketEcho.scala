@@ -4,7 +4,6 @@ import zio._
 
 import zio.http.ChannelEvent.ChannelRead
 import zio.http._
-import zio.http.socket.{WebSocketChannel, WebSocketFrame}
 
 object WebSocketEcho extends ZIOAppDefault {
   private val socket: Http[Any, Throwable, WebSocketChannel, Unit] =

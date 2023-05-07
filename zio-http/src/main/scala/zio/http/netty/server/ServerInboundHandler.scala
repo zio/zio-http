@@ -28,7 +28,6 @@ import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-import zio.http.socket.{SocketApp, WebSocketChannel, WebSocketChannelEvent, WebSocketConfig}
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._

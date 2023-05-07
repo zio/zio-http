@@ -3,7 +3,6 @@ package zio.http
 import zio._
 
 import zio.http.ChannelEvent.{ChannelUnregistered, UserEvent}
-import zio.http.socket.{SocketApp, WebSocketChannel, WebSocketChannelEvent, WebSocketFrame}
 import zio.http.{Headers, Method, Scheme, Status, Version}
 
 /**

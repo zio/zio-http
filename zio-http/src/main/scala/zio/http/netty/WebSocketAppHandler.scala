@@ -19,8 +19,7 @@ package zio.http.netty
 import zio._
 
 import zio.http.ChannelEvent.UserEvent
-import zio.http.socket.{SocketApp, WebSocketChannelEvent, WebSocketFrame}
-import zio.http.{Channel, ChannelEvent}
+import zio.http.{Channel, ChannelEvent, WebSocketChannelEvent, WebSocketFrame}
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}

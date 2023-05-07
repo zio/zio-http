@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.socket
+package zio.http
 
 /**
  * Frame decoder configuration

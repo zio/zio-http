@@ -20,7 +20,6 @@ import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http.netty.client.ChannelState
-import zio.http.socket.{SocketApp, WebSocketConfig}
 
 trait ClientDriver {
   type Connection

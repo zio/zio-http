@@ -1,11 +1,9 @@
-package zio.http.socket
+package zio.http
 
 import zio._
 
 import zio.http.ChannelEvent.{ChannelRead, ChannelRegistered, ChannelUnregistered, ExceptionCaught, UserEventTriggered}
-import zio.http._
 import zio.http.netty.NettyChannel
-import zio.http.socket.WebSocketChannelEvent
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}

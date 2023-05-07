@@ -6,7 +6,6 @@ import zio.test._
 
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEvent, UserEventTriggered}
 import zio.http.netty.server.NettyDriver
-import zio.http.socket._
 import zio.http.{Headers, Status, Version}
 
 object SocketContractSpec extends ZIOSpecDefault {

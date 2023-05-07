@@ -24,7 +24,6 @@ import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.socket.{WebSocketChannel, WebSocketChannelEvent, WebSocketFrame}
 
 object WebSocketSpec extends HttpRunnableSpec {
 

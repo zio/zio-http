@@ -21,7 +21,6 @@ import zio.http.URL.Location
 import zio.http.netty.NettyConfig
 import zio.http.internal.HeaderOps
 import zio.http.netty.client._
-import zio.http.socket.{SocketApp, WebSocketConfig}
 
 import java.net.{InetSocketAddress, URI} // scalafix:ok;
 

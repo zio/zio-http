@@ -20,7 +20,6 @@ import java.nio.charset.{Charset, StandardCharsets}
 import zio._
 
 import zio.http.Header.HeaderType
-import zio.http.socket.SocketApp
 
 /**
  * A `ZClientAspect` is capable on modifying some aspect of the execution of a

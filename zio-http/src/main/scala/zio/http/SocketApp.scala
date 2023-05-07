@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-package zio.http.socket
+package zio.http
 
 import zio._
-
-import zio.http._
 
 final case class SocketApp[-R](run: WebSocketChannel => ZIO[R, Throwable, Any]) { self =>
 

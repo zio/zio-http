@@ -2,7 +2,6 @@ package zio.http
 import zio._
 
 import zio.http.ChannelEvent.{ChannelUnregistered, UserEvent, UserEventTriggered}
-import zio.http.socket.{WebSocketChannel, WebSocketChannelEvent}
 
 case class TestChannel(
   in: Queue[WebSocketChannelEvent],

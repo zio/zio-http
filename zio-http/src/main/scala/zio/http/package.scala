@@ -47,4 +47,14 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
   type Client = ZClient[Any, Body, Throwable, Response]
   def Client: ZClient.type = ZClient
+
+  /**
+   * A channel that allows websocket frames to be written to it.
+   */
+  type WebSocketChannel = Channel[WebSocketChannelEvent, WebSocketChannelEvent]
+
+  /**
+   * A channel that allows websocket frames to be read and write to it.
+   */
+  type WebSocketChannelEvent = ChannelEvent[WebSocketFrame]
 }

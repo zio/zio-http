@@ -7,7 +7,6 @@ Websocket support can be added to your Http application using the same `Http` do
 
 ```scala mdoc:silent
 import zio.http._
-import zio.http.socket._
 import zio._
 
 val socket = Http.collectZIO[WebSocketChannel] { case channel =>

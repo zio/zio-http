@@ -4,8 +4,7 @@ import zio._
 import zio.test._
 
 import zio.http.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
-import zio.http.socket._
-import zio.http.{Method, Status}
+import zio.http.{Method, Status, WebSocketFrame}
 
 object TestClientSpec extends ZIOSpecDefault {
   def spec =

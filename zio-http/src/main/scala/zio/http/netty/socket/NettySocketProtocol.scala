@@ -16,7 +16,7 @@
 
 package zio.http.netty.socket
 
-import zio.http.socket.{SocketDecoder, WebSocketConfig}
+import zio.http.{SocketDecoder, WebSocketConfig}
 
 import io.netty.handler.codec.http.websocketx.{
   WebSocketClientProtocolConfig,
