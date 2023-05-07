@@ -21,7 +21,7 @@ package object codec {
   type HeaderCodec[A]    = HttpCodec[HttpCodecType.Header, A]
   type MethodCodec[A]    = HttpCodec[HttpCodecType.Method, A]
   type PathCodec[A]      = HttpCodec[HttpCodecType.Path, A]
-  type PathQueryCodec[A] = HttpCodec[HttpCodecType.PathQuery, A]
+  type PathQueryCodec[A] = HttpCodec[HttpCodecType.PathQuery with HttpCodecType.Path, A]
   type QueryCodec[A]     = HttpCodec[HttpCodecType.Query, A]
   type StatusCodec[A]    = HttpCodec[HttpCodecType.Status, A]
 }
