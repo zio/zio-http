@@ -20,7 +20,6 @@ import zio._
 import zio.http.html.{Html, Template}
 import zio.http.Header.HeaderType
 import zio.http.internal.HeaderModifier
-import zio.http.socket.{SocketApp, WebSocketChannelEvent}
 import zio.stream.ZStream
 
 import java.io.File
@@ -196,6 +195,26 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that: Handler[R1, Err1, In1, Out1],
   )(implicit trace: Trace): Handler[R1, Err1, In1, Out] =
     that.andThen(self)
+
+  /**
+   * Creates a socket connection on the provided URL. Typically used to connect
+   * as a client.
+   */
+  def connect(
+    url: String,
+    headers: Headers = Headers.empty,
+  )(implicit
+    ev: Err <:< Throwable,
+    ev2: WebSocketChannel <:< In,
+    trace: Trace,
+  ): ZIO[R with Client with Scope, Throwable, Response] =
+    ZIO.fromEither(URL.decode(url)).orDie.flatMap(connect(_, headers))
+
+  def connect(
+    url: URL,
+    headers: Headers,
+  )(implicit ev1: Err <:< Throwable, ev2: WebSocketChannel <:< In): ZIO[R with Client with Scope, Throwable, Response] =
+    Client.socket(url = url, headers = headers, app = self.asInstanceOf[SocketApp[R]])
 
   /**
    * Transforms the input of the handler before passing it on to the current
@@ -515,15 +534,24 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def toHttp(implicit trace: Trace): Http[R, Err, In, Out] =
     Http.fromHandler(self)
 
-  /**
-   * Converts a Handler into a websocket application
-   */
-  final def toSocketApp(implicit
-    ev1: WebSocketChannelEvent <:< In,
-    ev2: Err <:< Throwable,
+  def toHttpApp(implicit
+    ev1: Err <:< Throwable,
+    ev2: WebSocketChannel <:< In,
     trace: Trace,
-  ): SocketApp[R] =
-    SocketApp(event => self.runZIO(event).mapError(ev2))
+  ): Http[R, Nothing, Any, Response] =
+    Handler.fromZIO(toResponse).toHttp
+
+  /**
+   * Creates a new response from a socket app.
+   */
+  def toResponse(implicit
+    ev1: Err <:< Throwable,
+    ev2: WebSocketChannel <:< In,
+    trace: Trace,
+  ): ZIO[R, Nothing, Response] =
+    ZIO.environment[R].flatMap { env =>
+      Response.fromSocketApp(self.asInstanceOf[SocketApp[R]].provideEnvironment(env))
+    }
 
   /**
    * Takes some defects and converts them into failures.
@@ -833,6 +861,17 @@ object Handler {
    */
   def tooLarge: Handler[Any, Nothing, Any, Response] =
     Handler.status(Status.RequestEntityTooLarge)
+
+  val unit: Handler[Any, Nothing, Any, Unit] =
+    fromExit(Exit.unit)
+
+  /**
+   * Constructs a handler from a function that uses a web socket.
+   */
+  final def webSocket[Env, Err, Out](
+    f: WebSocketChannel => ZIO[Env, Err, Out],
+  ): Handler[Env, Err, WebSocketChannel, Out] =
+    Handler.fromFunctionZIO(f)
 
   final implicit class RequestHandlerSyntax[-R, +Err](val self: RequestHandler[R, Err])
       extends HeaderModifier[RequestHandler[R, Err]] {

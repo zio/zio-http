@@ -26,8 +26,7 @@ import zio.stream.ZStream
 
 import zio.http.Header.HeaderType
 import zio.http.Http.{Empty, FailedErrorHandler, Route}
-import zio.http.socket.{SocketApp, WebSocketChannelEvent}
-import zio.http.{Header, Headers, MediaType, Status}
+import zio.http._
 
 sealed trait Http[-R, +Err, -In, +Out] { self =>
 
@@ -427,21 +426,6 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
           }
           .flatten
     }
-
-  /**
-   * Converts an Http into a websocket application
-   */
-  final def toSocketApp(implicit
-    ev1: WebSocketChannelEvent <:< In,
-    ev2: Err <:< Throwable,
-    trace: Trace,
-  ): SocketApp[R] =
-    SocketApp(event =>
-      self.runZIO(event).catchAll {
-        case Some(value) => ZIO.fail(value)
-        case None        => ZIO.unit
-      },
-    )
 
   /**
    * Applies Http based only if the condition function evaluates to true

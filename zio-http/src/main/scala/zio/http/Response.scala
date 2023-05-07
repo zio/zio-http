@@ -23,7 +23,6 @@ import zio._
 import zio.http.Response._
 import zio.http.html.Html
 import zio.http.internal.HeaderOps
-import zio.http.socket._
 
 sealed trait Response extends HeaderOps[Response] { self =>
 
@@ -331,9 +330,9 @@ object Response {
    * Creates a new response for the provided socket
    */
   def fromSocket[R](
-    http: Handler[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
+    http: Handler[R, Throwable, WebSocketChannel, Any],
   )(implicit trace: Trace): ZIO[R, Nothing, Response] =
-    fromSocketApp(http.toSocketApp)
+    fromSocketApp(http)
 
   /**
    * Creates a new response for the provided socket app

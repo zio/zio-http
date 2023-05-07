@@ -2,36 +2,39 @@ package example
 
 import zio._
 
-import zio.http.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
-import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
-import zio.http.{ChannelEvent, Client, Http}
+import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
+import zio.http._
 
 object WebSocketReconnectingClient extends ZIOAppDefault {
 
   val url = "ws://ws.vi-server.org/mirror"
 
   // A promise is used to be able to notify application about websocket errors
-  def makeHttpSocket(p: Promise[Nothing, Throwable]): Http[Any, Throwable, WebSocketChannelEvent, Unit] =
-    Http
+  def makeSocketApp(p: Promise[Nothing, Throwable]): SocketApp[Any] =
+    Handler
 
       // Listen for all websocket channel events
-      .collectZIO[WebSocketChannelEvent] {
+      .webSocket { channel =>
+        channel.receiveAll {
 
-        // On connect send a "foo" message to the server to start the echo loop
-        case ChannelEvent(ch, UserEventTriggered(UserEvent.HandshakeComplete)) =>
-          ch.writeAndFlush(WebSocketFrame.text("foo"), await = true)
+          // On connect send a "foo" message to the server to start the echo loop
+          case UserEventTriggered(UserEvent.HandshakeComplete) =>
+            channel.send(ChannelEvent.Read(WebSocketFrame.text("foo")))
 
-        // On receiving "foo", we'll reply with another "foo" to keep echo loop going
-        case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("foo")))         =>
-          ZIO.logInfo("Received foo message.") *>
-            ZIO.sleep(1.second) *>
-            ch.writeAndFlush(WebSocketFrame.text("foo"))
+          // On receiving "foo", we'll reply with another "foo" to keep echo loop going
+          case Read(WebSocketFrame.Text("foo"))                =>
+            ZIO.logInfo("Received foo message.") *>
+              ZIO.sleep(1.second) *>
+              channel.send(ChannelEvent.Read(WebSocketFrame.text("foo")))
 
-        // Handle exception and convert it to failure to signal the shutdown of the socket connection via the promise
-        case ChannelEvent(_, ExceptionCaught(t))                               =>
-          ZIO.fail(t)
-      }
-      .tapErrorZIO { f =>
+          // Handle exception and convert it to failure to signal the shutdown of the socket connection via the promise
+          case ExceptionCaught(t)                              =>
+            ZIO.fail(t)
+
+          case _ =>
+            ZIO.unit
+        }
+      }.tapErrorZIO { f =>
         // signal failure to application
         p.succeed(f)
       }
@@ -39,7 +42,7 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
   val app: ZIO[Any with Client with Scope, Throwable, Unit] = {
     (for {
       p <- zio.Promise.make[Nothing, Throwable]
-      _ <- makeHttpSocket(p).toSocketApp.connect(url).catchAll { t =>
+      _ <- makeSocketApp(p).connect(url).catchAll { t =>
         // convert a failed connection attempt to an error to trigger a reconnect
         p.succeed(t)
       }

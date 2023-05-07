@@ -7,23 +7,26 @@ Websocket support can be added to your Http application using the same `Http` do
 
 ```scala mdoc:silent
 import zio.http._
-import zio.http.socket._
 import zio._
 
-val socket = Http.collectZIO[WebSocketChannelEvent] {
-  case ChannelEvent(ch, ChannelEvent.ChannelRead(WebSocketFrame.Text("foo"))) =>
-    ch.writeAndFlush(WebSocketFrame.text("bar"))
+val socket = Handler.webSocket { channel =>
+  channel.receiveAll {
+    case ChannelEvent.Read(WebSocketFrame.Text("foo")) =>
+      channel.send(ChannelEvent.Read(WebSocketFrame.text("bar")))
+    case _ =>
+      ZIO.unit
+  }
 }
 
 val http = Http.collectZIO[Request] {
-  case Method.GET -> !! / "subscriptions" => socket.toSocketApp.toResponse
+  case Method.GET -> !! / "subscriptions" => socket.toResponse
 }
 ```
 
 The WebSocket API leverages the already powerful `Http` domain to write web socket apps. The difference is that instead
-of collecting `Request` we collect `ChannelEvent` or more specifically `WebSocketChannelEvent`. And, instead of
+of collecting `Request` we collect `Channel` or more specifically `WebSocketChannel`. And, instead of
 returning
-a `Response` we return `Unit`, because we use the channel (which is available in the event) to write content directly.
+a `Response` we return `Unit`, because we use the channel to write content directly.
 
 ## Channel
 
@@ -31,7 +34,7 @@ Essentially, whenever there is a connection created between a server and client 
 channel is a low level api that allows us to send and receive arbitrary messages.
 
 When we upgrade a Http connection to WebSocket, we create a specialized channel that only allows websocket frames to be
-sent and received. The access to channel is available through the `ChannelEvent` api.
+sent and received. The access to channel is available through the `Channel` api.
 
 ## ChannelEvents
 
@@ -39,35 +42,15 @@ A `ChannelEvent` is an immutable, type-safe representation of an event that's ha
 this:
 
 ```scala
-case class ChannelEvent[A, B](channel: Channel[A], event: Event[B])
+sealed trait ChannelEvent[A]
 ```
 
-It contains two elements — The **Channel** on which the event was triggered, and the actual **Event** that was triggered.
-The
-type param `A` on the Channel represents the kind of message one can **write** using the channel, and the type param `B`
-represents the kind of messages that can be received on the channel.
+It is the **Event** that was triggered. The type param `A` on the ChannelEvent represents the kind of message the event contains.
 
-The type `WebSocketChannelEvent` is a type alias to `ChannelEvent[WebsocketFrame, WebSocketFrame]`. Meaning a channel
-that only accepts and produces `WebSocketFrame` typed messages.
+The type `WebSocketChannelEvent` is a type alias to `ChannelEvent[WebsocketFrame]`. Meaning an event that contains `WebSocketFrame` typed messages.
 
 ## Using `Http`
 
 We can use `Http.collect` to select the events that we care about for our use case, like in the above example we are
 only interested in the `ChannelRead` event. There are other life cycle events such as `ChannelRegistered`
 and `ChannelUnregistered` that one might want to hook onto for some other use cases.
-
-## SocketApp
-
-The `Http` that accepts `WebSocketChannelEvent` isn't enough to create a websocket connection. There are some other settings
-that one might need to configure in a websocket connection, things such as `handshakeTimeout` or `subProtocol` etc. For
-those purposes a Http of the type `Http[R, E, WebSocketChannelEvent, Unit]` needs to converted into a `SocketApp` using
-the `toSocketApp` method first, before it can be sent as a response. Consider the following example where we set a few
-additional properties for the websocket connection.
-
-```scala mdoc:silent
-socket
-  .toSocketApp
-  .withDecoder(SocketDecoder.default.withUTF8Validation(false))
-  .withProtocol(SocketProtocol.default.withSubProtocol(Some("json")).withHandshakeTimeout(5.seconds))
-  .toResponse
-```
