@@ -8,9 +8,9 @@ import zio.http.netty.NettyChannel
 import io.netty.buffer.{ByteBufUtil, Unpooled}
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
 
-object WebSocketChannel {
+private[http] object WebSocketChannel {
 
-  private[http] def make(
+  def make(
     nettyChannel: NettyChannel[JWebSocketFrame],
     queue: Queue[WebSocketChannelEvent],
   ): WebSocketChannel =
