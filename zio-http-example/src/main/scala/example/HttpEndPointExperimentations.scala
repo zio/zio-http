@@ -1,6 +1,7 @@
 package example
 
 import zio.http.codec.HttpCodec._
+import zio.http.codec.HttpCodecType.PathQuery
 import zio.http.codec._
 
 object HttpEndPointExperimentations {
@@ -9,17 +10,23 @@ object HttpEndPointExperimentations {
   val queryOnly: QueryCodec[String] = paramStr("name")
 
   // Suggestion 1 - Query-params is more intuitive to be appended along with the path
-  val pathWithQuery: PathQueryCodec[String] = "organisation" / "accounts" :? paramStr("accountId")
+  val pathWithQuery: HttpCodec[HttpCodecType.PathQuery, String] =
+    "organisation" / "accounts" :? paramStr("accountId")
 
-  val pathWithMultipleQuery: PathQueryCodec[(String, Int, String)] =
-    "organisation" / "accounts" / string("accountId") :? paramInt("age") & paramStr("country")
+  // This doesn't compile :-)
+//   val s =
+//     "organisation" / "accounts" & paramStr("accountId")
 
-  // Suggestion 2 - `in` can have an alias of `withRequestBody`
-  import zio.http.endpoint.Endpoint
+  //  HttpCodec[HttpCodecType.PathQuery with HttpCodecType.Query doesn't look nice
+  val pathWithMultipleQuery
+    : HttpCodec[HttpCodecType.PathQuery with HttpCodecType.Query, (String, String, String, String, Int)] =
+    "organisation" / "accounts" / string("accountId") :?
+      paramStr("foo") &
+      paramStr("bar") &
+      paramStr("baz") &
+      paramInt("in")
 
-  Endpoint.post(pathOnly).withRequestBody[String]
-
-  // Slight (ignorable) downside to suggestion 1 - standalone query composition returns path-query type (solveable though)
-  val multipleQueryOnly: PathQueryCodec[(String, Int)] = paramStr("name") & paramInt("age")
+  val multipleQueryOnly: HttpCodec[HttpCodecType.Query, (String, Int, String)] =
+    paramStr("foo") & paramInt("bar") & paramStr("hmm")
 
 }

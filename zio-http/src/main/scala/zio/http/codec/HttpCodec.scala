@@ -75,20 +75,25 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     HttpCodec.Combine[AtomTypes1, AtomTypes1, Value, Value2, combiner.Out](self, that, combiner)
 
   /**
-   * To end the route codec and begin with query codec
+   * To end the route codec and begin with query codec, and re-interprets as
+   * PathQueryCodec
    */
   final def :?[Value2](
     that: QueryCodec[Value2],
-  )(implicit combiner: Combiner[Value, Value2], ev: HttpCodecType.Path <:< AtomTypes): PathQueryCodec[combiner.Out] =
-    self.asRoute ++ that
+  )(implicit
+    combiner: Combiner[Value, Value2],
+    ev: HttpCodecType.Path <:< AtomTypes,
+  ): HttpCodec[HttpCodecType.PathQuery, combiner.Out] =
+    (self ++ that).asInstanceOf[HttpCodec[HttpCodecType.PathQuery, combiner.Out]]
 
+  // AtomType can be either query or path & query
   final def &[Value2](
     that: QueryCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
-    ev: HttpCodecType.PathQueryType <:< AtomTypes,
-  ): PathQueryCodec[combiner.Out] =
-    self.asPathQuery ++ that
+    ev: HttpCodecType.PathQuery with HttpCodecType.Query <:< AtomTypes, // self can be either a query or it can be a combination of path and query
+  ): HttpCodec[AtomTypes with HttpCodecType.Query, combiner.Out] =
+    (self ++ that).asInstanceOf[HttpCodec[AtomTypes with HttpCodecType.Query, combiner.Out]]
 
   /**
    * Combines two route codecs into another route codec.
@@ -112,15 +117,15 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Reinterprets this codec as a query codec assuming evidence that this
    * interpretation is sound.
    */
-  final def asQuery(implicit ev: HttpCodecType.Query <:< AtomTypes): QueryCodec[Value] =
-    self.asInstanceOf[QueryCodec[Value]]
+  final def asPathQuery(implicit ev: HttpCodecType.Path with HttpCodecType.Query <:< AtomTypes): PathQueryCodec[Value] =
+    self.asInstanceOf[PathQueryCodec[Value]]
 
   /**
-   * Reinterprets this codec as a path query codec assuming evidence that this
+   * Reinterprets this codec as a query codec assuming evidence that this
    * interpretation is sound.
    */
-  final def asPathQuery(implicit ev: HttpCodecType.PathQueryType <:< AtomTypes): PathQueryCodec[Value] =
-    self.asInstanceOf[PathQueryCodec[Value]]
+  final def asQuery(implicit ev: HttpCodecType.Query <:< AtomTypes): QueryCodec[Value] =
+    self.asInstanceOf[QueryCodec[Value]]
 
   /**
    * Reinterpets this codec as a route codec assuming evidence that this
