@@ -21,7 +21,7 @@ import zio.http.URL.Location
 import zio.http.netty.NettyConfig
 import zio.http.internal.HeaderOps
 import zio.http.netty.client._
-import zio.http.socket.{SocketApp, SocketProtocol}
+import zio.http.socket.{SocketApp, WebSocketConfig}
 
 import java.net.{InetSocketAddress, URI} // scalafix:ok;
 
@@ -422,7 +422,7 @@ object ZClient {
     requestDecompression: Decompression,
     localAddress: Option[InetSocketAddress],
     addUserAgentHeader: Boolean,
-    socketProtocol: SocketProtocol,
+    socketProtocol: WebSocketConfig,
   ) {
     self =>
 
@@ -448,7 +448,7 @@ object ZClient {
     def requestDecompression(isStrict: Boolean): Config =
       self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
 
-    def withSocketProtocol(socketProtocol: SocketProtocol): Config =
+    def withSocketProtocol(socketProtocol: WebSocketConfig): Config =
       self.copy(socketProtocol = socketProtocol)
   }
 
@@ -480,7 +480,7 @@ object ZClient {
       requestDecompression = Decompression.No,
       localAddress = None,
       addUserAgentHeader = true,
-      socketProtocol = SocketProtocol.default,
+      socketProtocol = WebSocketConfig.default,
     )
   }
 

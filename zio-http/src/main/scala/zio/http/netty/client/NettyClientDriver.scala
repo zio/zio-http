@@ -25,7 +25,7 @@ import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-import zio.http.socket.{SocketApp, SocketProtocol, WebSocketChannel, WebSocketChannelEvent}
+import zio.http.socket.{SocketApp, WebSocketChannel, WebSocketChannelEvent, WebSocketConfig}
 
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
@@ -48,7 +48,7 @@ final case class NettyClientDriver private (
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
-    socketProtocol: SocketProtocol,
+    socketProtocol: WebSocketConfig,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
     NettyRequestEncoder.encode(req).flatMap { jReq =>
       for {

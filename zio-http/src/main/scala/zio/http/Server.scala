@@ -24,7 +24,7 @@ import zio._
 import zio.http.Server.Config.ResponseCompressionConfig
 import zio.http.netty.NettyConfig
 import zio.http.netty.server._
-import zio.http.socket.SocketProtocol
+import zio.http.socket.WebSocketConfig
 
 /**
  * Represents a server, which is capable of serving zero or more HTTP
@@ -57,7 +57,7 @@ object Server {
     maxHeaderSize: Int,
     logWarningOnFatalError: Boolean,
     gracefulShutdownTimeout: Duration,
-    socketProtocol: SocketProtocol,
+    socketProtocol: WebSocketConfig,
   ) {
     self =>
 
@@ -150,7 +150,7 @@ object Server {
     def withRequestStreaming(requestStreaming: RequestStreaming): Config =
       self.copy(requestStreaming = requestStreaming)
 
-    def withSocketProtocol(socketProtocol: SocketProtocol): Config =
+    def withSocketProtocol(socketProtocol: WebSocketConfig): Config =
       self.copy(socketProtocol = socketProtocol)
   }
 
@@ -206,7 +206,7 @@ object Server {
       maxHeaderSize = 8192,
       logWarningOnFatalError = true,
       gracefulShutdownTimeout = 10.seconds,
-      socketProtocol = SocketProtocol.default,
+      socketProtocol = WebSocketConfig.default,
     )
 
     final case class ResponseCompressionConfig(

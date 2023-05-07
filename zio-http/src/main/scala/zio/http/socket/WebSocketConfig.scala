@@ -21,12 +21,12 @@ import zio.Duration
 /**
  * Server side websocket configuration
  */
-final case class SocketProtocol(
+final case class WebSocketConfig(
   subprotocols: Option[String] = None,
   handshakeTimeoutMillis: Long = 10000L,
   forceCloseTimeoutMillis: Long = -1L,
   handleCloseFrames: Boolean = true,
-  sendCloseFrame: SocketProtocol.CloseStatus = SocketProtocol.CloseStatus.NormalClosure,
+  sendCloseFrame: WebSocketConfig.CloseStatus = WebSocketConfig.CloseStatus.NormalClosure,
   dropPongFrames: Boolean = true,
   decoderConfig: SocketDecoder = SocketDecoder.default,
 ) { self =>
@@ -34,49 +34,50 @@ final case class SocketProtocol(
   /**
    * Close frame to send, when close frame was not send manually.
    */
-  def withCloseFrame(code: Int, reason: String): SocketProtocol =
-    self.copy(sendCloseFrame = SocketProtocol.CloseStatus.Custom(code, reason))
+  def withCloseFrame(code: Int, reason: String): WebSocketConfig =
+    self.copy(sendCloseFrame = WebSocketConfig.CloseStatus.Custom(code, reason))
 
   /**
    * Close frame to send, when close frame was not send manually.
    */
-  def withCloseStatus(status: SocketProtocol.CloseStatus): SocketProtocol = self.copy(sendCloseFrame = status)
+  def withCloseStatus(status: WebSocketConfig.CloseStatus): WebSocketConfig = self.copy(sendCloseFrame = status)
 
-  def withDecoderConfig(socketDecoder: SocketDecoder): SocketProtocol = self.copy(decoderConfig = socketDecoder)
+  def withDecoderConfig(socketDecoder: SocketDecoder): WebSocketConfig = self.copy(decoderConfig = socketDecoder)
 
   /**
    * Close the connection if it was not closed by the client after timeout
    * specified
    */
-  def withForceCloseTimeout(duration: Duration): SocketProtocol = self.copy(forceCloseTimeoutMillis = duration.toMillis)
+  def withForceCloseTimeout(duration: Duration): WebSocketConfig =
+    self.copy(forceCloseTimeoutMillis = duration.toMillis)
 
   /**
    * Close frames should be forwarded
    */
-  def withForwardCloseFrames(forward: Boolean): SocketProtocol = self.copy(handleCloseFrames = forward)
+  def withForwardCloseFrames(forward: Boolean): WebSocketConfig = self.copy(handleCloseFrames = forward)
 
   /**
    * Pong frames should be forwarded
    */
-  def withForwardPongFrames(forward: Boolean): SocketProtocol = self.copy(dropPongFrames = !forward)
+  def withForwardPongFrames(forward: Boolean): WebSocketConfig = self.copy(dropPongFrames = !forward)
 
   /**
    * Handshake timeout in mills
    */
-  def withHandshakeTimeout(duration: Duration): SocketProtocol = self.copy(handshakeTimeoutMillis = duration.toMillis)
+  def withHandshakeTimeout(duration: Duration): WebSocketConfig = self.copy(handshakeTimeoutMillis = duration.toMillis)
 
   /**
    * Used to specify the websocket sub-protocol
    */
-  def withSubProtocol(name: Option[String]): SocketProtocol = self.copy(subprotocols = name)
+  def withSubProtocol(name: Option[String]): WebSocketConfig = self.copy(subprotocols = name)
 }
 
-object SocketProtocol {
+object WebSocketConfig {
 
   /**
    * Creates an default decoder configuration.
    */
-  def default: SocketProtocol = SocketProtocol()
+  def default: WebSocketConfig = WebSocketConfig()
 
   sealed trait CloseStatus
 
