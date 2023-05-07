@@ -1,7 +1,7 @@
 package zio.http
 import zio._
 
-import zio.http.ChannelEvent.{ChannelUnregistered, UserEvent, UserEventTriggered}
+import zio.http.ChannelEvent.{Unregistered, UserEvent, UserEventTriggered}
 
 case class TestChannel(
   in: Queue[WebSocketChannelEvent],
@@ -15,8 +15,8 @@ case class TestChannel(
   def send(in: WebSocketChannelEvent): Task[Unit] =
     out.offer(in).unit
   def shutdown: UIO[Unit]                         =
-    in.offer(ChannelEvent.ChannelUnregistered) *>
-      out.offer(ChannelEvent.ChannelUnregistered) *>
+    in.offer(ChannelEvent.Unregistered) *>
+      out.offer(ChannelEvent.Unregistered) *>
       promise.succeed(()).unit
 }
 

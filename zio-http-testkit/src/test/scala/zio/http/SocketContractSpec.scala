@@ -4,7 +4,7 @@ import zio.Console.printLine
 import zio._
 import zio.test._
 
-import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEvent, UserEventTriggered}
+import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
 import zio.http.netty.server.NettyDriver
 import zio.http.{Headers, Status, Version}
 
@@ -17,11 +17,11 @@ object SocketContractSpec extends ZIOSpecDefault {
           Http
             .collectZIO[WebSocketChannel] { case channel =>
               channel.receive.flatMap {
-                case ChannelRead(WebSocketFrame.Text("Hi Server"))   =>
+                case Read(WebSocketFrame.Text("Hi Server"))          =>
                   printLine("Server got message: Hi Server") *> channel.shutdown
                 case UserEventTriggered(UserEvent.HandshakeComplete) =>
-                  channel.send(ChannelEvent.ChannelRead(WebSocketFrame.text("Hi Client")))
-                case ChannelUnregistered                             =>
+                  channel.send(ChannelEvent.Read(WebSocketFrame.text("Hi Client")))
+                case Unregistered                                    =>
                   p.succeed(()) *>
                     printLine("Server Channel unregistered")
                 case other                                           =>
@@ -34,11 +34,11 @@ object SocketContractSpec extends ZIOSpecDefault {
         val socketClient: Http[Any, Throwable, WebSocketChannel, Unit] =
           Http.collectZIO[WebSocketChannel] { case channel =>
             channel.receive.flatMap {
-              case ChannelEvent.ChannelRead(WebSocketFrame.Text("Hi Client")) =>
-                channel.send(ChannelRead(WebSocketFrame.text("Hi Server")))
-              case ChannelEvent.ChannelUnregistered                           =>
+              case ChannelEvent.Read(WebSocketFrame.Text("Hi Client")) =>
+                channel.send(Read(WebSocketFrame.text("Hi Server")))
+              case ChannelEvent.Unregistered                           =>
                 printLine("Client Channel unregistered")
-              case other                                                      =>
+              case other                                               =>
                 printLine("Client received Unexpected event: " + other)
             }.forever
           }
@@ -58,10 +58,10 @@ object SocketContractSpec extends ZIOSpecDefault {
       ) { p =>
         Http.collectZIO[WebSocketChannel] { case channel =>
           channel.receive.flatMap {
-            case ChannelUnregistered =>
+            case Unregistered =>
               printLine("Server failed and killed socket. Should complete promise.") *>
                 p.succeed(()).unit
-            case _                   =>
+            case _            =>
               ZIO.unit
           }.forever
         }
@@ -69,10 +69,10 @@ object SocketContractSpec extends ZIOSpecDefault {
       contract("Application where client app fails")(p =>
         Http.collectZIO[WebSocketChannel] { case channel =>
           channel.receive.flatMap {
-            case ChannelUnregistered =>
+            case Unregistered =>
               printLine("Client failed and killed socket. Should complete promise.") *>
                 p.succeed(()).unit
-            case _                   =>
+            case _            =>
               ZIO.unit
           }.forever
         },

@@ -2,7 +2,7 @@ package zio.http
 
 import zio._
 
-import zio.http.ChannelEvent.{ChannelRead, ChannelRegistered, ChannelUnregistered, ExceptionCaught, UserEventTriggered}
+import zio.http.ChannelEvent.{ExceptionCaught, Read, Registered, Unregistered, UserEventTriggered}
 import zio.http.netty.NettyChannel
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
@@ -21,8 +21,8 @@ object WebSocketChannel {
         queue.take
       def send(in: WebSocketChannelEvent): Task[Unit] =
         in match {
-          case ChannelRead(message) => nettyChannel.writeAndFlush(frameToNetty(message))
-          case _                    => ZIO.unit
+          case Read(message) => nettyChannel.writeAndFlush(frameToNetty(message))
+          case _             => ZIO.unit
         }
       def shutdown: UIO[Unit]                         =
         nettyChannel.close(false).orDie

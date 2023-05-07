@@ -7,7 +7,7 @@ sidebar_label: WebSocket
 ```scala mdoc:silent
 import zio._
 
-import zio.http.ChannelEvent.ChannelRead
+import zio.http.ChannelEvent.Read
 import zio.http._
 
 object WebSocketEcho extends ZIOAppDefault {
@@ -16,14 +16,14 @@ object WebSocketEcho extends ZIOAppDefault {
       channel
         .receive
         .flatMap {
-          case ChannelRead(WebSocketFrame.Text("FOO")) =>
-            channel.send(ChannelRead(WebSocketFrame.text("BAR")))
+          case Read(WebSocketFrame.Text("FOO")) =>
+            channel.send(Read(WebSocketFrame.text("BAR")))
 
-          case ChannelRead(WebSocketFrame.Text("BAR")) =>
-            channel.send(ChannelRead(WebSocketFrame.text("FOO")))
+          case Read(WebSocketFrame.Text("BAR")) =>
+            channel.send(Read(WebSocketFrame.text("FOO")))
 
-          case ChannelRead(WebSocketFrame.Text(text)) =>
-            channel.send(ChannelRead(WebSocketFrame.text(text))).repeatN(10)
+          case Read(WebSocketFrame.Text(text)) =>
+            channel.send(Read(WebSocketFrame.text(text))).repeatN(10)
 
           case _ =>
             ZIO.unit

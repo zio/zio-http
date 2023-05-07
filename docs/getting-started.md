@@ -163,8 +163,8 @@ private val socket =
     channel
       .receive
       .flatMap {
-        case ChannelEvent.ChannelRead(WebSocketFrame.Text("FOO")) =>
-          channel.send(ChannelEvent.ChannelRead(WebSocketFrame.text("BAR")))
+        case ChannelEvent.Read(WebSocketFrame.Text("FOO")) =>
+          channel.send(ChannelEvent.Read(WebSocketFrame.text("BAR")))
         case _ =>
           ZIO.unit
       }

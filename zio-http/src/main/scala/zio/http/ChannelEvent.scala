@@ -25,9 +25,9 @@ sealed trait ChannelEvent[+A] { self =>
 
   def map[B](f: A => B): ChannelEvent[B] =
     self match {
-      case ChannelRead(msg)              => ChannelRead(f(msg))
-      case ChannelRegistered             => ChannelRegistered
-      case ChannelUnregistered           => ChannelUnregistered
+      case Read(msg)                     => Read(f(msg))
+      case Registered                    => Registered
+      case Unregistered                  => Unregistered
       case event @ ExceptionCaught(_)    => event
       case event @ UserEventTriggered(_) => event
     }
@@ -36,10 +36,10 @@ sealed trait ChannelEvent[+A] { self =>
 object ChannelEvent {
 
   final case class ExceptionCaught(cause: Throwable) extends ChannelEvent[Nothing]
-  final case class ChannelRead[A](message: A)        extends ChannelEvent[A]
+  final case class Read[A](message: A)               extends ChannelEvent[A]
   case class UserEventTriggered(event: UserEvent)    extends ChannelEvent[Nothing]
-  case object ChannelRegistered                      extends ChannelEvent[Nothing]
-  case object ChannelUnregistered                    extends ChannelEvent[Nothing]
+  case object Registered                             extends ChannelEvent[Nothing]
+  case object Unregistered                           extends ChannelEvent[Nothing]
 
   /**
    * Custom user-events that are triggered within ZIO Http
@@ -50,14 +50,14 @@ object ChannelEvent {
     case object HandshakeComplete extends UserEvent
   }
 
-  def channelRead[A](msg: A): ChannelEvent[A] =
-    ChannelRead(msg)
+  def read[A](msg: A): ChannelEvent[A] =
+    Read(msg)
 
-  val channelRegistered: ChannelEvent[Nothing] =
-    ChannelRegistered
+  val registered: ChannelEvent[Nothing] =
+    Registered
 
-  val channelUnregistered: ChannelEvent[Nothing] =
-    ChannelUnregistered
+  val unregistered: ChannelEvent[Nothing] =
+    Unregistered
 
   def exceptionCaught(cause: Throwable): ChannelEvent[Nothing] =
     ExceptionCaught(cause)

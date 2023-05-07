@@ -2,7 +2,7 @@ package zio.http
 
 import zio._
 
-import zio.http.ChannelEvent.{ChannelUnregistered, UserEvent}
+import zio.http.ChannelEvent.{Unregistered, UserEvent}
 import zio.http.{Headers, Method, Scheme, Status, Version}
 
 /**

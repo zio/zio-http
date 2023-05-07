@@ -13,8 +13,8 @@ val socket = Http.collectZIO[WebSocketChannel] { case channel =>
   channel
     .receive
     .flatMap {
-      case ChannelEvent.ChannelRead(WebSocketFrame.Text("foo")) =>
-        channel.send(ChannelEvent.ChannelRead(WebSocketFrame.text("bar")))
+      case ChannelEvent.Read(WebSocketFrame.Text("foo")) =>
+        channel.send(ChannelEvent.Read(WebSocketFrame.text("bar")))
       case _ =>
         ZIO.unit
     }

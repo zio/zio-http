@@ -2,7 +2,7 @@ package example
 
 import zio._
 
-import zio.http.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
+import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
 import zio.http._
 
 object WebSocketAdvanced extends ZIOAppDefault {
@@ -10,31 +10,31 @@ object WebSocketAdvanced extends ZIOAppDefault {
   val httpSocket: Http[Any, Throwable, WebSocketChannel, Unit] =
     Http.collectZIO[WebSocketChannel] { case channel =>
       channel.receive.flatMap {
-        case ChannelRead(WebSocketFrame.Text("end"))           =>
+        case Read(WebSocketFrame.Text("end"))                =>
           channel.shutdown
 
         // Send a "bar" if the server sends a "foo"
-        case ChannelRead(WebSocketFrame.Text("foo"))           =>
-          channel.send(ChannelRead(WebSocketFrame.text("bar")))
+        case Read(WebSocketFrame.Text("foo"))                =>
+          channel.send(Read(WebSocketFrame.text("bar")))
 
         // Send a "foo" if the server sends a "bar"
-        case ChannelRead(WebSocketFrame.Text("bar"))           =>
-          channel.send(ChannelRead(WebSocketFrame.text("foo")))
+        case Read(WebSocketFrame.Text("bar"))                =>
+          channel.send(Read(WebSocketFrame.text("foo")))
 
         // Echo the same message 10 times if it's not "foo" or "bar"
-        case ChannelRead(WebSocketFrame.Text(text))            =>
-          channel.send(ChannelRead(WebSocketFrame.text(text))).repeatN(10)
+        case Read(WebSocketFrame.Text(text))                 =>
+          channel.send(Read(WebSocketFrame.text(text))).repeatN(10)
 
         // Send a "greeting" message to the server once the connection is established
-        case UserEventTriggered(UserEvent.HandshakeComplete)   =>
-          channel.send(ChannelRead(WebSocketFrame.text("Greetings!")))
+        case UserEventTriggered(UserEvent.HandshakeComplete) =>
+          channel.send(Read(WebSocketFrame.text("Greetings!")))
 
         // Log when the channel is getting closed
-        case ChannelRead(WebSocketFrame.Close(status, reason)) =>
+        case Read(WebSocketFrame.Close(status, reason))      =>
           Console.printLine("Closing channel with status: " + status + " and reason: " + reason)
 
         // Print the exception if it's not a normal close
-        case ExceptionCaught(cause)                            =>
+        case ExceptionCaught(cause)                          =>
           Console.printLine(s"Channel error!: ${cause.getMessage}")
 
         case _ =>

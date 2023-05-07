@@ -2,7 +2,7 @@ package example
 
 import zio._
 
-import zio.http.ChannelEvent.{ChannelRead, ExceptionCaught, UserEvent, UserEventTriggered}
+import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
 import zio.http.{ChannelEvent, Client, Http, WebSocketChannel, WebSocketFrame}
 
 object WebSocketReconnectingClient extends ZIOAppDefault {
@@ -19,13 +19,13 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
 
           // On connect send a "foo" message to the server to start the echo loop
           case UserEventTriggered(UserEvent.HandshakeComplete) =>
-            channel.send(ChannelEvent.ChannelRead(WebSocketFrame.text("foo")))
+            channel.send(ChannelEvent.Read(WebSocketFrame.text("foo")))
 
           // On receiving "foo", we'll reply with another "foo" to keep echo loop going
-          case ChannelRead(WebSocketFrame.Text("foo"))         =>
+          case Read(WebSocketFrame.Text("foo"))                =>
             ZIO.logInfo("Received foo message.") *>
               ZIO.sleep(1.second) *>
-              channel.send(ChannelEvent.ChannelRead(WebSocketFrame.text("foo")))
+              channel.send(ChannelEvent.Read(WebSocketFrame.text("foo")))
 
           // Handle exception and convert it to failure to signal the shutdown of the socket connection via the promise
           case ExceptionCaught(t)                              =>

@@ -2,7 +2,7 @@ package example
 
 import zio._
 
-import zio.http.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
+import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
 import zio.http._
 
 object WebSocketSimpleClient extends ZIOAppDefault {
@@ -18,15 +18,15 @@ object WebSocketSimpleClient extends ZIOAppDefault {
 
           // Send a "foo" message to the server once the connection is established
           case UserEventTriggered(UserEvent.HandshakeComplete) =>
-            channel.send(ChannelRead(WebSocketFrame.text("foo")))
+            channel.send(Read(WebSocketFrame.text("foo")))
 
           // Send a "bar" if the server sends a "foo"
-          case ChannelRead(WebSocketFrame.Text("foo"))         =>
-            channel.send(ChannelRead(WebSocketFrame.text("bar")))
+          case Read(WebSocketFrame.Text("foo"))                =>
+            channel.send(Read(WebSocketFrame.text("bar")))
 
           // Close the connection if the server sends a "bar"
-          case ChannelRead(WebSocketFrame.Text("bar"))         =>
-            ZIO.succeed(println("Goodbye!")) *> channel.send(ChannelRead(WebSocketFrame.close(1000)))
+          case Read(WebSocketFrame.Text("bar"))                =>
+            ZIO.succeed(println("Goodbye!")) *> channel.send(Read(WebSocketFrame.close(1000)))
 
           case _ =>
             ZIO.unit

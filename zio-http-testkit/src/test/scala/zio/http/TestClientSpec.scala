@@ -3,7 +3,7 @@ package zio.http
 import zio._
 import zio.test._
 
-import zio.http.ChannelEvent.{ChannelRead, UserEvent, UserEventTriggered}
+import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
 import zio.http.{Method, Status, WebSocketFrame}
 
 object TestClientSpec extends ZIOSpecDefault {
@@ -58,8 +58,8 @@ object TestClientSpec extends ZIOSpecDefault {
           val socketClient: Http[Any, Throwable, WebSocketChannel, Unit] =
             Http.collectZIO[WebSocketChannel] { case channel =>
               channel.receive.flatMap {
-                case ChannelEvent.ChannelRead(WebSocketFrame.Text("Hi Client")) =>
-                  channel.send(ChannelRead(WebSocketFrame.text("Hi Server")))
+                case ChannelEvent.Read(WebSocketFrame.Text("Hi Client")) =>
+                  channel.send(Read(WebSocketFrame.text("Hi Server")))
 
                 case _ =>
                   ZIO.unit
@@ -69,8 +69,8 @@ object TestClientSpec extends ZIOSpecDefault {
           val socketServer: Http[Any, Throwable, WebSocketChannel, Unit] =
             Http.collectZIO[WebSocketChannel] { case channel =>
               channel.receive.flatMap {
-                case ChannelEvent.ChannelRead(WebSocketFrame.Text("Hi Server")) =>
-                  channel.send(ChannelRead(WebSocketFrame.text("Hi Client")))
+                case ChannelEvent.Read(WebSocketFrame.Text("Hi Server")) =>
+                  channel.send(Read(WebSocketFrame.text("Hi Client")))
 
                 case _ => ZIO.unit
               }.forever

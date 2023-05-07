@@ -22,7 +22,7 @@ import zio.test.TestAspect.{diagnose, nonFlaky, timeout, withLiveClock}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
-import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
+import zio.http.ChannelEvent.{Read, Unregistered, UserEventTriggered}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 
 object WebSocketSpec extends HttpRunnableSpec {
@@ -36,9 +36,9 @@ object WebSocketSpec extends HttpRunnableSpec {
           Handler
             .fromFunctionZIO[WebSocketChannel] { case channel =>
               channel.receive.flatMap {
-                case event @ ChannelRead(frame)  => channel.send(ChannelRead(frame)) *> msg.add(event)
-                case event @ ChannelUnregistered => msg.add(event, true)
-                case event                       => msg.add(event)
+                case event @ Read(frame)  => channel.send(Read(frame)) *> msg.add(event)
+                case event @ Unregistered => msg.add(event, true)
+                case event                => msg.add(event)
               }.forever
             }
             .toSocketApp
@@ -49,13 +49,13 @@ object WebSocketSpec extends HttpRunnableSpec {
           Http
             .collectZIO[WebSocketChannel] { case channel =>
               channel.receive.flatMap {
-                case UserEventTriggered(HandshakeComplete)   =>
-                  channel.send(ChannelRead(WebSocketFrame.text("FOO")))
-                case ChannelRead(WebSocketFrame.Text("FOO")) =>
-                  channel.send(ChannelRead(WebSocketFrame.text("BAR")))
-                case ChannelRead(WebSocketFrame.Text("BAR")) =>
+                case UserEventTriggered(HandshakeComplete) =>
+                  channel.send(Read(WebSocketFrame.text("FOO")))
+                case Read(WebSocketFrame.Text("FOO"))      =>
+                  channel.send(Read(WebSocketFrame.text("BAR")))
+                case Read(WebSocketFrame.Text("BAR"))      =>
                   channel.shutdown
-                case _                                       =>
+                case _                                     =>
                   ZIO.unit
               }.forever
             }
@@ -65,9 +65,9 @@ object WebSocketSpec extends HttpRunnableSpec {
               events <- msg.await
               expected = List(
                 UserEventTriggered(HandshakeComplete),
-                ChannelRead(WebSocketFrame.text("FOO")),
-                ChannelRead(WebSocketFrame.text("BAR")),
-                ChannelUnregistered,
+                Read(WebSocketFrame.text("FOO")),
+                Read(WebSocketFrame.text("BAR")),
+                Unregistered,
               )
             } yield assertTrue(events == expected)
           }
@@ -87,9 +87,9 @@ object WebSocketSpec extends HttpRunnableSpec {
         serverHttp   = Http
           .collectZIO[WebSocketChannel] { case channel =>
             channel.receive.flatMap {
-              case ChannelUnregistered =>
+              case Unregistered =>
                 isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
-              case _                   =>
+              case _            =>
                 ZIO.unit
             }.forever
           }
@@ -103,7 +103,7 @@ object WebSocketSpec extends HttpRunnableSpec {
           .collectZIO[WebSocketChannel] { case channel =>
             channel.receive.flatMap {
               case UserEventTriggered(HandshakeComplete) =>
-                channel.send(ChannelRead(WebSocketFrame.close(1000))).delay(1 second).withClock(clock)
+                channel.send(Read(WebSocketFrame.close(1000))).delay(1 second).withClock(clock)
               case _                                     =>
                 ZIO.unit
             }.forever

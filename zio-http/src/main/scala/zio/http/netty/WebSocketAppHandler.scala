@@ -49,13 +49,13 @@ private[zio] final class WebSocketAppHandler(
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
-    dispatch(ctx, ChannelEvent.channelRead(msg))
+    dispatch(ctx, ChannelEvent.read(msg))
 
   override def channelRegistered(ctx: ChannelHandlerContext): Unit =
-    dispatch(ctx, ChannelEvent.channelRegistered)
+    dispatch(ctx, ChannelEvent.registered)
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit =
-    dispatch(ctx, ChannelEvent.channelUnregistered)
+    dispatch(ctx, ChannelEvent.unregistered)
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
     dispatch(ctx, ChannelEvent.exceptionCaught(cause))
