@@ -1,15 +1,13 @@
 package example
 
 import zio.http.codec.HttpCodec._
-import zio.http.codec.HttpCodecType.PathQuery
 import zio.http.codec._
 
-object HttpEndPointExperimentations {
+object HttpCodecExample {
 
   val pathOnly: PathCodec[Unit]     = "organisation" / "accounts"
   val queryOnly: QueryCodec[String] = paramStr("name")
 
-  // Suggestion 1 - Query-params is more intuitive to be appended along with the path
   val pathWithQuery: HttpCodec[HttpCodecType.PathQuery, String] =
     "organisation" / "accounts" :? paramStr("accountId")
 
