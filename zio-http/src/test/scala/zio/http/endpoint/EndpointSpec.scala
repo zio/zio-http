@@ -519,7 +519,7 @@ object EndpointSpec extends ZIOSpecDefault {
             bytes <- Random.nextBytes(1024)
             route =
               Endpoint
-                .get(literal("test-byte-stream"))
+                .get(literal("test-form"))
                 .outCodec(
                   HttpCodec.contentStream[Byte]("image", MediaType.image.png) ++
                     HttpCodec.content[String]("title") ++
@@ -538,7 +538,7 @@ object EndpointSpec extends ZIOSpecDefault {
                     ),
                   )
                 }
-            result   <- route.toApp.runZIO(Request.get(URL.decode("/test-byte-stream").toOption.get)).exit
+            result   <- route.toApp.runZIO(Request.get(URL.decode("/test-form").toOption.get)).exit
             response <- result match {
               case Exit.Success(value) => ZIO.succeed(value)
               case Exit.Failure(cause) =>
@@ -562,6 +562,91 @@ object EndpointSpec extends ZIOSpecDefault {
             form.get("metadata").map(_.asInstanceOf[FormField.Binary].data) == Some(
               Chunk.fromArray("""{"description":"some description","createdAt":"2020-01-01T00:00:00Z"}""".getBytes),
             ),
+          )
+        },
+        test("outputs without name get automatically generated names") {
+          for {
+            bytes <- Random.nextBytes(1024)
+            route =
+              Endpoint
+                .get(literal("test-form"))
+                .outCodec(
+                  HttpCodec.contentStream[Byte](MediaType.image.png) ++
+                    HttpCodec.content[String] ++
+                    HttpCodec.content[Int] ++
+                    HttpCodec.content[Int] ++
+                    HttpCodec.content[ImageMetadata],
+                )
+                .implement { _ =>
+                  ZIO.succeed(
+                    (
+                      ZStream.fromChunk(bytes),
+                      "example",
+                      320,
+                      200,
+                      ImageMetadata("some description", Instant.parse("2020-01-01T00:00:00Z")),
+                    ),
+                  )
+                }
+            result   <- route.toApp.runZIO(Request.get(URL.decode("/test-form").toOption.get)).exit
+            response <- result match {
+              case Exit.Success(value) => ZIO.succeed(value)
+              case Exit.Failure(cause) =>
+                cause.failureOrCause match {
+                  case Left(Some(response)) => ZIO.succeed(response)
+                  case Left(None)           => ZIO.failCause(cause)
+                  case Right(cause)         => ZIO.failCause(cause)
+                }
+            }
+            form     <- response.body.asMultipartForm.orDie
+            mediaType = response.header(Header.ContentType).map(_.mediaType)
+          } yield assertTrue(
+            mediaType == Some(MediaType.multipart.`form-data`),
+            form.formData.size == 5,
+            form.formData.map(_.name).toSet == Set("field0", "field1", "field2", "field3", "field4"),
+          )
+        },
+        test("multiple inputs got decoded from multipart/form-data body") {
+          for {
+            bytes <- Random.nextBytes(1024)
+            route =
+              Endpoint
+                .post(literal("test-form"))
+                .inStream[Byte]("uploaded-image")
+                .in[String]("title")
+                .in[ImageMetadata]("metadata")
+                .out[(Long, String, ImageMetadata)]
+                .implement { case (stream, title, metadata) =>
+                  stream.runCount.map(count => (count, title, metadata))
+                }
+            form  = Form(
+              FormField.simpleField("title", "Hello world"),
+              FormField.binaryField(
+                "metadata",
+                Chunk.fromArray("""{"description":"some description","createdAt":"2020-01-01T00:00:00Z"}""".getBytes),
+                MediaType.application.json,
+              ),
+              FormField.binaryField("uploaded-image", bytes, MediaType.image.png),
+            )
+            boundary <- Boundary.randomUUID
+            result   <- route.toApp
+              .runZIO(
+                Request.post(Body.fromMultipartForm(form, boundary), URL.decode("/test-form").toOption.get),
+              )
+              .exit
+            _        <- ZIO.debug(result.toString)
+            response <- result match {
+              case Exit.Success(value) => ZIO.succeed(value)
+              case Exit.Failure(cause) =>
+                cause.failureOrCause match {
+                  case Left(Some(response)) => ZIO.succeed(response)
+                  case Left(None)           => ZIO.failCause(cause)
+                  case Right(cause)         => ZIO.failCause(cause)
+                }
+            }
+            result   <- response.body.asString.orDie
+          } yield assertTrue(
+            result == """[[1024,"Hello world"],{"description":"some description","createdAt":"2020-01-01T00:00:00Z"}]""",
           )
         },
       ),
