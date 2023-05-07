@@ -16,6 +16,7 @@
 
 package zio.http.netty
 
+import zio.Chunk.ByteArray
 import zio._
 
 import zio.http.Body
@@ -47,8 +48,12 @@ object NettyBodyWriter {
         }
       case AsyncBody(async, _, _)             =>
         ZIO.attempt {
-          async { (ctx, msg, isLast) =>
-            ctx.writeAndFlush(msg)
+          async { (_, msg, isLast) =>
+            val nettyMsg = msg match {
+              case b: ByteArray => Unpooled.wrappedBuffer(b.array)
+              case other        => throw new IllegalStateException(s"Unsupported async msg type: ${other.getClass}")
+            }
+            ctx.writeAndFlush(nettyMsg)
             if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
           }
           true
