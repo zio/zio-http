@@ -117,13 +117,6 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Reinterprets this codec as a query codec assuming evidence that this
    * interpretation is sound.
    */
-  final def asPathQuery(implicit ev: HttpCodecType.Path with HttpCodecType.Query <:< AtomTypes): PathQueryCodec[Value] =
-    self.asInstanceOf[PathQueryCodec[Value]]
-
-  /**
-   * Reinterprets this codec as a query codec assuming evidence that this
-   * interpretation is sound.
-   */
   final def asQuery(implicit ev: HttpCodecType.Query <:< AtomTypes): QueryCodec[Value] =
     self.asInstanceOf[QueryCodec[Value]]
 

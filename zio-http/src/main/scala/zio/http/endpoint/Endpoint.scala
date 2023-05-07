@@ -155,20 +155,6 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     copy(input = input ++ HttpCodec.Content(schema))
 
   /**
-   * Returns a new endpoint derived from this one, whose request content must
-   * satisfy the specified schema.
-   */
-  /**
-   * Returns a new endpoint derived from this one, whose request content must
-   * satisfy the specified schema.
-   */
-  def withRequestBody[Input2](implicit
-    schema: Schema[Input2],
-    combiner: Combiner[Input, Input2],
-  ): Endpoint[combiner.Out, Err, Output, Middleware] =
-    in[Input2]
-
-  /**
    * Returns a new endpoint derived from this one, whose request must satisfy
    * the specified codec.
    */
