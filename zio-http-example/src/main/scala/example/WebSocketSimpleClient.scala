@@ -14,7 +14,7 @@ object WebSocketSimpleClient extends ZIOAppDefault {
 
       // Listen for all websocket channel events
       .webSocket { channel =>
-        channel.receive.flatMap {
+        channel.receiveAll {
 
           // Send a "foo" message to the server once the connection is established
           case UserEventTriggered(UserEvent.HandshakeComplete) =>
@@ -30,7 +30,7 @@ object WebSocketSimpleClient extends ZIOAppDefault {
 
           case _ =>
             ZIO.unit
-        }.forever
+        }
       }
 
   val app: ZIO[Client with Scope, Throwable, Response] =

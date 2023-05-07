@@ -160,15 +160,12 @@ import zio._
 
 private val socket =
   Http.webSocket { channel =>
-    channel
-      .receive
-      .flatMap {
-        case ChannelEvent.Read(WebSocketFrame.Text("FOO")) =>
-          channel.send(ChannelEvent.Read(WebSocketFrame.text("BAR")))
-        case _ =>
-          ZIO.unit
-      }
-      .forever
+    channel.receiveAll {
+      case ChannelEvent.Read(WebSocketFrame.Text("FOO")) =>
+        channel.send(ChannelEvent.Read(WebSocketFrame.text("BAR")))
+      case _ =>
+        ZIO.unit
+    }
   }
 
 private val app = 

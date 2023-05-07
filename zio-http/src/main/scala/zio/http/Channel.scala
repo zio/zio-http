@@ -76,4 +76,11 @@ trait Channel[-In, +Out] { self =>
       def shutdown: UIO[Unit]      =
         self.shutdown
     }
+
+  /**
+   * Reads all messages from the channel, handling them with the specified
+   * function.
+   */
+  final def receiveAll[Env](f: Out => ZIO[Env, Throwable, Any]): ZIO[Env, Throwable, Nothing] =
+    receive.flatMap(f).forever
 }

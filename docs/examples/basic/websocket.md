@@ -13,22 +13,19 @@ import zio.http._
 object WebSocketEcho extends ZIOAppDefault {
   private val socket: Http[Any, Throwable, WebSocketChannel, Unit] =
     Http.webSocket { channel =>
-      channel
-        .receive
-        .flatMap {
-          case Read(WebSocketFrame.Text("FOO")) =>
-            channel.send(Read(WebSocketFrame.text("BAR")))
+      channel.receiveAll {
+        case Read(WebSocketFrame.Text("FOO")) =>
+          channel.send(Read(WebSocketFrame.text("BAR")))
 
-          case Read(WebSocketFrame.Text("BAR")) =>
-            channel.send(Read(WebSocketFrame.text("FOO")))
+        case Read(WebSocketFrame.Text("BAR")) =>
+          channel.send(Read(WebSocketFrame.text("FOO")))
 
-          case Read(WebSocketFrame.Text(text)) =>
-            channel.send(Read(WebSocketFrame.text(text))).repeatN(10)
+        case Read(WebSocketFrame.Text(text)) =>
+          channel.send(Read(WebSocketFrame.text(text))).repeatN(10)
 
-          case _ =>
-            ZIO.unit
-        }
-        .forever
+        case _ =>
+          ZIO.unit
+      }
     }
 
   private val app: Http[Any, Nothing, Request, Response] =

@@ -57,23 +57,23 @@ object TestClientSpec extends ZIOSpecDefault {
         test("happy path") {
           val socketClient: Http[Any, Throwable, WebSocketChannel, Unit] =
             Http.webSocket { channel =>
-              channel.receive.flatMap {
+              channel.receiveAll {
                 case ChannelEvent.Read(WebSocketFrame.Text("Hi Client")) =>
                   channel.send(Read(WebSocketFrame.text("Hi Server")))
 
                 case _ =>
                   ZIO.unit
-              }.forever
+              }
             }
 
           val socketServer: Http[Any, Throwable, WebSocketChannel, Unit] =
             Http.webSocket { channel =>
-              channel.receive.flatMap {
+              channel.receiveAll {
                 case ChannelEvent.Read(WebSocketFrame.Text("Hi Server")) =>
                   channel.send(Read(WebSocketFrame.text("Hi Client")))
 
                 case _ => ZIO.unit
-              }.forever
+              }
             }
 
           for {

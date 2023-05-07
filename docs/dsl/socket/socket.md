@@ -10,15 +10,12 @@ import zio.http._
 import zio._
 
 val socket = Http.webSocket { channel =>
-  channel
-    .receive
-    .flatMap {
-      case ChannelEvent.Read(WebSocketFrame.Text("foo")) =>
-        channel.send(ChannelEvent.Read(WebSocketFrame.text("bar")))
-      case _ =>
-        ZIO.unit
-    }
-    .forever
+  channel.receiveAll {
+    case ChannelEvent.Read(WebSocketFrame.Text("foo")) =>
+      channel.send(ChannelEvent.Read(WebSocketFrame.text("bar")))
+    case _ =>
+      ZIO.unit
+  }
 }
 
 val http = Http.collectZIO[Request] {

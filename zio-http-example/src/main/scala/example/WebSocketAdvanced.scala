@@ -9,7 +9,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
 
   val httpSocket: Http[Any, Throwable, WebSocketChannel, Unit] =
     Http.webSocket { channel =>
-      channel.receive.flatMap {
+      channel.receiveAll {
         case Read(WebSocketFrame.Text("end"))                =>
           channel.shutdown
 
@@ -39,7 +39,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
 
         case _ =>
           ZIO.unit
-      }.forever
+      }
     }
 
   val socketApp: SocketApp[Any] =

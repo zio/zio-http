@@ -15,7 +15,7 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
 
       // Listen for all websocket channel events
       .webSocket { channel =>
-        channel.receive.flatMap {
+        channel.receiveAll {
 
           // On connect send a "foo" message to the server to start the echo loop
           case UserEventTriggered(UserEvent.HandshakeComplete) =>
@@ -33,7 +33,7 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
 
           case _ =>
             ZIO.unit
-        }.forever
+        }
       }.tapErrorZIO { f =>
         // signal failure to application
         p.succeed(f)
