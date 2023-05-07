@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import java.time.Instant
+
 import zio._
 import zio.test._
 
@@ -462,7 +464,7 @@ object EndpointSpec extends ZIOSpecDefault {
             route =
               Endpoint
                 .get(literal("test-byte-stream"))
-                .outStream[Byte](Status.Ok, MediaType.image.png)
+                .outStream[Byte]("response", Status.Ok, MediaType.image.png)
                 .implement { _ =>
                   ZIO.succeed(ZStream.fromChunk(bytes).rechunk(16))
                 }
@@ -508,6 +510,58 @@ object EndpointSpec extends ZIOSpecDefault {
             body     <- response.body.asString.orDie
           } yield assertTrue(
             body == "1024",
+          )
+        },
+      ),
+      suite("multipart/form-data")(
+        test("multiple outputs produce multipart response") {
+          for {
+            bytes <- Random.nextBytes(1024)
+            route =
+              Endpoint
+                .get(literal("test-byte-stream"))
+                .outCodec(
+                  HttpCodec.contentStream[Byte]("image", MediaType.image.png) ++
+                    HttpCodec.content[String]("title") ++
+                    HttpCodec.content[Int]("width") ++
+                    HttpCodec.content[Int]("height") ++
+                    HttpCodec.content[ImageMetadata]("metadata"),
+                )
+                .implement { _ =>
+                  ZIO.succeed(
+                    (
+                      ZStream.fromChunk(bytes),
+                      "example",
+                      320,
+                      200,
+                      ImageMetadata("some description", Instant.parse("2020-01-01T00:00:00Z")),
+                    ),
+                  )
+                }
+            result   <- route.toApp.runZIO(Request.get(URL.decode("/test-byte-stream").toOption.get)).exit
+            response <- result match {
+              case Exit.Success(value) => ZIO.succeed(value)
+              case Exit.Failure(cause) =>
+                cause.failureOrCause match {
+                  case Left(Some(response)) => ZIO.succeed(response)
+                  case Left(None)           => ZIO.failCause(cause)
+                  case Right(cause)         => ZIO.failCause(cause)
+                }
+            }
+            form     <- response.body.asMultipartForm.orDie
+            mediaType = response.header(Header.ContentType).map(_.mediaType)
+          } yield assertTrue(
+            mediaType == Some(MediaType.multipart.`form-data`),
+            form.formData.size == 5,
+            form.formData.map(_.name).toSet == Set("image", "title", "width", "height", "metadata"),
+            form.get("image").map(_.contentType) == Some(MediaType.image.png),
+            form.get("image").map(_.asInstanceOf[FormField.Binary].data) == Some(bytes),
+            form.get("title").map(_.asInstanceOf[FormField.Text].value) == Some("example"),
+            form.get("width").map(_.asInstanceOf[FormField.Text].value) == Some("320"),
+            form.get("height").map(_.asInstanceOf[FormField.Text].value) == Some("200"),
+            form.get("metadata").map(_.asInstanceOf[FormField.Binary].data) == Some(
+              Chunk.fromArray("""{"description":"some description","createdAt":"2020-01-01T00:00:00Z"}""".getBytes),
+            ),
           )
         },
       ),
@@ -570,5 +624,10 @@ object EndpointSpec extends ZIOSpecDefault {
 
     implicit val invalidUserSchema: Schema[TestError.InvalidUser]         = DeriveSchema.gen[TestError.InvalidUser]
     implicit val unexpectedErrorSchema: Schema[TestError.UnexpectedError] = DeriveSchema.gen[TestError.UnexpectedError]
+  }
+
+  final case class ImageMetadata(description: String, createdAt: Instant)
+  object ImageMetadata {
+    implicit val schema: Schema[ImageMetadata] = DeriveSchema.gen[ImageMetadata]
   }
 }

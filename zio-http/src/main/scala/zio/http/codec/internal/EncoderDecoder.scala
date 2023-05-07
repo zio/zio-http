@@ -16,6 +16,8 @@
 
 package zio.http.codec.internal
 
+import scala.collection.mutable
+
 import zio._
 
 import zio.stream.ZStream
@@ -101,15 +103,35 @@ private[codec] object EncoderDecoder                   {
 
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
-    private val jsonEncoders = flattened.content.map { bodyCodec =>
+    private val jsonEncoders      = flattened.content.map { bodyCodec =>
       val erased    = bodyCodec.erase
       val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
       erased.encodeToBody(_, jsonCodec)
     }
-    private val jsonDecoders = flattened.content.map { bodyCodec =>
+    private val formFieldEncoders = flattened.content.map { bodyCodec => (name: String, value: Any) =>
+      {
+        val erased = bodyCodec.erase
+        erased.schema match {
+          case schema if schema == Schema[String] =>
+            FormField.simpleField(name, value.asInstanceOf[String])
+
+          case Schema.Primitive(_, _) =>
+            FormField.simpleField(name, value.toString)
+          case _                      =>
+            val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
+            FormField.textField(
+              name,
+              new String(jsonCodec.encode(value.asInstanceOf[erased.Element]).toArray, Charsets.Utf8),
+              MediaType.application.json,
+            )
+        }
+      }
+    }
+    private val jsonDecoders      = flattened.content.map { bodyCodec =>
       val jsonCodec = JsonCodec.schemaBasedBinaryCodec(bodyCodec.schema)
       bodyCodec.decodeFromBody(_, jsonCodec)
     }
+    private val formBoundary      = Boundary("----zio-http-boundary-D4792A5C-93E0-43B5-9A1F-48E38FDE5714")
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
@@ -324,12 +346,37 @@ private[codec] object EncoderDecoder                   {
     private def encodeBody(inputs: Array[Any]): Body = {
       if (isByteStream(flattened.content)) {
         Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, Byte]])
-      } else if (jsonEncoders.length == 0) Body.empty
-      else if (jsonEncoders.length == 1) {
-        val encoder = jsonEncoders(0)
+      } else {
+        if (inputs.length > 1) {
+          Body.fromMultipartForm(encodeMultipartFormData(inputs), formBoundary)
+        } else {
+          if (jsonEncoders.length == 0) Body.empty
+          else if (jsonEncoders.length == 1) {
+            val encoder = jsonEncoders(0)
 
-        encoder(inputs(0))
-      } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
+            encoder(inputs(0))
+          } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
+        }
+      }
+    }
+
+    private def encodeMultipartFormData(inputs: Array[Any]): Form = {
+      Form(
+        flattened.content.zipWithIndex.map { case (bodyCodec, idx) =>
+          val input = inputs(idx)
+          val name  = bodyCodec.name.getOrElse("field" + idx.toString)
+          bodyCodec match {
+            case BodyCodec.Multiple(schema, mediaType, _) if schema == Schema[Byte] =>
+              FormField.streamingBinaryField(
+                name,
+                input.asInstanceOf[ZStream[Any, Nothing, Byte]],
+                mediaType.getOrElse(MediaType.application.`octet-stream`),
+              )
+            case _                                                                  =>
+              formFieldEncoders(idx)(name, input)
+          }
+        }: _*,
+      )
     }
 
     private def encodeContentType(inputs: Array[Any]): Headers = {
@@ -337,21 +384,24 @@ private[codec] object EncoderDecoder                   {
         val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.`octet-stream`)
         Headers(Header.ContentType(mediaType))
       } else {
-        val _ = inputs // TODO: Support multiple content types
-        if (jsonEncoders.length == 0) Headers.empty
-        else if (jsonEncoders.length == 1) {
-          val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.json)
-          Headers(Header.ContentType(mediaType))
-        } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
+        if (inputs.length > 1) {
+          Headers(Header.ContentType(MediaType.multipart.`form-data`))
+        } else {
+          if (jsonEncoders.length == 0) Headers.empty
+          else if (jsonEncoders.length == 1) {
+            val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.json)
+            Headers(Header.ContentType(mediaType))
+          } else throw new IllegalStateException("A request on a REST endpoint should have at most one body")
+        }
       }
     }
 
     private def isByteStream(codecs: Chunk[BodyCodec[_]]): Boolean =
       if (codecs.length == 1) {
         codecs(0) match {
-          case BodyCodec.Multiple(schema, _) =>
+          case BodyCodec.Multiple(schema, _, _) =>
             schema == Schema[Byte]
-          case _                             => false
+          case _                                => false
         }
       } else {
         false
