@@ -47,7 +47,7 @@ final case class NettyClientDriver private (
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
-    socketProtocol: WebSocketConfig,
+    webSocketConfig: WebSocketConfig,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
     NettyRequestEncoder.encode(req).flatMap { jReq =>
       for {
@@ -82,7 +82,7 @@ final case class NettyClientDriver private (
 
           val headers = Conversions.headersToNetty(req.headers)
           val config  = NettySocketProtocol
-            .clientBuilder(socketProtocol)
+            .clientBuilder(webSocketConfig)
             .customHeaders(headers)
             .webSocketUri(req.url.encode)
             .build()

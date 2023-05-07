@@ -56,7 +56,7 @@ object Server {
     maxHeaderSize: Int,
     logWarningOnFatalError: Boolean,
     gracefulShutdownTimeout: Duration,
-    socketProtocol: WebSocketConfig,
+    webSocketConfig: WebSocketConfig,
   ) {
     self =>
 
@@ -149,8 +149,8 @@ object Server {
     def withRequestStreaming(requestStreaming: RequestStreaming): Config =
       self.copy(requestStreaming = requestStreaming)
 
-    def withSocketProtocol(socketProtocol: WebSocketConfig): Config =
-      self.copy(socketProtocol = socketProtocol)
+    def withWebSocketConfig(webSocketConfig: WebSocketConfig): Config =
+      self.copy(webSocketConfig = webSocketConfig)
   }
 
   object Config {
@@ -205,7 +205,7 @@ object Server {
       maxHeaderSize = 8192,
       logWarningOnFatalError = true,
       gracefulShutdownTimeout = 10.seconds,
-      socketProtocol = WebSocketConfig.default,
+      webSocketConfig = WebSocketConfig.default,
     )
 
     final case class ResponseCompressionConfig(

@@ -421,7 +421,7 @@ object ZClient {
     requestDecompression: Decompression,
     localAddress: Option[InetSocketAddress],
     addUserAgentHeader: Boolean,
-    socketProtocol: WebSocketConfig,
+    webSocketConfig: WebSocketConfig,
   ) {
     self =>
 
@@ -447,8 +447,8 @@ object ZClient {
     def requestDecompression(isStrict: Boolean): Config =
       self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
 
-    def withSocketProtocol(socketProtocol: WebSocketConfig): Config =
-      self.copy(socketProtocol = socketProtocol)
+    def withWebSocketConfig(webSocketConfig: WebSocketConfig): Config =
+      self.copy(webSocketConfig = webSocketConfig)
   }
 
   object Config {
@@ -479,7 +479,7 @@ object ZClient {
       requestDecompression = Decompression.No,
       localAddress = None,
       addUserAgentHeader = true,
-      socketProtocol = WebSocketConfig.default,
+      webSocketConfig = WebSocketConfig.default,
     )
   }
 
@@ -600,7 +600,7 @@ object ZClient {
                         onComplete,
                         connectionPool.enableKeepAlive,
                         createSocketApp,
-                        clientConfig.socketProtocol,
+                        clientConfig.webSocketConfig,
                       )
                       .tapErrorCause(cause => onResponse.failCause(cause))
                   _                <-

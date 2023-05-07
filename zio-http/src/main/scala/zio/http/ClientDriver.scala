@@ -32,7 +32,7 @@ trait ClientDriver {
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
-    socketProtocol: WebSocketConfig,
+    webSocketConfig: WebSocketConfig,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
 
   def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit

@@ -27,28 +27,28 @@ import io.netty.handler.codec.http.websocketx.{
 
 private[netty] object NettySocketProtocol {
 
-  def clientBuilder(socketProtocol: WebSocketConfig): WebSocketClientProtocolConfig.Builder =
+  def clientBuilder(webSocketConfig: WebSocketConfig): WebSocketClientProtocolConfig.Builder =
     WebSocketClientProtocolConfig
       .newBuilder()
-      .subprotocol(socketProtocol.subprotocols.orNull)
-      .handshakeTimeoutMillis(socketProtocol.handshakeTimeoutMillis)
-      .forceCloseTimeoutMillis(socketProtocol.forceCloseTimeoutMillis)
-      .handleCloseFrames(socketProtocol.handleCloseFrames)
-      .sendCloseFrame(closeStatusToNetty(socketProtocol.sendCloseFrame))
-      .dropPongFrames(socketProtocol.dropPongFrames)
+      .subprotocol(webSocketConfig.subprotocols.orNull)
+      .handshakeTimeoutMillis(webSocketConfig.handshakeTimeoutMillis)
+      .forceCloseTimeoutMillis(webSocketConfig.forceCloseTimeoutMillis)
+      .handleCloseFrames(webSocketConfig.handleCloseFrames)
+      .sendCloseFrame(closeStatusToNetty(webSocketConfig.sendCloseFrame))
+      .dropPongFrames(webSocketConfig.dropPongFrames)
 
-  def serverBuilder(socketProtocol: WebSocketConfig): WebSocketServerProtocolConfig.Builder =
+  def serverBuilder(webSocketConfig: WebSocketConfig): WebSocketServerProtocolConfig.Builder =
     WebSocketServerProtocolConfig
       .newBuilder()
       .checkStartsWith(true)
       .websocketPath("")
-      .subprotocols(socketProtocol.subprotocols.orNull)
-      .handshakeTimeoutMillis(socketProtocol.handshakeTimeoutMillis)
-      .forceCloseTimeoutMillis(socketProtocol.forceCloseTimeoutMillis)
-      .handleCloseFrames(socketProtocol.handleCloseFrames)
-      .sendCloseFrame(closeStatusToNetty(socketProtocol.sendCloseFrame))
-      .dropPongFrames(socketProtocol.dropPongFrames)
-      .decoderConfig(socketDecoderToNetty(socketProtocol.decoderConfig))
+      .subprotocols(webSocketConfig.subprotocols.orNull)
+      .handshakeTimeoutMillis(webSocketConfig.handshakeTimeoutMillis)
+      .forceCloseTimeoutMillis(webSocketConfig.forceCloseTimeoutMillis)
+      .handleCloseFrames(webSocketConfig.handleCloseFrames)
+      .sendCloseFrame(closeStatusToNetty(webSocketConfig.sendCloseFrame))
+      .dropPongFrames(webSocketConfig.dropPongFrames)
+      .decoderConfig(socketDecoderToNetty(webSocketConfig.decoderConfig))
 
   private def closeStatusToNetty(closeStatus: WebSocketConfig.CloseStatus): WebSocketCloseStatus =
     closeStatus match {
