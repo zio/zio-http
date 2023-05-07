@@ -185,6 +185,7 @@ private[codec] object EncoderDecoder                   {
     private val indexByName  = flattened.content.zipWithIndex.map { case (codec, idx) =>
       codec.name.getOrElse("field" + idx.toString) -> idx
     }.toMap
+    private val nameByIndex  = indexByName.map(_.swap)
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
@@ -343,11 +344,13 @@ private[codec] object EncoderDecoder                   {
             }
           }.zipRight {
             ZIO.attempt {
-              for (idx <- inputs.indices) {
+              var idx = 0
+              while (idx < inputs.length) {
                 if (inputs(idx) == null)
                   throw HttpCodecError.MalformedBody(
-                    s"Missing multipart/form-data field (${flattened.content(idx).name.getOrElse("field" + idx.toString)}",
+                    s"Missing multipart/form-data field (${nameByIndex(idx)}",
                   )
+                idx += 1
               }
             }
           }
@@ -447,7 +450,7 @@ private[codec] object EncoderDecoder                   {
       Form(
         flattened.content.zipWithIndex.map { case (bodyCodec, idx) =>
           val input = inputs(idx)
-          val name  = bodyCodec.name.getOrElse("field" + idx.toString)
+          val name  = nameByIndex(idx)
           bodyCodec match {
             case BodyCodec.Multiple(schema, mediaType, _) if schema == Schema[Byte] =>
               FormField.streamingBinaryField(
