@@ -23,7 +23,7 @@ import zio.test._
 
 import zio.stream.ZStream
 
-import zio.schema.codec.JsonCodec
+import zio.schema.codec.{DecodeError, JsonCodec}
 import zio.schema.{DeriveSchema, Schema, StandardType}
 
 import zio.http.Header.ContentType
@@ -337,6 +337,42 @@ object EndpointSpec extends ZIOSpecDefault {
             response <- routes.toApp.runZIO(request).mapError(_.get)
             body     <- response.body.asString.orDie
           } yield assertTrue(response.status.isSuccess) && assertTrue(body == "42")
+        },
+        test("decoding error") {
+
+          implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
+
+          val ExpectedFieldName = "value"
+          val WrongFieldName    = "valu"
+
+          val endpoint =
+            Endpoint
+              .post(literal("posts"))
+              .in[NewPost]
+              .out[Int]
+
+          val routes =
+            endpoint.implement(_ => ZIO.succeed(42))
+
+          val request =
+            Request
+              .post(
+                Body.fromString(s"""{"$WrongFieldName": "Invalid field!"}"""),
+                URL.decode("/posts").toOption.get,
+              )
+
+          for {
+            response <- routes.toApp.runZIO(request).mapError(_.get).catchAllDefect {
+              case err: HttpCodecError.MalformedBody => {
+                err.cause match {
+                  case Some(DecodeError.ReadError(_, _)) =>
+                    ZIO.succeed(Response.text(err.details).withStatus(Status.UnprocessableEntity))
+                  case _                                 => ZIO.fail("Unexpected error cause: " + err.toString())
+                }
+              }
+            }
+            body     <- response.body.asString.orDie
+          } yield assertTrue(response.status.code == 422, body == s""".$ExpectedFieldName(missing)""")
         },
       ),
       suite("404")(

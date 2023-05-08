@@ -317,7 +317,9 @@ private[codec] object EncoderDecoder                   {
       } else if (jsonDecoders.length == 0) {
         ZIO.unit
       } else if (jsonDecoders.length == 1) {
-        jsonDecoders(0)(body).map { result => inputs(0) = result }
+        jsonDecoders(0)(body).map { result => inputs(0) = result }.mapError { err =>
+          HttpCodecError.MalformedBody(err.getMessage(), Some(err))
+        }
       } else {
         body.asMultipartFormStream.flatMap { form =>
           form.fields.runForeach { field =>
