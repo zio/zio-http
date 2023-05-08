@@ -181,11 +181,23 @@ private[codec] object EncoderDecoder                   {
           }
         }
       }
-    private val formBoundary = Boundary("----zio-http-boundary-D4792A5C-93E0-43B5-9A1F-48E38FDE5714")
-    private val indexByName  = flattened.content.zipWithIndex.map { case (codec, idx) =>
+    private val formBoundary                = Boundary("----zio-http-boundary-D4792A5C-93E0-43B5-9A1F-48E38FDE5714")
+    private val indexByName                 = flattened.content.zipWithIndex.map { case (codec, idx) =>
       codec.name.getOrElse("field" + idx.toString) -> idx
     }.toMap
-    private val nameByIndex  = indexByName.map(_.swap)
+    private val nameByIndex                 = indexByName.map(_.swap)
+    private val isByteStream                =
+      if (flattened.content.length == 1) {
+        isByteStreamBody(flattened.content(0))
+      } else {
+        false
+      }
+    private val onlyTheLastFieldIsStreaming =
+      if (flattened.content.size > 1) {
+        !flattened.content.init.exists(isByteStreamBody) && isByteStreamBody(flattened.content.last)
+      } else {
+        false
+      }
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
@@ -312,7 +324,7 @@ private[codec] object EncoderDecoder                   {
     }
 
     private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] = {
-      if (isByteStream(flattened.content)) {
+      if (isByteStream) {
         ZIO.attempt(inputs(0) = body.asStream.orDie)
       } else if (jsonDecoders.length == 0) {
         ZIO.unit
@@ -322,43 +334,82 @@ private[codec] object EncoderDecoder                   {
         }
       } else {
         body.asMultipartFormStream.flatMap { form =>
-          form.fields.runForeach { field =>
-            indexByName.get(field.name) match {
-              case Some(idx) =>
-                flattened.content(idx) match {
-                  case BodyCodec.Multiple(schema, _, _) if schema == Schema[Byte] =>
-                    field match {
-                      case FormField.Binary(_, data, _, _, _)          =>
-                        inputs(idx) = ZStream.fromChunk(data)
-                      case FormField.StreamingBinary(_, _, _, _, data) =>
-                        inputs(idx) = data
-                      case FormField.Text(_, value, _, _)              =>
-                        inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
-                      case FormField.Simple(_, value)                  =>
-                        inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
-                    }
-                    ZIO.unit
-                  case _                                                          =>
-                    formFieldDecoders(idx)(field).map { result => inputs(idx) = result }
-                }
-              case None      =>
-                ZIO.fail(HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
-            }
-          }.zipRight {
-            ZIO.attempt {
-              var idx = 0
-              while (idx < inputs.length) {
-                if (inputs(idx) == null)
-                  throw HttpCodecError.MalformedBody(
-                    s"Missing multipart/form-data field (${nameByIndex(idx)}",
-                  )
-                idx += 1
-              }
+          if (onlyTheLastFieldIsStreaming)
+            processStreamingForm(form, inputs)
+          else
+            collectAndProcessForm(form, inputs)
+        }.zipRight {
+          ZIO.attempt {
+            var idx = 0
+            while (idx < inputs.length) {
+              if (inputs(idx) == null)
+                throw HttpCodecError.MalformedBody(
+                  s"Missing multipart/form-data field (${nameByIndex(idx)}",
+                )
+              idx += 1
             }
           }
         }
       }
     }
+
+    private def processStreamingForm(form: StreamingForm, inputs: Array[Any])(implicit
+      trace: Trace,
+    ): ZIO[Any, Throwable, Unit] =
+      Promise.make[HttpCodecError, Unit].flatMap { ready =>
+        form.fields.mapZIO { field =>
+          indexByName.get(field.name) match {
+            case Some(idx) =>
+              flattened.content(idx) match {
+                case BodyCodec.Multiple(schema, _, _) if schema == Schema[Byte] =>
+                  field match {
+                    case FormField.Binary(_, data, _, _, _)          =>
+                      inputs(idx) = ZStream.fromChunk(data)
+                    case FormField.StreamingBinary(_, _, _, _, data) =>
+                      inputs(idx) = data
+                    case FormField.Text(_, value, _, _)              =>
+                      inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+                    case FormField.Simple(_, value)                  =>
+                      inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+                  }
+                  ready.succeed(()).unless(inputs.exists(_ == null))
+                case _                                                          =>
+                  formFieldDecoders(idx)(field).map { result => inputs(idx) = result }
+              }
+            case None      =>
+              ready.fail(HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
+          }
+        }.runDrain.forkDaemon.zipRight(ready.await)
+      }
+
+    private def collectAndProcessForm(form: StreamingForm, inputs: Array[Any])(implicit
+      trace: Trace,
+    ): ZIO[Any, Throwable, Unit] =
+      form.collectAll.flatMap { collectedForm =>
+        ZIO.foreachDiscard(collectedForm.formData) { field =>
+          indexByName.get(field.name) match {
+            case Some(idx) =>
+              flattened.content(idx) match {
+                case BodyCodec.Multiple(schema, _, _) if schema == Schema[Byte] =>
+                  field match {
+                    case FormField.Binary(_, data, _, _, _)          =>
+                      inputs(idx) = ZStream.fromChunk(data)
+                    case FormField.StreamingBinary(_, _, _, _, data) =>
+                      inputs(idx) = data
+                    case FormField.Text(_, value, _, _)              =>
+                      inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+                    case FormField.Simple(_, value)                  =>
+                      inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+                  }
+                  ZIO.unit
+                case _                                                          =>
+                  formFieldDecoders(idx)(field).map { result => inputs(idx) = result }
+              }
+            case None      =>
+              ZIO.fail(HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
+          }
+        }
+      }
 
     private def encodePath(inputs: Array[Any]): Path = {
       var path = Path.empty
@@ -433,7 +484,7 @@ private[codec] object EncoderDecoder                   {
       } else None
 
     private def encodeBody(inputs: Array[Any]): Body = {
-      if (isByteStream(flattened.content)) {
+      if (isByteStream) {
         Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, Byte]])
       } else {
         if (inputs.length > 1) {
@@ -468,7 +519,7 @@ private[codec] object EncoderDecoder                   {
     }
 
     private def encodeContentType(inputs: Array[Any]): Headers = {
-      if (isByteStream(flattened.content)) {
+      if (isByteStream) {
         val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.`octet-stream`)
         Headers(Header.ContentType(mediaType))
       } else {
@@ -484,15 +535,10 @@ private[codec] object EncoderDecoder                   {
       }
     }
 
-    private def isByteStream(codecs: Chunk[BodyCodec[_]]): Boolean =
-      if (codecs.length == 1) {
-        codecs(0) match {
-          case BodyCodec.Multiple(schema, _, _) =>
-            schema == Schema[Byte]
-          case _                                => false
-        }
-      } else {
-        false
+    private def isByteStreamBody(codec: BodyCodec[_]): Boolean =
+      codec match {
+        case BodyCodec.Multiple(schema, _, _) if schema == Schema[Byte] => true
+        case _                                                          => false
       }
   }
 }
