@@ -22,6 +22,8 @@ import zio.{Ref, ZIO, ZLayer}
 
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
+import zio.http.Http.Empty
+import zio.http.Http.Static
 
 object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val successBasicHeader: Headers  = Headers(Header.Authorization.Basic("user", "resu"))
@@ -141,6 +143,74 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       },
     ),
     suite("custom")(
+      test("should not execute the body if invalid authentication") {
+        var canary = 0
+        val auth   = RequestHandlerMiddlewares.customAuth(_ => false)
+        val app    = Http
+          .collect[Request] { case _ -> !! / "api" / _ =>
+            canary += 1
+            Response.text("ok")
+          } @@ auth
+
+        for {
+          r1 <- app.runZIO(Request.get(URL.empty.withPath("/api/test")))
+        } yield assertTrue(r1.status == Status.Unauthorized, canary == 0)
+      },
+      test("should not execute the body if invalid authentication (zio)") {
+        var canary = 0
+        val auth   = RequestHandlerMiddlewares.customAuth(_ => false)
+        val app    = Http.collectZIO[Request] { _ =>
+          ZIO.succeed {
+            canary += 1
+            Response.text("ok")
+          }
+        } @@ auth
+        for {
+          r1 <- app.runZIO(Request.get(URL.empty))
+        } yield assertTrue(r1.status == Status.Unauthorized, canary == 0)
+      },
+      test("should not mask other routes") {
+        var canary = 0
+        val auth   = RequestHandlerMiddlewares.customAuth(_ => false)
+        val app    = (Http.collectZIO[Request] { case _ -> !! / "api" / _ =>
+          ZIO.succeed {
+            canary += 1
+            Response.text("ok")
+          }
+        } @@ auth) ++ Handler.text("fallback").toHttp
+        for {
+          r1     <- app.runZIO(Request.get(URL.empty))
+          r1Text <- r1.body.asString
+          r2     <- app.runZIO(Request.get(URL.empty.withPath("/api/private")))
+        } yield assertTrue(
+          r1.status == Status.Ok,
+          r1Text == "fallback",
+          r2.status == Status.Unauthorized,
+          canary == 0,
+        )
+      },
+      test("should not mask other routes (2)") {
+        var canary = 0
+        val auth   = RequestHandlerMiddlewares.customAuthProviding[Any, String](_ => None)
+        // val app    = (Http.collect[Request] { case _ -> !! / "api" / _ =>
+        val app    = (Http.collectZIO[Request] { case _ -> !! / "api" / _ =>
+          ZIO.succeed {
+            canary += 1
+            Response.text("ok")
+          }
+        } @@ auth) ++ Handler.text("fallback").toHttp
+
+        for {
+          r1     <- app.runZIO(Request.get(URL.empty))
+          r1Text <- r1.body.asString
+          r2     <- app.runZIO(Request.get(URL.empty.withPath("/api/private")))
+        } yield assertTrue(
+          r1.status == Status.Ok,
+          r1Text == "fallback",
+          r2.status == Status.Unauthorized,
+          canary == 0,
+        )
+      },
       test("Providing context from auth middleware") {
         def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((headers: Headers) =>
           headers.header(Header.Authorization).map(auth => AuthContext(auth.renderedValue.toString)),
@@ -221,7 +291,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
             } yield Some(AuthContext(value.toString)),
           )
 
-        def httpEndpoint(str: String) = Http.collect[Request] { case Method.GET -> !! / str =>
+        def httpEndpoint(str: String) = Http.collect[Request] { case Method.GET -> !! / `str` =>
           Response.ok
         }
 

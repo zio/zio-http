@@ -608,7 +608,20 @@ object Http {
 
   final class Collect[In](val self: Unit) extends AnyVal {
     def apply[Out](pf: PartialFunction[In, Out]): Http[Any, Nothing, In, Out] =
-      Http.collectHandler[In].apply(pf.andThen(Handler.succeed(_)))
+      new Route[Any, Nothing, In, Out] {
+        override def run(in: In): ZIO[Any, Nothing, Http[Any, Nothing, In, Out]] =
+          try {
+            Exit.succeed {
+              if (pf.isDefinedAt(in)) Static(Handler.fromFunction(_ => pf.apply(in)), None)
+              else Empty(None)
+            }
+          } catch {
+            case failure: Throwable =>
+              Exit.die(failure)
+          }
+
+        override val errorHandler: Option[Cause[Nothing] => ZIO[Any, Nothing, Out]] = None
+      }
   }
 
   final class CollectHandler[In](val self: Unit) extends AnyVal {
