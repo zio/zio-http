@@ -56,6 +56,7 @@ object Server {
     maxHeaderSize: Int,
     logWarningOnFatalError: Boolean,
     gracefulShutdownTimeout: Duration,
+    webSocketConfig: WebSocketConfig,
   ) {
     self =>
 
@@ -147,6 +148,9 @@ object Server {
     /** Enables or disables request body streaming */
     def withRequestStreaming(requestStreaming: RequestStreaming): Config =
       self.copy(requestStreaming = requestStreaming)
+
+    def withWebSocketConfig(webSocketConfig: WebSocketConfig): Config =
+      self.copy(webSocketConfig = webSocketConfig)
   }
 
   object Config {
@@ -176,7 +180,7 @@ object Server {
             logWarningOnFatalError,
             gracefulShutdownTimeout,
           ) =>
-        Config(
+        default.copy(
           sslConfig = sslConfig,
           address = new InetSocketAddress(host.getOrElse(Config.default.address.getHostName), port),
           acceptContinue = acceptContinue,
@@ -201,6 +205,7 @@ object Server {
       maxHeaderSize = 8192,
       logWarningOnFatalError = true,
       gracefulShutdownTimeout = 10.seconds,
+      webSocketConfig = WebSocketConfig.default,
     )
 
     final case class ResponseCompressionConfig(

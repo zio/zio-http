@@ -32,7 +32,7 @@ import zio.http.netty.socket.NettySocketProtocol
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler
+import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -286,11 +286,20 @@ private[zio] final case class ServerInboundHandler(
     val app = res.socketApp
     jReq match {
       case jReq: FullHttpRequest =>
+        val queue = runtime.runtime(ctx).unsafe.run(Queue.unbounded[WebSocketChannelEvent]).getOrThrowFiberFailure()
+        runtime.runtime(ctx).unsafe.run {
+          val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
+          val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
+          val webSocketApp     = app.getOrElse(Handler.unit)
+          webSocketApp.runZIO(webSocketChannel).ignoreLogged.forkDaemon
+        }
         ctx
           .channel()
           .pipeline()
-          .addLast(new WebSocketServerProtocolHandler(NettySocketProtocol.serverBuilder(app.get.protocol).build()))
-          .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, app.get))
+          .addLast(
+            new WebSocketServerProtocolHandler(NettySocketProtocol.serverBuilder(config.webSocketConfig).build()),
+          )
+          .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue))
 
         val retained = jReq.retainedDuplicate()
         val _        = ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }

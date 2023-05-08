@@ -147,28 +147,31 @@ A socket app is an app that handles WebSocket connections.
 ### Creating a socket app
 
 Socket app can be created by using `Socket` constructors. To create a socket app, you need to create a socket that
-accepts `WebSocketFrame` and produces `ZStream` of `WebSocketFrame`.
+accepts `WebSocketChannel` and produces `ZIO`.
 Finally, we need to convert socketApp to `Response` using `toResponse`, so that we can run it like any other HTTP
 app.   
-The below example shows a simple socket app, we are using `collect` which returns a stream with WebsSocketTextFrame "
+The below example shows a simple socket app, we are using `collectZIO` which sends WebsSocketTextFrame "
 BAR" on receiving WebsSocketTextFrame "FOO".
 
 ```scala mdoc:silent:reset
 import zio.http._
-import zio.http.socket._
 import zio.stream._
 import zio._
 
 private val socket =
-  Http.collect[WebSocketChannelEvent] {
-    case ChannelEvent(_, ChannelEvent.ChannelRead(WebSocketFrame.Text("FOO"))) =>
-      ZStream.succeed(WebSocketFrame.text("BAR"))
+  Handler.webSocket { channel =>
+    channel.receiveAll {
+      case ChannelEvent.Read(WebSocketFrame.Text("FOO")) =>
+        channel.send(ChannelEvent.Read(WebSocketFrame.text("BAR")))
+      case _ =>
+        ZIO.unit
+    }
   }
 
 private val app = 
   Http.collectZIO[Request] {
     case Method.GET -> !! / "greet" / name => ZIO.succeed(Response.text(s"Greetings {$name}!"))
-    case Method.GET -> !! / "ws" => socket.toSocketApp.toResponse
+    case Method.GET -> !! / "ws" => socket.toResponse
   }
 ```
 

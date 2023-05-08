@@ -20,7 +20,6 @@ To create a Text frame that models textual data in the WebSocket protocol, you c
 
 ```scala mdoc:silent
 import zio.http._
-import zio.http.socket._
 
 WebSocketFrame.text("Hello from ZIO-HTTP")
 ```

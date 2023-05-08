@@ -20,7 +20,7 @@ import java.nio.charset._
 
 import zio._
 
-import zio.stream.{Take, ZStream}
+import zio.stream.{Take, ZPipeline, ZStream}
 
 import zio.http.FormDecodingError._
 import zio.http.Header.ContentTransferEncoding
@@ -35,10 +35,55 @@ sealed trait FormField {
   def contentType: MediaType
   def filename: Option[String]
 
-  final def valueAsString: Option[String] = this match {
+  /**
+   * Gets the value as a String, but only if it is a text or simple field. For
+   * binary fields it returns None.
+   */
+  final def stringValue: Option[String] = this match {
     case FormField.Text(_, value, _, _) => Some(value)
     case FormField.Simple(_, value)     => Some(value)
     case _                              => None
+  }
+
+  /**
+   * Gets the value of this form field as a String. If it is a binary field, the
+   * value is interpreted as an UTF-8 byte stream.
+   */
+  final def asText: ZIO[Any, CharacterCodingException, String] = this match {
+    case FormField.Text(_, value, _, _)                =>
+      ZIO.succeed(value)
+    case FormField.Binary(_, value, _, _, _)           =>
+      ZIO.succeed(new String(value.toArray, Charsets.Utf8))
+    case FormField.StreamingBinary(_, _, _, _, stream) =>
+      stream.via(ZPipeline.utf8Decode).runFold("")(_ ++ _)
+    case FormField.Simple(_, value)                    =>
+      ZIO.succeed(value)
+  }
+
+  /**
+   * Gets the value of this form field as a chunk of bytes. If it is a text
+   * field, the value gets encoded as an UTF-8 byte stream.
+   */
+  final def asChunk: ZIO[Any, Nothing, Chunk[Byte]] = this match {
+    case FormField.Text(_, value, _, _)                =>
+      ZIO.succeed(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+    case FormField.Binary(_, value, _, _, _)           =>
+      ZIO.succeed(value)
+    case FormField.StreamingBinary(_, _, _, _, stream) =>
+      stream.runCollect
+    case FormField.Simple(_, value)                    =>
+      ZIO.succeed(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+  }
+
+  def withName(newName: String): FormField = this match {
+    case FormField.Binary(_, data, contentType, transferEncoding, filename)          =>
+      FormField.Binary(newName, data, contentType, transferEncoding, filename)
+    case FormField.StreamingBinary(_, contentType, transferEncoding, filename, data) =>
+      FormField.StreamingBinary(newName, contentType, transferEncoding, filename, data)
+    case FormField.Text(_, value, contentType, filename)                             =>
+      FormField.Text(newName, value, contentType, filename)
+    case FormField.Simple(_, value)                                                  =>
+      FormField.Simple(newName, value)
   }
 }
 
