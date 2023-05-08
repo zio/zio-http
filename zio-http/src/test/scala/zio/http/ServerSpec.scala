@@ -26,7 +26,7 @@ import zio.{Chunk, Scope, ZIO, ZLayer, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
-import zio.http.Server.RequestStreaming
+import zio.http.Server.{Config, RequestStreaming}
 import zio.http.html.{body, div, id}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 
@@ -39,10 +39,12 @@ object ServerSpec extends HttpRunnableSpec {
     content <- HttpGen.nonEmptyBody(Gen.const(data))
   } yield (data.mkString(""), content)
 
+  private val port    = 8080
   private val MaxSize = 1024 * 10
   val configApp       = Server.Config.default
     .requestDecompression(true)
     .disableRequestStreaming(MaxSize)
+    .port(port)
     .responseCompression()
 
   private val app = serve(DynamicServer.app)
@@ -221,7 +223,34 @@ object ServerSpec extends HttpRunnableSpec {
           }.toHttp
           assertZIO(app.deploy.run().exit)(failsWithA[PrematureChannelClosureException])
         },
-      ),
+      ) +
+      suite("proxy") {
+        val server = Http.collectZIO[Request] {
+          case req @ method -> "" /: "proxy" /: path =>
+            for {
+              res <-
+                Client.request(
+                  s"http://localhost:$port/$path",
+                  method = method,
+                  headers = req.headers,
+                  content = req.body,
+                )
+            } yield res
+
+          case _ @method -> path =>
+            ZIO.succeed(Response.text(s"Received ${method} query on ${path}"))
+        }
+        test("should be able to directly return other request") {
+          for {
+            body1 <- server.deploy.body
+              .run(path = !! / "test", method = Method.GET)
+              .flatMap(_.asString(Charsets.Utf8))
+            body2 <- server.deploy.body
+              .run(path = !! / "proxy" / "test-proxy", method = Method.GET)
+              .flatMap(_.asString(Charsets.Utf8))
+          } yield assertTrue(body1 == "Received GET query on /test", body2 == "Received GET query on /test-proxy")
+        }
+      },
   )
 
   def requestSpec = suite("RequestSpec") {
