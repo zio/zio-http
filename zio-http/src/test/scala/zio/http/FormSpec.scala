@@ -227,6 +227,27 @@ object FormSpec extends ZIOSpecDefault {
           collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
         )
       },
+      test("decoding large from single chunk") {
+        val N = 1024 * 1024
+        for {
+          bytes <- Random.nextBytes(N)
+          form     = Form(
+            Chunk(
+              FormField.Simple("foo", "bar"),
+              FormField.Binary("file", bytes, MediaType.image.png),
+            ),
+          )
+          boundary = Boundary("X-INSOMNIA-BOUNDARY")
+          formBytes <- form.multipartBytes(boundary).runCollect
+          formByteStream = ZStream.fromChunk(formBytes)
+          streamingForm  = StreamingForm(formByteStream, boundary)
+          collected <- streamingForm.collectAll
+        } yield assertTrue(
+          collected.map.contains("file"),
+          collected.map.contains("foo"),
+          collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
+        )
+      },
     )
 
   def spec =
