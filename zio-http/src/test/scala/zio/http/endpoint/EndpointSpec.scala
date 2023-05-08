@@ -23,7 +23,7 @@ import zio.test._
 
 import zio.stream.ZStream
 
-import zio.schema.codec.{JsonCodec, DecodeError}
+import zio.schema.codec.{DecodeError, JsonCodec}
 import zio.schema.{DeriveSchema, Schema, StandardType}
 
 import zio.http.Header.ContentType
