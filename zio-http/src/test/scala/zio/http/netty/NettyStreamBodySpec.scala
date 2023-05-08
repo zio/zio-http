@@ -1,13 +1,15 @@
 package zio.http.netty
 
-import zio.http.ZClient.Config
-import zio.http.internal.HttpRunnableSpec
-import zio.http.netty.NettyConfig.LeakDetectionLevel
-import zio.http._
-import zio.stream.{ZStream, ZStreamAspect}
+import zio._
 import zio.test.TestAspect.withLiveClock
 import zio.test.{Spec, TestEnvironment, assertTrue}
-import zio.{Chunk, Promise, Queue, Scope, Trace, ZIO, ZLayer, http}
+
+import zio.stream.{ZStream, ZStreamAspect}
+
+import zio.http.ZClient.Config
+import zio.http._
+import zio.http.internal.HttpRunnableSpec
+import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 object NettyStreamBodySpec extends HttpRunnableSpec {
 
