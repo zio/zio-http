@@ -19,8 +19,8 @@ package zio.http.endpoint
 import zio._
 import zio.test._
 
-import zio.schema.{DeriveSchema, Schema}
 import zio.schema.codec.DecodeError
+import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec.HttpCodec.{int, literal, query, string}
