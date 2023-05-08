@@ -360,9 +360,9 @@ object EndpointSpec extends ZIOSpecDefault {
             response <- routes.toApp.runZIO(request).mapError(_.get).catchAllDefect {
               case err: HttpCodecError.MalformedBody => {
                 err.cause match {
-                  case Some(DecodeError.CastError(_, _)) =>
+                  case Some(DecodeError.ReadError(_, _)) =>
                     ZIO.succeed(Response.text(err.details).withStatus(Status.UnprocessableEntity))
-                  case _                                 => ZIO.fail("Unexpected error cause")
+                  case _                                 => ZIO.fail("Unexpected error cause: " + err.toString())
                 }
               }
             }
