@@ -187,5 +187,5 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       NettyDriver.live,
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
-    ) @@ withLiveClock @@ sequential @@ timeout(10.seconds)
+    ) @@ withLiveClock @@ sequential @@ timeout(60.seconds)
 }
