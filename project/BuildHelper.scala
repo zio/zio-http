@@ -119,13 +119,13 @@ object BuildHelper extends ScalaSettings {
       Developer(
         "tusharmath",
         "Tushar Mathur",
-        "tushar@dream11.com",
+        "tusharmath@gmail.com",
         new URL("https://github.com/tusharmath"),
       ),
       Developer(
         "amitksingh1490",
         "Amit Kumar Singh",
-        "amit.singh@dream11.com",
+        "amitksingh1490@gmail.com",
         new URL("https://github.com/amitksingh1490"),
       ),
     ),
