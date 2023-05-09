@@ -17,6 +17,7 @@
 package zio.http
 
 import zio.{ULayer, ZLayer}
+
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 import zio.http.netty.client.NettyClientDriver
