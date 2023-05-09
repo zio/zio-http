@@ -360,7 +360,7 @@ private[codec] object EncoderDecoder                   {
         form.fields.mapZIO { field =>
           indexByName.get(field.name) match {
             case Some(idx) =>
-              flattened.content(idx) match {
+              (flattened.content(idx) match {
                 case BodyCodec.Multiple(schema, _, _) if schema == Schema[Byte] =>
                   field match {
                     case FormField.Binary(_, data, _, _, _)          =>
@@ -372,14 +372,24 @@ private[codec] object EncoderDecoder                   {
                     case FormField.Simple(_, value)                  =>
                       inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
                   }
-                  ready.succeed(()).unless(inputs.exists(_ == null))
+                  ZIO.unit
                 case _                                                          =>
                   formFieldDecoders(idx)(field).map { result => inputs(idx) = result }
-              }
+              }) *>
+                ready
+                  .succeed(())
+                  .unless(
+                    inputs.exists(_ == null),
+                  ) // Marking as ready so the handler can start consuming the streaming field before this stream ends
             case None      =>
               ready.fail(HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
           }
-        }.runDrain.forkDaemon.zipRight(ready.await)
+        }.runDrain
+          .zipRight(
+            ready.succeed(()), // Marking as ready, a check happens in the next phase to verify all inputs are done
+          )
+          .forkDaemon
+          .zipRight(ready.await)
       }
 
     private def collectAndProcessForm(form: StreamingForm, inputs: Array[Any])(implicit

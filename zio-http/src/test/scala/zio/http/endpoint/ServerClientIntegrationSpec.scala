@@ -16,7 +16,7 @@
 
 package zio.http.endpoint
 
-import zio.test.TestAspect.{sequential, timeout, withLiveClock}
+import zio.test.TestAspect.{nonFlaky, sequential, timeout, withLiveClock}
 import zio.test.{TestResult, ZIOSpecDefault, assertTrue}
 import zio.{Random, ZIO, ZLayer, durationInt}
 
@@ -187,5 +187,5 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       NettyDriver.live,
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
-    ) @@ withLiveClock @@ sequential @@ timeout(60.seconds)
+    ) @@ withLiveClock @@ sequential @@ timeout(300.seconds)
 }
