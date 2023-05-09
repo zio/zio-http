@@ -358,48 +358,40 @@ private[codec] object EncoderDecoder                   {
     ): ZIO[Any, Throwable, Unit] =
       Promise.make[HttpCodecError, Unit].flatMap { ready =>
         form.fields.mapZIO { field =>
-//          ZIO.debug(s"processStreamingForm found $field") *>
-          {
-            indexByName.get(field.name) match {
-              case Some(idx) =>
-                (flattened.content(idx) match {
-                  case BodyCodec.Multiple(schema, _, _) if schema == Schema[Byte] =>
-                    field match {
-                      case FormField.Binary(_, data, _, _, _)          =>
-                        inputs(idx) = ZStream.fromChunk(data)
-                      case FormField.StreamingBinary(_, _, _, _, data) =>
-                        inputs(idx) = data
-                      case FormField.Text(_, value, _, _)              =>
-                        inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
-                      case FormField.Simple(_, value)                  =>
-                        inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
-                    }
-                    ZIO.unit
-                  case _                                                          =>
-                    formFieldDecoders(idx)(field).map { result => inputs(idx) = result }
-                }) *>
-                  ready
-                    .succeed(())
-                    .debug(s"processStreamingForm READY because no more null fields")
-                    .unless(
-                      inputs.exists(_ == null),
-                    ) // Marking as ready so the handler can start consuming the streaming field before this stream ends
-              case None      =>
-                ready.fail(HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
-            }
+          indexByName.get(field.name) match {
+            case Some(idx) =>
+              (flattened.content(idx) match {
+                case BodyCodec.Multiple(schema, _, _) if schema == Schema[Byte] =>
+                  field match {
+                    case FormField.Binary(_, data, _, _, _)          =>
+                      inputs(idx) = ZStream.fromChunk(data)
+                    case FormField.StreamingBinary(_, _, _, _, data) =>
+                      inputs(idx) = data
+                    case FormField.Text(_, value, _, _)              =>
+                      inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+                    case FormField.Simple(_, value)                  =>
+                      inputs(idx) = ZStream.fromChunk(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
+                  }
+                  ZIO.unit
+                case _                                                          =>
+                  formFieldDecoders(idx)(field).map { result => inputs(idx) = result }
+              }) *>
+                ready
+                  .succeed(())
+                  .unless(
+                    inputs.exists(_ == null),
+                  ) // Marking as ready so the handler can start consuming the streaming field before this stream ends
+            case None      =>
+              ready.fail(HttpCodecError.MalformedBody(s"Unexpected multipart/form-data field: ${field.name}"))
           }
         }.runDrain
           .zipRight(
             ready
               .succeed(()),
-//              .debug(
-//                "processStreamingForm READY after runDrain",
-//              ), // Marking as ready, a check happens in the next phase to verify all inputs are done
           )
           .forkDaemon
           .zipRight(
             ready.await,
-//            .debug("processStreamingForm ready.await")
           )
       }
 
