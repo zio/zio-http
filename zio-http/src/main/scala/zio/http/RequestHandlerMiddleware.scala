@@ -132,13 +132,16 @@ object RequestHandlerMiddleware {
           Http.Static(apply(handler), errorHandler.map(applyToErrorHandler))
         case route: Http.Route[Env, Err, Request, Response] =>
           Http
-            .fromHttpZIO[Request](route.run(_).map(self(_)))
+            .fromHttpZIO[Request] { r =>
+              val x = route.run(r)
+              x.map(self(_))
+            }
             .withErrorHandler(route.errorHandler.map(applyToErrorHandler))
       }
 
     def applyToErrorHandler[Env <: UpperEnv](
       f: Cause[Nothing] => ZIO[Env, Nothing, Response],
-    )(implicit trace: Trace): (Cause[Nothing] => ZIO[Env, Nothing, Response]) =
+    )(implicit trace: Trace): Cause[Nothing] => ZIO[Env, Nothing, Response] =
       f
   }
 

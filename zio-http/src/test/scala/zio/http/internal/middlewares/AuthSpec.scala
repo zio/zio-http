@@ -59,6 +59,19 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         val app = (Handler.ok @@ basicAuthM).header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
       },
+      test("Do not execute code for unauthenticated routes") {
+        var handlerExecuted = false
+        val responseZIO     = (Http.collect[Request] { case Method.GET -> !! / "a" =>
+          handlerExecuted = true
+          Response.text("a")
+        } @@ basicAuthM).runZIO(Request.get(URL.decode("/a").toOption.get))
+        for {
+          response <- responseZIO
+        } yield assertTrue(
+          response.status == Status.Unauthorized,
+          !handlerExecuted,
+        )
+      },
     ),
     suite("basicAuthZIO")(
       test("HttpApp is accepted if the basic authentication succeeds") {
@@ -72,6 +85,19 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       test("Responses should have WWW-Authentication header if Basic Auth failed") {
         val app = (Handler.ok @@ basicAuthZIOM).header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
+      },
+      test("Do not execute code for unauthenticated routes") {
+        var handlerExecuted = false
+        val responseZIO     = (Http.collectZIO[Request] { case Method.GET -> !! / "a" =>
+          handlerExecuted = true
+          ZIO.succeed(Response.text("a"))
+        } @@ basicAuthZIOM).runZIO(Request.get(URL.decode("/a").toOption.get))
+        for {
+          response <- responseZIO
+        } yield assertTrue(
+          response.status == Status.Unauthorized,
+          !handlerExecuted,
+        )
       },
     ),
     suite("bearerAuth")(
@@ -143,7 +169,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     suite("custom")(
       test("Providing context from auth middleware") {
         def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((headers: Headers) =>
-          headers.header(Header.Authorization).map(auth => AuthContext(auth.renderedValue.toString)),
+          headers.header(Header.Authorization).map(auth => AuthContext(auth.renderedValue)),
         )
 
         val app1 = Handler.text("ok") @@ auth[Any]
@@ -170,6 +196,25 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           r4body == "base Bearer auth",
         )
       }.provideLayer(ZLayer.succeed(BaseService("base"))),
+      test("Providing context from auth middleware for non existing route") {
+        def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((headers: Headers) =>
+          headers.header(Header.Authorization).map(auth => AuthContext(auth.renderedValue)),
+        )
+
+        var handlerExecuted = false
+        val responseZIO     = ((Http.collect[Request] { case Method.GET -> !! / "b" =>
+          handlerExecuted = true
+          Response.text("b")
+        } @@ auth[Any]).withDefaultErrorResponse ++ Handler.ok.toHttp)
+          .runZIO(Request.get(URL.empty.withPath("/a")))
+        for {
+          response <- responseZIO
+        } yield assertTrue(
+          response.status != Status.Unauthorized,
+          !handlerExecuted,
+        )
+
+      },
       test("Providing context from auth middleware effectfully") {
         def auth[R0] = RequestHandlerMiddlewares.customAuthProvidingZIO[R0, UserService, Throwable, AuthContext](
           (headers: Headers) =>

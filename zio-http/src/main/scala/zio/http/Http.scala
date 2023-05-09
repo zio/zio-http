@@ -47,6 +47,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
           override def run(in: In): ZIO[R1, Err1, Http[R1, Err1, In, Out1]] =
             route.run(in).map(_ >>> (handler, errorOutputMapper))
 
+          override def applicable(in: In): Boolean = route.applicable(in)
+
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
             route.errorHandler.map(_.andThen(_.map(errorOutputMapper)))
         }
@@ -65,6 +67,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         new Route[R1, Err1, In, Out1] {
           override def run(in: In): ZIO[R1, Err1, Http[R1, Err1, In, Out1]] =
             route.run(in).map(_ >>> (handler, errorOutputMapper))
+
+          override def applicable(in: In): Boolean = route.applicable(in)
 
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
             route.errorHandler.map(_.andThen(_.map(errorOutputMapper)))
@@ -110,6 +114,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
               .map(_.catchAllZIO(f))
               .catchAll(err => f(err).map(out => Handler.succeed(out).toHttp))
 
+          override def applicable(in: In): Boolean = route.applicable(in)
+
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
             route.errorHandler
         }
@@ -136,6 +142,12 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
           override def run(in: In1): ZIO[R1, Err1, Http[R1, Err1, In1, Out1]] =
             route.run(in).map(_.defaultWith(that))
 
+          override def applicable(in: In1): Boolean = route.applicable(in) || (that match {
+            case Empty(_)                 => false
+            case Http.Static(_, _)        => true
+            case route: Route[_, _, _, _] => route.asInstanceOf[Route[R1, Err1, In1, Out1]].applicable(in)
+          })
+
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
             route.errorHandler
         }
@@ -155,6 +167,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
           override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out1]] =
             route.run(in).map(_.map(f))
 
+          override def applicable(in: In): Boolean = route.applicable(in)
+
           override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out1]] =
             route.errorHandler.map(_.andThen(_.map(f)))
         }
@@ -171,6 +185,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         new Route[R, Err1, In, Out] {
           override def run(in: In): ZIO[R, Err1, Http[R, Err1, In, Out]] =
             route.run(in).mapBoth(f, _.mapError(f))
+
+          override def applicable(in: In): Boolean = route.applicable(in)
 
           override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] =
             route.errorHandler
@@ -196,6 +212,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
           override def run(in: In): ZIO[R, Err1, Http[R1, Err1, In, Out1]] =
             route.run(in).map(_.mapZIO(f))
 
+          override def applicable(in: In): Boolean = route.applicable(in)
+
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
             route.errorHandler.map(_.andThen(_.flatMap(f).orDieWith(FailedErrorHandler.apply)))
         }
@@ -218,6 +236,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
               .map(_.mapErrorZIO(f))
               .catchAll(err => ZIO.succeed(Handler.fromZIO(f(err)).toHttp))
 
+          override def applicable(in: In): Boolean = route.applicable(in)
+
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] =
             route.errorHandler
         }
@@ -236,6 +256,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         new Route[Any, Err, In, Out] {
           override def run(in: In): ZIO[Any, Err, Http[Any, Err, In, Out]] =
             route.run(in).map(_.provideEnvironment(r)).provideEnvironment(r)
+
+          override def applicable(in: In): Boolean = route.applicable(in)
 
           override val errorHandler: Option[Cause[Nothing] => ZIO[Any, Nothing, Out]] =
             route.errorHandler.map(_.andThen(_.provideEnvironment(r)))
@@ -266,6 +288,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
               }
               .provideLayer(layer)
 
+          override def applicable(in: In): Boolean = route.applicable(in)
+
           override val errorHandler: Option[Cause[Nothing] => ZIO[R0, Nothing, Out]] =
             route.errorHandler.map(_.andThen(_.provideLayer(layer).orDieWith(FailedErrorHandler.apply)))
         }
@@ -286,6 +310,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         new Route[R1, Err, In, Out] {
           override def run(in: In): ZIO[R1, Err, Http[R1, Err, In, Out]] =
             route.run(in).map(_.provideSomeEnvironment(f)).provideSomeEnvironment(f)
+
+          override def applicable(in: In): Boolean = route.applicable(in)
 
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out]] =
             route.errorHandler.map(_.andThen(_.provideSomeEnvironment(f)))
@@ -315,6 +341,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
                 route.run(in).map(_.provideEnvironment(env))
               }
               .provideSomeLayer(layer)
+
+          override def applicable(in: In): Boolean = route.applicable(in)
 
           override val errorHandler: Option[Cause[Nothing] => ZIO[R0, Nothing, Out]] =
             route.errorHandler.map(_.andThen(_.provideSomeLayer(layer).orDieWith(FailedErrorHandler.apply)))
@@ -381,6 +409,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         new Route[R1, Err1, In, Out] {
           override def run(in: In): ZIO[R, Err1, Http[R1, Err1, In, Out]] =
             route.run(in).map(_.tapAllZIO(onFailure, onSuccess, onUnhandled))
+
+          override def applicable(in: In): Boolean = route.applicable(in)
 
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out]] =
             route.errorHandler
@@ -465,6 +495,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
           override def run(in: In): ZIO[R1, Err, Http[R1, Err, In, Out1]] =
             route.run(in)
 
+          override def applicable(in: In): Boolean = route.applicable(in)
+
           override val errorHandler: Option[Cause[Nothing] => ZIO[R1, Nothing, Out1]] = newErrorHandler
         }
     }
@@ -482,6 +514,7 @@ object Http {
 
   sealed trait Route[-R, +Err, -In, +Out] extends Http[R, Err, In, Out] {
     def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]]
+    def applicable(in: In): Boolean
     val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]]
   }
 
@@ -626,6 +659,8 @@ object Http {
               Exit.die(failure)
           }
 
+        override def applicable(in: In): Boolean = pf.isDefinedAt(in)
+
         override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
@@ -640,6 +675,8 @@ object Http {
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
           Exit.succeed(pf.applyOrElse(in, (_: In) => empty))
+
+        override def applicable(in: In): Boolean = pf.isDefinedAt(in)
 
         override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
@@ -662,6 +699,8 @@ object Http {
             case error: Throwable => Exit.die(error)
           }
 
+        override def applicable(in: In): Boolean = true
+
         override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
@@ -676,6 +715,8 @@ object Http {
             case None    => ZIO.succeed(Empty(None))
             case Some(e) => ZIO.fail(e)
           }
+
+        override def applicable(in: In): Boolean = true
 
         override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
@@ -692,6 +733,8 @@ object Http {
             case Some(h) => ZIO.succeed(Static(h, None))
           }
 
+        def applicable(in: In): Boolean = true
+
         override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
@@ -704,6 +747,12 @@ object Http {
             f(in)
           }
 
+        def applicable(in: In): Boolean = f(in) match {
+          case Empty(_) => false
+          case Static(_, _) => true
+          case route: Route[_, _, _, _] => route.asInstanceOf[Route[R, Err, In, Out]].applicable(in)
+        }
+
         override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
   }
@@ -713,6 +762,8 @@ object Http {
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
           f(in)
+
+        def applicable(in: In): Boolean = true
 
         override val errorHandler: Option[Cause[Nothing] => ZIO[R, Nothing, Out]] = None
       }
