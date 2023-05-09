@@ -16,14 +16,11 @@
 
 package zio.http.endpoint
 
-import zio.test.TestAspect.{nonFlaky, sequential, timeout, withLiveClock}
+import zio.test.TestAspect.{diagnose, nonFlaky, sequential, timeout, withLiveClock}
 import zio.test.{TestResult, ZIOSpecDefault, assertTrue}
 import zio.{Random, ZIO, ZLayer, durationInt}
-
 import zio.stream.ZStream
-
 import zio.schema.{DeriveSchema, Schema}
-
 import zio.http._
 import zio.http.codec.PathCodec.{int, literal}
 import zio.http.codec.QueryCodec
@@ -165,9 +162,10 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           .out[String]
 
         val route = api.implement { case (name, value, file) =>
+//          ZIO.debug("Got the stream, draining") *>
           file.runCount.map { n =>
             s"name: $name, value: $value, count: $n"
-          }
+          }.debug("runCount")
         }
 
         Random.nextBytes(1024 * 1024).flatMap { bytes =>
@@ -178,7 +176,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      },
+      } @@ nonFlaky(1000),
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
@@ -187,5 +185,5 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       NettyDriver.live,
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
-    ) @@ withLiveClock @@ sequential @@ timeout(300.seconds)
+    ) @@ withLiveClock @@ sequential @@ diagnose(1.minute) //@@ timeout(300.seconds)
 }

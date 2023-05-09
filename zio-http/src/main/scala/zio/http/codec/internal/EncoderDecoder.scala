@@ -358,7 +358,8 @@ private[codec] object EncoderDecoder                   {
     ): ZIO[Any, Throwable, Unit] =
       Promise.make[HttpCodecError, Unit].flatMap { ready =>
         form.fields.mapZIO { field =>
-          ZIO.debug(s"processStreamingForm found $field") *> {
+//          ZIO.debug(s"processStreamingForm found $field") *>
+          {
             indexByName.get(field.name) match {
               case Some(idx) =>
                 (flattened.content(idx) match {
@@ -390,13 +391,16 @@ private[codec] object EncoderDecoder                   {
         }.runDrain
           .zipRight(
             ready
-              .succeed(())
-              .debug(
-                "processStreamingForm READY after runDrain",
-              ), // Marking as ready, a check happens in the next phase to verify all inputs are done
+              .succeed(()),
+//              .debug(
+//                "processStreamingForm READY after runDrain",
+//              ), // Marking as ready, a check happens in the next phase to verify all inputs are done
           )
           .forkDaemon
-          .zipRight(ready.await.debug("processStreamingForm ready.await"))
+          .zipRight(
+            ready.await,
+//            .debug("processStreamingForm ready.await")
+          )
       }
 
     private def collectAndProcessForm(form: StreamingForm, inputs: Array[Any])(implicit
