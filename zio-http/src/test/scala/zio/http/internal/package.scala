@@ -16,10 +16,10 @@
 
 package zio.http
 
-import zio.ZLayer
-
+import zio.{ULayer, ZLayer}
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
+import zio.http.netty.client.NettyClientDriver
 
 package object internal {
 
@@ -34,5 +34,17 @@ package object internal {
       testServerConfig,
       testNettyServerConfig,
       Server.customized,
+    )
+
+  val testClientConfig: ULayer[ZClient.Config] =
+    ZLayer.succeed(Client.Config.default.withDisabledConnectionPool)
+
+  val testClientLayer: ZLayer[Any, Throwable, Client] =
+    ZLayer.make[Client](
+      testNettyServerConfig,
+      NettyClientDriver.live,
+      DnsResolver.default,
+      testClientConfig,
+      Client.customized,
     )
 }

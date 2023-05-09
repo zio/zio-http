@@ -24,7 +24,7 @@ import zio.{Exit, Scope, ZIO, durationInt}
 import zio.http.Header.AccessControlAllowMethods
 import zio.http.HttpAppMiddleware.cors
 import zio.http.internal.middlewares.Cors.CorsConfig
-import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLayer}
+import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLayer, testClientLayer}
 
 object StaticServerSpec extends HttpRunnableSpec {
 
@@ -91,7 +91,7 @@ object StaticServerSpec extends HttpRunnableSpec {
     }.provideSomeShared[TestEnvironment](
       DynamicServer.live,
       severTestLayer,
-      Client.default,
+      testClientLayer,
       Scope.default,
     ) @@ timeout(30 seconds) @@ withLiveClock
 

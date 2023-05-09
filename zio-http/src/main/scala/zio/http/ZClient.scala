@@ -438,6 +438,9 @@ object ZClient {
     def withDynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): Config =
       self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
 
+    def withDisabledConnectionPool: Config =
+      self.copy(connectionPool = ConnectionPoolConfig.Disabled)
+
     /**
      * Configure the client to use `maxHeaderSize` value when encode/decode
      * headers.
