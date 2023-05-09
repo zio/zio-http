@@ -178,7 +178,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } @@ flaky, // TODO: investigate and fix
+      } @@ timeout(10.seconds) @@ flaky, // TODO: investigate and fix
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
