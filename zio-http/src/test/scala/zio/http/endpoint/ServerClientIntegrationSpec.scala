@@ -176,7 +176,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } //@@ nonFlaky(1000),
+      }, // @@ nonFlaky(1000),
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
@@ -185,5 +185,5 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       NettyDriver.live,
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
-    ) @@ withLiveClock @@ sequential @@ diagnose(1.minute) //@@ timeout(300.seconds)
+    ) @@ withLiveClock @@ sequential @@ diagnose(1.minute) // @@ timeout(300.seconds)
 }
