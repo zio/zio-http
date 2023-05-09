@@ -176,7 +176,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } @@ nonFlaky(1000),
+      } //@@ nonFlaky(1000),
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
