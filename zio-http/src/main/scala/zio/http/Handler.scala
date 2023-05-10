@@ -214,7 +214,10 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     url: URL,
     headers: Headers,
   )(implicit ev1: Err <:< Throwable, ev2: WebSocketChannel <:< In): ZIO[R with Client with Scope, Throwable, Response] =
-    Client.socket(url = url, headers = headers, app = self.asInstanceOf[SocketApp[R]])
+    ZIO.serviceWithZIO[Client] { client =>
+      if (url.isAbsolute) client.socket(url = url, headers = headers, app = self.asInstanceOf[SocketApp[R]])
+      else client.socket(url = client.url ++ url, headers = headers, app = self.asInstanceOf[SocketApp[R]])
+    }
 
   /**
    * Transforms the input of the handler before passing it on to the current
