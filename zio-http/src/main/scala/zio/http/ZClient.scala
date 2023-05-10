@@ -382,7 +382,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
   )(implicit trace: Trace): ZIO[Env, Err, Out]
 
   def socket[Env1 <: Env](
-    version: Version,
+    version: Version = Version.Http_1_1,
     url: URL,
     headers: Headers,
     app: SocketApp[Env1],
