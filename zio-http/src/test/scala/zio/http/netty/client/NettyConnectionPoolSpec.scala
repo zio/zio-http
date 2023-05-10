@@ -30,8 +30,8 @@ import zio.http.netty.NettyConfig
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
   private val app = Http.collectZIO[Request] {
-    case req @ Method.POST -> !! / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
-    case Method.GET -> !! / "slow"             => ZIO.sleep(1.hour).as(Response.text("done"))
+    case req @ Method.POST -> Root / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
+    case Method.GET -> Root / "slow"             => ZIO.sleep(1.hour).as(Response.text("done"))
     case req                                   =>
       req.body.asString.map(Response.text(_))
   }
@@ -87,7 +87,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                 app.deploy.body
                   .run(
                     method = Method.POST,
-                    path = !! / "streaming",
+                    path = Root / "streaming",
                     body = Body.fromString(idx.toString),
                     headers = extraHeaders,
                   )
@@ -105,7 +105,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
               app.deploy.body
                 .run(
                   method = Method.POST,
-                  path = !! / "streaming",
+                  path = Root / "streaming",
                   body = Body.fromStream(stream),
                   headers = extraHeaders,
                 )
@@ -120,7 +120,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                 app.deploy.body
                   .run(
                     method = Method.GET,
-                    path = !! / "slow",
+                    path = Root / "slow",
                     body = Body.fromString(idx.toString),
                     headers = extraHeaders,
                   )
@@ -139,7 +139,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                 app.deploy.body
                   .run(
                     method = Method.GET,
-                    path = !! / "slow",
+                    path = Root / "slow",
                     body = Body.fromString(idx.toString),
                     headers = extraHeaders,
                   )

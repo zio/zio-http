@@ -8,7 +8,7 @@ object MultipartFormData extends ZIOAppDefault {
 
   private val app: App[Any] =
     Http.collectZIO[Request] {
-      case req @ Method.POST -> !! / "upload"
+      case req @ Method.POST -> Root / "upload"
           if req.header(Header.ContentType).exists(_.mediaType == MediaType.multipart.`form-data`) =>
         for {
           form     <- req.body.asMultipartForm

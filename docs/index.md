@@ -33,7 +33,7 @@ object HelloWorld extends ZIOAppDefault {
 
   val app: App[Any] = 
     Http.collect[Request] {
-      case Method.GET -> !! / "text" => Response.text("Hello World!")
+      case Method.GET -> Root / "text" => Response.text("Hello World!")
     }
 
   override val run =

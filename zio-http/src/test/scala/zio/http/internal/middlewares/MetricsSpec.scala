@@ -29,9 +29,9 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     test("http_requests_total & http_errors_total") {
       val app = Http
         .collectHandler[Request] {
-          case Method.GET -> !! / "ok"     => Handler.ok
-          case Method.GET -> !! / "error"  => Handler.error(HttpError.InternalServerError())
-          case Method.GET -> !! / "defect" => Handler.die(new Throwable("boom"))
+          case Method.GET -> Root / "ok"     => Handler.ok
+          case Method.GET -> Root / "error"  => Handler.error(HttpError.InternalServerError())
+          case Method.GET -> Root / "defect" => Handler.die(new Throwable("boom"))
         } @@ metrics(
         extraLabels = Set(MetricLabel("test", "http_requests_total & http_errors_total")),
       )
@@ -43,10 +43,10 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       val totalNotFound = total.tagged("path", "/not-found").tagged("method", "GET").tagged("status", "404")
 
       for {
-        _                  <- app.runZIO(Request.get(url = URL(!! / "ok")))
-        _                  <- app.runZIO(Request.get(url = URL(!! / "error")))
-        _                  <- app.runZIO(Request.get(url = URL(!! / "defect"))).catchAllDefect(_ => ZIO.unit)
-        _                  <- app.runZIO(Request.get(url = URL(!! / "not-found"))).ignore.catchAllDefect(_ => ZIO.unit)
+        _                  <- app.runZIO(Request.get(url = URL(Root / "ok")))
+        _                  <- app.runZIO(Request.get(url = URL(Root / "error")))
+        _                  <- app.runZIO(Request.get(url = URL(Root / "defect"))).catchAllDefect(_ => ZIO.unit)
+        _                  <- app.runZIO(Request.get(url = URL(Root / "not-found"))).ignore.catchAllDefect(_ => ZIO.unit)
         totalOkCount       <- totalOk.value
         totalErrorsCount   <- totalErrors.value
         totalDefectsCount  <- totalDefects.value
@@ -58,7 +58,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     },
     test("http_requests_total with path label mapper") {
       val app = Handler.ok.toHttp @@ metrics(
-        pathLabelMapper = { case Method.GET -> !! / "user" / _ =>
+        pathLabelMapper = { case Method.GET -> Root / "user" / _ =>
           "/user/:id"
         },
         extraLabels = Set(MetricLabel("test", "http_requests_total with path label mapper")),
@@ -68,8 +68,8 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       val totalOk = total.tagged("path", "/user/:id").tagged("method", "GET").tagged("status", "200")
 
       for {
-        _            <- app.runZIO(Request.get(url = URL(!! / "user" / "1")))
-        _            <- app.runZIO(Request.get(url = URL(!! / "user" / "2")))
+        _            <- app.runZIO(Request.get(url = URL(Root / "user" / "1")))
+        _            <- app.runZIO(Request.get(url = URL(Root / "user" / "2")))
         totalOkCount <- totalOk.value
       } yield assertTrue(totalOkCount == MetricState.Counter(2))
     },
@@ -88,7 +88,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         Handler.ok.toHttp @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
 
       for {
-        _        <- app.runZIO(Request.get(url = URL(!! / "ok")))
+        _        <- app.runZIO(Request.get(url = URL(Root / "ok")))
         observed <- histogram.value.map(_.buckets.exists { case (_, count) => count > 0 })
       } yield assertTrue(observed)
     },
@@ -106,7 +106,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
             Handler.fromZIO(promise.succeed(())) *> Handler.ok.delay(10.seconds)
           } @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
         before <- gauge.value
-        _      <- app.runZIO(Request.get(url = URL(!! / "slow"))).fork
+        _      <- app.runZIO(Request.get(url = URL(Root / "slow"))).fork
         _      <- promise.await
         during <- gauge.value
         _      <- TestClock.adjust(11.seconds)

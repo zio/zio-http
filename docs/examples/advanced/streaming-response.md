@@ -22,10 +22,10 @@ object StreamingResponse extends ZIOAppDefault {
   def app: HttpApp[Any, Nothing] = Http.collect[Request] {
 
     // Simple (non-stream) based route
-    case Method.GET -> !! / "health" => Response.ok
+    case Method.GET -> Root / "health" => Response.ok
 
     // ZStream powered response
-    case Method.GET -> !! / "stream" =>
+    case Method.GET -> Root / "stream" =>
       http.Response(
         status = Status.Ok,
         headers = Headers(Header.ContentLength(message.length.toLong)),

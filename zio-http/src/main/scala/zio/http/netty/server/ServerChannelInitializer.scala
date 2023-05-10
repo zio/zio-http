@@ -39,7 +39,7 @@ private[zio] final case class ServerChannelInitializer(
 ) extends ChannelInitializer[Channel] {
 
   override def initChannel(channel: Channel): Unit = {
-    // !! IMPORTANT !!
+    // Root IMPORTANT Root
     // Order of handlers are critical to make this work
     val pipeline = channel.pipeline()
     // SSL
