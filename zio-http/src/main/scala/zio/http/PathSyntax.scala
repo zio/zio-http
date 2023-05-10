@@ -21,7 +21,7 @@ import zio.http.Path.Segment
 private[zio] trait PathSyntax { module =>
   val Root: Path = Path.root
 
-  val Empty : Path = Path.empty
+  val Empty: Path = Path.empty
 
   object /: {
     def unapply(path: Path): Option[(String, Path)] =

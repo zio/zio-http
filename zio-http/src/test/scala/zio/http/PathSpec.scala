@@ -107,26 +107,26 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
         // Internal representation of a path
         val paths = Gen.fromIterable(
           Seq(
-            "/"       -> Root                  -> Vector(Segment.root),
-            "/a"      -> Root / a              -> Vector(Segment.root, Segment(a)),
-            "/a/b"    -> Root / a / b          -> Vector(Segment.root, Segment(a), Segment(b)),
-            "/a/b/c"  -> Root / a / b / c      -> Vector(Segment.root, Segment(a), Segment(b), Segment(c)),
-            "a/b/c"   -> Empty / a / b / c        -> Vector(Segment(a), Segment(b), Segment(c)),
-            "a/b"     -> Empty / a / b            -> Vector(Segment(a), Segment(b)),
-            "a"       -> Empty / a                -> Vector(Segment(a)),
-            ""        -> Empty                    -> Vector(),
-            "a/"      -> Empty / a / ""           -> Vector(Segment(a), Segment.root),
-            "a/b/"    -> Empty / a / b / ""       -> Vector(Segment(a), Segment(b), Segment.root),
-            "a/b/c/"  -> Empty / a / b / c / ""   -> Vector(Segment(a), Segment(b), Segment(c), Segment.root),
-            "/a/b/c/" -> Root / a / b / c / "" -> Vector(
+            "/"       -> Root                   -> Vector(Segment.root),
+            "/a"      -> Root / a               -> Vector(Segment.root, Segment(a)),
+            "/a/b"    -> Root / a / b           -> Vector(Segment.root, Segment(a), Segment(b)),
+            "/a/b/c"  -> Root / a / b / c       -> Vector(Segment.root, Segment(a), Segment(b), Segment(c)),
+            "a/b/c"   -> Empty / a / b / c      -> Vector(Segment(a), Segment(b), Segment(c)),
+            "a/b"     -> Empty / a / b          -> Vector(Segment(a), Segment(b)),
+            "a"       -> Empty / a              -> Vector(Segment(a)),
+            ""        -> Empty                  -> Vector(),
+            "a/"      -> Empty / a / ""         -> Vector(Segment(a), Segment.root),
+            "a/b/"    -> Empty / a / b / ""     -> Vector(Segment(a), Segment(b), Segment.root),
+            "a/b/c/"  -> Empty / a / b / c / "" -> Vector(Segment(a), Segment(b), Segment(c), Segment.root),
+            "/a/b/c/" -> Root / a / b / c / ""  -> Vector(
               Segment.root,
               Segment(a),
               Segment(b),
               Segment(c),
               Segment.root,
             ),
-            "/a/b/"   -> Root / a / b / ""     -> Vector(Segment.root, Segment(a), Segment(b), Segment.root),
-            "/a/"     -> Root / a / ""         -> Vector(Segment.root, Segment(a), Segment.root),
+            "/a/b/"   -> Root / a / b / ""      -> Vector(Segment.root, Segment(a), Segment(b), Segment.root),
+            "/a/"     -> Root / a / ""          -> Vector(Segment.root, Segment(a), Segment.root),
           ),
         )
         checkAll(paths) { case ((encoded, path), segments) =>
@@ -158,8 +158,8 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
           Seq(
             Root / ""                    -> Root,
             Root / "" / a / "" / "" / "" -> Root / a / "",
-            Empty / ""                      -> Root,
-            Empty / "" / a / ""             -> Root / a / "",
+            Empty / ""                   -> Root,
+            Empty / "" / a / ""          -> Root / a / "",
           ),
         )
         checkAll(urls) { case (actual, expected) => assertTrue(actual == expected) }
@@ -171,9 +171,9 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
           Seq(
             "" /: Root                                  -> Root,
             a /: Root                                   -> Empty / a / "",
-            "" /: a /: Empty                               -> Root / a,
-            "" /: a /: b /: Empty                          -> Root / a / b,
-            "" /: a /: b /: c /: Empty                     -> Root / a / b / c,
+            "" /: a /: Empty                            -> Root / a,
+            "" /: a /: b /: Empty                       -> Root / a / b,
+            "" /: a /: b /: c /: Empty                  -> Root / a / b / c,
             "" /: a /: b /: c /: Root                   -> Root / a / b / c / "",
             "" /: a /: "" /: b /: "" /: Root            -> Root / a / b / "",
             a /: "" /: "" /: b /: "" /: "" /: c /: Root -> Empty / a / b / c / "",
