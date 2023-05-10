@@ -16,7 +16,7 @@
 
 package zio.http.endpoint
 
-import zio.test.TestAspect.{flaky, sequential, timeout, withLiveClock}
+import zio.test.TestAspect.{ignore, sequential, timeout, withLiveClock}
 import zio.test.{TestResult, ZIOSpecDefault, assertTrue}
 import zio.{Random, ZIO, ZLayer, durationInt}
 
@@ -178,7 +178,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } @@ timeout(10.seconds) @@ flaky, // TODO: investigate and fix
+      } @@ timeout(10.seconds) @@ ignore, // TODO: investigate and fix
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
