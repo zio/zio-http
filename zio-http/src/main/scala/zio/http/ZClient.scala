@@ -553,9 +553,18 @@ object ZClient {
     )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] =
       for {
         env <- ZIO.environment[Env1]
+        webSocketUrl = url.withScheme(
+          url.scheme match {
+            case Some(Scheme.HTTP)  => Scheme.WS
+            case Some(Scheme.HTTPS) => Scheme.WSS
+            case Some(Scheme.WS)    => Scheme.WS
+            case Some(Scheme.WSS)   => Scheme.WSS
+            case None               => Scheme.WS
+          },
+        )
         res <- requestAsync(
           Request
-            .get(url)
+            .get(webSocketUrl)
             .copy(
               version = version,
               headers = self.headers ++ headers,
