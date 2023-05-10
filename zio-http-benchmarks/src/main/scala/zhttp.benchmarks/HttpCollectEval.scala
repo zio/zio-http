@@ -18,7 +18,7 @@ class HttpCollectEval {
   private val httpTotal = Handler
     .fromFunction[Request] {
       case _ -> Root / "text" => 1
-      case _                => 0 // representing "not found"
+      case _                  => 0 // representing "not found"
     }
 
   private val base: PartialFunction[Int, Int] = { case 0 => 1 }

@@ -32,7 +32,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
   private val app = Http.collectZIO[Request] {
     case req @ Method.POST -> Root / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
     case Method.GET -> Root / "slow"             => ZIO.sleep(1.hour).as(Response.text("done"))
-    case req                                   =>
+    case req                                     =>
       req.body.asString.map(Response.text(_))
   }
 
