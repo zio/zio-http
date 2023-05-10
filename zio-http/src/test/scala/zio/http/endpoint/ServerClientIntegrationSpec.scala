@@ -74,6 +74,33 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       result <- outF(out)
     } yield result
 
+  def testEndpointError[R, In, Err, Out](
+    endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
+    route: Routes[R, Err, EndpointMiddleware.None.type],
+    in: In,
+    err: Err,
+  ): ZIO[Client with R with Server, Out, TestResult] =
+    testEndpointErrorZIO(endpoint, route, in, errorF = { (value: Err) => assertTrue(err == value) })
+
+  def testEndpointErrorZIO[R, In, Err, Out](
+    endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
+    route: Routes[R, Err, EndpointMiddleware.None.type],
+    in: In,
+    errorF: Err => ZIO[Any, Nothing, TestResult],
+  ): ZIO[Client with R with Server, Out, TestResult] =
+    for {
+      port <- Server.install(route.toApp)
+      executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
+      out    <- ZIO
+        .service[EndpointExecutor[Unit]]
+        .flatMap { executor =>
+          executor.apply(endpoint.apply(in))
+        }
+        .provideSome[Client](executorLayer)
+        .flip
+      result <- errorF(out)
+    } yield result
+
   def spec =
     suite("ServerClientIntegrationSpec")(
       test("simple get") {
@@ -156,6 +183,22 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           "name: name, value: 10, post: Post(1,title,body,111)",
         )
       } @@ timeout(10.seconds) @@ flaky, // TODO: investigate and fix,
+      test("error returned") {
+        val api = Endpoint
+          .post(literal("test"))
+          .outError[String](Status.Custom(999))
+
+        val route = api.implement { _ =>
+          ZIO.fail("42")
+        }
+
+        testEndpointError(
+          api,
+          route,
+          (),
+          "42",
+        )
+      },
       test("multi-part input with stream field") {
         val api = Endpoint
           .post(literal("test"))
