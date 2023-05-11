@@ -106,7 +106,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           assertTrue(
             firstResponse.status == Status.Ok,
             // since response has not chunked transfer encoding header we can't guarantee that
-            // received chunks will be the same as it was transferred. So wee need to check the whole body
+            // received chunks will be the same as it was transferred. So we need to check the whole body
             firstResponseBody.reduce(_ + _) == message,
             secondResponse.status == Status.Ok,
             secondResponseBody == Chunk(message),
