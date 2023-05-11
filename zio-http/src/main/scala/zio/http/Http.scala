@@ -17,7 +17,7 @@
 package zio.http
 
 import java.io.{File, FileNotFoundException}
-import java.nio.file.Paths
+import java.nio.file.{AccessDeniedException, Paths}
 import java.util.zip.ZipFile
 
 import zio._
@@ -26,7 +26,6 @@ import zio.stream.ZStream
 
 import zio.http.Header.HeaderType
 import zio.http.Http.{Empty, FailedErrorHandler, Route}
-import zio.http._
 
 sealed trait Http[-R, +Err, -In, +Out] { self =>
 
@@ -529,27 +528,30 @@ object Http {
   ): Http[R, Throwable, Any, Response] =
     Http.fromOptionalHandlerZIO { (_: Any) =>
       getFile.mapError(Some(_)).flatMap { file =>
-        ZIO.attempt {
-          if (file.isFile) {
-            val length   = Headers(Header.ContentLength(file.length()))
-            val response = http.Response(headers = length, body = Body.fromFile(file))
-            val pathName = file.toPath.toString
+        if (file.isFile && !file.canRead) ZIO.fail(Some(new AccessDeniedException(file.getAbsolutePath)))
+        else {
+          ZIO.attempt {
+            if (file.isFile) {
+              val length   = Headers(Header.ContentLength(file.length()))
+              val response = http.Response(headers = length, body = Body.fromFile(file))
+              val pathName = file.toPath.toString
 
-            // Set MIME type in the response headers. This is only relevant in
-            // case of RandomAccessFile transfers as browsers use the MIME type,
-            // not the file extension, to determine how to process a URL.
-            // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
-            Some(
-              Handler.succeed(
-                determineMediaType(pathName).fold(response)(mediaType =>
-                  response.withHeader(Header.ContentType(mediaType)),
+              // Set MIME type in the response headers. This is only relevant in
+              // case of RandomAccessFile transfers as browsers use the MIME type,
+              // not the file extension, to determine how to process a URL.
+              // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+              Some(
+                Handler.succeed(
+                  determineMediaType(pathName).fold(response)(mediaType =>
+                    response.withHeader(Header.ContentType(mediaType)),
+                  ),
                 ),
-              ),
-            )
-          } else None
-        }.mapError(Some(_)).flatMap {
-          case Some(value) => ZIO.succeed(value)
-          case None        => ZIO.fail(None)
+              )
+            } else None
+          }.mapError(Some(_)).flatMap {
+            case Some(value) => ZIO.succeed(value)
+            case None        => ZIO.fail(None)
+          }
         }
       }
     }
