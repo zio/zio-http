@@ -43,7 +43,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         req.ignoreBody.as(Response.ok)
       case req @ Method.POST -> Root / "streaming-echo" =>
         ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
-      case req @ Method.POST -> !! / "form"           =>
+      case req @ Method.POST -> Root / "form"           =>
         req.body.asMultipartFormStream.flatMap { form =>
           form.collectAll.flatMap { inMemoryForm =>
             Body.fromMultipartFormUUID(inMemoryForm).map { body =>
