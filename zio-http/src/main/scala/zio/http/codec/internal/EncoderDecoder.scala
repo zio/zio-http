@@ -425,7 +425,7 @@ private[codec] object EncoderDecoder                   {
       }
 
     private def encodePath(inputs: Array[Any]): Path = {
-      var path = Path.empty
+      var path = Path.root
 
       var i = 0
       while (i < inputs.length) {
