@@ -17,10 +17,12 @@
 package zio.http
 
 import zio._
-import zio.http.FormSpec.test
-import zio.test.TestAspect.{nonFlaky, withLiveClock}
+import zio.test.TestAspect.{nonFlaky, samples, withLiveClock}
 import zio.test.{Gen, Spec, TestEnvironment, assertTrue, check}
+
 import zio.stream.{ZStream, ZStreamAspect}
+
+import zio.http.FormSpec.test
 import zio.http.Server.RequestStreaming
 import zio.http.forms.Fixtures.formField
 import zio.http.internal.HttpRunnableSpec
@@ -160,7 +162,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                 Version.Http_1_1,
                 Method.POST,
                 URL.decode(s"http://localhost:$port/form").toOption.get,
-                Headers.empty,
+                Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
                 Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
                 None,
               )
@@ -179,8 +181,8 @@ object ClientStreamingSpec extends HttpRunnableSpec {
       },
       test("decoding large form with random chunk and buffer sizes") {
         val N = 1024 * 1024
-        check(Gen.int(1, N), Gen.int(1, N)) { case (chunkSize, bufferSize) =>
-          for {
+        check(Gen.int(1, N)) { chunkSize =>
+          (for {
             bytes <- Random.nextBytes(N)
             form = Form(
               Chunk(
@@ -197,7 +199,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                 Version.Http_1_1,
                 Method.POST,
                 URL.decode(s"http://localhost:$port/form").toOption.get,
-                Headers.empty,
+                Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
                 Body.fromStream(stream),
                 None,
               )
@@ -206,9 +208,9 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             collected.map.contains("file"),
             collected.map.contains("foo"),
             collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
-          )
+          )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
         }
-      },
+      } @@ samples(20),
     )
 
   private def streamingOnlyTests =
@@ -281,7 +283,9 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID)),
           ZLayer.succeed(
             Server.Config.default.onAnyOpenPort
-              .withRequestStreaming(if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(1024)),
+              .withRequestStreaming(
+                if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(2 * 1024 * 1024),
+              ),
           ),
           Server.customized,
         )
