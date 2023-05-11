@@ -73,7 +73,7 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
           .foldCauseZIO(
             cause2 =>
               if (HttpCodecError.isHttpCodecError(cause2)) dispatch(request, alternatives, index + 1, cause ++ cause2)
-              else ZIO.refailCause(cause),
+              else ZIO.refailCause(cause2),
             ZIO.succeed(_),
           )
       }
