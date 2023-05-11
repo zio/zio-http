@@ -45,11 +45,11 @@ For both of our example endpoints, our core business logic gets buried under boi
         .timeout(2.seconds)
         .retryN(5)
 ```
-Imagine repeating this for all our endpointsRoot!
+Imagine repeating this for all our endpoints!!!
 
 So there are two problems with this approach
 * We are dangerously coupling our business logic with cross-cutting concerns (like applying timeouts)
-* Also, addressing these concerns will require updating code for every single route in the system. For 100 routes we will need to repeat 100 timeoutsRoot!
+* Also, addressing these concerns will require updating code for every single route in the system. For 100 routes we will need to repeat 100 timeouts!!!
 * For example, any change related to a concern like the logging mechanism from logback to log4j2 may cause changing signature of `log(..)` function in 100 places.
 * On the other hand, this also makes testing core business logic more cumbersome.
 
