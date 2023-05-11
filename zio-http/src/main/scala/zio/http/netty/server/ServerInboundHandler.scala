@@ -21,6 +21,7 @@ import java.net.InetSocketAddress
 import java.util.concurrent.atomic.LongAdder
 
 import scala.annotation.tailrec
+import scala.util.control.NonFatal
 
 import zio._
 
@@ -157,19 +158,23 @@ private[zio] final case class ServerInboundHandler(
     time: ServerTime,
   ): Boolean = {
 
+    def fastEncode(response: Response, bytes: Array[Byte]) = {
+      NettyResponseEncoder.fastEncode(response, bytes) match {
+        case jResponse: FullHttpResponse if response.frozen =>
+          val djResponse = jResponse.retainedDuplicate()
+          setServerTime(time, response, djResponse)
+          ctx.writeAndFlush(djResponse, ctx.voidPromise())
+          true
+        case _                                              => false
+      }
+    }
+
     response.body match {
       case body: Body.UnsafeBytes =>
-        NettyResponseEncoder.fastEncode(response, body.unsafeAsArray) match {
-          case jResponse: FullHttpResponse if response.frozen =>
-            val djResponse = jResponse.retainedDuplicate()
-            setServerTime(time, response, djResponse)
-            ctx.writeAndFlush(djResponse, ctx.voidPromise())
-            true
-          case jResponse if response.frozen                   =>
-            throw new IllegalArgumentException(
-              s"The ${jResponse.getClass.getName} was marked as 'frozen'.  However, zio-http only supports frozen responses when the response is of type 'FullHttpResponse'.",
-            )
-          case _                                              => false
+        try {
+          fastEncode(response, body.unsafeAsArray)
+        } catch {
+          case NonFatal(e) => fastEncode(defaultErrorResponse(null, Some(e)).freeze, Array.emptyByteArray)
         }
       case _                      => false
     }
@@ -345,8 +350,18 @@ private[zio] final case class ServerInboundHandler(
         _        <-
           if (response ne null) {
             for {
-              done <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-              _    <- attemptFullWrite(ctx, response, jReq, time).unless(done)
+              done <- ZIO.attempt(attemptFastWrite(ctx, response, time)).catchSomeCause { case cause =>
+                ZIO.attempt(
+                  attemptFastWrite(ctx, defaultErrorResponse(null, Some(cause.squash)).freeze, time),
+                )
+              }
+              _    <- attemptFullWrite(ctx, response, jReq, time).catchSomeCause { case cause =>
+                ZIO.attempt(
+                  attemptFastWrite(ctx, defaultErrorResponse(null, Some(cause.squash)).freeze, time),
+                )
+
+              }
+                .unless(done)
             } yield ()
           } else {
             ZIO.attempt(
