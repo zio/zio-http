@@ -77,8 +77,10 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * To end the route codec and begin with query codec, and re-interprets as
    * PathQueryCodec
+   *
+   * GET /ab/c :? paramStr("") &
    */
-  final def :?[Value2](
+  final def ^?[Value2](
     that: QueryCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
@@ -94,9 +96,9 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     that: QueryCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
-    ev: HttpCodecType.PathQuery with HttpCodecType.Query <:< AtomTypes,
-  ): HttpCodec[AtomTypes, combiner.Out] =
-    (self ++ that).asInstanceOf[HttpCodec[AtomTypes, combiner.Out]]
+    ev: HttpCodecType.Query <:< AtomTypes,
+  ): HttpCodec[HttpCodecType.Query, combiner.Out] =
+    self.asQuery ++ that
 
   /**
    * Combines two route codecs into another route codec.

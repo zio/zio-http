@@ -1,28 +1,28 @@
 package example
 
 import zio.http.codec.HttpCodec._
-import zio.http.codec._
+import zio.http.codec.HttpCodecType.PathQuery
+import zio.http.codec.{HttpCodec, HttpCodecType, PathCodec, QueryCodec}
+import zio.http.endpoint.Endpoint
 
 object HttpCodecExample {
 
-  val pathOnly: PathCodec[Unit]     = "organisation" / "accounts"
-  val queryOnly: QueryCodec[String] = paramStr("name")
+  val pathOnly: PathCodec[(String, String)] =
+    "organisation" / string("organisationId") / "accounts" / string("accountId")
 
-  val pathWithQuery: HttpCodec[HttpCodecType.PathQuery, String] =
-    "organisation" / "accounts" :? paramStr("accountId")
+  val queryOnly: HttpCodec[HttpCodecType.Query, (String, Int)] =
+    paramStr("place") & paramInt("age")
 
-  // This doesn't compile as expected :-)
-  //   val s =
-  //     "organisation" / "accounts" & paramStr("accountId")
+  val pathWithQuery: HttpCodec[PathQuery, (String, String, String, Int)] =
+    "organisation" / string("organisationId") / "accounts" / string("accountId") ^?
+      paramStr("place") & paramInt("age")
 
-  val pathWithMultipleQuery: HttpCodec[HttpCodecType.PathQuery, (String, String, String, String, Int)] =
-    "organisation" / "accounts" / string("accountId") :?
-      paramStr("foo") &
-      paramStr("bar") &
-      paramStr("baz") &
-      paramInt("in")
+  val reusePathQuery: HttpCodec[PathQuery, (String, String, String, Int)] =
+    pathOnly ^? queryOnly
 
-  val multipleQueryOnly: HttpCodec[HttpCodecType.Query, (String, Int, String)] =
-    paramStr("foo") & paramInt("bar") & paramStr("hmm")
+  // Note that the following  doesn't compile as expected
+  //   val s =  "organisation" / "accounts" & paramStr("accountId")
 
+  Endpoint.get(pathWithQuery)
+  Endpoint.get(pathOnly)
 }

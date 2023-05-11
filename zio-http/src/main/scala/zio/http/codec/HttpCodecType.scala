@@ -22,7 +22,8 @@ object HttpCodecType {
   type RequestType <: Path with Content with Query with Header with Method with PathQuery
   type ResponseType <: Content with Header with Status
 
-  type PathQuery <: HttpCodecType
+  type PathQuery = HttpCodecType.Path with HttpCodecType.Query
+
   type Path <: HttpCodecType
   type Content <: HttpCodecType
   type Query <: HttpCodecType

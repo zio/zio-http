@@ -46,7 +46,9 @@ trait TestCliEndpoints {
     Endpoint
       .get(
         "users" / int("userId") ?? Doc.p("The unique identifier of the user") /
-          "posts" / int("postId") ?? Doc.p("The unique identifier of the post") :? paramStr("The user's name"),
+          "posts" / int("postId") ?? Doc.p("The unique identifier of the post") ^? paramStr("user-name") ?? Doc.p(
+            "The user's name",
+          ),
       )
       .out[List[Post]] ?? Doc.p("Get a user's posts by userId and postId")
 
