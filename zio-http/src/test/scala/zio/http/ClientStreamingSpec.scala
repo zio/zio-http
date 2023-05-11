@@ -17,12 +17,12 @@
 package zio.http
 
 import zio._
+import zio.http.FormSpec.test
 import zio.test.TestAspect.{nonFlaky, withLiveClock}
-import zio.test.{Spec, TestEnvironment, assertTrue}
-
+import zio.test.{Gen, Spec, TestEnvironment, assertTrue, check}
 import zio.stream.{ZStream, ZStreamAspect}
-
 import zio.http.Server.RequestStreaming
+import zio.http.forms.Fixtures.formField
 import zio.http.internal.HttpRunnableSpec
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
@@ -35,14 +35,20 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         ZIO.succeed(Response.text("simple response"))
       case Method.GET -> !! / "streaming-get"         =>
         ZIO.succeed(
-          Response(body =
-            Body.fromStream(ZStream.fromIterable("streaming response".getBytes) @@ ZStreamAspect.rechunk(3)),
-          ),
+          Response(body = Body.fromStream(ZStream.fromIterable("streaming response".getBytes).rechunk(3))),
         )
       case req @ Method.POST -> !! / "simple-post"    =>
         req.ignoreBody.as(Response.ok)
       case req @ Method.POST -> !! / "streaming-echo" =>
         ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
+      case req @ Method.POST -> !! / "form"           =>
+        req.body.asMultipartFormStream.flatMap { form =>
+          form.collectAll.flatMap { inMemoryForm =>
+            Body.fromMultipartFormUUID(inMemoryForm).map { body =>
+              Response(body = body)
+            }
+          }
+        }
     }
     .withDefaultErrorResponse
 
@@ -142,6 +148,66 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           response.status == Status.Ok,
           body == expectedBody,
         )
+      },
+      test("decoding random form") {
+        check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
+          for {
+            port     <- server(streamingServer)
+            client   <- ZIO.service[Client]
+            boundary <- Boundary.randomUUID
+            response <- client
+              .request(
+                Version.Http_1_1,
+                Method.POST,
+                URL.decode(s"http://localhost:$port/form").toOption.get,
+                Headers.empty,
+                Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
+                None,
+              )
+            form     <- response.body.asMultipartForm
+
+            normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
+              field.asChunk.map(field.name -> _)
+            }
+            normalizedOut <- ZIO.foreach(form.formData) { field =>
+              field.asChunk.map(field.name -> _)
+            }
+          } yield assertTrue(
+            normalizedIn == normalizedOut,
+          )
+        }
+      },
+      test("decoding large form with random chunk and buffer sizes") {
+        val N = 1024 * 1024
+        check(Gen.int(1, N), Gen.int(1, N)) { case (chunkSize, bufferSize) =>
+          for {
+            bytes <- Random.nextBytes(N)
+            form = Form(
+              Chunk(
+                FormField.Simple("foo", "bar"),
+                FormField.Binary("file", bytes, MediaType.image.png),
+              ),
+            )
+            boundary <- Boundary.randomUUID
+            stream = form.multipartBytes(boundary).rechunk(chunkSize)
+            port      <- server(streamingServer)
+            client    <- ZIO.service[Client]
+            response  <- client
+              .request(
+                Version.Http_1_1,
+                Method.POST,
+                URL.decode(s"http://localhost:$port/form").toOption.get,
+                Headers.empty,
+                Body.fromStream(stream),
+                None,
+              )
+            collected <- response.body.asMultipartForm
+          } yield assertTrue(
+            collected.map.contains("file"),
+            collected.map.contains("foo"),
+            collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
+          )
+        }
       },
     )
 
