@@ -23,7 +23,7 @@ import zio.{Cause, Exit, Ref, Unsafe, ZIO}
 object HttpSpec extends ZIOSpecDefault with ExitAssertion {
   implicit val allowUnsafe: Unsafe = Unsafe.unsafe
 
-  def spec: Spec[Any, Nothing] =
+  def spec: Spec[Any, Any] =
     suite("Http")(
       suite("collectExit")(
         test("should succeed") {
@@ -118,6 +118,17 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           val actual = a.runZIO(0)
           assertZIO(actual.exit)(fails(isNone))
         },
+        test("should be lazy") {
+          var mutable = 0
+          val http    = Http.collect[Request] { in =>
+            mutable += 1
+            Response.ok
+          } @@ RequestHandlerMiddlewares.basicAuth(_ => false)
+          for {
+            result       <- http.runZIO(Request.get(URL(!! / "test")))
+            finalMutable <- ZIO.attempt(mutable)
+          } yield assertTrue(result.status == Status.Unauthorized, finalMutable == 0)
+        },
       ),
       suite("collectZIO")(
         test("should be empty") {
@@ -135,6 +146,19 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           val b      = Handler.succeed("B").toHttp
           val actual = (a ++ b).runZIOOrNull(2)
           assert(actual)(isSuccess(equalTo("B")))
+        },
+        test("should be lazy") {
+          var mutable = 0
+          val http    = Http.collectZIO[Request] { in =>
+            ZIO.attempt {
+              mutable += 1
+              Response.ok
+            }
+          } @@ RequestHandlerMiddlewares.basicAuth(_ => false)
+          for {
+            result       <- http.runZIO(Request.get(URL(!! / "test")))
+            finalMutable <- ZIO.attempt(mutable)
+          } yield assertTrue(result.status == Status.Unauthorized, finalMutable == 0)
         },
       ),
       suite("collectHttp")(

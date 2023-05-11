@@ -491,7 +491,7 @@ object Http {
   def collect[In]: Collect[In] = new Collect[In](())
 
   /**
-   * Create an HTTP app from a partial function from A to HExit[R,E,B]
+   * Create an HTTP app from a partial function from A to Exit[R,E,B]
    */
   def collectExit[In]: CollectExit[In] = new CollectExit[In](())
 
@@ -608,7 +608,10 @@ object Http {
 
   final class Collect[In](val self: Unit) extends AnyVal {
     def apply[Out](pf: PartialFunction[In, Out]): Http[Any, Nothing, In, Out] =
-      Http.collectHandler[In].apply(pf.andThen(Handler.succeed(_)))
+      Http.collectZIO[In] {
+        case in if pf.isDefinedAt(in) =>
+          ZIO.succeed(pf(in))
+      }
   }
 
   final class CollectHandler[In](val self: Unit) extends AnyVal {
