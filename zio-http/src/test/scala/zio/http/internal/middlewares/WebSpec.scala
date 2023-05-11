@@ -25,7 +25,7 @@ import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 
 object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
-  private val app  = Http.collectZIO[Request] { case Method.GET -> !! / "health" =>
+  private val app  = Http.collectZIO[Request] { case Method.GET -> Root / "health" =>
     ZIO.succeed(Response.ok).delay(1 second)
   }
   private val midA = HttpAppMiddleware.addHeader("X-Custom", "A")
@@ -343,7 +343,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
 
   private def runApp[R, E](app: HttpApp[R, E]): ZIO[R, Option[E], Response] = {
     for {
-      fib <- app.runZIO { Request.get(url = URL(!! / "health")) }.fork
+      fib <- app.runZIO { Request.get(url = URL(Root / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)
       res <- fib.join
     } yield res

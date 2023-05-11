@@ -375,7 +375,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     onUnhandled: ZIO[R1, Err1, Any],
   )(implicit trace: Trace): Http[R1, Err1, In, Out] =
     self match {
-      case Http.Empty(errorHandler)           => Http.fromHttpZIO[In] { _ => onUnhandled.as(Empty(errorHandler)) }
+      case Http.Empty(errorHandler)           => Http.fromHttpZIO[In] { _ => onUnhandled.as(Http.Empty(errorHandler)) }
       case Http.Static(handler, errorHandler) => Http.Static(handler.tapAllZIO(onFailure, onSuccess), errorHandler)
       case route: Route[R, Err, In, Out]      =>
         new Route[R1, Err1, In, Out] {
@@ -433,7 +433,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   final def when[In1 <: In](f: In1 => Boolean)(implicit trace: Trace): Http[R, Err, In1, Out] =
     Http.fromHttp[In1] { in =>
       try {
-        if (f(in)) self else Empty(self.errorHandler)
+        if (f(in)) self else Http.Empty(self.errorHandler)
       } catch {
         case failure: Throwable => Http.fromHandler(Handler.die(failure)).withErrorHandler(self.errorHandler)
       }
@@ -445,7 +445,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     Http.fromHttpZIO { (in: In1) =>
       f(in).map {
         case true  => self
-        case false => Empty(self.errorHandler)
+        case false => Http.Empty(self.errorHandler)
       }
     }
 
@@ -607,11 +607,12 @@ object Http {
     getResource(path).map(url => new File(url.getPath))
 
   final class Collect[In](val self: Unit) extends AnyVal {
-    def apply[Out](pf: PartialFunction[In, Out]): Http[Any, Nothing, In, Out] =
+    def apply[Out](pf: PartialFunction[In, Out]): Http[Any, Nothing, In, Out] = {
       Http.collectZIO[In] {
         case in if pf.isDefinedAt(in) =>
           ZIO.succeed(pf(in))
       }
+    }
   }
 
   final class CollectHandler[In](val self: Unit) extends AnyVal {

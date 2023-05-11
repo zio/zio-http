@@ -18,10 +18,10 @@ package zio.http
 
 import java.net.ConnectException
 
+import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout, withLiveClock}
-import zio.test.assertZIO
-import zio.{Scope, durationInt}
+import zio.test._
 
 import zio.stream.ZStream
 
@@ -65,6 +65,24 @@ object ClientSpec extends HttpRunnableSpec {
         .run(method = Method.POST, body = Body.fromStream(stream))
         .flatMap(_.asString)
       assertZIO(res)(equalTo("abc"))
+    },
+    test("no trailing slash for empty path") {
+      for {
+        baseURL   <- DynamicServer.httpURL
+        _         <- Handler.ok.toHttp
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get(""))
+          .runZIO(())
+        loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
+      } yield assertTrue(loggedUrl == baseURL)
+    },
+    test("trailing slash for explicit slash") {
+      for {
+        baseURL   <- DynamicServer.httpURL
+        _         <- Handler.ok.toHttp
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get("/"))
+          .runZIO(())
+        loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
+      } yield assertTrue(loggedUrl == s"$baseURL/")
     },
   )
 

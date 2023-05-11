@@ -22,8 +22,8 @@ object WebSocketEcho extends ZIOAppDefault {
 
   private val app: Http[Any, Nothing, Request, Response] =
     Http.collectZIO[Request] {
-      case Method.GET -> !! / "greet" / name  => ZIO.succeed(Response.text(s"Greetings {$name}!"))
-      case Method.GET -> !! / "subscriptions" => socketApp.toResponse
+      case Method.GET -> Root / "greet" / name  => ZIO.succeed(Response.text(s"Greetings {$name}!"))
+      case Method.GET -> Root / "subscriptions" => socketApp.toResponse
     }
 
   override val run = Server.serve(app).provide(Server.default)

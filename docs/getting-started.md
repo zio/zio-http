@@ -43,8 +43,8 @@ The example below shows how to create routes:
 import zio.http._
 
 val app = Http.collect[Request] {
-  case Method.GET -> !! / "fruits" / "a" => Response.text("Apple")
-  case Method.GET -> !! / "fruits" / "b" => Response.text("Banana")
+  case Method.GET -> Root / "fruits" / "a" => Response.text("Apple")
+  case Method.GET -> Root / "fruits" / "b" => Response.text("Banana")
 }
 ```
 
@@ -54,7 +54,7 @@ You can create typed routes as well. The below example shows how to accept count
 import zio.http._
 
 val app = Http.collect[Request] {
-  case Method.GET -> !! / "Apple" / int(count) => Response.text(s"Apple: $count")
+  case Method.GET -> Root / "Apple" / int(count) => Response.text(s"Apple: $count")
 }
  ```
 
@@ -70,8 +70,8 @@ Apps can be composed using operators in `Http`:
 ```scala mdoc:silent:reset
 import zio.http._
 
-val a = Http.collect[Request] { case Method.GET -> !! / "a" => Response.ok }
-val b = Http.collect[Request] { case Method.GET -> !! / "b" => Response.ok }
+val a = Http.collect[Request] { case Method.GET -> Root / "a" => Response.ok }
+val b = Http.collect[Request] { case Method.GET -> Root / "b" => Response.ok }
 
 val app = a ++ b
 ```
@@ -96,7 +96,7 @@ import zio.http._
 import zio._
 
 val app = Http.collectZIO[Request] {
-  case Method.GET -> !! / "hello" => ZIO.succeed(Response.text("Hello World"))
+  case Method.GET -> Root / "hello" => ZIO.succeed(Response.text("Hello World"))
 }
 ```
 
@@ -109,9 +109,9 @@ import zio.http._
 import zio._
 
 val app = Http.collectZIO[Request] {
-  case req@Method.GET -> !! / "fruits" / "a" =>
+  case req@Method.GET -> Root / "fruits" / "a" =>
     ZIO.succeed(Response.text("URL:" + req.url.path.toString + " Headers: " + req.headers))
-  case req@Method.POST -> !! / "fruits" / "a" =>
+  case req@Method.POST -> Root / "fruits" / "a" =>
     req.body.asString.map(Response.text(_))
 }
 ```
@@ -130,7 +130,7 @@ object Spec extends ZIOSpecDefault {
   def spec = suite("http")(
     test("should be ok") {
       val app = Handler.ok.toHttp
-      val req = Request.get(URL(!!))
+      val req = Request.get(URL(Root))
       assertZIO(app.runZIO(req))(equalTo(Response.ok))
     }
   )
@@ -170,8 +170,8 @@ private val socket =
 
 private val app = 
   Http.collectZIO[Request] {
-    case Method.GET -> !! / "greet" / name => ZIO.succeed(Response.text(s"Greetings {$name}!"))
-    case Method.GET -> !! / "ws" => socket.toResponse
+    case Method.GET -> Root / "greet" / name => ZIO.succeed(Response.text(s"Greetings {$name}!"))
+    case Method.GET -> Root / "ws" => socket.toResponse
   }
 ```
 

@@ -119,14 +119,21 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           assertZIO(actual.exit)(fails(isNone))
         },
         test("should be lazy") {
-          var mutable                                = 0
-          val pf: PartialFunction[Request, Response] = { (in: Request) =>
-            mutable += 1
-            Response.ok
-          }
-          val http = Http.collect(pf) @@ RequestHandlerMiddlewares.basicAuth(_ => false)
+          var mutable = 0
           for {
-            result       <- http.runZIO(Request.get(URL(!! / "test")))
+            pf <- ZIO.succeed {
+              new PartialFunction[Request, Response] {
+                override def isDefinedAt(x: Request): Boolean = true
+
+                override def apply(v1: Request): Response = {
+                  mutable += 1
+                  Response.ok
+                }
+              }
+            }
+            _  <- ZIO.debug(pf.toString())
+            http = Http.collect(pf) @@ RequestHandlerMiddlewares.basicAuth(_ => false)
+            result       <- http.runZIO(Request.get(URL(Root / "test")))
             finalMutable <- ZIO.attempt(mutable)
           } yield assertTrue(result.status == Status.Unauthorized, finalMutable == 0)
         },
@@ -149,16 +156,21 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           assert(actual)(isSuccess(equalTo("B")))
         },
         test("should be lazy") {
-          var mutable                                                     = 0
-          val pf: PartialFunction[Request, ZIO[Any, Throwable, Response]] = { (in: Request) =>
-            ZIO.attempt {
-              mutable += 1
-              Response.ok
-            }
-          }
-          val http = Http.collectZIO(pf) @@ RequestHandlerMiddlewares.basicAuth(_ => false)
+          var mutable = 0
           for {
-            result       <- http.runZIO(Request.get(URL(!! / "test")))
+            pf           <- ZIO.succeed {
+              new PartialFunction[Request, ZIO[Any, Throwable, Response]] {
+                override def isDefinedAt(x: Request): Boolean = true
+
+                override def apply(v1: Request): ZIO[Any, Throwable, Response] =
+                  ZIO.attempt {
+                    mutable += 1
+                    Response.ok
+                  }
+              }
+            }
+            http = Http.collectZIO(pf) @@ RequestHandlerMiddlewares.basicAuth(_ => false)
+            result       <- http.runZIO(Request.get(URL(Root / "test")))
             finalMutable <- ZIO.attempt(mutable)
           } yield assertTrue(result.status == Status.Unauthorized, finalMutable == 0)
         },

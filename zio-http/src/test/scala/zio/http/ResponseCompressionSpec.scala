@@ -28,12 +28,12 @@ import zio.stream.ZStream
 object ResponseCompressionSpec extends ZIOSpecDefault {
 
   private val text: HttpApp[Any, Nothing] =
-    Http.collect[Request] { case Method.GET -> !! / "text" =>
+    Http.collect[Request] { case Method.GET -> Root / "text" =>
       Response.text("Hello World!\n")
     }
 
   private val stream =
-    Http.collect[Request] { case Method.GET -> !! / "stream" =>
+    Http.collect[Request] { case Method.GET -> Root / "stream" =>
       Response(
         Status.Ok,
         Headers(
@@ -64,7 +64,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
             Request
               .default(
                 method = Method.GET,
-                url = URL(!! / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
+                url = URL(Root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
               )
               .withHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
@@ -81,7 +81,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
             Request
               .default(
                 method = Method.GET,
-                url = URL(!! / "stream", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
+                url = URL(Root / "stream", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
               )
               .withHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )

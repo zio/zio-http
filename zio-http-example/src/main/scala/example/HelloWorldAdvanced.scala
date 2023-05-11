@@ -13,13 +13,13 @@ object HelloWorldAdvanced extends ZIOAppDefault {
   private val PORT = 0
 
   private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> !! / "foo" => Response.text("bar")
-    case Method.GET -> !! / "bar" => Response.text("foo")
+    case Method.GET -> Root / "foo" => Response.text("bar")
+    case Method.GET -> Root / "bar" => Response.text("foo")
   }
 
   private val app = Http.collectZIO[Request] {
-    case Method.GET -> !! / "random" => Random.nextString(10).map(Response.text(_))
-    case Method.GET -> !! / "utc"    => Clock.currentDateTime.map(s => Response.text(s.toString))
+    case Method.GET -> Root / "random" => Random.nextString(10).map(Response.text(_))
+    case Method.GET -> Root / "utc"    => Clock.currentDateTime.map(s => Response.text(s.toString))
   }
 
   val run = ZIOAppArgs.getArgs.flatMap { args =>

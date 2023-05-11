@@ -20,7 +20,7 @@ On the server-side, `ZIO-HTTP` models content in `Request` and `Response` as `Bo
 To add content while creating a `Request` for unit tests, you can use the `Request` constructor:
 
 ```scala mdoc:silent
-  val req: Request = Request.post(Body.fromString("Some String"), URL(!! / "save"))
+  val req: Request = Request.post(Body.fromString("Some String"), URL(Root / "save"))
 ```
 
 ## Client-side usage of `Body`
