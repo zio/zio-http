@@ -41,14 +41,14 @@ private[endpoint] final case class EndpointClient[I, E, O, M <: EndpointMiddlewa
         // Preferentially decode an error from the handler, before falling back
         // to decoding the middleware error:
         val leftError =
-          endpoint.error.decodeResponse(response).flatMap((e: E) => ZIO.succeed(alt.left(e)))
+          endpoint.error.decodeResponse(response).map(e => alt.left(e))
 
         val rightError = if (invocation.middleware == EndpointMiddleware.None) {
           ZIO.dieMessage("Middleware is none")
         } else {
           invocation.middleware.error
             .decodeResponse(response)
-            .flatMap((e: invocation.middleware.Err) => ZIO.succeed(alt.right(e)))
+            .map(e => alt.right(e))
         }
 
         leftError.orElse(rightError).orDie.flip
