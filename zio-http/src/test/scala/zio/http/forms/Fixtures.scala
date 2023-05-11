@@ -19,6 +19,15 @@ package zio.http.forms
 import java.nio.charset.StandardCharsets
 
 import zio._
+import zio.test.Gen
+
+import zio.stream.ZStream
+
+import zio.schema.codec.JsonCodec
+import zio.schema.{Schema, StandardType}
+
+import zio.http.endpoint.EndpointSpec.ImageMetadata
+import zio.http.{FormField, MediaType}
 
 object Fixtures {
 
@@ -79,4 +88,65 @@ object Fixtures {
          |--X-INSOMNIA-BOUNDARY--${CR}
          |""".stripMargin.getBytes(),
     )
+
+  private def simpleFormField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
+    for {
+      name         <- Gen.option(Gen.string1(Gen.alphaNumericChar))
+      standardType <- Gen.oneOf(
+        Gen.const(StandardType.StringType),
+        Gen.const(StandardType.BoolType),
+        Gen.const(StandardType.IntType),
+        Gen.const(StandardType.UUIDType),
+      )
+      value        <- standardType match {
+        case StandardType.StringType => Gen.string
+        case StandardType.BoolType   => Gen.boolean
+        case StandardType.IntType    => Gen.int
+        case StandardType.UUIDType   => Gen.uuid
+      }
+    } yield (
+      FormField.Simple(name.getOrElse(""), value.toString),
+      Schema.primitive(standardType).asInstanceOf[Schema[Any]],
+      name,
+      false,
+    )
+
+  private def jsonTextFormField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
+    for {
+      name        <- Gen.option(Gen.string1(Gen.alphaNumericChar))
+      description <- Gen.string
+      createdAt   <- Gen.instant
+      value         = ImageMetadata(description, createdAt)
+      valueAsString = JsonCodec.jsonCodec(Schema[ImageMetadata]).encodeJson(value, None).toString
+    } yield (
+      FormField.Text(name.getOrElse(""), valueAsString, MediaType.application.json, None),
+      Schema[ImageMetadata].asInstanceOf[Schema[Any]],
+      name,
+      false,
+    )
+
+  private def binaryFormField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
+    for {
+      name   <- Gen.option(Gen.string1(Gen.alphaNumericChar))
+      bytes  <- Gen.chunkOf(Gen.byte)
+      result <-
+        Gen.oneOf(
+          Gen.const(FormField.Binary(name.getOrElse(""), bytes, MediaType.application.`octet-stream`, None)),
+          Gen.const(
+            FormField.StreamingBinary(
+              name.getOrElse(""),
+              MediaType.application.`octet-stream`,
+              data = ZStream.fromChunk(bytes),
+            ),
+          ),
+        )
+    } yield (result, Schema[Byte].asInstanceOf[Schema[Any]], name, true)
+
+  def formField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
+    Gen.oneOf(
+      simpleFormField,
+      jsonTextFormField,
+      binaryFormField,
+    )
+
 }
