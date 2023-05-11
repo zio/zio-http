@@ -19,7 +19,7 @@ val socket = Handler.webSocket { channel =>
 }
 
 val http = Http.collectZIO[Request] {
-  case Method.GET -> !! / "subscriptions" => socket.toResponse
+  case Method.GET -> Root / "subscriptions" => socket.toResponse
 }
 ```
 

@@ -11,12 +11,12 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
   private val app: App[Any] =
     Http
       .collectZIO[Request] {
-        case req @ Method.POST -> !! / "upload-simple"    =>
+        case req @ Method.POST -> Root / "upload-simple"    =>
           for {
             count <- req.body.asStream.run(ZSink.count)
             _     <- ZIO.debug(s"Read $count bytes")
           } yield Response.text(count.toString)
-        case req @ Method.POST -> !! / "upload-nonstream" =>
+        case req @ Method.POST -> Root / "upload-nonstream" =>
           for {
             form <- req.body.asMultipartForm
             count = form.formData.collect {
@@ -26,7 +26,7 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
             }.sum
             _ <- ZIO.debug(s"Read $count bytes")
           } yield Response.text(count.toString)
-        case req @ Method.POST -> !! / "upload-collect"   =>
+        case req @ Method.POST -> Root / "upload-collect"   =>
           for {
             sform <- req.body.asMultipartFormStream
             form  <- sform.collectAll
@@ -37,7 +37,7 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
             }.sum
             _ <- ZIO.debug(s"Read $count bytes")
           } yield Response.text(count.toString)
-        case req @ Method.POST -> !! / "upload"
+        case req @ Method.POST -> Root / "upload"
             if req.header(Header.ContentType).exists(_.mediaType == MediaType.multipart.`form-data`) =>
           for {
             _     <- ZIO.debug("Starting to read multipart/form stream")

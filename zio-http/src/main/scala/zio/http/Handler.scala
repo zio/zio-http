@@ -140,12 +140,12 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def catchAll[R1 <: R, Err1, In1 <: In, Out1 >: Out](f: Err => Handler[R1, Err1, In1, Out1])(implicit
     trace: Trace,
   ): Handler[R1, Err1, In1, Out1] =
-    self.foldHandler(f, Handler.succeed)
+    self.foldHandler(f, Handler.succeed(_))
 
   final def catchAllCause[R1 <: R, Err1, In1 <: In, Out1 >: Out](f: Cause[Err] => Handler[R1, Err1, In1, Out1])(implicit
     trace: Trace,
   ): Handler[R1, Err1, In1, Out1] =
-    self.foldCauseHandler(f, Handler.succeed)
+    self.foldCauseHandler(f, Handler.succeed(_))
 
   /**
    * Recovers from all defects with provided function.
@@ -160,7 +160,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   ): Handler[R1, Err1, In1, Out1] =
     self.foldCauseHandler(
       cause => cause.dieOption.fold[Handler[R1, Err1, In1, Out1]](Handler.failCause(cause))(f),
-      Handler.succeed,
+      Handler.succeed(_),
     )
 
   /**
@@ -214,7 +214,10 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     url: URL,
     headers: Headers,
   )(implicit ev1: Err <:< Throwable, ev2: WebSocketChannel <:< In): ZIO[R with Client with Scope, Throwable, Response] =
-    Client.socket(url = url, headers = headers, app = self.asInstanceOf[SocketApp[R]])
+    ZIO.serviceWithZIO[Client] { client =>
+      if (url.isAbsolute) client.socket(url = url, headers = headers, app = self.asInstanceOf[SocketApp[R]])
+      else client.socket(url = client.url ++ url, headers = headers, app = self.asInstanceOf[SocketApp[R]])
+    }
 
   /**
    * Transforms the input of the handler before passing it on to the current
@@ -325,7 +328,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    * Transforms the failure of the handler
    */
   final def mapError[Err1](f: Err => Err1)(implicit trace: Trace): Handler[R, Err1, In, Out] =
-    self.foldHandler(err => Handler.fail(f(err)), Handler.succeed)
+    self.foldHandler(err => Handler.fail(f(err)), Handler.succeed(_))
 
   /**
    * Transforms the output of the handler effectfully
@@ -341,7 +344,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def mapErrorZIO[R1 <: R, Err1, Out1 >: Out](f: Err => ZIO[R1, Err1, Out1])(implicit
     trace: Trace,
   ): Handler[R1, Err1, In, Out1] =
-    self.foldHandler(err => Handler.fromZIO(f(err)), Handler.succeed)
+    self.foldHandler(err => Handler.fromZIO(f(err)), Handler.succeed(_))
 
   /**
    * Returns a new handler where the error channel has been merged into the
@@ -391,7 +394,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    * specified function to convert the `E` into a `Throwable`.
    */
   final def orDieWith(f: Err => Throwable)(implicit ev: CanFail[Err], trace: Trace): Handler[R, Nothing, In, Out] =
-    self.foldHandler(err => Handler.die(f(err)), Handler.succeed)
+    self.foldHandler(err => Handler.die(f(err)), Handler.succeed(_))
 
   /**
    * Named alias for `<>`
@@ -487,7 +490,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   )(f: Err => Throwable)(implicit ev: CanFail[Err], trace: Trace): Handler[R, Err1, In, Out] =
     self.foldHandler(
       err => pf.andThen(Handler.fail(_)).applyOrElse(err, (e: Err) => Handler.die(f(e))),
-      Handler.succeed,
+      Handler.succeed(_),
     )
 
   final def runZIO(in: In): ZIO[R, Err, Out] =
@@ -635,7 +638,7 @@ object Handler {
   /**
    * Creates a handler which always responds with a 400 status code.
    */
-  def badRequest(message: String): Handler[Any, Nothing, Any, Response] =
+  def badRequest(message: => String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.BadRequest(message))
 
   /**
@@ -658,13 +661,13 @@ object Handler {
   /**
    * Creates a handler with HttpError.
    */
-  def error(error: HttpError): Handler[Any, Nothing, Any, Response] =
+  def error(error: => HttpError): Handler[Any, Nothing, Any, Response] =
     response(Response.fromHttpError(error))
 
   /**
    * Creates a handler that responds with 500 status code
    */
-  def error(message: String): Handler[Any, Nothing, Any, Response] =
+  def errorMessage(message: => String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.InternalServerError(message))
 
   /**
@@ -679,20 +682,20 @@ object Handler {
   /**
    * Creates a handler that responds with 403 - Forbidden status code
    */
-  def forbidden(message: String): Handler[Any, Nothing, Any, Response] =
+  def forbidden(message: => String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.Forbidden(message))
 
   /**
    * Creates a handler which always responds the provided data and a 200 status
    * code
    */
-  def fromBody(body: Body): Handler[Any, Nothing, Any, Response] =
+  def fromBody(body: => Body): Handler[Any, Nothing, Any, Response] =
     response(Response(body = body))
 
   /**
    * Lifts an `Either` into a `Handler` alue.
    */
-  def fromEither[Err, Out](either: Either[Err, Out]): Handler[Any, Err, Any, Out] =
+  def fromEither[Err, Out](either: => Either[Err, Out]): Handler[Any, Err, Any, Out] =
     either.fold(Handler.fail(_), Handler.succeed(_))
 
   def fromExit[Err, Out](exit: => Exit[Err, Out]): Handler[Any, Err, Any, Out] =
@@ -776,7 +779,7 @@ object Handler {
   /**
    * Creates a handler which always responds with the provided Html page.
    */
-  def html(view: Html): Handler[Any, Nothing, Any, Response] =
+  def html(view: => Html): Handler[Any, Nothing, Any, Response] =
     response(Response.html(view))
 
   /**
@@ -790,7 +793,7 @@ object Handler {
   /**
    * Creates a handler which always responds with a 405 status code.
    */
-  def methodNotAllowed(message: String): Handler[Any, Nothing, Any, Response] =
+  def methodNotAllowed(message: => String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.MethodNotAllowed(message))
 
   /**
@@ -811,7 +814,7 @@ object Handler {
   /**
    * Creates a handler which always responds with the same value.
    */
-  def response(response: Response): Handler[Any, Nothing, Any, Response] =
+  def response(response: => Response): Handler[Any, Nothing, Any, Response] =
     succeed(response)
 
   /**
@@ -827,26 +830,26 @@ object Handler {
    * Creates a handler which always responds with the same status code and empty
    * data.
    */
-  def status(code: Status): Handler[Any, Nothing, Any, Response] =
+  def status(code: => Status): Handler[Any, Nothing, Any, Response] =
     succeed(Response(code))
 
   /**
    * Creates a Handler that always returns the same response and never fails.
    */
-  def succeed[Out](out: Out): Handler[Any, Nothing, Any, Out] =
+  def succeed[Out](out: => Out): Handler[Any, Nothing, Any, Out] =
     fromExit(Exit.succeed(out))
 
   /**
    * Creates a handler which responds with an Html page using the built-in
    * template.
    */
-  def template(heading: CharSequence)(view: Html): Handler[Any, Nothing, Any, Response] =
+  def template(heading: => CharSequence)(view: Html): Handler[Any, Nothing, Any, Response] =
     response(Response.html(Template.container(heading)(view)))
 
   /**
    * Creates a handler which always responds with the same plain text.
    */
-  def text(text: CharSequence): Handler[Any, Nothing, Any, Response] =
+  def text(text: => CharSequence): Handler[Any, Nothing, Any, Response] =
     response(Response.text(text))
 
   /**

@@ -16,7 +16,7 @@ The below snippet creates a request with default params, `headers` as `Headers.e
 import zio.http._
 import zio._
 
-Request.default(Method.GET, URL(!!))
+Request.default(Method.GET, URL(Root))
 ```
 
 ## Matching and Extracting Requests
@@ -24,7 +24,7 @@ Request.default(Method.GET, URL(!!))
 `Request` can be extracted into an HTTP Method and Path via `->`. On the left side is the `Method`, and on the right side, the `Path`.
 
 ```scala
-Method.GET -> !! / "text"
+Method.GET -> Root / "text"
 ```
 
 ### Method
@@ -33,7 +33,7 @@ Method.GET -> !! / "text"
 
 ### Path
  `Path` can be created using
-  - `!!` which represents the root
+  - `Root` which represents the root
   - `/` which represents the path delimiter and starts the extraction from the left-hand side of the expression
   - `/:` which represents the path delimiter and starts the extraction from the right-hand side of the expression and can match paths partially 
 
@@ -44,7 +44,7 @@ According to the request path, it will respond with the corresponding response:
 
 ```scala mdoc:silent
   val app: HttpApp[Any, Nothing] = Http.collect[Request] {
-     case Method.GET -> !! / a => Response.text(s"$a")
+     case Method.GET -> Root / a => Response.text(s"$a")
      case Method.GET -> "" /: "name" /: a => Response.text(s"$a")
    }
 ```
@@ -64,7 +64,7 @@ Query params can be added in the request using `url` in `Request`, `URL` stores 
 
 The below snippet creates a request with query params: `?q=a&q=b&q=c` 
 ```scala mdoc
-Request.get(url = URL(!!, queryParams = QueryParams("q" -> Chunk("a","b","c"))))
+Request.get(url = URL(Root, queryParams = QueryParams("q" -> Chunk("a","b","c"))))
 ```
 
 `url.queryParams` can be used to read query params from the request

@@ -118,6 +118,46 @@ object WebSocketSpec extends HttpRunnableSpec {
 
       assertZIO(codes)(equalTo(1024))
     },
+    test("channel events between client and server when the provided URL is HTTP") {
+      for {
+        msg <- MessageCollector.make[WebSocketChannelEvent]
+        url <- DynamicServer.httpURL
+        id  <- DynamicServer.deploy {
+          Handler.webSocket { channel =>
+            channel.receiveAll {
+              case event @ Read(frame)  => channel.send(Read(frame)) *> msg.add(event)
+              case event @ Unregistered => msg.add(event, true)
+              case event                => msg.add(event)
+            }
+          }.toHttpApp
+        }
+
+        res <- ZIO.scoped {
+          Handler.webSocket { channel =>
+            channel.receiveAll {
+              case UserEventTriggered(HandshakeComplete) =>
+                channel.send(Read(WebSocketFrame.text("FOO")))
+              case Read(WebSocketFrame.Text("FOO"))      =>
+                channel.send(Read(WebSocketFrame.text("BAR")))
+              case Read(WebSocketFrame.Text("BAR"))      =>
+                channel.shutdown
+              case _                                     =>
+                ZIO.unit
+            }
+          }.connect(url, Headers(DynamicServer.APP_ID, id)) *> {
+            for {
+              events <- msg.await
+              expected = List(
+                UserEventTriggered(HandshakeComplete),
+                Read(WebSocketFrame.text("FOO")),
+                Read(WebSocketFrame.text("BAR")),
+                Unregistered,
+              )
+            } yield assertTrue(events == expected)
+          }
+        }
+      } yield res
+    },
   )
 
   override def spec = suite("Server") {

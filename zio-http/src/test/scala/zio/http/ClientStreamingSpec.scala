@@ -33,15 +33,15 @@ object ClientStreamingSpec extends HttpRunnableSpec {
 
   val app = Http
     .collectZIO[Request] {
-      case Method.GET -> !! / "simple-get"            =>
+      case Method.GET -> Root / "simple-get"            =>
         ZIO.succeed(Response.text("simple response"))
-      case Method.GET -> !! / "streaming-get"         =>
+      case Method.GET -> Root / "streaming-get"         =>
         ZIO.succeed(
           Response(body = Body.fromStream(ZStream.fromIterable("streaming response".getBytes).rechunk(3))),
         )
-      case req @ Method.POST -> !! / "simple-post"    =>
+      case req @ Method.POST -> Root / "simple-post"    =>
         req.ignoreBody.as(Response.ok)
-      case req @ Method.POST -> !! / "streaming-echo" =>
+      case req @ Method.POST -> Root / "streaming-echo" =>
         ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
       case req @ Method.POST -> !! / "form"           =>
         req.body.asMultipartFormStream.flatMap { form =>

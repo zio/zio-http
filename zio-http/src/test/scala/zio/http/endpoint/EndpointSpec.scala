@@ -56,6 +56,36 @@ object EndpointSpec extends ZIOSpecDefault {
         testRoutes("/users/123", "path(users, 123)") &&
         testRoutes("/users/123/posts/555?name=adam", "path(users, 123, posts, 555) query(name=adam)")
       },
+      test("optional query parameter") {
+        val testRoutes = testEndpoint(
+          Endpoint
+            .get(literal("users") / int("userId"))
+            .query(query("details").optional)
+            .out[String]
+            .implement { case (userId, details) =>
+              ZIO.succeed(s"path(users, $userId, $details)")
+            },
+        ) _
+        testRoutes("/users/123", "path(users, 123, None)") &&
+        testRoutes("/users/123?details=", "path(users, 123, Some())") &&
+        testRoutes("/users/123?details=456", "path(users, 123, Some(456))")
+      },
+      test("multiple optional query parameters") {
+        val testRoutes = testEndpoint(
+          Endpoint
+            .get(literal("users") / int("userId"))
+            .query(query("key").optional)
+            .query(query("value").optional)
+            .out[String]
+            .implement { case (userId, key, value) =>
+              ZIO.succeed(s"path(users, $userId, $key, $value)")
+            },
+        ) _
+        testRoutes("/users/123", "path(users, 123, None, None)") &&
+        testRoutes("/users/123?key=&value=", "path(users, 123, Some(), Some())") &&
+        testRoutes("/users/123?key=&value=X", "path(users, 123, Some(), Some(X))") &&
+        testRoutes("/users/123?key=X&value=Y", "path(users, 123, Some(X), Some(Y))")
+      },
       test("out of order api") {
         val testRoutes = testEndpoint(
           Endpoint
