@@ -16,11 +16,14 @@
 
 package zio.http.endpoint
 
+import zio._
 import zio.test.TestAspect.{ignore, sequential, timeout, withLiveClock}
 import zio.test.{TestResult, ZIOSpecDefault, assertTrue}
-import zio.{Cause, Promise, Random, Trace, ZEnvironment, ZIO, ZLayer, durationInt}
+
 import zio.stream.ZStream
+
 import zio.schema.{DeriveSchema, Schema}
+
 import zio.http._
 import zio.http.codec.HttpCodec.{query, string}
 import zio.http.codec.PathCodec.{int, literal}
