@@ -29,9 +29,9 @@ import zio.http.internal.middlewares.CorsSpec.app
 object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   val app = Http
     .collectZIO[Request] {
-      case Method.GET -> !! / "success" => ZIO.succeed(Response.ok)
-      case Method.GET -> !! / "failure" => ZIO.fail("failure")
-      case Method.GET -> !! / "die"     => ZIO.dieMessage("die")
+      case Method.GET -> Root / "success" => ZIO.succeed(Response.ok)
+      case Method.GET -> Root / "failure" => ZIO.fail("failure")
+      case Method.GET -> Root / "die"     => ZIO.dieMessage("die")
     }
     .catchAllCauseZIO { cause =>
       ZIO.succeed(Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint)))
@@ -40,7 +40,7 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   override def spec = suite("CorsMiddlewares")(
     test("OPTIONS request") {
       val request = Request
-        .options(URL(!! / "success"))
+        .options(URL(Root / "success"))
         .copy(
           headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
         )
@@ -59,7 +59,7 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     test("GET request") {
       val request =
         Request
-          .get(URL(!! / "success"))
+          .get(URL(Root / "success"))
           .copy(
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )
@@ -76,7 +76,7 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     test("GET request with server side failure") {
       val request =
         Request
-          .get(URL(!! / "failure"))
+          .get(URL(Root / "failure"))
           .copy(
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )
@@ -93,7 +93,7 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     test("GET request with server side defect") {
       val request =
         Request
-          .get(URL(!! / "die"))
+          .get(URL(Root / "die"))
           .copy(
             headers = Headers(Header.AccessControlRequestMethod(Method.GET), Header.Origin("http", "test-env")),
           )

@@ -63,7 +63,7 @@ responseCookie.copy(domain = Some("example.com"))
 - `path` updates the path of the cookie
 
 ```scala mdoc
-responseCookie.copy(path = Some(!! / "cookie"))
+responseCookie.copy(path = Some(Root / "cookie"))
 ```
 
 - `isSecure` enables cookie only on https server
@@ -93,7 +93,7 @@ The cookies can be signed with a signature:
 
 ```scala mdoc
 val cookie2 = Cookie.Response("key", "hello", maxAge = Some(5.days))
-val app = Http.collect[Request] { case Method.GET -> !! / "cookie" =>
+val app = Http.collect[Request] { case Method.GET -> Root / "cookie" =>
   Response.ok.addCookie(cookie2.sign("secret"))
 }
 ```
@@ -106,8 +106,8 @@ To sign all the cookies in your `HttpApp`, you can use `signCookies` middleware:
 import RequestHandlerMiddlewares.signCookies
 
 private val app2 = Http.collect[Request] {
-  case Method.GET -> !! / "cookie" => Response.ok.addCookie(cookie2)
-  case Method.GET -> !! / "secure-cookie" => Response.ok.addCookie(cookie2.copy(isSecure = true))
+  case Method.GET -> Root / "cookie" => Response.ok.addCookie(cookie2)
+  case Method.GET -> Root / "secure-cookie" => Response.ok.addCookie(cookie2.copy(isSecure = true))
 }
 
 // Run it like any simple app
@@ -133,7 +133,7 @@ request:
 
 ```scala mdoc
  private val app3 = Http.collect[Request] {
-  case req@Method.GET -> !! / "cookie" =>
+  case req@Method.GET -> Root / "cookie" =>
     Response.text(req.header(Header.Cookie).map(_.value.toChunk).getOrElse(Chunk.empty).mkString(""))
 }
 ```

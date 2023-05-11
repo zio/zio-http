@@ -19,9 +19,9 @@ package zio.http
 import zio.http.Path.Segment
 
 private[zio] trait PathSyntax { module =>
-  val !! : Path = Path.root
+  val Root: Path = Path.root
 
-  val ~~ : Path = Path.empty
+  val Empty: Path = Path.empty
 
   object /: {
     def unapply(path: Path): Option[(String, Path)] =
@@ -41,7 +41,7 @@ private[zio] trait PathSyntax { module =>
           case Segment.Text(text) => text
           case Segment.Root       => ""
         }
-        Some(~~ -> last)
+        Some(Empty -> last)
       } else if (path.segments.length >= 2) {
         val last = path.segments.last match {
           case Segment.Root       => ""

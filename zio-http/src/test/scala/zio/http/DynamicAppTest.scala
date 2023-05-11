@@ -26,13 +26,13 @@ import zio.http.netty.client.NettyClientDriver
 object DynamicAppTest extends ZIOSpecDefault {
 
   val httpApp1: App[Any] = Http
-    .collect[Request] { case Method.GET -> !! / "good" =>
+    .collect[Request] { case Method.GET -> Root / "good" =>
       Response.ok
     }
     .withDefaultErrorResponse
 
   val httpApp2: App[Any] = Http
-    .collect[Request] { case Method.GET -> !! / "better" =>
+    .collect[Request] { case Method.GET -> Root / "better" =>
       Response.status(Status.Created)
     }
     .withDefaultErrorResponse
