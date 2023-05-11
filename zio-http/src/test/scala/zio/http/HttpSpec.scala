@@ -119,11 +119,12 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           assertZIO(actual.exit)(fails(isNone))
         },
         test("should be lazy") {
-          var mutable = 0
-          val http    = Http.collect[Request] { in =>
+          var mutable                                = 0
+          val pf: PartialFunction[Request, Response] = { (in: Request) =>
             mutable += 1
             Response.ok
-          } @@ RequestHandlerMiddlewares.basicAuth(_ => false)
+          }
+          val http = Http.collect(pf) @@ RequestHandlerMiddlewares.basicAuth(_ => false)
           for {
             result       <- http.runZIO(Request.get(URL(!! / "test")))
             finalMutable <- ZIO.attempt(mutable)
@@ -148,13 +149,14 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           assert(actual)(isSuccess(equalTo("B")))
         },
         test("should be lazy") {
-          var mutable = 0
-          val http    = Http.collectZIO[Request] { in =>
+          var mutable                                                     = 0
+          val pf: PartialFunction[Request, ZIO[Any, Throwable, Response]] = { (in: Request) =>
             ZIO.attempt {
               mutable += 1
               Response.ok
             }
-          } @@ RequestHandlerMiddlewares.basicAuth(_ => false)
+          }
+          val http = Http.collectZIO(pf) @@ RequestHandlerMiddlewares.basicAuth(_ => false)
           for {
             result       <- http.runZIO(Request.get(URL(!! / "test")))
             finalMutable <- ZIO.attempt(mutable)
