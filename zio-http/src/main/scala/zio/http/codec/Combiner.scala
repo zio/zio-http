@@ -27,6 +27,7 @@ sealed trait Combiner[L, R] {
   def combine(l: L, r: R): Out
 
   def separate(out: Out): (L, R)
+
 }
 
 object Combiner extends CombinerLowPriority1 {
@@ -54,8 +55,995 @@ trait CombinerLowPriority1 extends CombinerLowPriority2 {
 }
 
 trait CombinerLowPriority2 extends CombinerLowPriority3 {
-  // (A, B) + C -> (A, B, C)
-  implicit def combine2[A, B, C]: Combiner.WithOut[(A, B), C, (A, B, C)] =
+  implicit def combine2L2R[L1, L2, R1, R2]: Combiner.WithOut[(L1, L2), (R1, R2), (L1, L2, R1, R2)] =
+    new Combiner[(L1, L2), (R1, R2)] {
+      type Out = (L1, L2, R1, R2)
+
+      def combine(l: (L1, L2), r: (R1, R2)): (L1, L2, R1, R2) = (l._1, l._2, r._1, r._2)
+
+      def separate(out: (L1, L2, R1, R2)): ((L1, L2), (R1, R2)) = ((out._1, out._2), (out._3, out._4))
+    }
+
+  implicit def combin3L2R[L1, L2, L3, R1, R2]: Combiner.WithOut[(L1, L2, L3), (R1, R2), (L1, L2, L3, R1, R2)] =
+    new Combiner[(L1, L2, L3), (R1, R2)] {
+      type Out = (L1, L2, L3, R1, R2)
+
+      def combine(l: (L1, L2, L3), r: (R1, R2)): (L1, L2, L3, R1, R2) = (l._1, l._2, l._3, r._1, r._2)
+
+      def separate(out: (L1, L2, L3, R1, R2)): ((L1, L2, L3), (R1, R2)) =
+        ((out._1, out._2, out._3), (out._4, out._5))
+    }
+
+  implicit def combine4L2R[L1, L2, L3, L4, R1, R2]
+    : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2), (L1, L2, L3, L4, R1, R2)] =
+    new Combiner[(L1, L2, L3, L4), (R1, R2)] {
+      type Out = (L1, L2, L3, L4, R1, R2)
+
+      def combine(l: (L1, L2, L3, L4), r: (R1, R2)): (L1, L2, L3, L4, R1, R2) =
+        (l._1, l._2, l._3, l._4, r._1, r._2)
+
+      def separate(out: (L1, L2, L3, L4, R1, R2)): ((L1, L2, L3, L4), (R1, R2)) =
+        ((out._1, out._2, out._3, out._4), (out._5, out._6))
+    }
+
+  implicit def combine5L2R[L1, L2, L3, L4, L5, R1, R2]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5), (R1, R2), (L1, L2, L3, L4, L5, R1, R2)] =
+    new Combiner[(L1, L2, L3, L4, L5), (R1, R2)] {
+      type Out = (L1, L2, L3, L4, L5, R1, R2)
+
+      def combine(l: (L1, L2, L3, L4, L5), r: (R1, R2)): (L1, L2, L3, L4, L5, R1, R2) =
+        (l._1, l._2, l._3, l._4, l._5, r._1, r._2)
+
+      def separate(out: (L1, L2, L3, L4, L5, R1, R2)): ((L1, L2, L3, L4, L5), (R1, R2)) =
+        ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7))
+    }
+
+  implicit def combine6L2R[L1, L2, L3, L4, L5, L6, R1, R2]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5, L6), (R1, R2), (L1, L2, L3, L4, L5, L6, R1, R2)] =
+    new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2)] {
+      type Out = (L1, L2, L3, L4, L5, L6, R1, R2)
+
+      def combine(l: (L1, L2, L3, L4, L5, L6), r: (R1, R2)): (L1, L2, L3, L4, L5, L6, R1, R2) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, r._1, r._2)
+
+      def separate(out: (L1, L2, L3, L4, L5, L6, R1, R2)): ((L1, L2, L3, L4, L5, L6), (R1, R2)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8))
+    }
+
+  implicit def combine7L2R[L1, L2, L3, L4, L5, L6, L7, R1, R2]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7), (R1, R2), (L1, L2, L3, L4, L5, L6, L7, R1, R2)] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2)] {
+      type Out = (L1, L2, L3, L4, L5, L6, L7, R1, R2)
+
+      def combine(l: (L1, L2, L3, L4, L5, L6, L7), r: (R1, R2)): (L1, L2, L3, L4, L5, L6, L7, R1, R2) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, r._1, r._2)
+
+      def separate(out: (L1, L2, L3, L4, L5, L6, L7, R1, R2)): ((L1, L2, L3, L4, L5, L6, L7), (R1, R2)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), (out._8, out._9))
+    }
+
+  implicit def combine8L2R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2), (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2)] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2)] {
+      type Out = (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2)
+
+      def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8), r: (R1, R2)): (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, r._1, r._2)
+
+      def separate(out: (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2)): ((L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8), (out._9, out._10))
+    }
+
+  implicit def combine9L2R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2), (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2)] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2)] {
+      type Out = (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2)
+
+      def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8, L9), r: (R1, R2)): (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, l._9, r._1, r._2)
+
+      def separate(
+        out: (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2),
+      ): ((L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9), (out._10, out._11))
+    }
+
+  implicit def combine2L3R[L1, L2, R1, R2, R3]: Combiner.WithOut[(L1, L2), (R1, R2, R3), (L1, L2, R1, R2, R3)] =
+    new Combiner[(L1, L2), (R1, R2, R3)] {
+      type Out = (L1, L2, R1, R2, R3)
+
+      def combine(l: (L1, L2), r: (R1, R2, R3)): (L1, L2, R1, R2, R3) =
+        (l._1, l._2, r._1, r._2, r._3)
+
+      def separate(out: (L1, L2, R1, R2, R3)): ((L1, L2), (R1, R2, R3)) =
+        ((out._1, out._2), (out._3, out._4, out._5))
+    }
+
+  implicit def combine3L3R[L1, L2, L3, R1, R2, R3]
+    : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3), (L1, L2, L3, R1, R2, R3)] =
+    new Combiner[(L1, L2, L3), (R1, R2, R3)] {
+      type Out = (L1, L2, L3, R1, R2, R3)
+
+      def combine(l: (L1, L2, L3), r: (R1, R2, R3)): (L1, L2, L3, R1, R2, R3) =
+        (l._1, l._2, l._3, r._1, r._2, r._3)
+
+      def separate(out: (L1, L2, L3, R1, R2, R3)): ((L1, L2, L3), (R1, R2, R3)) =
+        ((out._1, out._2, out._3), (out._4, out._5, out._6))
+    }
+
+  implicit def combine4L3R[L1, L2, L3, L4, R1, R2, R3]
+    : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2, R3), (L1, L2, L3, L4, R1, R2, R3)] =
+    new Combiner[(L1, L2, L3, L4), (R1, R2, R3)] {
+      type Out = (L1, L2, L3, L4, R1, R2, R3)
+
+      def combine(l: (L1, L2, L3, L4), r: (R1, R2, R3)): (L1, L2, L3, L4, R1, R2, R3) =
+        (l._1, l._2, l._3, l._4, r._1, r._2, r._3)
+
+      def separate(out: (L1, L2, L3, L4, R1, R2, R3)): ((L1, L2, L3, L4), (R1, R2, R3)) =
+        ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7))
+    }
+
+  implicit def combine5L3R[L1, L2, L3, L4, L5, R1, R2, R3]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5), (R1, R2, R3), (L1, L2, L3, L4, L5, R1, R2, R3)] =
+    new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3)] {
+      type Out = (L1, L2, L3, L4, L5, R1, R2, R3)
+
+      def combine(l: (L1, L2, L3, L4, L5), r: (R1, R2, R3)): (L1, L2, L3, L4, L5, R1, R2, R3) =
+        (l._1, l._2, l._3, l._4, l._5, r._1, r._2, r._3)
+
+      def separate(out: (L1, L2, L3, L4, L5, R1, R2, R3)): ((L1, L2, L3, L4, L5), (R1, R2, R3)) =
+        ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8))
+    }
+
+  implicit def combine6L3R[L1, L2, L3, L4, L5, L6, R1, R2, R3]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5, L6), (R1, R2, R3), (L1, L2, L3, L4, L5, L6, R1, R2, R3)] =
+    new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2, R3)] {
+      type Out = (L1, L2, L3, L4, L5, L6, R1, R2, R3)
+
+      def combine(l: (L1, L2, L3, L4, L5, L6), r: (R1, R2, R3)): (L1, L2, L3, L4, L5, L6, R1, R2, R3) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, r._1, r._2, r._3)
+
+      def separate(out: (L1, L2, L3, L4, L5, L6, R1, R2, R3)): ((L1, L2, L3, L4, L5, L6), (R1, R2, R3)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8, out._9))
+    }
+
+  implicit def combine7L3R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3), (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3)] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3)] {
+      type Out = (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3)
+
+      def combine(l: (L1, L2, L3, L4, L5, L6, L7), r: (R1, R2, R3)): (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, r._1, r._2, r._3)
+
+      def separate(out: (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3)): ((L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), (out._8, out._9, out._10))
+    }
+
+  implicit def combine8L3R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3), (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3)] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3)] {
+      type Out = (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3)
+
+      def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8), r: (R1, R2, R3)): (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, r._1, r._2, r._3)
+
+      def separate(
+        out: (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3),
+      ): ((L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8), (out._9, out._10, out._11))
+    }
+
+  implicit def combine9L3R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9),
+    (R1, R2, R3),
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3)] {
+      type Out = (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3)
+
+      def combine(
+        l: (L1, L2, L3, L4, L5, L6, L7, L8, L9),
+        r: (R1, R2, R3),
+      ): (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3) =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, l._9, r._1, r._2, r._3)
+
+      def separate(
+        out: (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3),
+      ): ((L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9), (out._10, out._11, out._12))
+    }
+
+  implicit def combine2L4R[L1, L2, R1, R2, R3, R4]
+    : Combiner.WithOut[(L1, L2), (R1, R2, R3, R4), (L1, L2, R1, R2, R3, R4)] =
+    new Combiner[(L1, L2), (R1, R2, R3, R4)] {
+      override type Out = (L1, L2, R1, R2, R3, R4)
+
+      override def combine(l: (L1, L2), r: (R1, R2, R3, R4)): Out = (l._1, l._2, r._1, r._2, r._3, r._4)
+
+      override def separate(out: Out): ((L1, L2), (R1, R2, R3, R4)) =
+        ((out._1, out._2), (out._3, out._4, out._5, out._6))
+    }
+
+  implicit def combine3L4R[L1, L2, L3, R1, R2, R3, R4]
+    : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3, R4), (L1, L2, L3, R1, R2, R3, R4)] =
+    new Combiner[(L1, L2, L3), (R1, R2, R3, R4)] {
+      override type Out = (L1, L2, L3, R1, R2, R3, R4)
+
+      override def combine(l: (L1, L2, L3), r: (R1, R2, R3, R4)): Out = (l._1, l._2, l._3, r._1, r._2, r._3, r._4)
+
+      override def separate(out: Out): ((L1, L2, L3), (R1, R2, R3, R4)) =
+        ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7))
+    }
+
+  implicit def combine4L4R[L1, L2, L3, L4, R1, R2, R3, R4]
+    : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2, R3, R4), (L1, L2, L3, L4, R1, R2, R3, R4)] =
+    new Combiner[(L1, L2, L3, L4), (R1, R2, R3, R4)] {
+      override type Out = (L1, L2, L3, L4, R1, R2, R3, R4)
+
+      override def combine(l: (L1, L2, L3, L4), r: (R1, R2, R3, R4)): Out =
+        (l._1, l._2, l._3, l._4, r._1, r._2, r._3, r._4)
+
+      override def separate(out: Out): ((L1, L2, L3, L4), (R1, R2, R3, R4)) =
+        ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8))
+    }
+
+  implicit def combine5L4R[L1, L2, L3, L4, L5, R1, R2, R3, R4]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5), (R1, R2, R3, R4), (L1, L2, L3, L4, L5, R1, R2, R3, R4)] =
+    new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3, R4)] {
+      override type Out = (L1, L2, L3, L4, L5, R1, R2, R3, R4)
+
+      override def combine(l: (L1, L2, L3, L4, L5), r: (R1, R2, R3, R4)): Out =
+        (l._1, l._2, l._3, l._4, l._5, r._1, r._2, r._3, r._4)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5), (R1, R2, R3, R4)) =
+        ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8, out._9))
+    }
+
+  implicit def combine6L4R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4), (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4)] =
+    new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6), r: (R1, R2, R3, R4)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, r._1, r._2, r._3, r._4)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8, out._9, out._10))
+    }
+
+  implicit def combine7L4R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4), (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4)] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7), r: (R1, R2, R3, R4)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, r._1, r._2, r._3, r._4)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), (out._8, out._9, out._10, out._11))
+    }
+
+  implicit def combine8L4R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8),
+    (R1, R2, R3, R4),
+    (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8), r: (R1, R2, R3, R4)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, r._1, r._2, r._3, r._4)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8), (out._9, out._10, out._11, out._12))
+    }
+
+  implicit def combine9L4R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9),
+    (R1, R2, R3, R4),
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8, L9), r: (R1, R2, R3, R4)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, l._9, r._1, r._2, r._3, r._4)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9), (out._10, out._11, out._12, out._13))
+    }
+
+  implicit def combine2L5R[L1, L2, R1, R2, R3, R4, R5]
+    : Combiner.WithOut[(L1, L2), (R1, R2, R3, R4, R5), (L1, L2, R1, R2, R3, R4, R5)] =
+    new Combiner[(L1, L2), (R1, R2, R3, R4, R5)] {
+      override type Out = (L1, L2, R1, R2, R3, R4, R5)
+
+      override def combine(l: (L1, L2), r: (R1, R2, R3, R4, R5)): Out = (l._1, l._2, r._1, r._2, r._3, r._4, r._5)
+
+      override def separate(out: Out): ((L1, L2), (R1, R2, R3, R4, R5)) =
+        ((out._1, out._2), (out._3, out._4, out._5, out._6, out._7))
+    }
+
+  implicit def combine3L5R[L1, L2, L3, R1, R2, R3, R4, R5]
+    : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3, R4, R5), (L1, L2, L3, R1, R2, R3, R4, R5)] =
+    new Combiner[(L1, L2, L3), (R1, R2, R3, R4, R5)] {
+      override type Out = (L1, L2, L3, R1, R2, R3, R4, R5)
+
+      override def combine(l: (L1, L2, L3), r: (R1, R2, R3, R4, R5)): Out =
+        (l._1, l._2, l._3, r._1, r._2, r._3, r._4, r._5)
+
+      override def separate(out: Out): ((L1, L2, L3), (R1, R2, R3, R4, R5)) =
+        ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7, out._8))
+    }
+
+  implicit def combine4L5R[L1, L2, L3, L4, R1, R2, R3, R4, R5]
+    : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2, R3, R4, R5), (L1, L2, L3, L4, R1, R2, R3, R4, R5)] =
+    new Combiner[(L1, L2, L3, L4), (R1, R2, R3, R4, R5)] {
+      override type Out = (L1, L2, L3, L4, R1, R2, R3, R4, R5)
+
+      override def combine(l: (L1, L2, L3, L4), r: (R1, R2, R3, R4, R5)): Out =
+        (l._1, l._2, l._3, l._4, r._1, r._2, r._3, r._4, r._5)
+
+      override def separate(out: Out): ((L1, L2, L3, L4), (R1, R2, R3, R4, R5)) =
+        ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8, out._9))
+    }
+
+  implicit def combine5L5R[L1, L2, L3, L4, L5, R1, R2, R3, R4, R5]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5), (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5)] =
+    new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5)] {
+      override type Out = (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5)
+
+      override def combine(l: (L1, L2, L3, L4, L5), r: (R1, R2, R3, R4, R5)): Out =
+        (l._1, l._2, l._3, l._4, l._5, r._1, r._2, r._3, r._4, r._5)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5)) =
+        ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8, out._9, out._10))
+    }
+
+  implicit def combine6L5R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5), (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5)] =
+    new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6), r: (R1, R2, R3, R4, R5)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, r._1, r._2, r._3, r._4, r._5)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8, out._9, out._10, out._11))
+    }
+
+  implicit def combine7L5R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7),
+    (R1, R2, R3, R4, R5),
+    (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4, R5)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7), r: (R1, R2, R3, R4, R5)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, r._1, r._2, r._3, r._4, r._5)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4, R5)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), (out._8, out._9, out._10, out._11, out._12))
+    }
+
+  implicit def combine8L5R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8),
+    (R1, R2, R3, R4, R5),
+    (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4, R5)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8), r: (R1, R2, R3, R4, R5)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, r._1, r._2, r._3, r._4, r._5)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4, R5)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8), (out._9, out._10, out._11, out._12, out._13))
+    }
+
+  implicit def combine9L5R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9),
+    (R1, R2, R3, R4, R5),
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4, R5)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8, L9), r: (R1, R2, R3, R4, R5)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, l._9, r._1, r._2, r._3, r._4, r._5)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4, R5)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9),
+          (out._10, out._11, out._12, out._13, out._14),
+        )
+    }
+
+  implicit def combine2L6R[L1, L2, R1, R2, R3, R4, R5, R6]: Combiner.WithOut[
+    (L1, L2),
+    (R1, R2, R3, R4, R5, R6),
+    (L1, L2, R1, R2, R3, R4, R5, R6),
+  ] =
+    new Combiner[(L1, L2), (R1, R2, R3, R4, R5, R6)] {
+      override type Out = (L1, L2, R1, R2, R3, R4, R5, R6)
+
+      override def combine(l: (L1, L2), r: (R1, R2, R3, R4, R5, R6)): Out =
+        (l._1, l._2, r._1, r._2, r._3, r._4, r._5, r._6)
+
+      override def separate(out: Out): ((L1, L2), (R1, R2, R3, R4, R5, R6)) =
+        ((out._1, out._2), (out._3, out._4, out._5, out._6, out._7, out._8))
+    }
+
+  implicit def combine3L6R[L1, L2, L3, R1, R2, R3, R4, R5, R6]
+    : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3, R4, R5, R6), (L1, L2, L3, R1, R2, R3, R4, R5, R6)] =
+    new Combiner[(L1, L2, L3), (R1, R2, R3, R4, R5, R6)] {
+      override type Out = (L1, L2, L3, R1, R2, R3, R4, R5, R6)
+
+      override def combine(l: (L1, L2, L3), r: (R1, R2, R3, R4, R5, R6)): Out =
+        (l._1, l._2, l._3, r._1, r._2, r._3, r._4, r._5, r._6)
+
+      override def separate(out: Out): ((L1, L2, L3), (R1, R2, R3, R4, R5, R6)) =
+        ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7, out._8, out._9))
+    }
+
+  implicit def combine4L6R[L1, L2, L3, L4, R1, R2, R3, R4, R5, R6]
+    : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6), (L1, L2, L3, L4, R1, R2, R3, R4, R5, R6)] =
+    new Combiner[(L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6)] {
+      override type Out = (L1, L2, L3, L4, R1, R2, R3, R4, R5, R6)
+
+      override def combine(l: (L1, L2, L3, L4), r: (R1, R2, R3, R4, R5, R6)): Out =
+        (l._1, l._2, l._3, l._4, r._1, r._2, r._3, r._4, r._5, r._6)
+
+      override def separate(out: Out): ((L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6)) =
+        ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8, out._9, out._10))
+    }
+
+  implicit def combine5L6R[L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6]
+    : Combiner.WithOut[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6), (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6)] =
+    new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6)] {
+      override type Out = (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6)
+
+      override def combine(l: (L1, L2, L3, L4, L5), r: (R1, R2, R3, R4, R5, R6)): Out =
+        (l._1, l._2, l._3, l._4, l._5, r._1, r._2, r._3, r._4, r._5, r._6)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6)) =
+        ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8, out._9, out._10, out._11))
+    }
+
+  implicit def combine6L6R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6),
+    (R1, R2, R3, R4, R5, R6),
+    (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5, R6)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6), r: (R1, R2, R3, R4, R5, R6)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, r._1, r._2, r._3, r._4, r._5, r._6)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5, R6)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8, out._9, out._10, out._11, out._12))
+    }
+
+  implicit def combine7L6R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7),
+    (R1, R2, R3, R4, R5, R6),
+    (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4, R5, R6)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7), r: (R1, R2, R3, R4, R5, R6)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, r._1, r._2, r._3, r._4, r._5, r._6)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4, R5, R6)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6, out._7), (out._8, out._9, out._10, out._11, out._12, out._13))
+    }
+
+  implicit def combine8L6R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8),
+    (R1, R2, R3, R4, R5, R6),
+    (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4, R5, R6)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8), r: (R1, R2, R3, R4, R5, R6)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, r._1, r._2, r._3, r._4, r._5, r._6)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4, R5, R6)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8),
+          (out._9, out._10, out._11, out._12, out._13, out._14),
+        )
+    }
+
+  implicit def combine9L6R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9),
+    (R1, R2, R3, R4, R5, R6),
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4, R5, R6)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8, L9), r: (R1, R2, R3, R4, R5, R6)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, l._9, r._1, r._2, r._3, r._4, r._5, r._6)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4, R5, R6)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9),
+          (out._10, out._11, out._12, out._13, out._14, out._15),
+        )
+    }
+
+  implicit def combine2L7R[L1, L2, R1, R2, R3, R4, R5, R6, R7]
+    : Combiner.WithOut[(L1, L2), (R1, R2, R3, R4, R5, R6, R7), (L1, L2, R1, R2, R3, R4, R5, R6, R7)] =
+    new Combiner[(L1, L2), (R1, R2, R3, R4, R5, R6, R7)] {
+      override type Out = (L1, L2, R1, R2, R3, R4, R5, R6, R7)
+
+      override def combine(l: (L1, L2), r: (R1, R2, R3, R4, R5, R6, R7)): Out =
+        (l._1, l._2, r._1, r._2, r._3, r._4, r._5, r._6, r._7)
+
+      override def separate(out: Out): ((L1, L2), (R1, R2, R3, R4, R5, R6, R7)) =
+        ((out._1, out._2), (out._3, out._4, out._5, out._6, out._7, out._8, out._9))
+    }
+
+  implicit def combine3L7R[L1, L2, L3, R1, R2, R3, R4, R5, R6, R7]
+    : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7), (L1, L2, L3, R1, R2, R3, R4, R5, R6, R7)] =
+    new Combiner[(L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7)] {
+      override type Out = (L1, L2, L3, R1, R2, R3, R4, R5, R6, R7)
+
+      override def combine(l: (L1, L2, L3), r: (R1, R2, R3, R4, R5, R6, R7)): Out =
+        (l._1, l._2, l._3, r._1, r._2, r._3, r._4, r._5, r._6, r._7)
+
+      override def separate(out: Out): ((L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7)) =
+        ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7, out._8, out._9, out._10))
+    }
+
+  implicit def combine4L7R[L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7]
+    : Combiner.WithOut[(L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6, R7), (L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7)] =
+    new Combiner[(L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6, R7)] {
+      override type Out = (L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7)
+
+      override def combine(l: (L1, L2, L3, L4), r: (R1, R2, R3, R4, R5, R6, R7)): Out =
+        (l._1, l._2, l._3, l._4, r._1, r._2, r._3, r._4, r._5, r._6, r._7)
+
+      override def separate(out: Out): ((L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6, R7)) =
+        ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8, out._9, out._10, out._11))
+    }
+
+  implicit def combine5L7R[L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5),
+    (R1, R2, R3, R4, R5, R6, R7),
+    (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6, R7)] {
+      override type Out = (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7)
+
+      override def combine(l: (L1, L2, L3, L4, L5), r: (R1, R2, R3, R4, R5, R6, R7)): Out =
+        (l._1, l._2, l._3, l._4, l._5, r._1, r._2, r._3, r._4, r._5, r._6, r._7)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6, R7)) =
+        ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8, out._9, out._10, out._11, out._12))
+    }
+
+  implicit def combine6L7R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6),
+    (R1, R2, R3, R4, R5, R6, R7),
+    (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5, R6, R7)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6), r: (R1, R2, R3, R4, R5, R6, R7)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, r._1, r._2, r._3, r._4, r._5, r._6, r._7)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5, R6, R7)) =
+        ((out._1, out._2, out._3, out._4, out._5, out._6), (out._7, out._8, out._9, out._10, out._11, out._12, out._13))
+    }
+
+  implicit def combine7L7R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7),
+    (R1, R2, R3, R4, R5, R6, R7),
+    (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4, R5, R6, R7)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7), r: (R1, R2, R3, R4, R5, R6, R7)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, r._1, r._2, r._3, r._4, r._5, r._6, r._7)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4, R5, R6, R7)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7),
+          (out._8, out._9, out._10, out._11, out._12, out._13, out._14),
+        )
+    }
+
+  implicit def combine8L7R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8),
+    (R1, R2, R3, R4, R5, R6, R7),
+    (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4, R5, R6, R7)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8), r: (R1, R2, R3, R4, R5, R6, R7)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, r._1, r._2, r._3, r._4, r._5, r._6, r._7)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4, R5, R6, R7)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8),
+          (out._9, out._10, out._11, out._12, out._13, out._14, out._15),
+        )
+    }
+
+  implicit def combine9L7R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9),
+    (R1, R2, R3, R4, R5, R6, R7),
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4, R5, R6, R7)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8, L9), r: (R1, R2, R3, R4, R5, R6, R7)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, l._9, r._1, r._2, r._3, r._4, r._5, r._6, r._7)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4, R5, R6, R7)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9),
+          (out._10, out._11, out._12, out._13, out._14, out._15, out._16),
+        )
+    }
+
+  implicit def combine2L8R[L1, L2, R1, R2, R3, R4, R5, R6, R7, R8]
+    : Combiner.WithOut[(L1, L2), (R1, R2, R3, R4, R5, R6, R7, R8), (L1, L2, R1, R2, R3, R4, R5, R6, R7, R8)] =
+    new Combiner[(L1, L2), (R1, R2, R3, R4, R5, R6, R7, R8)] {
+      override type Out = (L1, L2, R1, R2, R3, R4, R5, R6, R7, R8)
+
+      override def combine(l: (L1, L2), r: (R1, R2, R3, R4, R5, R6, R7, R8)): Out =
+        (l._1, l._2, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8)
+
+      override def separate(out: Out): ((L1, L2), (R1, R2, R3, R4, R5, R6, R7, R8)) =
+        ((out._1, out._2), (out._3, out._4, out._5, out._6, out._7, out._8, out._9, out._10))
+    }
+
+  implicit def combine3L8R[L1, L2, L3, R1, R2, R3, R4, R5, R6, R7, R8]
+    : Combiner.WithOut[(L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7, R8), (L1, L2, L3, R1, R2, R3, R4, R5, R6, R7, R8)] =
+    new Combiner[(L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7, R8)] {
+      override type Out = (L1, L2, L3, R1, R2, R3, R4, R5, R6, R7, R8)
+
+      override def combine(l: (L1, L2, L3), r: (R1, R2, R3, R4, R5, R6, R7, R8)): Out =
+        (l._1, l._2, l._3, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8)
+
+      override def separate(out: Out): ((L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7, R8)) =
+        ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7, out._8, out._9, out._10, out._11))
+    }
+
+  implicit def combine4L8R[L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
+    (L1, L2, L3, L4),
+    (R1, R2, R3, R4, R5, R6, R7, R8),
+    (L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7, R8),
+  ] =
+    new Combiner[(L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6, R7, R8)] {
+      override type Out = (L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7, R8)
+
+      override def combine(l: (L1, L2, L3, L4), r: (R1, R2, R3, R4, R5, R6, R7, R8)): Out =
+        (l._1, l._2, l._3, l._4, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8)
+
+      override def separate(out: Out): ((L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6, R7, R8)) =
+        ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8, out._9, out._10, out._11, out._12))
+    }
+
+  implicit def combine5L8R[L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5),
+    (R1, R2, R3, R4, R5, R6, R7, R8),
+    (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7, R8),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6, R7, R8)] {
+      override type Out = (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7, R8)
+
+      override def combine(l: (L1, L2, L3, L4, L5), r: (R1, R2, R3, R4, R5, R6, R7, R8)): Out =
+        (l._1, l._2, l._3, l._4, l._5, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6, R7, R8)) =
+        ((out._1, out._2, out._3, out._4, out._5), (out._6, out._7, out._8, out._9, out._10, out._11, out._12, out._13))
+    }
+
+  implicit def combine6L8R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6),
+    (R1, R2, R3, R4, R5, R6, R7, R8),
+    (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7, R8),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5, R6, R7, R8)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7, R8)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6), r: (R1, R2, R3, R4, R5, R6, R7, R8)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5, R6, R7, R8)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6),
+          (out._7, out._8, out._9, out._10, out._11, out._12, out._13, out._14),
+        )
+    }
+
+  implicit def combine7L8R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7),
+    (R1, R2, R3, R4, R5, R6, R7, R8),
+    (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7, R8),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4, R5, R6, R7, R8)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7, R8)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7), r: (R1, R2, R3, R4, R5, R6, R7, R8)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4, R5, R6, R7, R8)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7),
+          (out._8, out._9, out._10, out._11, out._12, out._13, out._14, out._15),
+        )
+    }
+
+  implicit def combine8L8R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8),
+    (R1, R2, R3, R4, R5, R6, R7, R8),
+    (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7, R8),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4, R5, R6, R7, R8)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7, R8)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8), r: (R1, R2, R3, R4, R5, R6, R7, R8)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4, R5, R6, R7, R8)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8),
+          (out._9, out._10, out._11, out._12, out._13, out._14, out._15, out._16),
+        )
+    }
+
+  implicit def combine9L8R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7, R8]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9),
+    (R1, R2, R3, R4, R5, R6, R7, R8),
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7, R8),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4, R5, R6, R7, R8)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7, R8)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8, L9), r: (R1, R2, R3, R4, R5, R6, R7, R8)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, l._9, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4, R5, R6, R7, R8)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9),
+          (out._10, out._11, out._12, out._13, out._14, out._15, out._16, out._17),
+        )
+    }
+
+  implicit def combine2L9R[L1, L2, R1, R2, R3, R4, R5, R6, R7, R8, R9]
+    : Combiner.WithOut[(L1, L2), (R1, R2, R3, R4, R5, R6, R7, R8, R9), (L1, L2, R1, R2, R3, R4, R5, R6, R7, R8, R9)] =
+    new Combiner[(L1, L2), (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
+      override type Out = (L1, L2, R1, R2, R3, R4, R5, R6, R7, R8, R9)
+
+      override def combine(l: (L1, L2), r: (R1, R2, R3, R4, R5, R6, R7, R8, R9)): Out =
+        (l._1, l._2, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9)
+
+      override def separate(out: Out): ((L1, L2), (R1, R2, R3, R4, R5, R6, R7, R8, R9)) =
+        ((out._1, out._2), (out._3, out._4, out._5, out._6, out._7, out._8, out._9, out._10, out._11))
+    }
+
+  implicit def combine3L9R[L1, L2, L3, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
+    (L1, L2, L3),
+    (R1, R2, R3, R4, R5, R6, R7, R8, R9),
+    (L1, L2, L3, R1, R2, R3, R4, R5, R6, R7, R8, R9),
+  ] =
+    new Combiner[(L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
+      override type Out = (L1, L2, L3, R1, R2, R3, R4, R5, R6, R7, R8, R9)
+
+      override def combine(l: (L1, L2, L3), r: (R1, R2, R3, R4, R5, R6, R7, R8, R9)): Out =
+        (l._1, l._2, l._3, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9)
+
+      override def separate(out: Out): ((L1, L2, L3), (R1, R2, R3, R4, R5, R6, R7, R8, R9)) =
+        ((out._1, out._2, out._3), (out._4, out._5, out._6, out._7, out._8, out._9, out._10, out._11, out._12))
+    }
+
+  implicit def combine4L9R[L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
+    (L1, L2, L3, L4),
+    (R1, R2, R3, R4, R5, R6, R7, R8, R9),
+    (L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7, R8, R9),
+  ] =
+    new Combiner[(L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
+      override type Out = (L1, L2, L3, L4, R1, R2, R3, R4, R5, R6, R7, R8, R9)
+
+      override def combine(l: (L1, L2, L3, L4), r: (R1, R2, R3, R4, R5, R6, R7, R8, R9)): Out =
+        (l._1, l._2, l._3, l._4, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9)
+
+      override def separate(out: Out): ((L1, L2, L3, L4), (R1, R2, R3, R4, R5, R6, R7, R8, R9)) =
+        ((out._1, out._2, out._3, out._4), (out._5, out._6, out._7, out._8, out._9, out._10, out._11, out._12, out._13))
+    }
+
+  implicit def combine5L9R[L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5),
+    (R1, R2, R3, R4, R5, R6, R7, R8, R9),
+    (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7, R8, R9),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
+      override type Out = (L1, L2, L3, L4, L5, R1, R2, R3, R4, R5, R6, R7, R8, R9)
+
+      override def combine(l: (L1, L2, L3, L4, L5), r: (R1, R2, R3, R4, R5, R6, R7, R8, R9)): Out =
+        (l._1, l._2, l._3, l._4, l._5, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5), (R1, R2, R3, R4, R5, R6, R7, R8, R9)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5),
+          (out._6, out._7, out._8, out._9, out._10, out._11, out._12, out._13, out._14),
+        )
+    }
+
+  implicit def combine6L9R[L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6),
+    (R1, R2, R3, R4, R5, R6, R7, R8, R9),
+    (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7, R8, R9),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, R1, R2, R3, R4, R5, R6, R7, R8, R9)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6), r: (R1, R2, R3, R4, R5, R6, R7, R8, R9)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6), (R1, R2, R3, R4, R5, R6, R7, R8, R9)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6),
+          (out._7, out._8, out._9, out._10, out._11, out._12, out._13, out._14, out._15),
+        )
+    }
+
+  implicit def combine7L9R[L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7),
+    (R1, R2, R3, R4, R5, R6, R7, R8, R9),
+    (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7, R8, R9),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, R1, R2, R3, R4, R5, R6, R7, R8, R9)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7), r: (R1, R2, R3, R4, R5, R6, R7, R8, R9)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7), (R1, R2, R3, R4, R5, R6, R7, R8, R9)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7),
+          (out._8, out._9, out._10, out._11, out._12, out._13, out._14, out._15, out._16),
+        )
+    }
+
+  implicit def combine8L9R[L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8),
+    (R1, R2, R3, R4, R5, R6, R7, R8, R9),
+    (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7, R8, R9),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, R1, R2, R3, R4, R5, R6, R7, R8, R9)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8), r: (R1, R2, R3, R4, R5, R6, R7, R8, R9)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8), (R1, R2, R3, R4, R5, R6, R7, R8, R9)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8),
+          (out._9, out._10, out._11, out._12, out._13, out._14, out._15, out._16, out._17),
+        )
+    }
+
+  implicit def combine9L9R[L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7, R8, R9]: Combiner.WithOut[
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9),
+    (R1, R2, R3, R4, R5, R6, R7, R8, R9),
+    (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7, R8, R9),
+  ] =
+    new Combiner[(L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
+      override type Out = (L1, L2, L3, L4, L5, L6, L7, L8, L9, R1, R2, R3, R4, R5, R6, R7, R8, R9)
+
+      override def combine(l: (L1, L2, L3, L4, L5, L6, L7, L8, L9), r: (R1, R2, R3, R4, R5, R6, R7, R8, R9)): Out =
+        (l._1, l._2, l._3, l._4, l._5, l._6, l._7, l._8, l._9, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9)
+
+      override def separate(out: Out): ((L1, L2, L3, L4, L5, L6, L7, L8, L9), (R1, R2, R3, R4, R5, R6, R7, R8, R9)) =
+        (
+          (out._1, out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9),
+          (out._10, out._11, out._12, out._13, out._14, out._15, out._16, out._17, out._18),
+        )
+    }
+
+}
+
+trait CombinerLowPriority3 extends CombinerLowPriority4 {
+  // Low priority
+  implicit def combine1L2R[L1, R1, R2]: Combiner.WithOut[L1, (R1, R2), (L1, R1, R2)] = new Combiner[L1, (R1, R2)] {
+    override type Out = (L1, R1, R2)
+
+    override def combine(l: L1, r: (R1, R2)): Out = (l, r._1, r._2)
+
+    override def separate(out: Out): (L1, (R1, R2)) = (out._1, (out._2, out._3))
+  }
+
+  implicit def combine1L3R[L1, R1, R2, R3]: Combiner.WithOut[L1, (R1, R2, R3), (L1, R1, R2, R3)] =
+    new Combiner[L1, (R1, R2, R3)] {
+      override type Out = (L1, R1, R2, R3)
+
+      override def combine(l: L1, r: (R1, R2, R3)): Out = (l, r._1, r._2, r._3)
+
+      override def separate(out: Out): (L1, (R1, R2, R3)) = (out._1, (out._2, out._3, out._4))
+    }
+
+  implicit def combine1L4R[L1, R1, R2, R3, R4]: Combiner.WithOut[L1, (R1, R2, R3, R4), (L1, R1, R2, R3, R4)] =
+    new Combiner[L1, (R1, R2, R3, R4)] {
+      override type Out = (L1, R1, R2, R3, R4)
+
+      override def combine(l: L1, r: (R1, R2, R3, R4)): Out = (l, r._1, r._2, r._3, r._4)
+
+      override def separate(out: Out): (L1, (R1, R2, R3, R4)) = (out._1, (out._2, out._3, out._4, out._5))
+    }
+
+  implicit def combine1L5R[L1, R1, R2, R3, R4, R5]
+    : Combiner.WithOut[L1, (R1, R2, R3, R4, R5), (L1, R1, R2, R3, R4, R5)] =
+    new Combiner[L1, (R1, R2, R3, R4, R5)] {
+      override type Out = (L1, R1, R2, R3, R4, R5)
+
+      override def combine(l: L1, r: (R1, R2, R3, R4, R5)): Out = (l, r._1, r._2, r._3, r._4, r._5)
+
+      override def separate(out: Out): (L1, (R1, R2, R3, R4, R5)) = (out._1, (out._2, out._3, out._4, out._5, out._6))
+    }
+
+  implicit def combine1L6R[L1, R1, R2, R3, R4, R5, R6]
+    : Combiner.WithOut[L1, (R1, R2, R3, R4, R5, R6), (L1, R1, R2, R3, R4, R5, R6)] =
+    new Combiner[L1, (R1, R2, R3, R4, R5, R6)] {
+      override type Out = (L1, R1, R2, R3, R4, R5, R6)
+
+      override def combine(l: L1, r: (R1, R2, R3, R4, R5, R6)): Out = (l, r._1, r._2, r._3, r._4, r._5, r._6)
+
+      override def separate(out: Out): (L1, (R1, R2, R3, R4, R5, R6)) =
+        (out._1, (out._2, out._3, out._4, out._5, out._6, out._7))
+    }
+
+  implicit def combine1L7R[L1, R1, R2, R3, R4, R5, R6, R7]
+    : Combiner.WithOut[L1, (R1, R2, R3, R4, R5, R6, R7), (L1, R1, R2, R3, R4, R5, R6, R7)] =
+    new Combiner[L1, (R1, R2, R3, R4, R5, R6, R7)] {
+      override type Out = (L1, R1, R2, R3, R4, R5, R6, R7)
+
+      override def combine(l: L1, r: (R1, R2, R3, R4, R5, R6, R7)): Out = (l, r._1, r._2, r._3, r._4, r._5, r._6, r._7)
+
+      override def separate(out: Out): (L1, (R1, R2, R3, R4, R5, R6, R7)) =
+        (out._1, (out._2, out._3, out._4, out._5, out._6, out._7, out._8))
+    }
+
+  implicit def combine1L8R[L1, R1, R2, R3, R4, R5, R6, R7, R8]
+    : Combiner.WithOut[L1, (R1, R2, R3, R4, R5, R6, R7, R8), (L1, R1, R2, R3, R4, R5, R6, R7, R8)] =
+    new Combiner[L1, (R1, R2, R3, R4, R5, R6, R7, R8)] {
+      override type Out = (L1, R1, R2, R3, R4, R5, R6, R7, R8)
+
+      override def combine(l: L1, r: (R1, R2, R3, R4, R5, R6, R7, R8)): Out =
+        (l, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8)
+
+      override def separate(out: Out): (L1, (R1, R2, R3, R4, R5, R6, R7, R8)) =
+        (out._1, (out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9))
+    }
+
+  implicit def combine1L9R[L1, R1, R2, R3, R4, R5, R6, R7, R8, R9]
+    : Combiner.WithOut[L1, (R1, R2, R3, R4, R5, R6, R7, R8, R9), (L1, R1, R2, R3, R4, R5, R6, R7, R8, R9)] =
+    new Combiner[L1, (R1, R2, R3, R4, R5, R6, R7, R8, R9)] {
+      override type Out = (L1, R1, R2, R3, R4, R5, R6, R7, R8, R9)
+
+      override def combine(l: L1, r: (R1, R2, R3, R4, R5, R6, R7, R8, R9)): Out =
+        (l, r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9)
+
+      override def separate(out: Out): (L1, (R1, R2, R3, R4, R5, R6, R7, R8, R9)) =
+        (out._1, (out._2, out._3, out._4, out._5, out._6, out._7, out._8, out._9, out._10))
+    }
+}
+
+trait CombinerLowPriority4 extends CombinerLowPriority5 {
+  implicit def combine34[A, B, C]: Combiner.WithOut[(A, B), C, (A, B, C)] =
     new Combiner[(A, B), C] {
       type Out = (A, B, C)
 
@@ -66,8 +1054,9 @@ trait CombinerLowPriority2 extends CombinerLowPriority3 {
     }
 }
 
-trait CombinerLowPriority3 extends CombinerLowPriority4 {
+trait CombinerLowPriority5 extends CombinerLowPriority6 {
 
+  // (A, B, C) + D -> (A, B, C, D)
   // (A, B, C) + D -> (A, B, C, D)
   implicit def combine3[A, B, C, D]: Combiner.WithOut[(A, B, C), D, (A, B, C, D)] =
     new Combiner[(A, B, C), D] {
@@ -152,8 +1141,7 @@ trait CombinerLowPriority3 extends CombinerLowPriority4 {
 
 }
 
-trait CombinerLowPriority4 {
-
+trait CombinerLowPriority6 {
   implicit def combine[A, B]: Combiner.WithOut[A, B, (A, B)] =
     new Combiner[A, B] {
       type Out = (A, B)
