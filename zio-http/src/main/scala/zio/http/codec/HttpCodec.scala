@@ -26,6 +26,7 @@ import zio.stream.ZStream
 import zio.schema.Schema
 
 import zio.http._
+import zio.http.codec.HttpCodec.Halt
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -146,7 +147,10 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   private final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
     trace: Trace,
   ): Task[Value] =
-    encoderDecoder.decode(url, status, method, headers, body)
+    encoderDecoder match {
+      case Some(value) => value.decode(url, status, method, headers, body)
+      case None        => ZIO.fail(new IllegalStateException("Trying to decode with null codec"))
+    }
 
   /**
    * Uses this codec to encode the Scala value into a request.
@@ -193,7 +197,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   private final def encodeWith[Z](value: Value)(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z =
-    encoderDecoder.encodeWith(value)(f)
+    encoderDecoder.getOrElse(throw new IllegalStateException("Trying to encode with empty codec")).encodeWith(value)(f)
 
   def examples(examples: Iterable[Value]): HttpCodec[AtomTypes, Value] =
     HttpCodec.WithExamples(self, Chunk.fromIterable(examples))

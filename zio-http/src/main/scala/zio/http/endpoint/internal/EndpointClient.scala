@@ -17,7 +17,6 @@
 package zio.http.endpoint.internal
 
 import zio._
-
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
@@ -43,15 +42,45 @@ private[endpoint] final case class EndpointClient[I, E, O, M <: EndpointMiddlewa
         val leftError =
           endpoint.error.decodeResponse(response).map(e => alt.left(e))
 
-        val rightError = if (invocation.middleware == EndpointMiddleware.None) {
-          ZIO.dieMessage("Middleware is none")
-        } else {
+        val rightError =
           invocation.middleware.error
             .decodeResponse(response)
             .map(e => alt.right(e))
+
+        def generateErrorMessage(t1: Throwable, t2: Throwable) = {
+          Cause.Both(
+            Cause
+              .fail(
+                new IllegalStateException(s"Failed to deserialize response. Response status: ${response.status}"),
+              ),
+            Cause.Both(
+              Cause
+                .die(new IllegalStateException("Cannot deserialize using endpoint error codec", t1)),
+              Cause
+                .die(new IllegalStateException("Cannot deserialize using middleware error codec", t2)),
+            ),
+          )
         }
 
-        leftError.orElse(rightError).orDie.flip
+        def orElseCombineErrors[R, E1, A](
+          zio1: ZIO[R, E1, A],
+          zio2: ZIO[R, E1, A],
+          f: (E1, E1) => Cause[E1],
+        ): ZIO[R, E1, A] = {
+          zio1.foldZIO(
+            success = ZIO.succeed(_),
+            failure = cause1 => {
+              zio2.foldZIO(
+                success = ZIO.succeed(_),
+                failure = cause2 => {
+                  ZIO.failCause(f(cause1, cause2))
+                },
+              )
+            },
+          )
+        }
+
+        orElseCombineErrors(leftError, rightError, generateErrorMessage).orDie.flip
       }
     }
   }

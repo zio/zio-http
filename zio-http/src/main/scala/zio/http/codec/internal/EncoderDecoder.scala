@@ -38,11 +38,14 @@ private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z
 }
 private[codec] object EncoderDecoder                   {
-  def apply[AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value]): EncoderDecoder[AtomTypes, Value] = {
+  def apply[AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value]): Option[EncoderDecoder[AtomTypes, Value]] = {
     val flattened = httpCodec.alternatives
 
-    if (flattened.length == 1) Single(flattened.head)
-    else Multiple(flattened)
+    flattened.length match {
+      case 0 => None
+      case 1 => Some(Single(flattened.head))
+      case _ => Some(Multiple(flattened))
+    }
   }
 
   private final case class Multiple[-AtomTypes, Value](httpCodecs: Chunk[HttpCodec[AtomTypes, Value]])
