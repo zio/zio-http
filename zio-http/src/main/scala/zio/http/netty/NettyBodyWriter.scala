@@ -34,6 +34,7 @@ object NettyBodyWriter {
       case body: ByteBufBody                  =>
         ZIO.succeed {
           ctx.write(body.byteBuf)
+          println(s"Finished writing byte buffer body")
           false
         }
       case body: FileBody                     =>
@@ -56,6 +57,7 @@ object NettyBodyWriter {
             ctx.writeAndFlush(nettyMsg)
             if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
           }
+          println(s"Finished writing async body")
           true
         }
       case AsciiStringBody(asciiString, _, _) =>
@@ -64,6 +66,7 @@ object NettyBodyWriter {
           false
         }
       case StreamBody(stream, _, _)           =>
+        println(s"Starting writing stream body")
         stream
           .runForeachChunk(chunk =>
             NettyFutureExecutor.executed {
@@ -71,6 +74,7 @@ object NettyBodyWriter {
             },
           )
           .zipRight {
+            println(s"Finished writing stream body")
             NettyFutureExecutor.executed {
               ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
             }.as(true)
@@ -78,6 +82,7 @@ object NettyBodyWriter {
       case ChunkBody(data, _, _)              =>
         ZIO.succeed {
           ctx.write(Unpooled.wrappedBuffer(data.toArray))
+          println(s"Wrote chunk body of length ${data.length}")
           false
         }
       case EmptyBody                          => ZIO.succeed(false)

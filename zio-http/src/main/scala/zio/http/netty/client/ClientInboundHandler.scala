@@ -52,6 +52,7 @@ final class ClientInboundHandler(
     jReq match {
       case fullRequest: FullHttpRequest =>
         ctx.writeAndFlush(fullRequest)
+        println(s"Sent full request")
       case _: HttpRequest               =>
         ctx.write(jReq)
         rtm.run(ctx, NettyRuntime.noopEnsuring) {

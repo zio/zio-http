@@ -239,6 +239,7 @@ private[zio] final case class ServerInboundHandler(
 
     nettyReq match {
       case nettyReq: FullHttpRequest =>
+        println(s"Got ready http request")
         Request(
           NettyBody.fromByteBuf(
             nettyReq.content(),
@@ -251,6 +252,7 @@ private[zio] final case class ServerInboundHandler(
           remoteAddress,
         )
       case nettyReq: HttpRequest     =>
+        println(s"Got streaming http request")
         val handler = addAsyncBodyHandler(ctx)
         val body    = NettyBody.fromAsync(
           { async =>
