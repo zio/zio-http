@@ -260,7 +260,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               Headers.empty,
               Body.fromStream(
                 (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3)).chunks.tap { chunk =>
-                  if (chunk == Chunk.fromArray(" re".getBytes))
+                  if (chunk == Chunk.fromArray("que".getBytes))
                     sync.await
                   else
                     ZIO.unit
@@ -271,7 +271,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           body     <- response.body.asStream.chunks
             .map(chunk => new String(chunk.toArray))
             .tap { chunk =>
-              if (chunk == "ing") sync.succeed(()) else ZIO.unit
+              if (chunk == "eam") sync.succeed(()) else ZIO.unit
             }
             .runCollect
           expectedBody =
