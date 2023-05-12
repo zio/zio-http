@@ -19,7 +19,7 @@ package zio.http.endpoint
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
-import zio.test.{Spec, TestResult, ZIOSpecDefault, assert}
+import zio.test._
 
 import zio.stream.ZStream
 
@@ -29,7 +29,7 @@ import zio.http.Header.Authorization
 import zio.http.Method._
 import zio.http._
 import zio.http.codec.HttpCodec.{authorization, query}
-import zio.http.codec.{Doc, HttpCodec, QueryCodec}
+import zio.http.codec.{Doc, HeaderCodec, HttpCodec, QueryCodec}
 import zio.http.netty.server.NettyDriver
 
 object EndpointRoundtripSpec extends ZIOSpecDefault {
@@ -141,6 +141,25 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
           (10, 20),
           Post(20, "title", "body", 10),
         )
+      },
+      test("simple get with protobuf encoding") {
+        val usersPostAPI =
+          Endpoint
+            .get(literal("users") / int("userId") / literal("posts") / int("postId"))
+            .out[Post]
+            .header(HeaderCodec.accept)
+
+        val usersPostHandler =
+          usersPostAPI.implement { case (userId, postId, _) =>
+            ZIO.succeed(Post(postId, "title", "body", userId))
+          }
+
+        testEndpoint(
+          usersPostAPI,
+          usersPostHandler,
+          (10, 20, Header.Accept(MediaType.parseCustomMediaType("application/protobuf").get)),
+          Post(20, "title", "body", 10),
+        ) && assertZIO(TestConsole.output)(contains("ContentType: application/protobuf\n"))
       },
       test("simple get with optional query params") {
         val api =
@@ -441,5 +460,16 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
           )
         }
       } @@ timeout(10.seconds) @@ ifEnvNotSet("CI"), // NOTE: random hangs on CI
-    ).provideLayer(testLayer) @@ withLiveClock @@ sequential @@ timeout(300.seconds)
+    ).provide(
+      Server.live,
+      ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
+      Client.customized.map(env => ZEnvironment(env.get @@ ZClientAspect.debug{ case r: Response =>
+          r.headers.get(Header.ContentType).map(_.renderedValue).mkString("ContentType: ", "", "")
+        })),
+      ClientDriver.shared,
+      NettyDriver.live,
+      ZLayer.succeed(ZClient.Config.default),
+      DnsResolver.default,
+      Scope.default,
+    ) @@ withLiveClock @@ sequential @@ timeout(300.seconds)
 }

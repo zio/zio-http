@@ -26,6 +26,7 @@ import zio.http.{Path, Status}
 sealed trait HttpCodecError extends Exception with NoStackTrace {
   override def getMessage(): String = message
   def message: String
+  override def getMessage: String = message
 }
 object HttpCodecError {
   final case class MissingHeader(headerName: String)                                    extends HttpCodecError {
@@ -56,6 +57,10 @@ object HttpCodecError {
     def message = s"Malformed request body failed to decode: $details"
   }
   final case class CustomError(message: String)                                         extends HttpCodecError
+
+  final case class UnsupportedContentType(contentType: String) extends HttpCodecError {
+    def message = s"Unsupported content type $contentType"
+  }
 
   def isHttpCodecError(cause: Cause[Any]): Boolean = {
     !cause.isFailure && cause.defects.forall(e => e.isInstanceOf[HttpCodecError])
