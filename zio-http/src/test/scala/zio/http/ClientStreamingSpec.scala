@@ -182,6 +182,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
       test("decoding random pre-encoded form") {
         check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
           for {
+            _        <- ZIO.debug("decoding random pre-encoded form ===>")
             port     <- server(streamingServer)
             client   <- ZIO.service[Client]
             boundary <- Boundary.randomUUID
@@ -204,6 +205,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             normalizedOut <- ZIO.foreach(form.formData) { field =>
               field.asChunk.map(field.name -> _)
             }
+            _             <- ZIO.debug("<=== decoding random pre-encoded form")
           } yield assertTrue(
             normalizedIn == normalizedOut,
           )

@@ -119,7 +119,6 @@ object NettyBody extends BodyEncoding {
           .async[Any, Throwable, (JChannel, Chunk[Byte], Boolean)](emit =>
             try {
               unsafeAsync { (ctx, msg, isLast) =>
-                println(s"Received body chunk of size ${msg.length}")
                 emit(ZIO.succeed(Chunk((ctx, msg, isLast))))
               }
             } catch {

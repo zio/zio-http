@@ -82,7 +82,6 @@ object NettyBodyWriter {
       case ChunkBody(data, _, _)              =>
         ZIO.succeed {
           ctx.write(Unpooled.wrappedBuffer(data.toArray))
-          println(s"Wrote chunk body of length ${data.length}")
           false
         }
       case EmptyBody                          => ZIO.succeed(false)
