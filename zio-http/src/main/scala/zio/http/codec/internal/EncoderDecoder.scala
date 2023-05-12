@@ -35,6 +35,16 @@ private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   ): Task[Value]
 
   def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z
+
+  def withOutputTypes(outputTypes: Chunk[MediaType]): EncoderDecoder[AtomTypes, Value] = {
+    if (outputTypes.isEmpty) this
+    else {
+      this match {
+        case EncoderDecoder.Multiple(httpCodecs) => EncoderDecoder.Multiple(httpCodecs)
+        case EncoderDecoder.Single(httpCodec, _) => EncoderDecoder.Single(httpCodec, outputTypes)
+      }
+    }
+  }
 }
 private[codec] object EncoderDecoder                   {
   def apply[AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value]): EncoderDecoder[AtomTypes, Value] = {
@@ -50,8 +60,6 @@ private[codec] object EncoderDecoder                   {
   private final case class Multiple[-AtomTypes, Value](httpCodecs: Chunk[HttpCodec[AtomTypes, Value]])
       extends EncoderDecoder[AtomTypes, Value] {
     val singles = httpCodecs.map(Single(_))
-    val head    = singles.head
-    val tail    = singles.tail
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
@@ -131,19 +139,33 @@ private[codec] object EncoderDecoder                   {
     }
   }
 
-  private final case class Single[-AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value])
-      extends EncoderDecoder[AtomTypes, Value] {
+  private final case class Single[-AtomTypes, Value](
+    httpCodec: HttpCodec[AtomTypes, Value],
+    outputTypes: Chunk[MediaType] = Chunk.empty,
+  ) extends EncoderDecoder[AtomTypes, Value] {
     private val constructor   = Mechanic.makeConstructor(httpCodec)
     private val deconstructor = Mechanic.makeDeconstructor(httpCodec)
 
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
-    private val jsonEncoders: Chunk[Any => Body] =
-      flattened.content.map { bodyCodec =>
-        val erased    = bodyCodec.erase
-        val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
-        erased.encodeToBody(_, jsonCodec)
+    private val codecs: Map[String, MediaTypeCodec] = {
+      val defaultCodecs = List(
+        MediaTypeCodec.json(flattened.content),
+        MediaTypeCodec.protobuf(flattened.content),
+      ).flatMap(c => c.acceptedTypes.map(at => at.fullType -> c)).toMap
+      if (outputTypes.isEmpty) defaultCodecs
+      else {
+        outputTypes.collectFirst {
+          case mt if defaultCodecs.isDefinedAt(mt.fullType) => Map(mt.fullType -> defaultCodecs(mt.fullType))
+        }.getOrElse(
+          throw HttpCodecError.UnsupportedContentType(
+            s"""Non of the Accept header mime types is currently supported.
+               |Accepted are: ${outputTypes.map(_.fullType).mkString(",")}.
+               |Supported mime types are: ${defaultCodecs.keys.mkString(", ")}""".stripMargin,
+          ),
+        )
       }
+    }
 
     private val formFieldEncoders: Chunk[(String, Any) => FormField]      =
       flattened.content.map { bodyCodec => (name: String, value: Any) =>
@@ -161,11 +183,6 @@ private[codec] object EncoderDecoder                   {
               )
           }
         }
-      }
-    private val jsonDecoders: Chunk[Body => IO[Throwable, _]]             =
-      flattened.content.map { bodyCodec =>
-        val jsonCodec = JsonCodec.schemaBasedBinaryCodec(bodyCodec.schema)
-        bodyCodec.decodeFromBody(_, jsonCodec)
       }
     private val formFieldDecoders: Chunk[FormField => IO[Throwable, Any]] =
       flattened.content.map { bodyCodec => (field: FormField) =>
@@ -248,10 +265,12 @@ private[codec] object EncoderDecoder                   {
       decodeStatus(status, inputsBuilder.status)
       decodeMethod(method, inputsBuilder.method)
       decodeHeaders(headers, inputsBuilder.header)
-      decodeBody(body, inputsBuilder.content).as(constructor(inputsBuilder))
+      decodeBody(body, inputsBuilder.content, contentMediaType(headers)).as(constructor(inputsBuilder))
     }
 
-    final def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
+    final def encodeWith[Z](value: Value)(
+      f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
+    ): Z = {
       val inputs = deconstructor(value)
 
       val path               = encodePath(inputs.path)
@@ -259,8 +278,8 @@ private[codec] object EncoderDecoder                   {
       val status             = encodeStatus(inputs.status)
       val method             = encodeMethod(inputs.method)
       val headers            = encodeHeaders(inputs.header)
-      val body               = encodeBody(inputs.content)
       val contentTypeHeaders = encodeContentType(inputs.content)
+      val body               = encodeBody(inputs.content, contentTypeHeaders.get(Header.ContentType).get)
 
       f(URL(path, queryParams = query), status, method, headers ++ contentTypeHeaders, body)
     }
@@ -362,15 +381,18 @@ private[codec] object EncoderDecoder                   {
       }
     }
 
-    private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] = {
+    private def decodeBody(body: Body, inputs: Array[Any], contentType: MediaType)(implicit
+      trace: Trace,
+    ): Task[Unit] = {
       if (isByteStream) {
         ZIO.attempt(inputs(0) = body.asStream.orDie)
-      } else if (jsonDecoders.length == 0) {
+      } else if (flattened.content.isEmpty) {
         ZIO.unit
-      } else if (jsonDecoders.length == 1) {
-        jsonDecoders(0)(body).map { result => inputs(0) = result }.mapError { err =>
-          HttpCodecError.MalformedBody(err.getMessage(), Some(err))
-        }
+      } else if (flattened.content.size == 1) {
+        codecs(contentType.fullType)
+          .decodeSingle(body)
+          .map { result => inputs(0) = result }
+          .mapError { err => HttpCodecError.MalformedBody(err.getMessage(), Some(err)) }
       } else {
         body.asMultipartFormStream.flatMap { form =>
           if (onlyTheLastFieldIsStreaming)
@@ -527,15 +549,14 @@ private[codec] object EncoderDecoder                   {
       headers
     }
 
-    private def encodeMethod(inputs: Array[Any]): Option[zio.http.Method] =
+    private def encodeMethod(inputs: Array[Any]): Option[zio.http.Method]                =
       if (flattened.method.nonEmpty) {
         flattened.method.head match {
           case _: SimpleCodec.Unspecified[_] => Some(inputs(0).asInstanceOf[Method])
           case SimpleCodec.Specified(method) => Some(method)
         }
       } else None
-
-    private def encodeBody(inputs: Array[Any]): Body = {
+    private def encodeBody(inputs: Array[Any], contentType: => Header.ContentType): Body = {
       if (isByteStream) {
         Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, Byte]])
       } else {
@@ -544,10 +565,16 @@ private[codec] object EncoderDecoder                   {
         } else {
           if (isEventStream) {
             Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, ServerSentEvent]].map(_.encode))
-          } else if (jsonEncoders.length < 1) Body.empty
-          else {
-            val encoder = jsonEncoders(0)
-            encoder(inputs(0))
+          } else if (inputs.length < 1) {
+            Body.empty
+          } else {
+            val codec = {
+              codecs.getOrElse(
+                contentType.mediaType.fullType,
+                throw HttpCodecError.UnsupportedContentType(contentType.renderedValue),
+              )
+            }
+            codec.encodeSingle(inputs(0))
           }
         }
       }
@@ -581,9 +608,12 @@ private[codec] object EncoderDecoder                   {
           Headers(Header.ContentType(MediaType.multipart.`form-data`))
         } else {
           if (isEventStream) Headers(Header.ContentType(MediaType.text.`event-stream`))
-          else if (jsonEncoders.length < 1) Headers.empty
+          else if (flattened.content.length < 1) Headers.empty
           else {
-            val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.json)
+            val mediaType = flattened.content(0).mediaType.getOrElse {
+              if (codecs.size == 1) MediaType.parseCustomMediaType(codecs.keys.head).get
+              else MediaType.application.json
+            }
             Headers(Header.ContentType(mediaType))
           }
         }
@@ -602,4 +632,7 @@ private[codec] object EncoderDecoder                   {
         case _                                                                     => false
       }
   }
+
+  private def contentMediaType(headers: Headers) =
+    headers.get(Header.ContentType).map(_.mediaType).getOrElse(MediaType.application.`json`)
 }

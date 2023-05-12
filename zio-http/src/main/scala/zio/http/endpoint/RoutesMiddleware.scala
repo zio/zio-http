@@ -58,15 +58,20 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
         trace: Trace,
       ): Handler[R1, E1, Request, Response] = {
         Handler.fromFunctionZIO[Request] { request =>
+          val outputMediaTypes =
+            request.headers
+              .get(Header.Accept)
+              .map(_.mimeTypes.sortBy(_.qFactor.getOrElse(1d)).map(_.mediaType))
+              .getOrElse(Chunk(MediaType.application.`json`))
           decodeMiddlewareInput(request).flatMap { input =>
             incoming(input).foldZIO(
-              e => ZIO.succeed(encodeMiddlewareError(e)),
+              e => ZIO.succeed(encodeMiddlewareError(e, outputMediaTypes)),
               { state =>
                 handler(request).flatMap { response =>
                   outgoing(state).fold(
-                    encodeMiddlewareError(_),
+                    encodeMiddlewareError(_, outputMediaTypes),
                     { output =>
-                      response.patch(encodeMiddlewareOutput(output))
+                      response.patch(encodeMiddlewareOutput(output, outputMediaTypes))
                     },
                   )
                 }
@@ -80,11 +85,11 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
   private def decodeMiddlewareInput(request: Request): ZIO[R, Nothing, I] =
     middleware.input.decodeRequest(request).orDie
 
-  private def encodeMiddlewareOutput(output: O): Response.Patch =
-    middleware.output.encodeResponsePatch(output)
+  private def encodeMiddlewareOutput(output: O, outputTypes: Chunk[MediaType]): Response.Patch =
+    middleware.output.encodeResponsePatch(output, outputTypes)
 
-  private def encodeMiddlewareError(error: E): Response =
-    middleware.error.encodeResponse(error)
+  private def encodeMiddlewareError(error: E, outputTypes: Chunk[MediaType]): Response =
+    middleware.error.encodeResponse(error, outputTypes)
 }
 object RoutesMiddleware                                 {
 

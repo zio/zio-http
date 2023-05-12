@@ -2,7 +2,7 @@ package example
 
 import zio.http.codec.HttpCodec._
 import zio.http.codec.HttpCodecType.PathQuery
-import zio.http.codec.{HttpCodec, HttpCodecType, PathCodec, QueryCodec}
+import zio.http.codec.{HttpCodec, HttpCodecType, PathCodec}
 import zio.http.endpoint.Endpoint
 
 object HttpCodecExample {

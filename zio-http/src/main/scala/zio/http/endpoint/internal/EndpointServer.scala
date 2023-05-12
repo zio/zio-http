@@ -28,9 +28,13 @@ private[endpoint] final case class EndpointServer[R, E, I, O, M <: EndpointMiddl
   private val handler  = single.handler
 
   def handle(request: Request)(implicit trace: Trace): ZIO[R, Nothing, Response] = {
+    val outputMediaTypes = request.headers
+      .get(Header.Accept)
+      .map(_.mimeTypes.sortBy(_.qFactor.getOrElse(1d)).map(_.mediaType))
+      .getOrElse(Chunk(MediaType.application.`json`))
     endpoint.input.decodeRequest(request).orDie.flatMap { value =>
-      handler(value).map(endpoint.output.encodeResponse(_)).catchAll { error =>
-        ZIO.succeed(single.endpoint.error.encodeResponse(error))
+      handler(value).map(endpoint.output.encodeResponse(_, outputMediaTypes)).catchAll { error =>
+        ZIO.succeed(single.endpoint.error.encodeResponse(error, outputMediaTypes))
       }
     }
   }

@@ -167,7 +167,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Uses this codec to encode the Scala value into a request.
    */
   final def encodeRequest(value: Value): Request =
-    encodeWith(value)((url, _, method, headers, body) =>
+    encodeWith(value, Chunk.empty)((url, _, method, headers, body) =>
       Request(
         url = url,
         method = method.getOrElse(Method.GET),
@@ -182,7 +182,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * Uses this codec to encode the Scala value as a patch to a request.
    */
   final def encodeRequestPatch(value: Value): Request.Patch =
-    encodeWith(value)((url, _, _, headers, _) =>
+    encodeWith(value, Chunk.empty)((url, _, _, headers, _) =>
       Request.Patch(
         addQueryParams = url.queryParams,
         addHeaders = headers,
@@ -192,23 +192,23 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Uses this codec to encode the Scala value as a response.
    */
-  final def encodeResponse[Z](value: Value): Response =
-    encodeWith(value)((_, status, _, headers, body) =>
+  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaType]): Response =
+    encodeWith(value, outputTypes)((_, status, _, headers, body) =>
       Response(headers = headers, body = body, status = status.getOrElse(Status.Ok)),
     )
 
   /**
    * Uses this codec to encode the Scala value as a response patch.
    */
-  final def encodeResponsePatch[Z](value: Value): Response.Patch =
-    encodeWith(value)((_, status, _, headers, _) =>
+  final def encodeResponsePatch[Z](value: Value, outputTypes: Chunk[MediaType]): Response.Patch =
+    encodeWith(value, outputTypes)((_, status, _, headers, _) =>
       Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.withStatus(_)).getOrElse(Response.Patch.empty),
     )
 
-  private final def encodeWith[Z](value: Value)(
+  private final def encodeWith[Z](value: Value, outputTypes: Chunk[MediaType])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z =
-    encoderDecoder.encodeWith(value)(f)
+    encoderDecoder.withOutputTypes(outputTypes).encodeWith(value)(f)
 
   def examples(examples: Iterable[Value]): HttpCodec[AtomTypes, Value] =
     HttpCodec.WithExamples(self, Chunk.fromIterable(examples))

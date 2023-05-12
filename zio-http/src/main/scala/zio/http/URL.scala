@@ -24,7 +24,6 @@ import zio.Chunk
 
 import zio.http.URL.{Fragment, Location, portFromScheme}
 import zio.http.internal.QueryParamEncoding
-import zio.http.{Charsets, Scheme}
 
 final case class URL(
   path: Path,

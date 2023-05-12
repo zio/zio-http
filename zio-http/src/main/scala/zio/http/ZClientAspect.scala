@@ -109,6 +109,14 @@ object ZClientAspect {
    * Client aspect that logs a debug message to the console after each request
    */
   final def debug(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
+    debug(PartialFunction.empty)
+
+  /**
+   * Client aspect that logs a debug message to the console after each request
+   */
+  final def debug(
+    extraMessage: PartialFunction[Response, String],
+  )(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
     new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
 
       /**
@@ -148,11 +156,10 @@ object ZClientAspect {
               .timed
               .tap {
                 case (duration, Exit.Success(response)) =>
-                  Console
-                    .printLine(
-                      s"${response.status.code} $method ${url.encode} ${duration.toMillis}ms",
-                    )
-                    .orDie
+                  {
+                    Console.printLine(s"${response.status.code} $method ${url.encode} ${duration.toMillis}ms") *>
+                      Console.printLine(extraMessage(response)).when(extraMessage.isDefinedAt(response))
+                  }.orDie
                 case (duration, Exit.Failure(cause))    =>
                   Console
                     .printLine(

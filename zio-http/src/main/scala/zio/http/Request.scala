@@ -106,4 +106,8 @@ object Request {
   def post(body: Body, url: URL): Request = default(Method.POST, url, body)
 
   def put(body: Body, url: URL): Request = default(Method.PUT, url, body)
+
+  object Patch {
+    val empty: Patch = Patch(Headers.empty, QueryParams.empty)
+  }
 }

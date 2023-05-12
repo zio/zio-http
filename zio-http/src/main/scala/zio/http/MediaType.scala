@@ -37,11 +37,12 @@ object MediaType extends MediaTypes {
   def forContentType(contentType: String): Option[MediaType] = {
     val index = contentType.indexOf(";")
     if (index == -1)
-      contentTypeMap.get(contentType)
+      contentTypeMap.get(contentType).orElse(parseCustomMediaType(contentType))
     else {
       val (contentType1, parameter) = contentType.splitAt(index)
       contentTypeMap
         .get(contentType1)
+        .orElse(parseCustomMediaType(contentType1))
         .map(_.copy(parameters = parseOptionalParameters(parameter.tail.split(";"))))
     }
   }
