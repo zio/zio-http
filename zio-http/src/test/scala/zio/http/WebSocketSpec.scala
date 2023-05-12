@@ -22,47 +22,46 @@ import zio.test.TestAspect.{diagnose, nonFlaky, timeout, withLiveClock}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
-import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
+import zio.http.ChannelEvent.{Read, Unregistered, UserEventTriggered}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
-import zio.http.socket.{WebSocketChannelEvent, WebSocketFrame}
 
 object WebSocketSpec extends HttpRunnableSpec {
 
   private val websocketSpec = suite("WebsocketSpec")(
     test("channel events between client and server") {
       for {
-        msg <- MessageCollector.make[ChannelEvent.Event[WebSocketFrame]]
+        msg <- MessageCollector.make[WebSocketChannelEvent]
         url <- DynamicServer.wsURL
         id  <- DynamicServer.deploy {
-          Handler
-            .fromFunctionZIO[WebSocketChannelEvent] {
-              case ev @ ChannelEvent(ch, ChannelRead(frame)) => ch.writeAndFlush(frame) *> msg.add(ev.event)
-              case ev @ ChannelEvent(_, ChannelUnregistered) => msg.add(ev.event, true)
-              case ev @ ChannelEvent(_, _)                   => msg.add(ev.event)
+          Handler.webSocket { channel =>
+            channel.receiveAll {
+              case event @ Read(frame)  => channel.send(Read(frame)) *> msg.add(event)
+              case event @ Unregistered => msg.add(event, true)
+              case event                => msg.add(event)
             }
-            .toSocketApp
-            .toRoute
+          }.toHttpApp
         }
 
         res <- ZIO.scoped {
-          Http
-            .collectZIO[WebSocketChannelEvent] {
-              case ChannelEvent(ch, UserEventTriggered(HandshakeComplete))   =>
-                ch.writeAndFlush(WebSocketFrame.text("FOO"))
-              case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("FOO"))) =>
-                ch.writeAndFlush(WebSocketFrame.text("BAR"))
-              case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text("BAR"))) =>
-                ch.close()
+          Handler.webSocket { channel =>
+            channel.receiveAll {
+              case UserEventTriggered(HandshakeComplete) =>
+                channel.send(Read(WebSocketFrame.text("FOO")))
+              case Read(WebSocketFrame.Text("FOO"))      =>
+                channel.send(Read(WebSocketFrame.text("BAR")))
+              case Read(WebSocketFrame.Text("BAR"))      =>
+                channel.shutdown
+              case _                                     =>
+                ZIO.unit
             }
-            .toSocketApp
-            .connect(url, Headers(DynamicServer.APP_ID, id)) *> {
+          }.connect(url, Headers(DynamicServer.APP_ID, id)) *> {
             for {
               events <- msg.await
               expected = List(
                 UserEventTriggered(HandshakeComplete),
-                ChannelRead(WebSocketFrame.text("FOO")),
-                ChannelRead(WebSocketFrame.text("BAR")),
-                ChannelUnregistered,
+                Read(WebSocketFrame.text("FOO")),
+                Read(WebSocketFrame.text("BAR")),
+                Unregistered,
               )
             } yield assertTrue(events == expected)
           }
@@ -79,21 +78,25 @@ object WebSocketSpec extends HttpRunnableSpec {
 
         // Setup websocket server
 
-        serverHttp   = Http
-          .collectZIO[WebSocketChannelEvent] { case ChannelEvent(_, ChannelUnregistered) =>
-            isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
+        serverHttp   = Handler.webSocket { channel =>
+          channel.receiveAll {
+            case Unregistered =>
+              isStarted.succeed(()) <&> isSet.succeed(()).delay(5 seconds).withClock(clock)
+            case _            =>
+              ZIO.unit
           }
-          .toSocketApp
-          .toRoute
-          .deployWS
+        }.toHttpApp.deployWS
 
         // Setup Client
         // Client closes the connection after 1 second
-        clientSocket = Http
-          .collectZIO[WebSocketChannelEvent] { case ChannelEvent(ch, UserEventTriggered(HandshakeComplete)) =>
-            ch.writeAndFlush(WebSocketFrame.close(1000)).delay(1 second).withClock(clock)
+        clientSocket = Handler.webSocket { channel =>
+          channel.receiveAll {
+            case UserEventTriggered(HandshakeComplete) =>
+              channel.send(Read(WebSocketFrame.close(1000))).delay(1 second).withClock(clock)
+            case _                                     =>
+              ZIO.unit
           }
-          .toSocketApp
+        }
 
         // Deploy the server and send it a socket request
         _ <- serverHttp.runZIO(clientSocket)
@@ -108,12 +111,52 @@ object WebSocketSpec extends HttpRunnableSpec {
       } yield assertCompletes
     } @@ nonFlaky,
     test("Multiple websocket upgrades") {
-      val app   = Handler.succeed(WebSocketFrame.text("BAR")).toSocketApp.toRoute.deployWS
+      val app   = Handler.succeed(WebSocketFrame.text("BAR")).toHttpApp.deployWS
       val codes = ZIO
-        .foreach(1 to 1024)(_ => app.runZIO(Http.empty.toSocketApp).map(_.status))
+        .foreach(1 to 1024)(_ => app.runZIO(Handler.unit).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))
 
       assertZIO(codes)(equalTo(1024))
+    },
+    test("channel events between client and server when the provided URL is HTTP") {
+      for {
+        msg <- MessageCollector.make[WebSocketChannelEvent]
+        url <- DynamicServer.httpURL
+        id  <- DynamicServer.deploy {
+          Handler.webSocket { channel =>
+            channel.receiveAll {
+              case event @ Read(frame)  => channel.send(Read(frame)) *> msg.add(event)
+              case event @ Unregistered => msg.add(event, true)
+              case event                => msg.add(event)
+            }
+          }.toHttpApp
+        }
+
+        res <- ZIO.scoped {
+          Handler.webSocket { channel =>
+            channel.receiveAll {
+              case UserEventTriggered(HandshakeComplete) =>
+                channel.send(Read(WebSocketFrame.text("FOO")))
+              case Read(WebSocketFrame.Text("FOO"))      =>
+                channel.send(Read(WebSocketFrame.text("BAR")))
+              case Read(WebSocketFrame.Text("BAR"))      =>
+                channel.shutdown
+              case _                                     =>
+                ZIO.unit
+            }
+          }.connect(url, Headers(DynamicServer.APP_ID, id)) *> {
+            for {
+              events <- msg.await
+              expected = List(
+                UserEventTriggered(HandshakeComplete),
+                Read(WebSocketFrame.text("FOO")),
+                Read(WebSocketFrame.text("BAR")),
+                Unregistered,
+              )
+            } yield assertTrue(events == expected)
+          }
+        }
+      } yield res
     },
   )
 

@@ -19,8 +19,7 @@ package zio.http.netty
 import zio._
 
 import zio.http.ChannelEvent.UserEvent
-import zio.http.socket.{SocketApp, WebSocketFrame}
-import zio.http.{Channel, ChannelEvent}
+import zio.http.{Channel, ChannelEvent, WebSocketChannelEvent, WebSocketFrame}
 
 import io.netty.buffer.{ByteBufUtil, Unpooled}
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
@@ -34,7 +33,7 @@ import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame
  */
 private[zio] final class WebSocketAppHandler(
   zExec: NettyRuntime,
-  app: SocketApp[Any],
+  queue: Queue[WebSocketChannelEvent],
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
@@ -42,41 +41,34 @@ private[zio] final class WebSocketAppHandler(
 
   private def dispatch(
     ctx: ChannelHandlerContext,
-    event: ChannelEvent[JWebSocketFrame, JWebSocketFrame],
+    event: ChannelEvent[JWebSocketFrame],
   ): Unit = {
-    app.message match {
-      case Some(f) =>
-        zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
-          f(event.map(frameFromNetty).contramap[WebSocketFrame](frameToNetty)),
-        )
-      case None    => ()
-    }
+    zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
+      queue.offer(event.map(frameFromNetty)),
+    )
   }
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: JWebSocketFrame): Unit =
-    dispatch(ctx, ChannelEvent.channelRead(channelOf(ctx), msg))
+    dispatch(ctx, ChannelEvent.read(msg))
 
   override def channelRegistered(ctx: ChannelHandlerContext): Unit =
-    dispatch(ctx, ChannelEvent.channelRegistered(channelOf(ctx)))
+    dispatch(ctx, ChannelEvent.registered)
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit =
-    dispatch(ctx, ChannelEvent.channelUnregistered(channelOf(ctx)))
+    dispatch(ctx, ChannelEvent.unregistered)
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
-    dispatch(ctx, ChannelEvent.exceptionCaught(channelOf(ctx), cause))
+    dispatch(ctx, ChannelEvent.exceptionCaught(cause))
 
   override def userEventTriggered(ctx: ChannelHandlerContext, msg: AnyRef): Unit = {
     msg match {
       case _: WebSocketServerProtocolHandler.HandshakeComplete | ClientHandshakeStateEvent.HANDSHAKE_COMPLETE =>
-        dispatch(ctx, ChannelEvent.userEventTriggered(channelOf(ctx), UserEvent.HandshakeComplete))
+        dispatch(ctx, ChannelEvent.userEventTriggered(UserEvent.HandshakeComplete))
       case ServerHandshakeStateEvent.HANDSHAKE_TIMEOUT | ClientHandshakeStateEvent.HANDSHAKE_TIMEOUT          =>
-        dispatch(ctx, ChannelEvent.userEventTriggered(channelOf(ctx), UserEvent.HandshakeTimeout))
+        dispatch(ctx, ChannelEvent.userEventTriggered(UserEvent.HandshakeTimeout))
       case _ => super.userEventTriggered(ctx, msg)
     }
   }
-
-  private def channelOf(ctx: ChannelHandlerContext): Channel[JWebSocketFrame] =
-    NettyChannel.make(ctx.channel())
 
   private def frameFromNetty(jFrame: JWebSocketFrame): WebSocketFrame =
     jFrame match {
@@ -89,23 +81,5 @@ private[zio] final class WebSocketAppHandler(
       case m: ContinuationWebSocketFrame =>
         WebSocketFrame.Continuation(Chunk.fromArray(ByteBufUtil.getBytes(m.content())), m.isFinalFragment)
       case _                             => null
-    }
-
-  private def frameToNetty(frame: WebSocketFrame): JWebSocketFrame =
-    frame match {
-      case b: WebSocketFrame.Binary                 =>
-        new BinaryWebSocketFrame(b.isFinal, 0, Unpooled.wrappedBuffer(b.bytes.toArray))
-      case t: WebSocketFrame.Text                   =>
-        new TextWebSocketFrame(t.isFinal, 0, t.text)
-      case WebSocketFrame.Close(status, Some(text)) =>
-        new CloseWebSocketFrame(status, text)
-      case WebSocketFrame.Close(status, None)       =>
-        new CloseWebSocketFrame(status, null)
-      case WebSocketFrame.Ping                      =>
-        new PingWebSocketFrame()
-      case WebSocketFrame.Pong                      =>
-        new PongWebSocketFrame()
-      case c: WebSocketFrame.Continuation           =>
-        new ContinuationWebSocketFrame(c.isFinal, 0, Unpooled.wrappedBuffer(c.buffer.toArray))
     }
 }

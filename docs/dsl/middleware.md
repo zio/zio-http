@@ -11,10 +11,10 @@ Consider the following example where we have two endpoints within HttpApp
 
 ```scala
 private val app = Http.collectZIO[Request] {
-  case Method.GET -> !! / "users" / id =>
+  case Method.GET -> Root / "users" / id =>
     // core business logic  
     dbService.lookupUsersById(id).map(Response.json(_.json))
-  case Method.GET -> !! / "users"    =>
+  case Method.GET -> Root / "users"    =>
     // core business logic  
     dbService.paginatedUsers(pageNum).map(Response.json(_.json))
 }
@@ -95,10 +95,10 @@ And then we can attach our composed bundle of middlewares to an Http using `@@`
 
 ```scala
 val app = Http.collectZIO[Request] {
-  case Method.GET -> !! / "users" / id =>
+  case Method.GET -> Root / "users" / id =>
     // core business logic  
     dbService.lookupUsersById(id).map(Response.json(_.json))
-  case Method.GET -> !! / "users"    =>
+  case Method.GET -> Root / "users"    =>
     // core business logic  
     dbService.paginatedUsers(pageNum).map(Response.json(_.json))
 } @@ composedMiddlewares // attach composedMiddlewares to the app using @@
@@ -121,7 +121,7 @@ A middleware helps in addressing common crosscutting concerns without duplicatin
 
 ```scala mdoc:silent
 val app = Http.collect[Request] {
-  case Method.GET -> !! / name => Response.text(s"Hello $name")
+  case Method.GET -> Root / name => Response.text(s"Hello $name")
 }
 val appWithMiddleware = app @@ RequestHandlerMiddlewares.debug
 ```
@@ -146,7 +146,7 @@ A test `App` with attached middleware:
 
 ```scala mdoc:silent
 val app = Http.collect[Request] {
-  case Method.GET -> !! / name => Response.text(s"Hello $name")
+  case Method.GET -> Root / name => Response.text(s"Hello $name")
 }
 val appWithMiddleware = app @@ patchEnv
 ```
@@ -197,7 +197,7 @@ import zio._
 A user app with single endpoint that welcomes a user:
 
 ```scala mdoc:silent
-val userApp = Http.collect[Request] { case Method.GET -> !! / "user" / name / "greet" =>
+val userApp = Http.collect[Request] { case Method.GET -> Root / "user" / name / "greet" =>
   Response.text(s"Welcome to the ZIO party! ${name}")
 }
 ```
@@ -252,9 +252,9 @@ object Example extends ZIOAppDefault {
   val app: App[Any] =
     Http.collectZIO[Request] {
       // this will return result instantly
-      case Method.GET -> !! / "text" => ZIO.succeed(Response.text("Hello World!"))
+      case Method.GET -> Root / "text" => ZIO.succeed(Response.text("Hello World!"))
       // this will return result after 5 seconds, so with 3 seconds timeout it will fail
-      case Method.GET -> !! / "long-running" => ZIO.succeed(Response.text("Hello World!")).delay(5.seconds)
+      case Method.GET -> Root / "long-running" => ZIO.succeed(Response.text("Hello World!")).delay(5.seconds)
     }
 
   val middlewares =

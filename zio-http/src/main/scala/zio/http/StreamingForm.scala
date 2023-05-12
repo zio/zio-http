@@ -18,11 +18,11 @@ package zio.http
 
 import java.nio.charset.Charset
 
-import zio.{Chunk, Queue, Trace, Unsafe, ZIO}
+import zio._
 
-import zio.stream.{Take, ZStream}
+import zio.stream.{Take, ZChannel, ZStream}
 
-import zio.http.StreamingForm.Buffer
+import zio.http.StreamingForm.{Buffer, ZStreamOps}
 import zio.http.internal.{FormAST, FormState}
 
 final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: Boundary, bufferSize: Int = 8192) {
@@ -51,7 +51,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
         fieldQueue <- Queue.bounded[Take[Throwable, FormField]](4)
         reader      =
           source
-            .mapAccum(initialState) { (state, byte) =>
+            .mapAccumImmediate(initialState) { (state, byte) =>
               state.formState match {
                 case formState: FormState.FormStateBuffer =>
                   val nextFormState = formState.append(byte)
@@ -136,7 +136,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
                   (state, None)
               }
             }
-            .collectZIO { case Some(field) =>
+            .mapZIO { field =>
               fieldQueue.offer(Take.single(field))
             }
         _ <- reader.runDrain.catchAllCause { cause =>
@@ -226,5 +226,57 @@ object StreamingForm {
     def reset(): Unit = {
       length = 0
     }
+  }
+
+  implicit class ZStreamOps[R, E, A](self: ZStream[R, E, A]) {
+
+    private def mapAccumImmediate[S1, B](
+      self: Chunk[A],
+    )(s1: S1)(f1: (S1, A) => (S1, Option[B])): (S1, Option[(B, Chunk[A])]) = {
+      val iterator          = self.chunkIterator
+      var index             = 0
+      var s                 = s1
+      var result: Option[B] = None
+      while (iterator.hasNextAt(index) && result.isEmpty) {
+        val a     = iterator.nextAt(index)
+        index += 1
+        val tuple = f1(s, a)
+        s = tuple._1
+        result = tuple._2
+      }
+      (s, result.map(b => (b, self.drop(index))))
+    }
+
+    /**
+     * Statefully maps over the elements of this stream to sometimes produce new
+     * elements. Each new element gets immediately emitted regardless of the
+     * upstream chunk size.
+     */
+    def mapAccumImmediate[S, A1](s: => S)(f: (S, A) => (S, Option[A1]))(implicit trace: Trace): ZStream[R, E, A1] =
+      ZStream.succeed(s).flatMap { s =>
+        def chunkAccumulator(currS: S, in: Chunk[A]): ZChannel[Any, E, Chunk[A], Any, E, Chunk[A1], Unit] =
+          mapAccumImmediate(in)(currS)(f) match {
+            case (nextS, Some((a1, remaining))) =>
+              ZChannel.write(Chunk.single(a1)) *>
+                accumulator(nextS, remaining)
+            case (nextS, None)                  =>
+              accumulator(nextS, Chunk.empty)
+          }
+
+        def accumulator(currS: S, leftovers: Chunk[A]): ZChannel[Any, E, Chunk[A], Any, E, Chunk[A1], Unit] =
+          if (leftovers.isEmpty) {
+            ZChannel.readWithCause(
+              (in: Chunk[A]) => {
+                chunkAccumulator(currS, in)
+              },
+              (err: Cause[E]) => ZChannel.refailCause(err),
+              (_: Any) => ZChannel.unit,
+            )
+          } else {
+            chunkAccumulator(currS, leftovers)
+          }
+
+        ZStream.fromChannel(self.channel >>> accumulator(s, Chunk.empty))
+      }
   }
 }

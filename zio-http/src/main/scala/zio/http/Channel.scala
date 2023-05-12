@@ -15,70 +15,72 @@
  */
 
 package zio.http
-import zio.{Task, Trace, UIO}
+
+import zio._
 
 /**
- * An immutable and type-safe representation of one or more netty channels. `A`
- * represents the type of messages that can be written on the channel.
+ * A `Channel` is an asynchronous communication channel that supports receiving
+ * messages of type `In` and sending messages of type `Out`.
  */
-// TODO Remove all netty-specific methods here and reduce footprint
-trait Channel[-A] {
+trait Channel[-In, +Out] { self =>
 
   /**
-   * When set to `true` (default) it will automatically read messages from the
-   * channel. When set to false, the channel will not read messages until `read`
-   * is called.
+   * Await shutdown of the channel.
    */
-  def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit]
+  def awaitShutdown: UIO[Unit]
 
   /**
-   * Provides a way to wait for the channel to be closed.
+   * Read a message from the channel, suspending until the next message is
+   * available.
    */
-  def awaitClose(implicit trace: Trace): UIO[Unit]
+  def receive: Task[Out]
 
   /**
-   * Closes the channel. Pass true to await to wait for the channel to be
-   * closed.
+   * Send a message to the channel.
    */
-  def close(await: Boolean = false)(implicit trace: Trace): Task[Unit]
+  def send(in: In): Task[Unit]
 
   /**
-   * Creates a new channel that can write a different type of message by using a
-   * transformation function.
+   * Shut down the channel.
    */
-  def contramap[A1](f: A1 => A): Channel[A1]
+  def shutdown: UIO[Unit]
 
   /**
-   * Flushes the pending write operations on the channel.
+   * Constructs a new channel that automatically transforms messages sent to
+   * this channel using the specified function.
    */
-  def flush(implicit trace: Trace): Task[Unit]
+  final def contramap[In2](f: In2 => In): Channel[In2, Out] =
+    new Channel[In2, Out] {
+      def awaitShutdown: UIO[Unit]  =
+        self.awaitShutdown
+      def receive: Task[Out]        =
+        self.receive
+      def send(in: In2): Task[Unit] =
+        self.send(f(in))
+      def shutdown: UIO[Unit]       =
+        self.shutdown
+    }
 
   /**
-   * Returns the globally unique identifier of this channel.
+   * Constructs a new channel that automatically transforms messages received
+   * from this channel using the specified function.
    */
-  def id(implicit trace: Trace): String
+  final def map[Out2](f: Out => Out2): Channel[In, Out2] =
+    new Channel[In, Out2] {
+      def awaitShutdown: UIO[Unit] =
+        self.awaitShutdown
+      def receive: Task[Out2]      =
+        self.receive.map(f)
+      def send(in: In): Task[Unit] =
+        self.send(in)
+      def shutdown: UIO[Unit]      =
+        self.shutdown
+    }
 
   /**
-   * Returns `true` if auto-read is set to true.
+   * Reads all messages from the channel, handling them with the specified
+   * function.
    */
-  def isAutoRead(implicit trace: Trace): UIO[Boolean]
-
-  /**
-   * Schedules a read operation on the channel. This is not necessary if
-   * auto-read is enabled.
-   */
-  def read(implicit trace: Trace): UIO[Unit]
-
-  /**
-   * Schedules a write operation on the channel. The actual write only happens
-   * after calling `flush`. Pass `true` to await the completion of the write
-   * operation.
-   */
-  def write(msg: A, await: Boolean = false)(implicit trace: Trace): Task[Unit]
-
-  /**
-   * Writes and flushes the message on the channel. Pass `true` to await the
-   * completion of the write operation.
-   */
-  def writeAndFlush(msg: A, await: Boolean = false)(implicit trace: Trace): Task[Unit]
+  final def receiveAll[Env](f: Out => ZIO[Env, Throwable, Any]): ZIO[Env, Throwable, Nothing] =
+    receive.flatMap(f).forever
 }

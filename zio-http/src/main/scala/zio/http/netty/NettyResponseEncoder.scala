@@ -28,7 +28,7 @@ import io.netty.handler.codec.http._
 
 private[zio] object NettyResponseEncoder {
 
-  private val frozenCache    = new ConcurrentHashMap[Response, HttpResponse]()
+  private val frozenCache    = new ConcurrentHashMap[Response, FullHttpResponse]()
   private val frozenZioCache = new ConcurrentHashMap[Response, UIO[HttpResponse]]()
 
   def encode(response: Response): ZIO[Any, Throwable, HttpResponse] = {
@@ -47,7 +47,7 @@ private[zio] object NettyResponseEncoder {
     }
   }
 
-  def fastEncode(response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): HttpResponse =
+  def fastEncode(response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): FullHttpResponse =
     if (response.frozen) {
       val encodedResponse = frozenCache.get(response)
 
@@ -62,7 +62,7 @@ private[zio] object NettyResponseEncoder {
       }
     } else doEncode(response, bytes)
 
-  private def doEncode(response: Response, bytes: Array[Byte]): HttpResponse = {
+  private def doEncode(response: Response, bytes: Array[Byte]): FullHttpResponse = {
     val jHeaders         = Conversions.headersToNetty(response.headers)
     val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
 

@@ -102,7 +102,7 @@ class EndpointBenchmark {
 
   // Collect DSL
   val collectHttpApp = Http.collectZIO[Request] { //
-    case req @ Method.GET -> !! / "users" / userId / "posts" / postId =>
+    case req @ Method.GET -> Root / "users" / userId / "posts" / postId =>
       val userIdInt = userId.toInt
       val postIdInt = postId.toInt
       val query     = req.url.queryParams.get("query").flatMap(_.headOption).get
@@ -226,7 +226,7 @@ class EndpointBenchmark {
   // Collect DSL
 
   val deepPathCollectHttpApp = Http.collectZIO[Request] { //
-    case Method.GET -> !! / "first" / id1 / "second" / id2 / "third" / id3 / "fourth" / id4 / "fifth" / id5 / "sixth" / id6 / "seventh" / id7 =>
+    case Method.GET -> Root / "first" / id1 / "second" / id2 / "third" / id3 / "fourth" / id4 / "fifth" / id5 / "sixth" / id6 / "seventh" / id7 =>
       val _ = (id1.toInt, id2.toInt, id3.toInt, id4.toInt, id5.toInt, id6.toInt, id7.toInt)
       ZIO.unit
   }
@@ -469,49 +469,49 @@ class EndpointBenchmark {
   // Collect DSL
 
   val broadCollectApp = Http.collectZIO[Request] {
-    case Method.GET -> !! / "users" / userId / "posts" / postId / "comments" / commentId                       =>
+    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments" / commentId                       =>
       val _ = (userId.toInt, postId.toInt, commentId.toInt)
       ZIO.unit
-    case Method.GET -> !! / "users" / userId / "posts" / postId / "comments"                                   =>
+    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments"                                   =>
       val _ = (userId.toInt, postId.toInt)
       ZIO.unit
-    case Method.GET -> !! / "users" / userId / "posts" / postId                                                =>
+    case Method.GET -> Root / "users" / userId / "posts" / postId                                                =>
       val _ = (userId.toInt, postId.toInt)
       ZIO.unit
-    case Method.GET -> !! / "users" / userId / "posts"                                                         =>
+    case Method.GET -> Root / "users" / userId / "posts"                                                         =>
       val _ = userId.toInt
       ZIO.unit
-    case Method.GET -> !! / "users" / userId                                                                   =>
+    case Method.GET -> Root / "users" / userId                                                                   =>
       val _ = userId.toInt
       ZIO.unit
-    case Method.GET -> !! / "users"                                                                            =>
+    case Method.GET -> Root / "users"                                                                            =>
       ZIO.unit
-    case Method.GET -> !! / "posts" / postId / "comments" / commentId                                          =>
+    case Method.GET -> Root / "posts" / postId / "comments" / commentId                                          =>
       val _ = (postId.toInt, commentId.toInt)
       ZIO.unit
-    case Method.GET -> !! / "posts" / postId / "comments"                                                      =>
+    case Method.GET -> Root / "posts" / postId / "comments"                                                      =>
       val _ = postId.toInt
       ZIO.unit
-    case Method.GET -> !! / "posts" / postId                                                                   =>
+    case Method.GET -> Root / "posts" / postId                                                                   =>
       val _ = postId.toInt
       ZIO.unit
-    case Method.GET -> !! / "posts"                                                                            =>
+    case Method.GET -> Root / "posts"                                                                            =>
       ZIO.unit
-    case Method.GET -> !! / "comments" / commentId                                                             =>
+    case Method.GET -> Root / "comments" / commentId                                                             =>
       val _ = commentId.toInt
       ZIO.unit
-    case Method.GET -> !! / "comments"                                                                         =>
+    case Method.GET -> Root / "comments"                                                                         =>
       ZIO.unit
-    case Method.GET -> !! / "users" / userId / "comments"                                                      =>
+    case Method.GET -> Root / "users" / userId / "comments"                                                      =>
       val _ = userId.toInt
       ZIO.unit
-    case Method.GET -> !! / "users" / userId / "comments" / commentId                                          =>
+    case Method.GET -> Root / "users" / userId / "comments" / commentId                                          =>
       val _ = (userId.toInt, commentId.toInt)
       ZIO.unit
-    case Method.GET -> !! / "users" / userId / "posts" / postId / "comments" / commentId / "replies" / replyId =>
+    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments" / commentId / "replies" / replyId =>
       val _ = (userId.toInt, postId.toInt, commentId.toInt, replyId.toInt)
       ZIO.unit
-    case Method.GET -> !! / "users" / userId / "posts" / postId / "comments" / commentId / "replies"           =>
+    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments" / commentId / "replies"           =>
       val _ = (userId.toInt, postId.toInt, commentId.toInt)
       ZIO.unit
   }
