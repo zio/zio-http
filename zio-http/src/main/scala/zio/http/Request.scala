@@ -131,4 +131,8 @@ object Request {
   def put(path: String, body: Body): Request = Request(method = Method.PUT, url = URL(Path(path)), body = body)
 
   def put(url: URL, body: Body): Request = Request(method = Method.PUT, url = url, body = body)
+
+  object Patch {
+    val empty: Patch = Patch(Headers.empty, QueryParams.empty)
+  }
 }
