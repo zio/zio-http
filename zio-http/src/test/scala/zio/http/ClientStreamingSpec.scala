@@ -17,7 +17,7 @@
 package zio.http
 
 import zio._
-import zio.test.TestAspect.{nonFlaky, samples, timeout, withLiveClock}
+import zio.test.TestAspect.{nonFlaky, samples, sequential, timeout, withLiveClock}
 import zio.test.{Gen, Spec, TestEnvironment, assertTrue, check}
 
 import zio.stream.{ZStream, ZStreamAspect}
@@ -300,7 +300,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
       ),
     ).provide(
       Client.default,
-    ) @@ withLiveClock
+    ) @@ withLiveClock @@ sequential
 
   private def server(streaming: Boolean): ZIO[Any, Throwable, Int] =
     for {
