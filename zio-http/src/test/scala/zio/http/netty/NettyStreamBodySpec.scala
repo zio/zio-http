@@ -15,7 +15,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
 
   def app(streams: Iterator[ZStream[Any, Throwable, Byte]], len: Long) = {
     Http
-      .collectZIO[Request] { case Method.GET -> !! / "with-content-length" =>
+      .collectZIO[Request] { case Method.GET -> Root / "with-content-length" =>
         ZIO.succeed(
           http.Response(
             status = Status.Ok,
