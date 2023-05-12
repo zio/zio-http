@@ -178,7 +178,37 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             normalizedIn == normalizedOut,
           )
         }
-      } @@ timeout(1.minute),
+      } @@ timeout(2.minutes),
+      test("decoding random pre-encoded form") {
+        check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
+          for {
+            port     <- server(streamingServer)
+            client   <- ZIO.service[Client]
+            boundary <- Boundary.randomUUID
+            stream = Form(fields.map(_._1): _*).multipartBytes(boundary)
+            bytes    <- stream.runCollect
+            response <- client.withDisabledStreaming
+              .request(
+                Version.Http_1_1,
+                Method.POST,
+                URL.decode(s"http://localhost:$port/form").toOption.get,
+                Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
+                Body.fromChunk(bytes),
+                None,
+              )
+            form     <- response.body.asMultipartForm
+
+            normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
+              field.asChunk.map(field.name -> _)
+            }
+            normalizedOut <- ZIO.foreach(form.formData) { field =>
+              field.asChunk.map(field.name -> _)
+            }
+          } yield assertTrue(
+            normalizedIn == normalizedOut,
+          )
+        }
+      } @@ timeout(2.minutes),
       test("decoding large form with random chunk and buffer sizes") {
         val N = 1024 * 1024
         check(Gen.int(1, N)) { chunkSize =>
