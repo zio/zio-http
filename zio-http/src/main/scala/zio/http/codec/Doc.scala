@@ -351,7 +351,7 @@ object Doc {
       self match {
         case Span.Text(value)           => value
         case Span.Code(value)           => code(value)
-        case Span.Error(value)          => span(styleAttr := ("color", "red") :: Nil, value)
+        case Span.Error(value)          => span(styleAttrs("color" -> "red"), value)
         case Span.Bold(value)           => b(value.toHtml)
         case Span.Italic(value)         => i(value.toHtml)
         case Span.Link(value, text)     =>

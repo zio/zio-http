@@ -61,6 +61,30 @@ case object HtmlSpec extends ZIOSpecDefault {
         val expected = """<div class="container">Hello!</div>"""
         assert(view.encode)(equalTo(expected.stripMargin))
       },
+      test("classAttr(s) attributes") {
+        val view1     = div("Hello!", classAttr := "container")
+        val view2     = div("Hello!", classAttrs := "container" :: Nil)
+        val view3     = div("Hello!", classAttrs("container"))
+        val expected1 = """<div class="container">Hello!</div>"""
+        assert(view1.encode)(equalTo(expected1.stripMargin)) &&
+        assert(view2.encode)(equalTo(expected1.stripMargin)) &&
+        assert(view3.encode)(equalTo(expected1.stripMargin))
+
+        val view4     = div("Hello!", classAttrs("container1", "container2"))
+        val view5     = div("Hello!", classAttrs := "container1" :: "container2" :: Nil)
+        val expected2 = """<div class="container1 container2">Hello!</div>"""
+        assert(view4.encode)(equalTo(expected2.stripMargin)) &&
+        assert(view5.encode)(equalTo(expected2.stripMargin))
+      },
+      test("styleAttr(s) attributes") {
+        val view1     = div("Hello!", styleAttr := "color:red;text-align:right")
+        val view2     = div("Hello!", styleAttrs := "color" -> "red" :: "text-align" -> "right" :: Nil)
+        val view3     = div("Hello!", styleAttrs("color" -> "red", "text-align" -> "right"))
+        val expected1 = """<div style="color:red;text-align:right">Hello!</div>"""
+        assert(view1.encode)(equalTo(expected1.stripMargin)) &&
+        assert(view2.encode)(equalTo(expected1.stripMargin)) &&
+        assert(view3.encode)(equalTo(expected1.stripMargin))
+      },
       suite("implicit conversions")(
         test("from unit") {
           val view: Html = {}

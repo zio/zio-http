@@ -49,7 +49,11 @@ trait Attributes {
 
   final def citeAttr: PartialAttribute[String] = PartialAttribute("cite")
 
-  final def classAttr: PartialAttribute[List[String]] = PartialAttribute("class")
+  final def classAttrs: PartialAttribute[Seq[String]] = PartialAttribute("class")
+
+  final def classAttrs(names: String*): Html = classAttrs := names
+
+  final def classAttr: PartialAttribute[String] = PartialAttribute("class")
 
   final def colSpanAttr: PartialAttribute[String] = PartialAttribute("colspan")
 
@@ -65,7 +69,8 @@ trait Attributes {
 
   final def coordsAttr: PartialAttribute[String] = PartialAttribute("coords")
 
-  final def css: PartialAttribute[List[String]] = classAttr
+  @deprecated("instead use `classAttr` or `classAttrs`", "3.0.0")
+  final def css: PartialAttribute[List[String]] = PartialAttribute("class")
 
   final def dataAttr(name: String): PartialAttribute[String] = PartialAttribute("data-" + name)
 
@@ -337,9 +342,13 @@ trait Attributes {
 
   final def stepAttr: PartialAttribute[String] = PartialAttribute("step")
 
-  final def styleAttr: PartialAttribute[Seq[(String, String)]] = PartialAttribute("style")
+  final def styleAttrs: PartialAttribute[Seq[(String, String)]] = PartialAttribute("style")
 
-  final def styles: PartialAttribute[Seq[(String, String)]] = styleAttr
+  final def styleAttrs(styles: (String, String)*): Html = styleAttrs := styles
+
+  final def styleAttr: PartialAttribute[String] = PartialAttribute("style")
+
+  final def styles: PartialAttribute[Seq[(String, String)]] = PartialAttribute("style")
 
   final def tabIndexAttr: PartialAttribute[String] = PartialAttribute("tabindex")
 
@@ -362,7 +371,6 @@ trait Attributes {
   final def xmlnsAttr: PartialAttribute[String] = PartialAttribute("xmlns")
 
   final def cellpaddingAttr: PartialAttribute[String] = PartialAttribute("cellpadding")
-
   final def cellspacingAttr: PartialAttribute[String] = PartialAttribute("cellspacing")
 
 }
