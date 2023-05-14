@@ -1,4 +1,4 @@
-import sbt.*
+import sbt._
 import sbt.Keys.scalaVersion
 
 object Dependencies {
