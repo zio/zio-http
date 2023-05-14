@@ -37,9 +37,9 @@ object SSLSpec extends ZIOSpecDefault {
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 
   val app: HttpApp[Any, Throwable] = Http.collectZIO[Request] {
-    case Method.GET -> !! / "success"     =>
+    case Method.GET -> Root / "success"     =>
       ZIO.succeed(Response.ok)
-    case req @ Method.POST -> !! / "text" =>
+    case req @ Method.POST -> Root / "text" =>
       for {
         body <- req.body.asString
       } yield Response.text(body)

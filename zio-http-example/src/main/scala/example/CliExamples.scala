@@ -46,9 +46,10 @@ trait TestCliEndpoints {
     Endpoint
       .get(
         "users" / int("userId") ?? Doc.p("The unique identifier of the user") /
-          "posts" / int("postId") ?? Doc.p("The unique identifier of the post"),
+          "posts" / int("postId") ?? Doc.p("The unique identifier of the post") ^? paramStr("user-name") ?? Doc.p(
+            "The user's name",
+          ),
       )
-      .query(query("name") ?? Doc.p("The user's name"))
       .out[List[Post]] ?? Doc.p("Get a user's posts by userId and postId")
 
   val createUser =
@@ -109,4 +110,5 @@ object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {
       _        <- executor(getUserPosts(42, 200, "adam")).debug("result2")
       _        <- executor(createUser(User(2, "john", Some("john@test.com")))).debug("result3")
     } yield ()
+
 }

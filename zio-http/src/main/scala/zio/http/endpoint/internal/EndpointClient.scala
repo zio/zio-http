@@ -17,6 +17,7 @@
 package zio.http.endpoint.internal
 
 import zio._
+
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._

@@ -23,7 +23,7 @@ import zio.{Cause, Exit, Ref, Unsafe, ZIO}
 object HttpSpec extends ZIOSpecDefault with ExitAssertion {
   implicit val allowUnsafe: Unsafe = Unsafe.unsafe
 
-  def spec: Spec[Any, Nothing] =
+  def spec: Spec[Any, Any] =
     suite("Http")(
       suite("collectExit")(
         test("should succeed") {
@@ -53,19 +53,19 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           val a      = Http.collect[Int] { case 1 => "A" }
           val b      = Http.collect[Int] { case 2 => "B" }
           val actual = (a ++ b).runZIOOrNull(1)
-          assert(actual)(isSuccess(equalTo("A")))
+          assertZIO(actual)(equalTo("A"))
         },
         test("should resolve second") {
           val a      = Http.empty
           val b      = Handler.succeed("A").toHttp
           val actual = (a ++ b).runZIOOrNull(())
-          assert(actual)(isSuccess(equalTo("A")))
+          assertZIO(actual)(equalTo("A"))
         },
         test("should resolve second") {
           val a      = Http.collect[Int] { case 1 => "A" }
           val b      = Http.collect[Int] { case 2 => "B" }
           val actual = (a ++ b).runZIOOrNull(2)
-          assert(actual)(isSuccess(equalTo("B")))
+          assertZIO(actual)(equalTo("B"))
         },
         test("should not resolve") {
           val a      = Http.collect[Int] { case 1 => "A" }
@@ -111,12 +111,31 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
         test("should succeed") {
           val a      = Http.collect[Int] { case 1 => "OK" }
           val actual = a.runZIOOrNull(1)
-          assert(actual)(isSuccess(equalTo("OK")))
+          assertZIO(actual)(equalTo("OK"))
         },
         test("should fail") {
           val a      = Http.collect[Int] { case 1 => "OK" }
           val actual = a.runZIO(0)
           assertZIO(actual.exit)(fails(isNone))
+        },
+        test("should be lazy") {
+          var mutable = 0
+          for {
+            pf <- ZIO.succeed {
+              new PartialFunction[Request, Response] {
+                override def isDefinedAt(x: Request): Boolean = true
+
+                override def apply(v1: Request): Response = {
+                  mutable += 1
+                  Response.ok
+                }
+              }
+            }
+            _  <- ZIO.debug(pf.toString())
+            http = Http.collect(pf) @@ RequestHandlerMiddlewares.basicAuth(_ => false)
+            result       <- http.runZIO(Request.get(URL(Root / "test")))
+            finalMutable <- ZIO.attempt(mutable)
+          } yield assertTrue(result.status == Status.Unauthorized, finalMutable == 0)
         },
       ),
       suite("collectZIO")(
@@ -135,6 +154,25 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           val b      = Handler.succeed("B").toHttp
           val actual = (a ++ b).runZIOOrNull(2)
           assert(actual)(isSuccess(equalTo("B")))
+        },
+        test("should be lazy") {
+          var mutable = 0
+          for {
+            pf           <- ZIO.succeed {
+              new PartialFunction[Request, ZIO[Any, Throwable, Response]] {
+                override def isDefinedAt(x: Request): Boolean = true
+
+                override def apply(v1: Request): ZIO[Any, Throwable, Response] =
+                  ZIO.attempt {
+                    mutable += 1
+                    Response.ok
+                  }
+              }
+            }
+            http = Http.collectZIO(pf) @@ RequestHandlerMiddlewares.basicAuth(_ => false)
+            result       <- http.runZIO(Request.get(URL(Root / "test")))
+            finalMutable <- ZIO.attempt(mutable)
+          } yield assertTrue(result.status == Status.Unauthorized, finalMutable == 0)
         },
       ),
       suite("collectHttp")(

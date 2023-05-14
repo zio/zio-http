@@ -31,17 +31,17 @@ object ClientStreamingSpec extends HttpRunnableSpec {
 
   val app = Http
     .collectZIO[Request] {
-      case Method.GET -> !! / "simple-get"            =>
+      case Method.GET -> Root / "simple-get"            =>
         ZIO.succeed(Response.text("simple response"))
-      case Method.GET -> !! / "streaming-get"         =>
+      case Method.GET -> Root / "streaming-get"         =>
         ZIO.succeed(
           Response(body =
             Body.fromStream(ZStream.fromIterable("streaming response".getBytes) @@ ZStreamAspect.rechunk(3)),
           ),
         )
-      case req @ Method.POST -> !! / "simple-post"    =>
+      case req @ Method.POST -> Root / "simple-post"    =>
         req.ignoreBody.as(Response.ok)
-      case req @ Method.POST -> !! / "streaming-echo" =>
+      case req @ Method.POST -> Root / "streaming-echo" =>
         ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
     }
     .withDefaultErrorResponse
@@ -160,7 +160,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               Headers.empty,
               Body.fromStream(
                 (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3)).chunks.tap { chunk =>
-                  if (chunk == Chunk.fromArray(" re".getBytes))
+                  if (chunk == Chunk.fromArray("que".getBytes))
                     sync.await
                   else
                     ZIO.unit
@@ -171,7 +171,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           body     <- response.body.asStream.chunks
             .map(chunk => new String(chunk.toArray))
             .tap { chunk =>
-              if (chunk == "ing") sync.succeed(()) else ZIO.unit
+              if (chunk == "eam") sync.succeed(()) else ZIO.unit
             }
             .runCollect
           expectedBody =

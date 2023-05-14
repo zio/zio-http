@@ -17,7 +17,7 @@ class HttpRouteTextPerf {
 
   private val res          = Response.text("HELLO WORLD")
   private val app          = Handler.succeed(res)
-  private val req: Request = Request.get(URL(!!))
+  private val req: Request = Request.get(URL(Root))
   private val httpProgram  = ZIO.foreachDiscard(0 to 1000) { _ => app(req) }
   private val UIOProgram   = ZIO.foreachDiscard(0 to 1000) { _ => ZIO.succeed(res) }
 
