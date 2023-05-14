@@ -463,8 +463,7 @@ object EndpointRoundtripSpec extends ZIOHttpSpec {
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
-      Client.customized.map(env =>
-        ZEnvironment(env.get @@ ZClientAspect.debug(extraLogging) )),
+      Client.customized.map(env => ZEnvironment(env.get @@ ZClientAspect.debug(extraLogging))),
       ClientDriver.shared,
       NettyDriver.live,
       ZLayer.succeed(ZClient.Config.default),
