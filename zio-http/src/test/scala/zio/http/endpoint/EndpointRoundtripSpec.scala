@@ -463,13 +463,16 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
-      Client.customized.map(env => ZEnvironment(env.get @@ ZClientAspect.debug{ case r: Response =>
-          r.headers.get(Header.ContentType).map(_.renderedValue).mkString("ContentType: ", "", "")
-        })),
+      Client.customized.map(env =>
+        ZEnvironment(env.get @@ ZClientAspect.debug(extraLogging) )),
       ClientDriver.shared,
       NettyDriver.live,
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
       Scope.default,
     ) @@ withLiveClock @@ sequential @@ timeout(300.seconds)
+
+  def extraLogging: PartialFunction[Response, String] = {
+    _.headers.get(Header.ContentType).map(_.renderedValue).mkString("ContentType: ", "", "")
+  }
 }
