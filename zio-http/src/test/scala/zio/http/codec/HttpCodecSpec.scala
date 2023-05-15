@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.endpoint
+package zio.http.codec
 
 import java.util.UUID
 
@@ -31,17 +31,20 @@ object HttpCodecSpec extends ZIOSpecDefault {
   val postURL       = URL.decode("http://mywebservice.com/users/42/post").toOption.get
   val postidURL     = URL.decode("http://mywebservice.com/users/42/post/42").toOption.get
   val postidfontURL = URL.decode("http://mywebservice.com/users/42/post/42/fontstyle").toOption.get
+  val postsURL      = URL.decode("http://mywebservice.com/posts").toOption.get
 
   val headerExample =
     Headers(Header.ContentType(MediaType.application.json)) ++ Headers("X-Trace-ID", "1234")
 
   val emptyJson = Body.fromString("{}")
 
+  val isAge                           = "isAge"
+  val codecBool                       = QueryCodec.paramBool(isAge)
+  def makeRequest(paramValue: String) = Request.get(googleUrl.withQueryParams(QueryParams(isAge -> paramValue)))
+
   def spec = suite("HttpCodecSpec")(
     suite("fallback") {
       test("path fallback") {
-        val usersURL = URL.decode("http://mywebservice.com/users").toOption.get
-        val postsURL = URL.decode("http://mywebservice.com/posts").toOption.get
 
         val codec1 = PathCodec.literal("users")
         val codec2 = PathCodec.literal("posts")
@@ -49,7 +52,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
         val fallback = codec1 | codec2
 
         for {
-          result1 <- fallback.decodeRequest(Request.get(url = usersURL))
+          result1 <- fallback.decodeRequest(Request.get(url = usersUrl))
           result2 <- fallback.decodeRequest(Request.get(url = postsURL))
         } yield assertTrue(result1 == (())) && assertTrue(result2 == (()))
       } +
@@ -82,8 +85,6 @@ object HttpCodecSpec extends ZIOSpecDefault {
           } yield assertTrue(result1 == "1234") && assertTrue(result2 == "5678")
         } +
         test("composite fallback") {
-          val usersURL = URL.decode("http://mywebservice.com/users").toOption.get
-          val postsURL = URL.decode("http://mywebservice.com/posts").toOption.get
 
           val codec1 = PathCodec.literal("users") ++ QueryCodec.query("skip") ++ HeaderCodec.headerCodec(
             "Authentication",
@@ -97,7 +98,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
           val fallback = codec1 | codec2
 
           val usersRequest = Request
-            .get(url = usersURL.copy(queryParams = QueryParams("skip" -> "10")))
+            .get(url = usersUrl.copy(queryParams = QueryParams("skip" -> "10")))
             .copy(headers = Headers("Authentication" -> "1234"))
           val postsRequest = Request
             .get(url = postsURL.copy(queryParams = QueryParams("limit" -> "20")))
@@ -109,8 +110,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
           } yield assertTrue(result1 == (("10", "1234"))) && assertTrue(result2 == (("20", "567")))
         } +
         test("no fallback for defects") {
-          val usersURL = URL.decode("http://mywebservice.com/users").toOption.get
-          val e        = new RuntimeException("boom")
+          val e = new RuntimeException("boom")
 
           val codec1 = PathCodec.literal("users").transform[Unit](_ => throw e, _ => ()).const("route1")
           val codec2 = PathCodec.literal("users").const("route2")
@@ -118,7 +118,7 @@ object HttpCodecSpec extends ZIOSpecDefault {
           val fallback = codec1 | codec2
 
           for {
-            result <- fallback.decodeRequest(Request.get(url = usersURL)).exit
+            result <- fallback.decodeRequest(Request.get(url = usersUrl)).exit
           } yield assertTrue(result.causeOption.get.defects.forall(_ == e))
         }
     },
@@ -241,25 +241,42 @@ object HttpCodecSpec extends ZIOSpecDefault {
           assertTrue(true)
         }
       } +
-      suite("QueryCodec") {
-        test("dummy test") {
-          assertTrue(true)
+      suite("QueryCodec")(
+        test("paramBool decoding with case-insensitive") {
+          assertZIO(codecBool.decodeRequest(makeRequest("true")))(Assertion.isTrue) &&
+          assertZIO(codecBool.decodeRequest(makeRequest("TRUE")))(Assertion.isTrue) &&
+          assertZIO(codecBool.decodeRequest(makeRequest("yes")))(Assertion.isTrue) &&
+          assertZIO(codecBool.decodeRequest(makeRequest("YES")))(Assertion.isTrue) &&
+          assertZIO(codecBool.decodeRequest(makeRequest("on")))(Assertion.isTrue) &&
+          assertZIO(codecBool.decodeRequest(makeRequest("ON")))(Assertion.isTrue)
+        },
+        test("paramBool decoding with different values") {
+          assertZIO(codecBool.decodeRequest(makeRequest("true")))(Assertion.isTrue) &&
+          assertZIO(codecBool.decodeRequest(makeRequest("1")))(Assertion.isTrue) &&
+          assertZIO(codecBool.decodeRequest(makeRequest("yes")))(Assertion.isTrue) &&
+          assertZIO(codecBool.decodeRequest(makeRequest("on")))(Assertion.isTrue)
+        },
+        test("paramBool encoding") {
+          val requestTrue  = codecBool.encodeRequest(true)
+          val requestFalse = codecBool.encodeRequest(false)
+          assert(requestTrue.url.queryParams.get(isAge).get.head)(Assertion.equalTo("true")) &&
+          assert(requestFalse.url.queryParams.get(isAge).get.head)(Assertion.equalTo("false"))
+        },
+      ) +
+      suite("Codec with examples") {
+        test("with examples") {
+          val userCodec = PathCodec.string("user").examples("John", "Jane")
+          val uuid1     = UUID.randomUUID
+          val uuid2     = UUID.randomUUID
+          val uuidCodec = PathCodec.uuid("userId").examples(uuid1, uuid2)
+
+          val userExamples = userCodec.examples
+          val uuidExamples = uuidCodec.examples
+          assertTrue(
+            userExamples == Chunk("John", "Jane"),
+            uuidExamples == Chunk(uuid1, uuid2),
+          )
         }
       },
-    suite("Codec with examples") {
-      test("with examples") {
-        val userCodec = PathCodec.string("user").examples("John", "Jane")
-        val uuid1     = UUID.randomUUID
-        val uuid2     = UUID.randomUUID
-        val uuidCodec = PathCodec.uuid("userId").examples(uuid1, uuid2)
-
-        val userExamples = userCodec.examples
-        val uuidExamples = uuidCodec.examples
-        assertTrue(
-          userExamples == Chunk("John", "Jane"),
-          uuidExamples == Chunk(uuid1, uuid2),
-        )
-      }
-    },
   )
 }
