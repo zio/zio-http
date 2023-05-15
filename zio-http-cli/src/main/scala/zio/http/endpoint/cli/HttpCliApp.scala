@@ -87,7 +87,7 @@ object HttpCliApp {
         figFont = figFont,
         command = command,
       ) { case CliRequest(url, method, headers, body) =>
-        for {
+        (for {
           response <- Client
             .request(
               Request
@@ -98,12 +98,13 @@ object HttpCliApp {
                 )
                 .setHeaders(headers),
             )
-            .provide(Client.default)
           _        <- Console.printLine(s"Got response")
           _        <- Console.printLine(s"Status: ${response.status}")
-          body     <- response.body.asString
-          _        <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
-        } yield ()
+          mulBody  <- response.body.asMultipartForm
+          _ = println(s"multipart: $mulBody")
+//          body <- response.body.asString
+//          _    <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
+        } yield ()).provide(Client.default)
       }
     }
   }

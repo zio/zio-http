@@ -2,14 +2,15 @@ package example
 
 import zio._
 import zio.cli._
-
 import zio.schema._
-
 import zio.http.Header.Location
 import zio.http._
-import zio.http.codec._
+import zio.http.codec.{HttpCodec, _}
 import zio.http.endpoint._
 import zio.http.endpoint.cli._
+import zio.stream.ZStream
+
+import java.time.Instant
 
 trait TestCliEndpoints {
   import HttpCodec._
@@ -36,6 +37,11 @@ trait TestCliEndpoints {
     implicit val schema: Schema[Post] = DeriveSchema.gen[Post]
   }
 
+  final case class ImageMetadata(description: String, createdAt: Instant)
+  object ImageMetadata {
+    implicit val schema: Schema[ImageMetadata] = DeriveSchema.gen[ImageMetadata]
+  }
+
   val getUser =
     Endpoint
       .get("users" / int("userId") ?? Doc.p("The unique identifier of the user"))
@@ -57,6 +63,17 @@ trait TestCliEndpoints {
       .post("users")
       .in[User]
       .out[String] ?? Doc.p("Create a new user")
+
+  val getImage =
+    Endpoint
+      .get(literal("test-form"))
+      .outCodec(
+        HttpCodec.contentStream[Byte]("image", MediaType.image.png) ++
+          HttpCodec.content[String]("title") ++
+          HttpCodec.content[Int]("width") ++
+          HttpCodec.content[Int]("height") ++
+          HttpCodec.content[ImageMetadata]("metadata"),
+      )
 }
 
 object TestCliApp extends zio.cli.ZIOCliDefault with TestCliEndpoints {
@@ -69,7 +86,7 @@ object TestCliApp extends zio.cli.ZIOCliDefault with TestCliEndpoints {
         footer = HelpDoc.p("Copyright 2023"),
         host = "localhost",
         port = 8080,
-        endpoints = Chunk(getUser, getUserPosts, createUser),
+        endpoints = Chunk(getUser, getUserPosts, createUser, getImage),
       )
       .cliApp
 }
@@ -90,7 +107,20 @@ object TestCliServer extends zio.ZIOAppDefault with TestCliEndpoints {
       ZIO.succeed(user.name)
     }
 
-  val routes = getUserRoute ++ getUserPostsRoute ++ createUserRoute
+  val multipartRoute =
+    getImage.implement { _ =>
+      for {
+        bytes <- Random.nextBytes(1024)
+      } yield (
+        ZStream.fromChunk(bytes),
+        "example",
+        320,
+        200,
+        ImageMetadata("some description", Instant.parse("2020-01-01T00:00:00Z")),
+      )
+    }
+
+  val routes = getUserRoute ++ getUserPostsRoute ++ createUserRoute ++ multipartRoute
 
   val run = Server.serve(routes.toApp).provide(Server.default)
 }
