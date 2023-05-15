@@ -40,48 +40,23 @@ private[endpoint] final case class EndpointClient[I, E, O, M <: EndpointMiddlewa
       } else {
         // Preferentially decode an error from the handler, before falling back
         // to decoding the middleware error:
-        val leftError =
-          endpoint.error.decodeResponse(response).map(e => alt.left(e))
+        val handlerError =
+          endpoint.error
+            .decodeResponse(response)
+            .map(e => alt.left(e))
+            .mapError(t => new IllegalStateException("Cannot deserialize using endpoint error codec", t))
 
-        val rightError =
+        val middlewareError =
           invocation.middleware.error
             .decodeResponse(response)
             .map(e => alt.right(e))
+            .mapError(t => new IllegalStateException("Cannot deserialize using middleware error codec", t))
 
-        def generateErrorMessage(t1: Throwable, t2: Throwable) = {
-          Cause.Both(
-            Cause
-              .fail(
-                new IllegalStateException(s"Failed to deserialize response. Response status: ${response.status}"),
-              ),
-            Cause.Both(
-              Cause
-                .die(new IllegalStateException("Cannot deserialize using endpoint error codec", t1)),
-              Cause
-                .die(new IllegalStateException("Cannot deserialize using middleware error codec", t2)),
-            ),
-          )
-        }
-
-        def orElseCombineErrors[R, E1, A](
-          zio1: ZIO[R, E1, A],
-          zio2: ZIO[R, E1, A],
-          f: (E1, E1) => Cause[E1],
-        ): ZIO[R, E1, A] = {
-          zio1.foldZIO(
-            success = ZIO.succeed(_),
-            failure = cause1 => {
-              zio2.foldZIO(
-                success = ZIO.succeed(_),
-                failure = cause2 => {
-                  ZIO.failCause(f(cause1, cause2))
-                },
-              )
-            },
-          )
-        }
-
-        orElseCombineErrors(leftError, rightError, generateErrorMessage).orDie.flip
+        handlerError.catchAllCause { handlerCause =>
+          middlewareError.catchAllCause { middlewareCause =>
+            ZIO.failCause(handlerCause ++ middlewareCause)
+          }
+        }.orDie.flip
       }
     }
   }

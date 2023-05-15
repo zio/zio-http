@@ -366,7 +366,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           ) && cause.prettyPrint.contains(
             "java.lang.IllegalStateException: Cannot deserialize using middleware error codec",
           ) && cause.prettyPrint.contains(
-            "Suppressed: java.lang.IllegalStateException: Trying to decode with null codec",
+            "Suppressed: java.lang.IllegalStateException: Trying to decode with Undefined codec.",
           ) && cause.prettyPrint.contains(
             "Suppressed: zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected a number, got F)",
           ),
@@ -404,7 +404,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           ) && cause.prettyPrint.contains(
             "java.lang.IllegalStateException: Cannot deserialize using middleware error codec",
           ) && cause.prettyPrint.contains(
-            "Suppressed: java.lang.IllegalStateException: Trying to decode with null codec",
+            "Suppressed: java.lang.IllegalStateException: Trying to decode with Undefined codec.",
           ) && cause.prettyPrint.contains(
             """Suppressed: zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected '"' got '4')""",
           ),
