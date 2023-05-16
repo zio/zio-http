@@ -20,8 +20,8 @@ val divHtml1: Html = Html.fromString("""<div class="container1 container2"><a hr
 
 ### Html from constructors
 
-In order to improve type safety one could use `Html` with `Dom` constructor functions directly, with the added drawback that the resulting
-code is much verbose:
+In order to improve on type safety one could use `Html` with `Dom` constructor functions, with the drawback that the resulting
+code is much more verbose:
 
 ```scala mdoc:silent
 import zio.http.html._
@@ -45,7 +45,7 @@ Please note that both values `divHtml1` and `divHtml2` produce identical html ou
 
 Practically one would very likely not use one of the above mentioned versions but instead use the `Tag API`. That API lets one use not only html 
 elements like `div` or `a` but also html attributes like `hrefAttr` or `styleAttr` as scala functions. By convention values of html attributes 
-are suffixed `attr` to easily distinguish html elements from html attributes: 
+are suffixed `attr` to easily distinguish those from html elements: 
 
 ```scala mdoc:silent
 import zio.http.html._
@@ -56,21 +56,21 @@ val divHtml3: Html = div(
 )
 ```
 
-`divHtml3` also produces identical html output as `divHtml1` and `divHtml2`. 
+Also `divHtml3` produces identical html output as `divHtml1` and `divHtml2`. 
 
 Html elements like `div` or `a` are represented as values of `PartialElement` which have an `apply` method for nesting html elements, 
-html attributes and text values. Html attributes are represented as values of `PartialAttribute` which have a `:=` method for "assigning" 
-their corresponding attribute values. Besides `:=` html attributes also have an `apply` method that provide an alternative syntax e.g. instead
+html attributes and text values. Html attributes are represented as values of `PartialAttribute` which provides an operator `:=` for "assigning" 
+attribute values. Besides `:=` attributes also have an `apply` method that provides an alternative syntax e.g. instead
 of `a(hrefAttr := "http://zio.dev", "ZIO Homepage")` one can use `a(hrefAttr("http://zio.dev"), "ZIO Homepage")`. 
 
 ### Html composition
 
-One can compose values of `Html` with each other using the operator `++` to produce a larger `Html`: 
+One can compose values of `Html` sequentially using the operator `++` to produce a larger `Html`: 
 
 ```scala mdoc:silent
 import zio.http.html._
 
-val fullHtml: Html = htmlDiv1 ++ htmlDiv2 ++ htmlDiv3
+val fullHtml: Html = divHtml1 ++ divHtml2 ++ divHtml3
 ```
 
 ## Html response
