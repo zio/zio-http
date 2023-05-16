@@ -32,17 +32,7 @@ private[codec] trait HeaderCodecs {
   def name[A](name: String)(implicit codec: TextCodec[A]): HeaderCodec[A] =
     headerCodec(name, codec)
 
-  def nameTransform[A, B](name: String, parse: B => Either[String, A], render: A => B)(implicit
-    codec: TextCodec[B],
-  ): HeaderCodec[A] =
-    headerCodec(name, codec).transformOrFailLeft(parse, render)
-
-  def nameTransformOpt[A, B](name: String, parse: B => Option[A], render: A => B)(implicit
-    codec: TextCodec[B],
-  ): HeaderCodec[A] =
-    headerCodec(name, codec).transformOrFailLeft(parse(_).toRight(s"Failed to parse header $name"), render)
-
-  def nameTransformOrFail[A, B](
+  def nameTransform[A, B](
     name: String,
     parse: B => A,
     render: A => B,
@@ -51,6 +41,16 @@ private[codec] trait HeaderCodecs {
       s => Try(parse(s)).toEither.left.map(e => s"Failed to parse header $name: ${e.getMessage}"),
       render,
     )
+
+  def nameTransformOpt[A, B](name: String, parse: B => Option[A], render: A => B)(implicit
+    codec: TextCodec[B],
+  ): HeaderCodec[A] =
+    headerCodec(name, codec).transformOrFailLeft(parse(_).toRight(s"Failed to parse header $name"), render)
+
+  def nameTransformOrFail[A, B](name: String, parse: B => Either[String, A], render: A => B)(implicit
+    codec: TextCodec[B],
+  ): HeaderCodec[A] =
+    headerCodec(name, codec).transformOrFailLeft(parse, render)
 
   final val accept: HeaderCodec[Header.Accept]                 = header(Header.Accept)
   final val acceptEncoding: HeaderCodec[Header.AcceptEncoding] = header(Header.AcceptEncoding)
