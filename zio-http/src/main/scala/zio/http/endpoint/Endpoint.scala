@@ -145,6 +145,33 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     Routes.Single[Env, Err, Input, Output, Middleware](self, f)
 
   /**
+   * Converts this endpoint, which is an abstract description of an endpoint,
+   * into a path, which maps a path to a handler for that path. In order to
+   * convert an endpoint into a path, you must specify a function which handles
+   * the input, and returns the output.
+   */
+  def implementPurely[Env](f: Input => Output): Routes[Env, Err, Middleware] =
+    implement(in => ZIO.succeed(f(in)))
+
+  /**
+   * Converts this endpoint, which is an abstract description of an endpoint,
+   * into a path, which maps a path to a handler for that path. In order to
+   * convert an endpoint into a path, you must specify the output, while the
+   * input is being ignored.
+   */
+  def implementAs[Env](f: => Output): Routes[Env, Err, Middleware] =
+    implement(_ => ZIO.succeed(f))
+
+  /**
+   * Converts this endpoint, which is an abstract description of an endpoint,
+   * into a path, which maps a path to a handler for that path. In order to
+   * convert an endpoint into a path, you must specify the error, while the
+   * input is being ignored.
+   */
+  def implementAsError[Env](f: => Err): Routes[Env, Err, Middleware] =
+    implement(_ => ZIO.fail(f))
+
+  /**
    * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema.
    */
