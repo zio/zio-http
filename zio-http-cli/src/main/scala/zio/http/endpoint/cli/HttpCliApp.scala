@@ -1,6 +1,7 @@
 package zio.http.endpoint.cli
 
 import zio._
+import zio.ZIOAppDefault
 import zio.cli._
 import zio.cli.figlet.FigFont
 
@@ -48,35 +49,6 @@ object HttpCliApp {
     config: CliConfig = CliConfig.default,
     figFont: FigFont = FigFont.Default,
   ): HttpCliApp[Any, Throwable, CliRequest] = {
-    val cliEndpoints = endpoints.flatMap(CliEndpoint.fromEndpoint(_))
-
-    val subcommand = cliEndpoints
-      .groupBy(_.commandName)
-      .map { case (name, cliEndpoints) =>
-        val doc     = cliEndpoints.map(_.doc).map(_.toPlaintext()).mkString("\n\n")
-        val options =
-          cliEndpoints
-            .map(_.options)
-            .zipWithIndex
-            .map { case (options, index) => options.map(index -> _) }
-            .reduceOption(_ orElse _)
-            .getOrElse(Options.none.map(_ => (-1, CliRequest.empty)))
-
-        Command(name, options).withHelp(doc).map { case (index, any) =>
-          val cliEndpoint = cliEndpoints(index)
-          cliEndpoint
-            .asInstanceOf[CliEndpoint[cliEndpoint.Type]]
-            .embed(any.asInstanceOf[cliEndpoint.Type], CliRequest.empty)
-        }
-      }
-      .reduceOption(_ orElse _)
-
-    val command =
-      subcommand match {
-        case Some(subcommand) => Command(name).subcommands(subcommand)
-        case None             => Command(name).map(_ => CliRequest.empty)
-      }
-
     HttpCliApp {
       CliApp.make(
         name = name,
@@ -85,26 +57,41 @@ object HttpCliApp {
         footer = footer,
         config = config,
         figFont = figFont,
-        command = command,
-      ) { case CliRequest(url, method, headers, body) =>
-        for {
-          response <- Client
-            .request(
-              Request
-                .default(
-                  method,
-                  url.withHost(host).withPort(port),
-                  Body.fromString(body.toString),
-                )
-                .setHeaders(headers),
-            )
-            .provide(Client.default)
-          _        <- Console.printLine(s"Got response")
-          _        <- Console.printLine(s"Status: ${response.status}")
-          body     <- response.body.asString
-          _        <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
-        } yield ()
+        command = HttpCommand.fromEndpoints(name, endpoints),
+      ) { 
+        case req @ CliRequest(_, _, _, _, mustPrint, mustSave) =>
+          for {
+            request <- req.toRequest(host, port)
+            response <- Client
+              .request(request)
+              .provide(Client.default)
+            _        <- Console.printLine(s"Got response")
+            _        <- Console.printLine(s"Status: ${response.status}")
+            _        <- ZIO.when(mustPrint)(printResponse(response))
+            _        <- ZIO.when(mustSave)(saveResponse(response))
+          } yield ()
       }
     }
   }
+
+  private def printResponse(response: Response): Task[Unit] = for {
+    body     <- response.body.asString
+    _        <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
+  } yield ()
+
+  private def saveResponse(response: Response): Task[Unit] = ???
+
+
+}
+
+
+
+object Prueba extends ZIOCliDefault {
+
+  val endpoints = Chunk.empty[Endpoint[Any, Nothing, Any, EndpointMiddleware]]
+
+  val cli2 =
+    HttpCliApp.fromEndpoints("a", "0", HelpDoc.Span.empty, endpoints, "dummy.restapiexample.com", 443)
+
+  def cliApp: CliApp[Environment with ZIOAppArgs with Scope,Any,Any] = cli2.cliApp
 }
