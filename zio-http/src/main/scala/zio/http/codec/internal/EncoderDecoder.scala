@@ -16,13 +16,12 @@
 
 package zio.http.codec.internal
 
-import java.nio.charset.CharacterCodingException
 import java.time._
 import java.util.UUID
 
 import zio._
 
-import zio.stream.{ZPipeline, ZStream}
+import zio.stream.ZStream
 
 import zio.schema.codec._
 import zio.schema.{Schema, StandardType}
@@ -105,12 +104,13 @@ private[codec] object EncoderDecoder                   {
 
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
-    private val jsonEncoders: Chunk[Any => Body]                          =
+    private val jsonEncoders: Chunk[Any => Body] =
       flattened.content.map { bodyCodec =>
         val erased    = bodyCodec.erase
         val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
         erased.encodeToBody(_, jsonCodec)
       }
+
     private val formFieldEncoders: Chunk[(String, Any) => FormField]      =
       flattened.content.map { bodyCodec => (name: String, value: Any) =>
         {
@@ -192,6 +192,11 @@ private[codec] object EncoderDecoder                   {
       } else {
         false
       }
+    private val isEventStream               = if (flattened.content.length == 1) {
+      isEventStreamBody(flattened.content(0))
+    } else {
+      false
+    }
     private val onlyTheLastFieldIsStreaming =
       if (flattened.content.size > 1) {
         !flattened.content.init.exists(isByteStreamBody) && isByteStreamBody(flattened.content.last)
@@ -503,7 +508,9 @@ private[codec] object EncoderDecoder                   {
         if (inputs.length > 1) {
           Body.fromMultipartForm(encodeMultipartFormData(inputs), formBoundary)
         } else {
-          if (jsonEncoders.length < 1) Body.empty
+          if (isEventStream) {
+            Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, ServerSentEvent]].map(_.encode))
+          } else if (jsonEncoders.length < 1) Body.empty
           else {
             val encoder = jsonEncoders(0)
             encoder(inputs(0))
@@ -539,7 +546,8 @@ private[codec] object EncoderDecoder                   {
         if (inputs.length > 1) {
           Headers(Header.ContentType(MediaType.multipart.`form-data`))
         } else {
-          if (jsonEncoders.length < 1) Headers.empty
+          if (isEventStream) Headers(Header.ContentType(MediaType.text.`event-stream`))
+          else if (jsonEncoders.length < 1) Headers.empty
           else {
             val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.json)
             Headers(Header.ContentType(mediaType))
@@ -552,6 +560,12 @@ private[codec] object EncoderDecoder                   {
       codec match {
         case BodyCodec.Multiple(schema, _, _) if schema == Schema[Byte] => true
         case _                                                          => false
+      }
+
+    private def isEventStreamBody(codec: BodyCodec[_]): Boolean =
+      codec match {
+        case BodyCodec.Multiple(schema, _, _) if schema == Schema[ServerSentEvent] => true
+        case _                                                                     => false
       }
   }
 }
