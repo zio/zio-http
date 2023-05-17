@@ -304,7 +304,7 @@ private[zio] final case class ServerInboundHandler(
           .addLast(
             new WebSocketServerProtocolHandler(NettySocketProtocol.serverBuilder(config.webSocketConfig).build()),
           )
-          .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue))
+          .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, None))
 
         val retained = jReq.retainedDuplicate()
         val _        = ctx.channel().eventLoop().submit { () => ctx.fireChannelRead(retained) }
