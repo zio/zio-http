@@ -190,7 +190,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
 
   /**
    * Returns a new endpoint derived from this one, whose input type is a stream
-   * of the specified typ
+   * of the specified type
    */
   def inStream[Input2: Schema](name: String)(implicit
     combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
