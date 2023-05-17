@@ -83,15 +83,3 @@ object HttpCliApp {
 
 
 }
-
-
-
-object Prueba extends ZIOCliDefault {
-
-  val endpoints = Chunk.empty[Endpoint[Any, Nothing, Any, EndpointMiddleware]]
-
-  val cli2 =
-    HttpCliApp.fromEndpoints("a", "0", HelpDoc.Span.empty, endpoints, "dummy.restapiexample.com", 443)
-
-  def cliApp: CliApp[Environment with ZIOAppArgs with Scope,Any,Any] = cli2.cliApp
-}

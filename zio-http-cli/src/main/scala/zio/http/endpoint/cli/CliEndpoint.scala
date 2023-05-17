@@ -12,12 +12,15 @@ import zio.http.codec.internal._
 import zio.http.endpoint._
 
 
+/**
+ * Represents the input or output of a Endpoint.
+ */
+
 private[cli] final case class CliEndpoint(
   body: List[HttpOptions.Body[_]] = List.empty,
   headers: List[HttpOptions.HeaderOptions] = List.empty,
   methods: Method = Method.GET,
   url: List[HttpOptions.URLOptions] = List.empty,
-  commandNameSegments: List[String] = List.empty,
   doc: Doc = Doc.empty,
 ) {
   self =>
@@ -28,8 +31,7 @@ private[cli] final case class CliEndpoint(
       self.headers ++ that.headers,
       if(that.methods == Method.GET) self.methods else that.methods,
       self.url ++ that.url,
-      self.commandNameSegments ++ that.commandNameSegments,
-      self.doc, // TODO add doc
+      self.doc + that.doc, // TODO add doc
     )
 
   def ??(doc: Doc): CliEndpoint = self.copy(doc = doc)
@@ -46,31 +48,19 @@ private[cli] final case class CliEndpoint(
 
   def describeOptions(description: Doc) = self.copy(doc = doc + description)
 
-  lazy val optional: CliEndpoint =
-    CliEndpoint(
-      //{
-      //  case (Some(a), request) => self.embed(a, request)
-      //  case (None, request)    => request
-      //},
-      //self.options.optional
-    )
-/*
-  def transform[B](f: A => B, g: B => A): CliEndpoint =
-    CliEndpoint(
-      //(b, request) => self.embed(g(b), request),
-      self.options.map(f),
-      self.commandNameSegments,
-      self.doc,
-    )*/
-
 }
 
 private[cli] object CliEndpoint {
 
   def empty: CliEndpoint = CliEndpoint()
 
-  def fromEndpoint[In, Err, Out, M <: EndpointMiddleware](endpoint: Endpoint[In, Err, Out, M]): CliEndpoint =
-    fromInput(endpoint.input) ?? endpoint.doc
+
+  /*
+   * Extract the information of input or output of an Endpoint.
+   */
+  def fromEndpoint[In, Err, Out, M <: EndpointMiddleware](endpoint: Endpoint[In, Err, Out, M], getInput: Boolean): CliEndpoint =
+    if(getInput) fromInput(endpoint.input) ?? endpoint.doc
+    else fromInput(endpoint.output) ?? endpoint.doc
 
   def fromInput[Input](input: HttpCodec[_, Input]): CliEndpoint = {
     input match {
@@ -108,7 +98,7 @@ private[cli] object CliEndpoint {
         codec.asInstanceOf[SimpleCodec[_, _]] match {
           case SimpleCodec.Specified(method: Method)  =>
             CliEndpoint(methods = method)
-          case _     => CliEndpoint.empty
+          case _                                      => CliEndpoint.empty
         }
       
       case HttpCodec.Path(textCodec, Some(name), _) =>

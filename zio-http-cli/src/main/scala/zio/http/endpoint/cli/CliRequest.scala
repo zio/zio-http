@@ -15,13 +15,17 @@ import scala.io.Source
 import java.io.IOException
 
 
+/**
+ * Represents a Request. The body parameter allows implementation of multipart form data and the retrieval of a body
+ * from a file or an URL.
+ */
 
 private[cli] final case class CliRequest(
   body: Chunk[Either[Either[(String, Path, MediaType), String], FormField]],
   headers: Headers,
   method: Method,
   url: URL,
-  printResponse: Boolean = false,
+  outputResponse: Boolean = true,
   saveResponse: Boolean = false
 ) { self =>
 
@@ -41,12 +45,15 @@ private[cli] final case class CliRequest(
   def withMethod(method: Method): CliRequest =
     self.copy(method = method)
 
+  /*
+   * Retrieves data from files, urls or command options and construct a HTTP Request.
+   */
   def toRequest(host: String, port: Int): Task[Request] = for {
     formFields <- ZIO.foreach(body)( _ match {
         case Left(Left((name, file, mediaType))) => for {
           chunk <- Body.fromFile(new File(file.toUri())).asChunk
         } yield FormField.binaryField(name, chunk, mediaType)
-        case Left(Right(url)) => ???
+        case Left(Right(url)) => ??? // TODO
         case Right(formField) => ZIO.succeed(formField)
       })
     finalBody <- Body.fromMultipartFormUUID(Form(formFields))
