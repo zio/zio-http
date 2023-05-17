@@ -42,7 +42,7 @@ private[codec] trait HeaderCodecs {
       render,
     )
 
-  def nameTransformOpt[A, B](name: String, parse: B => Option[A], render: A => B)(implicit
+  def nameTransformOption[A, B](name: String, parse: B => Option[A], render: A => B)(implicit
     codec: TextCodec[B],
   ): HeaderCodec[A] =
     headerCodec(name, codec).transformOrFailLeft(parse(_).toRight(s"Failed to parse header $name"), render)
