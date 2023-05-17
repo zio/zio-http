@@ -20,6 +20,7 @@ import zio._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{diagnose, nonFlaky, timeout, withLiveClock}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
+
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
@@ -163,20 +164,20 @@ object WebSocketSpec extends HttpRunnableSpec {
         id  <- DynamicServer.deploy {
           Handler.webSocket { channel =>
             ZIO.debug("receiveAll") *>
-            channel.receiveAll { evt =>
-              println(evt)
-              evt match {
-                case ChannelEvent.UserEventTriggered(UserEvent.HandshakeComplete) =>
-                  ZIO.debug("registered") *>
-                    ZIO
-                      .foreachDiscard(1 to 100) { idx =>
-                        ZIO.debug(s"sending $idx") *>
-                          channel.send(Read(WebSocketFrame.text(idx.toString))) *> ZIO.sleep(100.millis)
-                      }
-                      .forkScoped
-                case _ => ZIO.unit
+              channel.receiveAll { evt =>
+                println(evt)
+                evt match {
+                  case ChannelEvent.UserEventTriggered(UserEvent.HandshakeComplete) =>
+                    ZIO.debug("registered") *>
+                      ZIO
+                        .foreachDiscard(1 to 100) { idx =>
+                          ZIO.debug(s"sending $idx") *>
+                            channel.send(Read(WebSocketFrame.text(idx.toString))) *> ZIO.sleep(100.millis)
+                        }
+                        .forkScoped
+                  case _                                                            => ZIO.unit
+                }
               }
-            }
           }.toHttpApp
         }
 

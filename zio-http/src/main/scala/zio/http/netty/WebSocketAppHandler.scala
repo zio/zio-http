@@ -16,15 +16,17 @@
 
 package zio.http.netty
 
+import zio._
+
+import zio.http.ChannelEvent.UserEvent
+import zio.http.netty.client.ChannelState
+import zio.http.{ChannelEvent, WebSocketChannelEvent, WebSocketFrame}
+
 import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
-import zio._
-import zio.http.ChannelEvent.UserEvent
-import zio.http.netty.client.ChannelState
-import zio.http.{ChannelEvent, WebSocketChannelEvent, WebSocketFrame}
 
 /**
  * A generic SocketApp handler that can be used on both - the client and the
@@ -47,8 +49,8 @@ private[zio] final class WebSocketAppHandler(
     zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
       queue.offer(event.map(frameFromNetty)) *>
         (onComplete match {
-          case Some(promise) => promise.succeed(ChannelState.Invalid)
-          case None          => ZIO.unit
+          case Some(promise) if close => promise.succeed(ChannelState.Invalid)
+          case _                      => ZIO.unit
         }),
     )
   }

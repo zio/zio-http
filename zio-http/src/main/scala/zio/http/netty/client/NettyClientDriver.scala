@@ -90,7 +90,7 @@ final case class NettyClientDriver private (
           // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
 
           val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
-          val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, onComplete)
+          val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, Some(onComplete))
 
           pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
           pipeline.addLast(Names.WebSocketHandler, webSocket)
