@@ -16,16 +16,15 @@
 
 package zio.http.netty
 
-import zio._
-
-import zio.http.ChannelEvent.UserEvent
-import zio.http.{Channel, ChannelEvent, WebSocketChannelEvent, WebSocketFrame}
-
-import io.netty.buffer.{ByteBufUtil, Unpooled}
+import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler.ClientHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.ServerHandshakeStateEvent
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
+import zio._
+import zio.http.ChannelEvent.UserEvent
+import zio.http.netty.client.ChannelState
+import zio.http.{ChannelEvent, WebSocketChannelEvent, WebSocketFrame}
 
 /**
  * A generic SocketApp handler that can be used on both - the client and the
@@ -34,6 +33,7 @@ import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame
 private[zio] final class WebSocketAppHandler(
   zExec: NettyRuntime,
   queue: Queue[WebSocketChannelEvent],
+  onComplete: Option[Promise[Throwable, ChannelState]],
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
@@ -42,9 +42,14 @@ private[zio] final class WebSocketAppHandler(
   private def dispatch(
     ctx: ChannelHandlerContext,
     event: ChannelEvent[JWebSocketFrame],
+    close: Boolean = false,
   ): Unit = {
     zExec.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
-      queue.offer(event.map(frameFromNetty)),
+      queue.offer(event.map(frameFromNetty)) *>
+        (onComplete match {
+          case Some(promise) => promise.succeed(ChannelState.Invalid)
+          case None          => ZIO.unit
+        }),
     )
   }
 
@@ -55,10 +60,16 @@ private[zio] final class WebSocketAppHandler(
     dispatch(ctx, ChannelEvent.registered)
 
   override def channelUnregistered(ctx: ChannelHandlerContext): Unit =
-    dispatch(ctx, ChannelEvent.unregistered)
+    dispatch(ctx, ChannelEvent.unregistered, close = true)
 
-  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
+  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     dispatch(ctx, ChannelEvent.exceptionCaught(cause))
+    onComplete match {
+      case Some(promise) =>
+        promise.fail(cause)
+      case None          =>
+    }
+  }
 
   override def userEventTriggered(ctx: ChannelHandlerContext, msg: AnyRef): Unit = {
     msg match {
