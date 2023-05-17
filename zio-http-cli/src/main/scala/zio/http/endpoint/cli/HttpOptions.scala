@@ -228,7 +228,7 @@ private[cli] object HttpOptions {
   }
 
   final case class Query(name: String, textCodec: TextCodec[_]) extends URLOptions {
-    override val tag = "/"+name+"?"
+    override val tag = "?"+name
     lazy val options: Options[_] = optionsFromCodec(textCodec)(name)
   
     override def transform(request: Options[CliRequest]): Options[CliRequest] = 
@@ -241,7 +241,7 @@ private[cli] object HttpOptions {
   }
 
   final case class QueryConstant(name: String, value: String) extends URLOptions {
-    override val tag = "/"+name+"?"+value
+    override val tag = "?"+name+"="+value
     override def transform(request: Options[CliRequest]): Options[CliRequest] = 
       request.map(_.addQueryParam(name, value))
 
