@@ -16,19 +16,16 @@
 
 package zio.http.netty.client
 
-import java.net.InetSocketAddress
-
+import java.net.{Inet6Address, InetAddress, InetSocketAddress}
 import zio._
-
 import zio.http.URL.Location
 import zio.http._
 import zio.http.netty.{Names, NettyFutureExecutor, NettyProxy}
-
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
+  ChannelInitializer,
   Channel => JChannel,
   ChannelFactory => JChannelFactory,
-  ChannelInitializer,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
@@ -96,10 +93,7 @@ object NettyConnectionPool {
       }
     }
 
-    for {
-      resolvedHosts <- dnsResolver.resolve(location.host)
-      pickedHost    <- Random.nextIntBounded(resolvedHosts.size)
-      host = resolvedHosts(pickedHost)
+    def createChannel(host: InetAddress): ZIO[Any, Throwable, JChannel] = for {
       channelFuture <- ZIO.attempt {
         val bootstrap = new Bootstrap()
           .channelFactory(channelFactory)
@@ -114,7 +108,111 @@ object NettyConnectionPool {
       _             <- NettyFutureExecutor.executed(channelFuture)
       result        <- ZIO.attempt(channelFuture.channel())
     } yield result
+
+    for {
+      resolvedHosts <- dnsResolver.resolve(location.host)
+      sortedHosts    = sortHostsHappyEyeballs(resolvedHosts)
+      createChannels = sortedHosts.map(createChannel).toList
+      // Racing them all works but is not HappyEyeballs.
+      // result <- ZIO.raceAll(ZIO.never, createChannels)
+      result <- happyEyeballsWithRelease(
+        createChannels,
+        250.millis,
+        (jchannel: JChannel) => NettyFutureExecutor.executed(jchannel.closeFuture()).ignore,
+      )
+    } yield result
   }
+
+  /**
+   * Sort addresses according to Happy Eyeballs Version 2 RFC.
+   *
+   * See [[https://www.rfc-editor.org/rfc/rfc8305#section-4]]
+   */
+  private final def sortHostsHappyEyeballs(hosts: Chunk[InetAddress]): Chunk[InetAddress] = {
+    val (ipv6, ipv4) = hosts.partition {
+      case _: Inet6Address => true
+      case _               => false
+    }
+
+    if (ipv6.isEmpty || ipv4.isEmpty) {
+      hosts
+    } else {
+      // Interleave the two address families.
+      val ipv6Iterator = ipv6.chunkIterator
+      val ipv4Iterator = ipv4.chunkIterator
+
+      val builder = ChunkBuilder.make[InetAddress]()
+      builder.sizeHint(ipv4.size + ipv6.size)
+
+      var ipv6Index   = 0
+      var ipv4Index   = 0
+      var ipv6HasNext = false
+      var ipv4HasNext = false
+      while ({
+        ipv6HasNext = ipv6Iterator.hasNextAt(ipv6Index)
+        ipv4HasNext = ipv4Iterator.hasNextAt(ipv4Index)
+        ipv6HasNext || ipv4HasNext
+      }) {
+        if (ipv6HasNext) {
+          builder += ipv6Iterator.nextAt(ipv6Index)
+          ipv6Index += 1
+        }
+        if (ipv4HasNext) {
+          builder += ipv4Iterator.nextAt(ipv4Index)
+          ipv4Index += 1
+        }
+      }
+      builder.result()
+    }
+  }
+
+  /**
+   * Execute Happy Eyeballs, but release the extra tasks that succeed after the
+   * first one.
+   */
+  private def happyEyeballsWithRelease[A](tasks: List[Task[A]], delay: Duration, releaseExtra: A => UIO[Unit]) = for {
+    successful <- Queue.bounded[A](tasks.size)
+    enqueueingTasks = tasks.map {
+      _.onExit {
+        case Exit.Success(value) => successful.offer(value)
+        case Exit.Failure(_)     => ZIO.unit
+      }
+    }
+    result <- executeHappyEyeballs(enqueueingTasks, delay)
+    successes <- successful.takeAll
+    _         <- ZIO.foreachDiscard(successes.tail)(releaseExtra)
+  } yield result
+
+  /**
+   * Attempt to execute the tasks according to Happy Eyeballs Version 2 RFC.
+   *
+   * Tasks are not started simultaneously, rather they are started in sequence.
+   *
+   * The next task is started if the current task fails or after the specified
+   * delay, whichever comes first.
+   *
+   * See [[https://www.rfc-editor.org/rfc/rfc8305#section-5]]
+   *
+   * Returns the first successful connection. Fails with an exception if none
+   * succeed.
+   */
+  private def executeHappyEyeballs[A](tasks: List[Task[A]], delay: Duration): Task[A] =
+    tasks match {
+      // What should this error be?
+      case Nil                => ZIO.fail(new Exception("No tasks left."))
+      case task :: Nil        => task
+      case task :: otherTasks =>
+        Queue.bounded[Unit](1).flatMap { taskFailedSignal =>
+          val taskWithSignalOnFailed = task.onError(_ => taskFailedSignal.offer(()))
+          val sleepOrFailed          = ZIO.sleep(delay).race(taskFailedSignal.take)
+          val restOfTasks            = sleepOrFailed *> executeHappyEyeballs(otherTasks, delay)
+
+          // Tests succeed with this.
+          // taskWithSignalOnFailed
+          // Tests timeout with recursive race call.
+          taskWithSignalOnFailed.race(restOfTasks)
+        }
+    }
 
   private final class NoNettyConnectionPool(
     channelFactory: JChannelFactory[JChannel],
