@@ -16,14 +16,13 @@
 
 package zio.http.codec.internal
 
-import zio._
-
-import zio.stream.ZStream
-
+import zio.http.{Body, MediaType}
 import zio.schema._
-import zio.schema.codec.BinaryCodec
+import zio.schema.codec.{BinaryCodec, Codec}
+import zio.stream.{ZPipeline, ZStream}
+import zio.{ZIO, _}
 
-import zio.http.{Body, FormField, MediaType}
+import java.nio.charset.Charset
 
 /**
  * A BodyCodec encapsulates the logic necessary to both encode and decode bodies
@@ -44,9 +43,19 @@ private[internal] sealed trait BodyCodec[A] { self =>
   def decodeFromBody(body: Body, codec: BinaryCodec[Element]): IO[Throwable, A]
 
   /**
+   * Attempts to decode the `A` from a body using the given codec.
+   */
+  def decodeFromBody(body: Body, codec: Codec[String, Char, Element]): IO[Throwable, A]
+
+  /**
    * Encodes the `A` to a body in the given codec.
    */
   def encodeToBody(value: A, codec: BinaryCodec[Element]): Body
+
+  /**
+   * Encodes the `A` to a body in the given codec.
+   */
+  def encodeToBody(value: A, codec: Codec[String, Char, Element]): Body
 
   /**
    * Erases the type for easier use in the internal implementation.
@@ -67,6 +76,11 @@ private[internal] sealed trait BodyCodec[A] { self =>
   def mediaType: Option[MediaType]
 
   /**
+   * Returns the media type or application/json if not specified
+   */
+  def mediaTypeOrJson: MediaType = mediaType.getOrElse(MediaType.application.`json`)
+
+  /**
    * Name of the body part
    *
    * In case of multipart/form-data encoding one request or response can consist
@@ -80,7 +94,11 @@ private[internal] object BodyCodec {
 
     def decodeFromBody(body: Body, codec: BinaryCodec[Unit]): IO[Nothing, Unit] = ZIO.unit
 
+    def decodeFromBody(body: Body, codec: Codec[String, Char, Unit]): IO[Nothing, Unit] = ZIO.unit
+
     def encodeToBody(value: Unit, codec: BinaryCodec[Unit]): Body = Body.empty
+
+    def encodeToBody(value: Unit, codec: Codec[String, Char, Unit]): Body = Body.empty
 
     def schema: Schema[Unit] = Schema[Unit]
 
@@ -93,14 +111,18 @@ private[internal] object BodyCodec {
       extends BodyCodec[A] {
     def decodeFromBody(body: Body, codec: BinaryCodec[A]): IO[Throwable, A] = {
       if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
-      else
-        body.asChunk.flatMap { chunk =>
-          ZIO.fromEither(codec.decode(chunk))
-        }
+      else body.asChunk.flatMap(chunk => ZIO.fromEither(codec.decode(chunk)))
     }
+
+    def decodeFromBody(body: Body, codec: Codec[String, Char, A]): IO[Throwable, A] =
+      if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
+      else body.asString.flatMap(chunk => ZIO.fromEither(codec.decode(chunk)))
 
     def encodeToBody(value: A, codec: BinaryCodec[A]): Body =
       Body.fromChunk(codec.encode(value))
+
+    def encodeToBody(value: A, codec: Codec[String, Char, A]): Body =
+      Body.fromString(codec.encode(value))
 
     type Element = A
   }
@@ -110,8 +132,14 @@ private[internal] object BodyCodec {
     def decodeFromBody(body: Body, codec: BinaryCodec[E]): IO[Throwable, ZStream[Any, Nothing, E]] =
       ZIO.succeed((body.asStream >>> codec.streamDecoder).orDie)
 
+    def decodeFromBody(body: Body, codec: Codec[String, Char, E]): IO[Throwable, ZStream[Any, Nothing, E]] =
+      ZIO.succeed((body.asStream >>> ZPipeline.decodeCharsWith(Charset.defaultCharset()) >>> codec.streamDecoder).orDie)
+
     def encodeToBody(value: ZStream[Any, Nothing, E], codec: BinaryCodec[E]): Body =
       Body.fromStream(value >>> codec.streamEncoder)
+
+    def encodeToBody(value: ZStream[Any, Nothing, E], codec: Codec[String, Char, E]): Body =
+      Body.fromStream(value >>> codec.streamEncoder.map(_.toByte))
 
     type Element = E
   }
