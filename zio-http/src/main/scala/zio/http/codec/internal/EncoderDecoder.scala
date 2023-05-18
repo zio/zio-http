@@ -17,11 +17,14 @@
 package zio.http.codec.internal
 
 import zio._
-import zio.http._
-import zio.http.codec._
+
+import zio.stream.ZStream
+
 import zio.schema.Schema
 import zio.schema.codec.{BinaryCodec, Codec}
-import zio.stream.ZStream
+
+import zio.http._
+import zio.http.codec._
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
