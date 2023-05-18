@@ -142,8 +142,8 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     ),
     suite("custom")(
       test("Providing context from auth middleware") {
-        def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((headers: Headers) =>
-          headers.header(Header.Authorization).map(auth => AuthContext(auth.renderedValue.toString)),
+        def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((request: Request) =>
+          request.header(Header.Authorization).map(auth => AuthContext(auth.renderedValue.toString)),
         )
 
         val app1 = Handler.text("ok") @@ auth[Any]
@@ -172,8 +172,8 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       }.provideLayer(ZLayer.succeed(BaseService("base"))),
       test("Providing context from auth middleware effectfully") {
         def auth[R0] = RequestHandlerMiddlewares.customAuthProvidingZIO[R0, UserService, Throwable, AuthContext](
-          (headers: Headers) =>
-            headers.header(Header.Authorization) match {
+          (request: Request) =>
+            request.header(Header.Authorization) match {
               case Some(Header.Authorization.Bearer(value)) if value.startsWith("_") =>
                 ZIO.service[UserService].map { usvc => Some(AuthContext(usvc.prefix + value)) }
               case Some(value)                                                       =>
@@ -221,7 +221,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
             } yield Some(AuthContext(value.toString)),
           )
 
-        def httpEndpoint(str: String) = Http.collect[Request] { case Method.GET -> Root / str =>
+        def httpEndpoint(str: String) = Http.collect[Request] { case Method.GET -> Root / `str` =>
           Response.ok
         }
 

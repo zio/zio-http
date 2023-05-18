@@ -16,13 +16,12 @@
 
 package zio.http.codec.internal
 
-import java.nio.charset.CharacterCodingException
 import java.time._
 import java.util.UUID
 
 import zio._
 
-import zio.stream.{ZPipeline, ZStream}
+import zio.stream.ZStream
 
 import zio.schema.codec._
 import zio.schema.{Schema, StandardType}
@@ -41,8 +40,11 @@ private[codec] object EncoderDecoder                   {
   def apply[AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value]): EncoderDecoder[AtomTypes, Value] = {
     val flattened = httpCodec.alternatives
 
-    if (flattened.length == 1) Single(flattened.head)
-    else Multiple(flattened)
+    flattened.length match {
+      case 0 => Undefined()
+      case 1 => Single(flattened.head)
+      case _ => Multiple(flattened)
+    }
   }
 
   private final case class Multiple[-AtomTypes, Value](httpCodecs: Chunk[HttpCodec[AtomTypes, Value]])
@@ -98,6 +100,37 @@ private[codec] object EncoderDecoder                   {
     }
   }
 
+  private final case class Undefined[-AtomTypes, Value]() extends EncoderDecoder[AtomTypes, Value] {
+
+    val encodeWithErrorMessage =
+      """
+        |Trying to encode with Undefined codec. That means that encode was invoked for object of type Nothing - which cannot exist.
+        |Verify that middleware and endpoint have proper types or submit bug report at https://github.com/zio/zio-http/issues
+    """.stripMargin.trim()
+
+    val decodeErrorMessage =
+      """
+        |Trying to decode with Undefined codec. That means that encode was invoked for object of type Nothing - which cannot exist.
+        |Verify that middleware and endpoint have proper types or submit bug report at https://github.com/zio/zio-http/issues
+    """.stripMargin.trim()
+
+    override def encodeWith[Z](
+      value: Value,
+    )(f: (zio.http.URL, Option[zio.http.Status], Option[zio.http.Method], zio.http.Headers, zio.http.Body) => Z): Z = {
+      throw new IllegalStateException(encodeWithErrorMessage)
+    }
+
+    override def decode(
+      url: zio.http.URL,
+      status: zio.http.Status,
+      method: zio.http.Method,
+      headers: zio.http.Headers,
+      body: zio.http.Body,
+    )(implicit trace: zio.Trace): zio.Task[Value] = {
+      ZIO.fail(new IllegalStateException(decodeErrorMessage))
+    }
+  }
+
   private final case class Single[-AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value])
       extends EncoderDecoder[AtomTypes, Value] {
     private val constructor   = Mechanic.makeConstructor(httpCodec)
@@ -105,12 +138,13 @@ private[codec] object EncoderDecoder                   {
 
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
-    private val jsonEncoders: Chunk[Any => Body]                          =
+    private val jsonEncoders: Chunk[Any => Body] =
       flattened.content.map { bodyCodec =>
         val erased    = bodyCodec.erase
         val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
         erased.encodeToBody(_, jsonCodec)
       }
+
     private val formFieldEncoders: Chunk[(String, Any) => FormField]      =
       flattened.content.map { bodyCodec => (name: String, value: Any) =>
         {
@@ -192,6 +226,11 @@ private[codec] object EncoderDecoder                   {
       } else {
         false
       }
+    private val isEventStream               = if (flattened.content.length == 1) {
+      isEventStreamBody(flattened.content(0))
+    } else {
+      false
+    }
     private val onlyTheLastFieldIsStreaming =
       if (flattened.content.size > 1) {
         !flattened.content.init.exists(isByteStreamBody) && isByteStreamBody(flattened.content.last)
@@ -503,7 +542,9 @@ private[codec] object EncoderDecoder                   {
         if (inputs.length > 1) {
           Body.fromMultipartForm(encodeMultipartFormData(inputs), formBoundary)
         } else {
-          if (jsonEncoders.length < 1) Body.empty
+          if (isEventStream) {
+            Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, ServerSentEvent]].map(_.encode))
+          } else if (jsonEncoders.length < 1) Body.empty
           else {
             val encoder = jsonEncoders(0)
             encoder(inputs(0))
@@ -539,7 +580,8 @@ private[codec] object EncoderDecoder                   {
         if (inputs.length > 1) {
           Headers(Header.ContentType(MediaType.multipart.`form-data`))
         } else {
-          if (jsonEncoders.length < 1) Headers.empty
+          if (isEventStream) Headers(Header.ContentType(MediaType.text.`event-stream`))
+          else if (jsonEncoders.length < 1) Headers.empty
           else {
             val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.json)
             Headers(Header.ContentType(mediaType))
@@ -552,6 +594,12 @@ private[codec] object EncoderDecoder                   {
       codec match {
         case BodyCodec.Multiple(schema, _, _) if schema == Schema[Byte] => true
         case _                                                          => false
+      }
+
+    private def isEventStreamBody(codec: BodyCodec[_]): Boolean =
+      codec match {
+        case BodyCodec.Multiple(schema, _, _) if schema == Schema[ServerSentEvent] => true
+        case _                                                                     => false
       }
   }
 }

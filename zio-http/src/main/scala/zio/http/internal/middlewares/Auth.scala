@@ -97,7 +97,7 @@ private[zio] trait Auth {
    * requests to be passed on to the app.
    */
   final def customAuth(
-    verify: Headers => Boolean,
+    verify: Request => Boolean,
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
   ): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
@@ -106,7 +106,7 @@ private[zio] trait Auth {
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
-          if (verify(request.headers)) handler
+          if (verify(request)) handler
           else Handler.status(responseStatus).addHeaders(responseHeaders)
         }
     }
@@ -117,7 +117,7 @@ private[zio] trait Auth {
    * handlers.
    */
   final def customAuthProviding[R0, Context: Tag](
-    provide: Headers => Option[Context],
+    provide: Request => Option[Context],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
   ): RequestHandlerMiddleware.WithOut[
@@ -142,7 +142,7 @@ private[zio] trait Auth {
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R0, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
-          provide(request.headers) match {
+          provide(request) match {
             case Some(context) => applyToHandler(handler, context)
             case None          => Handler.status(responseStatus).addHeaders(responseHeaders)
           }
@@ -188,7 +188,7 @@ private[zio] trait Auth {
         http: Http[R1, Err1, Request, Response],
       )(implicit trace: Trace): Http[R0, Err1, Request, Response] =
         Http.fromHttpZIO[Request] { request =>
-          ZIO.succeed(provide(request.headers)).map {
+          ZIO.succeed(provide(request)).map {
             case Some(context) =>
               applyToHttp(http, context)
             case None          =>
@@ -204,7 +204,7 @@ private[zio] trait Auth {
    * handlers.
    */
   final def customAuthProvidingZIO[R0, R, E, Context: Tag](
-    provide: Headers => ZIO[R, E, Option[Context]],
+    provide: Request => ZIO[R, E, Option[Context]],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
   ): RequestHandlerMiddleware.WithOut[
@@ -230,7 +230,7 @@ private[zio] trait Auth {
       )(implicit trace: Trace): Handler[R0 with R, Err1, Request, Response] =
         Handler
           .fromFunctionZIO[Request] { request =>
-            provide(request.headers).flatMap {
+            provide(request).flatMap {
               case Some(context) =>
                 applyToHandler(handler, context)
               case None          =>
@@ -283,7 +283,7 @@ private[zio] trait Auth {
         http: Http[R1, Err1, Request, Response],
       )(implicit trace: Trace): Http[R0 with R, Err1, Request, Response] =
         Http.fromHttpZIO[Request] { request =>
-          provide(request.headers).map {
+          provide(request).map {
             case Some(context) =>
               applyToHttp(http, context)
             case None          =>
@@ -299,7 +299,7 @@ private[zio] trait Auth {
    * function.
    */
   final def customAuthZIO[R, E](
-    verify: Headers => ZIO[R, E, Boolean],
+    verify: Request => ZIO[R, E, Boolean],
     responseHeaders: Headers = Headers.empty,
     responseStatus: Status = Status.Unauthorized,
   ): RequestHandlerMiddleware[Nothing, R, E, Any] =
@@ -309,7 +309,7 @@ private[zio] trait Auth {
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         Handler
           .fromFunctionZIO[Request] { request =>
-            verify(request.headers).map {
+            verify(request).map {
               case true  => handler
               case false => Handler.status(responseStatus).addHeaders(responseHeaders)
             }

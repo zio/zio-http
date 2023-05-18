@@ -1,8 +1,11 @@
 package zio.http
 
+import zio.schema.{DeriveSchema, Schema}
+
 /**
  * Server-Sent Event (SSE) as defined by
  * https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events
+ *
  * @param data
  *   data, may span multiple lines
  * @param eventType
@@ -38,5 +41,7 @@ final case class ServerSentEvent(
 }
 
 object ServerSentEvent {
+  implicit lazy val schema: Schema[ServerSentEvent] = DeriveSchema.gen[ServerSentEvent]
+
   def heartbeat: ServerSentEvent = new ServerSentEvent("")
 }

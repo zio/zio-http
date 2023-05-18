@@ -551,7 +551,7 @@ object ZClient {
       val request = Request(body, headers, method, url, version, None)
       val cfg     = sslConfig.fold(config)(config.ssl)
 
-      requestAsync(request, cfg, () => Handler.unit)
+      requestAsync(request, cfg, () => Handler.unit, None)
     }
 
     def socket[Env1](
@@ -571,6 +571,7 @@ object ZClient {
             case None               => Scheme.WS
           },
         )
+        scope <- ZIO.scope
         res <- requestAsync(
           Request
             .get(webSocketUrl)
@@ -580,22 +581,32 @@ object ZClient {
             ),
           config,
           () => app.provideEnvironment(env),
+          Some(scope),
         ).withFinalizer {
           case resp: Response.CloseableResponse => resp.close.orDie
           case _                                => ZIO.unit
         }
       } yield res
 
-    private def requestAsync(request: Request, clientConfig: Config, createSocketApp: () => SocketApp[Any])(implicit
+    private def requestAsync(
+      request: Request,
+      clientConfig: Config,
+      createSocketApp: () => SocketApp[Any],
+      outerScope: Option[Scope],
+    )(implicit
       trace: Trace,
     ): ZIO[Any, Throwable, Response] =
       request.url.kind match {
         case location: Location.Absolute =>
           ZIO.uninterruptibleMask { restore =>
             for {
-              onComplete   <- Promise.make[Throwable, ChannelState]
-              onResponse   <- Promise.make[Throwable, Response]
-              channelFiber <- ZIO.scoped {
+              onComplete <- Promise.make[Throwable, ChannelState]
+              onResponse <- Promise.make[Throwable, Response]
+              inChannelScope = outerScope match {
+                case Some(scope) => (zio: ZIO[Scope, Throwable, Unit]) => scope.extend(zio)
+                case None        => (zio: ZIO[Scope, Throwable, Unit]) => ZIO.scoped(zio)
+              }
+              channelFiber <- inChannelScope {
                 for {
                   connection       <- connectionPool
                     .get(
@@ -644,7 +655,7 @@ object ZClient {
                     }
                 } yield ()
               }.forkDaemon // Needs to live as long as the channel is alive, as the response body may be streaming
-              response     <- restore(onResponse.await.onInterrupt {
+              response <- restore(onResponse.await.onInterrupt {
                 onComplete.interrupt *> channelFiber.join.orDie
               })
             } yield response
