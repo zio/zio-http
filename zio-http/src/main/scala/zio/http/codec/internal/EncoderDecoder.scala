@@ -16,18 +16,12 @@
 
 package zio.http.codec.internal
 
-import java.time._
-import java.util.UUID
-
 import zio._
-
-import zio.stream.ZStream
-
-import zio.schema.codec._
-import zio.schema.{Schema, StandardType}
-
 import zio.http._
 import zio.http.codec._
+import zio.schema.Schema
+import zio.schema.codec.{BinaryCodec, Codec}
+import zio.stream.ZStream
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
@@ -148,10 +142,11 @@ private[codec] object EncoderDecoder                   {
 
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
-    private val codecs: Map[String, MediaTypeCodec] = {
+    private val codecs: Map[String, MediaTypeCodec[_]] = {
       val defaultCodecs = List(
         MediaTypeCodec.json(flattened.content),
         MediaTypeCodec.protobuf(flattened.content),
+        MediaTypeCodec.text(flattened.content),
       ).flatMap(c => c.acceptedTypes.map(at => at.fullType -> c)).toMap
       if (outputTypes.isEmpty) defaultCodecs
       else {
@@ -167,69 +162,54 @@ private[codec] object EncoderDecoder                   {
       }
     }
 
-    private val formFieldEncoders: Chunk[(String, Any) => FormField]      =
+    private val formFieldEncoders: Chunk[(String, Any) => FormField] =
       flattened.content.map { bodyCodec => (name: String, value: Any) =>
         {
-          val erased = bodyCodec.erase
-          erased.schema match {
-            case Schema.Primitive(_, _) =>
-              FormField.simpleField(name, value.toString)
-            case _                      =>
-              val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
+          val erased    = bodyCodec.erase
+          val mediaType = bodyCodec.mediaTypeOrJson
+          val codec     =
+            codecs
+              .get(mediaType.fullType)
+              .map(_.codecs(erased))
+
+          codec match {
+            case Some(codec: BinaryCodec[Any])         =>
+              FormField.binaryField(
+                name,
+                codec.encode(value.asInstanceOf[erased.Element]),
+                mediaType,
+              )
+            case Some(codec: Codec[String, Char, Any]) =>
               FormField.textField(
                 name,
-                new String(jsonCodec.encode(value.asInstanceOf[erased.Element]).toArray, Charsets.Utf8),
-                MediaType.application.json,
+                codec.encode(value.asInstanceOf[erased.Element], Charsets.Utf8),
+                mediaType,
               )
+            case None                                  =>
+              throw HttpCodecError.UnsupportedContentType(mediaType.fullType)
           }
         }
       }
+
     private val formFieldDecoders: Chunk[FormField => IO[Throwable, Any]] =
       flattened.content.map { bodyCodec => (field: FormField) =>
         {
-          val erased = bodyCodec.erase
-          erased.schema match {
-            case Schema.Primitive(standardType, _) =>
-              field.asText.flatMap { text =>
-                standardType.asInstanceOf[StandardType[_]] match {
-                  case StandardType.UnitType           => ZIO.succeed(())
-                  case StandardType.StringType         => ZIO.succeed(text)
-                  case StandardType.BoolType           => ZIO.attempt(text.toBoolean)
-                  case StandardType.ByteType           => ZIO.attempt(text.toByte)
-                  case StandardType.ShortType          => ZIO.attempt(text.toShort)
-                  case StandardType.IntType            => ZIO.attempt(text.toInt)
-                  case StandardType.LongType           => ZIO.attempt(text.toLong)
-                  case StandardType.FloatType          => ZIO.attempt(text.toFloat)
-                  case StandardType.DoubleType         => ZIO.attempt(text.toDouble)
-                  case StandardType.BinaryType         => ZIO.die(new IllegalStateException("Binary is not supported"))
-                  case StandardType.CharType           => ZIO.attempt(text.charAt(0))
-                  case StandardType.UUIDType           => ZIO.attempt(UUID.fromString(text))
-                  case StandardType.BigDecimalType     => ZIO.attempt(BigDecimal(text))
-                  case StandardType.BigIntegerType     => ZIO.attempt(BigInt(text))
-                  case StandardType.DayOfWeekType      => ZIO.attempt(DayOfWeek.valueOf(text))
-                  case StandardType.MonthType          => ZIO.attempt(Month.valueOf(text))
-                  case StandardType.MonthDayType       => ZIO.attempt(MonthDay.parse(text))
-                  case StandardType.PeriodType         => ZIO.attempt(Period.parse(text))
-                  case StandardType.YearType           => ZIO.attempt(Year.parse(text))
-                  case StandardType.YearMonthType      => ZIO.attempt(YearMonth.parse(text))
-                  case StandardType.ZoneIdType         => ZIO.attempt(ZoneId.of(text))
-                  case StandardType.ZoneOffsetType     => ZIO.attempt(ZoneOffset.of(text))
-                  case StandardType.DurationType       => ZIO.attempt(java.time.Duration.parse(text))
-                  case StandardType.InstantType        => ZIO.attempt(Instant.parse(text))
-                  case StandardType.LocalDateType      => ZIO.attempt(LocalDate.parse(text))
-                  case StandardType.LocalTimeType      => ZIO.attempt(LocalTime.parse(text))
-                  case StandardType.LocalDateTimeType  => ZIO.attempt(LocalDateTime.parse(text))
-                  case StandardType.OffsetTimeType     => ZIO.attempt(OffsetTime.parse(text))
-                  case StandardType.OffsetDateTimeType => ZIO.attempt(OffsetDateTime.parse(text))
-                  case StandardType.ZonedDateTimeType  => ZIO.attempt(ZonedDateTime.parse(text))
-                }
-              }
-            case _                                 =>
-              val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
-              field.asChunk.flatMap { chunk =>
-                ZIO.fromEither(jsonCodec.decode(chunk))
-              }
+          val erased    = bodyCodec.erase
+          val mediaType = bodyCodec.mediaTypeOrJson
+          val codec     =
+            codecs
+              .get(mediaType.fullType)
+              .map(_.codecs(erased))
+
+          codec match {
+            case Some(codec: BinaryCodec[Any])         =>
+              field.asChunk.flatMap(chunk => ZIO.fromEither(codec.decode(chunk)))
+            case Some(codec: Codec[String, Char, Any]) =>
+              field.asText.flatMap(text => ZIO.fromEither(codec.decode(text)))
+            case None                                  =>
+              ZIO.fail(HttpCodecError.UnsupportedContentType(mediaType.fullType))
           }
+
         }
       }
     private val formBoundary                = Boundary("----zio-http-boundary-D4792A5C-93E0-43B5-9A1F-48E38FDE5714")
