@@ -1,28 +1,18 @@
 package zio.http.codec.internal
 
+import java.time._
+import java.util.UUID
+
+import scala.util.Try
+
 import zio._
-import zio.http._
-import zio.schema.codec._
-import zio.schema.{Schema, StandardType}
+
 import zio.stream.ZPipeline
 
-import java.time.{
-  DayOfWeek,
-  Instant,
-  LocalDate,
-  LocalDateTime,
-  LocalTime,
-  Month,
-  MonthDay,
-  OffsetTime,
-  Period,
-  Year,
-  YearMonth,
-  ZoneId,
-  ZoneOffset,
-}
-import java.util.UUID
-import scala.util.Try
+import zio.schema.codec._
+import zio.schema.{Schema, StandardType}
+
+import zio.http._
 
 sealed trait MediaTypeCodec[Codec] {
 

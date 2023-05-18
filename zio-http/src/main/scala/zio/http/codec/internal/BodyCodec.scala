@@ -16,13 +16,16 @@
 
 package zio.http.codec.internal
 
-import zio.http.{Body, MediaType}
+import java.nio.charset.Charset
+
+import zio._
+
+import zio.stream.{ZPipeline, ZStream}
+
 import zio.schema._
 import zio.schema.codec.{BinaryCodec, Codec}
-import zio.stream.{ZPipeline, ZStream}
-import zio.{ZIO, _}
 
-import java.nio.charset.Charset
+import zio.http.{Body, MediaType}
 
 /**
  * A BodyCodec encapsulates the logic necessary to both encode and decode bodies
