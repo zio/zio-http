@@ -17,11 +17,15 @@
 package zio.http.endpoint
 
 import java.time.Instant
+
 import zio._
 import zio.test._
+
 import zio.stream.ZStream
+
 import zio.schema.codec.{DecodeError, JsonCodec}
 import zio.schema.{DeriveSchema, Schema, StandardType}
+
 import zio.http.Header.ContentType
 import zio.http._
 import zio.http.codec.HttpCodec.{int, literal, query, queryInt, string}
@@ -83,8 +87,6 @@ object EndpointSpec extends ZIOSpecDefault {
         testRoutes("/users/123?key=X&value=Y", "path(users, 123, Some(X), Some(Y))")
       },
       test("bad request for failed codec") {
-        implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
-
         val endpoint =
           Endpoint
             .get(literal("posts"))
@@ -101,7 +103,7 @@ object EndpointSpec extends ZIOSpecDefault {
             Request(
               Body.empty,
               Headers.empty,
-              Method.POST,
+              Method.GET,
               URL
                 .decode("/posts?id=notanid")
                 .toOption
