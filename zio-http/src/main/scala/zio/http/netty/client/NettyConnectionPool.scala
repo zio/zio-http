@@ -17,6 +17,7 @@
 package zio.http.netty.client
 
 import java.net.InetSocketAddress
+import java.util.concurrent.TimeUnit
 
 import zio._
 
@@ -25,14 +26,10 @@ import zio.http._
 import zio.http.netty.{Names, NettyFutureExecutor, NettyProxy}
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{
-  Channel => JChannel,
-  ChannelFactory => JChannelFactory,
-  ChannelInitializer,
-  EventLoopGroup => JEventLoopGroup,
-}
+import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, ChannelOption, EventLoopGroup => JEventLoopGroup}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.proxy.HttpProxyHandler
+import io.netty.handler.timeout.ReadTimeoutHandler
 
 trait NettyConnectionPool extends ConnectionPool[JChannel]
 
@@ -74,6 +71,8 @@ object NettyConnectionPool {
           )
         }
 
+        pipeline.addLast("read-timeout-handler", new ReadTimeoutHandler(10, TimeUnit.SECONDS)) // TODO
+
         // Adding default client channel handlers
         // Defaults from netty:
         //   maxInitialLineLength=4096
@@ -105,6 +104,7 @@ object NettyConnectionPool {
           .channelFactory(channelFactory)
           .group(eventLoopGroup)
           .remoteAddress(new InetSocketAddress(host, location.port))
+          .option[Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000) // TODO
           .handler(initializer)
         (localAddress match {
           case Some(addr) => bootstrap.localAddress(addr)

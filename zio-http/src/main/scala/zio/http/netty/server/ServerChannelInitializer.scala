@@ -16,6 +16,8 @@
 
 package zio.http.netty.server
 
+import java.util.concurrent.TimeUnit
+
 import zio._
 
 import zio.http.Server
@@ -28,6 +30,7 @@ import io.netty.channel._
 import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
 import io.netty.handler.flush.FlushConsolidationHandler
+import io.netty.handler.timeout.ReadTimeoutHandler
 
 /**
  * Initializes the netty channel with default handlers
@@ -47,6 +50,8 @@ private[zio] final case class ServerChannelInitializer(
     cfg.sslConfig.foreach { sslCfg =>
       pipeline.addFirst(Names.SSLHandler, new ServerSSLDecoder(sslCfg, cfg))
     }
+
+    pipeline.addLast("read-timeout-handler", new ReadTimeoutHandler(10, TimeUnit.SECONDS)) // TODO
 
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.
