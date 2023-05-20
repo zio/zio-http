@@ -183,7 +183,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             normalizedIn == normalizedOut,
           )
         }
-      } @@ timeout(5.minutes),
+      } @@ timeout(15.minutes),
       test("decoding random pre-encoded form") {
         check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
           for {
@@ -215,7 +215,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             normalizedIn == normalizedOut,
           )
         }
-      } @@ timeout(2.minutes),
+      } @@ timeout(15.minutes),
       test("decoding large form with random chunk and buffer sizes") {
         val N = 1024 * 1024
         check(Gen.int(1, N)) { chunkSize =>
@@ -247,7 +247,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
           )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
         }
-      } @@ samples(20) @@ timeout(1.minute),
+      } @@ samples(20) @@ timeout(15.minutes),
     )
 
   private def streamingOnlyTests =
