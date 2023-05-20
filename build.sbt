@@ -48,6 +48,11 @@ ThisBuild / githubWorkflowPublish       :=
 //using the latest scala 2.13
 ThisBuild / githubWorkflowBuildPreamble := Seq(
   WorkflowStep.Run(
+    id = Some("disable_offloading"),
+    name = Some("Disable TCP/UDP Offloading"),
+    commands = List("bash -c 'sudo ethtool -K eth0 tx off rx off'")
+  ),
+  WorkflowStep.Run(
     name = Some("Check formatting"),
     commands = List(s"sbt ++${Scala213} fmtCheck"),
     cond = Some(s"matrix.scala == '${Scala213}'"),

@@ -15,6 +15,11 @@ object ScoverageWorkFlow {
         name = "Unsafe Scoverage",
         scalas = List(Scala213),
         steps = List(
+          WorkflowStep.Run(
+            id = Some("disable_offloading"),
+            name = Some("Disable TCP/UDP Offloading"),
+            commands = List("bash -c 'sudo ethtool -K eth0 tx off rx off'")
+          ),
           WorkflowStep.CheckoutFull,
           WorkflowStep.Run(
             commands = List(s"sed -i -e '$$a${scoveragePlugin}' project/plugins.sbt"),
