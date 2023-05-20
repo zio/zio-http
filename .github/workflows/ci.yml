@@ -28,6 +28,10 @@ jobs:
         java: [graal_21.1.0@11, temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Disable TCP/UDP Offloading
+        shell: bash
+        run: sudo ethtool -K eth0 tx off rx off
+
       - name: Checkout current branch (full)
         uses: actions/checkout@v2
         with:
@@ -183,6 +187,10 @@ jobs:
         java: [temurin@11]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Disable TCP/UDP Offloading
+        shell: bash
+        run: sudo ethtool -K eth0 tx off rx off
+
       - name: Checkout current branch (full)
         uses: actions/checkout@v2
         with:
