@@ -26,7 +26,13 @@ import zio.http._
 import zio.http.netty.{Names, NettyFutureExecutor, NettyProxy}
 
 import io.netty.bootstrap.Bootstrap
-import io.netty.channel.{Channel => JChannel, ChannelFactory => JChannelFactory, ChannelInitializer, ChannelOption, EventLoopGroup => JEventLoopGroup}
+import io.netty.channel.{
+  Channel => JChannel,
+  ChannelFactory => JChannelFactory,
+  ChannelInitializer,
+  ChannelOption,
+  EventLoopGroup => JEventLoopGroup,
+}
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.proxy.HttpProxyHandler
 import io.netty.handler.timeout.ReadTimeoutHandler
