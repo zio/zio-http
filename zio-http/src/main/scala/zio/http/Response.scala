@@ -126,7 +126,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
   /**
    * Creates an Http from a Response
    */
-  final def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.response(self)
+  final def toHandler(implicit trace: zio.http.Trace): Handler[Any, Nothing, Any, Response] = Handler.response(self)
 
   def withServerTime: Response
 }
@@ -156,7 +156,7 @@ object Response {
   }
 
   private[zio] trait CloseableResponse extends Response {
-    def close(implicit trace: Trace): Task[Unit]
+    def close(implicit trace: zio.http.Trace): Task[Unit]
   }
 
   private[zio] class BasicResponse(
@@ -252,7 +252,7 @@ object Response {
     onClose: () => Task[Unit],
   ) extends CloseableResponse { self =>
 
-    override final def close(implicit trace: Trace): Task[Unit] = onClose()
+    override final def close(implicit trace: zio.http.Trace): Task[Unit] = onClose()
 
     override final def copy(status: Status, headers: Headers, body: Body): Response =
       new NativeResponse(body, headers, status, onClose) with InternalState {
@@ -333,13 +333,13 @@ object Response {
    */
   def fromSocket[R](
     http: Handler[R, Throwable, WebSocketChannel, Any],
-  )(implicit trace: Trace): ZIO[R, Nothing, Response] =
+  )(implicit trace: zio.http.Trace): ZIO[R, Nothing, Response] =
     fromSocketApp(http)
 
   /**
    * Creates a new response for the provided socket app
    */
-  def fromSocketApp[R](app: SocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
+  def fromSocketApp[R](app: SocketApp[R])(implicit trace: zio.http.Trace): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
       new SocketAppResponse(
         Body.empty,

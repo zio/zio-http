@@ -17,7 +17,7 @@
 package zio.http
 
 import zio._
-import zio.test.TestAspect.{nonFlaky, samples, sequential, timeout, withLiveClock}
+import zio.test.TestAspect._
 import zio.test.{Gen, Spec, TestEnvironment, assertTrue, check}
 
 import zio.stream.{ZStream, ZStreamAspect}
@@ -183,7 +183,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             normalizedIn == normalizedOut,
           )
         }
-      } @@ timeout(15.minutes),
+      } @@ timeout(5.minutes) @@ diagnose(4.minutes),
       test("decoding random pre-encoded form") {
         check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
           for {
@@ -215,7 +215,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             normalizedIn == normalizedOut,
           )
         }
-      } @@ timeout(15.minutes),
+      } @@ timeout(5.minutes) @@ diagnose(4.minutes),
       test("decoding large form with random chunk and buffer sizes") {
         val N = 1024 * 1024
         check(Gen.int(1, N)) { chunkSize =>
@@ -247,7 +247,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
           )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
         }
-      } @@ samples(20) @@ timeout(15.minutes),
+      } @@ samples(20) @@ timeout(5.minutes) @@ diagnose(4.minutes),
     )
 
   private def streamingOnlyTests =

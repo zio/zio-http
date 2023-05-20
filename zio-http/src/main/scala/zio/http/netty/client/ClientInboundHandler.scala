@@ -34,7 +34,7 @@ final class ClientInboundHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
   enableKeepAlive: Boolean,
-)(implicit trace: Trace)
+)(implicit trace: zio.http.Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 

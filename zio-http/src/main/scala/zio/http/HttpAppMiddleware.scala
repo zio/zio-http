@@ -18,7 +18,7 @@ package zio.http
 
 import zio.{Trace, ZIO}
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
+//import zio.stacktracer.TracingImplicits.disableAutoTrace // scalafix:ok;
 
 object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddlewares {
   type WithOut[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr, OutEnv0[_], OutErr0[_]] =
@@ -33,7 +33,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
 
     def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
       http: Http[Env, Err, Request, Response],
-    )(implicit trace: Trace): Http[OutEnv[Env], OutErr[Err], Request, Response]
+    )(implicit trace: zio.http.Trace): Http[OutEnv[Env], OutErr[Err], Request, Response]
   }
 
   trait Simple[-UpperEnv, +LowerErr] extends Contextual[Nothing, UpperEnv, LowerErr, Any] {
@@ -61,7 +61,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
     new HttpAppMiddleware.Simple[Any, Nothing] {
       override def apply[Env, Err](
         http: Http[Env, Err, Request, Response],
-      )(implicit trace: Trace): Http[Env, Err, Request, Response] =
+      )(implicit trace: zio.http.Trace): Http[Env, Err, Request, Response] =
         http
     }
 
@@ -70,7 +70,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
       new HttpAppMiddleware.Simple[Any, Nothing] {
         override def apply[Env, Err](
           http: Http[Env, Err, Request, Response],
-        )(implicit trace: Trace): Http[Env, Err, Request, Response] =
+        )(implicit trace: zio.http.Trace): Http[Env, Err, Request, Response] =
           http.when(condition)
       }
   }
@@ -82,7 +82,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
       new HttpAppMiddleware.Simple[R, Err] {
         override def apply[Env <: R, Err1 >: Err](
           http: Http[Env, Err1, Request, Response],
-        )(implicit trace: Trace): Http[Env, Err1, Request, Response] =
+        )(implicit trace: zio.http.Trace): Http[Env, Err1, Request, Response] =
           http.whenZIO(condition)
       }
   }
@@ -96,14 +96,14 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
      */
     def when(
       condition: Request => Boolean,
-    )(implicit trace: Trace): HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr] =
+    )(implicit trace: zio.http.Trace): HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr] =
       new HttpAppMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
         override type OutEnv[Env] = Env
         override type OutErr[Err] = Err
 
         override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
           http: Http[Env, Err, Request, Response],
-        )(implicit trace: Trace): Http[Env, Err, Request, Response] =
+        )(implicit trace: zio.http.Trace): Http[Env, Err, Request, Response] =
           Http.fromHttp { request =>
             val transformed = if (condition(request)) self(http) else http
             transformed
@@ -117,7 +117,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
     def whenZIO[UpperEnv1 <: UpperEnv, LowerErr1 >: LowerErr](
       condition: Request => ZIO[UpperEnv1, LowerErr1, Boolean],
     )(implicit
-      trace: Trace,
+      trace: zio.http.Trace,
     ): HttpAppMiddleware[LowerEnv, UpperEnv1, LowerErr1, UpperErr] =
       new HttpAppMiddleware.Contextual[LowerEnv, UpperEnv1, LowerErr1, UpperErr] {
         override type OutEnv[Env] = Env
@@ -125,7 +125,7 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
 
         override def apply[Env >: LowerEnv <: UpperEnv1, Err >: LowerErr1 <: UpperErr](
           http: Http[Env, Err, Request, Response],
-        )(implicit trace: Trace): Http[Env, Err, Request, Response] =
+        )(implicit trace: zio.http.Trace): Http[Env, Err, Request, Response] =
           Http.fromHttpZIO { request =>
             condition(request).map { condition =>
               val transformed = if (condition) self(http) else http

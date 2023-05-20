@@ -184,7 +184,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           new RequestHandlerMiddleware.Simple[Any, Nothing] {
             override def apply[R1 <: Any, Err1 >: Nothing](
               handler: Handler[R1, Err1, Request, Response],
-            )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+            )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
               Handler.fromFunctionZIO { (request: Request) =>
                 handler
                   .runZIO(request)

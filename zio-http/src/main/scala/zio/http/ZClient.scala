@@ -54,7 +54,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         headers: Headers,
         body: In,
         sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env, Err, Out] =
+      )(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
         self.request(
           version,
           method,
@@ -69,7 +69,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         url: URL,
         headers: Headers,
         app: SocketApp[Env1],
-      )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
+      )(implicit trace: zio.http.Trace): ZIO[Env1 with Scope, Err, Out] =
         self.socket(version, url, headers, app)
     }
 
@@ -113,7 +113,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         headers: Headers,
         body: In2,
         sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env1, Err1, Out] =
+      )(implicit trace: zio.http.Trace): ZIO[Env1, Err1, Out] =
         f(body).flatMap { body =>
           self.request(
             version,
@@ -130,40 +130,44 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         url: URL,
         headers: Headers,
         app: SocketApp[Env2],
-      )(implicit trace: Trace): ZIO[Env2 with Scope, Err, Out] =
+      )(implicit trace: zio.http.Trace): ZIO[Env2 with Scope, Err, Out] =
         self.socket(version, url, headers, app)
     }
 
-  final def delete(pathSuffix: String, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+  final def delete(pathSuffix: String, body: In)(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
     request(Method.DELETE, pathSuffix, body)
 
-  final def delete(pathSuffix: String)(implicit trace: Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
+  final def delete(pathSuffix: String)(implicit trace: zio.http.Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
     delete(pathSuffix, ev(Body.empty))
 
-  final def delete(implicit trace: Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
+  final def delete(implicit trace: zio.http.Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
     delete("")
 
   final def dieOn(
     f: Err => Boolean,
-  )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err, Out] =
+  )(implicit
+    ev1: Err IsSubtypeOfError Throwable,
+    ev2: CanFail[Err],
+    trace: zio.http.Trace,
+  ): ZClient[Env, In, Err, Out] =
     refineOrDie { case e if !f(e) => e }
 
-  final def get(pathSuffix: String, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+  final def get(pathSuffix: String, body: In)(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
     request(Method.GET, pathSuffix, body)
 
-  final def get(pathSuffix: String)(implicit trace: Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
+  final def get(pathSuffix: String)(implicit trace: zio.http.Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
     get(pathSuffix, ev(Body.empty))
 
-  final def get(implicit trace: Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
+  final def get(implicit trace: zio.http.Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
     get("")
 
-  final def head(pathSuffix: String, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+  final def head(pathSuffix: String, body: In)(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
     request(Method.HEAD, pathSuffix, body)
 
-  final def head(pathSuffix: String)(implicit trace: Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
+  final def head(pathSuffix: String)(implicit trace: zio.http.Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
     head(pathSuffix, Body.empty)
 
-  final def head(implicit trace: Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
+  final def head(implicit trace: zio.http.Trace, ev: Body <:< In): ZIO[Env, Err, Out] =
     head("")
 
   final def host(host: String): ZClient[Env, In, Err, Out] =
@@ -186,7 +190,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         headers: Headers,
         body: In,
         sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env, Err2, Out] =
+      )(implicit trace: zio.http.Trace): ZIO[Env, Err2, Out] =
         self.request(version, method, url, headers, body, sslConfig).mapError(f)
 
       def socket[Env1 <: Env](
@@ -194,7 +198,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         url: URL,
         headers: Headers,
         app: SocketApp[Env1],
-      )(implicit trace: Trace): ZIO[Env1 with Scope, Err2, Out] =
+      )(implicit trace: zio.http.Trace): ZIO[Env1 with Scope, Err2, Out] =
         self.socket(version, url, headers, app).mapError(f)
     }
 
@@ -217,7 +221,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         headers: Headers,
         body: In,
         sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env1, Err1, Out2] =
+      )(implicit trace: zio.http.Trace): ZIO[Env1, Err1, Out2] =
         self
           .request(
             version,
@@ -234,7 +238,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         url: URL,
         headers: Headers,
         app: SocketApp[Env2],
-      )(implicit trace: Trace): ZIO[Env2 with Scope, Err1, Out2] =
+      )(implicit trace: zio.http.Trace): ZIO[Env2 with Scope, Err1, Out2] =
         self.socket(version, url, headers, app).flatMap(f)
     }
 
@@ -244,13 +248,13 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
   final def port(port: Int): ZClient[Env, In, Err, Out] =
     copy(url = url.withPort(port))
 
-  final def patch(pathSuffix: String, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+  final def patch(pathSuffix: String, body: In)(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
     request(Method.PATCH, pathSuffix, body)
 
-  final def post(pathSuffix: String, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+  final def post(pathSuffix: String, body: In)(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
     request(Method.POST, pathSuffix, body)
 
-  final def put(pathSuffix: String, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+  final def put(pathSuffix: String, body: In)(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
     request(Method.PUT, pathSuffix, body)
 
   def query(key: String, value: String): ZClient[Env, In, Err, Out] =
@@ -258,7 +262,11 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
 
   final def refineOrDie[Err2](
     pf: PartialFunction[Err, Err2],
-  )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err2, Out] =
+  )(implicit
+    ev1: Err IsSubtypeOfError Throwable,
+    ev2: CanFail[Err],
+    trace: zio.http.Trace,
+  ): ZClient[Env, In, Err2, Out] =
     new ZClient[Env, In, Err2, Out] {
       override def headers: Headers = self.headers
 
@@ -277,7 +285,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         headers: Headers,
         body: In,
         sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env, Err2, Out] =
+      )(implicit trace: zio.http.Trace): ZIO[Env, Err2, Out] =
         self
           .request(
             version,
@@ -294,11 +302,11 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         url: URL,
         headers: Headers,
         app: SocketApp[Env1],
-      )(implicit trace: Trace): ZIO[Env1 with Scope, Err2, Out] =
+      )(implicit trace: zio.http.Trace): ZIO[Env1 with Scope, Err2, Out] =
         self.socket(version, url, headers, app).refineOrDie(pf)
     }
 
-  final def request(method: Method, pathSuffix: String, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+  final def request(method: Method, pathSuffix: String, body: In)(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
     request(
       version,
       method,
@@ -308,7 +316,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
       sslConfig,
     )
 
-  final def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] = {
+  final def request(request: Request)(implicit ev: Body <:< In, trace: zio.http.Trace): ZIO[Env, Err, Out] = {
     self.request(
       request.version,
       request.method,
@@ -338,7 +346,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         headers: Headers,
         body: In,
         sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env1, Err, Out] =
+      )(implicit trace: zio.http.Trace): ZIO[Env1, Err, Out] =
         self
           .request(
             version,
@@ -355,7 +363,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
         url: URL,
         headers: Headers,
         app: SocketApp[Env2],
-      )(implicit trace: Trace): ZIO[Env2 with Scope, Err, Out] =
+      )(implicit trace: zio.http.Trace): ZIO[Env2 with Scope, Err, Out] =
         self
           .socket(version, url, headers, app)
           .retry(policy)
@@ -366,7 +374,7 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
 
   final def socket[Env1 <: Env](
     pathSuffix: String,
-  )(app: SocketApp[Env1])(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
+  )(app: SocketApp[Env1])(implicit trace: zio.http.Trace): ZIO[Env1 with Scope, Err, Out] =
     socket(
       Version.Http_1_1,
       url.copy(path = if (pathSuffix == "") url.path else url.path / pathSuffix),
@@ -388,14 +396,14 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
     headers: Headers,
     body: In,
     sslConfig: Option[ClientSSLConfig],
-  )(implicit trace: Trace): ZIO[Env, Err, Out]
+  )(implicit trace: zio.http.Trace): ZIO[Env, Err, Out]
 
   def socket[Env1 <: Env](
     version: Version = Version.Http_1_1,
     url: URL,
     headers: Headers,
     app: SocketApp[Env1],
-  )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out]
+  )(implicit trace: zio.http.Trace): ZIO[Env1 with Scope, Err, Out]
 
   private final def copy(
     headers: Headers = self.headers,
@@ -508,7 +516,7 @@ object ZClient {
       headers: Headers,
       body: In,
       sslConfig: Option[ClientSSLConfig],
-    )(implicit trace: Trace): ZIO[Env, Err, Out] =
+    )(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
       client.request(
         version,
         method,
@@ -523,7 +531,7 @@ object ZClient {
       url: URL,
       headers: Headers,
       app: SocketApp[Env1],
-    )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
+    )(implicit trace: zio.http.Trace): ZIO[Env1 with Scope, Err, Out] =
       client.socket(version, url, headers, app)
 
   }
@@ -547,7 +555,7 @@ object ZClient {
       headers: Headers,
       body: Body,
       sslConfig: Option[ClientSSLConfig],
-    )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    )(implicit trace: zio.http.Trace): ZIO[Any, Throwable, Response] = {
       val request = Request(body, headers, method, url, version, None)
       val cfg     = sslConfig.fold(config)(config.ssl)
 
@@ -559,7 +567,7 @@ object ZClient {
       url: URL,
       headers: Headers,
       app: SocketApp[Env1],
-    )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] =
+    )(implicit trace: zio.http.Trace): ZIO[Env1 with Scope, Throwable, Response] =
       for {
         env <- ZIO.environment[Env1]
         webSocketUrl = url.withScheme(
@@ -594,7 +602,7 @@ object ZClient {
       createSocketApp: () => SocketApp[Any],
       outerScope: Option[Scope],
     )(implicit
-      trace: Trace,
+      trace: zio.http.Trace,
     ): ZIO[Any, Throwable, Response] =
       request.url.kind match {
         case location: Location.Absolute =>
@@ -670,7 +678,7 @@ object ZClient {
     method: Method = Method.GET,
     headers: Headers = Headers.empty,
     content: Body = Body.empty,
-  )(implicit trace: Trace): ZIO[Client, Throwable, Response] = {
+  )(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] = {
     for {
       uri      <- ZIO.fromEither(URL.decode(url))
       response <- ZIO.serviceWithZIO[Client](
@@ -682,52 +690,52 @@ object ZClient {
 
   }
 
-  def delete(pathSuffix: String, body: Body)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def delete(pathSuffix: String, body: Body)(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.delete(pathSuffix, body))
 
-  def delete(pathSuffix: String)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def delete(pathSuffix: String)(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.delete(pathSuffix))
 
-  def delete(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def delete(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.delete)
 
-  def get(pathSuffix: String, body: Body)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def get(pathSuffix: String, body: Body)(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.get(pathSuffix, body))
 
-  def get(pathSuffix: String)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def get(pathSuffix: String)(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.get(pathSuffix))
 
-  def get(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def get(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.get)
 
-  def head(pathSuffix: String, body: Body)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def head(pathSuffix: String, body: Body)(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.head(pathSuffix, body))
 
-  def head(pathSuffix: String)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def head(pathSuffix: String)(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.head(pathSuffix))
 
-  def head(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def head(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.head)
 
-  def patch(pathSuffix: String, body: Body)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def patch(pathSuffix: String, body: Body)(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.patch(pathSuffix, body))
 
-  def post(pathSuffix: String, body: Body)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def post(pathSuffix: String, body: Body)(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.post(pathSuffix, body))
 
-  def put(pathSuffix: String, body: Body)(implicit trace: Trace): ZIO[Client, Throwable, Response] =
+  def put(pathSuffix: String, body: Body)(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] =
     ZIO.serviceWithZIO[Client](_.put(pathSuffix, body))
 
   def request(
     request: Request,
-  )(implicit trace: Trace): ZIO[Client, Throwable, Response] = ZIO.serviceWithZIO[Client](_.request(request))
+  )(implicit trace: zio.http.Trace): ZIO[Client, Throwable, Response] = ZIO.serviceWithZIO[Client](_.request(request))
 
   def socket[R](
     version: Version = Version.Http_1_1,
     url: URL,
     headers: Headers = Headers.empty,
     app: SocketApp[R],
-  )(implicit trace: Trace): ZIO[R with Client with Scope, Throwable, Response] =
+  )(implicit trace: zio.http.Trace): ZIO[R with Client with Scope, Throwable, Response] =
     Unsafe.unsafe { implicit u =>
       ZIO.serviceWithZIO[Client](_.socket(version, url, headers, app))
     }
@@ -742,7 +750,7 @@ object ZClient {
     ).mapError(error => new RuntimeException(s"Configuration error: $error")) >>> live
 
   val customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = {
-    implicit val trace: Trace = Trace.empty
+    // implicit val trace: zio.http.Trace = Trace.empty
     ZLayer.scoped {
       for {
         config         <- ZIO.service[Config]
@@ -759,13 +767,13 @@ object ZClient {
   }
 
   val default: ZLayer[Any, Throwable, Client] = {
-    implicit val trace: Trace = Trace.empty
+    // implicit val trace: zio.http.Trace = Trace.empty
     (ZLayer.succeed(Config.default) ++ ZLayer.succeed(NettyConfig.default) ++
       DnsResolver.default) >>> live
   }
 
   lazy val live: ZLayer[ZClient.Config with NettyConfig with DnsResolver, Throwable, Client] = {
-    implicit val trace: Trace = Trace.empty
+    // implicit val trace: zio.http.Trace = Trace.empty
     (NettyClientDriver.live ++ ZLayer.service[DnsResolver]) >>> customized
   }.fresh
 

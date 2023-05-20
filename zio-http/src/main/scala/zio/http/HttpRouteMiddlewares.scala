@@ -32,7 +32,7 @@ private[zio] trait HttpRoutesMiddlewares extends Cors {
     new HttpAppMiddleware.Simple[Any, Nothing] {
       override def apply[R1, Err1](
         http: Http[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Http[R1, Err1, Request, Response] =
         Http.fromHandlerZIO[Request] { request =>
           if (!onlyIfNoQueryParams || request.url.queryParams.isEmpty)
             http.runHandler(request.dropTrailingSlash)

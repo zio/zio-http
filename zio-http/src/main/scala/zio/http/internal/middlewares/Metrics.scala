@@ -74,7 +74,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
         start: Long,
         requestLabels: Set[MetricLabel],
         labels: Set[MetricLabel],
-      )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+      )(implicit trace: zio.http.Trace): ZIO[Any, Nothing, Unit] =
         for {
           _   <- requestsTotal.tagged(labels).increment
           _   <- concurrentRequests.tagged(requestLabels).decrement
@@ -85,7 +85,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
 
       override def apply[R1, Err1](
         http: HttpApp[R1, Err1],
-      )(implicit trace: Trace): HttpApp[R1, Err1] =
+      )(implicit trace: zio.http.Trace): HttpApp[R1, Err1] =
         Http.fromOptionalHandlerZIO[Request] { req =>
           val requestLabels = labelsForRequest(req)
 

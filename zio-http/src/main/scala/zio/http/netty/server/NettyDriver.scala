@@ -40,7 +40,7 @@ private[zio] final case class NettyDriver(
   nettyConfig: NettyConfig,
 ) extends Driver { self =>
 
-  def start(implicit trace: Trace): RIO[Scope, StartResult] =
+  def start(implicit trace: zio.http.Trace): RIO[Scope, StartResult] =
     for {
       serverBootstrap <- ZIO.attempt(new ServerBootstrap().channelFactory(channelFactory).group(eventLoopGroup))
       chf             <- ZIO.attempt(serverBootstrap.childHandler(channelInitializer).bind(serverConfig.address))
@@ -54,7 +54,7 @@ private[zio] final case class NettyDriver(
       )
     } yield StartResult(port, serverInboundHandler.inFlightRequests)
 
-  def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
+  def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: zio.http.Trace): UIO[Unit] = ZIO.succeed {
     var loop = true
     while (loop) {
       val oldAppAndEnv     = appRef.get()
@@ -68,7 +68,7 @@ private[zio] final case class NettyDriver(
     serverInboundHandler.refreshApp()
   }
 
-  override def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver] =
+  override def createClientDriver()(implicit trace: zio.http.Trace): ZIO[Scope, Throwable, ClientDriver] =
     for {
       channelFactory <- ChannelFactories.Client.live.build
         .provideSomeEnvironment[Scope](_ ++ ZEnvironment[ChannelType.Config](nettyConfig))
@@ -80,7 +80,7 @@ private[zio] final case class NettyDriver(
 
 private[zio] object NettyDriver {
 
-  implicit val trace: Trace = Trace.empty
+  // implicit val trace: zio.http.Trace = Trace.empty
 
   val make: ZIO[
     AppRef
@@ -112,7 +112,7 @@ private[zio] object NettyDriver {
     )
 
   val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] = {
-    implicit val trace: Trace = Trace.empty
+    // implicit val trace: zio.http.Trace = Trace.empty
     ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Driver](
       ZLayer.succeed(
         new AtomicReference[(App[Any], ZEnvironment[Any])]((Http.empty, ZEnvironment.empty)),

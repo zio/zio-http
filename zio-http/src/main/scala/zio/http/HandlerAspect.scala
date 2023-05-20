@@ -32,7 +32,7 @@ object HandlerAspect {
 
     def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
       handler: Handler[Env, Err, Request, Response],
-    )(implicit trace: Trace): Handler[OutEnv[Env], OutErr[Err], Request, Response]
+    )(implicit trace: zio.http.Trace): Handler[OutEnv[Env], OutErr[Err], Request, Response]
   }
 
   trait Simple[-UpperEnv, +LowerErr] extends Contextual[Nothing, UpperEnv, LowerErr, Any] {
@@ -42,13 +42,13 @@ object HandlerAspect {
 
     def apply[Env <: UpperEnv, Err >: LowerErr](
       handler: Handler[Env, Err, Request, Response],
-    )(implicit trace: Trace): Handler[Env, Err, Request, Response]
+    )(implicit trace: zio.http.Trace): Handler[Env, Err, Request, Response]
 
     final def toMiddleware: RequestHandlerMiddleware.WithOut[Nothing, UpperEnv, LowerErr, Any, OutEnv, OutErr] =
       new RequestHandlerMiddleware.Simple[UpperEnv, LowerErr] {
         override def apply[Env <: UpperEnv, Err >: LowerErr](
           handler: Handler[Env, Err, Request, Response],
-        )(implicit trace: Trace): Handler[Env, Err, Request, Response] =
+        )(implicit trace: zio.http.Trace): Handler[Env, Err, Request, Response] =
           self(handler)
       }
   }
@@ -57,7 +57,7 @@ object HandlerAspect {
     new HandlerAspect.Simple[Any, Nothing] {
       override def apply[Env >: Nothing <: Any, Err >: Nothing <: Any](
         handler: Handler[Env, Err, Request, Response],
-      )(implicit trace: Trace): Handler[Env, Err, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[Env, Err, Request, Response] =
         handler
     }
 }

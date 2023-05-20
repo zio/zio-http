@@ -33,10 +33,10 @@ trait ClientDriver {
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
     webSocketConfig: WebSocketConfig,
-  )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
+  )(implicit trace: zio.http.Trace): ZIO[Scope, Throwable, ChannelInterface]
 
   def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): ZIO[Scope, Nothing, ConnectionPool[Connection]]
 }
 

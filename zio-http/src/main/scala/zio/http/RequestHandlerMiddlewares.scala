@@ -36,7 +36,7 @@ private[zio] trait RequestHandlerMiddlewares
     withHeader(Header.SetCookie(cookie))
 
   final def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie.Response])(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): RequestHandlerMiddleware[Nothing, R, Nothing, Any] =
     updateResponseZIO(response => cookie.map(response.addCookie))
 
@@ -53,7 +53,7 @@ private[zio] trait RequestHandlerMiddlewares
     new RequestHandlerMiddleware.Simple[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionZIO { (request: Request) =>
           handler
             .runZIO(request)
@@ -83,7 +83,7 @@ private[zio] trait RequestHandlerMiddlewares
     new RequestHandlerMiddleware.Simple[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
           handler.map(fromRequestAndResponse(request, _))
         }
@@ -125,7 +125,7 @@ private[zio] trait RequestHandlerMiddlewares
 
       override def apply[R1 <: UpperEnv, Err1 >: LowerErr](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
           if (condition(request)) ifTrue(handler) else ifFalse(handler)
         }
@@ -141,7 +141,7 @@ private[zio] trait RequestHandlerMiddlewares
 
       override def apply[R1 <: UpperEnv, Err1 >: LowerErr](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
           if (condition(request)) ifTrue(request)(handler) else ifFalse(request)(handler)
         }
@@ -161,7 +161,7 @@ private[zio] trait RequestHandlerMiddlewares
 
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         Handler
           .fromFunctionZIO[Request] { request =>
             condition(request).map {
@@ -182,7 +182,7 @@ private[zio] trait RequestHandlerMiddlewares
 
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         Handler
           .fromFunctionZIO[Request] { request =>
             condition(request).map {
@@ -227,7 +227,7 @@ private[zio] trait RequestHandlerMiddlewares
    */
   final def redirectTrailingSlash(
     isPermanent: Boolean,
-  )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
+  )(implicit trace: zio.http.Trace): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     ifRequestThenElseFunction(request => request.url.path.trailingSlash && request.url.queryParams.isEmpty)(
       ifFalse = _ => RequestHandlerMiddleware.identity,
       ifTrue = request => redirect(request.dropTrailingSlash.url, isPermanent),
@@ -236,7 +236,7 @@ private[zio] trait RequestHandlerMiddlewares
   final def replace[R, E](newHandler: RequestHandler[R, E]): RequestHandlerMiddleware[Nothing, R, E, Any] =
     new RequestHandlerMiddleware.Simple[R, E] {
       override def apply[R1 <: R, Err1 >: E](handler: Handler[R1, Err1, Request, Response])(implicit
-        trace: Trace,
+        trace: zio.http.Trace,
       ): Handler[R1, Err1, Request, Response] =
         newHandler
     }
@@ -245,7 +245,7 @@ private[zio] trait RequestHandlerMiddlewares
    * Runs the effect after the middleware is applied
    */
   final def runAfter[R](effect: ZIO[R, Nothing, Any])(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): RequestHandlerMiddleware[Nothing, R, Nothing, Any] =
     updateResponseZIO(response => effect.as(response))
 
@@ -258,7 +258,7 @@ private[zio] trait RequestHandlerMiddlewares
 
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         handler.contramapZIO(request => effect.as(request))
     }
 
@@ -294,7 +294,7 @@ private[zio] trait RequestHandlerMiddlewares
 
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionZIO[Request] { request =>
           handler.runZIO(request).timeoutTo(Response.status(Status.RequestTimeout))(identity)(duration)
         }
@@ -313,11 +313,11 @@ private[zio] trait RequestHandlerMiddlewares
     new RequestHandlerMiddleware.Simple[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         handler.map(f)
 
       override def applyToErrorHandler[Env](g: Cause[Nothing] => ZIO[Env, Nothing, Response])(implicit
-        trace: Trace,
+        trace: zio.http.Trace,
       ): Cause[Nothing] => ZIO[Env, Nothing, Response] =
         (cause: Cause[Nothing]) => g(cause).map(f)
     }
@@ -328,11 +328,11 @@ private[zio] trait RequestHandlerMiddlewares
     new RequestHandlerMiddleware.Simple[R, Nothing] {
       override def apply[R1 <: R, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         handler.mapZIO(f)
 
       override def applyToErrorHandler[Env <: R](g: Cause[Nothing] => ZIO[Env, Nothing, Response])(implicit
-        trace: Trace,
+        trace: zio.http.Trace,
       ): Cause[Nothing] => ZIO[Env, Nothing, Response] =
         (cause: Cause[Nothing]) => g(cause).flatMap(f)
     }
@@ -362,7 +362,7 @@ private[zio] trait RequestHandlerMiddlewares
     new RequestHandlerMiddleware.Simple[R, E] {
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         handler.flatMap { response =>
           if (condition(response)) middleware(handler)
           else Handler.succeed(response)
@@ -379,7 +379,7 @@ private[zio] trait RequestHandlerMiddlewares
     new RequestHandlerMiddleware.Simple[R, E] {
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         handler.flatMap { response =>
           Handler.fromZIO {
             condition(response).map { result =>
@@ -411,7 +411,7 @@ object RequestHandlerMiddlewares extends RequestHandlerMiddlewares {
       new RequestHandlerMiddleware.Simple[Any, Nothing] {
         override def apply[R1 <: Any, Err1 >: Nothing](
           handler: Handler[R1, Err1, Request, Response],
-        )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+        )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
           Handler.fromFunctionHandler { (request: Request) =>
             val s = fromRequest(request)
             handler.map { response =>
@@ -428,7 +428,7 @@ object RequestHandlerMiddlewares extends RequestHandlerMiddlewares {
       new RequestHandlerMiddleware.Simple[R1, E1] {
         override def apply[R2 <: R1, Err2 >: E1](
           handler: Handler[R2, Err2, Request, Response],
-        )(implicit trace: Trace): Handler[R2, Err2, Request, Response] =
+        )(implicit trace: zio.http.Trace): Handler[R2, Err2, Request, Response] =
           Handler.fromFunctionZIO { (request: Request) =>
             for {
               s        <- fromRequest(request)

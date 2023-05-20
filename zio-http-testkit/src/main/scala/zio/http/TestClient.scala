@@ -85,7 +85,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     headers: Headers,
     body: Body,
     sslConfig: Option[zio.http.ClientSSLConfig],
-  )(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+  )(implicit trace: zio.http.Trace): ZIO[Any, Throwable, Response] =
     for {
       currentBehavior <- behavior.get
       request = Request(
@@ -107,7 +107,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     url: URL,
     headers: Headers,
     app: SocketApp[Env1],
-  )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
+  )(implicit trace: zio.http.Trace): ZIO[Env1 with Scope, Throwable, Response] = {
     for {
       env                   <- ZIO.environment[Env1]
       currentSocketBehavior <- serverSocketBehavior.get

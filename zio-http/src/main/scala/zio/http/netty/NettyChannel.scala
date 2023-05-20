@@ -28,36 +28,38 @@ final case class NettyChannel[-A](
 ) {
   self =>
 
-  private def foreach[S](await: Boolean)(run: JChannel => JChannelFuture)(implicit trace: Trace): Task[Unit] = {
+  private def foreach[S](
+    await: Boolean,
+  )(run: JChannel => JChannelFuture)(implicit trace: zio.http.Trace): Task[Unit] = {
     if (await) NettyFutureExecutor.executed(run(channel))
     else ZIO.attempt(run(channel): Unit)
   }
 
-  def autoRead(flag: Boolean)(implicit trace: Trace): UIO[Unit] =
+  def autoRead(flag: Boolean)(implicit trace: zio.http.Trace): UIO[Unit] =
     ZIO.succeed(channel.config.setAutoRead(flag): Unit)
 
-  def awaitClose(implicit trace: Trace): UIO[Unit] = ZIO.async[Any, Nothing, Unit] { register =>
+  def awaitClose(implicit trace: zio.http.Trace): UIO[Unit] = ZIO.async[Any, Nothing, Unit] { register =>
     channel.closeFuture().addListener((_: JChannelFuture) => register(ZIO.unit))
     ()
   }
 
-  def close(await: Boolean = false)(implicit trace: Trace): Task[Unit] = foreach(await) { _.close() }
+  def close(await: Boolean = false)(implicit trace: zio.http.Trace): Task[Unit] = foreach(await) { _.close() }
 
   def contramap[A1](f: A1 => A): NettyChannel[A1] = copy(convert = convert.compose(f))
 
-  def flush(implicit trace: Trace): Task[Unit] = ZIO.attempt(channel.flush(): Unit)
+  def flush(implicit trace: zio.http.Trace): Task[Unit] = ZIO.attempt(channel.flush(): Unit)
 
-  def id(implicit trace: Trace): String = channel.id().asLongText()
+  def id(implicit trace: zio.http.Trace): String = channel.id().asLongText()
 
-  def isAutoRead(implicit trace: Trace): UIO[Boolean] = ZIO.succeed(channel.config.isAutoRead)
+  def isAutoRead(implicit trace: zio.http.Trace): UIO[Boolean] = ZIO.succeed(channel.config.isAutoRead)
 
-  def read(implicit trace: Trace): UIO[Unit] = ZIO.succeed(channel.read(): Unit)
+  def read(implicit trace: zio.http.Trace): UIO[Unit] = ZIO.succeed(channel.read(): Unit)
 
-  def write(msg: A, await: Boolean = false)(implicit trace: Trace): Task[Unit] = foreach(await) {
+  def write(msg: A, await: Boolean = false)(implicit trace: zio.http.Trace): Task[Unit] = foreach(await) {
     _.write(convert(msg))
   }
 
-  def writeAndFlush(msg: A, await: Boolean = true)(implicit trace: Trace): Task[Unit] = foreach(await) {
+  def writeAndFlush(msg: A, await: Boolean = true)(implicit trace: zio.http.Trace): Task[Unit] = foreach(await) {
     _.writeAndFlush(convert(msg))
   }
 }

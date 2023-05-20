@@ -108,7 +108,9 @@ object ZClientAspect {
   /**
    * Client aspect that logs a debug message to the console after each request
    */
-  final def debug(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
+  final def debug(implicit
+    trace: zio.http.Trace,
+  ): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
     new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
 
       /**
@@ -140,7 +142,7 @@ object ZClientAspect {
             headers: Headers,
             body: In,
             sslConfig: Option[ClientSSLConfig],
-          )(implicit trace: Trace): ZIO[Env, Err, Out] =
+          )(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
             client
               .request(version, method, url, headers, body, sslConfig)
               .sandbox
@@ -164,7 +166,7 @@ object ZClientAspect {
               .unsandbox
 
           override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: SocketApp[Env1])(implicit
-            trace: Trace,
+            trace: zio.http.Trace,
           ): ZIO[Env1 with Scope, Err, Out] =
             client.socket(version, url, headers, app)
         }
@@ -182,7 +184,7 @@ object ZClientAspect {
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
-  )(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] = {
+  )(implicit trace: zio.http.Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] = {
     val loggedRequestHeaderNames  = loggedRequestHeaders.map(_.name.toLowerCase)
     val loggedResponseHeaderNames = loggedResponseHeaders.map(_.name.toLowerCase)
     new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
@@ -216,7 +218,7 @@ object ZClientAspect {
             headers: Headers,
             body: In,
             sslConfig: Option[ClientSSLConfig],
-          )(implicit trace: Trace): ZIO[Env, Err, Out] =
+          )(implicit trace: zio.http.Trace): ZIO[Env, Err, Out] =
             client
               .request(version, method, url, headers, body, sslConfig)
               .sandbox
@@ -312,7 +314,7 @@ object ZClientAspect {
               .unsandbox
 
           override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: SocketApp[Env1])(implicit
-            trace: Trace,
+            trace: zio.http.Trace,
           ): ZIO[Env1 with Scope, Err, Out] =
             client.socket(version, url, headers, app)
         }

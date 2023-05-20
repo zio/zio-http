@@ -31,7 +31,7 @@ import zio.http.codec._
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): Task[Value]
 
   def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z
@@ -54,7 +54,7 @@ private[codec] object EncoderDecoder                   {
     val tail    = singles.tail
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
-      trace: Trace,
+      trace: zio.http.Trace,
     ): Task[Value] = {
       def tryDecode(i: Int, lastError: Cause[Throwable]): Task[Value] = {
         if (i >= singles.length) ZIO.refailCause(lastError)
@@ -126,7 +126,7 @@ private[codec] object EncoderDecoder                   {
       method: zio.http.Method,
       headers: zio.http.Headers,
       body: zio.http.Body,
-    )(implicit trace: zio.Trace): zio.Task[Value] = {
+    )(implicit trace: zio.http.Trace): zio.Task[Value] = {
       ZIO.fail(new IllegalStateException(decodeErrorMessage))
     }
   }
@@ -239,7 +239,7 @@ private[codec] object EncoderDecoder                   {
       }
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
-      trace: Trace,
+      trace: zio.http.Trace,
     ): Task[Value] = ZIO.suspendSucceed {
       val inputsBuilder = flattened.makeInputsBuilder()
 
@@ -362,7 +362,7 @@ private[codec] object EncoderDecoder                   {
       }
     }
 
-    private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] = {
+    private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: zio.http.Trace): Task[Unit] = {
       if (isByteStream) {
         ZIO.attempt(inputs(0) = body.asStream.orDie)
       } else if (jsonDecoders.length == 0) {
@@ -393,7 +393,7 @@ private[codec] object EncoderDecoder                   {
     }
 
     private def processStreamingForm(form: StreamingForm, inputs: Array[Any])(implicit
-      trace: Trace,
+      trace: zio.http.Trace,
     ): ZIO[Any, Throwable, Unit] =
       Promise.make[HttpCodecError, Unit].flatMap { ready =>
         form.fields.mapZIO { field =>
@@ -435,7 +435,7 @@ private[codec] object EncoderDecoder                   {
       }
 
     private def collectAndProcessForm(form: StreamingForm, inputs: Array[Any])(implicit
-      trace: Trace,
+      trace: zio.http.Trace,
     ): ZIO[Any, Throwable, Unit] =
       form.collectAll.flatMap { collectedForm =>
         ZIO.foreachDiscard(collectedForm.formData) { field =>

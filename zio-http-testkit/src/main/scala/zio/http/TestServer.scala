@@ -76,7 +76,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
     } yield ()
 
   override def install[R](httpApp: App[R])(implicit
-    trace: zio.Trace,
+    trace: zio.http.Trace,
   ): URIO[R, Unit] =
     ZIO
       .environment[R]

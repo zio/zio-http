@@ -24,11 +24,11 @@ import zio.http.Driver.StartResult
 import zio.http.netty.server.NettyDriver
 
 trait Driver {
-  def start(implicit trace: Trace): RIO[Scope, StartResult]
+  def start(implicit trace: zio.http.Trace): RIO[Scope, StartResult]
 
-  def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
+  def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: zio.http.Trace): UIO[Unit]
 
-  def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver]
+  def createClientDriver()(implicit trace: zio.http.Trace): ZIO[Scope, Throwable, ClientDriver]
 }
 
 object Driver {

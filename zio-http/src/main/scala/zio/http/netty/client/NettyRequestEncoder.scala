@@ -30,7 +30,7 @@ private[zio] object NettyRequestEncoder {
   /**
    * Converts a ZIO HTTP request to a Netty HTTP request.
    */
-  def encode(req: Request)(implicit trace: Trace): Task[HttpRequest] = {
+  def encode(req: Request)(implicit trace: zio.http.Trace): Task[HttpRequest] = {
     val method   = Conversions.methodToNetty(req.method)
     val jVersion = Versions.convertToZIOToNetty(req.version)
 

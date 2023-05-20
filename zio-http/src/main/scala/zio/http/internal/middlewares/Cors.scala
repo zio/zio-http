@@ -73,7 +73,7 @@ private[zio] trait Cors {
     new HttpAppMiddleware.Simple[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         http: Http[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Http[R1, Err1, Request, Response] =
         Http.fromHttp[Request] { request =>
           val originHeader = request.headers.header(Header.Origin)
           val acrmHeader   = request.headers.header(Header.AccessControlRequestMethod)

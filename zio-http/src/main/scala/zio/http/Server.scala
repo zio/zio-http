@@ -34,7 +34,7 @@ trait Server {
   /**
    * Installs the given HTTP application into the server.
    */
-  def install[R](httpApp: App[R])(implicit trace: Trace): URIO[R, Unit]
+  def install[R](httpApp: App[R])(implicit trace: zio.http.Trace): URIO[R, Unit]
 
   /**
    * The port on which the server is listening.
@@ -316,15 +316,15 @@ object Server {
 
   def serve[R](
     httpApp: App[R],
-  )(implicit trace: Trace): URIO[R with Server, Nothing] =
+  )(implicit trace: zio.http.Trace): URIO[R with Server, Nothing] =
     install(httpApp) *> ZIO.never
 
-  def install[R](httpApp: App[R])(implicit trace: Trace): URIO[R with Server, Int] = {
+  def install[R](httpApp: App[R])(implicit trace: zio.http.Trace): URIO[R with Server, Int] = {
     ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
   }
 
   private val base: ZLayer[Driver & Config, Throwable, Server] = {
-    implicit val trace: Trace = Trace.empty
+//    //implicit val trace: zio.http.Trace = Trace.empty
     ZLayer.scoped {
       for {
         driver           <- ZIO.service[Driver]
@@ -357,23 +357,23 @@ object Server {
     ) >>> live
 
   val customized: ZLayer[Config & NettyConfig, Throwable, Server] = {
-    implicit val trace: Trace = Trace.empty
+//    //implicit val trace: zio.http.Trace = Trace.empty
     NettyDriver.customized >>> base
   }
 
-  def defaultWithPort(port: Int)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
+  def defaultWithPort(port: Int)(implicit trace: zio.http.Trace): ZLayer[Any, Throwable, Server] =
     defaultWith(_.port(port))
 
-  def defaultWith(f: Config => Config)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
+  def defaultWith(f: Config => Config)(implicit trace: zio.http.Trace): ZLayer[Any, Throwable, Server] =
     ZLayer.succeed(f(Config.default)) >>> live
 
   val default: ZLayer[Any, Throwable, Server] = {
-    implicit val trace: Trace = Trace.empty
+//    //implicit val trace: zio.http.Trace = Trace.empty
     ZLayer.succeed(Config.default) >>> live
   }
 
   lazy val live: ZLayer[Config, Throwable, Server] = {
-    implicit val trace: Trace = Trace.empty
+//    //implicit val trace: zio.http.Trace = Trace.empty
     NettyDriver.live >+> base
   }
 
@@ -382,7 +382,7 @@ object Server {
     bindPort: Int,
   ) extends Server {
     override def install[R](httpApp: App[R])(implicit
-      trace: Trace,
+      trace: zio.http.Trace,
     ): URIO[R, Unit] =
       ZIO.environment[R].flatMap(driver.addApp(httpApp, _))
 

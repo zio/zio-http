@@ -48,7 +48,7 @@ private[zio] trait Auth {
    * verification function
    */
   final def basicAuthZIO[R, E](f: Credentials => ZIO[R, E, Boolean])(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): RequestHandlerMiddleware[Nothing, R, E, Any] =
     customAuthZIO(
       _.header(Header.Authorization) match {
@@ -83,7 +83,7 @@ private[zio] trait Auth {
    */
   final def bearerAuthZIO[R, E](
     f: String => ZIO[R, E, Boolean],
-  )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, R, E, Any] =
+  )(implicit trace: zio.http.Trace): RequestHandlerMiddleware[Nothing, R, E, Any] =
     customAuthZIO(
       _.header(Header.Authorization) match {
         case Some(Header.Authorization.Bearer(token)) => f(token)
@@ -104,7 +104,7 @@ private[zio] trait Auth {
     new RequestHandlerMiddleware.Simple[Any, Nothing] {
       override def apply[R1 <: Any, Err1 >: Nothing](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
           if (verify(request)) handler
           else Handler.status(responseStatus).addHeaders(responseHeaders)
@@ -135,12 +135,12 @@ private[zio] trait Auth {
       private def applyToHandler[R1 >: R0 with Context, Err1](
         handler: Handler[R1, Err1, Request, Response],
         context: Context,
-      )(implicit trace: Trace): Handler[R0, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R0, Err1, Request, Response] =
         handler.provideSomeEnvironment[R0](_.union[Context](ZEnvironment(context)))
 
       override def apply[R1 >: R0 with Context, Err1](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R0, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R0, Err1, Request, Response] =
         Handler.fromFunctionHandler[Request] { request =>
           provide(request) match {
             case Some(context) => applyToHandler(handler, context)
@@ -151,7 +151,7 @@ private[zio] trait Auth {
       private def applyToHttp[R1 >: R0 with Context, Err1](
         http: Http[R1, Err1, Request, Response],
         context: Context,
-      )(implicit trace: Trace): Http[R0, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Http[R0, Err1, Request, Response] =
         http.asInstanceOf[Http[_, _, _, _]] match {
           case Http.Empty(errorHandler)           =>
             Http.Empty(
@@ -186,7 +186,7 @@ private[zio] trait Auth {
 
       override def apply[R1 >: R0 with Context, Err1](
         http: Http[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Http[R0, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Http[R0, Err1, Request, Response] =
         Http.fromHttpZIO[Request] { request =>
           ZIO.succeed(provide(request)).map {
             case Some(context) =>
@@ -222,12 +222,12 @@ private[zio] trait Auth {
       private def applyToHandler[R1 >: R0 with R with Context <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
         context: Context,
-      )(implicit trace: Trace): ZIO[Any, Nothing, Handler[R0 with R, Err1, Request, Response]] =
+      )(implicit trace: zio.http.Trace): ZIO[Any, Nothing, Handler[R0 with R, Err1, Request, Response]] =
         ZIO.succeed(handler.provideSomeEnvironment[R0 with R](_.union[Context](ZEnvironment(context))))
 
       override def apply[R1 >: R0 with R with Context <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R0 with R, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R0 with R, Err1, Request, Response] =
         Handler
           .fromFunctionZIO[Request] { request =>
             provide(request).flatMap {
@@ -242,7 +242,7 @@ private[zio] trait Auth {
       private def applyToHttp[R1 >: R0 with R with Context <: R, Err1 >: E](
         http: Http[R1, Err1, Request, Response],
         context: Context,
-      )(implicit trace: Trace): Http[R0 with R, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Http[R0 with R, Err1, Request, Response] =
         http.asInstanceOf[Http[_, _, _, _]] match {
           case Http.Empty(errorHandler)           =>
             Http.Empty(
@@ -281,7 +281,7 @@ private[zio] trait Auth {
 
       override def apply[R1 >: R0 with R with Context <: R, Err1 >: E](
         http: Http[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Http[R0 with R, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Http[R0 with R, Err1, Request, Response] =
         Http.fromHttpZIO[Request] { request =>
           provide(request).map {
             case Some(context) =>
@@ -306,7 +306,7 @@ private[zio] trait Auth {
     new RequestHandlerMiddleware.Simple[R, E] {
       override def apply[R1 <: R, Err1 >: E](
         handler: Handler[R1, Err1, Request, Response],
-      )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
+      )(implicit trace: zio.http.Trace): Handler[R1, Err1, Request, Response] =
         Handler
           .fromFunctionZIO[Request] { request =>
             verify(request).map {

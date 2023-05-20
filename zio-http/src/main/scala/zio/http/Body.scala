@@ -39,21 +39,21 @@ trait Body { self =>
    * Note that attempting to decode a large stream of bytes into an array could
    * result in an out of memory error.
    */
-  def asArray(implicit trace: Trace): Task[Array[Byte]]
+  def asArray(implicit trace: zio.http.Trace): Task[Array[Byte]]
 
   /**
    * Returns an effect that decodes the content of the body as a chunk of bytes.
    * Note that attempting to decode a large stream of bytes into a chunk could
    * result in an out of memory error.
    */
-  def asChunk(implicit trace: Trace): Task[Chunk[Byte]]
+  def asChunk(implicit trace: zio.http.Trace): Task[Chunk[Byte]]
 
   /**
    * Returns an effect that decodes the content of the body as a multipart form.
    * Note that attempting to decode a large stream of bytes into a form could
    * result in an out of memory error.
    */
-  def asMultipartForm(implicit trace: Trace): Task[Form] =
+  def asMultipartForm(implicit trace: zio.http.Trace): Task[Form] =
     for {
       bytes <- asChunk
       form  <- Form.fromMultipartBytes(bytes, Charsets.Http)
@@ -67,7 +67,7 @@ trait Body { self =>
    * stream of bytes, which has to be consumed asynchronously by the user to get
    * the next FormField from the stream.
    */
-  def asMultipartFormStream(implicit trace: Trace): Task[StreamingForm] =
+  def asMultipartFormStream(implicit trace: zio.http.Trace): Task[StreamingForm] =
     boundary match {
       case Some(boundary) =>
         ZIO.succeed(
@@ -84,14 +84,14 @@ trait Body { self =>
    * to use with large bodies, because the elements of the returned stream are
    * lazily produced from the body.
    */
-  def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte]
+  def asStream(implicit trace: zio.http.Trace): ZStream[Any, Throwable, Byte]
 
   /**
    * Decodes the content of the body as a string with the default charset. Note
    * that attempting to decode a large stream of bytes into a string could
    * result in an out of memory error.
    */
-  final def asString(implicit trace: Trace): Task[String] =
+  final def asString(implicit trace: zio.http.Trace): Task[String] =
     asArray.map(new String(_, Charsets.Http))
 
   /**
@@ -99,13 +99,13 @@ trait Body { self =>
    * that attempting to decode a large stream of bytes into a string could
    * result in an out of memory error.
    */
-  final def asString(charset: Charset)(implicit trace: Trace): Task[String] =
+  final def asString(charset: Charset)(implicit trace: zio.http.Trace): Task[String] =
     asArray.map(new String(_, charset))
 
   /**
    * Returns an effect that decodes the content of the body as form data.
    */
-  def asURLEncodedForm(implicit trace: Trace): Task[Form] =
+  def asURLEncodedForm(implicit trace: zio.http.Trace): Task[Form] =
     asString.flatMap(string => ZIO.fromEither(Form.fromURLEncoded(string, Charsets.Http)))
 
   /**
@@ -177,7 +177,7 @@ object Body {
    * character set, which defaults to the HTTP character set.
    */
   def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = Charsets.Http)(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): Body =
     fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
 
@@ -206,12 +206,12 @@ object Body {
 
   private[zio] object EmptyBody extends Body with UnsafeWriteable with UnsafeBytes {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = zioEmptyArray
+    override def asArray(implicit trace: zio.http.Trace): Task[Array[Byte]] = zioEmptyArray
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = zioEmptyChunk
+    override def asChunk(implicit trace: zio.http.Trace): Task[Chunk[Byte]] = zioEmptyChunk
 
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = ZStream.empty
-    override def isComplete: Boolean                                            = true
+    override def asStream(implicit trace: zio.http.Trace): ZStream[Any, Throwable, Byte] = ZStream.empty
+    override def isComplete: Boolean                                                     = true
 
     override def toString(): String = "Body.empty"
 
@@ -232,13 +232,13 @@ object Body {
       with UnsafeWriteable
       with UnsafeBytes {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
+    override def asArray(implicit trace: zio.http.Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
 
     override def isComplete: Boolean = true
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(data)
+    override def asChunk(implicit trace: zio.http.Trace): Task[Chunk[Byte]] = ZIO.succeed(data)
 
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+    override def asStream(implicit trace: zio.http.Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
     override def toString(): String = s"Body.fromChunk($data)"
@@ -258,16 +258,16 @@ object Body {
       with UnsafeWriteable
       with UnsafeBytes {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.attempt {
+    override def asArray(implicit trace: zio.http.Trace): Task[Array[Byte]] = ZIO.attempt {
       Files.readAllBytes(file.toPath)
     }
 
     override def isComplete: Boolean = false
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
+    override def asChunk(implicit trace: zio.http.Trace): Task[Chunk[Byte]] =
       asArray.map(Chunk.fromArray)
 
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+    override def asStream(implicit trace: zio.http.Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap {
         for {
           file <- ZIO.attempt(file)
@@ -299,13 +299,13 @@ object Body {
     override val boundary: Option[Boundary] = None,
   ) extends Body {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
+    override def asArray(implicit trace: zio.http.Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
 
     override def isComplete: Boolean = false
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = stream.runCollect
+    override def asChunk(implicit trace: zio.http.Trace): Task[Chunk[Byte]] = stream.runCollect
 
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
+    override def asStream(implicit trace: zio.http.Trace): ZStream[Any, Throwable, Byte] = stream
 
     override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))

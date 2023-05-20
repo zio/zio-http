@@ -45,7 +45,7 @@ package object netty {
 
   implicit class BodyExtensions(val body: Body) extends AnyVal {
 
-    final def asCharSeq(implicit trace: Trace): ZIO[Any, Throwable, CharSequence] =
+    final def asCharSeq(implicit trace: zio.http.Trace): ZIO[Any, Throwable, CharSequence] =
       body match {
         case _ => body.asArray.map { buf => new AsciiString(buf, false) }
       }

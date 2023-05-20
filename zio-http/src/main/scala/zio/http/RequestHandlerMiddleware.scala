@@ -16,7 +16,7 @@
 
 package zio.http
 import zio.{Cause, Trace, ZIO}
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+//import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import scala.annotation.unchecked.uncheckedVariance // scalafix:ok;
 
@@ -91,7 +91,7 @@ object RequestHandlerMiddleware {
 
         override def apply[Env >: composeEnv.Lower <: composeEnv.Upper, Err >: composeErr.Lower <: composeErr.Upper](
           handler: Handler[Env, Err, Request, Response],
-        )(implicit trace: Trace): Handler[OutEnv[Env], OutErr[Err], Request, Response] = {
+        )(implicit trace: zio.http.Trace): Handler[OutEnv[Env], OutErr[Err], Request, Response] = {
           val h1 =
             self.asInstanceOf[RequestHandlerMiddleware[Nothing, Any, Nothing, Any]].apply(handler)
           val h2 = that
@@ -102,7 +102,7 @@ object RequestHandlerMiddleware {
 
         override def apply[Env >: composeEnv.Lower <: composeEnv.Upper, Err >: composeErr.Lower <: composeErr.Upper](
           http: Http[Env, Err, Request, Response],
-        )(implicit trace: Trace): Http[OutEnv[Env], OutErr[Err], Request, Response] = {
+        )(implicit trace: zio.http.Trace): Http[OutEnv[Env], OutErr[Err], Request, Response] = {
           val h1 =
             self.asInstanceOf[RequestHandlerMiddleware[Nothing, Any, Nothing, Any]].apply(http)
           val h2 = that
@@ -120,11 +120,11 @@ object RequestHandlerMiddleware {
 
     def apply[Env <: UpperEnv, Err >: LowerErr](
       handler: Handler[Env, Err, Request, Response],
-    )(implicit trace: Trace): Handler[Env, Err, Request, Response]
+    )(implicit trace: zio.http.Trace): Handler[Env, Err, Request, Response]
 
     override def apply[Env <: UpperEnv, Err >: LowerErr](
       http: Http[Env, Err, Request, Response],
-    )(implicit trace: Trace): Http[Env, Err, Request, Response] =
+    )(implicit trace: zio.http.Trace): Http[Env, Err, Request, Response] =
       http match {
         case empty @ Http.Empty(_)                          =>
           empty.withErrorHandler(empty.errorHandler.map(applyToErrorHandler))
@@ -138,14 +138,14 @@ object RequestHandlerMiddleware {
 
     def applyToErrorHandler[Env <: UpperEnv](
       f: Cause[Nothing] => ZIO[Env, Nothing, Response],
-    )(implicit trace: Trace): (Cause[Nothing] => ZIO[Env, Nothing, Response]) =
+    )(implicit trace: zio.http.Trace): (Cause[Nothing] => ZIO[Env, Nothing, Response]) =
       f
   }
 
   def identity: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
     new RequestHandlerMiddleware.Simple[Any, Nothing] {
       override def apply[R, E](handler: Handler[R, E, Request, Response])(implicit
-        trace: Trace,
+        trace: zio.http.Trace,
       ): Handler[R, E, Request, Response] =
         handler
     }
@@ -156,11 +156,11 @@ object RequestHandlerMiddleware {
     def when(
       condition: Request => Boolean,
     )(implicit
-      trace: Trace,
+      trace: zio.http.Trace,
     ): RequestHandlerMiddleware[Nothing, R, Err, Any] =
       new RequestHandlerMiddleware.Simple[R, Err] {
         override def apply[R1 <: R, Err1 >: Err](handler: Handler[R1, Err1, Request, Response])(implicit
-          trace: Trace,
+          trace: zio.http.Trace,
         ): Handler[R1, Err1, Request, Response] =
           Handler.fromFunctionHandler[Request].apply[R1, Err1, Response] { in =>
             if (condition(in)) {
@@ -172,10 +172,10 @@ object RequestHandlerMiddleware {
 
     def whenZIO[R1 <: R, Err1 >: Err](
       condition: Request => ZIO[R1, Err1, Boolean],
-    )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, R1, Err1, Any] =
+    )(implicit trace: zio.http.Trace): RequestHandlerMiddleware[Nothing, R1, Err1, Any] =
       new RequestHandlerMiddleware.Simple[R1, Err1] {
         override def apply[R2 <: R1, Err2 >: Err1](handler: Handler[R2, Err2, Request, Response])(implicit
-          trace: Trace,
+          trace: zio.http.Trace,
         ): Handler[R2, Err2, Request, Response] =
           Handler
             .fromFunctionZIO[Request] { in =>
