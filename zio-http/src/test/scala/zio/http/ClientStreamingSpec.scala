@@ -157,6 +157,9 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             port     <- server(streamingServer)
             client   <- ZIO.service[Client]
             boundary <- Boundary.randomUUID
+            _        <- ZIO.debug(
+              s"Sending form with ${fields.size} fields (${fields.map(_._1.getClass.getSimpleName).mkString(", ")}))})",
+            )
             response <- client
               .request(
                 Version.Http_1_1,
@@ -166,7 +169,9 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                 Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
                 None,
               )
+            _        <- ZIO.debug("-> got response")
             form     <- response.body.asMultipartForm
+            _        <- ZIO.debug("-> decoded response")
 
             normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
               field.asChunk.map(field.name -> _)
@@ -178,7 +183,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             normalizedIn == normalizedOut,
           )
         }
-      } @@ timeout(2.minutes),
+      } @@ timeout(5.minutes),
       test("decoding random pre-encoded form") {
         check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
           for {

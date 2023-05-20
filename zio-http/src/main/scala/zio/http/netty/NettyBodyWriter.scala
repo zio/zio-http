@@ -34,7 +34,7 @@ object NettyBodyWriter {
       case body: ByteBufBody                  =>
         ZIO.succeed {
           ctx.write(body.byteBuf)
-          println(s"Finished writing byte buffer body")
+//          println(s"Finished writing byte buffer body")
           false
         }
       case body: FileBody                     =>
@@ -57,7 +57,7 @@ object NettyBodyWriter {
             ctx.writeAndFlush(nettyMsg)
             if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
           }
-          println(s"Finished writing async body")
+//          println(s"Finished writing async body")
           true
         }
       case AsciiStringBody(asciiString, _, _) =>
@@ -66,7 +66,7 @@ object NettyBodyWriter {
           false
         }
       case StreamBody(stream, _, _)           =>
-        println(s"Starting writing stream body")
+//        println(s"Starting writing stream body")
         stream.chunks
           .runFoldZIO(Option.empty[Chunk[Byte]]) {
             case (Some(previous), current) =>
@@ -85,7 +85,7 @@ object NettyBodyWriter {
               },
             ) *>
               NettyFutureExecutor.executed {
-                println(s"Finished writing stream body")
+//                println(s"Finished writing stream body")
                 ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
               }.as(true)
           }
