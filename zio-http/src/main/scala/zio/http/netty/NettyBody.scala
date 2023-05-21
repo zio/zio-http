@@ -116,18 +116,20 @@ object NettyBody extends BodyEncoding {
     override def asStream(implicit trace: zio.http.Trace): ZStream[Any, Throwable, Byte] =
 //      ZStream.fromZIO(ZIO.debug("Start reading streaming body")) *>
       ZStream
-        .async[Any, Throwable, (JChannel, Chunk[Byte], Boolean)](emit =>
+        .async[Any, Throwable, Byte](emit =>
           try {
-            unsafeAsync { (ctx, msg, isLast) =>
-              emit(ZIO.succeed(Chunk((ctx, msg, isLast))))
-            }
+            unsafeAsync(new UnsafeAsync {
+              override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+                emit(ZIO.succeed(message))
+                emit(ZIO.fail(None))
+              }
+              override def fail(cause: Throwable): Unit                       =
+                emit(ZIO.fail(Some(cause)))
+            })
           } catch {
             case e: Throwable => emit(ZIO.fail(Option(e)))
           },
         )
-        .takeUntil { case (_, _, isLast) => isLast }
-        .map { case (_, msg, _) => msg }
-        .flattenChunks
 //          .ensuring(ZIO.debug("Finished reading streaming body"))
 
     override def isComplete: Boolean = false
@@ -137,6 +139,7 @@ object NettyBody extends BodyEncoding {
   }
 
   private[zio] trait UnsafeAsync {
-    def apply(ctx: JChannel, message: Chunk[Byte], isLast: Boolean): Unit
+    def apply(message: Chunk[Byte], isLast: Boolean): Unit
+    def fail(cause: Throwable): Unit
   }
 }
