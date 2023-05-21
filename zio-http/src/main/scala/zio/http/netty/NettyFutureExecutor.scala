@@ -41,7 +41,12 @@ private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
             case cause                    => cb(ZIO.fail(cause))
           }
         }
-        jFuture.addListener(handler)
+        try {
+          jFuture.addListener(handler)
+        } catch {
+          case failure: Throwable =>
+            cb(ZIO.fail(failure))
+        }
         ()
       })
       .onInterrupt(ZIO.succeed(jFuture.removeListener(handler)))
