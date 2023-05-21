@@ -121,7 +121,9 @@ object NettyBody extends BodyEncoding {
             unsafeAsync(new UnsafeAsync {
               override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
                 emit(ZIO.succeed(message))
-                emit(ZIO.fail(None))
+                if (isLast) {
+                  emit(ZIO.fail(None))
+                }
               }
               override def fail(cause: Throwable): Unit                       =
                 emit(ZIO.fail(Some(cause)))
