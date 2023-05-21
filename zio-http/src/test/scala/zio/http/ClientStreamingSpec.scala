@@ -22,7 +22,6 @@ import zio.test.{Gen, Spec, TestEnvironment, assertTrue, check}
 
 import zio.stream.{ZStream, ZStreamAspect}
 
-import zio.http.FormSpec.test
 import zio.http.Server.RequestStreaming
 import zio.http.forms.Fixtures.formField
 import zio.http.internal.HttpRunnableSpec
@@ -152,102 +151,112 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         )
       },
       test("decoding random form") {
-        check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
-          for {
-            port     <- server(streamingServer)
-            client   <- ZIO.service[Client]
-            boundary <- Boundary.randomUUID
-            _        <- ZIO.debug(
-              s"Sending form with ${fields.size} fields (${fields.map(_._1.getClass.getSimpleName).mkString(", ")}))})",
+        for {
+          port   <- server(streamingServer)
+          client <- ZIO.service[Client]
+
+          result <- check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
+            for {
+              boundary <- Boundary.randomUUID
+              _        <- ZIO.debug(
+                s"Sending form with ${fields.size} fields (${fields.map(_._1.getClass.getSimpleName).mkString(", ")}))})",
+              )
+              response <- client
+                .request(
+                  Version.Http_1_1,
+                  Method.POST,
+                  URL.decode(s"http://localhost:$port/form").toOption.get,
+                  Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
+                  Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
+                  None,
+                )
+              _        <- ZIO.debug("-> got response")
+              form     <- response.body.asMultipartForm
+              _        <- ZIO.debug("-> decoded response")
+
+              normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
+                field.asChunk.map(field.name -> _)
+              }
+              normalizedOut <- ZIO.foreach(form.formData) { field =>
+                field.asChunk.map(field.name -> _)
+              }
+            } yield assertTrue(
+              normalizedIn == normalizedOut,
             )
-            response <- client
-              .request(
-                Version.Http_1_1,
-                Method.POST,
-                URL.decode(s"http://localhost:$port/form").toOption.get,
-                Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
-                Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
-                None,
-              )
-            _        <- ZIO.debug("-> got response")
-            form     <- response.body.asMultipartForm
-            _        <- ZIO.debug("-> decoded response")
-
-            normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
-              field.asChunk.map(field.name -> _)
-            }
-            normalizedOut <- ZIO.foreach(form.formData) { field =>
-              field.asChunk.map(field.name -> _)
-            }
-          } yield assertTrue(
-            normalizedIn == normalizedOut,
-          )
-        }
-      } @@ timeout(5.minutes) @@ diagnose(4.minutes),
+          }
+          _      <- ZIO.debug("decoding random form check done")
+        } yield result
+      } @@ timeout(5.minutes),
       test("decoding random pre-encoded form") {
-        check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
-          for {
-            _        <- ZIO.debug("decoding random pre-encoded form ===>")
-            port     <- server(streamingServer)
-            client   <- ZIO.service[Client]
-            boundary <- Boundary.randomUUID
-            stream = Form(fields.map(_._1): _*).multipartBytes(boundary)
-            bytes    <- stream.runCollect
-            response <- client.withDisabledStreaming
-              .request(
-                Version.Http_1_1,
-                Method.POST,
-                URL.decode(s"http://localhost:$port/form").toOption.get,
-                Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
-                Body.fromChunk(bytes),
-                None,
-              )
-            form     <- response.body.asMultipartForm
+        for {
+          port   <- server(streamingServer)
+          client <- ZIO.service[Client]
+          result <- check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
+            for {
+              _        <- ZIO.debug("decoding random pre-encoded form ===>")
+              boundary <- Boundary.randomUUID
+              stream = Form(fields.map(_._1): _*).multipartBytes(boundary)
+              bytes    <- stream.runCollect
+              response <- client.withDisabledStreaming
+                .request(
+                  Version.Http_1_1,
+                  Method.POST,
+                  URL.decode(s"http://localhost:$port/form").toOption.get,
+                  Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
+                  Body.fromChunk(bytes),
+                  None,
+                )
+              form     <- response.body.asMultipartForm
 
-            normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
-              field.asChunk.map(field.name -> _)
-            }
-            normalizedOut <- ZIO.foreach(form.formData) { field =>
-              field.asChunk.map(field.name -> _)
-            }
-            _             <- ZIO.debug("<=== decoding random pre-encoded form")
-          } yield assertTrue(
-            normalizedIn == normalizedOut,
-          )
-        }
-      } @@ timeout(5.minutes) @@ diagnose(4.minutes),
+              normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
+                field.asChunk.map(field.name -> _)
+              }
+              normalizedOut <- ZIO.foreach(form.formData) { field =>
+                field.asChunk.map(field.name -> _)
+              }
+              _             <- ZIO.debug("<=== decoding random pre-encoded form")
+            } yield assertTrue(
+              normalizedIn == normalizedOut,
+            )
+          }
+          _      <- ZIO.debug("decoding random pre-encoded form check done")
+        } yield result
+      } @@ timeout(5.minutes),
       test("decoding large form with random chunk and buffer sizes") {
         val N = 1024 * 1024
-        check(Gen.int(1, N)) { chunkSize =>
-          (for {
-            bytes <- Random.nextBytes(N)
-            form = Form(
-              Chunk(
-                FormField.Simple("foo", "bar"),
-                FormField.Binary("file", bytes, MediaType.image.png),
-              ),
-            )
-            boundary <- Boundary.randomUUID
-            stream = form.multipartBytes(boundary).rechunk(chunkSize)
-            port      <- server(streamingServer)
-            client    <- ZIO.service[Client]
-            response  <- client
-              .request(
-                Version.Http_1_1,
-                Method.POST,
-                URL.decode(s"http://localhost:$port/form").toOption.get,
-                Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
-                Body.fromStream(stream),
-                None,
+        for {
+          port   <- server(streamingServer)
+          client <- ZIO.service[Client]
+          result <- check(Gen.int(1, N)) { chunkSize =>
+            (for {
+              bytes <- Random.nextBytes(N)
+              form = Form(
+                Chunk(
+                  FormField.Simple("foo", "bar"),
+                  FormField.Binary("file", bytes, MediaType.image.png),
+                ),
               )
-            collected <- response.body.asMultipartForm
-          } yield assertTrue(
-            collected.map.contains("file"),
-            collected.map.contains("foo"),
-            collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
-          )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
-        }
-      } @@ samples(20) @@ timeout(5.minutes) @@ diagnose(4.minutes),
+              boundary <- Boundary.randomUUID
+              stream = form.multipartBytes(boundary).rechunk(chunkSize)
+              response  <- client
+                .request(
+                  Version.Http_1_1,
+                  Method.POST,
+                  URL.decode(s"http://localhost:$port/form").toOption.get,
+                  Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
+                  Body.fromStream(stream),
+                  None,
+                )
+              collected <- response.body.asMultipartForm
+            } yield assertTrue(
+              collected.map.contains("file"),
+              collected.map.contains("foo"),
+              collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
+            )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
+          }
+          _      <- ZIO.debug("decoding large form with random chunk and buffer sizes check done")
+        } yield result
+      } @@ samples(20) @@ timeout(5.minutes),
     )
 
   private def streamingOnlyTests =
