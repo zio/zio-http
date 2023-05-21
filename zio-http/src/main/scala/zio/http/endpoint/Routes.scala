@@ -38,7 +38,7 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
    * executed by a server. This method may be used when the routes are not using
    * any middleware.
    */
-  def toApp[R1 <: R](implicit ev: EndpointMiddleware.None <:< M, trace: zio.http.Trace): App[R1] = {
+  def toApp[R1 <: R](implicit ev: EndpointMiddleware.None <:< M, trace: Trace): App[R1] = {
     toApp[R1, Unit](RoutesMiddleware.none.asInstanceOf[RoutesMiddleware[R1, Unit, M]])
   }
 
@@ -48,7 +48,7 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
    * middleware. You must provide a [[zio.http.endpoint.RoutesMiddleware]] that
    * can properly provide the required middleware for the routes.
    */
-  def toApp[R1 <: R, S](mh: RoutesMiddleware[R1, S, M])(implicit trace: zio.http.Trace): App[R1] = {
+  def toApp[R1 <: R, S](mh: RoutesMiddleware[R1, S, M])(implicit trace: Trace): App[R1] = {
     import zio.http.endpoint.internal._
 
     val routingTree     = RoutingTree.fromRoutes(self)
@@ -62,7 +62,7 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
       alternatives: Chunk[Routes.Single[R, E, _, _, M]],
       index: Int,
       cause: Cause[Nothing],
-    )(implicit trace: zio.http.Trace): ZIO[R, Nothing, Response] =
+    )(implicit trace: Trace): ZIO[R, Nothing, Response] =
       if (index >= alternatives.length) ZIO.refailCause(cause)
       else {
         val alternative = alternatives(index)

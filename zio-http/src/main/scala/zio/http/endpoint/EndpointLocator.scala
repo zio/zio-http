@@ -30,22 +30,22 @@ trait EndpointLocator { self =>
    * error.
    */
   def locate[A, E, B, M <: EndpointMiddleware](api: Endpoint[A, E, B, M])(implicit
-    trace: zio.http.Trace,
+    trace: Trace,
   ): IO[EndpointNotFound, URL]
 
   final def orElse(that: EndpointLocator): EndpointLocator = new EndpointLocator {
     def locate[A, E, B, M <: EndpointMiddleware](api: Endpoint[A, E, B, M])(implicit
-      trace: zio.http.Trace,
+      trace: Trace,
     ): IO[EndpointNotFound, URL] =
       self.locate(api).orElse(that.locate(api))
   }
 }
 object EndpointLocator {
-  def fromURL(url: URL)(implicit trace: zio.http.Trace): EndpointLocator = new EndpointLocator {
+  def fromURL(url: URL)(implicit trace: Trace): EndpointLocator = new EndpointLocator {
     val effect = ZIO.succeed(url)
 
     def locate[A, E, B, M <: EndpointMiddleware](api: Endpoint[A, E, B, M])(implicit
-      trace: zio.http.Trace,
+      trace: Trace,
     ): IO[EndpointNotFound, URL] =
       effect
   }

@@ -17,7 +17,7 @@
 package zio.http
 
 import zio._
-import zio.test.TestAspect._
+import zio.test.TestAspect.{nonFlaky, samples, sequential, timeout, withLiveClock}
 import zio.test.{Gen, Spec, TestEnvironment, assertTrue, check}
 
 import zio.stream.{ZStream, ZStreamAspect}

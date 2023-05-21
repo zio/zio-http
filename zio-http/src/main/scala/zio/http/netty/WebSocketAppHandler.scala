@@ -36,7 +36,7 @@ private[zio] final class WebSocketAppHandler(
   zExec: NettyRuntime,
   queue: Queue[WebSocketChannelEvent],
   onComplete: Option[Promise[Throwable, ChannelState]],
-)(implicit trace: zio.http.Trace)
+)(implicit trace: Trace)
     extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe

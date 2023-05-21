@@ -41,7 +41,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
       Form(formData)
     }
 
-  def fields(implicit trace: zio.http.Trace): ZStream[Any, Throwable, FormField] =
+  def fields(implicit trace: Trace): ZStream[Any, Throwable, FormField] =
     ZStream.unwrapScoped {
       implicit val unsafe: Unsafe = Unsafe.unsafe
 
@@ -252,9 +252,7 @@ object StreamingForm {
      * elements. Each new element gets immediately emitted regardless of the
      * upstream chunk size.
      */
-    def mapAccumImmediate[S, A1](
-      s: => S,
-    )(f: (S, A) => (S, Option[A1]))(implicit trace: zio.http.Trace): ZStream[R, E, A1] =
+    def mapAccumImmediate[S, A1](s: => S)(f: (S, A) => (S, Option[A1]))(implicit trace: Trace): ZStream[R, E, A1] =
       ZStream.succeed(s).flatMap { s =>
         def chunkAccumulator(currS: S, in: Chunk[A]): ZChannel[Any, E, Chunk[A], Any, E, Chunk[A1], Unit] =
           mapAccumImmediate(in)(currS)(f) match {

@@ -28,7 +28,7 @@ final class WebSocketClientInboundHandler(
   rtm: NettyRuntime,
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
-)(implicit trace: zio.http.Trace)
+)(implicit trace: Trace)
     extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 

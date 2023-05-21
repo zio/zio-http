@@ -98,7 +98,7 @@ private[zio] final case class ServerChannelInitializer(
 }
 
 object ServerChannelInitializer {
-  // implicit val trace: zio.http.Trace = Trace.empty
+  implicit val trace: Trace = Trace.empty
 
   val layer: ZLayer[SimpleChannelInboundHandler[HttpObject] with Server.Config, Nothing, ServerChannelInitializer] =
     ZLayer.fromZIO {

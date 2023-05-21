@@ -55,7 +55,7 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
   final def toHandlerAspect: HandlerAspect.Simple[R, Nothing] =
     new HandlerAspect.Simple[R, Nothing] {
       def apply[R1 >: Nothing <: R, E1 >: Nothing <: Any](handler: Handler[R1, E1, Request, Response])(implicit
-        trace: zio.http.Trace,
+        trace: Trace,
       ): Handler[R1, E1, Request, Response] = {
         Handler.fromFunctionZIO[Request] { request =>
           decodeMiddlewareInput(request).flatMap { input =>

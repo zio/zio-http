@@ -26,22 +26,20 @@ class HttpCollectEval {
 
   @Benchmark
   def benchmarkApp(): Unit = {
-    (0 to MAX).foreach(_ => app.runZIOOrNull(0)(Unsafe.unsafe, zio.http.Trace.trace))
+    (0 to MAX).foreach(_ => app.runZIOOrNull(0)(Unsafe.unsafe, Trace.empty))
     ()
   }
 
   @Benchmark
   def benchmarkHttp(): Unit = {
-    (0 to MAX).foreach(_ =>
-      http.runZIOOrNull(Request.get(url = URL(Root / "text")))(Unsafe.unsafe, zio.http.Trace.trace),
-    )
+    (0 to MAX).foreach(_ => http.runZIOOrNull(Request.get(url = URL(Root / "text")))(Unsafe.unsafe, Trace.empty))
     ()
   }
 
   @Benchmark
   def benchmarkHttpTotal(): Unit = {
     (0 to MAX).foreach(_ =>
-      httpTotal.toHttp.runZIOOrNull(Request.get(url = URL(Root / "text")))(Unsafe.unsafe, zio.http.Trace.trace),
+      httpTotal.toHttp.runZIOOrNull(Request.get(url = URL(Root / "text")))(Unsafe.unsafe, Trace.empty),
     )
     ()
   }

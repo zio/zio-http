@@ -25,7 +25,7 @@ import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
 
-abstract class AsyncBodyReader(implicit trace: zio.http.Trace) extends SimpleChannelInboundHandler[HttpContent](true) {
+abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInboundHandler[HttpContent](true) {
 
   protected val unsafeClass: Unsafe = Unsafe.unsafe
 

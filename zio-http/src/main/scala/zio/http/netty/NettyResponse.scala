@@ -48,7 +48,7 @@ object NettyResponse {
     keepAlive: Boolean,
   )(implicit
     unsafe: Unsafe,
-    trace: zio.http.Trace,
+    trace: Trace,
   ): ZIO[Any, Nothing, Response] = {
     val status  = Conversions.statusFromNetty(jRes.status())
     val headers = Conversions.headersFromNetty(jRes.headers())

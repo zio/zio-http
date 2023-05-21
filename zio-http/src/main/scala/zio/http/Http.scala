@@ -35,7 +35,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
     handler: Handler[R1, Err1, In1, Out1],
     errorOutputMapper: Out => Out1,
-  )(implicit trace: zio.http.Trace): Http[R1, Err1, In, Out1] =
+  )(implicit trace: Trace): Http[R1, Err1, In, Out1] =
     self match {
       case Http.Empty(errorHandler)                =>
         Http.Empty(errorHandler.map(_.andThen(_.map(errorOutputMapper))))
@@ -53,7 +53,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
 
   final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
     handler: Handler[R1, Err1, In1, Out1],
-  )(implicit ev: Unit =:= Out1, trace: zio.http.Trace): Http[R1, Err1, In, Out1] = {
+  )(implicit ev: Unit =:= Out1, trace: Trace): Http[R1, Err1, In, Out1] = {
     val errorOutputMapper: Out => Out1 = (_: Out) => ev(())
     self match {
       case Http.Empty(errorHandler)                =>
@@ -80,7 +80,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   ](
     aspect: HttpAppMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr],
   )(implicit
-    trace: zio.http.Trace,
+    trace: Trace,
     in: In1 <:< Request,
     out: Out <:< Response,
   ): Http[aspect.OutEnv[UpperEnv], aspect.OutErr[LowerErr], Request, Response] =
@@ -91,12 +91,12 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def ++[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](
     that: Http[R1, Err1, In1, Out1],
-  )(implicit trace: zio.http.Trace): Http[R1, Err1, In1, Out1] =
+  )(implicit trace: Trace): Http[R1, Err1, In1, Out1] =
     self.defaultWith(that)
 
   final def catchAllZIO[R1 <: R, Err1, Out1 >: Out](
     f: Err => ZIO[R1, Err1, Out1],
-  )(implicit trace: zio.http.Trace): Http[R1, Err1, In, Out1] =
+  )(implicit trace: Trace): Http[R1, Err1, In, Out1] =
     self match {
       case Http.Empty(errorHandler)           => Http.Empty(errorHandler)
       case Http.Static(handler, errorHandler) =>
@@ -115,7 +115,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     }
 
   final def catchAllCauseZIO[R1 <: R, Out1 >: Out](f: Cause[Err] => ZIO[R1, Nothing, Out1])(implicit
-    trace: zio.http.Trace,
+    trace: Trace,
   ): Http[R1, Nothing, In, Out1] =
     self
       .catchAllZIO(err => f(Cause.fail(err)))
@@ -126,7 +126,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def defaultWith[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](
     that: Http[R1, Err1, In1, Out1],
-  )(implicit trace: zio.http.Trace): Http[R1, Err1, In1, Out1] =
+  )(implicit trace: Trace): Http[R1, Err1, In1, Out1] =
     self match {
       case Http.Empty(_)                 => that
       case static @ Http.Static(_, _)    => static
@@ -145,7 +145,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   /**
    * Transforms the output of the http app
    */
-  final def map[Out1](f: Out => Out1)(implicit trace: zio.http.Trace): Http[R, Err, In, Out1] =
+  final def map[Out1](f: Out => Out1)(implicit trace: Trace): Http[R, Err, In, Out1] =
     self match {
       case Http.Empty(errorHandler)           => Http.Empty(errorHandler.map(_.andThen(_.map(f))))
       case Http.Static(handler, errorHandler) => Http.Static(handler.map(f), errorHandler.map(_.andThen(_.map(f))))
@@ -162,7 +162,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   /**
    * Transforms the failure of the http app
    */
-  final def mapError[Err1](f: Err => Err1)(implicit trace: zio.http.Trace): Http[R, Err1, In, Out] =
+  final def mapError[Err1](f: Err => Err1)(implicit trace: Trace): Http[R, Err1, In, Out] =
     self match {
       case empty @ Http.Empty(_)              => empty
       case Http.Static(handler, errorHandler) => Http.Static(handler.mapError(f), errorHandler)
@@ -180,7 +180,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    * Transforms the output of the http effectfully
    */
   final def mapZIO[R1 <: R, Err1 >: Err, Out1](f: Out => ZIO[R1, Err1, Out1])(implicit
-    trace: zio.http.Trace,
+    trace: Trace,
   ): Http[R1, Err1, In, Out1] =
     self match {
       case Http.Empty(errorHandler)           =>
@@ -205,7 +205,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def mapErrorZIO[R1 <: R, Err1, Out1 >: Out](
     f: Err => ZIO[R1, Err1, Out1],
-  )(implicit trace: zio.http.Trace): Http[R1, Err1, In, Out1] =
+  )(implicit trace: Trace): Http[R1, Err1, In, Out1] =
     self match {
       case empty @ Http.Empty(_)              => empty
       case Http.Static(handler, errorHandler) => Http.Static(handler.mapErrorZIO(f), errorHandler)
@@ -225,7 +225,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   /**
    * Provides the environment to Http.
    */
-  final def provideEnvironment(r: ZEnvironment[R])(implicit trace: zio.http.Trace): Http[Any, Err, In, Out] =
+  final def provideEnvironment(r: ZEnvironment[R])(implicit trace: Trace): Http[Any, Err, In, Out] =
     self match {
       case Http.Empty(errorHandler)           =>
         Http.Empty(errorHandler.map(_.andThen(_.provideEnvironment(r))))
@@ -245,7 +245,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    * Provides layer to Http.
    */
   final def provideLayer[Err1 >: Err, R0](layer: ZLayer[R0, Err1, R])(implicit
-    trace: zio.http.Trace,
+    trace: Trace,
   ): Http[R0, Err1, In, Out] =
     self match {
       case Http.Empty(errorHandler)           =>
@@ -274,7 +274,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    * Provides some of the environment to Http.
    */
   final def provideSomeEnvironment[R1](f: ZEnvironment[R1] => ZEnvironment[R])(implicit
-    trace: zio.http.Trace,
+    trace: Trace,
   ): Http[R1, Err, In, Out] =
     self match {
       case Http.Empty(errorHandler)           =>
@@ -296,7 +296,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def provideSomeLayer[R0, R1: Tag, Err1 >: Err](
     layer: ZLayer[R0, Err1, R1],
-  )(implicit ev: R0 with R1 <:< R, trace: zio.http.Trace): Http[R0, Err1, In, Out] =
+  )(implicit ev: R0 with R1 <:< R, trace: Trace): Http[R0, Err1, In, Out] =
     self match {
       case Http.Empty(errorHandler)           =>
         Http.Empty(errorHandler.map(_.andThen(_.provideSomeLayer(layer).orDieWith(FailedErrorHandler.apply))))
@@ -320,7 +320,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
-  final def runHandler(in: In)(implicit trace: zio.http.Trace): ZIO[R, Err, Option[Handler[R, Err, In, Out]]] =
+  final def runHandler(in: In)(implicit trace: Trace): ZIO[R, Err, Option[Handler[R, Err, In, Out]]] =
     self match {
       case Http.Empty(_)                 => Exit.succeed(None)
       case Http.Static(handler, _)       => Exit.succeed(Some(handler))
@@ -329,12 +329,10 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
 
   private[http] final def runServerErrorOrNull(
     cause: Cause[Nothing],
-  )(implicit unsafe: Unsafe, trace: zio.http.Trace): ZIO[R, Nothing, Out] = // NOTE: Out can be null
+  )(implicit unsafe: Unsafe, trace: Trace): ZIO[R, Nothing, Out] = // NOTE: Out can be null
     self.errorHandler.fold(Exit.succeed(null).asInstanceOf[ZIO[R, Nothing, Out]])(_(cause))
 
-  final def runZIOOrNull(
-    in: In,
-  )(implicit unsafe: Unsafe, trace: zio.http.Trace): ZIO[R, Err, Out] = // NOTE: Out can be null
+  final def runZIOOrNull(in: In)(implicit unsafe: Unsafe, trace: Trace): ZIO[R, Err, Out] = // NOTE: Out can be null
     self match {
       case Http.Empty(_)                      =>
         Exit.succeed(null).asInstanceOf[ZIO[R, Err, Out]]
@@ -358,7 +356,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
         }
     }
 
-  final def runZIO(in: In)(implicit trace: zio.http.Trace): ZIO[R, Option[Err], Out] =
+  final def runZIO(in: In)(implicit trace: Trace): ZIO[R, Option[Err], Out] =
     runZIOOrNull(in)(Unsafe.unsafe, trace)
       .mapError(Some(_))
       .flatMap { out =>
@@ -374,7 +372,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
     onFailure: Cause[Err] => ZIO[R1, Err1, Any],
     onSuccess: Out => ZIO[R1, Err1, Any],
     onUnhandled: ZIO[R1, Err1, Any],
-  )(implicit trace: zio.http.Trace): Http[R1, Err1, In, Out] =
+  )(implicit trace: Trace): Http[R1, Err1, In, Out] =
     self match {
       case Http.Empty(errorHandler)           => Http.fromHttpZIO[In] { _ => onUnhandled.as(Http.Empty(errorHandler)) }
       case Http.Static(handler, errorHandler) => Http.Static(handler.tapAllZIO(onFailure, onSuccess), errorHandler)
@@ -390,7 +388,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
 
   final def tapErrorCauseZIO[R1 <: R, Err1 >: Err](
     f: Cause[Err] => ZIO[R1, Err1, Any],
-  )(implicit trace: zio.http.Trace): Http[R1, Err1, In, Out] =
+  )(implicit trace: Trace): Http[R1, Err1, In, Out] =
     self.tapAllZIO(f, _ => ZIO.unit, ZIO.unit)
 
   /**
@@ -398,24 +396,24 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
    */
   final def tapErrorZIO[R1 <: R, Err1 >: Err](
     f: Err => ZIO[R1, Err1, Any],
-  )(implicit trace: zio.http.Trace): Http[R1, Err1, In, Out] =
+  )(implicit trace: Trace): Http[R1, Err1, In, Out] =
     self.tapAllZIO(cause => cause.failureOption.fold[ZIO[R1, Err1, Any]](ZIO.unit)(f), _ => ZIO.unit, ZIO.unit)
 
   final def tapUnhandledZIO[R1 <: R, Err1 >: Err](
     f: ZIO[R1, Err1, Any],
-  )(implicit trace: zio.http.Trace): Http[R1, Err1, In, Out] =
+  )(implicit trace: Trace): Http[R1, Err1, In, Out] =
     self.tapAllZIO(_ => ZIO.unit, _ => ZIO.unit, f)
 
   /**
    * Returns an Http that effectfully peeks at the success of this Http.
    */
   final def tapZIO[R1 <: R, Err1 >: Err](f: Out => ZIO[R1, Err1, Any])(implicit
-    trace: zio.http.Trace,
+    trace: Trace,
   ): Http[R1, Err1, In, Out] =
     self.tapAllZIO(_ => ZIO.unit, f, ZIO.unit)
 
   final def toHandler[R1 <: R, Err1 >: Err, In1 <: In, Out1 >: Out](default: Handler[R1, Err1, In1, Out1])(implicit
-    trace: zio.http.Trace,
+    trace: Trace,
   ): Handler[R1, Err1, In1, Out1] =
     self match {
       case Http.Empty(_)                 => default
@@ -431,7 +429,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   /**
    * Applies Http based only if the condition function evaluates to true
    */
-  final def when[In1 <: In](f: In1 => Boolean)(implicit trace: zio.http.Trace): Http[R, Err, In1, Out] =
+  final def when[In1 <: In](f: In1 => Boolean)(implicit trace: Trace): Http[R, Err, In1, Out] =
     Http.fromHttp[In1] { in =>
       try {
         if (f(in)) self else Http.Empty(self.errorHandler)
@@ -442,7 +440,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
 
   final def whenZIO[R1 <: R, Err1 >: Err, In1 <: In](
     f: In1 => ZIO[R1, Err1, Boolean],
-  )(implicit trace: zio.http.Trace): Http[R1, Err1, In1, Out] =
+  )(implicit trace: Trace): Http[R1, Err1, In1, Out] =
     Http.fromHttpZIO { (in: In1) =>
       f(in).map {
         case true  => self
@@ -450,11 +448,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       }
     }
 
-  final def withDefaultErrorResponse(implicit
-    trace: zio.http.Trace,
-    ev1: Request <:< In,
-    ev2: Out <:< Response,
-  ): App[R] =
+  final def withDefaultErrorResponse(implicit trace: Trace, ev1: Request <:< In, ev2: Out <:< Response): App[R] =
     self.mapError { _ =>
       Response(status = Status.InternalServerError)
     }.asInstanceOf[App[R]]
@@ -521,7 +515,7 @@ object Http {
   /**
    * Creates an Http app from the contents of a file.
    */
-  def fromFile(file: => File)(implicit trace: zio.http.Trace): Http[Any, Throwable, Any, Response] =
+  def fromFile(file: => File)(implicit trace: Trace): Http[Any, Throwable, Any, Response] =
     fromFileZIO(ZIO.succeed(file))
 
   /**
@@ -530,7 +524,7 @@ object Http {
    * headers if possible.
    */
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit
-    trace: zio.http.Trace,
+    trace: Trace,
   ): Http[R, Throwable, Any, Response] =
     Http.fromOptionalHandlerZIO { (_: Any) =>
       getFile.mapError(Some(_)).flatMap { file =>
@@ -578,13 +572,13 @@ object Http {
   /**
    * Creates an HTTP that can serve files on the give path.
    */
-  def fromPath(head: String, tail: String*)(implicit trace: zio.http.Trace): Http[Any, Throwable, Any, Response] =
+  def fromPath(head: String, tail: String*)(implicit trace: Trace): Http[Any, Throwable, Any, Response] =
     fromFile(Paths.get(head, tail: _*).toFile)
 
   /**
    * Creates an Http app from a resource path
    */
-  def fromResource(path: String)(implicit trace: zio.http.Trace): Http[Any, Throwable, Any, Response] =
+  def fromResource(path: String)(implicit trace: Trace): Http[Any, Throwable, Any, Response] =
     Http.fromHttpZIO { (_: Any) =>
       ZIO
         .attemptBlocking(getClass.getClassLoader.getResource(path))
@@ -597,7 +591,7 @@ object Http {
   /**
    * Attempts to retrieve files from the classpath.
    */
-  def getResource(path: String)(implicit trace: zio.http.Trace): Http[Any, Throwable, Any, java.net.URL] =
+  def getResource(path: String)(implicit trace: Trace): Http[Any, Throwable, Any, java.net.URL] =
     Http.fromOptionalHandlerZIO { _ =>
       ZIO
         .attemptBlocking(getClass.getClassLoader.getResource(path))
@@ -611,7 +605,7 @@ object Http {
   /**
    * Attempts to retrieve files from the classpath.
    */
-  def getResourceAsFile(path: String)(implicit trace: zio.http.Trace): Http[Any, Throwable, Any, File] =
+  def getResourceAsFile(path: String)(implicit trace: Trace): Http[Any, Throwable, Any, File] =
     getResource(path).map(url => new File(url.getPath))
 
   final class Collect[In](val self: Unit) extends AnyVal {
@@ -664,7 +658,7 @@ object Http {
 
   final class FromHandlerZIO[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => ZIO[R, Err, Option[Handler[R, Err, In, Out]]])(implicit
-      trace: zio.http.Trace,
+      trace: Trace,
     ): Http[R, Err, In, Out] =
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
@@ -680,7 +674,7 @@ object Http {
 
   final class FromOptionalHandlerZIO[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => ZIO[R, Option[Err], Handler[R, Err, In, Out]])(implicit
-      trace: zio.http.Trace,
+      trace: Trace,
     ): Http[R, Err, In, Out] =
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
@@ -695,7 +689,7 @@ object Http {
 
   final class FromOptionalHandler[In](val self: Unit) extends AnyVal {
     def apply[R, Err, Out](f: In => Option[Handler[R, Err, In, Out]])(implicit
-      trace: zio.http.Trace,
+      trace: Trace,
     ): Http[R, Err, In, Out] =
       new Route[R, Err, In, Out] {
         override def run(in: In): ZIO[R, Err, Http[R, Err, In, Out]] =
@@ -731,35 +725,33 @@ object Http {
   }
 
   implicit class HttpRouteSyntax[R, Err](val self: HttpApp[R, Err]) extends AnyVal {
-    def whenPathEq(path: Path)(implicit trace: zio.http.Trace): HttpApp[R, Err] =
+    def whenPathEq(path: Path)(implicit trace: Trace): HttpApp[R, Err] =
       self.when[Request](_.path == path)
 
-    def whenPathEq(path: String)(implicit trace: zio.http.Trace): HttpApp[R, Err] =
+    def whenPathEq(path: String)(implicit trace: Trace): HttpApp[R, Err] =
       self.when[Request](_.path.encode == path)
   }
 
   final implicit class ResponseOutputSyntax[-R, +Err, -In](val self: Http[R, Err, In, Response]) extends AnyVal {
-    def body(implicit trace: zio.http.Trace): Http[R, Err, In, Body] =
+    def body(implicit trace: Trace): Http[R, Err, In, Body] =
       self.map(_.body)
 
-    def contentLength(implicit trace: zio.http.Trace): Http[R, Err, In, Option[Header.ContentLength]] =
+    def contentLength(implicit trace: Trace): Http[R, Err, In, Option[Header.ContentLength]] =
       self.map(_.header(Header.ContentLength))
 
-    def contentType(implicit trace: zio.http.Trace): Http[R, Err, In, Option[Header.ContentType]] =
+    def contentType(implicit trace: Trace): Http[R, Err, In, Option[Header.ContentType]] =
       self.map(_.header(Header.ContentType))
 
-    def header(headerType: HeaderType)(implicit
-      trace: zio.http.Trace,
-    ): Http[R, Err, In, Option[headerType.HeaderValue]] =
+    def header(headerType: HeaderType)(implicit trace: Trace): Http[R, Err, In, Option[headerType.HeaderValue]] =
       self.map(_.header(headerType))
 
-    def headers(implicit trace: zio.http.Trace): Http[R, Err, In, Headers] =
+    def headers(implicit trace: Trace): Http[R, Err, In, Headers] =
       self.map(_.headers)
 
-    def rawHeader(name: CharSequence)(implicit trace: zio.http.Trace): Http[R, Err, In, Option[String]] =
+    def rawHeader(name: CharSequence)(implicit trace: Trace): Http[R, Err, In, Option[String]] =
       self.map(_.rawHeader(name))
 
-    def status(implicit trace: zio.http.Trace): Http[R, Err, In, Status] =
+    def status(implicit trace: Trace): Http[R, Err, In, Status] =
       self.map(_.status)
   }
 
@@ -775,7 +767,7 @@ object Http {
 
   private[zio] def fromResourceWithURL(
     url: java.net.URL,
-  )(implicit trace: zio.http.Trace): Http[Any, Throwable, Any, Response] = {
+  )(implicit trace: Trace): Http[Any, Throwable, Any, Response] = {
     url.getProtocol match {
       case "file" =>
         Http.fromFile(new File(url.getPath))

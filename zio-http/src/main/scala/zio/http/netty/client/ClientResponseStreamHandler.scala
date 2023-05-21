@@ -27,7 +27,7 @@ final class ClientResponseStreamHandler(
   rtm: NettyRuntime,
   onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,
-)(implicit trace: zio.http.Trace)
+)(implicit trace: Trace)
     extends AsyncBodyReader { self =>
 
   override def channelRead0(

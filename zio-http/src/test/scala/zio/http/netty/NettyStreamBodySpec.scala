@@ -49,7 +49,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
     } yield port
 
   val singleConnectionClient: ZLayer[Any, Throwable, Client] = {
-    // implicit val trace: zio.http.Trace = Trace.empty
+    implicit val trace: Trace = Trace.empty
     (ZLayer.succeed(Config.default.copy(connectionPool = ConnectionPoolConfig.Fixed(1))) ++ ZLayer.succeed(
       NettyConfig.default,
     ) ++

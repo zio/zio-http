@@ -27,7 +27,7 @@ private[endpoint] final case class EndpointServer[R, E, I, O, M <: EndpointMiddl
   private val endpoint = single.endpoint
   private val handler  = single.handler
 
-  def handle(request: Request)(implicit trace: zio.http.Trace): ZIO[R, Nothing, Response] = {
+  def handle(request: Request)(implicit trace: Trace): ZIO[R, Nothing, Response] = {
     endpoint.input.decodeRequest(request).orDie.flatMap { value =>
       handler(value).map(endpoint.output.encodeResponse(_)).catchAll { error =>
         ZIO.succeed(single.endpoint.error.encodeResponse(error))

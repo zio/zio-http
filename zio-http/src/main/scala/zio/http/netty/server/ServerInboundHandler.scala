@@ -41,7 +41,7 @@ private[zio] final case class ServerInboundHandler(
   config: Server.Config,
   runtime: NettyRuntime,
   time: ServerTime,
-)(implicit trace: zio.http.Trace)
+)(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
@@ -394,7 +394,7 @@ object ServerInboundHandler {
     Nothing,
     ServerInboundHandler,
   ] = {
-    // implicit val trace: zio.http.Trace = Trace.empty
+    implicit val trace: Trace = Trace.empty
     ZLayer.fromZIO {
       for {
         appRef <- ZIO.service[AppRef]

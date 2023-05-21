@@ -149,17 +149,17 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Uses this codec to decode the Scala value from a request.
    */
-  final def decodeRequest(request: Request)(implicit trace: zio.http.Trace): Task[Value] =
+  final def decodeRequest(request: Request)(implicit trace: Trace): Task[Value] =
     decode(request.url, Status.Ok, request.method, request.headers, request.body)
 
   /**
    * Uses this codec to decode the Scala value from a response.
    */
-  final def decodeResponse(response: Response)(implicit trace: zio.http.Trace): Task[Value] =
+  final def decodeResponse(response: Response)(implicit trace: Trace): Task[Value] =
     decode(URL.empty, response.status, Method.GET, response.headers, response.body)
 
   private final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
-    trace: zio.http.Trace,
+    trace: Trace,
   ): Task[Value] =
     encoderDecoder.decode(url, status, method, headers, body)
 
