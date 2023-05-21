@@ -431,21 +431,19 @@ object ZClient {
     localAddress: Option[InetSocketAddress],
     addUserAgentHeader: Boolean,
     webSocketConfig: WebSocketConfig,
+    idleTimeout: Option[Duration],
+    connectionTimeout: Option[Duration],
   ) {
     self =>
 
     def addUserAgentHeader(addUserAgentHeader: Boolean): Config =
       self.copy(addUserAgentHeader = addUserAgentHeader)
 
-    def ssl(ssl: ClientSSLConfig): Config = self.copy(ssl = Some(ssl))
+    def connectionTimeout(timeout: Duration): Config =
+      self.copy(connectionTimeout = Some(timeout))
 
-    def proxy(proxy: zio.http.Proxy): Config = self.copy(proxy = Some(proxy))
-
-    def withFixedConnectionPool(size: Int): Config =
-      self.copy(connectionPool = ConnectionPoolConfig.Fixed(size))
-
-    def withDynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): Config =
-      self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
+    def idleTimeout(timeout: Duration): Config =
+      self.copy(idleTimeout = Some(timeout))
 
     /**
      * Configure the client to use `maxHeaderSize` value when encode/decode
@@ -453,8 +451,22 @@ object ZClient {
      */
     def maxHeaderSize(headerSize: Int): Config = self.copy(maxHeaderSize = headerSize)
 
+    def noConnectionTimeout: Config = self.copy(connectionTimeout = None)
+
+    def noIdleTimeout: Config = self.copy(idleTimeout = None)
+
+    def proxy(proxy: zio.http.Proxy): Config = self.copy(proxy = Some(proxy))
+
     def requestDecompression(isStrict: Boolean): Config =
       self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
+
+    def ssl(ssl: ClientSSLConfig): Config = self.copy(ssl = Some(ssl))
+
+    def withFixedConnectionPool(size: Int): Config =
+      self.copy(connectionPool = ConnectionPoolConfig.Fixed(size))
+
+    def withDynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): Config =
+      self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
 
     def withWebSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
@@ -468,16 +480,30 @@ object ZClient {
           ConnectionPoolConfig.config.nested("connection-pool").withDefault(Config.default.connectionPool) ++
           zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
           Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
-          zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader)
-      ).map { case (ssl, proxy, connectionPool, maxHeaderSize, requestDecompression, addUserAgentHeader) =>
-        default.copy(
-          ssl = ssl,
-          proxy = proxy,
-          connectionPool = connectionPool,
-          maxHeaderSize = maxHeaderSize,
-          requestDecompression = requestDecompression,
-          addUserAgentHeader = addUserAgentHeader,
-        )
+          zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader) ++
+          zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
+          zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout)
+      ).map {
+        case (
+              ssl,
+              proxy,
+              connectionPool,
+              maxHeaderSize,
+              requestDecompression,
+              addUserAgentHeader,
+              idleTimeout,
+              connectionTimeout,
+            ) =>
+          default.copy(
+            ssl = ssl,
+            proxy = proxy,
+            connectionPool = connectionPool,
+            maxHeaderSize = maxHeaderSize,
+            requestDecompression = requestDecompression,
+            addUserAgentHeader = addUserAgentHeader,
+            idleTimeout = idleTimeout,
+            connectionTimeout = connectionTimeout,
+          )
       }
 
     lazy val default: Config = Config(
@@ -489,6 +515,8 @@ object ZClient {
       localAddress = None,
       addUserAgentHeader = true,
       webSocketConfig = WebSocketConfig.default,
+      idleTimeout = None,
+      connectionTimeout = None,
     )
   }
 
@@ -615,6 +643,8 @@ object ZClient {
                       clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
                       clientConfig.maxHeaderSize,
                       clientConfig.requestDecompression,
+                      clientConfig.idleTimeout,
+                      clientConfig.connectionTimeout,
                       clientConfig.localAddress,
                     )
                     .tapErrorCause(cause => onResponse.failCause(cause))

@@ -84,7 +84,7 @@ object BuildHelper extends ScalaSettings {
       "-Dio.netty.leakDetectionLevel=paranoid",
       s"-DZIOHttpLogLevel=${Debug.ZIOHttpLogLevel}",
     ),
-    ThisBuild / fork               := false,
+    ThisBuild / fork               := true,
     libraryDependencies ++= {
       if (scalaVersion.value == Scala3)
         Seq(
@@ -105,7 +105,7 @@ object BuildHelper extends ScalaSettings {
   )
 
   def runSettings(className: String = "example.HelloWorld") = Seq(
-    fork                      := false,
+    fork                      := true,
     Compile / run / mainClass := Option(className),
   )
 

@@ -163,9 +163,6 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           result <- check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
             for {
               boundary <- Boundary.randomUUID
-              _        <- ZIO.debug(
-                s"Sending form with ${fields.size} fields (${fields.map(_._1.getClass.getSimpleName).mkString(", ")}))})",
-              )
               response <- client
                 .request(
                   Version.Http_1_1,
@@ -176,9 +173,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                   None,
                 )
                 .timeoutFail(new RuntimeException("Client request timed out"))(20.seconds)
-              _        <- ZIO.debug("-> got response")
               form     <- response.body.asMultipartForm
-              _        <- ZIO.debug("-> decoded response")
 
               normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
                 field.asChunk.map(field.name -> _)
@@ -190,16 +185,14 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               normalizedIn == normalizedOut,
             )
           }
-          _      <- ZIO.debug("decoding random form check done")
         } yield result
-      } @@ timeout(5.minutes) @@ flaky,
+      } @@ timeout(5.minutes) @@ samples(50) @@ flaky,
       test("decoding random pre-encoded form") {
         for {
           port   <- server(streamingServer)
           client <- ZIO.service[Client]
           result <- check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
             for {
-              _        <- ZIO.debug("decoding random pre-encoded form ===>")
               boundary <- Boundary.randomUUID
               stream = Form(fields.map(_._1): _*).multipartBytes(boundary)
               bytes    <- stream.runCollect
@@ -221,14 +214,12 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               normalizedOut <- ZIO.foreach(form.formData) { field =>
                 field.asChunk.map(field.name -> _)
               }
-              _             <- ZIO.debug("<=== decoding random pre-encoded form")
             } yield assertTrue(
               normalizedIn == normalizedOut,
             )
           }
-          _      <- ZIO.debug("decoding random pre-encoded form check done")
         } yield result
-      } @@ timeout(5.minutes) @@ flaky,
+      } @@ timeout(5.minutes) @@ samples(50) @@ flaky,
       test("decoding large form with random chunk and buffer sizes") {
         val N = 1024 * 1024
         for {
@@ -262,7 +253,6 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
             )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
           }
-          _      <- ZIO.debug("decoding large form with random chunk and buffer sizes check done")
         } yield result
       } @@ samples(20) @@ timeout(5.minutes) @@ flaky,
     )
@@ -323,7 +313,10 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         tests(streamingServer = false): _*,
       ),
     ).provide(
-      Client.default,
+      DnsResolver.default,
+      ZLayer.succeed(NettyConfig.default),
+      ZLayer.succeed(Client.Config.default.connectionTimeout(10.seconds).idleTimeout(10.seconds)),
+      Client.live,
     ) @@ withLiveClock @@ sequential
 
   private def server(streaming: Boolean): ZIO[Any, Throwable, Int] =
@@ -339,7 +332,8 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             Server.Config.default.onAnyOpenPort
               .withRequestStreaming(
                 if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(2 * 1024 * 1024),
-              ),
+              )
+              .idleTimeout(10.seconds),
           ),
           Server.customized,
         )

@@ -49,22 +49,15 @@ final class ClientInboundHandler(
   override def handlerRemoved(ctx: ChannelHandlerContext): Unit = super.handlerRemoved(ctx)
 
   private def sendRequest(ctx: ChannelHandlerContext): Unit = {
-    try {
-      jReq match {
-        case fullRequest: FullHttpRequest =>
-          ctx.writeAndFlush(fullRequest)
-        //        println(s"Sent full request")
-        case _: HttpRequest               =>
-          ctx.write(jReq)
-          rtm.run(ctx, NettyRuntime.noopEnsuring) {
-            NettyBodyWriter.write(req.body, ctx).unit
-          }(Unsafe.unsafe, trace)
-          ctx.flush(): Unit
-      }
-    } catch {
-      case ex: Throwable =>
-        println(s"Error sending request: $ex")
-        throw ex
+    jReq match {
+      case fullRequest: FullHttpRequest =>
+        ctx.writeAndFlush(fullRequest)
+      case _: HttpRequest               =>
+        ctx.write(jReq)
+        rtm.run(ctx, NettyRuntime.noopEnsuring) {
+          NettyBodyWriter.write(req.body, ctx).unit
+        }(Unsafe.unsafe, trace)
+        ctx.flush(): Unit
     }
   }
 
@@ -90,7 +83,6 @@ final class ClientInboundHandler(
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {
-    println(s"ClientInboundHandler exceptionCaught: $error")
     rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
       onResponse.fail(error) *> onComplete.fail(error),
     )(unsafeClass, trace)

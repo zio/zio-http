@@ -51,7 +51,9 @@ private[zio] final case class ServerChannelInitializer(
       pipeline.addFirst(Names.SSLHandler, new ServerSSLDecoder(sslCfg, cfg))
     }
 
-    pipeline.addLast("read-timeout-handler", new ReadTimeoutHandler(10, TimeUnit.SECONDS)) // TODO
+    cfg.idleTimeout.foreach { timeout =>
+      pipeline.addLast(Names.ReadTimeoutHandler, new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS))
+    }
 
     // ServerCodec
     // Instead of ServerCodec, we should use Decoder and Encoder separately to have more granular control over performance.

@@ -114,7 +114,6 @@ object NettyBody extends BodyEncoding {
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asStream.runCollect
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
-//      ZStream.fromZIO(ZIO.debug("Start reading streaming body")) *>
       ZStream
         .async[Any, Throwable, Byte](emit =>
           try {
@@ -132,7 +131,6 @@ object NettyBody extends BodyEncoding {
             case e: Throwable => emit(ZIO.fail(Option(e)))
           },
         )
-//          .ensuring(ZIO.debug("Finished reading streaming body"))
 
     override def isComplete: Boolean = false
 
