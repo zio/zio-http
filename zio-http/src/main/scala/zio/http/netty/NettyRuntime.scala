@@ -31,6 +31,7 @@ private[zio] trait NettyRuntime { self =>
     val rtm: Runtime[Any] = runtime(ctx)
 
     def onFailure(cause: Cause[Throwable], ctx: ChannelHandlerContext): Unit = {
+      println(s"NettyRuntime onFailure: $cause")
       cause.failureOption.orElse(cause.dieOption) match {
         case None        => ()
         case Some(error) =>

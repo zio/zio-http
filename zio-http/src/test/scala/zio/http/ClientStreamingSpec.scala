@@ -51,6 +51,11 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           }
         }
     }
+    .withErrorHandler(
+      Some((cause: Cause[Nothing]) =>
+        ZIO.logErrorCause("Fatal server error", cause).as(Response.status(Status.InternalServerError)),
+      ),
+    )
     .withDefaultErrorResponse
 
   // TODO: test failure cases
@@ -170,6 +175,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                   Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
                   None,
                 )
+                .timeoutFail(new RuntimeException("Client request timed out"))(20.seconds)
               _        <- ZIO.debug("-> got response")
               form     <- response.body.asMultipartForm
               _        <- ZIO.debug("-> decoded response")
@@ -206,6 +212,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                   Body.fromChunk(bytes),
                   None,
                 )
+                .timeoutFail(new RuntimeException("Client request timed out"))(20.seconds)
               form     <- response.body.asMultipartForm
 
               normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
@@ -247,6 +254,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                   Body.fromStream(stream),
                   None,
                 )
+                .timeoutFail(new RuntimeException("Client request timed out"))(20.seconds)
               collected <- response.body.asMultipartForm
             } yield assertTrue(
               collected.map.contains("file"),
