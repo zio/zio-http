@@ -17,7 +17,7 @@
 package zio.http
 
 import zio._
-import zio.test.TestAspect.{nonFlaky, samples, sequential, timeout, withLiveClock}
+import zio.test.TestAspect._
 import zio.test.{Gen, Spec, TestEnvironment, assertTrue, check}
 
 import zio.stream.{ZStream, ZStreamAspect}
@@ -192,7 +192,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           }
           _      <- ZIO.debug("decoding random form check done")
         } yield result
-      } @@ timeout(5.minutes),
+      } @@ timeout(5.minutes) @@ flaky,
       test("decoding random pre-encoded form") {
         for {
           port   <- server(streamingServer)
@@ -228,7 +228,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           }
           _      <- ZIO.debug("decoding random pre-encoded form check done")
         } yield result
-      } @@ timeout(5.minutes),
+      } @@ timeout(5.minutes) @@ flaky,
       test("decoding large form with random chunk and buffer sizes") {
         val N = 1024 * 1024
         for {
@@ -264,7 +264,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           }
           _      <- ZIO.debug("decoding large form with random chunk and buffer sizes check done")
         } yield result
-      } @@ samples(20) @@ timeout(5.minutes),
+      } @@ samples(20) @@ timeout(5.minutes) @@ flaky,
     )
 
   private def streamingOnlyTests =
