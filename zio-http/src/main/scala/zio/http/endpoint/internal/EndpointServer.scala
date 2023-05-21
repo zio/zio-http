@@ -19,7 +19,6 @@ package zio.http.endpoint.internal
 import zio._
 
 import zio.http._
-import zio.http.codec.HttpCodecError
 import zio.http.endpoint.{EndpointMiddleware, Routes}
 
 private[endpoint] final case class EndpointServer[R, E, I, O, M <: EndpointMiddleware](
@@ -29,19 +28,10 @@ private[endpoint] final case class EndpointServer[R, E, I, O, M <: EndpointMiddl
   private val handler  = single.handler
 
   def handle(request: Request)(implicit trace: Trace): ZIO[R, Nothing, Response] = {
-    endpoint.input
-      .decodeRequest(request)
-      .flatMap { value =>
-        handler(value).map(endpoint.output.encodeResponse(_)).catchAll { error =>
-          ZIO.succeed(single.endpoint.error.encodeResponse(error))
-        }
+    endpoint.input.decodeRequest(request).orDie.flatMap { value =>
+      handler(value).map(endpoint.output.encodeResponse(_)).catchAll { error =>
+        ZIO.succeed(single.endpoint.error.encodeResponse(error))
       }
-      .catchSomeCause {
-        case Cause.Fail(underlying: HttpCodecError, _) =>
-          ZIO.succeed(Response(Status.BadRequest, body = Body.fromString(underlying.getMessage())))
-        case Cause.Die(underlying: HttpCodecError, _)  =>
-          ZIO.succeed(Response(Status.BadRequest, body = Body.fromString(underlying.getMessage())))
-      }
-      .orDie
+    }
   }
 }

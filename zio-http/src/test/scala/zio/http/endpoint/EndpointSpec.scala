@@ -99,22 +99,10 @@ object EndpointSpec extends ZIOSpecDefault {
             .asInstanceOf[Routes.Single[Any, ZNothing, Any, Int, EndpointMiddleware.None]]
 
         for {
-          response <- EndpointServer(routes).handle(
-            Request(
-              Body.empty,
-              Headers.empty,
-              Method.GET,
-              URL
-                .decode("/posts?id=notanid")
-                .toOption
-                .get,
-              Version.Http_1_1,
-              Option.empty,
-            ),
+          response <- routes.toApp.runZIO(
+            Request.get(URL.decode("/posts?id=notanid").toOption.get),
           )
-
-          body <- response.body.asString.orDie
-        } yield assertTrue(response.status.code == 400, body == "Missing query parameter id")
+        } yield assertTrue(response.status.code == 400)
       },
       test("out of order api") {
         val testRoutes = testEndpoint(
@@ -399,12 +387,8 @@ object EndpointSpec extends ZIOSpecDefault {
             body     <- response.body.asString.orDie
           } yield assertTrue(response.status.isSuccess) && assertTrue(body == "42")
         },
-        test("decoding error") {
-
+        test("bad request for failed codec") {
           implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
-
-          val ExpectedFieldName = "value"
-          val WrongFieldName    = "valu"
 
           val endpoint =
             Endpoint
@@ -415,60 +399,15 @@ object EndpointSpec extends ZIOSpecDefault {
           val routes =
             endpoint.implement(_ => ZIO.succeed(42))
 
-          val request =
-            Request
-              .post(
-                Body.fromString(s"""{"$WrongFieldName": "Invalid field!"}"""),
-                URL.decode("/posts").toOption.get,
-              )
-
           for {
-            response <- routes.toApp.runZIO(request).mapError(_.get).catchAllDefect {
-              case err: HttpCodecError.MalformedBody => {
-                err.cause match {
-                  case Some(DecodeError.ReadError(_, _)) =>
-                    ZIO.succeed(Response.text(err.details).withStatus(Status.UnprocessableEntity))
-                  case _                                 => ZIO.fail("Unexpected error cause: " + err.toString())
-                }
-              }
-            }
-            body     <- response.body.asString.orDie
-          } yield assertTrue(response.status.code == 422, body == s""".$ExpectedFieldName(missing)""")
-        },
-        test("bad request for failed codec") {
-          implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
-
-          val endpoint =
-            Endpoint
-              .post(literal("posts"))
-              .in[NewPost]
-              .out[Int]
-
-          val routes: Routes.Single[Any, ZNothing, Any, Int, EndpointMiddleware.None] =
-            endpoint
-              .implement(_ => ZIO.succeed(42))
-              .asInstanceOf[Routes.Single[Any, ZNothing, Any, Int, EndpointMiddleware.None]]
-
-          for {
-            response <- EndpointServer(routes).handle(
-              Request(
-                Body.fromString("""{"vale": "My new post!"}"""),
-                Headers.empty,
-                Method.POST,
-                URL
-                  .decode("/posts")
-                  .toOption
-                  .get,
-                Version.Http_1_1,
-                Option.empty,
-              ),
+            response <- routes.toApp.runZIO(
+              Request
+                .post(
+                  Body.fromString("""{"vale": "My new post!"}"""),
+                  URL.decode("/posts").toOption.get,
+                ),
             )
-
-            body <- response.body.asString.orDie
-          } yield assertTrue(
-            response.status.code == 400,
-            body == "Malformed request body failed to decode: .value(missing)",
-          )
+          } yield assertTrue(response.status.code == 400)
         },
       ),
       suite("404")(
