@@ -46,9 +46,9 @@ private[cli] final case class CliEndpoint(
         }
       } + "-" + url.filter(
         _ match {
-          case _: URLOptions.PathConstant  => false
-          case _: URLOptions.QueryConstant => false
-          case _                           => true
+          case _: HttpOptions.PathConstant  => true
+          case _: HttpOptions.QueryConstant => true
+          case _                           => false
         }
       ).map(_.name).mkString("-")
     } else {
