@@ -1,15 +1,17 @@
 package zio.http.endpoint.cli
 
-import scala.util.Try
-import scala.language.implicitConversions
-
-import zio.http.codec._
-import zio.http._
-import zio.schema._
-import zio.json.ast._
 import java.nio.file.Path
-import zio.http.FormField
+
+import scala.language.implicitConversions
+import scala.util.Try
+
 import zio.cli._
+import zio.json.ast._
+
+import zio.schema._
+
+import zio.http._
+import zio.http.codec._
 
 /*
  * HttpOptions is a wrapper of a transformation Options[CliRequest] => Options[CliRequest].
@@ -35,7 +37,12 @@ private[cli] object HttpOptions {
    * It is possible to specify a body writing directly on the terminal, from a file or the body of the response from another Request.
    * TODO implementation for getting body from URL.
    */
-  final case class Body[A](override val name: String, mediaType: Option[MediaType], schema: Schema[A], doc: Doc = Doc.empty) extends HttpOptions {
+  final case class Body[A](
+    override val name: String,
+    mediaType: Option[MediaType],
+    schema: Schema[A],
+    doc: Doc = Doc.empty,
+  ) extends HttpOptions {
     self =>
 
     lazy val options: Options[Retriever] = {
@@ -165,7 +172,8 @@ private[cli] object HttpOptions {
   sealed trait HeaderOptions extends HttpOptions {
     override def ??(doc: Doc): HeaderOptions
   }
-  final case class Header(override val name: String, textCodec: TextCodec[_], doc: Doc = Doc.empty) extends HeaderOptions {
+  final case class Header(override val name: String, textCodec: TextCodec[_], doc: Doc = Doc.empty)
+      extends HeaderOptions {
     self =>
 
     lazy val options: Options[_] = optionsFromCodec(textCodec)(name)
@@ -180,7 +188,8 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class HeaderConstant(override val name: String, value: String, doc: Doc = Doc.empty) extends HeaderOptions {
+  final case class HeaderConstant(override val name: String, value: String, doc: Doc = Doc.empty)
+      extends HeaderOptions {
     self =>
 
     override def ??(doc: Doc): HeaderConstant = self.copy(doc = self.doc + doc)
@@ -195,7 +204,7 @@ private[cli] object HttpOptions {
    */
   sealed trait URLOptions extends HttpOptions {
     val tag: String
-    
+
     override def ??(doc: Doc): URLOptions
   }
 
@@ -247,8 +256,8 @@ private[cli] object HttpOptions {
   final case class QueryConstant(override val name: String, value: String, doc: Doc = Doc.empty) extends URLOptions {
     self =>
 
-    override val tag = "?" + name + "=" + value
-    override def ??(doc: Doc): QueryConstant = self.copy(doc = self.doc + doc)
+    override val tag                                                          = "?" + name + "=" + value
+    override def ??(doc: Doc): QueryConstant                                  = self.copy(doc = self.doc + doc)
     override def transform(request: Options[CliRequest]): Options[CliRequest] =
       request.map(_.addQueryParam(name, value))
 

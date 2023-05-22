@@ -11,7 +11,6 @@ import zio.http.codec._
 import zio.http.codec.internal._
 import zio.http.endpoint._
 
-
 /**
  * Represents the input or output of a Endpoint.
  */
@@ -29,41 +28,44 @@ private[cli] final case class CliEndpoint(
     CliEndpoint(
       self.body ++ that.body,
       self.headers ++ that.headers,
-      if(that.methods == Method.GET) self.methods else that.methods,
+      if (that.methods == Method.GET) self.methods else that.methods,
       self.url ++ that.url,
       self.doc + that.doc,
     )
 
   def ??(doc: Doc): CliEndpoint = self.copy(doc = doc)
 
-  def commandName(cliStyle: Boolean): String = 
-    if(cliStyle){
+  def commandName(cliStyle: Boolean): String =
+    if (cliStyle) {
       {
         methods match {
-          case Method.POST  => "create"
-          case Method.PUT   => "update"
-          case method       => method.name.toLowerCase
+          case Method.POST => "create"
+          case Method.PUT  => "update"
+          case method      => method.name.toLowerCase
         }
-      } + "-" + url.filter(
-        _ match {
-          case _: HttpOptions.PathConstant  => true
-          case _: HttpOptions.QueryConstant => true
-          case _                           => false
-        }
-      ).map(_.name).mkString("-")
+      } + "-" + url
+        .filter(
+          _ match {
+            case _: HttpOptions.PathConstant  => true
+            case _: HttpOptions.QueryConstant => true
+            case _                            => false
+          },
+        )
+        .map(_.name)
+        .mkString("-")
     } else {
       {
         methods match {
-          case Method.POST  => "create"
-          case Method.PUT   => "update"
-          case method       => method.name.toLowerCase
+          case Method.POST => "create"
+          case Method.PUT  => "update"
+          case method      => method.name.toLowerCase
         }
       } + " " + url.map(_.tag).fold("")(_ + _)
-  }
+    }
 
   lazy val getOptions: List[HttpOptions] = url ++ headers ++ body
 
-  def describeOptions(description: Doc) = 
+  def describeOptions(description: Doc) =
     self.copy(
       body = self.body.map(_ ?? description),
       headers = self.headers.map(_ ?? description),
@@ -76,53 +78,55 @@ private[cli] object CliEndpoint {
 
   def empty: CliEndpoint = CliEndpoint()
 
-
   /*
    * Extract the information of input or output of an Endpoint.
    */
-  def fromEndpoint[In, Err, Out, M <: EndpointMiddleware](endpoint: Endpoint[In, Err, Out, M], getInput: Boolean): CliEndpoint =
-    if(getInput) fromCodec(endpoint.input) ?? endpoint.doc
+  def fromEndpoint[In, Err, Out, M <: EndpointMiddleware](
+    endpoint: Endpoint[In, Err, Out, M],
+    getInput: Boolean,
+  ): CliEndpoint =
+    if (getInput) fromCodec(endpoint.input) ?? endpoint.doc
     else fromCodec(endpoint.output) ?? endpoint.doc
 
   def fromCodec[Input](input: HttpCodec[_, Input]): CliEndpoint = {
     input match {
-      case atom: HttpCodec.Atom[_, _]               => fromAtom(atom)
-      case HttpCodec.TransformOrFail(api, _, _)     => fromCodec(api)
-      case HttpCodec.WithDoc(in, doc)               => fromCodec(in) describeOptions doc
-      case HttpCodec.WithExamples(in, _)            => fromCodec(in)
-      case HttpCodec.Fallback(left, right)          => fromCodec(left) ++ fromCodec(right)
-      case HttpCodec.Combine(left, right, _)        => fromCodec(left) ++ fromCodec(right)
-      case _                                        => CliEndpoint.empty          
+      case atom: HttpCodec.Atom[_, _]           => fromAtom(atom)
+      case HttpCodec.TransformOrFail(api, _, _) => fromCodec(api)
+      case HttpCodec.WithDoc(in, doc)           => fromCodec(in) describeOptions doc
+      case HttpCodec.WithExamples(in, _)        => fromCodec(in)
+      case HttpCodec.Fallback(left, right)      => fromCodec(left) ++ fromCodec(right)
+      case HttpCodec.Combine(left, right, _)    => fromCodec(left) ++ fromCodec(right)
+      case _                                    => CliEndpoint.empty
     }
   }
 
   private def fromAtom[Input](input: HttpCodec.Atom[_, Input]): CliEndpoint = {
     input match {
-      case HttpCodec.Content(schema, mediaType, nameOption, _)       => {
+      case HttpCodec.Content(schema, mediaType, nameOption, _) => {
         val name = nameOption match {
           case Some(x) => x
-          case None => ""
-        }
-        CliEndpoint(body = HttpOptions.Body(name, mediaType, schema) :: List())
-      }
-        
-      case HttpCodec.ContentStream(schema, mediaType, nameOption, _) => {
-        val name = nameOption match {
-          case Some(x) => x
-          case None => ""
+          case None    => ""
         }
         CliEndpoint(body = HttpOptions.Body(name, mediaType, schema) :: List())
       }
 
-      case HttpCodec.Header(name, textCodec, _)     =>
-        CliEndpoint(headers = HttpOptions.Header(name, textCodec) :: List())
-      case HttpCodec.Method(codec, _)               =>
-        codec.asInstanceOf[SimpleCodec[_, _]] match {
-          case SimpleCodec.Specified(method: Method)  =>
-            CliEndpoint(methods = method)
-          case _                                      => CliEndpoint.empty
+      case HttpCodec.ContentStream(schema, mediaType, nameOption, _) => {
+        val name = nameOption match {
+          case Some(x) => x
+          case None    => ""
         }
-      
+        CliEndpoint(body = HttpOptions.Body(name, mediaType, schema) :: List())
+      }
+
+      case HttpCodec.Header(name, textCodec, _) =>
+        CliEndpoint(headers = HttpOptions.Header(name, textCodec) :: List())
+      case HttpCodec.Method(codec, _)           =>
+        codec.asInstanceOf[SimpleCodec[_, _]] match {
+          case SimpleCodec.Specified(method: Method) =>
+            CliEndpoint(methods = method)
+          case _                                     => CliEndpoint.empty
+        }
+
       case HttpCodec.Path(textCodec, Some(name), _) =>
         CliEndpoint(url = HttpOptions.Path(name, textCodec) :: List())
       case HttpCodec.Path(textCodec, None, _)       =>
@@ -131,11 +135,11 @@ private[cli] object CliEndpoint {
             CliEndpoint(url = HttpOptions.PathConstant(string) :: List())
           case _                          => CliEndpoint.empty
         }
-      
-      case HttpCodec.Query(name, textCodec, _)      =>
+
+      case HttpCodec.Query(name, textCodec, _) =>
         CliEndpoint(url = HttpOptions.Query(name, textCodec) :: List())
-        
-      case HttpCodec.Status(_, _)                   => CliEndpoint.empty
+
+      case HttpCodec.Status(_, _) => CliEndpoint.empty
 
     }
   }

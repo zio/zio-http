@@ -1,7 +1,6 @@
 package zio.http.endpoint.cli
 
 import zio._
-import zio.ZIOAppDefault
 import zio.cli._
 import zio.cli.figlet.FigFont
 
@@ -36,7 +35,8 @@ object HttpCliApp {
    * @param figFont
    *   FigFont to use for man pages of the generated CLI
    * @param cliStyle
-   *   Style of commands of the generated CLI: true for CLI idiomatic interface, false for HTTP-like interface
+   *   Style of commands of the generated CLI: true for CLI idiomatic interface,
+   *   false for HTTP-like interface
    * @return
    *   a [[HttpCliApp]]
    */
@@ -50,7 +50,7 @@ object HttpCliApp {
     footer: HelpDoc = HelpDoc.Empty,
     config: CliConfig = CliConfig.default,
     figFont: FigFont = FigFont.Default,
-    cliStyle: Boolean = true 
+    cliStyle: Boolean = true,
   ): HttpCliApp[Any, Throwable, CliRequest] = {
     HttpCliApp {
       CliApp.make(
@@ -61,28 +61,26 @@ object HttpCliApp {
         config = config,
         figFont = figFont,
         command = HttpCommand.fromEndpoints(name, endpoints, cliStyle),
-      ) { 
-        case req @ CliRequest(_, _, _, _, mustPrint, mustSave) =>
-          for {
-            request <- req.toRequest(host, port)
-            response <- Client
-              .request(request)
-              .provide(Client.default)
-            _        <- Console.printLine(s"Got response")
-            _        <- Console.printLine(s"Status: ${response.status}")
-            _        <- ZIO.when(mustPrint)(printResponse(response))
-            _        <- ZIO.when(mustSave)(saveResponse(response))
-          } yield ()
+      ) { case req @ CliRequest(_, _, _, _, mustPrint, mustSave) =>
+        for {
+          request  <- req.toRequest(host, port)
+          response <- Client
+            .request(request)
+            .provide(Client.default)
+          _        <- Console.printLine(s"Got response")
+          _        <- Console.printLine(s"Status: ${response.status}")
+          _        <- ZIO.when(mustPrint)(printResponse(response))
+          _        <- ZIO.when(mustSave)(saveResponse(response))
+        } yield ()
       }
     }
   }
 
   private def printResponse(response: Response): Task[Unit] = for {
-    body     <- response.body.asString
-    _        <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
+    body <- response.body.asString
+    _    <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
   } yield ()
 
   private def saveResponse(response: Response): Task[Unit] = ???
-
 
 }

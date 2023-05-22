@@ -1,23 +1,22 @@
 package zio.http.endpoint.cli
 
-import zio._
-import zio.json.ast._
+import java.io.{File, IOException}
+import java.nio.channels.FileChannel
 import java.nio.file.Path
 
-import zio.http._
+import scala.io.Source
+
+import zio._
 import zio.cli._
-import java.nio.channels.FileChannel
+import zio.json.ast._
 
 import zio.stream.{ZSink, ZStream}
 
-import java.io.File
-import scala.io.Source
-import java.io.IOException
-
+import zio.http._
 
 /**
- * Represents a Request. The body parameter allows implementation of multipart form data and the retrieval of a body
- * from a file or an URL.
+ * Represents a Request. The body parameter allows implementation of multipart
+ * form data and the retrieval of a body from a file or an URL.
  */
 
 private[cli] final case class CliRequest(
@@ -26,7 +25,7 @@ private[cli] final case class CliRequest(
   method: Method,
   url: URL,
   outputResponse: Boolean = true,
-  saveResponse: Boolean = false
+  saveResponse: Boolean = false,
 ) { self =>
 
   def addBody(value: Retriever) =
@@ -34,7 +33,6 @@ private[cli] final case class CliRequest(
 
   def addHeader(name: String, value: String): CliRequest =
     self.copy(headers = self.headers.addHeader(name, value))
-    
 
   def addPathParam(value: String) =
     self.copy(url = self.url.copy(path = self.url.path / value))
@@ -50,15 +48,15 @@ private[cli] final case class CliRequest(
    */
   def toRequest(host: String, port: Int): Task[Request] = for {
     formFields <- ZIO.foreach(body)(_.retrieve())
-    finalBody <- Body.fromMultipartFormUUID(Form(formFields))
+    finalBody  <- Body.fromMultipartFormUUID(Form(formFields))
   } yield Request
-      .default(
-        method,
-        url.withHost(host).withPort(port),
-        finalBody,
-        )
-      .setHeaders(headers)
-  
+    .default(
+      method,
+      url.withHost(host).withPort(port),
+      finalBody,
+    )
+    .setHeaders(headers)
+
 }
 
 private[cli] object CliRequest {
