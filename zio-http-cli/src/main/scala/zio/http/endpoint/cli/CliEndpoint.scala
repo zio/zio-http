@@ -34,7 +34,7 @@ private[cli] final case class CliEndpoint(
       self.doc + that.doc,
     )
 
-  def ??(doc: Doc): CliEndpoint = self.copy(doc = self.doc + doc)
+  def ??(doc: Doc): CliEndpoint = self.copy(doc = doc)
 
   def commandName(cliStyle: Boolean): String = 
     if(cliStyle){
@@ -44,7 +44,13 @@ private[cli] final case class CliEndpoint(
           case Method.PUT   => "update"
           case method       => method.name.toLowerCase
         }
-      } + "-" + url.map(_.name).mkString("-")
+      } + "-" + url.filter(
+        _ match {
+          case _: URLOptions.PathConstant  => false
+          case _: URLOptions.QueryConstant => false
+          case _                           => true
+        }
+      ).map(_.name).mkString("-")
     } else {
       {
         methods match {
@@ -57,7 +63,12 @@ private[cli] final case class CliEndpoint(
 
   lazy val getOptions: List[HttpOptions] = url ++ headers ++ body
 
-  def describeOptions(description: Doc) = self.copy(doc = doc + description)
+  def describeOptions(description: Doc) = 
+    self.copy(
+      body = self.body.map(_ ?? description),
+      headers = self.headers.map(_ ?? description),
+      url = self.url.map(_ ?? description),
+    )
 
 }
 

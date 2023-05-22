@@ -25,7 +25,11 @@ private[cli] sealed trait HttpOptions {
 
   val name: String
 
+  val doc: Doc = Doc.empty
+
   def transform(request: Options[CliRequest]): Options[CliRequest]
+
+  def ??(doc: Doc): HttpOptions = self.copy(doc = self.doc + doc)
 
 }
 
