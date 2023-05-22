@@ -18,7 +18,7 @@ package zio.http
 
 import zio._
 import zio.test.TestAspect._
-import zio.test.{Gen, Spec, TestEnvironment, assertTrue, check}
+import zio.test._
 
 import zio.stream.{ZStream, ZStreamAspect}
 
@@ -186,7 +186,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             )
           }
         } yield result
-      } @@ timeout(5.minutes) @@ samples(50) @@ flaky,
+      } @@ timeout(5.minutes) @@ samples(50) @@ TestAspect.ifEnvNotSet("CI"), // NOTE: random hangs on CI
       test("decoding random pre-encoded form") {
         for {
           port   <- server(streamingServer)
@@ -219,7 +219,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             )
           }
         } yield result
-      } @@ timeout(5.minutes) @@ samples(50) @@ flaky,
+      } @@ timeout(5.minutes) @@ samples(50) @@ TestAspect.ifEnvNotSet("CI"), // NOTE: random hangs on CI
       test("decoding large form with random chunk and buffer sizes") {
         val N = 1024 * 1024
         for {
@@ -254,7 +254,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
           }
         } yield result
-      } @@ samples(20) @@ timeout(5.minutes) @@ flaky,
+      } @@ samples(20) @@ timeout(5.minutes) @@ TestAspect.ifEnvNotSet("CI"), // NOTE: random hangs on CI
     )
 
   private def streamingOnlyTests =
