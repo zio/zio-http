@@ -1,6 +1,7 @@
 package zio.http.endpoint.cli
 
 import scala.util.Try
+import scala.language.implicitConversions
 
 import zio.cli.Options
 
@@ -22,6 +23,8 @@ import zio.cli._
 
 private[cli] sealed trait HttpOptions {
 
+  val name: String
+
   def transform(request: Options[CliRequest]): Options[CliRequest]
 
 }
@@ -34,38 +37,27 @@ private[cli] object HttpOptions {
    * It is possible to specify a body writing directly on the terminal, from a file or the body of the response from another Request.
    * TODO implementation for getting body from URL.
    */
-  final case class Body[A](name: String, mediaType: Option[MediaType], schema: Schema[A]) extends HttpOptions {
+  final case class Body[A](override val name: String, mediaType: Option[MediaType], schema: Schema[A]) extends HttpOptions {
 
     
-    lazy val options: Options[Either[Either[java.nio.file.Path, String], Json]] = {
+    lazy val options: Options[Retriever] = {
       val written: Options[Json] = fromSchema(schema)
       val fromFile = Options.file("f:"+name)
       val fromUrl = Options.text("url:"+name)
 
-      fromFile orElseEither fromUrl orElseEither written
-      
+      val retriever = fromFile orElseEither fromUrl orElseEither written
+      retriever.map {
+        _ match {
+          case Left(Left(file)) => Retriever.File(name, file, mediaType)
+          case Left(Right(url)) => Retriever.URL(url)
+          case Right(json)   => Retriever.Content(FormField.textField(name, json.toString()))
+        }
+      }
     }
 
     override def transform(request: Options[CliRequest]): Options[CliRequest] = 
       (request ++ options).map {
-        case (cliRequest, value) => {
-          val formField: Either[Either[(String, java.nio.file.Path, MediaType), String], FormField] = 
-            value match {
-              case Left(Left(file)) => mediaType match {
-                case Some(mediaType) => Left(Left((name, file, mediaType)))
-                case None => Right(FormField.simpleField("foo", "foo"))
-              }
-              case Left(Right(url)) => Left(Right(url))
-              case Right(a) => Right(FormField.textField(name, a.toString()))
-            }
-            value match {
-              case Left(Left(file)) => mediaType match {
-                case Some(mediaType) => cliRequest.addBody(formField)
-                case None => cliRequest
-              }
-              case _ => cliRequest.addBody(formField)
-            }
-        }
+        case (cliRequest, retriever) => cliRequest.addBody(retriever)
       }
 
   
@@ -177,7 +169,7 @@ private[cli] object HttpOptions {
    * Subclasses for headers
    */
   sealed trait HeaderOptions extends HttpOptions
-  final case class Header(name: String, textCodec: TextCodec[_]) extends HeaderOptions {
+  final case class Header(override val name: String, textCodec: TextCodec[_]) extends HeaderOptions {
 
     lazy val options: Options[_] = optionsFromCodec(textCodec)(name)
     
@@ -191,7 +183,7 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class HeaderConstant(name: String, value: String) extends HeaderOptions {
+  final case class HeaderConstant(override val name: String, value: String) extends HeaderOptions {
 
     override def transform(request: Options[CliRequest]): Options[CliRequest] = 
       request.map(_.addHeader(name, value))
@@ -205,7 +197,7 @@ private[cli] object HttpOptions {
     val tag: String
   }
 
-  final case class Path(name: String, textCodec: TextCodec[_]) extends URLOptions {
+  final case class Path(override val name: String, textCodec: TextCodec[_]) extends URLOptions {
 
     lazy val options: Options[_] = optionsFromCodec(textCodec)(name)
 
@@ -214,21 +206,21 @@ private[cli] object HttpOptions {
     override def transform(request: Options[CliRequest]): Options[CliRequest] = 
       (request ++ options).map {
         case (cliRequest, value) =>
-          if(true) cliRequest.addPathParam(name)
+          if(true) cliRequest.addPathParam(value.toString())
           else cliRequest
       }
 
   }
 
-  final case class PathConstant(name: String) extends URLOptions {
-    override val tag = "/"+name
+  final case class PathConstant(override val name: String) extends URLOptions {
+    override val tag = "/" + name
     override def transform(request: Options[CliRequest]): Options[CliRequest] = 
       request.map(_.addPathParam(name))
 
   }
 
-  final case class Query(name: String, textCodec: TextCodec[_]) extends URLOptions {
-    override val tag = "?"+name
+  final case class Query(override val name: String, textCodec: TextCodec[_]) extends URLOptions {
+    override val tag = "?" + name
     lazy val options: Options[_] = optionsFromCodec(textCodec)(name)
   
     override def transform(request: Options[CliRequest]): Options[CliRequest] = 
@@ -240,7 +232,7 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class QueryConstant(name: String, value: String) extends URLOptions {
+  final case class QueryConstant(override val name: String, value: String) extends URLOptions {
     override val tag = "?"+name+"="+value
     override def transform(request: Options[CliRequest]): Options[CliRequest] = 
       request.map(_.addQueryParam(name, value))

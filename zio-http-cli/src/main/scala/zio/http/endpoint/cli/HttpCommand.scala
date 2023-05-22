@@ -15,7 +15,7 @@ object HttpCommand {
     /*
      * Transforms an Endpoint in its corresponding Command[CliRequest].
      */
-    def getCommand[M <: EndpointMiddleware](endpoint: Endpoint[_, _, _, M]): Command[CliRequest] = {
+    def getCommand[M <: EndpointMiddleware](endpoint: Endpoint[_, _, _, M], cliStyle: Boolean): Command[CliRequest] = {
         val cliEndpoint = CliEndpoint.fromEndpoint(endpoint, true)
 
         val doc = cliEndpoint.doc.toPlaintext()
@@ -34,7 +34,7 @@ object HttpCommand {
 
         val cliRequest: Options[CliRequest] = addOptionsTo(cliEndpoint.getOptions).map(_.withMethod(cliEndpoint.methods))
 
-        val subcommands: Command[CliRequest] = Command(cliEndpoint.commandName, cliRequest).withHelp(doc)
+        val subcommands: Command[CliRequest] = Command(cliEndpoint.commandName(cliStyle), cliRequest).withHelp(doc)
 
         subcommands     
     } 
@@ -42,9 +42,9 @@ object HttpCommand {
     /*
      * Transforms a chunk of Endpoints in a Command to use directly in the CliApp.
      */
-    def fromEndpoints[M <: EndpointMiddleware](name: String, endpoints: Chunk[Endpoint[_, _, _, M]]): Command[CliRequest] = {
+    def fromEndpoints[M <: EndpointMiddleware](name: String, endpoints: Chunk[Endpoint[_, _, _, M]], cliStyle: Boolean): Command[CliRequest] = {
 
-        val subcommands = endpoints.map(getCommand(_)).reduceOption(_ orElse _)
+        val subcommands = endpoints.map(getCommand(_, cliStyle)).reduceOption(_ orElse _)
 
         subcommands match {
                 case Some(subcommands) => Command(name).subcommands(subcommands)

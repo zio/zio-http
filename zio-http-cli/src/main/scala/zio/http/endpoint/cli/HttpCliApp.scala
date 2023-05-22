@@ -35,6 +35,8 @@ object HttpCliApp {
    *   Configuration of the generated CLI
    * @param figFont
    *   FigFont to use for man pages of the generated CLI
+   * @param cliStyle
+   *   Style of commands of the generated CLI: true for CLI idiomatic interface, false for HTTP-like interface
    * @return
    *   a [[HttpCliApp]]
    */
@@ -48,6 +50,7 @@ object HttpCliApp {
     footer: HelpDoc = HelpDoc.Empty,
     config: CliConfig = CliConfig.default,
     figFont: FigFont = FigFont.Default,
+    cliStyle: Boolean = true 
   ): HttpCliApp[Any, Throwable, CliRequest] = {
     HttpCliApp {
       CliApp.make(
@@ -57,7 +60,7 @@ object HttpCliApp {
         footer = footer,
         config = config,
         figFont = figFont,
-        command = HttpCommand.fromEndpoints(name, endpoints),
+        command = HttpCommand.fromEndpoints(name, endpoints, cliStyle),
       ) { 
         case req @ CliRequest(_, _, _, _, mustPrint, mustSave) =>
           for {

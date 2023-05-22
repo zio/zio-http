@@ -31,17 +31,28 @@ private[cli] final case class CliEndpoint(
       self.headers ++ that.headers,
       if(that.methods == Method.GET) self.methods else that.methods,
       self.url ++ that.url,
-      self.doc + that.doc, // TODO add doc
+      self.doc + that.doc,
     )
 
-  def ??(doc: Doc): CliEndpoint = self.copy(doc = doc)
+  def ??(doc: Doc): CliEndpoint = self.copy(doc = self.doc + doc)
 
-  lazy val commandName: String = {
-    {methods match {
-        case Method.POST  => "create"
-        case Method.PUT   => "update"
-        case method       => method.name.toLowerCase
-      }} + " " + url.map(_.tag).fold("")(_ + _)
+  def commandName(cliStyle: Boolean): String = 
+    if(cliStyle){
+      {
+        methods match {
+          case Method.POST  => "create"
+          case Method.PUT   => "update"
+          case method       => method.name.toLowerCase
+        }
+      } + "-" + url.map(_.name).mkString("-")
+    } else {
+      {
+        methods match {
+          case Method.POST  => "create"
+          case Method.PUT   => "update"
+          case method       => method.name.toLowerCase
+        }
+      } + " " + url.map(_.tag).fold("")(_ + _)
   }
 
   lazy val getOptions: List[HttpOptions] = url ++ headers ++ body
@@ -59,17 +70,17 @@ private[cli] object CliEndpoint {
    * Extract the information of input or output of an Endpoint.
    */
   def fromEndpoint[In, Err, Out, M <: EndpointMiddleware](endpoint: Endpoint[In, Err, Out, M], getInput: Boolean): CliEndpoint =
-    if(getInput) fromInput(endpoint.input) ?? endpoint.doc
-    else fromInput(endpoint.output) ?? endpoint.doc
+    if(getInput) fromCodec(endpoint.input) ?? endpoint.doc
+    else fromCodec(endpoint.output) ?? endpoint.doc
 
-  def fromInput[Input](input: HttpCodec[_, Input]): CliEndpoint = {
+  def fromCodec[Input](input: HttpCodec[_, Input]): CliEndpoint = {
     input match {
       case atom: HttpCodec.Atom[_, _]               => fromAtom(atom)
-      case HttpCodec.TransformOrFail(api, _, _)     => fromInput(api)
-      case HttpCodec.WithDoc(in, doc)               => fromInput(in) describeOptions doc
-      case HttpCodec.WithExamples(in, _)            => fromInput(in)
-      case HttpCodec.Fallback(left, right)          => fromInput(left) ++ fromInput(right)
-      case HttpCodec.Combine(left, right, _)        => fromInput(left) ++ fromInput(right)
+      case HttpCodec.TransformOrFail(api, _, _)     => fromCodec(api)
+      case HttpCodec.WithDoc(in, doc)               => fromCodec(in) describeOptions doc
+      case HttpCodec.WithExamples(in, _)            => fromCodec(in)
+      case HttpCodec.Fallback(left, right)          => fromCodec(left) ++ fromCodec(right)
+      case HttpCodec.Combine(left, right, _)        => fromCodec(left) ++ fromCodec(right)
       case _                                        => CliEndpoint.empty          
     }
   }

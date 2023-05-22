@@ -21,7 +21,7 @@ import java.io.IOException
  */
 
 private[cli] final case class CliRequest(
-  body: Chunk[Either[Either[(String, Path, MediaType), String], FormField]],
+  body: Chunk[Retriever],
   headers: Headers,
   method: Method,
   url: URL,
@@ -29,7 +29,7 @@ private[cli] final case class CliRequest(
   saveResponse: Boolean = false
 ) { self =>
 
-  def addBody(value: Either[Either[(String, Path, MediaType), String], FormField]) =
+  def addBody(value: Retriever) =
     self.copy(body = self.body ++ Chunk(value))
 
   def addHeader(name: String, value: String): CliRequest =
@@ -49,13 +49,7 @@ private[cli] final case class CliRequest(
    * Retrieves data from files, urls or command options and construct a HTTP Request.
    */
   def toRequest(host: String, port: Int): Task[Request] = for {
-    formFields <- ZIO.foreach(body)( _ match {
-        case Left(Left((name, file, mediaType))) => for {
-          chunk <- Body.fromFile(new File(file.toUri())).asChunk
-        } yield FormField.binaryField(name, chunk, mediaType)
-        case Left(Right(url)) => ??? // TODO
-        case Right(formField) => ZIO.succeed(formField)
-      })
+    formFields <- ZIO.foreach(body)(_.retrieve())
     finalBody <- Body.fromMultipartFormUUID(Form(formFields))
   } yield Request
       .default(
