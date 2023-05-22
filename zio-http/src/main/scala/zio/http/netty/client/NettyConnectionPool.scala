@@ -167,23 +167,6 @@ object NettyConnectionPool {
   }
 
   /**
-   * Execute Happy Eyeballs, but release the extra tasks that succeed after the
-   * first one.
-   */
-  private def happyEyeballsWithRelease[A](tasks: List[Task[A]], delay: Duration, releaseExtra: A => UIO[Unit]) = for {
-    successful <- Queue.bounded[A](tasks.size)
-    enqueueingTasks = tasks.map {
-      _.onExit {
-        case Exit.Success(value) => successful.offer(value)
-        case Exit.Failure(_)     => ZIO.unit
-      }
-    }
-    result <- executeHappyEyeballs(enqueueingTasks, delay)
-    successes <- successful.takeAll
-    _         <- ZIO.foreachDiscard(successes.tail)(releaseExtra)
-  } yield result
-
-  /**
    * Attempt to execute the tasks according to Happy Eyeballs Version 2 RFC.
    *
    * Tasks are not started simultaneously, rather they are started in sequence.
@@ -199,20 +182,32 @@ object NettyConnectionPool {
   private def executeHappyEyeballs[A](tasks: List[Task[A]], delay: Duration): Task[A] =
     tasks match {
       // What should this error be?
-      case Nil                => ZIO.fail(new Exception("No tasks left."))
+      case Nil                => ZIO.fail(new IllegalStateException("No tasks left."))
       case task :: Nil        => task
       case task :: otherTasks =>
-        Queue.bounded[Unit](1).flatMap { taskFailedSignal =>
-          val taskWithSignalOnFailed = task.onError(_ => taskFailedSignal.offer(()))
-          val sleepOrFailed          = ZIO.sleep(delay).race(taskFailedSignal.take)
-          val restOfTasks            = sleepOrFailed *> executeHappyEyeballs(otherTasks, delay)
-
-          // Tests succeed with this.
-          // taskWithSignalOnFailed
-          // Tests timeout with recursive race call.
-          taskWithSignalOnFailed.race(restOfTasks)
+        Promise.make[Nothing, Unit].flatMap { failurePromise =>
+          val taskWithFailure = task.onError(_ => failurePromise.complete(ZIO.unit).ignore)
+          val continue        = failurePromise.await.timeout(delay).ignore *> executeHappyEyeballs(otherTasks, delay)
+          taskWithFailure.race(continue)
         }
     }
+
+  /**
+   * Execute Happy Eyeballs, but release the extra tasks that succeed after the
+   * first one.
+   */
+  private def happyEyeballsWithRelease[A](tasks: List[Task[A]], delay: Duration, releaseExtra: A => UIO[Unit]) = for {
+    successful <- Queue.bounded[A](tasks.size)
+    enqueueingTasks = tasks.map {
+      _.onExit {
+        case Exit.Success(value) => successful.offer(value)
+        case Exit.Failure(_)     => ZIO.unit
+      }
+    }
+    result <- executeHappyEyeballs(enqueueingTasks, delay)
+    successes <- successful.takeAll
+    _         <- ZIO.foreachDiscard(successes.tail)(releaseExtra)
+  } yield result
 
   private final class NoNettyConnectionPool(
     channelFactory: JChannelFactory[JChannel],
