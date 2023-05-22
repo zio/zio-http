@@ -221,7 +221,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
             } yield Some(AuthContext(value.toString)),
           )
 
-        def httpEndpoint(str: String) = Http.collect[Request] { case Method.GET -> Root / str =>
+        def httpEndpoint(str: String) = Http.collect[Request] { case Method.GET -> Root / `str` =>
           Response.ok
         }
 

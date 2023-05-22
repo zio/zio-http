@@ -22,7 +22,7 @@ import zio.test.TestAspect.{diagnose, nonFlaky, timeout, withLiveClock}
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
-import zio.http.ChannelEvent.{Read, Unregistered, UserEventTriggered}
+import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 
 object WebSocketSpec extends HttpRunnableSpec {
@@ -157,6 +157,53 @@ object WebSocketSpec extends HttpRunnableSpec {
           }
         }
       } yield res
+    },
+    test("Client connection is interruptible") {
+      for {
+        url <- DynamicServer.httpURL
+        id  <- DynamicServer.deploy {
+          Handler.webSocket { channel =>
+            ZIO.debug("receiveAll") *>
+              channel.receiveAll { evt =>
+                println(evt)
+                evt match {
+                  case ChannelEvent.UserEventTriggered(UserEvent.HandshakeComplete) =>
+                    ZIO.debug("registered") *>
+                      ZIO
+                        .foreachDiscard(1 to 100) { idx =>
+                          ZIO.debug(s"sending $idx") *>
+                            channel.send(Read(WebSocketFrame.text(idx.toString))) *> ZIO.sleep(100.millis)
+                        }
+                        .forkScoped
+                  case _                                                            => ZIO.unit
+                }
+              }
+          }.toHttpApp
+        }
+
+        queue1 <- Queue.unbounded[String]
+        queue2 <- Queue.unbounded[String]
+        _      <- ZIO.scoped {
+          Handler.webSocket { channel =>
+            channel.receiveAll {
+              case Read(WebSocketFrame.Text(s)) =>
+                println(s"read $s")
+                queue1.offer(s)
+              case _                            =>
+                ZIO.unit
+            }.onInterrupt(ZIO.debug("ws interrupted"))
+          }.connect(url, Headers(DynamicServer.APP_ID, id)) *>
+            queue1.take
+              .tap(s =>
+                ZIO.debug(s"got $s") *>
+                  queue2.offer(s),
+              )
+              .repeatUntil(_ == "5")
+              .timeout(1.second)
+              .debug
+        }
+        result <- queue2.takeAll
+      } yield assertTrue(result == Chunk("1", "2", "3", "4", "5"))
     },
   )
 

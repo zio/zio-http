@@ -40,8 +40,11 @@ private[codec] object EncoderDecoder                   {
   def apply[AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value]): EncoderDecoder[AtomTypes, Value] = {
     val flattened = httpCodec.alternatives
 
-    if (flattened.length == 1) Single(flattened.head)
-    else Multiple(flattened)
+    flattened.length match {
+      case 0 => Undefined()
+      case 1 => Single(flattened.head)
+      case _ => Multiple(flattened)
+    }
   }
 
   private final case class Multiple[-AtomTypes, Value](httpCodecs: Chunk[HttpCodec[AtomTypes, Value]])
@@ -94,6 +97,37 @@ private[codec] object EncoderDecoder                   {
 
       if (encoded == null) throw lastError
       else encoded
+    }
+  }
+
+  private final case class Undefined[-AtomTypes, Value]() extends EncoderDecoder[AtomTypes, Value] {
+
+    val encodeWithErrorMessage =
+      """
+        |Trying to encode with Undefined codec. That means that encode was invoked for object of type Nothing - which cannot exist.
+        |Verify that middleware and endpoint have proper types or submit bug report at https://github.com/zio/zio-http/issues
+    """.stripMargin.trim()
+
+    val decodeErrorMessage =
+      """
+        |Trying to decode with Undefined codec. That means that encode was invoked for object of type Nothing - which cannot exist.
+        |Verify that middleware and endpoint have proper types or submit bug report at https://github.com/zio/zio-http/issues
+    """.stripMargin.trim()
+
+    override def encodeWith[Z](
+      value: Value,
+    )(f: (zio.http.URL, Option[zio.http.Status], Option[zio.http.Method], zio.http.Headers, zio.http.Body) => Z): Z = {
+      throw new IllegalStateException(encodeWithErrorMessage)
+    }
+
+    override def decode(
+      url: zio.http.URL,
+      status: zio.http.Status,
+      method: zio.http.Method,
+      headers: zio.http.Headers,
+      body: zio.http.Body,
+    )(implicit trace: zio.Trace): zio.Task[Value] = {
+      ZIO.fail(new IllegalStateException(decodeErrorMessage))
     }
   }
 
