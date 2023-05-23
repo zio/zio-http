@@ -42,7 +42,7 @@ object DynamicAppTest extends ZIOSpecDefault {
       ZLayer.succeed(ZClient.Config.default),
       NettyClientDriver.live,
       Client.customized,
-      ZLayer.succeed(Server.Config.default),
+      ZLayer.succeed(Server.Config.default.onAnyOpenPort),
       Server.live,
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.default),

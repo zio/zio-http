@@ -30,9 +30,8 @@ object NettyBodySpec extends ZIOSpecDefault {
     suite("NettyBody")(
       suite("fromAsync")(
         test("success") {
-          val ctx     = new EmbeddedChannel()
           val message = Chunk.fromArray("Hello World".getBytes(Charsets.Http))
-          val chunk   = NettyBody.fromAsync(async => async(ctx, message, isLast = true)).asChunk
+          val chunk   = NettyBody.fromAsync(async => async(message, isLast = true)).asChunk
           assertZIO(chunk)(equalTo(message))
         },
         test("fail") {

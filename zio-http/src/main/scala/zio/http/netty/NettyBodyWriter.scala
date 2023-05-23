@@ -21,7 +21,7 @@ import zio._
 
 import zio.http.Body
 import zio.http.Body._
-import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, ByteBufBody}
+import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, ByteBufBody, UnsafeAsync}
 
 import io.netty.buffer.Unpooled
 import io.netty.channel._
@@ -48,14 +48,21 @@ object NettyBodyWriter {
         }
       case AsyncBody(async, _, _)             =>
         ZIO.attempt {
-          async { (_, msg, isLast) =>
-            val nettyMsg = msg match {
-              case b: ByteArray => Unpooled.wrappedBuffer(b.array)
-              case other        => throw new IllegalStateException(s"Unsupported async msg type: ${other.getClass}")
-            }
-            ctx.writeAndFlush(nettyMsg)
-            if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-          }
+          async(
+            new UnsafeAsync {
+              override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+                val nettyMsg = message match {
+                  case b: ByteArray => Unpooled.wrappedBuffer(b.array)
+                  case other        => throw new IllegalStateException(s"Unsupported async msg type: ${other.getClass}")
+                }
+                ctx.writeAndFlush(nettyMsg)
+                if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+              }
+
+              override def fail(cause: Throwable): Unit =
+                ctx.fireExceptionCaught(cause)
+            },
+          )
           true
         }
       case AsciiStringBody(asciiString, _, _) =>

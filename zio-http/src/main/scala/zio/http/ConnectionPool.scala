@@ -18,7 +18,7 @@ package zio.http
 
 import java.net.InetSocketAddress
 
-import zio.{Scope, Trace, ZIO}
+import zio.{Duration, Scope, Trace, ZIO}
 
 trait ConnectionPool[Connection] {
 
@@ -28,6 +28,8 @@ trait ConnectionPool[Connection] {
     sslOptions: ClientSSLConfig,
     maxHeaderSize: Int,
     decompression: Decompression,
+    idleTimeout: Option[Duration],
+    connectionTimeout: Option[Duration],
     localAddress: Option[InetSocketAddress] = None,
   )(implicit trace: Trace): ZIO[Scope, Throwable, Connection]
 
