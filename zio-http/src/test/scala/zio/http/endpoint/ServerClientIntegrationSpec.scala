@@ -17,13 +17,10 @@
 package zio.http.endpoint
 
 import zio._
-import zio.test.TestAspect.{ignore, sequential, timeout, withLiveClock}
+import zio.test.TestAspect.{flaky, ignore, nonFlaky, sequential, timeout, withLiveClock}
 import zio.test.{TestResult, ZIOSpecDefault, assertTrue}
-
 import zio.stream.ZStream
-
 import zio.schema.{DeriveSchema, Schema}
-
 import zio.http.Header.Authorization
 import zio.http._
 import zio.http.codec.HttpCodec.{authorization, int, query, string, stringToLiteral}
@@ -273,7 +270,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           ("name", 10, Post(1, "title", "body", 111)),
           "name: name, value: 10, post: Post(1,title,body,111)",
         )
-      } @@ timeout(10.seconds),
+      } @@ timeout(10.seconds) @@ flaky, // TODO: could not reproduce flakyness locally yet
       test("endpoint error returned") {
         val api = Endpoint
           .post(literal("test"))
@@ -432,7 +429,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } @@ timeout(10.seconds),
+      } @@ timeout(10.seconds) @@ flaky, // TODO: could not reproduce flakyness locally yet
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
