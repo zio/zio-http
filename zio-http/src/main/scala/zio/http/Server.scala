@@ -56,6 +56,8 @@ object Server {
     maxHeaderSize: Int,
     logWarningOnFatalError: Boolean,
     gracefulShutdownTimeout: Duration,
+    webSocketConfig: WebSocketConfig,
+    idleTimeout: Option[Duration],
   ) {
     self =>
 
@@ -94,6 +96,8 @@ object Server {
 
     def gracefulShutdownTimeout(duration: Duration): Config = self.copy(gracefulShutdownTimeout = duration)
 
+    def idleTimeout(duration: Duration): Config = self.copy(idleTimeout = Some(duration))
+
     /**
      * Configure the server to use netty's HttpServerKeepAliveHandler to close
      * persistent connections when enable is true (@see <a
@@ -112,6 +116,8 @@ object Server {
      * headers.
      */
     def maxHeaderSize(headerSize: Int): Config = self.copy(maxHeaderSize = headerSize)
+
+    def noIdleTimeout: Config = self.copy(idleTimeout = None)
 
     /**
      * Configure the server to listen on an available open port
@@ -147,6 +153,9 @@ object Server {
     /** Enables or disables request body streaming */
     def withRequestStreaming(requestStreaming: RequestStreaming): Config =
       self.copy(requestStreaming = requestStreaming)
+
+    def withWebSocketConfig(webSocketConfig: WebSocketConfig): Config =
+      self.copy(webSocketConfig = webSocketConfig)
   }
 
   object Config {
@@ -161,7 +170,8 @@ object Server {
         RequestStreaming.config.nested("request-streaming").withDefault(Config.default.requestStreaming) ++
         zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
         zio.Config.boolean("log-warning-on-fatal-error").withDefault(Config.default.logWarningOnFatalError) ++
-        zio.Config.duration("graceful-shutdown-timeout").withDefault(Config.default.gracefulShutdownTimeout)
+        zio.Config.duration("graceful-shutdown-timeout").withDefault(Config.default.gracefulShutdownTimeout) ++
+        zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout)
     }.map {
       case (
             sslConfig,
@@ -175,8 +185,9 @@ object Server {
             maxHeaderSize,
             logWarningOnFatalError,
             gracefulShutdownTimeout,
+            idleTimeout,
           ) =>
-        Config(
+        default.copy(
           sslConfig = sslConfig,
           address = new InetSocketAddress(host.getOrElse(Config.default.address.getHostName), port),
           acceptContinue = acceptContinue,
@@ -187,6 +198,7 @@ object Server {
           maxHeaderSize = maxHeaderSize,
           logWarningOnFatalError = logWarningOnFatalError,
           gracefulShutdownTimeout = gracefulShutdownTimeout,
+          idleTimeout = idleTimeout,
         )
     }
 
@@ -201,6 +213,8 @@ object Server {
       maxHeaderSize = 8192,
       logWarningOnFatalError = true,
       gracefulShutdownTimeout = 10.seconds,
+      webSocketConfig = WebSocketConfig.default,
+      idleTimeout = None,
     )
 
     final case class ResponseCompressionConfig(

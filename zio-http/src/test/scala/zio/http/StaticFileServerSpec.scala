@@ -18,10 +18,10 @@ package zio.http
 
 import java.io.File
 
-import zio.test.Assertion.{equalTo, isSome}
-import zio.test.TestAspect.{timeout, withLiveClock}
+import zio._
+import zio.test.Assertion._
+import zio.test.TestAspect.{timeout, unix, withLiveClock}
 import zio.test.assertZIO
-import zio.{Scope, ZIO, durationInt}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 
@@ -72,6 +72,14 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
+      ),
+      suite("unreadable file")(
+        test("should respond with 500") {
+          val tmpFile = File.createTempFile("test", "txt")
+          tmpFile.setReadable(false)
+          val res     = Http.fromFile(tmpFile).deploy.run().map(_.status)
+          assertZIO(res)(equalTo(Status.InternalServerError))
+        } @@ unix,
       ),
       suite("invalid file")(
         test("should respond with 500") {

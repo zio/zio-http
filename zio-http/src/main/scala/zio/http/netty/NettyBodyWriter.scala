@@ -16,11 +16,12 @@
 
 package zio.http.netty
 
+import zio.Chunk.ByteArray
 import zio._
 
 import zio.http.Body
 import zio.http.Body._
-import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, ByteBufBody}
+import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, ByteBufBody, UnsafeAsync}
 
 import io.netty.buffer.Unpooled
 import io.netty.channel._
@@ -47,10 +48,21 @@ object NettyBodyWriter {
         }
       case AsyncBody(async, _, _)             =>
         ZIO.attempt {
-          async { (ctx, msg, isLast) =>
-            ctx.writeAndFlush(msg)
-            if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-          }
+          async(
+            new UnsafeAsync {
+              override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+                val nettyMsg = message match {
+                  case b: ByteArray => Unpooled.wrappedBuffer(b.array)
+                  case other        => throw new IllegalStateException(s"Unsupported async msg type: ${other.getClass}")
+                }
+                ctx.writeAndFlush(nettyMsg)
+                if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+              }
+
+              override def fail(cause: Throwable): Unit =
+                ctx.fireExceptionCaught(cause)
+            },
+          )
           true
         }
       case AsciiStringBody(asciiString, _, _) =>
@@ -59,16 +71,26 @@ object NettyBodyWriter {
           false
         }
       case StreamBody(stream, _, _)           =>
-        stream
-          .runForeachChunk(chunk =>
-            NettyFutureExecutor.executed {
-              ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(chunk.toArray)))
-            },
-          )
-          .zipRight {
-            NettyFutureExecutor.executed {
-              ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-            }.as(true)
+        stream.chunks
+          .runFoldZIO(Option.empty[Chunk[Byte]]) {
+            case (Some(previous), current) =>
+              NettyFutureExecutor.executed {
+                ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(previous.toArray)))
+              } *>
+                ZIO.succeed(Some(current))
+            case (_, current)              =>
+              ZIO.succeed(Some(current))
+          }
+          .flatMap { maybeLastChunk =>
+            // last chunk is handled separately to avoid fiber interrupt before EMPTY_LAST_CONTENT is sent
+            ZIO.attempt(
+              maybeLastChunk.foreach { lastChunk =>
+                ctx.write(new DefaultHttpContent(Unpooled.wrappedBuffer(lastChunk.toArray)))
+              },
+            ) *>
+              NettyFutureExecutor.executed {
+                ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+              }.as(true)
           }
       case ChunkBody(data, _, _)              =>
         ZIO.succeed {

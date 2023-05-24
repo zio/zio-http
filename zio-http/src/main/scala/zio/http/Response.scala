@@ -20,10 +20,11 @@ import scala.annotation.tailrec
 
 import zio._
 
+import zio.stream.ZStream
+
 import zio.http.Response._
 import zio.http.html.Html
 import zio.http.internal.HeaderOps
-import zio.http.socket._
 
 sealed trait Response extends HeaderOps[Response] { self =>
 
@@ -331,9 +332,9 @@ object Response {
    * Creates a new response for the provided socket
    */
   def fromSocket[R](
-    http: Handler[R, Throwable, ChannelEvent[WebSocketFrame, WebSocketFrame], Unit],
+    http: Handler[R, Throwable, WebSocketChannel, Any],
   )(implicit trace: Trace): ZIO[R, Nothing, Response] =
-    fromSocketApp(http.toSocketApp)
+    fromSocketApp(http)
 
   /**
    * Creates a new response for the provided socket app
@@ -405,7 +406,17 @@ object Response {
       Status.Ok,
     )
 
-  private lazy val contentTypeJson: Headers = Headers(Header.ContentType(MediaType.application.json).untyped)
-  private lazy val contentTypeHtml: Headers = Headers(Header.ContentType(MediaType.text.html).untyped)
-  private lazy val contentTypeText: Headers = Headers(Header.ContentType(MediaType.text.plain).untyped)
+  /**
+   * Creates a response with content-type set to text/event-stream
+   * @param data
+   *   \- stream of data to be sent as Server Sent Events
+   */
+  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
+    new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
+
+  private lazy val contentTypeJson: Headers        = Headers(Header.ContentType(MediaType.application.json).untyped)
+  private lazy val contentTypeHtml: Headers        = Headers(Header.ContentType(MediaType.text.html).untyped)
+  private lazy val contentTypeText: Headers        = Headers(Header.ContentType(MediaType.text.plain).untyped)
+  private lazy val contentTypeEventStream: Headers =
+    Headers(Header.ContentType(MediaType.text.`event-stream`).untyped)
 }

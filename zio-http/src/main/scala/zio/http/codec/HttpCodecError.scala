@@ -23,6 +23,7 @@ import zio.Cause
 import zio.http.{Path, Status}
 
 sealed trait HttpCodecError extends Exception with NoStackTrace {
+  override def getMessage(): String = message
   def message: String
 }
 object HttpCodecError {
@@ -50,7 +51,7 @@ object HttpCodecError {
   final case class MalformedQueryParam(queryParamName: String, textCodec: TextCodec[_]) extends HttpCodecError {
     def message = s"Malformed query parameter $queryParamName failed to decode using $textCodec"
   }
-  final case class MalformedBody(details: String)                                       extends HttpCodecError {
+  final case class MalformedBody(details: String, cause: Option[Throwable] = None)      extends HttpCodecError {
     def message = s"Malformed request body failed to decode: $details"
   }
   final case class CustomError(message: String)                                         extends HttpCodecError

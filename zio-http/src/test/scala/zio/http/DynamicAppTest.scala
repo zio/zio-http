@@ -26,13 +26,13 @@ import zio.http.netty.client.NettyClientDriver
 object DynamicAppTest extends ZIOSpecDefault {
 
   val httpApp1: App[Any] = Http
-    .collect[Request] { case Method.GET -> !! / "good" =>
+    .collect[Request] { case Method.GET -> Root / "good" =>
       Response.ok
     }
     .withDefaultErrorResponse
 
   val httpApp2: App[Any] = Http
-    .collect[Request] { case Method.GET -> !! / "better" =>
+    .collect[Request] { case Method.GET -> Root / "better" =>
       Response.status(Status.Created)
     }
     .withDefaultErrorResponse
@@ -42,7 +42,7 @@ object DynamicAppTest extends ZIOSpecDefault {
       ZLayer.succeed(ZClient.Config.default),
       NettyClientDriver.live,
       Client.customized,
-      ZLayer.succeed(Server.Config.default),
+      ZLayer.succeed(Server.Config.default.onAnyOpenPort),
       Server.live,
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.default),

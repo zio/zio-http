@@ -105,7 +105,7 @@ object TextCodec {
 
   case object BooleanCodec extends TextCodec[Boolean] {
     def apply(value: String): Boolean =
-      value match {
+      value.toLowerCase match {
         case "true" | "on" | "yes" | "1"  => true
         case "false" | "off" | "no" | "0" => false
         case _                            => throw new MatchError(value)
@@ -115,8 +115,11 @@ object TextCodec {
 
     def encode(value: Boolean): String = value.toString
 
-    def isDefinedAt(value: String): Boolean = value == "1" || value == "0" || value == "true" || value == "false" ||
-      value == "no" || value == "off" || value == "yes" || value == "on"
+    def isDefinedAt(value: String): Boolean = {
+      val valueLower = value.toLowerCase
+      valueLower == "1" || valueLower == "0" || valueLower == "true" || valueLower == "false" ||
+      valueLower == "no" || valueLower == "off" || valueLower == "yes" || valueLower == "on"
+    }
 
     override def toString(): String = "TextCodec.boolean"
   }

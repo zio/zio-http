@@ -75,14 +75,29 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     HttpCodec.Combine[AtomTypes1, AtomTypes1, Value, Value2, combiner.Out](self, that, combiner)
 
   /**
-   * Combines two query codecs into another query codec.
+   * To end the route codec and begin with query codec, and re-interprets as
+   * PathQueryCodec
+   *
+   * GET /ab/c :? paramStr("") &
+   */
+  final def ^?[Value2](
+    that: QueryCodec[Value2],
+  )(implicit
+    combiner: Combiner[Value, Value2],
+    ev: HttpCodecType.Path <:< AtomTypes,
+  ): HttpCodec[HttpCodecType.PathQuery, combiner.Out] =
+    (self ++ that).asInstanceOf[HttpCodec[HttpCodecType.PathQuery, combiner.Out]]
+
+  /**
+   * Append more query parameters to either a query codec, or to a pathQuery
+   * codec which is a combination of path and query
    */
   final def &[Value2](
     that: QueryCodec[Value2],
   )(implicit
     combiner: Combiner[Value, Value2],
     ev: HttpCodecType.Query <:< AtomTypes,
-  ): QueryCodec[combiner.Out] =
+  ): HttpCodec[HttpCodecType.Query, combiner.Out] =
     self.asQuery ++ that
 
   /**
@@ -288,7 +303,7 @@ object HttpCodec
   def error[Body](status: zio.http.Status)(implicit
     schema: Schema[Body],
   ): HttpCodec[HttpCodecType.Status with HttpCodecType.Content, Body] =
-    content[Body] ++ this.status(status)
+    content[Body]("error-response") ++ this.status(status)
 
   private[http] sealed trait AtomTag
   private[http] object AtomTag {
@@ -502,7 +517,7 @@ object HttpCodec
   }
 
   private[http] final case class Status[A](codec: SimpleCodec[zio.http.Status, A], index: Int = 0)
-      extends Atom[HttpCodecType.Status, A]                         {
+      extends Atom[HttpCodecType.Status, A] {
     self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
 
@@ -511,27 +526,36 @@ object HttpCodec
     def withIndex(index: Int): Status[A] = copy(index = index)
   }
   private[http] final case class Path[A](textCodec: TextCodec[A], name: Option[String], index: Int = 0)
-      extends Atom[HttpCodecType.Path, A]                           { self =>
+      extends Atom[HttpCodecType.Path, A]   { self =>
     def erase: Path[Any] = self.asInstanceOf[Path[Any]]
 
     def tag: AtomTag = AtomTag.Path
 
     def withIndex(index: Int): Path[A] = copy(index = index)
   }
-  private[http] final case class Content[A](schema: Schema[A], index: Int = 0) extends Atom[HttpCodecType.Content, A] {
+  private[http] final case class Content[A](
+    schema: Schema[A],
+    mediaType: Option[MediaType],
+    name: Option[String],
+    index: Int = 0,
+  ) extends Atom[HttpCodecType.Content, A] {
     self =>
     def tag: AtomTag = AtomTag.Content
 
     def withIndex(index: Int): Content[A] = copy(index = index)
   }
-  private[http] final case class ContentStream[A](schema: Schema[A], index: Int = 0)
-      extends Atom[HttpCodecType.Content, ZStream[Any, Nothing, A]] {
+  private[http] final case class ContentStream[A](
+    schema: Schema[A],
+    mediaType: Option[MediaType],
+    name: Option[String],
+    index: Int = 0,
+  ) extends Atom[HttpCodecType.Content, ZStream[Any, Nothing, A]] {
     def tag: AtomTag = AtomTag.Content
 
     def withIndex(index: Int): ContentStream[A] = copy(index = index)
   }
   private[http] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[HttpCodecType.Query, A]                          {
+      extends Atom[HttpCodecType.Query, A]  {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 

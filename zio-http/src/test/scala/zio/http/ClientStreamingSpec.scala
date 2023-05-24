@@ -17,12 +17,13 @@
 package zio.http
 
 import zio._
-import zio.test.TestAspect.{nonFlaky, withLiveClock}
-import zio.test.{Spec, TestEnvironment, assertTrue}
+import zio.test.TestAspect._
+import zio.test._
 
 import zio.stream.{ZStream, ZStreamAspect}
 
 import zio.http.Server.RequestStreaming
+import zio.http.forms.Fixtures.formField
 import zio.http.internal.HttpRunnableSpec
 import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
@@ -31,19 +32,30 @@ object ClientStreamingSpec extends HttpRunnableSpec {
 
   val app = Http
     .collectZIO[Request] {
-      case Method.GET -> !! / "simple-get"            =>
+      case Method.GET -> Root / "simple-get"            =>
         ZIO.succeed(Response.text("simple response"))
-      case Method.GET -> !! / "streaming-get"         =>
+      case Method.GET -> Root / "streaming-get"         =>
         ZIO.succeed(
-          Response(body =
-            Body.fromStream(ZStream.fromIterable("streaming response".getBytes) @@ ZStreamAspect.rechunk(3)),
-          ),
+          Response(body = Body.fromStream(ZStream.fromIterable("streaming response".getBytes).rechunk(3))),
         )
-      case req @ Method.POST -> !! / "simple-post"    =>
+      case req @ Method.POST -> Root / "simple-post"    =>
         req.ignoreBody.as(Response.ok)
-      case req @ Method.POST -> !! / "streaming-echo" =>
+      case req @ Method.POST -> Root / "streaming-echo" =>
         ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
+      case req @ Method.POST -> Root / "form"           =>
+        req.body.asMultipartFormStream.flatMap { form =>
+          form.collectAll.flatMap { inMemoryForm =>
+            Body.fromMultipartFormUUID(inMemoryForm).map { body =>
+              Response(body = body)
+            }
+          }
+        }
     }
+    .withErrorHandler(
+      Some((cause: Cause[Nothing]) =>
+        ZIO.logErrorCause("Fatal server error", cause).as(Response.status(Status.InternalServerError)),
+      ),
+    )
     .withDefaultErrorResponse
 
   // TODO: test failure cases
@@ -143,6 +155,106 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           body == expectedBody,
         )
       },
+      test("decoding random form") {
+        for {
+          port   <- server(streamingServer)
+          client <- ZIO.service[Client]
+
+          result <- check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
+            for {
+              boundary <- Boundary.randomUUID
+              response <- client
+                .request(
+                  Version.Http_1_1,
+                  Method.POST,
+                  URL.decode(s"http://localhost:$port/form").toOption.get,
+                  Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
+                  Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
+                  None,
+                )
+                .timeoutFail(new RuntimeException("Client request timed out"))(20.seconds)
+              form     <- response.body.asMultipartForm
+
+              normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
+                field.asChunk.map(field.name -> _)
+              }
+              normalizedOut <- ZIO.foreach(form.formData) { field =>
+                field.asChunk.map(field.name -> _)
+              }
+            } yield assertTrue(
+              normalizedIn == normalizedOut,
+            )
+          }
+        } yield result
+      } @@ timeout(5.minutes) @@ samples(50) @@ TestAspect.ifEnvNotSet("CI"), // NOTE: random hangs on CI
+      test("decoding random pre-encoded form") {
+        for {
+          port   <- server(streamingServer)
+          client <- ZIO.service[Client]
+          result <- check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
+            for {
+              boundary <- Boundary.randomUUID
+              stream = Form(fields.map(_._1): _*).multipartBytes(boundary)
+              bytes    <- stream.runCollect
+              response <- client.withDisabledStreaming
+                .request(
+                  Version.Http_1_1,
+                  Method.POST,
+                  URL.decode(s"http://localhost:$port/form").toOption.get,
+                  Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
+                  Body.fromChunk(bytes),
+                  None,
+                )
+                .timeoutFail(new RuntimeException("Client request timed out"))(20.seconds)
+              form     <- response.body.asMultipartForm
+
+              normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
+                field.asChunk.map(field.name -> _)
+              }
+              normalizedOut <- ZIO.foreach(form.formData) { field =>
+                field.asChunk.map(field.name -> _)
+              }
+            } yield assertTrue(
+              normalizedIn == normalizedOut,
+            )
+          }
+        } yield result
+      } @@ timeout(5.minutes) @@ samples(50) @@ TestAspect.ifEnvNotSet("CI"), // NOTE: random hangs on CI
+      test("decoding large form with random chunk and buffer sizes") {
+        val N = 1024 * 1024
+        for {
+          port   <- server(streamingServer)
+          client <- ZIO.service[Client]
+          result <- check(Gen.int(1, N)) { chunkSize =>
+            (for {
+              bytes <- Random.nextBytes(N)
+              form = Form(
+                Chunk(
+                  FormField.Simple("foo", "bar"),
+                  FormField.Binary("file", bytes, MediaType.image.png),
+                ),
+              )
+              boundary <- Boundary.randomUUID
+              stream = form.multipartBytes(boundary).rechunk(chunkSize)
+              response  <- client
+                .request(
+                  Version.Http_1_1,
+                  Method.POST,
+                  URL.decode(s"http://localhost:$port/form").toOption.get,
+                  Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
+                  Body.fromStream(stream),
+                  None,
+                )
+                .timeoutFail(new RuntimeException("Client request timed out"))(20.seconds)
+              collected <- response.body.asMultipartForm
+            } yield assertTrue(
+              collected.map.contains("file"),
+              collected.map.contains("foo"),
+              collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
+            )).tapErrorCause(cause => ZIO.debug(cause.prettyPrint))
+          }
+        } yield result
+      } @@ samples(20) @@ timeout(5.minutes) @@ TestAspect.ifEnvNotSet("CI"), // NOTE: random hangs on CI
     )
 
   private def streamingOnlyTests =
@@ -160,7 +272,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               Headers.empty,
               Body.fromStream(
                 (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3)).chunks.tap { chunk =>
-                  if (chunk == Chunk.fromArray(" re".getBytes))
+                  if (chunk == Chunk.fromArray("que".getBytes))
                     sync.await
                   else
                     ZIO.unit
@@ -171,7 +283,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           body     <- response.body.asStream.chunks
             .map(chunk => new String(chunk.toArray))
             .tap { chunk =>
-              if (chunk == "ing") sync.succeed(()) else ZIO.unit
+              if (chunk == "eam") sync.succeed(()) else ZIO.unit
             }
             .runCollect
           expectedBody =
@@ -201,8 +313,11 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         tests(streamingServer = false): _*,
       ),
     ).provide(
-      Client.default,
-    ) @@ withLiveClock
+      DnsResolver.default,
+      ZLayer.succeed(NettyConfig.default),
+      ZLayer.succeed(Client.Config.default.connectionTimeout(10.seconds).idleTimeout(10.seconds)),
+      Client.live,
+    ) @@ withLiveClock @@ sequential
 
   private def server(streaming: Boolean): ZIO[Any, Throwable, Int] =
     for {
@@ -215,7 +330,10 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID)),
           ZLayer.succeed(
             Server.Config.default.onAnyOpenPort
-              .withRequestStreaming(if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(1024)),
+              .withRequestStreaming(
+                if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(2 * 1024 * 1024),
+              )
+              .idleTimeout(10.seconds),
           ),
           Server.customized,
         )

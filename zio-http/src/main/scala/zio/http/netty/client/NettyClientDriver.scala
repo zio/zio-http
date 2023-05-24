@@ -16,6 +16,8 @@
 
 package zio.http.netty.client
 
+import java.util.concurrent.TimeUnit
+
 import scala.collection.mutable
 
 import zio._
@@ -25,11 +27,11 @@ import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-import zio.http.socket.SocketApp
 
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
-import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
+import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
+import io.netty.handler.timeout.ReadTimeoutHandler
 
 final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],
@@ -48,18 +50,26 @@ final case class NettyClientDriver private (
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
+    webSocketConfig: WebSocketConfig,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
     NettyRequestEncoder.encode(req).flatMap { jReq =>
-      Scope.addFinalizer {
-        ZIO.attempt {
-          jReq match {
-            case fullRequest: FullHttpRequest =>
-              if (fullRequest.refCnt() > 0)
-                fullRequest.release(fullRequest.refCnt())
-            case _                            =>
-          }
-        }.ignore
-      }.as {
+      for {
+        _     <- Scope.addFinalizer {
+          ZIO.attempt {
+            jReq match {
+              case fullRequest: FullHttpRequest =>
+                if (fullRequest.refCnt() > 0)
+                  fullRequest.release(fullRequest.refCnt())
+              case _                            =>
+            }
+          }.ignore
+        }
+        queue <- Queue.unbounded[WebSocketChannelEvent]
+        nettyChannel     = NettyChannel.make[JWebSocketFrame](channel)
+        webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
+        app              = createSocketApp()
+        _ <- app.runZIO(webSocketChannel).ignoreLogged.interruptible.forkScoped
+      } yield {
         val pipeline                              = channel.pipeline()
         val toRemove: mutable.Set[ChannelHandler] = new mutable.HashSet[ChannelHandler]()
 
@@ -74,9 +84,8 @@ final case class NettyClientDriver private (
           toRemove.add(inboundHandler)
 
           val headers = Conversions.headersToNetty(req.headers)
-          val app     = createSocketApp()
           val config  = NettySocketProtocol
-            .clientBuilder(app.protocol)
+            .clientBuilder(webSocketConfig)
             .customHeaders(headers)
             .webSocketUri(req.url.encode)
             .build()
@@ -84,7 +93,7 @@ final case class NettyClientDriver private (
           // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
 
           val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
-          val webSocket               = new WebSocketAppHandler(nettyRuntime, app)
+          val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, Some(onComplete))
 
           pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
           pipeline.addLast(Names.WebSocketHandler, webSocket)

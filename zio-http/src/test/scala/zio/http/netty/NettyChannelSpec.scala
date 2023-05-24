@@ -77,7 +77,7 @@ object NettyChannelSpec extends ZIOSpecDefault {
 
   final class EmbeddedTestChannel[A] {
     val jChannel: EmbeddedChannel = new EmbeddedChannel()
-    val channel: Channel[A]       = NettyChannel.make[A](jChannel)
+    val channel: NettyChannel[A]  = NettyChannel.make[A](jChannel)
 
     def inboundMessages: util.Queue[A]  = jChannel.inboundMessages.asInstanceOf[java.util.Queue[A]]
     def outboundMessages: util.Queue[A] = jChannel.outboundMessages.asInstanceOf[java.util.Queue[A]]

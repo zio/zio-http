@@ -21,7 +21,6 @@ import scala.collection.AbstractIterator
 import zio.http.Server.Config.CompressionOptions
 import zio.http._
 import zio.http.internal.{CaseMode, CharSequenceExtensions}
-import zio.http.socket.CloseStatus
 
 import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
 import io.netty.handler.codec.http.websocketx.WebSocketScheme

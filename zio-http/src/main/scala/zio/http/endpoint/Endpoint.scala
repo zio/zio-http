@@ -24,9 +24,9 @@ import zio.stream.ZStream
 
 import zio.schema._
 
-import zio.http.Status
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.OutErrors
+import zio.http.{MediaType, Status}
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
@@ -145,6 +145,33 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     Routes.Single[Env, Err, Input, Output, Middleware](self, f)
 
   /**
+   * Converts this endpoint, which is an abstract description of an endpoint,
+   * into a path, which maps a path to a handler for that path. In order to
+   * convert an endpoint into a path, you must specify a function which handles
+   * the input, and returns the output.
+   */
+  def implementPurely[Env](f: Input => Output): Routes[Env, Err, Middleware] =
+    implement(in => ZIO.succeed(f(in)))
+
+  /**
+   * Converts this endpoint, which is an abstract description of an endpoint,
+   * into a path, which maps a path to a handler for that path. In order to
+   * convert an endpoint into a path, you must specify the output, while the
+   * input is being ignored.
+   */
+  def implementAs[Env](f: => Output): Routes[Env, Err, Middleware] =
+    implement(_ => ZIO.succeed(f))
+
+  /**
+   * Converts this endpoint, which is an abstract description of an endpoint,
+   * into a path, which maps a path to a handler for that path. In order to
+   * convert an endpoint into a path, you must specify the error, while the
+   * input is being ignored.
+   */
+  def implementAsError[Env](f: => Err): Routes[Env, Err, Middleware] =
+    implement(_ => ZIO.fail(f))
+
+  /**
    * Returns a new endpoint derived from this one, whose request content must
    * satisfy the specified schema.
    */
@@ -152,7 +179,17 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     schema: Schema[Input2],
     combiner: Combiner[Input, Input2],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
-    copy(input = input ++ HttpCodec.Content(schema))
+    copy(input = input ++ HttpCodec.content(schema))
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content must
+   * satisfy the specified schema.
+   */
+  def in[Input2](name: String)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ HttpCodec.content(name)(schema))
 
   /**
    * Returns a new endpoint derived from this one, whose request must satisfy
@@ -162,6 +199,36 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     combiner: Combiner[Input, Input2],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = input ++ codec)
+
+  /**
+   * Returns a new endpoint derived from this one, whose input type is a stream
+   * of the specified typ
+   */
+  def inStream[Input2: Schema](implicit
+    combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    Endpoint(
+      input = self.input ++ ContentCodec.contentStream[Input2],
+      output,
+      error,
+      doc,
+      mw,
+    )
+
+  /**
+   * Returns a new endpoint derived from this one, whose input type is a stream
+   * of the specified type
+   */
+  def inStream[Input2: Schema](name: String)(implicit
+    combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    Endpoint(
+      input = self.input ++ ContentCodec.contentStream[Input2](name),
+      output,
+      error,
+      doc,
+      mw,
+    )
 
   /**
    * Returns a new endpoint derived from this one whose middleware is composed
@@ -179,19 +246,55 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the ok status code.
    */
-  def out[Output2: Schema](implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
-    out[Output2](Status.Ok)
+  def out[Output2: Schema](implicit
+    alt: Alternator[Output, Output2],
+  ): Endpoint[Input, Err, alt.Out, Middleware] =
+    Endpoint(
+      input,
+      output = (self.output | HttpCodec.content(implicitly[Schema[Output2]])) ++ StatusCodec.status(Status.Ok),
+      error,
+      doc,
+      mw,
+    )
+
+  /**
+   * Returns a new endpoint derived from this one, whose output type is the
+   * specified type for the ok status code.
+   */
+  def out[Output2: Schema](name: String)(implicit
+    alt: Alternator[Output, Output2],
+  ): Endpoint[Input, Err, alt.Out, Middleware] =
+    out[Output2](name, Status.Ok)
 
   /**
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the specified status code.
    */
   def out[Output2: Schema](
+    name: String,
     status: Status,
   )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
-      output = (self.output | HttpCodec.Content(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),
+      output = (self.output | HttpCodec.content(name)(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),
+      error,
+      doc,
+      mw,
+    )
+
+  /**
+   * Returns a new endpoint derived from this one, whose output type is the
+   * specified type for the specified status code.
+   */
+  def out[Output2: Schema](
+    name: String,
+    status: Status,
+    mediaType: MediaType,
+  )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
+    Endpoint(
+      input,
+      output =
+        (self.output | HttpCodec.content(name, mediaType)(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),
       error,
       doc,
       mw,
@@ -206,7 +309,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     alt: Alternator[Err, Err2],
   ): Endpoint[Input, alt.Out, Output, Middleware] =
     copy[Input, alt.Out, Output, Middleware](error =
-      self.error | (ContentCodec.content[Err2] ++ StatusCodec.status(status)),
+      self.error | (ContentCodec.content[Err2]("error-response") ++ StatusCodec.status(status)),
     )
 
   def outErrors[Err2]: OutErrors[Input, Err, Output, Middleware, Err2] = OutErrors(self)
@@ -227,18 +330,53 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   def outStream[Output2: Schema](implicit
     alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
   ): Endpoint[Input, Err, alt.Out, Middleware] =
-    outStream[Output2](Status.Ok)
+    Endpoint(
+      input,
+      output = (self.output | ContentCodec.contentStream[Output2]) ++ StatusCodec.status(Status.Ok),
+      error,
+      doc,
+      mw,
+    )
+
+  /**
+   * Returns a new endpoint derived from this one, whose output type is a stream
+   * of the specified type for the ok status code.
+   */
+  def outStream[Output2: Schema](name: String)(implicit
+    alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
+  ): Endpoint[Input, Err, alt.Out, Middleware] =
+    outStream[Output2](name, Status.Ok)
 
   /**
    * Returns a new endpoint derived from this one, whose output type is a stream
    * of the specified type for the specified status code.
    */
   def outStream[Output2: Schema](
+    name: String,
     status: Status,
   )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
-      output = (self.output | ContentCodec.contentStream[Output2]) ++ StatusCodec.status(status),
+      output = (self.output | ContentCodec.contentStream[Output2](name)) ++ StatusCodec.status(status),
+      error,
+      doc,
+      mw,
+    )
+
+  def outStream[Output2: Schema](
+    name: String,
+    mediaType: MediaType,
+  )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
+    outStream(name, Status.Ok, mediaType)
+
+  def outStream[Output2: Schema](
+    name: String,
+    status: Status,
+    mediaType: MediaType,
+  )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
+    Endpoint(
+      input,
+      output = (self.output | ContentCodec.contentStream[Output2](name, mediaType)) ++ StatusCodec.status(status),
       error,
       doc,
       mw,
@@ -267,7 +405,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP DELETE method, whose path is described
    * by the specified path codec.
    */
-  def delete[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
+  def delete[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
     Endpoint(
       path ++ MethodCodec.delete,
       HttpCodec.unused,
@@ -281,7 +419,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP GET method, whose path is described by
    * the specified path codec.
    */
-  def get[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def get[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.get,
       HttpCodec.unused,
@@ -294,7 +432,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP HEAD method, whose path is described by
    * the specified path codec.
    */
-  def head[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
+  def head[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] = {
     Endpoint(
       path ++ MethodCodec.head,
       HttpCodec.unused,
@@ -308,7 +446,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP OPTIONS method, whose path is described
    * by the specified path codec.
    */
-  def options[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def options[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.options,
       HttpCodec.unused,
@@ -321,7 +459,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP PATCH method, whose path is described by
    * the specified path codec.
    */
-  def patch[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def patch[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.patch,
       HttpCodec.unused,
@@ -334,7 +472,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP POST method, whose path is described by
    * the specified path codec.
    */
-  def post[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def post[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.post,
       HttpCodec.unused,
@@ -347,7 +485,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP PUT method, whose path is described by
    * the specified path codec.
    */
-  def put[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def put[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.put,
       HttpCodec.unused,
@@ -360,7 +498,7 @@ object Endpoint {
    * Constructs an endpoint for an HTTP TRACE method, whose path is described by
    * the specified path codec.
    */
-  def trace[Input](path: PathCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+  def trace[Input](path: PathQueryCodec[Input]): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
     Endpoint(
       path ++ MethodCodec.trace,
       HttpCodec.unused,

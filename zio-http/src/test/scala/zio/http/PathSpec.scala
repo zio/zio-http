@@ -36,24 +36,24 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
         val gen = Gen.fromIterable(
           Seq(
             // Exact
-            collect { case !! => true }                   -> "/",
-            collect { case !! / "a" => true }             -> "/a",
-            collect { case !! / "a" / "b" => true }       -> "/a/b",
-            collect { case !! / "a" / "b" / "c" => true } -> "/a/b/c",
+            collect { case Root => true }                   -> "/",
+            collect { case Root / "a" => true }             -> "/a",
+            collect { case Root / "a" / "b" => true }       -> "/a/b",
+            collect { case Root / "a" / "b" / "c" => true } -> "/a/b/c",
 
             // Wildcards
-            collect { case !! / _ => true }         -> "/a",
-            collect { case !! / _ / _ => true }     -> "/a/b",
-            collect { case !! / _ / _ / _ => true } -> "/a/b/c",
+            collect { case Root / _ => true }         -> "/a",
+            collect { case Root / _ / _ => true }     -> "/a/b",
+            collect { case Root / _ / _ / _ => true } -> "/a/b/c",
 
             // Wildcard mix
             collect { case _ / "c" => true }     -> "/a/b/c",
             collect { case _ / _ / "c" => true } -> "/a/b/c",
 
             // Trailing Slash
-            collect { case ~~ / "a" / "" => true }             -> "a/",
-            collect { case ~~ / "a" / "b" / "" => true }       -> "a/b/",
-            collect { case ~~ / "a" / "b" / "c" / "" => true } -> "a/b/c/",
+            collect { case Empty / "a" / "" => true }             -> "a/",
+            collect { case Empty / "a" / "b" / "" => true }       -> "a/b/",
+            collect { case Empty / "a" / "b" / "c" / "" => true } -> "a/b/c/",
           ),
         )
 
@@ -65,9 +65,9 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
         val gen = Gen.fromIterable(
           Seq(
             // Exact
-            collect { case "a" /: !! => true }               -> "a/",
-            collect { case "a" /: "b" /: !! => true }        -> "a/b/",
-            collect { case "a" /: "b" /: "c" /: !! => true } -> "a/b/c/",
+            collect { case "a" /: Root => true }               -> "a/",
+            collect { case "a" /: "b" /: Root => true }        -> "a/b/",
+            collect { case "a" /: "b" /: "c" /: Root => true } -> "a/b/c/",
 
             // Wildcard
             collect { case "a" /: _ => true }        -> "a",
@@ -84,16 +84,16 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
             collect { case _ /: _ => true }                 -> "/a/b/c",
 
             // Trailing slash
-            collect { case "a" /: !! => true }               -> "a/",
-            collect { case "a" /: "b" /: !! => true }        -> "a/b/",
-            collect { case "a" /: "b" /: "c" /: !! => true } -> "a/b/c/",
-            collect { case "a" /: !! => true }               -> "a/",
+            collect { case "a" /: Root => true }               -> "a/",
+            collect { case "a" /: "b" /: Root => true }        -> "a/b/",
+            collect { case "a" /: "b" /: "c" /: Root => true } -> "a/b/c/",
+            collect { case "a" /: Root => true }               -> "a/",
 
             // Leading Slash
-            collect { case "" /: ~~ => true }                      -> "/",
-            collect { case "" /: "a" /: ~~ => true }               -> "/a",
-            collect { case "" /: "a" /: "b" /: ~~ => true }        -> "/a/b",
-            collect { case "" /: "a" /: "b" /: "c" /: ~~ => true } -> "/a/b/c",
+            collect { case "" /: Empty => true }                      -> "/",
+            collect { case "" /: "a" /: Empty => true }               -> "/a",
+            collect { case "" /: "a" /: "b" /: Empty => true }        -> "/a/b",
+            collect { case "" /: "a" /: "b" /: "c" /: Empty => true } -> "/a/b/c",
           ),
         )
 
@@ -107,20 +107,26 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
         // Internal representation of a path
         val paths = Gen.fromIterable(
           Seq(
-            "/"       -> !!                  -> Vector(Segment.root),
-            "/a"      -> !! / a              -> Vector(Segment.root, Segment(a)),
-            "/a/b"    -> !! / a / b          -> Vector(Segment.root, Segment(a), Segment(b)),
-            "/a/b/c"  -> !! / a / b / c      -> Vector(Segment.root, Segment(a), Segment(b), Segment(c)),
-            "a/b/c"   -> ~~ / a / b / c      -> Vector(Segment(a), Segment(b), Segment(c)),
-            "a/b"     -> ~~ / a / b          -> Vector(Segment(a), Segment(b)),
-            "a"       -> ~~ / a              -> Vector(Segment(a)),
-            ""        -> ~~                  -> Vector(),
-            "a/"      -> ~~ / a / ""         -> Vector(Segment(a), Segment.root),
-            "a/b/"    -> ~~ / a / b / ""     -> Vector(Segment(a), Segment(b), Segment.root),
-            "a/b/c/"  -> ~~ / a / b / c / "" -> Vector(Segment(a), Segment(b), Segment(c), Segment.root),
-            "/a/b/c/" -> !! / a / b / c / "" -> Vector(Segment.root, Segment(a), Segment(b), Segment(c), Segment.root),
-            "/a/b/"   -> !! / a / b / ""     -> Vector(Segment.root, Segment(a), Segment(b), Segment.root),
-            "/a/"     -> !! / a / ""         -> Vector(Segment.root, Segment(a), Segment.root),
+            "/"       -> Root                   -> Vector(Segment.root),
+            "/a"      -> Root / a               -> Vector(Segment.root, Segment(a)),
+            "/a/b"    -> Root / a / b           -> Vector(Segment.root, Segment(a), Segment(b)),
+            "/a/b/c"  -> Root / a / b / c       -> Vector(Segment.root, Segment(a), Segment(b), Segment(c)),
+            "a/b/c"   -> Empty / a / b / c      -> Vector(Segment(a), Segment(b), Segment(c)),
+            "a/b"     -> Empty / a / b          -> Vector(Segment(a), Segment(b)),
+            "a"       -> Empty / a              -> Vector(Segment(a)),
+            ""        -> Empty                  -> Vector(),
+            "a/"      -> Empty / a / ""         -> Vector(Segment(a), Segment.root),
+            "a/b/"    -> Empty / a / b / ""     -> Vector(Segment(a), Segment(b), Segment.root),
+            "a/b/c/"  -> Empty / a / b / c / "" -> Vector(Segment(a), Segment(b), Segment(c), Segment.root),
+            "/a/b/c/" -> Root / a / b / c / ""  -> Vector(
+              Segment.root,
+              Segment(a),
+              Segment(b),
+              Segment(c),
+              Segment.root,
+            ),
+            "/a/b/"   -> Root / a / b / ""      -> Vector(Segment.root, Segment(a), Segment(b), Segment.root),
+            "/a/"     -> Root / a / ""          -> Vector(Segment.root, Segment(a), Segment.root),
           ),
         )
         checkAll(paths) { case ((encoded, path), segments) =>
@@ -138,22 +144,22 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
       test("multiple leading slashes") {
         val encoded = "///a/b/c"
         val decoded = Path.decode(encoded)
-        assertTrue(decoded == !! / a / b / c)
+        assertTrue(decoded == Root / a / b / c)
       },
       test("multiple trailing slashes") {
         val encoded = "a/b/c///"
         val decoded = Path.decode(encoded)
-        assertTrue(decoded == ~~ / a / b / c / "")
+        assertTrue(decoded == Empty / a / b / c / "")
       },
     ),
     suite("append") {
       test("simplifies internal representation") {
         val urls = Gen.fromIterable(
           Seq(
-            !! / ""                    -> !!,
-            !! / "" / a / "" / "" / "" -> !! / a / "",
-            ~~ / ""                    -> !!,
-            ~~ / "" / a / ""           -> !! / a / "",
+            Root / ""                    -> Root,
+            Root / "" / a / "" / "" / "" -> Root / a / "",
+            Empty / ""                   -> Root,
+            Empty / "" / a / ""          -> Root / a / "",
           ),
         )
         checkAll(urls) { case (actual, expected) => assertTrue(actual == expected) }
@@ -163,14 +169,14 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
       test("simplifies internal representation") {
         val urls = Gen.fromIterable(
           Seq(
-            "" /: !!                                  -> !!,
-            a /: !!                                   -> ~~ / a / "",
-            "" /: a /: ~~                             -> !! / a,
-            "" /: a /: b /: ~~                        -> !! / a / b,
-            "" /: a /: b /: c /: ~~                   -> !! / a / b / c,
-            "" /: a /: b /: c /: !!                   -> !! / a / b / c / "",
-            "" /: a /: "" /: b /: "" /: !!            -> !! / a / b / "",
-            a /: "" /: "" /: b /: "" /: "" /: c /: !! -> ~~ / a / b / c / "",
+            "" /: Root                                  -> Root,
+            a /: Root                                   -> Empty / a / "",
+            "" /: a /: Empty                            -> Root / a,
+            "" /: a /: b /: Empty                       -> Root / a / b,
+            "" /: a /: b /: c /: Empty                  -> Root / a / b / c,
+            "" /: a /: b /: c /: Root                   -> Root / a / b / c / "",
+            "" /: a /: "" /: b /: "" /: Root            -> Root / a / b / "",
+            a /: "" /: "" /: b /: "" /: "" /: c /: Root -> Empty / a / b / c / "",
           ),
         )
         checkAll(urls) { case (actual, expected) => assertTrue(actual == expected) }
@@ -180,13 +186,13 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
       test("isTrue") {
         val gen = Gen.fromIterable(
           Seq(
-            !!                   -> !!,
-            !! / "a"             -> !! / "a",
-            !! / "a" / "b"       -> !! / "a" / "b",
-            !! / "a" / "b" / "c" -> !! / "a",
-            !! / "a" / "b" / "c" -> !! / "a" / "b" / "c",
-            !! / "a" / "b" / "c" -> !! / "a" / "b" / "c",
-            !! / "a" / "b" / "c" -> !! / "a" / "b" / "c",
+            Root                   -> Root,
+            Root / "a"             -> Root / "a",
+            Root / "a" / "b"       -> Root / "a" / "b",
+            Root / "a" / "b" / "c" -> Root / "a",
+            Root / "a" / "b" / "c" -> Root / "a" / "b" / "c",
+            Root / "a" / "b" / "c" -> Root / "a" / "b" / "c",
+            Root / "a" / "b" / "c" -> Root / "a" / "b" / "c",
           ),
         )
 
@@ -198,10 +204,10 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
       test("isFalse") {
         val gen = Gen.fromIterable(
           Seq(
-            !!             -> !! / "a",
-            !! / "a"       -> !! / "a" / "b",
-            !! / "a"       -> !! / "b",
-            !! / "a" / "b" -> !! / "a" / "b" / "c",
+            Root             -> Root / "a",
+            Root / "a"       -> Root / "a" / "b",
+            Root / "a"       -> Root / "b",
+            Root / "a" / "b" -> Root / "a" / "b" / "c",
           ),
         )
 
@@ -214,13 +220,13 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
     test("take") {
       val gen = Gen.fromIterable(
         Seq(
-          (1, !!)                   -> !!,
-          (1, !! / "a")             -> !!,
-          (1, !! / "a" / "b")       -> !!,
-          (1, !! / "a" / "b" / "c") -> !!,
-          (2, !! / "a" / "b" / "c") -> !! / "a",
-          (3, !! / "a" / "b" / "c") -> !! / "a" / "b",
-          (4, !! / "a" / "b" / "c") -> !! / "a" / "b" / "c",
+          (1, Root)                   -> Root,
+          (1, Root / "a")             -> Root,
+          (1, Root / "a" / "b")       -> Root,
+          (1, Root / "a" / "b" / "c") -> Root,
+          (2, Root / "a" / "b" / "c") -> Root / "a",
+          (3, Root / "a" / "b" / "c") -> Root / "a" / "b",
+          (4, Root / "a" / "b" / "c") -> Root / "a" / "b" / "c",
         ),
       )
 
@@ -232,13 +238,13 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
     test("drop") {
       val gen = Gen.fromIterable(
         Seq(
-          (1, !!)                   -> ~~,
-          (1, !! / "a")             -> ~~ / "a",
-          (1, !! / "a" / "b")       -> ~~ / "a" / "b",
-          (1, !! / "a" / "b" / "c") -> ~~ / "a" / "b" / "c",
-          (2, !! / "a" / "b" / "c") -> ~~ / "b" / "c",
-          (3, !! / "a" / "b" / "c") -> ~~ / "c",
-          (4, !! / "a" / "b" / "c") -> ~~,
+          (1, Root)                   -> Empty,
+          (1, Root / "a")             -> Empty / "a",
+          (1, Root / "a" / "b")       -> Empty / "a" / "b",
+          (1, Root / "a" / "b" / "c") -> Empty / "a" / "b" / "c",
+          (2, Root / "a" / "b" / "c") -> Empty / "b" / "c",
+          (3, Root / "a" / "b" / "c") -> Empty / "c",
+          (4, Root / "a" / "b" / "c") -> Empty,
         ),
       )
 
@@ -250,13 +256,13 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
     test("dropLast") {
       val gen = Gen.fromIterable(
         Seq(
-          (1, !!)                   -> ~~,
-          (1, !! / "a")             -> !!,
-          (1, !! / "a" / "b")       -> !! / "a",
-          (1, !! / "a" / "b" / "c") -> !! / "a" / "b",
-          (2, !! / "a" / "b" / "c") -> !! / "a",
-          (3, !! / "a" / "b" / "c") -> !!,
-          (4, !! / "a" / "b" / "c") -> ~~,
+          (1, Root)                   -> Empty,
+          (1, Root / "a")             -> Root,
+          (1, Root / "a" / "b")       -> Root / "a",
+          (1, Root / "a" / "b" / "c") -> Root / "a" / "b",
+          (2, Root / "a" / "b" / "c") -> Root / "a",
+          (3, Root / "a" / "b" / "c") -> Root,
+          (4, Root / "a" / "b" / "c") -> Empty,
         ),
       )
 
@@ -268,21 +274,21 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
     suite("extractor")(
       suite("int()")(
         test("extract path 'user' /: int(1)") {
-          val path = collect { case "" /: "user" /: int(age) /: ~~ => age }
+          val path = collect { case "" /: "user" /: int(age) /: Empty => age }
           assertTrue(path("/user/1").contains(1))
         },
         test("extract path 'user' /: int(Xyz)") {
-          val path = collect { case "" /: "user" /: int(age) /: ~~ => age }
+          val path = collect { case "" /: "user" /: int(age) /: Empty => age }
           assertTrue(path("/user/Xyz").isEmpty)
         },
       ),
       suite("boolean()")(
         test("extract path 'user' /: boolean(true)") {
-          val path = collect { case "user" /: boolean(ok) /: ~~ => ok }
+          val path = collect { case "user" /: boolean(ok) /: Empty => ok }
           assertTrue(path("user/True").contains(true))
         },
         test("extract path 'user' /: boolean(false)") {
-          val path = collect { case "user" /: boolean(ok) /: ~~ => ok }
+          val path = collect { case "user" /: boolean(ok) /: Empty => ok }
           assertTrue(path("user/false").contains(false))
         },
       ),

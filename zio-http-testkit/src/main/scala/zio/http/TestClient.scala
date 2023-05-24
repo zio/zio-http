@@ -2,8 +2,7 @@ package zio.http
 
 import zio._
 
-import zio.http.ChannelEvent.{ChannelUnregistered, UserEvent}
-import zio.http.socket.{SocketApp, WebSocketChannelEvent, WebSocketFrame}
+import zio.http.ChannelEvent.{Unregistered, UserEvent}
 import zio.http.{Headers, Method, Scheme, Status, Version}
 
 /**
@@ -112,57 +111,23 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     for {
       env                   <- ZIO.environment[Env1]
       currentSocketBehavior <- serverSocketBehavior.get
-      testChannelClient     <- TestChannel.make
-      testChannelServer     <- TestChannel.make
-      _ <- eventLoop("Server", testChannelClient, currentSocketBehavior, testChannelServer).forkDaemon
-      _ <- eventLoop("Client", testChannelServer, app.provideEnvironment(env), testChannelClient).forkDaemon
+      in                    <- Queue.unbounded[WebSocketChannelEvent]
+      out                   <- Queue.unbounded[WebSocketChannelEvent]
+      promise               <- Promise.make[Nothing, Unit]
+      testChannelClient     <- TestChannel.make(in, out, promise)
+      testChannelServer     <- TestChannel.make(out, in, promise)
+      _                     <- currentSocketBehavior.runZIO(testChannelClient).forkDaemon
+      _                     <- app.provideEnvironment(env).runZIO(testChannelServer).forkDaemon
     } yield Response.status(Status.SwitchingProtocols)
   }
 
-  private val warnLongRunning =
-    ZIO
-      .log("Socket Application is taking a long time to run. You might have logic that does not terminate.")
-      .delay(15.seconds)
-      .withClock(Clock.ClockLive) *> ZIO.never
-
-  private def eventLoop(name: String, channel: TestChannel, app: SocketApp[Any], otherChannel: TestChannel) =
-    (for {
-      pendEvent <- channel.pending race warnLongRunning
-      _         <- app.message.get
-        .apply(ChannelEvent(otherChannel, pendEvent))
-        .tapError(e => ZIO.debug(s"Unexpected WebSocket $name error: " + e) *> otherChannel.close)
-      _         <- ZIO.when(pendEvent == ChannelUnregistered) {
-        otherChannel.close
-      }
-    } yield pendEvent).repeatWhile(event => shouldContinue(event))
-
-  private def shouldContinue(event: ChannelEvent.Event[WebSocketFrame]) =
-    event match {
-      case ChannelEvent.ExceptionCaught(_)            => false
-      case ChannelEvent.ChannelRead(message)          =>
-        message match {
-          case WebSocketFrame.Close(_, _) => false
-          case _                          => true
-        }
-      case ChannelEvent.UserEventTriggered(userEvent) =>
-        userEvent match {
-          case UserEvent.HandshakeTimeout  => false
-          case UserEvent.HandshakeComplete => true
-        }
-      case ChannelEvent.ChannelRegistered             => true
-      case ChannelEvent.ChannelUnregistered           => false
-    }
-
   def installSocketApp[Env1](
-    app: Http[Any, Throwable, WebSocketChannelEvent, Unit],
+    app: Handler[Any, Throwable, WebSocketChannel, Unit],
   ): ZIO[Env1, Nothing, Unit] =
     for {
       env <- ZIO.environment[Env1]
       _   <- serverSocketBehavior.set(
         app
-          .defaultWith(TestClient.warnOnUnrecognizedEvent)
-          .toHandler(Handler.response(Response(Status.NotFound)))
-          .toSocketApp
           .provideEnvironment(env),
       )
     } yield ()
@@ -206,7 +171,7 @@ object TestClient {
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
   def installSocketApp(
-    app: Http[Any, Throwable, WebSocketChannelEvent, Unit],
+    app: Handler[Any, Throwable, WebSocketChannel, Unit],
   ): ZIO[TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
 
@@ -214,12 +179,8 @@ object TestClient {
     ZLayer.scoped {
       for {
         behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
-        socketBehavior <- Ref.make[SocketApp[Any]](SocketApp.apply(_ => ZIO.unit))
+        socketBehavior <- Ref.make[SocketApp[Any]](Handler.unit)
       } yield TestClient(behavior, socketBehavior)
     }
-
-  private val warnOnUnrecognizedEvent = Http.collectZIO[WebSocketChannelEvent] { case other =>
-    ZIO.fail(new Exception("Test Server received Unexpected event: " + other))
-  }
 
 }

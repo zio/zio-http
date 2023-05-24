@@ -29,7 +29,8 @@ const sidebars = {
                 "dsl/socket/socket",
                 "dsl/socket/websocketframe"
               ]
-            }
+            },
+            "dsl/html"
           ]
         },
         {

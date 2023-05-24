@@ -22,8 +22,8 @@ object HelloWorldWithCORS extends ZIOAppDefault {
   // Create HTTP route with CORS enabled
   val app: HttpApp[Any, Nothing] =
     Http.collect[Request] {
-      case Method.GET -> !! / "text" => Response.text("Hello World!")
-      case Method.GET -> !! / "json" => Response.json("""{"greetings": "Hello World!"}""")
+      case Method.GET -> Root / "text" => Response.text("Hello World!")
+      case Method.GET -> Root / "json" => Response.json("""{"greetings": "Hello World!"}""")
     } @@ cors(config)
 
   // Run it like any simple app

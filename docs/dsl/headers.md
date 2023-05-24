@@ -50,7 +50,7 @@ On the Server-side you can read Request headers as given below
 
 ```scala mdoc
 Http.collect[Request] {
-  case req@Method.GET -> !! / "streamOrNot" => Response.text(req.headers.map(_.toString).mkString("\n"))
+  case req@Method.GET -> Root / "streamOrNot" => Response.text(req.headers.map(_.toString).mkString("\n"))
 }
 ```
 
@@ -76,10 +76,10 @@ object SimpleResponseDispatcher extends ZIOAppDefault {
   val app: App[Any] =
     Http.collect[Request] {
       // Simple (non-stream) based route
-      case Method.GET -> !! / "health" => Response.ok
+      case Method.GET -> Root / "health" => Response.ok
 
       // From Request(req), the headers are accessible.
-      case req@Method.GET -> !! / "streamOrNot" =>
+      case req@Method.GET -> Root / "streamOrNot" =>
         // Checking if client is able to handle streaming response
         val acceptsStreaming: Boolean = req.header(Header.Accept).exists(_.mimeTypes.contains(Header.Accept.MediaTypeWithQFactor(MediaType.application.`octet-stream`, None)))
         if (acceptsStreaming)
