@@ -17,6 +17,7 @@
 package zio.http.netty.client
 
 import java.net.InetSocketAddress
+import java.util.concurrent.TimeUnit
 
 import zio._
 
@@ -29,10 +30,12 @@ import io.netty.channel.{
   Channel => JChannel,
   ChannelFactory => JChannelFactory,
   ChannelInitializer,
+  ChannelOption,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.proxy.HttpProxyHandler
+import io.netty.handler.timeout.ReadTimeoutHandler
 
 trait NettyConnectionPool extends ConnectionPool[JChannel]
 
@@ -46,6 +49,8 @@ object NettyConnectionPool {
     sslOptions: ClientSSLConfig,
     maxHeaderSize: Int,
     decompression: Decompression,
+    idleTimeout: Option[Duration],
+    connectionTimeout: Option[Duration],
     localAddress: Option[InetSocketAddress],
     dnsResolver: DnsResolver,
   )(implicit trace: Trace): ZIO[Any, Throwable, JChannel] = {
@@ -72,6 +77,10 @@ object NettyConnectionPool {
               .toNettySSLContext(sslOptions)
               .newHandler(ch.alloc, location.host, location.port),
           )
+        }
+
+        idleTimeout.foreach { timeout =>
+          pipeline.addLast(Names.ReadTimeoutHandler, new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS))
         }
 
         // Adding default client channel handlers
@@ -105,6 +114,7 @@ object NettyConnectionPool {
           .channelFactory(channelFactory)
           .group(eventLoopGroup)
           .remoteAddress(new InetSocketAddress(host, location.port))
+          .withOption[Integer](ChannelOption.CONNECT_TIMEOUT_MILLIS, connectionTimeout.map(_.toMillis.toInt))
           .handler(initializer)
         (localAddress match {
           case Some(addr) => bootstrap.localAddress(addr)
@@ -127,6 +137,8 @@ object NettyConnectionPool {
       sslOptions: ClientSSLConfig,
       maxHeaderSize: Int,
       decompression: Decompression,
+      idleTimeout: Option[Duration],
+      connectionTimeout: Option[Duration],
       localAddress: Option[InetSocketAddress] = None,
     )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] =
       createChannel(
@@ -137,6 +149,8 @@ object NettyConnectionPool {
         sslOptions,
         maxHeaderSize,
         decompression,
+        idleTimeout,
+        connectionTimeout,
         localAddress,
         dnsResolver,
       )
@@ -154,6 +168,8 @@ object NettyConnectionPool {
     sslOptions: ClientSSLConfig,
     maxHeaderSize: Int,
     decompression: Decompression,
+    idleTimeout: Option[Duration],
+    connectionTimeout: Option[Duration],
   )
 
   private final class ZioNettyConnectionPool(
@@ -165,10 +181,12 @@ object NettyConnectionPool {
       sslOptions: ClientSSLConfig,
       maxHeaderSize: Int,
       decompression: Decompression,
+      idleTimeout: Option[Duration],
+      connectionTimeout: Option[Duration],
       localAddress: Option[InetSocketAddress] = None,
     )(implicit trace: Trace): ZIO[Scope, Throwable, JChannel] =
       pool
-        .get(PoolKey(location, proxy, sslOptions, maxHeaderSize, decompression))
+        .get(PoolKey(location, proxy, sslOptions, maxHeaderSize, decompression, idleTimeout, connectionTimeout))
 
     override def invalidate(channel: JChannel)(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
       pool.invalidate(channel)
@@ -227,6 +245,8 @@ object NettyConnectionPool {
           key.sslOptions,
           key.maxHeaderSize,
           key.decompression,
+          key.idleTimeout,
+          key.connectionTimeout,
           None,
           dnsResolver,
         ).tap { channel =>
@@ -242,7 +262,6 @@ object NettyConnectionPool {
         .make(poolFn, (key: PoolKey) => size(key.location))
         .tap(poolPromise.succeed)
         .tapErrorCause(poolPromise.failCause)
-        .interruptible // TODO: Needs a fix in ZKeyedPool to be able to make this uninterruptible
     } yield new ZioNettyConnectionPool(keyedPool)
 
   private def createDynamic(
@@ -270,6 +289,8 @@ object NettyConnectionPool {
           key.sslOptions,
           key.maxHeaderSize,
           key.decompression,
+          key.idleTimeout,
+          key.connectionTimeout,
           None,
           dnsResolver,
         ).tap { channel =>
@@ -285,6 +306,13 @@ object NettyConnectionPool {
         .make(poolFn, (key: PoolKey) => min(key.location) to max(key.location), (key: PoolKey) => ttl(key.location))
         .tap(poolPromise.succeed)
         .tapErrorCause(poolPromise.failCause)
-        .interruptible // TODO: Needs a fix in ZKeyedPool to be able to make this uninterruptible
     } yield new ZioNettyConnectionPool(keyedPool)
+
+  implicit final class BootstrapSyntax(val bootstrap: Bootstrap) extends AnyVal {
+    def withOption[T](option: ChannelOption[T], value: Option[T]): Bootstrap =
+      value match {
+        case Some(value) => bootstrap.option(option, value)
+        case None        => bootstrap
+      }
+  }
 }
