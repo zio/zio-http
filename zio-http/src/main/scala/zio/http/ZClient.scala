@@ -445,6 +445,9 @@ object ZClient {
     def idleTimeout(timeout: Duration): Config =
       self.copy(idleTimeout = Some(timeout))
 
+    def withDisabledConnectionPool: Config =
+      self.copy(connectionPool = ConnectionPoolConfig.Disabled)
+
     /**
      * Configure the client to use `maxHeaderSize` value when encode/decode
      * headers.
@@ -509,7 +512,7 @@ object ZClient {
     lazy val default: Config = Config(
       ssl = None,
       proxy = None,
-      connectionPool = ConnectionPoolConfig.Disabled,
+      connectionPool = ConnectionPoolConfig.Fixed(10),
       maxHeaderSize = 8192,
       requestDecompression = Decompression.No,
       localAddress = None,
