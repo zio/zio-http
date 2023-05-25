@@ -25,7 +25,7 @@ import zio.http.netty.client.NettyClientDriver
 package object internal {
 
   val testServerConfig: ZLayer[Any, Nothing, Server.Config] =
-    ZLayer.succeed(Server.Config.default.port(0))
+    ZLayer.succeed(Server.Config.default.onAnyOpenPort)
 
   val testNettyServerConfig: ZLayer[Any, Nothing, NettyConfig] =
     ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID))
