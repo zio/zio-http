@@ -38,7 +38,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
   private val connectionCloseHeader = Headers(Header.Connection.Close)
   private val keepAliveHeader       = Headers(Header.Connection.KeepAlive)
-  private val appKeepAliveEnabled   = serve(DynamicServer.app)
+  private val appKeepAliveEnabled   = DynamicServer.serve
 
   private val N = 64
 

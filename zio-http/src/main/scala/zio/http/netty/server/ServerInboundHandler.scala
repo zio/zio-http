@@ -82,7 +82,7 @@ private[zio] final case class ServerInboundHandler(
         val exit =
           if (jReq.decoderResult().isFailure) {
             val throwable = jReq.decoderResult().cause()
-            app.runServerErrorOrNull(Cause.die(throwable)).map(defaultErrorResponse(_, Some(throwable)))
+            app.runServerErrorOrNull(Cause.die(throwable)).as(defaultErrorResponse(null, Some(throwable)))
           } else
             app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time))
@@ -103,7 +103,7 @@ private[zio] final case class ServerInboundHandler(
         val exit =
           if (jReq.decoderResult().isFailure) {
             val throwable = jReq.decoderResult().cause()
-            app.runServerErrorOrNull(Cause.die(throwable)).map(defaultErrorResponse(_, Some(throwable)))
+            app.runServerErrorOrNull(Cause.die(throwable)).as(defaultErrorResponse(null, Some(throwable)))
           } else
             app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {

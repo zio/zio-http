@@ -268,8 +268,8 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
             out1 <- app1.runServerErrorOrNull(Cause.die(new RuntimeException("boom")))
             out2 <- app2.runServerErrorOrNull(Cause.die(new RuntimeException("boom")))
           } yield assertTrue(
-            out1 == "boom",
-            out2 eq null,
+            out1 == (),
+            out2 == null,
           )
         },
         test("nested") {

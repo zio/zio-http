@@ -47,7 +47,7 @@ object ServerSpec extends HttpRunnableSpec {
     .port(port)
     .responseCompression()
 
-  private val app = serve(DynamicServer.app)
+  private val app = DynamicServer.serve
 
   def dynamicAppSpec = suite("DynamicAppSpec")(
     suite("success")(

@@ -19,7 +19,7 @@ package zio.http
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.{sequential, timeout, withLiveClock}
 import zio.test.{Spec, assert}
-import zio.{Scope, durationInt}
+import zio.{Scope, ZIO, durationInt}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 
@@ -28,7 +28,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   private val app                   = Handler.ok.toHttp
   private val connectionCloseHeader = Headers(Header.Connection.Close)
   private val keepAliveHeader       = Headers(Header.Connection.KeepAlive)
-  private val appKeepAliveEnabled   = serve(DynamicServer.app)
+  private val appKeepAliveEnabled   = ZIO.service[DynamicServer].flatMap(ds => serve(DynamicServer.app(ds)))
 
   private def keepAliveSpec = suite("KeepAlive")(
     suite("Http 1.1")(

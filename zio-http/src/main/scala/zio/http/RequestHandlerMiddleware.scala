@@ -126,20 +126,13 @@ object RequestHandlerMiddleware {
       http: Http[Env, Err, Request, Response],
     )(implicit trace: Trace): Http[Env, Err, Request, Response] =
       http match {
-        case empty @ Http.Empty(_)                          =>
-          empty.withErrorHandler(empty.errorHandler.map(applyToErrorHandler))
+        case Http.Empty(errorHandler)                       =>
+          Http.Empty(errorHandler)
         case Http.Static(handler, errorHandler)             =>
-          Http.Static(apply(handler), errorHandler.map(applyToErrorHandler))
+          Http.Static(apply(handler), errorHandler)
         case route: Http.Route[Env, Err, Request, Response] =>
-          Http
-            .fromHttpZIO[Request](route.run(_).map(self(_)))
-            .withErrorHandler(route.errorHandler.map(applyToErrorHandler))
+          Http.fromHttpZIO[Request](route.run(_).map(self(_)))
       }
-
-    def applyToErrorHandler[Env <: UpperEnv](
-      f: Cause[Nothing] => ZIO[Env, Nothing, Response],
-    )(implicit trace: Trace): (Cause[Nothing] => ZIO[Env, Nothing, Response]) =
-      f
   }
 
   def identity: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
