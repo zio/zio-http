@@ -131,11 +131,8 @@ private[zio] final case class ServerInboundHandler(
             // for example logging.
             app
               .runServerErrorOrNull(Cause.die(t))
-              .tap { response =>
-                if (config.logWarningOnFatalError)
-                  ZIO.logWarningCause(s"Fatal exception in Netty, cannot send error response $response", Cause.die(t))
-                else
-                  ZIO.unit
+              .zipLeft {
+                ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t)).when(config.logWarningOnFatalError)
               }
               .unit
           }
