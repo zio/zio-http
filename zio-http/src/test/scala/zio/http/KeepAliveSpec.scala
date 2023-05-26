@@ -28,7 +28,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
   private val app                   = Handler.ok.toHttp
   private val connectionCloseHeader = Headers(Header.Connection.Close)
   private val keepAliveHeader       = Headers(Header.Connection.KeepAlive)
-  private val appKeepAliveEnabled   = ZIO.service[DynamicServer].flatMap(ds => serve(DynamicServer.app(ds)))
+  private val appKeepAliveEnabled   = serve
 
   private def keepAliveSpec = suite("KeepAlive")(
     suite("Http 1.1")(

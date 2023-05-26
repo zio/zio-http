@@ -108,7 +108,7 @@ object ClientProxySpec extends HttpRunnableSpec {
   )
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ClientProxy") {
-    DynamicServer.serve.as(List(clientProxySpec))
+    serve.as(List(clientProxySpec))
   }.provideShared(DynamicServer.live, severTestLayer) @@
     timeout(5 seconds) @@ sequential @@ withLiveClock
 }

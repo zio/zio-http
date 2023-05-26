@@ -41,9 +41,6 @@ object DynamicServer {
 
   val APP_ID = "X-APP_ID"
 
-  def serve: ZIO[DynamicServer with Server, Nothing, Nothing] =
-    ZIO.service[DynamicServer].flatMap { ds => Server.serve(app(ds)) }
-
   def app(dynamicServer: DynamicServer): App[Any] =
     Http.fromHttpZIO { (req: Request) =>
       req.rawHeader(APP_ID) match {

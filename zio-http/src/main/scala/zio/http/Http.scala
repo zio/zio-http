@@ -94,10 +94,24 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
 
   final def catchAllCauseZIO[R1 <: R, Out1 >: Out](f: Cause[Err] => ZIO[Any, Nothing, Out1])(implicit
     trace: Trace,
-  ): Http[R1, Nothing, In, Out1] =
-    self
-      .catchAllZIO(err => f(Cause.fail(err)))
-      .withErrorHandler(Some((cause: Cause[Nothing]) => f(cause).ignoreLogged.unit))
+  ): Http[R1, Nothing, In, Out1] = {
+    val newErrorHandler = Some((cause: Cause[Nothing]) => f(cause).ignoreLogged.unit)
+    self match {
+      case Http.Empty(_)                 => Http.Empty(newErrorHandler)
+      case Http.Static(handler, _)       =>
+        Http.Static(handler.catchAllCause(err => Handler.fromZIO(f(err))), newErrorHandler)
+      case route: Route[R, Err, In, Out] =>
+        new Route[R1, Nothing, In, Out1] {
+          override def run(in: In): ZIO[Any, Nothing, Http[R1, Nothing, In, Out1]] =
+            route
+              .run(in)
+              .map(_.catchAllCauseZIO(f))
+
+          override val errorHandler: Option[Cause[Nothing] => ZIO[Any, Nothing, Unit]] =
+            newErrorHandler
+        }
+    }
+  }
 
   final def contramap[In1](f: In1 => In)(implicit trace: Trace): Http[R, Err, In1, Out] =
     self match {
@@ -151,8 +165,14 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
           override def run(in: In1): ZIO[Any, Nothing, Http[R1, Err1, In1, Out1]] =
             route.run(in).map(_.defaultWith(that))
 
-          override val errorHandler: Option[Cause[Nothing] => ZIO[Any, Nothing, Unit]] =
-            route.errorHandler
+          override val errorHandler: Option[Cause[Nothing] => ZIO[Any, Nothing, Unit]] = {
+            (route.errorHandler, that.errorHandler) match {
+              case (Some(f1), Some(f2)) => Some((c: Cause[Nothing]) => f1(c) *> f2(c))
+              case (Some(_), None)      => route.errorHandler
+              case (None, Some(_))      => that.errorHandler
+              case (None, None)         => None
+            }
+          }
         }
     }
 

@@ -37,7 +37,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
     Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt")).deploy
 
   override def spec = suite("StaticFileServer") {
-    ZIO.scoped(DynamicServer.serve.as(List(staticSpec)))
+    ZIO.scoped(serve.as(List(staticSpec)))
   }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
     timeout(5 seconds) @@ withLiveClock
 

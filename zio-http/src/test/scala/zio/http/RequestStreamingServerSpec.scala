@@ -32,7 +32,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       .requestDecompression(true)
       .enableRequestStreaming
 
-  private val appWithReqStreaming = DynamicServer.serve
+  private val appWithReqStreaming = serve
 
   /**
    * Generates a string of the provided length and char.

@@ -209,7 +209,7 @@ object WebSocketSpec extends HttpRunnableSpec {
 
   override def spec = suite("Server") {
     ZIO.scoped {
-      DynamicServer.serve.as(List(websocketSpec))
+      serve.as(List(websocketSpec))
     }
   }
     .provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
