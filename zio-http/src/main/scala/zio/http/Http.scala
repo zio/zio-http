@@ -95,7 +95,12 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
   final def catchAllCauseZIO[R1 <: R, Out1 >: Out](f: Cause[Err] => ZIO[Any, Nothing, Out1])(implicit
     trace: Trace,
   ): Http[R1, Nothing, In, Out1] = {
-    val newErrorHandler = Some((cause: Cause[Nothing]) => f(cause).ignoreLogged.unit)
+    val newErrorHandler = Some((cause: Cause[Nothing]) =>
+      self.errorHandler match {
+        case Some(f0) => f0(cause)
+        case None     => f(cause).ignoreLogged.unit
+      },
+    )
     self match {
       case Http.Empty(_)                 => Http.Empty(newErrorHandler)
       case Http.Static(handler, _)       =>
@@ -354,8 +359,8 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
 
   private[http] final def runServerErrorOrNull(
     cause: Cause[Nothing],
-  )(implicit unsafe: Unsafe, trace: Trace): ZIO[R, Nothing, Unit] = // NOTE: Out can be null
-    self.errorHandler.fold(Exit.succeed(null).asInstanceOf[ZIO[Any, Nothing, Unit]])(_(cause))
+  )(implicit unsafe: Unsafe, trace: Trace): ZIO[R, Nothing, Any] = // NOTE: Out can be null
+    self.errorHandler.fold(Exit.succeed(null).asInstanceOf[ZIO[Any, Nothing, Any]])(_(cause))
 
   final def runZIOOrNull(in: In)(implicit unsafe: Unsafe, trace: Trace): ZIO[R, Err, Out] = // NOTE: Out can be null
     self match {

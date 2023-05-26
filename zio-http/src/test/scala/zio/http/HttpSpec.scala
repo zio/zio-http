@@ -16,9 +16,9 @@
 
 package zio.http
 
+import zio._
 import zio.test.Assertion._
 import zio.test.{Spec, ZIOSpecDefault, assert, assertTrue, assertZIO}
-import zio.{Cause, Exit, Ref, Unsafe, ZIO}
 
 object HttpSpec extends ZIOSpecDefault with ExitAssertion {
   implicit val allowUnsafe: Unsafe = Unsafe.unsafe
@@ -273,38 +273,50 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
           )
         },
         test("nested") {
-          val app =
-            Http
-              .fromHttpZIO((in: Int) =>
-                in match {
-                  case 0     => ZIO.die(new RuntimeException("input is 0"))
-                  case 1 | 2 =>
-                    ZIO.succeed {
-                      Http
-                        .fromHttpZIO((in: Int) =>
-                          in match {
-                            case 1 => ZIO.die(new RuntimeException("input is 1"))
-                            case _ => ZIO.succeed(Handler.succeed("OK").toHttp)
-                          },
-                        )
-                        .catchAllCauseZIO(cause =>
-                          ZIO.succeed(cause.dieOption.map(t => "#1 " + t.getMessage).getOrElse("")),
-                        )
-                    }
-                  case _     =>
-                    ZIO.succeed(Http.empty)
-                },
-              )
-              .catchAllCauseZIO(cause => ZIO.succeed(cause.dieOption.map(t => "#0 " + t.getMessage).getOrElse("")))
 
           for {
-            out0 <- app.runZIOOrNull(0)
-            out1 <- app.runZIOOrNull(1)
-            out2 <- app.runZIOOrNull(2)
+            queue <- Queue.unbounded[String]
+            val app =
+              Http
+                .fromHttpZIO((in: Int) =>
+                  in match {
+                    case 0     => ZIO.die(new RuntimeException("input is 0"))
+                    case 1 | 2 =>
+                      ZIO.succeed {
+                        Http
+                          .fromHttpZIO((in: Int) =>
+                            in match {
+                              case 1 => ZIO.die(new RuntimeException("input is 1"))
+                              case _ => ZIO.succeed(Handler.succeed("OK").toHttp)
+                            },
+                          )
+                          .catchAllCauseZIO { cause =>
+                            val msg = cause.dieOption.map(t => "#1 " + t.getMessage).getOrElse("")
+                            queue.offer(msg).as(msg)
+                          }
+                      }
+                    case _     =>
+                      ZIO.succeed(Http.empty)
+                  },
+                )
+                .catchAllCauseZIO { cause =>
+                  val msg = cause.dieOption.map(t => "#0 " + t.getMessage).getOrElse("")
+                  queue.offer(msg).as(msg)
+                }
+
+            out0 <- app.runZIOOrNull(0).exit
+            out1 <- app.runZIOOrNull(1).exit
+            out2 <- app.runZIOOrNull(2).exit
+            msgs <- queue.takeAll
           } yield assertTrue(
-            out0 == "#0 input is 0",
-            out1 == "#1 input is 1",
-            out2 == "OK",
+            out0.isFailure, // "#0 input is 0",
+            out1.isFailure, // "#1 input is 1",
+            out2 == Exit.Success("OK"),
+            msgs == Chunk(
+              "#0 input is 0",
+              "#1 input is 1",
+              "#0 input is 1",
+            ),
           )
         },
         test("relation with ++") {
