@@ -276,7 +276,7 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
 
           for {
             queue <- Queue.unbounded[String]
-            val app =
+            app =
               Http
                 .fromHttpZIO((in: Int) =>
                   in match {
