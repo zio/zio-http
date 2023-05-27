@@ -41,11 +41,11 @@ object DynamicServer {
 
   val APP_ID = "X-APP_ID"
 
-  def app: App[DynamicServer] =
+  def app(dynamicServer: DynamicServer): App[Any] =
     Http.fromHttpZIO { (req: Request) =>
       req.rawHeader(APP_ID) match {
         case Some(id) =>
-          get(id).map(_.getOrElse(Handler.notFound.toHttp))
+          get(id).provideEnvironment(ZEnvironment(dynamicServer)).map(_.getOrElse(Handler.notFound.toHttp))
         case None     =>
           ZIO.succeed(Handler.notFound.toHttp)
       }

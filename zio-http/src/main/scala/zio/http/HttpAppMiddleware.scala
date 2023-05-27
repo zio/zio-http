@@ -76,11 +76,11 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
   }
 
   final class AllowZIO(val unit: Unit) extends AnyVal {
-    def apply[R, Err](
-      condition: Request => ZIO[R, Err, Boolean],
-    ): HttpAppMiddleware[Nothing, R, Err, Any] =
-      new HttpAppMiddleware.Simple[R, Err] {
-        override def apply[Env <: R, Err1 >: Err](
+    def apply(
+      condition: Request => ZIO[Any, Nothing, Boolean],
+    ): HttpAppMiddleware[Nothing, Any, Nothing, Any] =
+      new HttpAppMiddleware.Simple[Any, Nothing] {
+        override def apply[Env, Err1](
           http: Http[Env, Err1, Request, Response],
         )(implicit trace: Trace): Http[Env, Err1, Request, Response] =
           http.whenZIO(condition)
@@ -114,16 +114,16 @@ object HttpAppMiddleware extends RequestHandlerMiddlewares with HttpRoutesMiddle
      * Applies Middleware based only if the condition effectful function
      * evaluates to true
      */
-    def whenZIO[UpperEnv1 <: UpperEnv, LowerErr1 >: LowerErr](
-      condition: Request => ZIO[UpperEnv1, LowerErr1, Boolean],
+    def whenZIO(
+      condition: Request => ZIO[Any, Nothing, Boolean],
     )(implicit
       trace: Trace,
-    ): HttpAppMiddleware[LowerEnv, UpperEnv1, LowerErr1, UpperErr] =
-      new HttpAppMiddleware.Contextual[LowerEnv, UpperEnv1, LowerErr1, UpperErr] {
+    ): HttpAppMiddleware[LowerEnv, UpperEnv, LowerErr, UpperErr] =
+      new HttpAppMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
         override type OutEnv[Env] = Env
         override type OutErr[Err] = Err
 
-        override def apply[Env >: LowerEnv <: UpperEnv1, Err >: LowerErr1 <: UpperErr](
+        override def apply[Env >: LowerEnv <: UpperEnv, Err >: LowerErr <: UpperErr](
           http: Http[Env, Err, Request, Response],
         )(implicit trace: Trace): Http[Env, Err, Request, Response] =
           Http.fromHttpZIO { request =>

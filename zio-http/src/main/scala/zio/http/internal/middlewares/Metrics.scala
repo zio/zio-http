@@ -92,7 +92,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
           for {
             start           <- Clock.nanoTime
             _               <- concurrentRequests.tagged(requestLabels).increment
-            optionalHandler <- http.runHandler(req).mapError(Some(_))
+            optionalHandler <- http.runHandler(req)
             handler         <-
               optionalHandler match {
                 case Some(handler) =>

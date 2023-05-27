@@ -315,7 +315,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
     ).provide(
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.default),
-      ZLayer.succeed(Client.Config.default.connectionTimeout(10.seconds).idleTimeout(10.seconds)),
+      ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
       Client.live,
     ) @@ withLiveClock @@ sequential
 
@@ -333,7 +333,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               .withRequestStreaming(
                 if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(2 * 1024 * 1024),
               )
-              .idleTimeout(10.seconds),
+              .idleTimeout(100.seconds),
           ),
           Server.customized,
         )
