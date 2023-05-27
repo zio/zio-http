@@ -34,6 +34,7 @@ import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
+import io.netty.handler.timeout.ReadTimeoutException
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -131,13 +132,17 @@ private[zio] final case class ServerInboundHandler(
             // for example logging.
             app
               .runServerErrorOrNull(Cause.die(t))
-              .zipLeft {
-                ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t)).when(config.logWarningOnFatalError)
-              }
-              .unit
+              .zipLeft(
+                ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t)).when(config.logWarningOnFatalError),
+              )
           }
         }
-        super.exceptionCaught(ctx, t)
+        cause match {
+          case _: ReadTimeoutException =>
+            ctx.close()
+          case _                       =>
+            super.exceptionCaught(ctx, t)
+        }
     }
 
   private def addAsyncBodyHandler(ctx: ChannelHandlerContext): AsyncBodyReader = {
