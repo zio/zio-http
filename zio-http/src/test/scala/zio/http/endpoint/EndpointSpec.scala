@@ -537,7 +537,7 @@ object EndpointSpec extends ZIOSpecDefault {
             route =
               Endpoint
                 .get(literal("test-byte-stream"))
-                .outStream[Byte]("response", Status.Ok, MediaType.image.png)
+                .outStream[Byte](Status.Ok, MediaType.image.png)
                 .implement { _ =>
                   ZIO.succeed(ZStream.fromChunk(bytes).rechunk(16))
                 }
