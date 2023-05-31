@@ -89,10 +89,12 @@ lazy val root = (project in file("."))
   )
 
 lazy val zioHttp = (project in file("zio-http"))
+  .enablePlugins(ShadingPlugin)
   .settings(stdSettings("zio-http"))
   .settings(publishSetting(true))
   .settings(settingsWithHeaderLicense)
   .settings(meta)
+  .settings(Shading.shadingSettings())
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= netty ++ Seq(
@@ -139,8 +141,10 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .dependsOn(zioHttp, zioHttpCli)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
+  .enablePlugins(ShadingPlugin)
   .settings(stdSettings("zio-http-testkit"))
   .settings(publishSetting(true))
+  .settings(Shading.shadingSettings())
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= netty ++ Seq(
