@@ -1,22 +1,25 @@
 package zio.http.codec.internal
 
-import java.time._
-import java.util.UUID
-
-import scala.util.Try
-
 import zio._
-
-import zio.stream.ZPipeline
-
+import zio.http._
+import zio.http.codec.HttpCodecError
 import zio.schema.codec._
 import zio.schema.{Schema, StandardType}
+import zio.stream.ZPipeline
 
-import zio.http._
+import java.time._
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import scala.collection.mutable
+import scala.jdk.CollectionConverters.ConcurrentMapHasAsScala
+import scala.util.Try
+
+final case class MediaTypeCodecDefinition[T <: MediaTypeCodec[_]](
+  acceptedTypes: Chunk[MediaType],
+  create: Chunk[BodyCodec[_]] => T,
+)
 
 sealed trait MediaTypeCodec[Codec] {
-
-  def acceptedTypes: Chunk[MediaType]
   def decoders: Chunk[Body => IO[Throwable, _]]
   def decodeSingle(body: Body): IO[Throwable, Any] = decoders(0)(body)
   def encoders: Chunk[Any => Body]
@@ -31,93 +34,128 @@ sealed trait TextMediaTypeCodec extends MediaTypeCodec[Codec[String, Char, Any]]
 
 object MediaTypeCodec {
   private def binary(
-    content: Chunk[BodyCodec[_]],
     binaryCodec: Schema[Any] => BinaryCodec[Any],
     acceptTypes: Chunk[MediaType],
-  ): BinaryMediaTypeCodec = new BinaryMediaTypeCodec {
+  ): MediaTypeCodecDefinition[BinaryMediaTypeCodec] =
+    MediaTypeCodecDefinition(
+      acceptTypes,
+      (content: Chunk[BodyCodec[_]]) =>
+        new BinaryMediaTypeCodec {
 
-    override def encoders: Chunk[Any => Body] =
-      content.map { bodyCodec =>
-        val erased = bodyCodec.erase
-        val codec  = binaryCodec(erased.schema.asInstanceOf[Schema[Any]]).asInstanceOf[BinaryCodec[erased.Element]]
-        erased.encodeToBody(_, codec)
-      }
+          lazy val encoders: Chunk[Any => Body] =
+            content.map { bodyCodec =>
+              val erased = bodyCodec.erase
+              val codec = binaryCodec(erased.schema.asInstanceOf[Schema[Any]]).asInstanceOf[BinaryCodec[erased.Element]]
+              erased.encodeToBody(_, codec)
+            }
 
-    override def decoders: Chunk[Body => IO[Throwable, _]] =
-      content.map { bodyCodec =>
-        val codec =
-          binaryCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
-            .asInstanceOf[BinaryCodec[bodyCodec.Element]]
-        bodyCodec.decodeFromBody(_, codec)
-      }
+          lazy val decoders: Chunk[Body => IO[Throwable, _]] =
+            content.map { bodyCodec =>
+              val codec =
+                binaryCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
+                  .asInstanceOf[BinaryCodec[bodyCodec.Element]]
+              bodyCodec.decodeFromBody(_, codec)
+            }
 
-    override def codecs: Map[BodyCodec[Any], BinaryCodec[Any]] =
-      content.map { bodyCodec =>
-        val codec =
-          binaryCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
-            .asInstanceOf[BinaryCodec[bodyCodec.Element]]
-        bodyCodec.erase -> codec.asInstanceOf[BinaryCodec[Any]]
-      }.toMap
+          lazy val codecs: Map[BodyCodec[Any], BinaryCodec[Any]] =
+            content.map { bodyCodec =>
+              val codec =
+                binaryCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
+                  .asInstanceOf[BinaryCodec[bodyCodec.Element]]
+              bodyCodec.erase -> codec.asInstanceOf[BinaryCodec[Any]]
+            }.toMap
 
-    override val acceptedTypes: Chunk[MediaType] = acceptTypes
-  }
+        },
+    )
 
   private def text(
-    content: Chunk[BodyCodec[_]],
     textCodec: Schema[Any] => Codec[String, Char, Any],
     acceptTypes: Chunk[MediaType],
-  ): TextMediaTypeCodec = new TextMediaTypeCodec {
+  ): MediaTypeCodecDefinition[TextMediaTypeCodec] =
+    MediaTypeCodecDefinition(
+      acceptTypes,
+      (content: Chunk[BodyCodec[_]]) =>
+        new TextMediaTypeCodec {
 
-    override def encoders: Chunk[Any => Body] =
-      content.map { bodyCodec =>
-        val erased = bodyCodec.erase
-        val codec = textCodec(erased.schema.asInstanceOf[Schema[Any]]).asInstanceOf[Codec[String, Char, erased.Element]]
-        ((a: erased.Element) => erased.encodeToBody(a, codec)).asInstanceOf[Any => Body]
-      }
+          lazy val encoders: Chunk[Any => Body] =
+            content.map { bodyCodec =>
+              val erased = bodyCodec.erase
+              val codec  =
+                textCodec(erased.schema.asInstanceOf[Schema[Any]]).asInstanceOf[Codec[String, Char, erased.Element]]
+              ((a: erased.Element) => erased.encodeToBody(a, codec)).asInstanceOf[Any => Body]
+            }
 
-    override def decoders: Chunk[Body => IO[Throwable, _]] =
-      content.map { bodyCodec =>
-        val codec =
-          textCodec(bodyCodec.schema.asInstanceOf[Schema[Any]]).asInstanceOf[Codec[String, Char, bodyCodec.Element]]
-        bodyCodec.decodeFromBody(_, codec)
-      }
+          lazy val decoders: Chunk[Body => IO[Throwable, _]] =
+            content.map { bodyCodec =>
+              val codec =
+                textCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
+                  .asInstanceOf[Codec[String, Char, bodyCodec.Element]]
+              bodyCodec.decodeFromBody(_, codec)
+            }
 
-    override def codecs: Map[BodyCodec[Any], Codec[String, Char, Any]] =
-      content.map { bodyCodec =>
-        val codec =
-          textCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
-            .asInstanceOf[Codec[String, Char, bodyCodec.Element]]
-        bodyCodec.erase -> codec.asInstanceOf[Codec[String, Char, Any]]
-      }.toMap
+          lazy val codecs: Map[BodyCodec[Any], Codec[String, Char, Any]] =
+            content.map { bodyCodec =>
+              val codec =
+                textCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
+                  .asInstanceOf[Codec[String, Char, bodyCodec.Element]]
+              bodyCodec.erase -> codec.asInstanceOf[Codec[String, Char, Any]]
+            }.toMap
 
-    override val acceptedTypes: Chunk[MediaType] = acceptTypes
-  }
+        },
+    )
 
-  def json(content: Chunk[BodyCodec[_]]): BinaryMediaTypeCodec =
+  val json: MediaTypeCodecDefinition[BinaryMediaTypeCodec] =
     binary(
-      content,
       JsonCodec.schemaBasedBinaryCodec[Any](_),
       Chunk(
         MediaType.application.`json`,
       ),
     )
 
-  def protobuf(content: Chunk[BodyCodec[_]]): BinaryMediaTypeCodec =
+  val protobuf: MediaTypeCodecDefinition[BinaryMediaTypeCodec] =
     binary(
-      content,
       ProtobufCodec.protobufCodec[Any](_),
       Chunk(
         MediaType.parseCustomMediaType("application/protobuf").get,
       ),
     )
 
-  def text(content: Chunk[BodyCodec[_]]): TextMediaTypeCodec =
+  val text: MediaTypeCodecDefinition[TextMediaTypeCodec] =
     text(
-      content,
       TextCodec.fromSchema[Any],
       Chunk.fromIterable(MediaType.text.all),
     )
 
+  private val all: Chunk[MediaTypeCodecDefinition[_ <: MediaTypeCodec[_]]] =
+    Chunk(json, protobuf, text)
+
+  private val allByType: Map[String, MediaTypeCodecDefinition[_ <: MediaTypeCodec[_]]] =
+    all.flatMap { codec =>
+      codec.acceptedTypes.map(_.fullType).map(_ -> codec)
+    }.toMap
+
+  private val codecsCache: mutable.Map[(Option[String], Chunk[BodyCodec[_]]), Map[String, MediaTypeCodec[_]]] =
+    new ConcurrentHashMap[(Option[String], Chunk[BodyCodec[_]]), Map[String, MediaTypeCodec[_]]]().asScala
+
+  def codecsFor(types: Chunk[MediaType], content: Chunk[BodyCodec[_]]): Map[String, MediaTypeCodec[_]] = {
+    val key = (types.collectFirst { case mt if allByType.contains(mt.fullType) => mt.fullType }, content)
+    def codecs: Map[String, MediaTypeCodec[_]] =
+      if (types.isEmpty) allByType.view.mapValues(_.create(content)).toMap
+      else {
+        types.collectFirst {
+          case mt if allByType.contains(mt.fullType) => Map(mt.fullType -> allByType(mt.fullType).create(content))
+        } match {
+          case Some(codec) => codec
+          case None        =>
+            throw HttpCodecError.UnsupportedContentType(
+              s"""None of the Accept header mime types is currently supported.
+                 |Accepted are: ${types.map(_.fullType).mkString(",")}.
+                 |Supported mime types are: ${allByType.keys.mkString(", ")}""".stripMargin,
+            )
+        }
+      }
+    codecsCache.getOrElseUpdate(key, codecs)
+  }
 }
 
 private[internal] object TextCodec {

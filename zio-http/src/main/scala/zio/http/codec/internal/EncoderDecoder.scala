@@ -26,11 +26,11 @@ import zio.schema.codec._
 import zio.schema.{Schema, StandardType}
 
 import zio.stream.ZStream
-import zio.schema.Schema
-import zio.schema.codec.{BinaryCodec, Codec}
-
 import zio.http._
 import zio.http.codec._
+import zio.schema.Schema
+import zio.schema.codec.{BinaryCodec, Codec}
+import zio.stream.ZStream
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
@@ -151,31 +151,17 @@ private[codec] object EncoderDecoder                   {
 
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
-    private val codecs: Map[String, MediaTypeCodec[_]] = {
-      val defaultCodecs = List(
-        MediaTypeCodec.json(flattened.content),
-        MediaTypeCodec.protobuf(flattened.content),
-        MediaTypeCodec.text(flattened.content),
-      ).flatMap(c => c.acceptedTypes.map(at => at.fullType -> c)).toMap
-      if (outputTypes.isEmpty) defaultCodecs
-      else {
-        outputTypes.collectFirst {
-          case mt if defaultCodecs.isDefinedAt(mt.fullType) => Map(mt.fullType -> defaultCodecs(mt.fullType))
-        }.getOrElse(
-          throw HttpCodecError.UnsupportedContentType(
-            s"""Non of the Accept header mime types is currently supported.
-               |Accepted are: ${outputTypes.map(_.fullType).mkString(",")}.
-               |Supported mime types are: ${defaultCodecs.keys.mkString(", ")}""".stripMargin,
-          ),
-        )
-      }
-    }
+    private val codecs: Map[String, MediaTypeCodec[_]] =
+      MediaTypeCodec.codecsFor(outputTypes, flattened.content)
+
+    private def mediaTypeOrJson(bodyCodec: BodyCodec[_]): MediaType =
+      bodyCodec.mediaType.getOrElse(MediaType.application.`json`)
 
     private val formFieldEncoders: Chunk[(String, Any) => FormField] =
       flattened.content.map { bodyCodec => (name: String, value: Any) =>
         {
           val erased    = bodyCodec.erase
-          val mediaType = bodyCodec.mediaTypeOrJson
+          val mediaType = mediaTypeOrJson(bodyCodec)
           val codec     =
             codecs
               .get(mediaType.fullType)
@@ -206,7 +192,7 @@ private[codec] object EncoderDecoder                   {
       flattened.content.map { bodyCodec => (field: FormField) =>
         {
           val erased    = bodyCodec.erase
-          val mediaType = bodyCodec.mediaTypeOrJson
+          val mediaType = mediaTypeOrJson(bodyCodec)
           val codec     =
             codecs
               .get(mediaType.fullType)
