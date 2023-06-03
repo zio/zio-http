@@ -79,11 +79,6 @@ private[internal] sealed trait BodyCodec[A] { self =>
   def mediaType: Option[MediaType]
 
   /**
-   * Returns the media type or application/json if not specified
-   */
-  def mediaTypeOrJson: MediaType = mediaType.getOrElse(MediaType.application.`json`)
-
-  /**
    * Name of the body part
    *
    * In case of multipart/form-data encoding one request or response can consist
