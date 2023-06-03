@@ -1,18 +1,22 @@
 package zio.http.codec.internal
 
-import zio._
-import zio.http._
-import zio.http.codec.HttpCodecError
-import zio.schema.codec._
-import zio.schema.{Schema, StandardType}
-import zio.stream.ZPipeline
-
 import java.time._
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.ConcurrentMapHasAsScala
 import scala.util.Try
+
+import zio._
+
+import zio.stream.ZPipeline
+
+import zio.schema.codec._
+import zio.schema.{Schema, StandardType}
+
+import zio.http._
+import zio.http.codec.HttpCodecError
 
 final case class MediaTypeCodecDefinition[T <: MediaTypeCodec[_]](
   acceptedTypes: Chunk[MediaType],
