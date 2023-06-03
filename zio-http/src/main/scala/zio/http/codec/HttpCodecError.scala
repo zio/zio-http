@@ -28,7 +28,6 @@ import zio.http.{Path, Status}
 sealed trait HttpCodecError extends Exception with NoStackTrace {
   override def getMessage(): String = message
   def message: String
-  override def getMessage: String = message
 }
 object HttpCodecError {
   final case class MissingHeader(headerName: String)                                           extends HttpCodecError {
