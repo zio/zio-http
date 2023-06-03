@@ -1,22 +1,18 @@
 package zio.http.codec.internal
 
+import zio._
+import zio.http._
+import zio.http.codec.HttpCodecError
+import zio.schema.codec._
+import zio.schema.{Schema, StandardType}
+import zio.stream.ZPipeline
+
 import java.time._
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-
+import scala.collection.JavaConverters.mapAsScalaConcurrentMapConverter
 import scala.collection.mutable
-import scala.jdk.CollectionConverters.ConcurrentMapHasAsScala
 import scala.util.Try
-
-import zio._
-
-import zio.stream.ZPipeline
-
-import zio.schema.codec._
-import zio.schema.{Schema, StandardType}
-
-import zio.http._
-import zio.http.codec.HttpCodecError
 
 final case class MediaTypeCodecDefinition[T <: MediaTypeCodec[_]](
   acceptedTypes: Chunk[MediaType],
@@ -43,33 +39,34 @@ object MediaTypeCodec {
   ): MediaTypeCodecDefinition[BinaryMediaTypeCodec] =
     MediaTypeCodecDefinition(
       acceptTypes,
-      (content: Chunk[BodyCodec[_]]) =>
+      { (content: Chunk[BodyCodec[_]]) =>
         new BinaryMediaTypeCodec {
 
           lazy val encoders: Chunk[Any => Body] =
-            content.map { bodyCodec =>
+            content.map { (bodyCodec: BodyCodec[_]) =>
               val erased = bodyCodec.erase
               val codec = binaryCodec(erased.schema.asInstanceOf[Schema[Any]]).asInstanceOf[BinaryCodec[erased.Element]]
-              erased.encodeToBody(_, codec)
+              erased.encodeToBody(_: Any, codec)
             }
 
           lazy val decoders: Chunk[Body => IO[Throwable, _]] =
-            content.map { bodyCodec =>
+            content.map { (bodyCodec: BodyCodec[_]) =>
               val codec =
                 binaryCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
                   .asInstanceOf[BinaryCodec[bodyCodec.Element]]
-              bodyCodec.decodeFromBody(_, codec)
+              bodyCodec.decodeFromBody(_: Body, codec)
             }
 
           lazy val codecs: Map[BodyCodec[Any], BinaryCodec[Any]] =
-            content.map { bodyCodec =>
+            content.map { (bodyCodec: BodyCodec[_]) =>
               val codec =
                 binaryCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
                   .asInstanceOf[BinaryCodec[bodyCodec.Element]]
               bodyCodec.erase -> codec.asInstanceOf[BinaryCodec[Any]]
             }.toMap
 
-        },
+        }
+      },
     )
 
   private def text(
@@ -78,11 +75,11 @@ object MediaTypeCodec {
   ): MediaTypeCodecDefinition[TextMediaTypeCodec] =
     MediaTypeCodecDefinition(
       acceptTypes,
-      (content: Chunk[BodyCodec[_]]) =>
+      { (content: Chunk[BodyCodec[_]]) =>
         new TextMediaTypeCodec {
 
           lazy val encoders: Chunk[Any => Body] =
-            content.map { bodyCodec =>
+            content.map { (bodyCodec: BodyCodec[_]) =>
               val erased = bodyCodec.erase
               val codec  =
                 textCodec(erased.schema.asInstanceOf[Schema[Any]]).asInstanceOf[Codec[String, Char, erased.Element]]
@@ -90,25 +87,26 @@ object MediaTypeCodec {
             }
 
           lazy val decoders: Chunk[Body => IO[Throwable, _]] =
-            content.map { bodyCodec =>
+            content.map { (bodyCodec: BodyCodec[_]) =>
               val codec =
                 textCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
                   .asInstanceOf[Codec[String, Char, bodyCodec.Element]]
-              bodyCodec.decodeFromBody(_, codec)
+              bodyCodec.decodeFromBody(_: Body, codec)
             }
 
           lazy val codecs: Map[BodyCodec[Any], Codec[String, Char, Any]] =
-            content.map { bodyCodec =>
+            content.map { (bodyCodec: BodyCodec[_]) =>
               val codec =
                 textCodec(bodyCodec.schema.asInstanceOf[Schema[Any]])
                   .asInstanceOf[Codec[String, Char, bodyCodec.Element]]
               bodyCodec.erase -> codec.asInstanceOf[Codec[String, Char, Any]]
             }.toMap
 
-        },
+        }
+      },
     )
 
-  val json: MediaTypeCodecDefinition[BinaryMediaTypeCodec] =
+  private lazy val json: MediaTypeCodecDefinition[BinaryMediaTypeCodec] =
     binary(
       JsonCodec.schemaBasedBinaryCodec[Any](_),
       Chunk(
@@ -116,7 +114,7 @@ object MediaTypeCodec {
       ),
     )
 
-  val protobuf: MediaTypeCodecDefinition[BinaryMediaTypeCodec] =
+  private lazy val protobuf: MediaTypeCodecDefinition[BinaryMediaTypeCodec] =
     binary(
       ProtobufCodec.protobufCodec[Any](_),
       Chunk(
@@ -124,27 +122,27 @@ object MediaTypeCodec {
       ),
     )
 
-  val text: MediaTypeCodecDefinition[TextMediaTypeCodec] =
+  private lazy val text: MediaTypeCodecDefinition[TextMediaTypeCodec] =
     text(
       TextCodec.fromSchema[Any],
       Chunk.fromIterable(MediaType.text.all),
     )
 
-  private val all: Chunk[MediaTypeCodecDefinition[_ <: MediaTypeCodec[_]]] =
+  private lazy val all: Chunk[MediaTypeCodecDefinition[_ <: MediaTypeCodec[_]]] =
     Chunk(json, protobuf, text)
 
-  private val allByType: Map[String, MediaTypeCodecDefinition[_ <: MediaTypeCodec[_]]] =
+  private lazy val allByType: Map[String, MediaTypeCodecDefinition[_ <: MediaTypeCodec[_]]] =
     all.flatMap { codec =>
       codec.acceptedTypes.map(_.fullType).map(_ -> codec)
     }.toMap
 
-  private val codecsCache: mutable.Map[(Option[String], Chunk[BodyCodec[_]]), Map[String, MediaTypeCodec[_]]] =
+  private lazy val codecsCache: mutable.Map[(Option[String], Chunk[BodyCodec[_]]), Map[String, MediaTypeCodec[_]]] =
     new ConcurrentHashMap[(Option[String], Chunk[BodyCodec[_]]), Map[String, MediaTypeCodec[_]]]().asScala
 
   def codecsFor(types: Chunk[MediaType], content: Chunk[BodyCodec[_]]): Map[String, MediaTypeCodec[_]] = {
     val key = (types.collectFirst { case mt if allByType.contains(mt.fullType) => mt.fullType }, content)
     def codecs: Map[String, MediaTypeCodec[_]] =
-      if (types.isEmpty) allByType.view.mapValues(_.create(content)).toMap
+      if (types.isEmpty) allByType.map { case (k, v) => k -> (v.create(content)) }
       else {
         types.collectFirst {
           case mt if allByType.contains(mt.fullType) => Map(mt.fullType -> allByType(mt.fullType).create(content))
