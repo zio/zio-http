@@ -190,7 +190,7 @@ jobs:
 
       - name: Add Scoverage
         id: add_plugin
-        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.3")' project/plugins.sbt
+        run: sed -i -e '$aaddSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.0.8")' project/plugins.sbt
 
       - name: Update Build Definition
         id: update_build_definition
