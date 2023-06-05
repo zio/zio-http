@@ -28,8 +28,9 @@ import zio.schema.{DeriveSchema, Schema, StandardType}
 
 import zio.http.Header.ContentType
 import zio.http._
-import zio.http.codec.HttpCodec.{int, literal, query, string}
+import zio.http.codec.HttpCodec.{int, literal, query, queryInt, string}
 import zio.http.codec._
+import zio.http.endpoint.internal.EndpointServer
 import zio.http.forms.Fixtures.formField
 
 object EndpointSpec extends ZIOSpecDefault {
@@ -85,6 +86,24 @@ object EndpointSpec extends ZIOSpecDefault {
         testRoutes("/users/123?key=&value=", "path(users, 123, Some(), Some())") &&
         testRoutes("/users/123?key=&value=X", "path(users, 123, Some(), Some(X))") &&
         testRoutes("/users/123?key=X&value=Y", "path(users, 123, Some(X), Some(Y))")
+      },
+      test("bad request for failed codec") {
+        val endpoint =
+          Endpoint
+            .get(literal("posts"))
+            .query(queryInt("id"))
+            .out[Int]
+
+        val routes: Routes.Single[Any, ZNothing, Any, Int, EndpointMiddleware.None] =
+          endpoint
+            .implement(_ => ZIO.succeed(42))
+            .asInstanceOf[Routes.Single[Any, ZNothing, Any, Int, EndpointMiddleware.None]]
+
+        for {
+          response <- routes.toApp.runZIO(
+            Request.get(URL.decode("/posts?id=notanid").toOption.get),
+          )
+        } yield assertTrue(response.status.code == 400)
       },
       test("out of order api") {
         val testRoutes = testEndpoint(
@@ -369,12 +388,8 @@ object EndpointSpec extends ZIOSpecDefault {
             body     <- response.body.asString.orDie
           } yield assertTrue(response.status.isSuccess) && assertTrue(body == "42")
         },
-        test("decoding error") {
-
+        test("bad request for failed codec") {
           implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
-
-          val ExpectedFieldName = "value"
-          val WrongFieldName    = "valu"
 
           val endpoint =
             Endpoint
@@ -385,25 +400,15 @@ object EndpointSpec extends ZIOSpecDefault {
           val routes =
             endpoint.implement(_ => ZIO.succeed(42))
 
-          val request =
-            Request
-              .post(
-                Body.fromString(s"""{"$WrongFieldName": "Invalid field!"}"""),
-                URL.decode("/posts").toOption.get,
-              )
-
           for {
-            response <- routes.toApp.runZIO(request).mapError(_.get).catchAllDefect {
-              case err: HttpCodecError.MalformedBody => {
-                err.cause match {
-                  case Some(DecodeError.ReadError(_, _)) =>
-                    ZIO.succeed(Response.text(err.details).withStatus(Status.UnprocessableEntity))
-                  case _                                 => ZIO.fail("Unexpected error cause: " + err.toString())
-                }
-              }
-            }
-            body     <- response.body.asString.orDie
-          } yield assertTrue(response.status.code == 422, body == s""".$ExpectedFieldName(missing)""")
+            response <- routes.toApp.runZIO(
+              Request
+                .post(
+                  Body.fromString("""{"vale": "My new post!"}"""),
+                  URL.decode("/posts").toOption.get,
+                ),
+            )
+          } yield assertTrue(response.status.code == 400)
         },
       ),
       suite("404")(
@@ -532,7 +537,7 @@ object EndpointSpec extends ZIOSpecDefault {
             route =
               Endpoint
                 .get(literal("test-byte-stream"))
-                .outStream[Byte]("response", Status.Ok, MediaType.image.png)
+                .outStream[Byte](Status.Ok, MediaType.image.png)
                 .implement { _ =>
                   ZIO.succeed(ZStream.fromChunk(bytes).rechunk(16))
                 }

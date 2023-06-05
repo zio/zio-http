@@ -183,13 +183,33 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
 
   /**
    * Returns a new endpoint derived from this one, whose request content must
-   * satisfy the specified schema.
+   * satisfy the specified schema and is documented.
+   */
+  def in[Input2](doc: Doc)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ HttpCodec.content(schema) ?? doc)
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content must
+   * satisfy the specified schema and is documented.
    */
   def in[Input2](name: String)(implicit
     schema: Schema[Input2],
     combiner: Combiner[Input, Input2],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     copy(input = input ++ HttpCodec.content(name)(schema))
+
+  /**
+   * Returns a new endpoint derived from this one, whose request content must
+   * satisfy the specified schema and is documented.
+   */
+  def in[Input2](name: String, doc: Doc)(implicit
+    schema: Schema[Input2],
+    combiner: Combiner[Input, Input2],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    copy(input = input ++ (HttpCodec.content(name)(schema) ?? doc))
 
   /**
    * Returns a new endpoint derived from this one, whose request must satisfy
@@ -202,7 +222,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
 
   /**
    * Returns a new endpoint derived from this one, whose input type is a stream
-   * of the specified typ
+   * of the specified typ.
    */
   def inStream[Input2: Schema](implicit
     combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
@@ -217,13 +237,43 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
 
   /**
    * Returns a new endpoint derived from this one, whose input type is a stream
-   * of the specified type
+   * of the specified type and is documented.
+   */
+  def inStream[Input2: Schema](doc: Doc)(implicit
+    combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    Endpoint(
+      input = self.input ++ (ContentCodec.contentStream[Input2] ?? doc),
+      output,
+      error,
+      doc,
+      mw,
+    )
+
+  /**
+   * Returns a new endpoint derived from this one, whose input type is a stream
+   * of the specified type.
    */
   def inStream[Input2: Schema](name: String)(implicit
     combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
   ): Endpoint[combiner.Out, Err, Output, Middleware] =
     Endpoint(
       input = self.input ++ ContentCodec.contentStream[Input2](name),
+      output,
+      error,
+      doc,
+      mw,
+    )
+
+  /**
+   * Returns a new endpoint derived from this one, whose input type is a stream
+   * of the specified type and is documented.
+   */
+  def inStream[Input2: Schema](name: String, doc: Doc)(implicit
+    combiner: Combiner[Input, ZStream[Any, Nothing, Input2]],
+  ): Endpoint[combiner.Out, Err, Output, Middleware] =
+    Endpoint(
+      input = self.input ++ (ContentCodec.contentStream[Input2](name) ?? doc),
       output,
       error,
       doc,
@@ -259,24 +309,82 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
 
   /**
    * Returns a new endpoint derived from this one, whose output type is the
-   * specified type for the ok status code.
+   * specified type for the ok status code and is documented.
    */
-  def out[Output2: Schema](name: String)(implicit
+  def out[Output2: Schema](doc: Doc)(implicit
     alt: Alternator[Output, Output2],
   ): Endpoint[Input, Err, alt.Out, Middleware] =
-    out[Output2](name, Status.Ok)
+    out[Output2](Status.Ok, doc)
+
+  /**
+   * Returns a new endpoint derived from this one, whose output type is the
+   * specified type for the ok status code.
+   */
+  def out[Output2: Schema](
+    mediaType: MediaType,
+  )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
+    out[Output2](Status.Ok, mediaType)
 
   /**
    * Returns a new endpoint derived from this one, whose output type is the
    * specified type for the specified status code.
    */
   def out[Output2: Schema](
-    name: String,
     status: Status,
   )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
-      output = (self.output | HttpCodec.content(name)(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),
+      output = self.output | (HttpCodec.content(implicitly[Schema[Output2]]) ++ StatusCodec.status(status)),
+      error,
+      doc,
+      mw,
+    )
+
+  /**
+   * Returns a new endpoint derived from this one, whose output type is the
+   * specified type for the specified status code and is documented.
+   */
+  def out[Output2: Schema](
+    status: Status,
+    doc: Doc,
+  )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
+    Endpoint(
+      input,
+      output = self.output | ((HttpCodec.content(implicitly[Schema[Output2]]) ++ StatusCodec.status(status)) ?? doc),
+      error,
+      doc,
+      mw,
+    )
+
+  /**
+   * Returns a new endpoint derived from this one, whose output type is the
+   * specified type for the ok status code and is documented.
+   */
+  def out[Output2: Schema](
+    mediaType: MediaType,
+    doc: Doc,
+  )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
+    Endpoint(
+      input,
+      output = self.output | (HttpCodec.content(mediaType)(implicitly[Schema[Output2]]) ?? doc),
+      error,
+      doc,
+      mw,
+    )
+
+  /**
+   * Returns a new endpoint derived from this one, whose output type is the
+   * specified type for the specified status code and is documented.
+   */
+  def out[Output2: Schema](
+    status: Status,
+    mediaType: MediaType,
+    doc: Doc,
+  )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
+    Endpoint(
+      input,
+      output = self.output |
+        ((HttpCodec.content(mediaType)(implicitly[Schema[Output2]]) ++ StatusCodec.status(status)) ?? doc),
       error,
       doc,
       mw,
@@ -287,14 +395,12 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    * specified type for the specified status code.
    */
   def out[Output2: Schema](
-    name: String,
     status: Status,
     mediaType: MediaType,
   )(implicit alt: Alternator[Output, Output2]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
-      output =
-        (self.output | HttpCodec.content(name, mediaType)(implicitly[Schema[Output2]])) ++ StatusCodec.status(status),
+      output = self.output | (HttpCodec.content(mediaType)(implicitly[Schema[Output2]]) ++ StatusCodec.status(status)),
       error,
       doc,
       mw,
@@ -308,8 +414,20 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
     schema: Schema[Err2],
     alt: Alternator[Err, Err2],
   ): Endpoint[Input, alt.Out, Output, Middleware] =
-    copy[Input, alt.Out, Output, Middleware](error =
-      self.error | (ContentCodec.content[Err2]("error-response") ++ StatusCodec.status(status)),
+    copy[Input, alt.Out, Output, Middleware](
+      error = self.error | (ContentCodec.content[Err2]("error-response") ++ StatusCodec.status(status)),
+    )
+
+  /**
+   * Returns a new endpoint that can fail with the specified error type for the
+   * specified status code and is documented.
+   */
+  def outError[Err2](status: Status, doc: Doc)(implicit
+    schema: Schema[Err2],
+    alt: Alternator[Err, Err2],
+  ): Endpoint[Input, alt.Out, Output, Middleware] =
+    copy[Input, alt.Out, Output, Middleware](
+      error = self.error | ((ContentCodec.content[Err2]("error-response") ++ StatusCodec.status(status)) ?? doc),
     )
 
   def outErrors[Err2]: OutErrors[Input, Err, Output, Middleware, Err2] = OutErrors(self)
@@ -332,7 +450,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
   ): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
-      output = (self.output | ContentCodec.contentStream[Output2]) ++ StatusCodec.status(Status.Ok),
+      output = self.output | (ContentCodec.contentStream[Output2] ++ StatusCodec.status(Status.Ok)),
       error,
       doc,
       mw,
@@ -342,41 +460,64 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    * Returns a new endpoint derived from this one, whose output type is a stream
    * of the specified type for the ok status code.
    */
-  def outStream[Output2: Schema](name: String)(implicit
+  def outStream[Output2: Schema](doc: Doc)(implicit
     alt: Alternator[Output, ZStream[Any, Nothing, Output2]],
   ): Endpoint[Input, Err, alt.Out, Middleware] =
-    outStream[Output2](name, Status.Ok)
+    Endpoint(
+      input,
+      output = self.output | (ContentCodec.contentStream[Output2] ++ StatusCodec.status(Status.Ok) ?? doc),
+      error,
+      doc,
+      mw,
+    )
 
   /**
    * Returns a new endpoint derived from this one, whose output type is a stream
-   * of the specified type for the specified status code.
+   * of the specified type for the specified status code and is documented.
    */
   def outStream[Output2: Schema](
-    name: String,
     status: Status,
+    doc: Doc,
   )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
-      output = (self.output | ContentCodec.contentStream[Output2](name)) ++ StatusCodec.status(status),
+      output = self.output | (ContentCodec.contentStream[Output2] ++ StatusCodec.status(status) ?? doc),
       error,
       doc,
       mw,
     )
 
   def outStream[Output2: Schema](
-    name: String,
     mediaType: MediaType,
   )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
-    outStream(name, Status.Ok, mediaType)
+    outStream(Status.Ok, mediaType)
 
   def outStream[Output2: Schema](
-    name: String,
+    mediaType: MediaType,
+    doc: Doc,
+  )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
+    outStream(Status.Ok, mediaType, doc)
+
+  def outStream[Output2: Schema](
     status: Status,
     mediaType: MediaType,
   )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
     Endpoint(
       input,
-      output = (self.output | ContentCodec.contentStream[Output2](name, mediaType)) ++ StatusCodec.status(status),
+      output = self.output | (ContentCodec.contentStream[Output2](mediaType) ++ StatusCodec.status(status)),
+      error,
+      doc,
+      mw,
+    )
+
+  def outStream[Output2: Schema](
+    status: Status,
+    mediaType: MediaType,
+    doc: Doc,
+  )(implicit alt: Alternator[Output, ZStream[Any, Nothing, Output2]]): Endpoint[Input, Err, alt.Out, Middleware] =
+    Endpoint(
+      input,
+      output = self.output | ((ContentCodec.contentStream[Output2](mediaType) ++ StatusCodec.status(status)) ?? doc),
       error,
       doc,
       mw,
