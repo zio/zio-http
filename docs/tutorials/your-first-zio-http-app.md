@@ -1,21 +1,22 @@
 # Tutorial: Your First ZIO HTTP App
 
-In this tutorial, you will learn how to build your first ZIO HTTP application. We will start by setting up a basic ZIO project and then create an HTTP server using the ZIO HTTP module. By the end of this tutorial, you will have a working ZIO HTTP application.
+ZIO is a modern, high-performance library for asynchronous programming in Scala. It provides a powerful and expressive API for building scalable and reliable applications. ZIO also has a strong focus on type safety and resource management, which makes it a popular choice for building server-side applications.
 
-## Prerequisites
+In this tutorial, we will learn how to build a simple HTTP server using ZIO and the ZIO HTTP module. By the end of this tutorial, you will have a basic understanding of how to build HTTP servers using ZIO and the ZIO HTTP module.
 
-Before we begin, make sure you have the following installed:
+## Introduction
 
-- JDK 11 or greater
-- SBT (Scala Build Tool)
+ZIO is a modern, high-performance library for asynchronous programming in Scala. It provides a powerful and expressive API for building scalable and reliable applications. ZIO also has a strong focus on type safety and resource management, which makes it a popular choice for building server-side applications.
 
-## Setup
+In this tutorial, we will learn how to build a simple HTTP server using ZIO and the ZIO HTTP module. By the end of this tutorial, you will have a basic understanding of how to build HTTP servers using ZIO and the ZIO HTTP module.
 
-Let's start by creating a new SBT project and adding the necessary dependencies.
+## Setting up the Project
 
-1. Create a new directory for your project.
-2. Inside the project directory, create a new file named `build.sbt`.
-3. Open the `build.sbt` file and add the following lines:
+To get started, we need to set up a new SBT project. Here are the steps to do that:
+
+1. Open your preferred text editor and create a new directory for your project.
+2. Open a terminal window and navigate to the project directory.
+3. Run the following command to create a new SBT project:
 
 ```scala
 scalaVersion := "2.13.8"
