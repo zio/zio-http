@@ -125,13 +125,17 @@ object NettyConnectionPool {
     for {
       resolvedHosts <- dnsResolver.resolve(location.host)
       sortedHosts    = sortHostsHappyEyeballs(resolvedHosts)
-      createChannels = sortedHosts.map(createChannel).map(_.interruptible).map(_.debug("create channel")).toList
-      // Racing them all works but is not HappyEyeballs.
-      // result <- ZIO.raceAll(ZIO.never, createChannels)
+      createChannels = sortedHosts.map(createChannel)
+      chunk          = NonEmptyChunk.fromChunk(createChannels).get
       result <- happyEyeballsWithRelease(
-        createChannels,
+        chunk,
         250.millis,
-        (jchannel: JChannel) => NettyFutureExecutor.executed(jchannel.closeFuture()).debug("CLOSED").ignore,
+        (jchannel: JChannel) => {
+          ZIO
+            .attempt(jchannel.close())
+            .flatMap(NettyFutureExecutor.executed(_))
+            .ignore
+        },
       )
     } yield result
   }
@@ -192,28 +196,28 @@ object NettyConnectionPool {
    * Returns the first successful connection. Fails with an exception if none
    * succeed.
    */
-  def executeHappyEyeballs[A](tasks: List[Task[A]], delay: Duration): Task[A] =
-    tasks match {
-      // What should this error be?
-      case Nil                => ZIO.fail(new IllegalStateException("No tasks left."))
-      case task :: Nil        =>
-        task
-      case task :: otherTasks =>
-        Promise.make[Nothing, Unit].flatMap { failurePromise =>
-          val taskWithFailure = task.onError(_ => failurePromise.complete(ZIO.unit))
-          val continue        =
-            failurePromise.await.timeout(delay).debug("TIMEOUT??").ignore *> executeHappyEyeballs(otherTasks, delay)
-          // ZIO.logInfo(s"Tasks left ${otherTasks.size}") *>
-          // I've tried, disconnecting, making the timeout's different, and trying to make the zio interruptible.
-          taskWithFailure.disconnect.debug("TASK WITH FAILURE") race continue.disconnect.debug("CONTINUE")
-        }
+  def executeHappyEyeballs[A](tasks: NonEmptyChunk[Task[A]], delay: Duration): Task[A] = {
+    if (tasks.size == 1) {
+      tasks.head
+    } else {
+      NonEmptyChunk.fromChunk(tasks.tail) match {
+        case None       => tasks.head
+        case Some(tail) =>
+          val continue = executeHappyEyeballs(tail, delay).memoize.flatten
+          tasks.head.catchAll(_ => continue) race continue.delay(delay)
+      }
     }
+  }
 
   /**
    * Execute Happy Eyeballs, but release the extra tasks that succeed after the
    * first one.
    */
-  private def happyEyeballsWithRelease[A](tasks: List[Task[A]], delay: Duration, releaseExtra: A => UIO[Unit]) = for {
+  private def happyEyeballsWithRelease[A](
+    tasks: NonEmptyChunk[Task[A]],
+    delay: Duration,
+    releaseExtra: A => UIO[Unit],
+  ) = for {
     successful <- Queue.bounded[A](tasks.size)
     enqueueingTasks = tasks.map {
       _.onExit {

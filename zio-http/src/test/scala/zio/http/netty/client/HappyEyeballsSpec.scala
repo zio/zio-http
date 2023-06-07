@@ -31,26 +31,26 @@ object HappyEyeballsSpec extends ZIOSpecDefault {
       // 5s-6s: 4th should be interrupted
       // -----:  5th shouldn't start
       val result = NettyConnectionPool
-        .executeHappyEyeballs(
-          List(
-            printSleepPrint(10.seconds, "task1"),
-            printSleepFail(500.millis, "task2"),
-            printSleepPrint(1500.millis, "task3"),
-            printSleepPrint(1.seconds, "task4"),
-            printSleepPrint(1.seconds, "task5"),
-          ),
-          1.seconds,
-        )
 //        .executeHappyEyeballs(
-//          List(
+//          Chunk(
 //            printSleepPrint(10.seconds, "task1"),
-//            printSleepFail(1.second, "task2"),
-//            printSleepPrint(3.seconds, "task3"),
-//            printSleepPrint(2.seconds, "task4"),
-//            printSleepPrint(2.seconds, "task5"),
+//            printSleepFail(500.millis, "task2"),
+//            printSleepPrint(1500.millis, "task3"),
+//            printSleepPrint(1.seconds, "task4"),
+//            printSleepPrint(1.seconds, "task5"),
 //          ),
-//          2.seconds,
+//          1.seconds,
 //        )
+        .executeHappyEyeballs(
+          NonEmptyChunk(
+            printSleepPrint(10.seconds, "task1"),
+            printSleepFail(1.second, "task2"),
+            printSleepPrint(3.seconds, "task3"),
+            printSleepPrint(2.seconds, "task4"),
+            printSleepPrint(2.seconds, "task5"),
+          ),
+          2.seconds,
+        )
         .debug("HAPPY EYE BALLS")
 
       assertZIO(result)(equalTo("task3"))
