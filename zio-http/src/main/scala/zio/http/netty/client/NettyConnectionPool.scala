@@ -17,19 +17,23 @@
 package zio.http.netty.client
 
 import java.net.{Inet6Address, InetAddress, InetSocketAddress}
+import java.util.concurrent.TimeUnit
+
 import zio._
 import zio.http.URL.Location
 import zio.http._
 import zio.http.netty.{Names, NettyFutureExecutor, NettyProxy}
 import io.netty.bootstrap.Bootstrap
 import io.netty.channel.{
-  ChannelInitializer,
   Channel => JChannel,
   ChannelFactory => JChannelFactory,
+  ChannelInitializer,
+  ChannelOption,
   EventLoopGroup => JEventLoopGroup,
 }
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.proxy.HttpProxyHandler
+import io.netty.handler.timeout.ReadTimeoutHandler
 
 trait NettyConnectionPool extends ConnectionPool[JChannel]
 
@@ -112,13 +116,13 @@ object NettyConnectionPool {
     for {
       resolvedHosts <- dnsResolver.resolve(location.host)
       sortedHosts    = sortHostsHappyEyeballs(resolvedHosts)
-      createChannels = sortedHosts.map(createChannel).toList
+      createChannels = sortedHosts.map(createChannel).map(_.interruptible).map(_.debug("create channel")).toList
       // Racing them all works but is not HappyEyeballs.
       // result <- ZIO.raceAll(ZIO.never, createChannels)
       result <- happyEyeballsWithRelease(
         createChannels,
         250.millis,
-        (jchannel: JChannel) => NettyFutureExecutor.executed(jchannel.closeFuture()).ignore,
+        (jchannel: JChannel) => NettyFutureExecutor.executed(jchannel.closeFuture()).debug("CLOSED").ignore,
       )
     } yield result
   }
@@ -183,12 +187,16 @@ object NettyConnectionPool {
     tasks match {
       // What should this error be?
       case Nil                => ZIO.fail(new IllegalStateException("No tasks left."))
-      case task :: Nil        => task
+      case task :: Nil        =>
+        task
       case task :: otherTasks =>
         Promise.make[Nothing, Unit].flatMap { failurePromise =>
-          val taskWithFailure = task.onError(_ => failurePromise.complete(ZIO.unit).ignore)
-          val continue        = failurePromise.await.timeout(delay).ignore *> executeHappyEyeballs(otherTasks, delay)
-          taskWithFailure.race(continue)
+          val taskWithFailure = task.onError(_ => failurePromise.complete(ZIO.unit))
+          val continue        =
+            failurePromise.await.timeout(delay).debug("TIMEOUT??").ignore *> executeHappyEyeballs(otherTasks, delay)
+//          ZIO.logInfo(s"Tasks left ${otherTasks.size}") *>
+          taskWithFailure.disconnect.debug("TASK WI FAILURE") race continue.disconnect.debug("CONTTINUE")
+
         }
     }
 
@@ -206,7 +214,7 @@ object NettyConnectionPool {
     }
     result <- executeHappyEyeballs(enqueueingTasks, delay)
     successes <- successful.takeAll
-    _         <- ZIO.foreachDiscard(successes.tail)(releaseExtra)
+    _         <- ZIO.foreachParDiscard(successes.tail)(releaseExtra)
   } yield result
 
   private final class NoNettyConnectionPool(
