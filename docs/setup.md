@@ -1,6 +1,6 @@
 ---
 id: setup
-title: "Getting Started: Setting Up a ZIO-HTTP Project"
+title: "Setup"
 ---
 
 This guide will walk you through the process of setting up a new ZIO-HTTP project. Before we begin, please ensure that you have the following installed on your computer:
@@ -33,7 +33,7 @@ The template includes the following features:
 - [sbt-native-packager](https://github.com/sbt/sbt-native-packager): Enables packaging the application in various formats such as Docker images, RPM packages, or GraalVM native images.
 - [scalafmt](https://github.com/scalameta/scalafmt): Automatically formats the source code for consistent formatting across the team.
 - [scalafix](https://github.com/scalacenter/scalafix): Provides refactoring and linting capabilities, ensuring code quality and simplifying upgrades.
-    - Includes the [scalafix-organize-imports](https://github.com/liancheng/scalafix-organize-imports) rule for organizing imports.
+  - Includes the [scalafix-organize-imports](https://github.com/liancheng/scalafix-organize-imports) rule for organizing imports.
 - [sbt-revolver](https://github.com/spray/sbt-revolver): Enables hot-reloading of changes during development.
 
 ## Efficient Development Process
