@@ -1,3 +1,8 @@
+---
+id: testing-your-zio-http-app
+title: Testing zio http app
+---
+
 ## Introduction to ZIO Test
 
 ZIO Test is a zero-dependency testing library that simplifies the testing of effectual programs. It seamlessly integrates with ZIO, making it natural to test both effectual and pure programs.

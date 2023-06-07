@@ -1,0 +1,4 @@
+---
+id: server
+title: Server
+---
