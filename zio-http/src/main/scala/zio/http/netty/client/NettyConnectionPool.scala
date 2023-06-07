@@ -192,7 +192,7 @@ object NettyConnectionPool {
    * Returns the first successful connection. Fails with an exception if none
    * succeed.
    */
-  private def executeHappyEyeballs[A](tasks: List[Task[A]], delay: Duration): Task[A] =
+  def executeHappyEyeballs[A](tasks: List[Task[A]], delay: Duration): Task[A] =
     tasks match {
       // What should this error be?
       case Nil                => ZIO.fail(new IllegalStateException("No tasks left."))
@@ -203,8 +203,9 @@ object NettyConnectionPool {
           val taskWithFailure = task.onError(_ => failurePromise.complete(ZIO.unit))
           val continue        =
             failurePromise.await.timeout(delay).debug("TIMEOUT??").ignore *> executeHappyEyeballs(otherTasks, delay)
-//          ZIO.logInfo(s"Tasks left ${otherTasks.size}") *>
-          taskWithFailure.disconnect.debug("TASK WI FAILURE") race continue.disconnect.debug("CONTTINUE")
+          // ZIO.logInfo(s"Tasks left ${otherTasks.size}") *>
+          // I've tried, disconnecting, making the timeout's different, and trying to make the zio interruptible.
+          taskWithFailure.disconnect.debug("TASK WITH FAILURE") race continue.disconnect.debug("CONTINUE")
         }
     }
 
@@ -220,10 +221,10 @@ object NettyConnectionPool {
         case Exit.Failure(_)     => ZIO.unit
       }
     }
-    result <- executeHappyEyeballs(enqueueingTasks, delay)
+    _ <- executeHappyEyeballs(enqueueingTasks, delay)
     successes <- successful.takeAll
     _         <- ZIO.foreachParDiscard(successes.tail)(releaseExtra)
-  } yield result
+  } yield successes.head
 
   private final class NoNettyConnectionPool(
     channelFactory: JChannelFactory[JChannel],
