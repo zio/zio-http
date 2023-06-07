@@ -16,6 +16,8 @@
 
 package zio.http.netty.client
 
+import zio.http.Status
+
 sealed trait ChannelState { self =>
   def &&(other: ChannelState): ChannelState =
     (self, other) match {
@@ -27,4 +29,7 @@ sealed trait ChannelState { self =>
 object ChannelState {
   case object Invalid  extends ChannelState
   case object Reusable extends ChannelState
+
+  def forStatus(status: Status): ChannelState =
+    if (status == Status.SwitchingProtocols) Invalid else Reusable
 }

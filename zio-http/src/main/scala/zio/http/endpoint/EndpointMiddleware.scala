@@ -47,6 +47,9 @@ sealed trait EndpointMiddleware { self =>
       self.doc + that.doc,
     )
 
+  def ??(doc: Doc): EndpointMiddleware.Typed[In, Err, Out] =
+    EndpointMiddleware.Spec(input, output, error, doc)
+
   def implement[R, S](incoming: In => ZIO[R, Err, S])(
     outgoing: S => ZIO[R, Err, Out],
   ): RoutesMiddleware[R, S, this.type] =

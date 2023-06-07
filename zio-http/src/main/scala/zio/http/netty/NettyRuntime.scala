@@ -59,8 +59,8 @@ private[zio] trait NettyRuntime { self =>
             removeListener(close)
             ensured()
           case Exit.Failure(cause) =>
-            onFailure(cause, ctx)
             removeListener(close)
+            onFailure(cause, ctx)
             ensured()
         }
       case Right(exit) =>

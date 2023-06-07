@@ -43,11 +43,6 @@ final class WebSocketClientInboundHandler(
 
     ctx.fireChannelRead(msg.retain())
     ctx.pipeline().remove(ctx.name()): Unit
-
-    rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.Reusable))(
-      unsafeClass,
-      trace,
-    )
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, error: Throwable): Unit = {

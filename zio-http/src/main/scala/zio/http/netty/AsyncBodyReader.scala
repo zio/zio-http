@@ -40,7 +40,7 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
         case State.Buffering =>
           state = State.Direct(callback)
           buffer.result().foreach { case (chunk, isLast) =>
-            callback(null, chunk, isLast)
+            callback(chunk, isLast)
           }
           ctx.read()
         case State.Direct(_) =>
@@ -71,7 +71,7 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
         case State.Buffering        =>
           buffer += ((chunk, isLast))
         case State.Direct(callback) =>
-          callback(ctx.channel(), chunk, isLast)
+          callback(chunk, isLast)
           ctx.read()
       }
     }
@@ -79,6 +79,17 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
     if (isLast) {
       ctx.channel().pipeline().remove(this)
     }: Unit
+  }
+
+  override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
+    this.synchronized {
+      state match {
+        case State.Buffering        =>
+        case State.Direct(callback) =>
+          callback.fail(cause)
+      }
+    }
+    super.exceptionCaught(ctx, cause)
   }
 }
 

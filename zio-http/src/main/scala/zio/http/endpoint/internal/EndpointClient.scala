@@ -40,16 +40,23 @@ private[endpoint] final case class EndpointClient[I, E, O, M <: EndpointMiddlewa
       } else {
         // Preferentially decode an error from the handler, before falling back
         // to decoding the middleware error:
-        val leftError =
-          endpoint.error.decodeResponse(response).orDie.flatMap((e: E) => ZIO.fail(alt.left(e)))
+        val handlerError =
+          endpoint.error
+            .decodeResponse(response)
+            .map(e => alt.left(e))
+            .mapError(t => new IllegalStateException("Cannot deserialize using endpoint error codec", t))
 
-        val rightError =
+        val middlewareError =
           invocation.middleware.error
             .decodeResponse(response)
-            .orDie
-            .flatMap((e: invocation.middleware.Err) => ZIO.fail(alt.right(e)))
+            .map(e => alt.right(e))
+            .mapError(t => new IllegalStateException("Cannot deserialize using middleware error codec", t))
 
-        leftError.orElse(rightError)
+        handlerError.catchAllCause { handlerCause =>
+          middlewareError.catchAllCause { middlewareCause =>
+            ZIO.failCause(handlerCause ++ middlewareCause)
+          }
+        }.orDie.flip
       }
     }
   }

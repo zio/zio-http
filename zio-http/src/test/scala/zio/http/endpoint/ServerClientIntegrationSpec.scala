@@ -17,16 +17,17 @@
 package zio.http.endpoint
 
 import zio._
-import zio.test.TestAspect.{ignore, sequential, timeout, withLiveClock}
+import zio.test.TestAspect._
 import zio.test.{TestResult, ZIOSpecDefault, assertTrue}
 
 import zio.stream.ZStream
 
 import zio.schema.{DeriveSchema, Schema}
 
+import zio.http.Header.Authorization
 import zio.http._
-import zio.http.codec.HttpCodec.{query, string}
-import zio.http.codec.PathCodec.{int, literal}
+import zio.http.codec.HttpCodec.{authorization, int, query, string, stringToLiteral}
+import zio.http.codec.PathCodec.literal
 import zio.http.codec.{Doc, HttpCodec, QueryCodec}
 import zio.http.netty.server.NettyDriver
 
@@ -47,6 +48,14 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     )
 
     EndpointExecutor(client, locator, ZIO.unit)
+  }
+
+  def makeExecutor[MI](client: Client, port: Int, middlewareInput: MI): EndpointExecutor[MI] = {
+    val locator = EndpointLocator.fromURL(
+      URL.decode(s"http://localhost:$port").toOption.get,
+    )
+
+    EndpointExecutor(client, locator, ZIO.succeed(middlewareInput))
   }
 
   def testEndpoint[R, In, Err, Out](
@@ -73,6 +82,33 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         }
         .provideSome[Client](executorLayer)
       result <- outF(out)
+    } yield result
+
+  def testEndpointError[R, In, Err, Out](
+    endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
+    route: Routes[R, Err, EndpointMiddleware.None.type],
+    in: In,
+    err: Err,
+  ): ZIO[Client with R with Server, Out, TestResult] =
+    testEndpointErrorZIO(endpoint, route, in, errorF = { (value: Err) => assertTrue(err == value) })
+
+  def testEndpointErrorZIO[R, In, Err, Out](
+    endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
+    route: Routes[R, Err, EndpointMiddleware.None.type],
+    in: In,
+    errorF: Err => ZIO[Any, Nothing, TestResult],
+  ): ZIO[Client with R with Server, Out, TestResult] =
+    for {
+      port <- Server.install(route.toApp)
+      executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
+      out    <- ZIO
+        .service[EndpointExecutor[Unit]]
+        .flatMap { executor =>
+          executor.apply(endpoint.apply(in))
+        }
+        .provideSome[Client](executorLayer)
+        .flip
+      result <- errorF(out)
     } yield result
 
   def spec =
@@ -237,7 +273,143 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           ("name", 10, Post(1, "title", "body", 111)),
           "name: name, value: 10, post: Post(1,title,body,111)",
         )
-      } @@ timeout(10.seconds) @@ ignore, // TODO: investigate and fix,
+      } @@ timeout(10.seconds) @@ ifEnvNotSet("CI"), // NOTE: random hangs on CI
+      test("endpoint error returned") {
+        val api = Endpoint
+          .post(literal("test"))
+          .outError[String](Status.Custom(999))
+
+        val route = api.implement { _ =>
+          ZIO.fail("42")
+        }
+
+        testEndpointError(
+          api,
+          route,
+          (),
+          "42",
+        )
+      },
+      test("middleware error returned") {
+
+        val alwaysFailingMiddleware = EndpointMiddleware(
+          authorization,
+          HttpCodec.empty,
+          HttpCodec.error[String](Status.Custom(900)),
+        )
+
+        val endpoint =
+          Endpoint.get("users" / int("userId")).out[Int] @@ alwaysFailingMiddleware
+
+        val endpointRoute =
+          endpoint.implement { id =>
+            ZIO.succeed(id)
+          }
+
+        val routes = endpointRoute
+
+        val app = routes.toApp(alwaysFailingMiddleware.implement[Any, Unit](_ => ZIO.fail("FAIL"))(_ => ZIO.unit))
+
+        for {
+          port <- Server.install(app)
+          executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port, Authorization.Basic("user", "pass"))))
+
+          out <- ZIO
+            .serviceWithZIO[EndpointExecutor[alwaysFailingMiddleware.In]] { executor =>
+              executor.apply(endpoint.apply(42))
+            }
+            .provideSome[Client](executorLayer)
+            .flip
+        } yield assertTrue(out == "FAIL")
+      },
+      test("failed middleware deserialization") {
+        val alwaysFailingMiddleware = EndpointMiddleware(
+          authorization,
+          HttpCodec.empty,
+          HttpCodec.error[String](Status.Custom(900)),
+        )
+
+        val endpoint =
+          Endpoint.get("users" / int("userId")).out[Int] @@ alwaysFailingMiddleware
+
+        val alwaysFailingMiddlewareWithAnotherSignature = EndpointMiddleware(
+          authorization,
+          HttpCodec.empty,
+          HttpCodec.error[Long](Status.Custom(900)),
+        )
+
+        val endpointWithAnotherSignature =
+          Endpoint.get("users" / int("userId")).out[Int] @@ alwaysFailingMiddlewareWithAnotherSignature
+
+        val endpointRoute =
+          endpoint.implement { id =>
+            ZIO.succeed(id)
+          }
+
+        val routes = endpointRoute
+
+        val app = routes.toApp(alwaysFailingMiddleware.implement[Any, Unit](_ => ZIO.fail("FAIL"))(_ => ZIO.unit))
+
+        for {
+          port <- Server.install(app)
+          executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port, Authorization.Basic("user", "pass"))))
+
+          cause <- ZIO
+            .serviceWithZIO[EndpointExecutor[alwaysFailingMiddleware.In]] { executor =>
+              executor.apply(endpointWithAnotherSignature.apply(42))
+            }
+            .provideSome[Client](executorLayer)
+            .cause
+        } yield assertTrue(
+          cause.prettyPrint.contains(
+            "java.lang.IllegalStateException: Cannot deserialize using endpoint error codec",
+          ) && cause.prettyPrint.contains(
+            "java.lang.IllegalStateException: Cannot deserialize using middleware error codec",
+          ) && cause.prettyPrint.contains(
+            "Suppressed: java.lang.IllegalStateException: Trying to decode with Undefined codec.",
+          ) && cause.prettyPrint.contains(
+            "Suppressed: zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected a number, got F)",
+          ),
+        )
+      },
+      test("Failed endpoint deserialization") {
+        val endpoint =
+          Endpoint.get("users" / int("userId")).out[Int].outError[Int](Status.Custom(999))
+
+        val endpointWithAnotherSignature =
+          Endpoint.get("users" / int("userId")).out[Int].outError[String](Status.Custom(999))
+
+        val endpointRoute =
+          endpoint.implement { id =>
+            ZIO.fail(id)
+          }
+
+        val routes = endpointRoute
+
+        val app = routes.toApp
+
+        for {
+          port <- Server.install(app)
+          executorLayer = ZLayer(ZIO.serviceWith[Client](makeExecutor(_, port)))
+
+          cause <- ZIO
+            .serviceWithZIO[EndpointExecutor[Unit]] { executor =>
+              executor.apply(endpointWithAnotherSignature.apply(42))
+            }
+            .provideSome[Client](executorLayer)
+            .cause
+        } yield assertTrue(
+          cause.prettyPrint.contains(
+            "java.lang.IllegalStateException: Cannot deserialize using endpoint error codec",
+          ) && cause.prettyPrint.contains(
+            "java.lang.IllegalStateException: Cannot deserialize using middleware error codec",
+          ) && cause.prettyPrint.contains(
+            "Suppressed: java.lang.IllegalStateException: Trying to decode with Undefined codec.",
+          ) && cause.prettyPrint.contains(
+            """Suppressed: zio.http.codec.HttpCodecError$MalformedBody: Malformed request body failed to decode: (expected '"' got '4')""",
+          ),
+        )
+      },
       test("multi-part input with stream field") {
         val api = Endpoint
           .post(literal("test"))
@@ -260,7 +432,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } @@ timeout(10.seconds) @@ ignore, // TODO: investigate and fix
+      } @@ timeout(10.seconds) @@ ifEnvNotSet("CI"), // NOTE: random hangs on CI
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),

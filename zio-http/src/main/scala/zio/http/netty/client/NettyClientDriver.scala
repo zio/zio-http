@@ -16,6 +16,8 @@
 
 package zio.http.netty.client
 
+import java.util.concurrent.TimeUnit
+
 import scala.collection.mutable
 
 import zio._
@@ -29,6 +31,7 @@ import zio.http.netty.socket.NettySocketProtocol
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
+import io.netty.handler.timeout.ReadTimeoutHandler
 
 final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],
@@ -65,7 +68,7 @@ final case class NettyClientDriver private (
         nettyChannel     = NettyChannel.make[JWebSocketFrame](channel)
         webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
         app              = createSocketApp()
-        _ <- app.runZIO(webSocketChannel).ignoreLogged.forkScoped
+        _ <- app.runZIO(webSocketChannel).ignoreLogged.interruptible.forkScoped
       } yield {
         val pipeline                              = channel.pipeline()
         val toRemove: mutable.Set[ChannelHandler] = new mutable.HashSet[ChannelHandler]()
@@ -90,7 +93,7 @@ final case class NettyClientDriver private (
           // Handles the heavy lifting required to upgrade the connection to a WebSocket connection
 
           val webSocketClientProtocol = new WebSocketClientProtocolHandler(config)
-          val webSocket               = new WebSocketAppHandler(nettyRuntime, queue)
+          val webSocket               = new WebSocketAppHandler(nettyRuntime, queue, Some(onComplete))
 
           pipeline.addLast(Names.WebSocketClientProtocolHandler, webSocketClientProtocol)
           pipeline.addLast(Names.WebSocketHandler, webSocket)

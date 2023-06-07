@@ -17,50 +17,58 @@
 package zio.http
 
 import zio.test.Assertion.{equalTo, isNone, isSome}
-import zio.test.TestAspect.{timeout, withLiveClock}
-import zio.test.assertZIO
-import zio.{Scope, durationInt}
+import zio.test.TestAspect.{sequential, timeout, withLiveClock}
+import zio.test.{Spec, assert}
+import zio.{Scope, ZIO, durationInt}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 
 object KeepAliveSpec extends HttpRunnableSpec {
 
-  val app                         = Handler.ok.toHttp
-  val connectionCloseHeader       = Headers(Header.Connection.Close)
-  val keepAliveHeader             = Headers(Header.Connection.KeepAlive)
-  private val appKeepAliveEnabled = serve(DynamicServer.app)
+  private val app                   = Handler.ok.toHttp
+  private val connectionCloseHeader = Headers(Header.Connection.Close)
+  private val keepAliveHeader       = Headers(Header.Connection.KeepAlive)
+  private val appKeepAliveEnabled   = serve
 
-  def keepAliveSpec = suite("KeepAlive")(
+  private def keepAliveSpec = suite("KeepAlive")(
     suite("Http 1.1")(
       test("without connection close") {
-        val res = app.deploy.header(Header.Connection).run()
-        assertZIO(res)(isNone)
+        for {
+          _   <- appKeepAliveEnabled
+          res <- app.deploy.header(Header.Connection).run()
+        } yield assert(res)(isNone)
       },
       test("with connection close") {
-        val res = app.deploy.header(Header.Connection).run(headers = connectionCloseHeader)
-        assertZIO(res)(isSome(equalTo(Header.Connection.Close)))
+        for {
+          _   <- appKeepAliveEnabled
+          res <- app.deploy.header(Header.Connection).run(headers = connectionCloseHeader)
+        } yield assert(res)(isSome(equalTo(Header.Connection.Close)))
       },
     ),
     suite("Http 1.0")(
       test("without keep-alive") {
-        val res = app.deploy.header(Header.Connection).run(version = Version.Http_1_0)
-        assertZIO(res)(isSome(equalTo(Header.Connection.Close)))
+        for {
+          _   <- appKeepAliveEnabled
+          res <- app.deploy.header(Header.Connection).run(version = Version.Http_1_0)
+        } yield assert(res)(isSome(equalTo(Header.Connection.Close)))
       },
       test("with keep-alive") {
-        val res = app.deploy
-          .header(Header.Connection)
-          .run(version = Version.Http_1_0, headers = keepAliveHeader)
-        assertZIO(res)(isNone)
+        for {
+          _   <- appKeepAliveEnabled
+          res <- app.deploy
+            .header(Header.Connection)
+            .run(version = Version.Http_1_0, headers = keepAliveHeader)
+        } yield assert(res)(isNone)
       },
     ),
   )
 
-  override def spec = {
+  override def spec: Spec[Scope, Throwable] = {
     suite("KeepAliveSpec") {
-      appKeepAliveEnabled.as(List(keepAliveSpec))
-    }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@ timeout(
+      keepAliveSpec
+    }.provideSome[Scope](DynamicServer.live, severTestLayer, Client.default) @@ timeout(
       30.seconds,
-    ) @@ withLiveClock
+    ) @@ withLiveClock @@ sequential
   }
 
 }

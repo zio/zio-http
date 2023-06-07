@@ -431,21 +431,22 @@ object ZClient {
     localAddress: Option[InetSocketAddress],
     addUserAgentHeader: Boolean,
     webSocketConfig: WebSocketConfig,
+    idleTimeout: Option[Duration],
+    connectionTimeout: Option[Duration],
   ) {
     self =>
 
     def addUserAgentHeader(addUserAgentHeader: Boolean): Config =
       self.copy(addUserAgentHeader = addUserAgentHeader)
 
-    def ssl(ssl: ClientSSLConfig): Config = self.copy(ssl = Some(ssl))
+    def connectionTimeout(timeout: Duration): Config =
+      self.copy(connectionTimeout = Some(timeout))
 
-    def proxy(proxy: zio.http.Proxy): Config = self.copy(proxy = Some(proxy))
+    def idleTimeout(timeout: Duration): Config =
+      self.copy(idleTimeout = Some(timeout))
 
-    def withFixedConnectionPool(size: Int): Config =
-      self.copy(connectionPool = ConnectionPoolConfig.Fixed(size))
-
-    def withDynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): Config =
-      self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
+    def withDisabledConnectionPool: Config =
+      self.copy(connectionPool = ConnectionPoolConfig.Disabled)
 
     /**
      * Configure the client to use `maxHeaderSize` value when encode/decode
@@ -453,8 +454,22 @@ object ZClient {
      */
     def maxHeaderSize(headerSize: Int): Config = self.copy(maxHeaderSize = headerSize)
 
+    def noConnectionTimeout: Config = self.copy(connectionTimeout = None)
+
+    def noIdleTimeout: Config = self.copy(idleTimeout = None)
+
+    def proxy(proxy: zio.http.Proxy): Config = self.copy(proxy = Some(proxy))
+
     def requestDecompression(isStrict: Boolean): Config =
       self.copy(requestDecompression = if (isStrict) Decompression.Strict else Decompression.NonStrict)
+
+    def ssl(ssl: ClientSSLConfig): Config = self.copy(ssl = Some(ssl))
+
+    def withFixedConnectionPool(size: Int): Config =
+      self.copy(connectionPool = ConnectionPoolConfig.Fixed(size))
+
+    def withDynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): Config =
+      self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
 
     def withWebSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
@@ -468,27 +483,43 @@ object ZClient {
           ConnectionPoolConfig.config.nested("connection-pool").withDefault(Config.default.connectionPool) ++
           zio.Config.int("max-header-size").withDefault(Config.default.maxHeaderSize) ++
           Decompression.config.nested("request-decompression").withDefault(Config.default.requestDecompression) ++
-          zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader)
-      ).map { case (ssl, proxy, connectionPool, maxHeaderSize, requestDecompression, addUserAgentHeader) =>
-        default.copy(
-          ssl = ssl,
-          proxy = proxy,
-          connectionPool = connectionPool,
-          maxHeaderSize = maxHeaderSize,
-          requestDecompression = requestDecompression,
-          addUserAgentHeader = addUserAgentHeader,
-        )
+          zio.Config.boolean("add-user-agent-header").withDefault(Config.default.addUserAgentHeader) ++
+          zio.Config.duration("idle-timeout").optional.withDefault(Config.default.idleTimeout) ++
+          zio.Config.duration("connection-timeout").optional.withDefault(Config.default.connectionTimeout)
+      ).map {
+        case (
+              ssl,
+              proxy,
+              connectionPool,
+              maxHeaderSize,
+              requestDecompression,
+              addUserAgentHeader,
+              idleTimeout,
+              connectionTimeout,
+            ) =>
+          default.copy(
+            ssl = ssl,
+            proxy = proxy,
+            connectionPool = connectionPool,
+            maxHeaderSize = maxHeaderSize,
+            requestDecompression = requestDecompression,
+            addUserAgentHeader = addUserAgentHeader,
+            idleTimeout = idleTimeout,
+            connectionTimeout = connectionTimeout,
+          )
       }
 
     lazy val default: Config = Config(
       ssl = None,
       proxy = None,
-      connectionPool = ConnectionPoolConfig.Disabled,
+      connectionPool = ConnectionPoolConfig.Fixed(10),
       maxHeaderSize = 8192,
       requestDecompression = Decompression.No,
       localAddress = None,
       addUserAgentHeader = true,
       webSocketConfig = WebSocketConfig.default,
+      idleTimeout = None,
+      connectionTimeout = None,
     )
   }
 
@@ -551,7 +582,7 @@ object ZClient {
       val request = Request(body, headers, method, url, version, None)
       val cfg     = sslConfig.fold(config)(config.ssl)
 
-      requestAsync(request, cfg, () => Handler.unit)
+      requestAsync(request, cfg, () => Handler.unit, None)
     }
 
     def socket[Env1](
@@ -571,6 +602,7 @@ object ZClient {
             case None               => Scheme.WS
           },
         )
+        scope <- ZIO.scope
         res <- requestAsync(
           Request
             .get(webSocketUrl)
@@ -580,22 +612,32 @@ object ZClient {
             ),
           config,
           () => app.provideEnvironment(env),
+          Some(scope),
         ).withFinalizer {
           case resp: Response.CloseableResponse => resp.close.orDie
           case _                                => ZIO.unit
         }
       } yield res
 
-    private def requestAsync(request: Request, clientConfig: Config, createSocketApp: () => SocketApp[Any])(implicit
+    private def requestAsync(
+      request: Request,
+      clientConfig: Config,
+      createSocketApp: () => SocketApp[Any],
+      outerScope: Option[Scope],
+    )(implicit
       trace: Trace,
     ): ZIO[Any, Throwable, Response] =
       request.url.kind match {
         case location: Location.Absolute =>
           ZIO.uninterruptibleMask { restore =>
             for {
-              onComplete   <- Promise.make[Throwable, ChannelState]
-              onResponse   <- Promise.make[Throwable, Response]
-              channelFiber <- ZIO.scoped {
+              onComplete <- Promise.make[Throwable, ChannelState]
+              onResponse <- Promise.make[Throwable, Response]
+              inChannelScope = outerScope match {
+                case Some(scope) => (zio: ZIO[Scope, Throwable, Unit]) => scope.extend(zio)
+                case None        => (zio: ZIO[Scope, Throwable, Unit]) => ZIO.scoped(zio)
+              }
+              channelFiber <- inChannelScope {
                 for {
                   connection       <- connectionPool
                     .get(
@@ -604,6 +646,8 @@ object ZClient {
                       clientConfig.ssl.getOrElse(ClientSSLConfig.Default),
                       clientConfig.maxHeaderSize,
                       clientConfig.requestDecompression,
+                      clientConfig.idleTimeout,
+                      clientConfig.connectionTimeout,
                       clientConfig.localAddress,
                     )
                     .tapErrorCause(cause => onResponse.failCause(cause))
@@ -644,7 +688,7 @@ object ZClient {
                     }
                 } yield ()
               }.forkDaemon // Needs to live as long as the channel is alive, as the response body may be streaming
-              response     <- restore(onResponse.await.onInterrupt {
+              response <- restore(onResponse.await.onInterrupt {
                 onComplete.interrupt *> channelFiber.join.orDie
               })
             } yield response

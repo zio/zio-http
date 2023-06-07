@@ -248,6 +248,46 @@ object FormSpec extends ZIOSpecDefault {
           collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
         )
       },
+      test("decoding random form") {
+        check(Gen.chunkOfBounded(2, 8)(formField)) { fields =>
+          for {
+            boundary <- Boundary.randomUUID
+            stream = Form(fields.map(_._1): _*).multipartBytes(boundary).rechunk(100)
+            form <- StreamingForm(stream, boundary).collectAll
+
+            normalizedIn  <- ZIO.foreach(fields.map(_._1)) { field =>
+              field.asChunk.map(field.name -> _)
+            }
+            normalizedOut <- ZIO.foreach(form.formData) { field =>
+              field.asChunk.map(field.name -> _)
+            }
+          } yield assertTrue(
+            normalizedIn == normalizedOut,
+          )
+        }
+      },
+      test("decoding large form with random chunk and buffer sizes") {
+        val N = 1024 * 1024
+        check(Gen.int(1, N), Gen.int(1, N)) { case (chunkSize, bufferSize) =>
+          for {
+            bytes <- Random.nextBytes(N)
+            form = Form(
+              Chunk(
+                FormField.Simple("foo", "bar"),
+                FormField.Binary("file", bytes, MediaType.image.png),
+              ),
+            )
+            boundary <- Boundary.randomUUID
+            stream        = form.multipartBytes(boundary).rechunk(chunkSize)
+            streamingForm = StreamingForm(stream, boundary, bufferSize)
+            collected <- streamingForm.collectAll
+          } yield assertTrue(
+            collected.map.contains("file"),
+            collected.map.contains("foo"),
+            collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
+          )
+        }
+      },
     )
 
   def spec =

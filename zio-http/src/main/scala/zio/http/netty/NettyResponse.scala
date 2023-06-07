@@ -55,12 +55,12 @@ object NettyResponse {
 
     if (headers.get(Header.ContentLength).map(_.length).contains(0L)) {
       onComplete
-        .succeed(ChannelState.Reusable)
+        .succeed(ChannelState.forStatus(status))
         .as(
           new NativeResponse(Body.empty, headers, status, () => NettyFutureExecutor.executed(ctx.close())),
         )
     } else {
-      val responseHandler = new ClientResponseStreamHandler(zExec, onComplete, keepAlive)
+      val responseHandler = new ClientResponseStreamHandler(zExec, onComplete, keepAlive, status)
       ctx
         .pipeline()
         .addAfter(

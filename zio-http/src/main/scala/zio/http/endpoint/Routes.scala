@@ -63,8 +63,10 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
       index: Int,
       cause: Cause[Nothing],
     )(implicit trace: Trace): ZIO[R, Nothing, Response] =
-      if (index >= alternatives.length) ZIO.refailCause(cause)
-      else {
+      if (index >= alternatives.length) {
+        if (HttpCodecError.isHttpCodecError(cause)) ZIO.succeed(Response(Status.BadRequest))
+        else ZIO.refailCause(cause)
+      } else {
         val alternative = alternatives(index)
 
         requestHandlers
