@@ -1,7 +1,6 @@
 ---
 id: deploying-a-zio-http-app
 title: Deploying Zio-http Application
-sidebar_label: Deploying Zio-http 
 ---
 
 # Tutorial: How to Deploy a ZIO Application Using Docker?
