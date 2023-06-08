@@ -1,18 +1,20 @@
 package zio.http.codec.internal
 
-import zio._
-import zio.http._
-import zio.http.codec.HttpCodecError
-import zio.schema.codec._
-import zio.schema.{Schema, StandardType}
-import zio.stream.ZPipeline
-
 import java.time._
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import scala.collection.JavaConverters.mapAsScalaConcurrentMapConverter
-import scala.collection.mutable
+
 import scala.util.Try
+
+import zio._
+
+import zio.stream.ZPipeline
+
+import zio.schema.codec._
+import zio.schema.{Schema, StandardType}
+
+import zio.http._
+import zio.http.codec.HttpCodecError
 
 final case class MediaTypeCodecDefinition[T <: MediaTypeCodec[_]](
   acceptedTypes: Chunk[MediaType],
@@ -136,8 +138,8 @@ object MediaTypeCodec {
       codec.acceptedTypes.map(_.fullType).map(_ -> codec)
     }.toMap
 
-  private lazy val codecsCache: mutable.Map[(Option[String], Chunk[BodyCodec[_]]), Map[String, MediaTypeCodec[_]]] =
-    new ConcurrentHashMap[(Option[String], Chunk[BodyCodec[_]]), Map[String, MediaTypeCodec[_]]]().asScala
+  private lazy val codecsCache =
+    new ConcurrentHashMap[(Option[String], Chunk[BodyCodec[_]]), Map[String, MediaTypeCodec[_]]]()
 
   def codecsFor(types: Chunk[MediaType], content: Chunk[BodyCodec[_]]): Map[String, MediaTypeCodec[_]] = {
     val key = (types.collectFirst { case mt if allByType.contains(mt.fullType) => mt.fullType }, content)
@@ -156,7 +158,7 @@ object MediaTypeCodec {
             )
         }
       }
-    codecsCache.getOrElseUpdate(key, codecs)
+    codecsCache.computeIfAbsent(key, _ => codecs)
   }
 }
 
@@ -181,6 +183,7 @@ private[internal] object TextCodec {
         schema match {
           case Schema.Primitive(standardType, _) =>
             (standardType match {
+              case StandardType.UnitType   => Right("")
               case StandardType.StringType => Right(s)
               case StandardType.BoolType   => Try(s.toBoolean).toEither
               case StandardType.ByteType   => Try(s.toByte).toEither
@@ -192,22 +195,24 @@ private[internal] object TextCodec {
               case StandardType.BinaryType => Left(DecodeError.ValidationError(null, null, "Binary is not supported"))
               case StandardType.CharType   => Right(s.charAt(0))
               case StandardType.UUIDType   => Try(UUID.fromString(s)).toEither
-              case StandardType.BigDecimalType    => Try(BigDecimal(s)).toEither
-              case StandardType.BigIntegerType    => Try(BigInt(s)).toEither
-              case StandardType.DayOfWeekType     => Try(DayOfWeek.valueOf(s)).toEither
-              case StandardType.MonthType         => Try(Month.valueOf(s)).toEither
-              case StandardType.MonthDayType      => Try(MonthDay.parse(s)).toEither
-              case StandardType.PeriodType        => Try(Period.parse(s)).toEither
-              case StandardType.YearType          => Try(Year.parse(s)).toEither
-              case StandardType.YearMonthType     => Try(YearMonth.parse(s)).toEither
-              case StandardType.ZoneIdType        => Try(ZoneId.of(s)).toEither
-              case StandardType.ZoneOffsetType    => Try(ZoneOffset.of(s)).toEither
-              case StandardType.DurationType      => Try(java.time.Duration.parse(s)).toEither
-              case StandardType.InstantType       => Try(Instant.parse(s)).toEither
-              case StandardType.LocalDateType     => Try(LocalDate.parse(s)).toEither
-              case StandardType.LocalTimeType     => Try(LocalTime.parse(s)).toEither
-              case StandardType.LocalDateTimeType => Try(LocalDateTime.parse(s)).toEither
-              case StandardType.OffsetTimeType    => Try(OffsetTime.parse(s)).toEither
+              case StandardType.BigDecimalType     => Try(BigDecimal(s)).toEither
+              case StandardType.BigIntegerType     => Try(BigInt(s)).toEither
+              case StandardType.DayOfWeekType      => Try(DayOfWeek.valueOf(s)).toEither
+              case StandardType.MonthType          => Try(Month.valueOf(s)).toEither
+              case StandardType.MonthDayType       => Try(MonthDay.parse(s)).toEither
+              case StandardType.PeriodType         => Try(Period.parse(s)).toEither
+              case StandardType.YearType           => Try(Year.parse(s)).toEither
+              case StandardType.YearMonthType      => Try(YearMonth.parse(s)).toEither
+              case StandardType.ZoneIdType         => Try(ZoneId.of(s)).toEither
+              case StandardType.ZoneOffsetType     => Try(ZoneOffset.of(s)).toEither
+              case StandardType.DurationType       => Try(java.time.Duration.parse(s)).toEither
+              case StandardType.InstantType        => Try(Instant.parse(s)).toEither
+              case StandardType.LocalDateType      => Try(LocalDate.parse(s)).toEither
+              case StandardType.LocalTimeType      => Try(LocalTime.parse(s)).toEither
+              case StandardType.LocalDateTimeType  => Try(LocalDateTime.parse(s)).toEither
+              case StandardType.OffsetTimeType     => Try(OffsetTime.parse(s)).toEither
+              case StandardType.OffsetDateTimeType => Try(OffsetDateTime.parse(s)).toEither
+              case StandardType.ZonedDateTimeType  => Try(ZonedDateTime.parse(s)).toEither
             }).map(_.asInstanceOf[A]).left.map(e => DecodeError.ReadError(Cause.fail(e), e.getMessage))
           case _                                 =>
             Left(
