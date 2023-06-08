@@ -7,23 +7,30 @@ sidebar_label: "ZIO Http"
 ZIO HTTP is an powerful library that empowers developers to build highly performant HTTP-based services and clients using functional Scala and ZIO, with Netty as its core. This library provides powerful functional domains that make it easy to create, modify, and compose applications. Let's start by exploring the HTTP domain, which involves creating an HTTP app when using ZIO HTTP. Here's an example of a simple echo server using ZIO-HTTP:
 
 ```scala
-import zio.{App, ExitCode, URIO}
-import zio.http.{Http, Method, Request, Response}
-import zio.http.server.{Server, ServerRoute}
-import zio.stream.ZStream
+package example
 
-object EchoServer extends App {
+import zio._
 
-  val app: Http[Any, Nothing, Request, Response] = Http.collect[Request] {
-    case Method.GET -> Root / "echo" / body =>
-      for {
-        bodyText <- ZStream.fromEffect(body.text).runHead
-        response <- ZStream.fromEffect(Response.text(bodyText)).runHead
-      } yield response
-  }.catchAll(e => Response.status(400).build)
+import zio.http._
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    Server.start(8080, ServerRoute.const(app)).exitCode
+object RequestStreaming extends ZIOAppDefault {
+
+  // Create HTTP route which echos back the request body
+  val app = Http.collect[Request] { case req @ Method.POST -> Root / "echo" =>
+    // Returns a stream of bytes from the request
+    // The stream supports back-pressure
+    val stream = req.body.asStream
+
+    // Creating HttpData from the stream
+    // This works for file of any size
+    val data = Body.fromStream(stream)
+
+    Response(body = data)
+  }
+
+  // Run it like any simple app
+  val run: UIO[ExitCode] =
+    Server.serve(app).provide(Server.default).exitCode
 }
 ```
 
@@ -155,14 +162,14 @@ object BasicAuth extends ZIOAppDefault {
 }
 ```
 
-# Explaination of the code above
+# Explanation of the code above
 
 - The BasicAuth object extends ZIOAppDefault, which is a trait that provides a default implementation for running ZIO applications.
-    
+
 - The code imports the necessary dependencies from  ZIO and ZIO HTTP.
-    
+
 - The user value represents an HTTP application that requires a JWT claim. It uses the Http.collect combinator to pattern match on GET requests with a specific path pattern (Root / "user" / name / "greet") and responds with a greeting message that includes the extracted name.
-    
+
 - The app value is created by composing the user HTTP application with the basicAuth middleware. The basicAuth function takes a username and password as arguments and returns a middleware that performs basic authentication. It applies basic authentication with the username "admin" and password "admin" to the user application.
 
 - Finally, the server is run using the Server.serve method. The app is provided as the HTTP application, and Server.default is provided as the server configuration. The server configuration contains default settings for the server, such as the port to listen on. The run value represents the execution of the server. It starts the ZIO runtime and executes the server, making it ready to receive and respond to HTTP requests.
