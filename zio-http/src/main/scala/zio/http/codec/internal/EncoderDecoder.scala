@@ -174,7 +174,7 @@ private[codec] object EncoderDecoder                   {
                 codec.encode(value.asInstanceOf[erased.Element], Charsets.Utf8),
                 mediaType,
               )
-            case None                                  =>
+            case _                                     =>
               throw HttpCodecError.UnsupportedContentType(mediaType.fullType)
           }
         }
@@ -195,7 +195,7 @@ private[codec] object EncoderDecoder                   {
               field.asChunk.flatMap(chunk => ZIO.fromEither(codec.decode(chunk)))
             case Some(codec: Codec[String, Char, Any]) =>
               field.asText.flatMap(text => ZIO.fromEither(codec.decode(text)))
-            case None                                  =>
+            case _                                     =>
               ZIO.fail(HttpCodecError.UnsupportedContentType(mediaType.fullType))
           }
 
