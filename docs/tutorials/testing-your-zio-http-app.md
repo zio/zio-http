@@ -25,15 +25,18 @@ For example, let's consider a random generator effect, and we want to ensure tha
 
 scala
 Copy code
+
 ```
 val random = Unsafe.unsafe { implicit unsafe =>
   Runtime.default.unsafe.run(Random.nextIntBounded(10)).getOrThrowFiberFailure()
 }
 ```
+
 assert(random >= 0)
 Testing effectful programs becomes complex due to the usage of multiple unsafeRun methods, and ensuring non-flaky tests is not straightforward. Running unsafeRun multiple times for thorough testing can be challenging. To address these issues, a testing framework is needed that treats effects as first-class values. This was the primary motivation behind creating the ZIO Test library.
 
-#Design of ZIO Test
+# Design of ZIO Test
+
 ZIO Test was designed with the concept of making tests first-class objects. This means that tests (and other related concepts, like assertions) become ordinary values that can be passed around, transformed, and composed.
 
 This approach offers greater flexibility compared to some other testing frameworks where tests and additional logic had to be put into callbacks or specialized structures.

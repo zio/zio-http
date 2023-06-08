@@ -36,6 +36,7 @@ libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-dsl" % "1.0.0-M23"
 )
 ```
+
 4.Save the file.
 Building the HTTP Server
 Create a new file named Main.scala in the project's root directory.
@@ -73,9 +74,11 @@ object Main extends App {
     server.provideCustomLayer(Console.live).exitCode
 }
 ```
+
 .Save the file.
 
-#Running the HTTP Server
+# Running the HTTP Server
+
 To run the HTTP server, open your terminal and navigate to the project's root directory.
 
 Run the following command:
@@ -84,12 +87,14 @@ Run the following command:
 sbt run
 
 ```
-Wait for the server to start. You should see a message indicating that the server is running on http://0.0.0.0:8080.
 
-#Testing the HTTP Server
+Wait for the server to start. You should see a message indicating that the server is running on <http://0.0.0.0:8080>.
+
+# Testing the HTTP Server
+
 To test the HTTP server, open your web browser or use a tool like cURL or Postman.
 
-Open your browser and visit http://localhost:8080/hello.
+Open your browser and visit <http://localhost:8080/hello>.
 
 You should see the response "Hello, ZIO HTTP!".
 
