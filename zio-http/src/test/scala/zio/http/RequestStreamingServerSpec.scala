@@ -16,10 +16,11 @@
 
 package zio.http
 
+import zio._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{diagnose, sequential, shrinks, timeout, withLiveClock}
 import zio.test.{assertCompletes, assertTrue, assertZIO}
-import zio.{Chunk, FiberFailure, Random, Scope, ZIO, ZLayer, durationInt}
+
 import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
 
