@@ -53,7 +53,7 @@ object NettyBodyWriter {
               override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
                 val nettyMsg = message match {
                   case b: ByteArray => Unpooled.wrappedBuffer(b.array)
-                  case other        => throw new IllegalStateException(s"Unsupported async msg type: ${other.getClass}")
+                  case other        => Unpooled.wrappedBuffer(other.toArray)
                 }
                 ctx.writeAndFlush(nettyMsg)
                 if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
