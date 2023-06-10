@@ -32,6 +32,9 @@ import zio.schema.codec.{BinaryCodec, Codec}
 
 import zio.http._
 import zio.http.codec._
+import zio.schema.Schema
+import zio.schema.codec.{BinaryCodec, Codec}
+import zio.stream.ZStream
 
 private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
@@ -169,19 +172,19 @@ private[codec] object EncoderDecoder                   {
               .map(_.codecs(erased))
 
           codec match {
-            case Some(codec: BinaryCodec[Any])         =>
+            case Some(codec: BinaryCodec[Any] @unchecked) if codec.isInstanceOf[BinaryCodec[Any]]                 =>
               FormField.binaryField(
                 name,
                 codec.encode(value.asInstanceOf[erased.Element]),
                 mediaType,
               )
-            case Some(codec: Codec[String, Char, Any]) =>
+            case Some(codec: Codec[String, Char, Any] @unchecked) if codec.isInstanceOf[Codec[String, Char, Any]] =>
               FormField.textField(
                 name,
                 codec.encode(value.asInstanceOf[erased.Element], Charsets.Utf8),
                 mediaType,
               )
-            case _                                     =>
+            case _                                                                                                =>
               throw HttpCodecError.UnsupportedContentType(mediaType.fullType)
           }
         }
@@ -200,11 +203,11 @@ private[codec] object EncoderDecoder                   {
               .map(_.codecs(erased))
 
           codec match {
-            case Some(codec: BinaryCodec[Any])         =>
+            case Some(codec: BinaryCodec[Any] @unchecked) if codec.isInstanceOf[BinaryCodec[Any]]                 =>
               field.asChunk.flatMap(chunk => ZIO.fromEither(codec.decode(chunk)))
-            case Some(codec: Codec[String, Char, Any]) =>
+            case Some(codec: Codec[String, Char, Any] @unchecked) if codec.isInstanceOf[Codec[String, Char, Any]] =>
               field.asText.flatMap(text => ZIO.fromEither(codec.decode(text)))
-            case _                                     =>
+            case _                                                                                                =>
               ZIO.fail(HttpCodecError.UnsupportedContentType(mediaType.fullType))
           }
 
