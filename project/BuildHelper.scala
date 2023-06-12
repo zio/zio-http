@@ -68,23 +68,18 @@ object BuildHelper extends ScalaSettings {
   }
 
   def stdSettings(prjName: String) = Seq(
-    name                           := s"$prjName",
-    ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, Scala3),
-    ThisBuild / scalaVersion       := Scala213,
-    scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value),
-    ThisBuild / scalafixDependencies ++=
-      List(
-        "com.github.liancheng" %% "organize-imports" % "0.6.0",
-        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.23",
-      ),
-    Test / parallelExecution       := true,
+    name                     := s"$prjName",
+    crossScalaVersions       := Seq(Scala212, Scala213, Scala3),
+    scalaVersion             := Scala213,
+    scalacOptions            := stdOptions ++ extraOptions(scalaVersion.value),
+    Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
-    autoAPIMappings                := true,
-    ThisBuild / javaOptions        := Seq(
+    autoAPIMappings          := true,
+    javaOptions              := Seq(
       "-Dio.netty.leakDetectionLevel=paranoid",
       s"-DZIOHttpLogLevel=${Debug.ZIOHttpLogLevel}",
     ),
-    ThisBuild / fork               := true,
+    fork                     := true,
     libraryDependencies ++= {
       if (scalaVersion.value == Scala3)
         Seq(
@@ -96,9 +91,9 @@ object BuildHelper extends ScalaSettings {
           compilerPlugin("com.github.ghik" % "silencer-plugin" % SilencerVersion cross CrossVersion.full),
         )
     },
-    semanticdbEnabled              := scalaVersion.value != Scala3,
+    semanticdbEnabled        := scalaVersion.value != Scala3,
     semanticdbOptions += "-P:semanticdb:synthetics:on",
-    semanticdbVersion              := {
+    semanticdbVersion        := {
       if (scalaVersion.value == Scala3) semanticdbVersion.value
       else scalafixSemanticdb.revision
     },

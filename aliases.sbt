@@ -1,7 +1,13 @@
 addCommandAlias("fmt", "scalafmt; Test / scalafmt; sFix;")
 addCommandAlias("fmtCheck", "scalafmtCheck; Test / scalafmtCheck; sFixCheck")
-addCommandAlias("sFix", "scalafix OrganizeImports; Test / scalafix OrganizeImports")
-addCommandAlias("sFixCheck", "scalafix --check OrganizeImports; Test / scalafix --check OrganizeImports")
+addCommandAlias(
+  "sFix",
+  "scalafix dependency:OrganizeImports@com.github.liancheng::organize-imports:0.6.0; Test / scalafix dependency:OrganizeImports@com.github.liancheng::organize-imports:0.6.0",
+)
+addCommandAlias(
+  "sFixCheck",
+  "scalafix --check dependency:OrganizeImports@com.github.liancheng::organize-imports:0.6.0; Test / scalafix --check dependency:OrganizeImports@com.github.liancheng::organize-imports:0.6.0",
+)
 
 onLoadMessage := {
   import scala.Console._
