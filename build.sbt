@@ -35,11 +35,23 @@ ThisBuild / githubWorkflowPublish       :=
   Seq(
     WorkflowStep.Sbt(
       List("ci-release"),
+      name = Some("Release"),
       env = Map(
         "PGP_PASSPHRASE"      -> "${{ secrets.PGP_PASSPHRASE }}",
         "PGP_SECRET"          -> "${{ secrets.PGP_SECRET }}",
         "SONATYPE_PASSWORD"   -> "${{ secrets.SONATYPE_PASSWORD }}",
         "SONATYPE_USERNAME"   -> "${{ secrets.SONATYPE_USERNAME }}",
+        "CI_SONATYPE_RELEASE" -> "${{ secrets.CI_SONATYPE_RELEASE }}",
+      ),
+    ),
+    WorkflowStep.Sbt(
+      List("-Dpublish.shaded=true", "ci-release"),
+      name = Some("Release Shaded"),
+      env = Map(
+        "PGP_PASSPHRASE" -> "${{ secrets.PGP_PASSPHRASE }}",
+        "PGP_SECRET" -> "${{ secrets.PGP_SECRET }}",
+        "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
+        "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}",
         "CI_SONATYPE_RELEASE" -> "${{ secrets.CI_SONATYPE_RELEASE }}",
       ),
     ),
@@ -94,7 +106,7 @@ lazy val zioHttp = (project in file("zio-http"))
   .settings(publishSetting(true))
   .settings(settingsWithHeaderLicense)
   .settings(meta)
-  .settings(Shading.shadingSettings())
+  .settings(Shading.shadingSettings(shadingEnabled))
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= netty ++ Seq(
@@ -144,7 +156,7 @@ lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
   .enablePlugins(ShadingPlugin)
   .settings(stdSettings("zio-http-testkit"))
   .settings(publishSetting(true))
-  .settings(Shading.shadingSettings())
+  .settings(Shading.shadingSettings(shadingEnabled))
   .settings(
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     libraryDependencies ++= netty ++ Seq(

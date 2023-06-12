@@ -68,7 +68,7 @@ object BuildHelper extends ScalaSettings {
   }
 
   def stdSettings(prjName: String) = Seq(
-    name                           := s"$prjName",
+    name                           := s"$prjName$shadedSuffix",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, Scala3),
     ThisBuild / scalaVersion       := Scala213,
     scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value),
@@ -103,6 +103,14 @@ object BuildHelper extends ScalaSettings {
       else scalafixSemanticdb.revision
     },
   )
+
+  private def shadedSuffix = {
+    if (shadingEnabled) "-shaded" else ""
+  }
+
+  def shadingEnabled = {
+    sys.props.get("publish.shaded").fold(false)(_.toBoolean)
+  }
 
   def runSettings(className: String = "example.HelloWorld") = Seq(
     fork                      := true,
