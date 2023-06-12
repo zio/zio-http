@@ -105,11 +105,7 @@ object BuildHelper extends ScalaSettings {
   )
 
   private def shadedSuffix = {
-    if (shadingEnabled) "-shaded" else ""
-  }
-
-  def shadingEnabled = {
-    sys.props.get("publish.shaded").fold(false)(_.toBoolean)
+    if (Shading.shadingEnabled) "-shaded" else ""
   }
 
   def runSettings(className: String = "example.HelloWorld") = Seq(
