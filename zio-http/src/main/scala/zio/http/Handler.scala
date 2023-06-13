@@ -22,8 +22,9 @@ import zio.http.Header.HeaderType
 import zio.http.internal.HeaderModifier
 import zio.stream.ZStream
 
-import java.io.File
+import java.io.{File, FileNotFoundException, IOException}
 import java.nio.charset.Charset
+import java.nio.file.{AccessDeniedException, NotDirectoryException}
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal // scalafix:ok;
 
@@ -724,6 +725,45 @@ object Handler {
     trace: Trace,
   ): Handler[R, Err, In, Out] =
     http.toHandler(default)
+
+  private def determineMediaType(filePath: String): Option[MediaType] = {
+    filePath.lastIndexOf(".") match {
+      case -1 => None
+      case i  =>
+        // Extract file extension
+        val ext = filePath.substring(i + 1)
+        MediaType.forFileExtension(ext)
+    }
+  }
+
+  def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit trace: Trace): Handler[R, Throwable, Any, Response] = {
+    Handler.fromZIO[R, Throwable, Response](
+      getFile.flatMap { file =>
+        if (!file.exists()) {
+          ZIO.fail(new FileNotFoundException())
+        } else if (file.isFile && !file.canRead) {
+          ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
+        } else {
+          if (file.isFile) {
+            val length   = Headers(Header.ContentLength(file.length()))
+            val response = http.Response(headers = length, body = Body.fromFile(file))
+            val pathName = file.toPath.toString
+
+            // Set MIME type in the response headers. This is only relevant in
+            // case of RandomAccessFile transfers as browsers use the MIME type,
+            // not the file extension, to determine how to process a URL.
+            // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+            determineMediaType(pathName) match {
+              case Some(mediaType) => ZIO.succeed(response.withHeader(Header.ContentType(mediaType)))
+              case None            => ZIO.succeed(response)
+            }
+          } else {
+            ZIO.fail(new NotDirectoryException(s"Found directory instead of a file."))
+          }
+        }
+      },
+    )
+  }
 
   /**
    * Creates a Handler that always succeeds with a 200 status code and the
