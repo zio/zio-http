@@ -16,6 +16,9 @@
 
 package zio.http
 
+import java.io.FileNotFoundException
+import java.nio.file.{Files, NotDirectoryException}
+
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect.timeout
@@ -349,6 +352,36 @@ object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
       test("merges error into success") {
         val http = Handler.fail(1).merge
         assert(http.apply {})(isSuccess(equalTo(1)))
+      },
+    ),
+    suite("fromFileZIO")(
+      test("must load response from file") {
+        ZIO.acquireRelease(ZIO.attempt(Files.createTempFile("", ".jpg"))) { tempPath =>
+          ZIO.attempt(Files.deleteIfExists(tempPath)).ignore
+        } flatMap { tempPath =>
+          val tempFile = tempPath.toFile
+          val http     = Handler.fromFileZIO(ZIO.succeed(tempFile))
+          for {
+            r <- http.apply {}
+          } yield {
+            assert(r.status)(equalTo(Status.Ok)) &&
+            assert(r.headers)(contains(Header.ContentType(MediaType.image.`jpeg`))) &&
+            assert(r.body)(equalTo(Body.fromFile(tempFile)))
+          }
+        }
+      },
+      test("must fail if file does not exist") {
+        val http = Handler.fromFileZIO(ZIO.succeed(new java.io.File("does-not-exist")))
+        assertZIO(http.apply {}.exit)(failsWithA[FileNotFoundException])
+      },
+      test("must fail if given file is a directory") {
+        ZIO.acquireRelease(ZIO.attempt(Files.createTempDirectory(""))) { tempPath =>
+          ZIO.attempt(Files.deleteIfExists(tempPath)).ignore
+        } flatMap { tempPath =>
+          val tempFile = tempPath.toFile
+          val http     = Handler.fromFileZIO(ZIO.succeed(tempFile))
+          assertZIO(http.apply {}.exit)(failsWithA[NotDirectoryException])
+        }
       },
     ),
   ) @@ timeout(10 seconds)
