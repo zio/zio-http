@@ -1,3 +1,8 @@
+---
+id: your-first-zio-http-app
+title: Your first zio http app
+---
+
 # ZIO Quickstart: Hello World
 
 The ZIO Quickstart Hello World is a simple example that demonstrates the basics of writing a ZIO application. It showcases how to interact with the console, read input from the user, and perform simple operations using ZIO's effect system.
