@@ -10,6 +10,8 @@ const sidebars = {
       items: [
         "setup",
         "quickstart",
+        "performance",
+        "faq",
       {
         type: "category",
         label: "Concepts",
@@ -41,6 +43,16 @@ const sidebars = {
       collapsed: false,
       link: { type: "doc", id: "index" },
       items: [
+        "how-to-guides/advance-http-sever",
+        "how-to-guides/http-client",
+        "how-to-guides/http-sever",
+        "how-to-guides/https-server",
+        "how-to-guides/https-client",
+        "how-to-guides/middleware-basic-authentication",
+        "how-to-guides/middleware-cors-handling",
+        "how-to-guides/streaming-file",
+        "how-to-guides/streaming-response",
+        "how-to-guides/websocket",
         "how-to-guides/endpoint",
         "how-to-guides/middleware",
       ]
@@ -58,23 +70,8 @@ const sidebars = {
         "reference/metrics",
         "reference/request-logging"
       ]
-    },
-     {
-      type: "category",
-      label: "Performance",
-      collapsed: false,
-      link: { type: "doc", id: "index" },
-      items: ["performance"]
-    },
-    {
-      type: "category",
-      label: "FAQ",
-      collapsed: false,
-      link: { type: "doc", id: "index" },
-      items: ["faq"]
     }
-      ]
-      
+      ] 
     }
   ]
 };
