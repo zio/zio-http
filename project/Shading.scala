@@ -1,6 +1,6 @@
-import Dependencies.*
+import Dependencies._
 import coursier.ShadingPlugin
-import coursier.ShadingPlugin.autoImport.*
+import coursier.ShadingPlugin.autoImport._
 import sbt.Plugins
 
 object Shading {
