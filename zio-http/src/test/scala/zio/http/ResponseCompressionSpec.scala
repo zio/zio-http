@@ -94,7 +94,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
       ZLayer.succeed(serverConfig),
       Server.live,
       Client.default,
-      Scope.default
+      Scope.default,
     ) @@ withLiveClock
 
   private def decompressed(bytes: Chunk[Byte]): ZIO[Any, Throwable, String] =
