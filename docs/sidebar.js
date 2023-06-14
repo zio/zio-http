@@ -69,7 +69,32 @@ const sidebars = {
         "reference/websockets",
         "reference/json-handling",
         "reference/metrics",
-        "reference/request-logging"
+        "reference/request-logging",
+        {
+          type: "category",
+          label: "DSL",
+          link: { type: "doc", id: "index" },
+          items: [
+            "dsl/server",
+            "dsl/http",
+            "dsl/request",
+            "dsl/response",
+            "dsl/body",
+            "dsl/headers",
+            "dsl/cookies",
+            "dsl/middleware",
+            "dsl/html",
+            {
+              type: "category",
+              label: "DSL",
+              collapsed: false,
+              items: [
+                "dsl/socket/socket",
+                "dsl/socket/websocketframe"
+              ]
+            },
+          ]
+        },
       ]
     }
       ] 
