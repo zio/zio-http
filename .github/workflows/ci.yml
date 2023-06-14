@@ -73,6 +73,12 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: sbt ++2.13.8 doc
 
+      - name: zio-http-shaded Tests
+        if: matrix.scala == '2.13.8'
+        env:
+          PUBLISH_SHADED: true
+        run: sbt ++${{ matrix.scala }} zioHttpShadedTests/test
+
       - name: Compress target directories
         run: tar cf targets.tar zio-http-cli/target target zio-http/target zio-http-docs/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target project/target
 
@@ -184,20 +190,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: release-drafter/release-drafter@v5
-
-  zio-http-shaded-tests:
-    name: Test shaded version of zio-http
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [2.13.8]
-        java: [temurin@11]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: zio-http-shaded Tests
-        env:
-          PUBLISH_SHADED: true
-        run: sbt ++${{ matrix.scala }}! zioHttpShadedTests/test
 
   unsafeRunScoverage:
     name: Unsafe Scoverage

@@ -27,16 +27,6 @@ ThisBuild / githubWorkflowAddedJobs    :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
-    WorkflowJob(
-      id = "zio-http-shaded-tests",
-      name = "Test shaded version of zio-http",
-      scalas = List(Scala213),
-      steps = List(WorkflowStep.Run(
-        name = Some("zio-http-shaded Tests"),
-        commands = List("sbt ++${{ matrix.scala }}! zioHttpShadedTests/test"),
-        env = Map(Shading.env.PUBLISH_SHADED -> "true")
-      ))
-    ),
   ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow() ++ JmhBenchmarkWorkflow(1)
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
@@ -89,7 +79,18 @@ ThisBuild / githubWorkflowBuildPostamble :=
       ),
     ),
     scalas = List(Scala213),
-  ).steps
+  ).steps ++
+    WorkflowJob(
+      id = "zio-http-shaded-tests",
+      name = "Test shaded version of zio-http",
+      steps = List(
+        WorkflowStep.Sbt(
+          name = Some("zio-http-shaded Tests"),
+          commands = List("zioHttpShadedTests/test"),
+          cond = Some(s"matrix.scala == '$Scala213'"),
+          env = Map(Shading.env.PUBLISH_SHADED -> "true")
+        ))
+    ).steps
 
 inThisBuild(
   List(
