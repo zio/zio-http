@@ -421,8 +421,104 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
 }
 
 object ZClient {
+  trait BodyDecoder[-Env, +Err, +Out] { self =>
+    def decode(response: Response): ZIO[Env, Err, Out]
 
-  case class Config(
+    def refineOrDie[Err2](
+      pf: PartialFunction[Err, Err2],
+    )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): BodyDecoder[Env, Err2, Out] =
+      new BodyDecoder[Env, Err2, Out] {
+        def decode(response: Response): ZIO[Env, Err2, Out] = self.decode(response).refineOrDie(pf)
+      }
+  }
+  trait BodyEncoder[-Env, +Err, -In]  { self =>
+    def encode(in: In): ZIO[Env, Err, Body]
+
+    def refineOrDie[Err2](
+      pf: PartialFunction[Err, Err2],
+    )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): BodyEncoder[Env, Err2, In] =
+      new BodyEncoder[Env, Err2, In] {
+        def encode(in: In): ZIO[Env, Err2, Body] = self.encode(in).refineOrDie(pf)
+      }
+  }
+
+  trait Driver[-Env, +Err] { self =>
+    def refineOrDie[Err2](
+      pf: PartialFunction[Err, Err2],
+    )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): Driver[Env, Err2] =
+      new Driver[Env, Err2] {
+        override def request(
+          version: Version,
+          method: Method,
+          url: URL,
+          headers: Headers,
+          body: Body,
+          sslConfig: Option[ClientSSLConfig],
+        )(implicit trace: Trace): ZIO[Env, Err2, Response] =
+          self.request(version, method, url, headers, body, sslConfig).refineOrDie(pf)
+
+        override def socket[Env1 <: Env](
+          app: SocketApp[Env1],
+          headers: Headers,
+          url: URL,
+          version: Version,
+        )(implicit trace: Trace): ZIO[Env1 with Scope, Err2, Response] =
+          self
+            .socket(
+              app,
+              headers,
+              url,
+              version,
+            )
+            .refineOrDie(pf)
+      }
+
+    def request(
+      version: Version,
+      method: Method,
+      url: URL,
+      headers: Headers,
+      body: Body,
+      sslConfig: Option[ClientSSLConfig],
+    )(implicit trace: Trace): ZIO[Env, Err, Response]
+
+    final def retry[Env1 <: Env, Err1 >: Err](policy: zio.Schedule[Env1, Err1, Any]) =
+      new Driver[Env1, Err1] {
+        override def request(
+          version: Version,
+          method: Method,
+          url: URL,
+          headers: Headers,
+          body: Body,
+          sslConfig: Option[ClientSSLConfig],
+        )(implicit trace: Trace): ZIO[Env1, Err1, Response] =
+          self.request(version, method, url, headers, body, sslConfig).retry(policy)
+
+        override def socket[Env2 <: Env1](
+          app: SocketApp[Env2],
+          headers: Headers,
+          url: URL,
+          version: Version,
+        )(implicit trace: Trace): ZIO[Env2 with Scope, Err1, Response] =
+          self
+            .socket(
+              app,
+              headers,
+              url,
+              version,
+            )
+            .retry(policy)
+      }
+
+    def socket[Env1 <: Env](
+      app: SocketApp[Env1],
+      headers: Headers,
+      url: URL,
+      version: Version,
+    )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Response]
+  }
+
+  final case class Config(
     ssl: Option[ClientSSLConfig],
     proxy: Option[zio.http.Proxy],
     connectionPool: ConnectionPoolConfig,
