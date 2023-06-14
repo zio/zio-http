@@ -20,6 +20,7 @@ import zio.test.Assertion._
 import zio.test.{ZIOSpecDefault, assert}
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
+import zio.NonEmptyChunk
 
 object HeaderSpec extends ZIOSpecDefault {
 
@@ -164,6 +165,48 @@ object HeaderSpec extends ZIOSpecDefault {
       test("should return false if content-type doesn't exist") {
         val actual = acceptJson.hasFormUrlencodedContentType
         assert(actual)(isFalse)
+      },
+    ),
+    suite("acceptEncoding")(
+      /*
+        zstd is not supported in zio-http but is a default header with curl's --compressed
+        however as it might be added in the future, we use a string that is probably never going to be a header
+       */
+      test("should parse an known header") {
+        val header = Header.AcceptEncoding.parse("br")
+        assert(header)(isRight(equalTo(Header.AcceptEncoding.Br())))
+      },
+      test("should parse an known header with weight") {
+        val header = Header.AcceptEncoding.parse("br;q=0.8")
+        assert(header)(isRight(equalTo(Header.AcceptEncoding.Br(Some(0.8)))))
+      },
+      test("ignore an invalid wight") {
+        val header = Header.AcceptEncoding.parse("br;q=INVALID")
+        assert(header)(isRight(equalTo(Header.AcceptEncoding.Br())))
+      },
+      test("should parse an unknown header") {
+        val header = Header.AcceptEncoding.parse("zio-http")
+        assert(header)(isRight(equalTo(Header.AcceptEncoding.Unknown("zio-http"))))
+      },
+      test("should parse a list of accepted encodings") {
+        val header = Header.AcceptEncoding.parse("gzip, br;q=0.8, zio-http")
+        assert(header)(
+          isRight(
+            equalTo(
+              Header.AcceptEncoding.Multiple(
+                NonEmptyChunk(
+                  Header.AcceptEncoding.GZip(),
+                  Header.AcceptEncoding.Br(Some(0.8)),
+                  Header.AcceptEncoding.Unknown("zio-http"),
+                ),
+              ),
+            ),
+          ),
+        )
+      },
+      test("should parse an unknown header with weight") {
+        val header = Header.AcceptEncoding.parse("zio-http;q=0.6")
+        assert(header)(isRight(equalTo(Header.AcceptEncoding.Unknown("zio-http", Some(0.6d)))))
       },
     ),
   )
