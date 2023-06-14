@@ -34,7 +34,7 @@ const sidebars = {
       items: [
         "tutorials/your-first-zio-http-app",
         "tutorials/deploying-a-zio-http-app",
-        "tutorials/testing-your-zio-http-app"
+        "tutorials/testing-your-zio-http-app",
       ]
     },
       {
@@ -55,6 +55,7 @@ const sidebars = {
         "how-to-guides/websocket",
         "how-to-guides/endpoint",
         "how-to-guides/middleware",
+        "how-to-guides/concrete-entity",
       ]
     },
      {
