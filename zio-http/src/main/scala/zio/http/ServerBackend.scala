@@ -18,17 +18,17 @@ package zio.http
 
 import zio._
 
-import zio.http.netty.server.NettyDriver
+import zio.http.netty.server.NettyServerBackend
 
-trait Driver {
+trait ServerBackend {
   def start(implicit trace: Trace): RIO[Scope, Int]
 
   def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
 
-  def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver]
+  def createClientBackend()(implicit trace: Trace): ZIO[Scope, Throwable, ClientBackend]
 }
 
-object Driver {
-  def default: ZLayer[Server.Config, Throwable, Driver] =
-    NettyDriver.live
+object ServerBackend {
+  def default: ZLayer[Server.Config, Throwable, ServerBackend] =
+    NettyServerBackend.live
 }

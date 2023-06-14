@@ -23,7 +23,7 @@ import zio.schema.{DeriveSchema, Schema}
 
 import zio.http._
 import zio.http.codec.PathCodec.{int, literal}
-import zio.http.netty.server.NettyDriver
+import zio.http.netty.server.NettyServerBackend
 
 object ServerClientIntegrationSpec extends ZIOSpecDefault {
   trait PostsService {
@@ -69,9 +69,9 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       Server.live,
       ZLayer.succeed(Server.Config.default),
       Client.customized,
-      ClientDriver.shared,
+      ClientBackend.shared,
       executorLayer,
-      NettyDriver.live,
+      NettyServerBackend.live,
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
     )

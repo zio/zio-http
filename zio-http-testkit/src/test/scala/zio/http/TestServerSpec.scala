@@ -4,7 +4,7 @@ import zio._
 import zio.test._
 
 import zio.http.model._
-import zio.http.netty.server.NettyDriver
+import zio.http.netty.server.NettyServerBackend
 
 object TestServerSpec extends ZIOSpecDefault {
 
@@ -33,7 +33,7 @@ object TestServerSpec extends ZIOSpecDefault {
           )
       } yield assertTrue(response1.status == Status.Ok) &&
         assertTrue(response2.status == Status.InternalServerError)
-    }.provideSome[Client with Driver](
+    }.provideSome[Client with ServerBackend](
       TestServer.layer,
     ),
     suite("Exact Request=>Response version")(
@@ -80,13 +80,13 @@ object TestServerSpec extends ZIOSpecDefault {
         } yield assertTrue(finalResponse.status == Status.NotFound)
       },
     )
-      .provideSome[Client with Driver](
+      .provideSome[Client with ServerBackend](
         TestServer.layer,
       ),
   ).provide(
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     Client.default,
-    NettyDriver.live,
+    NettyServerBackend.live,
   )
 
   private def requestToCorrectPort =

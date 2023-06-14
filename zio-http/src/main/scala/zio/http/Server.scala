@@ -295,11 +295,11 @@ object Server {
     ZIO.serviceWithZIO[Server](_.install(httpApp)) *> ZIO.service[Server].map(_.port)
   }
 
-  private val base: ZLayer[Driver, Throwable, Server] = {
+  private val base: ZLayer[ServerBackend, Throwable, Server] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
       for {
-        driver <- ZIO.service[Driver]
+        driver <- ZIO.service[ServerBackend]
         port   <- driver.start
       } yield ServerLive(driver, port)
     }
@@ -312,7 +312,7 @@ object Server {
 
   val customized: ZLayer[Config & NettyConfig, Throwable, Server] = {
     implicit val trace: Trace = Trace.empty
-    NettyDriver.customized >>> base
+    NettyServerBackend.customized >>> base
   }
 
   def defaultWithPort(port: Int)(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
@@ -328,11 +328,11 @@ object Server {
 
   lazy val live: ZLayer[Config, Throwable, Server] = {
     implicit val trace: Trace = Trace.empty
-    NettyDriver.live >>> base
+    NettyServerBackend.live >>> base
   }
 
   private final case class ServerLive(
-    driver: Driver,
+    driver: ServerBackend,
     bindPort: Int,
   ) extends Server {
     override def install[R](httpApp: App[R])(implicit

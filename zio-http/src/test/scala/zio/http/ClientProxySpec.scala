@@ -27,7 +27,7 @@ import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.middleware.Auth.Credentials
 import zio.http.model._
 import zio.http.netty.NettyConfig
-import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.client.NettyClientBackend
 
 object ClientProxySpec extends HttpRunnableSpec {
 
@@ -45,7 +45,7 @@ object ClientProxySpec extends HttpRunnableSpec {
             .provide(
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(Proxy(proxyUrl))),
-              NettyClientDriver.live,
+              NettyClientBackend.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.default),
             )
@@ -66,7 +66,7 @@ object ClientProxySpec extends HttpRunnableSpec {
             .provide(
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
-              NettyClientDriver.live,
+              NettyClientBackend.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.default),
             )
@@ -99,7 +99,7 @@ object ClientProxySpec extends HttpRunnableSpec {
             .provide(
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
-              NettyClientDriver.live,
+              NettyClientBackend.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.default),
             )

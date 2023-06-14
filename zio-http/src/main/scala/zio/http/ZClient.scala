@@ -24,61 +24,30 @@ import zio.http.model.headers.HeaderOps
 import zio.http.netty.{ChannelType, EventLoopGroups, NettyConfig}
 import zio.http.netty.client._
 import zio.http.socket.SocketApp
+import zio.http.ZClient.{BodyEncoder, BodyDecoder}
 
 import java.net.{InetSocketAddress, URI} // scalafix:ok;
 
-trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out]] { self =>
-  def headers: Headers
-
-  def method: Method
-
-  def sslConfig: Option[ClientSSLConfig]
-
-  def url: URL
-
-  def version: Version
+/**
+ * A [[zio.http.ZClient]] is an HTTP client that can send requests to a server,
+ * using a range of settings (such as header, method, url, and encoding /
+ * decoding) that may be common across multiple requests. The client embeds a
+ * Driver, which is responsible for the actual invocation of the remote HTTP
+ * endpoint.
+ */
+final case class ZClient[-Env, -In, +Err, +Out](
+  headers: Headers,
+  method: Method,
+  sslConfig: Option[ClientSSLConfig],
+  url: URL,
+  version: Version,
+  bodyEncoder: BodyEncoder[Env, Err, In],
+  bodyDecoder: BodyDecoder[Env, Err, Out],
+  driver: ZClient.Driver[Env, Err],
+) extends HeaderOps[ZClient[Env, In, Err, Out]] { self =>
 
   override def updateHeaders(update: Headers => Headers): ZClient[Env, In, Err, Out] =
-    new ZClient[Env, In, Err, Out] {
-      override def headers: Headers = update(self.headers)
-
-      override def method: Method = self.method
-
-      override def sslConfig: Option[ClientSSLConfig] = self.sslConfig
-
-      override def url: URL = self.url
-
-      override def version: Version = self.version
-
-      override def request(
-        version: Version,
-        method: Method,
-        url: URL,
-        headers: Headers,
-        body: In,
-        sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env, Err, Out] =
-        self.request(
-          version,
-          method,
-          url,
-          headers,
-          body,
-          sslConfig,
-        )
-
-      override def socket[Env1 <: Env](
-        app: SocketApp[Env1],
-        headers: Headers,
-        hostOption: Option[String],
-        pathPrefix: Path,
-        portOption: Option[RuntimeFlags],
-        queries: QueryParams,
-        schemeOption: Option[Scheme],
-        version: Version,
-      )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
-        self.socket(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
-    }
+    copy(headers = update(headers))
 
   /**
    * Applies the specified client aspect, which can modify the execution of this
@@ -102,56 +71,13 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
     contramapZIO(in => ZIO.succeed(f(in)))
 
   final def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): ZClient[Env1, In2, Err1, Out] =
-    new ZClient[Env1, In2, Err1, Out] {
-      override def headers: Headers = self.headers
-
-      override def method: Method = self.method
-
-      override def sslConfig: Option[ClientSSLConfig] = self.sslConfig
-
-      override def url: URL = self.url
-
-      override def version: Version = self.version
-
-      def request(
-        version: Version,
-        method: Method,
-        url: URL,
-        headers: Headers,
-        body: In2,
-        sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env1, Err1, Out] =
-        f(body).flatMap { body =>
-          self.request(
-            version,
-            method,
-            url,
-            headers,
-            body,
-            sslConfig,
-          )
-        }
-      def socket[Env2 <: Env1](
-        app: SocketApp[Env2],
-        headers: Headers,
-        hostOption: Option[String],
-        pathPrefix: Path,
-        portOption: Option[Int],
-        queries: QueryParams,
-        schemeOption: Option[Scheme],
-        version: Version,
-      )(implicit trace: Trace): ZIO[Env2 with Scope, Err1, Out] =
-        self.socket(
-          app,
-          headers,
-          hostOption,
-          pathPrefix,
-          portOption,
-          queries,
-          schemeOption,
-          version,
-        )
-    }
+    transform(
+      new BodyEncoder[Env1, Err1, In2] {
+        def encode(in: In2): ZIO[Env1, Err1, Body] = f(in).flatMap(self.bodyEncoder.encode)
+      },
+      self.bodyDecoder,
+      self.driver,
+    )
 
   final def delete(pathSuffix: String, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
     request(Method.DELETE, pathSuffix, body)
@@ -183,58 +109,10 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
     mapZIO(out => ZIO.succeed(f(out)))
 
   final def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): ZClient[Env1, In, Err1, Out2] =
-    new ZClient[Env1, In, Err1, Out2] {
-      override def headers: Headers = self.headers
-
-      override def method: Method = self.method
-
-      override def sslConfig: Option[ClientSSLConfig] = self.sslConfig
-
-      override def url: URL = self.url
-
-      override def version: Version = self.version
-
-      def request(
-        version: Version,
-        method: Method,
-        url: URL,
-        headers: Headers,
-        body: In,
-        sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env1, Err1, Out2] =
-        self
-          .request(
-            version,
-            method,
-            url,
-            headers,
-            body,
-            sslConfig,
-          )
-          .flatMap(f)
-      def socket[Env2 <: Env1](
-        app: SocketApp[Env2],
-        headers: Headers,
-        hostOption: Option[String],
-        pathPrefix: Path,
-        portOption: Option[Int],
-        queries: QueryParams,
-        schemeOption: Option[Scheme],
-        version: Version,
-      )(implicit trace: Trace): ZIO[Env2 with Scope, Err1, Out2] =
-        self
-          .socket(
-            app,
-            headers,
-            hostOption,
-            pathPrefix,
-            portOption,
-            queries,
-            schemeOption,
-            version,
-          )
-          .flatMap(f)
-    }
+    copy(bodyDecoder = new BodyDecoder[Env1, Err1, Out2] {
+      def decode(response: Response): ZIO[Env1, Err1, Out2] =
+        self.bodyDecoder.decode(response).flatMap(f)
+    })
 
   final def path(segment: String): ZClient[Env, In, Err, Out] =
     copy(url = url.copy(path = url.path / segment))
@@ -257,133 +135,38 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
   final def refineOrDie[Err2](
     pf: PartialFunction[Err, Err2],
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err2, Out] =
-    new ZClient[Env, In, Err2, Out] {
-      override def headers: Headers = self.headers
-
-      override def method: Method = self.method
-
-      override def sslConfig: Option[ClientSSLConfig] = self.sslConfig
-
-      override def url: URL = self.url
-
-      override def version: Version = self.version
-
-      def request(
-        version: Version,
-        method: Method,
-        url: URL,
-        headers: Headers,
-        body: In,
-        sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env, Err2, Out] =
-        self
-          .request(
-            version,
-            method,
-            url,
-            headers,
-            body,
-            sslConfig,
-          )
-          .refineOrDie(pf)
-      def socket[Env1 <: Env](
-        app: SocketApp[Env1],
-        headers: Headers,
-        hostOption: Option[String],
-        pathPrefix: Path,
-        portOption: Option[Int],
-        queries: QueryParams,
-        schemeOption: Option[Scheme],
-        version: Version,
-      )(implicit trace: Trace): ZIO[Env1 with Scope, Err2, Out] =
-        self
-          .socket(
-            app,
-            headers,
-            hostOption,
-            pathPrefix,
-            portOption,
-            queries,
-            schemeOption,
-            version,
-          )
-          .refineOrDie(pf)
-    }
+    transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
   final def request(method: Method, pathSuffix: String, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
-    request(
-      version,
-      method,
-      url.copy(path = url.path / pathSuffix),
-      headers,
-      body,
-      sslConfig,
-    )
+    bodyEncoder.encode(body).flatMap { body =>
+      driver
+        .request(
+          self.version,
+          self.method ++ method,
+          self.url / pathSuffix,
+          self.headers,
+          body,
+          sslConfig,
+        )
+        .flatMap(bodyDecoder.decode)
+    }
 
-  final def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] = {
-    self.request(
-      request.version,
-      request.method,
-      self.url ++ request.url,
-      self.headers ++ request.headers,
-      request.body,
-      sslConfig,
-    )
-  }
+  final def request(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] =
+    bodyEncoder.encode(ev(request.body)).flatMap { body =>
+      driver
+        .request(
+          self.version ++ request.version,
+          self.method ++ request.method,
+          self.url ++ request.url,
+          self.headers ++ request.headers,
+          body,
+          sslConfig,
+        )
+        .flatMap(bodyDecoder.decode(_))
+    }
 
   final def retry[Env1 <: Env](policy: Schedule[Env1, Err, Any]): ZClient[Env1, In, Err, Out] =
-    new ZClient[Env1, In, Err, Out] {
-      override def headers: Headers = self.headers
-
-      override def method: Method = self.method
-
-      override def sslConfig: Option[ClientSSLConfig] = self.sslConfig
-
-      override def url: URL = self.url
-
-      override def version: Version = self.version
-
-      def request(
-        version: Version,
-        method: Method,
-        url: URL,
-        headers: Headers,
-        body: In,
-        sslConfig: Option[ClientSSLConfig],
-      )(implicit trace: Trace): ZIO[Env1, Err, Out] =
-        self
-          .request(
-            version,
-            method,
-            url,
-            headers,
-            body,
-            sslConfig,
-          )
-          .retry(policy)
-      def socket[Env2 <: Env1](
-        app: SocketApp[Env2],
-        headers: Headers,
-        hostOption: Option[String],
-        pathPrefix: Path,
-        portOption: Option[Int],
-        queries: QueryParams,
-        schemeOption: Option[Scheme],
-        version: Version,
-      )(implicit trace: Trace): ZIO[Env2 with Scope, Err, Out] =
-        self
-          .socket(
-            app,
-            headers,
-            hostOption,
-            pathPrefix,
-            portOption,
-            queries,
-            schemeOption,
-            version,
-          )
-          .retry(policy)
-    }
+    transform[Env1, In, Err, Out](bodyEncoder, bodyDecoder, self.driver.retry(policy))
 
   final def scheme(scheme: Scheme): ZClient[Env, In, Err, Out] =
     copy(url = url.withScheme(scheme))
@@ -391,16 +174,14 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
   final def socket[Env1 <: Env](
     pathSuffix: String,
   )(app: SocketApp[Env1])(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
-    socket(
-      app,
-      headers,
-      url.host,
-      url.path / pathSuffix,
-      url.port,
-      url.queryParams,
-      url.scheme,
-      Version.Http_1_1,
-    )
+    driver
+      .socket(
+        app,
+        self.headers,
+        self.url.copy(path = url.path / pathSuffix),
+        Version.Http_1_1,
+      )
+      .flatMap(bodyDecoder.decode(_))
 
   final def socket[Env1 <: Env](
     url: String,
@@ -408,17 +189,15 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
     headers: Headers = Headers.empty,
   )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
     for {
-      url <- ZIO.fromEither(URL.decode(url)).orDie
-      out <- socket(
-        app,
-        headers,
-        url.host,
-        url.path,
-        url.port,
-        url.queryParams,
-        url.scheme,
-        Version.Http_1_1,
-      )
+      url2 <- ZIO.fromEither(URL.decode(url)).orDie
+      out  <- driver
+        .socket(
+          app,
+          self.headers ++ headers,
+          self.url ++ url2,
+          Version.Http_1_1,
+        )
+        .flatMap(bodyDecoder.decode(_))
     } yield out
 
   final def ssl(ssl: ClientSSLConfig): ZClient[Env, In, Err, Out] =
@@ -428,46 +207,127 @@ trait ZClient[-Env, -In, +Err, +Out] extends HeaderOps[ZClient[Env, In, Err, Out
 
   final def url(url: URL): ZClient[Env, In, Err, Out] = copy(url = url)
 
-  def request(
-    version: Version,
-    method: Method,
-    url: URL,
-    headers: Headers,
-    body: In,
-    sslConfig: Option[ClientSSLConfig],
-  )(implicit trace: Trace): ZIO[Env, Err, Out]
-
-  def socket[Env1 <: Env](
-    app: SocketApp[Env1],
-    headers: Headers,
-    hostOption: Option[String],
-    pathPrefix: Path,
-    portOption: Option[Int],
-    queries: QueryParams,
-    schemeOption: Option[Scheme],
-    version: Version,
-  )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out]
-
-  private final def copy(
+  def transform[Env2, In2, Err2, Out2](
+    bodyEncoder: BodyEncoder[Env2, Err2, In2],
+    bodyDecoder: BodyDecoder[Env2, Err2, Out2],
+    driver: ZClient.Driver[Env2, Err2],
     headers: Headers = self.headers,
     method: Method = self.method,
     sslConfig: Option[ClientSSLConfig] = self.sslConfig,
     url: URL = self.url,
     version: Version = self.version,
-  ): ZClient[Env, In, Err, Out] =
-    ZClient.Proxy[Env, In, Err, Out](
+  ): ZClient[Env2, In2, Err2, Out2] =
+    ZClient(
       headers,
       method,
       sslConfig,
       url,
       version,
-      self,
+      bodyEncoder,
+      bodyDecoder,
+      driver,
     )
 }
 
 object ZClient {
+  trait BodyDecoder[-Env, +Err, +Out] { self =>
+    def decode(response: Response): ZIO[Env, Err, Out]
 
-  case class Config(
+    def refineOrDie[Err2](
+      pf: PartialFunction[Err, Err2],
+    )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): BodyDecoder[Env, Err2, Out] =
+      new BodyDecoder[Env, Err2, Out] {
+        def decode(response: Response): ZIO[Env, Err2, Out] = self.decode(response).refineOrDie(pf)
+      }
+  }
+  trait BodyEncoder[-Env, +Err, -In]  { self =>
+    def encode(in: In): ZIO[Env, Err, Body]
+
+    def refineOrDie[Err2](
+      pf: PartialFunction[Err, Err2],
+    )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): BodyEncoder[Env, Err2, In] =
+      new BodyEncoder[Env, Err2, In] {
+        def encode(in: In): ZIO[Env, Err2, Body] = self.encode(in).refineOrDie(pf)
+      }
+  }
+
+  trait Driver[-Env, +Err] { self =>
+    def refineOrDie[Err2](
+      pf: PartialFunction[Err, Err2],
+    )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): Driver[Env, Err2] =
+      new Driver[Env, Err2] {
+        override def request(
+          version: Version,
+          method: Method,
+          url: URL,
+          headers: Headers,
+          body: Body,
+          sslConfig: Option[ClientSSLConfig],
+        )(implicit trace: Trace): ZIO[Env, Err2, Response] =
+          self.request(version, method, url, headers, body, sslConfig).refineOrDie(pf)
+
+        override def socket[Env1 <: Env](
+          app: SocketApp[Env1],
+          headers: Headers,
+          url: URL,
+          version: Version,
+        )(implicit trace: Trace): ZIO[Env1 with Scope, Err2, Response] =
+          self
+            .socket(
+              app,
+              headers,
+              url,
+              version,
+            )
+            .refineOrDie(pf)
+      }
+
+    def request(
+      version: Version,
+      method: Method,
+      url: URL,
+      headers: Headers,
+      body: Body,
+      sslConfig: Option[ClientSSLConfig],
+    )(implicit trace: Trace): ZIO[Env, Err, Response]
+
+    final def retry[Env1 <: Env, Err1 >: Err](policy: zio.Schedule[Env1, Err1, Any]) =
+      new Driver[Env1, Err1] {
+        override def request(
+          version: Version,
+          method: Method,
+          url: URL,
+          headers: Headers,
+          body: Body,
+          sslConfig: Option[ClientSSLConfig],
+        )(implicit trace: Trace): ZIO[Env1, Err1, Response] =
+          self.request(version, method, url, headers, body, sslConfig).retry(policy)
+
+        override def socket[Env2 <: Env1](
+          app: SocketApp[Env2],
+          headers: Headers,
+          url: URL,
+          version: Version,
+        )(implicit trace: Trace): ZIO[Env2 with Scope, Err1, Response] =
+          self
+            .socket(
+              app,
+              headers,
+              url,
+              version,
+            )
+            .retry(policy)
+      }
+
+    def socket[Env1 <: Env](
+      app: SocketApp[Env1],
+      headers: Headers,
+      url: URL,
+      version: Version,
+    )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Response]
+  }
+
+  final case class Config(
     socketApp: Option[SocketApp[Any]],
     ssl: Option[ClientSSLConfig],
     proxy: Option[zio.http.Proxy],
@@ -534,51 +394,11 @@ object ZClient {
     )
   }
 
-  private final case class Proxy[-Env, -In, +Err, +Out](
-    headers: Headers,
-    method: Method,
-    sslConfig: Option[ClientSSLConfig],
-    url: URL,
-    version: Version,
-    client: ZClient[Env, In, Err, Out],
-  ) extends ZClient[Env, In, Err, Out] {
-
-    def request(
-      version: Version,
-      method: Method,
-      url: URL,
-      headers: Headers,
-      body: In,
-      sslConfig: Option[ClientSSLConfig],
-    )(implicit trace: Trace): ZIO[Env, Err, Out] =
-      client.request(
-        version,
-        method,
-        url,
-        headers,
-        body,
-        sslConfig,
-      )
-
-    def socket[Env1 <: Env](
-      app: SocketApp[Env1],
-      headers: Headers,
-      hostOption: Option[String],
-      pathPrefix: Path,
-      portOption: Option[Int],
-      queries: QueryParams,
-      schemeOption: Option[Scheme],
-      version: Version,
-    )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
-      client.socket(app, headers, hostOption, pathPrefix, portOption, queries, schemeOption, version)
-
-  }
-
-  final class ClientLive private (config: Config, driver: ClientDriver, connectionPool: ConnectionPool[Any])
-      extends Client
+  final class ClientLive private (config: Config, driver: ClientBackend, connectionPool: ConnectionPool[Any])
+      extends ZClient.Driver[Any, Throwable]
       with ClientRequestEncoder { self =>
 
-    def this(driver: ClientDriver)(connectionPool: ConnectionPool[driver.Connection])(settings: Config) =
+    def this(driver: ClientBackend)(connectionPool: ConnectionPool[driver.Connection])(settings: Config) =
       this(settings, driver, connectionPool.asInstanceOf[ConnectionPool[Any]])
 
     val headers: Headers                   = Headers.empty
@@ -587,7 +407,7 @@ object ZClient {
     val url: URL                           = config.localAddress.map(_.getPort).fold(URL.empty)(URL.empty.withPort(_))
     val version: Version                   = Version.Http_1_1
 
-    def request(
+    override def request(
       version: Version,
       method: Method,
       url: URL,
@@ -604,25 +424,14 @@ object ZClient {
     override def socket[R](
       app: SocketApp[R],
       headers: Headers,
-      hostOption: Option[String],
-      path: Path,
-      portOption: Option[Int],
-      queries: QueryParams,
-      schemeOption: Option[Scheme],
+      url: URL,
       version: Version,
     )(implicit trace: Trace): ZIO[R with Scope, Throwable, Response] =
       for {
-        env      <- ZIO.environment[R]
-        location <- ZIO.fromOption {
-          for {
-            host   <- hostOption
-            port   <- portOption
-            scheme <- schemeOption
-          } yield URL.Location.Absolute(scheme, host, port)
-        }.orElseSucceed(URL.Location.Relative)
-        res      <- requestAsync(
+        env <- ZIO.environment[R]
+        res <- requestAsync(
           Request
-            .get(URL(path, location))
+            .get(url)
             .copy(
               version = version,
               headers = self.headers ++ headers,
@@ -702,6 +511,22 @@ object ZClient {
       }
   }
 
+  def fromDriver[Env, Err](driver: Driver[Env, Err]): ZClient[Env, Body, Err, Response] =
+    ZClient(
+      Headers.empty,
+      Method.GET,
+      None,
+      URL.empty,
+      Version.Http_1_1,
+      new BodyEncoder[Env, Err, Body]     {
+        def encode(body: Body): ZIO[Env, Err, Body] = Exit.succeed(body)
+      },
+      new BodyDecoder[Env, Err, Response] {
+        def decode(response: Response): ZIO[Env, Err, Response] = Exit.succeed(response)
+      },
+      driver,
+    )
+
   def request(
     url: String,
     method: Method = Method.GET,
@@ -771,15 +596,15 @@ object ZClient {
         ZLayer(ZIO.config(NettyConfig.config.nested(path)))
     ).mapError(error => new RuntimeException(s"Configuration error: $error")) >>> live
 
-  val customized: ZLayer[Config with ClientDriver with DnsResolver, Throwable, Client] = {
+  val customized: ZLayer[Config with ClientBackend with DnsResolver, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
       for {
         config         <- ZIO.service[Config]
-        driver         <- ZIO.service[ClientDriver]
+        driver         <- ZIO.service[ClientBackend]
         dnsResolver    <- ZIO.service[DnsResolver]
         connectionPool <- driver.createConnectionPool(dnsResolver, config.connectionPool)
-      } yield new ClientLive(driver)(connectionPool)(config)
+      } yield ZClient.fromDriver(new ClientLive(driver)(connectionPool)(config))
     }
   }
 
@@ -791,7 +616,7 @@ object ZClient {
 
   lazy val live: ZLayer[ZClient.Config with NettyConfig with DnsResolver, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
-    (NettyClientDriver.live ++ ZLayer.service[DnsResolver]) >>> customized
+    (NettyClientBackend.live ++ ZLayer.service[DnsResolver]) >>> customized
   }.fresh
 
   private val zioHttpVersion: String                   = Client.getClass().getPackage().getImplementationVersion()

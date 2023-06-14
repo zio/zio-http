@@ -26,7 +26,7 @@ import zio.stream.ZStream
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.model.Method
 import zio.http.netty.NettyConfig
-import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.client.NettyClientBackend
 
 object ClientStreamingSpec extends HttpRunnableSpec {
 
@@ -48,7 +48,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
     severTestLayer,
     Client.customized,
     ZLayer.succeed(ZClient.Config.default.useObjectAggregator(false)),
-    NettyClientDriver.live,
+    NettyClientBackend.live,
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),
   ) @@

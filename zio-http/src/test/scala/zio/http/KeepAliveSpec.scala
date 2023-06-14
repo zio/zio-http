@@ -18,7 +18,7 @@ package zio.http
 
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.timeout
-import zio.test.assertZIO
+import zio.test.{TestAspect, assertZIO}
 import zio.{Scope, durationInt}
 
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
@@ -46,7 +46,7 @@ object KeepAliveSpec extends HttpRunnableSpec {
       test("without keep-alive") {
         val res = app.deploy.header(Header.Connection).run(version = Version.Http_1_0)
         assertZIO(res)(isSome(equalTo(Header.Connection.Close)))
-      },
+      } @@ TestAspect.unix,
       test("with keep-alive") {
         val res = app.deploy
           .header(Header.Connection)

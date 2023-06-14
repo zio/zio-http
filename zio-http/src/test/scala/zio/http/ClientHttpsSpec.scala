@@ -23,7 +23,7 @@ import zio.{ZLayer, durationInt}
 
 import zio.http.model.Status
 import zio.http.netty.NettyConfig
-import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.client.NettyClientBackend
 
 import io.netty.handler.codec.DecoderException
 
@@ -62,7 +62,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
   ).provide(
     ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
     Client.customized,
-    NettyClientDriver.live,
+    NettyClientBackend.live,
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),
   ) @@ timeout(

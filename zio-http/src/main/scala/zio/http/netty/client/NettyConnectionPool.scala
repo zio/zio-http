@@ -178,7 +178,7 @@ object NettyConnectionPool {
 
   def fromConfig(
     config: ConnectionPoolConfig,
-  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientBackend with DnsResolver, Nothing, NettyConnectionPool] =
     for {
       pool <- config match {
         case ConnectionPoolConfig.Disabled                         =>
@@ -200,22 +200,22 @@ object NettyConnectionPool {
 
   private def createDisabled(implicit
     trace: Trace,
-  ): ZIO[NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
+  ): ZIO[NettyClientBackend with DnsResolver, Nothing, NettyConnectionPool] =
     for {
-      driver      <- ZIO.service[NettyClientDriver]
+      driver      <- ZIO.service[NettyClientBackend]
       dnsResolver <- ZIO.service[DnsResolver]
     } yield new NoNettyConnectionPool(driver.channelFactory, driver.eventLoopGroup, dnsResolver)
 
   private def createFixed(size: Int)(implicit
     trace: Trace,
-  ): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
+  ): ZIO[Scope with NettyClientBackend with DnsResolver, Nothing, NettyConnectionPool] =
     createFixedPerHost(_ => size)
 
   private def createFixedPerHost(
     size: URL.Location.Absolute => Int,
-  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientBackend with DnsResolver, Nothing, NettyConnectionPool] =
     for {
-      driver      <- ZIO.service[NettyClientDriver]
+      driver      <- ZIO.service[NettyClientBackend]
       dnsResolver <- ZIO.service[DnsResolver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       poolFn = (key: PoolKey) =>
@@ -249,16 +249,16 @@ object NettyConnectionPool {
     min: Int,
     max: Int,
     ttl: Duration,
-  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientBackend with DnsResolver, Nothing, NettyConnectionPool] =
     createDynamicPerHost(_ => min, _ => max, _ => ttl)
 
   private def createDynamicPerHost(
     min: URL.Location.Absolute => Int,
     max: URL.Location.Absolute => Int,
     ttl: URL.Location.Absolute => Duration,
-  )(implicit trace: Trace): ZIO[Scope with NettyClientDriver with DnsResolver, Nothing, NettyConnectionPool] =
+  )(implicit trace: Trace): ZIO[Scope with NettyClientBackend with DnsResolver, Nothing, NettyConnectionPool] =
     for {
-      driver      <- ZIO.service[NettyClientDriver]
+      driver      <- ZIO.service[NettyClientBackend]
       dnsResolver <- ZIO.service[DnsResolver]
       poolPromise <- Promise.make[Nothing, ZKeyedPool[Throwable, PoolKey, JChannel]]
       poolFn = (key: PoolKey) =>

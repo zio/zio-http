@@ -20,7 +20,7 @@ import scala.collection.mutable
 
 import zio._
 
-import zio.http.ClientDriver.ChannelInterface
+import zio.http.ClientBackend.ChannelInterface
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
@@ -32,12 +32,12 @@ import io.netty.handler.codec.http.HttpObjectAggregator
 import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler
 import io.netty.handler.flow.FlowControlHandler
 
-final case class NettyClientDriver private (
+final case class NettyClientBackend private (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,
   nettyRuntime: NettyRuntime,
   clientConfig: NettyConfig,
-) extends ClientDriver
+) extends ClientBackend
     with ClientRequestEncoder {
 
   override type Connection = Channel
@@ -153,13 +153,13 @@ final case class NettyClientDriver private (
   ): ZIO[Scope, Nothing, ConnectionPool[Channel]] =
     NettyConnectionPool
       .fromConfig(config)
-      .provideSomeEnvironment[Scope](_ ++ ZEnvironment[NettyClientDriver, DnsResolver](this, dnsResolver))
+      .provideSomeEnvironment[Scope](_ ++ ZEnvironment[NettyClientBackend, DnsResolver](this, dnsResolver))
 }
 
-object NettyClientDriver {
+object NettyClientBackend {
   private implicit val trace: Trace = Trace.empty
 
-  val live: ZLayer[NettyConfig, Throwable, ClientDriver] =
+  val live: ZLayer[NettyConfig, Throwable, ClientBackend] =
     (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>
       ZLayer {
         for {
@@ -167,7 +167,7 @@ object NettyClientDriver {
           channelFactory <- ZIO.service[ChannelFactory[Channel]]
           nettyRuntime   <- ZIO.service[NettyRuntime]
           clientConfig   <- ZIO.service[NettyConfig]
-        } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
+        } yield NettyClientBackend(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
       }
 
 }

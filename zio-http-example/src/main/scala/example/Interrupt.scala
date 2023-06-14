@@ -47,7 +47,7 @@ object MyClient extends ZIOAppDefault {
         ZLayer.succeed(NettyConfig.default),
         DnsResolver.default,
       )
-      // .provide(Client.live, NettyClientDriver.fromConfig, ClientConfig.live(ClientConfig().withFixedConnectionPool(2)))
+      // .provide(Client.live, NettyClientBackend.fromConfig, ClientConfig.live(ClientConfig().withFixedConnectionPool(2)))
       .debug("EXIT")
   }
 }

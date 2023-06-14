@@ -13,8 +13,8 @@ import zio.http.socket.{SocketApp, WebSocketChannelEvent, WebSocketFrame}
  *   Contains the user-specified behavior that takes the place of the usual
  *   Server
  */
-final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocketBehavior: Ref[SocketApp[Any]])
-    extends Client {
+final case class TestClientDriver(behavior: Ref[HttpApp[Any, Throwable]], serverSocketBehavior: Ref[SocketApp[Any]])
+    extends ZClient.Driver[Any, Throwable] {
 
   /**
    * Adds an exact 1-1 behavior
@@ -25,7 +25,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
    *
    * @example
    *   {{{
-   *    TestClient.addRequestResponse(Request.get(URL.root), Response.ok)
+   *    TestClientDriver.addRequestResponse(Request.get(URL.root), Response.ok)
    *   }}}
    */
   def addRequestResponse(
@@ -49,13 +49,13 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
   /**
    * Adds a flexible handler for requests that are submitted by test cases
    * @param handler
-   *   New behavior to be added to the TestClient
+   *   New behavior to be added to the TestClientDriver
    * @tparam R
    *   Environment of the new handler's effect.
    *
    * @example
    *   {{{
-   *    TestClient.addHandler{case request  if request.method == Method.GET => ZIO.succeed(Response.ok)}
+   *    TestClientDriver.addHandler{case request  if request.method == Method.GET => ZIO.succeed(Response.ok)}
    *   }}}
    */
   def addHandler[R](
@@ -106,11 +106,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
   override def socket[Env1](
     app: SocketApp[Env1],
     headers: Headers,
-    hostOption: Option[String],
-    pathPrefix: Path,
-    portOption: Option[Int],
-    queries: QueryParams,
-    schemeOption: Option[Scheme],
+    url: URL,
     version: Version,
   )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
     for {
@@ -164,7 +160,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
       env <- ZIO.environment[Env1]
       _   <- serverSocketBehavior.set(
         app
-          .defaultWith(TestClient.warnOnUnrecognizedEvent)
+          .defaultWith(TestClientDriver.warnOnUnrecognizedEvent)
           .toHandler(Handler.response(Response(Status.NotFound)))
           .toSocketApp
           .provideEnvironment(env),
@@ -172,7 +168,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     } yield ()
 }
 
-object TestClient {
+object TestClientDriver {
 
   /**
    * Adds an exact 1-1 behavior
@@ -183,43 +179,44 @@ object TestClient {
    *
    * @example
    *   {{{
-   *    TestClient.addRequestResponse(Request.get(URL.root), Response.ok)
+   *    TestClientDriver.addRequestResponse(Request.get(URL.root), Response.ok)
    *   }}}
    */
   def addRequestResponse(
     request: Request,
     response: Response,
-  ): ZIO[TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addRequestResponse(request, response))
+  ): ZIO[TestClientDriver, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClientDriver](_.addRequestResponse(request, response))
 
   /**
    * Adds a flexible handler for requests that are submitted by test cases
    * @param handler
-   *   New behavior to be added to the TestClient
+   *   New behavior to be added to the TestClientDriver
    * @tparam R
    *   Environment of the new handler's effect.
    *
    * @example
    *   {{{
-   *    TestClient.addHandler{case request  if request.method == Method.GET => ZIO.succeed(Response.ok)}
+   *    TestClientDriver.addHandler{case request  if request.method == Method.GET => ZIO.succeed(Response.ok)}
    *   }}}
    */
   def addHandler[R](
     handler: PartialFunction[Request, ZIO[R, Throwable, Response]],
-  ): ZIO[R with TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
+  ): ZIO[R with TestClientDriver, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClientDriver](_.addHandler(handler))
 
   def installSocketApp(
     app: Http[Any, Throwable, WebSocketChannelEvent, Unit],
-  ): ZIO[TestClient, Nothing, Unit] =
-    ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
+  ): ZIO[TestClientDriver, Nothing, Unit] =
+    ZIO.serviceWithZIO[TestClientDriver](_.installSocketApp(app))
 
-  val layer: ZLayer[Any, Nothing, TestClient] =
-    ZLayer.scoped {
+  val layer: ZLayer[Any, Nothing, TestClientDriver & Client] =
+    ZLayer.scopedEnvironment {
       for {
         behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
         socketBehavior <- Ref.make[SocketApp[Any]](SocketApp.apply(_ => ZIO.unit))
-      } yield TestClient(behavior, socketBehavior)
+        testClient = TestClientDriver(behavior, socketBehavior): TestClientDriver
+      } yield ZEnvironment[TestClientDriver, Client](testClient, ZClient.fromDriver(testClient))
     }
 
   private val warnOnUnrecognizedEvent = Http.collectZIO[WebSocketChannelEvent] { case other =>

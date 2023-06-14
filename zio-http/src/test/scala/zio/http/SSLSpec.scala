@@ -23,7 +23,7 @@ import zio.{ZIO, ZLayer, durationInt}
 
 import zio.http.model._
 import zio.http.netty.NettyConfig
-import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.client.NettyClientBackend
 
 import io.netty.handler.codec.DecoderException
 
@@ -59,7 +59,7 @@ object SSLSpec extends ZIOSpecDefault {
           }.provide(
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
-            NettyClientDriver.live,
+            NettyClientBackend.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
           ),
@@ -73,7 +73,7 @@ object SSLSpec extends ZIOSpecDefault {
           }.provide(
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL2)),
-            NettyClientDriver.live,
+            NettyClientBackend.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
           ),
@@ -85,7 +85,7 @@ object SSLSpec extends ZIOSpecDefault {
           }.provide(
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(ClientSSLConfig.Default)),
-            NettyClientDriver.live,
+            NettyClientBackend.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
           ),
@@ -97,7 +97,7 @@ object SSLSpec extends ZIOSpecDefault {
           }.provide(
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
-            NettyClientDriver.live,
+            NettyClientBackend.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
           ),
@@ -115,7 +115,7 @@ object SSLSpec extends ZIOSpecDefault {
           }.provide(
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
-            NettyClientDriver.live,
+            NettyClientBackend.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
           ),

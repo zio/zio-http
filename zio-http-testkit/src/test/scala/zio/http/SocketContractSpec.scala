@@ -6,7 +6,7 @@ import zio.test._
 
 import zio.http.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEvent, UserEventTriggered}
 import zio.http.model.Status
-import zio.http.netty.server.NettyDriver
+import zio.http.netty.server.NettyServerBackend
 import zio.http.socket._
 
 object SocketContractSpec extends ZIOSpecDefault {
@@ -107,7 +107,7 @@ object SocketContractSpec extends ZIOSpecDefault {
         } yield assertTrue(response.status == Status.SwitchingProtocols)
       }.provideSome[Client](
         TestServer.layer,
-        NettyDriver.live,
+        NettyServerBackend.live,
         ZLayer.succeed(Server.Config.default.onAnyOpenPort),
         Scope.default,
       ).provide(Client.default),
@@ -120,7 +120,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           )
           _        <- promise.await.timeout(10.seconds)
         } yield assertTrue(response.status == Status.SwitchingProtocols)
-      }.provide(TestClient.layer, Scope.default),
+      }.provide(TestClientDriver.layer, Scope.default),
     )
   }
 
@@ -136,10 +136,10 @@ object SocketContractSpec extends ZIOSpecDefault {
 
   private def testServerSetup(
     serverApp: Promise[Throwable, Unit] => Http[Any, Throwable, WebSocketChannelEvent, Unit],
-  ): ZIO[TestClient, Nothing, (RuntimeFlags, Promise[Throwable, Unit])] =
+  ): ZIO[TestClientDriver, Nothing, (RuntimeFlags, Promise[Throwable, Unit])] =
     for {
       p <- Promise.make[Throwable, Unit]
-      _ <- TestClient.installSocketApp(serverApp(p))
+      _ <- TestClientDriver.installSocketApp(serverApp(p))
     } yield (0, p)
 
 }

@@ -20,6 +20,7 @@ package zio.http.model
  * Represents an HTTP method, such as GET, PUT, POST, or DELETE.
  */
 sealed trait Method { self =>
+  def ++(that: Method): Method = that
 
   /**
    * The name of the method, as it appears in the HTTP request.

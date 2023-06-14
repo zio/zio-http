@@ -11,7 +11,7 @@ import zio._
  * @param bindPort
  *   Port for HTTP interactions
  */
-final case class TestServer(driver: Driver, bindPort: Int) extends Server {
+final case class TestServer(driver: ServerBackend, bindPort: Int) extends Server {
 
   /**
    * Define 1-1 mappings between incoming Requests and outgoing Responses
@@ -102,10 +102,10 @@ object TestServer {
   ): ZIO[TestServer, Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer](_.addRequestResponse(request, response))
 
-  val layer: ZLayer[Driver, Throwable, TestServer] =
+  val layer: ZLayer[ServerBackend, Throwable, TestServer] =
     ZLayer.scoped {
       for {
-        driver <- ZIO.service[Driver]
+        driver <- ZIO.service[ServerBackend]
         port   <- driver.start
       } yield TestServer(driver, port)
     }

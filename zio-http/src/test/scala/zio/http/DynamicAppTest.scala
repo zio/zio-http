@@ -21,7 +21,7 @@ import zio.test._
 
 import zio.http.model._
 import zio.http.netty.NettyConfig
-import zio.http.netty.client.NettyClientDriver
+import zio.http.netty.client.NettyClientBackend
 
 object DynamicAppTest extends ZIOSpecDefault {
 
@@ -40,7 +40,7 @@ object DynamicAppTest extends ZIOSpecDefault {
   val layer =
     ZLayer.make[Client & Server](
       ZLayer.succeed(ZClient.Config.default),
-      NettyClientDriver.live,
+      NettyClientBackend.live,
       Client.customized,
       ZLayer.succeed(Server.Config.default),
       Server.live,

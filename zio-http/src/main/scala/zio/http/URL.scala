@@ -41,6 +41,8 @@ final case class URL(
       self.fragment.orElse(that.fragment),
     )
 
+  def /(suffix: String): URL = self.copy(path = path / suffix)
+
   def absolute(host: String): URL =
     self.copy(kind = URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP)))
 
