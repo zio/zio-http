@@ -140,7 +140,7 @@ object ZClientAspect {
             headers: Headers,
             body: In,
             sslConfig: Option[ClientSSLConfig],
-          )(implicit trace: Trace): ZIO[Env, Err, Out] =
+          )(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
             client
               .request(version, method, url, headers, body, sslConfig)
               .sandbox
@@ -216,7 +216,7 @@ object ZClientAspect {
             headers: Headers,
             body: In,
             sslConfig: Option[ClientSSLConfig],
-          )(implicit trace: Trace): ZIO[Env, Err, Out] =
+          )(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
             client
               .request(version, method, url, headers, body, sslConfig)
               .sandbox
