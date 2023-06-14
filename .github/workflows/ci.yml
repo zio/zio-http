@@ -189,12 +189,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.8]
+        scala: [2.13.6]
         java: [temurin@11]
     runs-on: ${{ matrix.os }}
     steps:
       - name: zio-http-shaded Tests
-        run: sbt ++${{ matrix.scala }} '-Dpublish.shaded=true zioHttpShadedTests/test'
+        run: sbt ++2.13.8! -Dpublish.shaded=true zioHttpShadedTests/test
 
   unsafeRunScoverage:
     name: Unsafe Scoverage

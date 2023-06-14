@@ -31,9 +31,9 @@ ThisBuild / githubWorkflowAddedJobs    :=
       id = "zio-http-shaded-tests",
       name = "Test shaded version of zio-http",
       scalas = List(Scala213),
-      steps = List(WorkflowStep.Sbt(
+      steps = List(WorkflowStep.Run(
         name = Some("zio-http-shaded Tests"),
-        commands = List("-Dpublish.shaded=true zioHttpShadedTests/test")
+        commands = List(s"sbt ++$Scala213! -Dpublish.shaded=true zioHttpShadedTests/test")
       ))
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow() ++ JmhBenchmarkWorkflow(1)
