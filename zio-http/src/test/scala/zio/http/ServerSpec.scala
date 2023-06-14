@@ -29,7 +29,6 @@ import zio.stream.{ZPipeline, ZStream}
 import zio.http.html.{body, div, id}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 
-
 object ServerSpec extends HttpRunnableSpec {
 
   private val nonEmptyContent = for {
@@ -219,7 +218,9 @@ object ServerSpec extends HttpRunnableSpec {
           val app = Handler.fromZIO {
             ZIO.interrupt.as(Response.text("not interrupted"))
           }.toHttp
-          assertZIO(app.deploy.run().exit)(fails(hasField("class.simpleName", _.getClass.getSimpleName, equalTo("PrematureChannelClosureException"))))
+          assertZIO(app.deploy.run().exit)(
+            fails(hasField("class.simpleName", _.getClass.getSimpleName, equalTo("PrematureChannelClosureException"))),
+          )
         },
       ) +
       suite("proxy") {

@@ -63,8 +63,9 @@ object SSLSpec extends ZIOSpecDefault {
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
               .request("https://localhost:8073/success")
-              .catchSome { case e if e.getClass.getSimpleName == "DecoderException" =>
-                ZIO.succeed("DecoderException")
+              .catchSome {
+                case e if e.getClass.getSimpleName == "DecoderException" =>
+                  ZIO.succeed("DecoderException")
               }
             assertZIO(actual)(equalTo("DecoderException"))
           }.provide(

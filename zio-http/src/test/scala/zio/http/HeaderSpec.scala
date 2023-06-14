@@ -19,7 +19,6 @@ package zio.http
 import zio.test.Assertion._
 import zio.test.{ZIOSpecDefault, assert}
 
-
 object HeaderSpec extends ZIOSpecDefault {
 
   def spec = suite("Header")(
