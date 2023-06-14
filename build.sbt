@@ -33,7 +33,8 @@ ThisBuild / githubWorkflowAddedJobs    :=
       scalas = List(Scala213),
       steps = List(WorkflowStep.Run(
         name = Some("zio-http-shaded Tests"),
-        commands = List(s"sbt ++$Scala213! '-Dpublish.shaded=true zioHttpShadedTests/test'")
+        commands = List("sbt ++${{ matrix.scala }}! zioHttpShadedTests/test"),
+        env = Map(Shading.env.PUBLISH_SHADED -> "true")
       ))
     ),
   ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow() ++ JmhBenchmarkWorkflow(1)
@@ -54,9 +55,10 @@ ThisBuild / githubWorkflowPublish       :=
       ),
     ),
     WorkflowStep.Sbt(
-      List("-Dpublish.shaded=true", "ci-release"),
+      List("ci-release"),
       name = Some("Release Shaded"),
       env = Map(
+        Shading.env.PUBLISH_SHADED -> "true",
         "PGP_PASSPHRASE" -> "${{ secrets.PGP_PASSPHRASE }}",
         "PGP_SECRET" -> "${{ secrets.PGP_SECRET }}",
         "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",

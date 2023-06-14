@@ -167,10 +167,11 @@ jobs:
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          PUBLISH_SHADED: true
           CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
-        run: sbt ++${{ matrix.scala }} -Dpublish.shaded=true ci-release
+        run: sbt ++${{ matrix.scala }} ci-release
 
   update_release_draft:
     name: Release Drafter
@@ -194,7 +195,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: zio-http-shaded Tests
-        run: sbt ++2.13.8! '-Dpublish.shaded=true zioHttpShadedTests/test'
+        env:
+          PUBLISH_SHADED: true
+        run: sbt ++${{ matrix.scala }}! zioHttpShadedTests/test
 
   unsafeRunScoverage:
     name: Unsafe Scoverage
