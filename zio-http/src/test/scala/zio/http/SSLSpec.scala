@@ -24,8 +24,6 @@ import zio.{ZIO, ZLayer, durationInt}
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
-import io.netty.handler.codec.DecoderException
-
 object SSLSpec extends ZIOSpecDefault {
 
   val sslConfig = SSLConfig.fromResource("server.crt", "server.key")
@@ -65,7 +63,7 @@ object SSLSpec extends ZIOSpecDefault {
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
               .request("https://localhost:8073/success")
-              .catchSome { case _: DecoderException =>
+              .catchSome { case e if e.getClass.getSimpleName == "DecoderException" =>
                 ZIO.succeed("DecoderException")
               }
             assertZIO(actual)(equalTo("DecoderException"))

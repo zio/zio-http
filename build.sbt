@@ -27,6 +27,14 @@ ThisBuild / githubWorkflowAddedJobs    :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
+    WorkflowJob(
+      id = "zio-http-shaded-tests",
+      name = "Test shaded version of zio-http",
+      steps = List(WorkflowStep.Sbt(
+        name = Some("zio-http-shaded Tests"),
+        commands = List("-Dpublish.shaded=true zioHttpShadedTests/test")
+      ))
+    ),
   ) ++ ScoverageWorkFlow(50, 60) ++ BenchmarkWorkFlow() ++ JmhBenchmarkWorkflow(1)
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
@@ -125,6 +133,41 @@ lazy val zioHttp = (project in file("zio-http"))
       }
     },
   )
+
+/**
+ * Special subproject to sanity test the shaded version of zio-http.
+ * Run using `sbt -Dpublish.shaded zioHttpShadedTests/test`.
+ * This will trigger `publishLocal` on zio-http and then run tests using the shaded artifact as a dependency, instead of zio-http classes.
+ */
+lazy val zioHttpShadedTests = if(Shading.shadingEnabled) {
+  (project in file("zio-http-shaded-tests"))
+    .settings(stdSettings("zio-http-shaded-tests"))
+    .settings(
+      Compile / sources := Nil,
+      Test / sources := (
+        baseDirectory.value / ".." / "zio-http" / "src" / "test" / "scala" ** "*.scala" ---
+          // Exclude tests of netty specific internal stuff
+          baseDirectory.value / ".." / "zio-http" / "src" / "test" / "scala" ** "netty" ** "*.scala"
+        ).get,
+      Test / scalaSource := (baseDirectory.value / ".." / "zio-http" / "src" / "test" / "scala"),
+      Test / resourceDirectory := (baseDirectory.value / ".." / "zio-http" / "src" / "test" / "resources"),
+      testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+      libraryDependencies ++= Seq(
+        `zio-test-sbt`,
+        `zio-test`,
+        "dev.zio" %% "zio-http-shaded" % version.value,
+      )
+    )
+    .settings(publishSetting(false))
+    .settings(Test / test := (Test / test).dependsOn(zioHttp / publishLocal).value)
+} else {
+  (project in file(".")).settings(
+    Compile / sources := Nil,
+    Test / sources := Nil,
+    name := "noop",
+    publish / skip := true,
+  )
+}
 
 lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
   .enablePlugins(JmhPlugin)

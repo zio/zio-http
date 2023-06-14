@@ -16,16 +16,12 @@
 
 package zio.http
 
-import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
+import zio.test.Assertion.{anything, equalTo, fails, hasField}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}
 import zio.{ZLayer, durationInt}
-
-import zio.http.Status
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
-
-import io.netty.handler.codec.DecoderException
 
 object ClientHttpsSpec extends ZIOSpecDefault {
 
@@ -57,7 +53,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
           "https://untrusted-root.badssl.com/",
         )
         .exit
-      assertZIO(actual)(fails(isSubtype[DecoderException](anything)))
+      assertZIO(actual)(fails(hasField("class.simpleName", _.getClass.getSimpleName, equalTo("DecoderException"))))
     },
   ).provide(
     ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),

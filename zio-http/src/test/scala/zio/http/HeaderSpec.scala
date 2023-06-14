@@ -19,7 +19,6 @@ package zio.http
 import zio.test.Assertion._
 import zio.test.{ZIOSpecDefault, assert}
 
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 
 object HeaderSpec extends ZIOSpecDefault {
 
@@ -30,30 +29,30 @@ object HeaderSpec extends ZIOSpecDefault {
         assert(actual)(isNone)
       },
       test("should return header from predefined headers list by String") {
-        val actual = predefinedHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        val actual = predefinedHeaders.rawHeader(Header.ContentType.name)
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
       test("should return header from predefined headers list by String of another case") {
         val actual = predefinedHeaders.rawHeader("Content-Type")
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
       test("should return header from predefined headers list by AsciiString") {
-        val actual = predefinedHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        val actual = predefinedHeaders.rawHeader(Header.ContentType.name)
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
       test("should return header from custom headers list by String") {
-        val actual = customHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
+        val actual = customHeaders.rawHeader(Header.ContentType.name)
         assert(actual)(isSome(equalTo(customContentJsonHeader.renderedValue)))
       },
       test("should return header from custom headers list by AsciiString") {
-        val actual = customHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
+        val actual = customHeaders.rawHeader(Header.ContentType.name)
         assert(actual)(isSome(equalTo(customContentJsonHeader.renderedValue)))
       },
     ),
     suite("getHeaderValue")(
       test("should return header value") {
-        val actual = predefinedHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        val actual = predefinedHeaders.rawHeader(Header.ContentType.name)
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
     ),
     suite("hasHeader")(

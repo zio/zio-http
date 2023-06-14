@@ -184,6 +184,18 @@ jobs:
     steps:
       - uses: release-drafter/release-drafter@v5
 
+  zio-http-shaded-tests:
+    name: Test shaded version of zio-http
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.6]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: zio-http-shaded Tests
+        run: sbt ++${{ matrix.scala }} '-Dpublish.shaded=true zioHttpShadedTests/test'
+
   unsafeRunScoverage:
     name: Unsafe Scoverage
     strategy:
