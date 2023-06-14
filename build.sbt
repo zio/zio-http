@@ -30,6 +30,7 @@ ThisBuild / githubWorkflowAddedJobs    :=
     WorkflowJob(
       id = "zio-http-shaded-tests",
       name = "Test shaded version of zio-http",
+      scalas = List(Scala213),
       steps = List(WorkflowStep.Sbt(
         name = Some("zio-http-shaded Tests"),
         commands = List("-Dpublish.shaded=true zioHttpShadedTests/test")
