@@ -81,5 +81,6 @@ object ZClientAspectSpec extends ZIOSpecDefault {
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
       Server.live,
       Client.default,
+      Scope.default,
     ) @@ withLiveClock
 }

@@ -57,7 +57,7 @@ final case class EndpointExecutor[+MI](
     alt: Alternator[E, invocation.middleware.Err],
     ev: MI <:< invocation.middleware.In,
     trace: Trace,
-  ): ZIO[Any, alt.Out, B] = {
+  ): ZIO[Scope, alt.Out, B] = {
     middlewareInput.flatMap { mi =>
       getClient(invocation.endpoint).orDie.flatMap { endpointClient =>
         endpointClient.execute(client, invocation)(ev(mi))

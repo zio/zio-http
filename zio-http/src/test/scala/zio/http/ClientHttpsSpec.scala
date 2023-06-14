@@ -19,7 +19,7 @@ package zio.http
 import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}
-import zio.{ZLayer, durationInt}
+import zio.{Scope, ZLayer, durationInt}
 
 import zio.http.Status
 import zio.http.netty.NettyConfig
@@ -65,6 +65,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
     NettyClientDriver.live,
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),
+    Scope.default,
   ) @@ timeout(
     30 seconds,
   ) @@ ignore

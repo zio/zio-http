@@ -115,5 +115,6 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
       },
     ).provide(
       singleConnectionClient,
+      Scope.default,
     ) @@ withLiveClock
 }

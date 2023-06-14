@@ -1,6 +1,6 @@
 package example
 
-import zio.{ZIO, ZIOAppDefault}
+import zio.{Scope, ZIO, ZIOAppDefault}
 
 import zio.http._
 
@@ -16,6 +16,6 @@ object ClientServer extends ZIOAppDefault {
   }
 
   val run = {
-    Server.serve(app.withDefaultErrorResponse).provide(Server.default, Client.default).exitCode
+    Server.serve(app.withDefaultErrorResponse).provide(Server.default, Client.default, Scope.default).exitCode
   }
 }
