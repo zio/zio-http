@@ -166,6 +166,20 @@ object HeaderSpec extends ZIOSpecDefault {
         assert(actual)(isFalse)
       },
     ),
+    suite("isFormMultipartContentType")(
+      test("should return true if content-type is multipart/form-data") {
+        val actual = contentTypeFormMultipart.hasFormMultipartContentType
+        assert(actual)(isTrue)
+      },
+      test("should return false if content-type is not multipart/form-data") {
+        val actual = contentTypeTextPlain.hasFormMultipartContentType
+        assert(actual)(isFalse)
+      },
+      test("should return false if content-type doesn't exist") {
+        val actual = acceptJson.hasFormMultipartContentType
+        assert(actual)(isFalse)
+      },
+    ),
   )
 
   private val acceptJson                = Headers(Header.Accept(MediaType.application.json))
@@ -174,6 +188,7 @@ object HeaderSpec extends ZIOSpecDefault {
   private val contentTypeXml            = Headers(Header.ContentType(MediaType.application.xml))
   private val contentTypeJson           = Headers(Header.ContentType(MediaType.application.json))
   private val contentTypeFormUrlEncoded = Headers(Header.ContentType(MediaType.application.`x-www-form-urlencoded`))
+  private val contentTypeFormMultipart  = Headers(Header.ContentType(MediaType.multipart.`form-data`))
   private def customAcceptJsonHeader    = Header.Accept(MediaType.application.json)
   private def customContentJsonHeader   = Header.ContentType(MediaType.application.json)
   private def customHeaders: Headers    = Headers(customContentJsonHeader, customAcceptJsonHeader)
