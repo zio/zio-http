@@ -13,6 +13,6 @@ object SimpleClient extends ZIOAppDefault {
     _    <- Console.printLine(data)
   } yield ()
 
-  override val run = program.provide(Client.default)
+  override val run = program.provide(Client.default, Scope.default)
 
 }

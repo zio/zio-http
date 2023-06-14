@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets
 
 import zio.test.TestAspect.withLiveClock
 import zio.test.{ZIOSpecDefault, assertTrue}
-import zio.{Chunk, ZIO, ZInputStream, ZLayer}
+import zio.{Chunk, Scope, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
 
@@ -94,6 +94,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
       ZLayer.succeed(serverConfig),
       Server.live,
       Client.default,
+      Scope.default
     ) @@ withLiveClock
 
   private def decompressed(bytes: Chunk[Byte]): ZIO[Any, Throwable, String] =

@@ -60,7 +60,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
 
   // TODO: test failure cases
 
-  private def tests(streamingServer: Boolean): Seq[Spec[Client, Throwable]] =
+  private def tests(streamingServer: Boolean): Seq[Spec[Client with Scope, Throwable]] =
     Seq(
       test("simple get") {
         for {
@@ -317,6 +317,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
       ZLayer.succeed(NettyConfig.default),
       ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
       Client.live,
+      Scope.default,
     ) @@ withLiveClock @@ sequential
 
   private def server(streaming: Boolean): ZIO[Any, Throwable, Int] =

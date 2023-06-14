@@ -63,7 +63,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     route: Routes[R, Err, EndpointMiddleware.None.type],
     in: In,
     out: Out,
-  ): ZIO[Client with R with Server, Err, TestResult] =
+  ): ZIO[Client with R with Server with Scope, Err, TestResult] =
     testEndpointZIO(endpoint, route, in, outF = { (value: Out) => assertTrue(out == value) })
 
   def testEndpointZIO[R, In, Err, Out](
@@ -71,7 +71,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     route: Routes[R, Err, EndpointMiddleware.None.type],
     in: In,
     outF: Out => ZIO[Any, Nothing, TestResult],
-  ): ZIO[Client with R with Server, Err, TestResult] =
+  ): ZIO[Client with R with Server with Scope, Err, TestResult] =
     for {
       port <- Server.install(route.toApp @@ RequestHandlerMiddlewares.requestLogging())
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
@@ -80,7 +80,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         .flatMap { executor =>
           executor.apply(endpoint.apply(in))
         }
-        .provideSome[Client](executorLayer)
+        .provideSome[Client & Scope](executorLayer)
       result <- outF(out)
     } yield result
 
@@ -89,7 +89,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     route: Routes[R, Err, EndpointMiddleware.None.type],
     in: In,
     err: Err,
-  ): ZIO[Client with R with Server, Out, TestResult] =
+  ): ZIO[Client with R with Server with Scope, Out, TestResult] =
     testEndpointErrorZIO(endpoint, route, in, errorF = { (value: Err) => assertTrue(err == value) })
 
   def testEndpointErrorZIO[R, In, Err, Out](
@@ -97,7 +97,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     route: Routes[R, Err, EndpointMiddleware.None.type],
     in: In,
     errorF: Err => ZIO[Any, Nothing, TestResult],
-  ): ZIO[Client with R with Server, Out, TestResult] =
+  ): ZIO[Client with R with Server with Scope, Out, TestResult] =
     for {
       port <- Server.install(route.toApp)
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
@@ -106,7 +106,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         .flatMap { executor =>
           executor.apply(endpoint.apply(in))
         }
-        .provideSome[Client](executorLayer)
+        .provideSome[Client with Scope](executorLayer)
         .flip
       result <- errorF(out)
     } yield result
@@ -318,7 +318,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
             .serviceWithZIO[EndpointExecutor[alwaysFailingMiddleware.In]] { executor =>
               executor.apply(endpoint.apply(42))
             }
-            .provideSome[Client](executorLayer)
+            .provideSome[Client & Scope](executorLayer)
             .flip
         } yield assertTrue(out == "FAIL")
       },
@@ -358,7 +358,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
             .serviceWithZIO[EndpointExecutor[alwaysFailingMiddleware.In]] { executor =>
               executor.apply(endpointWithAnotherSignature.apply(42))
             }
-            .provideSome[Client](executorLayer)
+            .provideSome[Client with Scope](executorLayer)
             .cause
         } yield assertTrue(
           cause.prettyPrint.contains(
@@ -396,7 +396,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
             .serviceWithZIO[EndpointExecutor[Unit]] { executor =>
               executor.apply(endpointWithAnotherSignature.apply(42))
             }
-            .provideSome[Client](executorLayer)
+            .provideSome[Client with Scope](executorLayer)
             .cause
         } yield assertTrue(
           cause.prettyPrint.contains(
@@ -441,5 +441,6 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       NettyDriver.live,
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
+      Scope.default,
     ) @@ withLiveClock @@ sequential @@ timeout(300.seconds)
 }
