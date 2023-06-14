@@ -16,11 +16,11 @@
 
 package zio.http
 
+import zio.NonEmptyChunk
 import zio.test.Assertion._
 import zio.test.{ZIOSpecDefault, assert}
 
 import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
-import zio.NonEmptyChunk
 
 object HeaderSpec extends ZIOSpecDefault {
 
