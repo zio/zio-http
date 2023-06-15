@@ -18,7 +18,9 @@ package zio.http.endpoint.internal
 
 import zio._
 
+import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
+import zio.http.endpoint.internal.EndpointServer.defaultMediaTypes
 import zio.http.endpoint.{EndpointMiddleware, Routes}
 
 private[endpoint] final case class EndpointServer[R, E, I, O, M <: EndpointMiddleware](
@@ -30,12 +32,17 @@ private[endpoint] final case class EndpointServer[R, E, I, O, M <: EndpointMiddl
   def handle(request: Request)(implicit trace: Trace): ZIO[R, Nothing, Response] = {
     val outputMediaTypes = request.headers
       .get(Header.Accept)
-      .map(_.mimeTypes.sortBy(_.qFactor.getOrElse(1d)).map(_.mediaType))
-      .getOrElse(Chunk(MediaType.application.`json`))
+      .map(_.mimeTypes)
+      .getOrElse(defaultMediaTypes)
     endpoint.input.decodeRequest(request).orDie.flatMap { value =>
       handler(value).map(endpoint.output.encodeResponse(_, outputMediaTypes)).catchAll { error =>
         ZIO.succeed(single.endpoint.error.encodeResponse(error, outputMediaTypes))
       }
     }
   }
+}
+
+object EndpointServer {
+  private[internal] val defaultMediaTypes =
+    NonEmptyChunk(MediaTypeWithQFactor(MediaType.application.`json`, Some(1)))
 }

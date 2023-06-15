@@ -133,32 +133,27 @@ object MediaTypeCodec {
   private lazy val all: Chunk[MediaTypeCodecDefinition[_ <: MediaTypeCodec[_]]] =
     Chunk(json, protobuf, text)
 
+  private[codec] lazy val supportedMediaTypes: Chunk[String] =
+    all.flatMap(_.acceptedTypes.map(_.fullType))
+
   private lazy val allByType: Map[String, MediaTypeCodecDefinition[_ <: MediaTypeCodec[_]]] =
     all.flatMap { codec =>
       codec.acceptedTypes.map(_.fullType).map(_ -> codec)
     }.toMap
 
-  private lazy val codecsCache =
-    new ConcurrentHashMap[(Option[String], Chunk[BodyCodec[_]]), Map[String, MediaTypeCodec[_]]]()
-
-  def codecsFor(types: Chunk[MediaType], content: Chunk[BodyCodec[_]]): Map[String, MediaTypeCodec[_]] = {
-    val key = (types.collectFirst { case mt if allByType.contains(mt.fullType) => mt.fullType }, content)
-    def codecs: Map[String, MediaTypeCodec[_]] =
-      if (types.isEmpty) allByType.map { case (k, v) => k -> (v.create(content)) }
-      else {
-        types.collectFirst {
-          case mt if allByType.contains(mt.fullType) => Map(mt.fullType -> allByType(mt.fullType).create(content))
-        } match {
-          case Some(codec) => codec
+  def codecsFor(mediaType: Option[String], content: Chunk[BodyCodec[_]]): Map[String, MediaTypeCodec[_]] = {
+    mediaType match {
+      case Some(mt) =>
+        allByType.get(mt) match {
+          case Some(codec) => Map(mt -> codec.create(content))
           case None        =>
             throw HttpCodecError.UnsupportedContentType(
-              s"""None of the Accept header mime types is currently supported.
-                 |Accepted are: ${types.map(_.fullType).mkString(",")}.
+              s"""The Accept header mime type $mt is currently not supported.
                  |Supported mime types are: ${allByType.keys.mkString(", ")}""".stripMargin,
             )
         }
-      }
-    codecsCache.computeIfAbsent(key, _ => codecs)
+      case None     => allByType.map { case (k, v) => k -> v.create(content) }
+    }
   }
 }
 
@@ -183,18 +178,19 @@ private[internal] object TextCodec {
         schema match {
           case Schema.Primitive(standardType, _) =>
             (standardType match {
-              case StandardType.UnitType   => Right("")
-              case StandardType.StringType => Right(s)
-              case StandardType.BoolType   => Try(s.toBoolean).toEither
-              case StandardType.ByteType   => Try(s.toByte).toEither
-              case StandardType.ShortType  => Try(s.toShort).toEither
-              case StandardType.IntType    => Try(s.toInt).toEither
-              case StandardType.LongType   => Try(s.toLong).toEither
-              case StandardType.FloatType  => Try(s.toFloat).toEither
-              case StandardType.DoubleType => Try(s.toDouble).toEither
-              case StandardType.BinaryType => Left(DecodeError.ValidationError(null, null, "Binary is not supported"))
-              case StandardType.CharType   => Right(s.charAt(0))
-              case StandardType.UUIDType   => Try(UUID.fromString(s)).toEither
+              case StandardType.UnitType           => Right("")
+              case StandardType.StringType         => Right(s)
+              case StandardType.BoolType           => Try(s.toBoolean).toEither
+              case StandardType.ByteType           => Try(s.toByte).toEither
+              case StandardType.ShortType          => Try(s.toShort).toEither
+              case StandardType.IntType            => Try(s.toInt).toEither
+              case StandardType.LongType           => Try(s.toLong).toEither
+              case StandardType.FloatType          => Try(s.toFloat).toEither
+              case StandardType.DoubleType         => Try(s.toDouble).toEither
+              // FIXME: use a proper error type (needs changes in zio-schema)
+              case StandardType.BinaryType         => Left(DecodeError.EmptyContent("Binary is not supported"))
+              case StandardType.CharType           => Right(s.charAt(0))
+              case StandardType.UUIDType           => Try(UUID.fromString(s)).toEither
               case StandardType.BigDecimalType     => Try(BigDecimal(s)).toEither
               case StandardType.BigIntegerType     => Try(BigInt(s)).toEither
               case StandardType.DayOfWeekType      => Try(DayOfWeek.valueOf(s)).toEither
@@ -216,7 +212,8 @@ private[internal] object TextCodec {
             }).map(_.asInstanceOf[A]).left.map(e => DecodeError.ReadError(Cause.fail(e), e.getMessage))
           case _                                 =>
             Left(
-              DecodeError.ReadError(Cause.empty, "Only primitive types are supported. But found: " + schema.toString),
+              // FIXME: use a proper error type (needs changes in zio-schema)
+              DecodeError.EmptyContent("Only primitive types are supported. But found: " + schema.toString),
             )
         }
 

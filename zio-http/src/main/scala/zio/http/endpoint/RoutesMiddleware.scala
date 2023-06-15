@@ -18,6 +18,7 @@ package zio.http.endpoint
 
 import zio._
 
+import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
 
 /**
@@ -61,8 +62,8 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
           val outputMediaTypes =
             request.headers
               .get(Header.Accept)
-              .map(_.mimeTypes.sortBy(_.qFactor.getOrElse(1d)).map(_.mediaType))
-              .getOrElse(Chunk(MediaType.application.`json`))
+              .map(_.mimeTypes.toChunk)
+              .getOrElse(Chunk(MediaTypeWithQFactor(MediaType.application.`json`, Some(1.0))))
           decodeMiddlewareInput(request).flatMap { input =>
             incoming(input).foldZIO(
               e => ZIO.succeed(encodeMiddlewareError(e, outputMediaTypes)),
@@ -85,10 +86,10 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
   private def decodeMiddlewareInput(request: Request): ZIO[R, Nothing, I] =
     middleware.input.decodeRequest(request).orDie
 
-  private def encodeMiddlewareOutput(output: O, outputTypes: Chunk[MediaType]): Response.Patch =
+  private def encodeMiddlewareOutput(output: O, outputTypes: Chunk[MediaTypeWithQFactor]): Response.Patch =
     middleware.output.encodeResponsePatch(output, outputTypes)
 
-  private def encodeMiddlewareError(error: E, outputTypes: Chunk[MediaType]): Response =
+  private def encodeMiddlewareError(error: E, outputTypes: Chunk[MediaTypeWithQFactor]): Response =
     middleware.error.encodeResponse(error, outputTypes)
 }
 object RoutesMiddleware                                 {

@@ -16,6 +16,8 @@
 
 package zio.http.codec
 
+import java.util.concurrent.ConcurrentHashMap
+
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
@@ -25,7 +27,9 @@ import zio.stream.ZStream
 
 import zio.schema.Schema
 
+import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
+import zio.http.codec.internal.EncoderDecoder
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -41,7 +45,37 @@ import zio.http._
  */
 sealed trait HttpCodec[-AtomTypes, Value] {
   self =>
-  private lazy val encoderDecoder = zio.http.codec.internal.EncoderDecoder(self)
+
+  private lazy val encoderDecoders: ConcurrentHashMap[String, EncoderDecoder[_, _]] =
+    new ConcurrentHashMap[String, EncoderDecoder[_, _]]()
+
+  private lazy val defaultEncoderDecoder: EncoderDecoder[AtomTypes, Value]                              =
+    EncoderDecoder(self, None)
+  private def encoderDecoder(mediaTypes: Chunk[MediaTypeWithQFactor]): EncoderDecoder[AtomTypes, Value] =
+    if (mediaTypes.isEmpty) defaultEncoderDecoder
+    else {
+      var mediaType: Option[MediaTypeWithQFactor] = None
+      var i                                       = 0
+      while (i < mediaTypes.length) {
+        if (mediaTypes(i).qFactor.getOrElse(1.0) > mediaType.map(_.qFactor.getOrElse(1.0)).getOrElse(0.0)) {
+          mediaType = Some(mediaTypes(i))
+        }
+        i += 1
+      }
+      mediaType match {
+        case Some(mediaType) =>
+          encoderDecoders
+            .computeIfAbsent(
+              mediaType.mediaType.fullType,
+              mediaType => {
+                EncoderDecoder(self, Some(mediaType))
+              },
+            )
+            .asInstanceOf[EncoderDecoder[AtomTypes, Value]]
+        case None            =>
+          throw new IllegalArgumentException("No supported media type provided") // TODO: Better error handling
+      }
+    }
 
   /**
    * Returns a new codec that is the same as this one, but has attached docs,
@@ -161,7 +195,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   private final def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
     trace: Trace,
   ): Task[Value] =
-    encoderDecoder.decode(url, status, method, headers, body)
+    encoderDecoder(Chunk.empty).decode(url, status, method, headers, body)
 
   /**
    * Uses this codec to encode the Scala value into a request.
@@ -192,7 +226,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Uses this codec to encode the Scala value as a response.
    */
-  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaType]): Response =
+  final def encodeResponse[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor]): Response =
     encodeWith(value, outputTypes)((_, status, _, headers, body) =>
       Response(headers = headers, body = body, status = status.getOrElse(Status.Ok)),
     )
@@ -200,15 +234,15 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   /**
    * Uses this codec to encode the Scala value as a response patch.
    */
-  final def encodeResponsePatch[Z](value: Value, outputTypes: Chunk[MediaType]): Response.Patch =
+  final def encodeResponsePatch[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor]): Response.Patch =
     encodeWith(value, outputTypes)((_, status, _, headers, _) =>
       Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.status(_)).getOrElse(Response.Patch.empty),
     )
 
-  private final def encodeWith[Z](value: Value, outputTypes: Chunk[MediaType])(
+  private final def encodeWith[Z](value: Value, outputTypes: Chunk[MediaTypeWithQFactor])(
     f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
   ): Z =
-    encoderDecoder.withOutputTypes(outputTypes).encodeWith(value)(f)
+    encoderDecoder(outputTypes).encodeWith(value)(f)
 
   def examples(examples: Iterable[Value]): HttpCodec[AtomTypes, Value] =
     HttpCodec.WithExamples(self, Chunk.fromIterable(examples))
