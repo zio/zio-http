@@ -18,9 +18,9 @@ object HttpsClient extends ZIOAppDefault {
   val clientConfig = ZClient.Config.default.ssl(sslConfig)
 
   val program = for {
-    res    <- ZClient.request(Request.get(url).addHeaders(headers))
-    data   <- res.body.asString
-    _      <- Console.printLine(data)
+    res  <- ZClient.request(Request.get(url).addHeaders(headers))
+    data <- res.body.asString
+    _    <- Console.printLine(data)
   } yield ()
 
   val run =
