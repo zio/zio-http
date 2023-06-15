@@ -109,26 +109,46 @@ private[zio] trait RequestLogging { self: RequestHandlerMiddlewares =>
 
                     val requestBody = if (request.body.isComplete) request.body.asChunk.option else ZIO.none
 
-                    requestBody.flatMap { requestBodyChunk =>
-                      val bodyAnnotations = Set(
-                        requestBodyChunk.map(chunk => LogAnnotation("request_size", chunk.size.toString)),
-                        requestBodyChunk.flatMap(chunk =>
-                          if (logRequestBody)
-                            Some(LogAnnotation("request", new String(chunk.toArray, requestCharset)))
-                          else None,
-                        ),
-                      ).flatten
+                    val response     = cause.failureOrCause match {
+                      case Left(innerCause) =>
+                        innerCause.failureOrCause match {
+                          case Left(response: Response) => response
+                          case Left(_)                  => HttpError.InternalServerError(cause = None).toResponse
+                          case Right(cause) => HttpError.InternalServerError(cause = cause.dieOption).toResponse
+                        }
+                      case Right(cause)     => HttpError.InternalServerError(cause = cause.dieOption).toResponse
+                    }
+                    val responseBody = if (response.body.isComplete) response.body.asChunk.option else ZIO.none
 
-                      ZIO.logAnnotate(
-                        Set(
-                          LogAnnotation("method", request.method.toString()),
-                          LogAnnotation("url", request.url.encode),
-                          LogAnnotation("duration_ms", duration.toMillis.toString),
-                        ) union
-                          requestHeaders union
-                          bodyAnnotations,
-                      ) {
-                        ZIO.logCause("Http request failed", cause)
+                    requestBody.flatMap { requestBodyChunk =>
+                      responseBody.flatMap { responseBodyChunk =>
+                        val bodyAnnotations = Set(
+                          requestBodyChunk.map(chunk => LogAnnotation("request_size", chunk.size.toString)),
+                          requestBodyChunk.flatMap(chunk =>
+                            if (logRequestBody)
+                              Some(LogAnnotation("request", new String(chunk.toArray, requestCharset)))
+                            else None,
+                          ),
+                          responseBodyChunk.map(chunk => LogAnnotation("response_size", chunk.size.toString)),
+                          responseBodyChunk.flatMap(chunk =>
+                            if (logResponseBody)
+                              Some(LogAnnotation("response", new String(chunk.toArray, responseCharset)))
+                            else None,
+                          ),
+                        ).flatten
+
+                        ZIO.logAnnotate(
+                          Set(
+                            LogAnnotation("method", request.method.toString()),
+                            LogAnnotation("url", request.url.encode),
+                            LogAnnotation("duration_ms", duration.toMillis.toString),
+                            LogAnnotation("status_code", response.status.text),
+                          ) union
+                            requestHeaders union
+                            bodyAnnotations,
+                        ) {
+                          ZIO.logCause("Http request failed", cause)
+                        }
                       }
                     }
                   }
