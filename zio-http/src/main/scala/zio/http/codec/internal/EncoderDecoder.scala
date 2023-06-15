@@ -44,23 +44,17 @@ private[codec] trait EncoderDecoder[-AtomTypes, Value] {
 
   def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z
 
-  def withOutputTypes(outputTypes: Chunk[MediaType]): EncoderDecoder[AtomTypes, Value] = {
-    if (outputTypes.isEmpty) this
-    else {
-      this match {
-        case EncoderDecoder.Multiple(httpCodecs) => EncoderDecoder.Multiple(httpCodecs)
-        case EncoderDecoder.Single(httpCodec, _) => EncoderDecoder.Single(httpCodec, outputTypes)
-      }
-    }
-  }
 }
-private[codec] object EncoderDecoder                   {
-  def apply[AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value]): EncoderDecoder[AtomTypes, Value] = {
+private[codec] object EncoderDecoder {
+  def apply[AtomTypes, Value](
+    httpCodec: HttpCodec[AtomTypes, Value],
+    mediaType: Option[String],
+  ): EncoderDecoder[AtomTypes, Value] = {
     val flattened = httpCodec.alternatives
 
     flattened.length match {
       case 0 => Undefined()
-      case 1 => Single(flattened.head)
+      case 1 => Single(flattened.head, mediaType)
       case _ => Multiple(flattened)
     }
   }
@@ -149,7 +143,7 @@ private[codec] object EncoderDecoder                   {
 
   private final case class Single[-AtomTypes, Value](
     httpCodec: HttpCodec[AtomTypes, Value],
-    outputTypes: Chunk[MediaType] = Chunk.empty,
+    outputType: Option[String] = None,
   ) extends EncoderDecoder[AtomTypes, Value] {
     private val constructor   = Mechanic.makeConstructor(httpCodec)
     private val deconstructor = Mechanic.makeDeconstructor(httpCodec)
@@ -157,7 +151,7 @@ private[codec] object EncoderDecoder                   {
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
     private val codecs: Map[String, MediaTypeCodec[_]] =
-      MediaTypeCodec.codecsFor(outputTypes, flattened.content)
+      MediaTypeCodec.codecsFor(outputType, flattened.content)
 
     private def mediaTypeOrJson(bodyCodec: BodyCodec[_]): MediaType =
       bodyCodec.mediaType.getOrElse(MediaType.application.`json`)
