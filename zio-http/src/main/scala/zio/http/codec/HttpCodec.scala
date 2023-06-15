@@ -55,7 +55,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     HttpCodec
       .Fallback(self, that)
       .transform[alternator.Out](
-        either => either.fold(alternator.left(_), alternator.right(_)),
+        either => either.fold(alternator.left, alternator.right),
         value =>
           alternator
             .unleft(value)
@@ -202,7 +202,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    */
   final def encodeResponsePatch[Z](value: Value): Response.Patch =
     encodeWith(value)((_, status, _, headers, _) =>
-      Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.withStatus(_)).getOrElse(Response.Patch.empty),
+      Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.withStatus).getOrElse(Response.Patch.empty),
     )
 
   private final def encodeWith[Z](value: Value)(
