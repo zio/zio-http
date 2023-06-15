@@ -32,6 +32,9 @@ trait HeaderChecks[+A] { self: HeaderOps[A] with A =>
   final def hasFormUrlencodedContentType: Boolean =
     hasContentType(MediaType.application.`x-www-form-urlencoded`.fullType)
 
+  final def hasFormMultipartContentType: Boolean =
+    hasContentType(MediaType.multipart.`form-data`.fullType)
+
   final def hasHeader(name: CharSequence): Boolean =
     rawHeader(name).nonEmpty
 

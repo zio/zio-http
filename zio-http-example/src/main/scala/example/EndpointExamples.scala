@@ -51,8 +51,8 @@ object EndpointExamples extends ZIOAppDefault {
       val x1 = getUser(42)
       val x2 = getUserPosts(42, 200, "adam")
 
-      val result1: UIO[Int]          = executor(x1)
-      val result2: UIO[List[String]] = executor(x2)
+      val result1: ZIO[Scope, Nothing, Int]          = executor(x1)
+      val result2: ZIO[Scope, Nothing, List[String]] = executor(x2)
 
       result1.zip(result2).debug
     }
