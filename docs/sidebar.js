@@ -12,6 +12,7 @@ const sidebars = {
         "quickstart",
         "performance",
         "faq",
+        "support",
       {
         type: "category",
         label: "Concepts",
