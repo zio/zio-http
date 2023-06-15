@@ -4,8 +4,7 @@ title: "Authentication Server Example"
 ---
 
 
-This code shows how to how to implement a server with bearer authentication middle ware in `zio-http`
-
+This code shows how to implement a server with bearer authentication middle ware in `zio-http`
 
 
 ```scala
