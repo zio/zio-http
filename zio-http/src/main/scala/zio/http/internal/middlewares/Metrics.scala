@@ -70,6 +70,12 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
           MetricLabel("status", res.status.code.toString),
         )
 
+      private def statusLabelForError(err: Any): Set[MetricLabel] =
+        err match {
+          case response: Response => Set(MetricLabel("status", response.status.code.toString))
+          case _                  => status500
+        }
+
       private def report(
         start: Long,
         requestLabels: Set[MetricLabel],
@@ -100,7 +106,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
                     handler.onExit { exit =>
                       val labels =
                         requestLabels ++ exit.foldExit(
-                          cause => cause.failureOption.fold(status500)(_ => status500),
+                          cause => cause.failureOption.fold(status500)(statusLabelForError),
                           labelsForResponse,
                         )
 
