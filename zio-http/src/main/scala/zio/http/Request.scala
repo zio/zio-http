@@ -100,18 +100,15 @@ object Request {
       Patch(self.addHeaders ++ that.addHeaders, self.addQueryParams ++ that.addQueryParams)
   }
 
-  def default(method: Method, url: URL, body: Body = Body.empty) =
-    Request(method = method, url = url, body = body)
+  def delete(url: URL): Request = Request(method = Method.DELETE, url = url)
 
-  def delete(url: URL): Request = default(Method.DELETE, url)
+  def get(url: URL): Request = Request(method = Method.GET, url = url)
 
-  def get(url: URL): Request = default(Method.GET, url)
+  def options(url: URL): Request = Request(method = Method.OPTIONS, url = url)
 
-  def options(url: URL): Request = default(Method.OPTIONS, url)
+  def patch(url: URL, body: Body): Request = Request(method = Method.PATCH, url = url, body = body)
 
-  def patch(body: Body, url: URL): Request = default(Method.PATCH, url, body)
+  def post(url: URL, body: Body): Request = Request(method = Method.POST, url = url, body = body)
 
-  def post(body: Body, url: URL): Request = default(Method.POST, url, body)
-
-  def put(body: Body, url: URL): Request = default(Method.PUT, url, body)
+  def put(url: URL, body: Body): Request = Request(method = Method.PUT, url = url, body = body)
 }

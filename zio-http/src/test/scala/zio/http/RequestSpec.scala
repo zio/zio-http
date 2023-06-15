@@ -29,7 +29,7 @@ object RequestSpec extends ZIOSpecDefault {
         body = body,
       )
 
-      val actual = Request.default(Method.POST, URL.empty, body)
+      val actual = Request.post(URL.empty, body)
       assertTrue(actual == expected)
     },
     test("`#delete`") {
@@ -62,7 +62,7 @@ object RequestSpec extends ZIOSpecDefault {
         method = Method.PATCH,
       )
 
-      val actual = Request.patch(body, URL.empty)
+      val actual = Request.patch(URL.empty, body)
       assertTrue(actual == expected)
     },
     test("`#post`") {
@@ -72,7 +72,7 @@ object RequestSpec extends ZIOSpecDefault {
         body = body,
       )
 
-      val actual = Request.post(body, URL.empty)
+      val actual = Request.post(URL.empty, body)
       assertTrue(actual == expected)
     },
     test("`#put`") {
@@ -82,7 +82,7 @@ object RequestSpec extends ZIOSpecDefault {
         body = body,
       )
 
-      val actual = Request.put(body, URL.empty)
+      val actual = Request.put(URL.empty, body)
       assertTrue(actual == expected)
     },
   )

@@ -379,8 +379,8 @@ object EndpointSpec extends ZIOSpecDefault {
           val request =
             Request
               .post(
-                Body.fromString("""{"value": "My new post!"}"""),
                 URL.decode("/posts").toOption.get,
+                Body.fromString("""{"value": "My new post!"}"""),
               )
 
           for {
@@ -404,8 +404,8 @@ object EndpointSpec extends ZIOSpecDefault {
             response <- routes.toApp.runZIO(
               Request
                 .post(
-                  Body.fromString("""{"vale": "My new post!"}"""),
                   URL.decode("/posts").toOption.get,
+                  Body.fromString("""{"vale": "My new post!"}"""),
                 ),
             )
           } yield assertTrue(response.status.code == 400)
@@ -569,7 +569,7 @@ object EndpointSpec extends ZIOSpecDefault {
                   byteStream.runCount
                 }
             result   <- route.toApp
-              .runZIO(Request.post(Body.fromChunk(bytes), URL.decode("/test-byte-stream").toOption.get))
+              .runZIO(Request.post(URL.decode("/test-byte-stream").toOption.get, Body.fromChunk(bytes)))
               .exit
             response <- result match {
               case Exit.Success(value) => ZIO.succeed(value)
@@ -704,7 +704,7 @@ object EndpointSpec extends ZIOSpecDefault {
             boundary <- Boundary.randomUUID
             result   <- route.toApp
               .runZIO(
-                Request.post(Body.fromMultipartForm(form, boundary), URL.decode("/test-form").toOption.get),
+                Request.post(URL.decode("/test-form").toOption.get, Body.fromMultipartForm(form, boundary)),
               )
               .exit
             response <- result match {
@@ -782,7 +782,7 @@ object EndpointSpec extends ZIOSpecDefault {
               boundary   <- Boundary.randomUUID
               result     <- route.toApp
                 .runZIO(
-                  Request.post(Body.fromMultipartForm(form, boundary), URL.decode("/test-form").toOption.get),
+                  Request.post(URL.decode("/test-form").toOption.get, Body.fromMultipartForm(form, boundary)),
                 )
                 .exit
               response   <- result match {
@@ -853,7 +853,7 @@ object EndpointSpec extends ZIOSpecDefault {
     url: String,
     method: Method,
   ): ZIO[R, Response, TestResult] = {
-    val request = Request.default(method = method, url = URL.decode(url).toOption.get)
+    val request = Request(method = method, url = URL.decode(url).toOption.get)
     for {
       error <- service.toApp.runZIO(request).flip
     } yield assertTrue(error == None)

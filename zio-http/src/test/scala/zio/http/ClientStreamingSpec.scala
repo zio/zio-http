@@ -100,11 +100,11 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           response <- client
             .request(
               Request.post(
+                URL.decode(s"http://localhost:$port/simple-post").toOption.get,
                 Body.fromStream(
                   (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3))
                     .schedule(Schedule.fixed(10.millis)),
                 ),
-                URL.decode(s"http://localhost:$port/simple-post").toOption.get,
               ),
             )
         } yield assertTrue(response.status == Status.Ok)
@@ -116,10 +116,10 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           response <- client
             .request(
               Request.post(
+                URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
                 Body.fromStream(
                   ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3),
                 ),
-                URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
               ),
             )
           body     <- response.body.asStream.chunks.map(chunk => new String(chunk.toArray)).runCollect
@@ -153,8 +153,8 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                 .request(
                   Request
                     .post(
-                      Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
                       URL.decode(s"http://localhost:$port/form").toOption.get,
+                      Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
                     )
                     .addHeaders(Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary)))),
                 )
@@ -186,8 +186,8 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                 .request(
                   Request
                     .post(
-                      Body.fromChunk(bytes),
                       URL.decode(s"http://localhost:$port/form").toOption.get,
+                      Body.fromChunk(bytes),
                     )
                     .addHeaders(Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary)))),
                 )
@@ -226,8 +226,8 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                 .request(
                   Request
                     .post(
-                      Body.fromStream(stream),
                       URL.decode(s"http://localhost:$port/form").toOption.get,
+                      Body.fromStream(stream),
                     )
                     .addHeaders(Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary)))),
                 )
@@ -253,6 +253,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           response <- client
             .request(
               Request.post(
+                URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
                 Body.fromStream(
                   (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3)).chunks.tap { chunk =>
                     if (chunk == Chunk.fromArray("que".getBytes))
@@ -261,7 +262,6 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                       ZIO.unit
                   }.flattenChunks,
                 ),
-                URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
               ),
             )
           body     <- response.body.asStream.chunks

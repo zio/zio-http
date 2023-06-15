@@ -110,7 +110,7 @@ object SSLSpec extends ZIOSpecDefault {
             check(payload) { payload =>
               val actual = Client
                 .request(
-                  Request.post(Body.fromString(payload), textUrl),
+                  Request.post(textUrl, Body.fromString(payload)),
                 )
                 .map(_.status)
               assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
