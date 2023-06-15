@@ -16,8 +16,6 @@
 
 package zio.http
 
-import zio.http.Path.Segment
-
 private[zio] trait PathSyntax { module =>
   val Root: Path = Path.root
 
@@ -25,30 +23,16 @@ private[zio] trait PathSyntax { module =>
 
   object /: {
     def unapply(path: Path): Option[(String, Path)] =
-      for {
-        head <- path.segments.headOption.map {
-          case Segment.Text(text) => text
-          case Segment.Root       => ""
-        }
-        tail = path.segments.drop(1)
-      } yield (head, Path(tail))
+      if (path.leadingSlash) Some(("", path.dropLeadingSlash))
+      else if (path.segments.nonEmpty) Some((path.segments.head, path.copy(segments = path.segments.drop(1))))
+      else None
   }
 
   object / {
     def unapply(path: Path): Option[(Path, String)] = {
-      if (path.segments.length == 1) {
-        val last = path.segments.last match {
-          case Segment.Text(text) => text
-          case Segment.Root       => ""
-        }
-        Some(Empty -> last)
-      } else if (path.segments.length >= 2) {
-        val last = path.segments.last match {
-          case Segment.Root       => ""
-          case Segment.Text(text) => text
-        }
-        Some(Path(path.segments.init) -> last)
-      } else None
+      if (path.trailingSlash) Some((path.dropTrailingSlash, ""))
+      else if (path.segments.nonEmpty) Some((path.copy(segments = path.segments.dropRight(1)), path.segments.last))
+      else None
     }
   }
 }

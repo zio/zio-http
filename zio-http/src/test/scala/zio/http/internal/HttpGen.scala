@@ -24,19 +24,37 @@ import zio.test.Gen
 import zio.stream.ZStream
 
 import zio.http.Header._
-import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
 
 object HttpGen {
   def anyPath: Gen[Any, Path] = for {
+    flags    <- Gen.boolean.zip(Gen.boolean).map { case (left, right) =>
+      var flags = 0
+      if (left) flags = Path.Flag.LeadingSlash.add(flags)
+      if (right) flags = Path.Flag.TrailingSlash.add(flags)
+      flags
+    }
     segments <- Gen.listOfBounded(0, 5)(
       Gen.oneOf(
-        Gen.alphaNumericStringBounded(0, 5).map(Segment(_)),
-        Gen.elements(Segment.root),
+        Gen.alphaNumericStringBounded(0, 5),
       ),
     )
-  } yield Path(segments.toVector)
+  } yield Path(flags, Chunk.fromIterable(segments))
+
+  def nonEmptyPath: Gen[Any, Path] = for {
+    flags    <- Gen.boolean.zip(Gen.boolean).map { case (left, right) =>
+      var flags = 0
+      if (left) flags = Path.Flag.LeadingSlash.add(flags)
+      if (right) flags = Path.Flag.TrailingSlash.add(flags)
+      flags
+    }
+    segments <- Gen.listOfBounded(1, 5)(
+      Gen.oneOf(
+        Gen.alphaNumericStringBounded(0, 5),
+      ),
+    )
+  } yield Path(flags, Chunk.fromIterable(segments))
 
   def clientParamsForFileBody(): Gen[Any, Request] = {
     for {
@@ -124,17 +142,6 @@ object HttpGen {
           ),
         )
     } yield cnt
-
-  def nonEmptyPath: Gen[Any, Path] = for {
-    segments <-
-      Gen.listOfBounded(1, 5)(
-        Gen.oneOf(
-          Gen.alphaNumericStringBounded(0, 5).map(Segment(_)),
-          Gen.elements(Segment.root),
-        ),
-      )
-
-  } yield Path(segments.toVector)
 
   def request: Gen[Any, Request] = for {
     version <- httpVersion

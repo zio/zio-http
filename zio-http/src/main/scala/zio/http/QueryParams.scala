@@ -29,19 +29,30 @@ import zio.http.internal.QueryParamEncoding
 final case class QueryParams(map: Map[String, Chunk[String]]) {
   self =>
 
+  /**
+   * Combines two collections of query parameters together. If there are
+   * duplicate keys, the values from both sides are preserved, in order from
+   * left-to-right.
+   */
   def ++(that: QueryParams): QueryParams =
-    QueryParams(that.map.foldLeft(map) { case (map, (k, v)) =>
+    QueryParams(that.map.foldLeft(map) { case (map, (k, v2)) =>
       map.updated(
         k,
         map.get(k) match {
-          case Some(v1) => v1 ++ v
-          case None     => v
+          case Some(v1) => v1 ++ v2
+          case None     => v2
         },
       )
     })
 
+  /**
+   * Adds the specified key/value pair to the query parameters.
+   */
   def add(key: String, value: String): QueryParams = addAll(key, Chunk(value))
 
+  /**
+   * Adds the specified key/value pairs to the query parameters.
+   */
   def addAll(key: String, value: Chunk[String]): QueryParams = {
     val previousValue = map.get(key)
     val newValue      = previousValue match {
@@ -51,8 +62,14 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
     QueryParams(map.updated(key, newValue))
   }
 
+  /**
+   * Encodes the query parameters into a string.
+   */
   def encode: String = encode(Charsets.Utf8)
 
+  /**
+   * Encodes the query parameters into a string using the specified charset.
+   */
   def encode(charset: Charset): String = QueryParamEncoding.default.encode("", self, charset)
 
   override def equals(that: Any): Boolean = that match {
@@ -60,28 +77,56 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
     case _                 => false
   }
 
-  def filter(p: ((String, Chunk[String])) => Boolean): QueryParams =
-    QueryParams(map.filter(p))
+  /**
+   * Filters the query parameters using the specified predicate.
+   */
+  def filter(p: (String, Chunk[String]) => Boolean): QueryParams =
+    QueryParams(map.filter(p.tupled))
 
+  /**
+   * Retrieves the query parameter values having the specified name.
+   */
   def get(key: String): Option[Chunk[String]] = map.get(key)
 
+  /**
+   * Retrieves the query parameter value having the specified name, or else uses
+   * the default iterable.
+   */
   def getOrElse(key: String, default: => Iterable[String]): Chunk[String] =
     map.getOrElse(key, Chunk.fromIterable(default))
 
   override def hashCode: Int = normalize.map.hashCode
 
+  /**
+   * Determines if the query parameters are empty.
+   */
   def isEmpty: Boolean = map.isEmpty
 
+  /**
+   * Determines if the query parameters are non-empty.
+   */
   def nonEmpty: Boolean = map.nonEmpty
 
+  /**
+   * Normalizes the query parameters by removing empty keys and values.
+   */
   def normalize: QueryParams =
     if (isEmpty) self
     else QueryParams(map.filter(i => i._1.nonEmpty && i._2.nonEmpty))
 
+  /**
+   * Removes the specified key from the query parameters.
+   */
   def remove(key: String): QueryParams = QueryParams(map - key)
 
+  /**
+   * Removes the specified keys from the query parameters.
+   */
   def removeAll(keys: Iterable[String]): QueryParams = QueryParams(map -- keys)
 
+  /**
+   * Converts the query parameters into a form.
+   */
   def toForm: Form = Form.fromQueryParams(self)
 }
 
@@ -97,10 +142,19 @@ object QueryParams {
       key -> values.map(_._2)
     })
 
+  /**
+   * Decodes the specified string into a collection of query parameters.
+   */
   def decode(queryStringFragment: String, charset: Charset = Charsets.Utf8): QueryParams =
     QueryParamEncoding.default.decode(queryStringFragment, charset)
 
+  /**
+   * Empty query parameters.
+   */
   val empty: QueryParams = QueryParams(Map.empty[String, Chunk[String]])
 
+  /**
+   * Constructs query parameters from a form.
+   */
   def fromForm(form: Form): QueryParams = form.toQueryParams
 }
