@@ -38,7 +38,7 @@ object MultipartFormData extends ZIOAppDefault {
         } yield response
     }
 
-  private def program: ZIO[Client with Server, Throwable, Unit] =
+  private def program: ZIO[Client with Server with Scope, Throwable, Unit] =
     for {
       port         <- Server.install(app)
       _            <- ZIO.logInfo(s"Server started on port $port")
@@ -70,5 +70,6 @@ object MultipartFormData extends ZIOAppDefault {
       .provide(
         Server.default,
         Client.default,
+        Scope.default,
       )
 }

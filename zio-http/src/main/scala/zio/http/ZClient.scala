@@ -35,7 +35,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
   bodyDecoder: ZClient.BodyDecoder[Env, Err, Out],
   driver: ZClient.Driver[Env, Err],
 ) extends HeaderOps[ZClient[Env, In, Err, Out]] { self =>
-  def apply(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env, Err, Out] =
+  def apply(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & Scope, Err, Out] =
     self.request(request)
 
   override def updateHeaders(update: Headers => Headers): ZClient[Env, In, Err, Out] =
@@ -73,31 +73,28 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
   def delete: ZClient[Env, In, Err, Out] = copy(method = Method.DELETE)
 
-  def delete(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
-    request(Method.DELETE, body)
-
   def dieOn(
     f: Err => Boolean,
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err, Out] =
     refineOrDie { case e if !f(e) => e }
 
-  def doDelete(implicit ev: Body <:< In): ZIO[Env, Err, Out] = request(Method.DELETE, ev(Body.empty))
+  def doDelete(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.DELETE, ev(Body.empty))
 
-  def doDelete(in: In)(implicit trace: Trace): ZIO[Env, Err, Out] = request(Method.DELETE, in)
+  def doDelete(in: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] = request(Method.DELETE, in)
 
-  def doGet(implicit ev: Body <:< In): ZIO[Env, Err, Out] = request(Method.GET, ev(Body.empty))
+  def doGet(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.GET, ev(Body.empty))
 
-  def doHead(implicit ev: Body <:< In): ZIO[Env, Err, Out] = request(Method.HEAD, ev(Body.empty))
+  def doHead(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.HEAD, ev(Body.empty))
 
-  def doOptions(implicit ev: Body <:< In): ZIO[Env, Err, Out] = request(Method.OPTIONS, ev(Body.empty))
+  def doOptions(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.OPTIONS, ev(Body.empty))
 
-  def doPatch(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] = request(Method.PATCH, body)
+  def doPatch(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] = request(Method.PATCH, body)
 
-  def doPost(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] = request(Method.POST, body)
+  def doPost(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] = request(Method.POST, body)
 
-  def doPut(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] = request(Method.PUT, body)
+  def doPut(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] = request(Method.PUT, body)
 
-  def doTrace(implicit ev: Body <:< In): ZIO[Env, Err, Out] = request(Method.TRACE, ev(Body.empty))
+  def doTrace(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.TRACE, ev(Body.empty))
 
   def get: ZClient[Env, In, Err, Out] = copy(method = Method.GET)
 
@@ -136,9 +133,6 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
   def patch: ZClient[Env, In, Err, Out] = copy(method = Method.PATCH)
 
-  def patch(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
-    request(Method.PATCH, body)
-
   def port(port: Int): ZClient[Env, In, Err, Out] =
     copy(url = url.withPort(port))
 
@@ -154,7 +148,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err2, Out] =
     transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
-  def request(request: Request)(implicit ev: Body <:< In): ZIO[Env, Err, Out] = {
+  def request(request: Request)(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = {
     val in = ev(request.body)
 
     bodyEncoder
@@ -173,10 +167,10 @@ final case class ZClient[-Env, -In, +Err, +Out](
       )
   }
 
-  def request(body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+  def request(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
     request(method, body)
 
-  private def request(methodOverride: Method, body: In)(implicit trace: Trace): ZIO[Env, Err, Out] =
+  private def request(methodOverride: Method, body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
     bodyEncoder
       .encode(body)
       .flatMap(body =>
@@ -198,7 +192,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def scheme(scheme: Scheme): ZClient[Env, In, Err, Out] =
     copy(url = url.withScheme(scheme))
 
-  def socket[Env1 <: Env](app: SocketApp[Env1])(implicit trace: Trace): ZIO[Env1 with Scope, Err, Out] =
+  def socket[Env1 <: Env](app: SocketApp[Env1])(implicit trace: Trace): ZIO[Env1 & Scope, Err, Out] =
     driver
       .socket(
         Version.Http_1_1,
@@ -296,10 +290,10 @@ object ZClient {
     (NettyClientDriver.live ++ ZLayer.service[DnsResolver]) >>> customized
   }.fresh
 
-  def request(request: Request): ZIO[Client, Throwable, Response] =
+  def request(request: Request): ZIO[Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](c => c(request))
 
-  def socket[R](socketApp: SocketApp[R]): ZIO[R with Client with Scope, Throwable, Response] =
+  def socket[R](socketApp: SocketApp[R]): ZIO[R with Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](c => c.socket(socketApp))
 
   trait BodyDecoder[-Env, +Err, +Out] { self =>
@@ -334,7 +328,7 @@ object ZClient {
   }
 
   trait Driver[-Env, +Err] { self =>
-    final def apply(request: Request)(implicit trace: Trace): ZIO[Env, Err, Response] =
+    final def apply(request: Request)(implicit trace: Trace): ZIO[Env & Scope, Err, Response] =
       self.request(request.version, request.method, request.url, request.headers, request.body, None)
 
     final def mapError[Err2](f: Err => Err2): Driver[Env, Err2] =
@@ -346,7 +340,7 @@ object ZClient {
           headers: Headers,
           body: Body,
           sslConfig: Option[ClientSSLConfig],
-        )(implicit trace: Trace): ZIO[Env, Err2, Response] =
+        )(implicit trace: Trace): ZIO[Env & Scope, Err2, Response] =
           self.request(version, method, url, headers, body, sslConfig).mapError(f)
 
         override def socket[Env1 <: Env](
@@ -354,7 +348,7 @@ object ZClient {
           url: URL,
           headers: Headers,
           app: SocketApp[Env1],
-        )(implicit trace: Trace): ZIO[Env1 with Scope, Err2, Response] =
+        )(implicit trace: Trace): ZIO[Env1 & Scope, Err2, Response] =
           self
             .socket(
               version,
@@ -376,7 +370,7 @@ object ZClient {
           headers: Headers,
           body: Body,
           sslConfig: Option[ClientSSLConfig],
-        )(implicit trace: Trace): ZIO[Env, Err2, Response] =
+        )(implicit trace: Trace): ZIO[Env & Scope, Err2, Response] =
           self.request(version, method, url, headers, body, sslConfig).refineOrDie(pf)
 
         override def socket[Env1 <: Env](
@@ -384,7 +378,7 @@ object ZClient {
           url: URL,
           headers: Headers,
           app: SocketApp[Env1],
-        )(implicit trace: Trace): ZIO[Env1 with Scope, Err2, Response] =
+        )(implicit trace: Trace): ZIO[Env1 & Scope, Err2, Response] =
           self
             .socket(
               version,
@@ -402,9 +396,9 @@ object ZClient {
       headers: Headers,
       body: Body,
       sslConfig: Option[ClientSSLConfig],
-    )(implicit trace: Trace): ZIO[Env, Err, Response]
+    )(implicit trace: Trace): ZIO[Env & Scope, Err, Response]
 
-    final def request(req: Request)(implicit trace: Trace): ZIO[Env, Err, Response] =
+    final def request(req: Request)(implicit trace: Trace): ZIO[Env & Scope, Err, Response] =
       request(req.version, req.method, req.url, req.headers, req.body, None)
 
     final def retry[Env1 <: Env, Err1 >: Err](policy: zio.Schedule[Env1, Err1, Any]) =
@@ -416,7 +410,7 @@ object ZClient {
           headers: Headers,
           body: Body,
           sslConfig: Option[ClientSSLConfig],
-        )(implicit trace: Trace): ZIO[Env1, Err1, Response] =
+        )(implicit trace: Trace): ZIO[Env1 & Scope, Err1, Response] =
           self.request(version, method, url, headers, body, sslConfig).retry(policy)
 
         override def socket[Env2 <: Env1](
@@ -424,7 +418,7 @@ object ZClient {
           url: URL,
           headers: Headers,
           app: SocketApp[Env2],
-        )(implicit trace: Trace): ZIO[Env2 with Scope, Err1, Response] =
+        )(implicit trace: Trace): ZIO[Env2 & Scope, Err1, Response] =
           self
             .socket(
               version,
@@ -440,7 +434,7 @@ object ZClient {
       url: URL,
       headers: Headers,
       app: SocketApp[Env1],
-    )(implicit trace: Trace): ZIO[Env1 with Scope, Err, Response]
+    )(implicit trace: Trace): ZIO[Env1 & Scope, Err, Response]
   }
 
   final case class Config(
@@ -563,7 +557,7 @@ object ZClient {
       headers: Headers,
       body: Body,
       sslConfig: Option[ClientSSLConfig],
-    )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    )(implicit trace: Trace): ZIO[Scope, Throwable, Response] = {
       val request = Request(version, method, url, headers, body, None)
       val cfg     = sslConfig.fold(config)(config.ssl)
 
@@ -575,7 +569,7 @@ object ZClient {
       url: URL,
       headers: Headers,
       app: SocketApp[Env1],
-    )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] =
+    )(implicit trace: Trace): ZIO[Env1 & Scope, Throwable, Response] =
       for {
         env <- ZIO.environment[Env1]
         webSocketUrl = url.withScheme(
@@ -611,7 +605,7 @@ object ZClient {
       outerScope: Option[Scope],
     )(implicit
       trace: Trace,
-    ): ZIO[Any, Throwable, Response] =
+    ): ZIO[Scope, Throwable, Response] =
       request.url.kind match {
         case location: Location.Absolute =>
           ZIO.uninterruptibleMask { restore =>
@@ -673,6 +667,7 @@ object ZClient {
                     }
                 } yield ()
               }.forkDaemon // Needs to live as long as the channel is alive, as the response body may be streaming
+              _ <- ZIO.addFinalizer(onComplete.interrupt)
               response <- restore(onResponse.await.onInterrupt {
                 onComplete.interrupt *> channelFiber.join.orDie
               })

@@ -27,9 +27,6 @@ import zio.http.Header._
 import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
-import zio.http.netty.NettyBody
-
-import io.netty.buffer.Unpooled
 
 object HttpGen {
   def anyPath: Gen[Any, Path] = for {
@@ -87,7 +84,6 @@ object HttpGen {
             ),
             Body.fromString(list.mkString("")),
             Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
-            NettyBody.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), Charsets.Http)),
             Body.empty,
           ),
         )
@@ -125,7 +121,6 @@ object HttpGen {
             ),
             Body.fromString(list.mkString("")),
             Body.fromChunk(Chunk.fromArray(list.mkString("").getBytes())),
-            NettyBody.fromByteBuf(Unpooled.copiedBuffer(list.mkString(""), Charsets.Http)),
           ),
         )
     } yield cnt

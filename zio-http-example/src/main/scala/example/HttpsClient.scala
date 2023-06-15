@@ -30,6 +30,7 @@ object HttpsClient extends ZIOAppDefault {
       NettyClientDriver.live,
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.default),
+      Scope.default,
     )
 
 }

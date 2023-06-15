@@ -49,5 +49,6 @@ object GracefulShutdown extends ZIOAppDefault {
       _        <- Console.printLine(body)
     } yield ()).provide(
       Client.default,
+      Scope.default,
     )
 }

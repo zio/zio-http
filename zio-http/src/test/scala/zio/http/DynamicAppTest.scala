@@ -38,7 +38,7 @@ object DynamicAppTest extends ZIOSpecDefault {
     .withDefaultErrorResponse
 
   val layer =
-    ZLayer.make[Client & Server](
+    ZLayer.make[Client & Server & Scope](
       ZLayer.succeed(ZClient.Config.default),
       NettyClientDriver.live,
       Client.customized,
@@ -46,6 +46,7 @@ object DynamicAppTest extends ZIOSpecDefault {
       Server.live,
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.default),
+      Scope.default,
     )
 
   def spec = suite("Server")(

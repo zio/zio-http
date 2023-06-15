@@ -49,5 +49,6 @@ object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
       Client.default,
       Server.live,
       ZLayer.succeed(serverConfig),
+      Scope.default,
     ) @@ withLiveClock
 }

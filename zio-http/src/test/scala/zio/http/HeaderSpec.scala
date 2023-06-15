@@ -19,8 +19,6 @@ package zio.http
 import zio.test.Assertion._
 import zio.test.{ZIOSpecDefault, assert}
 
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
-
 object HeaderSpec extends ZIOSpecDefault {
 
   def spec = suite("Header")(
@@ -30,30 +28,30 @@ object HeaderSpec extends ZIOSpecDefault {
         assert(actual)(isNone)
       },
       test("should return header from predefined headers list by String") {
-        val actual = predefinedHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        val actual = predefinedHeaders.rawHeader(Header.ContentType.name)
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
       test("should return header from predefined headers list by String of another case") {
         val actual = predefinedHeaders.rawHeader("Content-Type")
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
       test("should return header from predefined headers list by AsciiString") {
-        val actual = predefinedHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        val actual = predefinedHeaders.rawHeader(Header.ContentType.name)
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
       test("should return header from custom headers list by String") {
-        val actual = customHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
+        val actual = customHeaders.rawHeader(Header.ContentType.name)
         assert(actual)(isSome(equalTo(customContentJsonHeader.renderedValue)))
       },
       test("should return header from custom headers list by AsciiString") {
-        val actual = customHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
+        val actual = customHeaders.rawHeader(Header.ContentType.name)
         assert(actual)(isSome(equalTo(customContentJsonHeader.renderedValue)))
       },
     ),
     suite("getHeaderValue")(
       test("should return header value") {
-        val actual = predefinedHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        val actual = predefinedHeaders.rawHeader(Header.ContentType.name)
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
     ),
     suite("hasHeader")(
@@ -166,6 +164,20 @@ object HeaderSpec extends ZIOSpecDefault {
         assert(actual)(isFalse)
       },
     ),
+    suite("isFormMultipartContentType")(
+      test("should return true if content-type is multipart/form-data") {
+        val actual = contentTypeFormMultipart.hasFormMultipartContentType
+        assert(actual)(isTrue)
+      },
+      test("should return false if content-type is not multipart/form-data") {
+        val actual = contentTypeTextPlain.hasFormMultipartContentType
+        assert(actual)(isFalse)
+      },
+      test("should return false if content-type doesn't exist") {
+        val actual = acceptJson.hasFormMultipartContentType
+        assert(actual)(isFalse)
+      },
+    ),
   )
 
   private val acceptJson                = Headers(Header.Accept(MediaType.application.json))
@@ -174,6 +186,7 @@ object HeaderSpec extends ZIOSpecDefault {
   private val contentTypeXml            = Headers(Header.ContentType(MediaType.application.xml))
   private val contentTypeJson           = Headers(Header.ContentType(MediaType.application.json))
   private val contentTypeFormUrlEncoded = Headers(Header.ContentType(MediaType.application.`x-www-form-urlencoded`))
+  private val contentTypeFormMultipart  = Headers(Header.ContentType(MediaType.multipart.`form-data`))
   private def customAcceptJsonHeader    = Header.Accept(MediaType.application.json)
   private def customContentJsonHeader   = Header.ContentType(MediaType.application.json)
   private def customHeaders: Headers    = Headers(customContentJsonHeader, customAcceptJsonHeader)

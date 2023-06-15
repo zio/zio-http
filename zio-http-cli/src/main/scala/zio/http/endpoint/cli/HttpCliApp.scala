@@ -99,7 +99,7 @@ object HttpCliApp {
                 ),
               ),
             )
-            .provide(Client.default)
+            .provide(Client.default, Scope.default)
           _        <- Console.printLine(s"Got response")
           _        <- Console.printLine(s"Status: ${response.status}")
           body     <- response.body.asString

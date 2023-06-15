@@ -26,6 +26,6 @@ object AuthenticationClient extends ZIOAppDefault {
     _        <- Console.printLine(body)
   } yield ()
 
-  override val run = program.provide(Client.default)
+  override val run = program.provide(Client.default, Scope.default)
 
 }

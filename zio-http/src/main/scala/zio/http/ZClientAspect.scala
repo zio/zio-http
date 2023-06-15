@@ -133,7 +133,7 @@ object ZClientAspect {
               headers: Headers,
               body: Body,
               sslConfig: Option[ClientSSLConfig],
-            )(implicit trace: Trace): ZIO[Env, Err, Response] =
+            )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] =
               client.driver
                 .request(version, method, url, headers, body, sslConfig)
                 .sandbox
@@ -203,7 +203,7 @@ object ZClientAspect {
               headers: Headers,
               body: Body,
               sslConfig: Option[ClientSSLConfig],
-            )(implicit trace: Trace): ZIO[Env, Err, Response] =
+            )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] =
               client.driver
                 .request(version, method, url, headers, body, sslConfig)
                 .sandbox

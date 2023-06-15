@@ -19,12 +19,10 @@ package zio.http
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
-import zio.{ZIO, ZLayer, durationInt}
+import zio.{Scope, ZIO, ZLayer, durationInt}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
-
-import io.netty.handler.codec.DecoderException
 
 object SSLSpec extends ZIOSpecDefault {
 
@@ -67,12 +65,14 @@ object SSLSpec extends ZIOSpecDefault {
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
+            Scope.default,
           ),
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
               .request(Request.get(successUrl))
-              .catchSome { case _: DecoderException =>
-                ZIO.succeed("DecoderException")
+              .catchSome {
+                case e if e.getClass.getSimpleName == "DecoderException" =>
+                  ZIO.succeed("DecoderException")
               }
             assertZIO(actual)(equalTo("DecoderException"))
           }.provide(
@@ -81,6 +81,7 @@ object SSLSpec extends ZIOSpecDefault {
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
+            Scope.default,
           ),
           test("succeed when client has default SSL") {
             val actual = Client
@@ -93,6 +94,7 @@ object SSLSpec extends ZIOSpecDefault {
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
+            Scope.default,
           ),
           test("Https Redirect when client makes http request") {
             val actual = Client
@@ -105,6 +107,7 @@ object SSLSpec extends ZIOSpecDefault {
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
+            Scope.default,
           ),
           test("Https request with a large payload should respond with 413") {
             check(payload) { payload =>
@@ -121,6 +124,7 @@ object SSLSpec extends ZIOSpecDefault {
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
+            Scope.default,
           ),
         ),
       ),
