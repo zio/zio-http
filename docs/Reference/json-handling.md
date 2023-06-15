@@ -1,3 +1,8 @@
+---
+id: json-handling
+title: "Json Handling"
+---
+
 **JSON Handling in ZIO HTTP**
 
 ZIO HTTP provides built-in support for handling JSON data in your applications. This allows you to easily parse incoming JSON requests, serialize data into JSON responses, and work with JSON data structures in a type-safe manner. Here's an overview of how JSON handling is typically done in ZIO HTTP.

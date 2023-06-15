@@ -35,6 +35,7 @@ const sidebars = {
         "tutorials/your-first-zio-http-app",
         "tutorials/deploying-a-zio-http-app",
         "tutorials/testing-your-zio-http-app",
+        "tutorials/deeper-dive-into-middleware",
       ]
     },
       {
@@ -56,6 +57,11 @@ const sidebars = {
         "how-to-guides/endpoint",
         "how-to-guides/middleware",
         "how-to-guides/concrete-entity",
+        "how-to-guides/cookie-authentication",
+        "how-to-guides/basic-web-application-with-zio-http",
+        "how-to-guides/multipart-form-data",
+        "how-to-guides/how-to-utilize-signed-cookies",
+        "how-to-guides/how-to-handle-WebSocket-exceptions-and-errors",
       ]
     },
      {
@@ -64,7 +70,6 @@ const sidebars = {
       collapsed: false,
       link: { type: "doc", id: "index" },
       items: [
-        "reference/api-docs",
         "reference/server-backend",
         "reference/websockets",
         "reference/json-handling",

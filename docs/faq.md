@@ -5,13 +5,11 @@ title: "common zio-http asked questions"
 
 Explore the most commonly asked questions about zio-http and find detailed answers in this informative resource.
 
-
 **Q. What is ZIO-HTTP ?**
 
 ZIO Http is a functional Scala library utilized for constructing high-performance HTTP services and clients. It leverages the power of ZIO's concurrency library and the Netty network library. With ZIO-HTTP, you can create efficient and expressive HTTP applications through its comprehensive high-level API.
 
 <br>
-
 
 **Q. Is zio-http a library or a framework?**
 
@@ -27,7 +25,6 @@ ZIO's concurrency model is designed to handle high scalability and performance r
 
 With ZIO-HTTP, you can take advantage of these asynchronous features and design your applications to handle high loads, making it well-suited for webscale scenarios. Checkout the [benachmark results](https://web-frameworks-benchmark.netlify.app/compare?f=zio-http)  To assess how ZIO-HTTP compares to other JVM-based web libraries in relation to their synchronous and asynchronous capabilities.
 
-
 <br>
 
 **Q. Does ZIO-HTTP support middleware for request/response modification?**
@@ -36,11 +33,11 @@ Yes, ZIO-HTTP does support middleware for request/response modification. Middlew
 
 You can define custom middleware functions that can perform operations such as request/response transformation, authentication, logging, error handling, and more. Middleware functions can be composed and applied to specific routes or globally to the entire application.
 
-
 <details>
+
 <summary><b>Example</b></summary>
 
-```scala mdoc:silent:reset
+```scala
 package example
 
 import java.util.concurrent.TimeUnit
@@ -78,5 +75,5 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
   val run = Server.serve((app @@ middlewares).withDefaultErrorResponse).provide(Server.default)
 }
 ```
-</details>  
 
+</details>  

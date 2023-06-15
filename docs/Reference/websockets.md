@@ -1,45 +1,64 @@
-**Adding WebSocket Support to your ZIO HTTP Application**
+---
+id: websockets
+title: "Websockets"
+---
 
-WebSocket support can be seamlessly integrated into your ZIO HTTP application using the same HTTP domain. Here's an example of how you can add WebSocket functionality:
+Reference guide for the WebSocket functionality
 
-```scala
-import zio.http._
-import zio._
+WebSocket Server APIs and Classes
 
-val socket = Handler.webSocket { channel =>
-  channel.receiveAll {
-    case ChannelEvent.Read(WebSocketFrame.Text("foo")) =>
-      channel.send(ChannelEvent.Read(WebSocketFrame.text("bar")))
-    case _ =>
-      ZIO.unit
-  }
-}
+- `SocketApp[R]`: Represents a WebSocket application that handles incoming messages and defines the behavior of the server.
+  - `Handler.webSocket`: Constructs a WebSocket handler that takes a channel and defines the logic to process incoming messages.
 
-val http = Http.collectZIO[Request] {
-  case Method.GET -> Root / "subscriptions" => socket.toResponse
-}
-```
+- `WebSocketChannel[R]`: Represents a WebSocket channel that allows reading from and writing to the WebSocket connection.
+    
+    - `channel.receiveAll`: Handles various incoming WebSocket frames and defines different responses based on the received message.
+        
+    - `channel.send(Read(WebSocketFrame.text))`: Sends a response back to the client by writing a text frame to the WebSocket channel.
 
-In this example, we define a `socket` by using the `Handler.webSocket` method. This method takes a function that receives a `WebSocketChannel` and returns a `ZIO` effect. Inside this function, we can define the behavior of the WebSocket channel.
+- `WebSocketFrame`: Represents a WebSocket frame.
+  
+  - `WebSocketFrame.Text(message)`: Represents a text frame with the specified message.
+        
+  - `WebSocketFrame.Close(status, reason)`: Represents a frame for closing the connection with the specified status and reason.
 
-The `channel.receiveAll` method is used to handle incoming messages from the WebSocket client. In this case, we check if the received message is `"foo"` and respond with a message `"bar"`. Any other message is ignored.
+- `ChannelEvent`: Represents different events that can occur on a WebSocket channel.
+    
+    - `ChannelEvent.Read(frame)`: Indicates the reading of a WebSocket frame.
+        
+    - `ChannelEvent.UserEventTriggered(event)`: Indicates a user-triggered event.
+        
+    - `ChannelEvent.ExceptionCaught(cause)`: Indicates an exception that occurred during WebSocket communication.
 
-The `http` value represents your ZIO HTTP application. We use the `Http.collectZIO` combinator to handle incoming HTTP requests. In this example, we match the request pattern `Method.GET -> Root / "subscriptions"` and return the `socket.toResponse`, which converts the WebSocket channel to an HTTP response.
+### WebSocket Server Usage
 
-**Channel and ChannelEvents**
+1. Create a `SocketApp[R]` instance using `Handler.webSocket` to define the WebSocket application logic.
 
-A channel is created on both the server and client sides whenever a connection is established between them. It provides a low-level API to send and receive arbitrary messages.
+2. Within the `SocketApp`, use `WebSocketChannel.receiveAll` to handle incoming WebSocket frames and define appropriate responses.
 
-When a HTTP connection is upgraded to WebSocket, a specialized channel is created that only allows WebSocket frames to be sent and received. The WebSocketChannel is a subtype of the generic Channel API and provides specific methods for WebSocket communication.
+3. Use `WebSocketChannel.send` to write WebSocket frames back to the client.
 
-ChannelEvents represent immutable, type-safe events that occur on a channel. These events are wrapped in the `ChannelEvent` type. For WebSocket channels, the type alias `WebSocketChannelEvent` is used, which represents events containing WebSocketFrame messages.
+4. Construct an HTTP application (`Http[Any, Nothing, Request, Response]`) that serves WebSocket connections.
 
-**Using Http.collect**
+5. Use `Http.collectZIO` to specify routes and associate them with appropriate WebSocket applications.
 
-The `Http.collect` combinator allows you to select the events you are interested in for your specific use case. In the example, we use `Http.collectZIO` to handle ZIO effects. We match the desired events, such as `ChannelEvent.Read`, to perform custom logic based on the received WebSocket frames.
 
-Other lifecycle events, such as `ChannelRegistered` and `ChannelUnregistered`, can also be hooked into for different use cases.
+### WebSocket Client APIs and Classes
 
-By leveraging the ZIO HTTP domain, you can build WebSocket applications using the same powerful abstractions provided for regular HTTP handling.
+1. `makeSocketApp(p: Promise[Nothing, Throwable])`: Constructs a WebSocket application that connects to a specific URL and handles events.
+   - `Handler.webSocket`: Constructs a WebSocket handler that takes a channel and defines the logic to process incoming messages.
 
-Please note that the example provided focuses on integrating WebSocket functionality into your ZIO HTTP application. Make sure to adapt it to your specific requirements and implement the necessary logic for handling WebSocket events and messages.
+2. `WebSocketChannel[R]`: Represents a WebSocket channel that allows reading from and writing to the WebSocket connection.
+    - `channel.send(Read(WebSocketFrame.text))`: Sends a WebSocket frame to the server by writing it to the channel.
+
+### WebSocket Client Usage
+
+- Create a `makeSocketApp` function that constructs a `SocketApp[R]` instance for the WebSocket client.
+
+- Within the `SocketApp`, use `WebSocketChannel.receiveAll` to handle incoming WebSocket frames and define appropriate responses.
+
+- Use `WebSocketChannel.send` to write WebSocket frames to the server.
+
+- Use `connect(url)` to initiate a WebSocket connection to the specified URL.
+
+- Optionally, use promises or other mechanisms to handle WebSocket errors and implement reconnecting behavior.

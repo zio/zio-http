@@ -49,7 +49,7 @@ By leveraging the power of ZIO and the simplicity of functional programming, ZIO
 
 ## Quickstart
 
-Eager to start coding without delay? If you're in a hurry, you can follow the [quickstart]() guide or explore the [examples repository](https://github.com/zio/zio-http/tree/main/zio-http-example), which demonstrates different use cases and features of ZIO-HTTP.
+Eager to start coding without delay? If you're in a hurry, you can follow the [quickstart](https://github.com/zio/zio-http/tree/main/zio-http-example) guide or explore the [examples repository](https://github.com/zio/zio-http/tree/main/zio-http-example), which demonstrates different use cases and features of ZIO-HTTP.
 
 ## Module feature overview
 
@@ -162,7 +162,7 @@ object BasicAuth extends ZIOAppDefault {
 }
 ```
 
-# Explanation of the code above
+## Explanation of the code above
 
 - The BasicAuth object extends ZIOAppDefault, which is a trait that provides a default implementation for running ZIO applications.
 

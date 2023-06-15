@@ -1,63 +1,70 @@
-**Metrics in ZIO HTTP**
+---
+id: metrics
+title: "Metrics reference"
+---
 
-Metrics play a crucial role in monitoring and understanding the performance and behavior of your HTTP applications. ZIO HTTP provides support for integrating metrics into your applications, allowing you to collect and analyze various metrics related to request processing, response times, error rates, and more. Here's an overview of how you can incorporate metrics into your ZIO HTTP applications.
+### Reference on metrics
 
-**1. Metric Types**
+1. APIs and Classes:
+   - `zio.metrics.Metric`: Provides APIs for creating and managing metrics.
+     - `Metric.counterInt(name: String): Counter[RuntimeFlags]`: Creates a counter metric of type `Int` with the given name.
+     - `Metric.gauge(name: String): Gauge[Double]`: Creates a gauge metric of type `Double` with the given name.
+     - `Metric.histogram(name: String, boundaries: MetricKeyType.Histogram.Boundaries): Histogram[Double]`: Creates a histogram metric of type `Double` with the given name and boundaries.
+   - `zio.metrics.MetricLabel`: Represents a label associated with a metric.
 
-ZIO HTTP supports different types of metrics that you can track in your applications:
+2. Functions:
+   - `metrics`: A function that adds metrics to a ZIO-HTTP server.
+     - Parameters:
+       - `pathLabelMapper: PartialFunction[Request, String] = Map.empty`: A mapping function to map incoming paths to patterns.
+       - `concurrentRequestsName: String = "http_concurrent_requests_total"`: Name of the concurrent requests metric.
+       - `totalRequestsName: String = "http_requests_total"`: Name of the total requests metric.
+       - `requestDurationName: String = "http_request_duration_seconds"`: Name of the request duration metric.
+       - `requestDurationBoundaries: MetricKeyType.Histogram.Boundaries = Metrics.defaultBoundaries`: Boundaries for the request duration metric.
+       - `extraLabels: Set[MetricLabel] = Set.empty`: A set of extra labels that will be tagged with all metrics.
+     - Returns: An `HttpAppMiddleware` that adds metrics to the server.
 
-- **Counter**: A counter is a simple metric that keeps track of the number of occurrences of a particular event. For example, you can use a counter to count the number of incoming requests or the number of successful responses.
-
-- **Timer**: A timer measures the duration of a specific operation or process. You can use timers to measure the processing time of requests or specific parts of your application logic.
-
-- **Gauge**: A gauge provides a way to track a specific value or metric at a particular point in time. It can be used to monitor things like the number of active connections or the current memory usage of your application.
-
-- **Histogram**: A histogram captures the statistical distribution of values over a period of time. It can be useful for tracking response times or request sizes.
-
-**2. Metrics Collection**
-
-ZIO HTTP integrates with popular metrics libraries, such as Micrometer, which provides a unified way to collect and export metrics to various monitoring systems (e.g., Prometheus, Graphite, etc.). To collect metrics in your ZIO HTTP application, you can create a `Metrics` object and instrument your routes or middleware with the desired metrics.
-
-Here's an example of using Micrometer with ZIO HTTP to collect request count and response time metrics:
-
+3. Usage Example:
 ```scala
-import zio.http._
-import zio.metrics._
-import zio._
-import zio.clock.Clock
+import zio.http.{RequestHandlerMiddlewares, _}
+import zio.metrics.Metric.{Counter, Gauge, Histogram}
+import zio.metrics.{Metric, MetricKeyType, MetricLabel}
 
-val httpApp: HttpApp[Clock with Metrics, Throwable] = Http.collectM {
-  case Method.GET -> Root / "api" / "endpoint" =>
-    for {
-      startTime <- clock.nanoTime
-      _ <- metrics.incrementCounter("requests")
-      response <- ZIO.succeed(Response.text("Hello, World!"))
-      endTime <- clock.nanoTime
-      elapsedTime = (endTime - startTime) / 1000000 // Calculate elapsed time in milliseconds
-      _ <- metrics.recordTimer("responseTime", elapsedTime)
-    } yield response
+private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
+  // ...
+
+  def metrics(
+    pathLabelMapper: PartialFunction[Request, String] = Map.empty,
+    concurrentRequestsName: String = "http_concurrent_requests_total",
+    totalRequestsName: String = "http_requests_total",
+    requestDurationName: String = "http_request_duration_seconds",
+    requestDurationBoundaries: MetricKeyType.Histogram.Boundaries = Metrics.defaultBoundaries,
+    extraLabels: Set[MetricLabel] = Set.empty,
+  ): HttpAppMiddleware[Nothing, Any, Nothing, Any] = {
+    // ...
+  }
+
+  // ...
+}
+
+object Metrics {
+  // ...
 }
 ```
 
-In this example, we create a `Metrics` object by mixing the `Clock` and `Metrics` capabilities into the environment. Within the HTTP route, we increment the "requests" counter to track the number of incoming requests and record the elapsed time in the "responseTime" timer to measure the response processing time.
-
-**3. Exporting Metrics**
-
-Once you have collected the metrics, you can export them to your preferred monitoring system. Micrometer provides integrations with various monitoring systems, allowing you to configure the export of metrics.
-
-For example, to export the metrics to Prometheus, you can include the Prometheus Micrometer library in your project and configure it to scrape the metrics:
+To use the `metrics` function, you can create an instance of a `Metrics` object and call the `metrics` method, providing the desired parameters. Here's an example:
 
 ```scala
-import io.micrometer.prometheus.PrometheusMeterRegistry
+import zio.http.HttpAppMiddleware.metrics
 
-val registry = new PrometheusMeterRegistry()
-Metrics.export(registry)
+val app: HttpApp[Any, Nothing] = ???
+val metricsMiddleware = new Metrics with RequestHandlerMiddlewares {}
+val middleware = metricsMiddleware.metrics(
+  pathLabelMapper = { case Method.GET -> Root / "user" / _ =>
+    "/user/:id"
+  },
+  extraLabels = Set(MetricLabel("test", "http_requests_total with path label mapper")),
+)
+val appWithMetrics = middleware(app)
 ```
 
-In this example, we create a `PrometheusMeterRegistry` and configure the `Metrics` object to export the collected metrics to this registry. You can then expose an endpoint in your application to expose the Prometheus metrics endpoint, which can be scraped by Prometheus for monitoring and visualization.
-
-**Summary**
-
-By integrating metrics into your ZIO HTTP applications, you can gain insights into the performance, behavior, and health of your HTTP services. ZIO HTTP provides support for different metric types, allowing you to track request counts, response times, and more. Integration with libraries like Micrometer enables
-
- you to export metrics to various monitoring systems for analysis and visualization.
+This example creates an HTTP app `app` and applies the `metrics` middleware with custom parameters. The `pathLabelMapper` is used to map specific paths to patterns, and extra labels are provided. The resulting `appWithMetrics` is the original app with the metrics middleware applied.
