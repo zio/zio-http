@@ -39,7 +39,7 @@ private[endpoint] final case class EndpointClient[P, I, E, O, M <: EndpointMiddl
         patchedRequest
       else
         patchedRequest.addHeader(
-          Header.Accept(MediaType.parseCustomMediaType("application/protobuf").get, MediaType.application.json),
+          Header.Accept(MediaType.application.json, MediaType.parseCustomMediaType("application/protobuf").get),
         )
 
     client.request(withDefaultAcceptHeader).orDie.flatMap { response =>

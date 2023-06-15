@@ -27,7 +27,7 @@ final case class MediaType(
   extensions: Map[String, String] = Map.empty,
   parameters: Map[String, String] = Map.empty,
 ) {
-  def fullType: String = s"$mainType/$subType"
+  lazy val fullType: String = s"$mainType/$subType"
 }
 
 object MediaType extends MediaTypes {
