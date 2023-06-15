@@ -37,10 +37,8 @@ object ClientProxySpec extends HttpRunnableSpec {
           validServerPort <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
           serverUrl       <- ZIO.fromEither(URL.decode(s"http://localhost:$validServerPort"))
           proxyUrl        <- ZIO.fromEither(URL.decode("http://localhost:0001"))
-          out             <- Client
-            .request(
-              Request.get(url = serverUrl),
-            )
+          out             <- ZClient
+            .request(Request.get(url = serverUrl))
             .provide(
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(Proxy(proxyUrl))),

@@ -23,13 +23,28 @@ import zio.ZIO
 import zio.http.internal.HeaderOps
 
 final case class Request(
-  body: Body,
-  headers: Headers,
-  method: Method,
-  url: URL,
-  version: Version,
-  remoteAddress: Option[InetAddress],
+  version: Version = Version.Default,
+  method: Method = Method.DEFAULT,
+  url: URL = URL.empty,
+  headers: Headers = Headers.empty,
+  body: Body = Body.empty,
+  remoteAddress: Option[InetAddress] = None,
 ) extends HeaderOps[Request] { self =>
+
+  /**
+   * A right-biased way of combining two requests. Most information will be
+   * merged, but in cases where this does not make sense (e.g. two non-empty
+   * bodies), the information from the right request will be used.
+   */
+  def ++(that: Request): Request =
+    Request(
+      self.version ++ that.version,
+      self.method ++ that.method,
+      self.url ++ that.url,
+      self.headers ++ that.headers,
+      self.body ++ that.body,
+      that.remoteAddress.orElse(self.remoteAddress),
+    )
 
   /** Custom headers and headers required by the used Body */
   lazy val allHeaders: Headers = {
@@ -66,14 +81,7 @@ final case class Request(
     self.collect.map(_.copy(body = Body.empty))
 
   def patch(p: Request.Patch): Request =
-    Request(
-      body,
-      headers ++ p.addHeaders,
-      method,
-      url.copy(queryParams = url.queryParams ++ p.addQueryParams),
-      version,
-      remoteAddress,
-    )
+    self.copy(headers = self.headers ++ p.addHeaders, url = self.url.addQueryParams(p.addQueryParams))
 
   val path = url.path
 
@@ -93,7 +101,7 @@ object Request {
   }
 
   def default(method: Method, url: URL, body: Body = Body.empty) =
-    Request(body, Headers.empty, method, url, Version.`HTTP/1.1`, Option.empty)
+    Request(method = method, url = url, body = body)
 
   def delete(url: URL): Request = default(Method.DELETE, url)
 

@@ -58,12 +58,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
 
   def makeRequest(client: Client, port: Int) = client
     .request(
-      Version.Http_1_1,
-      Method.GET,
-      URL.decode(s"http://localhost:$port/with-content-length").toOption.get,
-      Headers.empty,
-      Body.empty,
-      None,
+      Request.get(URL.decode(s"http://localhost:$port/with-content-length").toOption.get),
     )
 
   override def spec: Spec[TestEnvironment with Scope, Any] =

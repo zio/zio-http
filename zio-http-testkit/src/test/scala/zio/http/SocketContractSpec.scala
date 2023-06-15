@@ -97,7 +97,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           (port, promise) = portAndPromise
           url      <- ZIO.fromEither(URL.decode(s"ws://localhost:$port/")).orDie
           response <- ZIO.serviceWithZIO[Client](
-            _.socket(Version.Http_1_1, url, Headers.empty, clientApp(promise)),
+            _.driver.socket(Version.Http_1_1, url, Headers.empty, clientApp(promise)),
           )
           _        <- promise.await.timeout(10.seconds)
         } yield assertTrue(response.status == Status.SwitchingProtocols)
@@ -113,7 +113,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           (port, promise) = portAndPromise
           url      <- ZIO.fromEither(URL.decode(s"ws://localhost:$port/")).orDie
           response <- ZIO.serviceWithZIO[Client](
-            _.socket(Version.Http_1_1, url, Headers.empty, clientApp(promise)),
+            _.driver.socket(Version.Http_1_1, url, Headers.empty, clientApp(promise)),
           )
           _        <- promise.await.timeout(10.seconds)
         } yield assertTrue(response.status == Status.SwitchingProtocols)

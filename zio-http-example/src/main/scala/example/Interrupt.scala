@@ -22,10 +22,11 @@ object MyServer extends ZIOAppDefault {
 }
 
 object MyClient extends ZIOAppDefault {
+  val localhost = URL.decode("http://localhost:8080").toOption.get
 
   @nowarn def run = {
     val req = for {
-      resp <- Client.request("http://localhost:8080")
+      resp <- ZClient.request(Request.get(localhost))
       body <- resp.body.asString
     } yield body
 

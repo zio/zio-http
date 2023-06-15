@@ -25,12 +25,8 @@ object RequestSpec extends ZIOSpecDefault {
     test("`#default`") {
       val body     = Body.fromString("foo")
       val expected = Request(
-        body,
-        Headers.empty,
-        Method.POST,
-        URL.empty,
-        Version.`HTTP/1.1`,
-        None,
+        method = Method.POST,
+        body = body,
       )
 
       val actual = Request.default(Method.POST, URL.empty, body)
@@ -38,12 +34,7 @@ object RequestSpec extends ZIOSpecDefault {
     },
     test("`#delete`") {
       val expected = Request(
-        Body.empty,
-        Headers.empty,
-        Method.DELETE,
-        URL.empty,
-        Version.`HTTP/1.1`,
-        None,
+        method = Method.DELETE,
       )
 
       val actual = Request.delete(URL.empty)
@@ -51,12 +42,7 @@ object RequestSpec extends ZIOSpecDefault {
     },
     test("`#get`") {
       val expected = Request(
-        Body.empty,
-        Headers.empty,
-        Method.GET,
-        URL.empty,
-        Version.`HTTP/1.1`,
-        None,
+        method = Method.GET,
       )
 
       val actual = Request.get(URL.empty)
@@ -64,12 +50,7 @@ object RequestSpec extends ZIOSpecDefault {
     },
     test("`#options`") {
       val expected = Request(
-        Body.empty,
-        Headers.empty,
-        Method.OPTIONS,
-        URL.empty,
-        Version.`HTTP/1.1`,
-        None,
+        method = Method.OPTIONS,
       )
 
       val actual = Request.options(URL.empty)
@@ -78,12 +59,7 @@ object RequestSpec extends ZIOSpecDefault {
     test("`#patch`") {
       val body     = Body.fromString("foo")
       val expected = Request(
-        body,
-        Headers.empty,
-        Method.PATCH,
-        URL.empty,
-        Version.`HTTP/1.1`,
-        None,
+        method = Method.PATCH,
       )
 
       val actual = Request.patch(body, URL.empty)
@@ -92,12 +68,8 @@ object RequestSpec extends ZIOSpecDefault {
     test("`#post`") {
       val body     = Body.fromString("foo")
       val expected = Request(
-        body,
-        Headers.empty,
-        Method.POST,
-        URL.empty,
-        Version.`HTTP/1.1`,
-        None,
+        method = Method.POST,
+        body = body,
       )
 
       val actual = Request.post(body, URL.empty)
@@ -106,12 +78,8 @@ object RequestSpec extends ZIOSpecDefault {
     test("`#put`") {
       val body     = Body.fromString("foo")
       val expected = Request(
-        body,
-        Headers.empty,
-        Method.PUT,
-        URL.empty,
-        Version.`HTTP/1.1`,
-        None,
+        method = Method.PUT,
+        body = body,
       )
 
       val actual = Request.put(body, URL.empty)

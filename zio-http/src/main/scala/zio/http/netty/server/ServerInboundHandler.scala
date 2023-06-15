@@ -243,15 +243,15 @@ private[zio] final case class ServerInboundHandler(
       case nettyReq: FullHttpRequest =>
 //        println(s"Got ready http request")
         Request(
-          NettyBody.fromByteBuf(
+          body = NettyBody.fromByteBuf(
             nettyReq.content(),
             contentType,
           ),
-          headers,
-          Conversions.methodFromNetty(nettyReq.method()),
-          URL.decode(nettyReq.uri()).getOrElse(URL.empty),
-          protocolVersion,
-          remoteAddress,
+          headers = headers,
+          method = Conversions.methodFromNetty(nettyReq.method()),
+          url = URL.decode(nettyReq.uri()).getOrElse(URL.empty),
+          version = protocolVersion,
+          remoteAddress = remoteAddress,
         )
       case nettyReq: HttpRequest     =>
 //        println(s"Got streaming http request")
@@ -264,12 +264,12 @@ private[zio] final case class ServerInboundHandler(
         )
 
         Request(
-          body,
-          headers,
-          Conversions.methodFromNetty(nettyReq.method()),
-          URL.decode(nettyReq.uri()).getOrElse(URL.empty),
-          protocolVersion,
-          remoteAddress,
+          body = body,
+          headers = headers,
+          method = Conversions.methodFromNetty(nettyReq.method()),
+          url = URL.decode(nettyReq.uri()).getOrElse(URL.empty),
+          version = protocolVersion,
+          remoteAddress = remoteAddress,
         )
     }
 

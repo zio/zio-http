@@ -14,12 +14,13 @@ object TestClientSpec extends ZIOSpecDefault {
           val request  = Request.get(URL.root)
           val request2 = Request.get(URL(Path.decode("/users")))
           for {
+            client        <- ZIO.service[Client]
             _             <- TestClient.addRequestResponse(request, Response.ok)
-            goodResponse  <- Client.request(request)
-            badResponse   <- Client.request(request2)
+            goodResponse  <- client(request)
+            badResponse   <- client(request2)
             _             <- TestClient.addRequestResponse(request2, Response.ok)
-            goodResponse2 <- Client.request(request)
-            badResponse2  <- Client.request(request2)
+            goodResponse2 <- client(request)
+            badResponse2  <- client(request2)
           } yield assertTrue(goodResponse.status == Status.Ok) && assertTrue(badResponse.status == Status.NotFound) &&
             assertTrue(goodResponse2.status == Status.Ok) && assertTrue(badResponse2.status == Status.Ok)
         },
@@ -27,21 +28,24 @@ object TestClientSpec extends ZIOSpecDefault {
       suite("addHandler")(
         test("all")(
           for {
+            client   <- ZIO.service[Client]
             _        <- TestClient.addHandler { case _ => ZIO.succeed(Response.ok) }
-            response <- Client.request(Request.get(URL.root))
+            response <- client(Request.get(URL.root))
           } yield assertTrue(response.status == Status.Ok),
         ),
         test("partial")(
           for {
-            _ <- TestClient.addHandler { case request if request.method == Method.GET => ZIO.succeed(Response.ok) }
-            response <- Client.request(Request.get(URL.root))
+            client <- ZIO.service[Client]
+            _      <- TestClient.addHandler { case request if request.method == Method.GET => ZIO.succeed(Response.ok) }
+            response <- client(Request.get(URL.root))
           } yield assertTrue(response.status == Status.Ok),
         ),
         test("addHandler advanced")(
           for {
+            client       <- ZIO.service[Client]
             requestCount <- Ref.make(0)
             _            <- TestClient.addHandler { case _ => requestCount.update(_ + 1) *> ZIO.succeed(Response.ok) }
-            response     <- Client.request(Request.get(URL.root))
+            response     <- client(Request.get(URL.root))
             finalCount   <- requestCount.get
           } yield assertTrue(response.status == Status.Ok) && assertTrue(finalCount == 1),
         ),
@@ -49,7 +53,8 @@ object TestClientSpec extends ZIOSpecDefault {
       suite("sad paths")(
         test("error when submitting a request to a blank TestServer")(
           for {
-            response <- Client.request(Request.get(URL.root))
+            client   <- ZIO.service[Client]
+            response <- client(Request.get(URL.root))
           } yield assertTrue(response.status == Status.NotFound),
         ),
       ),
@@ -78,7 +83,7 @@ object TestClientSpec extends ZIOSpecDefault {
 
           for {
             _        <- TestClient.installSocketApp(socketServer)
-            response <- ZIO.serviceWithZIO[Client](_.socket(pathSuffix = "")(socketClient))
+            response <- ZIO.serviceWithZIO[Client](_.socket(socketClient))
           } yield assertTrue(response.status == Status.SwitchingProtocols)
         },
       ),

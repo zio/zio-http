@@ -11,8 +11,8 @@ object ClientServer extends ZIOAppDefault {
       ZIO.succeed(Response.text("hello"))
 
     case Method.GET -> Root =>
-      val url = "http://localhost:8080/hello"
-      Client.request(url)
+      val url = URL.decode("http://localhost:8080/hello").toOption.get
+      ZClient.request(Request.get(url))
   }
 
   val run = {

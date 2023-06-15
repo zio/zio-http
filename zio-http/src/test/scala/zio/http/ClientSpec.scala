@@ -55,7 +55,7 @@ object ClientSpec extends HttpRunnableSpec {
       assertZIO(responseContent)(containsString("user"))
     },
     test("handle connection failure") {
-      val res = Client.request("http://localhost:1").either
+      val res = ZClient.client(_.path("http://localhost:1").doGet).either
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
     test("streaming content to server") {
@@ -70,7 +70,7 @@ object ClientSpec extends HttpRunnableSpec {
       for {
         baseURL   <- DynamicServer.httpURL
         _         <- Handler.ok.toHttp
-          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get(""))
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).doGet)
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == baseURL)
@@ -79,7 +79,7 @@ object ClientSpec extends HttpRunnableSpec {
       for {
         baseURL   <- DynamicServer.httpURL
         _         <- Handler.ok.toHttp
-          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get("/"))
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).path("/").doGet)
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == s"$baseURL/")

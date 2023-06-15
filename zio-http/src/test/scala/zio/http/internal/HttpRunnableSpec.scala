@@ -48,12 +48,12 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       app
         .runZIO(
           Request(
-            body,
-            headers.combineIf(addZioUserAgentHeader)(Headers(Client.defaultUAHeader)),
-            method,
+            body = body,
+            headers = headers.combineIf(addZioUserAgentHeader)(Headers(Client.defaultUAHeader)),
+            method = method,
             url = URL(path), // url set here is overridden later via `deploy` method
-            version,
-            None,
+            version = version,
+            remoteAddress = None,
           ),
         )
         .catchAll {
@@ -81,12 +81,11 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
           id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
           client   <- Handler.fromZIO(ZIO.service[Client])
           response <- Handler.fromFunctionZIO[Request] { params =>
-            client
-              .request(
-                params
-                  .addHeader(DynamicServer.APP_ID, id)
-                  .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-              )
+            client(
+              params
+                .addHeader(DynamicServer.APP_ID, id)
+                .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+            )
               .flatMap(_.collect)
           }
         } yield response
@@ -114,8 +113,9 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
         for {
           port     <- Handler.fromZIO(DynamicServer.port)
           id       <- Handler.fromZIO(DynamicServer.deploy(app))
+          client   <- Handler.fromZIO(ZIO.service[Client])
           response <- Handler.fromFunctionZIO[Request] { params =>
-            Client.request(
+            client(
               params
                 .addHeader(DynamicServer.APP_ID, id)
                 .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
@@ -130,14 +130,13 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
           id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
           rawUrl   <- Handler.fromZIO(DynamicServer.wsURL)
           url      <- Handler.fromEither(URL.decode(rawUrl)).orDie
+          client   <- Handler.fromZIO(ZIO.service[Client])
           response <- Handler.fromFunctionZIO[SocketApp[Client with Scope]] { app =>
             ZIO.scoped[Client with Scope](
-              Client
-                .socket(
-                  url = url,
-                  headers = Headers(DynamicServer.APP_ID, id),
-                  app = app,
-                ),
+              client
+                .url(url)
+                .addHeaders(Headers(DynamicServer.APP_ID, id))
+                .socket(app),
             )
           }
         } yield response
@@ -166,12 +165,9 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
   ): ZIO[Client with DynamicServer with Scope, Throwable, Status] = {
     for {
       port   <- DynamicServer.port
-      status <- Client
-        .request(
-          "http://localhost:%d/%s".format(port, path),
-          method,
-        )
-        .map(_.status)
+      client <- ZIO.service[Client]
+      url = URL.decode("http://localhost:%d/%s".format(port, path)).toOption.get
+      status <- client.method(method).request(Body.empty).map(_.status)
     } yield status
   }
 
@@ -181,13 +177,10 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
     headers: Headers = Headers.empty,
   ): ZIO[Client with DynamicServer with Scope, Throwable, Headers] = {
     for {
-      port    <- DynamicServer.port
-      headers <- Client
-        .request(
-          "http://localhost:%d/%s".format(port, path),
-          method,
-          headers = headers,
-        )
+      port <- DynamicServer.port
+      url = URL.decode("http://localhost:%d/%s".format(port, path)).toOption.get
+      headers <- ZClient
+        .request(Request(method = method, headers = headers, url = url))
         .map(_.headers)
     } yield headers
   }

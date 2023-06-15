@@ -26,13 +26,7 @@ import zio.http.Path.Segment.Text
  * element of a path in a sequence of `Segment`. This allows for powerful
  * compositional APIs.
  */
-
-trait Extractor
-
-case class IntExtractor(int: Int) extends Extractor
 final case class Path private (segments: Vector[Segment]) { self =>
-
-  def /(name: Extractor): Path = Path(segments :+ Segment(name.toString))
 
   /**
    * Appends a segment at the end of the path. To append a trailing slash use an

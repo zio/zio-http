@@ -227,13 +227,12 @@ object ServerSpec extends HttpRunnableSpec {
       suite("proxy") {
         val server = Http.collectZIO[Request] {
           case req @ method -> "" /: "proxy" /: path =>
+            val url = URL.decode(s"http://localhost:$port/$path").toOption.get
+
             for {
               res <-
                 Client.request(
-                  s"http://localhost:$port/$path",
-                  method = method,
-                  headers = req.headers,
-                  content = req.body,
+                  Request(method = method, headers = req.headers, body = req.body, url = url),
                 )
             } yield res
 

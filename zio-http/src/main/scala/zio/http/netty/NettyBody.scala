@@ -63,6 +63,8 @@ object NettyBody extends BodyEncoding {
 
     override def isComplete: Boolean = true
 
+    override def isEmpty: Boolean = asciiString.isEmpty()
+
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
       ZIO.succeed(Chunk.fromArray(asciiString.array()))
 
@@ -88,6 +90,8 @@ object NettyBody extends BodyEncoding {
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(ByteBufUtil.getBytes(byteBuf))
 
     override def isComplete: Boolean = true
+
+    override def isEmpty: Boolean = false
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asArray.map(Chunk.fromArray)
 
@@ -133,6 +137,8 @@ object NettyBody extends BodyEncoding {
         )
 
     override def isComplete: Boolean = false
+
+    override def isEmpty: Boolean = false
 
     override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))

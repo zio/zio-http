@@ -16,8 +16,9 @@
 
 package zio.http
 
-import java.net.{MalformedURLException, URI}
+import java.net.{MalformedURLException, URI, URISyntaxException}
 
+import scala.languageFeature.implicitConversions
 import scala.util.Try
 
 import zio.Chunk
@@ -33,19 +34,29 @@ final case class URL(
   fragment: Option[Fragment] = None,
 ) { self =>
 
+  /**
+   * A right-biased way of combining two URLs. Where it makes sense, information
+   * will be merged, but in cases where this does not make sense (e.g. two
+   * non-empty fragments), the information from the right URL will be used.
+   */
   def ++(that: URL): URL =
     URL(
       self.path ++ that.path,
       self.kind ++ that.kind,
       self.queryParams ++ that.queryParams,
-      self.fragment.orElse(that.fragment),
+      that.fragment.orElse(this.fragment),
     )
+
+  def /(segment: String): URL = self.copy(path = self.path / segment)
 
   def absolute(host: String): URL =
     self.copy(kind = URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP)))
 
   def absolute(scheme: Scheme, host: String, port: Int): URL =
     self.copy(kind = URL.Location.Absolute(scheme, host, port))
+
+  def addQueryParams(queryParams: QueryParams): URL =
+    copy(queryParams = self.queryParams ++ queryParams)
 
   def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
 
@@ -81,6 +92,8 @@ final case class URL(
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.port)
   }
+
+  def portOrDefault: Int = port.getOrElse(portFromScheme(scheme.getOrElse(Scheme.HTTP)))
 
   def portIfNotDefault: Option[Int] = kind match {
     case URL.Location.Relative      =>
@@ -158,13 +171,14 @@ object URL {
   def empty: URL = URL(Path.empty)
 
   def decode(string: String): Either[Exception, URL] = {
-    def invalidURL = Left(new MalformedURLException(s"""Invalid URL: "$string""""))
+    def invalidURL(string: String) = Left(new MalformedURLException(s"""Invalid URL: "$string""""))
+
     try {
       val uri = new URI(string)
       val url = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
       url match {
-        case None        => invalidURL
+        case None        => invalidURL(string)
         case Some(value) => Right(value)
       }
 

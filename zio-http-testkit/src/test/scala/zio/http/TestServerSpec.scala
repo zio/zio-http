@@ -10,6 +10,7 @@ object TestServerSpec extends ZIOSpecDefault {
   def spec = suite("TestServerSpec")(
     test("with state") {
       for {
+        client      <- ZIO.service[Client]
         state       <- Ref.make(0)
         testRequest <- requestToCorrectPort
         _           <- TestServer.addHandler { case (_: Request) =>
@@ -23,11 +24,11 @@ object TestServerSpec extends ZIOSpecDefault {
           }
         }
         response1   <-
-          Client.request(
+          client(
             testRequest,
           )
         response2   <-
-          Client.request(
+          client(
             testRequest,
           )
       } yield assertTrue(response1.status == Status.Ok) &&
@@ -38,10 +39,11 @@ object TestServerSpec extends ZIOSpecDefault {
     suite("Exact Request=>Response version")(
       test("matches") {
         for {
+          client        <- ZIO.service[Client]
           testRequest   <- requestToCorrectPort
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
-            Client.request(
+            client(
               testRequest,
             )
 
@@ -49,10 +51,11 @@ object TestServerSpec extends ZIOSpecDefault {
       },
       test("matches, ignoring additional headers") {
         for {
+          client        <- ZIO.service[Client]
           testRequest   <- requestToCorrectPort
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
-            Client.request(
+            client(
               testRequest.addHeaders(Headers(Header.ContentLanguage.French)),
             )
 
@@ -60,20 +63,22 @@ object TestServerSpec extends ZIOSpecDefault {
       },
       test("does not match different path") {
         for {
+          client        <- ZIO.service[Client]
           testRequest   <- requestToCorrectPort
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
-            Client.request(
+            client(
               testRequest.copy(url = testRequest.url.withPath(Path.root / "unhandled")),
             )
         } yield assertTrue(finalResponse.status == Status.NotFound)
       },
       test("does not match different headers") {
         for {
+          client        <- ZIO.service[Client]
           testRequest   <- requestToCorrectPort
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
-            Client.request(
+            client(
               testRequest.copy(headers = Headers(Header.CacheControl.Public)),
             )
         } yield assertTrue(finalResponse.status == Status.NotFound)

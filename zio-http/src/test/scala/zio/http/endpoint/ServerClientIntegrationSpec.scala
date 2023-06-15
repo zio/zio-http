@@ -198,7 +198,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           capturedCause <- Promise.make[Nothing, Cause[_]]
           port          <- Server.install(handler.toApp @@ captureCause(capturedCause))
           client        <- ZIO.service[Client]
-          response      <- client.request(
+          response      <- client(
             Request.post(
               url = URL.decode(s"http://localhost:$port/123/xyz/456/abc?details=789").toOption.get,
               body = Body.empty,

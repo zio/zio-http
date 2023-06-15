@@ -45,6 +45,12 @@ object SSLSpec extends ZIOSpecDefault {
       } yield Response.text(body)
   }
 
+  val successUrl =
+    URL.decode("https://localhost:8073/success").toOption.get
+
+  val textUrl =
+    URL.decode("https://localhost:8073/text").toOption.get
+
   override def spec = suite("SSL")(
     Server
       .serve(app.withDefaultErrorResponse)
@@ -52,7 +58,7 @@ object SSLSpec extends ZIOSpecDefault {
         List(
           test("succeed when client has the server certificate") {
             val actual = Client
-              .request("https://localhost:8073/success")
+              .request(Request.get(successUrl))
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
@@ -64,7 +70,7 @@ object SSLSpec extends ZIOSpecDefault {
           ),
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
-              .request("https://localhost:8073/success")
+              .request(Request.get(successUrl))
               .catchSome { case _: DecoderException =>
                 ZIO.succeed("DecoderException")
               }
@@ -78,7 +84,7 @@ object SSLSpec extends ZIOSpecDefault {
           ),
           test("succeed when client has default SSL") {
             val actual = Client
-              .request("https://localhost:8073/success")
+              .request(Request.get(successUrl))
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
@@ -90,7 +96,7 @@ object SSLSpec extends ZIOSpecDefault {
           ),
           test("Https Redirect when client makes http request") {
             val actual = Client
-              .request("http://localhost:8073/success")
+              .request(Request.get(successUrl))
               .map(_.status)
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
           }.provide(
@@ -104,9 +110,7 @@ object SSLSpec extends ZIOSpecDefault {
             check(payload) { payload =>
               val actual = Client
                 .request(
-                  "https://localhost:8073/text",
-                  Method.POST,
-                  content = Body.fromString(payload),
+                  Request.post(Body.fromString(payload), textUrl),
                 )
                 .map(_.status)
               assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))

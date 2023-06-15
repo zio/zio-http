@@ -32,7 +32,7 @@ private[zio] object NettyRequestEncoder {
    */
   def encode(req: Request)(implicit trace: Trace): Task[HttpRequest] = {
     val method   = Conversions.methodToNetty(req.method)
-    val jVersion = Versions.convertToZIOToNetty(req.version)
+    val jVersion = Conversions.versionToNetty(req.version)
 
     // As per the spec, the path should contain only the relative path.
     // Host and port information should be in the headers.

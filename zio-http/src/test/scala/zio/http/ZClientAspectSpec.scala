@@ -35,7 +35,7 @@ object ZClientAspectSpec extends ZIOSpecDefault {
           client = baseClient.url(
             URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", port)),
           ) @@ ZClientAspect.debug
-          response <- client.get("/hello")
+          response <- client.request(Request.get(URL.empty / "hello"))
           output   <- TestConsole.output
         } yield assertTrue(
           response.status == Status.Ok,
@@ -56,7 +56,7 @@ object ZClientAspectSpec extends ZIOSpecDefault {
             loggedRequestHeaders = Set(Header.UserAgent),
             logResponseBody = true,
           )
-          response <- client.get("/hello")
+          response <- client.request(Request.get(URL.empty / "hello"))
           output   <- ZTestLogger.logOutput
           messages    = output.map(_.message())
           annotations = output.map(_.annotations)

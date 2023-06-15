@@ -48,7 +48,7 @@ object HttpGen {
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       version <- httpVersion
-    } yield Request(Body.fromFile(file), headers, method, url, version, None)
+    } yield Request(version, method, url, headers, Body.fromFile(file), None)
   }
 
   def genAbsoluteLocation: Gen[Any, Location.Absolute] = for {
@@ -147,7 +147,7 @@ object HttpGen {
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
     data    <- HttpGen.body(Gen.listOf(Gen.alphaNumericString))
-  } yield Request(data, headers, method, url, version, None)
+  } yield Request(version, method, url, headers, data, None)
 
   def requestGen[R](
     dataGen: Gen[R, Body],
@@ -161,7 +161,7 @@ object HttpGen {
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
       version <- httpVersion
-    } yield Request(data, headers, method, url, version, None)
+    } yield Request(version, method, url, headers, data, None)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Any with R, Response] = {
     for {

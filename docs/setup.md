@@ -31,8 +31,6 @@ sbt new zio/zio-http.g8
 * [sbt-native-packager](https://github.com/sbt/sbt-native-packager)
 * [scalafmt](https://github.com/scalameta/scalafmt)
 * [scalafix](https://github.com/scalacenter/scalafix)
-    * Included rule(s):
-        * [scalafix-organize-imports](https://github.com/liancheng/scalafix-organize-imports)
 * [sbt-revolver](https://github.com/spray/sbt-revolver)
 
 ## Efficient development process

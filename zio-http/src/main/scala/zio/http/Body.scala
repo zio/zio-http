@@ -35,6 +35,12 @@ import zio.http.internal.BodyEncoding
 trait Body { self =>
 
   /**
+   * A right-biased way of combining two bodies. If either body is empty, the
+   * other will be returned. Otherwise, the right body will be returned.
+   */
+  def ++(that: Body): Body = if (that.isEmpty) self else that
+
+  /**
    * Returns an effect that decodes the content of the body as array of bytes.
    * Note that attempting to decode a large stream of bytes into an array could
    * result in an out of memory error.
@@ -112,6 +118,12 @@ trait Body { self =>
    * Returns whether or not the bytes of the body have been fully read.
    */
   def isComplete: Boolean
+
+  /**
+   * Returns whether or not the body is known to be empty. Note that some bodies
+   * may not be known to be empty until an attempt is made to consume them.
+   */
+  def isEmpty: Boolean
 
   private[zio] def mediaType: Option[MediaType]
   private[zio] def boundary: Option[Boundary]
@@ -213,6 +225,8 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = ZStream.empty
     override def isComplete: Boolean                                            = true
 
+    override def isEmpty: Boolean = true
+
     override def toString(): String = "Body.empty"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = Array.empty[Byte]
@@ -230,11 +244,13 @@ object Body {
     override val boundary: Option[Boundary] = None,
   ) extends Body
       with UnsafeWriteable
-      with UnsafeBytes {
+      with UnsafeBytes { self =>
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
 
     override def isComplete: Boolean = true
+
+    override def isEmpty: Boolean = data.isEmpty
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(data)
 
@@ -263,6 +279,8 @@ object Body {
     }
 
     override def isComplete: Boolean = false
+
+    override def isEmpty: Boolean = false
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
       asArray.map(Chunk.fromArray)
@@ -302,6 +320,8 @@ object Body {
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
 
     override def isComplete: Boolean = false
+
+    override def isEmpty: Boolean = false
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = stream.runCollect
 
