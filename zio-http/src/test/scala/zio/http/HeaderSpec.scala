@@ -205,7 +205,7 @@ object HeaderSpec extends ZIOSpecDefault {
       test("should parse an unknown header with weight") {
         val header = Header.AcceptEncoding.parse("zio-http;q=0.6")
         assert(header)(isRight(equalTo(Header.AcceptEncoding.Unknown("zio-http", Some(0.6d)))))
-      }
+      },
     ),
     suite("isFormMultipartContentType")(
       test("should return true if content-type is multipart/form-data") {
