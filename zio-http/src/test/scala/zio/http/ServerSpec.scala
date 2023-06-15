@@ -400,7 +400,7 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   override def spec =
-    suite("Server") {
+    suite("ServerSpec") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
     }.provideSomeShared[TestEnvironment](
