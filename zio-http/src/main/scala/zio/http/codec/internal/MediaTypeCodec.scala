@@ -2,7 +2,6 @@ package zio.http.codec.internal
 
 import java.time._
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 import scala.util.Try
 
@@ -160,70 +159,87 @@ object MediaTypeCodec {
 private[internal] object TextCodec {
   def fromSchema[A](schema: Schema[A]): Codec[String, Char, A] = {
     if (!schema.isInstanceOf[Schema.Primitive[_]]) {
-      throw new IllegalArgumentException(
-        s"Schema $schema is not a primitive. Only primitive schemas are supported by TextCodec.",
-      )
-    }
+      new Codec[String, Char, A] {
+        override def decode(whole: String): Either[DecodeError, A] = throw new IllegalArgumentException(
+          s"Schema $schema is not a primitive. Only primitive schemas are supported by TextCodec.",
+        )
 
-    new Codec[String, Char, A] {
-      override def encode(a: A): String                      =
-        schema match {
-          case Schema.Primitive(_, _) => a.toString
-          case _                      =>
-            throw new IllegalArgumentException(
-              s"Cannot encode $a of type ${a.getClass} with schema $schema",
-            )
-        }
-      override def decode(s: String): Either[DecodeError, A] =
-        schema match {
-          case Schema.Primitive(standardType, _) =>
-            (standardType match {
-              case StandardType.UnitType           => Right("")
-              case StandardType.StringType         => Right(s)
-              case StandardType.BoolType           => Try(s.toBoolean).toEither
-              case StandardType.ByteType           => Try(s.toByte).toEither
-              case StandardType.ShortType          => Try(s.toShort).toEither
-              case StandardType.IntType            => Try(s.toInt).toEither
-              case StandardType.LongType           => Try(s.toLong).toEither
-              case StandardType.FloatType          => Try(s.toFloat).toEither
-              case StandardType.DoubleType         => Try(s.toDouble).toEither
-              // FIXME: use a proper error type (needs changes in zio-schema)
-              case StandardType.BinaryType         => Left(DecodeError.EmptyContent("Binary is not supported"))
-              case StandardType.CharType           => Right(s.charAt(0))
-              case StandardType.UUIDType           => Try(UUID.fromString(s)).toEither
-              case StandardType.BigDecimalType     => Try(BigDecimal(s)).toEither
-              case StandardType.BigIntegerType     => Try(BigInt(s)).toEither
-              case StandardType.DayOfWeekType      => Try(DayOfWeek.valueOf(s)).toEither
-              case StandardType.MonthType          => Try(Month.valueOf(s)).toEither
-              case StandardType.MonthDayType       => Try(MonthDay.parse(s)).toEither
-              case StandardType.PeriodType         => Try(Period.parse(s)).toEither
-              case StandardType.YearType           => Try(Year.parse(s)).toEither
-              case StandardType.YearMonthType      => Try(YearMonth.parse(s)).toEither
-              case StandardType.ZoneIdType         => Try(ZoneId.of(s)).toEither
-              case StandardType.ZoneOffsetType     => Try(ZoneOffset.of(s)).toEither
-              case StandardType.DurationType       => Try(java.time.Duration.parse(s)).toEither
-              case StandardType.InstantType        => Try(Instant.parse(s)).toEither
-              case StandardType.LocalDateType      => Try(LocalDate.parse(s)).toEither
-              case StandardType.LocalTimeType      => Try(LocalTime.parse(s)).toEither
-              case StandardType.LocalDateTimeType  => Try(LocalDateTime.parse(s)).toEither
-              case StandardType.OffsetTimeType     => Try(OffsetTime.parse(s)).toEither
-              case StandardType.OffsetDateTimeType => Try(OffsetDateTime.parse(s)).toEither
-              case StandardType.ZonedDateTimeType  => Try(ZonedDateTime.parse(s)).toEither
-            }).map(_.asInstanceOf[A]).left.map(e => DecodeError.ReadError(Cause.fail(e), e.getMessage))
-          case _                                 =>
-            Left(
-              // FIXME: use a proper error type (needs changes in zio-schema)
-              DecodeError.EmptyContent("Only primitive types are supported. But found: " + schema.toString),
-            )
-        }
+        override def streamDecoder: ZPipeline[Any, DecodeError, Char, A] = throw new IllegalArgumentException(
+          s"Schema $schema is not a primitive. Only primitive schemas are supported by TextCodec.",
+        )
 
-      override def streamEncoder: ZPipeline[Any, Nothing, A, Char] =
-        ZPipeline.map((a: A) => Chunk.fromArray(a.toString.toArray)).flattenChunks
+        override def encode(value: A): String = throw new IllegalArgumentException(
+          s"Schema $schema is not a primitive. Only primitive schemas are supported by TextCodec.",
+        )
 
-      override def streamDecoder: ZPipeline[Any, DecodeError, Char, A] =
-        (ZPipeline[Char].map(_.toByte) >>> ZPipeline.utf8Decode)
-          .map(decode(_).fold(throw _, identity))
-          .mapErrorCause(e => Cause.fail(DecodeError.ReadError(e, e.squash.getMessage)))
+        override def streamEncoder: ZPipeline[Any, Nothing, A, Char] = throw new IllegalArgumentException(
+          s"Schema $schema is not a primitive. Only primitive schemas are supported by TextCodec.",
+        )
+      }
+    } else {
+      new Codec[String, Char, A] {
+        override def encode(a: A): String =
+          schema match {
+            case Schema.Primitive(_, _) => a.toString
+            case _                      =>
+              throw new IllegalArgumentException(
+                s"Cannot encode $a of type ${a.getClass} with schema $schema",
+              )
+          }
+
+        override def decode(s: String): Either[DecodeError, A] =
+          schema match {
+            case Schema.Primitive(standardType, _) =>
+              (standardType match {
+                case StandardType.UnitType           => Right("")
+                case StandardType.StringType         => Right(s)
+                case StandardType.BoolType           => Try(s.toBoolean).toEither
+                case StandardType.ByteType           => Try(s.toByte).toEither
+                case StandardType.ShortType          => Try(s.toShort).toEither
+                case StandardType.IntType            => Try(s.toInt).toEither
+                case StandardType.LongType           => Try(s.toLong).toEither
+                case StandardType.FloatType          => Try(s.toFloat).toEither
+                case StandardType.DoubleType         => Try(s.toDouble).toEither
+                // FIXME: use a proper error type (needs changes in zio-schema)
+                case StandardType.BinaryType         => Left(DecodeError.EmptyContent("Binary is not supported"))
+                case StandardType.CharType           => Right(s.charAt(0))
+                case StandardType.UUIDType           => Try(UUID.fromString(s)).toEither
+                case StandardType.BigDecimalType     => Try(BigDecimal(s)).toEither
+                case StandardType.BigIntegerType     => Try(BigInt(s)).toEither
+                case StandardType.DayOfWeekType      => Try(DayOfWeek.valueOf(s)).toEither
+                case StandardType.MonthType          => Try(Month.valueOf(s)).toEither
+                case StandardType.MonthDayType       => Try(MonthDay.parse(s)).toEither
+                case StandardType.PeriodType         => Try(Period.parse(s)).toEither
+                case StandardType.YearType           => Try(Year.parse(s)).toEither
+                case StandardType.YearMonthType      => Try(YearMonth.parse(s)).toEither
+                case StandardType.ZoneIdType         => Try(ZoneId.of(s)).toEither
+                case StandardType.ZoneOffsetType     => Try(ZoneOffset.of(s)).toEither
+                case StandardType.DurationType       => Try(java.time.Duration.parse(s)).toEither
+                case StandardType.InstantType        => Try(Instant.parse(s)).toEither
+                case StandardType.LocalDateType      => Try(LocalDate.parse(s)).toEither
+                case StandardType.LocalTimeType      => Try(LocalTime.parse(s)).toEither
+                case StandardType.LocalDateTimeType  => Try(LocalDateTime.parse(s)).toEither
+                case StandardType.OffsetTimeType     => Try(OffsetTime.parse(s)).toEither
+                case StandardType.OffsetDateTimeType => Try(OffsetDateTime.parse(s)).toEither
+                case StandardType.ZonedDateTimeType  => Try(ZonedDateTime.parse(s)).toEither
+              }).map(_.asInstanceOf[A]).left.map(e => DecodeError.ReadError(Cause.fail(e), e.getMessage))
+            case _                                 =>
+              Left(
+                // FIXME: use a proper error type (needs changes in zio-schema)
+                DecodeError.EmptyContent(
+                  "Only primitive types are supported for text decoding. But found: " + schema.toString,
+                ),
+              )
+          }
+
+        override def streamEncoder: ZPipeline[Any, Nothing, A, Char] =
+          ZPipeline.map((a: A) => Chunk.fromArray(a.toString.toArray)).flattenChunks
+
+        override def streamDecoder: ZPipeline[Any, DecodeError, Char, A] =
+          (ZPipeline[Char].map(_.toByte) >>> ZPipeline.utf8Decode)
+            .map(decode(_).fold(throw _, identity))
+            .mapErrorCause(e => Cause.fail(DecodeError.ReadError(e, e.squash.getMessage)))
+      }
     }
   }
 }

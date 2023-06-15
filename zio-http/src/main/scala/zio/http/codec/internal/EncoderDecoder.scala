@@ -140,20 +140,25 @@ private[codec] object EncoderDecoder {
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
     private val codecs: Map[String, MediaTypeCodec[_]] =
-      MediaTypeCodec.codecsFor(outputType, flattened.content)
+      MediaTypeCodec.codecsFor(if (flattened.content.size == 1) outputType else None, flattened.content)
 
     private def mediaTypeOrJson(bodyCodec: BodyCodec[_]): MediaType =
       bodyCodec.mediaType.getOrElse(MediaType.application.`json`)
+    private def mediaTypeOrText(bodyCodec: BodyCodec[_]): MediaType =
+      bodyCodec.mediaType.getOrElse(MediaType.text.`plain`)
 
     private val formFieldEncoders: Chunk[(String, Any) => FormField] =
       flattened.content.map { bodyCodec => (name: String, value: Any) =>
         {
           val erased    = bodyCodec.erase
-          val mediaType = mediaTypeOrJson(bodyCodec)
-          val codec     =
-            codecs
-              .get(mediaType.fullType)
-              .map(_.codecs(erased))
+          val mediaType = bodyCodec.schema match {
+            case _: Schema.Primitive[_] => mediaTypeOrText(bodyCodec)
+            case _                      => mediaTypeOrJson(bodyCodec)
+          }
+
+          val codec = codecs
+            .get(mediaType.fullType)
+            .map(_.codecs(erased))
 
           codec match {
             case Some(codec: BinaryCodec[Any] @unchecked) if codec.isInstanceOf[BinaryCodec[Any]]                 =>
@@ -165,7 +170,7 @@ private[codec] object EncoderDecoder {
             case Some(codec: Codec[String, Char, Any] @unchecked) if codec.isInstanceOf[Codec[String, Char, Any]] =>
               FormField.textField(
                 name,
-                codec.encode(value.asInstanceOf[erased.Element], Charsets.Utf8),
+                codec.encode(value.asInstanceOf[erased.Element]),
                 mediaType,
               )
             case _                                                                                                =>
@@ -177,11 +182,10 @@ private[codec] object EncoderDecoder {
     private val formFieldDecoders: Chunk[FormField => IO[Throwable, Any]] =
       flattened.content.map { bodyCodec => (field: FormField) =>
         {
-          val erased    = bodyCodec.erase
-          val mediaType = mediaTypeOrJson(bodyCodec)
-          val codec     =
+          val erased = bodyCodec.erase
+          val codec  =
             codecs
-              .get(mediaType.fullType)
+              .get(field.contentType.fullType)
               .map(_.codecs(erased))
 
           codec match {
@@ -190,7 +194,7 @@ private[codec] object EncoderDecoder {
             case Some(codec: Codec[String, Char, Any] @unchecked) if codec.isInstanceOf[Codec[String, Char, Any]] =>
               field.asText.flatMap(text => ZIO.fromEither(codec.decode(text)))
             case _                                                                                                =>
-              ZIO.fail(HttpCodecError.UnsupportedContentType(mediaType.fullType))
+              ZIO.fail(HttpCodecError.UnsupportedContentType(field.contentType.fullType))
           }
 
         }
