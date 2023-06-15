@@ -209,7 +209,7 @@ object Path {
   }
 
   /**
-   * Decodes a path string into a Path. Can fail if the path is invalid.
+   * Decodes a path string into a Path.
    */
   def decode(path: String): Path = {
     if (path == "") Path.empty
