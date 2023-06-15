@@ -1,5 +1,10 @@
-package example
+---
+id: http-client
+title: Http Client Example
+sidebar_label: Http Client
+---
 
+```scala mdoc:silent
 import zio._
 
 import zio.http.Client
@@ -16,3 +21,5 @@ object SimpleClient extends ZIOAppDefault {
   override val run = program.provide(Client.default, Scope.default)
 
 }
+
+```

@@ -10,7 +10,7 @@ object BuildHelper extends ScalaSettings {
   val Scala3           = "3.2.2"
   val ScoverageVersion = "1.9.3"
   val JmhVersion       = "0.4.3"
-  val SilencerVersion  = "1.7.13"
+  val SilencerVersion  = "1.17.13"
 
   private val stdOptions = Seq(
     "-deprecation",

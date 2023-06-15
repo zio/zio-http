@@ -30,7 +30,7 @@ On the client-side, `ZIO-HTTP` models content in `ClientRequest` as `Body` with 
 To add content while making a request using ZIO HTTP you can use the `Client.request` method:
 
 ```scala mdoc:silent
-  val actual: ZIO[Client, Throwable, Response] = 
+  val actual: ZIO[Client with Scope, Throwable, Response] = 
     Client.request("https://localhost:8073/success", content = Body.fromString("Some string"))
 ```
 

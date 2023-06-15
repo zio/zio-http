@@ -47,6 +47,7 @@ object ClientProxySpec extends HttpRunnableSpec {
               NettyClientDriver.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.default),
+              Scope.default,
             )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
@@ -68,6 +69,7 @@ object ClientProxySpec extends HttpRunnableSpec {
               NettyClientDriver.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.default),
+              Scope.default,
             )
         } yield out
       assertZIO(res.either)(isRight)
@@ -101,6 +103,7 @@ object ClientProxySpec extends HttpRunnableSpec {
               NettyClientDriver.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.default),
+              Scope.default,
             )
         } yield out
       assertZIO(res.either)(isRight)
