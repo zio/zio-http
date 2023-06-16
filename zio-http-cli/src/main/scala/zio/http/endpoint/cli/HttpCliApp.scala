@@ -65,8 +65,16 @@ object HttpCliApp {
         for {
           request  <- req.toRequest(host, port)
           response <- Client
-            .request(request)
-            .provide(Client.default)
+            .request(
+              Request
+                .default(
+                  method,
+                  url.withHost(host).withPort(port),
+                  Body.fromString(body.toString),
+                )
+                .setHeaders(headers),
+            )
+            .provide(Client.default, Scope.default)
           _        <- Console.printLine(s"Got response")
           _        <- Console.printLine(s"Status: ${response.status}")
           _        <- ZIO.when(mustPrint)(printResponse(response))

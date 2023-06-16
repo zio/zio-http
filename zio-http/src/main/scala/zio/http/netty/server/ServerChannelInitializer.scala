@@ -16,6 +16,8 @@
 
 package zio.http.netty.server
 
+import java.util.concurrent.TimeUnit
+
 import zio._
 
 import zio.http.Server
@@ -28,6 +30,7 @@ import io.netty.channel._
 import io.netty.handler.codec.http.HttpObjectDecoder.{DEFAULT_MAX_CHUNK_SIZE, DEFAULT_MAX_INITIAL_LINE_LENGTH}
 import io.netty.handler.codec.http._
 import io.netty.handler.flush.FlushConsolidationHandler
+import io.netty.handler.timeout.ReadTimeoutHandler
 
 /**
  * Initializes the netty channel with default handlers
@@ -46,6 +49,10 @@ private[zio] final case class ServerChannelInitializer(
     // Add SSL Handler if CTX is available
     cfg.sslConfig.foreach { sslCfg =>
       pipeline.addFirst(Names.SSLHandler, new ServerSSLDecoder(sslCfg, cfg))
+    }
+
+    cfg.idleTimeout.foreach { timeout =>
+      pipeline.addLast(Names.ReadTimeoutHandler, new ReadTimeoutHandler(timeout.toMillis, TimeUnit.MILLISECONDS))
     }
 
     // ServerCodec

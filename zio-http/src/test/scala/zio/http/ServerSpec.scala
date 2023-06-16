@@ -26,11 +26,8 @@ import zio.{Chunk, Scope, ZIO, ZLayer, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
-import zio.http.Server.{Config, RequestStreaming}
 import zio.http.html.{body, div, id}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
-
-import io.netty.handler.codec.PrematureChannelClosureException
 
 object ServerSpec extends HttpRunnableSpec {
 
@@ -47,7 +44,7 @@ object ServerSpec extends HttpRunnableSpec {
     .port(port)
     .responseCompression()
 
-  private val app = serve(DynamicServer.app)
+  private val app = serve
 
   def dynamicAppSpec = suite("DynamicAppSpec")(
     suite("success")(
@@ -221,7 +218,9 @@ object ServerSpec extends HttpRunnableSpec {
           val app = Handler.fromZIO {
             ZIO.interrupt.as(Response.text("not interrupted"))
           }.toHttp
-          assertZIO(app.deploy.run().exit)(failsWithA[PrematureChannelClosureException])
+          assertZIO(app.deploy.run().exit)(
+            fails(hasField("class.simpleName", _.getClass.getSimpleName, equalTo("PrematureChannelClosureException"))),
+          )
         },
       ) +
       suite("proxy") {

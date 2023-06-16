@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.Trace
+import zio.{Cause, Trace, ZIO}
 
 import zio.http.internal.middlewares.Cors
 
@@ -33,12 +33,9 @@ private[zio] trait HttpRoutesMiddlewares extends Cors {
       override def apply[R1, Err1](
         http: Http[R1, Err1, Request, Response],
       )(implicit trace: Trace): Http[R1, Err1, Request, Response] =
-        Http.fromHandlerZIO[Request] { request =>
-          if (!onlyIfNoQueryParams || request.url.queryParams.isEmpty)
-            http.runHandler(request.dropTrailingSlash)
-          else
-            http.runHandler(request)
-        }
+        http.contramap((request: Request) =>
+          if (!onlyIfNoQueryParams || request.url.queryParams.isEmpty) request.dropTrailingSlash else request,
+        )
     }
 }
 

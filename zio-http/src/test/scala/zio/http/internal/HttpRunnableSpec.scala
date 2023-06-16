@@ -93,8 +93,8 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       }
 
     def deployAndRequest(
-      call: Client => ZIO[Any, Throwable, Response],
-    ): Handler[Client with DynamicServer with R, Throwable, Any, Response] = {
+      call: Client => ZIO[Scope, Throwable, Response],
+    ): Handler[Client with DynamicServer with R with Scope, Throwable, Any, Response] = {
       for {
         port     <- Handler.fromZIO(DynamicServer.port)
         id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
@@ -109,7 +109,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       } yield response
     }
 
-    def deployChunked: Http[R with Client with DynamicServer, Throwable, Request, Response] =
+    def deployChunked: Http[R with Client with DynamicServer with Scope, Throwable, Request, Response] =
       Http.fromHandler {
         for {
           port     <- Handler.fromZIO(DynamicServer.port)
@@ -144,9 +144,16 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       }
   }
 
-  def serve[R](
-    app: App[R],
-  ): ZIO[R with DynamicServer with Server, Nothing, Int] =
+  def serve: ZIO[DynamicServer with Server, Nothing, Int] =
+    for {
+      server <- ZIO.service[Server]
+      ds     <- ZIO.service[DynamicServer]
+      app = DynamicServer.app(ds)
+      port <- Server.install(app)
+      _    <- DynamicServer.setStart(server)
+    } yield port
+
+  def serve[R](app: App[R]): ZIO[R with DynamicServer with Server, Nothing, Int] =
     for {
       server <- ZIO.service[Server]
       port   <- Server.install(app)

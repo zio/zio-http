@@ -41,6 +41,7 @@ package object netty {
     val HttpRequestDecoder             = "HTTP_REQUEST_DECODER"
     val HttpResponseEncoder            = "HTTP_RESPONSE_ENCODER"
     val ProxyHandler                   = "PROXY_HANDLER"
+    val ReadTimeoutHandler             = "READ_TIMEOUT_HANDLER"
   }
 
   implicit class BodyExtensions(val body: Body) extends AnyVal {

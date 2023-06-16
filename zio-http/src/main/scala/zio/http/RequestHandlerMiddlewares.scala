@@ -315,11 +315,6 @@ private[zio] trait RequestHandlerMiddlewares
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         handler.map(f)
-
-      override def applyToErrorHandler[Env](g: Cause[Nothing] => ZIO[Env, Nothing, Response])(implicit
-        trace: Trace,
-      ): Cause[Nothing] => ZIO[Env, Nothing, Response] =
-        (cause: Cause[Nothing]) => g(cause).map(f)
     }
 
   final def updateResponseZIO[R](
@@ -330,11 +325,6 @@ private[zio] trait RequestHandlerMiddlewares
         handler: Handler[R1, Err1, Request, Response],
       )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
         handler.mapZIO(f)
-
-      override def applyToErrorHandler[Env <: R](g: Cause[Nothing] => ZIO[Env, Nothing, Response])(implicit
-        trace: Trace,
-      ): Cause[Nothing] => ZIO[Env, Nothing, Response] =
-        (cause: Cause[Nothing]) => g(cause).flatMap(f)
     }
 
   /**

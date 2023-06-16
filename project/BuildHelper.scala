@@ -10,7 +10,7 @@ object BuildHelper extends ScalaSettings {
   val Scala3           = "3.2.2"
   val ScoverageVersion = "1.9.3"
   val JmhVersion       = "0.4.3"
-  val SilencerVersion  = "1.7.12"
+  val SilencerVersion  = "1.17.13"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -68,7 +68,7 @@ object BuildHelper extends ScalaSettings {
   }
 
   def stdSettings(prjName: String) = Seq(
-    name                           := s"$prjName",
+    name                           := s"$prjName$shadedSuffix",
     ThisBuild / crossScalaVersions := Seq(Scala212, Scala213, Scala3),
     ThisBuild / scalaVersion       := Scala213,
     scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value),
@@ -103,6 +103,10 @@ object BuildHelper extends ScalaSettings {
       else scalafixSemanticdb.revision
     },
   )
+
+  private def shadedSuffix = {
+    if (Shading.shadingEnabled) "-shaded" else ""
+  }
 
   def runSettings(className: String = "example.HelloWorld") = Seq(
     fork                      := true,

@@ -18,6 +18,7 @@ package zio.http.netty.client
 
 import zio.{Promise, Trace}
 
+import zio.http.Status
 import zio.http.netty.{AsyncBodyReader, NettyFutureExecutor, NettyRuntime}
 
 import io.netty.channel._
@@ -27,6 +28,7 @@ final class ClientResponseStreamHandler(
   rtm: NettyRuntime,
   onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,
+  status: Status,
 )(implicit trace: Trace)
     extends AsyncBodyReader { self =>
 
@@ -39,7 +41,7 @@ final class ClientResponseStreamHandler(
 
     if (isLast) {
       if (keepAlive)
-        rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.Reusable))(
+        rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(onComplete.succeed(ChannelState.forStatus(status)))(
           unsafeClass,
           trace,
         )

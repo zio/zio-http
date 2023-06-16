@@ -28,8 +28,10 @@ import zio.schema.{DeriveSchema, Schema, StandardType}
 
 import zio.http.Header.ContentType
 import zio.http._
-import zio.http.codec.HttpCodec.{int, literal, query, string}
+import zio.http.codec.HttpCodec.{int, literal, query, queryInt, string}
 import zio.http.codec._
+import zio.http.endpoint.internal.EndpointServer
+import zio.http.forms.Fixtures.formField
 
 object EndpointSpec extends ZIOSpecDefault {
   case class NewPost(value: String)
@@ -84,6 +86,24 @@ object EndpointSpec extends ZIOSpecDefault {
         testRoutes("/users/123?key=&value=", "path(users, 123, Some(), Some())") &&
         testRoutes("/users/123?key=&value=X", "path(users, 123, Some(), Some(X))") &&
         testRoutes("/users/123?key=X&value=Y", "path(users, 123, Some(X), Some(Y))")
+      },
+      test("bad request for failed codec") {
+        val endpoint =
+          Endpoint
+            .get(literal("posts"))
+            .query(queryInt("id"))
+            .out[Int]
+
+        val routes: Routes.Single[Any, ZNothing, Any, Int, EndpointMiddleware.None] =
+          endpoint
+            .implement(_ => ZIO.succeed(42))
+            .asInstanceOf[Routes.Single[Any, ZNothing, Any, Int, EndpointMiddleware.None]]
+
+        for {
+          response <- routes.toApp.runZIO(
+            Request.get(URL.decode("/posts?id=notanid").toOption.get),
+          )
+        } yield assertTrue(response.status.code == 400)
       },
       test("out of order api") {
         val testRoutes = testEndpoint(
@@ -368,12 +388,8 @@ object EndpointSpec extends ZIOSpecDefault {
             body     <- response.body.asString.orDie
           } yield assertTrue(response.status.isSuccess) && assertTrue(body == "42")
         },
-        test("decoding error") {
-
+        test("bad request for failed codec") {
           implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
-
-          val ExpectedFieldName = "value"
-          val WrongFieldName    = "valu"
 
           val endpoint =
             Endpoint
@@ -384,25 +400,15 @@ object EndpointSpec extends ZIOSpecDefault {
           val routes =
             endpoint.implement(_ => ZIO.succeed(42))
 
-          val request =
-            Request
-              .post(
-                Body.fromString(s"""{"$WrongFieldName": "Invalid field!"}"""),
-                URL.decode("/posts").toOption.get,
-              )
-
           for {
-            response <- routes.toApp.runZIO(request).mapError(_.get).catchAllDefect {
-              case err: HttpCodecError.MalformedBody => {
-                err.cause match {
-                  case Some(DecodeError.ReadError(_, _)) =>
-                    ZIO.succeed(Response.text(err.details).withStatus(Status.UnprocessableEntity))
-                  case _                                 => ZIO.fail("Unexpected error cause: " + err.toString())
-                }
-              }
-            }
-            body     <- response.body.asString.orDie
-          } yield assertTrue(response.status.code == 422, body == s""".$ExpectedFieldName(missing)""")
+            response <- routes.toApp.runZIO(
+              Request
+                .post(
+                  Body.fromString("""{"vale": "My new post!"}"""),
+                  URL.decode("/posts").toOption.get,
+                ),
+            )
+          } yield assertTrue(response.status.code == 400)
         },
       ),
       suite("404")(
@@ -531,7 +537,7 @@ object EndpointSpec extends ZIOSpecDefault {
             route =
               Endpoint
                 .get(literal("test-byte-stream"))
-                .outStream[Byte]("response", Status.Ok, MediaType.image.png)
+                .outStream[Byte](Status.Ok, MediaType.image.png)
                 .implement { _ =>
                   ZIO.succeed(ZStream.fromChunk(bytes).rechunk(16))
                 }
@@ -831,66 +837,6 @@ object EndpointSpec extends ZIOSpecDefault {
       }
     },
   )
-
-  private def simpleFormField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
-    for {
-      name         <- Gen.option(Gen.string1(Gen.alphaNumericChar))
-      standardType <- Gen.oneOf(
-        Gen.const(StandardType.StringType),
-        Gen.const(StandardType.BoolType),
-        Gen.const(StandardType.IntType),
-        Gen.const(StandardType.UUIDType),
-      )
-      value        <- standardType match {
-        case StandardType.StringType => Gen.string
-        case StandardType.BoolType   => Gen.boolean
-        case StandardType.IntType    => Gen.int
-        case StandardType.UUIDType   => Gen.uuid
-      }
-    } yield (
-      FormField.Simple(name.getOrElse(""), value.toString),
-      Schema.primitive(standardType).asInstanceOf[Schema[Any]],
-      name,
-      false,
-    )
-
-  private def jsonTextFormField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
-    for {
-      name        <- Gen.option(Gen.string1(Gen.alphaNumericChar))
-      description <- Gen.string
-      createdAt   <- Gen.instant
-      value         = ImageMetadata(description, createdAt)
-      valueAsString = JsonCodec.jsonCodec(Schema[ImageMetadata]).encodeJson(value, None).toString
-    } yield (
-      FormField.Text(name.getOrElse(""), valueAsString, MediaType.application.json, None),
-      Schema[ImageMetadata].asInstanceOf[Schema[Any]],
-      name,
-      false,
-    )
-
-  private def binaryFormField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
-    for {
-      name   <- Gen.option(Gen.string1(Gen.alphaNumericChar))
-      bytes  <- Gen.chunkOf(Gen.byte)
-      result <-
-        Gen.oneOf(
-          Gen.const(FormField.Binary(name.getOrElse(""), bytes, MediaType.application.`octet-stream`, None)),
-          Gen.const(
-            FormField.StreamingBinary(
-              name.getOrElse(""),
-              MediaType.application.`octet-stream`,
-              data = ZStream.fromChunk(bytes),
-            ),
-          ),
-        )
-    } yield (result, Schema[Byte].asInstanceOf[Schema[Any]], name, true)
-
-  private def formField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
-    Gen.oneOf(
-      simpleFormField,
-      jsonTextFormField,
-      binaryFormField,
-    )
 
   def testEndpoint[R, E](service: Routes[R, E, EndpointMiddleware.None])(
     url: String,

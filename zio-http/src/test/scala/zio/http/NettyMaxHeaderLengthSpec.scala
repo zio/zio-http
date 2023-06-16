@@ -22,7 +22,7 @@ import zio.{Scope, ZLayer}
 
 object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
 
-  private val serverConfig: Server.Config = Server.Config.default.copy(maxHeaderSize = 1)
+  private val serverConfig: Server.Config = Server.Config.default.onAnyOpenPort.copy(maxHeaderSize = 1)
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     test("should get a failure instead of an empty body") {
@@ -49,5 +49,6 @@ object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
       Client.default,
       Server.live,
       ZLayer.succeed(serverConfig),
+      Scope.default,
     ) @@ withLiveClock
 }

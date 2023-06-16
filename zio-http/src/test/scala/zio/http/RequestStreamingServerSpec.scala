@@ -16,10 +16,10 @@
 
 package zio.http
 
+import zio._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{diagnose, sequential, shrinks, timeout, withLiveClock}
-import zio.test.assertZIO
-import zio.{Scope, ZIO, ZLayer, durationInt}
+import zio.test.{assertCompletes, assertTrue, assertZIO}
 
 import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
@@ -32,7 +32,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       .requestDecompression(true)
       .enableRequestStreaming
 
-  private val appWithReqStreaming = serve(DynamicServer.app)
+  private val appWithReqStreaming = serve
 
   /**
    * Generates a string of the provided length and char.
@@ -66,6 +66,46 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       val res = app.deploy.status.run()
       assertZIO(res)(equalTo(Status.InternalServerError))
     },
+    suite("streaming request passed to client")({
+      val app   = Http
+        .collectHandler[Request] {
+          case req @ Method.POST -> Root / "1" =>
+            Handler.fromZIO {
+              val host       = req.headers.get(Header.Host).get
+              val newRequest =
+                req.copy(url = req.url.withPath("/2").withHost(host.hostAddress).withPort(host.port.getOrElse(80)))
+              ZIO.debug(s"#1: got response, forwarding") *>
+                ZIO.serviceWithZIO[Client] { client =>
+                  client.request(newRequest)
+                }
+            }
+          case req @ Method.POST -> Root / "2" =>
+            Handler.fromZIO {
+              ZIO.debug("#2: got response, collecting") *>
+                req.body.asChunk.map { body =>
+                  Response.text(body.length.toString)
+                }
+            }
+        }
+        .catchAllCauseZIO(cause =>
+          ZIO
+            .debug(s"got error: $cause")
+            .as(Response.fromHttpError(HttpError.InternalServerError(cause = Some(FiberFailure(cause))))),
+        )
+      val sizes = Chunk(0, 8192, 1024 * 1024)
+      sizes.map { size =>
+        test(s"with body length $size") {
+          for {
+            testBytes <- Random.nextBytes(size)
+            res       <- app.deploy.run(method = Method.POST, path = Root / "1", body = Body.fromChunk(testBytes))
+            str       <- res.body.asString
+          } yield assertTrue(
+            res.status.isSuccess,
+            str == testBytes.length.toString,
+          )
+        }
+      }
+    }: _*),
   ) @@ timeout(10 seconds)
 
   override def spec =
