@@ -74,7 +74,6 @@ object BuildHelper extends ScalaSettings {
     scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(
-        "com.github.liancheng" %% "organize-imports" % "0.6.0",
         "com.github.vovapolu"  %% "scaluzzi"         % "0.1.23",
       ),
     Test / parallelExecution       := true,
