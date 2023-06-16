@@ -213,7 +213,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def socket[Env1 <: Env](app: SocketApp[Env1])(implicit trace: Trace): ZIO[Env1 & Scope, Err, Out] =
     driver
       .socket(
-        Version.Http_1_1,
+        Version.Default,
         url,
         headers,
         app,
@@ -280,8 +280,8 @@ object ZClient {
 
   def fromDriver[Env, Err](driver: Driver[Env, Err]): ZClient[Env, Body, Err, Response] =
     ZClient(
-      Version.Http_1_1,
-      Method.GET,
+      Version.Default,
+      Method.Default,
       URL.empty,
       Headers.empty,
       None,
@@ -612,12 +612,6 @@ object ZClient {
     def this(driver: ClientDriver)(connectionPool: ConnectionPool[driver.Connection])(settings: Config) =
       this(settings, driver, connectionPool.asInstanceOf[ConnectionPool[Any]])
 
-    val headers: Headers                   = Headers.empty
-    val method: Method                     = Method.GET
-    val sslConfig: Option[ClientSSLConfig] = config.ssl
-    val url: URL                           = config.localAddress.map(_.getPort).fold(URL.empty)(URL.empty.withPort(_))
-    val version: Version                   = Version.Http_1_1
-
     def request(
       version: Version,
       method: Method,
@@ -651,12 +645,7 @@ object ZClient {
         )
         scope <- ZIO.scope
         res <- requestAsync(
-          Request
-            .get(webSocketUrl)
-            .copy(
-              version = version,
-              headers = self.headers ++ headers,
-            ),
+          Request(version = version, method = Method.GET, url = webSocketUrl, headers = headers),
           config,
           () => app.provideEnvironment(env),
           Some(scope),

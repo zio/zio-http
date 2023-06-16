@@ -173,7 +173,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
         method = method.getOrElse(Method.GET),
         headers = headers,
         body = body,
-        version = Version.Http_1_1,
+        version = Version.Default,
         remoteAddress = None,
       ),
     )

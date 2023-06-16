@@ -38,8 +38,8 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * method allows us to configure individual constituents of a ClientRequest.
      */
     def run(
-      version: Version = Version.Http_1_1,
-      method: Method = Method.GET,
+      version: Version = Version.Default,
+      method: Method = Method.Default,
       path: Path = Root,
       headers: Headers = Headers.empty,
       body: Body = Body.empty,

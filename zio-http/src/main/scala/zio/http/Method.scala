@@ -26,8 +26,8 @@ sealed trait Method { self =>
    * the other will be returned. Otherwise, the right method will be returned.
    */
   def ++(that: Method): Method =
-    if (self == Method.DEFAULT) that
-    else if (that == Method.DEFAULT) self
+    if (self == Method.Default) that
+    else if (that == Method.Default) self
     else that
 
   /**
@@ -43,7 +43,7 @@ object Method {
 
   def fromString(method: String): Method =
     method.toUpperCase match {
-      case ""           => Method.DEFAULT
+      case ""           => Method.Default
       case POST.name    => Method.POST
       case GET.name     => Method.GET
       case OPTIONS.name => Method.OPTIONS
@@ -68,5 +68,5 @@ object Method {
   object TRACE   extends Method { val name = "TRACE"   }
   object CONNECT extends Method { val name = "CONNECT" }
 
-  object DEFAULT extends Method { val name = "GET" }
+  object Default extends Method { val name = "GET" }
 }
