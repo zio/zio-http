@@ -18,7 +18,7 @@ package zio.http
 
 import java.net.{MalformedURLException, URI, URISyntaxException}
 
-import scala.languageFeature.implicitConversions
+import scala.language.implicitConversions
 import scala.util.Try
 
 import zio.Chunk
