@@ -60,6 +60,7 @@ object RequestSpec extends ZIOSpecDefault {
       val body     = Body.fromString("foo")
       val expected = Request(
         method = Method.PATCH,
+        body = body,
       )
 
       val actual = Request.patch(URL.empty, body)
