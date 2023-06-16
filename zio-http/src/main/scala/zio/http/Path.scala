@@ -106,13 +106,17 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    * Drops the leading slash if available.
    */
   def dropLeadingSlash: Path =
-    if (!Flag.LeadingSlash.check(flags)) self else copy(Flag.LeadingSlash.remove(flags))
+    if (isRoot) Path.empty
+    else if (!Flag.LeadingSlash.check(flags)) self
+    else copy(Flag.LeadingSlash.remove(flags))
 
   /**
    * Drops the trailing slash if available.
    */
   def dropTrailingSlash: Path =
-    if (!Flag.TrailingSlash.check(flags)) self else copy(flags = Flag.TrailingSlash.remove(flags))
+    if (isRoot) Path.empty
+    else if (!Flag.TrailingSlash.check(flags)) self
+    else copy(flags = Flag.TrailingSlash.remove(flags))
 
   /**
    * Encodes the current path into a valid string.

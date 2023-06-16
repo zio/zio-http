@@ -227,6 +227,14 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
         assertTrue(Path(Path.Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk.empty).isRoot)
       },
     ),
+    suite("leading / trailing")(
+      test("root dropping leading slash becomes empty") {
+        assertTrue(Path.root.dropLeadingSlash == Path.empty)
+      },
+      test("root dropping trailing slash becomes empty") {
+        assertTrue(Path.root.dropTrailingSlash == Path.empty)
+      },
+    ),
     suite("size")(
       test("empty") {
         assertTrue(Path.empty.size == 0)

@@ -56,6 +56,8 @@ final case class Request(
     }
   }
 
+  def addLeadingSlash: Request = self.copy(url = url.addLeadingSlash)
+
   /**
    * Add trailing slash to the path.
    */
@@ -70,6 +72,8 @@ final case class Request(
       self.body.asChunk.map { bytes =>
         self.copy(body = Body.fromChunk(bytes))
       }
+
+  def dropLeadingSlash: Request = self.copy(url = url.dropLeadingSlash)
 
   /**
    * Drops trailing slash from the path.

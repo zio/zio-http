@@ -31,7 +31,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
   private val midA = HttpAppMiddleware.addHeader("X-Custom", "A")
   private val midB = HttpAppMiddleware.addHeader("X-Custom", "B")
 
-  def spec = suite("HttpMiddleware")(
+  def spec = suite("WebSpec")(
     suite("headers suite")(
       test("addHeaders") {
         val middleware = addHeaders(Headers("KeyA", "ValueA") ++ Headers("KeyB", "ValueB"))
@@ -242,9 +242,9 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         )
         checkAll(urls) { case (url, expected) =>
           val app = Http
-            .collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash(onlyIfNoQueryParams =
-            true,
-          )
+            .collect[Request] { case req =>
+              Response.text(req.url.encode)
+            } @@ dropTrailingSlash(onlyIfNoQueryParams = true)
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
