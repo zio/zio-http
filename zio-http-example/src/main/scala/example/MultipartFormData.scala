@@ -46,7 +46,7 @@ object MultipartFormData extends ZIOAppDefault {
       response     <- client
         .host("localhost")
         .port(port)
-        .path("/upload")
+        .addPath("/upload")
         .doPost(
           Body.fromMultipartForm(
             Form(

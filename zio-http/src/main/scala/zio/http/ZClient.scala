@@ -71,6 +71,12 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def addMethod(method: Method): ZClient[Env, In, Err, Out] =
     copy(method = self.method ++ method)
 
+  def addQueryParam(key: String, value: String): ZClient[Env, In, Err, Out] =
+    copy(url = url.copy(queryParams = url.queryParams.add(key, value)))
+
+  def addQueryParams(params: QueryParams): ZClient[Env, In, Err, Out] =
+    copy(url = url.copy(queryParams = url.queryParams ++ params))
+
   def addTrailingSlash: ZClient[Env, In, Err, Out] =
     copy(url = url.addTrailingSlash)
 
@@ -96,6 +102,12 @@ final case class ZClient[-Env, -In, +Err, +Out](
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err, Out] =
     refineOrDie { case e if !f(e) => e }
 
+  def disableStreaming(implicit
+    ev1: Out <:< Response,
+    ev2: Err <:< Throwable,
+  ): ZClient[Env, In, Throwable, Response] =
+    mapError(ev2).mapZIO(out => ev1(out).collect)
+
   def doDelete(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.DELETE, ev(Body.empty))
 
   def doDelete(in: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] = request(Method.DELETE, in)
@@ -114,9 +126,9 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
   def doTrace(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.TRACE, ev(Body.empty))
 
-  def get: ZClient[Env, In, Err, Out] = copy(method = Method.GET)
+  def get: ZClient[Env, In, Err, Out] = method(Method.GET)
 
-  def head: ZClient[Env, In, Err, Out] = copy(method = Method.HEAD)
+  def head: ZClient[Env, In, Err, Out] = method(Method.HEAD)
 
   def host(host: String): ZClient[Env, In, Err, Out] =
     copy(url = url.withHost(host))
@@ -146,20 +158,19 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
   def method(method: Method): ZClient[Env, In, Err, Out] = copy(method = method)
 
-  def path2(segment: String): ZClient[Env, In, Err, Out] =
-    copy(url = url.copy(path = url.path / segment))
+  def path(path: String): ZClient[Env, In, Err, Out] = self.path(Path(path))
 
-  def patch: ZClient[Env, In, Err, Out] = copy(method = Method.PATCH)
+  def path(path: Path): ZClient[Env, In, Err, Out] =
+    copy(url = url.copy(path = path))
+
+  def patch: ZClient[Env, In, Err, Out] = method(Method.PATCH)
 
   def port(port: Int): ZClient[Env, In, Err, Out] =
     copy(url = url.withPort(port))
 
-  def post: ZClient[Env, In, Err, Out] = copy(method = Method.POST)
+  def post: ZClient[Env, In, Err, Out] = method(Method.POST)
 
-  def put: ZClient[Env, In, Err, Out] = copy(method = Method.PUT)
-
-  def query(key: String, value: String): ZClient[Env, In, Err, Out] =
-    copy(url = url.copy(queryParams = url.queryParams.add(key, value)))
+  def put: ZClient[Env, In, Err, Out] = method(Method.PUT)
 
   def refineOrDie[Err2](
     pf: PartialFunction[Err, Err2],
@@ -235,34 +246,9 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def uri(uri: URI): ZClient[Env, In, Err, Out] = url(URL.fromURI(uri).getOrElse(URL.empty))
 
   def url(url: URL): ZClient[Env, In, Err, Out] = copy(url = url)
-
-  def withDisabledStreaming(implicit
-    ev1: Out <:< Response,
-    ev2: Err <:< Throwable,
-  ): ZClient[Env, In, Throwable, Response] =
-    mapError(ev2).mapZIO(out => ev1(out).collect)
 }
 
 object ZClient {
-
-  def client[R, E, A](f: Client => ZIO[R, E, A]): ZIO[R with Client, E, A] =
-    ZIO.serviceWithZIO[Client](c => f(c))
-
-  def fromDriver[Env, Err](driver: Driver[Env, Err]): ZClient[Env, Body, Err, Response] =
-    ZClient(
-      Version.Http_1_1,
-      Method.GET,
-      URL.empty,
-      Headers.empty,
-      None,
-      new BodyEncoder[Env, Err, Body]     {
-        def encode(body: Body): ZIO[Env, Err, Body] = Exit.succeed(body)
-      },
-      new BodyDecoder[Env, Err, Response] {
-        def decode(response: Response): ZIO[Env, Err, Response] = Exit.succeed(response)
-      },
-      driver,
-    )
 
   def configured(
     path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "client"),
@@ -295,6 +281,22 @@ object ZClient {
     (ZLayer.succeed(Config.default) ++ ZLayer.succeed(NettyConfig.default) ++
       DnsResolver.default) >>> live
   }
+
+  def fromDriver[Env, Err](driver: Driver[Env, Err]): ZClient[Env, Body, Err, Response] =
+    ZClient(
+      Version.Http_1_1,
+      Method.GET,
+      URL.empty,
+      Headers.empty,
+      None,
+      new BodyEncoder[Env, Err, Body]     {
+        def encode(body: Body): ZIO[Env, Err, Body] = Exit.succeed(body)
+      },
+      new BodyDecoder[Env, Err, Response] {
+        def decode(response: Response): ZIO[Env, Err, Response] = Exit.succeed(response)
+      },
+      driver,
+    )
 
   lazy val live: ZLayer[ZClient.Config with NettyConfig with DnsResolver, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty

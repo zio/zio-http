@@ -26,10 +26,6 @@ private[zio] trait PathSyntax { module =>
   }
 
   object / {
-    def unapply(path: Path): Option[(Path, String)] = {
-      if (path.trailingSlash) Some((path.dropTrailingSlash, ""))
-      else if (path.segments.nonEmpty) Some((path.copy(segments = path.segments.dropRight(1)), path.segments.last))
-      else None
-    }
+    def unapply(path: Path): Option[(Path, String)] = path.unapplyRight
   }
 }

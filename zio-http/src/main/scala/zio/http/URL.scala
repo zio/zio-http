@@ -57,6 +57,10 @@ final case class URL(
 
   def addLeadingSlash: URL = self.copy(path = path.addLeadingSlash)
 
+  def addPath(path: Path): URL = self.copy(path = self.path ++ path)
+
+  def addPath(path: String): URL = self.copy(path = self.path ++ Path.decode(path))
+
   def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
 
   def addQueryParams(queryParams: QueryParams): URL =

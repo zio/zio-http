@@ -52,7 +52,7 @@ object ZClientAspectSpec extends ZIOSpecDefault {
             .url(
               URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", port)),
             )
-            .withDisabledStreaming @@ ZClientAspect.requestLogging(
+            .disableStreaming @@ ZClientAspect.requestLogging(
             loggedRequestHeaders = Set(Header.UserAgent),
             logResponseBody = true,
           )
