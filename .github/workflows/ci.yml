@@ -24,50 +24,42 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.18, 2.13.10, 3.2.2]
+        scala: [2.12.18, 2.13.10, 3.3.0]
         java: [graal_21.1.0@11, temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Setup GraalVM (graal_21.1.0@11)
         if: matrix.java == 'graal_21.1.0@11'
-        uses: DeLaGuardo/setup-graalvm@5.0
+        uses: graalvm/setup-graalvm@v1
         with:
-          graalvm: 21.1.0
-          java: java11
+          version: 21.1.0
+          java-version: 11
+          components: native-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: sbt
 
       - name: Setup Java (temurin@8)
         if: matrix.java == 'temurin@8'
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 8
-
-      - name: Cache sbt
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.sbt
-            ~/.ivy2/cache
-            ~/.coursier/cache/v1
-            ~/.cache/coursier/v1
-            ~/AppData/Local/Coursier/Cache/v1
-            ~/Library/Caches/Coursier/v1
-          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+          cache: sbt
 
       - name: Check formatting
         if: matrix.scala == '2.13.10'
         run: sbt ++2.13.10 fmtCheck
 
       - name: Check that workflows are up to date
-        run: sbt ++${{ matrix.scala }} githubWorkflowCheck
+        run: sbt '++ ${{ matrix.scala }}' githubWorkflowCheck
 
       - name: Build project
-        run: sbt ++${{ matrix.scala }} test
+        run: sbt '++ ${{ matrix.scala }}' test
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
@@ -77,13 +69,13 @@ jobs:
         if: matrix.scala == '2.13.10'
         env:
           PUBLISH_SHADED: true
-        run: sbt ++${{ matrix.scala }} zioHttpShadedTests/test
+        run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
 
       - name: Compress target directories
         run: tar cf targets.tar zio-http-cli/target target zio-http/target zio-http-docs/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target project/target
 
       - name: Upload target directories
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: target-${{ matrix.os }}-${{ matrix.scala }}-${{ matrix.java }}
           path: targets.tar
@@ -100,38 +92,30 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Setup GraalVM (graal_21.1.0@11)
         if: matrix.java == 'graal_21.1.0@11'
-        uses: DeLaGuardo/setup-graalvm@5.0
+        uses: graalvm/setup-graalvm@v1
         with:
-          graalvm: 21.1.0
-          java: java11
+          version: 21.1.0
+          java-version: 11
+          components: native-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: sbt
 
       - name: Setup Java (temurin@8)
         if: matrix.java == 'temurin@8'
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 8
-
-      - name: Cache sbt
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.sbt
-            ~/.ivy2/cache
-            ~/.coursier/cache/v1
-            ~/.cache/coursier/v1
-            ~/AppData/Local/Coursier/Cache/v1
-            ~/Library/Caches/Coursier/v1
-          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+          cache: sbt
 
       - name: Download target directories (2.12.18)
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: target-${{ matrix.os }}-2.12.18-${{ matrix.java }}
 
@@ -141,7 +125,7 @@ jobs:
           rm targets.tar
 
       - name: Download target directories (2.13.10)
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: target-${{ matrix.os }}-2.13.10-${{ matrix.java }}
 
@@ -150,12 +134,12 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (3.2.2)
-        uses: actions/download-artifact@v2
+      - name: Download target directories (3.3.0)
+        uses: actions/download-artifact@v3
         with:
-          name: target-${{ matrix.os }}-3.2.2-${{ matrix.java }}
+          name: target-${{ matrix.os }}-3.3.0-${{ matrix.java }}
 
-      - name: Inflate target directories (3.2.2)
+      - name: Inflate target directories (3.3.0)
         run: |
           tar xf targets.tar
           rm targets.tar
@@ -167,7 +151,7 @@ jobs:
           CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
-        run: sbt ++${{ matrix.scala }} ci-release
+        run: sbt ci-release
 
       - name: Release Shaded
         env:
@@ -177,7 +161,7 @@ jobs:
           CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
-        run: sbt ++${{ matrix.scala }} ci-release
+        run: sbt ci-release
 
   update_release_draft:
     name: Release Drafter
@@ -185,8 +169,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.6]
-        java: [temurin@11]
+        scala: [2.13.10]
+        java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: release-drafter/release-drafter@v5
@@ -197,11 +181,11 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.10]
-        java: [temurin@11]
+        java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -217,7 +201,7 @@ jobs:
 
       - name: Run Coverage
         id: run_coverage
-        run: sbt ++${{ matrix.scala }} 'coverage; project zioHttp; test; coverageReport'
+        run: sbt 'coverage; project zioHttp; test; coverageReport'
 
       - name: Push Codecov
         id: push_codecov
@@ -230,7 +214,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.10]
-        java: [temurin@11]
+        java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Format Output
