@@ -25,7 +25,7 @@ import zio._
 import zio.stream.ZStream
 
 import zio.http.Header.HeaderType
-import zio.http.Http.{Empty, FailedErrorHandler, Route}
+import zio.http.Http.{FailedErrorHandler, Route}
 
 sealed trait Http[-R, +Err, -In, +Out] { self =>
 
