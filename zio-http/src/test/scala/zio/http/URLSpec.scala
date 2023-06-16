@@ -33,12 +33,38 @@ object URLSpec extends ZIOSpecDefault {
           assertTrue(url == URL.empty ++ url)
         }
       },
+      suite("equality/hash")(
+        test("leading slash invariant") {
+          check(HttpGen.url) { url =>
+            val url1 = url.copy(path = url.path.dropLeadingSlash)
+            val url2 = url.copy(path = url.path.addLeadingSlash)
+
+            assertTrue(url1 == url2) &&
+            assertTrue(url1.hashCode == url2.hashCode)
+          }
+        },
+      ),
+      suite("normalize")(
+        test("adds leading slash") {
+          val url = URL(Path("a/b/c"), URL.Location.Absolute(Scheme.HTTP, "abc.com", 80), QueryParams.empty, None)
+
+          val url2 = url.normalize
+
+          assertTrue(url2.path == Path("/a/b/c"))
+        },
+        test("deletes leading slash if there are no path segments") {
+          val url  = URL(Path.root, URL.Location.Absolute(Scheme.HTTP, "abc.com", 80), QueryParams.empty, None)
+          val url2 = url.normalize
+
+          assertTrue(url2.path == Path.empty)
+        },
+      ),
       suite("encode-decode symmetry")(
         test("auto-gen") {
           check(HttpGen.url) { url =>
-            val expected        = url
+            val expected        = url.copy(path = url.path.addLeadingSlash)
             val expectedEncoded = expected.encode
-            val actual          = URL.decode(url.encode)
+            val actual          = URL.decode(expected.encode)
             val actualEncoded   = actual.map(_.encode)
 
             assertTrue(asURL(actualEncoded.toOption.get) == asURL(expectedEncoded)) &&

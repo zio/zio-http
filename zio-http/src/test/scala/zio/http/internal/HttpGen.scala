@@ -239,7 +239,10 @@ object HttpGen {
   )
 
   def url: Gen[Any, URL] = for {
-    path        <- Gen.elements(Path.root, Path.root / "a", Path.root / "a" / "b", Path.root / "a" / "b" / "c")
+    start <- Gen.elements(Path.empty, Path.root)
+    mid   <- Gen.elements("a", "a/b", "a/b/c")
+    last  <- Gen.elements(Path.empty, Path.root)
+    path = start ++ Path(mid) ++ last
     kind        <- HttpGen.location
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))

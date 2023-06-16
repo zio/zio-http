@@ -129,6 +129,8 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
         val normalRight = that.normalize
 
         Flags.equivalent(normalLeft.flags, normalRight.flags) && normalLeft.segments == normalRight.segments
+
+      case _ => false
     }
 
   override def hashCode: Int = {

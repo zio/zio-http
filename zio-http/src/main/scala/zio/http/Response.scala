@@ -178,6 +178,8 @@ object Response {
 
     }
 
+    override def toString(): String = s"Response(status = $status, headers = $headers, body = $body)"
+
     override def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
     override def withServerTime: Response = new BasicResponse(body, headers, status) with InternalState {
@@ -209,6 +211,9 @@ object Response {
 
     }
 
+    override final def toString(): String =
+      s"SocketAppResponse(status = $status, headers = $headers, body = $body, socketApp = $socketApp0)"
+
     override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
     override final def withServerTime: Response = new SocketAppResponse(body, headers, socketApp0, status)
@@ -233,6 +238,9 @@ object Response {
       override val parent: Response = self
       override def frozen: Boolean  = true
     }
+
+    override def toString(): String =
+      s"ErrorResponse(status = $status, headers = $headers, body = $body, error = $httpError0)"
 
     override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
@@ -263,6 +271,9 @@ object Response {
       override val parent: Response = self
       override def frozen: Boolean  = true
     }
+
+    override final def toString(): String =
+      s"NativeResponse(status = $status, headers = $headers, body = $body)"
 
     override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 

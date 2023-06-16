@@ -72,6 +72,30 @@ final case class URL(
 
   def encode: String = URL.encode(self)
 
+  override def equals(that: Any): Boolean = that match {
+    case that: URL =>
+      val left  = self.normalize
+      val right = that.normalize
+
+      left.kind == right.kind &&
+      left.path == right.path &&
+      left.queryParams == right.queryParams &&
+      left.fragment == right.fragment
+
+    case _ => false
+  }
+
+  override def hashCode(): Int = {
+    val normalized = self.normalize
+
+    var hash = 17
+    hash = hash * 31 + normalized.kind.hashCode
+    hash = hash * 31 + normalized.path.hashCode
+    hash = hash * 31 + normalized.queryParams.hashCode
+    hash = hash * 31 + normalized.fragment.hashCode
+    hash
+  }
+
   def host: Option[String] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.host)
@@ -94,7 +118,13 @@ final case class URL(
 
   def isRelative: Boolean = !isAbsolute
 
-  def normalize: URL = self.copy(queryParams = queryParams.normalize)
+  def normalize: URL = {
+    def normalizePath(path: Path): Path =
+      if (path.isEmpty || path.isRoot) Path.empty
+      else path.addLeadingSlash
+
+    self.copy(path = normalizePath(path), queryParams = queryParams.normalize)
+  }
 
   def port: Option[Int] = kind match {
     case URL.Location.Relative      => None
@@ -225,19 +255,21 @@ object URL {
   }
 
   private def encode(url: URL): String = {
-    def path: String =
+    def path(relative: Boolean) =
       QueryParamEncoding.default.encode(
-        if (url.path.isEmpty) "" else url.path.addLeadingSlash.encode,
+        if (relative || url.path.isEmpty) url.path.encode else url.path.addLeadingSlash.encode,
         url.queryParams.normalize,
         Charsets.Http,
       ) + url.fragment.fold("")(f => "#" + f.raw)
 
     url.kind match {
       case Location.Relative                     =>
-        path
+        path(true)
       case Location.Absolute(scheme, host, port) =>
-        if (port == portFromScheme(scheme)) s"${scheme.encode}://$host$path"
-        else s"${scheme.encode}://$host:$port$path"
+        val path2 = path(false)
+
+        if (port == portFromScheme(scheme)) s"${scheme.encode}://$host$path2"
+        else s"${scheme.encode}://$host:$port$path2"
     }
   }
 
@@ -248,7 +280,9 @@ object URL {
       path   <- Option(uri.getRawPath)
       port       = Option(uri.getPort).filter(_ != -1).getOrElse(portFromScheme(scheme))
       connection = URL.Location.Absolute(scheme, host, port)
-    } yield URL(Path.decode(path), connection, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
+      path2      = Path.decode(path)
+      path3      = if (path.nonEmpty) path2.addLeadingSlash else path2
+    } yield URL(path3, connection, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
   }
 
   private def fromRelativeURI(uri: URI): Option[URL] = for {
