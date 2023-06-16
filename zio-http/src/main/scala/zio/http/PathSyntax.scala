@@ -28,4 +28,8 @@ private[zio] trait PathSyntax { module =>
   object / {
     def unapply(path: Path): Option[(Path, String)] = path.unapplyRight
   }
+
+  val TrailingSlash: Path.Flag.TrailingSlash.type with Path.Flag = Path.Flag.TrailingSlash
+
+  val LeadingSlash: Path.Flag.LeadingSlash.type with Path.Flag = Path.Flag.LeadingSlash
 }

@@ -28,7 +28,6 @@ import zio.{Chunk, ChunkBuilder}
  */
 final case class Path private (flags: Path.Flags, segments: Chunk[String]) { self =>
   import Path.{Flag, Flags}
-  import Flag.{LeadingSlash, TrailingSlash}
 
   /**
    * Appends a segment at the end of the path.
@@ -306,26 +305,36 @@ object Path {
   }
 
   sealed trait Flag {
-    val shift: Int
-    val mask: Int
-    val invertMask: Int
+    private[http] val shift: Int
+    private[http] val mask: Int
+    private[http] val invertMask: Int
 
-    def check(flags: Int): Boolean = (flags & mask) != 0
+    private[http] def check(flags: Int): Boolean = (flags & mask) != 0
 
-    def add(flags: Flags): Flags = flags | mask
+    private[http] def add(flags: Flags): Flags = flags | mask
 
-    def remove(flags: Flags): Flags = flags & invertMask
+    private[http] def remove(flags: Flags): Flags = flags & invertMask
   }
   object Flag       {
     case object LeadingSlash  extends Flag {
-      final val shift      = 0
-      final val mask       = 1 << shift
-      final val invertMask = ~mask
+      private[http] final val shift      = 0
+      private[http] final val mask       = 1 << shift
+      private[http] final val invertMask = ~mask
+
+      def apply(path: Path): Path = path.addLeadingSlash
+
+      def unapply(path: Path): Option[Path] =
+        if (path.leadingSlash) Some(path.dropLeadingSlash) else None
     }
     case object TrailingSlash extends Flag {
-      final val shift      = 1
-      final val mask       = 1 << shift
-      final val invertMask = ~mask
+      private[http] final val shift      = 1
+      private[http] final val mask       = 1 << shift
+      private[http] final val invertMask = ~mask
+
+      def apply(path: Path): Path = path.addTrailingSlash
+
+      def unapply(path: Path): Option[Path] =
+        if (path.trailingSlash) Some(path.dropTrailingSlash) else None
     }
   }
 }

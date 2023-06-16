@@ -24,7 +24,7 @@ import zio.test._
 import zio.http.internal.HttpGen
 
 object PathSpec extends ZIOSpecDefault with ExitAssertion {
-  import Path.Flag._
+  import Path.Flag
 
   val a = "a"
   val b = "b"
@@ -94,6 +94,17 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
       },
     ),
     suite("collect")(
+      test("LeadingSlash") {
+        val gen = Gen.fromIterable(
+          Seq(
+            collect { case LeadingSlash(Empty / "a") => true } -> "/a",
+          ),
+        )
+
+        checkAll(gen) { case (pf, path) =>
+          assertTrue(pf(path).isDefined)
+        }
+      },
       test("/") {
         val gen = Gen.fromIterable(
           Seq(
@@ -166,26 +177,28 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
     ),
     suite("decode")(
       test("segments") {
-        import Path.Flag._
         import Path.Flags
 
         // Internal representation of a path
         val paths = Gen.fromIterable(
           Seq(
-            "/"       -> Root                   -> Path(Flags(LeadingSlash), Chunk.empty),
-            "/a"      -> Root / a               -> Path(Flags(LeadingSlash), Chunk("a")),
-            "/a/b"    -> Root / a / b           -> Path(Flags(LeadingSlash), Chunk("a", "b")),
-            "/a/b/c"  -> Root / a / b / c       -> Path(Flags(LeadingSlash), Chunk("a", "b", "c")),
+            "/"       -> Root                   -> Path(Flags(Flag.LeadingSlash), Chunk.empty),
+            "/a"      -> Root / a               -> Path(Flags(Flag.LeadingSlash), Chunk("a")),
+            "/a/b"    -> Root / a / b           -> Path(Flags(Flag.LeadingSlash), Chunk("a", "b")),
+            "/a/b/c"  -> Root / a / b / c       -> Path(Flags(Flag.LeadingSlash), Chunk("a", "b", "c")),
             "a/b/c"   -> Empty / a / b / c      -> Path(Flags.none, Chunk("a", "b", "c")),
             "a/b"     -> Empty / a / b          -> Path(Flags.none, Chunk("a", "b")),
             "a"       -> Empty / a              -> Path(Flags.none, Chunk("a")),
             ""        -> Empty                  -> Path(Flags.none, Chunk.empty),
-            "a/"      -> Empty / a / ""         -> Path(Flags(TrailingSlash), Chunk("a")),
-            "a/b/"    -> Empty / a / b / ""     -> Path(Flags(TrailingSlash), Chunk("a", "b")),
-            "a/b/c/"  -> Empty / a / b / c / "" -> Path(Flags(TrailingSlash), Chunk("a", "b", "c")),
-            "/a/b/c/" -> Root / a / b / c / ""  -> Path(Flags(LeadingSlash, TrailingSlash), Chunk("a", "b", "c")),
-            "/a/b/"   -> Root / a / b / ""      -> Path(Flags(LeadingSlash, TrailingSlash), Chunk("a", "b")),
-            "/a/"     -> Root / a / ""          -> Path(Flags(LeadingSlash, TrailingSlash), Chunk("a")),
+            "a/"      -> Empty / a / ""         -> Path(Flags(Flag.TrailingSlash), Chunk("a")),
+            "a/b/"    -> Empty / a / b / ""     -> Path(Flags(Flag.TrailingSlash), Chunk("a", "b")),
+            "a/b/c/"  -> Empty / a / b / c / "" -> Path(Flags(Flag.TrailingSlash), Chunk("a", "b", "c")),
+            "/a/b/c/" -> Root / a / b / c / ""  -> Path(
+              Flags(Flag.LeadingSlash, Flag.TrailingSlash),
+              Chunk("a", "b", "c"),
+            ),
+            "/a/b/"   -> Root / a / b / ""      -> Path(Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk("a", "b")),
+            "/a/"     -> Root / a / ""          -> Path(Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk("a")),
           ),
         )
         checkAll(paths) { case ((encoded, path1), path2) =>
@@ -209,9 +222,9 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
     ),
     suite("isRoot")(
       test("isTrue") {
-        assertTrue(Path(Path.Flags(LeadingSlash), Chunk.empty).isRoot) &&
-        assertTrue(Path(Path.Flags(TrailingSlash), Chunk.empty).isRoot) &&
-        assertTrue(Path(Path.Flags(LeadingSlash, TrailingSlash), Chunk.empty).isRoot)
+        assertTrue(Path(Path.Flags(Flag.LeadingSlash), Chunk.empty).isRoot) &&
+        assertTrue(Path(Path.Flags(Flag.TrailingSlash), Chunk.empty).isRoot) &&
+        assertTrue(Path(Path.Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk.empty).isRoot)
       },
     ),
     suite("size")(
@@ -219,9 +232,9 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
         assertTrue(Path.empty.size == 0)
       },
       test("all roots") {
-        val weirdRoot1 = Path(Path.Flags(TrailingSlash), Chunk.empty)
-        val weirdRoot2 = Path(Path.Flags(LeadingSlash, TrailingSlash), Chunk.empty)
-        val weirdRoot3 = Path(Path.Flags(TrailingSlash), Chunk.empty)
+        val weirdRoot1 = Path(Path.Flags(Flag.TrailingSlash), Chunk.empty)
+        val weirdRoot2 = Path(Path.Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk.empty)
+        val weirdRoot3 = Path(Path.Flags(Flag.TrailingSlash), Chunk.empty)
 
         assertTrue(Path.root.size == 1) &&
         assertTrue(weirdRoot1.size == 1) &&
@@ -262,9 +275,9 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
         checkAll(urls) { case (actual, expected) => assertTrue(actual == expected) }
       },
       test("various roots are equivalent") {
-        assertTrue(Path.root == Path(Path.Flags(LeadingSlash), Chunk.empty)) &&
-        assertTrue(Path.root == Path(Path.Flags(TrailingSlash), Chunk.empty)) &&
-        assertTrue(Path.root == Path(Path.Flags(LeadingSlash, TrailingSlash), Chunk.empty))
+        assertTrue(Path.root == Path(Path.Flags(Flag.LeadingSlash), Chunk.empty)) &&
+        assertTrue(Path.root == Path(Path.Flags(Flag.TrailingSlash), Chunk.empty)) &&
+        assertTrue(Path.root == Path(Path.Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk.empty))
       },
       test("prepending turns a root into a path with a trailing slash") {
         assertTrue("a" /: Root == Path("a/"))
@@ -380,9 +393,9 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
     suite("++")(
       test("can add trailing slash") {
         check(HttpGen.nonEmptyPath) { path =>
-          val weirdRoot1 = Path(Path.Flags(TrailingSlash), Chunk.empty)
-          val weirdRoot2 = Path(Path.Flags(LeadingSlash, TrailingSlash), Chunk.empty)
-          val weirdRoot3 = Path(Path.Flags(TrailingSlash), Chunk.empty)
+          val weirdRoot1 = Path(Path.Flags(Flag.TrailingSlash), Chunk.empty)
+          val weirdRoot2 = Path(Path.Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk.empty)
+          val weirdRoot3 = Path(Path.Flags(Flag.TrailingSlash), Chunk.empty)
 
           assertTrue((path ++ Root).trailingSlash) &&
           assertTrue((path ++ weirdRoot1).trailingSlash) &&
@@ -392,9 +405,9 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
       },
       test("can add leading slash") {
         check(HttpGen.nonEmptyPath) { path =>
-          val weirdRoot1 = Path(Path.Flags(LeadingSlash), Chunk.empty)
-          val weirdRoot2 = Path(Path.Flags(LeadingSlash, TrailingSlash), Chunk.empty)
-          val weirdRoot3 = Path(Path.Flags(TrailingSlash), Chunk.empty)
+          val weirdRoot1 = Path(Path.Flags(Flag.LeadingSlash), Chunk.empty)
+          val weirdRoot2 = Path(Path.Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk.empty)
+          val weirdRoot3 = Path(Path.Flags(Flag.TrailingSlash), Chunk.empty)
 
           assertTrue((Root ++ path).leadingSlash) &&
           assertTrue((weirdRoot1 ++ path).leadingSlash) &&

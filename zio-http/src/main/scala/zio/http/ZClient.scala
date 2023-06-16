@@ -88,9 +88,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
   def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): ZClient[Env1, In2, Err1, Out] =
     transform(
-      new ZClient.BodyEncoder[Env1, Err1, In2] {
-        def encode(in: In2): ZIO[Env1, Err1, Body] = f(in).flatMap(self.bodyEncoder.encode)
-      },
+      self.bodyEncoder.contramapZIO(f),
       self.bodyDecoder,
       self.driver,
     )
@@ -102,11 +100,8 @@ final case class ZClient[-Env, -In, +Err, +Out](
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err, Out] =
     refineOrDie { case e if !f(e) => e }
 
-  def disableStreaming(implicit
-    ev1: Out <:< Response,
-    ev2: Err <:< Throwable,
-  ): ZClient[Env, In, Throwable, Response] =
-    mapError(ev2).mapZIO(out => ev1(out).collect)
+  def disableStreaming(implicit ev: Err <:< Throwable): ZClient[Env, In, Throwable, Out] =
+    transform(bodyEncoder.widenError[Throwable], bodyDecoder.widenError[Throwable], driver.disableStreaming)
 
   def doDelete(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.DELETE, ev(Body.empty))
 
@@ -149,10 +144,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): ZClient[Env1, In, Err1, Out2] =
     transform(
       bodyEncoder,
-      new ZClient.BodyDecoder[Env1, Err1, Out2] {
-        def decode(response: Response): ZIO[Env1, Err1, Out2] =
-          self.bodyDecoder.decode(response).flatMap(f)
-      },
+      bodyDecoder.mapZIO(f),
       driver,
     )
 
@@ -178,16 +170,20 @@ final case class ZClient[-Env, -In, +Err, +Out](
     transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
   def request(request: Request)(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] =
-    driver
-      .request(
-        self.version ++ request.version,
-        method ++ request.method,
-        self.url ++ request.url,
-        self.headers ++ request.headers,
-        request.body,
-        sslConfig,
+    bodyEncoder
+      .encode(ev(request.body))
+      .flatMap(body =>
+        driver
+          .request(
+            self.version ++ request.version,
+            method ++ request.method,
+            self.url ++ request.url,
+            self.headers ++ request.headers,
+            body,
+            sslConfig,
+          )
+          .flatMap(bodyDecoder.decode),
       )
-      .flatMap(bodyDecoder.decode)
 
   def request(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
     request(method, body)
@@ -267,7 +263,7 @@ object ZClient {
         driver         <- ZIO.service[ClientDriver]
         dnsResolver    <- ZIO.service[DnsResolver]
         connectionPool <- driver.createConnectionPool(dnsResolver, config.connectionPool)
-        baseClient = fromDriver(new ClientLive(driver)(connectionPool)(config))
+        baseClient = fromDriver(new DriverLive(driver)(connectionPool)(config))
       } yield
         if (config.addUserAgentHeader)
           baseClient.addHeader(defaultUAHeader)
@@ -317,14 +313,27 @@ object ZClient {
         def decode(response: Response): ZIO[Env, Err2, Out] = self.decode(response).mapError(f)
       }
 
+    def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): BodyDecoder[Env1, Err1, Out2] =
+      new BodyDecoder[Env1, Err1, Out2] {
+        def decode(response: Response): ZIO[Env1, Err1, Out2] = self.decode(response).flatMap(f)
+      }
+
     def refineOrDie[Err2](
       pf: PartialFunction[Err, Err2],
     )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): BodyDecoder[Env, Err2, Out] =
       new BodyDecoder[Env, Err2, Out] {
         def decode(response: Response): ZIO[Env, Err2, Out] = self.decode(response).refineOrDie(pf)
       }
+
+    def widenError[E1](implicit ev: Err <:< E1): BodyDecoder[Env, E1, Out] =
+      self.asInstanceOf[BodyDecoder[Env, E1, Out]]
   }
   trait BodyEncoder[-Env, +Err, -In]  { self =>
+    def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): BodyEncoder[Env1, Err1, In2] =
+      new BodyEncoder[Env1, Err1, In2] {
+        def encode(in: In2): ZIO[Env1, Err1, Body] = f(in).flatMap(self.encode)
+      }
+
     def encode(in: In): ZIO[Env, Err, Body]
 
     def mapError[Err2](f: Err => Err2): BodyEncoder[Env, Err2, In] =
@@ -338,11 +347,52 @@ object ZClient {
       new BodyEncoder[Env, Err2, In] {
         def encode(in: In): ZIO[Env, Err2, Body] = self.encode(in).refineOrDie(pf)
       }
+
+    def widenError[E1](implicit ev: Err <:< E1): BodyEncoder[Env, E1, In] = self.asInstanceOf[BodyEncoder[Env, E1, In]]
   }
 
   trait Driver[-Env, +Err] { self =>
     final def apply(request: Request)(implicit trace: Trace): ZIO[Env & Scope, Err, Response] =
       self.request(request.version, request.method, request.url, request.headers, request.body, None)
+
+    final def disableStreaming(implicit ev: Err <:< Throwable): Driver[Env, Throwable] = {
+      val self0 = self.widenError[Throwable]
+
+      new Driver[Env, Throwable] {
+        override def request(
+          version: Version,
+          method: Method,
+          url: URL,
+          headers: Headers,
+          body: Body,
+          sslConfig: Option[ClientSSLConfig],
+        )(implicit trace: Trace): ZIO[Env & Scope, Throwable, Response] =
+          self0.request(version, method, url, headers, body, sslConfig).flatMap { response =>
+            response.body.asChunk.map { chunk =>
+              response.copy(body = Body.fromChunk(chunk))
+            }
+          }
+
+        override def socket[Env1 <: Env](
+          version: Version,
+          url: URL,
+          headers: Headers,
+          app: SocketApp[Env1],
+        )(implicit trace: Trace): ZIO[Env1 & Scope, Throwable, Response] =
+          self0
+            .socket(
+              version,
+              url,
+              headers,
+              app,
+            )
+            .flatMap { response =>
+              response.body.asChunk.map { chunk =>
+                response.copy(body = Body.fromChunk(chunk))
+              }
+            }
+      }
+    }
 
     final def mapError[Err2](f: Err => Err2): Driver[Env, Err2] =
       new Driver[Env, Err2] {
@@ -448,6 +498,8 @@ object ZClient {
       headers: Headers,
       app: SocketApp[Env1],
     )(implicit trace: Trace): ZIO[Env1 & Scope, Err, Response]
+
+    def widenError[E1](implicit ev: Err <:< E1): Driver[Env, E1] = self.asInstanceOf[Driver[Env, E1]]
   }
 
   final case class Config(
@@ -551,8 +603,11 @@ object ZClient {
     )
   }
 
-  final class ClientLive private (config: Config, driver: ClientDriver, connectionPool: ConnectionPool[Any])
-      extends ZClient.Driver[Any, Throwable] { self =>
+  private[http] final class DriverLive private (
+    config: Config,
+    driver: ClientDriver,
+    connectionPool: ConnectionPool[Any],
+  ) extends ZClient.Driver[Any, Throwable] { self =>
 
     def this(driver: ClientDriver)(connectionPool: ConnectionPool[driver.Connection])(settings: Config) =
       this(settings, driver, connectionPool.asInstanceOf[ConnectionPool[Any]])

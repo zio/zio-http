@@ -140,6 +140,8 @@ object NettyBody extends BodyEncoding {
 
     override def isEmpty: Boolean = false
 
+    override def toString(): String = s"AsyncBody($unsafeAsync)"
+
     override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
