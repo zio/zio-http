@@ -24,66 +24,58 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.17, 2.13.10, 3.2.2]
+        scala: [2.12.18, 2.13.10, 3.3.0]
         java: [graal_21.1.0@11, temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Setup GraalVM (graal_21.1.0@11)
         if: matrix.java == 'graal_21.1.0@11'
-        uses: DeLaGuardo/setup-graalvm@5.0
+        uses: graalvm/setup-graalvm@v1
         with:
-          graalvm: 21.1.0
-          java: java11
+          version: 21.1.0
+          java-version: 11
+          components: native-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: sbt
 
       - name: Setup Java (temurin@8)
         if: matrix.java == 'temurin@8'
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 8
-
-      - name: Cache sbt
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.sbt
-            ~/.ivy2/cache
-            ~/.coursier/cache/v1
-            ~/.cache/coursier/v1
-            ~/AppData/Local/Coursier/Cache/v1
-            ~/Library/Caches/Coursier/v1
-          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+          cache: sbt
 
       - name: Check formatting
         if: matrix.scala == '2.13.10'
         run: sbt ++2.13.10 fmtCheck
 
       - name: Check that workflows are up to date
-        run: sbt ++${{ matrix.scala }} githubWorkflowCheck
+        run: sbt '++ ${{ matrix.scala }}' githubWorkflowCheck
 
       - name: Build project
-        run: sbt ++${{ matrix.scala }} test
+        run: sbt '++ ${{ matrix.scala }}' test
 
       - name: Check doc generation
         if: ${{ github.event_name == 'pull_request' }}
         run: sbt ++2.13.10 doc
 
       - name: zio-http-shaded Tests
-        if: matrix.scala == '2.13.8'
+        if: matrix.scala == '2.13.10'
         env:
           PUBLISH_SHADED: true
-        run: sbt ++${{ matrix.scala }} zioHttpShadedTests/test
+        run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
 
       - name: Compress target directories
         run: tar cf targets.tar zio-http-cli/target target zio-http/target zio-http-docs/target zio-http-benchmarks/target zio-http-example/target zio-http-testkit/target project/target
 
       - name: Upload target directories
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: target-${{ matrix.os }}-${{ matrix.scala }}-${{ matrix.java }}
           path: targets.tar
@@ -100,48 +92,40 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Setup GraalVM (graal_21.1.0@11)
         if: matrix.java == 'graal_21.1.0@11'
-        uses: DeLaGuardo/setup-graalvm@5.0
+        uses: graalvm/setup-graalvm@v1
         with:
-          graalvm: 21.1.0
-          java: java11
+          version: 21.1.0
+          java-version: 11
+          components: native-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: sbt
 
       - name: Setup Java (temurin@8)
         if: matrix.java == 'temurin@8'
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 8
+          cache: sbt
 
-      - name: Cache sbt
-        uses: actions/cache@v2
+      - name: Download target directories (2.12.18)
+        uses: actions/download-artifact@v3
         with:
-          path: |
-            ~/.sbt
-            ~/.ivy2/cache
-            ~/.coursier/cache/v1
-            ~/.cache/coursier/v1
-            ~/AppData/Local/Coursier/Cache/v1
-            ~/Library/Caches/Coursier/v1
-          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+          name: target-${{ matrix.os }}-2.12.18-${{ matrix.java }}
 
-      - name: Download target directories (2.12.17)
-        uses: actions/download-artifact@v2
-        with:
-          name: target-${{ matrix.os }}-2.12.17-${{ matrix.java }}
-
-      - name: Inflate target directories (2.12.17)
+      - name: Inflate target directories (2.12.18)
         run: |
           tar xf targets.tar
           rm targets.tar
 
       - name: Download target directories (2.13.10)
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: target-${{ matrix.os }}-2.13.10-${{ matrix.java }}
 
@@ -150,12 +134,12 @@ jobs:
           tar xf targets.tar
           rm targets.tar
 
-      - name: Download target directories (3.2.2)
-        uses: actions/download-artifact@v2
+      - name: Download target directories (3.3.0)
+        uses: actions/download-artifact@v3
         with:
-          name: target-${{ matrix.os }}-3.2.2-${{ matrix.java }}
+          name: target-${{ matrix.os }}-3.3.0-${{ matrix.java }}
 
-      - name: Inflate target directories (3.2.2)
+      - name: Inflate target directories (3.3.0)
         run: |
           tar xf targets.tar
           rm targets.tar
@@ -167,7 +151,7 @@ jobs:
           CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
-        run: sbt ++${{ matrix.scala }} ci-release
+        run: sbt ci-release
 
       - name: Release Shaded
         env:
@@ -177,7 +161,7 @@ jobs:
           CI_SONATYPE_RELEASE: ${{ secrets.CI_SONATYPE_RELEASE }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
-        run: sbt ++${{ matrix.scala }} ci-release
+        run: sbt ci-release
 
   update_release_draft:
     name: Release Drafter
@@ -185,8 +169,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.6]
-        java: [temurin@11]
+        scala: [2.13.10]
+        java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: release-drafter/release-drafter@v5
@@ -197,11 +181,11 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.10]
-        java: [temurin@11]
+        java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -217,149 +201,11 @@ jobs:
 
       - name: Run Coverage
         id: run_coverage
-        run: sbt ++${{ matrix.scala }} 'coverage; project zioHttp; test; coverageReport'
+        run: sbt 'coverage; project zioHttp; test; coverageReport'
 
       - name: Push Codecov
         id: push_codecov
         run: 'bash <(curl -s https://codecov.io/bash)'
-
-  runBenchmarks-simple:
-    name: Performance Benchmarks (PlainTextBenchmarkServer)
-    if: ${{ github.event_name == 'pull_request'}}
-    strategy:
-      matrix:
-        os: [centos]
-        scala: [2.13.10]
-        java: [temurin@11]
-    runs-on: [ "${{ matrix.os }}", zio-http ]
-    steps:
-      - name: Clean up
-        id: clean_up
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: sudo rm -rf *
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-
-      - uses: actions/checkout@v2
-        with:
-          repository: zio/FrameworkBenchmarks
-          path: FrameworkBenchMarks
-
-      - id: result
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          mkdir -p ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala
-          cp ./zio-http/zio-http-example/src/main/scala/example/PlainTextBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
-          cd ./FrameworkBenchMarks
-          sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt
-          ./tfb  --test zio-http | tee result
-          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+" | grep -oiE "[0-9]+" | head -1)
-          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+" | grep -oiE "[0-9]+")
-          echo "request_per_second=$RESULT_REQUEST" >> $GITHUB_OUTPUT
-          echo "concurrency=$RESULT_CONCURRENCY" >> $GITHUB_OUTPUT
-
-      - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
-        uses: peter-evans/commit-comment@v2
-        with:
-          sha: ${{github.event.pull_request.head.sha}}
-          body: |
-
-            **🚀 :** Performance Benchmarks (PlainTextBenchmarkServer)
-
-             concurrency: ${{steps.result.outputs.concurrency}}
-             requests/sec:  ${{steps.result.outputs.request_per_second}}
-
-      
-      - name: Performance Report
-        id: perf-report
-        env:
-          REQUESTS_PER_SECOND: ${{steps.result.outputs.request_per_second}}
-          CONCURRENCY: ${{steps.result.outputs.concurrency}}
-          PERFORMANCE_FLOOR: 800000
-        run: |
-          echo "** 🚀 Performance Benchmarks (PlainTextBenchmarkServer) Report 🚀 **" 
-
-          echo "$REQUESTS_PER_SECOND requests/sec for $CONCURRENCY concurrent requests"
-
-          if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
-            echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
-          else 
-            echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
-             exit 1
-          fi
-
-  runBenchmarks-effectful:
-    name: Performance Benchmarks (SimpleEffectBenchmarkServer)
-    if: ${{ github.event_name == 'pull_request'}}
-    strategy:
-      matrix:
-        os: [centos]
-        scala: [2.13.10]
-        java: [temurin@11]
-    runs-on: [ "${{ matrix.os }}", zio-http ]
-    steps:
-      - name: Clean up
-        id: clean_up
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: sudo rm -rf *
-
-      - uses: actions/checkout@v2
-        with:
-          path: zio-http
-
-      - uses: actions/checkout@v2
-        with:
-          repository: zio/FrameworkBenchmarks
-          path: FrameworkBenchMarks
-
-      - id: result
-        env:
-          GITHUB_TOKEN: ${{secrets.ACTIONS_PAT}}
-        run: |
-          mkdir -p ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala
-          cp ./zio-http/zio-http-example/src/main/scala/example/SimpleEffectBenchmarkServer.scala ./FrameworkBenchMarks/frameworks/Scala/zio-http/src/main/scala/Main.scala
-          cd ./FrameworkBenchMarks
-          sed -i "s/---COMMIT_SHA---/${{github.event.pull_request.head.repo.owner.login}}\/zio-http.git#${{github.event.pull_request.head.sha}}/g" frameworks/Scala/zio-http/build.sbt
-          ./tfb  --test zio-http | tee result
-          RESULT_REQUEST=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "requests/sec: [0-9]+.[0-9]+" | grep -oiE "[0-9]+" | head -1)
-          RESULT_CONCURRENCY=$(echo $(grep -B 1 -A 17 "Concurrency: 256 for plaintext" result) | grep -oiE "concurrency: [0-9]+" | grep -oiE "[0-9]+")
-          echo "request_per_second=$RESULT_REQUEST" >> $GITHUB_OUTPUT
-          echo "concurrency=$RESULT_CONCURRENCY" >> $GITHUB_OUTPUT
-
-      - if: ${{github.event.pull_request.head.repo.full_name == 'zio/zio-http'}}
-        uses: peter-evans/commit-comment@v2
-        with:
-          sha: ${{github.event.pull_request.head.sha}}
-          body: |
-
-            **🚀 :** Performance Benchmarks (SimpleEffectBenchmarkServer)
-
-             concurrency: ${{steps.result.outputs.concurrency}}
-             requests/sec:  ${{steps.result.outputs.request_per_second}}
-
-      
-      - name: Performance Report
-        id: perf-report
-        env:
-          REQUESTS_PER_SECOND: ${{steps.result.outputs.request_per_second}}
-          CONCURRENCY: ${{steps.result.outputs.concurrency}}
-          PERFORMANCE_FLOOR: 500000
-        run: |
-          echo "** 🚀 Performance Benchmarks (SimpleEffectBenchmarkServer) Report 🚀 **" 
-
-          echo "$REQUESTS_PER_SECOND requests/sec for $CONCURRENCY concurrent requests"
-
-          if (( REQUESTS_PER_SECOND > PERFORMANCE_FLOOR )); then
-            echo "Woohoo! Performance is good! $REQUESTS_PER_SECOND requests/sec exceeds the performance floor of $PERFORMANCE_FLOOR requests/sec."
-          else 
-            echo "Performance benchmark failed with $REQUESTS_PER_SECOND req/sec! Performance must exceed $PERFORMANCE_FLOOR req/sec."
-             exit 1
-          fi
 
   Jmh_publish:
     name: Jmh Publish
@@ -368,7 +214,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         scala: [2.13.10]
-        java: [temurin@11]
+        java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Format Output
