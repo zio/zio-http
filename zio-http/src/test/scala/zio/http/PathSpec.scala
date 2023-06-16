@@ -32,7 +32,67 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
 
   def collect[A](pf: PartialFunction[Path, A]): String => Option[A] = path => pf.lift(Path.decode(path))
 
+  def expand(path: Path): List[String] =
+    path.unapply match {
+      case None               => Nil
+      case Some((head, tail)) => head :: expand(tail)
+    }
+
+  def expandRight(path: Path): List[String] =
+    path.unapplyRight match {
+      case None               => Nil
+      case Some((tail, head)) => expandRight(tail) :+ head
+    }
+
   def spec = suite("path")(
+    suite("unapply")(
+      test("empty") {
+        assertTrue(Path.empty.unapply == None)
+      },
+      test("root") {
+        assertTrue(Path.root.unapply == Some(("", Path.empty)))
+      },
+      test("other cases") {
+        val gen = Gen.fromIterable(
+          Seq(
+            Root / "a"                   -> List("", "a"),
+            Root / "a" / "b"             -> List("", "a", "b"),
+            Root / "a" / "b" / "c" / ""  -> List("", "a", "b", "c", ""),
+            Empty / "a"                  -> List("a"),
+            Empty / "a" / "b"            -> List("a", "b"),
+            Empty / "a" / "b" / "c" / "" -> List("a", "b", "c", ""),
+          ),
+        )
+
+        checkAll(gen) { case (path, expected) =>
+          assertTrue(expandRight(path) == expected)
+        }
+      },
+    ),
+    suite("unapplyRight")(
+      test("empty") {
+        assertTrue(Path.empty.unapplyRight == None)
+      },
+      test("root") {
+        assertTrue(Path.root.unapplyRight == Some((Path.empty, "")))
+      },
+      test("other cases") {
+        val gen = Gen.fromIterable(
+          Seq(
+            Root / "a"                   -> List("a", ""),
+            Root / "a" / "b"             -> List("b", "a", ""),
+            Root / "a" / "b" / "c" / ""  -> List("", "c", "b", "a", ""),
+            Empty / "a"                  -> List("a"),
+            Empty / "a" / "b"            -> List("b", "a"),
+            Empty / "a" / "b" / "c" / "" -> List("", "c", "b", "a"),
+          ),
+        )
+
+        checkAll(gen) { case (path, expected) =>
+          assertTrue(expand(path).reverse == expected)
+        }
+      },
+    ),
     suite("collect")(
       test("/") {
         val gen = Gen.fromIterable(
@@ -154,6 +214,42 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
         assertTrue(Path(Path.Flags(LeadingSlash, TrailingSlash), Chunk.empty).isRoot)
       },
     ),
+    suite("size")(
+      test("empty") {
+        assertTrue(Path.empty.size == 0)
+      },
+      test("all roots") {
+        val weirdRoot1 = Path(Path.Flags(TrailingSlash), Chunk.empty)
+        val weirdRoot2 = Path(Path.Flags(LeadingSlash, TrailingSlash), Chunk.empty)
+        val weirdRoot3 = Path(Path.Flags(TrailingSlash), Chunk.empty)
+
+        assertTrue(Path.root.size == 1) &&
+        assertTrue(weirdRoot1.size == 1) &&
+        assertTrue(weirdRoot2.size == 1) &&
+        assertTrue(weirdRoot3.size == 1)
+      },
+      test("hard coded cases") {
+        assertTrue(Path("a").size == 1) &&
+        assertTrue(Path("/a").size == 2) &&
+        assertTrue(Path("a/").size == 2) &&
+        assertTrue(Path("/a/").size == 3) &&
+        assertTrue(Path("a/b").size == 2) &&
+        assertTrue(Path("/a/b").size == 3) &&
+        assertTrue(Path("a/b/").size == 3) &&
+        assertTrue(Path("/a/b/").size == 4)
+      },
+      test("all other cases") {
+        check(HttpGen.nonEmptyPath) { path =>
+          val without = path.dropLeadingSlash.dropTrailingSlash
+          val size    = without.size
+
+          assertTrue(size == path.segments.size) &&
+          assertTrue(without.addLeadingSlash.size == size + 1) &&
+          assertTrue(without.addTrailingSlash.size == size + 1) &&
+          assertTrue(without.addLeadingSlash.addTrailingSlash.size == size + 2)
+        }
+      },
+    ),
     suite("normalization")(
       test("simplifies internal representation") {
         val urls = Gen.fromIterable(
@@ -220,13 +316,17 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
     test("take") {
       val gen = Gen.fromIterable(
         Seq(
-          (1, Root)                   -> Root,
-          (1, Root / "a")             -> Root,
-          (1, Root / "a" / "b")       -> Root,
-          (1, Root / "a" / "b" / "c") -> Root,
-          (2, Root / "a" / "b" / "c") -> Root / "a",
-          (3, Root / "a" / "b" / "c") -> Root / "a" / "b",
-          (4, Root / "a" / "b" / "c") -> Root / "a" / "b" / "c",
+          (1, Root)                        -> Root,
+          (1, Root / "a")                  -> Root,
+          (1, Root / "a" / "b")            -> Root,
+          (1, Root / "a" / "b" / "c")      -> Root,
+          (2, Root / "a" / "b" / "c")      -> Root / "a",
+          (3, Root / "a" / "b" / "c")      -> Root / "a" / "b",
+          (4, Root / "a" / "b" / "c")      -> Root / "a" / "b" / "c",
+          (1, Root)                        -> Root / "",
+          (2, Root / "a" / "")             -> Root / "a",
+          (3, Root / "a" / "b" / "")       -> Root / "a" / "b",
+          (4, Root / "a" / "b" / "c" / "") -> Root / "a" / "b" / "c",
         ),
       )
 
@@ -263,6 +363,12 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
           (2, Root / "a" / "b" / "c") -> Root / "a",
           (3, Root / "a" / "b" / "c") -> Root,
           (4, Root / "a" / "b" / "c") -> Empty,
+          (1, Empty / "a" / "")       -> Empty / "a",
+          (1, Root / "a" / "")        -> Root / "a",
+          (2, Empty / "a" / "")       -> Empty,
+          (2, Root / "a" / "")        -> Root,
+          (3, Empty / "a" / "")       -> Empty,
+          (3, Root / "a" / "")        -> Empty,
         ),
       )
 
@@ -272,6 +378,30 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
       }
     },
     suite("++")(
+      test("can add trailing slash") {
+        check(HttpGen.nonEmptyPath) { path =>
+          val weirdRoot1 = Path(Path.Flags(TrailingSlash), Chunk.empty)
+          val weirdRoot2 = Path(Path.Flags(LeadingSlash, TrailingSlash), Chunk.empty)
+          val weirdRoot3 = Path(Path.Flags(TrailingSlash), Chunk.empty)
+
+          assertTrue((path ++ Root).trailingSlash) &&
+          assertTrue((path ++ weirdRoot1).trailingSlash) &&
+          assertTrue((path ++ weirdRoot2).trailingSlash) &&
+          assertTrue((path ++ weirdRoot3).trailingSlash)
+        }
+      },
+      test("can add leading slash") {
+        check(HttpGen.nonEmptyPath) { path =>
+          val weirdRoot1 = Path(Path.Flags(LeadingSlash), Chunk.empty)
+          val weirdRoot2 = Path(Path.Flags(LeadingSlash, TrailingSlash), Chunk.empty)
+          val weirdRoot3 = Path(Path.Flags(TrailingSlash), Chunk.empty)
+
+          assertTrue((Root ++ path).leadingSlash) &&
+          assertTrue((weirdRoot1 ++ path).leadingSlash) &&
+          assertTrue((weirdRoot2 ++ path).leadingSlash) &&
+          assertTrue((weirdRoot3 ++ path).leadingSlash)
+        }
+      },
       test("empty is right identity") {
         check(HttpGen.anyPath) { path =>
           assertTrue(path ++ Path.empty == path)

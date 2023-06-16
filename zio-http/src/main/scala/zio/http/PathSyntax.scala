@@ -22,10 +22,7 @@ private[zio] trait PathSyntax { module =>
   val Empty: Path = Path.empty
 
   object /: {
-    def unapply(path: Path): Option[(String, Path)] =
-      if (path.leadingSlash) Some(("", path.dropLeadingSlash))
-      else if (path.segments.nonEmpty) Some((path.segments.head, path.copy(segments = path.segments.drop(1))))
-      else None
+    def unapply(path: Path): Option[(String, Path)] = path.unapply
   }
 
   object / {

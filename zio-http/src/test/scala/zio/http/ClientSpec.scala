@@ -81,7 +81,7 @@ object ClientSpec extends HttpRunnableSpec {
       for {
         baseURL   <- DynamicServer.httpURL
         _         <- Handler.ok.toHttp
-          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).path("/").doGet)
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).addPath("/").doGet)
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == s"$baseURL/")

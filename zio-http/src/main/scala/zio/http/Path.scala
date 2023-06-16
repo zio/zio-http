@@ -62,7 +62,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
   def ++(that: Path): Path =
     if (self.isEmpty) that
     else if (that.isEmpty) self
-    else Path(Flags.concat(self.flags, that.flags), self.segments ++ that.segments)
+    else Path(Flags.concat(self.normalize.flags, that.normalize.flags), self.segments ++ that.segments)
 
   /**
    * Prepends a leading slash to the path.
@@ -92,7 +92,8 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
   def drop(n: Int): Path =
     if (n <= 0) self
     else {
-      if (leadingSlash) dropLeadingSlash.drop(n - 1)
+      if (isRoot) Path.empty
+      else if (leadingSlash) dropLeadingSlash.drop(n - 1)
       else copy(segments = segments.drop(n))
     }
 
@@ -100,7 +101,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    * Drops the last n segments from the path, treating both leading and trailing
    * slashes as segments.
    */
-  def dropRight(n: Int): Path = if (n <= 0) self else take(size - n)
+  def dropRight(n: Int): Path = take(size - n)
 
   /**
    * Drops the leading slash if available.
@@ -175,7 +176,10 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    */
   def reverse: Path = Path(Flags.reverse(flags), segments.reverse)
 
-  def size: Int = segments.length + (if (leadingSlash) 1 else 0) + (if (trailingSlash) 1 else 0)
+  def size: Int =
+    if (isEmpty) 0
+    else if (isRoot) 1
+    else segments.length + (if (leadingSlash) 1 else 0) + (if (trailingSlash) 1 else 0)
 
   /**
    * Checks if the path starts with the provided path
@@ -187,14 +191,12 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    * Returns a new path containing the first n segments of the path, treating
    * both leading and trailing slashes as segments.
    */
-  def take(n: Int): Path = {
+  def take(n: Int): Path =
     if (n <= 0) Path.empty
     else {
       if (n >= size) self
-      else if (trailingSlash) dropTrailingSlash.take(n - 1)
-      else copy(segments = segments.take(n - 1))
+      else Path(Flag.TrailingSlash.remove(flags), segments = segments.take(n - (if (leadingSlash) 1 else 0)))
     }
-  }
 
   override def toString: String = encode
 
@@ -202,6 +204,18 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    * Checks if the path contains a trailing slash.
    */
   def trailingSlash: Boolean = Flag.TrailingSlash.check(flags)
+
+  lazy val unapply: Option[(String, Path)] =
+    if (leadingSlash) Some(("", drop(1)))
+    else if (segments.nonEmpty) Some((segments.head, copy(segments = segments.drop(1))))
+    else if (trailingSlash) Some(("", Path.empty))
+    else None
+
+  lazy val unapplyRight: Option[(Path, String)] =
+    if (trailingSlash) Some((dropRight(1), ""))
+    else if (segments.nonEmpty) Some((copy(segments = segments.dropRight(1)), segments.last))
+    else if (leadingSlash) Some((Path.empty, ""))
+    else None
 }
 
 object Path {
@@ -261,7 +275,7 @@ object Path {
   /**
    * Represents a slash or a root path which is equivalent to "/".
    */
-  val root: Path = Path(Flags(Flag.LeadingSlash), Chunk.empty)
+  val root: Path = Path(Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk.empty)
 
   type Flags = Int
   object Flags {

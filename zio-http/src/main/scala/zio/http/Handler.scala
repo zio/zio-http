@@ -216,8 +216,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     headers: Headers,
   )(implicit ev1: Err <:< Throwable, ev2: WebSocketChannel <:< In): ZIO[R with Client with Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client] { client =>
-      if (url.isAbsolute) client.url(url).addHeaders(headers).socket(self.asInstanceOf[SocketApp[R]])
-      else client.url(url).addHeaders(headers).socket(self.asInstanceOf[SocketApp[R]])
+      val client2 = if (url.isAbsolute) client.url(url) else client.addUrl(url)
+
+      client2.addHeaders(headers).socket(self.asInstanceOf[SocketApp[R]])
     }
 
   /**

@@ -55,10 +55,14 @@ final case class URL(
   def absolute(scheme: Scheme, host: String, port: Int): URL =
     self.copy(kind = URL.Location.Absolute(scheme, host, port))
 
+  def addLeadingSlash: URL = self.copy(path = path.addLeadingSlash)
+
+  def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
+
   def addQueryParams(queryParams: QueryParams): URL =
     copy(queryParams = self.queryParams ++ queryParams)
 
-  def addTrailingSlash: URL = self.copy(path = path.addTrailingSlash)
+  def dropLeadingSlash: URL = self.copy(path = path.dropLeadingSlash)
 
   def dropTrailingSlash: URL = self.copy(path = path.dropTrailingSlash)
 
@@ -219,7 +223,7 @@ object URL {
   private def encode(url: URL): String = {
     def path: String =
       QueryParamEncoding.default.encode(
-        url.path.addLeadingSlash.encode,
+        if (url.path.isEmpty) "" else url.path.addLeadingSlash.encode,
         url.queryParams.normalize,
         Charsets.Http,
       ) + url.fragment.fold("")(f => "#" + f.raw)

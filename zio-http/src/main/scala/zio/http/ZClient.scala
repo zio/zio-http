@@ -59,6 +59,24 @@ final case class ZClient[-Env, -In, +Err, +Out](
   ): ZClient[UpperEnv, UpperIn, LowerErr, LowerOut] =
     aspect(self)
 
+  def addPath(path: String): ZClient[Env, In, Err, Out] =
+    copy(url = url.copy(path = url.path ++ Path(path)))
+
+  def addPath(path: Path): ZClient[Env, In, Err, Out] =
+    copy(url = url.copy(path = url.path ++ path))
+
+  def addLeadingSlash: ZClient[Env, In, Err, Out] =
+    copy(url = url.addLeadingSlash)
+
+  def addMethod(method: Method): ZClient[Env, In, Err, Out] =
+    copy(method = self.method ++ method)
+
+  def addTrailingSlash: ZClient[Env, In, Err, Out] =
+    copy(url = url.addTrailingSlash)
+
+  def addUrl(url: URL): ZClient[Env, In, Err, Out] =
+    copy(url = self.url ++ url)
+
   def contramap[In2](f: In2 => In): ZClient[Env, In2, Err, Out] =
     contramapZIO(in => ZIO.succeed(f(in)))
 
@@ -126,9 +144,9 @@ final case class ZClient[-Env, -In, +Err, +Out](
       driver,
     )
 
-  def method(m: Method): ZClient[Env, In, Err, Out] = copy(method = self.method ++ m)
+  def method(method: Method): ZClient[Env, In, Err, Out] = copy(method = method)
 
-  def path(segment: String): ZClient[Env, In, Err, Out] =
+  def path2(segment: String): ZClient[Env, In, Err, Out] =
     copy(url = url.copy(path = url.path / segment))
 
   def patch: ZClient[Env, In, Err, Out] = copy(method = Method.PATCH)
@@ -148,24 +166,17 @@ final case class ZClient[-Env, -In, +Err, +Out](
   )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): ZClient[Env, In, Err2, Out] =
     transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
-  def request(request: Request)(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = {
-    val in = ev(request.body)
-
-    bodyEncoder
-      .encode(in)
-      .flatMap(body =>
-        driver
-          .request(
-            self.version ++ request.version,
-            method ++ request.method,
-            self.url ++ request.url,
-            self.headers ++ request.headers,
-            body,
-            sslConfig,
-          )
-          .flatMap(bodyDecoder.decode),
+  def request(request: Request)(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] =
+    driver
+      .request(
+        self.version ++ request.version,
+        method ++ request.method,
+        self.url ++ request.url,
+        self.headers ++ request.headers,
+        request.body,
+        sslConfig,
       )
-  }
+      .flatMap(bodyDecoder.decode)
 
   def request(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
     request(method, body)
