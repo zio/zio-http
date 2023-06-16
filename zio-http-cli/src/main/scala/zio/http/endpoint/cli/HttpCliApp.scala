@@ -65,15 +65,7 @@ object HttpCliApp {
         for {
           request  <- req.toRequest(host, port)
           response <- Client
-            .request(
-              Request
-                .default(
-                  method,
-                  url.withHost(host).withPort(port),
-                  Body.fromString(body.toString),
-                )
-                .setHeaders(headers),
-            )
+            .request(request)
             .provide(Client.default, Scope.default)
           _        <- Console.printLine(s"Got response")
           _        <- Console.printLine(s"Status: ${response.status}")
