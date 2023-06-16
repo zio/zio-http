@@ -38,7 +38,7 @@ private[netty] object Conversions {
       case HttpMethod.DELETE  => Method.DELETE
       case HttpMethod.TRACE   => Method.TRACE
       case HttpMethod.CONNECT => Method.CONNECT
-      case method             => if (method.name().length == 0) Method.Default else Method.CUSTOM(method.name())
+      case method             => Method.CUSTOM(method.name())
     }
 
   def methodToNetty(method: Method): HttpMethod =

@@ -43,7 +43,6 @@ object Method {
 
   def fromString(method: String): Method =
     method.toUpperCase match {
-      case ""           => Method.Default
       case POST.name    => Method.POST
       case GET.name     => Method.GET
       case OPTIONS.name => Method.OPTIONS
