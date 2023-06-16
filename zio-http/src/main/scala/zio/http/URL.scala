@@ -219,7 +219,7 @@ object URL {
   private def encode(url: URL): String = {
     def path: String =
       QueryParamEncoding.default.encode(
-        url.path.encode,
+        url.path.addLeadingSlash.encode,
         url.queryParams.normalize,
         Charsets.Http,
       ) + url.fragment.fold("")(f => "#" + f.raw)
