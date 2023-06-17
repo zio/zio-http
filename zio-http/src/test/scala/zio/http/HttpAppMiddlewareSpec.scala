@@ -64,7 +64,7 @@ object HttpAppMiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
           app1 = Handler.ok @@ mid
           _       <- app1.runZIO(Request.get(URL.root))
           result1 <- ref.get
-          _       <- app1.runZIO(Request.default(Method.HEAD, URL.root))
+          _       <- app1.runZIO(Request(method = Method.HEAD, url = URL.root))
           result2 <- ref.get
         } yield assertTrue(result1 == 1, result2 == 1)
       },
@@ -75,7 +75,7 @@ object HttpAppMiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
           app1 = Handler.ok @@ mid
           _       <- app1.runZIO(Request.get(URL.root))
           result1 <- ref.get
-          _       <- app1.runZIO(Request.default(Method.HEAD, URL.root))
+          _       <- app1.runZIO(Request(method = Method.HEAD, url = URL.root))
           result2 <- ref.get
         } yield assertTrue(result1 == 1, result2 == 1)
       },

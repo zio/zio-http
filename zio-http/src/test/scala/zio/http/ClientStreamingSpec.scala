@@ -29,6 +29,7 @@ import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 object ClientStreamingSpec extends HttpRunnableSpec {
+  def extractStatus(response: Response): Status = response.status
 
   val app = Http
     .collectZIO[Request] {
@@ -51,7 +52,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           }
         }
     }
-    .withErrorHandler(
+    .errorHandler(
       Some((cause: Cause[Nothing]) =>
         ZIO.logErrorCause("Fatal server error", cause).as(Response.status(Status.InternalServerError)),
       ),
@@ -67,31 +68,21 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           port     <- server(streamingServer)
           client   <- ZIO.service[Client]
           response <- client.request(
-            Version.Http_1_1,
-            Method.GET,
-            URL.decode(s"http://localhost:$port/simple-get").toOption.get,
-            Headers.empty,
-            Body.empty,
-            None,
+            Request.get(URL.decode(s"http://localhost:$port/simple-get").toOption.get),
           )
           body     <- response.body.asString
-        } yield assertTrue(response.status == Status.Ok, body == "simple response")
+        } yield assertTrue(extractStatus(response) == Status.Ok, body == "simple response")
       },
       test("streaming get") {
         for {
           port     <- server(streamingServer)
           client   <- ZIO.service[Client]
           response <- client.request(
-            Version.Http_1_1,
-            Method.GET,
-            URL.decode(s"http://localhost:$port/streaming-get").toOption.get,
-            Headers.empty,
-            Body.empty,
-            None,
+            Request.get(URL.decode(s"http://localhost:$port/streaming-get").toOption.get),
           )
           body     <- response.body.asStream.chunks.map(chunk => new String(chunk.toArray)).runCollect
         } yield assertTrue(
-          response.status == Status.Ok,
+          extractStatus(response) == Status.Ok,
           body == Chunk(
             "str",
             "eam",
@@ -109,17 +100,15 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           client   <- ZIO.service[Client]
           response <- client
             .request(
-              Version.Http_1_1,
-              Method.POST,
-              URL.decode(s"http://localhost:$port/simple-post").toOption.get,
-              Headers.empty,
-              Body.fromStream(
-                (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3))
-                  .schedule(Schedule.fixed(10.millis)),
+              Request.post(
+                URL.decode(s"http://localhost:$port/simple-post").toOption.get,
+                Body.fromStream(
+                  (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3))
+                    .schedule(Schedule.fixed(10.millis)),
+                ),
               ),
-              None,
             )
-        } yield assertTrue(response.status == Status.Ok)
+        } yield assertTrue(extractStatus(response) == Status.Ok)
       },
       test("echo") {
         for {
@@ -127,14 +116,12 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           client   <- ZIO.service[Client]
           response <- client
             .request(
-              Version.Http_1_1,
-              Method.POST,
-              URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
-              Headers.empty,
-              Body.fromStream(
-                ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3),
+              Request.post(
+                URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
+                Body.fromStream(
+                  ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3),
+                ),
               ),
-              None,
             )
           body     <- response.body.asStream.chunks.map(chunk => new String(chunk.toArray)).runCollect
           expectedBody =
@@ -151,7 +138,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             else
               Chunk("streaming request", "")
         } yield assertTrue(
-          response.status == Status.Ok,
+          extractStatus(response) == Status.Ok,
           body == expectedBody,
         )
       },
@@ -165,12 +152,12 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               boundary <- Boundary.randomUUID
               response <- client
                 .request(
-                  Version.Http_1_1,
-                  Method.POST,
-                  URL.decode(s"http://localhost:$port/form").toOption.get,
-                  Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
-                  Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
-                  None,
+                  Request
+                    .post(
+                      URL.decode(s"http://localhost:$port/form").toOption.get,
+                      Body.fromMultipartForm(Form(fields.map(_._1): _*), boundary),
+                    )
+                    .addHeaders(Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary)))),
                 )
                 .timeoutFail(new RuntimeException("Client request timed out"))(20.seconds)
               form     <- response.body.asMultipartForm
@@ -196,14 +183,14 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               boundary <- Boundary.randomUUID
               stream = Form(fields.map(_._1): _*).multipartBytes(boundary)
               bytes    <- stream.runCollect
-              response <- client.withDisabledStreaming
+              response <- client.disableStreaming
                 .request(
-                  Version.Http_1_1,
-                  Method.POST,
-                  URL.decode(s"http://localhost:$port/form").toOption.get,
-                  Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
-                  Body.fromChunk(bytes),
-                  None,
+                  Request
+                    .post(
+                      URL.decode(s"http://localhost:$port/form").toOption.get,
+                      Body.fromChunk(bytes),
+                    )
+                    .addHeaders(Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary)))),
                 )
                 .timeoutFail(new RuntimeException("Client request timed out"))(20.seconds)
               form     <- response.body.asMultipartForm
@@ -238,12 +225,12 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               stream = form.multipartBytes(boundary).rechunk(chunkSize)
               response  <- client
                 .request(
-                  Version.Http_1_1,
-                  Method.POST,
-                  URL.decode(s"http://localhost:$port/form").toOption.get,
-                  Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary))),
-                  Body.fromStream(stream),
-                  None,
+                  Request
+                    .post(
+                      URL.decode(s"http://localhost:$port/form").toOption.get,
+                      Body.fromStream(stream),
+                    )
+                    .addHeaders(Headers(Header.ContentType(MediaType.multipart.`form-data`, Some(boundary)))),
                 )
                 .timeoutFail(new RuntimeException("Client request timed out"))(20.seconds)
               collected <- response.body.asMultipartForm
@@ -266,19 +253,17 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           sync     <- Promise.make[Nothing, Unit]
           response <- client
             .request(
-              Version.Http_1_1,
-              Method.POST,
-              URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
-              Headers.empty,
-              Body.fromStream(
-                (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3)).chunks.tap { chunk =>
-                  if (chunk == Chunk.fromArray("que".getBytes))
-                    sync.await
-                  else
-                    ZIO.unit
-                }.flattenChunks,
+              Request.post(
+                URL.decode(s"http://localhost:$port/streaming-echo").toOption.get,
+                Body.fromStream(
+                  (ZStream.fromIterable("streaming request".getBytes) @@ ZStreamAspect.rechunk(3)).chunks.tap { chunk =>
+                    if (chunk == Chunk.fromArray("que".getBytes))
+                      sync.await
+                    else
+                      ZIO.unit
+                  }.flattenChunks,
+                ),
               ),
-              None,
             )
           body     <- response.body.asStream.chunks
             .map(chunk => new String(chunk.toArray))
@@ -297,7 +282,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               "",
             )
         } yield assertTrue(
-          response.status == Status.Ok,
+          extractStatus(response) == Status.Ok,
           body == expectedBody,
         )
       } @@ nonFlaky,
@@ -331,7 +316,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID)),
           ZLayer.succeed(
             Server.Config.default.onAnyOpenPort
-              .withRequestStreaming(
+              .requestStreaming(
                 if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(2 * 1024 * 1024),
               )
               .idleTimeout(100.seconds),

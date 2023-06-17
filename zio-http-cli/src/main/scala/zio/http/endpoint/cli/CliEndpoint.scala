@@ -149,7 +149,7 @@ private[cli] object CliEndpoint {
           case SimpleCodec.Specified(method) =>
             Set(
               CliEndpoint[Unit](
-                (_, request) => request.withMethod(method.asInstanceOf[Method]),
+                (_, request) => request.method(method.asInstanceOf[Method]),
                 Options.none,
                 List(Left(method.asInstanceOf[Method])),
                 Doc.empty,

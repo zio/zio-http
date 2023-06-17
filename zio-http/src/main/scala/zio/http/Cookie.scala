@@ -87,13 +87,13 @@ sealed trait Cookie { self =>
    * Returns a new cookie derived from this one, but where the content of the
    * cookie is set to the specified value.
    */
-  def withContent(content: String): Cookie
+  def content(content: String): Cookie
 
   /**
    * Returns a new cookie derived from this one, but where the name of the
    * cookie is set to the specified value.
    */
-  def withName(name: String): Cookie
+  def name(name: String): Cookie
 }
 
 object Cookie {
@@ -141,7 +141,7 @@ object Cookie {
      * Signs cookie content with a secret and returns a signed cookie.
      */
     def sign(secret: String): Cookie.Response =
-      withContent(
+      content(
         new mutable.StringBuilder()
           .append(content)
           .append('.')
@@ -149,9 +149,9 @@ object Cookie {
           .result(),
       )
 
-    override def withName(name: String): Cookie.Response = copy(name = name)
+    override def name(name: String): Cookie.Response = copy(name = name)
 
-    override def withContent(content: String): Cookie.Response = copy(content = content)
+    override def content(content: String): Cookie.Response = copy(content = content)
   }
   object Response {
 
@@ -183,12 +183,12 @@ object Cookie {
       val index     = content.lastIndexOf('.')
       val signature = content.slice(index + 1, content.length)
       val value     = content.slice(0, index)
-      if (Cookie.signature(secret, value) == signature) Some(self.withContent(value)) else None
+      if (Cookie.signature(secret, value) == signature) Some(self.content(value)) else None
     }
 
-    override def withName(name: String): Cookie.Request = copy(name = name)
+    override def name(name: String): Cookie.Request = copy(name = name)
 
-    override def withContent(content: String): Cookie.Request = copy(content = content)
+    override def content(content: String): Cookie.Request = copy(content = content)
 
   }
   object Request {

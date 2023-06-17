@@ -35,7 +35,7 @@ private[http] object Mechanic {
         val (right2, rightIndices) = indexedImpl(right, leftIndices)
         (Combine(left2, right2, inputCombiner).asInstanceOf[HttpCodec[R, A]], rightIndices)
       case atom: Atom[_, _]                    =>
-        (atom.withIndex(indices.get(atom.tag)).asInstanceOf[HttpCodec[R, A]], indices.update(atom.tag)(_ + 1))
+        (atom.index(indices.get(atom.tag)).asInstanceOf[HttpCodec[R, A]], indices.update(atom.tag)(_ + 1))
       case TransformOrFail(api, f, g)          =>
         val (api2, resultIndices) = indexedImpl(api, indices)
         (TransformOrFail(api2, f, g).asInstanceOf[HttpCodec[R, A]], resultIndices)

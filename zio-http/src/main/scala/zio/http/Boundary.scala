@@ -24,30 +24,25 @@ import zio.Chunk
  * A multipart boundary, which consists of both the boundary and its charset.
  */
 final case class Boundary(id: String, charset: Charset) { self =>
-
-  def isEncapsulating(bytes: Chunk[Byte]): Boolean = bytes == encapsulationBoundaryBytes
-
-  def isClosing(bytes: Chunk[Byte]): Boolean = bytes == closingBoundaryBytes
+  val closingBoundary: String = s"--$id--"
 
   def contentTypeHeader: Headers = Headers(
     Header.ContentType(MediaType.multipart.`form-data`, Some(self)),
   )
 
-  lazy val encapsulationBoundary: String = s"--$id"
+  val encapsulationBoundary: String = s"--$id"
 
-  lazy val closingBoundary: String = s"--$id--"
+  def isClosing(bytes: Chunk[Byte]): Boolean = bytes == closingBoundaryBytes
+
+  def isEncapsulating(bytes: Chunk[Byte]): Boolean = bytes == encapsulationBoundaryBytes
 
   private[http] val encapsulationBoundaryBytes = Chunk.fromArray(encapsulationBoundary.getBytes(charset))
 
   private[http] val closingBoundaryBytes = Chunk.fromArray(closingBoundary.getBytes(charset))
-
 }
 
 object Boundary {
   def apply(boundary: String): Boundary = Boundary(boundary, Charsets.Utf8)
-
-  def fromString(content: String, charset: Charset): Option[Boundary] =
-    fromContent(Chunk.fromArray(content.getBytes(charset)), charset)
 
   def fromContent(content: Chunk[Byte], charset: Charset = Charsets.Utf8): Option[Boundary] = {
     var i = 0
@@ -73,6 +68,9 @@ object Boundary {
       contentType <- headers.header(Header.ContentType)
       boundary    <- contentType.boundary
     } yield boundary
+
+  def fromString(content: String, charset: Charset): Option[Boundary] =
+    fromContent(Chunk.fromArray(content.getBytes(charset)), charset)
 
   def randomUUID: zio.UIO[Boundary] =
     zio.Random.nextUUID.map { id =>

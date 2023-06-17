@@ -23,7 +23,6 @@ import zio.test._
 import zio.http.Cookie.SameSite
 
 object CookieSpec extends ZIOSpecDefault {
-
   override def spec =
     suite("CookieSpec")(
       suite("getter")(
@@ -33,7 +32,8 @@ object CookieSpec extends ZIOSpecDefault {
             content <- Gen.alphaNumericString
           } yield (name, content) -> Cookie.Response(name, content)
           check(cookieGen) { case ((name, content), cookie) =>
-            assertTrue(cookie.content == content) && assertTrue(cookie.name == name)
+            assert(cookie.content)(equalTo(content)) &&
+            assert(cookie.name)(equalTo(name))
           }
         },
         test("response") {
@@ -50,14 +50,14 @@ object CookieSpec extends ZIOSpecDefault {
             .Response(name, content, domain, path, isSecure, isHttpOnly, maxAge, sameSite)
 
           check(responseCookieGen) { case ((name, content), cookie) =>
-            assertTrue(cookie.content == content) &&
-            assertTrue(cookie.name == name) &&
-            assertTrue(cookie.domain == cookie.domain) &&
-            assertTrue(cookie.path == cookie.path) &&
-            assertTrue(cookie.maxAge == cookie.maxAge) &&
-            assertTrue(cookie.sameSite == cookie.sameSite) &&
-            assertTrue(cookie.isSecure == cookie.isSecure) &&
-            assertTrue(cookie.isHttpOnly == cookie.isHttpOnly)
+            assert(cookie.content)(equalTo(content)) &&
+            assert(cookie.name)(equalTo(name)) &&
+            assert(cookie.domain)(equalTo(cookie.domain)) &&
+            assert(cookie.path)(equalTo(cookie.path)) &&
+            assert(cookie.maxAge)(equalTo(cookie.maxAge)) &&
+            assert(cookie.sameSite)(equalTo(cookie.sameSite)) &&
+            assert(cookie.isSecure)(equalTo(cookie.isSecure)) &&
+            assert(cookie.isHttpOnly)(equalTo(cookie.isHttpOnly))
           }
         },
       ),
@@ -66,9 +66,9 @@ object CookieSpec extends ZIOSpecDefault {
           val cookie    = Cookie.Response("name", "value")
           val cookieGen = Gen.fromIterable(
             Seq(
-              cookie                      -> "name=value",
-              cookie.withContent("other") -> "name=other",
-              cookie.withName("name1")    -> "name1=value",
+              cookie                  -> "name=value",
+              cookie.content("other") -> "name=other",
+              cookie.name("name1")    -> "name1=value",
             ),
           )
           checkAll(cookieGen) { case (cookie, expected) => assertTrue(cookie.encode == Right(expected)) }

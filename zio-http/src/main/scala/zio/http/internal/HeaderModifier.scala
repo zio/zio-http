@@ -29,7 +29,6 @@ import zio.http._
  * instance of the same type.
  */
 trait HeaderModifier[+A] { self =>
-
   final def addHeader(header: Header): A =
     addHeaders(Headers(header))
 
@@ -52,7 +51,4 @@ trait HeaderModifier[+A] { self =>
    * function passed.
    */
   def updateHeaders(update: Headers => Headers): A
-
-  def withHeader(header: Header): A =
-    addHeaders(Headers(header))
 }

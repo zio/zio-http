@@ -121,27 +121,19 @@ object ZClientAspect {
         Out >: Nothing <: Response,
       ](
         client: ZClient[Env, In, Err, Out],
-      ): ZClient[Env, In, Err, Out] =
-        new ZClient[Env, In, Err, Out] {
-          override def headers: Headers = client.headers
+      ): ZClient[Env, In, Err, Out] = {
+        val oldDriver = client.driver
 
-          override def method: Method = client.method
-
-          override def sslConfig: Option[ClientSSLConfig] = client.sslConfig
-
-          override def url: URL = client.url
-
-          override def version: Version = client.version
-
+        val newDriver = new ZClient.Driver[Env, Err] {
           override def request(
             version: Version,
             method: Method,
             url: URL,
             headers: Headers,
-            body: In,
+            body: Body,
             sslConfig: Option[ClientSSLConfig],
-          )(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
-            client
+          )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] =
+            oldDriver
               .request(version, method, url, headers, body, sslConfig)
               .sandbox
               .exit
@@ -165,9 +157,12 @@ object ZClientAspect {
 
           override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: SocketApp[Env1])(implicit
             trace: Trace,
-          ): ZIO[Env1 with Scope, Err, Out] =
-            client.socket(version, url, headers, app)
+          ): ZIO[Env1 with Scope, Err, Response] =
+            client.driver.socket(version, url, headers, app)
         }
+
+        client.transform(client.bodyEncoder, client.bodyDecoder, newDriver)
+      }
     }
 
   /**
@@ -197,27 +192,19 @@ object ZClientAspect {
         Out >: Nothing <: Response,
       ](
         client: ZClient[Env, In, Err, Out],
-      ): ZClient[Env, In, Err, Out] =
-        new ZClient[Env, In, Err, Out] {
-          override def headers: Headers = client.headers
+      ): ZClient[Env, In, Err, Out] = {
+        val oldDriver = client.driver
 
-          override def method: Method = client.method
-
-          override def sslConfig: Option[ClientSSLConfig] = client.sslConfig
-
-          override def url: URL = client.url
-
-          override def version: Version = client.version
-
+        val newDriver = new ZClient.Driver[Env, Err] {
           override def request(
             version: Version,
             method: Method,
             url: URL,
             headers: Headers,
-            body: In,
+            body: Body,
             sslConfig: Option[ClientSSLConfig],
-          )(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
-            client
+          )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] = {
+            oldDriver
               .request(version, method, url, headers, body, sslConfig)
               .sandbox
               .exit
@@ -310,12 +297,16 @@ object ZClientAspect {
               }
               .flatMap(_._2)
               .unsandbox
+          }
 
           override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: SocketApp[Env1])(implicit
             trace: Trace,
-          ): ZIO[Env1 with Scope, Err, Out] =
-            client.socket(version, url, headers, app)
+          ): ZIO[Env1 with Scope, Err, Response] =
+            client.driver.socket(version, url, headers, app)
         }
+
+        client.transform(client.bodyEncoder, client.bodyDecoder, newDriver)
+      }
     }
   }
 }

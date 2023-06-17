@@ -22,10 +22,11 @@ object MyServer extends ZIOAppDefault {
 }
 
 object MyClient extends ZIOAppDefault {
+  val localhost = URL.decode("http://localhost:8080").toOption.get
 
   @nowarn def run = {
     val req = for {
-      resp <- Client.request("http://localhost:8080")
+      resp <- ZClient.request(Request.get(localhost))
       body <- resp.body.asString
     } yield body
 
@@ -42,12 +43,12 @@ object MyClient extends ZIOAppDefault {
 //      .provide(Client.default)
       .provide(
         Client.live,
-        ZLayer.succeed(ZClient.Config.default.withFixedConnectionPool(2)),
+        ZLayer.succeed(ZClient.Config.default.fixedConnectionPool(2)),
         ZLayer.succeed(NettyConfig.default),
         DnsResolver.default,
         Scope.default,
       )
-      // .provide(Client.live, NettyClientDriver.fromConfig, ClientConfig.live(ClientConfig().withFixedConnectionPool(2)))
+      // .provide(Client.live, NettyClientDriver.fromConfig, ClientConfig.live(ClientConfig().fixedConnectionPool(2)))
       .debug("EXIT")
   }
 }

@@ -37,9 +37,9 @@ final case class Proxy(
   headers: Headers = Headers.empty,
 ) { self =>
 
-  def withUrl(url: URL): Proxy                         = self.copy(url = url)
-  def withCredentials(credentials: Credentials): Proxy = self.copy(credentials = Some(credentials))
-  def withHeaders(headers: Headers): Proxy             = self.copy(headers = headers)
+  def url(url: URL): Proxy                         = self.copy(url = url)
+  def credentials(credentials: Credentials): Proxy = self.copy(credentials = Some(credentials))
+  def headers(headers: Headers): Proxy             = self.copy(headers = headers)
 }
 
 object Proxy {

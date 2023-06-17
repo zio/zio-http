@@ -61,12 +61,11 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
           client       <- ZIO.service[Client]
           _            <- server.install(app).fork
           response     <- client.request(
-            Request
-              .default(
-                method = Method.GET,
-                url = URL(Root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
-              )
-              .withHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
+            Request(
+              method = Method.GET,
+              url = URL(Root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
+            )
+              .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
           res          <- response.body.asChunk
           decompressed <- decompressed(res)
@@ -78,12 +77,11 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
           client       <- ZIO.service[Client]
           _            <- server.install(app).fork
           response     <- client.request(
-            Request
-              .default(
-                method = Method.GET,
-                url = URL(Root / "stream", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
-              )
-              .withHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
+            Request(
+              method = Method.GET,
+              url = URL(Root / "stream", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
+            )
+              .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
           res          <- response.body.asChunk
           decompressed <- decompressed(res)

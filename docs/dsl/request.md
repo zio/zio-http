@@ -9,14 +9,16 @@ title: Request
 ## Creating a Request
 
 `Request` can be created with `method`, `url`, `headers`, `remoteAddress` and `data`. 
+
 Creating requests using `Request` is useful while writing unit tests.
 
-The below snippet creates a request with default params, `headers` as `Headers.empty`, `data` as `Body.Empty`, `remoteAddress` as `None`
+The below snippet creates a request with default params, `headers` as `Headers.empty`, `data` as `Body.Empty`, `remoteAddress` as `None`:
+
 ```scala mdoc
 import zio.http._
 import zio._
 
-Request.default(Method.GET, URL(Root))
+Request(method = Method.GET, url = URL(Root))
 ```
 
 ## Matching and Extracting Requests

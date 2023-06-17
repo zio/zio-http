@@ -58,12 +58,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
 
   def makeRequest(client: Client, port: Int) = client
     .request(
-      Version.Http_1_1,
-      Method.GET,
-      URL.decode(s"http://localhost:$port/with-content-length").toOption.get,
-      Headers.empty,
-      Body.empty,
-      None,
+      Request.get(URL.decode(s"http://localhost:$port/with-content-length").toOption.get),
     )
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -102,14 +97,16 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           secondResponse           <- makeRequest(client, port)
           secondResponseBody <- secondResponse.body.asStream.chunks.map(chunk => new String(chunk.toArray)).runCollect
           firstResponseBody  <- firstResponseBodyReceive.join
+          value =
+            firstResponse.status == Status.Ok &&
+              // since response has not chunked transfer encoding header we can't guarantee that
+              // received chunks will be the same as it was transferred. So we need to check the whole body
+              firstResponseBody.reduce(_ + _) == message &&
+              secondResponse.status == Status.Ok &&
+              secondResponseBody == Chunk(message)
         } yield {
           assertTrue(
-            firstResponse.status == Status.Ok,
-            // since response has not chunked transfer encoding header we can't guarantee that
-            // received chunks will be the same as it was transferred. So we need to check the whole body
-            firstResponseBody.reduce(_ + _) == message,
-            secondResponse.status == Status.Ok,
-            secondResponseBody == Chunk(message),
+            value,
           )
         }
       },

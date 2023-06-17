@@ -56,6 +56,8 @@ sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
 
   override def iterator: Iterator[Header]
 
+  override def toString(): String = mkString("Headers(", ", ", ")")
+
   final def modify(f: Header => Header): Headers = Headers.FromIterable(self.map(f))
 
   override final def updateHeaders(update: Headers => Headers): Headers = update(self)

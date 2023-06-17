@@ -38,7 +38,7 @@ package object internal {
     )
 
   val testClientConfig: ULayer[ZClient.Config] =
-    ZLayer.succeed(Client.Config.default.withDisabledConnectionPool)
+    ZLayer.succeed(Client.Config.default.disabledConnectionPool)
 
   val testClientLayer: ZLayer[Any, Throwable, Client] =
     ZLayer.make[Client](
