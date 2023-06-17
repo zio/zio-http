@@ -55,10 +55,7 @@ val app = HttpApp.collectZIO[Request] {
 
 The `BasicAuthMiddleware` middleware will inspect the `Authorization` header of each request and verify that it contains a valid username and password. If the credentials are valid, the middleware will continue the request processing chain. If the credentials are invalid, the middleware will return a `Unauthorized` response.
 
-
-## Code 
-
-
+## Code
 
 ## Conclusion
 
