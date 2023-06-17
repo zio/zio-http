@@ -73,7 +73,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
             Handler.fromZIO {
               val host       = req.headers.get(Header.Host).get
               val newRequest =
-                req.copy(url = req.url.withPath("/2").withHost(host.hostAddress).withPort(host.port.getOrElse(80)))
+                req.copy(url = req.url.path("/2").host(host.hostAddress).port(host.port.getOrElse(80)))
               ZIO.debug(s"#1: got response, forwarding") *>
                 ZIO.serviceWithZIO[Client] { client =>
                   client.request(newRequest)

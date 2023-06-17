@@ -100,6 +100,14 @@ final case class URL(
     case abs: URL.Location.Absolute => Option(abs.host)
   }
 
+  def host(host: String): URL = {
+    val location = kind match {
+      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP))
+      case abs: URL.Location.Absolute => abs.copy(host = host)
+    }
+    copy(kind = location)
+  }
+
   def hostPort: Option[String] =
     kind match {
       case URL.Location.Relative                     => None
@@ -125,6 +133,21 @@ final case class URL(
     self.copy(path = normalizePath(path), queryParams = queryParams.normalize)
   }
 
+  def path(path: Path): URL =
+    copy(path = path)
+
+  def path(path: String): URL =
+    copy(path = Path.decode(path))
+
+  def port(port: Int): URL = {
+    val location = kind match {
+      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, "", port)
+      case abs: URL.Location.Absolute => abs.copy(port = port)
+    }
+
+    copy(kind = location)
+  }
+
   def port: Option[Int] = kind match {
     case URL.Location.Relative      => None
     case abs: URL.Location.Absolute => Option(abs.port)
@@ -139,6 +162,18 @@ final case class URL(
       if (abs.port == portFromScheme(abs.scheme)) None else Some(abs.port)
   }
 
+  def queryParams(queryParams: QueryParams): URL =
+    copy(queryParams = queryParams)
+
+  def queryParams(queryParams: Map[String, Chunk[String]]): URL =
+    copy(queryParams = QueryParams(queryParams))
+
+  def queryParams(queryParams: (String, Chunk[String])*): URL =
+    copy(queryParams = QueryParams(queryParams.toMap))
+
+  def queryParams(query: String): URL =
+    copy(queryParams = QueryParams.decode(query))
+
   def relative: URL = self.kind match {
     case URL.Location.Relative => self
     case _                     => self.copy(kind = URL.Location.Relative)
@@ -147,6 +182,15 @@ final case class URL(
   def scheme: Option[Scheme] = kind match {
     case Location.Absolute(scheme, _, _) => Some(scheme)
     case Location.Relative               => None
+  }
+
+  def scheme(scheme: Scheme): URL = {
+    val location = kind match {
+      case URL.Location.Relative      => URL.Location.Absolute(scheme, "", URL.portFromScheme(scheme))
+      case abs: URL.Location.Absolute => abs.copy(scheme = scheme)
+    }
+
+    copy(kind = location)
   }
 
   /**
@@ -159,49 +203,6 @@ final case class URL(
    * location.
    */
   def toJavaURL: Option[java.net.URL] = if (self.kind == URL.Location.Relative) None else Try(toJavaURI.toURL).toOption
-
-  def withHost(host: String): URL = {
-    val location = kind match {
-      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, host, URL.portFromScheme(Scheme.HTTP))
-      case abs: URL.Location.Absolute => abs.copy(host = host)
-    }
-    copy(kind = location)
-  }
-
-  def withPath(path: Path): URL =
-    copy(path = path)
-
-  def withPath(path: String): URL = copy(path = Path.decode(path))
-
-  def withPort(port: Int): URL = {
-    val location = kind match {
-      case URL.Location.Relative      => URL.Location.Absolute(Scheme.HTTP, "", port)
-      case abs: URL.Location.Absolute => abs.copy(port = port)
-    }
-
-    copy(kind = location)
-  }
-
-  def withQueryParams(queryParams: QueryParams): URL =
-    copy(queryParams = queryParams)
-
-  def withQueryParams(queryParams: Map[String, Chunk[String]]): URL =
-    copy(queryParams = QueryParams(queryParams))
-
-  def withQueryParams(queryParams: (String, Chunk[String])*): URL =
-    copy(queryParams = QueryParams(queryParams.toMap))
-
-  def withQueryParams(query: String): URL =
-    copy(queryParams = QueryParams.decode(query))
-
-  def withScheme(scheme: Scheme): URL = {
-    val location = kind match {
-      case URL.Location.Relative      => URL.Location.Absolute(scheme, "", URL.portFromScheme(scheme))
-      case abs: URL.Location.Absolute => abs.copy(scheme = scheme)
-    }
-
-    copy(kind = location)
-  }
 }
 
 object URL {

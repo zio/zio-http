@@ -107,7 +107,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
     request(Method.HEAD, suffix)(ev(Body.empty))
 
   def host(host: String): ZClient[Env, In, Err, Out] =
-    copy(url = url.withHost(host))
+    copy(url = url.host(host))
 
   def map[Out2](f: Out => Out2): ZClient[Env, In, Err, Out2] =
     mapZIO(out => ZIO.succeed(f(out)))
@@ -138,7 +138,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
     request(Method.PATCH, suffix)(ev(Body.empty))
 
   def port(port: Int): ZClient[Env, In, Err, Out] =
-    copy(url = url.withPort(port))
+    copy(url = url.port(port))
 
   def post(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
     request(Method.POST, suffix)(body)
@@ -203,7 +203,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
     transform[Env1, In, Err, Out](bodyEncoder, bodyDecoder, self.driver.retry(policy))
 
   def scheme(scheme: Scheme): ZClient[Env, In, Err, Out] =
-    copy(url = url.withScheme(scheme))
+    copy(url = url.scheme(scheme))
 
   def socket[Env1 <: Env](app: SocketApp[Env1])(implicit trace: Trace): ZIO[Env1 & Scope, Err, Out] =
     driver
@@ -644,7 +644,7 @@ object ZClient {
     )(implicit trace: Trace): ZIO[Env1 & Scope, Throwable, Response] =
       for {
         env <- ZIO.environment[Env1]
-        webSocketUrl = url.withScheme(
+        webSocketUrl = url.scheme(
           url.scheme match {
             case Some(Scheme.HTTP)  => Scheme.WS
             case Some(Scheme.HTTPS) => Scheme.WSS

@@ -113,12 +113,12 @@ object URLSpec extends ZIOSpecDefault {
           assertTrue(actual == expected)
         },
       ),
-      suite("withPath")(
+      suite("path")(
         test("updates the path without needed to know the host") {
           val host     = "http://abc.com"
           val channels = "/channels"
           val users    = "/users"
-          val actual   = URL.decode(host + users).map(_.withPath(channels).encode)
+          val actual   = URL.decode(host + users).map(_.path(channels).encode)
           val expected = Right(host + channels)
           assertTrue(actual == expected)
         },
@@ -126,18 +126,18 @@ object URLSpec extends ZIOSpecDefault {
       suite("builder")(
         test("creates a URL with all attributes set") {
           val builderUrl = URL.empty
-            .withHost("www.abc.com")
-            .withPath("/list")
-            .withPort(8080)
-            .withScheme(Scheme.HTTPS)
-            .withQueryParams("?type=builder&query=provided")
+            .host("www.abc.com")
+            .path("/list")
+            .port(8080)
+            .scheme(Scheme.HTTPS)
+            .queryParams("?type=builder&query=provided")
 
           assertTrue(builderUrl == asURL("https://www.abc.com:8080/list?query=provided&type=builder"))
         },
         test("returns relative URL if port, host, and scheme are not set") {
           val actual = URL.empty
-            .withPath(Path.decode("/list"))
-            .withQueryParams(QueryParams(Map("type" -> Chunk("builder"), "query" -> Chunk("provided"))))
+            .path(Path.decode("/list"))
+            .queryParams(QueryParams(Map("type" -> Chunk("builder"), "query" -> Chunk("provided"))))
             .encode
 
           assertTrue(asURL(actual) == asURL("/list?query=provided&type=builder"))
