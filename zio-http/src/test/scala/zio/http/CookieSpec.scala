@@ -66,9 +66,9 @@ object CookieSpec extends ZIOSpecDefault {
           val cookie    = Cookie.Response("name", "value")
           val cookieGen = Gen.fromIterable(
             Seq(
-              cookie                      -> "name=value",
-              cookie.withContent("other") -> "name=other",
-              cookie.withName("name1")    -> "name1=value",
+              cookie                  -> "name=value",
+              cookie.content("other") -> "name=other",
+              cookie.name("name1")    -> "name1=value",
             ),
           )
           checkAll(cookieGen) { case (cookie, expected) => assertTrue(cookie.encode == Right(expected)) }

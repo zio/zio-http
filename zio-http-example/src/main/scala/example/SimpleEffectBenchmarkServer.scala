@@ -21,16 +21,16 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
       ZIO.succeed(
         Response
           .text(plainTextMessage)
-          .withServerTime
-          .withHeader(Header.Server(STATIC_SERVER_NAME))
+          .serverTime
+          .addHeader(Header.Server(STATIC_SERVER_NAME))
           .freeze,
       )
     case Method.GET -> Root / "json"      =>
       ZIO.succeed(
         Response
           .json(jsonMessage)
-          .withServerTime
-          .withHeader(Header.Server(STATIC_SERVER_NAME))
+          .serverTime
+          .addHeader(Header.Server(STATIC_SERVER_NAME))
           .freeze,
       )
   }

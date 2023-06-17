@@ -218,7 +218,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       test("should sign cookies") {
         val cookie = Cookie.Response("key", "value").copy(isHttpOnly = true)
         val app    =
-          (Handler.ok.withHeader(Header.SetCookie(cookie)) @@ signCookies("secret")).header(Header.SetCookie)
+          (Handler.ok.addHeader(Header.SetCookie(cookie)) @@ signCookies("secret")).header(Header.SetCookie)
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo(Header.SetCookie(cookie.sign("secret")))))
       },
       test("sign cookies no cookie header") {

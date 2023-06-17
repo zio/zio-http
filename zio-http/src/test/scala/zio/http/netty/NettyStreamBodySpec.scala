@@ -26,7 +26,7 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           ),
         )
       }
-      .withDefaultErrorResponse
+      .defaultErrorResponse
   }
 
   private def server(

@@ -535,7 +535,7 @@ object ZClient {
     def idleTimeout(timeout: Duration): Config =
       self.copy(idleTimeout = Some(timeout))
 
-    def withDisabledConnectionPool: Config =
+    def disabledConnectionPool: Config =
       self.copy(connectionPool = ConnectionPoolConfig.Disabled)
 
     /**
@@ -555,13 +555,13 @@ object ZClient {
 
     def ssl(ssl: ClientSSLConfig): Config = self.copy(ssl = Some(ssl))
 
-    def withFixedConnectionPool(size: Int): Config =
+    def fixedConnectionPool(size: Int): Config =
       self.copy(connectionPool = ConnectionPoolConfig.Fixed(size))
 
-    def withDynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): Config =
+    def dynamicConnectionPool(minimum: Int, maximum: Int, ttl: Duration): Config =
       self.copy(connectionPool = ConnectionPoolConfig.Dynamic(minimum = minimum, maximum = maximum, ttl = ttl))
 
-    def withWebSocketConfig(webSocketConfig: WebSocketConfig): Config =
+    def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
   }
 

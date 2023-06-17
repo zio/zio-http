@@ -202,7 +202,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    */
   final def encodeResponsePatch[Z](value: Value): Response.Patch =
     encodeWith(value)((_, status, _, headers, _) =>
-      Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.withStatus(_)).getOrElse(Response.Patch.empty),
+      Response.Patch.addHeaders(headers) ++ status.map(Response.Patch.status(_)).getOrElse(Response.Patch.empty),
     )
 
   private final def encodeWith[Z](value: Value)(
@@ -513,7 +513,7 @@ object HttpCodec
 
     def index: Int
 
-    def withIndex(index: Int): Atom[AtomTypes, Value0]
+    def index(index: Int): Atom[AtomTypes, Value0]
   }
 
   private[http] final case class Status[A](codec: SimpleCodec[zio.http.Status, A], index: Int = 0)
@@ -523,7 +523,7 @@ object HttpCodec
 
     def tag: AtomTag = AtomTag.Status
 
-    def withIndex(index: Int): Status[A] = copy(index = index)
+    def index(index: Int): Status[A] = copy(index = index)
   }
   private[http] final case class Path[A](textCodec: TextCodec[A], name: Option[String], index: Int = 0)
       extends Atom[HttpCodecType.Path, A]   { self =>
@@ -531,7 +531,7 @@ object HttpCodec
 
     def tag: AtomTag = AtomTag.Path
 
-    def withIndex(index: Int): Path[A] = copy(index = index)
+    def index(index: Int): Path[A] = copy(index = index)
   }
   private[http] final case class Content[A](
     schema: Schema[A],
@@ -542,7 +542,7 @@ object HttpCodec
     self =>
     def tag: AtomTag = AtomTag.Content
 
-    def withIndex(index: Int): Content[A] = copy(index = index)
+    def index(index: Int): Content[A] = copy(index = index)
   }
   private[http] final case class ContentStream[A](
     schema: Schema[A],
@@ -552,7 +552,7 @@ object HttpCodec
   ) extends Atom[HttpCodecType.Content, ZStream[Any, Nothing, A]] {
     def tag: AtomTag = AtomTag.Content
 
-    def withIndex(index: Int): ContentStream[A] = copy(index = index)
+    def index(index: Int): ContentStream[A] = copy(index = index)
   }
   private[http] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
       extends Atom[HttpCodecType.Query, A]  {
@@ -561,7 +561,7 @@ object HttpCodec
 
     def tag: AtomTag = AtomTag.Query
 
-    def withIndex(index: Int): Query[A] = copy(index = index)
+    def index(index: Int): Query[A] = copy(index = index)
   }
 
   private[http] final case class Method[A](codec: SimpleCodec[zio.http.Method, A], index: Int = 0)
@@ -570,7 +570,7 @@ object HttpCodec
     def erase: Method[Any] = self.asInstanceOf[Method[Any]]
     def tag: AtomTag       = AtomTag.Method
 
-    def withIndex(index: Int): Method[A] = copy(index = index)
+    def index(index: Int): Method[A] = copy(index = index)
   }
 
   private[http] final case class Header[A](name: String, textCodec: TextCodec[A], index: Int = 0)
@@ -580,7 +580,7 @@ object HttpCodec
 
     def tag: AtomTag = AtomTag.Header
 
-    def withIndex(index: Int): Header[A] = copy(index = index)
+    def index(index: Int): Header[A] = copy(index = index)
   }
 
   private[http] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)

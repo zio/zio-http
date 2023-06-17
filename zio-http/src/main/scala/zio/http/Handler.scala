@@ -755,7 +755,7 @@ object Handler {
             // not the file extension, to determine how to process a URL.
             // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
             determineMediaType(pathName) match {
-              case Some(mediaType) => ZIO.succeed(response.withHeader(Header.ContentType(mediaType)))
+              case Some(mediaType) => ZIO.succeed(response.addHeader(Header.ContentType(mediaType)))
               case None            => ZIO.succeed(response)
             }
           } else {
@@ -928,25 +928,25 @@ object Handler {
     /**
      * Overwrites the method in the incoming request
      */
-    def withMethod(method: Method): RequestHandler[R, Err] =
+    def method(method: Method): RequestHandler[R, Err] =
       self.contramap[Request](_.copy(method = method))
 
     /**
      * Overwrites the path in the incoming request
      */
-    def withPath(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.updatePath(path))
+    def path(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.updatePath(path))
 
     /**
      * Sets the status in the response produced by the app
      */
-    def withStatus(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(
-      Response.Patch.withStatus(status),
+    def status(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(
+      Response.Patch.status(status),
     )
 
     /**
      * Overwrites the url in the incoming request
      */
-    def withUrl(url: URL): RequestHandler[R, Err] = self.contramap[Request](_.copy(url = url))
+    def url(url: URL): RequestHandler[R, Err] = self.contramap[Request](_.copy(url = url))
 
     /**
      * Updates the current Headers with new one, using the provided update

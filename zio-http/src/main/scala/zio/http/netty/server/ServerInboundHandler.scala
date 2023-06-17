@@ -277,7 +277,7 @@ private[zio] final case class ServerInboundHandler(
 
   private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
     val _ =
-      if (response.serverTime)
+      if (response.addServerTime)
         jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
   }
 

@@ -128,7 +128,7 @@ trait Body { self =>
   private[zio] def mediaType: Option[MediaType]
   private[zio] def boundary: Option[Boundary]
 
-  private[zio] def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body
+  private[zio] def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body
 }
 
 object Body {
@@ -203,7 +203,7 @@ object Body {
    * default character set.
    */
   def fromURLEncodedForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
-    fromString(form.urlEncoded(charset), charset).withContentType(MediaType.application.`x-www-form-urlencoded`)
+    fromString(form.urlEncoded(charset), charset).contentType(MediaType.application.`x-www-form-urlencoded`)
   }
 
   private[zio] trait UnsafeWriteable extends Body
@@ -235,7 +235,7 @@ object Body {
 
     override private[zio] def boundary: Option[Boundary] = None
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body = EmptyBody
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body = EmptyBody
   }
 
   private[zio] final case class ChunkBody(
@@ -261,7 +261,7 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
@@ -307,7 +307,7 @@ object Body {
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       Files.readAllBytes(file.toPath)
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
@@ -327,7 +327,7 @@ object Body {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 

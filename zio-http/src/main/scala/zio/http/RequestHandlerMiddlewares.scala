@@ -33,7 +33,7 @@ private[zio] trait RequestHandlerMiddlewares
    * Sets cookie in response headers
    */
   final def addCookie(cookie: Cookie.Response): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    withHeader(Header.SetCookie(cookie))
+    addHeader(Header.SetCookie(cookie))
 
   final def addCookieZIO[R](cookie: ZIO[R, Nothing, Cookie.Response])(implicit
     trace: Trace,
@@ -266,8 +266,8 @@ private[zio] trait RequestHandlerMiddlewares
    * Creates a new middleware that always sets the response status to the
    * provided value
    */
-  final def withStatus(status: Status): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    patch(_ => Response.Patch.withStatus(status))
+  final def status(status: Status): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
+    patch(_ => Response.Patch.status(status))
 
   /**
    * Creates a middleware for signing cookies

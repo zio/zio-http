@@ -23,7 +23,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
    *
    * @example
    *   {{{
-   *   TestServer.addRequestResponse(Request.get(url = URL.root.withPort(port = ???)), Response(Status.Ok))
+   *   TestServer.addRequestResponse(Request.get(url = URL.root.port(port = ???)), Response(Status.Ok))
    *   }}}
    */
   def addRequestResponse(
@@ -72,7 +72,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
       r <- ZIO.environment[R]
       behavior                     = pf.andThen(_.provideEnvironment(r))
       app: HttpApp[Any, Throwable] = Http.collectZIO(behavior)
-      _ <- driver.addApp(app.withDefaultErrorResponse, r)
+      _ <- driver.addApp(app.defaultErrorResponse, r)
     } yield ()
 
   override def install[R](httpApp: App[R])(implicit
@@ -82,7 +82,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
       .environment[R]
       .flatMap(
         driver.addApp(
-          httpApp.withDefaultErrorResponse,
+          httpApp.defaultErrorResponse,
           _,
         ),
       )

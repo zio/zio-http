@@ -65,7 +65,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
               method = Method.GET,
               url = URL(Root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
             )
-              .withHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
+              .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
           res          <- response.body.asChunk
           decompressed <- decompressed(res)
@@ -81,7 +81,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
               method = Method.GET,
               url = URL(Root / "stream", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
             )
-              .withHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
+              .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
           res          <- response.body.asChunk
           decompressed <- decompressed(res)

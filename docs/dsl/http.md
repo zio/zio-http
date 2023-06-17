@@ -321,13 +321,13 @@ Handler.response(Response.ok)
 
 These are some special operators for `Handler`s.
 
-### withMethod
+### method
 
 Overwrites the method in the incoming request to the `Handler`
 
 ```scala mdoc:silent
 val handler11 = Handler.fromFunction((request: Request) => Response.text(request.method.toString))
-handler11.withMethod(Method.POST)
+handler11.method(Method.POST)
 ```
 
 ### patch
@@ -336,7 +336,7 @@ Patches the response produced by the request handler using a `Patch`.
 
 ```scala mdoc:silent
 val handler12 = Handler.response(Response.text("Hello World!"))
-val handler13 = handler12.patch(Response.Patch.withStatus(Status.Accepted))
+val handler13 = handler12.patch(Response.Patch.status(Status.Accepted))
 ```
 
 ## Converting an `Http` to `App`
@@ -344,10 +344,10 @@ val handler13 = handler12.patch(Response.Patch.withStatus(Status.Accepted))
 If you want to run an `Http[R, E, A, B]` app on the ZIO HTTP server you need to convert it to `App[R]` using
 operators like `map`, `contramap`, etc.
 
-Custom errors can be converted to `Response` using `mapError` or you can use `withDefaultErrorHandling` to convert
+Custom errors can be converted to `Response` using `mapError` or you can use `defaultErrorHandling` to convert
 all custom errors into internal server error responses.
 
-If a `Http` can never fail (has `Nothing` as its error type), there is no need to use `withDefaultErrorHandling`
+If a `Http` can never fail (has `Nothing` as its error type), there is no need to use `defaultErrorHandling`
 or `mapError`.
 
 ## Running an App

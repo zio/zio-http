@@ -33,7 +33,7 @@ object FileStreaming extends ZIOAppDefault {
 
   // Run it like any simple app
   val run =
-    Server.serve(app.withDefaultErrorResponse).provide(Server.default)
+    Server.serve(app.defaultErrorResponse).provide(Server.default)
 }
 
 ```

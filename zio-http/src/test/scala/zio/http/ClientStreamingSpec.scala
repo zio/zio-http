@@ -51,12 +51,12 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           }
         }
     }
-    .withErrorHandler(
+    .errorHandler(
       Some((cause: Cause[Nothing]) =>
         ZIO.logErrorCause("Fatal server error", cause).as(Response.status(Status.InternalServerError)),
       ),
     )
-    .withDefaultErrorResponse
+    .defaultErrorResponse
 
   // TODO: test failure cases
 
@@ -315,7 +315,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID)),
           ZLayer.succeed(
             Server.Config.default.onAnyOpenPort
-              .withRequestStreaming(
+              .requestStreaming(
                 if (streaming) RequestStreaming.Enabled else RequestStreaming.Disabled(2 * 1024 * 1024),
               )
               .idleTimeout(100.seconds),

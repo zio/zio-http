@@ -464,7 +464,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       try {
         if (f(in)) self else Http.Empty(self.errorHandler)
       } catch {
-        case failure: Throwable => Http.fromHandler(Handler.die(failure)).withErrorHandler(self.errorHandler)
+        case failure: Throwable => Http.fromHandler(Handler.die(failure)).errorHandler(self.errorHandler)
       }
     }
 
@@ -478,12 +478,12 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       }
     }
 
-  final def withDefaultErrorResponse(implicit trace: Trace, ev1: Request <:< In, ev2: Out <:< Response): App[R] =
+  final def defaultErrorResponse(implicit trace: Trace, ev1: Request <:< In, ev2: Out <:< Response): App[R] =
     self.mapError { _ =>
       Response(status = Status.InternalServerError)
     }.asInstanceOf[App[R]]
 
-  final private[http] def withErrorHandler[R1 <: R, Out1 >: Out](
+  final private[http] def errorHandler[R1 <: R, Out1 >: Out](
     newErrorHandler: Option[Cause[Nothing] => ZIO[Any, Nothing, Unit]],
   ): Http[R1, Err, In, Out1] =
     self match {
@@ -575,7 +575,7 @@ object Http {
                 Some(
                   Handler.succeed(
                     determineMediaType(pathName).fold(response)(mediaType =>
-                      response.withHeader(Header.ContentType(mediaType)),
+                      response.addHeader(Header.ContentType(mediaType)),
                     ),
                   ),
                 )
@@ -846,8 +846,8 @@ object Http {
               response      = Response(body = Body.fromStream(inZStream))
             } yield mediaType.fold(response) { t =>
               response
-                .withHeader(Header.ContentType(t))
-                .withHeader(Header.ContentLength(contentLength))
+                .addHeader(Header.ContentType(t))
+                .addHeader(Header.ContentLength(contentLength))
             }
           }
 

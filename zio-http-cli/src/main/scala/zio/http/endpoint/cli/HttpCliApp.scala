@@ -93,7 +93,7 @@ object HttpCliApp {
               client(
                 Request(
                   method = method,
-                  url = url.withHost(host).withPort(port),
+                  url = url.host(host).port(port),
                   headers = headers,
                   body = Body.fromString(body.toString),
                 ),

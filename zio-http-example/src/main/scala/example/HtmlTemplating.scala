@@ -47,5 +47,5 @@ object HtmlTemplating extends ZIOAppDefault {
     }
   }
 
-  def run = Server.serve(app.toHttp.withDefaultErrorResponse).provide(Server.default)
+  def run = Server.serve(app.toHttp.defaultErrorResponse).provide(Server.default)
 }

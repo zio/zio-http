@@ -58,7 +58,7 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
             _ <- ZIO.debug(s"Finished reading multipart/form stream, received $count bytes of data")
           } yield Response.text(count.toString)
       }
-      .withDefaultErrorResponse @@ RequestHandlerMiddlewares.debug
+      .defaultErrorResponse @@ RequestHandlerMiddlewares.debug
 
   private def program: ZIO[Server, Throwable, Unit] =
     for {

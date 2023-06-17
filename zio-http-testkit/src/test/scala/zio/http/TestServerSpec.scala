@@ -68,7 +68,7 @@ object TestServerSpec extends ZIOSpecDefault {
           _             <- TestServer.addRequestResponse(testRequest, Response(Status.Ok))
           finalResponse <-
             client(
-              testRequest.copy(url = testRequest.url.withPath(Path.root / "unhandled")),
+              testRequest.copy(url = testRequest.url.path(Path.root / "unhandled")),
             )
         } yield assertTrue(finalResponse.status == Status.NotFound)
       },
@@ -98,7 +98,7 @@ object TestServerSpec extends ZIOSpecDefault {
     for {
       port <- ZIO.serviceWith[Server](_.port)
     } yield Request
-      .get(url = URL.root.withPort(port))
+      .get(url = URL.root.port(port))
       .addHeaders(Headers(Header.Accept(MediaType.text.`plain`)))
 
 }

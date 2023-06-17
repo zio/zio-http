@@ -774,7 +774,7 @@ object EndpointSpec extends ZIOSpecDefault {
             val form =
               Form(
                 fields.map(_._1).zipWithIndex.map { case (field, idx) =>
-                  if (field.name.isEmpty) field.withName(s"field$idx") else field
+                  if (field.name.isEmpty) field.name(s"field$idx") else field
                 },
               )
 
