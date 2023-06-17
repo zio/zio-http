@@ -16,11 +16,18 @@ object HttpsHelloWorld extends ZIOAppDefault {
   }
 
   /**
-   * In this example an inbuilt API using keystore is used. For testing this
-   * example using curl, setup the certificate named "server.crt" from resources
-   * for the OS. Alternatively you can create the keystore and certificate using
-   * the following link
-   * https://medium.com/@maanadev/netty-with-https-tls-9bf699e07f01
+   * In this example, a private key and certificate are loaded from resources.
+   * For testing this example with curl, make sure the private key "server.key",
+   * and the certificate "server.crt" are inside the resources directory,
+   * which is by default "src/main/resources".
+   *
+   * You can use the following command to create a self-signed TLS certificate.
+   * This command will create two files: "server.key" and "server.crt".
+   *
+   *     openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
+   *       -keyout server.key -out server.crt \
+   *       -subj "/CN=example.com/OU=?/O=?/L=?/ST=?/C=??" \
+   *       -addext "subjectAltName=DNS:example.com,DNS:www.example.com,IP:10.0.0.1"
    */
 
   val sslConfig = SSLConfig.fromResource(
