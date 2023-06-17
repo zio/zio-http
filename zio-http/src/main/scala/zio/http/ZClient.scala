@@ -152,20 +152,34 @@ final case class ZClient[-Env, -In, +Err, +Out](
     transform(bodyEncoder.refineOrDie(pf), bodyDecoder.refineOrDie(pf), driver.refineOrDie(pf))
 
   def request(request: Request)(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] =
-    bodyEncoder
-      .encode(ev(request.body))
-      .flatMap(body =>
+    if (bodyEncoder == ZClient.BodyEncoder.identity)
+      bodyDecoder.decodeZIO(
         driver
           .request(
             self.version ++ request.version,
             request.method,
             self.url ++ request.url,
             self.headers ++ request.headers,
-            body,
+            request.body,
             sslConfig,
-          )
-          .flatMap(bodyDecoder.decode),
+          ),
       )
+    else
+      bodyEncoder
+        .encode(ev(request.body))
+        .flatMap(body =>
+          bodyDecoder.decodeZIO(
+            driver
+              .request(
+                self.version ++ request.version,
+                request.method,
+                self.url ++ request.url,
+                self.headers ++ request.headers,
+                body,
+                sslConfig,
+              ),
+          ),
+        )
 
   def request(method: Method, suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
     bodyEncoder
