@@ -72,7 +72,7 @@ object ClientSpec extends HttpRunnableSpec {
       for {
         baseURL   <- DynamicServer.httpURL
         _         <- Handler.ok.toHttp
-          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).doGet)
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get(""))
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == baseURL)
@@ -81,7 +81,7 @@ object ClientSpec extends HttpRunnableSpec {
       for {
         baseURL   <- DynamicServer.httpURL
         _         <- Handler.ok.toHttp
-          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).addPath("/").doGet)
+          .deployAndRequest(c => (c @@ ZClientAspect.requestLogging()).get("/"))
           .runZIO(())
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == s"$baseURL/")

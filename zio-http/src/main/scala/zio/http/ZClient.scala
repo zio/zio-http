@@ -27,7 +27,6 @@ import java.net.MalformedURLException
 
 final case class ZClient[-Env, -In, +Err, +Out](
   version: Version,
-  method: Method,
   url: URL,
   headers: Headers,
   sslConfig: Option[ClientSSLConfig],
@@ -68,9 +67,6 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def addLeadingSlash: ZClient[Env, In, Err, Out] =
     copy(url = url.addLeadingSlash)
 
-  def addMethod(method: Method): ZClient[Env, In, Err, Out] =
-    copy(method = self.method ++ method)
-
   def addQueryParam(key: String, value: String): ZClient[Env, In, Err, Out] =
     copy(url = url.copy(queryParams = url.queryParams.add(key, value)))
 
@@ -93,7 +89,8 @@ final case class ZClient[-Env, -In, +Err, +Out](
       self.driver,
     )
 
-  def delete: ZClient[Env, In, Err, Out] = copy(method = Method.DELETE)
+  def delete(suffix: String)(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] =
+    request(Method.DELETE, suffix)(ev(Body.empty))
 
   def dieOn(
     f: Err => Boolean,
@@ -103,27 +100,11 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def disableStreaming(implicit ev: Err <:< Throwable): ZClient[Env, In, Throwable, Out] =
     transform(bodyEncoder.widenError[Throwable], bodyDecoder.widenError[Throwable], driver.disableStreaming)
 
-  def doDelete(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.DELETE, ev(Body.empty))
+  def get(suffix: String)(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] =
+    request(Method.GET, suffix)(ev(Body.empty))
 
-  def doDelete(in: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] = request(Method.DELETE, in)
-
-  def doGet(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.GET, ev(Body.empty))
-
-  def doHead(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.HEAD, ev(Body.empty))
-
-  def doOptions(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.OPTIONS, ev(Body.empty))
-
-  def doPatch(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] = request(Method.PATCH, body)
-
-  def doPost(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] = request(Method.POST, body)
-
-  def doPut(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] = request(Method.PUT, body)
-
-  def doTrace(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] = request(Method.TRACE, ev(Body.empty))
-
-  def get: ZClient[Env, In, Err, Out] = method(Method.GET)
-
-  def head: ZClient[Env, In, Err, Out] = method(Method.HEAD)
+  def head(suffix: String)(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] =
+    request(Method.HEAD, suffix)(ev(Body.empty))
 
   def host(host: String): ZClient[Env, In, Err, Out] =
     copy(url = url.withHost(host))
@@ -148,21 +129,22 @@ final case class ZClient[-Env, -In, +Err, +Out](
       driver,
     )
 
-  def method(method: Method): ZClient[Env, In, Err, Out] = copy(method = method)
-
   def path(path: String): ZClient[Env, In, Err, Out] = self.path(Path(path))
 
   def path(path: Path): ZClient[Env, In, Err, Out] =
     copy(url = url.copy(path = path))
 
-  def patch: ZClient[Env, In, Err, Out] = method(Method.PATCH)
+  def patch(suffix: String)(implicit ev: Body <:< In): ZIO[Env & Scope, Err, Out] =
+    request(Method.PATCH, suffix)(ev(Body.empty))
 
   def port(port: Int): ZClient[Env, In, Err, Out] =
     copy(url = url.withPort(port))
 
-  def post: ZClient[Env, In, Err, Out] = method(Method.POST)
+  def post(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
+    request(Method.POST, suffix)(body)
 
-  def put: ZClient[Env, In, Err, Out] = method(Method.PUT)
+  def put(suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
+    request(Method.PUT, suffix)(body)
 
   def refineOrDie[Err2](
     pf: PartialFunction[Err, Err2],
@@ -176,7 +158,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
         driver
           .request(
             self.version ++ request.version,
-            method ++ request.method,
+            request.method,
             self.url ++ request.url,
             self.headers ++ request.headers,
             body,
@@ -185,23 +167,22 @@ final case class ZClient[-Env, -In, +Err, +Out](
           .flatMap(bodyDecoder.decode),
       )
 
-  def request(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
-    request(method, body)
-
-  private def request(methodOverride: Method, body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
+  def request(method: Method, suffix: String)(body: In)(implicit trace: Trace): ZIO[Env & Scope, Err, Out] =
     bodyEncoder
       .encode(body)
-      .flatMap(body =>
-        driver
-          .request(
-            version,
-            method ++ methodOverride,
-            url,
-            headers,
-            body,
-            sslConfig,
-          )
-          .flatMap(bodyDecoder.decode),
+      .flatMap(body => bodyDecoder.decodeZIO[Env & Scope, Err](requestRaw(method, suffix, body)))
+
+  private def requestRaw(method: Method, suffix: String, body: Body)(implicit
+    trace: Trace,
+  ): ZIO[Env & Scope, Err, Response] =
+    driver
+      .request(
+        version,
+        method,
+        if (suffix.nonEmpty) url.addPath(suffix) else url,
+        headers,
+        body,
+        sslConfig,
       )
 
   def retry[Env1 <: Env](policy: Schedule[Env1, Err, Any]): ZClient[Env1, In, Err, Out] =
@@ -230,7 +211,6 @@ final case class ZClient[-Env, -In, +Err, +Out](
   ): ZClient[Env2, In2, Err2, Out2] =
     ZClient(
       version,
-      method,
       url,
       headers,
       sslConfig,
@@ -281,16 +261,11 @@ object ZClient {
   def fromDriver[Env, Err](driver: Driver[Env, Err]): ZClient[Env, Body, Err, Response] =
     ZClient(
       Version.Default,
-      Method.Default,
       URL.empty,
       Headers.empty,
       None,
-      new BodyEncoder[Env, Err, Body]     {
-        def encode(body: Body): ZIO[Env, Err, Body] = Exit.succeed(body)
-      },
-      new BodyDecoder[Env, Err, Response] {
-        def decode(response: Response): ZIO[Env, Err, Response] = Exit.succeed(response)
-      },
+      BodyEncoder.identity,
+      BodyDecoder.identity,
       driver,
     )
 
@@ -308,47 +283,68 @@ object ZClient {
   trait BodyDecoder[-Env, +Err, +Out] { self =>
     def decode(response: Response): ZIO[Env, Err, Out]
 
-    def mapError[Err2](f: Err => Err2): BodyDecoder[Env, Err2, Out] =
+    def decodeZIO[Env1 <: Env, Err1 >: Err](zio: ZIO[Env1, Err1, Response]): ZIO[Env1, Err1, Out] =
+      zio.flatMap(decode)
+
+    final def mapError[Err2](f: Err => Err2): BodyDecoder[Env, Err2, Out] =
       new BodyDecoder[Env, Err2, Out] {
         def decode(response: Response): ZIO[Env, Err2, Out] = self.decode(response).mapError(f)
       }
 
-    def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): BodyDecoder[Env1, Err1, Out2] =
+    final def mapZIO[Env1 <: Env, Err1 >: Err, Out2](f: Out => ZIO[Env1, Err1, Out2]): BodyDecoder[Env1, Err1, Out2] =
       new BodyDecoder[Env1, Err1, Out2] {
         def decode(response: Response): ZIO[Env1, Err1, Out2] = self.decode(response).flatMap(f)
       }
 
-    def refineOrDie[Err2](
+    final def refineOrDie[Err2](
       pf: PartialFunction[Err, Err2],
     )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): BodyDecoder[Env, Err2, Out] =
       new BodyDecoder[Env, Err2, Out] {
         def decode(response: Response): ZIO[Env, Err2, Out] = self.decode(response).refineOrDie(pf)
       }
 
-    def widenError[E1](implicit ev: Err <:< E1): BodyDecoder[Env, E1, Out] =
+    final def widenError[E1](implicit ev: Err <:< E1): BodyDecoder[Env, E1, Out] =
       self.asInstanceOf[BodyDecoder[Env, E1, Out]]
   }
+  object BodyDecoder                  {
+    val identity: BodyDecoder[Any, Nothing, Response] =
+      new BodyDecoder[Any, Nothing, Response] {
+        final def decode(response: Response): ZIO[Any, Nothing, Response] = Exit.succeed(response)
+
+        override def decodeZIO[Env1 <: Any, Err1 >: Nothing](
+          zio: ZIO[Env1, Err1, Response],
+        ): ZIO[Env1, Err1, Response] =
+          zio
+      }
+  }
   trait BodyEncoder[-Env, +Err, -In]  { self =>
-    def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): BodyEncoder[Env1, Err1, In2] =
+    final def contramapZIO[Env1 <: Env, Err1 >: Err, In2](f: In2 => ZIO[Env1, Err1, In]): BodyEncoder[Env1, Err1, In2] =
       new BodyEncoder[Env1, Err1, In2] {
         def encode(in: In2): ZIO[Env1, Err1, Body] = f(in).flatMap(self.encode)
       }
 
     def encode(in: In): ZIO[Env, Err, Body]
 
-    def mapError[Err2](f: Err => Err2): BodyEncoder[Env, Err2, In] =
+    final def mapError[Err2](f: Err => Err2): BodyEncoder[Env, Err2, In] =
       new BodyEncoder[Env, Err2, In] {
         def encode(in: In): ZIO[Env, Err2, Body] = self.encode(in).mapError(f)
       }
 
-    def refineOrDie[Err2](
+    final def refineOrDie[Err2](
       pf: PartialFunction[Err, Err2],
     )(implicit ev1: Err IsSubtypeOfError Throwable, ev2: CanFail[Err], trace: Trace): BodyEncoder[Env, Err2, In] =
       new BodyEncoder[Env, Err2, In] {
         def encode(in: In): ZIO[Env, Err2, Body] = self.encode(in).refineOrDie(pf)
       }
 
-    def widenError[E1](implicit ev: Err <:< E1): BodyEncoder[Env, E1, In] = self.asInstanceOf[BodyEncoder[Env, E1, In]]
+    final def widenError[E1](implicit ev: Err <:< E1): BodyEncoder[Env, E1, In] =
+      self.asInstanceOf[BodyEncoder[Env, E1, In]]
+  }
+  object BodyEncoder                  {
+    val identity: BodyEncoder[Any, Nothing, Body] =
+      new BodyEncoder[Any, Nothing, Body] {
+        def encode(body: Body): ZIO[Any, Nothing, Body] = Exit.succeed(body)
+      }
   }
 
   trait Driver[-Env, +Err] { self =>

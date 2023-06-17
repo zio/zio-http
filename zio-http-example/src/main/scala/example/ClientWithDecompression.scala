@@ -11,7 +11,7 @@ object ClientWithDecompression extends ZIOAppDefault {
 
   val program = for {
     client <- ZIO.service[Client]
-    res    <- client.addHeader(AcceptEncoding(AcceptEncoding.GZip(), AcceptEncoding.Deflate())).url(url).doGet
+    res    <- client.addHeader(AcceptEncoding(AcceptEncoding.GZip(), AcceptEncoding.Deflate())).url(url).get("")
     data   <- res.body.asString
     _      <- Console.printLine(data)
   } yield ()

@@ -167,7 +167,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       port   <- DynamicServer.port
       client <- ZIO.service[Client]
       url = URL.decode("http://localhost:%d/%s".format(port, path)).toOption.get
-      status <- client.method(method).url(url).request(Body.empty).map(_.status)
+      status <- client(Request(method = method, url = url)).map(_.status)
     } yield status
   }
 

@@ -18,7 +18,6 @@ package zio.http
 
 import java.net.{MalformedURLException, URI, URISyntaxException}
 
-import scala.language.implicitConversions
 import scala.util.Try
 
 import zio.Chunk
@@ -206,8 +205,6 @@ final case class URL(
 }
 
 object URL {
-  implicit def unsafeDecode(string: String): URL = decode(string).toOption.get
-
   def empty: URL = URL(Path.empty)
 
   def decode(string: String): Either[Exception, URL] = {
