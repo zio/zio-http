@@ -478,7 +478,7 @@ sealed trait Http[-R, +Err, -In, +Out] { self =>
       }
     }
 
-  final def defaultErrorResponse(implicit trace: Trace, ev1: Request <:< In, ev2: Out <:< Response): App[R] =
+  final def withDefaultErrorResponse(implicit trace: Trace, ev1: Request <:< In, ev2: Out <:< Response): App[R] =
     self.mapError { _ =>
       Response(status = Status.InternalServerError)
     }.asInstanceOf[App[R]]

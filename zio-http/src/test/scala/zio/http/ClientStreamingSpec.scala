@@ -56,7 +56,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         ZIO.logErrorCause("Fatal server error", cause).as(Response.status(Status.InternalServerError)),
       ),
     )
-    .defaultErrorResponse
+    .withDefaultErrorResponse
 
   // TODO: test failure cases
 

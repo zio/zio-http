@@ -29,13 +29,13 @@ object DynamicAppTest extends ZIOSpecDefault {
     .collect[Request] { case Method.GET -> Root / "good" =>
       Response.ok
     }
-    .defaultErrorResponse
+    .withDefaultErrorResponse
 
   val httpApp2: App[Any] = Http
     .collect[Request] { case Method.GET -> Root / "better" =>
       Response.status(Status.Created)
     }
-    .defaultErrorResponse
+    .withDefaultErrorResponse
 
   val layer =
     ZLayer.make[Client & Server & Scope](

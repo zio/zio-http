@@ -26,5 +26,5 @@ object ConcreteEntity extends ZIOAppDefault {
 
   // Run it like any simple app
   val run =
-    Server.serve(app.toHttp.defaultErrorResponse).provide(Server.default)
+    Server.serve(app.toHttp.withDefaultErrorResponse).provide(Server.default)
 }

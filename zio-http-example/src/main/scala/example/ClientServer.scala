@@ -16,6 +16,6 @@ object ClientServer extends ZIOAppDefault {
   }
 
   val run = {
-    Server.serve(app.defaultErrorResponse).provide(Server.default, Client.default, Scope.default).exitCode
+    Server.serve(app.withDefaultErrorResponse).provide(Server.default, Client.default, Scope.default).exitCode
   }
 }

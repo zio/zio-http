@@ -46,7 +46,7 @@ object StaticServerSpec extends HttpRunnableSpec {
     ZIO.succeed(Response.ok.addHeader(Header.Vary("test1", "test2")))
   } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
 
-  private val app = serve { (nonZIO ++ staticApp ++ staticAppWithCors).defaultErrorResponse }
+  private val app = serve { (nonZIO ++ staticApp ++ staticAppWithCors).withDefaultErrorResponse }
 
   private val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
     List(

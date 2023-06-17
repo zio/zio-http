@@ -19,6 +19,6 @@ object SSEServer extends ZIOAppDefault {
   }
 
   val run: URIO[Any, ExitCode] = {
-    Server.serve(app.defaultErrorResponse).provide(Server.default).exitCode
+    Server.serve(app.withDefaultErrorResponse).provide(Server.default).exitCode
   }
 }

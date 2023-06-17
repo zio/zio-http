@@ -51,7 +51,7 @@ object SSLSpec extends ZIOSpecDefault {
 
   override def spec = suite("SSL")(
     Server
-      .serve(app.defaultErrorResponse)
+      .serve(app.withDefaultErrorResponse)
       .as(
         List(
           test("succeed when client has the server certificate") {

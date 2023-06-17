@@ -27,7 +27,7 @@ object GracefulShutdown extends ZIOAppDefault {
       ZIO.sleep(10.seconds).debug("request handler delay done").as(Response.text("done"))
     }
     .toHttp
-    .defaultErrorResponse
+    .withDefaultErrorResponse
 
   override def run: ZIO[Any, Throwable, Unit] =
     (for {
