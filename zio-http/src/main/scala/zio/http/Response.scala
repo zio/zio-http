@@ -85,7 +85,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
     result = prime * result + headers.hashCode
     result = prime * result + status.hashCode
     result = prime * result + frozen.hashCode
-    result = prime * result + serverTime.hashCode
+    result = prime * result + addServerTime.hashCode
     result = prime * result + socketApp.hashCode
     result
   }
