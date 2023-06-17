@@ -65,7 +65,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
 
     if (r.frozen != self.frozen) return false
 
-    if (r.serverTime != self.serverTime) return false
+    if (r.addServerTime != self.addServerTime) return false
 
     if (r.socketApp != self.socketApp) return false
 
