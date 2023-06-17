@@ -23,6 +23,7 @@ import zio.{Chunk, Scope, ZIO, ZLayer}
 import zio.http.URL.Location
 
 object ZClientAspectSpec extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
 
   val app: App[Any] = Handler.fromFunction[Request] { _ => Response.text("hello") }.toHttp
 
@@ -38,7 +39,7 @@ object ZClientAspectSpec extends ZIOSpecDefault {
           response <- client.request(Request.get(URL.empty / "hello"))
           output   <- TestConsole.output
         } yield assertTrue(
-          response.status == Status.Ok,
+          extractStatus(response) == Status.Ok,
           output.size == 1,
           output.head.startsWith(s"200 GET http://localhost:$port/hello"),
           output.head.endsWith("ms\n"),
@@ -61,7 +62,7 @@ object ZClientAspectSpec extends ZIOSpecDefault {
           messages    = output.map(_.message())
           annotations = output.map(_.annotations)
         } yield assertTrue(
-          response.status == Status.Ok,
+          extractStatus(response) == Status.Ok,
           messages == Chunk("Http client request"),
           annotations.size == 1,
           (annotations.head - "duration_ms") ==

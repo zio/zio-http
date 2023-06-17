@@ -6,6 +6,7 @@ import zio.test._
 import zio.http.netty.server.NettyDriver
 
 object TestServerSpec extends ZIOSpecDefault {
+  def status(response: Response): Status = response.status
 
   def spec = suite("TestServerSpec")(
     test("with state") {
@@ -31,8 +32,8 @@ object TestServerSpec extends ZIOSpecDefault {
           client(
             testRequest,
           )
-      } yield assertTrue(response1.status == Status.Ok) &&
-        assertTrue(response2.status == Status.InternalServerError)
+      } yield assertTrue(status(response1) == Status.Ok) &&
+        assertTrue(status(response2) == Status.InternalServerError)
     }.provideSome[Client with Driver with Scope](
       TestServer.layer,
     ),
@@ -47,7 +48,7 @@ object TestServerSpec extends ZIOSpecDefault {
               testRequest,
             )
 
-        } yield assertTrue(finalResponse.status == Status.Ok)
+        } yield assertTrue(status(finalResponse) == Status.Ok)
       },
       test("matches, ignoring additional headers") {
         for {
@@ -59,7 +60,7 @@ object TestServerSpec extends ZIOSpecDefault {
               testRequest.addHeaders(Headers(Header.ContentLanguage.French)),
             )
 
-        } yield assertTrue(finalResponse.status == Status.Ok)
+        } yield assertTrue(status(finalResponse) == Status.Ok)
       },
       test("does not match different path") {
         for {
@@ -70,7 +71,7 @@ object TestServerSpec extends ZIOSpecDefault {
             client(
               testRequest.copy(url = testRequest.url.path(Path.root / "unhandled")),
             )
-        } yield assertTrue(finalResponse.status == Status.NotFound)
+        } yield assertTrue(status(finalResponse) == Status.NotFound)
       },
       test("does not match different headers") {
         for {
@@ -81,7 +82,7 @@ object TestServerSpec extends ZIOSpecDefault {
             client(
               testRequest.copy(headers = Headers(Header.CacheControl.Public)),
             )
-        } yield assertTrue(finalResponse.status == Status.NotFound)
+        } yield assertTrue(status(finalResponse) == Status.NotFound)
       },
     )
       .provideSome[Client with Driver with Scope](

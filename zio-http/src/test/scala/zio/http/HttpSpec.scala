@@ -21,7 +21,8 @@ import zio.test.Assertion._
 import zio.test.{Spec, ZIOSpecDefault, assert, assertTrue, assertZIO}
 
 object HttpSpec extends ZIOSpecDefault with ExitAssertion {
-  implicit val allowUnsafe: Unsafe = Unsafe.unsafe
+  def extractStatus(response: Response): Status = response.status
+  implicit val allowUnsafe: Unsafe              = Unsafe.unsafe
 
   def spec: Spec[Any, Any] =
     suite("Http")(
@@ -135,7 +136,7 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
             http = Http.collect(pf) @@ RequestHandlerMiddlewares.basicAuth(_ => false)
             result       <- http.runZIO(Request.get(URL(Root / "test")))
             finalMutable <- ZIO.attempt(mutable)
-          } yield assertTrue(result.status == Status.Unauthorized, finalMutable == 0)
+          } yield assertTrue(extractStatus(result) == Status.Unauthorized, finalMutable == 0)
         },
       ),
       suite("collectZIO")(
@@ -172,7 +173,7 @@ object HttpSpec extends ZIOSpecDefault with ExitAssertion {
             http = Http.collectZIO(pf) @@ RequestHandlerMiddlewares.basicAuth(_ => false)
             result       <- http.runZIO(Request.get(URL(Root / "test")))
             finalMutable <- ZIO.attempt(mutable)
-          } yield assertTrue(result.status == Status.Unauthorized, finalMutable == 0)
+          } yield assertTrue(extractStatus(result) == Status.Unauthorized, finalMutable == 0)
         },
       ),
       suite("collectHttp")(

@@ -23,7 +23,8 @@ import zio.test._
 import zio.http.internal.HttpGen
 
 object URLSpec extends ZIOSpecDefault {
-  def asURL(string: String): URL = URL.decode(string).toOption.get
+  def extractPath(url: URL): Path = url.path
+  def asURL(string: String): URL  = URL.decode(string).toOption.get
 
   def spec =
     suite("URL")(
@@ -36,8 +37,8 @@ object URLSpec extends ZIOSpecDefault {
       suite("equality/hash")(
         test("leading slash invariant") {
           check(HttpGen.url) { url =>
-            val url1 = url.copy(path = url.path.dropLeadingSlash)
-            val url2 = url.copy(path = url.path.addLeadingSlash)
+            val url1 = url.copy(path = extractPath(url).dropLeadingSlash)
+            val url2 = url.copy(path = extractPath(url).addLeadingSlash)
 
             assertTrue(url1 == url2) &&
             assertTrue(url1.hashCode == url2.hashCode)
@@ -50,13 +51,13 @@ object URLSpec extends ZIOSpecDefault {
 
           val url2 = url.normalize
 
-          assertTrue(url2.path == Path("/a/b/c"))
+          assertTrue(extractPath(url2) == Path("/a/b/c"))
         },
         test("deletes leading slash if there are no path segments") {
           val url  = URL(Path.root, URL.Location.Absolute(Scheme.HTTP, "abc.com", 80), QueryParams.empty, None)
           val url2 = url.normalize
 
-          assertTrue(url2.path == Path.empty)
+          assertTrue(extractPath(url2) == Path.empty)
         },
       ),
       suite("encode-decode symmetry")(

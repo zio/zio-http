@@ -21,6 +21,7 @@ import zio.test._
 import zio.{Scope, ZLayer}
 
 object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
 
   private val serverConfig: Server.Config = Server.Config.default.onAnyOpenPort.copy(maxHeaderSize = 1)
 
@@ -44,7 +45,7 @@ object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
 
         res  <- Client.request(Request(url = url, headers = headers, body = Body.fromString("some-body")))
         data <- res.body.asString
-      } yield assertTrue(res.status == Status.InternalServerError, data == "")
+      } yield assertTrue(extractStatus(res) == Status.InternalServerError, data == "")
     }.provide(
       Client.default,
       Server.live,

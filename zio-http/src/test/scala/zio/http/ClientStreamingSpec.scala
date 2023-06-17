@@ -29,6 +29,7 @@ import zio.http.netty.NettyConfig
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 object ClientStreamingSpec extends HttpRunnableSpec {
+  def extractStatus(response: Response): Status = response.status
 
   val app = Http
     .collectZIO[Request] {
@@ -70,7 +71,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             Request.get(URL.decode(s"http://localhost:$port/simple-get").toOption.get),
           )
           body     <- response.body.asString
-        } yield assertTrue(response.status == Status.Ok, body == "simple response")
+        } yield assertTrue(extractStatus(response) == Status.Ok, body == "simple response")
       },
       test("streaming get") {
         for {
@@ -81,7 +82,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           )
           body     <- response.body.asStream.chunks.map(chunk => new String(chunk.toArray)).runCollect
         } yield assertTrue(
-          response.status == Status.Ok,
+          extractStatus(response) == Status.Ok,
           body == Chunk(
             "str",
             "eam",
@@ -107,7 +108,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
                 ),
               ),
             )
-        } yield assertTrue(response.status == Status.Ok)
+        } yield assertTrue(extractStatus(response) == Status.Ok)
       },
       test("echo") {
         for {
@@ -137,7 +138,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             else
               Chunk("streaming request", "")
         } yield assertTrue(
-          response.status == Status.Ok,
+          extractStatus(response) == Status.Ok,
           body == expectedBody,
         )
       },
@@ -281,7 +282,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
               "",
             )
         } yield assertTrue(
-          response.status == Status.Ok,
+          extractStatus(response) == Status.Ok,
           body == expectedBody,
         )
       } @@ nonFlaky,

@@ -34,6 +34,8 @@ import zio.http.endpoint.internal.EndpointServer
 import zio.http.forms.Fixtures.formField
 
 object EndpointSpec extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
+
   case class NewPost(value: String)
 
   def spec = suite("EndpointSpec")(
@@ -103,7 +105,7 @@ object EndpointSpec extends ZIOSpecDefault {
           response <- routes.toApp.runZIO(
             Request.get(URL.decode("/posts?id=notanid").toOption.get),
           )
-        } yield assertTrue(response.status.code == 400)
+        } yield assertTrue(extractStatus(response).code == 400)
       },
       test("out of order api") {
         val testRoutes = testEndpoint(
@@ -355,11 +357,10 @@ object EndpointSpec extends ZIOSpecDefault {
           notCreated <- routes.toApp.runZIO(requestNotCreated)
           header = notCreated.rawHeader("X-Header").get
           response <- routes.toApp.runZIO(requestCreated)
-        } yield assertTrue(
-          header == "not created",
-          notCreated.status == Status.Ok,
-          response.status == Status.Created,
-        )
+          value = header == "not created" &&
+            extractStatus(notCreated) == Status.Ok &&
+            extractStatus(response) == Status.Created
+        } yield assertTrue(value)
 
       },
       suite("request bodies")(
@@ -386,7 +387,7 @@ object EndpointSpec extends ZIOSpecDefault {
           for {
             response <- routes.toApp.runZIO(request).mapError(_.get)
             body     <- response.body.asString.orDie
-          } yield assertTrue(response.status.isSuccess) && assertTrue(body == "42")
+          } yield assertTrue(extractStatus(response).isSuccess) && assertTrue(body == "42")
         },
         test("bad request for failed codec") {
           implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
@@ -408,7 +409,7 @@ object EndpointSpec extends ZIOSpecDefault {
                   Body.fromString("""{"vale": "My new post!"}"""),
                 ),
             )
-          } yield assertTrue(response.status.code == 400)
+          } yield assertTrue(extractStatus(response).code == 400)
         },
       ),
       suite("404")(
@@ -471,7 +472,7 @@ object EndpointSpec extends ZIOSpecDefault {
           for {
             response <- routes.toApp.runZIO(request).mapError(_.get)
             body     <- response.body.asString.orDie
-          } yield assertTrue(response.status.code == 999, body == "\"path(users, 123)\"")
+          } yield assertTrue(extractStatus(response).code == 999, body == "\"path(users, 123)\"")
         },
         test("status depending on the error subtype") {
           val routes =
@@ -497,9 +498,9 @@ object EndpointSpec extends ZIOSpecDefault {
             response2 <- routes.toApp.runZIO(request2).mapError(_.get)
             body2     <- response2.body.asString.orDie
           } yield assertTrue(
-            response1.status == Status.NotFound,
+            extractStatus(response1) == Status.NotFound,
             body1 == "{\"userId\":123}",
-            response2.status == Status.InternalServerError,
+            extractStatus(response2) == Status.InternalServerError,
             body2 == "{\"message\":\"something went wrong\"}",
           )
         },

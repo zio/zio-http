@@ -24,6 +24,7 @@ import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
 object DynamicAppTest extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
 
   val httpApp1: App[Any] = Http
     .collect[Request] { case Method.GET -> Root / "good" =>
@@ -59,8 +60,8 @@ object DynamicAppTest extends ZIOSpecDefault {
         _               <- Server.install(httpApp2)
         createdResponse <- Client.request(Request.get(better))
       } yield assertTrue(
-        okResponse.status == Status.Ok &&
-          createdResponse.status == Status.Created,
+        extractStatus(okResponse) == Status.Ok &&
+          extractStatus(createdResponse) == Status.Created,
       ) // fails here because the response is Status.NotFound
     }.provideLayer(layer) @@ withLiveClock,
   )

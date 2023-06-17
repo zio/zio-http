@@ -32,6 +32,8 @@ import zio.http.codec.{Doc, HttpCodec, QueryCodec}
 import zio.http.netty.server.NettyDriver
 
 object ServerClientIntegrationSpec extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
+
   trait PostsService {
     def getPost(userId: Int, postId: Int): ZIO[Any, Throwable, Post]
   }
@@ -206,7 +208,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
           )
           cause         <- capturedCause.await
         } yield assertTrue(
-          response.status == Status.InternalServerError,
+          extractStatus(response) == Status.InternalServerError,
           cause.prettyPrint.contains("I can't code"),
         )
       },

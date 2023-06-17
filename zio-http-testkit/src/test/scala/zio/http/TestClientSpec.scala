@@ -7,6 +7,8 @@ import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
 import zio.http.{Method, Status, WebSocketFrame}
 
 object TestClientSpec extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
+
   def spec =
     suite("TestClient")(
       suite("addRequestResponse")(
@@ -21,8 +23,12 @@ object TestClientSpec extends ZIOSpecDefault {
             _             <- TestClient.addRequestResponse(request2, Response.ok)
             goodResponse2 <- client(request)
             badResponse2  <- client(request2)
-          } yield assertTrue(goodResponse.status == Status.Ok) && assertTrue(badResponse.status == Status.NotFound) &&
-            assertTrue(goodResponse2.status == Status.Ok) && assertTrue(badResponse2.status == Status.Ok)
+          } yield assertTrue(extractStatus(goodResponse) == Status.Ok) && assertTrue(
+            extractStatus(badResponse) == Status.NotFound,
+          ) &&
+            assertTrue(extractStatus(goodResponse2) == Status.Ok) && assertTrue(
+              extractStatus(badResponse2) == Status.Ok,
+            )
         },
       ),
       suite("addHandler")(
@@ -31,14 +37,14 @@ object TestClientSpec extends ZIOSpecDefault {
             client   <- ZIO.service[Client]
             _        <- TestClient.addHandler { case _ => ZIO.succeed(Response.ok) }
             response <- client(Request.get(URL.root))
-          } yield assertTrue(response.status == Status.Ok),
+          } yield assertTrue(extractStatus(response) == Status.Ok),
         ),
         test("partial")(
           for {
             client <- ZIO.service[Client]
             _      <- TestClient.addHandler { case request if request.method == Method.GET => ZIO.succeed(Response.ok) }
             response <- client(Request.get(URL.root))
-          } yield assertTrue(response.status == Status.Ok),
+          } yield assertTrue(extractStatus(response) == Status.Ok),
         ),
         test("addHandler advanced")(
           for {
@@ -47,7 +53,7 @@ object TestClientSpec extends ZIOSpecDefault {
             _            <- TestClient.addHandler { case _ => requestCount.update(_ + 1) *> ZIO.succeed(Response.ok) }
             response     <- client(Request.get(URL.root))
             finalCount   <- requestCount.get
-          } yield assertTrue(response.status == Status.Ok) && assertTrue(finalCount == 1),
+          } yield assertTrue(extractStatus(response) == Status.Ok) && assertTrue(finalCount == 1),
         ),
       ),
       suite("sad paths")(
@@ -55,7 +61,7 @@ object TestClientSpec extends ZIOSpecDefault {
           for {
             client   <- ZIO.service[Client]
             response <- client(Request.get(URL.root))
-          } yield assertTrue(response.status == Status.NotFound),
+          } yield assertTrue(extractStatus(response) == Status.NotFound),
         ),
       ),
       suite("socket ops")(
@@ -84,7 +90,7 @@ object TestClientSpec extends ZIOSpecDefault {
           for {
             _        <- TestClient.installSocketApp(socketServer)
             response <- ZIO.serviceWithZIO[Client](_.socket(socketClient))
-          } yield assertTrue(response.status == Status.SwitchingProtocols)
+          } yield assertTrue(extractStatus(response) == Status.SwitchingProtocols)
         },
       ),
     ).provide(TestClient.layer, Scope.default)

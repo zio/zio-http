@@ -25,6 +25,7 @@ import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
+  def extractStatus(res: Response): Status = res.status
 
   private val configAppWithRequestStreaming =
     Server.Config.default
@@ -100,7 +101,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
             res       <- app.deploy.run(method = Method.POST, path = Root / "1", body = Body.fromChunk(testBytes))
             str       <- res.body.asString
           } yield assertTrue(
-            res.status.isSuccess,
+            extractStatus(res).isSuccess,
             str == testBytes.length.toString,
           )
         }

@@ -20,14 +20,15 @@ import zio.test.Assertion._
 import zio.test._
 
 object ResponseSpec extends ZIOSpecDefault {
-  private val location: URL = URL.decode("www.google.com").toOption.get
+  def extractStatus(response: Response): Status = response.status
+  private val location: URL                     = URL.decode("www.google.com").toOption.get
 
   def spec = suite("Response")(
     suite("redirect")(
       test("Temporary redirect should produce a response with a TEMPORARY_REDIRECT") {
         val x = Response.redirect(location)
         assertTrue(
-          x.status == Status.TemporaryRedirect,
+          extractStatus(x) == Status.TemporaryRedirect,
           x.header(Header.Location).contains(Header.Location(location)),
         )
       },
@@ -39,7 +40,7 @@ object ResponseSpec extends ZIOSpecDefault {
       },
       test("Permanent redirect should produce a response with a PERMANENT_REDIRECT") {
         val x = Response.redirect(location, isPermanent = true)
-        assertTrue(x.status == Status.PermanentRedirect)
+        assertTrue(extractStatus(x) == Status.PermanentRedirect)
       },
       test("Permanent redirect should produce a response with a location") {
         val x = Response.redirect(location, isPermanent = true)
