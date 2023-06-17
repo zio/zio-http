@@ -405,10 +405,10 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
           val weirdRoot2 = Path(Path.Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk.empty)
           val weirdRoot3 = Path(Path.Flags(Flag.TrailingSlash), Chunk.empty)
 
-          assertTrue((path ++ Root).trailingSlash) &&
-          assertTrue((path ++ weirdRoot1).trailingSlash) &&
-          assertTrue((path ++ weirdRoot2).trailingSlash) &&
-          assertTrue((path ++ weirdRoot3).trailingSlash)
+          assertTrue((path ++ Root).hasTrailingSlash) &&
+          assertTrue((path ++ weirdRoot1).hasTrailingSlash) &&
+          assertTrue((path ++ weirdRoot2).hasTrailingSlash) &&
+          assertTrue((path ++ weirdRoot3).hasTrailingSlash)
         }
       },
       test("can add leading slash") {
@@ -417,10 +417,10 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
           val weirdRoot2 = Path(Path.Flags(Flag.LeadingSlash, Flag.TrailingSlash), Chunk.empty)
           val weirdRoot3 = Path(Path.Flags(Flag.TrailingSlash), Chunk.empty)
 
-          assertTrue((Root ++ path).leadingSlash) &&
-          assertTrue((weirdRoot1 ++ path).leadingSlash) &&
-          assertTrue((weirdRoot2 ++ path).leadingSlash) &&
-          assertTrue((weirdRoot3 ++ path).leadingSlash)
+          assertTrue((Root ++ path).hasLeadingSlash) &&
+          assertTrue((weirdRoot1 ++ path).hasLeadingSlash) &&
+          assertTrue((weirdRoot2 ++ path).hasLeadingSlash) &&
+          assertTrue((weirdRoot3 ++ path).hasLeadingSlash)
         }
       },
       test("empty is right identity") {

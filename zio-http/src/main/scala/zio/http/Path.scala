@@ -67,7 +67,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    * Prepends a leading slash to the path.
    */
   def addLeadingSlash: Path =
-    if (leadingSlash) self
+    if (hasLeadingSlash) self
     else if (segments.length == 0) Path(Flags(Flag.LeadingSlash), Chunk.empty)
     else Path(Flag.LeadingSlash.add(flags), segments)
 
@@ -75,7 +75,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    * Appends a trailing slash to the path.
    */
   def addTrailingSlash: Path =
-    if (trailingSlash) self
+    if (hasTrailingSlash) self
     else if (segments.length == 0) Path(Flags(Flag.TrailingSlash), Chunk.empty)
     else Path(Flag.TrailingSlash.add(flags), segments)
 
@@ -92,7 +92,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
     if (n <= 0) self
     else {
       if (isRoot) Path.empty
-      else if (leadingSlash) dropLeadingSlash.drop(n - 1)
+      else if (hasLeadingSlash) dropLeadingSlash.drop(n - 1)
       else copy(segments = segments.drop(n))
     }
 
@@ -124,7 +124,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
   def encode: String =
     if (self == Path.empty) ""
     else if (self == Path.root) "/"
-    else segments.mkString(if (leadingSlash) "/" else "", "/", if (trailingSlash) "/" else "")
+    else segments.mkString(if (hasLeadingSlash) "/" else "", "/", if (hasTrailingSlash) "/" else "")
 
   override def equals(that: Any): Boolean =
     that match {
@@ -136,6 +136,16 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
 
       case _ => false
     }
+
+  /**
+   * Checks if the path contains a leading slash.
+   */
+  def hasLeadingSlash: Boolean = Flag.LeadingSlash.check(flags)
+
+  /**
+   * Checks if the path contains a trailing slash.
+   */
+  def hasTrailingSlash: Boolean = Flag.TrailingSlash.check(flags)
 
   override def hashCode: Int = {
     val normalized = normalize
@@ -155,22 +165,20 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    * Checks if the path is equal to "/".
    * @return
    */
-  def isRoot: Boolean = segments.isEmpty && (leadingSlash || trailingSlash)
-
-  /**
-   * Checks if the path contains a leading slash.
-   */
-  def leadingSlash: Boolean = Flag.LeadingSlash.check(flags)
+  def isRoot: Boolean = segments.isEmpty && (hasLeadingSlash || hasTrailingSlash)
 
   /**
    * Checks if the path is not equal to "".
    */
   def nonEmpty: Boolean = !isEmpty
 
-  private[http] def normalize: Path =
+  /**
+   * Normalizes the path for proper equals/hashCode treatment.
+   */
+  def normalize: Path =
     if (segments.isEmpty) {
-      if (leadingSlash) Path.root
-      else if (trailingSlash) Path.root
+      if (hasLeadingSlash) Path.root
+      else if (hasTrailingSlash) Path.root
       else Path.empty
     } else {
       Path(flags, segments)
@@ -184,13 +192,13 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
   def size: Int =
     if (isEmpty) 0
     else if (isRoot) 1
-    else segments.length + (if (leadingSlash) 1 else 0) + (if (trailingSlash) 1 else 0)
+    else segments.length + (if (hasLeadingSlash) 1 else 0) + (if (hasTrailingSlash) 1 else 0)
 
   /**
    * Checks if the path starts with the provided path
    */
   def startsWith(other: Path): Boolean =
-    (self.leadingSlash == other.leadingSlash) && segments.startsWith(other.segments)
+    (self.hasLeadingSlash == other.hasLeadingSlash) && segments.startsWith(other.segments)
 
   /**
    * Returns a new path containing the first n segments of the path, treating
@@ -200,26 +208,21 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
     if (n <= 0) Path.empty
     else {
       if (n >= size) self
-      else Path(Flag.TrailingSlash.remove(flags), segments = segments.take(n - (if (leadingSlash) 1 else 0)))
+      else Path(Flag.TrailingSlash.remove(flags), segments = segments.take(n - (if (hasLeadingSlash) 1 else 0)))
     }
 
   override def toString: String = encode
 
-  /**
-   * Checks if the path contains a trailing slash.
-   */
-  def trailingSlash: Boolean = Flag.TrailingSlash.check(flags)
-
   lazy val unapply: Option[(String, Path)] =
-    if (leadingSlash) Some(("", drop(1)))
+    if (hasLeadingSlash) Some(("", drop(1)))
     else if (segments.nonEmpty) Some((segments.head, copy(segments = segments.drop(1))))
-    else if (trailingSlash) Some(("", Path.empty))
+    else if (hasTrailingSlash) Some(("", Path.empty))
     else None
 
   lazy val unapplyRight: Option[(Path, String)] =
-    if (trailingSlash) Some((dropRight(1), ""))
+    if (hasTrailingSlash) Some((dropRight(1), ""))
     else if (segments.nonEmpty) Some((copy(segments = segments.dropRight(1)), segments.last))
-    else if (leadingSlash) Some((Path.empty, ""))
+    else if (hasLeadingSlash) Some((Path.empty, ""))
     else None
 }
 
@@ -330,7 +333,7 @@ object Path {
       def apply(path: Path): Path = path.addLeadingSlash
 
       def unapply(path: Path): Option[Path] =
-        if (path.leadingSlash) Some(path.dropLeadingSlash) else None
+        if (path.hasLeadingSlash) Some(path.dropLeadingSlash) else None
     }
     case object TrailingSlash extends Flag {
       private[http] final val shift      = 1
@@ -340,7 +343,7 @@ object Path {
       def apply(path: Path): Path = path.addTrailingSlash
 
       def unapply(path: Path): Option[Path] =
-        if (path.trailingSlash) Some(path.dropTrailingSlash) else None
+        if (path.hasTrailingSlash) Some(path.dropTrailingSlash) else None
     }
   }
 }

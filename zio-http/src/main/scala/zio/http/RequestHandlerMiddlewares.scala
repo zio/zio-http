@@ -228,7 +228,7 @@ private[zio] trait RequestHandlerMiddlewares
   final def redirectTrailingSlash(
     isPermanent: Boolean,
   )(implicit trace: Trace): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-    ifRequestThenElseFunction(request => request.url.path.trailingSlash && request.url.queryParams.isEmpty)(
+    ifRequestThenElseFunction(request => request.url.path.hasTrailingSlash && request.url.queryParams.isEmpty)(
       ifFalse = _ => RequestHandlerMiddleware.identity,
       ifTrue = request => redirect(request.dropTrailingSlash.url, isPermanent),
     )
