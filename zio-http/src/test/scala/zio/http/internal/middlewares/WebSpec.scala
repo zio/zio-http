@@ -25,13 +25,15 @@ import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 
 object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
+  def extractStatus(response: Response): Status = response.status
+
   private val app  = Http.collectZIO[Request] { case Method.GET -> Root / "health" =>
     ZIO.succeed(Response.ok).delay(1 second)
   }
   private val midA = HttpAppMiddleware.addHeader("X-Custom", "A")
   private val midB = HttpAppMiddleware.addHeader("X-Custom", "B")
 
-  def spec = suite("HttpMiddleware")(
+  def spec = suite("WebSpec")(
     suite("headers suite")(
       test("addHeaders") {
         val middleware = addHeaders(Headers("KeyA", "ValueA") ++ Headers("KeyB", "ValueB"))
@@ -218,7 +220,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       test("should sign cookies") {
         val cookie = Cookie.Response("key", "value").copy(isHttpOnly = true)
         val app    =
-          (Handler.ok.withHeader(Header.SetCookie(cookie)) @@ signCookies("secret")).header(Header.SetCookie)
+          (Handler.ok.addHeader(Header.SetCookie(cookie)) @@ signCookies("secret")).header(Header.SetCookie)
         assertZIO(app.runZIO(Request.get(URL.empty)))(isSome(equalTo(Header.SetCookie(cookie.sign("secret")))))
       },
       test("sign cookies no cookie header") {
@@ -242,9 +244,9 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         )
         checkAll(urls) { case (url, expected) =>
           val app = Http
-            .collect[Request] { case req => Response.text(req.url.encode) } @@ dropTrailingSlash(onlyIfNoQueryParams =
-            true,
-          )
+            .collect[Request] { case req =>
+              Response.text(req.url.encode)
+            } @@ dropTrailingSlash(onlyIfNoQueryParams = true)
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
@@ -276,7 +278,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
             response <- app.runZIO(Request.get(url = url))
             _        <- ZIO.debug(response.headerOrFail(Header.Location))
           } yield assertTrue(
-            response.status == status,
+            extractStatus(response) == status,
             response.header(Header.Location) == location.map(l => Header.Location(URL.decode(l).toOption.get)),
           )
         }
@@ -296,7 +298,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
-          } yield assertTrue(response.status == Status.Ok)
+          } yield assertTrue(extractStatus(response) == Status.Ok)
         }
       },
     ),

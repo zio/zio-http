@@ -24,19 +24,37 @@ import zio.test.Gen
 import zio.stream.ZStream
 
 import zio.http.Header._
-import zio.http.Path.Segment
 import zio.http.URL.Location
 import zio.http._
 
 object HttpGen {
   def anyPath: Gen[Any, Path] = for {
+    flags    <- Gen.boolean.zip(Gen.boolean).map { case (left, right) =>
+      var flags = 0
+      if (left) flags = Path.Flag.LeadingSlash.add(flags)
+      if (right) flags = Path.Flag.TrailingSlash.add(flags)
+      flags
+    }
     segments <- Gen.listOfBounded(0, 5)(
       Gen.oneOf(
-        Gen.alphaNumericStringBounded(0, 5).map(Segment(_)),
-        Gen.elements(Segment.root),
+        Gen.alphaNumericStringBounded(0, 5),
       ),
     )
-  } yield Path(segments.toVector)
+  } yield Path(flags, Chunk.fromIterable(segments))
+
+  def nonEmptyPath: Gen[Any, Path] = for {
+    flags    <- Gen.boolean.zip(Gen.boolean).map { case (left, right) =>
+      var flags = 0
+      if (left) flags = Path.Flag.LeadingSlash.add(flags)
+      if (right) flags = Path.Flag.TrailingSlash.add(flags)
+      flags
+    }
+    segments <- Gen.listOfBounded(1, 5)(
+      Gen.oneOf(
+        Gen.alphaNumericStringBounded(0, 5),
+      ),
+    )
+  } yield Path(flags, Chunk.fromIterable(segments))
 
   def clientParamsForFileBody(): Gen[Any, Request] = {
     for {
@@ -45,7 +63,7 @@ object HttpGen {
       url     <- HttpGen.url
       headers <- Gen.listOf(HttpGen.header).map(Headers(_))
       version <- httpVersion
-    } yield Request(Body.fromFile(file), headers, method, url, version, None)
+    } yield Request(version, method, url, headers, Body.fromFile(file), None)
   }
 
   def genAbsoluteLocation: Gen[Any, Location.Absolute] = for {
@@ -125,24 +143,13 @@ object HttpGen {
         )
     } yield cnt
 
-  def nonEmptyPath: Gen[Any, Path] = for {
-    segments <-
-      Gen.listOfBounded(1, 5)(
-        Gen.oneOf(
-          Gen.alphaNumericStringBounded(0, 5).map(Segment(_)),
-          Gen.elements(Segment.root),
-        ),
-      )
-
-  } yield Path(segments.toVector)
-
   def request: Gen[Any, Request] = for {
     version <- httpVersion
     method  <- HttpGen.method
     url     <- HttpGen.url
     headers <- Gen.listOf(HttpGen.header).map(Headers(_))
     data    <- HttpGen.body(Gen.listOf(Gen.alphaNumericString))
-  } yield Request(data, headers, method, url, version, None)
+  } yield Request(version, method, url, headers, data, None)
 
   def requestGen[R](
     dataGen: Gen[R, Body],
@@ -156,7 +163,7 @@ object HttpGen {
       headers <- Gen.listOf(headerGen).map(Headers(_))
       data    <- dataGen
       version <- httpVersion
-    } yield Request(data, headers, method, url, version, None)
+    } yield Request(version, method, url, headers, data, None)
 
   def response[R](gContent: Gen[R, List[String]]): Gen[Any with R, Response] = {
     for {
@@ -232,7 +239,10 @@ object HttpGen {
   )
 
   def url: Gen[Any, URL] = for {
-    path        <- Gen.elements(Path.root, Path.root / "a", Path.root / "a" / "b", Path.root / "a" / "b" / "c")
+    start <- Gen.elements(Path.empty, Path.root)
+    mid   <- Gen.elements("a", "a/b", "a/b/c")
+    last  <- Gen.elements(Path.empty, Path.root)
+    path = start ++ Path(mid) ++ last
     kind        <- HttpGen.location
     queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))

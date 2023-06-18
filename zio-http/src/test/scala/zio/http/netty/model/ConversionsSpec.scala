@@ -19,10 +19,10 @@ package zio.http.netty.model
 import zio.Scope
 import zio.test._
 
-import zio.http.{Header, Headers}
+import zio.http.{Header, Headers, Version}
 
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
-import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpScheme}
+import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpScheme, HttpVersion}
 
 object ConversionsSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -62,6 +62,15 @@ object ConversionsSpec extends ZIOSpecDefault {
             )
           }
         },
+        suite("Versions")(
+          test("Should correctly convert from zio.http to Netty.") {
+
+            assertTrue(
+              Conversions.versionToNetty(Version.Http_1_0) == HttpVersion.HTTP_1_0,
+              Conversions.versionToNetty(Version.Http_1_1) == HttpVersion.HTTP_1_1,
+            )
+          },
+        ),
       ),
     )
 

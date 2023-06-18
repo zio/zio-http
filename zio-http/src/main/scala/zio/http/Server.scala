@@ -151,10 +151,10 @@ object Server {
     def ssl(sslConfig: SSLConfig): Config = self.copy(sslConfig = Some(sslConfig))
 
     /** Enables or disables request body streaming */
-    def withRequestStreaming(requestStreaming: RequestStreaming): Config =
+    def requestStreaming(requestStreaming: RequestStreaming): Config =
       self.copy(requestStreaming = requestStreaming)
 
-    def withWebSocketConfig(webSocketConfig: WebSocketConfig): Config =
+    def webSocketConfig(webSocketConfig: WebSocketConfig): Config =
       self.copy(webSocketConfig = webSocketConfig)
   }
 

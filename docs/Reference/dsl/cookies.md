@@ -20,16 +20,16 @@ val cookie: Cookie = Cookie.Request("id", "abc")
 
 ### Updating a request cookie
 
-- `withContent` updates the content of cookie
+- `content` updates the content of cookie
 
 ```scala mdoc
-cookie.withContent("def")
+cookie.content("def")
 ```
 
-- `withName` updates the name of cookie
+- `name` updates the name of cookie
 
 ```scala mdoc
-cookie.withName("id2")
+cookie.name("id2")
 ```
 
 ## Create a Response Cookie

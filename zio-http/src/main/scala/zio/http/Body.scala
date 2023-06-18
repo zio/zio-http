@@ -35,6 +35,12 @@ import zio.http.internal.BodyEncoding
 trait Body { self =>
 
   /**
+   * A right-biased way of combining two bodies. If either body is empty, the
+   * other will be returned. Otherwise, the right body will be returned.
+   */
+  def ++(that: Body): Body = if (that.isEmpty) self else that
+
+  /**
    * Returns an effect that decodes the content of the body as array of bytes.
    * Note that attempting to decode a large stream of bytes into an array could
    * result in an out of memory error.
@@ -113,10 +119,16 @@ trait Body { self =>
    */
   def isComplete: Boolean
 
+  /**
+   * Returns whether or not the body is known to be empty. Note that some bodies
+   * may not be known to be empty until an attempt is made to consume them.
+   */
+  def isEmpty: Boolean
+
   private[zio] def mediaType: Option[MediaType]
   private[zio] def boundary: Option[Boundary]
 
-  private[zio] def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body
+  private[zio] def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body
 }
 
 object Body {
@@ -191,7 +203,7 @@ object Body {
    * default character set.
    */
   def fromURLEncodedForm(form: Form, charset: Charset = StandardCharsets.UTF_8): Body = {
-    fromString(form.urlEncoded(charset), charset).withContentType(MediaType.application.`x-www-form-urlencoded`)
+    fromString(form.urlEncoded(charset), charset).contentType(MediaType.application.`x-www-form-urlencoded`)
   }
 
   private[zio] trait UnsafeWriteable extends Body
@@ -213,6 +225,8 @@ object Body {
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = ZStream.empty
     override def isComplete: Boolean                                            = true
 
+    override def isEmpty: Boolean = true
+
     override def toString(): String = "Body.empty"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = Array.empty[Byte]
@@ -221,7 +235,7 @@ object Body {
 
     override private[zio] def boundary: Option[Boundary] = None
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body = EmptyBody
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body = EmptyBody
   }
 
   private[zio] final case class ChunkBody(
@@ -230,11 +244,13 @@ object Body {
     override val boundary: Option[Boundary] = None,
   ) extends Body
       with UnsafeWriteable
-      with UnsafeBytes {
+      with UnsafeBytes { self =>
 
     override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(data.toArray)
 
     override def isComplete: Boolean = true
+
+    override def isEmpty: Boolean = data.isEmpty
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = ZIO.succeed(data)
 
@@ -245,7 +261,7 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
@@ -263,6 +279,8 @@ object Body {
     }
 
     override def isComplete: Boolean = false
+
+    override def isEmpty: Boolean = false
 
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
       asArray.map(Chunk.fromArray)
@@ -289,7 +307,7 @@ object Body {
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       Files.readAllBytes(file.toPath)
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
@@ -303,11 +321,13 @@ object Body {
 
     override def isComplete: Boolean = false
 
+    override def isEmpty: Boolean = false
+
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = stream.runCollect
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 

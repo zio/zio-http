@@ -28,12 +28,12 @@ private[http] sealed trait RoutingTree[-R, E, M <: EndpointMiddleware] { self =>
     self.merge(RoutingTree.single(that))
 
   final def lookup(request: Request): Chunk[Routes.Single[R, E, _, _, M]] = {
-    val segments = request.path.segments.collect { case Path.Segment.Text(text) => text }
+    val segments = request.path.segments
 
     lookup(segments, 0, request.method)
   }
 
-  protected def lookup(segments: Vector[String], index: Int, method: Method): Chunk[Routes.Single[R, E, _, _, M]]
+  protected def lookup(segments: Chunk[String], index: Int, method: Method): Chunk[Routes.Single[R, E, _, _, M]]
 
   def merge[R1 <: R](that: RoutingTree[R1, E, M]): RoutingTree[R1, E, M]
 
@@ -119,7 +119,7 @@ private[http] object RoutingTree                                       {
     variables: Chunk[(String => Boolean, RoutingTree[R, E, M])],
     here: Leaf[R, E, M],
   ) extends RoutingTree[R, E, M] { self =>
-    def lookup(segments: Vector[String], index: Int, method: Method): Chunk[Routes.Single[R, E, _, _, M]] =
+    def lookup(segments: Chunk[String], index: Int, method: Method): Chunk[Routes.Single[R, E, _, _, M]] =
       if (index > segments.length) {
         Chunk.empty
       } else if (index == segments.length) {
@@ -159,7 +159,7 @@ private[http] object RoutingTree                                       {
     literals: Map[Method, Chunk[Routes.Single[R, E, _, _, M]]],
     custom: Chunk[(Method => Boolean, Chunk[Routes.Single[R, E, _, _, M]])],
   ) extends RoutingTree[R, E, M] { self =>
-    def lookup(segments: Vector[String], index: Int, method: Method): Chunk[Routes.Single[R, E, _, _, M]] =
+    def lookup(segments: Chunk[String], index: Int, method: Method): Chunk[Routes.Single[R, E, _, _, M]] =
       if (index < segments.length) Chunk.empty
       else {
         val part1 =

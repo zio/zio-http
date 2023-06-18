@@ -278,12 +278,12 @@ private[codec] object EncoderDecoder                   {
         else {
           val segment = segments(j)
 
-          if (segment.text.length != 0) {
+          if (segment.length != 0) {
             val textCodec = flattened.path(i).erase
 
             inputs(i) = textCodec
-              .decode(segment.text)
-              .getOrElse(throw HttpCodecError.MalformedPath(path, segment.text, textCodec))
+              .decode(segment)
+              .getOrElse(throw HttpCodecError.MalformedPath(path, segment, textCodec))
 
             i = i + 1
           }

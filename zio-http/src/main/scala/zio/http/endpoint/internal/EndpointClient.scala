@@ -34,7 +34,7 @@ private[endpoint] final case class EndpointClient[I, E, O, M <: EndpointMiddlewa
 
     val requestPatch = invocation.middleware.input.encodeRequestPatch(mi)
 
-    client.request(request.patch(requestPatch)).orDie.flatMap { response =>
+    client(request.patch(requestPatch)).orDie.flatMap { response =>
       if (response.status.isSuccess) {
         endpoint.output.decodeResponse(response).orDie
       } else {

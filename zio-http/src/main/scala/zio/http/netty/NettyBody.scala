@@ -63,6 +63,8 @@ object NettyBody extends BodyEncoding {
 
     override def isComplete: Boolean = true
 
+    override def isEmpty: Boolean = asciiString.isEmpty()
+
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
       ZIO.succeed(Chunk.fromArray(asciiString.array()))
 
@@ -73,7 +75,7 @@ object NettyBody extends BodyEncoding {
 
     private[zio] override def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = asciiString.array()
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
@@ -89,6 +91,8 @@ object NettyBody extends BodyEncoding {
 
     override def isComplete: Boolean = true
 
+    override def isEmpty: Boolean = false
+
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asArray.map(Chunk.fromArray)
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
@@ -99,7 +103,7 @@ object NettyBody extends BodyEncoding {
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       ByteBufUtil.getBytes(byteBuf)
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
@@ -134,7 +138,11 @@ object NettyBody extends BodyEncoding {
 
     override def isComplete: Boolean = false
 
-    override def withContentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
+    override def isEmpty: Boolean = false
+
+    override def toString(): String = s"AsyncBody($unsafeAsync)"
+
+    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 

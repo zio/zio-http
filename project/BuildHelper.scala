@@ -5,9 +5,9 @@ import xerial.sbt.Sonatype.autoImport._
 import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.{headerLicense, HeaderLicense}
 
 object BuildHelper extends ScalaSettings {
-  val Scala212         = "2.12.17"
-  val Scala213         = "2.13.8"
-  val Scala3           = "3.2.2"
+  val Scala212         = "2.12.18"
+  val Scala213         = "2.13.10"
+  val Scala3           = "3.3.0"
   val ScoverageVersion = "1.9.3"
   val JmhVersion       = "0.4.3"
   val SilencerVersion  = "1.17.13"
@@ -74,7 +74,6 @@ object BuildHelper extends ScalaSettings {
     scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(
-        "com.github.liancheng" %% "organize-imports" % "0.6.0",
         "com.github.vovapolu"  %% "scaluzzi"         % "0.1.23",
       ),
     Test / parallelExecution       := true,

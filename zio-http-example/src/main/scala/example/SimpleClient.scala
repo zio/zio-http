@@ -2,15 +2,16 @@ package example
 
 import zio._
 
-import zio.http.Client
+import zio.http._
 
 object SimpleClient extends ZIOAppDefault {
-  val url = "http://sports.api.decathlon.com/groups/water-aerobics"
+  val url = URL.decode("http://sports.api.decathlon.com/groups/water-aerobics").toOption.get
 
   val program = for {
-    res  <- Client.request(url)
-    data <- res.body.asString
-    _    <- Console.printLine(data)
+    client <- ZIO.service[Client]
+    res    <- client.url(url).get("/")
+    data   <- res.body.asString
+    _      <- Console.printLine(data)
   } yield ()
 
   override val run = program.provide(Client.default, Scope.default)

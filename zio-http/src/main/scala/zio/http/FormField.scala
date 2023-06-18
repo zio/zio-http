@@ -75,7 +75,7 @@ sealed trait FormField {
       ZIO.succeed(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
   }
 
-  def withName(newName: String): FormField = this match {
+  def name(newName: String): FormField = this match {
     case FormField.Binary(_, data, contentType, transferEncoding, filename)          =>
       FormField.Binary(newName, data, contentType, transferEncoding, filename)
     case FormField.StreamingBinary(_, contentType, transferEncoding, filename, data) =>

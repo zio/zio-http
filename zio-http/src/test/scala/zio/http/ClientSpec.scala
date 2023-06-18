@@ -55,7 +55,9 @@ object ClientSpec extends HttpRunnableSpec {
       assertZIO(responseContent)(containsString("user"))
     },
     test("handle connection failure") {
-      val res = Client.request("http://localhost:1").either
+      val url = URL.decode("http://localhost:1").toOption.get
+
+      val res = ZClient.request(Request.get(url)).either
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
     test("streaming content to server") {

@@ -226,13 +226,12 @@ object ServerSpec extends HttpRunnableSpec {
       suite("proxy") {
         val server = Http.collectZIO[Request] {
           case req @ method -> "" /: "proxy" /: path =>
+            val url = URL.decode(s"http://localhost:$port/$path").toOption.get
+
             for {
               res <-
                 Client.request(
-                  s"http://localhost:$port/$path",
-                  method = method,
-                  headers = req.headers,
-                  content = req.body,
+                  Request(method = method, headers = req.headers, body = req.body, url = url),
                 )
             } yield res
 
@@ -347,7 +346,7 @@ object ServerSpec extends HttpRunnableSpec {
           assertZIO(res)(isSome(equalTo(Header.ContentLength(6L))))
         } +
           test("already set") {
-            val res = Handler.text("1234567890").withHeader(Header.ContentLength(4L)).toHttp.deploy.contentLength.run()
+            val res = Handler.text("1234567890").addHeader(Header.ContentLength(4L)).toHttp.deploy.contentLength.run()
             assertZIO(res)(isSome(equalTo(Header.ContentLength(4L))))
           }
       },
@@ -365,7 +364,7 @@ object ServerSpec extends HttpRunnableSpec {
         val server = "ZIO-Http"
         val res    = Response.text("abc").freeze
         for {
-          actual <- Handler.response(res).withHeader(Header.Server(server)).toHttp.deploy.header(Header.Server).run()
+          actual <- Handler.response(res).addHeader(Header.Server(server)).toHttp.deploy.header(Header.Server).run()
         } yield assertTrue(actual.get == Header.Server(server))
       },
     ),
@@ -401,7 +400,7 @@ object ServerSpec extends HttpRunnableSpec {
   }
 
   override def spec =
-    suite("Server") {
+    suite("ServerSpec") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
     }.provideSomeShared[TestEnvironment](

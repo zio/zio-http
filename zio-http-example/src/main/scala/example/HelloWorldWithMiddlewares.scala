@@ -18,8 +18,8 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
   val serverTime: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] = HttpAppMiddleware.patchZIO(_ =>
     for {
       currentMilliseconds <- Clock.currentTime(TimeUnit.MILLISECONDS)
-      withHeader = Response.Patch.addHeader("X-Time", currentMilliseconds.toString)
-    } yield withHeader,
+      header = Response.Patch.addHeader("X-Time", currentMilliseconds.toString)
+    } yield header,
   )
   val middlewares =
     // print debug info about request and response

@@ -23,7 +23,8 @@ import zio.test._
 import zio.http.internal.HttpGen
 
 object URLSpec extends ZIOSpecDefault {
-  def asURL(string: String): URL = URL.decode(string).toOption.get
+  def extractPath(url: URL): Path = url.path
+  def asURL(string: String): URL  = URL.decode(string).toOption.get
 
   def spec =
     suite("URL")(
@@ -33,12 +34,38 @@ object URLSpec extends ZIOSpecDefault {
           assertTrue(url == URL.empty ++ url)
         }
       },
+      suite("equality/hash")(
+        test("leading slash invariant") {
+          check(HttpGen.url) { url =>
+            val url1 = url.copy(path = extractPath(url).dropLeadingSlash)
+            val url2 = url.copy(path = extractPath(url).addLeadingSlash)
+
+            assertTrue(url1 == url2) &&
+            assertTrue(url1.hashCode == url2.hashCode)
+          }
+        },
+      ),
+      suite("normalize")(
+        test("adds leading slash") {
+          val url = URL(Path("a/b/c"), URL.Location.Absolute(Scheme.HTTP, "abc.com", 80), QueryParams.empty, None)
+
+          val url2 = url.normalize
+
+          assertTrue(extractPath(url2) == Path("/a/b/c"))
+        },
+        test("deletes leading slash if there are no path segments") {
+          val url  = URL(Path.root, URL.Location.Absolute(Scheme.HTTP, "abc.com", 80), QueryParams.empty, None)
+          val url2 = url.normalize
+
+          assertTrue(extractPath(url2) == Path.empty)
+        },
+      ),
       suite("encode-decode symmetry")(
         test("auto-gen") {
           check(HttpGen.url) { url =>
-            val expected        = url
+            val expected        = url.copy(path = url.path.addLeadingSlash)
             val expectedEncoded = expected.encode
-            val actual          = URL.decode(url.encode)
+            val actual          = URL.decode(expected.encode)
             val actualEncoded   = actual.map(_.encode)
 
             assertTrue(asURL(actualEncoded.toOption.get) == asURL(expectedEncoded)) &&
@@ -87,12 +114,12 @@ object URLSpec extends ZIOSpecDefault {
           assertTrue(actual == expected)
         },
       ),
-      suite("withPath")(
+      suite("path")(
         test("updates the path without needed to know the host") {
           val host     = "http://abc.com"
           val channels = "/channels"
           val users    = "/users"
-          val actual   = URL.decode(host + users).map(_.withPath(channels).encode)
+          val actual   = URL.decode(host + users).map(_.path(channels).encode)
           val expected = Right(host + channels)
           assertTrue(actual == expected)
         },
@@ -100,18 +127,18 @@ object URLSpec extends ZIOSpecDefault {
       suite("builder")(
         test("creates a URL with all attributes set") {
           val builderUrl = URL.empty
-            .withHost("www.abc.com")
-            .withPath("/list")
-            .withPort(8080)
-            .withScheme(Scheme.HTTPS)
-            .withQueryParams("?type=builder&query=provided")
+            .host("www.abc.com")
+            .path("/list")
+            .port(8080)
+            .scheme(Scheme.HTTPS)
+            .queryParams("?type=builder&query=provided")
 
           assertTrue(builderUrl == asURL("https://www.abc.com:8080/list?query=provided&type=builder"))
         },
         test("returns relative URL if port, host, and scheme are not set") {
           val actual = URL.empty
-            .withPath(Path.decode("/list"))
-            .withQueryParams(QueryParams(Map("type" -> Chunk("builder"), "query" -> Chunk("provided"))))
+            .path(Path.decode("/list"))
+            .queryParams(QueryParams(Map("type" -> Chunk("builder"), "query" -> Chunk("provided"))))
             .encode
 
           assertTrue(asURL(actual) == asURL("/list?query=provided&type=builder"))

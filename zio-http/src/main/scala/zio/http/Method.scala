@@ -22,11 +22,21 @@ package zio.http
 sealed trait Method { self =>
 
   /**
+   * A right-biased way of combining two methods. If either method is default,
+   * the other will be returned. Otherwise, the right method will be returned.
+   */
+  def ++(that: Method): Method =
+    if (self == Method.Default) that
+    else if (that == Method.Default) self
+    else that
+
+  /**
    * The name of the method, as it appears in the HTTP request.
    */
   val name: String
 
-  override def toString: String = name
+  override def toString: String =
+    if (name.length == 0) "<default-method>" else name
 }
 
 object Method {
@@ -56,4 +66,6 @@ object Method {
   object DELETE  extends Method { val name = "DELETE"  }
   object TRACE   extends Method { val name = "TRACE"   }
   object CONNECT extends Method { val name = "CONNECT" }
+
+  object Default extends Method { val name = "GET" }
 }
