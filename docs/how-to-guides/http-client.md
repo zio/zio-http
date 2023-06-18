@@ -28,15 +28,14 @@ object SimpleClient extends ZIOAppDefault {
   val url = "http://sports.api.decathlon.com/groups/water-aerobics"
 
   val program = for {
-    res  <- Client.request(url)
+    res  <- Client.request(Request.get(url))
     data <- res.body.asString
     _    <- Console.printLine(data).catchAll(e => ZIO.logError(e.getMessage))
   } yield ()
 
-  override val run = program.provide(Client.default)
+  override val run = program.provide(Client.default, Scope.default)
+
 
 }
 
 ```
-
-

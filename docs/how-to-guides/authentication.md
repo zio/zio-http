@@ -8,7 +8,6 @@ This code shows how to implement a server with bearer authentication middle ware
 
 
 ```scala
-
 import java.time.Clock
 
 import zio._
