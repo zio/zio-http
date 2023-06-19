@@ -253,7 +253,14 @@ object Header {
       override val raw: String = "*"
     }
 
-    private def identifyEncodingFull(raw: String): Option[AcceptEncoding] = {
+    /**
+     * Represent an unknown encoding
+     */
+    final case class Unknown(value: String, weight: Option[Double] = None) extends AcceptEncoding {
+      override val raw: String = value
+    }
+
+    private def identifyEncodingFull(raw: String): AcceptEncoding = {
       val index = raw.indexOf(";q=")
       if (index == -1)
         identifyEncoding(raw)
@@ -262,15 +269,15 @@ object Header {
       }
     }
 
-    private def identifyEncoding(raw: String, weight: Option[Double] = None): Option[AcceptEncoding] = {
+    private def identifyEncoding(raw: String, weight: Option[Double] = None): AcceptEncoding = {
       raw.trim match {
-        case "br"       => Some(Br(weight))
-        case "compress" => Some(Compress(weight))
-        case "deflate"  => Some(Deflate(weight))
-        case "gzip"     => Some(GZip(weight))
-        case "identity" => Some(Identity(weight))
-        case "*"        => Some(NoPreference(weight))
-        case _          => None
+        case "br"       => Br(weight)
+        case "compress" => Compress(weight)
+        case "deflate"  => Deflate(weight)
+        case "gzip"     => GZip(weight)
+        case "identity" => Identity(weight)
+        case "*"        => NoPreference(weight)
+        case other      => Unknown(other, weight)
       }
     }
 
@@ -284,43 +291,28 @@ object Header {
         value: String,
         index: Int,
         acc: Chunk[AcceptEncoding],
-      ): Either[String, Chunk[AcceptEncoding]] = {
+      ): Chunk[AcceptEncoding] = {
         if (index == -1) {
-          identifyEncodingFull(value) match {
-            case Some(encoding) =>
-              Right(acc :+ encoding)
-            case None           =>
-              Left(s"Invalid accept encoding ($value)")
-          }
+          acc :+ identifyEncodingFull(value)
         } else {
           val valueChunk = value.substring(0, index)
           val remaining  = value.substring(index + 1)
           val nextIndex  = remaining.indexOf(",")
 
-          identifyEncodingFull(valueChunk) match {
-            case Some(encoding) =>
-              loop(
-                remaining,
-                nextIndex,
-                acc :+ encoding,
-              )
-            case None           =>
-              Left(s"Invalid accept encoding ($valueChunk)")
-          }
+          loop(
+            remaining,
+            nextIndex,
+            acc :+ identifyEncodingFull(valueChunk),
+          )
         }
       }
 
       if (index == -1)
-        identifyEncodingFull(value) match {
-          case Some(encoding) => Right(encoding)
-          case None           => Left(s"Invalid accept encoding ($value)")
-        }
+        Right(identifyEncodingFull(value))
       else
-        loop(value, index, Chunk.empty[AcceptEncoding]).flatMap { encodings =>
-          NonEmptyChunk.fromChunk(encodings) match {
-            case Some(value) => Right(Multiple(value))
-            case None        => Left(s"Invalid accept encoding ($value)")
-          }
+        NonEmptyChunk.fromChunk(loop(value, index, Chunk.empty[AcceptEncoding])) match {
+          case Some(value) => Right(Multiple(value))
+          case None        => Left(s"Invalid accept encoding ($value)")
         }
     }
 
@@ -333,6 +325,7 @@ object Header {
         case i @ Identity(weight)     => weight.fold(i.raw)(value => s"${i.raw};q=$value")
         case Multiple(encodings)      => encodings.map(render).mkString(",")
         case n @ NoPreference(weight) => weight.fold(n.raw)(value => s"${n.raw};q=$value")
+        case Unknown(u, weight)       => weight.fold(u)(value => s"$u;q=$value")
       }
 
   }
