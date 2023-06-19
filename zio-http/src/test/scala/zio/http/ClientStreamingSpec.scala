@@ -17,6 +17,7 @@
 package zio.http
 
 import zio._
+import zio.test.Assertion.{equalTo, fails, hasMessage}
 import zio.test.TestAspect._
 import zio.test._
 
@@ -242,6 +243,20 @@ object ClientStreamingSpec extends HttpRunnableSpec {
           }
         } yield result
       } @@ samples(20) @@ timeout(5.minutes) @@ TestAspect.ifEnvNotSet("CI"), // NOTE: random hangs on CI
+      test("failed stream") {
+        for {
+          port     <- server(streamingServer)
+          client   <- ZIO.service[Client]
+          response <- client
+            .request(
+              Request.post(
+                URL.decode(s"http://localhost:$port/simple-post").toOption.get,
+                Body.fromStream(ZStream.fail(new RuntimeException("Some error"))),
+              ),
+            )
+            .exit
+        } yield assert(response)(fails(hasMessage(equalTo("Some error"))))
+      },
     )
 
   private def streamingOnlyTests =
