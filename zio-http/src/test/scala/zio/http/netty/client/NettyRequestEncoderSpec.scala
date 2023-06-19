@@ -22,7 +22,7 @@ import zio.test._
 import zio.http.internal.HttpGen
 import zio.http.netty._
 import zio.http.netty.model.Conversions
-import zio.http.{Body, Request}
+import zio.http.{Body, QueryParams, Request, URL}
 
 import io.netty.handler.codec.http.HttpHeaderNames
 
@@ -40,6 +40,13 @@ object NettyRequestEncoderSpec extends ZIOSpecDefault {
       Gen.listOf(Gen.alphaNumericString),
     ),
     urlGen = HttpGen.genAbsoluteURL,
+  )
+
+  val clientParamWithEmptyPathAndQueryParams = HttpGen.requestGen(
+    dataGen = HttpGen.body(
+      Gen.listOf(Gen.alphaNumericString),
+    ),
+    urlGen = Gen.const(URL.empty.addQueryParams(QueryParams(("p", "1")))),
   )
 
   def clientParamWithFiniteData(size: Int): Gen[Sized, Request] = HttpGen.requestGen(
@@ -109,6 +116,13 @@ object NettyRequestEncoderSpec extends ZIOSpecDefault {
       check(anyClientParam) { params =>
         val req = encode(params).map(i => i.protocolVersion())
         assertZIO(req)(equalTo(Conversions.versionToNetty(params.version)))
+      }
+    },
+    test("url with an empty path and query params") {
+      check(clientParamWithEmptyPathAndQueryParams) { params =>
+        val uri = encode(params).map(_.uri)
+        assertZIO(uri)(not(equalTo(params.url.encode)))
+        assertZIO(uri)(equalTo(params.url.addLeadingSlash.encode))
       }
     },
   )
