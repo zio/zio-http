@@ -125,8 +125,16 @@ final case class NettyClientDriver private (
             )
 
           pipeline.addLast(Names.ClientInboundHandler, clientInbound)
-
           toRemove.add(clientInbound)
+
+          val clientFailureHandler =
+            new ClientFailureHandler(
+              nettyRuntime,
+              onResponse,
+              onComplete,
+            )
+          pipeline.addLast(Names.ClientFailureHandler, clientFailureHandler)
+          toRemove.add(clientFailureHandler)
 
           pipeline.fireChannelRegistered()
           pipeline.fireChannelActive()
