@@ -839,7 +839,7 @@ object EndpointSpec extends ZIOSpecDefault {
     },
   )
 
-  def testEndpoint[R, E](service: Routes[R, E, EndpointMiddleware.None])(
+  def testEndpoint[R](service: Routes[R, EndpointMiddleware.None])(
     url: String,
     expected: String,
   ): ZIO[R, Response, TestResult] = {
@@ -850,7 +850,7 @@ object EndpointSpec extends ZIOSpecDefault {
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }
 
-  def test404[R, E](service: Routes[R, E, EndpointMiddleware.None])(
+  def test404[R](service: Routes[R, EndpointMiddleware.None])(
     url: String,
     method: Method,
   ): ZIO[R, Response, TestResult] = {

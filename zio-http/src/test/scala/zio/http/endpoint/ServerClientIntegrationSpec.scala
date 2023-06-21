@@ -62,7 +62,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
 
   def testEndpoint[R, In, Err, Out](
     endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
-    route: Routes[R, Err, EndpointMiddleware.None.type],
+    route: Routes[R, EndpointMiddleware.None.type],
     in: In,
     out: Out,
   ): ZIO[Client with R with Server with Scope, Err, TestResult] =
@@ -70,7 +70,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
 
   def testEndpointZIO[R, In, Err, Out](
     endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
-    route: Routes[R, Err, EndpointMiddleware.None.type],
+    route: Routes[R, EndpointMiddleware.None.type],
     in: In,
     outF: Out => ZIO[Any, Nothing, TestResult],
   ): ZIO[Client with R with Server with Scope, Err, TestResult] =
@@ -88,7 +88,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
 
   def testEndpointError[R, In, Err, Out](
     endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
-    route: Routes[R, Err, EndpointMiddleware.None.type],
+    route: Routes[R, EndpointMiddleware.None.type],
     in: In,
     err: Err,
   ): ZIO[Client with R with Server with Scope, Out, TestResult] =
@@ -96,7 +96,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
 
   def testEndpointErrorZIO[R, In, Err, Out](
     endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
-    route: Routes[R, Err, EndpointMiddleware.None.type],
+    route: Routes[R, EndpointMiddleware.None.type],
     in: In,
     errorF: Err => ZIO[Any, Nothing, TestResult],
   ): ZIO[Client with R with Server with Scope, Out, TestResult] =

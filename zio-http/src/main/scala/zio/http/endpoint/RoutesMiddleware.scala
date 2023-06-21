@@ -26,12 +26,12 @@ import zio.http._
  * referred to as _incoming interceptor_ and _outgoing interceptor_, which are
  * applied to incoming requests and outgoing responses.
  */
-trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
+trait RoutesMiddleware[-Env, State, +M <: EndpointMiddleware] {
   val middleware: M
 
-  final type E = middleware.Err
-  final type I = middleware.In
-  final type O = middleware.Out
+  final type Err = middleware.Err
+  final type In  = middleware.In
+  final type Out = middleware.Out
 
   /**
    * The incoming interceptor is responsible for taking the input to the
@@ -39,22 +39,22 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
    * middleware, and either failing, or producing a state value, which will be
    * passed with the outgoing interceptor.
    */
-  def incoming(input: I): ZIO[R, E, S]
+  def incoming(input: In): ZIO[Env, Err, State]
 
   /**
    * The outgoing interceptor is responsible for taking the state value produced
    * by the incoming interceptor, and either failing, or producing an output
    * value, which will be used to patch the response.
    */
-  def outgoing(state: S): ZIO[R, E, O]
+  def outgoing(state: State): ZIO[Env, Err, Out]
 
   /**
    * Converts this [[RoutesMiddleware]] to a [[zio.http.HandlerAspect]], which
    * can be applied in straightforward fashion to any request handler or HTTP.
    */
-  final def toHandlerAspect: HandlerAspect.Simple[R, Nothing] =
-    new HandlerAspect.Simple[R, Nothing] {
-      def apply[R1 >: Nothing <: R, E1 >: Nothing <: Any](handler: Handler[R1, E1, Request, Response])(implicit
+  final def toHandlerAspect: HandlerAspect.Simple[Env, Nothing] =
+    new HandlerAspect.Simple[Env, Nothing] {
+      def apply[R1 >: Nothing <: Env, E1 >: Nothing <: Any](handler: Handler[R1, E1, Request, Response])(implicit
         trace: Trace,
       ): Handler[R1, E1, Request, Response] = {
         Handler.fromFunctionZIO[Request] { request =>
@@ -77,16 +77,16 @@ trait RoutesMiddleware[-R, S, +M <: EndpointMiddleware] {
       }
     }
 
-  private def decodeMiddlewareInput(request: Request): ZIO[R, Nothing, I] =
+  private def decodeMiddlewareInput(request: Request): ZIO[Env, Nothing, In] =
     middleware.input.decodeRequest(request).orDie
 
-  private def encodeMiddlewareOutput(output: O): Response.Patch =
+  private def encodeMiddlewareOutput(output: Out): Response.Patch =
     middleware.output.encodeResponsePatch(output)
 
-  private def encodeMiddlewareError(error: E): Response =
+  private def encodeMiddlewareError(error: Err): Response =
     middleware.error.encodeResponse(error)
 }
-object RoutesMiddleware                                 {
+object RoutesMiddleware                                       {
 
   /**
    * A [[RoutesMiddleware]] that does nothing.
@@ -103,15 +103,15 @@ object RoutesMiddleware                                 {
   ): Apply[M] = new Apply[M](middleware)
 
   final class Apply[M <: EndpointMiddleware](val m: M) extends AnyVal {
-    def apply[R, S](
-      incoming0: m.In => ZIO[R, m.Err, S],
-    )(outgoing0: S => ZIO[R, m.Err, m.Out]): RoutesMiddleware[R, S, m.type] =
-      new RoutesMiddleware[R, S, m.type] {
+    def apply[Env, State](
+      incoming0: m.In => ZIO[Env, m.Err, State],
+    )(outgoing0: State => ZIO[Env, m.Err, m.Out]): RoutesMiddleware[Env, State, m.type] =
+      new RoutesMiddleware[Env, State, m.type] {
         val middleware: m.type = m
 
-        def incoming(input: I): ZIO[R, m.Err, S] = incoming0(input)
+        def incoming(input: In): ZIO[Env, m.Err, State] = incoming0(input)
 
-        def outgoing(state: S): ZIO[R, m.Err, O] = outgoing0(state)
+        def outgoing(state: State): ZIO[Env, m.Err, Out] = outgoing0(state)
       }
   }
 }

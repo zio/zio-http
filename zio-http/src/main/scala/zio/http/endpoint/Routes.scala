@@ -24,13 +24,13 @@ import zio.http.codec.HttpCodecError
 /**
  * Represents a collection of endpoints that all have handlers.
  */
-sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
+sealed trait Routes[-R, M <: EndpointMiddleware] { self =>
 
   /**
    * Returns a new collection that contains all of these routes, plus the
    * specified routes.
    */
-  def ++[R1 <: R, E1 >: E, AllIds2](that: Routes[R1, E1, M]): Routes[R1, E1, M] =
+  def ++[R1 <: R, AllIds2](that: Routes[R1, M]): Routes[R1, M] =
     Routes.Concat(self, that)
 
   /**
@@ -52,14 +52,13 @@ sealed trait Routes[-R, +E, M <: EndpointMiddleware] { self =>
     import zio.http.endpoint.internal._
 
     val routingTree     = RoutingTree.fromRoutes(self)
-    val requestHandlers = Memoized[Routes.Single[R, _ <: E, _, _, M], EndpointServer[R, _ <: E, _, _, M]] {
-      handledApi =>
-        EndpointServer(handledApi)
+    val requestHandlers = Memoized[Routes.Single[R, _, _, _, M], EndpointServer[R, _, _, _, M]] { handledApi =>
+      EndpointServer(handledApi)
     }
 
     def dispatch(
       request: Request,
-      alternatives: Chunk[Routes.Single[R, E, _, _, M]],
+      alternatives: Chunk[Routes.Single[R, _, _, _, M]],
       index: Int,
       cause: Cause[Nothing],
     )(implicit trace: Trace): ZIO[R, Nothing, Response] =
@@ -95,18 +94,18 @@ object Routes {
   private[zio] final case class Single[-R, E, In0, Out0, M <: EndpointMiddleware](
     endpoint: Endpoint[In0, E, Out0, M],
     handler: In0 => ZIO[R, E, Out0],
-  ) extends Routes[R, E, M] { self =>
+  ) extends Routes[R, M] { self =>
     def flatten: Iterable[Routes.Single[R, E, _, _, M]] = Chunk(self)
   }
 
-  private[zio] final case class Concat[-R, +E, M <: EndpointMiddleware](left: Routes[R, E, M], right: Routes[R, E, M])
-      extends Routes[R, E, M]
+  private[zio] final case class Concat[-R, +E, M <: EndpointMiddleware](left: Routes[R, M], right: Routes[R, M])
+      extends Routes[R, M]
 
-  private[zio] def flatten[R, E, M <: EndpointMiddleware](
-    service: Routes[R, E, M],
-  ): Chunk[Routes.Single[R, E, _, _, M]] =
+  private[zio] def flatten[R, M <: EndpointMiddleware](
+    service: Routes[R, M],
+  ): Chunk[Routes.Single[R, _, _, _, M]] =
     service match {
-      case api @ Single(_, _)  => Chunk(api.asInstanceOf[Single[R, E, _, _, M]])
+      case api @ Single(_, _)  => Chunk(api.asInstanceOf[Single[R, _, _, _, M]])
       case Concat(left, right) => flatten(left) ++ flatten(right)
     }
 }

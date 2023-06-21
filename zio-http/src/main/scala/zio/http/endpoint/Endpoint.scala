@@ -141,7 +141,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    * convert an endpoint into a path, you must specify a function which handles
    * the input, and returns the output.
    */
-  def implement[Env](f: Input => ZIO[Env, Err, Output]): Routes[Env, Err, Middleware] =
+  def implement[Env](f: Input => ZIO[Env, Err, Output]): Routes[Env, Middleware] =
     Routes.Single[Env, Err, Input, Output, Middleware](self, f)
 
   /**
@@ -150,7 +150,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    * convert an endpoint into a path, you must specify a function which handles
    * the input, and returns the output.
    */
-  def implementPurely[Env](f: Input => Output): Routes[Env, Err, Middleware] =
+  def implementPurely[Env](f: Input => Output): Routes[Env, Middleware] =
     implement(in => ZIO.succeed(f(in)))
 
   /**
@@ -159,7 +159,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    * convert an endpoint into a path, you must specify the output, while the
    * input is being ignored.
    */
-  def implementAs[Env](f: => Output): Routes[Env, Err, Middleware] =
+  def implementAs[Env](f: => Output): Routes[Env, Middleware] =
     implement(_ => ZIO.succeed(f))
 
   /**
@@ -168,7 +168,7 @@ final case class Endpoint[Input, Err, Output, Middleware <: EndpointMiddleware](
    * convert an endpoint into a path, you must specify the error, while the
    * input is being ignored.
    */
-  def implementAsError[Env](f: => Err): Routes[Env, Err, Middleware] =
+  def implementAsError[Env](f: => Err): Routes[Env, Middleware] =
     implement(_ => ZIO.fail(f))
 
   /**
