@@ -42,24 +42,26 @@ object CliSpec extends ZIOSpecDefault {
 
   val endpoints = Chunk(simpleEndpoint, multiformEndpoint, streamEndpoint)
 
-  val testClient: ZLayer[Any, Throwable, TestClient] =
-    ZLayer.scoped {
-      (for {
-        testClient <- ZIO.service[TestClient]
-        _          <- testClient.addHandler {
-          case Request(_, _, Method.GET, URL(path, _, _, _), _, _) if path.encode == "/fromURL" =>
+  val testClient: ZLayer[Any, Nothing, TestClient & Client] =
+    ZLayer.scopedEnvironment {
+      for {
+        behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
+        socketBehavior <- Ref.make[SocketApp[Any]](Handler.unit)
+        driver = TestClient(behavior, socketBehavior)
+        _          <- driver.addHandler {
+          case Request(_, Method.GET, URL(path, _, _, _), _, _,_) if path.encode == "/fromURL" =>
             ZIO.succeed(Response.text("342.76"))
-          case Request(body, headers, Method.GET, _, _, _)
+          case Request(_ , Method.GET, _, headers, body, _)
               if headers.headOption.map(_.renderedValue) == Some("fromURL") =>
             ZIO.succeed(Response(Status.Ok, headers, body))
-          case Request(body, _, Method.GET, _, _, _)                                            =>
+          case Request( _, Method.GET, _, _, body, _)                                            =>
             for {
               text <- body.asMultipartForm
                 .map(_.formData)
                 .map(_.map(_.stringValue.toString()))
                 .map(_.toString())
             } yield if (text == "Chunk(Some(342.76))") Response.text("received 1") else Response.text(text)
-          case Request(body, _, Method.POST, _, _, _)                                           =>
+          case Request(_, Method.POST, _, _, body, _)                                           =>
             for {
               text     <- body.asMultipartForm
                 .map(_.formData)
@@ -69,7 +71,7 @@ object CliSpec extends ZIOSpecDefault {
                 if (text == """Chunk(Some(342.76),Some("sample"))""") ZIO.succeed("received 2")
                 else ZIO.succeed(text)
             } yield Response.text(response)
-          case Request(body, _, Method.PUT, _, _, _)                                            =>
+          case Request(_, Method.PUT, _, _, body, _)                                            =>
             for {
               text     <- body.asMultipartForm
                 .map(_.formData)
@@ -81,7 +83,7 @@ object CliSpec extends ZIOSpecDefault {
             } yield Response.text(response)
           case _ => ZIO.succeed(Response.text("not received"))
         }
-      } yield testClient).provideSome(TestClient.layer)
+      } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
     }
 
   val cliApp: CliApp[Any, Throwable, CliRequest] =

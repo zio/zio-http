@@ -43,7 +43,7 @@ object OptionsGen {
         )
     }
 
-  lazy val anyURLOption: Gen[Any, CliReprOf[Options[Path.Segment]]] =
+  lazy val anyURLOption: Gen[Any, CliReprOf[Options[String]]] =
     Gen.oneOf(
       Gen
         .alphaNumericStringBounded(1, 30)
@@ -51,14 +51,14 @@ object OptionsGen {
         .map {
           case (_, TextCodec.Constant(value)) =>
             CliRepr(
-              Options.Empty.map(_ => Path.Segment(value)),
+              Options.Empty.map(_ => value),
               CliEndpoint(url = HttpOptions.PathConstant(value) :: Nil),
             )
           case (name, codec)                  =>
             CliRepr(
               HttpOptions
                 .optionsFromCodec(codec)(name)
-                .map(value => Path.Segment(codec.asInstanceOf[TextCodec[value.type]].encode(value))),
+                .map(value => codec.asInstanceOf[TextCodec[value.type]].encode(value)),
               CliEndpoint(url = HttpOptions.Path(name, codec) :: Nil),
             )
         },
@@ -68,14 +68,14 @@ object OptionsGen {
         .map {
           case (name, TextCodec.Constant(value)) =>
             CliRepr(
-              Options.Empty.map(_ => Path.Segment(value)),
+              Options.Empty.map(_ => value),
               CliEndpoint(url = HttpOptions.QueryConstant(name, value) :: Nil),
             )
           case (name, codec)                     =>
             CliRepr(
               HttpOptions
                 .optionsFromCodec(codec)(name)
-                .map(value => Path.Segment(codec.asInstanceOf[TextCodec[value.type]].encode(value))),
+                .map(value => codec.asInstanceOf[TextCodec[value.type]].encode(value)),
               CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
             )
         },
@@ -96,13 +96,11 @@ object OptionsGen {
         CliRepr(
           (url
             .map(_.value)
-            .foldRight(Options.Empty.map(_ => List.empty[Path.Segment])) { case (segment, list) =>
-              (segment ++ list).map { case (segment, list) =>
-                segment :: list
+            .foldLeft(Options.Empty.map(_ => Path.empty)) { case (path, str) =>
+              (path ++ str).map { case (path, str) =>
+                path / str
               }
             }
-            .map(_.toVector)
-            .map(Path(_))
             ++ header
               .map(_.value)
               .foldLeft(Options.Empty.map(_ => Headers.empty)) { case (headers, header) =>
@@ -116,7 +114,7 @@ object OptionsGen {
                 (chunk ++ retriever).map { case (chunk, retriever) =>
                   chunk ++ Chunk(retriever)
                 }
-              }).map { // (body, header, url)
+              }).map {
             case (url, header, body) => CliRequest(body, header, method.value, URL(url))
           }, // body.map(_.repr)  ++++ header.map(_.repr) ++ url.map(_.repr)        CliRequest(body, header, method.value, URL(url))
           (body.map(_.repr) ++ header.map(_.repr) ++ url.map(_.repr) ++ List(method.repr)).foldLeft(CliEndpoint.empty) {
