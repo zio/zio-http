@@ -1,14 +1,16 @@
 package zio.http.endpoint.cli
 
 import zio.ZNothing
+import zio.cli._
+import zio.test._
+
 import zio.schema._
+
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.test._
-import zio.cli._
-import AuxGen._
-import CliRepr.CliReprOf
+import zio.http.endpoint.cli.AuxGen._
+import zio.http.endpoint.cli.CliRepr.CliReprOf
 
 /**
  * Constructs a Gen[Any, CliRepr[CliEndpoint, CliEndpoint]]

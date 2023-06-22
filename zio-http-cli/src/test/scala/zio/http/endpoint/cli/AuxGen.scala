@@ -1,12 +1,15 @@
 package zio.http.endpoint.cli
 
-import zio.test.Gen
-import zio.http.codec._
-import zio.http.MediaType
-import zio.schema._
-import zio._
-import zio.schema.StandardType._
 import scala.collection.immutable.ListMap
+
+import zio._
+import zio.test.Gen
+
+import zio.schema.StandardType._
+import zio.schema._
+
+import zio.http.MediaType
+import zio.http.codec._
 
 /**
  * Auxiliary generators

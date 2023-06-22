@@ -1,13 +1,15 @@
 package zio.http.endpoint.cli
 
-import zio.http.codec._
-import zio.test.Gen
-import zio.cli._
-import zio.http._
 import zio._
+import zio.cli._
+import zio.test.Gen
+
 import zio.stream._
-import AuxGen._
-import CliRepr._
+
+import zio.http._
+import zio.http.codec._
+import zio.http.endpoint.cli.AuxGen._
+import zio.http.endpoint.cli.CliRepr._
 
 /**
  * Constructs a Gen[Options[CliRequest], CliEndpoint]

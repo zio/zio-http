@@ -1,14 +1,16 @@
 package zio.http.endpoint.cli
 
 import zio._
+import zio.cli._
+import zio.test.TestAspect._
+import zio.test._
+
+import zio.schema._
+
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.test._
-import zio.test.TestAspect._
-import zio.cli._
-import zio.schema._
-import CliRepr._
+import zio.http.endpoint.cli.CliRepr._
 
 /**
  * Test suite for Http CliApp. It tests:
