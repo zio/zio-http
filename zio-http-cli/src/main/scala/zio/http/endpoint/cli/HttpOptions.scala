@@ -310,6 +310,6 @@ private[cli] object HttpOptions {
       case TextCodec.StringCodec  => Options.text(_)
       case TextCodec.IntCodec     => Options.integer(_).map(_.toInt)
       case TextCodec.BooleanCodec => Options.boolean(_)
-      case TextCodec.Constant(_)     => ( _ => Options.none )
+      case TextCodec.Constant(_)  => _ => Options.none
     }
 }
