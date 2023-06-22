@@ -32,10 +32,11 @@ private[cli] sealed trait HttpOptions {
 
 private[cli] object HttpOptions {
 
+  sealed trait Constant extends HttpOptions
+
   /*
    * Subclass for Body
    * It is possible to specify a body writing directly on the terminal, from a file or the body of the response from another Request.
-   * TODO implementation for getting body from URL.
    */
   final case class Body[A](
     override val name: String,
@@ -45,19 +46,32 @@ private[cli] object HttpOptions {
   ) extends HttpOptions {
     self =>
 
-    lazy val options: Options[Retriever] = {
-      val written: Options[Json] = fromSchema(schema)
-      val fromFile               = Options.file("f:" + name)
-      val fromUrl                = Options.text("url:" + name)
+    private lazy val optionName = if (name == "") "" else s"-$name"
 
-      val retriever = fromFile orElseEither fromUrl orElseEither written
-      retriever.map {
-        _ match {
-          case Left(Left(file)) => Retriever.File(name, file, mediaType)
-          case Left(Right(url)) => Retriever.URL(url)
-          case Right(json)      => Retriever.Content(FormField.textField(name, json.toString()))
+    lazy val jsonOptions: Options[Json] = fromSchema(schema)
+    lazy val fromFile               = Options.file("f" + optionName)
+    lazy val fromUrl                = Options.text("u" + optionName)
+
+    lazy val options: Options[Retriever] = {
+      
+      lazy val retrieverWithJson = fromFile orElseEither fromUrl orElseEither jsonOptions
+
+      lazy val retrieverWithoutJson = fromFile orElseEither fromUrl
+
+      if (allowJsonInput)
+        retrieverWithJson.map {
+          _ match {
+            case Left(Left(file)) => Retriever.File(name, file, mediaType)
+            case Left(Right(url)) => Retriever.URL(name, url, mediaType)
+            case Right(json)      => Retriever.Content(FormField.textField(name, json.toString()))
+          }
+        } else 
+          retrieverWithoutJson.map {
+          _ match {
+            case Left(file) => Retriever.File(name, file, mediaType)
+            case Right(url) => Retriever.URL(name, url, mediaType)
+          }
         }
-      }
     }
 
     override def ??(doc: Doc): Body[A] = self.copy(doc = self.doc + doc)
@@ -67,9 +81,18 @@ private[cli] object HttpOptions {
         cliRequest.addBody(retriever)
       }
 
-    /*
+    private lazy val allowJsonInput: Boolean =
+      schema.asInstanceOf[Schema[_]] match {
+        case Schema.Primitive(StandardType.BinaryType, _) => false
+        case Schema.Map(_, _, _) => false
+        case Schema.Sequence(_, _, _, _, _) => false
+        case Schema.Set(_, _) => false
+        case _ => true
+      }
+
+    /**
      * Allows to specify the body with given schema using Json.
-     * It does not support schemas with Binary Primitive. This can be added in a ContentCodec
+     * It does not support schemas with Binary Primitive, Sequence, Map or Set. 
      */
     private def fromSchema(schema: zio.schema.Schema[_]): Options[Json] = {
 
@@ -97,9 +120,13 @@ private[cli] object HttpOptions {
           case Schema.Primitive(standardType, _) => fromPrimitive(prefix, standardType)
 
           case Schema.Fail(_, _)                    => emptyJson
-          case Schema.Map(_, _, _)                  => ??? // TODO
-          case Schema.Sequence(_, _, _, _, _)       => ??? // TODO
-          case Schema.Set(_, _)                     => ??? // TODO
+
+          // Should Map, Sequence and Set have implementations?
+          // Options cannot be used to specify an arbitrary number of parameters.
+          case Schema.Map(_, _, _)                  => emptyJson
+          case Schema.Sequence(_, _, _, _, _)       => emptyJson
+          case Schema.Set(_, _)                     => emptyJson
+
           case Schema.Lazy(schema0)                 => loop(prefix, schema0())
           case Schema.Dynamic(_)                    => emptyJson
           case Schema.Either(left, right, _)        =>
@@ -161,7 +188,7 @@ private[cli] object HttpOptions {
         case StandardType.YearType           => Options.integer(prefix.mkString("."))
       }
 
-      loop(List.empty, schema)
+      loop(List(name), schema)
     }
 
   }
@@ -189,7 +216,7 @@ private[cli] object HttpOptions {
   }
 
   final case class HeaderConstant(override val name: String, value: String, doc: Doc = Doc.empty)
-      extends HeaderOptions {
+      extends HeaderOptions with Constant {
     self =>
 
     override def ??(doc: Doc): HeaderConstant = self.copy(doc = self.doc + doc)
@@ -225,7 +252,7 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class PathConstant(override val name: String, doc: Doc = Doc.empty) extends URLOptions {
+  final case class PathConstant(override val name: String, doc: Doc = Doc.empty) extends URLOptions with Constant {
     self =>
 
     override val tag = "/" + name
@@ -253,7 +280,7 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class QueryConstant(override val name: String, value: String, doc: Doc = Doc.empty) extends URLOptions {
+  final case class QueryConstant(override val name: String, value: String, doc: Doc = Doc.empty) extends URLOptions with Constant {
     self =>
 
     override val tag                                                          = "?" + name + "=" + value
@@ -263,8 +290,8 @@ private[cli] object HttpOptions {
 
   }
 
-  private def optionsFromCodec[A](textCodec: TextCodec[A]): (String => Options[_]) =
-    textCodec.asInstanceOf[TextCodec[_]] match {
+  private[cli] def optionsFromCodec[A](textCodec: TextCodec[A]): (String => Options[A]) =
+    textCodec match {
       case TextCodec.UUIDCodec    =>
         Options
           .text(_)
@@ -277,8 +304,7 @@ private[cli] object HttpOptions {
             },
           )
       case TextCodec.StringCodec  => Options.text(_)
-      case TextCodec.IntCodec     => Options.integer(_)
+      case TextCodec.IntCodec     => Options.integer(_).map(_.toInt)
       case TextCodec.BooleanCodec => Options.boolean(_)
-      case _                      => _ => Options.Empty
     }
 }

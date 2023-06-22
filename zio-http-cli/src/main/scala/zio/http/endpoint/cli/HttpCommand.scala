@@ -12,32 +12,33 @@ import zio.http.endpoint._
 
 object HttpCommand {
 
+  val emptyOptions = Options.Empty.map(_ => CliRequest.empty)
+
   /*
    * Transforms an Endpoint in its corresponding Command[CliRequest].
    */
   def getCommand[M <: EndpointMiddleware](endpoint: Endpoint[_, _, _, M], cliStyle: Boolean): Command[CliRequest] = {
-    val cliEndpoint = CliEndpoint.fromEndpoint(endpoint, true)
+    val cliEndpoint = CliEndpoint.fromEndpoint(endpoint)
 
     val doc = cliEndpoint.doc.toPlaintext()
 
-    val emptyOptions = Options.Empty.map(_ => CliRequest.empty)
-
-    /*
-     * Adds the HttpOptions from options to an empty CliRequest.
-     */
-    def addOptionsTo(options: List[HttpOptions]): Options[CliRequest] =
-      options
-        .map(option => option.transform _)
-        .foldLeft(emptyOptions) { case (options, f) =>
-          f(options)
-        }
-
-    val cliRequest: Options[CliRequest] = addOptionsTo(cliEndpoint.getOptions).map(_.withMethod(cliEndpoint.methods))
+    val cliRequest: Options[CliRequest] = addOptionsTo(cliEndpoint)
 
     val subcommands: Command[CliRequest] = Command(cliEndpoint.commandName(cliStyle), cliRequest).withHelp(doc)
 
     subcommands
   }
+
+  /*
+  * Adds the HttpOptions from options to an empty CliRequest.
+  */
+  def addOptionsTo(cliEndpoint: CliEndpoint): Options[CliRequest] =
+    cliEndpoint.getOptions
+      .map(option => option.transform _)
+      .foldLeft(emptyOptions) { case (options, f) =>
+        f(options)
+      }
+      .map(_.withMethod(cliEndpoint.methods))
 
   /*
    * Transforms a chunk of Endpoints in a Command to use directly in the CliApp.

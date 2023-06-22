@@ -46,16 +46,23 @@ private[cli] final case class CliRequest(
   /*
    * Retrieves data from files, urls or command options and construct a HTTP Request.
    */
-  def toRequest(host: String, port: Int): Task[Request] = for {
-    formFields <- ZIO.foreach(body)(_.retrieve())
-    finalBody  <- Body.fromMultipartFormUUID(Form(formFields))
+  def toRequest(host: String, port: Int, retrieverClient: CliClient): Task[Request] = {
+    val clientLayer = retrieverClient match {
+      case CliZIOClient(client) => ZLayer {ZIO.succeed(client)}
+      case CliZLayerClient(client) => client
+      case DefaultClient() => Client.default
+    }
+    for {
+    
+    forms <- ZIO.foreach(body)(_.retrieve()).provideSome(clientLayer)
+    finalBody  <- Body.fromMultipartFormUUID(Form(forms))
   } yield Request
     .default(
       method,
       url.withHost(host).withPort(port),
       finalBody,
     )
-    .setHeaders(headers)
+    .setHeaders(headers)}
 
 }
 

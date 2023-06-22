@@ -3,7 +3,6 @@ package zio.http.endpoint.cli
 import java.nio.file.Path
 
 import zio._
-
 import zio.http._
 
 /**
@@ -14,27 +13,44 @@ import zio.http._
 
 private[cli] sealed trait Retriever {
 
-  def retrieve(): Task[FormField]
+  def retrieve(): ZIO[Client, Throwable, FormField]
 
 }
 
 private[cli] object Retriever {
 
-  final case class URL(url: String) extends Retriever {
-    override def retrieve(): Task[FormField] = ???
-  }
+  /**
+   * Retrieves body from an URL and returns it in a BinaryField.
+   */
 
-  final case class File(name: String, path: Path, mediaType: Option[MediaType]) extends Retriever {
+  final case class URL(name: String, url: String, mediaType: Option[MediaType]) extends Retriever {
 
-    override def retrieve(): Task[FormField] = {
-      val media = mediaType match {
+    lazy val media = 
+      mediaType match {
         case Some(media) => media
         case None        => MediaType.any
       }
+
+    lazy val request = Request.get(http.URL(http.Path.decode(url)))
+    override def retrieve(): ZIO[Client, Throwable, FormField] = for {
+      client <- ZIO.service[Client]
+      response <- client.request(request).provideSome(Scope.default)
+      chunk <- response.body.asChunk
+    } yield FormField.binaryField(name, chunk, media)
+  }
+
+  final case class File(name: String, path: Path, mediaType: Option[MediaType]) extends Retriever {
+    
+    lazy val media = 
+      mediaType match {
+        case Some(media) => media
+        case None        => MediaType.any
+      }
+
+    override def retrieve(): Task[FormField] =
       for {
         chunk <- Body.fromFile(new java.io.File(path.toUri())).asChunk
       } yield FormField.binaryField(name, chunk, media)
-    }
 
   }
 

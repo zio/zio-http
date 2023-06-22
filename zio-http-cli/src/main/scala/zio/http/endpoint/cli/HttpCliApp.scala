@@ -51,6 +51,7 @@ object HttpCliApp {
     config: CliConfig = CliConfig.default,
     figFont: FigFont = FigFont.Default,
     cliStyle: Boolean = true,
+    client: CliClient = DefaultClient(),
   ): HttpCliApp[Any, Throwable, CliRequest] = {
     HttpCliApp {
       CliApp.make(
@@ -63,15 +64,18 @@ object HttpCliApp {
         command = HttpCommand.fromEndpoints(name, endpoints, cliStyle),
       ) { case req @ CliRequest(_, _, _, _, mustPrint, mustSave) =>
         for {
-          request  <- req.toRequest(host, port)
-          response <- Client
-            .request(request)
-            .provide(Client.default, Scope.default)
+          request  <- req.toRequest(host, port, client)
+          response <- client match {
+            case CliZIOClient(client) => client.request(request).provideSome(Scope.default)
+            case CliZLayerClient(client) => Client.request(request).provideSome(Scope.default, client)
+            case DefaultClient() => Client.request(request).provideSome(Scope.default, Client.default)
+          }
+            
           _        <- Console.printLine(s"Got response")
           _        <- Console.printLine(s"Status: ${response.status}")
           _        <- ZIO.when(mustPrint)(printResponse(response))
           _        <- ZIO.when(mustSave)(saveResponse(response))
-        } yield ()
+        } yield response
       }
     }
   }
