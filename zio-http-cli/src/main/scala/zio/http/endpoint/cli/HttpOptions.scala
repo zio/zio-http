@@ -49,11 +49,11 @@ private[cli] object HttpOptions {
     private lazy val optionName = if (name == "") "" else s"-$name"
 
     lazy val jsonOptions: Options[Json] = fromSchema(schema)
-    lazy val fromFile               = Options.file("f" + optionName)
-    lazy val fromUrl                = Options.text("u" + optionName)
+    lazy val fromFile                   = Options.file("f" + optionName)
+    lazy val fromUrl                    = Options.text("u" + optionName)
 
     lazy val options: Options[Retriever] = {
-      
+
       lazy val retrieverWithJson = fromFile orElseEither fromUrl orElseEither jsonOptions
 
       lazy val retrieverWithoutJson = fromFile orElseEither fromUrl
@@ -65,8 +65,9 @@ private[cli] object HttpOptions {
             case Left(Right(url)) => Retriever.URL(name, url, mediaType)
             case Right(json)      => Retriever.Content(FormField.textField(name, json.toString()))
           }
-        } else 
-          retrieverWithoutJson.map {
+        }
+      else
+        retrieverWithoutJson.map {
           _ match {
             case Left(file) => Retriever.File(name, file, mediaType)
             case Right(url) => Retriever.URL(name, url, mediaType)
@@ -84,15 +85,15 @@ private[cli] object HttpOptions {
     private lazy val allowJsonInput: Boolean =
       schema.asInstanceOf[Schema[_]] match {
         case Schema.Primitive(StandardType.BinaryType, _) => false
-        case Schema.Map(_, _, _) => false
-        case Schema.Sequence(_, _, _, _, _) => false
-        case Schema.Set(_, _) => false
-        case _ => true
+        case Schema.Map(_, _, _)                          => false
+        case Schema.Sequence(_, _, _, _, _)               => false
+        case Schema.Set(_, _)                             => false
+        case _                                            => true
       }
 
     /**
-     * Allows to specify the body with given schema using Json.
-     * It does not support schemas with Binary Primitive, Sequence, Map or Set. 
+     * Allows to specify the body with given schema using Json. It does not
+     * support schemas with Binary Primitive, Sequence, Map or Set.
      */
     private def fromSchema(schema: zio.schema.Schema[_]): Options[Json] = {
 
@@ -119,13 +120,13 @@ private[cli] object HttpOptions {
 
           case Schema.Primitive(standardType, _) => fromPrimitive(prefix, standardType)
 
-          case Schema.Fail(_, _)                    => emptyJson
+          case Schema.Fail(_, _) => emptyJson
 
           // Should Map, Sequence and Set have implementations?
           // Options cannot be used to specify an arbitrary number of parameters.
-          case Schema.Map(_, _, _)                  => emptyJson
-          case Schema.Sequence(_, _, _, _, _)       => emptyJson
-          case Schema.Set(_, _)                     => emptyJson
+          case Schema.Map(_, _, _)            => emptyJson
+          case Schema.Sequence(_, _, _, _, _) => emptyJson
+          case Schema.Set(_, _)               => emptyJson
 
           case Schema.Lazy(schema0)                 => loop(prefix, schema0())
           case Schema.Dynamic(_)                    => emptyJson
@@ -216,7 +217,8 @@ private[cli] object HttpOptions {
   }
 
   final case class HeaderConstant(override val name: String, value: String, doc: Doc = Doc.empty)
-      extends HeaderOptions with Constant {
+      extends HeaderOptions
+      with Constant {
     self =>
 
     override def ??(doc: Doc): HeaderConstant = self.copy(doc = self.doc + doc)
@@ -280,7 +282,9 @@ private[cli] object HttpOptions {
 
   }
 
-  final case class QueryConstant(override val name: String, value: String, doc: Doc = Doc.empty) extends URLOptions with Constant {
+  final case class QueryConstant(override val name: String, value: String, doc: Doc = Doc.empty)
+      extends URLOptions
+      with Constant {
     self =>
 
     override val tag                                                          = "?" + name + "=" + value

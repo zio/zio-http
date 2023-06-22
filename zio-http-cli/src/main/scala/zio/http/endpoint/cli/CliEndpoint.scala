@@ -37,20 +37,20 @@ private[cli] final case class CliEndpoint(
 
   def commandName(cliStyle: Boolean): String =
     if (cliStyle) {
-        (methods match {
-          case Method.POST => "create"
-          case Method.PUT  => "update"
-          case method      => method.name.toLowerCase
-        }) :: url
-          .filter(
-            _ match {
-              case _: HttpOptions.PathConstant  => true
-              case _: HttpOptions.QueryConstant => true
-              case _                            => false
-            },
-          )
-          .map(_.name)
-        }.mkString("-")
+      (methods match {
+        case Method.POST => "create"
+        case Method.PUT  => "update"
+        case method      => method.name.toLowerCase
+      }) :: url
+        .filter(
+          _ match {
+            case _: HttpOptions.PathConstant  => true
+            case _: HttpOptions.QueryConstant => true
+            case _                            => false
+          },
+        )
+        .map(_.name)
+    }.mkString("-")
     else {
       {
         methods match {
@@ -127,19 +127,16 @@ private[cli] object CliEndpoint {
 
       case HttpCodec.Path(textCodec, Some(name), _) =>
         CliEndpoint(url = HttpOptions.Path(name, textCodec) :: List())
-      case HttpCodec.Path(textCodec, None, _) =>
+      case HttpCodec.Path(textCodec, None, _)       =>
         textCodec.asInstanceOf[TextCodec[_]] match {
           case TextCodec.Constant(value) => CliEndpoint(url = HttpOptions.PathConstant(value) :: List())
-          case _                          => CliEndpoint.empty
+          case _                         => CliEndpoint.empty
         }
-        
-      
-      
 
       case HttpCodec.Query(name, textCodec, _) =>
         textCodec.asInstanceOf[TextCodec[_]] match {
           case TextCodec.Constant(value) => CliEndpoint(url = HttpOptions.QueryConstant(name, value) :: List())
-          case _                          => CliEndpoint(url = HttpOptions.Query(name, textCodec) :: List())
+          case _                         => CliEndpoint(url = HttpOptions.Query(name, textCodec) :: List())
         }
 
       case HttpCodec.Status(_, _) => CliEndpoint.empty

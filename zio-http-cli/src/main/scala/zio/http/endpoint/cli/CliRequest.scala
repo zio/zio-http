@@ -48,16 +48,16 @@ private[cli] final case class CliRequest(
    */
   def toRequest(host: String, port: Int, retrieverClient: CliClient): Task[Request] = {
     val clientLayer = retrieverClient match {
-      case CliZIOClient(client) => ZLayer {ZIO.succeed(client)}
+      case CliZIOClient(client)    => ZLayer { ZIO.succeed(client) }
       case CliZLayerClient(client) => client
-      case DefaultClient() => Client.default
+      case DefaultClient()         => Client.default
     }
     for {
-    
-      forms <- ZIO.foreach(body)(_.retrieve()).provideSome(clientLayer)
-      finalBody  <- Body.fromMultipartFormUUID(Form(forms))
+
+      forms     <- ZIO.foreach(body)(_.retrieve()).provideSome(clientLayer)
+      finalBody <- Body.fromMultipartFormUUID(Form(forms))
     } yield Request(method = method, url = url.host(host).port(port), body = finalBody, headers = headers)
-}
+  }
 
 }
 

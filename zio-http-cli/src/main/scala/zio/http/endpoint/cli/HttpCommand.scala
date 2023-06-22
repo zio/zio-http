@@ -30,8 +30,8 @@ object HttpCommand {
   }
 
   /*
-  * Adds the HttpOptions from options to an empty CliRequest.
-  */
+   * Adds the HttpOptions from options to an empty CliRequest.
+   */
   def addOptionsTo(cliEndpoint: CliEndpoint): Options[CliRequest] =
     cliEndpoint.getOptions
       .map(option => option.transform _)

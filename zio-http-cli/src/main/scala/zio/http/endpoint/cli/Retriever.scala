@@ -25,23 +25,23 @@ private[cli] object Retriever {
 
   final case class URL(name: String, url: String, mediaType: Option[MediaType]) extends Retriever {
 
-    lazy val media = 
+    lazy val media =
       mediaType match {
         case Some(media) => media
         case None        => MediaType.any
       }
 
-    lazy val request = Request.get(http.URL(http.Path.decode(url)))
+    lazy val request                                           = Request.get(http.URL(http.Path.decode(url)))
     override def retrieve(): ZIO[Client, Throwable, FormField] = for {
-      client <- ZIO.service[Client]
+      client   <- ZIO.service[Client]
       response <- client.request(request).provideSome(Scope.default)
-      chunk <- response.body.asChunk
+      chunk    <- response.body.asChunk
     } yield FormField.binaryField(name, chunk, media)
   }
 
   final case class File(name: String, path: Path, mediaType: Option[MediaType]) extends Retriever {
-    
-    lazy val media = 
+
+    lazy val media =
       mediaType match {
         case Some(media) => media
         case None        => MediaType.any
