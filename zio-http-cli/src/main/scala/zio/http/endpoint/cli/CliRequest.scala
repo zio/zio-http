@@ -54,15 +54,10 @@ private[cli] final case class CliRequest(
     }
     for {
     
-    forms <- ZIO.foreach(body)(_.retrieve()).provideSome(clientLayer)
-    finalBody  <- Body.fromMultipartFormUUID(Form(forms))
-  } yield Request
-    .default(
-      method,
-      url.withHost(host).withPort(port),
-      finalBody,
-    )
-    .setHeaders(headers)}
+      forms <- ZIO.foreach(body)(_.retrieve()).provideSome(clientLayer)
+      finalBody  <- Body.fromMultipartFormUUID(Form(forms))
+    } yield Request(method = method, url = url.host(host).port(port), body = finalBody, headers = headers)
+}
 
 }
 

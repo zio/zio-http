@@ -38,7 +38,7 @@ object HttpCommand {
       .foldLeft(emptyOptions) { case (options, f) =>
         f(options)
       }
-      .map(_.withMethod(cliEndpoint.methods))
+      .map(_.method(cliEndpoint.methods))
 
   /*
    * Transforms a chunk of Endpoints in a Command to use directly in the CliApp.
