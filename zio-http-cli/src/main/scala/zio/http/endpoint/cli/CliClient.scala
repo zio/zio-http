@@ -1,7 +1,8 @@
 package zio.http.endpoint.cli
 
-import zio.http._
 import zio._
+
+import zio.http._
 
 /**
  * CliClient is a wrapper for the Http Client of a HttpCliApp. It allows to
