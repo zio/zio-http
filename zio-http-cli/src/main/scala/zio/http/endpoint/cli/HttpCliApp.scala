@@ -34,6 +34,9 @@ object HttpCliApp {
    *   Configuration of the generated CLI
    * @param figFont
    *   FigFont to use for man pages of the generated CLI
+   * @param cliStyle
+   *   Style of commands of the generated CLI: true for CLI idiomatic interface,
+   *   false for HTTP-like interface
    * @return
    *   a [[HttpCliApp]]
    */
@@ -47,36 +50,9 @@ object HttpCliApp {
     footer: HelpDoc = HelpDoc.Empty,
     config: CliConfig = CliConfig.default,
     figFont: FigFont = FigFont.Default,
+    cliStyle: Boolean = true,
+    client: CliClient = DefaultClient(),
   ): HttpCliApp[Any, Throwable, CliRequest] = {
-    val cliEndpoints = endpoints.flatMap(CliEndpoint.fromEndpoint(_))
-
-    val subcommand = cliEndpoints
-      .groupBy(_.commandName)
-      .map { case (name, cliEndpoints) =>
-        val doc     = cliEndpoints.map(_.doc).map(_.toPlaintext()).mkString("\n\n")
-        val options =
-          cliEndpoints
-            .map(_.options)
-            .zipWithIndex
-            .map { case (options, index) => options.map(index -> _) }
-            .reduceOption(_ orElse _)
-            .getOrElse(Options.none.map(_ => (-1, CliRequest.empty)))
-
-        Command(name, options).withHelp(doc).map { case (index, any) =>
-          val cliEndpoint = cliEndpoints(index)
-          cliEndpoint
-            .asInstanceOf[CliEndpoint[cliEndpoint.Type]]
-            .embed(any.asInstanceOf[cliEndpoint.Type], CliRequest.empty)
-        }
-      }
-      .reduceOption(_ orElse _)
-
-    val command =
-      subcommand match {
-        case Some(subcommand) => Command(name).subcommands(subcommand)
-        case None             => Command(name).map(_ => CliRequest.empty)
-      }
-
     HttpCliApp {
       CliApp.make(
         name = name,
@@ -85,27 +61,30 @@ object HttpCliApp {
         footer = footer,
         config = config,
         figFont = figFont,
-        command = command,
-      ) { case CliRequest(url, method, headers, body) =>
+        command = HttpCommand.fromEndpoints(name, endpoints, cliStyle),
+      ) { case req @ CliRequest(_, _, _, _, mustPrint, mustSave) =>
         for {
-          response <- ZIO
-            .serviceWithZIO[Client](client =>
-              client(
-                Request(
-                  method = method,
-                  url = url.host(host).port(port),
-                  headers = headers,
-                  body = Body.fromString(body.toString),
-                ),
-              ),
-            )
-            .provide(Client.default, Scope.default)
+          request  <- req.toRequest(host, port, client)
+          response <- client match {
+            case CliZIOClient(client) => client.request(request).provideSome(Scope.default)
+            case CliZLayerClient(client) => Client.request(request).provideSome(Scope.default, client)
+            case DefaultClient() => Client.request(request).provideSome(Scope.default, Client.default)
+          }
+            
           _        <- Console.printLine(s"Got response")
           _        <- Console.printLine(s"Status: ${response.status}")
-          body     <- response.body.asString
-          _        <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
-        } yield ()
+          _        <- ZIO.when(mustPrint)(printResponse(response))
+          _        <- ZIO.when(mustSave)(saveResponse(response))
+        } yield response
       }
     }
   }
+
+  private def printResponse(response: Response): Task[Unit] = for {
+    body <- response.body.asString
+    _    <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
+  } yield ()
+
+  private def saveResponse(response: Response): Task[Unit] = ???
+
 }
