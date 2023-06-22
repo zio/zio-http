@@ -95,6 +95,7 @@ object CommandGen {
       case TextCodec.StringCodec  => "text"
       case TextCodec.IntCodec     => "integer"
       case TextCodec.BooleanCodec => ""
+      case _                      => ""
     }
 
   def getPrimitive(schema: Schema[_]): String =
