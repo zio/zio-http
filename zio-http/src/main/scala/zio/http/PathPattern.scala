@@ -17,7 +17,7 @@ package zio.http
 
 import scala.language.implicitConversions
 
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 
 import zio.http.codec._
 
@@ -226,6 +226,19 @@ sealed trait PathPattern[A] { self =>
   }
 
   /**
+   * Returns the segments of the path pattern.
+   */
+  def segments: Chunk[Segment[_]] = {
+    def loop(path: PathPattern[_], acc: Chunk[Segment[_]]): Chunk[Segment[_]] = path match {
+      case PathPattern.Root(_) => acc
+
+      case PathPattern.Child(parent, segment, _) => loop(parent, acc :+ segment)
+    }
+
+    loop(self, Chunk.empty)
+  }
+
+  /**
    * Converts the path pattern into an HttpCodec that produces the same value.
    */
   def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, A]
@@ -233,15 +246,95 @@ sealed trait PathPattern[A] { self =>
   override def toString(): String = render
 }
 object PathPattern          {
-  final case class Tree[+A](roots: Map[Method, SegmentSubtree[A]])
-  object Tree           {
-    def apply[A](pathPattern: PathPattern[_], value: A): Tree[A] = ???
+
+  /**
+   * A tree of path patterns, indexed by method and path.
+   */
+  final case class Tree[+A](roots: Map[Method, SegmentSubtree[A]]) { self =>
+    def ++[A1 >: A](that: Tree[A1]): Tree[A1] =
+      Tree(mergeMaps(self.roots, that.roots)(_ ++ _))
+
+    def add[A1 >: A](pathPattern: PathPattern[_], value: A1): Tree[A1] =
+      self ++ Tree(pathPattern, value)
+
+    def addAll[A1 >: A](pathPatterns: Iterable[(PathPattern[_], A1)]): Tree[A1] =
+      pathPatterns.foldLeft[Tree[A1]](self) { case (tree, (p, v)) =>
+        tree.add(p, v)
+      }
+
+    def get(method: Method, path: Path): Chunk[A] =
+      roots.get(method) match {
+        case None        => Chunk.empty
+        case Some(value) => value.get(path)
+      }
   }
-  sealed trait SegmentSubtree[+A]
-  object SegmentSubtree {
-    final case class Leaf[A](value: A)                                     extends SegmentSubtree[A]
-    final case class Node[A](children: Map[Segment[_], SegmentSubtree[A]]) extends SegmentSubtree[A]
+  object Tree                                                      {
+    def apply[A](pathPattern: PathPattern[_], value: A): Tree[A] = {
+      val method   = pathPattern.method
+      val segments = pathPattern.segments
+
+      val subtree =
+        segments.foldLeft[SegmentSubtree[A]](SegmentSubtree(Map(), Chunk(value))) { case (subtree, segment) =>
+          SegmentSubtree(Map(segment -> subtree), Chunk.empty)
+        }
+
+      Tree(Map(method -> subtree))
+    }
+
+    val empty: Tree[Nothing] = Tree(Map.empty)
   }
+  private[http] final case class SegmentSubtree[+A](children: Map[Segment[_], SegmentSubtree[A]], value: Chunk[A]) {
+    self =>
+    import SegmentSubtree._
+    val flattened: Chunk[(Segment[_], SegmentSubtree[A])] = Chunk.fromIterable(children)
+
+    def ++[A1 >: A](that: SegmentSubtree[A1]): SegmentSubtree[A1] =
+      SegmentSubtree(mergeMaps(self.children, that.children)(_ ++ _), self.value ++ that.value)
+
+    def get(path: Path): Chunk[A] = {
+      val segments = path.segments
+      var subtree  = self
+      var result   = subtree.value
+      var i        = 0
+
+      while (i < segments.length) {
+        val text = segments(i)
+
+        val flattened = subtree.flattened
+
+        var index = 0
+        subtree = null
+
+        while ((index < flattened.length) && (subtree eq null)) {
+          val tuple = flattened(index)
+
+          if (tuple._1.matches(text)) {
+            subtree = tuple._2
+          } else {
+            index += 1
+          }
+        }
+
+        if (subtree eq null) {
+          result = Chunk.empty
+          i = segments.length
+        } else {
+          result = subtree.value
+          i = i + 1
+        }
+      }
+
+      result
+    }
+  }
+
+  private def mergeMaps[A, B](left: Map[A, B], right: Map[A, B])(f: (B, B) => B): Map[A, B] =
+    right.foldLeft(left) { case (acc, (k, v)) =>
+      acc.updatedWith(k) {
+        case None     => Some(v)
+        case Some(v0) => Some(f(v0, v))
+      }
+    }
 
   /**
    * Constructs a path pattern from a method and a path literal.
@@ -264,6 +357,8 @@ object PathPattern          {
 
     def format(value: A): Path
 
+    def matches(segment: String): Boolean
+
     def toHttpCodec: HttpCodec[HttpCodecType.Path, A]
   }
   object Segment          {
@@ -282,25 +377,82 @@ object PathPattern          {
     private[http] final case class Literal(value: String) extends Segment[Unit]           {
       def format(unit: Unit): Path = Path(s"/$value")
 
+      def matches(segment: String): Boolean = value == segment
+
       def toHttpCodec: HttpCodec[HttpCodecType.Path, Unit] = PathCodec.literal(value)
     }
     private[http] final case class IntSeg(name: String)   extends Segment[Int]            {
       def format(value: Int): Path = Path(s"/$value")
+
+      def matches(segment: String): Boolean = {
+        var i       = 0
+        var defined = true
+        while (i < segment.length) {
+          if (!segment.charAt(i).isDigit) {
+            defined = false
+            i = segment.length
+          }
+          i += 1
+        }
+        defined && i >= 1
+      }
 
       def toHttpCodec: HttpCodec[HttpCodecType.Path, Int] = PathCodec.int(name)
     }
     private[http] final case class LongSeg(name: String)  extends Segment[Long]           {
       def format(value: Long): Path = Path(s"/$value")
 
+      def matches(segment: String): Boolean = {
+        var i       = 0
+        var defined = true
+        while (i < segment.length) {
+          if (!segment.charAt(i).isDigit) {
+            defined = false
+            i = segment.length
+          }
+          i += 1
+        }
+        defined && i >= 1
+      }
+
       def toHttpCodec: HttpCodec[HttpCodecType.Path, Long] = PathCodec.long(name)
     }
     private[http] final case class Text(name: String)     extends Segment[String]         {
       def format(value: String): Path = Path(s"/$value")
 
+      def matches(segment: String): Boolean = true
+
       def toHttpCodec: HttpCodec[HttpCodecType.Path, String] = PathCodec.string(name)
     }
     private[http] final case class UUID(name: String)     extends Segment[java.util.UUID] {
       def format(value: java.util.UUID): Path = Path(s"/$value")
+
+      def matches(value: String): Boolean = {
+        var i       = 0
+        var defined = true
+        var group   = 0
+        var count   = 0
+        while (i < value.length) {
+          val char = value.charAt(i)
+          if ((char >= 48 && char <= 57) || (char >= 65 && char <= 70) || (char >= 97 && char <= 102))
+            count += 1
+          else if (char == 45) {
+            if (
+              group > 4 || (group == 0 && count != 8) || ((group == 1 || group == 2 || group == 3) && count != 4) || (group == 4 && count != 12)
+            ) {
+              defined = false
+              i = value.length
+            }
+            count = 0
+            group += 1
+          } else {
+            defined = false
+            i = value.length
+          }
+          i += 1
+        }
+        defined && i == 36
+      }
 
       def toHttpCodec: HttpCodec[HttpCodecType.Path, java.util.UUID] = PathCodec.uuid(name)
     }
