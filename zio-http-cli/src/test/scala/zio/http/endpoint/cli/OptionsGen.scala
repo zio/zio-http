@@ -114,8 +114,8 @@ object OptionsGen {
                 (chunk ++ retriever).map { case (chunk, retriever) =>
                   chunk ++ Chunk(retriever)
                 }
-              }).map {
-            case (url, header, body) => CliRequest(body, header, method.value, URL(url))
+              }).map { case (url, header, body) =>
+            CliRequest(body, header, method.value, URL(url))
           }, // body.map(_.repr)  ++++ header.map(_.repr) ++ url.map(_.repr)        CliRequest(body, header, method.value, URL(url))
           (body.map(_.repr) ++ header.map(_.repr) ++ url.map(_.repr) ++ List(method.repr)).foldLeft(CliEndpoint.empty) {
             case (cli1, cli2) => cli1 ++ cli2

@@ -48,13 +48,13 @@ object CliSpec extends ZIOSpecDefault {
         behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
         socketBehavior <- Ref.make[SocketApp[Any]](Handler.unit)
         driver = TestClient(behavior, socketBehavior)
-        _          <- driver.addHandler {
-          case Request(_, Method.GET, URL(path, _, _, _), _, _,_) if path.encode == "/fromURL" =>
+        _ <- driver.addHandler {
+          case Request(_, Method.GET, URL(path, _, _, _), _, _, _) if path.encode == "/fromURL" =>
             ZIO.succeed(Response.text("342.76"))
-          case Request(_ , Method.GET, _, headers, body, _)
+          case Request(_, Method.GET, _, headers, body, _)
               if headers.headOption.map(_.renderedValue) == Some("fromURL") =>
             ZIO.succeed(Response(Status.Ok, headers, body))
-          case Request( _, Method.GET, _, _, body, _)                                            =>
+          case Request(_, Method.GET, _, _, body, _)                                            =>
             for {
               text <- body.asMultipartForm
                 .map(_.formData)
