@@ -17,6 +17,8 @@ package zio.http
 
 import scala.language.implicitConversions
 
+import zio.Chunk
+
 import zio.http.codec._
 
 /**
@@ -33,11 +35,125 @@ import zio.http.codec._
  * }}}
  */
 sealed trait PathPattern[A] { self =>
-  import PathPattern.Segment
+  import PathPattern._
 
+  /**
+   * Returns a new pattern that is extended with the specified segment pattern.
+   */
   final def /[B](segment: PathPattern.Segment[B])(implicit combiner: Combiner[A, B]): PathPattern[combiner.Out] =
     PathPattern.Child[A, B, combiner.Out](this, segment, combiner)
 
+  /**
+   * Decodes a method and path into a value of type `A`.
+   */
+  final def decode(method: Method, path: Path): Either[String, A] = {
+    import zio.http.PathPattern.Opt._
+
+    val instructions = optimize
+    val segments     = path.segments
+
+    var i                           = 0
+    var j                           = 0
+    var fail                        = ""
+    val stack: java.util.Deque[Any] = new java.util.ArrayDeque[Any](2)
+    while (i < instructions.length) {
+      val opt = instructions(i)
+
+      opt match {
+        case MethodOpt(m) =>
+          if (m != method) {
+            fail = s"Expected HTTP method ${method} but found method ${m}"
+            i = instructions.length
+          } else {
+            stack.push(())
+          }
+
+        case Match(value) =>
+          if (j >= segments.length || segments(j) != value) {
+            fail = s"Expected path segment \"${value}\" but found end of path"
+            i = instructions.length
+          } else {
+            stack.push(())
+            j = j + 1
+          }
+
+        case Combine(combiner) =>
+          val right = stack.pop()
+          val left  = stack.pop()
+          stack.push(combiner.asInstanceOf[Combiner[Any, Any]].combine(left, right))
+
+        case IntOpt =>
+          if (j >= segments.length) {
+            fail = "Expected integer path segment but found end of path"
+            i = instructions.length
+          } else {
+            val segment = segments(j)
+            j = j + 1
+            try {
+              stack.push(segment.toInt)
+            } catch {
+              case _: NumberFormatException =>
+                fail = s"Expected integer path segment but found \"${segment}\""
+                i = instructions.length
+            }
+          }
+
+        case LongOpt   =>
+          if (j >= segments.length) {
+            fail = "Expected long path segment but found end of path"
+            i = instructions.length
+          } else {
+            val segment = segments(j)
+            j = j + 1
+            try {
+              stack.push(segment.toLong)
+            } catch {
+              case _: NumberFormatException =>
+                fail = s"Expected long path segment but found ${segment}"
+                i = instructions.length
+            }
+          }
+        case StringOpt =>
+          if (j >= segments.length) {
+            fail = "Expected text path segment but found end of path"
+            i = instructions.length
+          } else {
+            val segment = segments(j)
+            j = j + 1
+            stack.push(segment.toString)
+          }
+
+        case UUIDOpt =>
+          if (j >= segments.length) {
+            fail = "Expected UUID path segment but found end of path"
+            i = instructions.length
+          } else {
+            val segment = segments(j)
+            j = j + 1
+            try {
+              stack.push(java.util.UUID.fromString(segment.toString))
+            } catch {
+              case _: IllegalArgumentException =>
+                fail = s"Expected UUID path segment but found ${segment}"
+                i = instructions.length
+            }
+          }
+      }
+
+      i = i + 1
+    }
+    if (fail != "") Left(fail) else Right(stack.pop().asInstanceOf[A])
+  }
+
+  /**
+   * Encodes a value of type `A` into a method and path.
+   */
+  final def encode(value: A): (Method, Path) = (method, format(value))
+
+  /**
+   * Formats a value of type `A` into a path. This is useful for embedding paths
+   * into HTML that is rendered by the server.
+   */
   final def format(value: A): Path = {
     @annotation.tailrec
     def loop(path: PathPattern[_], value: Any, acc: Path): Path = path match {
@@ -52,6 +168,38 @@ sealed trait PathPattern[A] { self =>
     val path = loop(self, value, Path.empty)
 
     if (path.nonEmpty) path.addLeadingSlash else path
+  }
+
+  /**
+   * Returns the method of the path pattern.
+   */
+  final lazy val method: Method = {
+    @annotation.tailrec
+    def loop(path: PathPattern[_]): Method = path match {
+      case PathPattern.Root(method) => method
+
+      case PathPattern.Child(parent, _, _) => loop(parent)
+    }
+
+    loop(self)
+  }
+
+  private[http] lazy val optimize: Array[Opt] = {
+    def loop(pattern: PathPattern[_], acc: Chunk[Opt]): Chunk[Opt] =
+      pattern match {
+        case PathPattern.Root(method)         => Opt.MethodOpt(method) +: acc
+        case Child(parent, segment, combiner) =>
+          val segmentOpt = segment.asInstanceOf[Segment[_]] match {
+            case Segment.Literal(value) => Opt.Match(value)
+            case Segment.IntSeg(_)      => Opt.IntOpt
+            case Segment.LongSeg(_)     => Opt.LongOpt
+            case Segment.Text(_)        => Opt.StringOpt
+            case Segment.UUID(_)        => Opt.UUIDOpt
+          }
+          loop(parent, segmentOpt +: Opt.Combine(combiner) +: acc)
+      }
+
+    loop(self, Chunk.empty).materialize.toArray
   }
 
   /**
@@ -77,11 +225,27 @@ sealed trait PathPattern[A] { self =>
     loop(self)
   }
 
+  /**
+   * Converts the path pattern into an HttpCodec that produces the same value.
+   */
   def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, A]
 
   override def toString(): String = render
 }
 object PathPattern          {
+  final case class Tree[+A](roots: Map[Method, SegmentSubtree[A]])
+  object Tree           {
+    def apply[A](pathPattern: PathPattern[_], value: A): Tree[A] = ???
+  }
+  sealed trait SegmentSubtree[+A]
+  object SegmentSubtree {
+    final case class Leaf[A](value: A)                                     extends SegmentSubtree[A]
+    final case class Node[A](children: Map[Segment[_], SegmentSubtree[A]]) extends SegmentSubtree[A]
+  }
+
+  /**
+   * Constructs a path pattern from a method and a path literal.
+   */
   def apply(method: Method, value: String): PathPattern[Unit] = {
     val path = Path(value)
 
@@ -89,7 +253,11 @@ object PathPattern          {
       pathSpec./[Unit](Segment.literal(segment))
     }
   }
-  def fromMethod(method: Method): PathPattern[Unit]           = Root(method)
+
+  /**
+   * Constructs a path pattern from a method.
+   */
+  def fromMethod(method: Method): PathPattern[Unit] = Root(method)
 
   sealed trait Segment[A] { self =>
     final type Type = A
@@ -138,7 +306,7 @@ object PathPattern          {
     }
   }
 
-  private[http] final case class Root(method: Method) extends PathPattern[Unit] {
+  private[http] final case class Root(method0: Method) extends PathPattern[Unit] {
     def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, Unit] =
       MethodCodec.method(method)
   }
@@ -155,5 +323,18 @@ object PathPattern          {
 
       parentCodec.++(segmentCodec)(combiner)
     }
+  }
+
+  private[http] val someUnit = Some(())
+
+  private[http] sealed trait Opt
+  private[http] object Opt {
+    final case class MethodOpt(method: zio.http.Method) extends Opt
+    final case class Match(value: String)               extends Opt
+    final case class Combine(combiner: Combiner[_, _])  extends Opt
+    case object IntOpt                                  extends Opt
+    case object LongOpt                                 extends Opt
+    case object StringOpt                               extends Opt
+    case object UUIDOpt                                 extends Opt
   }
 }
