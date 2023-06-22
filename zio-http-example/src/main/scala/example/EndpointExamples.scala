@@ -9,12 +9,13 @@ import zio.http.endpoint._
 
 object EndpointExamples extends ZIOAppDefault {
   import HttpCodec._
+  import PathPattern.Segment._ 
 
   val auth = EndpointMiddleware.auth
 
   // MiddlewareSpec can be added at the service level as well
   val getUser =
-    Endpoint.get("users" / int("userId")).out[Int] @@ auth
+    Endpoint(Method.GET / "users" / int("userId")).out[Int] @@ auth
 
   val getUserRoute =
     getUser.implement { id =>
@@ -22,8 +23,7 @@ object EndpointExamples extends ZIOAppDefault {
     }
 
   val getUserPosts =
-    Endpoint
-      .get("users" / int("userId") / "posts" / int("postId"))
+    Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
       .query(query("name"))
       .out[List[String]] @@ auth
 

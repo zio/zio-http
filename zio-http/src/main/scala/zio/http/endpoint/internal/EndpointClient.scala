@@ -22,11 +22,11 @@ import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
 
-private[endpoint] final case class EndpointClient[I, E, O, M <: EndpointMiddleware](
+private[endpoint] final case class EndpointClient[P, I, E, O, M <: EndpointMiddleware](
   endpointRoot: URL,
-  endpoint: Endpoint[I, E, O, M],
+  endpoint: Endpoint[P, I, E, O, M],
 ) {
-  def execute(client: Client, invocation: Invocation[I, E, O, M])(
+  def execute(client: Client, invocation: Invocation[P, I, E, O, M])(
     mi: invocation.middleware.In,
   )(implicit alt: Alternator[E, invocation.middleware.Err], trace: Trace): ZIO[Scope, alt.Out, O] = {
     val request0 = endpoint.input.encodeRequest(invocation.input)

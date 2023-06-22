@@ -21,8 +21,8 @@ import zio._
 import zio.http._
 import zio.http.endpoint.{EndpointMiddleware, Routes}
 
-private[endpoint] final case class EndpointServer[R, E, I, O, M <: EndpointMiddleware](
-  single: Routes.Single[R, E, I, O, M],
+private[endpoint] final case class EndpointServer[R, E, P, I, O, M <: EndpointMiddleware](
+  single: Routes.Single[R, E, P, I, O, M],
 ) {
   private val endpoint = single.endpoint
   private val handler  = single.handler

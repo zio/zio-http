@@ -35,24 +35,29 @@ final case class EndpointExecutor[+MI](
   private val metadata = {
     implicit val trace0 = Trace.empty
     zio.http.endpoint.internal
-      .MemoizedZIO[Endpoint[_, _, _, _ <: EndpointMiddleware], EndpointNotFound, EndpointClient[Any, Any, Any, _]] {
-        (api: Endpoint[_, _, _, _ <: EndpointMiddleware]) =>
-          locator.locate(api).map { location =>
-            EndpointClient(
-              location,
-              api.asInstanceOf[Endpoint[Any, Any, Any, _ <: EndpointMiddleware]],
-            )
-          }
+      .MemoizedZIO[Endpoint[_, _, _, _, _ <: EndpointMiddleware], EndpointNotFound, EndpointClient[
+        Any,
+        Any,
+        Any,
+        Any,
+        _,
+      ]] { (api: Endpoint[_, _, _, _, _ <: EndpointMiddleware]) =>
+        locator.locate(api).map { location =>
+          EndpointClient(
+            location,
+            api.asInstanceOf[Endpoint[Any, Any, Any, Any, _ <: EndpointMiddleware]],
+          )
+        }
       }
   }
 
-  private def getClient[I, E, O, M <: EndpointMiddleware](
-    endpoint: Endpoint[I, E, O, M],
-  )(implicit trace: Trace): IO[EndpointNotFound, EndpointClient[I, E, O, M]] =
-    metadata.get(endpoint).map(_.asInstanceOf[EndpointClient[I, E, O, M]])
+  private def getClient[P, I, E, O, M <: EndpointMiddleware](
+    endpoint: Endpoint[P, I, E, O, M],
+  )(implicit trace: Trace): IO[EndpointNotFound, EndpointClient[P, I, E, O, M]] =
+    metadata.get(endpoint).map(_.asInstanceOf[EndpointClient[P, I, E, O, M]])
 
-  def apply[A, E, B, M <: EndpointMiddleware](
-    invocation: Invocation[A, E, B, M],
+  def apply[P, A, E, B, M <: EndpointMiddleware](
+    invocation: Invocation[P, A, E, B, M],
   )(implicit
     alt: Alternator[E, invocation.middleware.Err],
     ev: MI <:< invocation.middleware.In,

@@ -25,6 +25,9 @@ private[codec] trait PathCodecs {
   def int(name: String): PathCodec[Int] =
     HttpCodec.Path(TextCodec.int, Some(name))
 
+  def long(name: String): PathCodec[Long] =
+    HttpCodec.Path(TextCodec.long, Some(name))
+
   def string(name: String): PathCodec[String] =
     HttpCodec.Path(TextCodec.string, Some(name))
 

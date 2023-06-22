@@ -24,24 +24,24 @@ import zio.http.codec.{SimpleCodec, TextCodec}
 import zio.http.endpoint._
 
 private[http] sealed trait RoutingTree[-R, M <: EndpointMiddleware] { self =>
-  final def add[R1 <: R](that: Routes.Single[R1, _, _, _, M]): RoutingTree[R1, M] =
+  final def add[R1 <: R](that: Routes.Single[R1, _, _, _, _, M]): RoutingTree[R1, M] =
     self.merge(RoutingTree.single(that))
 
-  final def lookup(request: Request): Chunk[Routes.Single[R, _, _, _, M]] = {
+  final def lookup(request: Request): Chunk[Routes.Single[R, _, _, _, _, M]] = {
     val segments = request.path.segments
 
     lookup(segments, 0, request.method)
   }
 
-  protected def lookup(segments: Chunk[String], index: Int, method: Method): Chunk[Routes.Single[R, _, _, _, M]]
+  protected def lookup(segments: Chunk[String], index: Int, method: Method): Chunk[Routes.Single[R, _, _, _, _, M]]
 
   def merge[R1 <: R](that: RoutingTree[R1, M]): RoutingTree[R1, M]
 
   protected def toPaths[R1 <: R]: RoutingTree.Paths[R1, M]
 }
 private[http] object RoutingTree                                    {
-  def single[R, E, I, O, M <: EndpointMiddleware](
-    single0: Routes.Single[R, E, I, O, M],
+  def single[R, E, P, I, O, M <: EndpointMiddleware](
+    single0: Routes.Single[R, E, P, I, O, M],
   ): RoutingTree[R, M] = {
     // Here we perform a complete rewrite of the endpoint to generate a set of
     // endpoints that is equivalent to the endpoint, but each of which does
@@ -110,7 +110,7 @@ private[http] object RoutingTree                                    {
     fromIterable(Routes.flatten(routes))
 
   def fromIterable[R, M <: EndpointMiddleware](
-    routes: Iterable[Routes.Single[R, _, _, _, M]],
+    routes: Iterable[Routes.Single[R, _, _, _, _, M]],
   ): RoutingTree[R, M] =
     routes.foldLeft[RoutingTree[R, M]](RoutingTree.empty[M])((a, b) => a.add(b))
 
@@ -119,7 +119,7 @@ private[http] object RoutingTree                                    {
     variables: Chunk[(String => Boolean, RoutingTree[R, M])],
     here: Leaf[R, M],
   ) extends RoutingTree[R, M] { self =>
-    def lookup(segments: Chunk[String], index: Int, method: Method): Chunk[Routes.Single[R, _, _, _, M]] =
+    def lookup(segments: Chunk[String], index: Int, method: Method): Chunk[Routes.Single[R, _, _, _, _, M]] =
       if (index > segments.length) {
         Chunk.empty
       } else if (index == segments.length) {
@@ -156,10 +156,10 @@ private[http] object RoutingTree                                    {
     def toPaths[R1 <: R]: RoutingTree.Paths[R1, M] = self
   }
   final case class Leaf[-R, M <: EndpointMiddleware](
-    literals: Map[Method, Chunk[Routes.Single[R, _, _, _, M]]],
-    custom: Chunk[(Method => Boolean, Chunk[Routes.Single[R, _, _, _, M]])],
+    literals: Map[Method, Chunk[Routes.Single[R, _, _, _, _, M]]],
+    custom: Chunk[(Method => Boolean, Chunk[Routes.Single[R, _, _, _, _, M]])],
   ) extends RoutingTree[R, M] { self =>
-    def lookup(segments: Chunk[String], index: Int, method: Method): Chunk[Routes.Single[R, _, _, _, M]] =
+    def lookup(segments: Chunk[String], index: Int, method: Method): Chunk[Routes.Single[R, _, _, _, _, M]] =
       if (index < segments.length) Chunk.empty
       else {
         val part1 =

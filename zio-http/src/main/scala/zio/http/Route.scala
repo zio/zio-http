@@ -23,11 +23,12 @@ object Route {
   import zio.http.endpoint._
 
   private[http] sealed trait Static[-Env, Err] extends Route[Env] {
+    type PathInput
     type Input
     type Output
     type Middleware <: EndpointMiddleware
 
-    def endpoint: Endpoint[Input, Err, Output, Middleware]
+    def endpoint: Endpoint[PathInput, Input, Err, Output, Middleware]
     def original: Handler[Env, Err, Input, Output]
 
     val handler: Handler[Env, Response, Request, Response] =
@@ -56,15 +57,16 @@ object Route {
     pf,
   )
 
-  def apply[Env, Err, In, Out, M <: EndpointMiddleware](
-    endpoint0: Endpoint[In, Err, Out, M],
+  def apply[Env, Err, P, In, Out, M <: EndpointMiddleware](
+    endpoint0: Endpoint[P, In, Err, Out, M],
   )(handler0: Handler[Env, Err, In, Out]): Route[Env] =
     new Static[Env, Err] {
+      type PathInput  = P
       type Input      = In
       type Output     = Out
       type Middleware = M
 
-      def endpoint: Endpoint[Input, Err, Output, Middleware] = endpoint0
-      def original: Handler[Env, Err, Input, Output]         = handler0
+      def endpoint: Endpoint[PathInput, Input, Err, Output, Middleware] = endpoint0
+      def original: Handler[Env, Err, Input, Output]                    = handler0
     }
 }

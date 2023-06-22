@@ -25,11 +25,12 @@ import zio.stream.ZStream
 import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Header.Authorization
-import zio.http._
-import zio.http.codec.HttpCodec.{authorization, int, query, string, stringToLiteral}
-import zio.http.codec.PathCodec.literal
+import zio.http.Method._
+import zio.http.PathPattern.Segment._
+import zio.http.codec.HttpCodec.{authorization, query}
 import zio.http.codec.{Doc, HttpCodec, QueryCodec}
 import zio.http.netty.server.NettyDriver
+import zio.http.{int => _, _}
 
 object ServerClientIntegrationSpec extends ZIOSpecDefault {
   def extractStatus(response: Response): Status = response.status
@@ -60,16 +61,16 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     EndpointExecutor(client, locator, ZIO.succeed(middlewareInput))
   }
 
-  def testEndpoint[R, In, Err, Out](
-    endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
+  def testEndpoint[P, R, In, Err, Out](
+    endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
     route: Routes[R, EndpointMiddleware.None.type],
     in: In,
     out: Out,
   ): ZIO[Client with R with Server with Scope, Err, TestResult] =
     testEndpointZIO(endpoint, route, in, outF = { (value: Out) => assertTrue(out == value) })
 
-  def testEndpointZIO[R, In, Err, Out](
-    endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
+  def testEndpointZIO[P, R, In, Err, Out](
+    endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
     route: Routes[R, EndpointMiddleware.None.type],
     in: In,
     outF: Out => ZIO[Any, Nothing, TestResult],
@@ -86,16 +87,16 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       result <- outF(out)
     } yield result
 
-  def testEndpointError[R, In, Err, Out](
-    endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
+  def testEndpointError[P, R, In, Err, Out](
+    endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
     route: Routes[R, EndpointMiddleware.None.type],
     in: In,
     err: Err,
   ): ZIO[Client with R with Server with Scope, Out, TestResult] =
     testEndpointErrorZIO(endpoint, route, in, errorF = { (value: Err) => assertTrue(err == value) })
 
-  def testEndpointErrorZIO[R, In, Err, Out](
-    endpoint: Endpoint[In, Err, Out, EndpointMiddleware.None.type],
+  def testEndpointErrorZIO[P, R, In, Err, Out](
+    endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
     route: Routes[R, EndpointMiddleware.None.type],
     in: In,
     errorF: Err => ZIO[Any, Nothing, TestResult],
@@ -117,7 +118,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
     suite("ServerClientIntegrationSpec")(
       test("simple get") {
         val usersPostAPI =
-          Endpoint.get(literal("users") / int("userId") / literal("posts") / int("postId")).out[Post]
+          Endpoint(GET / "users" / int("userId") / "posts" / int("postId")).out[Post]
 
         val usersPostHandler =
           usersPostAPI.implement { case (userId, postId) =>
@@ -133,8 +134,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       },
       test("simple get with optional query params") {
         val api =
-          Endpoint
-            .get(literal("users") / int("userId"))
+          Endpoint(GET / "users" / int("userId"))
             .query(HttpCodec.queryInt("id"))
             .query(HttpCodec.query("name").optional)
             .query(HttpCodec.query("details").optional)
@@ -164,8 +164,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         )
       },
       test("throwing error in handler") {
-        val api = Endpoint
-          .post(string("id") / "xyz" / string("name") / "abc")
+        val api = Endpoint(POST / string("id") / "xyz" / string("name") / "abc")
           .query(query("details"))
           .query(query("args").optional)
           .query(query("env").optional)
@@ -213,8 +212,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         )
       },
       test("simple post with json body") {
-        val api = Endpoint
-          .post(literal("test") / int("userId"))
+        val api = Endpoint(POST / "test" / int("userId"))
           .in[Post]
           .out[String]
 
@@ -230,7 +228,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         )
       },
       test("byte stream input") {
-        val api   = Endpoint.put(literal("upload")).inStream[Byte].out[Long]
+        val api   = Endpoint(PUT / "upload").inStream[Byte].out[Long]
         val route = api.implement { bytes =>
           bytes.runCount
         }
@@ -245,7 +243,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         }
       },
       test("byte stream output") {
-        val api   = Endpoint.get(literal("download")).query(QueryCodec.queryInt("count")).outStream[Byte]
+        val api   = Endpoint(GET / "download").query(QueryCodec.queryInt("count")).outStream[Byte]
         val route = api.implement { count =>
           Random.nextBytes(count).map(chunk => ZStream.fromChunk(chunk).rechunk(1024))
         }
@@ -258,8 +256,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         )
       },
       test("multi-part input") {
-        val api = Endpoint
-          .post(literal("test"))
+        val api = Endpoint(POST / "test")
           .in[String]("name")
           .in[Int]("value")
           .in[Post]("post")
@@ -277,8 +274,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         )
       } @@ timeout(10.seconds) @@ ifEnvNotSet("CI"), // NOTE: random hangs on CI
       test("endpoint error returned") {
-        val api = Endpoint
-          .post(literal("test"))
+        val api = Endpoint(POST / "test")
           .outError[String](Status.Custom(999))
 
         val route = api.implement { _ =>
@@ -301,7 +297,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         )
 
         val endpoint =
-          Endpoint.get("users" / int("userId")).out[Int] @@ alwaysFailingMiddleware
+          Endpoint(GET / "users" / int("userId")).out[Int] @@ alwaysFailingMiddleware
 
         val endpointRoute =
           endpoint.implement { id =>
@@ -332,7 +328,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         )
 
         val endpoint =
-          Endpoint.get("users" / int("userId")).out[Int] @@ alwaysFailingMiddleware
+          Endpoint(GET / "users" / int("userId")).out[Int] @@ alwaysFailingMiddleware
 
         val alwaysFailingMiddlewareWithAnotherSignature = EndpointMiddleware(
           authorization,
@@ -341,7 +337,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         )
 
         val endpointWithAnotherSignature =
-          Endpoint.get("users" / int("userId")).out[Int] @@ alwaysFailingMiddlewareWithAnotherSignature
+          Endpoint(GET / "users" / int("userId")).out[Int] @@ alwaysFailingMiddlewareWithAnotherSignature
 
         val endpointRoute =
           endpoint.implement { id =>
@@ -376,10 +372,10 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
       },
       test("Failed endpoint deserialization") {
         val endpoint =
-          Endpoint.get("users" / int("userId")).out[Int].outError[Int](Status.Custom(999))
+          Endpoint(GET / "users" / int("userId")).out[Int].outError[Int](Status.Custom(999))
 
         val endpointWithAnotherSignature =
-          Endpoint.get("users" / int("userId")).out[Int].outError[String](Status.Custom(999))
+          Endpoint(GET / "users" / int("userId")).out[Int].outError[String](Status.Custom(999))
 
         val endpointRoute =
           endpoint.implement { id =>
@@ -413,8 +409,7 @@ object ServerClientIntegrationSpec extends ZIOSpecDefault {
         )
       },
       test("multi-part input with stream field") {
-        val api = Endpoint
-          .post(literal("test"))
+        val api = Endpoint(POST / "test")
           .in[String]("name")
           .in[Int]("value")
           .inStream[Byte]("file")

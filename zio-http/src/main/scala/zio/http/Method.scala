@@ -26,9 +26,10 @@ sealed trait Method { self =>
    * the other will be returned. Otherwise, the right method will be returned.
    */
   def ++(that: Method): Method =
-    if (self == Method.Default) that
-    else if (that == Method.Default) self
+    if (that == Method.Default) self
     else that
+
+  def /[A](that: PathPattern.Segment[A]): PathPattern[A] = PathPattern.Root(self) / that
 
   /**
    * The name of the method, as it appears in the HTTP request.
