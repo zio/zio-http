@@ -41,19 +41,19 @@ object CommandGen {
           case ""    => (s"[${getName(name, "")}]", s"${getName(name, "")}")
           case codec => s"${getName(name, "")} $codec"
         }
-      case _ => ""
+      case _                                     => ""
     }
 
     val headersOptions = cliEndpoint.headers.filter {
       case _: HttpOptions.Constant => false
       case _                       => true
-    }.map { 
+    }.map {
       case HttpOptions.Header(name, textCodec, _) =>
         getType(textCodec) match {
           case ""    => s"[${getName(name, "")}]"
           case codec => s"${getName(name, "")} $codec"
         }
-      case _ => ""
+      case _                                      => ""
 
     }
 
