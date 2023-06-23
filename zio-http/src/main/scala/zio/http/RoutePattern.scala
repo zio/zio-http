@@ -172,6 +172,14 @@ sealed trait RoutePattern[A] { self =>
   }
 
   /**
+   * Determines if this pattern matches the specified method and path. Rather
+   * than use this method, you should just try to decode it directly, for higher
+   * performance, otherwise the same information will be decoded twice.
+   */
+  final def matches(method: Method, path: Path): Boolean =
+    decode(method, path).isRight
+
+  /**
    * Returns the method of the route pattern.
    */
   final lazy val method: Method = {
