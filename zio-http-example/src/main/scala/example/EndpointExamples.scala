@@ -8,8 +8,8 @@ import zio.http.codec.HttpCodec
 import zio.http.endpoint._
 
 object EndpointExamples extends ZIOAppDefault {
-  import HttpCodec._
-  import RoutePattern.Segment._ 
+  import HttpCodec.{int => _, _}
+  import RoutePattern.Segment._
 
   val auth = EndpointMiddleware.auth
 
@@ -18,8 +18,10 @@ object EndpointExamples extends ZIOAppDefault {
     Endpoint(Method.GET / "users" / int("userId")).out[Int] @@ auth
 
   val getUserRoute =
-    getUser.implement { id =>
-      ZIO.succeed(id)
+    getUser.implement {
+      Handler.fromFunction[Int] { id =>
+        id
+      }
     }
 
   val getUserPosts =
@@ -28,13 +30,15 @@ object EndpointExamples extends ZIOAppDefault {
       .out[List[String]] @@ auth
 
   val getUserPostsRoute =
-    getUserPosts.implement[Any] { case (id1: Int, id2: Int, query: String) =>
-      ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
+    getUserPosts.implement[Any] {
+      Handler.fromFunctionZIO[(Int, Int, String)] { case (id1: Int, id2: Int, query: String) =>
+        ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
+      }
     }
 
-  val routes = getUserRoute ++ getUserPostsRoute
+  val routes = Routes2(getUserRoute, getUserPostsRoute)
 
-  val app = routes.toApp(auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
+  val app = routes.toApp // (auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
 
   val request = Request.get(url = URL.decode("/users/1").toOption.get)
 

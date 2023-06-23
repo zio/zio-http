@@ -84,12 +84,13 @@ class EndpointBenchmark {
 
   private val REPEAT_N = 1000
 
+  import RoutePattern.Segment.int
+
   // # Small Data Request
 
   // API DSL
   val usersPosts =
-    Endpoint
-      .get(PathCodec.literal("users") / PathCodec.int("userId") / "posts" / PathCodec.int("limit"))
+    Endpoint(Method.GET / "users" / int("userId") / "posts" / int("limit"))
       .query(QueryCodec.query("query"))
       .out[ExampleData]
 
@@ -208,15 +209,15 @@ class EndpointBenchmark {
 
   // API DSL
 
-  val deepPathHttpApp = Endpoint
-    .get(
-      PathCodec.literal("first") /
-        PathCodec.int("id1") / "second" / PathCodec.int("id2") / "third" / PathCodec.int(
-          "id3",
-        ) / "fourth" / PathCodec.int("id4") / "fifth" / PathCodec.int("id5") / "sixth" / PathCodec.int(
-          "id5",
-        ) / "seventh" / PathCodec.int("id5"),
-    )
+  val deepPathHttpApp = Endpoint(
+    Method.GET /
+      "first" /
+      int("id1") / "second" / int("id2") / "third" / int(
+        "id3",
+      ) / "fourth" / int("id4") / "fifth" / int("id5") / "sixth" / int(
+        "id5",
+      ) / "seventh" / int("id5"),
+  )
     .out[Unit]
     .implement { _ =>
       ZIO.unit
@@ -332,115 +333,105 @@ class EndpointBenchmark {
 
   // API DSL
 
-  val broadUsers                     = Endpoint.get(PathCodec.literal("users")).out[Unit].implement { _ => ZIO.unit }
-  val broadUsersId                   =
-    Endpoint.get(PathCodec.literal("users") / PathCodec.int("userId")).out[Unit].implement { _ => ZIO.unit }
-  val boardUsersPosts                =
-    Endpoint
-      .get(PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts"))
+  val broadUsers                       = Endpoint(Method.GET / "users").out[Unit].implement { _ => ZIO.unit }
+  val broadUsersId                     =
+    Endpoint(Method.GET / "users" / int("userId")).out[Unit].implement { _ => ZIO.unit }
+  val boardUsersPosts                  =
+    Endpoint(Method.GET / "users" / int("userId") / "posts")
       .out[Unit]
       .implement { _ =>
         ZIO.unit
       }
-  val boardUsersPostsId              =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts") / PathCodec.int("postId"),
-      )
+  val boardUsersPostsId                =
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "posts" / int("postId"),
+    )
       .out[Unit]
       .implement { _ =>
         ZIO.unit
       }
-  val boardUsersPostsComments        =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts") / PathCodec.int(
+  val boardUsersPostsComments          =
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "posts" / int(
           "postId",
-        ) / PathCodec
-          .literal("comments"),
-      )
+        ) / "comments",
+    )
       .out[Unit]
       .implement { _ =>
         ZIO.unit
       }
-  val boardUsersPostsCommentsId      =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts") / PathCodec.int(
+  val boardUsersPostsCommentsId        =
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "posts" / int(
           "postId",
-        ) / PathCodec
-          .literal("comments") / PathCodec.int("commentId"),
-      )
+        ) / "comments" / int("commentId"),
+    )
       .out[Unit]
       .implement { _ =>
         ZIO.unit
       }
-  val broadPosts                     = Endpoint.get(PathCodec.literal("posts")).out[Unit].implement { _ => ZIO.unit }
-  val broadPostsId                   =
-    Endpoint.get(PathCodec.literal("posts") / PathCodec.int("postId")).out[Unit].implement { _ => ZIO.unit }
-  val boardPostsComments             =
-    Endpoint
-      .get(PathCodec.literal("posts") / PathCodec.int("postId") / PathCodec.literal("comments"))
+  val broadPosts                       = Endpoint(Method.GET / "posts").out[Unit].implement { _ => ZIO.unit }
+  val broadPostsId                     =
+    Endpoint(Method.GET / "posts" / int("postId")).out[Unit].implement { _ => ZIO.unit }
+  val boardPostsComments               =
+    Endpoint(Method.GET / "posts" / int("postId") / "comments")
       .out[Unit]
       .implement { _ =>
         ZIO.unit
       }
-  val boardPostsCommentsId           =
-    Endpoint
-      .get(
-        PathCodec.literal("posts") / PathCodec.int("postId") / PathCodec.literal("comments") / PathCodec.int(
+  val boardPostsCommentsId             =
+    Endpoint(
+      Method.GET /
+        "posts" / int("postId") / "comments" / int(
           "commentId",
         ),
-      )
+    )
       .out[Unit]
       .implement { _ =>
         ZIO.unit
       }
-  val broadComments                  = Endpoint.get(PathCodec.literal("comments")).out[Unit].implement { _ => ZIO.unit }
-  val broadCommentsId                =
-    Endpoint.get(PathCodec.literal("comments") / PathCodec.int("commentId")).out[Unit].implement { _ => ZIO.unit }
-  val broadUsersComments             =
-    Endpoint
-      .get(PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("comments"))
+  val broadComments                    = Endpoint(Method.GET / "comments").out[Unit].implement { _ => ZIO.unit }
+  val broadCommentsId                  =
+    Endpoint(Method.GET / "comments" / int("commentId")).out[Unit].implement { _ => ZIO.unit }
+  val broadUsersComments               =
+    Endpoint(Method.GET / "users" / int("userId") / "comments")
       .out[Unit]
       .implement { _ =>
         ZIO.unit
       }
-  val broadUsersCommentsId           =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("comments") / PathCodec.int(
+  val broadUsersCommentsId             =
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "comments" / int(
           "commentId",
         ),
-      )
+    )
       .out[Unit]
       .implement { _ =>
         ZIO.unit
       }
-  val boardUsersPostsCommentsReplies =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts") / PathCodec.int(
+  val boardUsersPostsCommentsReplies   =
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "posts" / int(
           "postId",
-        ) / PathCodec
-          .literal("comments") / PathCodec.int("commentId") / PathCodec.literal(
-          "replies",
-        ),
-      )
+        ) / "comments" / int("commentId") /
+        "replies",
+    )
       .out[Unit]
       .implement { _ =>
         ZIO.unit
       }
   val boardUsersPostsCommentsRepliesId =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts") / PathCodec.int(
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "posts" / int(
           "postId",
-        ) / PathCodec
-          .literal("comments") / PathCodec.int("commentId") / PathCodec.literal(
-          "replies",
-        ) / PathCodec.int("replyId"),
-      )
+        ) / "comments" / int("commentId") / "replies" / int("replyId"),
+    )
       .out[Unit]
       .implement { _ =>
         ZIO.unit

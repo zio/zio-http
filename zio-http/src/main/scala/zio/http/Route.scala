@@ -39,20 +39,6 @@ object Route                   {
   ): Route[Env, Err] =
     Unhandled(routePattern, handler)
 
-  def fromEndpoint[Env, Err, P, In, Out, M <: EndpointMiddleware](
-    endpoint: Endpoint[P, In, Err, Out, M],
-  )(original: Handler[Env, Err, In, Out]): Route[Env, Err] = {
-    val handler = Handler.fromFunctionZIO { (request: Request) =>
-      endpoint.input.decodeRequest(request).orDie.flatMap { value =>
-        original(value).map(endpoint.output.encodeResponse(_)).catchAll { error =>
-          ZIO.succeed(endpoint.error.encodeResponse(error))
-        }
-      }
-    }
-
-    Handled(endpoint.route, (_: P) => handler)
-  }
-
   private[http] final case class Handled[PI, -Env](
     routePattern: RoutePattern[PI],
     handler: PI => Handler[Env, Response, Request, Response],

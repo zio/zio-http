@@ -36,6 +36,7 @@ import zio.http.codec._
  */
 sealed trait RoutePattern[A] { self =>
   import RoutePattern._
+  def ??(doc: Doc): RoutePattern[A]
 
   /**
    * Returns a new pattern that is extended with the specified segment pattern.
@@ -160,6 +161,11 @@ sealed trait RoutePattern[A] { self =>
   }
 
   /**
+   * Returns the documentation for the route pattern, if any.
+   */
+  def doc: Doc
+
+  /**
    * Encodes a value of type `A` into the method and path that this route
    * pattern would successfully match against.
    */
@@ -172,9 +178,9 @@ sealed trait RoutePattern[A] { self =>
   final def format(value: A): Path = {
     @annotation.tailrec
     def loop(path: RoutePattern[_], value: Any, acc: Path): Path = path match {
-      case RoutePattern.Root(_) => acc
+      case RoutePattern.Root(_, _) => acc
 
-      case RoutePattern.Child(parent, segment, combiner) =>
+      case RoutePattern.Child(parent, segment, combiner, _) =>
         val (left, right) = combiner.separate(value.asInstanceOf[combiner.Out])
 
         loop(parent, left, segment.format(right.asInstanceOf[segment.Type]) ++ acc)
@@ -199,9 +205,9 @@ sealed trait RoutePattern[A] { self =>
   final lazy val method: Method = {
     @annotation.tailrec
     def loop(path: RoutePattern[_]): Method = path match {
-      case RoutePattern.Root(method) => method
+      case RoutePattern.Root(method, _) => method
 
-      case RoutePattern.Child(parent, _, _) => loop(parent)
+      case RoutePattern.Child(parent, _, _, _) => loop(parent)
     }
 
     loop(self)
@@ -210,14 +216,14 @@ sealed trait RoutePattern[A] { self =>
   private[http] lazy val optimize: Array[Opt] = {
     def loop(pattern: RoutePattern[_], acc: Chunk[Opt]): Chunk[Opt] =
       pattern match {
-        case RoutePattern.Root(method)        => Opt.MethodOpt(method) +: acc
-        case Child(parent, segment, combiner) =>
+        case RoutePattern.Root(method, _)        => Opt.MethodOpt(method) +: acc
+        case Child(parent, segment, combiner, _) =>
           val segmentOpt = segment.asInstanceOf[Segment[_]] match {
-            case Segment.Literal(value) => Opt.Match(value)
-            case Segment.IntSeg(_)      => Opt.IntOpt
-            case Segment.LongSeg(_)     => Opt.LongOpt
-            case Segment.Text(_)        => Opt.StringOpt
-            case Segment.UUID(_)        => Opt.UUIDOpt
+            case Segment.Literal(value, _) => Opt.Match(value)
+            case Segment.IntSeg(_, _)      => Opt.IntOpt
+            case Segment.LongSeg(_, _)     => Opt.LongOpt
+            case Segment.Text(_, _)        => Opt.StringOpt
+            case Segment.UUID(_, _)        => Opt.UUIDOpt
           }
           loop(parent, segmentOpt +: Opt.Combine(combiner) +: acc)
       }
@@ -233,15 +239,15 @@ sealed trait RoutePattern[A] { self =>
     import RoutePattern.Segment._
 
     def loop(path: RoutePattern[_]): String = path match {
-      case RoutePattern.Root(method) => method.name + " "
+      case RoutePattern.Root(method, _) => method.name + " "
 
-      case RoutePattern.Child(parent, segment, _) =>
+      case RoutePattern.Child(parent, segment, _, _) =>
         loop(parent) + (segment.asInstanceOf[Segment[_]] match {
-          case Literal(value) => s"/$value"
-          case IntSeg(name)   => s"/{$name}"
-          case LongSeg(name)  => s"/{$name}"
-          case Text(name)     => s"/{$name}"
-          case UUID(name)     => s"/{$name}"
+          case Literal(value, _) => s"/$value"
+          case IntSeg(name, _)   => s"/{$name}"
+          case LongSeg(name, _)  => s"/{$name}"
+          case Text(name, _)     => s"/{$name}"
+          case UUID(name, _)     => s"/{$name}"
         })
     }
 
@@ -253,9 +259,9 @@ sealed trait RoutePattern[A] { self =>
    */
   def segments: Chunk[Segment[_]] = {
     def loop(path: RoutePattern[_], acc: Chunk[Segment[_]]): Chunk[Segment[_]] = path match {
-      case RoutePattern.Root(_) => acc
+      case RoutePattern.Root(_, _) => acc
 
-      case RoutePattern.Child(parent, segment, _) => loop(parent, acc :+ segment)
+      case RoutePattern.Child(parent, segment, _, _) => loop(parent, acc :+ segment)
     }
 
     loop(self, Chunk.empty)
@@ -378,6 +384,8 @@ object RoutePattern          {
   sealed trait Segment[A] { self =>
     final type Type = A
 
+    def ??(doc: Doc): Segment[A]
+
     def format(value: A): Path
 
     def matches(segment: String): Boolean
@@ -397,14 +405,18 @@ object RoutePattern          {
 
     def uuid(name: String): Segment[java.util.UUID] = Segment.UUID(name)
 
-    private[http] final case class Literal(value: String) extends Segment[Unit]           {
+    private[http] final case class Literal(value: String, doc: Doc = Doc.empty) extends Segment[Unit]           {
+      def ??(doc: Doc): Literal = copy(doc = this.doc + doc)
+
       def format(unit: Unit): Path = Path(s"/$value")
 
       def matches(segment: String): Boolean = value == segment
 
       def toHttpCodec: HttpCodec[HttpCodecType.Path, Unit] = PathCodec.literal(value)
     }
-    private[http] final case class IntSeg(name: String)   extends Segment[Int]            {
+    private[http] final case class IntSeg(name: String, doc: Doc = Doc.empty)   extends Segment[Int]            {
+      def ??(doc: Doc): IntSeg = copy(doc = this.doc + doc)
+
       def format(value: Int): Path = Path(s"/$value")
 
       def matches(segment: String): Boolean = {
@@ -422,7 +434,9 @@ object RoutePattern          {
 
       def toHttpCodec: HttpCodec[HttpCodecType.Path, Int] = PathCodec.int(name)
     }
-    private[http] final case class LongSeg(name: String)  extends Segment[Long]           {
+    private[http] final case class LongSeg(name: String, doc: Doc = Doc.empty)  extends Segment[Long]           {
+      def ??(doc: Doc): LongSeg = copy(doc = this.doc + doc)
+
       def format(value: Long): Path = Path(s"/$value")
 
       def matches(segment: String): Boolean = {
@@ -440,14 +454,18 @@ object RoutePattern          {
 
       def toHttpCodec: HttpCodec[HttpCodecType.Path, Long] = PathCodec.long(name)
     }
-    private[http] final case class Text(name: String)     extends Segment[String]         {
+    private[http] final case class Text(name: String, doc: Doc = Doc.empty)     extends Segment[String]         {
+      def ??(doc: Doc): Text = copy(doc = this.doc + doc)
+
       def format(value: String): Path = Path(s"/$value")
 
       def matches(segment: String): Boolean = true
 
       def toHttpCodec: HttpCodec[HttpCodecType.Path, String] = PathCodec.string(name)
     }
-    private[http] final case class UUID(name: String)     extends Segment[java.util.UUID] {
+    private[http] final case class UUID(name: String, doc: Doc = Doc.empty)     extends Segment[java.util.UUID] {
+      def ??(doc: Doc): UUID = copy(doc = this.doc + doc)
+
       def format(value: java.util.UUID): Path = Path(s"/$value")
 
       def matches(value: String): Boolean = {
@@ -481,7 +499,9 @@ object RoutePattern          {
     }
   }
 
-  private[http] final case class Root(method0: Method) extends RoutePattern[Unit] {
+  private[http] final case class Root(method0: Method, doc: Doc = Doc.empty) extends RoutePattern[Unit] {
+    def ??(doc: Doc): Root = copy(doc = this.doc + doc)
+
     def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, Unit] =
       MethodCodec.method(method)
   }
@@ -489,7 +509,10 @@ object RoutePattern          {
     parent: RoutePattern[A],
     segment: Segment[B],
     combiner: Combiner.WithOut[A, B, C],
+    doc: Doc = Doc.empty,
   ) extends RoutePattern[C] {
+    def ??(doc: Doc): Child[A, B, C] = copy(doc = this.doc + doc)
+
     def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, C] = {
       val parentCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, A] =
         parent.toHttpCodec

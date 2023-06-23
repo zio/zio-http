@@ -66,7 +66,9 @@ private[cli] final case class CliEndpoint[A](
     )
 }
 private[cli] object CliEndpoint {
-  def fromEndpoint[In, Err, Out, M <: EndpointMiddleware](endpoint: Endpoint[In, Err, Out, M]): Set[CliEndpoint[_]] =
+  def fromEndpoint[P, In, Err, Out, M <: EndpointMiddleware](
+    endpoint: Endpoint[P, In, Err, Out, M],
+  ): Set[CliEndpoint[_]] =
     fromInput(endpoint.input).map(_ ?? endpoint.doc)
 
   private def fromInput[Input](input: HttpCodec[_, Input]): Set[CliEndpoint[_]] =

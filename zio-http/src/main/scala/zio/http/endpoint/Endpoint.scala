@@ -26,7 +26,7 @@ import zio.schema._
 
 import zio.http.codec._
 import zio.http.endpoint.Endpoint.OutErrors
-import zio.http.{MediaType, RoutePattern, Status}
+import zio.http.{Handler, MediaType, Route, RoutePattern, Status}
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
@@ -59,6 +59,15 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * additional documentation that will be included in OpenAPI generation.
    */
   def ??(that: Doc): Endpoint[PathInput, Input, Err, Output, Middleware] = copy(doc = self.doc + that)
+
+  /**
+   * Flattens out this endpoint to a chunk of alternatives. Each alternative is
+   * guaranteed to not have any alternatives itself.
+   */
+  def alternatives: NonEmptyChunk[Endpoint[PathInput, Input, Err, Output, Middleware]] =
+    self.input.alternatives.map { input =>
+      self.copy(input = input)
+    }
 
   def apply(input: Input): Invocation[PathInput, Input, Err, Output, Middleware] =
     Invocation(self, input)
@@ -135,6 +144,21 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     combiner: Combiner[Input, A],
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
+
+  def implement[Env](original: Handler[Env, Err, Input, Output]): Route[Env, Err] = {
+    val handlers = self.alternatives.map { endpoint =>
+      Handler.fromFunctionZIO { (request: zio.http.Request) =>
+        endpoint.input.decodeRequest(request).orDie.flatMap { value =>
+          original(value).map(endpoint.output.encodeResponse(_)).catchAll { error =>
+            ZIO.succeed(endpoint.error.encodeResponse(error))
+          }
+        }
+      }
+    }
+    val handler  = Handler.firstSuccessOf(handlers, HttpCodecError.isHttpCodecError(_))
+
+    Route.Handled(self.route, (_: PathInput) => handler)
+  }
 
   /**
    * Converts this endpoint, which is an abstract description of an endpoint,

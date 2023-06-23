@@ -54,7 +54,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     self.flatMap(f)
 
   /**
-   * Pipes the output of one app into the other
+   * Pipes the output of one handler into the other
    */
   final def >>>[R1 <: R, Err1 >: Err, In1 >: Out, Out1](
     that: Handler[R1, Err1, In1, Out1],
@@ -130,7 +130,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   def apply(in: In): ZIO[R, Err, Out]
 
   /**
-   * Makes the app resolve with a constant value
+   * Makes the handler resolve with a constant value
    */
   final def as[Out1](out: Out1)(implicit trace: Trace): Handler[R, Err, In, Out1] =
     self.map(_ => out)
@@ -269,8 +269,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   /**
    * Returns a handler whose failure and success have been lifted into an
-   * `Either`. The resulting app cannot fail, because the failure case has been
-   * exposed as part of the `Either` success case.
+   * `Either`. The resulting handler cannot fail, because the failure case has
+   * been exposed as part of the `Either` success case.
    */
   final def either(implicit ev: CanFail[Err], trace: Trace): Handler[R, Nothing, In, Either[Err, Out]] =
     self.foldHandler(err => Handler.succeed(Left(err)), out => Handler.succeed(Right(out)))
@@ -385,8 +385,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     )
 
   /**
-   * Translates app failure into death of the app, making all failures unchecked
-   * and not a part of the type of the app.
+   * Translates handler failure into death of the app, making all failures
+   * unchecked and not a part of the type of the app.
    */
   final def orDie(implicit ev1: Err <:< Throwable, ev2: CanFail[Err], trace: Trace): Handler[R, Nothing, In, Out] =
     orDieWith(ev1)
@@ -645,15 +645,15 @@ object Handler {
 
   /**
    * Returns a handler that dies with the specified `Throwable`. This method can
-   * be used for terminating an app because a defect has been detected in the
-   * code. Terminating a handler leads to aborting handling of an HTTP request
-   * and responding with 500 Internal Server Error.
+   * be used for terminating an handler because a defect has been detected in
+   * the code. Terminating a handler leads to aborting handling of an HTTP
+   * request and responding with 500 Internal Server Error.
    */
   def die(failure: => Throwable): Handler[Any, Nothing, Any, Nothing] =
     fromExit(Exit.die(failure))
 
   /**
-   * Returns an app that dies with a `RuntimeException` having the specified
+   * Returns an handler that dies with a `RuntimeException` having the specified
    * text message. This method can be used for terminating a HTTP request
    * because a defect has been detected in the code.
    */
@@ -680,6 +680,20 @@ object Handler {
 
   def failCause[Err](cause: => Cause[Err]): Handler[Any, Err, Any, Nothing] =
     fromExit(Exit.failCause(cause))
+
+  def firstSuccessOf[R, Err, In, Out](
+    handlers: NonEmptyChunk[Handler[R, Err, In, Out]],
+    isRecoverable: Cause[Err] => Boolean = (cause: Cause[Err]) => !cause.isDie,
+  ): Handler[R, Err, In, Out] =
+    handlers.tail.foldLeft[Handler[R, Err, In, Out]](handlers.head) { (acc, handler) =>
+      acc.catchAllCause { cause =>
+        if (isRecoverable(cause)) {
+          handler
+        } else {
+          Handler.failCause(cause)
+        }
+      }
+    }
 
   /**
    * Creates a handler that responds with 403 - Forbidden status code

@@ -116,7 +116,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * inside the returned collection is guaranteed to contain no nested
    * alternatives.
    */
-  final def alternatives: Chunk[HttpCodec[AtomTypes, Value]] = HttpCodec.flattenFallbacks(self)
+  final def alternatives: NonEmptyChunk[HttpCodec[AtomTypes, Value]] = HttpCodec.flattenFallbacks(self)
 
   /**
    * Reinterprets this codec as a query codec assuming evidence that this
@@ -621,7 +621,9 @@ object HttpCodec
     type Out   = Either[A, B]
   }
 
-  private[http] def flattenFallbacks[AtomTypes, A](api: HttpCodec[AtomTypes, A]): Chunk[HttpCodec[AtomTypes, A]] = {
+  private[http] def flattenFallbacks[AtomTypes, A](
+    api: HttpCodec[AtomTypes, A],
+  ): NonEmptyChunk[HttpCodec[AtomTypes, A]] = {
     def rewrite[T, B](api: HttpCodec[T, B]): Chunk[HttpCodec[T, B]] =
       api match {
         case fallback @ HttpCodec.Fallback(left, right) =>
@@ -648,6 +650,6 @@ object HttpCodec
         case atom: Atom[_, _] => Chunk.single(atom)
       }
 
-    rewrite(api)
+    NonEmptyChunk.fromChunk(rewrite(api)).get
   }
 }

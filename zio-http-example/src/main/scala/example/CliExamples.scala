@@ -12,7 +12,9 @@ import zio.http.endpoint._
 import zio.http.endpoint.cli._
 
 trait TestCliEndpoints {
-  import HttpCodec._
+  import zio.http.RoutePattern.Segment._
+
+  import HttpCodec.{int => _, _}
   final case class User(
     @description("The unique identifier of the User")
     id: Int,
@@ -37,24 +39,25 @@ trait TestCliEndpoints {
   }
 
   val getUser =
-    Endpoint
-      .get("users" / int("userId") ?? Doc.p("The unique identifier of the user"))
+    Endpoint(Method.GET / "users" / int("userId") ?? Doc.p("The unique identifier of the user"))
       .header(HeaderCodec.location ?? Doc.p("The user's location"))
       .out[User] ?? Doc.p("Get a user by ID")
 
   val getUserPosts =
-    Endpoint
-      .get(
+    Endpoint(
+      Method.GET /
         "users" / int("userId") ?? Doc.p("The unique identifier of the user") /
-          "posts" / int("postId") ?? Doc.p("The unique identifier of the post") ^? paramStr("user-name") ?? Doc.p(
-            "The user's name",
-          ),
+        "posts" / int("postId") ?? Doc.p("The unique identifier of the post"),
+    )
+      .query(
+        paramStr("user-name") ?? Doc.p(
+          "The user's name",
+        ),
       )
       .out[List[Post]] ?? Doc.p("Get a user's posts by userId and postId")
 
   val createUser =
-    Endpoint
-      .post("users")
+    Endpoint(Method.POST / "users")
       .in[User]
       .out[String] ?? Doc.p("Create a new user")
 }

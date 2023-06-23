@@ -15,6 +15,8 @@ final case class Routes2[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { 
    */
   def get(method: Method, path: Path): Option[zio.http.Route[Env, Err]] = tree.get(method, path)
 
+  def toApp: HttpApp[Env, Err] = ???
+
   private var _tree: Route.Tree[Any, Any] = null.asInstanceOf[Route.Tree[Any, Any]]
 
   // Avoid overhead of lazy val:
