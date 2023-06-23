@@ -15,6 +15,11 @@ import zio.http.endpoint.cli.CliRepr._
 
 object OptionsGen {
 
+  def encodeOptions[A](name: String, textCodec: TextCodec[A]): Options[String] =
+    HttpOptions
+      .optionsFromCodec(textCodec)(name)
+      .map(value => textCodec.encode(value))
+
   lazy val anyBodyOption: Gen[Any, CliReprOf[Options[Retriever]]] =
     Gen
       .alphaNumericStringBounded(1, 30)
@@ -36,9 +41,8 @@ object OptionsGen {
         )
       case (name, codec)                     =>
         CliRepr(
-          HttpOptions
-            .optionsFromCodec(codec)(name)
-            .map(value => Headers(name, codec.encode(value))),
+          encodeOptions(name, codec)
+            .map(value => Headers(name, value)),
           CliEndpoint(headers = HttpOptions.Header(name, codec) :: Nil),
         )
     }
@@ -56,9 +60,7 @@ object OptionsGen {
             )
           case (name, codec)                  =>
             CliRepr(
-              HttpOptions
-                .optionsFromCodec(codec)(name)
-                .map(value => codec.encode(value)),
+              encodeOptions(name, codec),
               CliEndpoint(url = HttpOptions.Path(name, codec) :: Nil),
             )
         },
@@ -73,9 +75,7 @@ object OptionsGen {
             )
           case (name, codec)                     =>
             CliRepr(
-              HttpOptions
-                .optionsFromCodec(codec)(name)
-                .map(value => codec.encode(value)),
+              encodeOptions(name, codec),
               CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
             )
         },
