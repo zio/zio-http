@@ -9,7 +9,7 @@ import zio.http.endpoint._
 
 object EndpointExamples extends ZIOAppDefault {
   import HttpCodec._
-  import PathPattern.Segment._ 
+  import RoutePattern.Segment._ 
 
   val auth = EndpointMiddleware.auth
 

@@ -29,7 +29,7 @@ sealed trait Method { self =>
     if (that == Method.Default) self
     else that
 
-  def /[A](that: PathPattern.Segment[A]): PathPattern[A] = PathPattern.Root(self) / that
+  def /[A](that: RoutePattern.Segment[A]): RoutePattern[A] = RoutePattern.Root(self) / that
 
   /**
    * The name of the method, as it appears in the HTTP request.

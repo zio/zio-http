@@ -25,29 +25,29 @@ import zio.http.codec._
  * A pattern for matching paths. Patterns may contain literals or variables,
  * such as integer, long, string, or UUID variables.
  *
- * Typically, your entry point constructor for a path pattern would be Method:
+ * Typically, your entry point constructor for a route pattern would be Method:
  *
  * {{{
  * import zio.http.Method
- * import zio.http.PathPattern.Segment._
+ * import zio.http.RoutePattern.Segment._
  *
- * val pathPattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
+ * val routePattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
  * }}}
  */
-sealed trait PathPattern[A] { self =>
-  import PathPattern._
+sealed trait RoutePattern[A] { self =>
+  import RoutePattern._
 
   /**
    * Returns a new pattern that is extended with the specified segment pattern.
    */
-  final def /[B](segment: PathPattern.Segment[B])(implicit combiner: Combiner[A, B]): PathPattern[combiner.Out] =
-    PathPattern.Child[A, B, combiner.Out](this, segment, combiner)
+  final def /[B](segment: RoutePattern.Segment[B])(implicit combiner: Combiner[A, B]): RoutePattern[combiner.Out] =
+    RoutePattern.Child[A, B, combiner.Out](this, segment, combiner)
 
   /**
    * Decodes a method and path into a value of type `A`.
    */
   final def decode(method: Method, path: Path): Either[String, A] = {
-    import zio.http.PathPattern.Opt._
+    import zio.http.RoutePattern.Opt._
 
     val instructions = optimize
     val segments     = path.segments
@@ -146,7 +146,8 @@ sealed trait PathPattern[A] { self =>
   }
 
   /**
-   * Encodes a value of type `A` into a method and path.
+   * Encodes a value of type `A` into the method and path that this route
+   * pattern would successfully match against.
    */
   final def encode(value: A): (Method, Path) = (method, format(value))
 
@@ -156,10 +157,10 @@ sealed trait PathPattern[A] { self =>
    */
   final def format(value: A): Path = {
     @annotation.tailrec
-    def loop(path: PathPattern[_], value: Any, acc: Path): Path = path match {
-      case PathPattern.Root(_) => acc
+    def loop(path: RoutePattern[_], value: Any, acc: Path): Path = path match {
+      case RoutePattern.Root(_) => acc
 
-      case PathPattern.Child(parent, segment, combiner) =>
+      case RoutePattern.Child(parent, segment, combiner) =>
         val (left, right) = combiner.separate(value.asInstanceOf[combiner.Out])
 
         loop(parent, left, segment.format(right.asInstanceOf[segment.Type]) ++ acc)
@@ -171,23 +172,23 @@ sealed trait PathPattern[A] { self =>
   }
 
   /**
-   * Returns the method of the path pattern.
+   * Returns the method of the route pattern.
    */
   final lazy val method: Method = {
     @annotation.tailrec
-    def loop(path: PathPattern[_]): Method = path match {
-      case PathPattern.Root(method) => method
+    def loop(path: RoutePattern[_]): Method = path match {
+      case RoutePattern.Root(method) => method
 
-      case PathPattern.Child(parent, _, _) => loop(parent)
+      case RoutePattern.Child(parent, _, _) => loop(parent)
     }
 
     loop(self)
   }
 
   private[http] lazy val optimize: Array[Opt] = {
-    def loop(pattern: PathPattern[_], acc: Chunk[Opt]): Chunk[Opt] =
+    def loop(pattern: RoutePattern[_], acc: Chunk[Opt]): Chunk[Opt] =
       pattern match {
-        case PathPattern.Root(method)         => Opt.MethodOpt(method) +: acc
+        case RoutePattern.Root(method)        => Opt.MethodOpt(method) +: acc
         case Child(parent, segment, combiner) =>
           val segmentOpt = segment.asInstanceOf[Segment[_]] match {
             case Segment.Literal(value) => Opt.Match(value)
@@ -203,16 +204,16 @@ sealed trait PathPattern[A] { self =>
   }
 
   /**
-   * Renders the path pattern as a string.
+   * Renders the route pattern as a string.
    */
   def render: String = {
-    import PathPattern.Segment
-    import PathPattern.Segment._
+    import RoutePattern.Segment
+    import RoutePattern.Segment._
 
-    def loop(path: PathPattern[_]): String = path match {
-      case PathPattern.Root(method) => method.name + " "
+    def loop(path: RoutePattern[_]): String = path match {
+      case RoutePattern.Root(method) => method.name + " "
 
-      case PathPattern.Child(parent, segment, _) =>
+      case RoutePattern.Child(parent, segment, _) =>
         loop(parent) + (segment.asInstanceOf[Segment[_]] match {
           case Literal(value) => s"/$value"
           case IntSeg(name)   => s"/{$name}"
@@ -226,38 +227,38 @@ sealed trait PathPattern[A] { self =>
   }
 
   /**
-   * Returns the segments of the path pattern.
+   * Returns the segments of the route pattern.
    */
   def segments: Chunk[Segment[_]] = {
-    def loop(path: PathPattern[_], acc: Chunk[Segment[_]]): Chunk[Segment[_]] = path match {
-      case PathPattern.Root(_) => acc
+    def loop(path: RoutePattern[_], acc: Chunk[Segment[_]]): Chunk[Segment[_]] = path match {
+      case RoutePattern.Root(_) => acc
 
-      case PathPattern.Child(parent, segment, _) => loop(parent, acc :+ segment)
+      case RoutePattern.Child(parent, segment, _) => loop(parent, acc :+ segment)
     }
 
     loop(self, Chunk.empty)
   }
 
   /**
-   * Converts the path pattern into an HttpCodec that produces the same value.
+   * Converts the route pattern into an HttpCodec that produces the same value.
    */
   def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, A]
 
   override def toString(): String = render
 }
-object PathPattern          {
+object RoutePattern          {
 
   /**
-   * A tree of path patterns, indexed by method and path.
+   * A tree of route patterns, indexed by method and path.
    */
   final case class Tree[+A](roots: Map[Method, SegmentSubtree[A]]) { self =>
     def ++[A1 >: A](that: Tree[A1]): Tree[A1] =
       Tree(mergeMaps(self.roots, that.roots)(_ ++ _))
 
-    def add[A1 >: A](pathPattern: PathPattern[_], value: A1): Tree[A1] =
-      self ++ Tree(pathPattern, value)
+    def add[A1 >: A](routePattern: RoutePattern[_], value: A1): Tree[A1] =
+      self ++ Tree(routePattern, value)
 
-    def addAll[A1 >: A](pathPatterns: Iterable[(PathPattern[_], A1)]): Tree[A1] =
+    def addAll[A1 >: A](pathPatterns: Iterable[(RoutePattern[_], A1)]): Tree[A1] =
       pathPatterns.foldLeft[Tree[A1]](self) { case (tree, (p, v)) =>
         tree.add(p, v)
       }
@@ -269,9 +270,9 @@ object PathPattern          {
       }
   }
   object Tree                                                      {
-    def apply[A](pathPattern: PathPattern[_], value: A): Tree[A] = {
-      val method   = pathPattern.method
-      val segments = pathPattern.segments
+    def apply[A](routePattern: RoutePattern[_], value: A): Tree[A] = {
+      val method   = routePattern.method
+      val segments = routePattern.segments
 
       val subtree =
         segments.foldLeft[SegmentSubtree[A]](SegmentSubtree(Map(), Chunk(value))) { case (subtree, segment) =>
@@ -337,20 +338,20 @@ object PathPattern          {
     }
 
   /**
-   * Constructs a path pattern from a method and a path literal.
+   * Constructs a route pattern from a method and a path literal.
    */
-  def apply(method: Method, value: String): PathPattern[Unit] = {
+  def apply(method: Method, value: String): RoutePattern[Unit] = {
     val path = Path(value)
 
-    path.segments.foldLeft[PathPattern[Unit]](Root(method)) { (pathSpec, segment) =>
+    path.segments.foldLeft[RoutePattern[Unit]](Root(method)) { (pathSpec, segment) =>
       pathSpec./[Unit](Segment.literal(segment))
     }
   }
 
   /**
-   * Constructs a path pattern from a method.
+   * Constructs a route pattern from a method.
    */
-  def fromMethod(method: Method): PathPattern[Unit] = Root(method)
+  def fromMethod(method: Method): RoutePattern[Unit] = Root(method)
 
   sealed trait Segment[A] { self =>
     final type Type = A
@@ -366,7 +367,7 @@ object PathPattern          {
 
     implicit def literal(value: String): Segment[Unit] = Segment.Literal(value)
 
-    def method(method: Method): PathPattern[Unit] = Root(method)
+    def method(method: Method): RoutePattern[Unit] = Root(method)
 
     def long(name: String): Segment[Long] = Segment.LongSeg(name)
 
@@ -458,15 +459,15 @@ object PathPattern          {
     }
   }
 
-  private[http] final case class Root(method0: Method) extends PathPattern[Unit] {
+  private[http] final case class Root(method0: Method) extends RoutePattern[Unit] {
     def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, Unit] =
       MethodCodec.method(method)
   }
   private[http] final case class Child[A, B, C](
-    parent: PathPattern[A],
+    parent: RoutePattern[A],
     segment: Segment[B],
     combiner: Combiner.WithOut[A, B, C],
-  ) extends PathPattern[C] {
+  ) extends RoutePattern[C] {
     def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, C] = {
       val parentCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, A] =
         parent.toHttpCodec

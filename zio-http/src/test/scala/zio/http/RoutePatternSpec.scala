@@ -25,17 +25,17 @@ import zio.http.internal.HttpGen
 
 object PathPatternSpec extends ZIOSpecDefault {
   import zio.http.Method
-  import zio.http.PathPattern._
+  import zio.http.RoutePattern._
 
   def tree     =
     suite("tree")(
       test("empty tree") {
-        val tree = PathPattern.Tree.empty
+        val tree = RoutePattern.Tree.empty
 
         assertTrue(tree.get(Method.GET, Path("/")).isEmpty)
       },
       test("GET /users") {
-        var tree: Tree[Unit] = PathPattern.Tree.empty
+        var tree: Tree[Unit] = RoutePattern.Tree.empty
 
         val pattern = Method.GET / "users"
 
@@ -45,7 +45,7 @@ object PathPatternSpec extends ZIOSpecDefault {
         assertTrue(tree.get(Method.POST, Path("/users")).isEmpty)
       },
       test("GET /users/{user-id}/posts/{post-id}") {
-        var tree: Tree[Unit] = PathPattern.Tree.empty
+        var tree: Tree[Unit] = RoutePattern.Tree.empty
 
         val pattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string("post-id")
 
@@ -62,17 +62,17 @@ object PathPatternSpec extends ZIOSpecDefault {
           assertTrue((Method.GET / "users").decode(Method.GET, Path("/users")) == Right(()))
         },
         test("GET /users/{user-id}/posts/{post-id}") {
-          val pathPattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string("post-id")
+          val routePattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string("post-id")
 
-          assertTrue(pathPattern.decode(Method.GET, Path("/users/1/posts/abc")) == Right((1, "abc")))
+          assertTrue(routePattern.decode(Method.GET, Path("/users/1/posts/abc")) == Right((1, "abc")))
         },
         test("GET /users/{user-id}/posts/{post-id}/attachments/{attachment-uuid}") {
-          val pathPattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string(
+          val routePattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string(
             "post-id",
           ) / "attachments" / Segment.uuid("attachment-uuid")
 
           assertTrue(
-            pathPattern.decode(
+            routePattern.decode(
               Method.GET,
               Path("/users/1/posts/abc/attachments/123e4567-e89b-12d3-a456-426614174000"),
             ) == Right((1, "abc", java.util.UUID.fromString("123e4567-e89b-12d3-a456-426614174000"))),
@@ -88,19 +88,19 @@ object PathPatternSpec extends ZIOSpecDefault {
           )
         },
         test("GET /users/{user-id}") {
-          val pathPattern = Method.GET / "users" / Segment.int("user-id")
+          val routePattern = Method.GET / "users" / Segment.int("user-id")
 
           assertTrue(
-            pathPattern.decode(Method.GET, Path("/users/abc")) == Left(
+            routePattern.decode(Method.GET, Path("/users/abc")) == Left(
               "Expected integer path segment but found \"abc\"",
             ),
           )
         },
         test("GET /users/{user-id}/posts/{post-id}") {
-          val pathPattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string("post-id")
+          val routePattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string("post-id")
 
           assertTrue(
-            pathPattern.decode(Method.GET, Path("/users/1/posts/")) == Left(
+            routePattern.decode(Method.GET, Path("/users/1/posts/")) == Left(
               "Expected text path segment but found end of path",
             ),
           )
@@ -116,9 +116,9 @@ object PathPatternSpec extends ZIOSpecDefault {
         assertTrue((Method.GET / "users").render == "GET /users")
       },
       test("GET /users/{user-id}/posts/{post-id}") {
-        val pathPattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string("post-id")
+        val routePattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string("post-id")
 
-        assertTrue(pathPattern.render == "GET /users/{user-id}/posts/{post-id}")
+        assertTrue(routePattern.render == "GET /users/{user-id}/posts/{post-id}")
       },
     )
 
@@ -128,9 +128,9 @@ object PathPatternSpec extends ZIOSpecDefault {
         assertTrue((Method.GET / "users").format(()) == Path("/users"))
       },
       test("/users/{user-id}/posts/{post-id}") {
-        val pathPattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string("post-id")
+        val routePattern = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string("post-id")
 
-        assertTrue(pathPattern.format((1, "abc")) == Path("/users/1/posts/abc"))
+        assertTrue(routePattern.format((1, "abc")) == Path("/users/1/posts/abc"))
       },
     )
 
