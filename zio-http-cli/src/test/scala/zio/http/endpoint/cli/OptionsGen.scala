@@ -4,8 +4,6 @@ import zio._
 import zio.cli._
 import zio.test.Gen
 
-import zio.stream._
-
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint.cli.AuxGen._
@@ -40,7 +38,7 @@ object OptionsGen {
         CliRepr(
           HttpOptions
             .optionsFromCodec(codec)(name)
-            .map(value => Headers(name, codec.asInstanceOf[TextCodec[value.type]].encode(value))),
+            .map(value => Headers(name, codec.encode(value))),
           CliEndpoint(headers = HttpOptions.Header(name, codec) :: Nil),
         )
     }
@@ -60,7 +58,7 @@ object OptionsGen {
             CliRepr(
               HttpOptions
                 .optionsFromCodec(codec)(name)
-                .map(value => codec.asInstanceOf[TextCodec[value.type]].encode(value)),
+                .map(value => codec.encode(value)),
               CliEndpoint(url = HttpOptions.Path(name, codec) :: Nil),
             )
         },
@@ -77,7 +75,7 @@ object OptionsGen {
             CliRepr(
               HttpOptions
                 .optionsFromCodec(codec)(name)
-                .map(value => codec.asInstanceOf[TextCodec[value.type]].encode(value)),
+                .map(value => codec.encode(value)),
               CliEndpoint(url = HttpOptions.Query(name, codec) :: Nil),
             )
         },
