@@ -259,7 +259,7 @@ object RoutePattern          {
   /**
    * A tree of route patterns, indexed by method and path.
    */
-  final case class Tree[+A](roots: Map[Method, SegmentSubtree[A]]) { self =>
+  private[http] final case class Tree[+A](roots: Map[Method, SegmentSubtree[A]]) { self =>
     def ++[A1 >: A](that: Tree[A1]): Tree[A1] =
       Tree(mergeMaps(self.roots, that.roots)(_ ++ _))
 
@@ -277,7 +277,7 @@ object RoutePattern          {
         case Some(value) => value.get(path)
       }
   }
-  object Tree                                                      {
+  private[http] object Tree                                                      {
     def apply[A](routePattern: RoutePattern[_], value: A): Tree[A] = {
       val method   = routePattern.method
       val segments = routePattern.segments
