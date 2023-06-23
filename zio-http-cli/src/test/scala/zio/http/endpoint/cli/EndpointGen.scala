@@ -122,7 +122,6 @@ object EndpointGen {
 
   def ++(repr1: CliReprOf[Codec[_]], repr2: CliReprOf[Codec[_]]): CliReprOf[Codec[_]] =
     CliRepr(repr1.value ++ repr2.value, repr1.repr ++ repr2.repr)
-  // ????
 
   def |(repr1: CliReprOf[Codec[_]], repr2: CliReprOf[Codec[_]]): CliReprOf[Codec[_]] =
     CliRepr(repr1.value | repr2.value, repr1.repr ++ repr2.repr)
