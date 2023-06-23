@@ -54,6 +54,18 @@ object PathPatternSpec extends ZIOSpecDefault {
         assertTrue(tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty) &&
         assertTrue(tree.get(Method.GET, Path("/users/abc/posts/1")).isEmpty)
       },
+      test("multiple routes") {
+        var tree: Tree[Unit] = RoutePattern.Tree.empty
+
+        val pattern1 = Method.GET / "users"
+        val pattern2 = Method.GET / "users" / Segment.int("user-id") / "posts" / Segment.string("post-id")
+
+        tree = tree.add(pattern1, ())
+        tree = tree.add(pattern2, ())
+
+        assertTrue(tree.get(Method.GET, Path("/users")).nonEmpty) &&
+        assertTrue(tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty)
+      },
     )
   def decoding =
     suite("decoding")(

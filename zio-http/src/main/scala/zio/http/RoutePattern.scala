@@ -44,6 +44,20 @@ sealed trait RoutePattern[A] { self =>
     RoutePattern.Child[A, B, combiner.Out](this, segment, combiner)
 
   /**
+   * Creates a route from this pattern and the specified handler.
+   */
+  final def ->[Env, Err](handler: Handler[Env, Err, Request, Response])(implicit ev: A =:= Unit): Route[Env, Err] =
+    Route.unhandled(self.asType[Unit], (_: Unit) => handler)
+
+  /**
+   * Creates a route from this pattern and the specified handler.
+   */
+  final def ->[Env, Err](handler: A => Handler[Env, Err, Request, Response]): Route[Env, Err] =
+    Route.unhandled(self, handler)
+
+  final def asType[B](implicit ev: A =:= B): RoutePattern[B] = self.asInstanceOf[RoutePattern[B]]
+
+  /**
    * Decodes a method and path into a value of type `A`.
    */
   final def decode(method: Method, path: Path): Either[String, A] = {
