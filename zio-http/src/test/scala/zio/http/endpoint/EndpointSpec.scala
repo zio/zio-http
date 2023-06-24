@@ -28,8 +28,8 @@ import zio.schema.{DeriveSchema, Schema, StandardType}
 
 import zio.http.Header.ContentType
 import zio.http.Method._
-import zio.http.RoutePattern.Segment._
 import zio.http.codec.HttpCodec.{query, queryInt}
+import zio.http.codec.SegmentCodec._
 import zio.http.codec._
 import zio.http.endpoint.internal.EndpointServer
 import zio.http.forms.Fixtures.formField
