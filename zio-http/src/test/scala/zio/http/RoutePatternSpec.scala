@@ -54,6 +54,28 @@ object RoutePatternSpec extends ZIOSpecDefault {
         assertTrue(tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty) &&
         assertTrue(tree.get(Method.GET, Path("/users/abc/posts/1")).isEmpty)
       },
+      test("on conflict, first one wins") {
+        var tree: Tree[Int] = RoutePattern.Tree.empty
+
+        val pattern1 = Method.GET / "users"
+        val pattern2 = Method.GET / "users"
+
+        tree = tree.add(pattern1, 1)
+        tree = tree.add(pattern2, 2)
+
+        assertTrue(tree.get(Method.GET, Path("/users")).contains(1))
+      },
+      test("on conflict, trailing loses") {
+        var tree: Tree[Int] = RoutePattern.Tree.empty
+
+        val pattern1 = Method.GET / "users" / "123"
+        val pattern2 = Method.GET / "users" / Segment.trailing
+
+        tree = tree.add(pattern2, 2)
+        tree = tree.add(pattern1, 1)
+
+        assertTrue(tree.get(Method.GET, Path("/users/123")).contains(1))
+      },
       test("multiple routes") {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
 
