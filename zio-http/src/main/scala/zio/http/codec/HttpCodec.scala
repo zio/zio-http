@@ -499,8 +499,8 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
 
     def index(index: Int): Status[A] = copy(index = index)
   }
-  private[http] final case class Path[A](textCodec: TextCodec[A], name: Option[String], index: Int = 0)
-      extends Atom[HttpCodecType.Path, A]   { self =>
+  private[http] final case class Path[A](pathCodec: PathCodec[A], index: Int = 0) extends Atom[HttpCodecType.Path, A] {
+    self =>
     def erase: Path[Any] = self.asInstanceOf[Path[Any]]
 
     def tag: AtomTag = AtomTag.Path

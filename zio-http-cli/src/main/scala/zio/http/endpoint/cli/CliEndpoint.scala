@@ -160,10 +160,10 @@ private[cli] object CliEndpoint {
           case SimpleCodec.Unspecified()     =>
             Set.empty
         }
-      case HttpCodec.Path(textCodec, Some(name), _) =>
-        textCodec.asInstanceOf[TextCodec[_]] match {
-          case TextCodec.UUIDCodec        =>
-            Set(
+      case HttpCodec.Path(pathCodec, _) =>
+        pathCodec.segments.toSet.map { 
+          case SegmentCodec.UUID        =>
+            (
               CliEndpoint[java.util.UUID](
                 (uuid, request) => request.addPathParam(uuid.toString),
                 Options
@@ -180,8 +180,8 @@ private[cli] object CliEndpoint {
                 Doc.empty,
               ),
             )
-          case TextCodec.StringCodec      =>
-            Set(
+          case SegmentCodec.Text      =>
+            (
               CliEndpoint[String](
                 (str, request) => request.addPathParam(str),
                 Options.text(name),
@@ -189,8 +189,8 @@ private[cli] object CliEndpoint {
                 Doc.empty,
               ),
             )
-          case TextCodec.IntCodec         =>
-            Set(
+          case SegmentCodec.IntSeg         =>
+            (
               CliEndpoint[BigInt](
                 (int, request) => request.addPathParam(int.toString),
                 Options.integer(name),
@@ -198,8 +198,8 @@ private[cli] object CliEndpoint {
                 Doc.empty,
               ),
             )
-          case TextCodec.BooleanCodec     =>
-            Set(
+          case SegmentCodec.BoolSeg     =>
+            (
               CliEndpoint[Boolean](
                 (bool, request) => request.addPathParam(bool.toString),
                 Options.boolean(name),
@@ -207,82 +207,12 @@ private[cli] object CliEndpoint {
                 Doc.empty,
               ),
             )
-          case TextCodec.Constant(string) =>
-            Set(
+          case SegmentCodec.Literal(string) =>
+            (
               CliEndpoint[Unit](
                 (_, request) => request.addPathParam(string),
                 Options.Empty,
                 List(Right(string)),
-                Doc.empty,
-              ),
-            )
-        }
-      case HttpCodec.Path(textCodec, None, _)       =>
-        textCodec.asInstanceOf[TextCodec[_]] match {
-          case TextCodec.Constant(string) =>
-            Set(
-              CliEndpoint[Unit](
-                (_, request) => request.addPathParam(string),
-                Options.Empty,
-                List(Right(string)),
-                Doc.empty,
-              ),
-            )
-          case _                          => Set.empty
-        }
-      case HttpCodec.Query(name, textCodec, _)      =>
-        textCodec.asInstanceOf[TextCodec[_]] match {
-          case TextCodec.UUIDCodec        =>
-            Set(
-              CliEndpoint[java.util.UUID](
-                (uuid, request) => request.addQueryParam(name, uuid.toString),
-                Options
-                  .text(name)
-                  .mapOrFail(str =>
-                    Try(java.util.UUID.fromString(str)).toEither.left.map { error =>
-                      ValidationError(
-                        ValidationErrorType.InvalidValue,
-                        HelpDoc.p(HelpDoc.Span.code(error.getMessage())),
-                      )
-                    },
-                  ),
-                List.empty,
-                Doc.empty,
-              ),
-            )
-          case TextCodec.StringCodec      =>
-            Set(
-              CliEndpoint[String](
-                (str, request) => request.addQueryParam(name, str),
-                Options.text(name),
-                List.empty,
-                Doc.empty,
-              ),
-            )
-          case TextCodec.IntCodec         =>
-            Set(
-              CliEndpoint[BigInt](
-                (int, request) => request.addQueryParam(name, int.toString),
-                Options.integer(name),
-                List.empty,
-                Doc.empty,
-              ),
-            )
-          case TextCodec.BooleanCodec     =>
-            Set(
-              CliEndpoint[Boolean](
-                (bool, request) => request.addQueryParam(name, bool.toString),
-                Options.boolean(name),
-                List.empty,
-                Doc.empty,
-              ),
-            )
-          case TextCodec.Constant(string) =>
-            Set(
-              CliEndpoint[Unit](
-                (_, request) => request.addQueryParam(name, string),
-                Options.Empty,
-                List.empty,
                 Doc.empty,
               ),
             )

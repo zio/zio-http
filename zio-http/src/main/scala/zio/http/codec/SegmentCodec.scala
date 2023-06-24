@@ -15,6 +15,8 @@ sealed trait SegmentCodec[A] { self =>
   def matches(segments: Chunk[String], index: Int): Int
 }
 object SegmentCodec          {
+  def bool(name: String): SegmentCodec[Boolean] = SegmentCodec.BoolSeg(name)
+
   def int(name: String): SegmentCodec[Int] = SegmentCodec.IntSeg(name)
 
   implicit def literal(value: String): SegmentCodec[Unit] = SegmentCodec.Literal(value)
@@ -37,6 +39,19 @@ object SegmentCodec          {
       else if (value == segments(index)) 1
       else -1
     }
+  }
+  private[http] final case class BoolSeg(name: String, doc: Doc = Doc.empty)  extends SegmentCodec[Boolean]        {
+    def ??(doc: Doc): BoolSeg = copy(doc = this.doc + doc)
+
+    def format(value: Boolean): Path = Path(s"/$value")
+
+    def matches(segments: Chunk[String], index: Int): Int =
+      if (index < 0 || index >= segments.length) -1
+      else {
+        val segment = segments(index)
+
+        if (segment == "true" || segment == "false") 1 else -1
+      }
   }
   private[http] final case class IntSeg(name: String, doc: Doc = Doc.empty)   extends SegmentCodec[Int]            {
     def ??(doc: Doc): IntSeg = copy(doc = this.doc + doc)

@@ -139,6 +139,24 @@ sealed trait PathCodec[A] { self =>
             }
           }
 
+        case BoolOpt =>
+          if (j >= segments.length) {
+            fail = "Expected boolean path segment but found end of path"
+            i = instructions.length
+          } else {
+            val segment = segments(j)
+            j = j + 1
+
+            if (segment == "true") {
+              stack.push(true)
+            } else if (segment == "false") {
+              stack.push(false)
+            } else {
+              fail = s"Expected boolean path segment but found ${segment}"
+              i = instructions.length
+            }
+          }
+
         case TrailingOpt =>
           // Consume all Trailing, possibly empty:
           if (j >= segments.length) {
@@ -170,6 +188,8 @@ sealed trait PathCodec[A] { self =>
    * pattern would successfully match against.
    */
   final def encode(value: A): Path = format(value)
+
+  private[http] final def erase: PathCodec[Any] = self.asInstanceOf[PathCodec[Any]]
 
   /**
    * Formats a value of type `A` into a path. This is useful for embedding paths
@@ -211,6 +231,7 @@ sealed trait PathCodec[A] { self =>
             case SegmentCodec.LongSeg(_, _)     => Opt.LongOpt
             case SegmentCodec.Text(_, _)        => Opt.StringOpt
             case SegmentCodec.UUID(_, _)        => Opt.UUIDOpt
+            case SegmentCodec.BoolSeg(_, _)     => Opt.BoolOpt
             case SegmentCodec.Trailing(_)       => Opt.TrailingOpt
           }
           loop(parent, segmentOpt +: Opt.Combine(combiner) +: acc)
@@ -234,6 +255,7 @@ sealed trait PathCodec[A] { self =>
           case IntSeg(name, _)   => s"/{$name}"
           case LongSeg(name, _)  => s"/{$name}"
           case Text(name, _)     => s"/{$name}"
+          case BoolSeg(name, _)  => s"/${name}"
           case UUID(name, _)     => s"/{$name}"
         })
     }
@@ -392,6 +414,7 @@ object PathCodec          {
     case object LongOpt                                 extends Opt
     case object StringOpt                               extends Opt
     case object UUIDOpt                                 extends Opt
+    case object BoolOpt                                 extends Opt
     case object TrailingOpt                             extends Opt
   }
 }

@@ -84,7 +84,7 @@ class EndpointBenchmark {
 
   private val REPEAT_N = 1000
 
-  import RoutePattern.Segment.int
+  import zio.http.codec.SegmentCodec.int
 
   // # Small Data Request
 
@@ -95,8 +95,8 @@ class EndpointBenchmark {
       .out[ExampleData]
 
   val handledUsersPosts =
-    usersPosts.implement { case (userId, postId, limit) =>
-      ZIO.succeed(ExampleData(userId, postId, limit))
+    usersPosts.implement { Handler.fromFunction { case (userId, postId, limit) =>
+      ExampleData(userId, postId, limit) }
     }
 
   val apiHttpApp = handledUsersPosts.toApp
@@ -219,9 +219,7 @@ class EndpointBenchmark {
       ) / "seventh" / int("id5"),
   )
     .out[Unit]
-    .implement { _ =>
-      ZIO.unit
-    }
+    .implement(Handler.unit)
     .toApp
 
   // Collect DSL
@@ -333,24 +331,20 @@ class EndpointBenchmark {
 
   // API DSL
 
-  val broadUsers                       = Endpoint(Method.GET / "users").out[Unit].implement { _ => ZIO.unit }
+  val broadUsers                       = Endpoint(Method.GET / "users").out[Unit].implement(Handler.unit)
   val broadUsersId                     =
-    Endpoint(Method.GET / "users" / int("userId")).out[Unit].implement { _ => ZIO.unit }
+    Endpoint(Method.GET / "users" / int("userId")).out[Unit].implement(Handler.unit)
   val boardUsersPosts                  =
     Endpoint(Method.GET / "users" / int("userId") / "posts")
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
+      .implement(Handler.unit)
   val boardUsersPostsId                =
     Endpoint(
       Method.GET /
         "users" / int("userId") / "posts" / int("postId"),
     )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
+      .implement(Handler.unit)
   val boardUsersPostsComments          =
     Endpoint(
       Method.GET /
@@ -359,9 +353,7 @@ class EndpointBenchmark {
         ) / "comments",
     )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
+      .implement(Handler.unit)
   val boardUsersPostsCommentsId        =
     Endpoint(
       Method.GET /
@@ -370,18 +362,14 @@ class EndpointBenchmark {
         ) / "comments" / int("commentId"),
     )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
-  val broadPosts                       = Endpoint(Method.GET / "posts").out[Unit].implement { _ => ZIO.unit }
+      .implement(Handler.unit)
+  val broadPosts                       = Endpoint(Method.GET / "posts").out[Unit].implement(Handler.unit)
   val broadPostsId                     =
-    Endpoint(Method.GET / "posts" / int("postId")).out[Unit].implement { _ => ZIO.unit }
+    Endpoint(Method.GET / "posts" / int("postId")).out[Unit].implement(Handler.unit)
   val boardPostsComments               =
     Endpoint(Method.GET / "posts" / int("postId") / "comments")
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
+      .implement(Handler.unit)
   val boardPostsCommentsId             =
     Endpoint(
       Method.GET /
@@ -390,18 +378,14 @@ class EndpointBenchmark {
         ),
     )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
-  val broadComments                    = Endpoint(Method.GET / "comments").out[Unit].implement { _ => ZIO.unit }
+      .implement(Handler.unit)
+  val broadComments                    = Endpoint(Method.GET / "comments").out[Unit].implement(Handler.unit)
   val broadCommentsId                  =
-    Endpoint(Method.GET / "comments" / int("commentId")).out[Unit].implement { _ => ZIO.unit }
+    Endpoint(Method.GET / "comments" / int("commentId")).out[Unit].implement(Handler.unit)
   val broadUsersComments               =
     Endpoint(Method.GET / "users" / int("userId") / "comments")
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
+      .implement(Handler.unit)
   val broadUsersCommentsId             =
     Endpoint(
       Method.GET /
@@ -410,9 +394,7 @@ class EndpointBenchmark {
         ),
     )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
+      .implement(Handler.unit)
   val boardUsersPostsCommentsReplies   =
     Endpoint(
       Method.GET /
@@ -422,9 +404,7 @@ class EndpointBenchmark {
         "replies",
     )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
+      .implement(Handler.unit)
   val boardUsersPostsCommentsRepliesId =
     Endpoint(
       Method.GET /
@@ -433,27 +413,25 @@ class EndpointBenchmark {
         ) / "comments" / int("commentId") / "replies" / int("replyId"),
     )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
+      .implement(Handler.unit)
 
   val broadApiApp =
-    (
-      broadUsers ++
-        broadUsersId ++
-        boardUsersPosts ++
-        boardUsersPostsId ++
-        boardUsersPostsComments ++
-        boardUsersPostsCommentsId ++
-        broadPosts ++
-        broadPostsId ++
-        boardPostsComments ++
-        boardPostsCommentsId ++
-        broadComments ++
-        broadCommentsId ++
-        broadUsersComments ++
-        broadUsersCommentsId ++
-        boardUsersPostsCommentsReplies ++
+    Routes2(
+      broadUsers,
+        broadUsersId ,
+        boardUsersPosts ,
+        boardUsersPostsId ,
+        boardUsersPostsComments ,
+        boardUsersPostsCommentsId ,
+        broadPosts ,
+        broadPostsId ,
+        boardPostsComments ,
+        boardPostsCommentsId ,
+        broadComments ,
+        broadCommentsId ,
+        broadUsersComments ,
+        broadUsersCommentsId ,
+        boardUsersPostsCommentsReplies ,
         boardUsersPostsCommentsRepliesId
     ).toApp
 

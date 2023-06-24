@@ -31,7 +31,6 @@ import zio.http.Method._
 import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec.SegmentCodec._
 import zio.http.codec._
-import zio.http.endpoint.internal.EndpointServer
 import zio.http.forms.Fixtures.formField
 import zio.http.{int => _, _}
 
@@ -44,29 +43,39 @@ object EndpointSpec extends ZIOSpecDefault {
     suite("handler")(
       test("simple request") {
         val testRoutes = testEndpoint(
-          Endpoint(GET / "users" / int("userId"))
-            .out[String]
-            .implement { userId =>
-              ZIO.succeed(s"path(users, $userId)")
-            } ++
+          Routes2(
+            Endpoint(GET / "users" / int("userId"))
+              .out[String]
+              .implement {
+                Handler.fromFunction { userId =>
+                  s"path(users, $userId)"
+                }
+              },
             Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
               .query(query("name"))
               .out[String]
-              .implement { case (userId, postId, name) =>
-                ZIO.succeed(s"path(users, $userId, posts, $postId) query(name=$name)")
+              .implement {
+                Handler.fromFunction { case (userId, postId, name) =>
+                  s"path(users, $userId, posts, $postId) query(name=$name)"
+                }
               },
+          ),
         ) _
         testRoutes("/users/123", "path(users, 123)") &&
         testRoutes("/users/123/posts/555?name=adam", "path(users, 123, posts, 555) query(name=adam)")
       },
       test("optional query parameter") {
         val testRoutes = testEndpoint(
-          Endpoint(GET / "users" / int("userId"))
-            .query(query("details").optional)
-            .out[String]
-            .implement { case (userId, details) =>
-              ZIO.succeed(s"path(users, $userId, $details)")
-            },
+          Routes2(
+            Endpoint(GET / "users" / int("userId"))
+              .query(query("details").optional)
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (userId, details) =>
+                  s"path(users, $userId, $details)"
+                }
+              },
+          ),
         ) _
         testRoutes("/users/123", "path(users, 123, None)") &&
         testRoutes("/users/123?details=", "path(users, 123, Some())") &&
@@ -74,13 +83,17 @@ object EndpointSpec extends ZIOSpecDefault {
       },
       test("multiple optional query parameters") {
         val testRoutes = testEndpoint(
-          Endpoint(GET / "users" / int("userId"))
-            .query(query("key").optional)
-            .query(query("value").optional)
-            .out[String]
-            .implement { case (userId, key, value) =>
-              ZIO.succeed(s"path(users, $userId, $key, $value)")
-            },
+          Routes2(
+            Endpoint(GET / "users" / int("userId"))
+              .query(query("key").optional)
+              .query(query("value").optional)
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (userId, key, value) =>
+                  s"path(users, $userId, $key, $value)"
+                }
+              },
+          ),
         ) _
         testRoutes("/users/123", "path(users, 123, None, None)") &&
         testRoutes("/users/123?key=&value=", "path(users, 123, Some(), Some())") &&
@@ -94,8 +107,7 @@ object EndpointSpec extends ZIOSpecDefault {
             .out[Int]
 
         val routes =
-          endpoint
-            .implement(_ => ZIO.succeed(42))
+          endpoint.implement { Handler.succeed(42) }
 
         for {
           response <- routes.toApp.runZIO(
@@ -105,18 +117,24 @@ object EndpointSpec extends ZIOSpecDefault {
       },
       test("out of order api") {
         val testRoutes = testEndpoint(
-          Endpoint(GET / "users" / int("userId"))
-            .out[String]
-            .implement { userId =>
-              ZIO.succeed(s"path(users, $userId)")
-            } ++
+          Routes2(
+            Endpoint(GET / "users" / int("userId"))
+              .out[String]
+              .implement {
+                Handler.fromFunction { userId =>
+                  s"path(users, $userId)"
+                }
+              },
             Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
               .query(query("name"))
               .query(query("age"))
               .out[String]
-              .implement { case (userId, name, postId, age) =>
-                ZIO.succeed(s"path(users, $userId, posts, $postId) query(name=$name, age=$age)")
+              .implement {
+                Handler.fromFunction { case (userId, name, postId, age) =>
+                  s"path(users, $userId, posts, $postId) query(name=$name, age=$age)"
+                }
               },
+          ),
         ) _
         testRoutes("/users/123", "path(users, 123)") &&
         testRoutes(
@@ -137,22 +155,28 @@ object EndpointSpec extends ZIOSpecDefault {
       // },
       test("broad api") {
         val broadUsers              =
-          Endpoint(GET / "users").out[String].implement { _ => ZIO.succeed("path(users)") }
+          Endpoint(GET / "users").out[String].implement { Handler.succeed("path(users)") }
         val broadUsersId            =
-          Endpoint(GET / "users" / int("userId")).out[String].implement { userId =>
-            ZIO.succeed(s"path(users, $userId)")
+          Endpoint(GET / "users" / int("userId")).out[String].implement {
+            Handler.fromFunction { userId =>
+              s"path(users, $userId)"
+            }
           }
         val boardUsersPosts         =
           Endpoint(GET / "users" / int("userId") / "posts")
             .out[String]
-            .implement { userId =>
-              ZIO.succeed(s"path(users, $userId, posts)")
+            .implement {
+              Handler.fromFunction { userId =>
+                s"path(users, $userId, posts)"
+              }
             }
         val boardUsersPostsId       =
           Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
             .out[String]
-            .implement { case (userId, postId) =>
-              ZIO.succeed(s"path(users, $userId, posts, $postId)")
+            .implement {
+              Handler.fromFunction { case (userId, postId) =>
+                s"path(users, $userId, posts, $postId)"
+              }
             }
         val boardUsersPostsComments =
           Endpoint(
@@ -160,8 +184,10 @@ object EndpointSpec extends ZIOSpecDefault {
               "users" / int("userId") / "posts" / int("postId") / "comments",
           )
             .out[String]
-            .implement { case (userId, postId) =>
-              ZIO.succeed(s"path(users, $userId, posts, $postId, comments)")
+            .implement {
+              Handler.fromFunction { case (userId, postId) =>
+                s"path(users, $userId, posts, $postId, comments)"
+              }
             }
 
         val boardUsersPostsCommentsId        =
@@ -170,44 +196,58 @@ object EndpointSpec extends ZIOSpecDefault {
               "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId"),
           )
             .out[String]
-            .implement { case (userId, postId, commentId) =>
-              ZIO.succeed(s"path(users, $userId, posts, $postId, comments, $commentId)")
+            .implement {
+              Handler.fromFunction { case (userId, postId, commentId) =>
+                s"path(users, $userId, posts, $postId, comments, $commentId)"
+              }
             }
         val broadPosts                       =
-          Endpoint(GET / "posts").out[String].implement { _ => ZIO.succeed("path(posts)") }
+          Endpoint(GET / "posts").out[String].implement(Handler.succeed("path(posts)"))
         val broadPostsId                     =
-          Endpoint(GET / "posts" / int("postId")).out[String].implement { postId =>
-            ZIO.succeed(s"path(posts, $postId)")
+          Endpoint(GET / "posts" / int("postId")).out[String].implement {
+            Handler.fromFunction { postId =>
+              s"path(posts, $postId)"
+            }
           }
         val boardPostsComments               =
           Endpoint(GET / "posts" / int("postId") / "comments")
             .out[String]
-            .implement { postId =>
-              ZIO.succeed(s"path(posts, $postId, comments)")
+            .implement {
+              Handler.fromFunction { postId =>
+                s"path(posts, $postId, comments)"
+              }
             }
         val boardPostsCommentsId             =
           Endpoint(GET / "posts" / int("postId") / "comments" / int("commentId"))
             .out[String]
-            .implement { case (postId, commentId) =>
-              ZIO.succeed(s"path(posts, $postId, comments, $commentId)")
+            .implement {
+              Handler.fromFunction { case (postId, commentId) =>
+                s"path(posts, $postId, comments, $commentId)"
+              }
             }
         val broadComments                    =
-          Endpoint(GET / "comments").out[String].implement { _ => ZIO.succeed("path(comments)") }
+          Endpoint(GET / "comments").out[String].implement(Handler.succeed("path(comments)"))
         val broadCommentsId                  =
-          Endpoint(GET / "comments" / int("commentId")).out[String].implement { commentId =>
-            ZIO.succeed(s"path(comments, $commentId)")
+          Endpoint(GET / "comments" / int("commentId")).out[String].implement {
+            Handler.fromFunction { commentId =>
+              s"path(comments, $commentId)"
+            }
           }
         val broadUsersComments               =
           Endpoint(GET / "users" / int("userId") / "comments")
             .out[String]
-            .implement { userId =>
-              ZIO.succeed(s"path(users, $userId, comments)")
+            .implement {
+              Handler.fromFunction { userId =>
+                s"path(users, $userId, comments)"
+              }
             }
         val broadUsersCommentsId             =
           Endpoint(GET / "users" / int("userId") / "comments" / int("commentId"))
             .out[String]
-            .implement { case (userId, commentId) =>
-              ZIO.succeed(s"path(users, $userId, comments, $commentId)")
+            .implement {
+              Handler.fromFunction { case (userId, commentId) =>
+                s"path(users, $userId, comments, $commentId)"
+              }
             }
         val boardUsersPostsCommentsReplies   =
           Endpoint(
@@ -215,8 +255,10 @@ object EndpointSpec extends ZIOSpecDefault {
               "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies",
           )
             .out[String]
-            .implement { case (userId, postId, commentId) =>
-              ZIO.succeed(s"path(users, $userId, posts, $postId, comments, $commentId, replies)")
+            .implement {
+              Handler.fromFunction { case (userId, postId, commentId) =>
+                s"path(users, $userId, posts, $postId, comments, $commentId, replies)"
+              }
             }
         val boardUsersPostsCommentsRepliesId =
           Endpoint(
@@ -225,27 +267,31 @@ object EndpointSpec extends ZIOSpecDefault {
               "replies" / int("replyId"),
           )
             .out[String]
-            .implement { case (userId, postId, commentId, replyId) =>
-              ZIO.succeed(s"path(users, $userId, posts, $postId, comments, $commentId, replies, $replyId)")
+            .implement {
+              Handler.fromFunction { case (userId, postId, commentId, replyId) =>
+                s"path(users, $userId, posts, $postId, comments, $commentId, replies, $replyId)"
+              }
             }
 
         val testRoutes = testEndpoint(
-          broadUsers ++
-            broadUsersId ++
-            boardUsersPosts ++
-            boardUsersPostsId ++
-            boardUsersPostsComments ++
-            boardUsersPostsCommentsId ++
-            broadPosts ++
-            broadPostsId ++
-            boardPostsComments ++
-            boardPostsCommentsId ++
-            broadComments ++
-            broadCommentsId ++
-            broadUsersComments ++
-            broadUsersCommentsId ++
-            boardUsersPostsCommentsReplies ++
+          Routes2(
+            broadUsers,
+            broadUsersId,
+            boardUsersPosts,
+            boardUsersPostsId,
+            boardUsersPostsComments,
+            boardUsersPostsCommentsId,
+            broadPosts,
+            broadPostsId,
+            boardPostsComments,
+            boardPostsCommentsId,
+            broadComments,
+            broadCommentsId,
+            broadUsersComments,
+            broadUsersCommentsId,
+            boardUsersPostsCommentsReplies,
             boardUsersPostsCommentsRepliesId,
+          ),
         ) _
 
         testRoutes("/users", "path(users)") &&
@@ -277,7 +323,7 @@ object EndpointSpec extends ZIOSpecDefault {
 
         val endpoint = Endpoint(GET / "test").out[String].inCodec(headerOrQuery)
 
-        val routes = endpoint.implement(header => ZIO.succeed(header))
+        val routes = endpoint.implement(Handler.identity)
 
         val request = Request.get(
           URL
@@ -316,7 +362,11 @@ object EndpointSpec extends ZIOSpecDefault {
         val endpoint = Endpoint(GET / "test").query(QueryCodec.queryBool("Created")).outCodec(headerOrQuery)
 
         val routes =
-          endpoint.implement(created => if (created) ZIO.succeed(Right(())) else ZIO.succeed(Left("not created")))
+          endpoint.implement {
+            Handler.fromFunction { created =>
+              if (created) Right(()) else Left("not created")
+            }
+          }
 
         val requestCreated = Request.get(
           URL
@@ -353,7 +403,7 @@ object EndpointSpec extends ZIOSpecDefault {
               .out[Int]
 
           val routes =
-            endpoint.implement(_ => ZIO.succeed(42))
+            endpoint.implement(Handler.succeed(42))
 
           val request =
             Request
@@ -376,7 +426,7 @@ object EndpointSpec extends ZIOSpecDefault {
               .out[Int]
 
           val routes =
-            endpoint.implement(_ => ZIO.succeed(42))
+            endpoint.implement(Handler.succeed(42))
 
           for {
             response <- routes.toApp.runZIO(
@@ -392,34 +442,46 @@ object EndpointSpec extends ZIOSpecDefault {
       suite("404")(
         test("on wrong path") {
           val testRoutes = test404(
-            Endpoint(GET / "users" / int("userId"))
-              .out[String]
-              .implement { userId =>
-                ZIO.succeed(s"path(users, $userId)")
-              } ++
+            Routes2(
+              Endpoint(GET / "users" / int("userId"))
+                .out[String]
+                .implement {
+                  Handler.fromFunction { userId =>
+                    s"path(users, $userId)"
+                  }
+                },
               Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
                 .query(query("name"))
                 .out[String]
-                .implement { case (userId, postId, name) =>
-                  ZIO.succeed(s"path(users, $userId, posts, $postId) query(name=$name)")
+                .implement {
+                  Handler.fromFunction { case (userId, postId, name) =>
+                    s"path(users, $userId, posts, $postId) query(name=$name)"
+                  }
                 },
+            ),
           ) _
           testRoutes("/user/123", Method.GET) &&
           testRoutes("/users/123/wrong", Method.GET)
         },
         test("on wrong method") {
           val testRoutes = test404(
-            Endpoint(GET / "users" / int("userId"))
-              .out[String]
-              .implement { userId =>
-                ZIO.succeed(s"path(users, $userId)")
-              } ++
+            Routes2(
+              Endpoint(GET / "users" / int("userId"))
+                .out[String]
+                .implement {
+                  Handler.fromFunction { userId =>
+                    s"path(users, $userId)"
+                  }
+                },
               Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
                 .query(query("name"))
                 .out[String]
-                .implement { case (userId, postId, name) =>
-                  ZIO.succeed(s"path(users, $userId, posts, $postId) query(name=$name)")
+                .implement {
+                  Handler.fromFunction { case (userId, postId, name) =>
+                    s"path(users, $userId, posts, $postId) query(name=$name)"
+                  }
                 },
+            ),
           ) _
           testRoutes("/users/123", Method.POST) &&
           testRoutes("/users/123/posts/555?name=adam", Method.PUT)
@@ -431,8 +493,10 @@ object EndpointSpec extends ZIOSpecDefault {
             Endpoint(GET / "users" / int("userId"))
               .out[String]
               .outError[String](Status.Custom(999))
-              .implement { userId =>
-                ZIO.fail(s"path(users, $userId)")
+              .implement {
+                Handler.fromFunctionZIO { userId =>
+                  ZIO.fail(s"path(users, $userId)")
+                }
               }
 
           val request =
@@ -454,9 +518,11 @@ object EndpointSpec extends ZIOSpecDefault {
                 HttpCodec.error[TestError.UnexpectedError](Status.InternalServerError),
                 HttpCodec.error[TestError.InvalidUser](Status.NotFound),
               )
-              .implement { userId =>
-                if (userId == 123) ZIO.fail(TestError.InvalidUser(userId))
-                else ZIO.fail(TestError.UnexpectedError("something went wrong"))
+              .implement {
+                Handler.fromFunctionZIO { userId =>
+                  if (userId == 123) ZIO.fail(TestError.InvalidUser(userId))
+                  else ZIO.fail(TestError.UnexpectedError("something went wrong"))
+                }
               }
 
           val request1 = Request.get(URL.decode("/users/123").toOption.get)
@@ -483,9 +549,8 @@ object EndpointSpec extends ZIOSpecDefault {
             route =
               Endpoint(GET / "test-byte-stream")
                 .outStream[Byte]
-                .implement { _ =>
-                  ZIO.succeed(ZStream.fromChunk(bytes).rechunk(16))
-                }
+                .implement(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
+
             result   <- route.toApp.runZIO(Request.get(URL.decode("/test-byte-stream").toOption.get)).exit
             response <- result match {
               case Exit.Success(value) => ZIO.succeed(value)
@@ -508,9 +573,8 @@ object EndpointSpec extends ZIOSpecDefault {
             route =
               Endpoint(GET / "test-byte-stream")
                 .outStream[Byte](Status.Ok, MediaType.image.png)
-                .implement { _ =>
-                  ZIO.succeed(ZStream.fromChunk(bytes).rechunk(16))
-                }
+                .implement(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
+
             result   <- route.toApp.runZIO(Request.get(URL.decode("/test-byte-stream").toOption.get)).exit
             response <- result match {
               case Exit.Success(value) => ZIO.succeed(value)
@@ -534,8 +598,10 @@ object EndpointSpec extends ZIOSpecDefault {
               Endpoint(POST / "test-byte-stream")
                 .inStream[Byte]
                 .out[Long]
-                .implement { byteStream =>
-                  byteStream.runCount
+                .implement {
+                  Handler.fromFunctionZIO { byteStream =>
+                    byteStream.runCount
+                  }
                 }
             result   <- route.toApp
               .runZIO(Request.post(URL.decode("/test-byte-stream").toOption.get, Body.fromChunk(bytes)))
@@ -568,8 +634,8 @@ object EndpointSpec extends ZIOSpecDefault {
                     HttpCodec.content[Int]("height") ++
                     HttpCodec.content[ImageMetadata]("metadata"),
                 )
-                .implement { _ =>
-                  ZIO.succeed(
+                .implement {
+                  Handler.succeed(
                     (
                       ZStream.fromChunk(bytes),
                       "example",
@@ -617,8 +683,8 @@ object EndpointSpec extends ZIOSpecDefault {
                     HttpCodec.content[Int] ++
                     HttpCodec.content[ImageMetadata],
                 )
-                .implement { _ =>
-                  ZIO.succeed(
+                .implement {
+                  Handler.succeed(
                     (
                       ZStream.fromChunk(bytes),
                       "example",
@@ -655,8 +721,10 @@ object EndpointSpec extends ZIOSpecDefault {
                 .in[String]("title")
                 .in[ImageMetadata]("metadata")
                 .out[(Long, String, ImageMetadata)]
-                .implement { case (stream, title, metadata) =>
-                  stream.runCount.map(count => (count, title, metadata))
+                .implement {
+                  Handler.fromFunctionZIO { case (stream, title, metadata) =>
+                    stream.runCount.map(count => (count, title, metadata))
+                  }
                 }
             form  = Form(
               FormField.simpleField("title", "Hello world"),
@@ -732,9 +800,7 @@ object EndpointSpec extends ZIOSpecDefault {
                   }
               }
             val route    =
-              endpoint.implement { in =>
-                ZIO.succeed(in)
-              }
+              endpoint.implement(Handler.identity[Any])
 
             val form =
               Form(
@@ -801,7 +867,7 @@ object EndpointSpec extends ZIOSpecDefault {
     },
   )
 
-  def testEndpoint[R](service: Routes[R, EndpointMiddleware.None])(
+  def testEndpoint[R](service: Routes2[R, Nothing])(
     url: String,
     expected: String,
   ): ZIO[R, Response, TestResult] = {
@@ -812,7 +878,7 @@ object EndpointSpec extends ZIOSpecDefault {
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }
 
-  def test404[R](service: Routes[R, EndpointMiddleware.None])(
+  def test404[R](service: Routes2[R, Nothing])(
     url: String,
     method: Method,
   ): ZIO[R, Response, TestResult] = {

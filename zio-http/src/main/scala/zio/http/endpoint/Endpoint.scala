@@ -145,7 +145,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
 
-  def implement[Env](original: Handler[Env, Err, Input, Output]): Route[Env, Err] = {
+  def implement[Env](original: Handler[Env, Err, Input, Output]): Route[Env, Nothing] = {
     val handlers = self.alternatives.map { endpoint =>
       Handler.fromFunctionZIO { (request: zio.http.Request) =>
         endpoint.input.decodeRequest(request).orDie.flatMap { value =>
@@ -159,42 +159,6 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
 
     Route.Handled(self.route, (_: PathInput) => handler)
   }
-
-  /**
-   * Converts this endpoint, which is an abstract description of an endpoint,
-   * into a route, which maps a path to a handler for that path. In order to
-   * convert an endpoint into a route, you must specify a function which handles
-   * the input, and returns the output.
-   */
-  def implement[Env](f: Input => ZIO[Env, Err, Output]): Routes[Env, Middleware] =
-    Routes.Single[Env, Err, PathInput, Input, Output, Middleware](self, f)
-
-  /**
-   * Converts this endpoint, which is an abstract description of an endpoint,
-   * into a route, which maps a path to a handler for that path. In order to
-   * convert an endpoint into a route, you must specify a function which handles
-   * the input, and returns the output.
-   */
-  def implementPurely[Env](f: Input => Output): Routes[Env, Middleware] =
-    implement(in => ZIO.succeed(f(in)))
-
-  /**
-   * Converts this endpoint, which is an abstract description of an endpoint,
-   * into a route, which maps a path to a handler for that path. In order to
-   * convert an endpoint into a route, you must specify the output, while the
-   * input is being ignored.
-   */
-  def implementAs[Env](f: => Output): Routes[Env, Middleware] =
-    implement(_ => ZIO.succeed(f))
-
-  /**
-   * Converts this endpoint, which is an abstract description of an endpoint,
-   * into a route, which maps a path to a handler for that path. In order to
-   * convert an endpoint into a route, you must specify the error, while the
-   * input is being ignored.
-   */
-  def implementAsError[Env](f: => Err): Routes[Env, Middleware] =
-    implement(_ => ZIO.fail(f))
 
   /**
    * Returns a new endpoint derived from this one, whose request content must

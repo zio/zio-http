@@ -23,6 +23,8 @@ sealed trait Route[-Env, +Err] { self =>
       case r @ Route.Unhandled(routePattern, handler) =>
         Route.Unhandled(routePattern, (pi: r.PathInput) => handler(pi).mapError(f))
     }
+
+  final def toApp(implicit ev: Err <:< Nothing): App[Env] = Routes2(self).toApp
 }
 object Route                   {
   import zio.http.endpoint._

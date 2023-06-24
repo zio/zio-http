@@ -3,7 +3,8 @@ package zio.http
 import zio._
 
 /**
- * Represents a collection of routes.
+ * Represents a table of routes, which are defined by pairs of route patterns
+ * and route handlers.
  */
 final case class Routes2[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
   final def ++[Env1 <: Env, Err1 >: Err](that: Routes2[Env1, Err1]): Routes2[Env1, Err1] =
@@ -15,7 +16,7 @@ final case class Routes2[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { 
    */
   def get(method: Method, path: Path): Option[zio.http.Route[Env, Err]] = tree.get(method, path)
 
-  def toApp: HttpApp[Env, Err] = ???
+  def toApp(implicit ev: Err <:< Nothing): App[Env] = ???
 
   private var _tree: Route.Tree[Any, Any] = null.asInstanceOf[Route.Tree[Any, Any]]
 

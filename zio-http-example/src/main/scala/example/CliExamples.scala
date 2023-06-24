@@ -12,7 +12,7 @@ import zio.http.endpoint._
 import zio.http.endpoint.cli._
 
 trait TestCliEndpoints {
-  import zio.http.RoutePattern.Segment._
+  import zio.http.codec.SegmentCodec._
 
   import HttpCodec._
   final case class User(
