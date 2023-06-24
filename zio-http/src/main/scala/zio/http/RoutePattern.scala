@@ -24,17 +24,21 @@ import zio.{Chunk, NonEmptyChunk}
 import zio.http.codec._
 
 /**
- * A pattern for matching paths. Patterns may contain literals or variables,
- * such as integer, long, string, or UUID variables.
+ * A pattern for matching routes that examines both HTTP method and path. In
+ * addition to specifying a method, patterns contain segment patterns, which are
+ * sequences of literals, integers, longs, and other segment types.
  *
  * Typically, your entry point constructor for a route pattern would be Method:
  *
  * {{{
  * import zio.http.Method
- * import zio.http.RoutePattern.Segment._
+ * import zio.http.codec.SegmentCodec._
  *
  * val routePattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
  * }}}
+ *
+ * However, you can use the convenience constructors in `RoutePattern`, such as
+ * `RoutePattern.GET`.
  */
 final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self =>
 
@@ -47,27 +51,31 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   /**
    * Returns a new pattern that is extended with the specified segment pattern.
    */
-  final def /[B](segment: SegmentCodec[B])(implicit combiner: Combiner[A, B]): RoutePattern[combiner.Out] =
+  def /[B](segment: SegmentCodec[B])(implicit combiner: Combiner[A, B]): RoutePattern[combiner.Out] =
     copy(pathCodec = pathCodec / segment)
 
   /**
    * Creates a route from this pattern and the specified handler.
    */
-  final def ->[Env, Err](handler: Handler[Env, Err, Request, Response])(implicit ev: A =:= Unit): Route[Env, Err] =
+  def ->[Env, Err](handler: Handler[Env, Err, Request, Response])(implicit ev: A =:= Unit): Route[Env, Err] =
     Route.unhandled(self.asType[Unit], (_: Unit) => handler)
 
   /**
    * Creates a route from this pattern and the specified handler.
    */
-  final def ->[Env, Err](handler: A => Handler[Env, Err, Request, Response]): Route[Env, Err] =
+  def ->[Env, Err](handler: A => Handler[Env, Err, Request, Response]): Route[Env, Err] =
     Route.unhandled(self, handler)
 
-  final def asType[B](implicit ev: A =:= B): RoutePattern[B] = self.asInstanceOf[RoutePattern[B]]
+  /**
+   * Reinteprets the type parameter, given evidence it is equal to some other
+   * type.
+   */
+  def asType[B](implicit ev: A =:= B): RoutePattern[B] = self.asInstanceOf[RoutePattern[B]]
 
   /**
    * Decodes a method and path into a value of type `A`.
    */
-  final def decode(actual: Method, path: Path): Either[String, A] =
+  def decode(actual: Method, path: Path): Either[String, A] =
     if (actual != method) {
       Left(s"Expected HTTP method ${method} but found method ${actual}")
     } else pathCodec.decode(path)
@@ -104,12 +112,35 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   /**
    * Converts the route pattern into an HttpCodec that produces the same value.
    */
-  def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, A] = ???
+  def toHttpCodec: HttpCodec[HttpCodecType.Path with HttpCodecType.Method, A] =
+    MethodCodec.method(method) ++ HttpCodec.Path(pathCodec)
 
   override def toString(): String = render
+
+  /**
+   * This exists for use with Scala custom extractor syntax, allowing route
+   * patterns to match against and deconstruct tuples of methods and paths.
+   */
+  def unapply(tuple: (Method, Path)): Option[A] =
+    decode(tuple._1, tuple._2).toOption
 }
 object RoutePattern {
   import PathCodec.SegmentSubtree
+
+  val CONNECT: RoutePattern[Unit] = fromMethod(Method.CONNECT)
+  val DELETE: RoutePattern[Unit]  = fromMethod(Method.DELETE)
+  val GET: RoutePattern[Unit]     = fromMethod(Method.GET)
+  val HEAD: RoutePattern[Unit]    = fromMethod(Method.HEAD)
+  val OPTIONS: RoutePattern[Unit] = fromMethod(Method.OPTIONS)
+  val PATCH: RoutePattern[Unit]   = fromMethod(Method.PATCH)
+  val POST: RoutePattern[Unit]    = fromMethod(Method.POST)
+  val PUT: RoutePattern[Unit]     = fromMethod(Method.PUT)
+  val TRACE: RoutePattern[Unit]   = fromMethod(Method.TRACE)
+
+  /**
+   * Constructs a route pattern from a method.
+   */
+  def fromMethod(method: Method): RoutePattern[Unit] = RoutePattern(method, PathCodec.root)
 
   /**
    * A tree of route patterns, indexed by method and path.
@@ -163,9 +194,4 @@ object RoutePattern {
       pathSpec./[Unit](SegmentCodec.literal(segment))
     }
   }
-
-  /**
-   * Constructs a route pattern from a method.
-   */
-  def fromMethod(method: Method): RoutePattern[Unit] = RoutePattern(method, PathCodec.root)
 }
