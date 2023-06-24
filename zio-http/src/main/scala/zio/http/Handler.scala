@@ -948,7 +948,7 @@ object Handler {
     /**
      * Overwrites the path in the incoming request
      */
-    def path(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.updatePath(path))
+    def path(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.path(path))
 
     /**
      * Sets the status in the response produced by the app

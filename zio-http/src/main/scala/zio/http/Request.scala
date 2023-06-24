@@ -87,9 +87,9 @@ final case class Request(
   def patch(p: Request.Patch): Request =
     self.copy(headers = self.headers ++ p.addHeaders, url = self.url.addQueryParams(p.addQueryParams))
 
-  val path = url.path
+  def path: Path = url.path
 
-  def updatePath(path: Path): Request = self.copy(url = self.url.copy(path = path))
+  def path(path: Path): Request = self.copy(url = self.url.copy(path = path))
 
   /**
    * Updates the headers using the provided function

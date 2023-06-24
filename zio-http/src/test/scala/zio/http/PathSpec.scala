@@ -45,6 +45,28 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
     }
 
   def spec = suite("path")(
+    suite("unnest")(
+      test("any path unnest empty is unchanged") {
+        check(HttpGen.nonEmptyPath) { path =>
+          assertTrue(path.unnest(Path.empty) == path)
+        }
+      },
+      test("any path with leading slash unnest root no longer has leading slash") {
+        check(HttpGen.nonEmptyPath) { path0 =>
+          val path = path0.dropLeadingSlash
+
+          assertTrue(path.addLeadingSlash.unnest(Path.root) == path)
+        }
+      },
+      test("general unnest") {
+        check(HttpGen.nonEmptyPath, Gen.int(0, 3)) { case (path, n) =>
+          val prefix   = path.take(n)
+          val leftover = path.drop(n)
+
+          assertTrue(path.unnest(prefix) == leftover)
+        }
+      },
+    ),
     suite("unapply")(
       test("empty") {
         assertTrue(Path.empty.unapply == None)
