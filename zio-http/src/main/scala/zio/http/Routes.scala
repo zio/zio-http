@@ -6,15 +6,27 @@ import zio._
  * Represents a table of routes, which are defined by pairs of route patterns
  * and route handlers.
  */
-final case class Routes2[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
-  final def ++[Env1 <: Env, Err1 >: Err](that: Routes2[Env1, Err1]): Routes2[Env1, Err1] =
-    Routes2(self.routes ++ that.routes)
+final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
+  final def ++[Env1 <: Env, Err1 >: Err](that: Routes[Env1, Err1]): Routes[Env1, Err1] =
+    Routes(self.routes ++ that.routes)
 
   /**
-   * Looks up the route for the specified method and path by using an efficient
-   * prefix tree.
+   * Looks up the route for the specified method and path.
    */
   def get(method: Method, path: Path): Option[zio.http.Route[Env, Err]] = tree.get(method, path)
+
+  /**
+   * Handles all typed errors in the routes by converting them into responses.
+   */
+  def handleError(f: Err => Response): Routes[Env, Nothing] =
+    Routes(routes.map(_.handleError(f)))
+
+  /**
+   * Maps unhandled errors across all routes into a new type, without
+   * eliminating them.
+   */
+  def mapError[Err2](f: Err => Err2): Routes[Env, Err2] =
+    Routes(routes.map(_.mapError(f)))
 
   def toApp(implicit ev: Err <:< Nothing): App[Env] = ???
 
@@ -26,7 +38,17 @@ final case class Routes2[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { 
     _tree.asInstanceOf[Route.Tree[Env, Err]]
   }
 }
-object Routes2                                                                {
-  def apply[Env, Err](route: zio.http.Route[Env, Err], routes: zio.http.Route[Env, Err]*): Routes2[Env, Err] =
-    Routes2(Chunk(route) ++ Chunk.fromIterable(routes))
+object Routes                                                                {
+
+  /**
+   * Constructs new routes from a varargs of individual routes.
+   */
+  def apply[Env, Err](route: zio.http.Route[Env, Err], routes: zio.http.Route[Env, Err]*): Routes[Env, Err] =
+    Routes(Chunk(route) ++ Chunk.fromIterable(routes))
+
+  /**
+   * Constructs new routes from an iterable of individual routes.
+   */
+  def fromIterable[Env, Err](iterable: Iterable[Route[Env, Err]]): Routes[Env, Err] =
+    Routes(Chunk.fromIterable(iterable))
 }

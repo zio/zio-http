@@ -64,6 +64,10 @@ sealed trait PathCodec[A] { self =>
     var j                           = 0
     var fail                        = ""
     val stack: java.util.Deque[Any] = new java.util.ArrayDeque[Any](2)
+
+    // For root:
+    stack.push(())
+
     while (i < instructions.length) {
       val opt = instructions(i)
 
@@ -77,10 +81,11 @@ sealed trait PathCodec[A] { self =>
             j = j + 1
           }
 
-        case Combine(combiner) =>
-          val right = stack.pop()
-          val left  = stack.pop()
-          stack.push(combiner.asInstanceOf[Combiner[Any, Any]].combine(left, right))
+        case Combine(combiner0) =>
+          val combiner = combiner0.asInstanceOf[Combiner[Any, Any]]
+          val right    = stack.pop()
+          val left     = stack.pop()
+          stack.push(combiner.combine(left, right))
 
         case IntOpt =>
           if (j >= segments.length) {
@@ -120,7 +125,7 @@ sealed trait PathCodec[A] { self =>
           } else {
             val segment = segments(j)
             j = j + 1
-            stack.push(segment.toString)
+            stack.push(segment)
           }
 
         case UUIDOpt =>

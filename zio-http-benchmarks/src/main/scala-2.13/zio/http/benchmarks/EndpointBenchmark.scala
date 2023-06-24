@@ -418,7 +418,7 @@ class EndpointBenchmark {
       .implement(Handler.unit)
 
   val broadApiApp =
-    Routes2(
+    Routes(
       broadUsers,
       broadUsersId,
       boardUsersPosts,

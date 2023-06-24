@@ -11,12 +11,33 @@ import zio.http.codec._
 sealed trait Route[-Env, +Err] { self =>
   type PathInput
 
-  def routePattern: RoutePattern[PathInput]
-
+  /**
+   * Applies the route to the specified request. The route must be defined for
+   * the request, or else this method will fail fatally. Note that you may only
+   * call this function when you have handled all errors produced by the route,
+   * converting them into responses.
+   */
   def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Response, Response]
 
+  /**
+   * Handles the error of the route. This method can be used to convert a route
+   * that does not handle its errors into one that does handle its errors.
+   */
+  final def handleError(f: Err => Response): Route[Env, Nothing] =
+    self match {
+      case Route.Handled(routePattern, handler)       => Route.Handled(routePattern, handler)
+      case r @ Route.Unhandled(routePattern, handler) =>
+        Route.Handled(routePattern, (pi: r.PathInput) => handler(pi).mapError(f))
+    }
+
+  /**
+   * Determines if the route is defined for the specified request.
+   */
   final def isDefinedAt(request: Request): Boolean = routePattern.matches(request.method, request.path)
 
+  /**
+   * Changes the error type of the route, without eliminating it.
+   */
   final def mapError[Err2](f: Err => Err2): Route[Env, Err2] =
     self match {
       case Route.Handled(routePattern, handler)       => Route.Handled(routePattern, handler)
@@ -24,7 +45,13 @@ sealed trait Route[-Env, +Err] { self =>
         Route.Unhandled(routePattern, (pi: r.PathInput) => handler(pi).mapError(f))
     }
 
-  final def toApp(implicit ev: Err <:< Nothing): App[Env] = Routes2(self).toApp
+  /**
+   * The route pattern over which the route is defined. The route can only
+   * handle requests that match this route pattern.
+   */
+  def routePattern: RoutePattern[PathInput]
+
+  final def toApp(implicit ev: Err <:< Nothing): App[Env] = Routes(self).toApp
 }
 object Route                   {
   import zio.http.endpoint._

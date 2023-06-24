@@ -77,7 +77,7 @@
 
 //   def testEndpoint[P, R, In, Err, Out](
 //     endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
-//     route: Routes2[R, Nothing],
+//     route: Routes[R, Nothing],
 //     in: In,
 //     out: Out,
 //   ): ZIO[Client with R with Server with Scope, Err, TestResult] =
@@ -85,7 +85,7 @@
 
 //   def testEndpointZIO[P, R, In, Err, Out](
 //     endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
-//     route: Routes2[R, Nothing],
+//     route: Routes[R, Nothing],
 //     in: In,
 //     outF: Out => ZIO[Any, Nothing, TestResult],
 //   ): ZIO[Client with R with Server with Scope, Err, TestResult] =
@@ -103,7 +103,7 @@
 
 //   def testEndpointError[P, R, In, Err, Out](
 //     endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
-//     route: Routes2[Any, Nothing],
+//     route: Routes[Any, Nothing],
 //     in: In,
 //     err: Err,
 //   ): ZIO[Client with R with Server with Scope, Out, TestResult] =
@@ -111,7 +111,7 @@
 
 //   def testEndpointErrorZIO[P, R, In, Err, Out](
 //     endpoint: Endpoint[P, In, Err, Out, EndpointMiddleware.None.type],
-//     route: Routes2[R, Nothing],
+//     route: Routes[R, Nothing],
 //     in: In,
 //     errorF: Err => ZIO[Any, Nothing, TestResult],
 //   ): ZIO[Client with R with Server with Scope, Out, TestResult] =
@@ -143,7 +143,7 @@
 
 //         testEndpoint(
 //           usersPostAPI,
-//           Routes2(usersPostHandler),
+//           Routes(usersPostHandler),
 //           (10, 20),
 //           Post(20, "title", "body", 10),
 //         )
@@ -165,18 +165,18 @@
 
 //         testEndpoint(
 //           api,
-//           Routes2(handler),
+//           Routes(handler),
 //           (10, 20, None, Some("x")),
 //           Post(10, "-", "x", 20),
 //         ) && testEndpoint(
 //           api,
-//           Routes2(handler),
+//           Routes(handler),
 //           (10, 20, None, None),
 //           Post(10, "-", "-", 20),
 //         ) &&
 //         testEndpoint(
 //           api,
-//           Routes2(handler),
+//           Routes(handler),
 //           (10, 20, Some("x"), Some("y")),
 //           Post(10, "x", "y", 20),
 //         )
@@ -240,7 +240,7 @@
 
 //         testEndpoint(
 //           api,
-//           Routes2(route),
+//           Routes(route),
 //           (11, Post(1, "title", "body", 111)),
 //           "userId: 11, post: Post(1,title,body,111)",
 //         )
@@ -256,7 +256,7 @@
 //         Random.nextBytes(1024 * 1024).flatMap { bytes =>
 //           testEndpoint(
 //             api,
-//             Routes2(route),
+//             Routes(route),
 //             ZStream.fromChunk(bytes).rechunk(1024),
 //             1024 * 1024L,
 //           )
@@ -272,7 +272,7 @@
 
 //         testEndpointZIO(
 //           api,
-//           Routes2(route),
+//           Routes(route),
 //           1024 * 1024,
 //           (stream: ZStream[Any, Nothing, Byte]) => stream.runCount.map(c => assert(c)(equalTo(1024L * 1024L))),
 //         )
@@ -292,7 +292,7 @@
 
 //         testEndpoint(
 //           api,
-//           Routes2(route),
+//           Routes(route),
 //           ("name", 10, Post(1, "title", "body", 111)),
 //           "name: name, value: 10, post: Post(1,title,body,111)",
 //         )
@@ -305,7 +305,7 @@
 
 //         testEndpointError(
 //           api,
-//           Routes2(route),
+//           Routes(route),
 //           (),
 //           "42",
 //         )
@@ -444,7 +444,7 @@
 //         Random.nextBytes(1024 * 1024).flatMap { bytes =>
 //           testEndpoint(
 //             api,
-//             Routes2(route),
+//             Routes(route),
 //             ("xyz", 100, ZStream.fromChunk(bytes).rechunk(1024)),
 //             s"name: xyz, value: 100, count: ${1024 * 1024}",
 //           )

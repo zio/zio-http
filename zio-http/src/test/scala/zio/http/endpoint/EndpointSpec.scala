@@ -43,7 +43,7 @@ object EndpointSpec extends ZIOSpecDefault {
     suite("handler")(
       test("simple request") {
         val testRoutes = testEndpoint(
-          Routes2(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .out[String]
               .implement {
@@ -66,7 +66,7 @@ object EndpointSpec extends ZIOSpecDefault {
       },
       test("optional query parameter") {
         val testRoutes = testEndpoint(
-          Routes2(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .query(query("details").optional)
               .out[String]
@@ -83,7 +83,7 @@ object EndpointSpec extends ZIOSpecDefault {
       },
       test("multiple optional query parameters") {
         val testRoutes = testEndpoint(
-          Routes2(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .query(query("key").optional)
               .query(query("value").optional)
@@ -117,7 +117,7 @@ object EndpointSpec extends ZIOSpecDefault {
       },
       test("out of order api") {
         val testRoutes = testEndpoint(
-          Routes2(
+          Routes(
             Endpoint(GET / "users" / int("userId"))
               .out[String]
               .implement {
@@ -274,7 +274,7 @@ object EndpointSpec extends ZIOSpecDefault {
             }
 
         val testRoutes = testEndpoint(
-          Routes2(
+          Routes(
             broadUsers,
             broadUsersId,
             boardUsersPosts,
@@ -442,7 +442,7 @@ object EndpointSpec extends ZIOSpecDefault {
       suite("404")(
         test("on wrong path") {
           val testRoutes = test404(
-            Routes2(
+            Routes(
               Endpoint(GET / "users" / int("userId"))
                 .out[String]
                 .implement {
@@ -465,7 +465,7 @@ object EndpointSpec extends ZIOSpecDefault {
         },
         test("on wrong method") {
           val testRoutes = test404(
-            Routes2(
+            Routes(
               Endpoint(GET / "users" / int("userId"))
                 .out[String]
                 .implement {
@@ -867,7 +867,7 @@ object EndpointSpec extends ZIOSpecDefault {
     },
   )
 
-  def testEndpoint[R](service: Routes2[R, Nothing])(
+  def testEndpoint[R](service: Routes[R, Nothing])(
     url: String,
     expected: String,
   ): ZIO[R, Response, TestResult] = {
@@ -878,7 +878,7 @@ object EndpointSpec extends ZIOSpecDefault {
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }
 
-  def test404[R](service: Routes2[R, Nothing])(
+  def test404[R](service: Routes[R, Nothing])(
     url: String,
     method: Method,
   ): ZIO[R, Response, TestResult] = {
