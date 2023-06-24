@@ -23,7 +23,7 @@ import zio.test._
 
 import zio.http.internal.HttpGen
 
-object PathPatternSpec extends ZIOSpecDefault {
+object RoutePatternSpec extends ZIOSpecDefault {
   import zio.http.Method
   import zio.http.RoutePattern._
 
@@ -66,6 +66,17 @@ object PathPatternSpec extends ZIOSpecDefault {
         assertTrue(tree.get(Method.GET, Path("/users")).nonEmpty) &&
         assertTrue(tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty)
       },
+      test("get with prefix") {
+        var tree: Tree[Unit] = RoutePattern.Tree.empty
+
+        val pattern = Method.GET / "users"
+
+        tree = tree.add(pattern, ())
+
+        assertTrue(
+          tree.get(Method.GET, Path("/users/1")).nonEmpty,
+        )
+      } @@ TestAspect.ignore,
     )
   def decoding =
     suite("decoding")(
@@ -90,6 +101,48 @@ object PathPatternSpec extends ZIOSpecDefault {
             ) == Right((1, "abc", java.util.UUID.fromString("123e4567-e89b-12d3-a456-426614174000"))),
           )
         },
+        suite("trailing")(
+          test("GET /users/1 on prefix") {
+            val routePattern = Method.GET / "users"
+
+            assertTrue(
+              routePattern.decode(
+                Method.GET,
+                Path("/users/1"),
+              ) == Right(()),
+            )
+          },
+          test("GET /users/1 on explicit end prefix") {
+            val routePattern = Method.GET / "users" / Segment.end
+
+            assertTrue(
+              routePattern.decode(
+                Method.GET,
+                Path("/users/1"),
+              ) == Left("Expected end of path but found: 1"),
+            )
+          },
+          test("GET /users/1 on prefix with trailing") {
+            val routePattern = Method.GET / "users" / Segment.trailing
+
+            assertTrue(
+              routePattern.decode(
+                Method.GET,
+                Path("/users/1"),
+              ) == Right(Path("1")),
+            )
+          },
+          test("trailing matches empty") {
+            val routePattern = Method.GET / "users" / Segment.trailing
+
+            assertTrue(
+              routePattern.decode(
+                Method.GET,
+                Path("/users/"),
+              ) == Right(Path.empty),
+            )
+          },
+        ),
       ),
       suite("failed decoding")(
         test("GET /users") {
