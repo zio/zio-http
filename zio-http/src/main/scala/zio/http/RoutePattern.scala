@@ -343,13 +343,20 @@ object RoutePattern          {
 
     val empty: Tree[Nothing] = Tree(ListMap.empty)
   }
-  private[http] final case class SegmentSubtree[+A](children: ListMap[Segment[_], SegmentSubtree[A]], value: Chunk[A]) {
+  private[http] final case class SegmentSubtree[+A](
+    literals: ListMap[String, SegmentSubtree[A]],
+    others: Chunk[(Segment[_], SegmentSubtree[A])],
+    value: Chunk[A],
+  ) {
     self =>
     import SegmentSubtree._
-    val flattened: Chunk[(Segment[_], SegmentSubtree[A])] = Chunk.fromIterable(children)
 
     def ++[A1 >: A](that: SegmentSubtree[A1]): SegmentSubtree[A1] =
-      SegmentSubtree(mergeMaps(self.children, that.children)(_ ++ _), self.value ++ that.value)
+      SegmentSubtree(
+        mergeMaps(self.literals, that.literals)(_ ++ _),
+        self.others ++ that.others,
+        self.value ++ that.value,
+      )
 
     def get(path: Path): Chunk[A] = {
       val segments = path.segments
@@ -358,41 +365,63 @@ object RoutePattern          {
       var i        = 0
 
       while (i < segments.length) {
-        val flattened = subtree.flattened
+        val segment = segments(i)
 
-        var index = 0
-        subtree = null
+        if (subtree.literals.contains(segment)) {
+          subtree = subtree.literals(segment)
 
-        while ((index < flattened.length) && (subtree eq null)) {
-          val tuple = flattened(index)
-
-          if (tuple._1.matches(segments, i)) {
-            subtree = tuple._2
-          } else {
-            index += 1
-          }
-        }
-
-        if (subtree eq null) {
-          result = Chunk.empty
-          i = segments.length
-        } else {
           result = subtree.value
           i = i + 1
+        } else {
+          val flattened = subtree.others
+
+          var index = 0
+          subtree = null
+
+          while ((index < flattened.length) && (subtree eq null)) {
+            val tuple = flattened(index)
+
+            if (tuple._1.matches(segments, i)) {
+              subtree = tuple._2
+            } else {
+              index += 1
+            }
+          }
+
+          if (subtree eq null) {
+            result = Chunk.empty
+            i = segments.length
+          } else {
+            result = subtree.value
+            i = i + 1
+          }
         }
       }
 
       result
     }
   }
-  object SegmentSubtree                                                                                                {
+  object SegmentSubtree                                                              {
     def single[A](segments: Iterable[Segment[_]], value: A): SegmentSubtree[A] =
-      segments.foldLeft[SegmentSubtree[A]](SegmentSubtree(ListMap(), Chunk(value))) { case (subtree, segment) =>
-        SegmentSubtree(ListMap(segment -> subtree), Chunk.empty)
+      segments.foldLeft[SegmentSubtree[A]](SegmentSubtree(ListMap(), Chunk.empty, Chunk(value))) {
+        case (subtree, segment) =>
+          val literals =
+            segment match {
+              case Segment.Literal(value, _) => ListMap(value -> subtree)
+              case _                         => ListMap.empty[String, SegmentSubtree[A]]
+            }
+
+          val others =
+            segment match {
+              case Segment.Literal(_, _) => Chunk.empty
+              case _                     => Chunk((segment, subtree))
+            }
+
+          SegmentSubtree(literals, others, Chunk.empty)
       }
 
     val empty: SegmentSubtree[Nothing] =
-      SegmentSubtree(ListMap(), Chunk.empty)
+      SegmentSubtree(ListMap(), Chunk.empty, Chunk.empty)
   }
 
   private def mergeMaps[A, B](left: ListMap[A, B], right: ListMap[A, B])(f: (B, B) => B): ListMap[A, B] =
