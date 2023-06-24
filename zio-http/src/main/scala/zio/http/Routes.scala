@@ -21,6 +21,8 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def handleError(f: Err => Response): Routes[Env, Nothing] =
     Routes(routes.map(_.handleError(f)))
 
+  def isDefinedAt(method: Method, path: Path): Boolean = tree.get(method, path).nonEmpty
+
   /**
    * Maps unhandled errors across all routes into a new type, without
    * eliminating them.
@@ -28,7 +30,12 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def mapError[Err2](f: Err => Err2): Routes[Env, Err2] =
     Routes(routes.map(_.mapError(f)))
 
-  def toApp(implicit ev: Err <:< Nothing): App[Env] = ???
+  // FIXME: Temporary stopgap until the final refactor.
+  def toApp(implicit ev: Err <:< Nothing): App[Env] =
+    Http.collectZIO[Request] {
+      case request if isDefinedAt(request.method, request.path) =>
+        get(request.method, request.path).get.apply(request)
+    }
 
   private var _tree: Route.Tree[Any, Any] = null.asInstanceOf[Route.Tree[Any, Any]]
 
