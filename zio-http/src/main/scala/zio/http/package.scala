@@ -18,8 +18,27 @@ package zio
 
 package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
 
+  /**
+   * Smartly constructs a handler from the specified value. If you have
+   * difficulty using this function, then please use the constructors on
+   * [[zio.http.Handler]] directly.
+   */
+  def handler[H](handler: H)(implicit h: HandlerConstructor[H]): Handler[h.Env, h.Err, h.In, h.Out] =
+    Handler.from(handler)
+
+  /**
+   * Constructs a route given a route pattern (specified in the first parameter
+   * list), and a handler for the route (specified in the second parameter
+   * list).
+   *
+   * If the route pattern produces input, you should use the second parameter
+   * list to specify a function that takes the input, and returns a handler.
+   */
   def route[PathInput](routePattern: RoutePattern[PathInput]): Route.UnhandledConstructor[PathInput] =
     new Route.UnhandledConstructor(routePattern)
+
+  def routes[Env, Err](route1: Route[Env, Err], routes: Route[Env, Err]*): Routes[Env, Err] =
+    Routes(Chunk(route1) ++ Chunk.fromIterable(routes))
 
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
 

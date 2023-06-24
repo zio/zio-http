@@ -370,7 +370,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     )
 
   /**
-   * Executes this app, skipping the error but returning optionally the success.
+   * Executes this handler, skipping the error but returning optionally the
+   * success.
    */
   final def option(implicit ev: CanFail[Err], trace: Trace): Handler[R, Nothing, In, Option[Out]] =
     self.foldHandler(_ => Handler.succeed(None), out => Handler.succeed(Some(out)))
@@ -385,8 +386,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     )
 
   /**
-   * Translates handler failure into death of the app, making all failures
-   * unchecked and not a part of the type of the app.
+   * Translates handler failure into death of the handler, making all failures
+   * unchecked and not a part of the type of the handler.
    */
   final def orDie(implicit ev1: Err <:< Throwable, ev2: CanFail[Err], trace: Trace): Handler[R, Nothing, In, Out] =
     orDieWith(ev1)
@@ -547,7 +548,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     Handler.fromZIO(toResponse).toHttp
 
   /**
-   * Creates a new response from a socket app.
+   * Creates a new response from a socket handler.
    */
   def toResponse(implicit
     ev1: Err <:< Throwable,
@@ -701,7 +702,7 @@ object Handler {
   def forbidden(message: => String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.Forbidden(message))
 
-  def from[H](handler: H)(implicit h: RequestHandlerConstructor[H]): Handler[h.Env, h.Err, Request, Response] =
+  def from[H](handler: H)(implicit h: HandlerConstructor[H]): Handler[h.Env, h.Err, h.In, h.Out] =
     h.toHandler(handler)
 
   /**
@@ -938,7 +939,7 @@ object Handler {
       extends HeaderModifier[RequestHandler[R, Err]] {
 
     /**
-     * Patches the response produced by the app
+     * Patches the response produced by the handler
      */
     def patch(patch: Response.Patch)(implicit trace: Trace): RequestHandler[R, Err] = self.map(patch(_))
 
@@ -954,7 +955,7 @@ object Handler {
     def path(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.path(path))
 
     /**
-     * Sets the status in the response produced by the app
+     * Sets the status in the response produced by the handler
      */
     def status(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(
       Response.Patch.status(status),
