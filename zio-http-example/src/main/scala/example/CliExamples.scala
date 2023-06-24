@@ -79,21 +79,27 @@ object TestCliApp extends zio.cli.ZIOCliDefault with TestCliEndpoints {
 
 object TestCliServer extends zio.ZIOAppDefault with TestCliEndpoints {
   val getUserRoute =
-    getUser.implement { case (id, _) =>
-      ZIO.succeed(User(id, "Juanito", Some("juanito@test.com")))
+    getUser.implement {
+      Handler.fromFunction { case (id, _) =>
+        User(id, "Juanito", Some("juanito@test.com"))
+      }
     }
 
   val getUserPostsRoute =
-    getUserPosts.implement { case (userId, postId, name) =>
-      ZIO.succeed(List(Post(userId, postId, name)))
+    getUserPosts.implement {
+      Handler.fromFunction { case (userId, postId, name) =>
+        List(Post(userId, postId, name))
+      }
     }
 
   val createUserRoute =
-    createUser.implement { user =>
-      ZIO.succeed(user.name)
+    createUser.implement {
+      Handler.fromFunction { user =>
+        user.name
+      }
     }
 
-  val routes = getUserRoute ++ getUserPostsRoute ++ createUserRoute
+  val routes = Routes2(getUserRoute, getUserPostsRoute, createUserRoute)
 
   val run = Server.serve(routes.toApp).provide(Server.default)
 }

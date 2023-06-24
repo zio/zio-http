@@ -9,8 +9,8 @@ import zio.stream.ZStream
 
 import zio.http._
 import zio.http.codec.HttpCodec
+import zio.http.endpoint.Endpoint
 import zio.http.endpoint.EndpointMiddleware.None
-import zio.http.endpoint.{Endpoint, Routes}
 
 object ServerSentEventEndpoint extends ZIOAppDefault {
   import HttpCodec._
@@ -21,7 +21,7 @@ object ServerSentEventEndpoint extends ZIOAppDefault {
   val sseEndpoint: Endpoint[Unit, Unit, ZNothing, ZStream[Any, Nothing, ServerSentEvent], None] =
     Endpoint(Method.GET / "sse").outStream[ServerSentEvent]
 
-  val sseRoute: Routes[Any, None] = sseEndpoint.implement(_ => ZIO.succeed(stream))
+  val sseRoute = sseEndpoint.implement(Handler.succeed(stream))
 
   val app: App[Any] = sseRoute.toApp
 

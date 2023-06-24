@@ -280,6 +280,49 @@ sealed trait PathCodec[A] { self =>
 }
 object PathCodec          {
 
+  /**
+   * Constructs a path codec from a method and a path literal.
+   */
+  def apply(value: String): PathCodec[Unit] = {
+    val path = Path(value)
+
+    path.segments.foldLeft[PathCodec[Unit]](Root()) { (pathSpec, segment) =>
+      pathSpec./[Unit](SegmentCodec.literal(segment))
+    }
+  }
+
+  /**
+   * The root path codec.
+   */
+  def root: PathCodec[Unit] = Root()
+
+  private[http] final case class Root(doc: Doc = Doc.empty) extends PathCodec[Unit] {
+    def ??(doc: Doc): Root = copy(doc = this.doc + doc)
+  }
+  private[http] final case class Child[A, B, C](
+    parent: PathCodec[A],
+    segment: SegmentCodec[B],
+    combiner: Combiner.WithOut[A, B, C],
+    doc: Doc = Doc.empty,
+  ) extends PathCodec[C] {
+    def ??(doc: Doc): Child[A, B, C] = copy(doc = this.doc + doc)
+  }
+
+  private[http] val someUnit = Some(())
+
+  private[http] sealed trait Opt
+  private[http] object Opt {
+    final case class MethodOpt(method: zio.http.Method) extends Opt
+    final case class Match(value: String)               extends Opt
+    final case class Combine(combiner: Combiner[_, _])  extends Opt
+    case object IntOpt                                  extends Opt
+    case object LongOpt                                 extends Opt
+    case object StringOpt                               extends Opt
+    case object UUIDOpt                                 extends Opt
+    case object BoolOpt                                 extends Opt
+    case object TrailingOpt                             extends Opt
+  }
+
   private[http] final case class SegmentSubtree[+A](
     literals: ListMap[String, SegmentSubtree[A]],
     others: Chunk[(SegmentCodec[_], SegmentSubtree[A])],
@@ -329,7 +372,7 @@ object PathCodec          {
               result = subtree.value
               i = i + matched
             } else {
-              // Keep looking:
+              // No match found. Keep looking at alternate routes:
               index += 1
             }
           }
@@ -344,7 +387,7 @@ object PathCodec          {
       result
     }
   }
-  object SegmentSubtree {
+  object SegmentSubtree    {
     def single[A](segments: Iterable[SegmentCodec[_]], value: A): SegmentSubtree[A] =
       segments.foldLeft[SegmentSubtree[A]](SegmentSubtree(ListMap(), Chunk.empty, Chunk(value))) {
         case (subtree, segment) =>
@@ -374,47 +417,4 @@ object PathCodec          {
         case Some(v0) => Some(f(v0, v))
       }
     }
-
-  /**
-   * Constructs a path codec from a method and a path literal.
-   */
-  def apply(value: String): PathCodec[Unit] = {
-    val path = Path(value)
-
-    path.segments.foldLeft[PathCodec[Unit]](Root()) { (pathSpec, segment) =>
-      pathSpec./[Unit](SegmentCodec.literal(segment))
-    }
-  }
-
-  /**
-   * The root path codec.
-   */
-  def root: PathCodec[Unit] = Root()
-
-  private[http] final case class Root(doc: Doc = Doc.empty) extends PathCodec[Unit] {
-    def ??(doc: Doc): Root = copy(doc = this.doc + doc)
-  }
-  private[http] final case class Child[A, B, C](
-    parent: PathCodec[A],
-    segment: SegmentCodec[B],
-    combiner: Combiner.WithOut[A, B, C],
-    doc: Doc = Doc.empty,
-  ) extends PathCodec[C] {
-    def ??(doc: Doc): Child[A, B, C] = copy(doc = this.doc + doc)
-  }
-
-  private[http] val someUnit = Some(())
-
-  private[http] sealed trait Opt
-  private[http] object Opt {
-    final case class MethodOpt(method: zio.http.Method) extends Opt
-    final case class Match(value: String)               extends Opt
-    final case class Combine(combiner: Combiner[_, _])  extends Opt
-    case object IntOpt                                  extends Opt
-    case object LongOpt                                 extends Opt
-    case object StringOpt                               extends Opt
-    case object UUIDOpt                                 extends Opt
-    case object BoolOpt                                 extends Opt
-    case object TrailingOpt                             extends Opt
-  }
 }

@@ -95,8 +95,10 @@ class EndpointBenchmark {
       .out[ExampleData]
 
   val handledUsersPosts =
-    usersPosts.implement { Handler.fromFunction { case (userId, postId, limit) =>
-      ExampleData(userId, postId, limit) }
+    usersPosts.implement {
+      Handler.fromFunction { case (userId, postId, limit) =>
+        ExampleData(userId, postId, limit)
+      }
     }
 
   val apiHttpApp = handledUsersPosts.toApp
@@ -418,21 +420,21 @@ class EndpointBenchmark {
   val broadApiApp =
     Routes2(
       broadUsers,
-        broadUsersId ,
-        boardUsersPosts ,
-        boardUsersPostsId ,
-        boardUsersPostsComments ,
-        boardUsersPostsCommentsId ,
-        broadPosts ,
-        broadPostsId ,
-        boardPostsComments ,
-        boardPostsCommentsId ,
-        broadComments ,
-        broadCommentsId ,
-        broadUsersComments ,
-        broadUsersCommentsId ,
-        boardUsersPostsCommentsReplies ,
-        boardUsersPostsCommentsRepliesId
+      broadUsersId,
+      boardUsersPosts,
+      boardUsersPostsId,
+      boardUsersPostsComments,
+      boardUsersPostsCommentsId,
+      broadPosts,
+      broadPostsId,
+      boardPostsComments,
+      boardPostsCommentsId,
+      broadComments,
+      broadCommentsId,
+      broadUsersComments,
+      broadUsersCommentsId,
+      boardUsersPostsCommentsReplies,
+      boardUsersPostsCommentsRepliesId,
     ).toApp
 
   // Collect DSL
