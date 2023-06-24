@@ -74,9 +74,29 @@ object RoutePatternSpec extends ZIOSpecDefault {
         tree = tree.add(pattern, ())
 
         assertTrue(
-          tree.get(Method.GET, Path("/users/1")).nonEmpty,
+          tree.get(Method.GET, Path("/users/1")).isEmpty,
         )
-      } @@ TestAspect.ignore,
+      },
+      test("trailing route pattern can handle all paths") {
+        var tree: Tree[Unit] = RoutePattern.Tree.empty
+
+        val pattern = Method.GET / "users" / Segment.trailing
+
+        tree = tree.add(pattern, ())
+
+        assertTrue(
+          tree.get(Method.GET, Path("/posts/")).isEmpty,
+        ) &&
+        assertTrue(
+          tree.get(Method.GET, Path("/users/1")).nonEmpty,
+        ) &&
+        assertTrue(
+          tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty,
+        ) &&
+        assertTrue(
+          tree.get(Method.GET, Path("/users/1/posts/abc/def")).nonEmpty,
+        )
+      },
     )
   def decoding =
     suite("decoding")(
@@ -109,16 +129,6 @@ object RoutePatternSpec extends ZIOSpecDefault {
               routePattern.decode(
                 Method.GET,
                 Path("/users/1"),
-              ) == Right(()),
-            )
-          },
-          test("GET /users/1 on explicit end prefix") {
-            val routePattern = Method.GET / "users" / Segment.end
-
-            assertTrue(
-              routePattern.decode(
-                Method.GET,
-                Path("/users/1"),
               ) == Left("Expected end of path but found: 1"),
             )
           },
@@ -130,6 +140,17 @@ object RoutePatternSpec extends ZIOSpecDefault {
                 Method.GET,
                 Path("/users/1"),
               ) == Right(Path("1")),
+            )
+          },
+          test("GET /users/1/posts/abc with long trailing") {
+            val routePattern =
+              Method.GET / "users" / Segment.int("user-id") / Segment.trailing
+
+            assertTrue(
+              routePattern.decode(
+                Method.GET,
+                Path("/users/1/posts/abc/def/ghi"),
+              ) == Right((1, Path("posts/abc/def/ghi"))),
             )
           },
           test("trailing matches empty") {

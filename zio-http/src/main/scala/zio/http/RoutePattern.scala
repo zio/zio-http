@@ -169,20 +169,17 @@ sealed trait RoutePattern[A] { self =>
             stack.push(Path(0, segments.drop(j)))
             j = segments.length
           }
-
-        case EndOpt =>
-          if (j >= segments.length) {
-            stack.push(())
-          } else {
-            val rest = segments.drop(j).mkString("/")
-            fail = s"Expected end of path but found: ${rest}"
-            i = instructions.length
-          }
       }
 
       i = i + 1
     }
-    if (fail != "") Left(fail) else Right(stack.pop().asInstanceOf[A])
+    if (fail != "") Left(fail)
+    else {
+      if (j < segments.length) {
+        val rest = segments.drop(j).mkString("/")
+        Left(s"Expected end of path but found: ${rest}")
+      } else Right(stack.pop().asInstanceOf[A])
+    }
   }
 
   /**
@@ -257,7 +254,6 @@ sealed trait RoutePattern[A] { self =>
             case Segment.Text(_, _)        => Opt.StringOpt
             case Segment.UUID(_, _)        => Opt.UUIDOpt
             case Segment.Trailing(_)       => Opt.TrailingOpt
-            case Segment.End(_)            => Opt.EndOpt
           }
           loop(parent, segmentOpt +: Opt.Combine(combiner) +: acc)
       }
@@ -368,22 +364,28 @@ object RoutePattern          {
         val segment = segments(i)
 
         if (subtree.literals.contains(segment)) {
+          // Fast path, jump down the tree:
           subtree = subtree.literals(segment)
 
           result = subtree.value
           i = i + 1
         } else {
+          // Slower fallback path. Have to evaluate all predicates at this node:
           val flattened = subtree.others
 
           var index = 0
           subtree = null
 
           while ((index < flattened.length) && (subtree eq null)) {
-            val tuple = flattened(index)
+            val tuple   = flattened(index)
+            val matched = tuple._1.matches(segments, i)
 
-            if (tuple._1.matches(segments, i)) {
+            if (matched >= 0) {
               subtree = tuple._2
+              result = subtree.value
+              i = i + matched
             } else {
+              // Keep looking:
               index += 1
             }
           }
@@ -391,9 +393,6 @@ object RoutePattern          {
           if (subtree eq null) {
             result = Chunk.empty
             i = segments.length
-          } else {
-            result = subtree.value
-            i = i + 1
           }
         }
       }
@@ -455,13 +454,12 @@ object RoutePattern          {
 
     def format(value: A): Path
 
-    def matches(segments: Chunk[String], index: Int): Boolean
+    // Returns numbrer of segments matched, or -1 if not matched:
+    def matches(segments: Chunk[String], index: Int): Int
 
     def toHttpCodec: HttpCodec[HttpCodecType.Path, A]
   }
   object Segment          {
-    def end: Segment[Unit] = Segment.End()
-
     def int(name: String): Segment[Int] = Segment.IntSeg(name)
 
     implicit def literal(value: String): Segment[Unit] = Segment.Literal(value)
@@ -481,9 +479,10 @@ object RoutePattern          {
 
       def format(unit: Unit): Path = Path(s"/$value")
 
-      def matches(segments: Chunk[String], index: Int): Boolean = {
-        if (index < 0 || index >= segments.length) false
-        else value == segments(index)
+      def matches(segments: Chunk[String], index: Int): Int = {
+        if (index < 0 || index >= segments.length) -1
+        else if (value == segments(index)) 1
+        else -1
       }
 
       def toHttpCodec: HttpCodec[HttpCodecType.Path, Unit] = PathCodec.literal(value)
@@ -493,8 +492,8 @@ object RoutePattern          {
 
       def format(value: Int): Path = Path(s"/$value")
 
-      def matches(segments: Chunk[String], index: Int): Boolean = {
-        if (index < 0 || index >= segments.length) false
+      def matches(segments: Chunk[String], index: Int): Int = {
+        if (index < 0 || index >= segments.length) -1
         else {
           val segment = segments(index)
           var i       = 0
@@ -506,7 +505,7 @@ object RoutePattern          {
             }
             i += 1
           }
-          defined && i >= 1
+          if (defined && i >= 1) 1 else -1
         }
       }
 
@@ -517,8 +516,8 @@ object RoutePattern          {
 
       def format(value: Long): Path = Path(s"/$value")
 
-      def matches(segments: Chunk[String], index: Int): Boolean = {
-        if (index < 0 || index >= segments.length) false
+      def matches(segments: Chunk[String], index: Int): Int = {
+        if (index < 0 || index >= segments.length) -1
         else {
           val segment = segments(index)
           var i       = 0
@@ -530,7 +529,7 @@ object RoutePattern          {
             }
             i += 1
           }
-          defined && i >= 1
+          if (defined && i >= 1) 1 else -1
         }
       }
 
@@ -541,9 +540,9 @@ object RoutePattern          {
 
       def format(value: String): Path = Path(s"/$value")
 
-      def matches(segments: Chunk[String], index: Int): Boolean =
-        if (index < 0 || index >= segments.length) false
-        else true
+      def matches(segments: Chunk[String], index: Int): Int =
+        if (index < 0 || index >= segments.length) -1
+        else 1
 
       def toHttpCodec: HttpCodec[HttpCodecType.Path, String] = PathCodec.string(name)
     }
@@ -552,17 +551,17 @@ object RoutePattern          {
 
       def format(value: java.util.UUID): Path = Path(s"/$value")
 
-      def matches(segments: Chunk[String], index: Int): Boolean = {
-        if (index < 0 || index >= segments.length) false
+      def matches(segments: Chunk[String], index: Int): Int = {
+        if (index < 0 || index >= segments.length) -1
         else {
-          val value = segments(index)
+          val segment = segments(index)
 
           var i       = 0
           var defined = true
           var group   = 0
           var count   = 0
-          while (i < value.length) {
-            val char = value.charAt(i)
+          while (i < segment.length) {
+            val char = segment.charAt(i)
             if ((char >= 48 && char <= 57) || (char >= 65 && char <= 70) || (char >= 97 && char <= 102))
               count += 1
             else if (char == 45) {
@@ -570,17 +569,17 @@ object RoutePattern          {
                 group > 4 || (group == 0 && count != 8) || ((group == 1 || group == 2 || group == 3) && count != 4) || (group == 4 && count != 12)
               ) {
                 defined = false
-                i = value.length
+                i = segment.length
               }
               count = 0
               group += 1
             } else {
               defined = false
-              i = value.length
+              i = segment.length
             }
             i += 1
           }
-          defined && i == 36
+          if (defined && i == 36) 1 else -1
         }
       }
 
@@ -592,22 +591,10 @@ object RoutePattern          {
 
       def format(value: Path): Path = value
 
-      def matches(segments: Chunk[String], index: Int): Boolean =
-        true
+      def matches(segments: Chunk[String], index: Int): Int =
+        (segments.length - index).max(0)
 
       def toHttpCodec: HttpCodec[HttpCodecType.Path, Path] = ??? // FIXME
-    }
-
-    final case class End(doc: Doc = Doc.empty) extends Segment[Unit] { self =>
-      def ??(doc: Doc): Segment[Unit] = copy(doc = this.doc + doc)
-
-      def format(value: Unit): Path = Path.empty
-
-      def matches(segments: Chunk[String], index: Int): Boolean =
-        if (index < 0) false
-        else index >= segments.length
-
-      def toHttpCodec: HttpCodec[HttpCodecType.Path, Unit] = HttpCodec.empty
     }
   }
 
@@ -647,6 +634,5 @@ object RoutePattern          {
     case object StringOpt                               extends Opt
     case object UUIDOpt                                 extends Opt
     case object TrailingOpt                             extends Opt
-    case object EndOpt                                  extends Opt
   }
 }
