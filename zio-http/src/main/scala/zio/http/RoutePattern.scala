@@ -58,13 +58,13 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    * Creates a route from this pattern and the specified handler.
    */
   def ->[Env, Err](handler: Handler[Env, Err, Request, Response])(implicit ev: A =:= Unit): Route[Env, Err] =
-    Route.unhandled(self.asType[Unit], (_: Unit) => handler)
+    Route.route(self.asType[Unit])(handler)
 
   /**
    * Creates a route from this pattern and the specified handler.
    */
   def ->[Env, Err](handler: A => Handler[Env, Err, Request, Response]): Route[Env, Err] =
-    Route.unhandled(self, handler)
+    Route.route(self)(handler)
 
   /**
    * Reinteprets the type parameter, given evidence it is equal to some other

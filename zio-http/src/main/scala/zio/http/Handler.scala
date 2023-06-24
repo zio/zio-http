@@ -701,6 +701,9 @@ object Handler {
   def forbidden(message: => String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.Forbidden(message))
 
+  def from[H](handler: H)(implicit h: RequestHandlerConstructor[H]): Handler[h.Env, h.Err, Request, Response] =
+    h.toHandler(handler)
+
   /**
    * Creates a handler which always responds the provided data and a 200 status
    * code

@@ -18,6 +18,9 @@ package zio
 
 package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
 
+  def route[PathInput](routePattern: RoutePattern[PathInput]): Route.UnhandledConstructor[PathInput] =
+    new Route.UnhandledConstructor(routePattern)
+
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
 
   type HttpAppMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =

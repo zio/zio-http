@@ -6,11 +6,14 @@ import zio.http._
 
 object HelloWorld extends ZIOAppDefault {
 
+  val textRoute =
+    Method.GET / "text" -> Handler.from(Response.text("Hello World!"))
+
+  val jsonRoute =
+    Method.GET / "json" -> Handler.from(Response.json("""{"greetings": "Hello World!"}"""))
+
   // Create HTTP route
-  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> Root / "text" => Response.text("Hello World!")
-    case Method.GET -> Root / "json" => Response.json("""{"greetings": "Hello World!"}""")
-  }
+  val app: App[Any] = Routes(textRoute, jsonRoute).toApp
 
   // Run it like any simple app
   override val run = Server.serve(app).provide(Server.default)

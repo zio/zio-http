@@ -31,6 +31,15 @@ sealed trait Route[-Env, +Err] { self =>
     }
 
   /**
+   * Returns a route that ignores any errors produced by this one, translating
+   * them into internal server errors that have no details. In order to provide
+   * useful feedback to users of the API, it's a good idea to capture some
+   * information on the failure and embed it into the response.
+   */
+  final def ignoreErrors: Route[Env, Nothing] =
+    handleError(_ => Response(status = Status.InternalServerError))
+
+  /**
    * Determines if the route is defined for the specified request.
    */
   final def isDefinedAt(request: Request): Boolean = routePattern.matches(request.method, request.path)
@@ -56,17 +65,27 @@ sealed trait Route[-Env, +Err] { self =>
 object Route                   {
   import zio.http.endpoint._
 
-  def handled[PathInput, Env](
-    routePattern: RoutePattern[PathInput],
-    handler: PathInput => Handler[Env, Response, Request, Response],
-  ): Route[Env, Nothing] =
-    Handled(routePattern, handler)
+  def handled[PathInput, Env](routePattern: RoutePattern[PathInput]): HandledConstructor[PathInput] =
+    new HandledConstructor[PathInput](routePattern)
 
-  def unhandled[PathInput, Env, Err](
-    routePattern: RoutePattern[PathInput],
-    handler: PathInput => Handler[Env, Err, Request, Response],
-  ): Route[Env, Err] =
-    Unhandled(routePattern, handler)
+  def route[PathInput, Env, Err](routePattern: RoutePattern[PathInput]): UnhandledConstructor[PathInput] =
+    new UnhandledConstructor[PathInput](routePattern)
+
+  final class HandledConstructor[PathInput](val routePattern: RoutePattern[PathInput]) extends AnyVal {
+    def apply[Env](handler: Handler[Env, Response, Request, Response]): Route[Env, Nothing] =
+      Handled(routePattern, (_: PathInput) => handler)
+
+    def apply[Env](handler: PathInput => Handler[Env, Response, Request, Response]): Route[Env, Nothing] =
+      Handled(routePattern, handler)
+  }
+
+  final class UnhandledConstructor[PathInput](val routePattern: RoutePattern[PathInput]) extends AnyVal {
+    def apply[Env, Err](handler: Handler[Env, Err, Request, Response]): Route[Env, Err] =
+      Unhandled(routePattern, (_: PathInput) => handler)
+
+    def apply[Env, Err](handler: PathInput => Handler[Env, Err, Request, Response]): Route[Env, Err] =
+      Unhandled(routePattern, handler)
+  }
 
   private[http] final case class Handled[PI, -Env](
     routePattern: RoutePattern[PI],
