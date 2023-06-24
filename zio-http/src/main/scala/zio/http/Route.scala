@@ -133,7 +133,7 @@ object Route                   {
     final def addAll[Env1 <: Env, Err1 >: Err](routes: Iterable[Route[Env1, Err1]]): Tree[Env1, Err1] =
       Tree(self.tree.addAll(routes.map(r => (r.routePattern, r))))
 
-    final def get(method: Method, path: Path): Option[Route[Env, Err]] = self.get(method, path)
+    final def get(method: Method, path: Path): Chunk[Route[Env, Err]] = tree.get(method, path)
   }
   private[http] object Tree                                                                 {
     def apply[Env, Err](first: Route[Env, Err], rest: Route[Env, Err]*): Tree[Env, Err] =

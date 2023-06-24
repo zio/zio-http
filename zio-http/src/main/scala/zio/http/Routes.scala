@@ -13,7 +13,8 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   /**
    * Looks up the route for the specified method and path.
    */
-  def get(method: Method, path: Path): Option[zio.http.Route[Env, Err]] = tree.get(method, path)
+  def get(method: Method, path: Path): Chunk[zio.http.Route[Env, Err]] =
+    tree.get(method, path)
 
   /**
    * Handles all typed errors in the routes by converting them into responses.
@@ -34,7 +35,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
   def toApp(implicit ev: Err <:< Nothing): App[Env] =
     Http.collectZIO[Request] {
       case request if isDefinedAt(request.method, request.path) =>
-        get(request.method, request.path).get.apply(request)
+        get(request.method, request.path).head.apply(request)
     }
 
   private var _tree: Route.Tree[Any, Any] = null.asInstanceOf[Route.Tree[Any, Any]]
