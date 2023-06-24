@@ -19,7 +19,7 @@ package zio.http.codec
 sealed trait HttpCodecType
 
 object HttpCodecType {
-  type RequestType <: Path with Content with Query with Header with Method with PathQuery
+  type RequestType <: Path with Content with Query with Header with Method
   type ResponseType <: Content with Header with Status
 
   type PathQuery = HttpCodecType.Path with HttpCodecType.Query

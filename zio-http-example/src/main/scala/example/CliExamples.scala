@@ -14,7 +14,7 @@ import zio.http.endpoint.cli._
 trait TestCliEndpoints {
   import zio.http.RoutePattern.Segment._
 
-  import HttpCodec.{int => _, _}
+  import HttpCodec._
   final case class User(
     @description("The unique identifier of the User")
     id: Int,

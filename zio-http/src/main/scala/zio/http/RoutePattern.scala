@@ -464,8 +464,6 @@ object RoutePattern          {
 
     implicit def literal(value: String): Segment[Unit] = Segment.Literal(value)
 
-    def method(method: Method): RoutePattern[Unit] = Root(method)
-
     def long(name: String): Segment[Long] = Segment.LongSeg(name)
 
     def string(name: String): Segment[String] = Segment.Text(name)
@@ -485,7 +483,7 @@ object RoutePattern          {
         else -1
       }
 
-      def toHttpCodec: HttpCodec[HttpCodecType.Path, Unit] = PathCodec.literal(value)
+      def toHttpCodec: HttpCodec[HttpCodecType.Path, Unit] = ???
     }
     private[http] final case class IntSeg(name: String, doc: Doc = Doc.empty)   extends Segment[Int]            {
       def ??(doc: Doc): IntSeg = copy(doc = this.doc + doc)
@@ -509,7 +507,7 @@ object RoutePattern          {
         }
       }
 
-      def toHttpCodec: HttpCodec[HttpCodecType.Path, Int] = PathCodec.int(name)
+      def toHttpCodec: HttpCodec[HttpCodecType.Path, Int] = ???
     }
     private[http] final case class LongSeg(name: String, doc: Doc = Doc.empty)  extends Segment[Long]           {
       def ??(doc: Doc): LongSeg = copy(doc = this.doc + doc)
@@ -533,7 +531,7 @@ object RoutePattern          {
         }
       }
 
-      def toHttpCodec: HttpCodec[HttpCodecType.Path, Long] = PathCodec.long(name)
+      def toHttpCodec: HttpCodec[HttpCodecType.Path, Long] = ???
     }
     private[http] final case class Text(name: String, doc: Doc = Doc.empty)     extends Segment[String]         {
       def ??(doc: Doc): Text = copy(doc = this.doc + doc)
@@ -544,7 +542,7 @@ object RoutePattern          {
         if (index < 0 || index >= segments.length) -1
         else 1
 
-      def toHttpCodec: HttpCodec[HttpCodecType.Path, String] = PathCodec.string(name)
+      def toHttpCodec: HttpCodec[HttpCodecType.Path, String] = ???
     }
     private[http] final case class UUID(name: String, doc: Doc = Doc.empty)     extends Segment[java.util.UUID] {
       def ??(doc: Doc): UUID = copy(doc = this.doc + doc)
@@ -583,7 +581,7 @@ object RoutePattern          {
         }
       }
 
-      def toHttpCodec: HttpCodec[HttpCodecType.Path, java.util.UUID] = PathCodec.uuid(name)
+      def toHttpCodec: HttpCodec[HttpCodecType.Path, java.util.UUID] = ???
     }
 
     final case class Trailing(doc: Doc = Doc.empty) extends Segment[Path] { self =>
