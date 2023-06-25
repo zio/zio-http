@@ -25,9 +25,9 @@ sealed trait Route[-Env, +Err] { self =>
    */
   final def handleError(f: Err => Response): Route[Env, Nothing] =
     self match {
-      case Route.Handled(routePattern, handler)       => Route.Handled(routePattern, handler)
-      case r @ Route.Unhandled(routePattern, handler) =>
-        Route.Handled(routePattern, (pi: r.PathInput) => handler(pi).mapError(f))
+      case Route.Handled(routePattern, handler, l)       => Route.Handled(routePattern, handler, l)
+      case r @ Route.Unhandled(routePattern, handler, l) =>
+        Route.Handled(routePattern, (pi: r.PathInput) => handler(pi).mapError(f), l)
     }
 
   /**
@@ -44,14 +44,16 @@ sealed trait Route[-Env, +Err] { self =>
    */
   final def isDefinedAt(request: Request): Boolean = routePattern.matches(request.method, request.path)
 
+  def location: Trace
+
   /**
    * Changes the error type of the route, without eliminating it.
    */
   final def mapError[Err2](f: Err => Err2): Route[Env, Err2] =
     self match {
-      case Route.Handled(routePattern, handler)       => Route.Handled(routePattern, handler)
-      case r @ Route.Unhandled(routePattern, handler) =>
-        Route.Unhandled(routePattern, (pi: r.PathInput) => handler(pi).mapError(f))
+      case Route.Handled(routePattern, handler, l)       => Route.Handled(routePattern, handler, l)
+      case r @ Route.Unhandled(routePattern, handler, l) =>
+        Route.Unhandled(routePattern, (pi: r.PathInput) => handler(pi).mapError(f), l)
     }
 
   /**
@@ -72,24 +74,29 @@ object Route                   {
     new UnhandledConstructor[PathInput](routePattern)
 
   final class HandledConstructor[PathInput](val routePattern: RoutePattern[PathInput]) extends AnyVal {
-    def apply[Env](handler: Handler[Env, Response, Request, Response]): Route[Env, Nothing] =
-      Handled(routePattern, (_: PathInput) => handler)
+    def apply[Env](handler: Handler[Env, Response, Request, Response])(implicit trace: Trace): Route[Env, Nothing] =
+      Handled(routePattern, (_: PathInput) => handler, trace)
 
-    def apply[Env](handler: PathInput => Handler[Env, Response, Request, Response]): Route[Env, Nothing] =
-      Handled(routePattern, handler)
+    def apply[Env](handler: PathInput => Handler[Env, Response, Request, Response])(implicit
+      trace: Trace,
+    ): Route[Env, Nothing] =
+      Handled(routePattern, handler, trace)
   }
 
   final class UnhandledConstructor[PathInput](val routePattern: RoutePattern[PathInput]) extends AnyVal {
-    def apply[Env, Err](handler: Handler[Env, Err, Request, Response]): Route[Env, Err] =
-      Unhandled(routePattern, (_: PathInput) => handler)
+    def apply[Env, Err](handler: Handler[Env, Err, Request, Response])(implicit trace: Trace): Route[Env, Err] =
+      Unhandled(routePattern, (_: PathInput) => handler, trace)
 
-    def apply[Env, Err](handler: PathInput => Handler[Env, Err, Request, Response]): Route[Env, Err] =
-      Unhandled(routePattern, handler)
+    def apply[Env, Err](handler: PathInput => Handler[Env, Err, Request, Response])(implicit
+      trace: Trace,
+    ): Route[Env, Err] =
+      Unhandled(routePattern, handler, trace)
   }
 
   private[http] final case class Handled[PI, -Env](
     routePattern: RoutePattern[PI],
     handler: PI => Handler[Env, Response, Request, Response],
+    location: Trace,
   ) extends Route[Env, Nothing] {
     type PathInput = PI
 
@@ -104,10 +111,12 @@ object Route                   {
           )
       }
 
+    override def toString() = s"Route.Handled(${routePattern}, ${location})"
   }
   private[http] final case class Unhandled[PI, -Env, +Err](
     routePattern: RoutePattern[PI],
     handler: PI => Handler[Env, Err, Request, Response],
+    location: Trace,
   ) extends Route[Env, Err] {
     type PathInput = PI
 
@@ -121,6 +130,8 @@ object Route                   {
             ),
           )
       }
+
+    override def toString() = s"Route.Unhandled(${routePattern}, ${location})"
   }
 
   private[http] final case class Tree[-Env, +Err](tree: RoutePattern.Tree[Route[Env, Err]]) { self =>

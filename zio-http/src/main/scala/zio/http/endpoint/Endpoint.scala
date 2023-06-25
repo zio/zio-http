@@ -145,7 +145,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
 
-  def implement[Env](original: Handler[Env, Err, Input, Output]): Route[Env, Nothing] = {
+  def implement[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
     val handlers = self.alternatives.map { endpoint =>
       Handler.fromFunctionZIO { (request: zio.http.Request) =>
         endpoint.input.decodeRequest(request).orDie.flatMap { value =>
@@ -157,7 +157,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
     }
     val handler  = Handler.firstSuccessOf(handlers, HttpCodecError.isHttpCodecError(_))
 
-    Route.Handled(self.route, (_: PathInput) => handler)
+    Route.Handled(self.route, (_: PathInput) => handler, trace)
   }
 
   /**

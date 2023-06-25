@@ -315,6 +315,10 @@ object PathCodec          {
 
   private[http] val someUnit = Some(())
 
+  /**
+   * An optimized representation of the process of decoding a path and producing
+   * a value. This is built for an evaluator that uses a stack.
+   */
   private[http] sealed trait Opt
   private[http] object Opt {
     final case class MethodOpt(method: zio.http.Method) extends Opt
@@ -330,7 +334,7 @@ object PathCodec          {
 
   private[http] final case class SegmentSubtree[+A](
     literals: ListMap[String, SegmentSubtree[A]],
-    others: Chunk[(SegmentCodec[_], SegmentSubtree[A])],
+    others: ListMap[SegmentCodec[_], SegmentSubtree[A]],
     value: Chunk[A],
   ) {
     self =>
@@ -339,7 +343,7 @@ object PathCodec          {
     def ++[A1 >: A](that: SegmentSubtree[A1]): SegmentSubtree[A1] =
       SegmentSubtree(
         mergeMaps(self.literals, that.literals)(_ ++ _),
-        self.others ++ that.others,
+        mergeMaps(self.others, that.others)(_ ++ _),
         self.value ++ that.value,
       )
 
@@ -363,7 +367,7 @@ object PathCodec          {
           i = i + 1
         } else {
           // Slower fallback path. Have to evaluate all predicates at this node:
-          val flattened = subtree.others
+          val flattened = subtree.othersFlat
 
           var index = 0
           subtree = null
@@ -391,10 +395,17 @@ object PathCodec          {
 
       result
     }
+
+    private var _othersFlat = null.asInstanceOf[Chunk[(SegmentCodec[_], SegmentSubtree[Any])]]
+
+    private def othersFlat: Chunk[(SegmentCodec[_], SegmentSubtree[A])] = {
+      if (_othersFlat eq null) _othersFlat = Chunk.fromIterable(others)
+      _othersFlat.asInstanceOf[Chunk[(SegmentCodec[_], SegmentSubtree[A])]]
+    }
   }
   object SegmentSubtree    {
     def single[A](segments: Iterable[SegmentCodec[_]], value: A): SegmentSubtree[A] =
-      segments.foldLeft[SegmentSubtree[A]](SegmentSubtree(ListMap(), Chunk.empty, Chunk(value))) {
+      segments.foldLeft[SegmentSubtree[A]](SegmentSubtree(ListMap(), ListMap(), Chunk(value))) {
         case (subtree, segment) =>
           val literals =
             segment match {
@@ -403,16 +414,16 @@ object PathCodec          {
             }
 
           val others =
-            segment match {
+            ListMap[SegmentCodec[_], SegmentSubtree[A]]((segment match {
               case SegmentCodec.Literal(_, _) => Chunk.empty
               case _                          => Chunk((segment, subtree))
-            }
+            }): _*)
 
           SegmentSubtree(literals, others, Chunk.empty)
       }
 
     val empty: SegmentSubtree[Nothing] =
-      SegmentSubtree(ListMap(), Chunk.empty, Chunk.empty)
+      SegmentSubtree(ListMap(), ListMap(), Chunk.empty)
   }
 
   private def mergeMaps[A, B](left: ListMap[A, B], right: ListMap[A, B])(f: (B, B) => B): ListMap[A, B] =

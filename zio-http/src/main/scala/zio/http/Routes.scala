@@ -7,8 +7,14 @@ import zio._
  * and route handlers.
  */
 final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
-  final def ++[Env1 <: Env, Err1 >: Err](that: Routes[Env1, Err1]): Routes[Env1, Err1] =
+  def ++[Env1 <: Env, Err1 >: Err](that: Routes[Env1, Err1]): Routes[Env1, Err1] =
     Routes(self.routes ++ that.routes)
+
+  def :+[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
+    Routes(routes :+ route)
+
+  def +:[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
+    Routes(route +: routes)
 
   /**
    * Looks up the route for the specified method and path.
@@ -33,9 +39,14 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
 
   // FIXME: Temporary stopgap until the final refactor.
   def toApp(implicit ev: Err <:< Nothing): App[Env] =
-    Http.collectZIO[Request] {
-      case request if isDefinedAt(request.method, request.path) =>
-        get(request.method, request.path).head.apply(request)
+    Http.fromOptionalHandler[Request] { request =>
+      if (isDefinedAt(request.method, request.path))
+        Some(Handler.fromFunctionZIO[Request](request => get(request.method, request.path).head.apply(request)))
+      else {
+        println(s"Route not found for ${request.method} ${request.path}")
+        println(s"tree: ${tree}")
+        None
+      }
     }
 
   private var _tree: Route.Tree[Any, Any] = null.asInstanceOf[Route.Tree[Any, Any]]

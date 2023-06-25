@@ -89,6 +89,18 @@ object RoutePatternSpec extends ZIOSpecDefault {
         assertTrue(tree.get(Method.GET, Path("/users")).nonEmpty) &&
         assertTrue(tree.get(Method.GET, Path("/users/1/posts/abc")).nonEmpty)
       },
+      test("overlapping routes") {
+        var tree: Tree[Int] = RoutePattern.Tree.empty
+
+        val pattern1 = Method.GET / "users" / SegmentCodec.int("user-id")
+        val pattern2 = Method.GET / "users" / SegmentCodec.int("user-id") / "posts" / SegmentCodec.string("post-id")
+
+        tree = tree.add(pattern1, 1)
+        tree = tree.add(pattern2, 2)
+
+        assertTrue(tree.get(Method.GET, Path("/users/1")).contains(1)) &&
+        assertTrue(tree.get(Method.GET, Path("/users/1/posts/abc")).contains(2))
+      },
       test("get with prefix") {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
 
