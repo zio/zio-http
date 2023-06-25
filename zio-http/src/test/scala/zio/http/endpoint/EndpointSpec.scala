@@ -130,7 +130,7 @@ object EndpointSpec extends ZIOSpecDefault {
               .query(query("age"))
               .out[String]
               .implement {
-                Handler.fromFunction { case (userId, name, postId, age) =>
+                Handler.fromFunction { case (userId, postId, name, age) =>
                   s"path(users, $userId, posts, $postId) query(name=$name, age=$age)"
                 }
               },
@@ -142,17 +142,24 @@ object EndpointSpec extends ZIOSpecDefault {
           "path(users, 123, posts, 555) query(name=adam, age=9000)",
         )
       },
-      // test("fallback") {
-      //   val testRoutes = testEndpoint(
-      //     Endpoint(GET / "users" / (int("userId") | string("userId")))
-      //       .out[String]
-      //       .implement { userId =>
-      //         ZIO.succeed(s"path(users, $userId)")
-      //       },
-      //   ) _
-      //   testRoutes("/users/123", "path(users, Left(123))") &&
-      //   testRoutes("/users/foo", "path(users, Right(foo))")
-      // },
+      test("fallback") {
+        val testRoutes = testEndpoint(
+          Routes(
+            Endpoint(GET / "users")
+              .query(queryInt("userId") | query("userId"))
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (userId: Either[Int, String]) =>
+                  val value = userId.fold(_.toString, identity)
+
+                  s"path(users) query(userId=$value)"
+                }
+              },
+          ),
+        ) _
+        testRoutes("/users?userId=123", "path(users) query(userId=123)") &&
+        testRoutes("/users?userId=adam", "path(users) query(userId=adam)")
+      },
       test("broad api") {
         val broadUsers              =
           Endpoint(GET / "users").out[String].implement { Handler.succeed("path(users)") }

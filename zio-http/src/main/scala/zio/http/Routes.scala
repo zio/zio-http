@@ -39,14 +39,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
 
   // FIXME: Temporary stopgap until the final refactor.
   def toApp(implicit ev: Err <:< Nothing): App[Env] =
-    Http.fromOptionalHandler[Request] { request =>
-      if (isDefinedAt(request.method, request.path))
-        Some(Handler.fromFunctionZIO[Request](request => get(request.method, request.path).head.apply(request)))
-      else {
-        println(s"Route not found for ${request.method} ${request.path}")
-        println(s"tree: ${tree}")
-        None
-      }
+    Http.collectZIO[Request] {
+      case request if isDefinedAt(request.method, request.path) =>
+        get(request.method, request.path).head.apply(request)
     }
 
   private var _tree: Route.Tree[Any, Any] = null.asInstanceOf[Route.Tree[Any, Any]]
