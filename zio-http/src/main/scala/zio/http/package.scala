@@ -37,9 +37,6 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
   def route[PathInput](routePattern: RoutePattern[PathInput]): Route.UnhandledConstructor[PathInput] =
     new Route.UnhandledConstructor(routePattern)
 
-  def routes[Env, Err](route1: Route[Env, Err], routes: Route[Env, Err]*): Routes[Env, Err] =
-    Routes(Chunk(route1) ++ Chunk.fromIterable(routes))
-
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
 
   type HttpAppMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
