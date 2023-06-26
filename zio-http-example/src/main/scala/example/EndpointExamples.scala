@@ -3,13 +3,13 @@ package example
 import zio._
 
 import zio.http.Header.Authorization
-import zio.http.codec.{HttpCodec, SegmentCodec}
+import zio.http.codec.{HttpCodec, PathCodec}
 import zio.http.endpoint._
 import zio.http.{int => _, _}
 
 object EndpointExamples extends ZIOAppDefault {
   import HttpCodec._
-  import SegmentCodec._
+  import PathCodec._
 
   val auth = EndpointMiddleware.auth
 

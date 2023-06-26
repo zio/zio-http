@@ -23,7 +23,7 @@ object HelloWorldWithCORS extends ZIOAppDefault {
   val app: App[Any] =
     Routes(
       Method.GET / "text" -> handler(Response.text("Hello World!")),
-      Method.GET / "json" -> handler(Response.json("""{"greetings": "Hello World!"}"""))
+      Method.GET / "json" -> handler(Response.json("""{"greetings": "Hello World!"}""")),
     ).toApp @@ cors(config)
 
   // Run it like any simple app

@@ -84,7 +84,7 @@ class EndpointBenchmark {
 
   private val REPEAT_N = 1000
 
-  import zio.http.codec.SegmentCodec.int
+  import zio.http.codec.PathCodec.int
 
   // # Small Data Request
 

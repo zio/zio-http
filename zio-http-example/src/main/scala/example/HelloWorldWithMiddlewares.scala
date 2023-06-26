@@ -12,7 +12,7 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
     // this will return result instantly
     Method.GET / "text"         -> handler(ZIO.succeed(Response.text("Hello World!"))),
     // this will return result after 5 seconds, so with 3 seconds timeout it will fail
-    Method.GET / "long-running" -> handler(ZIO.succeed(Response.text("Hello World!")).delay(5 seconds))
+    Method.GET / "long-running" -> handler(ZIO.succeed(Response.text("Hello World!")).delay(5 seconds)),
   ).toApp
 
   val serverTime: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] = HttpAppMiddleware.patchZIO(_ =>

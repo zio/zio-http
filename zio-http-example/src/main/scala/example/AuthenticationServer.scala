@@ -6,7 +6,7 @@ import zio._
 
 import zio.http.HttpAppMiddleware.bearerAuth
 import zio.http._
-import zio.http.codec.SegmentCodec.string
+import zio.http.codec.PathCodec.string
 
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
 
@@ -42,19 +42,21 @@ object AuthenticationServer extends ZIOAppDefault {
 
   // Http app that is accessible only via a jwt token
   def user: App[Any] = Routes(
-    Method.GET / "user" / string("name") / "greet" -> { (name: String) => handler(Response.text(s"Welcome to the ZIO party! ${name}")) }
+    Method.GET / "user" / string("name") / "greet" -> { (name: String) =>
+      handler(Response.text(s"Welcome to the ZIO party! ${name}"))
+    },
   ).toApp @@ bearerAuth(jwtDecode(_).isDefined)
 
   // App that let's the user login
   // Login is successful only if the password is the reverse of the username
-  def login: App[Any] = 
+  def login: App[Any] =
     Routes(
-      Method.GET / "login" / string("username") / string("password") -> { case (username: String, password: String) => 
+      Method.GET / "login" / string("username") / string("password") -> { case (username: String, password: String) =>
         handler(
           if (password.reverse.hashCode == username.hashCode) Response.text(jwtEncode(username))
-          else Response.text("Invalid username or password.").status(Status.Unauthorized)
+          else Response.text("Invalid username or password.").status(Status.Unauthorized),
         )
-      }
+      },
     ).toApp
 
   // Composing all the HttpApps together
