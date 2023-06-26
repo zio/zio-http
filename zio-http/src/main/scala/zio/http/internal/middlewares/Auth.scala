@@ -182,11 +182,11 @@ private[zio] trait Auth {
               self.apply(handler.asInstanceOf[Handler[R1, Err1, Request, Response]]),
               errorHandler,
             )
-          case route: Http.Route[_, _, _, _]      =>
+          case route: Http.Router[_, _, _, _]     =>
             Http
               .fromHttpZIO[Request] { in =>
                 route
-                  .asInstanceOf[Http.Route[R1, Err1, Request, Response]]
+                  .asInstanceOf[Http.Router[R1, Err1, Request, Response]]
                   .run(in)
                   .map { (http: Http[R1, Err1, Request, Response]) =>
                     self.apply(http)

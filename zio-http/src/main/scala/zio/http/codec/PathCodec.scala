@@ -262,6 +262,7 @@ sealed trait PathCodec[A] { self =>
           case Text(name, _)     => s"/{$name}"
           case BoolSeg(name, _)  => s"/${name}"
           case UUID(name, _)     => s"/{$name}"
+          case Trailing(_)       => s"/..."
         })
     }
 
@@ -321,15 +322,14 @@ object PathCodec          {
    */
   private[http] sealed trait Opt
   private[http] object Opt {
-    final case class MethodOpt(method: zio.http.Method) extends Opt
-    final case class Match(value: String)               extends Opt
-    final case class Combine(combiner: Combiner[_, _])  extends Opt
-    case object IntOpt                                  extends Opt
-    case object LongOpt                                 extends Opt
-    case object StringOpt                               extends Opt
-    case object UUIDOpt                                 extends Opt
-    case object BoolOpt                                 extends Opt
-    case object TrailingOpt                             extends Opt
+    final case class Match(value: String)              extends Opt
+    final case class Combine(combiner: Combiner[_, _]) extends Opt
+    case object IntOpt                                 extends Opt
+    case object LongOpt                                extends Opt
+    case object StringOpt                              extends Opt
+    case object UUIDOpt                                extends Opt
+    case object BoolOpt                                extends Opt
+    case object TrailingOpt                            extends Opt
   }
 
   private[http] final case class SegmentSubtree[+A](
