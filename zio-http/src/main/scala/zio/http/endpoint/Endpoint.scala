@@ -64,7 +64,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
    * Flattens out this endpoint to a chunk of alternatives. Each alternative is
    * guaranteed to not have any alternatives itself.
    */
-  def alternatives: NonEmptyChunk[Endpoint[PathInput, Input, Err, Output, Middleware]] =
+  def alternatives: Chunk[Endpoint[PathInput, Input, Err, Output, Middleware]] =
     self.input.alternatives.map { input =>
       self.copy(input = input)
     }
@@ -157,10 +157,19 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
         }
       }
     }
-    val handler  =
-      Handler.firstSuccessOf(handlers, isHttpCodecError(_)).catchAllCause {
+
+    // TODO: What to do if there are no endpoints??
+    val handlers2 =
+      NonEmptyChunk
+        .fromChunk(handlers)
+        .getOrElse(NonEmptyChunk(Handler.fail(zio.http.Response(status = Status.NotFound))))
+
+    val handler =
+      Handler.firstSuccessOf(handlers2, isHttpCodecError(_)).catchAllCause {
         case cause if isHttpCodecError(cause) =>
           Handler.succeed(zio.http.Response(status = Status.BadRequest))
+
+        case cause => Handler.failCause(cause)
       }
 
     Route.Handled(self.route, (_: PathInput) => handler, trace)
