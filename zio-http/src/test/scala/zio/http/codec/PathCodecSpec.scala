@@ -27,6 +27,27 @@ import zio.http.codec._
 object PathCodecSpec extends ZIOSpecDefault {
   def spec =
     suite("PathCodecSpec")(
+      suite("parsing")(
+        test("empty") {
+          val codec = PathCodec.path("")
+
+          assertTrue(codec.segments.length == 1)
+        },
+        test("/users") {
+          val codec = PathCodec.path("/users")
+
+          assertTrue(codec.segments.length == 2)
+        },
+        test("/users/{user-id}/posts/{post-id}") {
+          val codec =
+            PathCodec.path("/users") / SegmentCodec.int("user-id") / SegmentCodec.literal("posts") / SegmentCodec
+              .string(
+                "post-id",
+              )
+
+          assertTrue(codec.segments.length == 5)
+        },
+      ),
       suite("decoding")(
         test("empty") {
           val codec = PathCodec.empty
