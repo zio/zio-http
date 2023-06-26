@@ -28,15 +28,36 @@ sealed trait SegmentCodec[A] { self =>
 
   def format(value: A): Path
 
+  final def isEmpty: Boolean = self.asInstanceOf[SegmentCodec[_]] match {
+    case SegmentCodec.Empty(_) => true
+    case _                     => false
+  }
+
   // Returns number of segments matched, or -1 if not matched:
   def matches(segments: Chunk[String], index: Int): Int
+
+  final def nonEmpty: Boolean = !isEmpty
+
+  final def render: String = self.asInstanceOf[SegmentCodec[_]] match {
+    case SegmentCodec.Empty(_)          => s""
+    case SegmentCodec.Literal(value, _) => s"/$value"
+    case SegmentCodec.IntSeg(name, _)   => s"/{$name}"
+    case SegmentCodec.LongSeg(name, _)  => s"/{$name}"
+    case SegmentCodec.Text(name, _)     => s"/{$name}"
+    case SegmentCodec.BoolSeg(name, _)  => s"/{$name}"
+    case SegmentCodec.UUID(name, _)     => s"/{$name}"
+    case SegmentCodec.Trailing(_)       => s"/..."
+  }
 }
 object SegmentCodec          {
   def bool(name: String): SegmentCodec[Boolean] = SegmentCodec.BoolSeg(name)
 
+  val empty: SegmentCodec[Unit] = SegmentCodec.Empty()
+
   def int(name: String): SegmentCodec[Int] = SegmentCodec.IntSeg(name)
 
-  implicit def literal(value: String): SegmentCodec[Unit] = SegmentCodec.Literal(value)
+  implicit def literal(value: String): SegmentCodec[Unit] =
+    SegmentCodec.Literal(value)
 
   def long(name: String): SegmentCodec[Long] = SegmentCodec.LongSeg(name)
 
@@ -45,6 +66,14 @@ object SegmentCodec          {
   def trailing: SegmentCodec[Path] = SegmentCodec.Trailing()
 
   def uuid(name: String): SegmentCodec[java.util.UUID] = SegmentCodec.UUID(name)
+
+  private[http] final case class Empty(doc: Doc = Doc.empty) extends SegmentCodec[Unit] {
+    def ??(doc: Doc): Empty = copy(doc = this.doc + doc)
+
+    def format(unit: Unit): Path = Path(s"")
+
+    def matches(segments: Chunk[String], index: Int): Int = 0
+  }
 
   private[http] final case class Literal(value: String, doc: Doc = Doc.empty) extends SegmentCodec[Unit]           {
     def ??(doc: Doc): Literal = copy(doc = this.doc + doc)

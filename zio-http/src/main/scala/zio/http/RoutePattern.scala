@@ -51,8 +51,8 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   /**
    * Returns a new pattern that is extended with the specified segment pattern.
    */
-  def /[B](segment: SegmentCodec[B])(implicit combiner: Combiner[A, B]): RoutePattern[combiner.Out] =
-    copy(pathCodec = pathCodec / segment)
+  def /[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): RoutePattern[combiner.Out] =
+    copy(pathCodec = pathCodec ++ that)
 
   /**
    * Creates a route from this pattern and the specified handler.
@@ -140,7 +140,7 @@ object RoutePattern {
   /**
    * Constructs a route pattern from a method.
    */
-  def fromMethod(method: Method): RoutePattern[Unit] = RoutePattern(method, PathCodec.root)
+  def fromMethod(method: Method): RoutePattern[Unit] = RoutePattern(method, PathCodec.empty)
 
   /**
    * A tree of route patterns, indexed by method and path.
@@ -191,7 +191,7 @@ object RoutePattern {
     val path = Path(value)
 
     path.segments.foldLeft[RoutePattern[Unit]](fromMethod(method)) { (pathSpec, segment) =>
-      pathSpec./[Unit](SegmentCodec.literal(segment))
+      pathSpec./[Unit](PathCodec.Segment(SegmentCodec.literal(segment)))
     }
   }
 }

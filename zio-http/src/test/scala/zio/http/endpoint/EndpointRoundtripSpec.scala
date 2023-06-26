@@ -28,7 +28,7 @@ import zio.schema.{DeriveSchema, Schema}
 import zio.http.Header.Authorization
 import zio.http.Method._
 import zio.http.codec.HttpCodec.{authorization, query}
-import zio.http.codec.SegmentCodec._
+import zio.http.codec.PathCodec._
 import zio.http.codec.{Doc, HttpCodec, QueryCodec}
 import zio.http.netty.server.NettyDriver
 import zio.http.{int => _, _}

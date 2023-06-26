@@ -8,12 +8,12 @@ import zio.http._
 
 object HelloWorldWithMiddlewares extends ZIOAppDefault {
 
-  val app: HttpApp[Any, Nothing] = Http.collectZIO[Request] {
+  val app: App[Any] = Routes(
     // this will return result instantly
-    case Method.GET -> Root / "text"         => ZIO.succeed(Response.text("Hello World!"))
+    Method.GET / "text"         -> handler(ZIO.succeed(Response.text("Hello World!"))),
     // this will return result after 5 seconds, so with 3 seconds timeout it will fail
-    case Method.GET -> Root / "long-running" => ZIO.succeed(Response.text("Hello World!")).delay(5 seconds)
-  }
+    Method.GET / "long-running" -> handler(ZIO.succeed(Response.text("Hello World!")).delay(5 seconds))
+  ).toApp
 
   val serverTime: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] = HttpAppMiddleware.patchZIO(_ =>
     for {

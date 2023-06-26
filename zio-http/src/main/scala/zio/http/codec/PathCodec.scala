@@ -31,7 +31,7 @@ import zio.http.Path
  * {{{
  * import zio.http.endpoint.PathCodec._
  *
- * val pathCodec = root / "users" / int("user-id") / "posts" / string("post-id")
+ * val pathCodec = empty / "users" / int("user-id") / "posts" / string("post-id")
  * }}}
  */
 sealed trait PathCodec[A] { self =>
@@ -43,11 +43,14 @@ sealed trait PathCodec[A] { self =>
    */
   def ??(doc: Doc): PathCodec[A]
 
+  def ++[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
+    PathCodec.Concat(self, that, combiner)
+
   /**
    * Returns a new pattern that is extended with the specified segment pattern.
    */
   final def /[B](segment: SegmentCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
-    PathCodec.Child[A, B, combiner.Out](this, segment, combiner)
+    self ++ Segment[B](segment)
 
   final def asType[B](implicit ev: A =:= B): PathCodec[B] = self.asInstanceOf[PathCodec[B]]
 
@@ -170,6 +173,9 @@ sealed trait PathCodec[A] { self =>
             stack.push(Path(0, segments.drop(j)))
             j = segments.length
           }
+
+        case Unit =>
+          stack.push(())
       }
 
       i = i + 1
@@ -201,17 +207,17 @@ sealed trait PathCodec[A] { self =>
    * into HTML that is rendered by the server.
    */
   final def format(value: A): Path = {
-    @annotation.tailrec
-    def loop(path: PathCodec[_], value: Any, acc: Path): Path = path match {
-      case PathCodec.Root(_) => acc
+    def loop(path: PathCodec[_], value: Any): Path = path match {
+      case PathCodec.Concat(left, right, combiner, _) =>
+        val (leftValue, rightValue) = combiner.separate(value.asInstanceOf[combiner.Out])
 
-      case PathCodec.Child(parent, segment, combiner, _) =>
-        val (left, right) = combiner.separate(value.asInstanceOf[combiner.Out])
+        loop(left, leftValue) ++ loop(right, rightValue)
 
-        loop(parent, left, segment.format(right.asInstanceOf[segment.Type]) ++ acc)
+      case PathCodec.Segment(segment, _) =>
+        segment.format(value.asInstanceOf[segment.Type])
     }
 
-    val path = loop(self, value, Path.empty)
+    val path = loop(self, value)
 
     if (path.nonEmpty) path.addLeadingSlash else path
   }
@@ -225,12 +231,11 @@ sealed trait PathCodec[A] { self =>
     decode(path).isRight
 
   private[http] lazy val optimize: Array[Opt] = {
-    @tailrec
-    def loop(pattern: PathCodec[_], acc: Chunk[Opt]): Chunk[Opt] =
+    def loop(pattern: PathCodec[_]): Chunk[Opt] =
       pattern match {
-        case PathCodec.Root(_)                   => acc
-        case Child(parent, segment, combiner, _) =>
-          val segmentOpt = segment.asInstanceOf[SegmentCodec[_]] match {
+        case PathCodec.Segment(segment, _) =>
+          Chunk(segment.asInstanceOf[SegmentCodec[_]] match {
+            case SegmentCodec.Empty(_)          => Opt.Unit
             case SegmentCodec.Literal(value, _) => Opt.Match(value)
             case SegmentCodec.IntSeg(_, _)      => Opt.IntOpt
             case SegmentCodec.LongSeg(_, _)     => Opt.LongOpt
@@ -238,11 +243,13 @@ sealed trait PathCodec[A] { self =>
             case SegmentCodec.UUID(_, _)        => Opt.UUIDOpt
             case SegmentCodec.BoolSeg(_, _)     => Opt.BoolOpt
             case SegmentCodec.Trailing(_)       => Opt.TrailingOpt
-          }
-          loop(parent, segmentOpt +: Opt.Combine(combiner) +: acc)
+          })
+
+        case Concat(left, right, combiner, _) =>
+          loop(left) ++ loop(right) ++ Chunk(Opt.Combine(combiner))
       }
 
-    loop(self, Chunk.empty).materialize.toArray
+    loop(self).materialize.toArray
   }
 
   /**
@@ -252,18 +259,10 @@ sealed trait PathCodec[A] { self =>
     import SegmentCodec._
 
     def loop(path: PathCodec[_]): String = path match {
-      case PathCodec.Root(_) => ""
+      case PathCodec.Concat(left, right, _, _) =>
+        loop(left) + loop(right)
 
-      case PathCodec.Child(parent, segment, _, _) =>
-        loop(parent) + (segment.asInstanceOf[SegmentCodec[_]] match {
-          case Literal(value, _) => s"/$value"
-          case IntSeg(name, _)   => s"/{$name}"
-          case LongSeg(name, _)  => s"/{$name}"
-          case Text(name, _)     => s"/{$name}"
-          case BoolSeg(name, _)  => s"/${name}"
-          case UUID(name, _)     => s"/{$name}"
-          case Trailing(_)       => s"/..."
-        })
+      case PathCodec.Segment(segment, _) => segment.render
     }
 
     loop(self)
@@ -273,13 +272,14 @@ sealed trait PathCodec[A] { self =>
    * Returns the segments of the path codec.
    */
   def segments: Chunk[SegmentCodec[_]] = {
-    def loop(path: PathCodec[_], acc: Chunk[SegmentCodec[_]]): Chunk[SegmentCodec[_]] = path match {
-      case PathCodec.Root(_) => acc
+    def loop(path: PathCodec[_]): Chunk[SegmentCodec[_]] = path match {
+      case PathCodec.Segment(segment, _) => Chunk(segment)
 
-      case PathCodec.Child(parent, segment, _, _) => loop(parent, acc :+ segment)
+      case PathCodec.Concat(left, right, _, _) =>
+        loop(left) ++ loop(right)
     }
 
-    loop(self, Chunk.empty)
+    loop(self)
   }
 
   override def toString(): String = render
@@ -292,26 +292,40 @@ object PathCodec          {
   def apply(value: String): PathCodec[Unit] = {
     val path = Path(value)
 
-    path.segments.foldLeft[PathCodec[Unit]](Root()) { (pathSpec, segment) =>
+    path.segments.foldLeft[PathCodec[Unit]](PathCodec.empty) { (pathSpec, segment) =>
       pathSpec./[Unit](SegmentCodec.literal(segment))
     }
   }
 
-  /**
-   * The root path codec.
-   */
-  def root: PathCodec[Unit] = Root()
+  def bool(name: String): PathCodec[Boolean] = Segment(SegmentCodec.bool(name))
 
-  private[http] final case class Root(doc: Doc = Doc.empty) extends PathCodec[Unit] {
-    def ??(doc: Doc): Root = copy(doc = this.doc + doc)
+  /**
+   * The empty / root path codec.
+   */
+  def empty: PathCodec[Unit] = Segment[Unit](SegmentCodec.Empty())
+
+  def int(name: String): PathCodec[Int] = Segment(SegmentCodec.int(name))
+
+  def long(name: String): PathCodec[Long] = Segment(SegmentCodec.long(name))
+
+  implicit def path(value: String): PathCodec[Unit] = apply(value)
+
+  def string(name: String): PathCodec[String] = Segment(SegmentCodec.string(name))
+
+  def trailing: PathCodec[Path] = Segment(SegmentCodec.Trailing())
+
+  def uuid(name: String): PathCodec[java.util.UUID] = Segment(SegmentCodec.uuid(name))
+
+  private[http] final case class Segment[A](segment: SegmentCodec[A], doc: Doc = Doc.empty) extends PathCodec[A] {
+    def ??(doc: Doc): Segment[A] = copy(doc = this.doc + doc)
   }
-  private[http] final case class Child[A, B, C](
-    parent: PathCodec[A],
-    segment: SegmentCodec[B],
+  private[http] final case class Concat[A, B, C](
+    left: PathCodec[A],
+    right: PathCodec[B],
     combiner: Combiner.WithOut[A, B, C],
     doc: Doc = Doc.empty,
   ) extends PathCodec[C] {
-    def ??(doc: Doc): Child[A, B, C] = copy(doc = this.doc + doc)
+    def ??(doc: Doc): Concat[A, B, C] = copy(doc = this.doc + doc)
   }
 
   private[http] val someUnit = Some(())
@@ -330,6 +344,7 @@ object PathCodec          {
     case object UUIDOpt                                extends Opt
     case object BoolOpt                                extends Opt
     case object TrailingOpt                            extends Opt
+    case object Unit                                   extends Opt
   }
 
   private[http] final case class SegmentSubtree[+A](
@@ -405,8 +420,8 @@ object PathCodec          {
   }
   object SegmentSubtree    {
     def single[A](segments: Iterable[SegmentCodec[_]], value: A): SegmentSubtree[A] =
-      segments.foldLeft[SegmentSubtree[A]](SegmentSubtree(ListMap(), ListMap(), Chunk(value))) {
-        case (subtree, segment) =>
+      segments.collect { case x if x.nonEmpty => x }
+        .foldRight[SegmentSubtree[A]](SegmentSubtree(ListMap(), ListMap(), Chunk(value))) { case (segment, subtree) =>
           val literals =
             segment match {
               case SegmentCodec.Literal(value, _) => ListMap(value -> subtree)
@@ -420,7 +435,7 @@ object PathCodec          {
             }): _*)
 
           SegmentSubtree(literals, others, Chunk.empty)
-      }
+        }
 
     val empty: SegmentSubtree[Nothing] =
       SegmentSubtree(ListMap(), ListMap(), Chunk.empty)

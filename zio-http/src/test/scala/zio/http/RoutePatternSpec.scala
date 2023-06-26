@@ -21,8 +21,9 @@ import scala.collection.Seq
 import zio.Chunk
 import zio.test._
 
-import zio.http.codec.SegmentCodec
+import zio.http.codec.PathCodec._
 import zio.http.internal.HttpGen
+import zio.http.{int => _, _}
 
 object RoutePatternSpec extends ZIOSpecDefault {
   import zio.http.Method
@@ -35,7 +36,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
 
         assertTrue(tree.get(Method.GET, Path("/")).isEmpty)
       },
-      test("GET /users") {
+      test("xyz GET /users") {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
 
         val pattern = Method.GET / "users"
@@ -48,7 +49,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
       test("GET /users/{user-id}/posts/{post-id}") {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
 
-        val pattern = Method.GET / "users" / SegmentCodec.int("user-id") / "posts" / SegmentCodec.string("post-id")
+        val pattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
         tree = tree.add(pattern, ())
 
@@ -70,7 +71,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
         var tree: Tree[Int] = RoutePattern.Tree.empty
 
         val pattern1 = Method.GET / "users" / "123"
-        val pattern2 = Method.GET / "users" / SegmentCodec.trailing
+        val pattern2 = Method.GET / "users" / trailing
 
         tree = tree.add(pattern2, 2)
         tree = tree.add(pattern1, 1)
@@ -81,7 +82,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
 
         val pattern1 = Method.GET / "users"
-        val pattern2 = Method.GET / "users" / SegmentCodec.int("user-id") / "posts" / SegmentCodec.string("post-id")
+        val pattern2 = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
         tree = tree.add(pattern1, ())
         tree = tree.add(pattern2, ())
@@ -92,8 +93,8 @@ object RoutePatternSpec extends ZIOSpecDefault {
       test("overlapping routes") {
         var tree: Tree[Int] = RoutePattern.Tree.empty
 
-        val pattern1 = Method.GET / "users" / SegmentCodec.int("user-id")
-        val pattern2 = Method.GET / "users" / SegmentCodec.int("user-id") / "posts" / SegmentCodec.string("post-id")
+        val pattern1 = Method.GET / "users" / int("user-id")
+        val pattern2 = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
         tree = tree.add(pattern1, 1)
         tree = tree.add(pattern2, 2)
@@ -115,7 +116,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
       test("trailing route pattern can handle all paths") {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
 
-        val pattern = Method.GET / "users" / SegmentCodec.trailing
+        val pattern = Method.GET / "users" / trailing
 
         tree = tree.add(pattern, ())
 
@@ -135,20 +136,36 @@ object RoutePatternSpec extends ZIOSpecDefault {
     )
   def decoding =
     suite("decoding")(
+      suite("auto-parsing of paths")(
+        test("root equivalence") {
+          val variant1 = RoutePattern(Method.GET, zio.http.codec.PathCodec.empty)
+          val variant2 = Method.GET / ""
+
+          assertTrue(
+            variant1.decode(Method.GET, Path("/")) == variant2.decode(Method.GET, Path("/")),
+          ) &&
+          assertTrue(
+            variant1.decode(Method.GET, Path("/users")) == variant2.decode(Method.GET, Path("/users")),
+          )
+        },
+      ),
       suite("successful decoding")(
+        test("GET /") {
+          assertTrue((Method.GET / "").decode(Method.GET, Path("/")) == Right(()))
+        },
         test("GET /users") {
           assertTrue((Method.GET / "users").decode(Method.GET, Path("/users")) == Right(()))
         },
         test("GET /users/{user-id}/posts/{post-id}") {
           val routePattern =
-            Method.GET / "users" / SegmentCodec.int("user-id") / "posts" / SegmentCodec.string("post-id")
+            Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
           assertTrue(routePattern.decode(Method.GET, Path("/users/1/posts/abc")) == Right((1, "abc")))
         },
         test("GET /users/{user-id}/posts/{post-id}/attachments/{attachment-uuid}") {
-          val routePattern = Method.GET / "users" / SegmentCodec.int("user-id") / "posts" / SegmentCodec.string(
+          val routePattern = Method.GET / "users" / int("user-id") / "posts" / string(
             "post-id",
-          ) / "attachments" / SegmentCodec.uuid("attachment-uuid")
+          ) / "attachments" / uuid("attachment-uuid")
 
           assertTrue(
             routePattern.decode(
@@ -169,7 +186,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
             )
           },
           test("GET /users/1 on prefix with trailing") {
-            val routePattern = Method.GET / "users" / SegmentCodec.trailing
+            val routePattern = Method.GET / "users" / trailing
 
             assertTrue(
               routePattern.decode(
@@ -180,7 +197,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
           },
           test("GET /users/1/posts/abc with long trailing") {
             val routePattern =
-              Method.GET / "users" / SegmentCodec.int("user-id") / SegmentCodec.trailing
+              Method.GET / "users" / int("user-id") / trailing
 
             assertTrue(
               routePattern.decode(
@@ -190,7 +207,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
             )
           },
           test("trailing matches empty") {
-            val routePattern = Method.GET / "users" / SegmentCodec.trailing
+            val routePattern = Method.GET / "users" / trailing
 
             assertTrue(
               routePattern.decode(
@@ -210,7 +227,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
           )
         },
         test("GET /users/{user-id}") {
-          val routePattern = Method.GET / "users" / SegmentCodec.int("user-id")
+          val routePattern = Method.GET / "users" / int("user-id")
 
           assertTrue(
             routePattern.decode(Method.GET, Path("/users/abc")) == Left(
@@ -220,7 +237,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
         },
         test("GET /users/{user-id}/posts/{post-id}") {
           val routePattern =
-            Method.GET / "users" / SegmentCodec.int("user-id") / "posts" / SegmentCodec.string("post-id")
+            Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
           assertTrue(
             routePattern.decode(Method.GET, Path("/users/1/posts/")) == Left(
@@ -239,7 +256,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
         assertTrue((Method.GET / "users").render == "GET /users")
       },
       test("GET /users/{user-id}/posts/{post-id}") {
-        val routePattern = Method.GET / "users" / SegmentCodec.int("user-id") / "posts" / SegmentCodec.string("post-id")
+        val routePattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
         assertTrue(routePattern.render == "GET /users/{user-id}/posts/{post-id}")
       },
@@ -251,7 +268,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
         assertTrue((Method.GET / "users").format(()) == Path("/users"))
       },
       test("/users/{user-id}/posts/{post-id}") {
-        val routePattern = Method.GET / "users" / SegmentCodec.int("user-id") / "posts" / SegmentCodec.string("post-id")
+        val routePattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
         assertTrue(routePattern.format((1, "abc")) == Path("/users/1/posts/abc"))
       },

@@ -6,7 +6,7 @@ import zio._
  * Represents a table of routes, which are defined by pairs of route patterns
  * and route handlers.
  */
-final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { self =>
+final case class Routes[-Env, +Err] private (routes: Chunk[zio.http.Route[Env, Err]]) { self =>
   def ++[Env1 <: Env, Err1 >: Err](that: Routes[Env1, Err1]): Routes[Env1, Err1] =
     Routes(self.routes ++ that.routes)
 
@@ -27,6 +27,9 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
    */
   def handleError(f: Err => Response): Routes[Env, Nothing] =
     Routes(routes.map(_.handleError(f)))
+
+  def ignoreErrors: Routes[Env, Nothing] =
+    Routes(routes.map(_.ignoreErrors))
 
   def isDefinedAt(method: Method, path: Path): Boolean = tree.get(method, path).nonEmpty
 
@@ -52,7 +55,7 @@ final case class Routes[-Env, +Err](routes: Chunk[zio.http.Route[Env, Err]]) { s
     _tree.asInstanceOf[Route.Tree[Env, Err]]
   }
 }
-object Routes                                                                {
+object Routes                                                                         {
 
   /**
    * Constructs new routes from a varargs of individual routes.

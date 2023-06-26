@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.http.codec.SegmentCodec
+import zio.http.codec.PathCodec
 
 /**
  * Represents an HTTP method, such as GET, PUT, POST, or DELETE.
@@ -31,7 +31,7 @@ sealed trait Method { self =>
     if (that == Method.Default) self
     else that
 
-  def /[A](that: SegmentCodec[A]): RoutePattern[A] = RoutePattern.fromMethod(self) / that
+  def /[A](that: PathCodec[A]): RoutePattern[A] = RoutePattern.fromMethod(self) / that
 
   /**
    * The name of the method, as it appears in the HTTP request.

@@ -755,6 +755,9 @@ object Handler {
     }
   }
 
+  def fromFile[R](makeFile: File)(implicit trace: Trace): Handler[R, Throwable, Any, Response] =
+    fromFileZIO(ZIO.attempt(makeFile))
+
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit trace: Trace): Handler[R, Throwable, Any, Response] = {
     Handler.fromZIO[R, Throwable, Response](
       getFile.flatMap { file =>

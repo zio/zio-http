@@ -19,6 +19,8 @@ package zio.http
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
+import zio.http.codec.PathCodec
+
 /**
  * Instead of using just `String` as path params, using the RouteDecoderModule
  * we can extract and converted params into a specific type also.
@@ -35,7 +37,6 @@ import java.util.UUID
  * request of the form `GET /user/zio` is made, in that case the second case is
  * matched.
  */
-
 trait RouteDecoderModule {
   abstract class RouteDecode[A](f: String => A) {
     def unapply(a: String): Option[A] =
@@ -46,14 +47,22 @@ trait RouteDecoderModule {
       }
   }
 
-  object boolean extends RouteDecode(_.toBoolean)
+  object boolean extends RouteDecode(_.toBoolean)                 {
+    def apply(name: String): PathCodec[Boolean] = PathCodec.bool(name)
+  }
   object byte    extends RouteDecode(_.toByte)
   object short   extends RouteDecode(_.toShort)
-  object int     extends RouteDecode(_.toInt)
-  object long    extends RouteDecode(_.toLong)
+  object int     extends RouteDecode(_.toInt)                     {
+    def apply(name: String): PathCodec[Int] = PathCodec.int(name)
+  }
+  object long    extends RouteDecode(_.toLong)                    {
+    def apply(name: String): PathCodec[Long] = PathCodec.long(name)
+  }
   object float   extends RouteDecode(_.toFloat)
   object double  extends RouteDecode(_.toDouble)
-  object uuid    extends RouteDecode(str => UUID.fromString(str))
+  object uuid    extends RouteDecode(str => UUID.fromString(str)) {
+    def apply(name: String): PathCodec[UUID] = PathCodec.uuid(name)
+  }
   object date    extends RouteDecode(str => LocalDate.parse(str))
   object time    extends RouteDecode(str => LocalDateTime.parse(str))
 }
