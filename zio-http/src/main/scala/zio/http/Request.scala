@@ -24,7 +24,7 @@ import zio.http.internal.HeaderOps
 
 final case class Request(
   version: Version = Version.Default,
-  method: Method = Method.Default,
+  method: Method = Method.ANY,
   url: URL = URL.empty,
   headers: Headers = Headers.empty,
   body: Body = Body.empty,

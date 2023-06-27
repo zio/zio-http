@@ -28,19 +28,19 @@ import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLay
 
 object StaticServerSpec extends HttpRunnableSpec {
 
-  private val staticApp = Http.collectZIO[Request] {
-    case Method.GET -> Root / "success"       => ZIO.succeed(Response.ok)
-    case Method.GET -> Root / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
-    case Method.GET -> Root / "die"           => ZIO.die(new RuntimeException("DIE"))
-    case Method.GET -> Root / "get%2Fsuccess" => ZIO.succeed(Response.ok)
-  }
+  private val staticApp = Routes(
+    Method.GET / "success"       -> handler(Response.ok),
+    Method.GET / "failure"       -> handler(ZIO.fail(new RuntimeException("FAILURE"))),
+    Method.GET / "die"           -> handler(ZIO.die(new RuntimeException("DIE"))),
+    Method.GET / "get%2Fsuccess" -> handler(Response.ok),
+  ).ignoreErrors.toApp
 
   // Use this route to test anything that doesn't require ZIO related computations.
-  private val nonZIO = Http.collectExit[Request] {
-    case _ -> Root / "ExitSuccess" => Exit.succeed(Response.ok)
-    case _ -> Root / "ExitFailure" => Exit.fail(new RuntimeException("FAILURE"))
-    case _ -> Root / "throwable"   => throw new Exception("Throw inside Handler")
-  }
+  private val nonZIO = Routes(
+    Method.ANY / "ExitSuccess" -> handler(Exit.succeed(Response.ok)),
+    Method.ANY / "ExitFailure" -> handler(Exit.fail(new RuntimeException("FAILURE"))),
+    Method.ANY / "throwable"   -> handler(throw new Exception("Throw inside Handler")),
+  ).ignoreErrors.toApp
 
   private val staticAppWithCors = Http.collectZIO[Request] { case Method.GET -> Root / "success-cors" =>
     ZIO.succeed(Response.ok.addHeader(Header.Vary("test1", "test2")))

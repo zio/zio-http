@@ -104,17 +104,16 @@ class EndpointBenchmark {
   val apiHttpApp = handledUsersPosts.toApp
 
   // Collect DSL
-  val collectHttpApp = Http.collectZIO[Request] { //
-    case req @ Method.GET -> Root / "users" / userId / "posts" / postId =>
-      val userIdInt = userId.toInt
-      val postIdInt = postId.toInt
-      val query     = req.url.queryParams.get("query").flatMap(_.headOption).get
-      ZIO.succeed(
-        Response.json(
-          ExampleData(userIdInt, postIdInt, query).toJson,
-        ),
-      )
-  }
+  val collectHttpApp = Routes(
+    Method.GET / "users" / int("userId") / "posts" / int("postId") -> { 
+      case (userIdInt, postIdInt) => 
+        handler { req: Request => 
+          val query = req.url.queryParams.get("query").flatMap(_.headOption).get
+
+          Response.json(ExampleData(userIdInt, postIdInt, query).toJson)
+        }
+    }
+  ).toApp
 
   // Tapir Akka DSL
 
@@ -439,53 +438,63 @@ class EndpointBenchmark {
 
   // Collect DSL
 
-  val broadCollectApp = Http.collectZIO[Request] {
-    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments" / commentId                       =>
-      val _ = (userId.toInt, postId.toInt, commentId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments"                                   =>
-      val _ = (userId.toInt, postId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "posts" / postId                                                =>
-      val _ = (userId.toInt, postId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "posts"                                                         =>
-      val _ = userId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId                                                                   =>
-      val _ = userId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "users"                                                                            =>
-      ZIO.unit
-    case Method.GET -> Root / "posts" / postId / "comments" / commentId                                          =>
-      val _ = (postId.toInt, commentId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "posts" / postId / "comments"                                                      =>
-      val _ = postId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "posts" / postId                                                                   =>
-      val _ = postId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "posts"                                                                            =>
-      ZIO.unit
-    case Method.GET -> Root / "comments" / commentId                                                             =>
-      val _ = commentId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "comments"                                                                         =>
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "comments"                                                      =>
-      val _ = userId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "comments" / commentId                                          =>
-      val _ = (userId.toInt, commentId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments" / commentId / "replies" / replyId =>
-      val _ = (userId.toInt, postId.toInt, commentId.toInt, replyId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments" / commentId / "replies"           =>
-      val _ = (userId.toInt, postId.toInt, commentId.toInt)
-      ZIO.unit
-  }
+  val broadCollectApp = Routes(
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") -> {
+      case (userId: Int, postId: Int, commentId: Int) => 
+        handler(Response())
+    },
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" -> {
+      case (userId: Int, postId: Int) => 
+        handler(Response())
+    },
+    Method.GET / "users" / int("userId") / "posts" / int("postId") -> {
+      case (userId: Int, postId: Int) => 
+       handler(Response())
+    },
+    Method.GET / "users" / int("userId") / "posts" -> {
+      case (userId: Int) => 
+        handler(Response())
+    } ,    
+    Method.GET / "users" / int("userId") -> {
+      case (userId: Int) => 
+        handler(Response())
+    },
+    Method.GET / "users" -> handler(Response()),
+    Method.GET / "posts" / int("postId") / "comments" / int("commentId") -> {
+      case (postId: Int, commentId: Int) => 
+        handler(Response())
+    },
+    Method.GET / "posts" / int("postId") / "comments" -> {
+      case (postId: Int) => 
+        handler(Response())
+    },
+    Method.GET / "posts" / int("postId") -> {
+      case (postId: Int) => 
+        handler(Response())
+    },
+    Method.GET / "posts"  -> handler(Response()),
+    Method.GET / "comments" / int("commentId") -> {
+      case (commentId: Int) => 
+        handler(Response())
+    },
+    Method.GET / "comments" -> handler(Response()),
+    Method.GET / "users" / int("userId") / "comments" -> {
+      case (userId: Int) => 
+        handler(Response())
+    },
+    Method.GET / "users" / int("userId") / "comments" / int("commentId") -> {
+      case (userId: Int, commentId: Int) => 
+        handler(Response())
+    },
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies" / int("replyId") -> {
+      case (userId: Int, postId: Int, commentId: Int, replyId: Int) => 
+        handler(Response())
+    },
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies" -> {
+      case (userId: Int, postId: Int, commentId: Int) => 
+        handler(Response())
+    }
+  ).toApp
 
   // Tapir Akka DSL
 

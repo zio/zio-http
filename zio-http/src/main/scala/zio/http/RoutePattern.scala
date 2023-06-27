@@ -76,7 +76,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    * Decodes a method and path into a value of type `A`.
    */
   def decode(actual: Method, path: Path): Either[String, A] =
-    if (actual != method) {
+    if (!method.matches(actual)) {
       Left(s"Expected HTTP method ${method} but found method ${actual}")
     } else pathCodec.decode(path)
 
@@ -107,7 +107,8 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   /**
    * Renders the route pattern as a string.
    */
-  def render: String = s"${method.name} ${pathCodec.render}"
+  def render: String =
+    s"${method.render} ${pathCodec.render}"
 
   /**
    * Converts the route pattern into an HttpCodec that produces the same value.
@@ -165,12 +166,28 @@ object RoutePattern {
   }
   private[http] object Tree                                                          {
     def apply[A](routePattern: RoutePattern[_], value: A): Tree[A] = {
-      val method   = routePattern.method
+      val methods  =
+        routePattern.method match {
+          case Method.ANY =>
+            Chunk(
+              Method.CONNECT,
+              Method.DELETE,
+              Method.GET,
+              Method.HEAD,
+              Method.OPTIONS,
+              Method.PATCH,
+              Method.POST,
+              Method.PUT,
+              Method.TRACE,
+            )
+
+          case other => Chunk(other)
+        }
       val segments = routePattern.pathCodec.segments
 
       val subtree = SegmentSubtree.single(segments, value)
 
-      Tree(ListMap(method -> subtree))
+      methods.map(method => Tree(ListMap(method -> subtree))).reduce(_ ++ _)
     }
 
     val empty: Tree[Nothing] = Tree(ListMap.empty)

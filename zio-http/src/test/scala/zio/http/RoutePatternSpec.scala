@@ -31,6 +31,45 @@ object RoutePatternSpec extends ZIOSpecDefault {
 
   def tree     =
     suite("tree")(
+      test("wildcard method") {
+        val routePattern = Method.ANY / "users"
+
+        var tree: RoutePattern.Tree[Unit] = RoutePattern.Tree.empty
+
+        tree = tree.add(routePattern, ())
+
+        assertTrue(
+          tree
+            .get(
+              Method.GET,
+              Path("/users"),
+            )
+            .nonEmpty,
+        ) &&
+        assertTrue(
+          tree
+            .get(
+              Method.PUT,
+              Path("/users"),
+            )
+            .nonEmpty,
+        ) &&
+        assertTrue(
+          tree
+            .get(
+              Method.POST,
+              Path("/users"),
+            )
+            .nonEmpty,
+        ) && assertTrue(
+          tree
+            .get(
+              Method.DELETE,
+              Path("/users"),
+            )
+            .nonEmpty,
+        )
+      },
       test("empty tree") {
         val tree = RoutePattern.Tree.empty
 
@@ -174,6 +213,35 @@ object RoutePatternSpec extends ZIOSpecDefault {
             ) == Right((1, "abc", java.util.UUID.fromString("123e4567-e89b-12d3-a456-426614174000"))),
           )
         },
+        suite("wildcard method")(
+          test("GET/POST/PUT/DELETE /users") {
+            val routePattern = Method.ANY / "users"
+
+            assertTrue(
+              routePattern.decode(
+                Method.GET,
+                Path("/users"),
+              ) == Right(()),
+            ) &&
+            assertTrue(
+              routePattern.decode(
+                Method.PUT,
+                Path("/users"),
+              ) == Right(()),
+            ) &&
+            assertTrue(
+              routePattern.decode(
+                Method.POST,
+                Path("/users"),
+              ) == Right(()),
+            ) && assertTrue(
+              routePattern.decode(
+                Method.DELETE,
+                Path("/users"),
+              ) == Right(()),
+            )
+          },
+        ),
         suite("trailing")(
           test("GET /users/1 on prefix") {
             val routePattern = Method.GET / "users"

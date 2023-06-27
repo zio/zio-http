@@ -27,9 +27,11 @@ import zio.http.internal.HttpAppTestExtensions
 object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
   def extractStatus(response: Response): Status = response.status
 
-  private val app  = Http.collectZIO[Request] { case Method.GET -> Root / "health" =>
-    ZIO.succeed(Response.ok).delay(1 second)
-  }
+  private val app =
+    Routes(
+      Method.GET / "health" -> handler(ZIO.succeed(Response.ok).delay(1 second)),
+    ).toApp
+
   private val midA = HttpAppMiddleware.addHeader("X-Custom", "A")
   private val midB = HttpAppMiddleware.addHeader("X-Custom", "B")
 

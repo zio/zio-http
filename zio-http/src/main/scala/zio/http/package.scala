@@ -19,11 +19,11 @@ package zio
 package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
 
   /**
-   * Smartly constructs a handler from the specified value. If you have
-   * difficulty using this function, then please use the constructors on
-   * [[zio.http.Handler]] directly.
+   * A smart constructor that attempts to construct a handler from the specified
+   * value. If you have difficulty using this function, then please use the
+   * constructors on [[zio.http.Handler]] directly.
    */
-  def handler[H](handler: H)(implicit h: HandlerConstructor[H]): Handler[h.Env, h.Err, h.In, h.Out] =
+  def handler[H](handler: => H)(implicit h: HandlerConstructor[H]): Handler[h.Env, h.Err, h.In, h.Out] =
     Handler.from(handler)
 
   /**

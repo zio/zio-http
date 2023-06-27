@@ -702,7 +702,7 @@ object Handler {
   def forbidden(message: => String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.Forbidden(message))
 
-  def from[H](handler: H)(implicit h: HandlerConstructor[H]): Handler[h.Env, h.Err, h.In, h.Out] =
+  def from[H](handler: => H)(implicit h: HandlerConstructor[H]): Handler[h.Env, h.Err, h.In, h.Out] =
     h.toHandler(handler)
 
   /**
@@ -755,7 +755,7 @@ object Handler {
     }
   }
 
-  def fromFile[R](makeFile: File)(implicit trace: Trace): Handler[R, Throwable, Any, Response] =
+  def fromFile[R](makeFile: => File)(implicit trace: Trace): Handler[R, Throwable, Any, Response] =
     fromFileZIO(ZIO.attempt(makeFile))
 
   def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit trace: Trace): Handler[R, Throwable, Any, Response] = {

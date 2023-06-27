@@ -28,18 +28,24 @@ sealed trait Method { self =>
    * the other will be returned. Otherwise, the right method will be returned.
    */
   def ++(that: Method): Method =
-    if (that == Method.Default) self
+    if (that == Method.ANY) self
     else that
 
   def /[A](that: PathCodec[A]): RoutePattern[A] = RoutePattern.fromMethod(self) / that
+
+  def matches(that: Method): Boolean =
+    if (self == Method.ANY) true
+    else if (that == Method.ANY) true
+    else self == that
 
   /**
    * The name of the method, as it appears in the HTTP request.
    */
   val name: String
 
-  override def toString: String =
-    if (name.length == 0) "<default-method>" else name
+  def render: String = if (self == Method.ANY) "*" else self.name
+
+  override def toString: String = render
 }
 
 object Method {
@@ -70,5 +76,5 @@ object Method {
   object TRACE   extends Method { val name = "TRACE"   }
   object CONNECT extends Method { val name = "CONNECT" }
 
-  object Default extends Method { val name = "GET" }
+  object ANY extends Method { val name = "GET" }
 }

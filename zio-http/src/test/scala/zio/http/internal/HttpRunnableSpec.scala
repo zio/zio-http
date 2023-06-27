@@ -39,7 +39,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      */
     def run(
       version: Version = Version.Default,
-      method: Method = Method.Default,
+      method: Method = Method.ANY,
       path: Path = Root,
       headers: Headers = Headers.empty,
       body: Body = Body.empty,
