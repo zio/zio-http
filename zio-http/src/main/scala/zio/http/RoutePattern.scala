@@ -211,4 +211,6 @@ object RoutePattern {
       pathSpec./[Unit](PathCodec.Segment(SegmentCodec.literal(segment)))
     }
   }
+
+  val any: RoutePattern[Path] = RoutePattern(Method.ANY, PathCodec.trailing)
 }

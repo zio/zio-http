@@ -26,6 +26,7 @@ import zio.{Chunk, Scope, ZIO, ZLayer, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
+import zio.http.codec.PathCodec.trailing
 import zio.http.html.{body, div, id}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 
@@ -103,9 +104,11 @@ object ServerSpec extends HttpRunnableSpec {
           }
       } +
       suite("echo content") {
-        val app = Http.collectZIO[Request] { case req =>
-          req.body.asString.map(text => Response.text(text))
-        }
+        val app = route(RoutePattern.any) { 
+          handler { (req: Request) =>
+            req.body.asString.map(text => Response.text(text))
+          }
+        }.ignoreErrors.toApp
 
         test("status is 200") {
           val res = app.deploy.status.run()
@@ -224,20 +227,27 @@ object ServerSpec extends HttpRunnableSpec {
         },
       ) +
       suite("proxy") {
-        val server = Http.collectZIO[Request] {
-          case req @ method -> "" /: "proxy" /: path =>
-            val url = URL.decode(s"http://localhost:$port/$path").toOption.get
+        val server = Routes(
+          Method.ANY / "proxy" / trailing -> { (path: Path) => 
+            handler { req: Request =>      
+              val url = URL.decode(s"http://localhost:$port/$path").toOption.get
 
-            for {
-              res <-
-                Client.request(
-                  Request(method = method, headers = req.headers, body = req.body, url = url),
-                )
-            } yield res
+              for {
+                res <-
+                  Client.request(
+                    Request(method = req.method, headers = req.headers, body = req.body, url = url),
+                  )
+              } yield res
+            }
+          },
+          Method.ANY / trailing -> { (path: Path) =>
+            handler { (req: Request) =>
+              val method = req.method 
 
-          case _ @method -> path =>
-            ZIO.succeed(Response.text(s"Received ${method} query on ${path}"))
-        }
+              Response.text(s"Received ${method} query on ${path}")
+            }
+          }).ignoreErrors.toApp 
+
         test("should be able to directly return other request") {
           for {
             body1 <- server.deploy.body
