@@ -104,7 +104,7 @@ object ServerSpec extends HttpRunnableSpec {
           }
       } +
       suite("echo content") {
-        val app = route(RoutePattern.any) { 
+        val app = route(RoutePattern.any) {
           handler { (req: Request) =>
             req.body.asString.map(text => Response.text(text))
           }
@@ -128,7 +128,7 @@ object ServerSpec extends HttpRunnableSpec {
           } +
           test("data") {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
-            val app        = Http.collect[Request] { case req => Response(body = req.body) }
+            val app        = Routes(route(RoutePattern.any)(handler((req: Request) => Response(body = req.body)))).toApp
             val res        = app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromStream(dataStream))
             assertZIO(res)(equalTo(MaxSize))
           }
@@ -150,7 +150,13 @@ object ServerSpec extends HttpRunnableSpec {
         val body         = "some-text"
         val bodyAsStream = ZStream.fromChunk(Chunk.fromArray(body.getBytes))
 
-        val app = Http.collectZIO[Request] { case req => req.body.asString.map(body => Response.text(body)) }.deploy
+        val app = Routes(
+          route(RoutePattern.any) {
+            handler { req: Request =>
+              req.body.asString.map(body => Response.text(body))
+            }
+          },
+        ).ignoreErrors.toApp.deploy
 
         def roundTrip[R, E <: Throwable](
           app: HttpApp[R, Throwable],
@@ -228,8 +234,8 @@ object ServerSpec extends HttpRunnableSpec {
       ) +
       suite("proxy") {
         val server = Routes(
-          Method.ANY / "proxy" / trailing -> { (path: Path) => 
-            handler { req: Request =>      
+          Method.ANY / "proxy" / trailing -> { (path: Path) =>
+            handler { req: Request =>
               val url = URL.decode(s"http://localhost:$port/$path").toOption.get
 
               for {
@@ -240,13 +246,14 @@ object ServerSpec extends HttpRunnableSpec {
               } yield res
             }
           },
-          Method.ANY / trailing -> { (path: Path) =>
+          Method.ANY / trailing           -> { (path: Path) =>
             handler { (req: Request) =>
-              val method = req.method 
+              val method = req.method
 
               Response.text(s"Received ${method} query on ${path}")
             }
-          }).ignoreErrors.toApp 
+          },
+        ).ignoreErrors.toApp
 
         test("should be able to directly return other request") {
           for {
@@ -262,9 +269,11 @@ object ServerSpec extends HttpRunnableSpec {
   )
 
   def requestSpec = suite("RequestSpec") {
-    val app: HttpApp[Any, Nothing] = Http.collect[Request] { case req =>
-      Response.text(req.header(Header.ContentLength).map(_.length).getOrElse(-1).toString)
-    }
+    val app: App[Any] =
+      Routes.singletonZIO { req: Request =>
+        ZIO.succeed(Response.text(req.header(Header.ContentLength).map(_.length).getOrElse(-1).toString))
+      }.ignoreErrors.toApp
+
     test("has content-length") {
       check(Gen.alphaNumericString) { string =>
         val res = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(string))
@@ -272,12 +281,14 @@ object ServerSpec extends HttpRunnableSpec {
       }
     } +
       test("POST Request.getBody") {
-        val app = Http.collectZIO[Request] { case req => req.body.asChunk.as(Response.ok) }
+        val app = Routes.singletonZIO { case req => req.body.asChunk.as(Response.ok) }.ignoreErrors.toApp
         val res = app.deploy.status.run(path = Root, method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
       } +
       test("body can be read multiple times") {
-        val app = Http.collectZIO[Request] { case req => (req.body.asChunk *> req.body.asChunk).as(Response.ok) }
+        val app = Routes.singletonZIO { case req =>
+          (req.body.asChunk *> req.body.asChunk).as(Response.ok)
+        }.ignoreErrors.toApp
         val res = app.deploy.status.run(method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
       }
@@ -322,12 +333,11 @@ object ServerSpec extends HttpRunnableSpec {
       assertZIO(res)(equalTo("abc"))
     },
     test("echo streaming") {
-      val res = Http
-        .collectHandler[Request] { case req =>
+      val res = Routes.singleton {
+        Handler.fromFunctionHandler[Request] { req =>
           Handler.fromStream(ZStream.fromZIO(req.body.asChunk).flattenChunks)
         }
-        .deploy
-        .body
+      }.ignoreErrors.toApp.deploy.body
         .mapZIO(_.asString)
         .run(body = Body.fromString("abc"))
       assertZIO(res)(equalTo("abc"))
@@ -382,9 +392,10 @@ object ServerSpec extends HttpRunnableSpec {
 
   def requestBodySpec = suite("RequestBodySpec")(
     test("POST Request stream") {
-      val app: Http[Any, Throwable, Request, Response] = Http.collect[Request] { case req =>
-        Response(body = Body.fromStream(req.body.asStream))
-      }
+      val app: App[Any] = Routes.singletonZIO { case req =>
+        ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
+      }.toApp
+
       check(Gen.alphaNumericString) { c =>
         assertZIO(app.deploy.body.mapZIO(_.asString).run(path = Root, method = Method.POST, body = Body.fromString(c)))(
           equalTo(c),

@@ -68,4 +68,10 @@ object Routes                                                                   
    */
   def fromIterable[Env, Err](iterable: Iterable[Route[Env, Err]]): Routes[Env, Err] =
     Routes(Chunk.fromIterable(iterable))
+
+  def singleton[Env, Err](h: Handler[Env, Err, Request, Response]): Routes[Env, Err] =
+    Routes(Route.route(RoutePattern.any)(h))
+
+  def singletonZIO[Env, Err](f: Request => ZIO[Env, Err, Response]): Routes[Env, Err] =
+    singleton(Handler.fromFunctionZIO(f))
 }

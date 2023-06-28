@@ -31,6 +31,22 @@ object RoutePatternSpec extends ZIOSpecDefault {
 
   def tree     =
     suite("tree")(
+      test("wildcard route") {
+        var tree: RoutePattern.Tree[Int] = RoutePattern.Tree.empty
+
+        val routePattern = RoutePattern.any
+
+        tree = tree.add(routePattern, 42)
+
+        def check(method: Method, path: Path): TestResult =
+          assertTrue(tree.get(method, path) == Chunk(42))
+
+        check(Method.GET, Path("/"))
+        // check(Method.GET, Path("/users")) &&
+        // check(Method.PUT, Path("/users/1")) &&
+        // check(Method.POST, Path("/users/1/posts")) &&
+        // check(Method.DELETE, Path("/users/1/posts/abc"))
+      },
       test("wildcard method") {
         val routePattern = Method.ANY / "users"
 
@@ -213,7 +229,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
             ) == Right((1, "abc", java.util.UUID.fromString("123e4567-e89b-12d3-a456-426614174000"))),
           )
         },
-        suite("wildcard method")(
+        suite("wildcard")(
           test("GET/POST/PUT/DELETE /users") {
             val routePattern = Method.ANY / "users"
 
@@ -240,6 +256,17 @@ object RoutePatternSpec extends ZIOSpecDefault {
                 Path("/users"),
               ) == Right(()),
             )
+          },
+          test("* ...") {
+            def test(method: Method, path: Path): TestResult =
+              assertTrue(RoutePattern.any.decode(method, path).isRight)
+
+            test(Method.GET, Path("/")) &&
+            test(Method.GET, Path("/")) &&
+            test(Method.GET, Path("/users")) &&
+            test(Method.PUT, Path("/users/1")) &&
+            test(Method.POST, Path("/users/1/posts")) &&
+            test(Method.DELETE, Path("/users/1/posts/abc"))
           },
         ),
         suite("trailing")(
@@ -274,13 +301,23 @@ object RoutePatternSpec extends ZIOSpecDefault {
               ) == Right((1, Path("posts/abc/def/ghi"))),
             )
           },
-          test("trailing matches empty") {
+          test("trailing slash matches root") {
             val routePattern = Method.GET / "users" / trailing
 
             assertTrue(
               routePattern.decode(
                 Method.GET,
                 Path("/users/"),
+              ) == Right(Path.root),
+            )
+          },
+          test("trailing without slash matches empty") {
+            val routePattern = Method.GET / "users" / trailing
+
+            assertTrue(
+              routePattern.decode(
+                Method.GET,
+                Path("/users"),
               ) == Right(Path.empty),
             )
           },
@@ -343,7 +380,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
     )
 
   def spec =
-    suite("PathPatternSpec")(
+    suite("RoutePatternSpec")(
       decoding,
       rendering,
       formatting,

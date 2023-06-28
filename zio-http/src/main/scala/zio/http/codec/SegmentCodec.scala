@@ -22,11 +22,24 @@ import zio.Chunk
 import zio.http.Path
 
 sealed trait SegmentCodec[A] { self =>
+  private var _hashCode: Int  = 0
+  private var _render: String = ""
+
   final type Type = A
 
   def ??(doc: Doc): SegmentCodec[A]
 
+  override def equals(that: Any): Boolean = that match {
+    case that: SegmentCodec[_] => (this.getClass == that.getClass) && (this.render == that.render)
+    case _                     => false
+  }
+
   def format(value: A): Path
+
+  override val hashCode: Int = {
+    if (_hashCode == 0) _hashCode = (this.getClass.getName(), render).hashCode
+    _hashCode
+  }
 
   final def isEmpty: Boolean = self.asInstanceOf[SegmentCodec[_]] match {
     case SegmentCodec.Empty(_) => true
@@ -38,15 +51,18 @@ sealed trait SegmentCodec[A] { self =>
 
   final def nonEmpty: Boolean = !isEmpty
 
-  final def render: String = self.asInstanceOf[SegmentCodec[_]] match {
-    case SegmentCodec.Empty(_)          => s""
-    case SegmentCodec.Literal(value, _) => s"/$value"
-    case SegmentCodec.IntSeg(name, _)   => s"/{$name}"
-    case SegmentCodec.LongSeg(name, _)  => s"/{$name}"
-    case SegmentCodec.Text(name, _)     => s"/{$name}"
-    case SegmentCodec.BoolSeg(name, _)  => s"/{$name}"
-    case SegmentCodec.UUID(name, _)     => s"/{$name}"
-    case SegmentCodec.Trailing(_)       => s"/..."
+  final def render: String = {
+    if (_render == "") _render = self.asInstanceOf[SegmentCodec[_]] match {
+      case SegmentCodec.Empty(_)          => s""
+      case SegmentCodec.Literal(value, _) => s"/$value"
+      case SegmentCodec.IntSeg(name, _)   => s"/{$name}"
+      case SegmentCodec.LongSeg(name, _)  => s"/{$name}"
+      case SegmentCodec.Text(name, _)     => s"/{$name}"
+      case SegmentCodec.BoolSeg(name, _)  => s"/{$name}"
+      case SegmentCodec.UUID(name, _)     => s"/{$name}"
+      case SegmentCodec.Trailing(_)       => s"/..."
+    }
+    _render
   }
 }
 object SegmentCodec          {

@@ -12,19 +12,21 @@ import org.openjdk.jmh.annotations._
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpCombineEval {
+  private val req  = Request.get("/foo")
+  private val res  = Response.ok
   private val MAX  = 1000
-  private val app  = Http.collect[Int] { case 0 => 1 }
-  private val spec = (0 to MAX).foldLeft(app)((a, _) => a ++ app)
+  private val app  = Routes(route(Method.GET / "")(handler(res)))
+  private val spec = (0 to MAX).foldLeft(app)((a, _) => a ++ app).toApp
 
   @Benchmark
   def empty(): Unit = {
-    spec.runZIOOrNull(-1)(Unsafe.unsafe, Trace.empty)
+    spec.runZIOOrNull(req)(Unsafe.unsafe, Trace.empty)
     ()
   }
 
   @Benchmark
   def ok(): Unit = {
-    spec.runZIOOrNull(0)(Unsafe.unsafe, Trace.empty)
+    spec.runZIOOrNull(req)(Unsafe.unsafe, Trace.empty)
     ()
   }
 }

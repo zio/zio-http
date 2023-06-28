@@ -105,14 +105,13 @@ class EndpointBenchmark {
 
   // Collect DSL
   val collectHttpApp = Routes(
-    Method.GET / "users" / int("userId") / "posts" / int("postId") -> { 
-      case (userIdInt, postIdInt) => 
-        handler { req: Request => 
-          val query = req.url.queryParams.get("query").flatMap(_.headOption).get
+    Method.GET / "users" / int("userId") / "posts" / int("postId") -> { case (userIdInt, postIdInt) =>
+      handler { req: Request =>
+        val query = req.url.queryParams.get("query").flatMap(_.headOption).get
 
-          Response.json(ExampleData(userIdInt, postIdInt, query).toJson)
-        }
-    }
+        Response.json(ExampleData(userIdInt, postIdInt, query).toJson)
+      }
+    },
   ).toApp
 
   // Tapir Akka DSL
@@ -440,60 +439,51 @@ class EndpointBenchmark {
 
   val broadCollectApp = Routes(
     Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") -> {
-      case (userId: Int, postId: Int, commentId: Int) => 
+      case (userId: Int, postId: Int, commentId: Int) =>
         handler(Response())
     },
-    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" -> {
-      case (userId: Int, postId: Int) => 
-        handler(Response())
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" -> { case (userId: Int, postId: Int) =>
+      handler(Response())
     },
-    Method.GET / "users" / int("userId") / "posts" / int("postId") -> {
-      case (userId: Int, postId: Int) => 
-       handler(Response())
+    Method.GET / "users" / int("userId") / "posts" / int("postId")              -> { case (userId: Int, postId: Int) =>
+      handler(Response())
     },
-    Method.GET / "users" / int("userId") / "posts" -> {
-      case (userId: Int) => 
-        handler(Response())
-    } ,    
-    Method.GET / "users" / int("userId") -> {
-      case (userId: Int) => 
-        handler(Response())
+    Method.GET / "users" / int("userId") / "posts"                              -> { case (userId: Int) =>
+      handler(Response())
     },
-    Method.GET / "users" -> handler(Response()),
-    Method.GET / "posts" / int("postId") / "comments" / int("commentId") -> {
-      case (postId: Int, commentId: Int) => 
-        handler(Response())
+    Method.GET / "users" / int("userId")                                        -> { case (userId: Int) =>
+      handler(Response())
     },
-    Method.GET / "posts" / int("postId") / "comments" -> {
-      case (postId: Int) => 
-        handler(Response())
+    Method.GET / "users"                                                        -> handler(Response()),
+    Method.GET / "posts" / int("postId") / "comments" / int("commentId") -> { case (postId: Int, commentId: Int) =>
+      handler(Response())
     },
-    Method.GET / "posts" / int("postId") -> {
-      case (postId: Int) => 
-        handler(Response())
+    Method.GET / "posts" / int("postId") / "comments"                    -> { case (postId: Int) =>
+      handler(Response())
     },
-    Method.GET / "posts"  -> handler(Response()),
-    Method.GET / "comments" / int("commentId") -> {
-      case (commentId: Int) => 
-        handler(Response())
+    Method.GET / "posts" / int("postId")                                 -> { case (postId: Int) =>
+      handler(Response())
     },
-    Method.GET / "comments" -> handler(Response()),
-    Method.GET / "users" / int("userId") / "comments" -> {
-      case (userId: Int) => 
-        handler(Response())
+    Method.GET / "posts"                                                 -> handler(Response()),
+    Method.GET / "comments" / int("commentId")                           -> { case (commentId: Int) =>
+      handler(Response())
     },
-    Method.GET / "users" / int("userId") / "comments" / int("commentId") -> {
-      case (userId: Int, commentId: Int) => 
-        handler(Response())
+    Method.GET / "comments"                                              -> handler(Response()),
+    Method.GET / "users" / int("userId") / "comments"                    -> { case (userId: Int) =>
+      handler(Response())
     },
-    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies" / int("replyId") -> {
-      case (userId: Int, postId: Int, commentId: Int, replyId: Int) => 
-        handler(Response())
+    Method.GET / "users" / int("userId") / "comments" / int("commentId") -> { case (userId: Int, commentId: Int) =>
+      handler(Response())
+    },
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies" / int(
+      "replyId",
+    ) -> { case (userId: Int, postId: Int, commentId: Int, replyId: Int) =>
+      handler(Response())
     },
     Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies" -> {
-      case (userId: Int, postId: Int, commentId: Int) => 
+      case (userId: Int, postId: Int, commentId: Int) =>
         handler(Response())
-    }
+    },
   ).toApp
 
   // Tapir Akka DSL

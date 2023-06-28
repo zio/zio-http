@@ -42,9 +42,9 @@ object StaticServerSpec extends HttpRunnableSpec {
     Method.ANY / "throwable"   -> handler(throw new Exception("Throw inside Handler")),
   ).ignoreErrors.toApp
 
-  private val staticAppWithCors = Http.collectZIO[Request] { case Method.GET -> Root / "success-cors" =>
-    ZIO.succeed(Response.ok.addHeader(Header.Vary("test1", "test2")))
-  } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
+  private val staticAppWithCors = Routes(
+    Method.GET / "success-cors" -> handler(Response.ok.addHeader(Header.Vary("test1", "test2"))),
+  ).toApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
 
   private val app = serve { (nonZIO ++ staticApp ++ staticAppWithCors).withDefaultErrorResponse }
 

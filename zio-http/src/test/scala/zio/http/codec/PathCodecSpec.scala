@@ -55,6 +55,19 @@ object PathCodecSpec extends ZIOSpecDefault {
           assertTrue(codec.decode(Path.empty) == Right(())) &&
           assertTrue(codec.decode(Path.root) == Right(()))
         },
+        test("trailing slashes") {
+          val codec = PathCodec("/users") ++ PathCodec.trailing
+
+          assertTrue(codec.decode(Path("/users")) == Right(Path.empty)) &&
+          assertTrue(codec.decode(Path("/users/")) == Right(Path.root))
+        },
+        test("wildcard") {
+          val codec = PathCodec.trailing
+
+          assertTrue(codec.decode(Path.empty) == Right(Path.empty)) &&
+          assertTrue(codec.decode(Path.root) == Right(Path.root)) &&
+          assertTrue(codec.decode(Path("/users")) == Right(Path("/users")))
+        },
         test("/users") {
           val codec = PathCodec.empty / SegmentCodec.literal("users")
 

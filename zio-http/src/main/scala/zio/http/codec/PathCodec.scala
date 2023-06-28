@@ -168,9 +168,17 @@ sealed trait PathCodec[A] { self =>
         case TrailingOpt =>
           // Consume all Trailing, possibly empty:
           if (j >= segments.length) {
-            stack.push(Path.empty)
+            val result =
+              if (path.hasTrailingSlash) Path.root else Path.empty
+
+            stack.push(result)
           } else {
-            stack.push(Path(0, segments.drop(j)))
+            val flags =
+              if (j == 0) path.flags
+              else if (path.hasTrailingSlash) Path.Flags(Path.Flag.TrailingSlash)
+              else 0
+
+            stack.push(Path(flags, segments.drop(j)))
             j = segments.length
           }
 
@@ -185,7 +193,9 @@ sealed trait PathCodec[A] { self =>
       if (j < segments.length) {
         val rest = segments.drop(j).mkString("/")
         Left(s"Expected end of path but found: ${rest}")
-      } else Right(stack.pop().asInstanceOf[A])
+      } else {
+        Right(stack.pop().asInstanceOf[A])
+      }
     }
   }
 
@@ -306,6 +316,8 @@ object PathCodec          {
 
   def int(name: String): PathCodec[Int] = Segment(SegmentCodec.int(name))
 
+  def literal(value: String): PathCodec[Unit] = apply(value)
+
   def long(name: String): PathCodec[Long] = Segment(SegmentCodec.long(name))
 
   implicit def path(value: String): PathCodec[Unit] = apply(value)
@@ -405,6 +417,15 @@ object PathCodec          {
             result = Chunk.empty
             i = segments.length
           }
+        }
+      }
+
+      // Might be some other matches because trailing matches everything:
+      if (subtree ne null) {
+        subtree.others.get(SegmentCodec.trailing) match {
+          case Some(subtree) =>
+            result = result ++ subtree.value
+          case None          =>
         }
       }
 
