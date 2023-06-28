@@ -13,8 +13,10 @@ import org.openjdk.jmh.annotations._
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpCollectEval {
   private val MAX       = 10000
-  private val app       = Http.collect[Int] { case 0 => 1 }
-  private val http      = Http.collect[Request] { case _ -> Root / "text" => 1 }
+  private val req       = Request()
+  private val res       = Response.ok
+  private val app       = Routes.singleton(handler(res)).toApp
+  private val http      = Routes(Route.route(Method.ANY / "text")(handler(res))).toApp
   private val httpTotal = Handler
     .fromFunction[Request] {
       case _ -> Root / "text" => 1
@@ -26,7 +28,7 @@ class HttpCollectEval {
 
   @Benchmark
   def benchmarkApp(): Unit = {
-    (0 to MAX).foreach(_ => app.runZIOOrNull(0)(Unsafe.unsafe, Trace.empty))
+    (0 to MAX).foreach(_ => app.runZIOOrNull(req)(Unsafe.unsafe, Trace.empty))
     ()
   }
 

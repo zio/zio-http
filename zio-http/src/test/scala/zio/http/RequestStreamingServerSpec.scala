@@ -58,12 +58,12 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       assertZIO(res)(equalTo(size.toString))
     },
     test("multiple body read") {
-      val app = Http.collectZIO[Request] { case req =>
+      val app = Routes.singletonZIO { case req =>
         for {
           _ <- req.body.asChunk
           _ <- req.body.asChunk
         } yield Response.ok
-      }
+      }.ignoreErrors.toApp
       val res = app.deploy.status.run()
       assertZIO(res)(equalTo(Status.InternalServerError))
     },

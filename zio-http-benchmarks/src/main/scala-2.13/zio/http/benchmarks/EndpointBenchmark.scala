@@ -224,11 +224,13 @@ class EndpointBenchmark {
 
   // Collect DSL
 
-  val deepPathCollectHttpApp = Http.collectZIO[Request] { //
-    case Method.GET -> Root / "first" / id1 / "second" / id2 / "third" / id3 / "fourth" / id4 / "fifth" / id5 / "sixth" / id6 / "seventh" / id7 =>
-      val _ = (id1.toInt, id2.toInt, id3.toInt, id4.toInt, id5.toInt, id6.toInt, id7.toInt)
-      ZIO.unit
-  }
+  val deepPathCollectHttpApp = Routes(
+    Method.GET / "first" / int("id1") / "second" / int("id2") / "third" / int("id3") / "fourth" / int(
+      "id4",
+    ) / "fifth" / int("id5") / "sixth" / int("id6") / "seventh" / int("id7") -> { case (_, _, _, _, _, _, _) =>
+      handler(Response.ok)
+    },
+  ).toApp
 
   // Tapir Akka DSL
 

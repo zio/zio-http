@@ -26,15 +26,15 @@ import zio.stream.ZStream
 import zio.http._
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.netty.NettyConfig
+import zio.http.codec.PathCodec.trailing
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
-  private val app = Http.collectZIO[Request] {
-    case req @ Method.POST -> Root / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
-    case Method.GET -> Root / "slow"             => ZIO.sleep(1.hour).as(Response.text("done"))
-    case req                                     =>
-      req.body.asString.map(Response.text(_))
-  }
+  private val app = Routes(
+    Method.POST / "streaming" -> handler((req: Request) => Response(body = Body.fromStream(req.body.asStream))),
+    Method.GET / "slow"       -> handler(ZIO.sleep(1.hour).as(Response.text("done"))),
+    Method.ANY / trailing     -> { (_: Path) => handler((req: Request) => req.body.asString.map(Response.text(_))) },
+  ).ignoreErrors.toApp
 
   private val connectionCloseHeader = Headers(Header.Connection.Close)
   private val keepAliveHeader       = Headers(Header.Connection.KeepAlive)

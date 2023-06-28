@@ -90,15 +90,9 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Http.collectHandler[Request] { case Method.GET -> Root / "a" =>
-          Handler.ok
-        }
-        val app2 = Http.collectHandler[Request] { case Method.GET -> Root / "b" =>
-          Handler.ok
-        }
-        val app3 = Http.collectHandler[Request] { case Method.GET -> Root / "c" =>
-          Handler.ok
-        }
+        val app1 = Routes(Method.GET / "a" -> Handler.ok).toApp
+        val app2 = Routes(Method.GET / "b" -> Handler.ok).toApp
+        val app3 = Routes(Method.GET / "c" -> Handler.ok).toApp
         val app  = (app1 ++ app2 @@ bearerAuthM ++ app3).status
         for {
           s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
@@ -123,15 +117,9 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Http.collectHandler[Request] { case Method.GET -> Root / "a" =>
-          Handler.ok
-        }
-        val app2 = Http.collectHandler[Request] { case Method.GET -> Root / "b" =>
-          Handler.ok
-        }
-        val app3 = Http.collectHandler[Request] { case Method.GET -> Root / "c" =>
-          Handler.ok
-        }
+        val app1 = Routes(Method.GET / "a" -> Handler.ok).toApp
+        val app2 = Routes(Method.GET / "b" -> Handler.ok).toApp
+        val app3 = Routes(Method.GET / "c" -> Handler.ok).toApp
         val app  = (app1 ++ app2 @@ bearerAuthZIOM ++ app3).status
         for {
           s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
@@ -223,9 +211,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
             } yield Some(AuthContext(value.toString)),
           )
 
-        def httpEndpoint(str: String) = Http.collect[Request] { case Method.GET -> Root / `str` =>
-          Response.ok
-        }
+        def httpEndpoint(str: String) = Routes(Method.GET / str -> Handler.ok).toApp
 
         val httpApi = (httpEndpoint("1") ++ httpEndpoint("2")) @@ auth
         for {
