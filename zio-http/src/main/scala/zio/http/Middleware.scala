@@ -2,7 +2,7 @@ package zio.http
 
 import zio._
 
-sealed trait Middleware[-Env, Ctx] { self =>
+sealed trait Middleware[-Env, +Ctx] { self =>
   import Middleware._
 
   final def @@[Env1 <: Env, Ctx2](that: Middleware[Env1, Ctx2]): Middleware[Env1, Ctx with Ctx2] =
@@ -10,7 +10,7 @@ sealed trait Middleware[-Env, Ctx] { self =>
 
   private[http] lazy val flattened: Chunk[Leaf[Env, _]] = flatten(self).materialize
 }
-object Middleware                  {
+object Middleware                   {
   private[http] case object Identity                        extends Middleware[Any, Any]
   private[http] final case class Sequence[-Env, Ctx1, Ctx2](
     first: Middleware[Env, Ctx1],

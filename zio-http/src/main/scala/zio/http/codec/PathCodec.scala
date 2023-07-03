@@ -77,7 +77,7 @@ sealed trait PathCodec[A] { self =>
       opt match {
         case Match(value) =>
           if (j >= segments.length || segments(j) != value) {
-            fail = s"Expected path segment \"${value}\" but found end of path"
+            fail = "Expected path segment \"" + value + "\" but found end of path"
             i = instructions.length
           } else {
             stack.push(())
@@ -101,7 +101,7 @@ sealed trait PathCodec[A] { self =>
               stack.push(segment.toInt)
             } catch {
               case _: NumberFormatException =>
-                fail = s"Expected integer path segment but found \"${segment}\""
+                fail = s"Expected integer path segment but found " + segment
                 i = instructions.length
             }
           }
@@ -464,9 +464,9 @@ object PathCodec          {
 
   private def mergeMaps[A, B](left: ListMap[A, B], right: ListMap[A, B])(f: (B, B) => B): ListMap[A, B] =
     right.foldLeft(left) { case (acc, (k, v)) =>
-      acc.updatedWith(k) {
-        case None     => Some(v)
-        case Some(v0) => Some(f(v0, v))
+      acc.get(k) match {
+        case None     => acc.updated(k, v)
+        case Some(v0) => acc.updated(k, f(v0, v))
       }
     }
 }

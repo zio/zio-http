@@ -41,11 +41,11 @@ object RoutePatternSpec extends ZIOSpecDefault {
         def check(method: Method, path: Path): TestResult =
           assertTrue(tree.get(method, path) == Chunk(42))
 
-        check(Method.GET, Path("/"))
-        // check(Method.GET, Path("/users")) &&
-        // check(Method.PUT, Path("/users/1")) &&
-        // check(Method.POST, Path("/users/1/posts")) &&
-        // check(Method.DELETE, Path("/users/1/posts/abc"))
+        check(Method.GET, Path("/")) &&
+        check(Method.GET, Path("/users")) &&
+        check(Method.PUT, Path("/users/1")) &&
+        check(Method.POST, Path("/users/1/posts")) &&
+        check(Method.DELETE, Path("/users/1/posts/abc"))
       },
       test("wildcard method") {
         val routePattern = Method.ANY / "users"

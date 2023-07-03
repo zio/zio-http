@@ -195,9 +195,11 @@ object RoutePattern {
 
   private def mergeMaps[A, B](left: ListMap[A, B], right: ListMap[A, B])(f: (B, B) => B): ListMap[A, B] =
     right.foldLeft(left) { case (acc, (k, v)) =>
-      acc.updatedWith(k) {
-        case None     => Some(v)
-        case Some(v0) => Some(f(v0, v))
+      val old = acc.get(k)
+
+      old match {
+        case None     => acc.updated(k, v)
+        case Some(v0) => acc.updated(k, f(v0, v))
       }
     }
 
