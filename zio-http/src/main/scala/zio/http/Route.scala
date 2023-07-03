@@ -19,6 +19,8 @@ sealed trait Route[-Env, +Err] { self =>
    */
   def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Response, Response]
 
+  def asErrorType[Err2](implicit ev: Err <:< Err2): Route[Env, Err2] = self.asInstanceOf[Route[Env, Err2]]
+
   /**
    * Handles the error of the route. This method can be used to convert a route
    * that does not handle its errors into one that does handle its errors.

@@ -24,9 +24,9 @@ import zio.test._
 import zio.stream.ZStream
 
 import zio.http._
+import zio.http.codec.PathCodec.trailing
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.netty.NettyConfig
-import zio.http.codec.PathCodec.trailing
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
