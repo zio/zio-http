@@ -51,12 +51,12 @@ object AuthenticationServer extends ZIOAppDefault {
   // Login is successful only if the password is the reverse of the username
   def login: App[Any] =
     Routes(
-      Method.GET / "login" / string("username") / string("password") -> { case (username: String, password: String) =>
+      Method.GET / "login" / string("username") / string("password") -> ({ case (username: String, password: String) =>
         handler(
           if (password.reverse.hashCode == username.hashCode) Response.text(jwtEncode(username))
           else Response.text("Invalid username or password.").status(Status.Unauthorized),
         )
-      },
+      }: ((String, String)) => Handler[Any, Nothing, Request, Response]),
     ).toApp
 
   // Composing all the HttpApps together

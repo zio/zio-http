@@ -161,15 +161,13 @@ private[cli] object CliEndpoint {
             Set.empty
         }
       case HttpCodec.Path(pathCodec, _)             =>
-        pathCodec.segments.toSet.map[CliEndpoint[_]] { segment =>
+        pathCodec.segments.toSet.map { (segment: SegmentCodec[_]) =>
           segment match {
             case codec: SegmentCodec.UUID   =>
-              import codec.name
-
               CliEndpoint[java.util.UUID](
                 (uuid, request) => request.addPathParam(uuid.toString),
                 Options
-                  .text(name)
+                  .text(codec.name)
                   .mapOrFail(str =>
                     Try(java.util.UUID.fromString(str)).toEither.left.map { error =>
                       ValidationError(
@@ -182,51 +180,41 @@ private[cli] object CliEndpoint {
                 Doc.empty,
               )
             case codec: SegmentCodec.Text   =>
-              import codec.name
-
               CliEndpoint[String](
                 (str, request) => request.addPathParam(str),
-                Options.text(name),
+                Options.text(codec.name),
                 List.empty,
                 Doc.empty,
               )
             case codec: SegmentCodec.IntSeg =>
-              import codec.name
-
               CliEndpoint[BigInt](
                 (int, request) => request.addPathParam(int.toString),
-                Options.integer(name),
+                Options.integer(codec.name),
                 List.empty,
                 Doc.empty,
               )
 
             case codec: SegmentCodec.LongSeg =>
-              import codec.name
-
               CliEndpoint[BigInt](
                 (int, request) => request.addPathParam(int.toString),
-                Options.integer(name),
+                Options.integer(codec.name),
                 List.empty,
                 Doc.empty,
               )
 
             case codec: SegmentCodec.BoolSeg =>
-              import codec.name
-
               CliEndpoint[Boolean](
                 (bool, request) => request.addPathParam(bool.toString),
-                Options.boolean(name),
+                Options.boolean(codec.name),
                 List.empty,
                 Doc.empty,
               )
 
             case codec: SegmentCodec.Literal =>
-              val string = codec.value
-
               CliEndpoint[Unit](
-                (_, request) => request.addPathParam(string),
+                (_, request) => request.addPathParam(codec.value),
                 Options.Empty,
-                List(Right(string)),
+                List(Right(codec.value)),
                 Doc.empty,
               )
 
