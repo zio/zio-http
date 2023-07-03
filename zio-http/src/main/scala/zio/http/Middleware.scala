@@ -16,7 +16,7 @@ object Middleware                   {
     first: Middleware[Env, Ctx1],
     second: Middleware[Env, Ctx2],
   ) extends Middleware[Env, Ctx1 with Ctx2]
-  private[http] sealed trait Leaf[-Env, Ctx]                extends Middleware[Env, Ctx]
+  private[http] abstract class Leaf[-Env, +Ctx]             extends Middleware[Env, Ctx]
   private[http] sealed trait InterceptContextZIO[-Env, Ctx] extends Leaf[Env, Ctx] {
     type Session
 
