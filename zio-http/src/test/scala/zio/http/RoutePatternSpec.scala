@@ -23,7 +23,7 @@ import zio.test._
 
 import zio.http.codec.PathCodec._
 import zio.http.internal.HttpGen
-import zio.http.{int => _, _}
+import zio.http.{int => _, uuid => _, _}
 
 object RoutePatternSpec extends ZIOSpecDefault {
   import zio.http.Method
