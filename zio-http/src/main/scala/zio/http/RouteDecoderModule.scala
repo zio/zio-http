@@ -58,6 +58,10 @@ trait RouteDecoderModule {
   object long    extends RouteDecode(_.toLong)                    {
     def apply(name: String): PathCodec[Long] = PathCodec.long(name)
   }
+  object string {
+    def apply(name: String): PathCodec[String] = PathCodec.string(name)
+  }
+  val trailing: PathCodec[Path] = PathCodec.trailing
   object float   extends RouteDecode(_.toFloat)
   object double  extends RouteDecode(_.toDouble)
   object uuid    extends RouteDecode(str => UUID.fromString(str)) {

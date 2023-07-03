@@ -21,7 +21,6 @@ import scala.collection.Seq
 import zio.Chunk
 import zio.test._
 
-import zio.http.codec.PathCodec._
 import zio.http.internal.HttpGen
 import zio.http.{int => _, uuid => _, _}
 

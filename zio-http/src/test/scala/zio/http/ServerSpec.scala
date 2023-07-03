@@ -152,7 +152,7 @@ object ServerSpec extends HttpRunnableSpec {
 
         val app = Routes(
           route(RoutePattern.any) {
-            handler { req: Request =>
+            handler { (req: Request) =>
               req.body.asString.map(body => Response.text(body))
             }
           },
@@ -235,7 +235,7 @@ object ServerSpec extends HttpRunnableSpec {
       suite("proxy") {
         val server = Routes(
           Method.ANY / "proxy" / trailing -> { (path: Path) =>
-            handler { req: Request =>
+            handler { (req: Request) =>
               val url = URL.decode(s"http://localhost:$port/$path").toOption.get
 
               for {
@@ -270,7 +270,7 @@ object ServerSpec extends HttpRunnableSpec {
 
   def requestSpec = suite("RequestSpec") {
     val app: App[Any] =
-      Routes.singletonZIO { req: Request =>
+      Routes.singletonZIO { (req: Request) =>
         ZIO.succeed(Response.text(req.header(Header.ContentLength).map(_.length).getOrElse(-1).toString))
       }.ignoreErrors.toApp
 

@@ -29,10 +29,9 @@ import zio.schema.{DeriveSchema, Schema, StandardType}
 import zio.http.Header.ContentType
 import zio.http.Method._
 import zio.http.codec.HttpCodec.{query, queryInt}
-import zio.http.codec.PathCodec._
 import zio.http.codec._
 import zio.http.forms.Fixtures.formField
-import zio.http.{int => _, _}
+import zio.http._
 
 object EndpointSpec extends ZIOSpecDefault {
   def extractStatus(response: Response): Status = response.status
