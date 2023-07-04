@@ -240,7 +240,9 @@ sealed trait PathCodec[A] { self =>
   final def matches(path: Path): Boolean =
     decode(path).isRight
 
-  private[http] lazy val optimize: Array[Opt] = {
+  private var _optimize: Array[Opt] = null.asInstanceOf[Array[Opt]]
+
+  private[http] def optimize: Array[Opt] = {
     def loop(pattern: PathCodec[_]): Chunk[Opt] =
       pattern match {
         case PathCodec.Segment(segment, _) =>
@@ -259,7 +261,9 @@ sealed trait PathCodec[A] { self =>
           loop(left) ++ loop(right) ++ Chunk(Opt.Combine(combiner))
       }
 
-    loop(self).materialize.toArray
+    if (_optimize eq null) _optimize = loop(self).toArray
+
+    _optimize
   }
 
   /**
