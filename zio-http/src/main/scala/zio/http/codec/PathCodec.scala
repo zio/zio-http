@@ -101,7 +101,7 @@ sealed trait PathCodec[A] { self =>
               stack.push(segment.toInt)
             } catch {
               case _: NumberFormatException =>
-                fail = s"Expected integer path segment but found " + segment
+                fail = s"Expected integer path segment but found \"" + segment + "\""
                 i = instructions.length
             }
           }
