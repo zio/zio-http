@@ -11,13 +11,35 @@ trait Middleware[-Env, +CtxOut2] { self =>
    * Sequential composition of middleware. Based on the composition semantics of
    * protocol stacks.
    */
-  def ++[Env1 <: Env, CtxOut3](that: Middleware[Env1, CtxOut3]): Middleware[Env1, CtxOut2 with CtxOut3] =
+  final def ++[Env1 <: Env, CtxOut3](that: Middleware[Env1, CtxOut3]): Middleware[Env1, CtxOut2 with CtxOut3] =
     new Middleware[Env1, CtxOut2 with CtxOut3] {
       def apply[Env2 <: Env1, CtxIn, CtxOut](
         stack: MiddlewareStack[Env2, CtxIn, CtxOut],
       ): MiddlewareStack[Env2, CtxIn, CtxOut with CtxOut2 with CtxOut3] =
         that.apply[Env2, CtxIn, CtxOut with CtxOut2](self.apply[Env2, CtxIn, CtxOut](stack))
     }
+
+  final def whenHeader(condition: Headers => Boolean): Middleware[Env, Any] =
+    Middleware.whenHeader(condition)(self)
+
+  final def whenRequest[Env1 <: Env](condition: Request => Boolean): Middleware[Env1, Any] =
+    Middleware.whenRequest(condition)(self)
+
+  final def whenRequestZIO[Env1 <: Env](
+    condition: Request => ZIO[Env1, Either[Response, Response], Boolean],
+  ): Middleware[Env1, Any] =
+    Middleware.whenRequestZIO(condition)(self)
+
+  final def whenResponse[Env1 <: Env](condition: Response => Boolean): Middleware[Env1, Any] =
+    Middleware.whenResponse(condition)(self)
+
+  final def whenResponseZIO[Env1 <: Env](
+    condition: Response => ZIO[Env1, Response, Boolean],
+  ): Middleware[Env1, Any] =
+    Middleware.whenResponseZIO(condition)(self)
+
+  final def whenStatus[Env1 <: Env](condition: Status => Boolean): Middleware[Env1, Any] =
+    Middleware.whenStatus(condition)(self)
 }
 object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Any]] {
   def fail(response: Response): Middleware[Any, Any] =
@@ -105,8 +127,8 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Any]]
   /**
    * Creates a new middleware using effectful transformation functions
    */
-  def interceptPatchZIO[R, S](fromRequest: Request => ZIO[R, Response, S]): InterceptPatchZIO[R, S] =
-    new InterceptPatchZIO[R, S](fromRequest)
+  def interceptPatchZIO[Env, S](fromRequest: Request => ZIO[Env, Response, S]): InterceptPatchZIO[Env, S] =
+    new InterceptPatchZIO[Env, S](fromRequest)
 
   /**
    * Creates a middleware that produces a Patch for the Response
@@ -117,8 +139,8 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Any]]
   /**
    * Creates a middleware that produces a Patch for the Response effectfully.
    */
-  def patchZIO[R](f: Response => ZIO[R, Response, Response.Patch]): Middleware[R, Any] =
-    interceptPatchZIO[R, Unit](_ => ZIO.unit)((response, _) => f(response))
+  def patchZIO[Env](f: Response => ZIO[Env, Response, Response.Patch]): Middleware[Env, Any] =
+    interceptPatchZIO[Env, Unit](_ => ZIO.unit)((response, _) => f(response))
 
   def redirect(url: URL, isPermanent: Boolean): Middleware[Any, Any] =
     fail(Response.redirect(url, isPermanent))
@@ -227,6 +249,49 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Any]]
 
   def updateURL(update: URL => URL): Middleware[Any, Any] =
     updateRequest(request => request.copy(url = update(request.url)))
+
+  def whenHeader[Env](condition: Headers => Boolean)(
+    middleware: Middleware[Env, Any],
+  ): Middleware[Env, Any] =
+    ifHeaderThenElse(condition)(ifFalse = identity, ifTrue = middleware)
+
+  /**
+   * Applies the middleware only if status matches the condition
+   */
+  def whenStatus[Env](condition: Status => Boolean)(
+    middleware: Middleware[Env, Any],
+  ): Middleware[Env, Any] =
+    whenResponse(response => condition(response.status))(middleware)
+
+  /**
+   * Applies the middleware only if the condition function evaluates to true
+   */
+  def whenResponse[Env](condition: Response => Boolean)(
+    middleware: Middleware[Env, Any],
+  ): Middleware[Env, Any] =
+    ???
+
+  /**
+   * Applies the middleware only if the condition function effectfully evaluates
+   * to true
+   */
+  def whenResponseZIO[Env](condition: Response => ZIO[Env, Response, Boolean])(
+    middleware: Middleware[Env, Any],
+  ): Middleware[Env, Any] =
+    ???
+
+  /**
+   * Applies the middleware only if the condition function evaluates to true
+   */
+  def whenRequest[Env](condition: Request => Boolean)(
+    middleware: Middleware[Env, Any],
+  ): Middleware[Env, Any] =
+    ifRequestThenElse(condition)(ifFalse = identity, ifTrue = middleware)
+
+  def whenRequestZIO[Env](condition: Request => ZIO[Env, Either[Response, Response], Boolean])(
+    middleware: Middleware[Env, Any],
+  ): Middleware[Env, Any] =
+    ifRequestThenElseZIO(condition)(ifFalse = identity, ifTrue = middleware)
 
   final class InterceptPatch[State](val fromRequest: Request => State) extends AnyVal {
     def apply(result: (Response, State) => Response.Patch): Middleware[Any, Any] =
