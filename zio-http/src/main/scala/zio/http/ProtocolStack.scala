@@ -78,30 +78,40 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
     Concat(self, that)
 }
 object ProtocolStack                                                                   {
-  def cond[IncomingIn]: CondBuilder[IncomingIn] = new CondBuilder(())
+  def cond[IncomingIn](predicate: IncomingIn => Boolean): CondBuilder[IncomingIn] = new CondBuilder(predicate)
 
-  def identity[I, O]: ProtocolStack[Any, I, I, O, O] = incoming(Handler.identity)
+  def condZIO[IncomingIn]: CondZIOBuilder[IncomingIn] = new CondZIOBuilder[IncomingIn](())
 
-  def incoming[Env, IncomingIn, IncomingOut, Outgoing](
-    handler: Handler[Env, Outgoing, IncomingIn, IncomingOut],
-  ): ProtocolStack[Env, IncomingIn, IncomingOut, Outgoing, Outgoing] =
-    Incoming(handler)
+  def fail[Incoming, OutgoingOut](out: OutgoingOut): ProtocolStack[Any, Incoming, Incoming, OutgoingOut, OutgoingOut] =
+    interceptIncomingHandler[Any, Incoming, Incoming, OutgoingOut](Handler.fail(out))
 
-  def interceptStateful[Env, State0, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
+  def failWith[Incoming, OutgoingOut](
+    f: Incoming => OutgoingOut,
+  )(implicit trace: Trace): ProtocolStack[Any, Incoming, Incoming, OutgoingOut, OutgoingOut] =
+    interceptIncomingHandler[Any, Incoming, Incoming, OutgoingOut](Handler.fromFunctionZIO(in => ZIO.fail(f(in))))
+
+  def identity[I, O]: ProtocolStack[Any, I, I, O, O] = interceptIncomingHandler(Handler.identity)
+
+  def interceptHandler[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
+    incoming0: Handler[Env, OutgoingOut, IncomingIn, IncomingOut],
+  )(
+    outgoing0: Handler[Env, Nothing, OutgoingIn, OutgoingOut],
+  ): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
+    interceptHandlerStateful(incoming0.map(((), _)))(outgoing0.contramap[(Unit, OutgoingIn)](_._2))
+
+  def interceptHandlerStateful[Env, State0, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
     incoming0: Handler[Env, OutgoingOut, IncomingIn, (State0, IncomingOut)],
   )(
     outgoing0: Handler[Env, Nothing, (State0, OutgoingIn), OutgoingOut],
   ): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
     IncomingOutgoing(incoming0, outgoing0)
 
-  def intercept[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
-    incoming0: Handler[Env, OutgoingOut, IncomingIn, IncomingOut],
-  )(
-    outgoing0: Handler[Env, Nothing, OutgoingIn, OutgoingOut],
-  ): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
-    interceptStateful(incoming0.map(((), _)))(outgoing0.contramap[(Unit, OutgoingIn)](_._2))
+  def interceptIncomingHandler[Env, IncomingIn, IncomingOut, Outgoing](
+    handler: Handler[Env, Outgoing, IncomingIn, IncomingOut],
+  ): ProtocolStack[Env, IncomingIn, IncomingOut, Outgoing, Outgoing] =
+    Incoming(handler)
 
-  def outgoing[Env, Incoming, OutgoingIn, OutgoingOut](
+  def interceptOutgoingHandler[Env, Incoming, OutgoingIn, OutgoingOut](
     handler: Handler[Env, Nothing, OutgoingIn, OutgoingOut],
   ): ProtocolStack[Env, Incoming, Incoming, OutgoingIn, OutgoingOut] =
     Outgoing(handler)
@@ -180,15 +190,44 @@ object ProtocolStack                                                            
         case Right(state) => ifFalse.outgoing(state, in)
       }
   }
+  private[http] final case class CondZIO[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
+    predicate: IncomingIn => ZIO[Env, OutgoingOut, Boolean],
+    ifTrue: ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut],
+    ifFalse: ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut],
+  ) extends ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] {
+    type State = Either[ifTrue.State, ifFalse.State]
 
-  class CondBuilder[IncomingIn](dummy: Unit) {
-    val _ = dummy
+    def incoming(in: IncomingIn): ZIO[Env, OutgoingOut, (State, IncomingOut)] =
+      predicate(in).flatMap {
+        case true  => ifTrue.incoming(in).map { case (state, out) => (Left(state), out) }
+        case false => ifFalse.incoming(in).map { case (state, out) => (Right(state), out) }
+      }
 
-    def apply[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
-      predicate: IncomingIn => Boolean,
-    )(ifTrue: ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut])(
+    def outgoing(state: State, in: OutgoingIn): ZIO[Env, Nothing, OutgoingOut] =
+      state match {
+        case Left(state)  => ifTrue.outgoing(state, in)
+        case Right(state) => ifFalse.outgoing(state, in)
+      }
+  }
+
+  class CondBuilder[IncomingIn](val predicate: IncomingIn => Boolean) extends AnyVal {
+    def apply[Env, IncomingOut, OutgoingIn, OutgoingOut](
+      ifTrue: ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut],
       ifFalse: ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut],
     ): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
       Cond(predicate, ifTrue, ifFalse)
+  }
+
+  class CondZIOBuilder[IncomingIn](val dummy: Unit) extends AnyVal {
+    def apply[Env, Err](predicate: IncomingIn => ZIO[Env, Err, Boolean]): CondZIOBuilder1[Env, IncomingIn, Err] =
+      new CondZIOBuilder1(predicate)
+  }
+
+  class CondZIOBuilder1[Env, IncomingIn, Err](val predicate: IncomingIn => ZIO[Env, Err, Boolean]) extends AnyVal {
+    def apply[Env1 <: Env, IncomingOut, OutgoingIn, OutgoingOut >: Err](
+      ifTrue: ProtocolStack[Env1, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut],
+      ifFalse: ProtocolStack[Env1, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut],
+    ): ProtocolStack[Env1, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
+      CondZIO(predicate, ifTrue, ifFalse)
   }
 }

@@ -57,7 +57,7 @@ final case class MiddlewareStack[-Env, -CtxIn, +CtxOut](
           Response,
           Response,
         ], Either[Response, Response]] =
-        ProtocolStack.interceptStateful[
+        ProtocolStack.interceptHandlerStateful[
           Env1,
           that.protocol.State,
           (Request, ZEnvironment[CtxOut]),
@@ -80,19 +80,24 @@ final case class MiddlewareStack[-Env, -CtxIn, +CtxOut](
     }
 }
 object MiddlewareStack {
-  def incoming[Env, CtxIn, CtxOut](
-    handler: Handler[Env, Either[Response, Response], (Request, ZEnvironment[CtxIn]), (Request, ZEnvironment[CtxOut])],
-  ): MiddlewareStack[Env, CtxIn, CtxOut] =
-    intercept(handler)(Handler.identity)
+  def fail(
+    response: Response,
+  ): MiddlewareStack[Any, Any, Any] =
+    MiddlewareStack(ProtocolStack.fail[(Request, ZEnvironment[Any]), Either[Response, Response]](Left(response)))
 
-  def intercept[Env, CtxIn, CtxOut](
+  def failWith(f: Request => Response): MiddlewareStack[Any, Any, Any] =
+    MiddlewareStack(
+      ProtocolStack.failWith[(Request, ZEnvironment[Any]), Either[Response, Response]](tuple => Left(f(tuple._1))),
+    )
+
+  def interceptHandler[Env, CtxIn, CtxOut](
     incoming0: Handler[Env, Either[Response, Response], (Request, ZEnvironment[CtxIn]), (Request, ZEnvironment[CtxOut])],
   )(
     outgoing0: Handler[Env, Nothing, Either[Response, Response], Either[Response, Response]],
   ): MiddlewareStack[Env, CtxIn, CtxOut] =
-    MiddlewareStack[Env, CtxIn, CtxOut](ProtocolStack.intercept(incoming0)(outgoing0))
+    MiddlewareStack[Env, CtxIn, CtxOut](ProtocolStack.interceptHandler(incoming0)(outgoing0))
 
-  def interceptStateful[Env, State0, CtxIn, CtxOut](
+  def interceptHandlerStateful[Env, State0, CtxIn, CtxOut](
     incoming0: Handler[
       Env,
       Either[Response, Response],
@@ -102,11 +107,16 @@ object MiddlewareStack {
   )(
     outgoing0: Handler[Env, Nothing, (State0, Either[Response, Response]), Either[Response, Response]],
   ): MiddlewareStack[Env, CtxIn, CtxOut] =
-    MiddlewareStack[Env, CtxIn, CtxOut](ProtocolStack.interceptStateful(incoming0)(outgoing0))
+    MiddlewareStack[Env, CtxIn, CtxOut](ProtocolStack.interceptHandlerStateful(incoming0)(outgoing0))
 
-  def outgoing[Env](
+  def interceptIncomingHandler[Env, CtxIn, CtxOut](
+    handler: Handler[Env, Either[Response, Response], (Request, ZEnvironment[CtxIn]), (Request, ZEnvironment[CtxOut])],
+  ): MiddlewareStack[Env, CtxIn, CtxOut] =
+    interceptHandler(handler)(Handler.identity)
+
+  def interceptOutgoingHandler[Env](
     handler: Handler[Env, Nothing, Either[Response, Response], Either[Response, Response]],
   ): MiddlewareStack[Env, Any, Any] =
-    intercept[Env, Any, Any](Handler.identity[(Request, ZEnvironment[Any])])(handler)
+    interceptHandler[Env, Any, Any](Handler.identity[(Request, ZEnvironment[Any])])(handler)
 
 }
