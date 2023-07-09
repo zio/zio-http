@@ -70,6 +70,16 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
 
   def incoming(in: IncomingIn): ZIO[Env, OutgoingOut, (State, IncomingOut)]
 
+  def mapIncoming[IncomingOut2](
+    f: IncomingOut => IncomingOut2,
+  ): ProtocolStack[Env, IncomingIn, IncomingOut2, OutgoingIn, OutgoingOut] =
+    self ++ ProtocolStack.interceptIncomingHandler(Handler.fromFunction(f))
+
+  def mapOutgoing[OutgoingOut2](
+    f: OutgoingOut => OutgoingOut2,
+  ): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut2] =
+    ProtocolStack.interceptOutgoingHandler(Handler.fromFunction(f)) ++ self
+
   def outgoing(state: State, in: OutgoingIn): ZIO[Env, Nothing, OutgoingOut]
 
   final def ++[Env1 <: Env, MiddleIncoming, MiddleOutgoing](

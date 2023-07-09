@@ -6,7 +6,8 @@ import zio.http.codec._
 
 /**
  * Represents a single route, which has either handled its errors by converting
- * them into responses, or which has polymorphic errors.
+ * them into responses, or which has polymorphic errors, which must later be
+ * converted into responses before the route can be executed.
  */
 sealed trait Route[-Env, +Err] { self =>
   type PathInput
