@@ -58,9 +58,10 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    * Creates a route from this pattern and the specified handler.
    */
   def ->[Env, Err, I](handler: Handler[Env, Err, I, Response])(implicit
-    zippable: Zippable.Out[A, Request, I],
+    zippable: RequestHandlerInput[A, I],
+    trace: zio.Trace,
   ): Route[Env, Err] =
-    Route.route(self)(handler)
+    Route.route(self)(handler)(zippable.zippable, trace)
 
   /**
    * Reinteprets the type parameter, given evidence it is equal to some other
