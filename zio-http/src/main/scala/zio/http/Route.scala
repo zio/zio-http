@@ -28,9 +28,8 @@ sealed trait Route[-Env, +Err] { self =>
    */
   final def handleError(f: Err => Response): Route[Env, Nothing] =
     self match {
-      case Route.Handled(routePattern, handler, l)       => Route.Handled(routePattern, handler, l)
-      case r @ Route.Unhandled(routePattern, handler, l) =>
-        Route.Handled(routePattern, (pi: r.PathInput) => handler(pi).mapError(f), l)
+      case Route.Handled(r, h, z, l)   => Route.Handled(r, h, z, l)
+      case Route.Unhandled(r, h, z, l) => Route.Handled(r, h.mapError(f), z, l)
     }
 
   /**
@@ -54,9 +53,8 @@ sealed trait Route[-Env, +Err] { self =>
    */
   final def mapError[Err2](f: Err => Err2): Route[Env, Err2] =
     self match {
-      case Route.Handled(routePattern, handler, l)       => Route.Handled(routePattern, handler, l)
-      case r @ Route.Unhandled(routePattern, handler, l) =>
-        Route.Unhandled(routePattern, (pi: r.PathInput) => handler(pi).mapError(f), l)
+      case Route.Handled(r, h, z, l)   => Route.Handled(r, h, z, l)
+      case Route.Unhandled(r, h, z, l) => Route.Unhandled(r, h.mapError(f), z, l)
     }
 
   /**
@@ -77,35 +75,30 @@ object Route                   {
     new UnhandledConstructor[PathInput](routePattern)
 
   final class HandledConstructor[PathInput](val routePattern: RoutePattern[PathInput]) extends AnyVal {
-    def apply[Env](handler: Handler[Env, Response, Request, Response])(implicit trace: Trace): Route[Env, Nothing] =
-      Handled(routePattern, (_: PathInput) => handler, trace)
-
-    def apply[Env](handler: PathInput => Handler[Env, Response, Request, Response])(implicit
-      trace: Trace,
-    ): Route[Env, Nothing] =
-      Handled(routePattern, handler, trace)
+    def apply[Env, I](
+      handler: Handler[Env, Response, I, Response],
+    )(implicit zippable: Zippable.Out[PathInput, Request, I], trace: Trace): Route[Env, Nothing] =
+      Handled(routePattern, handler, zippable, trace)
   }
 
   final class UnhandledConstructor[PathInput](val routePattern: RoutePattern[PathInput]) extends AnyVal {
-    def apply[Env, Err](handler: Handler[Env, Err, Request, Response])(implicit trace: Trace): Route[Env, Err] =
-      Unhandled(routePattern, (_: PathInput) => handler, trace)
-
-    def apply[Env, Err](handler: PathInput => Handler[Env, Err, Request, Response])(implicit
-      trace: Trace,
-    ): Route[Env, Err] =
-      Unhandled(routePattern, handler, trace)
+    def apply[Env, Err, I](
+      handler: Handler[Env, Err, I, Response],
+    )(implicit zippable: Zippable.Out[PathInput, Request, I], trace: Trace): Route[Env, Err] =
+      Unhandled(routePattern, handler, zippable, trace)
   }
 
-  private[http] final case class Handled[PI, -Env](
+  private[http] final case class Handled[PI, Input, -Env](
     routePattern: RoutePattern[PI],
-    handler: PI => Handler[Env, Response, Request, Response],
+    handler: Handler[Env, Response, Input, Response],
+    zippable: Zippable.Out[PI, Request, Input],
     location: Trace,
   ) extends Route[Env, Nothing] {
     type PathInput = PI
 
     def apply(request: Request)(implicit ev: Nothing <:< Response): ZIO[Env, Response, Response] =
       routePattern.decode(request.method, request.path) match {
-        case Right(pathInput) => handler(pathInput)(request)
+        case Right(pathInput) => handler(zippable.zip(pathInput, request))
         case Left(error)      =>
           ZIO.die(
             new MatchError(
@@ -116,16 +109,17 @@ object Route                   {
 
     override def toString() = s"Route.Handled(${routePattern}, ${location})"
   }
-  private[http] final case class Unhandled[PI, -Env, +Err](
+  private[http] final case class Unhandled[PI, I, -Env, +Err](
     routePattern: RoutePattern[PI],
-    handler: PI => Handler[Env, Err, Request, Response],
+    handler: Handler[Env, Err, I, Response],
+    zippable: Zippable.Out[PI, Request, I],
     location: Trace,
   ) extends Route[Env, Err] {
     type PathInput = PI
 
     def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Response, Response] =
       routePattern.decode(request.method, request.path) match {
-        case Right(pathInput) => handler(pathInput)(request).mapError(ev)
+        case Right(pathInput) => handler(zippable.zip(pathInput, request)).mapError(ev)
         case Left(error)      =>
           ZIO.die(
             new NoSuchElementException(

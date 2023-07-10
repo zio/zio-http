@@ -23,7 +23,9 @@ object WebSocketEcho extends ZIOAppDefault {
 
   private val app: App[Any] =
     Routes(
-      Method.GET / "greet" / string("name") -> { (name: String) => handler(Response.text(s"Greetings {$name}!")) },
+      Method.GET / "greet" / string("name") -> handler { (name: String, req: Request) =>
+        Response.text(s"Greetings {$name}!")
+      },
       Method.GET / "subscriptions"          -> handler(socketApp.toResponse),
     ).toApp
 

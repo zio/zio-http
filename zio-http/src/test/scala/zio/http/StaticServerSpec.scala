@@ -39,7 +39,7 @@ object StaticServerSpec extends HttpRunnableSpec {
   private val nonZIO = Routes(
     Method.ANY / "ExitSuccess" -> handler(Exit.succeed(Response.ok)),
     Method.ANY / "ExitFailure" -> handler(Exit.fail(new RuntimeException("FAILURE"))),
-    Method.ANY / "throwable"   -> handler(throw new Exception("Throw inside Handler")),
+    Method.ANY / "throwable"   -> handlerTODO("Throw inside Handler"),
   ).ignoreErrors.toApp
 
   private val staticAppWithCors = Routes(

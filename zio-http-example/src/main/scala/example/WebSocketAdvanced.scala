@@ -45,8 +45,8 @@ object WebSocketAdvanced extends ZIOAppDefault {
 
   val app: App[Any] =
     Routes(
-      Method.GET / "greet" / string("name") -> { (name: String) =>
-        handler(ZIO.succeed(Response.text(s"Greetings ${name}!")))
+      Method.GET / "greet" / string("name") -> handler { (name: String, req: Request) =>
+        Response.text(s"Greetings ${name}!")
       },
       Method.GET / "subscriptions"          -> handler(socketApp.toResponse),
     ).toApp

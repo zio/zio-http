@@ -873,6 +873,14 @@ object Handler {
   def ok: Handler[Any, Nothing, Any, Response] =
     status(Status.Ok)
 
+  def param[A]: ParamExtractorBuilder[A] =
+    new ParamExtractorBuilder[A](())
+
+  class ParamExtractorBuilder[A](val unit: Unit) extends AnyVal {
+    def apply[B](project: A => B): Handler[Any, Nothing, A, B] =
+      Handler.identity[B].contramap[A](project)
+  }
+
   /**
    * Creates a handler which always responds with the same value.
    */

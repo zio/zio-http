@@ -24,7 +24,10 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
    * constructors on [[zio.http.Handler]] directly.
    */
   def handler[H](handler: => H)(implicit h: HandlerConstructor[H]): Handler[h.Env, h.Err, h.In, h.Out] =
-    Handler.from(handler)
+    h.toHandler(handler)
+
+  def handlerTODO(message: String): Handler[Any, Nothing, Any, Nothing] =
+    handler(ZIO.dieMessage(message))
 
   /**
    * Constructs a route given a route pattern (specified in the first parameter

@@ -105,12 +105,11 @@ class EndpointBenchmark {
 
   // Collect DSL
   val collectHttpApp = Routes(
-    Method.GET / "users" / int("userId") / "posts" / int("postId") -> { case (userIdInt, postIdInt) =>
-      handler { req: Request =>
+    Method.GET / "users" / int("userId") / "posts" / int("postId") -> handler {
+      (userIdInt: Int, postIdInt: Int, req: Request) =>
         val query = req.url.queryParams.get("query").flatMap(_.headOption).get
 
         Response.json(ExampleData(userIdInt, postIdInt, query).toJson)
-      }
     },
   ).toApp
 
@@ -227,9 +226,10 @@ class EndpointBenchmark {
   val deepPathCollectHttpApp = Routes(
     Method.GET / "first" / int("id1") / "second" / int("id2") / "third" / int("id3") / "fourth" / int(
       "id4",
-    ) / "fifth" / int("id5") / "sixth" / int("id6") / "seventh" / int("id7") -> { case (_, _, _, _, _, _, _) =>
-      handler(Response.ok)
-    },
+    ) / "fifth" / int("id5") / "sixth" / int("id6") / "seventh" / int("id7") ->
+      handler { (id1: Int, id2: Int, id3: Int, id4: Int, id5: Int, id6: Int, id7: Int, req: Request) =>
+        ZIO.succeed(Response.ok)
+      },
   ).toApp
 
   // Tapir Akka DSL
@@ -440,51 +440,56 @@ class EndpointBenchmark {
   // Collect DSL
 
   val broadCollectApp = Routes(
-    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") -> {
-      case (userId: Int, postId: Int, commentId: Int) =>
-        handler(Response())
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") -> handler {
+      (userId: Int, postId: Int, commentId: Int, request: Request) =>
+        Response()
     },
-    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" -> { case (userId: Int, postId: Int) =>
-      handler(Response())
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments"                    -> handler {
+      (userId: Int, postId: Int, req: Request) =>
+        Response()
     },
-    Method.GET / "users" / int("userId") / "posts" / int("postId")              -> { case (userId: Int, postId: Int) =>
-      handler(Response())
+    Method.GET / "users" / int("userId") / "posts" / int("postId")                                 -> handler {
+      (userId: Int, postId: Int, req: Request) =>
+        Response()
     },
-    Method.GET / "users" / int("userId") / "posts"                              -> { case (userId: Int) =>
-      handler(Response())
+    Method.GET / "users" / int("userId") / "posts"                       -> handler { (userId: Int, req: Request) =>
+      Response()
     },
-    Method.GET / "users" / int("userId")                                        -> { case (userId: Int) =>
-      handler(Response())
+    Method.GET / "users" / int("userId")                                 -> handler { (userId: Int, req: Request) =>
+      Response()
     },
-    Method.GET / "users"                                                        -> handler(Response()),
-    Method.GET / "posts" / int("postId") / "comments" / int("commentId") -> { case (postId: Int, commentId: Int) =>
-      handler(Response())
+    Method.GET / "users"                                                 -> handler(Response()),
+    Method.GET / "posts" / int("postId") / "comments" / int("commentId") -> handler {
+      (postId: Int, commentId: Int, req: Request) =>
+        Response()
     },
-    Method.GET / "posts" / int("postId") / "comments"                    -> { case (postId: Int) =>
-      handler(Response())
+    Method.GET / "posts" / int("postId") / "comments"                    -> handler { (postId: Int, req: Request) =>
+      Response()
     },
-    Method.GET / "posts" / int("postId")                                 -> { case (postId: Int) =>
-      handler(Response())
+    Method.GET / "posts" / int("postId")                                 -> handler { (postId: Int, req: Request) =>
+      Response()
     },
     Method.GET / "posts"                                                 -> handler(Response()),
-    Method.GET / "comments" / int("commentId")                           -> { case (commentId: Int) =>
-      handler(Response())
+    Method.GET / "comments" / int("commentId")                           -> handler { (commentId: Int, req: Request) =>
+      Response()
     },
     Method.GET / "comments"                                              -> handler(Response()),
-    Method.GET / "users" / int("userId") / "comments"                    -> { case (userId: Int) =>
-      handler(Response())
+    Method.GET / "users" / int("userId") / "comments"                    -> handler { (userId: Int, req: Request) =>
+      Response()
     },
-    Method.GET / "users" / int("userId") / "comments" / int("commentId") -> { case (userId: Int, commentId: Int) =>
-      handler(Response())
+    Method.GET / "users" / int("userId") / "comments" / int("commentId") -> handler {
+      (userId: Int, commentId: Int, req: Request) =>
+        Response()
     },
     Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies" / int(
       "replyId",
-    ) -> { case (userId: Int, postId: Int, commentId: Int, replyId: Int) =>
-      handler(Response())
+    )             -> handler { (userId: Int, postId: Int, commentId: Int, replyId: Int, req: Request) =>
+      Response()
     },
-    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies" -> {
-      case (userId: Int, postId: Int, commentId: Int) =>
-        handler(Response())
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int(
+      "commentId",
+    ) / "replies" -> handler { (userId: Int, postId: Int, commentId: Int, req: Request) =>
+      Response()
     },
   ).toApp
 

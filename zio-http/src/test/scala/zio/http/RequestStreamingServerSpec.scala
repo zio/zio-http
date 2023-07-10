@@ -58,7 +58,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       assertZIO(res)(equalTo(size.toString))
     },
     test("multiple body read") {
-      val app = Routes.singletonZIO { case req =>
+      val app = Routes.singletonZIO { (path: Path, req: Request) =>
         for {
           _ <- req.body.asChunk
           _ <- req.body.asChunk
