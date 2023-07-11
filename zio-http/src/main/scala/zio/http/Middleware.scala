@@ -16,7 +16,14 @@
 
 package zio.http
 
+import java.io.{PrintWriter, StringWriter}
+import java.nio.charset._
+
 import zio._
+import zio.metrics._
+
+import zio.http.html._
+import zio.http.internal.middlewares.Metrics
 
 /**
  * A [[zio.http.Middleware]] is a kind of [[zio.http.ProtocolStack]] that is
@@ -90,6 +97,27 @@ final case class Middleware[-Env, +CtxOut](
     Middleware.whenRequestZIO(condition)(self.unit)
 }
 object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]] {
+
+  /**
+   * Beautify the error response.
+   */
+  def beautifyErrors: Middleware[Any, Unit] =
+    intercept(replaceErrorResponse)
+
+  final def debug: Middleware[Any, Unit] =
+    Middleware.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { request =>
+      zio.Clock.instant.map(now => ((now, request), (request, ())))
+    })(Handler.fromFunctionZIO[((java.time.Instant, Request), Response)] { case ((start, request), response) =>
+      zio.Clock.instant.flatMap { end =>
+        val duration = java.time.Duration.between(start, end)
+
+        Console
+          .printLine(s"${response.status.code} ${request.method} ${request.url.encode} ${duration.toMillis}ms")
+          .orDie
+          .as(response)
+      }
+    })
+
   def fail(
     response: Response,
   ): Middleware[Any, Unit] =
@@ -143,6 +171,13 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
     Middleware(ProtocolStack.condZIO[Request](req => predicate(req))(ifTrue2, ifFalse2))
   }
 
+  def intercept(
+    fromRequestAndResponse: (Request, Response) => Response,
+  ): Middleware[Any, Unit] =
+    interceptHandlerStateful(Handler.identity[Request].map(req => (req, (req, ()))))(
+      Handler.fromFunction[(Request, Response)] { case (req, res) => fromRequestAndResponse(req, res) },
+    )
+
   def interceptHandler[Env, CtxOut](
     incoming0: Handler[Env, Response, Request, (Request, CtxOut)],
   )(
@@ -183,6 +218,82 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   def interceptPatchZIO[Env, S](fromRequest: Request => ZIO[Env, Response, S]): InterceptPatchZIO[Env, S] =
     new InterceptPatchZIO[Env, S](fromRequest)
 
+  private val defaultBoundaries = MetricKeyType.Histogram.Boundaries.fromChunk(
+    Chunk(
+      .005, .01, .025, .05, .075, .1, .25, .5, .75, 1, 2.5, 5, 7.5, 10,
+    ),
+  )
+
+  /**
+   * Adds metrics to a zio-http server.
+   *
+   * @param pathLabelMapper
+   *   A mapping function to map incoming paths to patterns, such as /users/1 to
+   *   /users/:id.
+   * @param totalRequestsName
+   *   Total HTTP requests metric name.
+   * @param requestDurationName
+   *   HTTP request duration metric name.
+   * @param requestDurationBoundaries
+   *   Boundaries for the HTTP request duration metric.
+   * @param extraLabels
+   *   A set of extra labels all metrics will be tagged with.
+   * @note
+   *   When using Prometheus as your metrics backend, make sure to provide a
+   *   `pathLabelMapper` in order to avoid
+   *   [[https://prometheus.io/docs/practices/naming/#labels high cardinality labels]].
+   */
+  def metrics(
+    pathLabelMapper: PartialFunction[Request, String] = Map.empty,
+    concurrentRequestsName: String = "http_concurrent_requests_total",
+    totalRequestsName: String = "http_requests_total",
+    requestDurationName: String = "http_request_duration_seconds",
+    requestDurationBoundaries: MetricKeyType.Histogram.Boundaries = defaultBoundaries,
+    extraLabels: Set[MetricLabel] = Set.empty,
+  ): Middleware[Any, Unit] = {
+    val requestsTotal: Metric.Counter[RuntimeFlags] = Metric.counterInt(totalRequestsName)
+    val concurrentRequests: Metric.Gauge[Double]    = Metric.gauge(concurrentRequestsName)
+    val requestDuration: Metric.Histogram[Double]   = Metric.histogram(requestDurationName, requestDurationBoundaries)
+    val nanosToSeconds: Double                      = 1e9d
+
+    def labelsForRequest(req: Request): Set[MetricLabel] =
+      Set(
+        MetricLabel("method", req.method.toString),
+        MetricLabel("path", pathLabelMapper.lift(req).getOrElse(req.path.toString())),
+      ) ++ extraLabels
+
+    def labelsForResponse(res: Response): Set[MetricLabel] =
+      Set(
+        MetricLabel("status", res.status.code.toString),
+      )
+
+    def report(
+      start: Long,
+      requestLabels: Set[MetricLabel],
+      labels: Set[MetricLabel],
+    )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+      for {
+        _   <- requestsTotal.tagged(labels).increment
+        _   <- concurrentRequests.tagged(requestLabels).decrement
+        end <- Clock.nanoTime
+        took = end - start
+        _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
+      } yield ()
+
+    Middleware.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { req =>
+      val requestLabels = labelsForRequest(req)
+
+      for {
+        start <- Clock.nanoTime
+        _     <- concurrentRequests.tagged(requestLabels).increment
+      } yield ((start, requestLabels), (req, ()))
+    })(Handler.fromFunctionZIO[((Long, Set[MetricLabel]), Response)] { case ((start, requestLabels), response) =>
+      val allLabels = requestLabels ++ labelsForResponse(response)
+
+      report(start, requestLabels, allLabels).as(response)
+    })
+  }
+
   /**
    * Creates a middleware that produces a Patch for the Response
    */
@@ -205,6 +316,80 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       ifTrue = Middleware.identity,
       ifFalse = updatePath(_.dropTrailingSlash) ++ failWith(request => Response.redirect(request.url, isPermanent)),
     )
+
+  final def requestLogging(
+    level: Status => LogLevel = (_: Status) => LogLevel.Info,
+    failureLevel: LogLevel = LogLevel.Warning,
+    loggedRequestHeaders: Set[Header.HeaderType] = Set.empty,
+    loggedResponseHeaders: Set[Header.HeaderType] = Set.empty,
+    logRequestBody: Boolean = false,
+    logResponseBody: Boolean = false,
+    requestCharset: Charset = StandardCharsets.UTF_8,
+    responseCharset: Charset = StandardCharsets.UTF_8,
+  )(implicit trace: Trace): Middleware[Any, Unit] = {
+    val loggedRequestHeaderNames  = loggedRequestHeaders.map(_.name.toLowerCase)
+    val loggedResponseHeaderNames = loggedResponseHeaders.map(_.name.toLowerCase)
+
+    Middleware.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { request =>
+      zio.Clock.instant.map(now => ((now, request), (request, ())))
+    })(
+      Handler.fromFunctionZIO[((java.time.Instant, Request), Response)] { case ((start, request), response) =>
+        zio.Clock.instant.flatMap { end =>
+          val duration = java.time.Duration.between(start, end)
+
+          ZIO
+            .logLevel(level(response.status)) {
+              val requestHeaders  =
+                request.headers.collect {
+                  case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
+                    LogAnnotation(header.headerName, header.renderedValue)
+                }.toSet
+              val responseHeaders =
+                response.headers.collect {
+                  case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
+                    LogAnnotation(header.headerName, header.renderedValue)
+                }.toSet
+
+              val requestBody  = if (request.body.isComplete) request.body.asChunk.option else ZIO.none
+              val responseBody = if (response.body.isComplete) response.body.asChunk.option else ZIO.none
+
+              requestBody.flatMap { requestBodyChunk =>
+                responseBody.flatMap { responseBodyChunk =>
+                  val bodyAnnotations = Set(
+                    requestBodyChunk.map(chunk => LogAnnotation("request_size", chunk.size.toString)),
+                    requestBodyChunk.flatMap(chunk =>
+                      if (logRequestBody)
+                        Some(LogAnnotation("request", new String(chunk.toArray, requestCharset)))
+                      else None,
+                    ),
+                    responseBodyChunk.map(chunk => LogAnnotation("response_size", chunk.size.toString)),
+                    responseBodyChunk.flatMap(chunk =>
+                      if (logResponseBody)
+                        Some(LogAnnotation("response", new String(chunk.toArray, responseCharset)))
+                      else None,
+                    ),
+                  ).flatten
+
+                  ZIO.logAnnotate(
+                    Set(
+                      LogAnnotation("status_code", response.status.text),
+                      LogAnnotation("method", request.method.toString()),
+                      LogAnnotation("url", request.url.encode),
+                      LogAnnotation("duration_ms", duration.toMillis.toString),
+                    ) union
+                      requestHeaders union
+                      responseHeaders union
+                      bodyAnnotations,
+                  ) {
+                    ZIO.log("Http request served").as(response)
+                  }
+                }
+              }
+            }
+        }
+      },
+    )
+  }
 
   def runAfter[Env](effect: ZIO[Env, Nothing, Any])(implicit trace: Trace): Middleware[Env, Unit] =
     updateResponseZIO(response => effect.as(response))
@@ -335,5 +520,67 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
           result(response, state).map(response.patch(_)).merge
         },
       )
+  }
+
+  private def replaceErrorResponse(request: Request, response: Response): Response = {
+    def htmlResponse: Body = {
+      val message: String = response.httpError.map(_.message).getOrElse("")
+      val data            = Template.container(s"${response.status}") {
+        div(
+          div(
+            styles := Seq("text-align" -> "center"),
+            div(s"${response.status.code}", styles := Seq("font-size" -> "20em")),
+            div(message),
+          ),
+          div(
+            response.httpError.get.foldCause(div()) { throwable =>
+              div(h3("Cause:"), pre(prettify(throwable)))
+            },
+          ),
+        )
+      }
+      Body.fromString("<!DOCTYPE html>" + data.encode)
+    }
+
+    def textResponse: Body = {
+      Body.fromString(formatErrorMessage(response))
+    }
+
+    if (response.status.isError) {
+      request.header(Header.Accept) match {
+        case Some(value) if value.mimeTypes.exists(_.mediaType == MediaType.text.`html`) =>
+          response.copy(
+            body = htmlResponse,
+            headers = Headers(Header.ContentType(MediaType.text.`html`)),
+          )
+        case Some(value) if value.mimeTypes.exists(_.mediaType == MediaType.any)         =>
+          response.copy(
+            body = textResponse,
+            headers = Headers(Header.ContentType(MediaType.text.`plain`)),
+          )
+        case _                                                                           => response
+      }
+
+    } else
+      response
+  }
+
+  private def prettify(throwable: Throwable): String = {
+    val sw = new StringWriter
+    throwable.printStackTrace(new PrintWriter(sw))
+    s"${sw.toString}"
+  }
+
+  private def formatCause(response: Response): String =
+    response.httpError.get.foldCause("") { throwable =>
+      s"${scala.Console.BOLD}Cause: ${scala.Console.RESET}\n ${prettify(throwable)}"
+    }
+
+  private def formatErrorMessage(response: Response) = {
+    val errorMessage: String = response.httpError.map(_.message).getOrElse("")
+    val status               = response.status.code
+    s"${scala.Console.BOLD}${scala.Console.RED}${response.status} ${scala.Console.RESET} - " +
+      s"${scala.Console.BOLD}${scala.Console.CYAN}$status ${scala.Console.RESET} - " +
+      s"$errorMessage\n${formatCause(response)}"
   }
 }
