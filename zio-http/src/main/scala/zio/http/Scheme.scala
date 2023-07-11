@@ -60,11 +60,11 @@ object Scheme       {
     def decode(scheme: String)(implicit unsafe: Unsafe): Scheme = {
       if (scheme == null) null
       else
-        scheme.length match {
-          case 5 => Scheme.HTTPS
-          case 4 => Scheme.HTTP
-          case 3 => Scheme.WSS
-          case 2 => Scheme.WS
+        scheme.toUpperCase() match {
+          case "HTTPS" => Scheme.HTTPS
+          case "HTTP" => Scheme.HTTP
+          case "WSS" => Scheme.WSS
+          case "WS" => Scheme.WS
           case _ => null
         }
     }
