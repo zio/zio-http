@@ -81,8 +81,7 @@ private[http] object AtomizedCodecs {
       case Combine(left, right, _)       => flattenedAtoms(left) ++ flattenedAtoms(right)
       case atom: Atom[_, _]              => Chunk(atom)
       case map: TransformOrFail[_, _, _] => flattenedAtoms(map.api)
-      case WithDoc(api, _)               => flattenedAtoms(api)
-      case WithExamples(api, _)          => flattenedAtoms(api)
+      case Annotated(api, _)             => flattenedAtoms(api)
       case Empty                         => Chunk.empty
       case Halt                          => Chunk.empty
       case Fallback(_, _) => throw new UnsupportedOperationException("Cannot handle fallback at this level")
