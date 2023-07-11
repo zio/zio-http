@@ -22,7 +22,6 @@ import zio._
 import zio.test._
 
 import zio.http._
-import zio.http.codec._
 
 object HttpCodecSpec extends ZIOSpecDefault {
   val googleUrl     = URL.decode("http://google.com").toOption.get
@@ -144,18 +143,19 @@ object HttpCodecSpec extends ZIOSpecDefault {
       ) +
       suite("Codec with examples") {
         test("with examples") {
-          val userCodec = HttpCodec.empty.const("foo").examples("John", "Jane")
+          val userCodec = HttpCodec.empty.const("foo").examples("user" -> "John", "user2" -> "Jane")
           val uuid1     = UUID.randomUUID
           val uuid2     = UUID.randomUUID
-          val uuidCodec = HttpCodec.empty.const(UUID.randomUUID()).examples(uuid1, uuid2)
+          val uuidCodec = HttpCodec.empty.const(UUID.randomUUID()).examples("userId" -> uuid1, "userId2" -> uuid2)
 
           val userExamples = userCodec.examples
           val uuidExamples = uuidCodec.examples
           assertTrue(
-            userExamples == Chunk("John", "Jane"),
-            uuidExamples == Chunk(uuid1, uuid2),
+            userExamples == Map("user" -> "John", "user2" -> "Jane"),
+            uuidExamples == Map("userId" -> uuid1, "userId2" -> uuid2),
           )
         }
       },
   )
+
 }
