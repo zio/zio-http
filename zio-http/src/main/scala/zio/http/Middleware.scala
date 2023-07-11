@@ -23,7 +23,7 @@ import zio._
 import zio.metrics._
 
 import zio.http.html._
-import zio.http.internal.middlewares.Metrics
+import zio.http.internal.middlewares.{Auth, Metrics}
 
 /**
  * A [[zio.http.Middleware]] is a kind of [[zio.http.ProtocolStack]] that is
@@ -99,12 +99,156 @@ final case class Middleware[-Env, +CtxOut](
 object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]] {
 
   /**
+   * Sets cookie in response headers
+   */
+  def addCookie(cookie: Cookie.Response): Middleware[Any, Unit] =
+    addHeader(Header.SetCookie(cookie))
+
+  def addCookieZIO[Env](cookie: ZIO[Env, Nothing, Cookie.Response])(implicit
+    trace: Trace,
+  ): Middleware[Env, Unit] =
+    updateResponseZIO(response => cookie.map(response.addCookie))
+
+  /**
+   * Creates a middleware for basic authentication
+   */
+  def basicAuth(f: Auth.Credentials => Boolean): Middleware[Any, Unit] =
+    customAuth(
+      _.header(Header.Authorization) match {
+        case Some(Header.Authorization.Basic(userName, password)) =>
+          f(Auth.Credentials(userName, password))
+        case _                                                    => false
+      },
+      Headers(Header.WWWAuthenticate.Basic()),
+    )
+
+  /**
+   * Creates a middleware for basic authentication that checks if the
+   * credentials are same as the ones given
+   */
+  def basicAuth(u: String, p: String): Middleware[Any, Unit] =
+    basicAuth { credentials => (credentials.uname == u) && (credentials.upassword == p) }
+
+  /**
+   * Creates a middleware for basic authentication using an effectful
+   * verification function
+   */
+  def basicAuthZIO[Env](f: Auth.Credentials => ZIO[Env, Response, Boolean])(implicit
+    trace: Trace,
+  ): Middleware[Env, Unit] =
+    customAuthZIO(
+      _.header(Header.Authorization) match {
+        case Some(Header.Authorization.Basic(userName, password)) =>
+          f(Auth.Credentials(userName, password))
+        case _                                                    => ZIO.succeed(false)
+      },
+      Headers(Header.WWWAuthenticate.Basic()),
+    )
+
+  /**
+   * Creates a middleware for bearer authentication that checks the token using
+   * the given function
+   * @param f:
+   *   function that validates the token string inside the Bearer Header
+   */
+  def bearerAuth(f: String => Boolean): Middleware[Any, Unit] =
+    customAuth(
+      _.header(Header.Authorization) match {
+        case Some(Header.Authorization.Bearer(token)) => f(token)
+        case _                                        => false
+      },
+      Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
+    )
+
+  /**
+   * Creates a middleware for bearer authentication that checks the token using
+   * the given effectful function
+   * @param f:
+   *   function that effectfully validates the token string inside the Bearer
+   *   Header
+   */
+  def bearerAuthZIO[Env](
+    f: String => ZIO[Env, Response, Boolean],
+  )(implicit trace: Trace): Middleware[Env, Unit] =
+    customAuthZIO(
+      _.header(Header.Authorization) match {
+        case Some(Header.Authorization.Bearer(token)) => f(token)
+        case _                                        => ZIO.succeed(false)
+      },
+      Headers(Header.WWWAuthenticate.Bearer(realm = "Access")),
+    )
+
+  /**
    * Beautify the error response.
    */
   def beautifyErrors: Middleware[Any, Unit] =
     intercept(replaceErrorResponse)
 
-  final def debug: Middleware[Any, Unit] =
+  /**
+   * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app.
+   */
+  def customAuth(
+    verify: Request => Boolean,
+    responseHeaders: Headers = Headers.empty,
+    responseStatus: Status = Status.Unauthorized,
+  ): Middleware[Any, Unit] =
+    Middleware.interceptIncomingHandler[Any, Unit] {
+      Handler.fromFunctionExit[Request] { request =>
+        if (verify(request)) Exit.succeed(request -> ())
+        else Exit.fail(Response.status(responseStatus).addHeaders(responseHeaders))
+      }
+    }
+
+  /**
+   * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app, and provides a context to the request
+   * handlers.
+   */
+  final def customAuthProviding[Context](
+    provide: Request => Option[Context],
+    responseHeaders: Headers = Headers.empty,
+    responseStatus: Status = Status.Unauthorized,
+  ): Middleware[Any, Context] =
+    customAuthProvidingZIO((request: Request) => Exit.succeed(provide(request)), responseHeaders, responseStatus)
+
+  /**
+   * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app, and provides a context to the request
+   * handlers.
+   */
+  def customAuthProvidingZIO[Env, Context](
+    provide: Request => ZIO[Env, Nothing, Option[Context]],
+    responseHeaders: Headers = Headers.empty,
+    responseStatus: Status = Status.Unauthorized,
+  ): Middleware[Env, Context] =
+    Middleware.interceptIncomingHandler[Env, Context](
+      Handler.fromFunctionZIO[Request] { req =>
+        provide(req).flatMap {
+          case Some(context) => ZIO.succeed((req, context))
+          case None          => ZIO.fail(Response.status(responseStatus).addHeaders(responseHeaders))
+        }
+      },
+    )
+
+  /**
+   * Creates an authentication middleware that only allows authenticated
+   * requests to be passed on to the app using an effectful verification
+   * function.
+   */
+  def customAuthZIO[Env](
+    verify: Request => ZIO[Env, Response, Boolean],
+    responseHeaders: Headers = Headers.empty,
+    responseStatus: Status = Status.Unauthorized,
+  ): Middleware[Env, Unit] =
+    Middleware.interceptIncomingHandler[Env, Unit](Handler.fromFunctionZIO[Request] { request =>
+      verify(request).flatMap {
+        case true  => ZIO.succeed((request, ()))
+        case false => ZIO.fail(Response.status(responseStatus).addHeaders(responseHeaders))
+      }
+    })
+
+  def debug: Middleware[Any, Unit] =
     Middleware.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { request =>
       zio.Clock.instant.map(now => ((now, request), (request, ())))
     })(Handler.fromFunctionZIO[((java.time.Instant, Request), Response)] { case ((start, request), response) =>
@@ -218,12 +362,6 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   def interceptPatchZIO[Env, S](fromRequest: Request => ZIO[Env, Response, S]): InterceptPatchZIO[Env, S] =
     new InterceptPatchZIO[Env, S](fromRequest)
 
-  private val defaultBoundaries = MetricKeyType.Histogram.Boundaries.fromChunk(
-    Chunk(
-      .005, .01, .025, .05, .075, .1, .25, .5, .75, 1, 2.5, 5, 7.5, 10,
-    ),
-  )
-
   /**
    * Adds metrics to a zio-http server.
    *
@@ -317,7 +455,7 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       ifFalse = updatePath(_.dropTrailingSlash) ++ failWith(request => Response.redirect(request.url, isPermanent)),
     )
 
-  final def requestLogging(
+  def requestLogging(
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
     failureLevel: LogLevel = LogLevel.Warning,
     loggedRequestHeaders: Set[Header.HeaderType] = Set.empty,
@@ -583,4 +721,10 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       s"${scala.Console.BOLD}${scala.Console.CYAN}$status ${scala.Console.RESET} - " +
       s"$errorMessage\n${formatCause(response)}"
   }
+
+  private val defaultBoundaries = MetricKeyType.Histogram.Boundaries.fromChunk(
+    Chunk(
+      .005, .01, .025, .05, .075, .1, .25, .5, .75, 1, 2.5, 5, 7.5, 10,
+    ),
+  )
 }
