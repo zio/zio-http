@@ -74,7 +74,7 @@ object BuildHelper extends ScalaSettings {
     scalacOptions                  := stdOptions ++ extraOptions(scalaVersion.value),
     ThisBuild / scalafixDependencies ++=
       List(
-        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.23",
+        "com.github.vovapolu" %% "scaluzzi" % "0.1.23",
       ),
     Test / parallelExecution       := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
