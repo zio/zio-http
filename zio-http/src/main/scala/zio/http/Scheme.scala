@@ -58,7 +58,8 @@ object Scheme       {
 
   private[zio] object unsafe {
     def decode(scheme: String)(implicit unsafe: Unsafe): Scheme = {
-      if (scheme.equalsIgnoreCase("HTTPS")) Scheme.HTTPS
+      if (scheme == null) null
+      else if (scheme.equalsIgnoreCase("HTTPS")) Scheme.HTTPS
       else if (scheme.equalsIgnoreCase("HTTPS")) Scheme.HTTPS
       else if (scheme.equalsIgnoreCase("HTTP")) Scheme.HTTP
       else if (scheme.equalsIgnoreCase("WSS")) Scheme.WSS
