@@ -29,17 +29,6 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
   def handlerTODO(message: String): Handler[Any, Nothing, Any, Nothing] =
     handler(ZIO.dieMessage(message))
 
-  /**
-   * Constructs a route given a route pattern (specified in the first parameter
-   * list), and a handler for the route (specified in the second parameter
-   * list).
-   *
-   * If the route pattern produces input, you should use the second parameter
-   * list to specify a function that takes the input, and returns a handler.
-   */
-  def route[PathInput](routePattern: RoutePattern[PathInput]): Route.UnhandledConstructor[PathInput] =
-    new Route.UnhandledConstructor(routePattern)
-
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
 
   type HttpAppMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =

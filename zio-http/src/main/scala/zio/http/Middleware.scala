@@ -79,6 +79,17 @@ final case class Middleware[-Env, +CtxOut](
       self.protocol ++ combiner
     }
 
+  def apply[Env1 <: Env](
+    handler: Handler[Env1, Response, (Request, CtxOut), Response],
+  ): Handler[Env1, Response, Request, Response] = {
+    if (self == Middleware.identity) handler.contramap[Request](req => (req, ().asInstanceOf[CtxOut]))
+    else {
+      protocol.incomingHandler >>> Handler.fromFunctionZIO[(protocol.State, (Request, CtxOut))] {
+        case (state, (request, ctxOut)) => handler((request, ctxOut)).map(response => (state, response))
+      } >>> protocol.outgoingHandler
+    }
+  }
+
   def as[CtxOut2](ctxOut2: => CtxOut2): Middleware[Env, CtxOut2] =
     map(_ => ctxOut2)
 

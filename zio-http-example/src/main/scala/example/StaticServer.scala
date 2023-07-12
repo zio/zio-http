@@ -16,7 +16,7 @@ object StaticServer extends ZIOAppDefault {
 
       for {
         path <- extractPath
-        file <- extractRequest >>> Handler.getResourceAsFile(path.encode)
+        file <- Handler.getResourceAsFile(path.encode)
         http <-
         // Rendering a custom UI to list all the files in the directory
         extractRequest >>> (if (file.isDirectory) {

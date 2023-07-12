@@ -1,6 +1,7 @@
 package zio.http
 
 import scala.annotation.implicitNotFound
+import scala.util.Try
 
 import zio.{Exit, ZIO}
 
@@ -480,6 +481,42 @@ private[http] trait HandlerConstructorLowPriorityImplicits3 extends HandlerConst
       def toHandler(z: => Z): Handler[Env, Err, In, Out] =
         Handler.fromFunction { case (in1, in2, in3, in4, in5) => z(in1, in2, in3, in4, in5) }
     }
+
+  implicit def function6IsHandlerConstructor[In1, In2, In3, In4, In5, In6, Out0]: HandlerConstructor.Typed[
+    (In1, In2, In3, In4, In5, In6) => Out0,
+    Any,
+    Nothing,
+    (In1, In2, In3, In4, In5, In6),
+    Out0,
+  ] =
+    new HandlerConstructor[(In1, In2, In3, In4, In5, In6) => Out0] {
+      type Env = Any
+      type Err = Nothing
+      type In  = (In1, In2, In3, In4, In5, In6)
+      type Out = Out0
+      type Z   = (In1, In2, In3, In4, In5, In6) => Out0
+
+      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
+        Handler.fromFunction { case (in1, in2, in3, in4, in5, in6) => z(in1, in2, in3, in4, in5, in6) }
+    }
+
+  implicit def function7IsHandlerConstructor[In1, In2, In3, In4, In5, In6, In7, Out0]: HandlerConstructor.Typed[
+    (In1, In2, In3, In4, In5, In6, In7) => Out0,
+    Any,
+    Nothing,
+    (In1, In2, In3, In4, In5, In6, In7),
+    Out0,
+  ] =
+    new HandlerConstructor[(In1, In2, In3, In4, In5, In6, In7) => Out0] {
+      type Env = Any
+      type Err = Nothing
+      type In  = (In1, In2, In3, In4, In5, In6, In7)
+      type Out = Out0
+      type Z   = (In1, In2, In3, In4, In5, In6, In7) => Out0
+
+      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
+        Handler.fromFunction { case (in1, in2, in3, in4, in5, in6, in7) => z(in1, in2, in3, in4, in5, in6, in7) }
+    }
 }
 
 private[http] trait HandlerConstructorLowPriorityImplicits4 {
@@ -499,7 +536,7 @@ private[http] trait HandlerConstructorLowPriorityImplicits4 {
         Handler.fromFunction(z)
     }
 
-  implicit def outZIOIsHandlerConstructor[Env0, Err0, Out0]
+  implicit def zioIsHandlerConstructor[Env0, Err0, Out0]
     : HandlerConstructor.Typed[ZIO[Env0, Err0, Out0], Env0, Err0, Any, Out0] =
     new HandlerConstructor[ZIO[Env0, Err0, Out0]] {
       type Env = Env0
@@ -534,5 +571,30 @@ private[http] trait HandlerConstructorLowPriorityImplicits4 {
 
       def toHandler(z: => Z): Handler[Env, Err, In, Out] =
         Handler.fromExit(z)
+    }
+
+  implicit def eitherIsHandlerConstructor[Err0, Out0]
+    : HandlerConstructor.Typed[Either[Err0, Out0], Any, Err0, Any, Out0] =
+    new HandlerConstructor[Either[Err0, Out0]] {
+      type Env = Any
+      type Err = Err0
+      type In  = Any
+      type Out = Out0
+      type Z   = Either[Err0, Out0]
+
+      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
+        Handler.fromEither(z)
+    }
+
+  implicit def tryIsHandlerConstructor[Out0]: HandlerConstructor.Typed[Try[Out0], Any, Throwable, Any, Out0] =
+    new HandlerConstructor[Try[Out0]] {
+      type Env = Any
+      type Err = Throwable
+      type In  = Any
+      type Out = Out0
+      type Z   = Try[Out0]
+
+      def toHandler(z: => Z): Handler[Env, Err, In, Out] =
+        Handler.fromEither(z.toEither)
     }
 }

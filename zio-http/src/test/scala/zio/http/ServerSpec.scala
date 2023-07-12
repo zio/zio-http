@@ -103,11 +103,10 @@ object ServerSpec extends HttpRunnableSpec {
           }
       } +
       suite("echo content") {
-        val app = route(RoutePattern.any) {
+        val app = (RoutePattern.any ->
           handler { (path: Path, req: Request) =>
             req.body.asString.map(text => Response.text(text))
-          }
-        }.ignoreErrors.toApp
+          }).ignoreErrors.toApp
 
         test("status is 200") {
           val res = app.deploy.status.run()
@@ -128,7 +127,7 @@ object ServerSpec extends HttpRunnableSpec {
           test("data") {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
             val app        =
-              Routes(route(RoutePattern.any)(handler((path: Path, req: Request) => Response(body = req.body)))).toApp
+              Routes(RoutePattern.any -> handler((path: Path, req: Request) => Response(body = req.body))).toApp
             val res        = app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromStream(dataStream))
             assertZIO(res)(equalTo(MaxSize))
           }
@@ -151,11 +150,10 @@ object ServerSpec extends HttpRunnableSpec {
         val bodyAsStream = ZStream.fromChunk(Chunk.fromArray(body.getBytes))
 
         val app = Routes(
-          route(RoutePattern.any) {
+          RoutePattern.any ->
             handler { (path: Path, req: Request) =>
               req.body.asString.map(body => Response.text(body))
-            }
-          },
+            },
         ).ignoreErrors.toApp.deploy
 
         def roundTrip[R, E <: Throwable](

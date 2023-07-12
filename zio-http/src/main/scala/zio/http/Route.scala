@@ -10,7 +10,6 @@ import zio.http.codec._
  * converted into responses before the route can be executed.
  */
 sealed trait Route[-Env, +Err] { self =>
-  type PathInput
 
   /**
    * Applies the route to the specified request. The route must be defined for
@@ -18,7 +17,8 @@ sealed trait Route[-Env, +Err] { self =>
    * call this function when you have handled all errors produced by the route,
    * converting them into responses.
    */
-  def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Response, Response]
+  final def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Response, Response] =
+    toHandler.apply(request)
 
   def asErrorType[Err2](implicit ev: Err <:< Err2): Route[Env, Err2] = self.asInstanceOf[Route[Env, Err2]]
 
@@ -28,8 +28,8 @@ sealed trait Route[-Env, +Err] { self =>
    */
   final def handleError(f: Err => Response): Route[Env, Nothing] =
     self match {
-      case Route.Handled(r, h, z, l)   => Route.Handled(r, h, z, l)
-      case Route.Unhandled(r, h, z, l) => Route.Handled(r, h.mapError(f), z, l)
+      case Route.Handled(r, h, l)      => Route.Handled(r, h, l)
+      case Route.Unhandled(r, h, z, l) => Route.handled(r)(h.mapError(f))(z, l)
     }
 
   /**
@@ -53,7 +53,7 @@ sealed trait Route[-Env, +Err] { self =>
    */
   final def mapError[Err2](f: Err => Err2): Route[Env, Err2] =
     self match {
-      case Route.Handled(r, h, z, l)   => Route.Handled(r, h, z, l)
+      case Route.Handled(r, h, l)      => Route.Handled(r, h, l)
       case Route.Unhandled(r, h, z, l) => Route.Unhandled(r, h.mapError(f), z, l)
     }
 
@@ -61,72 +61,76 @@ sealed trait Route[-Env, +Err] { self =>
    * The route pattern over which the route is defined. The route can only
    * handle requests that match this route pattern.
    */
-  def routePattern: RoutePattern[PathInput]
+  def routePattern: RoutePattern[_]
+
+  def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response]
 
   final def toApp(implicit ev: Err <:< Nothing): App[Env] = Routes(self).toApp
 }
-object Route                   {
+object Route {
   import zio.http.endpoint._
 
-  def handled[PathInput, Env](routePattern: RoutePattern[PathInput]): HandledConstructor[PathInput] =
-    new HandledConstructor[PathInput](routePattern)
+  def handled[Params](routePattern: RoutePattern[Params]): HandledConstructor[Any, Params] =
+    handled(RoutePatternMiddleware(routePattern, Middleware.identity))
 
-  def route[PathInput, Env, Err](routePattern: RoutePattern[PathInput]): UnhandledConstructor[PathInput] =
-    new UnhandledConstructor[PathInput](routePattern)
+  def handled[Params, Env](rpm: RoutePatternMiddleware[Env, Params]): HandledConstructor[Env, Params] =
+    new HandledConstructor[Env, Params](rpm)
 
-  final class HandledConstructor[PathInput](val routePattern: RoutePattern[PathInput]) extends AnyVal {
-    def apply[Env, I](
-      handler: Handler[Env, Response, I, Response],
-    )(implicit zippable: Zippable.Out[PathInput, Request, I], trace: Trace): Route[Env, Nothing] =
-      Handled(routePattern, handler, zippable, trace)
+  def route[Params](routePattern: RoutePattern[Params]): UnhandledConstructor[Any, Params] =
+    route(RoutePatternMiddleware(routePattern, Middleware.identity))
+
+  def route[Params, Env](rpm: RoutePatternMiddleware[Env, Params]): UnhandledConstructor[Env, Params] =
+    new UnhandledConstructor[Env, Params](rpm)
+
+  final class HandledConstructor[-Env, Params](val rpm: RoutePatternMiddleware[Env, Params]) extends AnyVal {
+    def apply[Env1 <: Env, In](
+      handler: Handler[Env1, Response, In, Response],
+    )(implicit zippable: Zippable.Out[Params, Request, In], trace: Trace): Route[Env1, Nothing] = {
+      val handler2: Handler[Env1, Response, Request, Response] = {
+        val paramHandler =
+          Handler.fromFunctionZIO[(Request, rpm.Context)] { case (request, ctx) =>
+            rpm.routePattern.decode(request.method, request.path) match {
+              case Left(error)  => ZIO.dieMessage(error)
+              case Right(value) =>
+                val params = rpm.zippable.zip(value, ctx)
+
+                handler(zippable.zip(params, request))
+            }
+          }
+
+        rpm.middleware(paramHandler)
+      }
+
+      Handled(rpm.routePattern, handler2, trace)
+    }
   }
 
-  final class UnhandledConstructor[PathInput](val routePattern: RoutePattern[PathInput]) extends AnyVal {
-    def apply[Env, Err, I](
-      handler: Handler[Env, Err, I, Response],
-    )(implicit zippable: Zippable.Out[PathInput, Request, I], trace: Trace): Route[Env, Err] =
-      Unhandled(routePattern, handler, zippable, trace)
+  final class UnhandledConstructor[-Env, Params](val rpm: RoutePatternMiddleware[Env, Params]) extends AnyVal {
+    def apply[Env1 <: Env, Err, Input](
+      handler: Handler[Env1, Err, Input, Response],
+    )(implicit zippable: Zippable.Out[Params, Request, Input], trace: Trace): Route[Env1, Err] =
+      Unhandled(rpm, handler, zippable, trace)
   }
 
-  private[http] final case class Handled[PI, Input, -Env](
-    routePattern: RoutePattern[PI],
-    handler: Handler[Env, Response, Input, Response],
-    zippable: Zippable.Out[PI, Request, Input],
+  private[http] final case class Handled[-Env](
+    routePattern: RoutePattern[_],
+    handler: Handler[Env, Response, Request, Response],
     location: Trace,
   ) extends Route[Env, Nothing] {
-    type PathInput = PI
-
-    def apply(request: Request)(implicit ev: Nothing <:< Response): ZIO[Env, Response, Response] =
-      routePattern.decode(request.method, request.path) match {
-        case Right(pathInput) => handler(zippable.zip(pathInput, request))
-        case Left(error)      =>
-          ZIO.die(
-            new MatchError(
-              s"Route not defined for path ${request.method}: ${request.url.path}, cause: $error",
-            ),
-          )
-      }
+    def toHandler(implicit ev: Nothing <:< Response): Handler[Env, Response, Request, Response] = handler
 
     override def toString() = s"Route.Handled(${routePattern}, ${location})"
   }
-  private[http] final case class Unhandled[PI, I, -Env, +Err](
-    routePattern: RoutePattern[PI],
-    handler: Handler[Env, Err, I, Response],
-    zippable: Zippable.Out[PI, Request, I],
+  private[http] final case class Unhandled[Params, Input, -Env, +Err](
+    rpm: RoutePatternMiddleware[Env, Params],
+    handler: Handler[Env, Err, Input, Response],
+    zippable: Zippable.Out[Params, Request, Input],
     location: Trace,
-  ) extends Route[Env, Err] {
-    type PathInput = PI
+  ) extends Route[Env, Err] { self =>
+    def routePattern = rpm.routePattern
 
-    def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Response, Response] =
-      routePattern.decode(request.method, request.path) match {
-        case Right(pathInput) => handler(zippable.zip(pathInput, request)).mapError(ev)
-        case Left(error)      =>
-          ZIO.die(
-            new NoSuchElementException(
-              s"Route not defined for path ${request.method}: ${request.url.path}, cause: $error",
-            ),
-          )
-      }
+    def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response] =
+      self.handleError(ev).toHandler
 
     override def toString() = s"Route.Unhandled(${routePattern}, ${location})"
   }

@@ -61,7 +61,27 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
     zippable: RequestHandlerInput[A, I],
     trace: zio.Trace,
   ): Route[Env, Err] =
-    Route.route(self)(handler)(zippable.zippable, trace)
+    Route.route(RoutePatternMiddleware(self, Middleware.identity))(handler)(zippable.zippable, trace)
+
+  /**
+   * Creates a route from this pattern and the specified handler, which ignores
+   * any parameters produced by this route pattern. This method exists for
+   * performance reasons, as it avoids all overhead of propagating parameters or
+   * supporting contextual middleware.
+   */
+  def ->[Env, Err](handler: Handler[Env, Response, Request, Response])(implicit
+    trace: zio.Trace,
+  ): Route[Env, Err] =
+    Route.Handled(self, handler, trace)
+
+  /**
+   * Combines this route pattern with the specified middleware, which can be
+   * used to build a route by providing a handler.
+   */
+  def ->[Env, Context](middleware: Middleware[Env, Context])(implicit
+    zippable: Zippable[A, Context],
+  ): RoutePatternMiddleware[Env, zippable.Out] =
+    RoutePatternMiddleware(self, middleware)(zippable)
 
   /**
    * Reinteprets the type parameter, given evidence it is equal to some other

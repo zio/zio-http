@@ -70,6 +70,14 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
 
   def incoming(in: IncomingIn): ZIO[Env, OutgoingOut, (State, IncomingOut)]
 
+  lazy val incomingHandler: Handler[Env, OutgoingOut, IncomingIn, (State, IncomingOut)] =
+    Handler.fromFunctionZIO[IncomingIn](incoming(_))
+
+  lazy val outgoingHandler: Handler[Env, Nothing, (State, OutgoingIn), OutgoingOut] =
+    Handler.fromFunctionZIO[(State, OutgoingIn)] { case (state, in) =>
+      outgoing(state, in)
+    }
+
   def mapIncoming[IncomingOut2](
     f: IncomingOut => IncomingOut2,
   ): ProtocolStack[Env, IncomingIn, IncomingOut2, OutgoingIn, OutgoingOut] =
