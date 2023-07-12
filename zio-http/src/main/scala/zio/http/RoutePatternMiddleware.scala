@@ -17,7 +17,11 @@ package zio.http
 
 import zio._
 
-sealed abstract class RoutePatternMiddleware[-Env, A] {
+/**
+ * A combination of a route pattern and middleware, used for building routes
+ * that depend on middleware context (such as authentication).
+ */
+sealed abstract class RoutePatternMiddleware[-Env, A] { self =>
   type PathInput
   type Context
 
@@ -25,10 +29,17 @@ sealed abstract class RoutePatternMiddleware[-Env, A] {
   def middleware: Middleware[Env, Context]
   def zippable: Zippable.Out[PathInput, Context, A]
 
-  def ->[Env, Err, I](handler: Handler[Env, Err, I, Response])(implicit
+  /**
+   * Constructs a route from this route pattern and middleware.
+   */
+  def ->[Env1 <: Env, Err, I](handler: Handler[Env1, Err, I, Response])(implicit
     input: RequestHandlerInput[A, I],
     trace: Trace,
-  ): Route[Env, Err] = ???
+  ): Route[Env1, Err] = {
+    implicit val z = input.zippable
+
+    Route.route[A, Env1](self)(handler)
+  }
 }
 object RoutePatternMiddleware                         {
   def apply[Env, PI, MC, Out](rp: RoutePattern[PI], mc: Middleware[Env, MC])(implicit
