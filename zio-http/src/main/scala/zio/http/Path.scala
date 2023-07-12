@@ -68,7 +68,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    */
   def addLeadingSlash: Path =
     if (hasLeadingSlash) self
-    else if (segments.length == 0) Path(Flags(Flag.LeadingSlash), Chunk.empty)
+    else if (segments.isEmpty) Path(Flags(Flag.LeadingSlash), Chunk.empty)
     else Path(Flag.LeadingSlash.add(flags), segments)
 
   /**
@@ -76,7 +76,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    */
   def addTrailingSlash: Path =
     if (hasTrailingSlash) self
-    else if (segments.length == 0) Path(Flags(Flag.TrailingSlash), Chunk.empty)
+    else if (segments.isEmpty) Path(Flags(Flag.TrailingSlash), Chunk.empty)
     else Path(Flag.TrailingSlash.add(flags), segments)
 
   /**
@@ -233,7 +233,7 @@ object Path {
    * Decodes a path string into a Path.
    */
   def decode(path: String): Path =
-    if (path.length == 0) Path.empty
+    if (path.isEmpty) Path.empty
     else {
       val chunkBuilder = ChunkBuilder.make[String]()
 

@@ -36,7 +36,7 @@ sealed trait Method { self =>
   val name: String
 
   override def toString: String =
-    if (name.length == 0) "<default-method>" else name
+    if (name.isEmpty) "<default-method>" else name
 }
 
 object Method {

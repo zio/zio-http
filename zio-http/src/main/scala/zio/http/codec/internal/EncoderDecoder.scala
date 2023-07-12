@@ -278,7 +278,7 @@ private[codec] object EncoderDecoder                   {
         else {
           val segment = segments(j)
 
-          if (segment.length != 0) {
+          if (segment.nonEmpty) {
             val textCodec = flattened.path(i).erase
 
             inputs(i) = textCodec
@@ -365,7 +365,7 @@ private[codec] object EncoderDecoder                   {
     private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] = {
       if (isByteStream) {
         ZIO.attempt(inputs(0) = body.asStream.orDie)
-      } else if (jsonDecoders.length == 0) {
+      } else if (jsonDecoders.isEmpty) {
         ZIO.unit
       } else if (jsonDecoders.length == 1) {
         jsonDecoders(0)(body).map { result => inputs(0) = result }.mapError { err =>
@@ -499,7 +499,7 @@ private[codec] object EncoderDecoder                   {
     }
 
     private def encodeStatus(inputs: Array[Any]): Option[Status] = {
-      if (flattened.status.length == 0) {
+      if (flattened.status.isEmpty) {
         None
       } else {
         flattened.status(0) match {
