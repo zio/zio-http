@@ -2,8 +2,6 @@ package zio.http
 
 import zio._
 
-import zio.http.codec._
-
 /**
  * Represents a single route, which has either handled its errors by converting
  * them into responses, or which has polymorphic errors, which must later be
@@ -68,7 +66,6 @@ sealed trait Route[-Env, +Err] { self =>
   final def toApp(implicit ev: Err <:< Nothing): App[Env] = Routes(self).toApp
 }
 object Route {
-  import zio.http.endpoint._
 
   def handled[Params](routePattern: RoutePattern[Params]): HandledConstructor[Any, Params] =
     handled(RoutePatternMiddleware(routePattern, Middleware.identity))
@@ -130,9 +127,13 @@ object Route {
     def routePattern = rpm.routePattern
 
     def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response] =
-      self.handleError(ev).toHandler
+      convert(self.handleError(ev))
 
     override def toString() = s"Route.Unhandled(${routePattern}, ${location})"
+
+    // Workaround:
+    private def convert[Env1 <: Env](handled: Route[Env1, Nothing]): Handler[Env1, Response, Request, Response] =
+      handled.toHandler
   }
 
   private[http] final case class Tree[-Env, +Err](tree: RoutePattern.Tree[Route[Env, Err]]) { self =>
