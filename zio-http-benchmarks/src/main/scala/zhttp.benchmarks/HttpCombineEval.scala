@@ -15,7 +15,7 @@ class HttpCombineEval {
   private val req  = Request.get("/foo")
   private val res  = Response.ok
   private val MAX  = 1000
-  private val app  = Routes(route(Method.GET / "")(handler(res)))
+  private val app  = Routes(Method.GET / "" -> handler(res))
   private val spec = (0 to MAX).foldLeft(app)((a, _) => a ++ app).toApp
 
   @Benchmark
