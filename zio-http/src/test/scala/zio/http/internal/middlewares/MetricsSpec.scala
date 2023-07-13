@@ -107,7 +107,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           totalUser1NotFoundCount <- totalUser1NotFound.value
         } yield assertTrue(totalUser1NotFoundCount == MetricState.Counter(0))
       },
-      test("http_requests_total with two path label mappers revers") {
+      test("http_requests_total with two path label mappers reverse order") {
         val app1 = Http.collectHandler[Request] { case _ @Method.GET -> Root / "company" / _ =>
           Handler.ok
         } @@ metrics(
