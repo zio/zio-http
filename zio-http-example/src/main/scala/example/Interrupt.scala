@@ -16,7 +16,7 @@ object MyServer extends ZIOAppDefault {
       handler(ZIO.sleep(10.seconds).map(_ => Response.text("done")).onExit { e =>
         Console.printLine(e).exit
       }),
-  ).toApp
+  ).toHttpApp
 
   def run =
     Server.serve(app).provide(Server.default)

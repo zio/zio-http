@@ -88,7 +88,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
     outF: Out => ZIO[Any, Err, TestResult],
   ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
     for {
-      port   <- Server.install(route.toApp @@ Middleware.requestLogging())
+      port   <- Server.install(route.toHttpApp @@ Middleware.requestLogging())
       client <- ZIO.service[Client]
       executor = makeExecutor(client, port)
       out    <- executor(endpoint.apply(in))
@@ -110,7 +110,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
     errorF: Err => ZIO[Any, Nothing, TestResult],
   ): ZIO[Client with Server with Scope, Out, TestResult] =
     for {
-      port <- Server.install(route.toApp)
+      port <- Server.install(route.toHttpApp)
       executorLayer = ZLayer(ZIO.service[Client].map(makeExecutor(_, port)))
       out    <- ZIO
         .service[EndpointExecutor[Unit]]
@@ -192,7 +192,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
         }
 
         for {
-          port     <- Server.install(handler.toApp)
+          port     <- Server.install(handler.toHttpApp)
           client   <- ZIO.service[Client]
           response <- client(
             Request.post(
@@ -301,7 +301,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
 
         val routes = endpointRoute
 
-        val app = routes.toApp @@ alwaysFailingMiddleware
+        val app = routes.toHttpApp @@ alwaysFailingMiddleware
           .implement(_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
 
         for {
@@ -340,7 +340,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
 
         val routes = endpointRoute
 
-        val app = routes.toApp @@ alwaysFailingMiddleware
+        val app = routes.toHttpApp @@ alwaysFailingMiddleware
           .implement(_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
 
         for {
@@ -387,7 +387,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
 
         val routes = endpointRoute
 
-        val app = routes.toApp
+        val app = routes.toHttpApp
 
         for {
           port <- Server.install(app)

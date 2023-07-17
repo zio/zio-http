@@ -25,23 +25,23 @@ import zio._
  * HTTP applications can be installed into a [[zio.http.Server]], which is
  * capable of using them to serve requests.
  */
-final case class HttpApp2[-Env](routes: Routes[Env, Response])
+final case class HttpApp[-Env](routes: Routes[Env, Response])
     extends PartialFunction[Request, ZIO[Env, Response, Response]] { self =>
-  private var _tree: HttpApp2.Tree[_] = HttpApp2.Tree.empty
+  private var _tree: HttpApp.Tree[_] = HttpApp.Tree.empty
 
   /**
    * Applies the specified route aspect to every route in the HTTP application.
    */
-  def @@[Env1 <: Env](aspect: RouteAspect[Nothing, Env1]): HttpApp2[Env1] =
-    HttpApp2(routes @@ aspect)
+  def @@[Env1 <: Env](aspect: RouteAspect[Nothing, Env1]): HttpApp[Env1] =
+    HttpApp(routes @@ aspect)
 
   /**
    * Combines this HTTP application with the specified HTTP application. In case
    * of route conflicts, the routes in this HTTP application take precedence
    * over the routes in the specified HTTP application.
    */
-  def ++[Env1 <: Env](that: HttpApp2[Env1]): HttpApp2[Env1] =
-    HttpApp2(routes ++ that.routes)
+  def ++[Env1 <: Env](that: HttpApp[Env1]): HttpApp[Env1] =
+    HttpApp(routes ++ that.routes)
 
   /**
    * Executes the HTTP application with the specified request input, returning
@@ -63,8 +63,8 @@ final case class HttpApp2[-Env](routes: Routes[Env, Response])
    * Provides the specified environment to the HTTP application, returning a new
    * HTTP application that has no environmental requirements.
    */
-  def provideEnvironment(env: ZEnvironment[Env]): HttpApp2[Any] =
-    HttpApp2(routes.provideEnvironment(env))
+  def provideEnvironment(env: ZEnvironment[Env]): HttpApp[Any] =
+    HttpApp(routes.provideEnvironment(env))
 
   def run(
     method: Method = Method.GET,
@@ -84,7 +84,7 @@ final case class HttpApp2[-Env](routes: Routes[Env, Response])
    * Returns a new HTTP application whose requests will be timed out after the
    * specified duration elapses.
    */
-  def timeout(duration: Duration): HttpApp2[Env] =
+  def timeout(duration: Duration): HttpApp[Env] =
     self @@ RouteAspect.timeout(duration)
 
   /**
@@ -110,20 +110,20 @@ final case class HttpApp2[-Env](routes: Routes[Env, Response])
   /**
    * Accesses the underlying tree that provides fast dispatch to handlers.
    */
-  def tree: HttpApp2.Tree[Env] = {
+  def tree: HttpApp.Tree[Env] = {
     if (_tree eq null) {
-      _tree = HttpApp2.Tree.fromRoutes(routes)
+      _tree = HttpApp.Tree.fromRoutes(routes)
     }
 
-    _tree.asInstanceOf[HttpApp2.Tree[Env]]
+    _tree.asInstanceOf[HttpApp.Tree[Env]]
   }
 }
-object HttpApp2                                                    {
+object HttpApp                                                     {
 
   /**
    * An HTTP application that does not handle any routes.
    */
-  val empty: HttpApp2[Any] = HttpApp2(Routes.empty)
+  val empty: HttpApp[Any] = HttpApp(Routes.empty)
 
   /**
    * Generates an HttpApp from a partial function. This constructor should only
@@ -131,8 +131,8 @@ object HttpApp2                                                    {
    * HTTP, you should instead look at the new way of defining routes using
    * [[zio.http.Routes]].
    */
-  def collectZIO[R](pf: PartialFunction[Request, ZIO[R, Response, Response]]): HttpApp2[R] =
-    HttpApp2(
+  def collectZIO[R](pf: PartialFunction[Request, ZIO[R, Response, Response]]): HttpApp[R] =
+    HttpApp(
       Routes.singleton {
         Handler.fromFunctionZIO[(Path, Request)] { case (path: Path, request: Request) =>
           if (pf.isDefinedAt(request)) pf(request)

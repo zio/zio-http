@@ -26,15 +26,15 @@ import zio.http.netty.client.NettyClientDriver
 object DynamicAppTest extends ZIOSpecDefault {
   def extractStatus(response: Response): Status = response.status
 
-  val httpApp1: HttpApp2[Any] =
+  val httpApp1: HttpApp[Any] =
     Routes(
       Method.GET / "good" -> Handler.ok,
-    ).ignore.toApp
+    ).ignore.toHttpApp
 
-  val httpApp2: HttpApp2[Any] =
+  val httpApp2: HttpApp[Any] =
     Routes(
       Method.GET / "better" -> handler(Response.status(Status.Created)),
-    ).ignore.toApp
+    ).ignore.toHttpApp
 
   val layer =
     ZLayer.make[Client & Server & Scope](

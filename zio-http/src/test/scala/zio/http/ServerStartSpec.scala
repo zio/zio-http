@@ -29,14 +29,14 @@ object ServerStartSpec extends HttpRunnableSpec {
     test("desired port") {
       val port   = 8088
       val config = Server.Config.default.port(port)
-      serve(HttpApp2.empty).flatMap { port =>
+      serve(HttpApp.empty).flatMap { port =>
         assertZIO(ZIO.attempt(port))(equalTo(port))
       }.provide(ZLayer.succeed(config), DynamicServer.live, Server.live)
     },
     test("available port") {
       val port   = 0
       val config = Server.Config.default.port(port)
-      serve(HttpApp2.empty).flatMap { bindPort =>
+      serve(HttpApp.empty).flatMap { bindPort =>
         assertZIO(ZIO.attempt(bindPort))(not(equalTo(port)))
       }.provide(ZLayer.succeed(config), DynamicServer.live, Server.live)
     },

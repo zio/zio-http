@@ -31,7 +31,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
   private val app =
     Routes(
       Method.GET / "health" -> handler(ZIO.succeed(Response.ok).delay(1 second)),
-    ).toApp
+    ).toHttpApp
 
   private val midA = Middleware.addHeader("X-Custom", "A")
   private val midB = Middleware.addHeader("X-Custom", "B")
@@ -220,7 +220,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
             Method.ANY / PathCodec.trailing -> handler { (path: Path, req: Request) =>
               Response.text(req.url.encode)
             },
-          ).toApp @@ dropTrailingSlash(onlyIfNoQueryParams = true)
+          ).toHttpApp @@ dropTrailingSlash(onlyIfNoQueryParams = true)
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))
@@ -317,7 +317,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
 
   private def condZIO(flg: Boolean) = (_: Any) => ZIO.succeed(flg)
 
-  private def runApp[R](app: HttpApp2[R]): ZIO[R, Response, Response] = {
+  private def runApp[R](app: HttpApp[R]): ZIO[R, Response, Response] = {
     for {
       fib <- app.runZIO { Request.get(url = URL(Root / "health")) }.fork
       _   <- TestClock.adjust(10 seconds)

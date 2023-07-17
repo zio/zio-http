@@ -45,7 +45,7 @@ object ClientSpec extends HttpRunnableSpec {
       assertZIO(res)(equalTo("ZIO user"))
     },
     test("empty content") {
-      val app             = HttpApp2.empty
+      val app             = HttpApp.empty
       val responseContent = app.deploy(Request()).flatMap(_.body.asString.map(_.length))
       assertZIO(responseContent)(equalTo(0))
     },

@@ -101,7 +101,7 @@ class EndpointBenchmark {
       }
     }
 
-  val apiHttpApp = handledUsersPosts.toApp
+  val apiHttpApp = handledUsersPosts.toHttpApp
 
   // Collect DSL
   val collectHttpApp = Routes(
@@ -111,7 +111,7 @@ class EndpointBenchmark {
 
         Response.json(ExampleData(userIdInt, postIdInt, query).toJson)
     },
-  ).toApp
+  ).toHttpApp
 
   // Tapir Akka DSL
 
@@ -219,7 +219,7 @@ class EndpointBenchmark {
   )
     .out[Unit]
     .implement(Handler.unit)
-    .toApp
+    .toHttpApp
 
   // Collect DSL
 
@@ -230,7 +230,7 @@ class EndpointBenchmark {
       handler { (id1: Int, id2: Int, id3: Int, id4: Int, id5: Int, id6: Int, id7: Int, req: Request) =>
         ZIO.succeed(Response.ok)
       },
-  ).toApp
+  ).toHttpApp
 
   // Tapir Akka DSL
 
@@ -435,7 +435,7 @@ class EndpointBenchmark {
       broadUsersCommentsId,
       boardUsersPostsCommentsReplies,
       boardUsersPostsCommentsRepliesId,
-    ).toApp
+    ).toHttpApp
 
   // Collect DSL
 
@@ -491,7 +491,7 @@ class EndpointBenchmark {
     ) / "replies" -> handler { (userId: Int, postId: Int, commentId: Int, req: Request) =>
       Response()
     },
-  ).toApp
+  ).toHttpApp
 
   // Tapir Akka DSL
 

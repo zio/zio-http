@@ -38,7 +38,7 @@ object EndpointExamples extends ZIOAppDefault {
 
   val routes = Routes(getUserRoute, getUserPostsRoute)
 
-  val app = routes.toApp // (auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
+  val app = routes.toHttpApp // (auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
 
   val request = Request.get(url = URL.decode("/users/1").toOption.get)
 

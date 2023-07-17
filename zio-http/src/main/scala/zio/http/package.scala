@@ -16,7 +16,11 @@
 
 package zio
 
-package object http extends PathSyntax with RequestSyntax with RouteDecoderModule {
+import java.util.UUID
+
+import zio.http.codec.PathCodec
+
+package object http {
 
   /**
    * A smart constructor that attempts to construct a handler from the specified
@@ -28,6 +32,25 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
 
   def handlerTODO(message: String): Handler[Any, Nothing, Any, Nothing] =
     handler(ZIO.dieMessage(message))
+
+  abstract class RouteDecode[A](f: String => A) {
+    def unapply(a: String): Option[A] =
+      try {
+        Option(f(a))
+      } catch {
+        case _: Throwable => None
+      }
+  }
+
+  def boolean(name: String): PathCodec[Boolean] = PathCodec.bool(name)
+  def int(name: String): PathCodec[Int]         = PathCodec.int(name)
+  def long(name: String): PathCodec[Long]       = PathCodec.long(name)
+  def string(name: String): PathCodec[String]   = PathCodec.string(name)
+  val trailing: PathCodec[Path]                 = PathCodec.trailing
+  def uuid(name: String): PathCodec[UUID]       = PathCodec.uuid(name)
+
+  val Empty: Path = Path.empty
+  val Root: Path  = Path.root
 
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
 

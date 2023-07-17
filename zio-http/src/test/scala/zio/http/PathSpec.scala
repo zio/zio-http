@@ -115,88 +115,6 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
         }
       },
     ),
-    suite("collect")(
-      test("LeadingSlash") {
-        val gen = Gen.fromIterable(
-          Seq(
-            collect { case LeadingSlash(Empty / "a") => true } -> "/a",
-          ),
-        )
-
-        checkAll(gen) { case (pf, path) =>
-          assertTrue(pf(path).isDefined)
-        }
-      },
-      test("/") {
-        val gen = Gen.fromIterable(
-          Seq(
-            // Exact
-            collect { case Root => true }                   -> "/",
-            collect { case Root / "a" => true }             -> "/a",
-            collect { case Root / "a" / "b" => true }       -> "/a/b",
-            collect { case Root / "a" / "b" / "c" => true } -> "/a/b/c",
-
-            // Wildcards
-            collect { case Root / _ => true }         -> "/a",
-            collect { case Root / _ / _ => true }     -> "/a/b",
-            collect { case Root / _ / _ / _ => true } -> "/a/b/c",
-
-            // Wildcard mix
-            collect { case _ / "c" => true }     -> "/a/b/c",
-            collect { case _ / _ / "c" => true } -> "/a/b/c",
-
-            // Trailing Slash
-            collect { case Empty / "a" / "" => true }             -> "a/",
-            collect { case Empty / "a" / "b" / "" => true }       -> "a/b/",
-            collect { case Empty / "a" / "b" / "c" / "" => true } -> "a/b/c/",
-          ),
-        )
-
-        checkAll(gen) { case (pf, path) =>
-          assertTrue(pf(path).isDefined)
-        }
-      },
-      test("/:") {
-        val gen = Gen.fromIterable(
-          Seq(
-            // Exact
-            collect { case "a" /: Root => true }               -> "a/",
-            collect { case "a" /: "b" /: Root => true }        -> "a/b/",
-            collect { case "a" /: "b" /: "c" /: Root => true } -> "a/b/c/",
-
-            // Wildcard
-            collect { case "a" /: _ => true }        -> "a",
-            collect { case "a" /: "b" /: _ => true } -> "a/b/c",
-            collect { case "a" /: _ /: _ => true }   -> "a/b/c",
-            collect { case "a" /: _ => true }        -> "a/b/c",
-
-            //
-            collect { case "a" /: "b" /: "c" /: _ => true } -> "a/b/c",
-            collect { case "a" /: "b" /: _ /: _ => true }   -> "a/b/c",
-            collect { case "a" /: _ /: _ /: _ => true }     -> "a/b/c",
-            collect { case _ /: _ /: _ /: _ => true }       -> "/a/b/c",
-            collect { case _ /: _ /: _ => true }            -> "/a/b/c",
-            collect { case _ /: _ => true }                 -> "/a/b/c",
-
-            // Trailing slash
-            collect { case "a" /: Root => true }               -> "a/",
-            collect { case "a" /: "b" /: Root => true }        -> "a/b/",
-            collect { case "a" /: "b" /: "c" /: Root => true } -> "a/b/c/",
-            collect { case "a" /: Root => true }               -> "a/",
-
-            // Leading Slash
-            collect { case "" /: Empty => true }                      -> "/",
-            collect { case "" /: "a" /: Empty => true }               -> "/a",
-            collect { case "" /: "a" /: "b" /: Empty => true }        -> "/a/b",
-            collect { case "" /: "a" /: "b" /: "c" /: Empty => true } -> "/a/b/c",
-          ),
-        )
-
-        checkAll(gen) { case (pf, path) =>
-          assertTrue(pf(path).isDefined)
-        }
-      },
-    ),
     suite("decode")(
       test("segments") {
         import Path.Flags
@@ -462,28 +380,6 @@ object PathSpec extends ZIOSpecDefault with ExitAssertion {
           assertTrue(Path.root ++ path2 == path2)
         }
       },
-    ),
-    suite("extractor")(
-      suite("int()")(
-        test("extract path 'user' /: int(1)") {
-          val path = collect { case "" /: "user" /: int(age) /: Empty => age }
-          assertTrue(path("/user/1").contains(1))
-        },
-        test("extract path 'user' /: int(Xyz)") {
-          val path = collect { case "" /: "user" /: int(age) /: Empty => age }
-          assertTrue(path("/user/Xyz").isEmpty)
-        },
-      ),
-      suite("boolean()")(
-        test("extract path 'user' /: boolean(true)") {
-          val path = collect { case "user" /: boolean(ok) /: Empty => ok }
-          assertTrue(path("user/True").contains(true))
-        },
-        test("extract path 'user' /: boolean(false)") {
-          val path = collect { case "user" /: boolean(ok) /: Empty => ok }
-          assertTrue(path("user/false").contains(false))
-        },
-      ),
     ),
     suite("addTrailingSlash")(
       test("always ends with a root") {

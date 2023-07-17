@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Sporta Technologies PVT LTD & the ZIO HTTP contributors.
+ * Copyright 2023 the ZIO HTTP contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,13 +28,14 @@ import zio.http.codec._
  * addition to specifying a method, patterns contain segment patterns, which are
  * sequences of literals, integers, longs, and other segment types.
  *
- * Typically, your entry point constructor for a route pattern would be Method:
+ * Typically, your entry point constructor for a route pattern would be
+ * [[zio.http.Method]]:
  *
  * {{{
  * import zio.http.Method
  * import zio.http.codec.SegmentCodec._
  *
- * val routePattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
+ * val pattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
  * }}}
  *
  * However, you can use the convenience constructors in `RoutePattern`, such as

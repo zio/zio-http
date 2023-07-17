@@ -24,9 +24,9 @@ import zio.http._
 import zio.http.internal.DynamicServer.Id
 
 sealed trait DynamicServer {
-  def add(app: HttpApp2[Any]): UIO[Id]
+  def add(app: HttpApp[Any]): UIO[Id]
 
-  def get(id: Id): UIO[Option[HttpApp2[Any]]]
+  def get(id: Id): UIO[Option[HttpApp[Any]]]
 
   def port: ZIO[Any, Nothing, Int]
 
@@ -59,13 +59,13 @@ object DynamicServer {
   def baseURL(scheme: Scheme): ZIO[DynamicServer, Nothing, String] =
     port.map(port => s"${scheme.encode}://localhost:$port")
 
-  def deploy[R](app: HttpApp2[R]): ZIO[DynamicServer with R, Nothing, String] =
+  def deploy[R](app: HttpApp[R]): ZIO[DynamicServer with R, Nothing, String] =
     for {
       env <- ZIO.environment[R]
       id  <- ZIO.environmentWithZIO[DynamicServer](_.get.add(app.provideEnvironment(env)))
     } yield id
 
-  def get(id: Id): ZIO[DynamicServer, Nothing, Option[HttpApp2[Any]]] =
+  def get(id: Id): ZIO[DynamicServer, Nothing, Option[HttpApp[Any]]] =
     ZIO.environmentWithZIO[DynamicServer](_.get.get(id))
 
   def httpURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.HTTP)
@@ -73,7 +73,7 @@ object DynamicServer {
   def live: ZLayer[Any, Nothing, DynamicServer] =
     ZLayer {
       for {
-        ref <- Ref.make(Map.empty[Id, HttpApp2[Any]])
+        ref <- Ref.make(Map.empty[Id, HttpApp[Any]])
         pr  <- Promise.make[Nothing, Server]
       } yield new Live(ref, pr)
     }
@@ -87,13 +87,13 @@ object DynamicServer {
 
   def wsURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.WS)
 
-  final class Live(ref: Ref[Map[Id, HttpApp2[Any]]], pr: Promise[Nothing, Server]) extends DynamicServer {
-    def add(app: HttpApp2[Any]): UIO[Id] = for {
+  final class Live(ref: Ref[Map[Id, HttpApp[Any]]], pr: Promise[Nothing, Server]) extends DynamicServer {
+    def add(app: HttpApp[Any]): UIO[Id] = for {
       id <- ZIO.succeed(UUID.randomUUID().toString)
       _  <- ref.update(map => map + (id -> app))
     } yield id
 
-    def get(id: Id): UIO[Option[HttpApp2[Any]]] = ref.get.map(_.get(id))
+    def get(id: Id): UIO[Option[HttpApp[Any]]] = ref.get.map(_.get(id))
 
     def port: ZIO[Any, Nothing, Int] = start.map(_.port)
 

@@ -62,7 +62,7 @@ object ServerSpec extends HttpRunnableSpec {
       },
     ),
     suite("not found") {
-      val app = HttpApp2.empty
+      val app = HttpApp.empty
       test("status is 404") {
         val res = app.deploy.status.run()
         assertZIO(res)(equalTo(Status.NotFound))
@@ -106,7 +106,7 @@ object ServerSpec extends HttpRunnableSpec {
         val app = (RoutePattern.any ->
           handler { (path: Path, req: Request) =>
             req.body.asString.map(text => Response.text(text))
-          }).ignore.toApp
+          }).ignore.toHttpApp
 
         test("status is 200") {
           val res = app.deploy.status.run()
@@ -127,7 +127,7 @@ object ServerSpec extends HttpRunnableSpec {
           test("data") {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
             val app        =
-              Routes(RoutePattern.any -> handler((path: Path, req: Request) => Response(body = req.body))).toApp
+              Routes(RoutePattern.any -> handler((path: Path, req: Request) => Response(body = req.body))).toHttpApp
             val res        = app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromStream(dataStream))
             assertZIO(res)(equalTo(MaxSize))
           }
@@ -154,10 +154,10 @@ object ServerSpec extends HttpRunnableSpec {
             handler { (path: Path, req: Request) =>
               req.body.asString.map(body => Response.text(body))
             },
-        ).ignore.toApp.deploy
+        ).ignore.toHttpApp.deploy
 
         def roundTrip[R, E <: Throwable](
-          app: HttpApp2[R],
+          app: HttpApp[R],
           headers: Headers,
           contentStream: ZStream[R, E, Byte],
           compressor: ZPipeline[R, E, Byte, Byte],
@@ -249,7 +249,7 @@ object ServerSpec extends HttpRunnableSpec {
 
               Response.text(s"Received ${method} query on ${path}")
             },
-        ).ignore.toApp
+        ).ignore.toHttpApp
 
         test("should be able to directly return other request") {
           for {
@@ -265,13 +265,13 @@ object ServerSpec extends HttpRunnableSpec {
   )
 
   def requestSpec = suite("RequestSpec") {
-    val app: HttpApp2[Any] =
+    val app: HttpApp[Any] =
       Routes
         .singleton(handler { (path: Path, req: Request) =>
           Response.text(req.header(Header.ContentLength).map(_.length).getOrElse(-1).toString)
         })
         .ignore
-        .toApp
+        .toHttpApp
 
     test("has content-length") {
       check(Gen.alphaNumericString) { string =>
@@ -283,7 +283,7 @@ object ServerSpec extends HttpRunnableSpec {
         val app = Routes
           .singleton(handler { (path: Path, req: Request) => req.body.asChunk.as(Response.ok) })
           .ignore
-          .toApp
+          .toHttpApp
         val res = app.deploy.status.run(path = Root, method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
       } +
@@ -293,7 +293,7 @@ object ServerSpec extends HttpRunnableSpec {
             (req.body.asChunk *> req.body.asChunk).as(Response.ok)
           })
           .ignore
-          .toApp
+          .toHttpApp
         val res = app.deploy.status.run(method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
       }
@@ -350,7 +350,7 @@ object ServerSpec extends HttpRunnableSpec {
           ]
         })
         .ignore
-        .toApp
+        .toHttpApp
         .deploy
         .body
         .mapZIO(_.asString)
@@ -416,9 +416,11 @@ object ServerSpec extends HttpRunnableSpec {
 
   def requestBodySpec = suite("RequestBodySpec")(
     test("POST Request stream") {
-      val app: HttpApp2[Any] = Routes.singletonZIO { (path: Path, req: Request) =>
-        ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
-      }.toApp
+      val app: HttpApp[Any] = Routes.singleton {
+        handler { (path: Path, req: Request) =>
+          Response(body = Body.fromStream(req.body.asStream))
+        }
+      }.toHttpApp
 
       check(Gen.alphaNumericString) { c =>
         assertZIO(app.deploy.body.mapZIO(_.asString).run(path = Root, method = Method.POST, body = Body.fromString(c)))(

@@ -38,7 +38,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    */
   def /(name: String): Path =
     if (name == "") addTrailingSlash
-    else if (isRoot) Path(Flags(LeadingSlash), Chunk(name))
+    else if (isRoot) Path(Flags(Flag.LeadingSlash), Chunk(name))
     else Path(Flag.TrailingSlash.remove(flags), segments = segments :+ name)
 
   /**
@@ -50,7 +50,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    */
   def /:(name: String): Path =
     if (name == "") addLeadingSlash
-    else if (isRoot) Path(Flags(TrailingSlash), Chunk(name))
+    else if (isRoot) Path(Flags(Flag.TrailingSlash), Chunk(name))
     else Path(Flag.LeadingSlash.remove(flags), segments = name +: segments)
 
   /**

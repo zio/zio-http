@@ -8,7 +8,7 @@ object HtmlTemplating extends ZIOAppDefault {
   // Importing everything from `zio.html`
   import zio.http.html._
 
-  def app: HttpApp2[Any] = {
+  def app: HttpApp[Any] = {
     // Html response takes in a `Html` instance.
     Handler.html {
 

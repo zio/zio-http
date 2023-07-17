@@ -43,8 +43,11 @@ sealed trait PathCodec[A] { self =>
    */
   def ??(doc: Doc): PathCodec[A]
 
-  def ++[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
+  final def ++[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
     PathCodec.Concat(self, that, combiner)
+
+  final def /[B](that: PathCodec[B])(implicit combiner: Combiner[A, B]): PathCodec[combiner.Out] =
+    self ++ that
 
   /**
    * Returns a new pattern that is extended with the specified segment pattern.

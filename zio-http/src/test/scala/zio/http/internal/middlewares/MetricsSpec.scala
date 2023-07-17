@@ -34,7 +34,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           Method.GET / "error"  -> Handler.error(HttpError.InternalServerError()),
           Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
           Method.GET / "defect" -> Handler.die(new Throwable("boom")),
-        ).toApp @@ metrics(
+        ).toHttpApp @@ metrics(
           extraLabels = Set(MetricLabel("test", "http_requests_total & http_errors_total")),
         )
 
@@ -66,8 +66,9 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       },
       test("http_requests_total with path label mapper") {
         val app = Handler.ok.toHttpApp @@ metrics(
-          pathLabelMapper = { case Method.GET -> Root / "user" / _ =>
-            "/user/:id"
+          pathLabelMapper = {
+            case req if req.path.startsWith(Path("/user/")) =>
+              "/user/:id"
           },
           extraLabels = Set(MetricLabel("test", "http_requests_total with path label mapper")),
         )
@@ -93,7 +94,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           .tagged("method", "GET")
           .tagged("status", "200")
 
-        val app: HttpApp2[Any] =
+        val app: HttpApp[Any] =
           Handler.ok.toHttpApp @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
 
         for {
@@ -112,7 +113,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           promise <- Promise.make[Nothing, Unit]
           app = Routes(
             Method.ANY / PathCodec.trailing -> (Handler.fromZIO(promise.succeed(())) *> Handler.ok.delay(10.seconds)),
-          ).toApp @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
+          ).toHttpApp @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
           before <- gauge.value
           _      <- app.runZIO(Request.get(url = URL(Root / "slow"))).fork
           _      <- promise.await

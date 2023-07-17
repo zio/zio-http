@@ -51,6 +51,14 @@ final case class Middleware[-Env, +CtxOut](
     Response,
   ],
 ) extends RouteAspect[Nothing, Env] { self =>
+
+  /**
+   * Combines this middleware with the specified middleware sequentially, such
+   * that this middleware will be applied first on incoming requests, and last
+   * on outgoing responses, and the specified middleware will be applied last on
+   * incoming requests, and first on outgoing responses. Context from both
+   * middleware will be combined using tuples.
+   */
   def ++[Env1 <: Env, CtxOut2](
     that: Middleware[Env1, CtxOut2],
   )(implicit zippable: Zippable[CtxOut, CtxOut2]): Middleware[Env1, zippable.Out] =
@@ -78,6 +86,24 @@ final case class Middleware[-Env, +CtxOut](
       self.protocol ++ combiner
     }
 
+  /**
+   * Applies middleware to the specified handler, which may ignore the context
+   * produced by this middleware.
+   */
+  def apply[Env1 >: Nothing <: Env](
+    handler: Handler[Env1, Response, Request, Response],
+  ): Handler[Env1, Response, Request, Response] =
+    if (self == Middleware.identity) handler
+    else {
+      protocol.incomingHandler >>> Handler.fromFunctionZIO[(protocol.State, (Request, CtxOut))] {
+        case (state, (request, _)) => handler(request).map(response => (state, response))
+      } >>> protocol.outgoingHandler
+    }
+
+  /**
+   * Applies middleware to the specified handler, which must process the context
+   * produced by this middleware.
+   */
   def applyContext[Env1 <: Env](
     handler: Handler[Env1, Response, (CtxOut, Request), Response],
   ): Handler[Env1, Response, Request, Response] = {
@@ -89,37 +115,59 @@ final case class Middleware[-Env, +CtxOut](
     }
   }
 
-  def apply[Env1 >: Nothing <: Env](
-    handler: Handler[Env1, Response, Request, Response],
-  ): Handler[Env1, Response, Request, Response] =
-    if (self == Middleware.identity) handler
-    else {
-      protocol.incomingHandler >>> Handler.fromFunctionZIO[(protocol.State, (Request, CtxOut))] {
-        case (state, (request, _)) => handler(request).map(response => (state, response))
-      } >>> protocol.outgoingHandler
-    }
-
+  /**
+   * Returns new middleware that transforms the context of the middleware to the
+   * specified constant.
+   */
   def as[CtxOut2](ctxOut2: => CtxOut2): Middleware[Env, CtxOut2] =
     map(_ => ctxOut2)
 
+  /**
+   * Returns new middleware that transforms the context of the middleware using
+   * the specified function.
+   */
   def map[CtxOut2](f: CtxOut => CtxOut2): Middleware[Env, CtxOut2] =
     Middleware(protocol.mapIncoming { case (request, ctx) => (request, f(ctx)) })
 
+  /**
+   * Returns new middleware that fully provides the specified environment to
+   * this middleware, resulting in middleware that has no contextual
+   * dependencies.
+   */
   def provideEnvironment(env: ZEnvironment[Env]): Middleware[Any, CtxOut] =
     Middleware(protocol.provideEnvironment(env))
 
+  /**
+   * Returns new middleware that produces the unit value as its context.
+   */
   def unit: Middleware[Env, Unit] = as(())
 
+  /**
+   * Conditionally applies this middleware to the specified handler, based on
+   * the result of the predicate applied to the incoming request's headers.
+   */
   def whenHeader(condition: Headers => Boolean): Middleware[Env, Unit] =
     Middleware.whenHeader(condition)(self.unit)
 
+  /**
+   * Conditionally applies this middleware to the specified handler, based on
+   * the result of the predicate applied to the incoming request.
+   */
   def when(condition: Request => Boolean): Middleware[Env, Unit] =
     Middleware.when(condition)(self.unit)
 
+  /**
+   * Conditionally applies this middleware to the specified handler, based on
+   * the result of the effectful predicate applied to the incoming request.
+   */
   def whenZIO[Env1 <: Env](condition: Request => ZIO[Env1, Response, Boolean]): Middleware[Env1, Unit] =
     Middleware.whenZIO(condition)(self.unit)
 }
 object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]] {
+
+  /**
+   * Configuration for the CORS middleware.
+   */
   final case class CorsConfig(
     allowedOrigin: Header.Origin => Option[Header.AccessControlAllowOrigin] = origin =>
       Some(Header.AccessControlAllowOrigin.Specific(origin)),
@@ -131,11 +179,14 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   )
 
   /**
-   * Sets cookie in response headers
+   * Sets a cookie in the response headers
    */
   def addCookie(cookie: Cookie.Response): Middleware[Any, Unit] =
     addHeader(Header.SetCookie(cookie))
 
+  /**
+   * Sets an effectfully created cookie in the response headers.
+   */
   def addCookieZIO[Env](cookie: ZIO[Env, Nothing, Cookie.Response])(implicit
     trace: Trace,
   ): Middleware[Env, Unit] =
@@ -149,7 +200,7 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
 
   /**
    * Creates a middleware which can allow or disallow access to an http based on
-   * the predicate effect
+   * the effectful predicate.
    */
   def allowZIO: AllowZIO = new AllowZIO(())
 
@@ -383,6 +434,9 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       }
     })
 
+  /**
+   * Creates middleware that debugs request and response.
+   */
   def debug: Middleware[Any, Unit] =
     Middleware.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { request =>
       zio.Clock.instant.map(now => ((now, request), (request, ())))
@@ -397,27 +451,49 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       }
     })
 
+  /**
+   * Creates middleware that drops trailing slashes from the request URL.
+   */
   def dropTrailingSlash: Middleware[Any, Unit] =
     dropTrailingSlash(onlyIfNoQueryParams = false)
 
+  /**
+   * Creates middleware that drops trailing slashes from the request URL.
+   */
   def dropTrailingSlash(onlyIfNoQueryParams: Boolean): Middleware[Any, Unit] =
     updateRequest { request =>
       if (!onlyIfNoQueryParams || request.url.queryParams.isEmpty) request.dropTrailingSlash else request
     }
 
+  /**
+   * Creates middleware that aborts the request with the specified response. No
+   * downstream middleware will be invoked.
+   */
   def fail(
     response: Response,
   ): Middleware[Any, Unit] =
     Middleware(ProtocolStack.interceptHandler(Handler.fail(response))(Handler.identity))
 
+  /**
+   * Creates middleware that aborts the request with the specified response. No
+   * downstream middleware will be invoked.
+   */
   def failWith(f: Request => Response): Middleware[Any, Unit] =
     Middleware(
       ProtocolStack.interceptHandler(Handler.fromFunctionExit[Request](in => Exit.fail(f(in))))(Handler.identity),
     )
 
+  /**
+   * The identity middleware, which has no effect on request or response.
+   */
   val identity: Middleware[Any, Unit] =
     interceptHandler[Any, Unit](Handler.identity[Request].map(_ -> ()))(Handler.identity)
 
+  /**
+   * Creates conditional middleware that switches between one middleware and
+   * another based on the result of the predicate, applied to the incoming
+   * request's headers.
+   */
   def ifHeaderThenElse[Env, Ctx](
     condition: Headers => Boolean,
   )(
@@ -426,6 +502,11 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   ): Middleware[Env, Ctx] =
     ifRequestThenElse(request => condition(request.headers))(ifTrue, ifFalse)
 
+  /**
+   * Creates conditional middleware that switches between one middleware and
+   * another based on the result of the predicate, applied to the incoming
+   * request's method.
+   */
   def ifMethodThenElse[Env, Ctx](
     condition: Method => Boolean,
   )(
@@ -434,6 +515,11 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   ): Middleware[Env, Ctx] =
     ifRequestThenElse(request => condition(request.method))(ifTrue, ifFalse)
 
+  /**
+   * Creates conditional middleware that switches between one middleware and
+   * another based on the result of the predicate, applied to the incoming
+   * request.
+   */
   def ifRequestThenElse[Env, CtxOut](
     predicate: Request => Boolean,
   )(
@@ -446,6 +532,11 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
     Middleware(ProtocolStack.cond[Request](req => predicate(req))(ifTrue2, ifFalse2))
   }
 
+  /**
+   * Creates conditional middleware that switches between one middleware and
+   * another based on the result of the predicate, effectfully applied to the
+   * incoming request.
+   */
   def ifRequestThenElseZIO[Env, CtxOut](
     predicate: Request => ZIO[Env, Response, Boolean],
   )(
@@ -458,6 +549,10 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
     Middleware(ProtocolStack.condZIO[Request](req => predicate(req))(ifTrue2, ifFalse2))
   }
 
+  /**
+   * Creates middleware that modifies the response, potentially using the
+   * request.
+   */
   def intercept(
     fromRequestAndResponse: (Request, Response) => Response,
   ): Middleware[Any, Unit] =
@@ -465,6 +560,11 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       Handler.fromFunction[(Request, Response)] { case (req, res) => fromRequestAndResponse(req, res) },
     )
 
+  /**
+   * Creates middleware that will apply the specified stateless handlers to
+   * incoming and outgoing requests. If the incoming handler fails, then the
+   * outgoing handler will not be invoked.
+   */
   def interceptHandler[Env, CtxOut](
     incoming0: Handler[Env, Response, Request, (Request, CtxOut)],
   )(
@@ -472,6 +572,11 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   ): Middleware[Env, CtxOut] =
     Middleware[Env, CtxOut](ProtocolStack.interceptHandler(incoming0)(outgoing0))
 
+  /**
+   * Creates middleware that will apply the specified stateful handlers to
+   * incoming and outgoing requests. If the incoming handler fails, then the
+   * outgoing handler will not be invoked.
+   */
   def interceptHandlerStateful[Env, State0, CtxOut](
     incoming0: Handler[
       Env,
@@ -484,11 +589,19 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   ): Middleware[Env, CtxOut] =
     Middleware[Env, CtxOut](ProtocolStack.interceptHandlerStateful(incoming0)(outgoing0))
 
+  /**
+   * Creates middleware that will apply the specified handler to incoming
+   * requests.
+   */
   def interceptIncomingHandler[Env, CtxOut](
     handler: Handler[Env, Response, Request, (Request, CtxOut)],
   ): Middleware[Env, CtxOut] =
     interceptHandler(handler)(Handler.identity)
 
+  /**
+   * Creates middleware that will apply the specified handler to outgoing
+   * responses.
+   */
   def interceptOutgoingHandler[Env](
     handler: Handler[Env, Nothing, Response, Response],
   ): Middleware[Env, Unit] =
@@ -506,7 +619,7 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
     new InterceptPatchZIO[Env, S](fromRequest)
 
   /**
-   * Adds metrics to a zio-http server.
+   * Creates middleware that will track metrics.
    *
    * @param pathLabelMapper
    *   A mapping function to map incoming paths to patterns, such as /users/1 to
@@ -587,9 +700,16 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   def patchZIO[Env](f: Response => ZIO[Env, Response, Response.Patch]): Middleware[Env, Unit] =
     interceptPatchZIO[Env, Unit](_ => ZIO.unit)((response, _) => f(response))
 
+  /**
+   * Creates a middleware that will redirect requests to the specified URL.
+   */
   def redirect(url: URL, isPermanent: Boolean): Middleware[Any, Unit] =
     fail(Response.redirect(url, isPermanent))
 
+  /**
+   * Creates middleware that will redirect requests with trailing slash to the
+   * same path without trailing slash.
+   */
   def redirectTrailingSlash(
     isPermanent: Boolean,
   ): Middleware[Any, Unit] =
@@ -598,6 +718,9 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       ifFalse = updatePath(_.dropTrailingSlash) ++ failWith(request => Response.redirect(request.url, isPermanent)),
     )
 
+  /**
+   * Creates middleware that will perform request logging.
+   */
   def requestLogging(
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
     loggedRequestHeaders: Set[Header.HeaderType] = Set.empty,
@@ -671,9 +794,15 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
     )
   }
 
+  /**
+   * Creates middleware that will run the specified effect after every request.
+   */
   def runAfter[Env](effect: ZIO[Env, Nothing, Any])(implicit trace: Trace): Middleware[Env, Unit] =
     updateResponseZIO(response => effect.as(response))
 
+  /**
+   * Creates middleware that will run the specified effect before every request.
+   */
   def runBefore[Env](effect: ZIO[Env, Nothing, Any])(implicit trace: Trace): Middleware[Env, Unit] =
     updateRequestZIO(request => effect.as(request))
 
@@ -694,18 +823,33 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       }
     }
 
+  /**
+   * Creates middleware that will update the status of the response.
+   */
   def status(status: Status): Middleware[Any, Unit] =
     patch(_ => Response.Patch.status(status))
 
+  /**
+   * Creates middleware that will update the headers of the response.
+   */
   override def updateHeaders(update: Headers => Headers): Middleware[Any, Unit] =
     updateResponse(_.updateHeaders(update))
 
+  /**
+   * Creates middleware that will update the method of the request.
+   */
   def updateMethod(update: Method => Method): Middleware[Any, Unit] =
     updateRequest(request => request.copy(method = update(request.method)))
 
+  /**
+   * Creates middleware that will update the path of the request.
+   */
   def updatePath(update: Path => Path): Middleware[Any, Unit] =
     updateRequest(request => request.copy(url = request.url.copy(path = update(request.url.path))))
 
+  /**
+   * Creates middleware that will update the request.
+   */
   def updateRequest(update: Request => Request): Middleware[Any, Unit] =
     Middleware.interceptIncomingHandler {
       Handler.fromFunction[Request] { request =>
@@ -713,6 +857,9 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       }
     }
 
+  /**
+   * Creates middleware that will update the request effectfully.
+   */
   def updateRequestZIO[Env](update: Request => ZIO[Env, Response, Request]): Middleware[Env, Unit] =
     Middleware.interceptIncomingHandler {
       Handler.fromFunctionZIO[Request] { request =>
@@ -720,15 +867,28 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       }
     }
 
+  /**
+   * Creates middleware that will update the response.
+   */
   def updateResponse(update: Response => Response): Middleware[Any, Unit] =
     Middleware.interceptOutgoingHandler(Handler.fromFunction(update))
 
+  /**
+   * Creates middleware that will update the response effectfully.
+   */
   def updateResponseZIO[Env](update: Response => ZIO[Env, Nothing, Response]): Middleware[Env, Unit] =
     Middleware.interceptOutgoingHandler(Handler.fromFunctionZIO[Response](update))
 
+  /**
+   * Creates middleware that will update the URL of the request.
+   */
   def updateURL(update: URL => URL): Middleware[Any, Unit] =
     updateRequest(request => request.copy(url = update(request.url)))
 
+  /**
+   * Applies the middleware only when the header-based condition evaluates to
+   * true.
+   */
   def whenHeader[Env](condition: Headers => Boolean)(
     middleware: Middleware[Env, Unit],
   ): Middleware[Env, Unit] =
@@ -772,6 +932,10 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   ): Middleware[Env, Unit] =
     ifRequestThenElse(condition)(ifFalse = identity, ifTrue = middleware)
 
+  /**
+   * Applies the middleware only if the condition function effectfully evaluates
+   * to true
+   */
   def whenZIO[Env](condition: Request => ZIO[Env, Response, Boolean])(
     middleware: Middleware[Env, Unit],
   ): Middleware[Env, Unit] =

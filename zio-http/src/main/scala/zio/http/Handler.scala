@@ -587,20 +587,20 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       self(request).timeout(duration).map(_.getOrElse(out))
     }
 
-  def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response): HttpApp2[R] = {
+  def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response): HttpApp[R] = {
     val handler: Handler[R, Response, Request, Response] =
       self.asInstanceOf[Handler[R, Response, Request, Response]]
 
-    HttpApp2(Routes.singleton(handler.contramap[(Path, Request)](_._2)))
+    HttpApp(Routes.singleton(handler.contramap[(Path, Request)](_._2)))
   }
 
-  def toHttpAppWS(implicit err: Err <:< Throwable, in: WebSocketChannel <:< In): HttpApp2[R] = {
+  def toHttpAppWS(implicit err: Err <:< Throwable, in: WebSocketChannel <:< In): HttpApp[R] = {
     val handler1: Handler[R, Throwable, WebSocketChannel, Any] =
       self.asInstanceOf[Handler[R, Throwable, WebSocketChannel, Any]]
 
     val handler2 = Handler.fromZIO(handler1.toResponse)
 
-    HttpApp2(Routes.singleton(handler2.contramap[(Path, Request)](_._2)))
+    HttpApp(Routes.singleton(handler2.contramap[(Path, Request)](_._2)))
   }
 
   /**

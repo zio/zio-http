@@ -15,7 +15,7 @@ object SignCookies extends ZIOAppDefault {
   private val app = Routes(
     Method.GET / "cookie" ->
       handler(Response.ok.addCookie(cookie.sign("secret"))),
-  ).toApp
+  ).toHttpApp
 
   // Run it like any simple app
   val run = Server.serve(app).provide(Server.default)

@@ -19,7 +19,7 @@ package zio.http.internal
 import zio.http._
 
 trait HttpAppTestExtensions {
-  implicit class HttpAppSyntax[R](route: HttpApp2[R]) {
+  implicit class HttpAppSyntax[R](route: HttpApp[R]) {
     def rawHeader(name: String): Handler[R, Response, Request, Option[String]] =
       route.toHandler.map(res => res.rawHeader(name))
 

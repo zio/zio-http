@@ -24,7 +24,7 @@ import zio._
 import zio.http.Driver.StartResult
 import zio.http.netty._
 import zio.http.netty.client.NettyClientDriver
-import zio.http.{ClientDriver, Driver, Handler, HttpApp2, Server}
+import zio.http.{ClientDriver, Driver, Handler, HttpApp, Server}
 
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
@@ -54,12 +54,12 @@ private[zio] final case class NettyDriver(
       )
     } yield StartResult(port, serverInboundHandler.inFlightRequests)
 
-  def addApp[R](newApp: HttpApp2[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
+  def addApp[R](newApp: HttpApp[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit] = ZIO.succeed {
     var loop = true
     while (loop) {
       val oldAppAndEnv     = appRef.get()
       val (oldApp, oldEnv) = oldAppAndEnv
-      val updatedApp       = (oldApp ++ newApp).asInstanceOf[HttpApp2[Any]]
+      val updatedApp       = (oldApp ++ newApp).asInstanceOf[HttpApp[Any]]
       val updatedEnv       = oldEnv.unionAll(env)
       val updatedAppAndEnv = (updatedApp, updatedEnv)
 
@@ -115,7 +115,7 @@ private[zio] object NettyDriver {
     implicit val trace: Trace = Trace.empty
     ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Driver](
       ZLayer.succeed(
-        new AtomicReference[(HttpApp2[Any], ZEnvironment[Any])]((HttpApp2.empty, ZEnvironment.empty)),
+        new AtomicReference[(HttpApp[Any], ZEnvironment[Any])]((HttpApp.empty, ZEnvironment.empty)),
       ),
       ZLayer.succeed(ServerTime.make(1000.millis)),
       NettyRuntime.live,

@@ -59,12 +59,14 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
       assertZIO(res)(equalTo(size.toString))
     },
     test("multiple body read") {
-      val app = Routes.singletonZIO { (path: Path, req: Request) =>
-        for {
-          _ <- req.body.asChunk
-          _ <- req.body.asChunk
-        } yield Response.ok
-      }.ignore.toApp
+      val app = Routes.singleton {
+        handler { (path: Path, req: Request) =>
+          for {
+            _ <- req.body.asChunk
+            _ <- req.body.asChunk
+          } yield Response.ok
+        }
+      }.ignore.toHttpApp
       val res = app.deploy(Request()).map(_.status)
       assertZIO(res)(equalTo(Status.InternalServerError))
     },
@@ -85,7 +87,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
               Response.text(body.length.toString)
             }
         },
-      ).ignore.toApp
+      ).ignore.toHttpApp
       val sizes = Chunk(0, 8192, 1024 * 1024)
       sizes.map { size =>
         test(s"with body length $size") {

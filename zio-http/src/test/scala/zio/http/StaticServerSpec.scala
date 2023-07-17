@@ -32,18 +32,18 @@ object StaticServerSpec extends HttpRunnableSpec {
     Method.GET / "failure"       -> handler(ZIO.fail(new RuntimeException("FAILURE"))),
     Method.GET / "die"           -> handler(ZIO.die(new RuntimeException("DIE"))),
     Method.GET / "get%2Fsuccess" -> handler(Response.ok),
-  ).ignore.toApp
+  ).ignore.toHttpApp
 
   // Use this route to test anything that doesn't require ZIO related computations.
   private val nonZIO = Routes(
     Method.ANY / "ExitSuccess" -> handler(Exit.succeed(Response.ok)),
     Method.ANY / "ExitFailure" -> handler(Exit.fail(new RuntimeException("FAILURE"))),
     Method.ANY / "throwable"   -> handlerTODO("Throw inside Handler"),
-  ).ignore.toApp
+  ).ignore.toHttpApp
 
   private val staticAppWithCors = Routes(
     Method.GET / "success-cors" -> handler(Response.ok.addHeader(Header.Vary("test1", "test2"))),
-  ).toApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
+  ).toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
 
   private val app = serve { nonZIO ++ staticApp ++ staticAppWithCors }
 

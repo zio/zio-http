@@ -101,7 +101,7 @@ object TestCliServer extends zio.ZIOAppDefault with TestCliEndpoints {
 
   val routes = Routes(getUserRoute, getUserPostsRoute, createUserRoute)
 
-  val run = Server.serve(routes.toApp).provide(Server.default)
+  val run = Server.serve(routes.toHttpApp).provide(Server.default)
 }
 
 object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {

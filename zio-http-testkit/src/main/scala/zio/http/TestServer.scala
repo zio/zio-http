@@ -71,11 +71,11 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
     for {
       r <- ZIO.environment[R]
       behavior                     = pf.andThen(_.provideEnvironment(r))
-      app: HttpApp2[Any] = HttpApp2.collectZIO(behavior)
+      app: HttpApp[Any] = HttpApp.collectZIO(behavior)
       _ <- driver.addApp(app, r)
     } yield ()
 
-  override def install[R](httpApp: HttpApp2[R])(implicit
+  override def install[R](httpApp: HttpApp[R])(implicit
     trace: zio.Trace,
   ): URIO[R, Unit] =
     ZIO

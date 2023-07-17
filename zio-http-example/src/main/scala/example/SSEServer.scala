@@ -14,11 +14,11 @@ object SSEServer extends ZIOAppDefault {
   val stream: ZStream[Any, Nothing, ServerSentEvent] =
     ZStream.repeatWithSchedule(ServerSentEvent(ISO_LOCAL_TIME.format(LocalDateTime.now)), Schedule.spaced(1.second))
 
-  val app: HttpApp2[Any] =
+  val app: HttpApp[Any] =
     Routes(
       Method.GET / "sse" ->
         handler(Response.fromServerSentEvents(stream)),
-    ).toApp
+    ).toHttpApp
 
   val run: URIO[Any, ExitCode] = {
     Server.serve(app).provide(Server.default).exitCode

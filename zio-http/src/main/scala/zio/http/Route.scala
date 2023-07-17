@@ -76,7 +76,7 @@ sealed trait Route[-Env, +Err] { self =>
     toHandler(defaultErrorHandler)
   }
 
-  final def toApp(implicit ev: Err <:< Response): HttpApp2[Env] = Routes(self).toApp
+  final def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] = Routes(self).toHttpApp
 }
 object Route {
 

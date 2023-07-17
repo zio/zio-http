@@ -39,10 +39,10 @@ object StatusSpec extends ZIOSpecDefault {
     )
 
   def toAppSpec = {
-    suite("toApp")(
+    suite("toHttpApp")(
       test("status") {
         checkAll(statusGen) { case status =>
-          val res = status.toApp.runZIO(Request.get(URL.empty))
+          val res = status.toHttpApp.runZIO(Request.get(URL.empty))
           assertZIO(res.map(_.status))(equalTo(status))
         }
       },

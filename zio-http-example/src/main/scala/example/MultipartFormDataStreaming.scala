@@ -8,7 +8,7 @@ import zio.http._
 
 object MultipartFormDataStreaming extends ZIOAppDefault {
 
-  private val app: HttpApp2[Any] =
+  private val app: HttpApp[Any] =
     Routes(
       Method.POST / "upload-simple"    -> handler { (req: Request) =>
         for {
@@ -61,7 +61,7 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
           } yield Response.text(count.toString)
         else ZIO.succeed(Response(status = Status.NotFound))
       },
-    ).ignore.toApp @@ Middleware.debug
+    ).ignore.toHttpApp @@ Middleware.debug
 
   private def program: ZIO[Server, Throwable, Unit] =
     for {

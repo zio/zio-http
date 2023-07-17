@@ -16,12 +16,12 @@ object HelloWorldAdvanced extends ZIOAppDefault {
     Routes(
       Method.GET / "foo" -> Handler.from(Response.text("bar")),
       Method.GET / "bar" -> Handler.from(Response.text("foo")),
-    ).toApp
+    ).toHttpApp
 
   val app = Routes(
     Method.GET / "random" -> handler(Random.nextString(10).map(Response.text(_))),
     Method.GET / "utc"    -> handler(Clock.currentDateTime.map(s => Response.text(s.toString))),
-  ).toApp
+  ).toHttpApp
 
   val run = ZIOAppArgs.getArgs.flatMap { args =>
     // Configure thread count using CLI
