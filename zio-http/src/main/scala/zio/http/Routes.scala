@@ -40,8 +40,8 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def provideEnvironment(env: ZEnvironment[Env]): Routes[Any, Err] =
     new Routes(routes.map(_.provideEnvironment(env)))
 
-  def timeoutOrFail[Err1 >: Err](duration: Duration, error: Err1): Routes[Env, Err1] =
-    ???
+  def timeout(duration: Duration): Routes[Env, Err] =
+    self @@ RouteAspect.timeout(duration)
 
   /**
    * Converts the routes into an app, which can be done only when errors are
