@@ -31,7 +31,7 @@ import zio.http._
  */
 abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
 
-  implicit class RunnableClientHttpSyntax[R, A](app: Http[R, Throwable, Request, A]) {
+  implicit class RunnableClientHttpSyntax[R, A](app: Handler[R, Response, Request, A]) {
 
     /**
      * Runs the deployed Http app by making a real http request to it. The
@@ -44,7 +44,7 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       headers: Headers = Headers.empty,
       body: Body = Body.empty,
       addZioUserAgentHeader: Boolean = false,
-    ): ZIO[R, Throwable, A] =
+    ): ZIO[R, Response, A] =
       app
         .runZIO(
           Request(
@@ -56,16 +56,11 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
             remoteAddress = None,
           ),
         )
-        .catchAll {
-          case Some(value) => ZIO.fail(value)
-          case None        => ZIO.fail(new RuntimeException("No response"))
-        }
   }
 
-  implicit class RunnableHttpClientAppSyntax[R, E](route: HttpApp[R, E]) {
+  implicit class RunnableHttpClientAppSyntax[R](route: HttpApp2[R]) {
 
-    def app: App[R] =
-      route.withDefaultErrorResponse
+    def app: HttpApp2[R] = route
 
     /**
      * Deploys the http application on the test server and returns a Http of
@@ -74,26 +69,24 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
      * while writing tests. It also allows us to simply pass a request in the
      * end, to execute, and resolve it with a response, like a normal HttpApp.
      */
-    def deploy: Http[R with Client with DynamicServer with Scope, Throwable, Request, Response] =
-      Http.fromHandler {
-        for {
-          port     <- Handler.fromZIO(DynamicServer.port)
-          id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
-          client   <- Handler.fromZIO(ZIO.service[Client])
-          response <- Handler.fromFunctionZIO[Request] { params =>
-            client(
-              params
-                .addHeader(DynamicServer.APP_ID, id)
-                .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            )
-              .flatMap(_.collect)
-          }
-        } yield response
-      }
+    def deploy: Handler[DynamicServer with R with Client with Scope, Throwable, Request, Response] =
+      for {
+        port     <- Handler.fromZIO(DynamicServer.port)
+        id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
+        client   <- Handler.fromZIO(ZIO.service[Client])
+        response <- Handler.fromFunctionZIO[Request] { params =>
+          client(
+            params
+              .addHeader(DynamicServer.APP_ID, id)
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+          )
+            .flatMap(_.collect)
+        }
+      } yield response
 
     def deployAndRequest(
       call: Client => ZIO[Scope, Throwable, Response],
-    ): Handler[Client with DynamicServer with R with Scope, Throwable, Any, Response] = {
+    ): Handler[Client with DynamicServer with R with Scope, Throwable, Any, Response] =
       for {
         port     <- Handler.fromZIO(DynamicServer.port)
         id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
@@ -106,41 +99,37 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
           ),
         )
       } yield response
-    }
 
-    def deployChunked: Http[R with Client with DynamicServer with Scope, Throwable, Request, Response] =
-      Http.fromHandler {
-        for {
-          port     <- Handler.fromZIO(DynamicServer.port)
-          id       <- Handler.fromZIO(DynamicServer.deploy(app))
-          client   <- Handler.fromZIO(ZIO.service[Client])
-          response <- Handler.fromFunctionZIO[Request] { params =>
-            client(
-              params
-                .addHeader(DynamicServer.APP_ID, id)
-                .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
-            )
-          }
-        } yield response
-      }
+    def deployChunked =
+      for {
+        port     <- Handler.fromZIO(DynamicServer.port)
+        id       <- Handler.fromZIO(DynamicServer.deploy(app))
+        client   <- Handler.fromZIO(ZIO.service[Client])
+        response <- Handler.fromFunctionZIO[Request] { params =>
+          client(
+            params
+              .addHeader(DynamicServer.APP_ID, id)
+              .copy(url = URL(params.url.path, Location.Absolute(Scheme.HTTP, "localhost", port))),
+          )
+        }
+      } yield response
 
-    def deployWS: Http[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =
-      Http.fromHandler {
-        for {
-          id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
-          rawUrl   <- Handler.fromZIO(DynamicServer.wsURL)
-          url      <- Handler.fromEither(URL.decode(rawUrl)).orDie
-          client   <- Handler.fromZIO(ZIO.service[Client])
-          response <- Handler.fromFunctionZIO[SocketApp[Client with Scope]] { app =>
-            ZIO.scoped[Client with Scope](
-              client
-                .url(url)
-                .addHeaders(Headers(DynamicServer.APP_ID, id))
-                .socket(app),
-            )
-          }
-        } yield response
-      }
+    def deployWS
+      : Handler[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =
+      for {
+        id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
+        rawUrl   <- Handler.fromZIO(DynamicServer.wsURL)
+        url      <- Handler.fromEither(URL.decode(rawUrl)).orDie
+        client   <- Handler.fromZIO(ZIO.service[Client])
+        response <- Handler.fromFunctionZIO[SocketApp[Client with Scope]] { app =>
+          ZIO.scoped[Client with Scope](
+            client
+              .url(url)
+              .addHeaders(Headers(DynamicServer.APP_ID, id))
+              .socket(app),
+          )
+        }
+      } yield response
   }
 
   def serve: ZIO[DynamicServer with Server, Nothing, Int] =
@@ -148,11 +137,11 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       server <- ZIO.service[Server]
       ds     <- ZIO.service[DynamicServer]
       app = DynamicServer.app(ds)
-      port <- Server.install(app)
+      port <- Server.install(app.toHttpApp)
       _    <- DynamicServer.setStart(server)
     } yield port
 
-  def serve[R](app: App[R]): ZIO[R with DynamicServer with Server, Nothing, Int] =
+  def serve[R](app: HttpApp2[R]): ZIO[R with DynamicServer with Server, Nothing, Int] =
     for {
       server <- ZIO.service[Server]
       port   <- Server.install(app)

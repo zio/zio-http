@@ -27,7 +27,7 @@ import zio.stream.ZStream
 
 object ResponseCompressionSpec extends ZIOSpecDefault {
 
-  private val text: App[Any] =
+  private val text: HttpApp2[Any] =
     Routes(
       Method.GET / "text" -> handler(Response.text("Hello World!\n")),
     ).toApp

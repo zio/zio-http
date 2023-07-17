@@ -17,10 +17,10 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
     new Routes(route +: routes)
 
   /**
-   * Looks up the route for the specified method and path.
+   * Augments this collection of routes with the specified middleware.
    */
-  def get(method: Method, path: Path): Chunk[zio.http.Route[Env, Err]] =
-    tree.get(method, path)
+  def @@[Env1 <: Env](aspect: RouteAspect[Nothing, Env1]): Routes[Env1, Err] =
+    new Routes(routes.map(_.@@(aspect)))
 
   /**
    * Handles all typed errors in the routes by converting them into responses.
@@ -28,32 +28,27 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def handleError(f: Err => Response): Routes[Env, Nothing] =
     new Routes(routes.map(_.handleError(f)))
 
-  def ignoreErrors: Routes[Env, Nothing] =
-    new Routes(routes.map(_.ignoreErrors))
-
-  def isDefinedAt(method: Method, path: Path): Boolean = tree.get(method, path).nonEmpty
+  def handleErrorCause(f: Cause[Err] => Response): Routes[Env, Nothing] =
+    new Routes(routes.map(_.handleErrorCause(f)))
 
   /**
-   * Maps unhandled errors across all routes into a new type, without
-   * eliminating them.
+   * Ignores errors, turning them into internal server errors.
    */
-  def mapError[Err2](f: Err => Err2): Routes[Env, Err2] =
-    new Routes(routes.map(_.mapError(f)))
+  def ignore: Routes[Env, Nothing] =
+    new Routes(routes.map(_.ignore))
 
-  // FIXME: Temporary stopgap until the final refactor.
-  def toApp(implicit ev: Err <:< Nothing): App[Env] =
-    Http.collectZIO[Request] {
-      case request if isDefinedAt(request.method, request.path) =>
-        get(request.method, request.path).head.apply(request)
-    }
+  def provideEnvironment(env: ZEnvironment[Env]): Routes[Any, Err] =
+    new Routes(routes.map(_.provideEnvironment(env)))
 
-  private var _tree: Route.Tree[Any, Any] = null.asInstanceOf[Route.Tree[Any, Any]]
+  def timeoutOrFail[Err1 >: Err](duration: Duration, error: Err1): Routes[Env, Err1] =
+    ???
 
-  // Avoid overhead of lazy val:
-  private def tree: Route.Tree[Env, Err] = {
-    if (_tree eq null) _tree = Route.Tree.fromIterable(routes).asInstanceOf[Route.Tree[Any, Any]]
-    _tree.asInstanceOf[Route.Tree[Env, Err]]
-  }
+  /**
+   * Converts the routes into an app, which can be done only when errors are
+   * handled and converted into responses.
+   */
+  def toApp(implicit ev: Err <:< Response): HttpApp2[Env] =
+    HttpApp2(routes.asInstanceOf[Routes[Env, Response]])
 }
 object Routes                                                                        {
 
@@ -62,6 +57,8 @@ object Routes                                                                   
    */
   def apply[Env, Err](route: zio.http.Route[Env, Err], routes: zio.http.Route[Env, Err]*): Routes[Env, Err] =
     new Routes(Chunk(route) ++ Chunk.fromIterable(routes))
+
+  val empty: Routes[Any, Nothing] = new Routes(Chunk.empty)
 
   /**
    * Constructs new routes from an iterable of individual routes.

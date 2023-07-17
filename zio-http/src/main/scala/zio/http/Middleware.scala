@@ -23,7 +23,6 @@ import zio._
 import zio.metrics._
 
 import zio.http.html._
-import zio.http.internal.middlewares.{Auth, Metrics}
 
 /**
  * A [[zio.http.Middleware]] is a kind of [[zio.http.ProtocolStack]] that is
@@ -51,7 +50,7 @@ final case class Middleware[-Env, +CtxOut](
     Response,
     Response,
   ],
-) { self =>
+) extends RouteAspect[Nothing, Env] { self =>
   def ++[Env1 <: Env, CtxOut2](
     that: Middleware[Env1, CtxOut2],
   )(implicit zippable: Zippable[CtxOut, CtxOut2]): Middleware[Env1, zippable.Out] =
@@ -79,16 +78,26 @@ final case class Middleware[-Env, +CtxOut](
       self.protocol ++ combiner
     }
 
-  def apply[Env1 <: Env](
-    handler: Handler[Env1, Response, (Request, CtxOut), Response],
+  def applyContext[Env1 <: Env](
+    handler: Handler[Env1, Response, (CtxOut, Request), Response],
   ): Handler[Env1, Response, Request, Response] = {
-    if (self == Middleware.identity) handler.contramap[Request](req => (req, ().asInstanceOf[CtxOut]))
+    if (self == Middleware.identity) handler.contramap[Request](req => (().asInstanceOf[CtxOut], req))
     else {
       protocol.incomingHandler >>> Handler.fromFunctionZIO[(protocol.State, (Request, CtxOut))] {
-        case (state, (request, ctxOut)) => handler((request, ctxOut)).map(response => (state, response))
+        case (state, (request, ctxOut)) => handler((ctxOut, request)).map(response => (state, response))
       } >>> protocol.outgoingHandler
     }
   }
+
+  def apply[Env1 >: Nothing <: Env](
+    handler: Handler[Env1, Response, Request, Response],
+  ): Handler[Env1, Response, Request, Response] =
+    if (self == Middleware.identity) handler
+    else {
+      protocol.incomingHandler >>> Handler.fromFunctionZIO[(protocol.State, (Request, CtxOut))] {
+        case (state, (request, _)) => handler(request).map(response => (state, response))
+      } >>> protocol.outgoingHandler
+    }
 
   def as[CtxOut2](ctxOut2: => CtxOut2): Middleware[Env, CtxOut2] =
     map(_ => ctxOut2)
@@ -96,18 +105,30 @@ final case class Middleware[-Env, +CtxOut](
   def map[CtxOut2](f: CtxOut => CtxOut2): Middleware[Env, CtxOut2] =
     Middleware(protocol.mapIncoming { case (request, ctx) => (request, f(ctx)) })
 
+  def provideEnvironment(env: ZEnvironment[Env]): Middleware[Any, CtxOut] =
+    Middleware(protocol.provideEnvironment(env))
+
   def unit: Middleware[Env, Unit] = as(())
 
   def whenHeader(condition: Headers => Boolean): Middleware[Env, Unit] =
     Middleware.whenHeader(condition)(self.unit)
 
-  def whenRequest(condition: Request => Boolean): Middleware[Env, Unit] =
-    Middleware.whenRequest(condition)(self.unit)
+  def when(condition: Request => Boolean): Middleware[Env, Unit] =
+    Middleware.when(condition)(self.unit)
 
-  def whenRequestZIO[Env1 <: Env](condition: Request => ZIO[Env1, Response, Boolean]): Middleware[Env1, Unit] =
-    Middleware.whenRequestZIO(condition)(self.unit)
+  def whenZIO[Env1 <: Env](condition: Request => ZIO[Env1, Response, Boolean]): Middleware[Env1, Unit] =
+    Middleware.whenZIO(condition)(self.unit)
 }
 object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]] {
+  final case class CorsConfig(
+    allowedOrigin: Header.Origin => Option[Header.AccessControlAllowOrigin] = origin =>
+      Some(Header.AccessControlAllowOrigin.Specific(origin)),
+    allowedMethods: Header.AccessControlAllowMethods = Header.AccessControlAllowMethods.All,
+    allowedHeaders: Header.AccessControlAllowHeaders = Header.AccessControlAllowHeaders.All,
+    allowCredentials: Header.AccessControlAllowCredentials = Header.AccessControlAllowCredentials.Allow,
+    exposedHeaders: Header.AccessControlExposeHeaders = Header.AccessControlExposeHeaders.All,
+    maxAge: Option[Header.AccessControlMaxAge] = None,
+  )
 
   /**
    * Sets cookie in response headers
@@ -121,13 +142,25 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
     updateResponseZIO(response => cookie.map(response.addCookie))
 
   /**
+   * Creates a middleware which can allow or disallow access to an http based on
+   * the predicate
+   */
+  def allow: Allow = new Allow(())
+
+  /**
+   * Creates a middleware which can allow or disallow access to an http based on
+   * the predicate effect
+   */
+  def allowZIO: AllowZIO = new AllowZIO(())
+
+  /**
    * Creates a middleware for basic authentication
    */
-  def basicAuth(f: Auth.Credentials => Boolean): Middleware[Any, Unit] =
+  def basicAuth(f: Credentials => Boolean): Middleware[Any, Unit] =
     customAuth(
       _.header(Header.Authorization) match {
         case Some(Header.Authorization.Basic(userName, password)) =>
-          f(Auth.Credentials(userName, password))
+          f(Credentials(userName, password))
         case _                                                    => false
       },
       Headers(Header.WWWAuthenticate.Basic()),
@@ -144,13 +177,13 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
    * Creates a middleware for basic authentication using an effectful
    * verification function
    */
-  def basicAuthZIO[Env](f: Auth.Credentials => ZIO[Env, Response, Boolean])(implicit
+  def basicAuthZIO[Env](f: Credentials => ZIO[Env, Response, Boolean])(implicit
     trace: Trace,
   ): Middleware[Env, Unit] =
     customAuthZIO(
       _.header(Header.Authorization) match {
         case Some(Header.Authorization.Basic(userName, password)) =>
-          f(Auth.Credentials(userName, password))
+          f(Credentials(userName, password))
         case _                                                    => ZIO.succeed(false)
       },
       Headers(Header.WWWAuthenticate.Basic()),
@@ -194,6 +227,97 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
    */
   def beautifyErrors: Middleware[Any, Unit] =
     intercept(replaceErrorResponse)
+
+  /**
+   * Creates a middleware for Cross-Origin Resource Sharing (CORS) using default
+   * options.
+   * @see
+   *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+   */
+  def cors: Middleware[Any, Unit] = cors(CorsConfig())
+
+  /**
+   * Creates a middleware for Cross-Origin Resource Sharing (CORS).
+   * @see
+   *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+   */
+  def cors(config: CorsConfig): Middleware[Any, Unit] = {
+    def allowedHeaders(
+      requestedHeaders: Option[Header.AccessControlRequestHeaders],
+      allowedHeaders: Header.AccessControlAllowHeaders,
+    ): Header.AccessControlAllowHeaders =
+      // Returning an intersection of requested headers and allowed headers
+      // if there are no requested headers, we return the configured allowed headers without modification
+      allowedHeaders match {
+        case Header.AccessControlAllowHeaders.Some(values) =>
+          requestedHeaders match {
+            case Some(Header.AccessControlRequestHeaders(headers)) =>
+              val intersection = headers.toSet.intersect(values.toSet)
+              NonEmptyChunk.fromIterableOption(intersection) match {
+                case Some(values) => Header.AccessControlAllowHeaders.Some(values)
+                case None         => Header.AccessControlAllowHeaders.None
+              }
+            case None                                              => allowedHeaders
+          }
+        case Header.AccessControlAllowHeaders.All          =>
+          requestedHeaders match {
+            case Some(Header.AccessControlRequestHeaders(headers)) => Header.AccessControlAllowHeaders.Some(headers)
+            case _                                                 => Header.AccessControlAllowHeaders.All
+          }
+        case Header.AccessControlAllowHeaders.None         => Header.AccessControlAllowHeaders.None
+      }
+
+    def corsHeaders(
+      allowOrigin: Header.AccessControlAllowOrigin,
+      requestedHeaders: Option[Header.AccessControlRequestHeaders],
+      isPreflight: Boolean,
+    ): Headers =
+      Headers(
+        allowOrigin,
+        config.allowedMethods,
+        config.allowCredentials,
+      ) ++
+        Headers.ifThenElse(isPreflight)(
+          onTrue = Headers(allowedHeaders(requestedHeaders, config.allowedHeaders)),
+          onFalse = Headers(config.exposedHeaders),
+        ) ++ config.maxAge.fold(Headers.empty)(Headers(_))
+
+    Middleware.interceptIncomingHandler {
+      Handler.fromFunctionExit[Request] { request =>
+        val originHeader = request.headers.header(Header.Origin)
+        val acrmHeader   = request.headers.header(Header.AccessControlRequestMethod)
+        val acrhHeader   = request.header(Header.AccessControlRequestHeaders)
+
+        (
+          request.method,
+          originHeader,
+          acrmHeader,
+        ) match {
+          case (Method.OPTIONS, Some(origin), Some(acrm)) =>
+            config.allowedOrigin(origin) match {
+              case Some(allowOrigin) if config.allowedMethods.contains(acrm.method) =>
+                Exit.fail(
+                  Response(
+                    Status.NoContent,
+                    headers = corsHeaders(allowOrigin, acrhHeader, isPreflight = true),
+                  ),
+                )
+              case _                                                                =>
+                Exit.succeed(request -> ())
+            }
+          case (_, Some(origin), _)                       =>
+            config.allowedOrigin(origin) match {
+              case Some(allowOrigin) if config.allowedMethods.contains(request.method) =>
+                Exit.succeed(request.addHeaders(corsHeaders(allowOrigin, acrhHeader, isPreflight = false)) -> ())
+              case _                                                                   =>
+                Exit.succeed(request -> ())
+            }
+          case _                                          =>
+            Exit.succeed(request -> ())
+        }
+      }
+    }
+  }
 
   /**
    * Creates an authentication middleware that only allows authenticated
@@ -272,6 +396,14 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
           .as(response)
       }
     })
+
+  def dropTrailingSlash: Middleware[Any, Unit] =
+    dropTrailingSlash(onlyIfNoQueryParams = false)
+
+  def dropTrailingSlash(onlyIfNoQueryParams: Boolean): Middleware[Any, Unit] =
+    updateRequest { request =>
+      if (!onlyIfNoQueryParams || request.url.queryParams.isEmpty) request.dropTrailingSlash else request
+    }
 
   def fail(
     response: Response,
@@ -468,7 +600,6 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
 
   def requestLogging(
     level: Status => LogLevel = (_: Status) => LogLevel.Info,
-    failureLevel: LogLevel = LogLevel.Warning,
     loggedRequestHeaders: Set[Header.HeaderType] = Set.empty,
     loggedResponseHeaders: Set[Header.HeaderType] = Set.empty,
     logRequestBody: Boolean = false,
@@ -636,12 +767,12 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   /**
    * Applies the middleware only if the condition function evaluates to true
    */
-  def whenRequest[Env](condition: Request => Boolean)(
+  def when[Env](condition: Request => Boolean)(
     middleware: Middleware[Env, Unit],
   ): Middleware[Env, Unit] =
     ifRequestThenElse(condition)(ifFalse = identity, ifTrue = middleware)
 
-  def whenRequestZIO[Env](condition: Request => ZIO[Env, Response, Boolean])(
+  def whenZIO[Env](condition: Request => ZIO[Env, Response, Boolean])(
     middleware: Middleware[Env, Unit],
   ): Middleware[Env, Unit] =
     ifRequestThenElseZIO(condition)(ifFalse = identity, ifTrue = middleware)
@@ -669,6 +800,18 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
           result(response, state).map(response.patch(_)).merge
         },
       )
+  }
+
+  final class Allow(val unit: Unit) extends AnyVal {
+    def apply(condition: Request => Boolean): Middleware[Any, Unit] =
+      Middleware.ifRequestThenElse(condition)(ifFalse = fail(Response.status(Status.Forbidden)), ifTrue = identity)
+  }
+
+  final class AllowZIO(val unit: Unit) extends AnyVal {
+    def apply[Env](
+      condition: Request => ZIO[Env, Response, Boolean],
+    ): Middleware[Env, Unit] =
+      Middleware.ifRequestThenElseZIO(condition)(ifFalse = fail(Response.status(Status.Forbidden)), ifTrue = identity)
   }
 
   private def replaceErrorResponse(request: Request, response: Response): Response = {
@@ -733,7 +876,7 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
       s"$errorMessage\n${formatCause(response)}"
   }
 
-  private val defaultBoundaries = MetricKeyType.Histogram.Boundaries.fromChunk(
+  private[http] val defaultBoundaries = MetricKeyType.Histogram.Boundaries.fromChunk(
     Chunk(
       .005, .01, .025, .05, .075, .1, .25, .5, .75, 1, 2.5, 5, 7.5, 10,
     ),

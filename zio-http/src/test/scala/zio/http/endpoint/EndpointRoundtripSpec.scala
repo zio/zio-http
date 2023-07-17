@@ -88,7 +88,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
     outF: Out => ZIO[Any, Err, TestResult],
   ): zio.ZIO[Server with Client with Scope, Err, TestResult] =
     for {
-      port   <- Server.install(route.toApp @@ RequestHandlerMiddlewares.requestLogging())
+      port   <- Server.install(route.toApp @@ Middleware.requestLogging())
       client <- ZIO.service[Client]
       executor = makeExecutor(client, port)
       out    <- executor(endpoint.apply(in))
@@ -191,35 +191,16 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
           }
         }
 
-        def captureCause(
-          into: Promise[Nothing, Cause[_]],
-        ): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-          new RequestHandlerMiddleware.Simple[Any, Nothing] {
-            override def apply[R1 <: Any, Err1 >: Nothing](
-              handler: Handler[R1, Err1, Request, Response],
-            )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
-              Handler.fromFunctionZIO { (request: Request) =>
-                handler
-                  .runZIO(request)
-                  .sandbox
-                  .tapError(into.succeed(_))
-                  .unsandbox
-              }
-          }
-
         for {
-          capturedCause <- Promise.make[Nothing, Cause[_]]
-          port          <- Server.install(handler.toApp @@ captureCause(capturedCause))
-          client        <- ZIO.service[Client]
-          response      <- client(
+          port     <- Server.install(handler.toApp)
+          client   <- ZIO.service[Client]
+          response <- client(
             Request.post(
               url = URL.decode(s"http://localhost:$port/123/xyz/456/abc?details=789").toOption.get,
               body = Body.empty,
             ),
           )
-          cause         <- capturedCause.await
-        } yield assert(extractStatus(response))(equalTo(Status.InternalServerError)) &&
-          assert(cause.prettyPrint)(containsString("I can't code"))
+        } yield assert(extractStatus(response))(equalTo(Status.InternalServerError))
       },
       test("simple post with json body") {
         val api = Endpoint(POST / "test" / int("userId"))
@@ -321,9 +302,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
         val routes = endpointRoute
 
         val app = routes.toApp @@ alwaysFailingMiddleware
-          .implement[Any, Unit](_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
-          .toHandlerAspect
-          .toMiddleware
+          .implement(_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
 
         for {
           port <- Server.install(app)
@@ -362,9 +341,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
         val routes = endpointRoute
 
         val app = routes.toApp @@ alwaysFailingMiddleware
-          .implement[Any, Unit](_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
-          .toHandlerAspect
-          .toMiddleware
+          .implement(_ => ZIO.fail("FAIL"))(_ => ZIO.unit)
 
         for {
           port <- Server.install(app)

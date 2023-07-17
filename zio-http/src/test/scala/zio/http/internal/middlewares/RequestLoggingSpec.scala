@@ -19,19 +19,18 @@ package zio.http.internal.middlewares
 import zio.test._
 import zio.{Scope, ZIO}
 
-import zio.http.RequestHandlerMiddlewares.requestLogging
+import zio.http.Middleware.requestLogging
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 
 object RequestLoggingSpec extends ZIOSpecDefault with HttpAppTestExtensions {
 
-  private val app = Http
-    .collectHandler[Request] {
-      case Method.GET -> Root / "ok"     => Handler.ok
-      case Method.GET -> Root / "error"  => Handler.error(HttpError.InternalServerError())
-      case Method.GET -> Root / "fail"   => Handler.fail(Response.status(Status.Forbidden))
-      case Method.GET -> Root / "defect" => Handler.die(new Throwable("boom"))
-    }
+  private val app = Routes(
+    Method.GET / "ok"     -> Handler.ok,
+    Method.GET / "error"  -> Handler.error(HttpError.InternalServerError()),
+    Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
+    Method.GET / "defect" -> Handler.die(new Throwable("boom")),
+  ).ignore.toApp
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("RequestLogging")(

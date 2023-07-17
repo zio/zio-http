@@ -43,7 +43,7 @@ object WebSocketAdvanced extends ZIOAppDefault {
       }
     }
 
-  val app: App[Any] =
+  val app: HttpApp2[Any] =
     Routes(
       Method.GET / "greet" / string("name") -> handler { (name: String, req: Request) =>
         Response.text(s"Greetings ${name}!")

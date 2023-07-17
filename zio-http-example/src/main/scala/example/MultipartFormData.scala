@@ -6,7 +6,7 @@ import zio.http._
 
 object MultipartFormData extends ZIOAppDefault {
 
-  private val app: App[Any] =
+  private val app: HttpApp2[Any] =
     Routes(
       Method.POST / "upload" ->
         handler { (req: Request) =>
@@ -39,7 +39,7 @@ object MultipartFormData extends ZIOAppDefault {
             } yield response
           else ZIO.succeed(Response(status = Status.NotFound))
         },
-    ).ignoreErrors.toApp
+    ).ignore.toApp
 
   private def program: ZIO[Client with Server with Scope, Throwable, Unit] =
     for {

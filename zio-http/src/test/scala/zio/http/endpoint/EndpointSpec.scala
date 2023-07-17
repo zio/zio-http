@@ -419,7 +419,7 @@ object EndpointSpec extends ZIOSpecDefault {
               )
 
           for {
-            response <- routes.toApp.runZIO(request).mapError(_.get)
+            response <- routes.toApp.runZIO(request)
             body     <- response.body.asString.orDie
           } yield assertTrue(extractStatus(response).isSuccess) && assertTrue(body == "42")
         },
@@ -512,7 +512,7 @@ object EndpointSpec extends ZIOSpecDefault {
               )
 
           for {
-            response <- routes.toApp.runZIO(request).mapError(_.get)
+            response <- routes.toApp.runZIO(request)
             body     <- response.body.asString.orDie
           } yield assertTrue(extractStatus(response).code == 999, body == "\"path(users, 123)\"")
         },
@@ -535,10 +535,10 @@ object EndpointSpec extends ZIOSpecDefault {
           val request2 = Request.get(URL.decode("/users/321").toOption.get)
 
           for {
-            response1 <- routes.toApp.runZIO(request1).mapError(_.get)
+            response1 <- routes.toApp.runZIO(request1)
             body1     <- response1.body.asString.orDie
 
-            response2 <- routes.toApp.runZIO(request2).mapError(_.get)
+            response2 <- routes.toApp.runZIO(request2)
             body2     <- response2.body.asString.orDie
           } yield assertTrue(
             extractStatus(response1) == Status.NotFound,
@@ -562,9 +562,8 @@ object EndpointSpec extends ZIOSpecDefault {
               case Exit.Success(value) => ZIO.succeed(value)
               case Exit.Failure(cause) =>
                 cause.failureOrCause match {
-                  case Left(Some(response)) => ZIO.succeed(response)
-                  case Left(None)           => ZIO.failCause(cause)
-                  case Right(cause)         => ZIO.failCause(cause)
+                  case Left(response) => ZIO.succeed(response)
+                  case Right(cause)   => ZIO.failCause(cause)
                 }
             }
             body     <- response.body.asChunk.orDie
@@ -586,9 +585,8 @@ object EndpointSpec extends ZIOSpecDefault {
               case Exit.Success(value) => ZIO.succeed(value)
               case Exit.Failure(cause) =>
                 cause.failureOrCause match {
-                  case Left(Some(response)) => ZIO.succeed(response)
-                  case Left(None)           => ZIO.failCause(cause)
-                  case Right(cause)         => ZIO.failCause(cause)
+                  case Left(response) => ZIO.succeed(response)
+                  case Right(cause)   => ZIO.failCause(cause)
                 }
             }
             body     <- response.body.asChunk.orDie
@@ -616,9 +614,8 @@ object EndpointSpec extends ZIOSpecDefault {
               case Exit.Success(value) => ZIO.succeed(value)
               case Exit.Failure(cause) =>
                 cause.failureOrCause match {
-                  case Left(Some(response)) => ZIO.succeed(response)
-                  case Left(None)           => ZIO.failCause(cause)
-                  case Right(cause)         => ZIO.failCause(cause)
+                  case Left(response) => ZIO.succeed(response)
+                  case Right(cause)   => ZIO.failCause(cause)
                 }
             }
             body     <- response.body.asString.orDie
@@ -656,9 +653,8 @@ object EndpointSpec extends ZIOSpecDefault {
               case Exit.Success(value) => ZIO.succeed(value)
               case Exit.Failure(cause) =>
                 cause.failureOrCause match {
-                  case Left(Some(response)) => ZIO.succeed(response)
-                  case Left(None)           => ZIO.failCause(cause)
-                  case Right(cause)         => ZIO.failCause(cause)
+                  case Left(response) => ZIO.succeed(response)
+                  case Right(cause)   => ZIO.failCause(cause)
                 }
             }
             form     <- response.body.asMultipartForm.orDie
@@ -705,9 +701,8 @@ object EndpointSpec extends ZIOSpecDefault {
               case Exit.Success(value) => ZIO.succeed(value)
               case Exit.Failure(cause) =>
                 cause.failureOrCause match {
-                  case Left(Some(response)) => ZIO.succeed(response)
-                  case Left(None)           => ZIO.failCause(cause)
-                  case Right(cause)         => ZIO.failCause(cause)
+                  case Left(response) => ZIO.succeed(response)
+                  case Right(cause)   => ZIO.failCause(cause)
                 }
             }
             form     <- response.body.asMultipartForm.orDie
@@ -751,9 +746,8 @@ object EndpointSpec extends ZIOSpecDefault {
               case Exit.Success(value) => ZIO.succeed(value)
               case Exit.Failure(cause) =>
                 cause.failureOrCause match {
-                  case Left(Some(response)) => ZIO.succeed(response)
-                  case Left(None)           => ZIO.failCause(cause)
-                  case Right(cause)         => ZIO.failCause(cause)
+                  case Left(response) => ZIO.succeed(response)
+                  case Right(cause)   => ZIO.failCause(cause)
                 }
             }
             result   <- response.body.asString.orDie
@@ -826,9 +820,8 @@ object EndpointSpec extends ZIOSpecDefault {
                 case Exit.Success(value) => ZIO.succeed(value)
                 case Exit.Failure(cause) =>
                   cause.failureOrCause match {
-                    case Left(Some(response)) => ZIO.succeed(response)
-                    case Left(None)           => ZIO.failCause(cause)
-                    case Right(cause)         => ZIO.failCause(cause)
+                    case Left(response) => ZIO.succeed(response)
+                    case Right(cause)   => ZIO.failCause(cause)
                   }
               }
               resultForm <- response.body.asMultipartForm.orDie
@@ -879,7 +872,7 @@ object EndpointSpec extends ZIOSpecDefault {
   ): ZIO[R, Response, TestResult] = {
     val request = Request.get(url = URL.decode(url).toOption.get)
     for {
-      response <- service.toApp.runZIO(request).mapError(_.get)
+      response <- service.toApp.runZIO(request)
       body     <- response.body.asString.orDie
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }
@@ -891,7 +884,7 @@ object EndpointSpec extends ZIOSpecDefault {
     val request = Request(method = method, url = URL.decode(url).toOption.get)
     for {
       error <- service.toApp.runZIO(request).flip
-    } yield assertTrue(error == None)
+    } yield assertTrue(error.status == Status.NotFound)
   }
 
   def parseResponse(response: Response): UIO[String] =

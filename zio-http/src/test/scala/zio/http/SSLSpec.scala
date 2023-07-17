@@ -34,14 +34,14 @@ object SSLSpec extends ZIOSpecDefault {
 
   val payload = Gen.alphaNumericStringBounded(10000, 20000)
 
-  val app: App[Any] = Routes(
+  val app: HttpApp2[Any] = Routes(
     Method.GET / "success" -> handler(Response.ok),
     Method.POST / "text"   -> handler { (req: Request) =>
       for {
         body <- req.body.asString
       } yield Response.text(body)
     },
-  ).ignoreErrors.toApp
+  ).ignore.toApp
 
   val successUrl =
     URL.decode("https://localhost:8073/success").toOption.get
@@ -51,7 +51,7 @@ object SSLSpec extends ZIOSpecDefault {
 
   override def spec = suite("SSL")(
     Server
-      .serve(app.withDefaultErrorResponse)
+      .serve(app)
       .as(
         List(
           test("succeed when client has the server certificate") {

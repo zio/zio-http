@@ -23,38 +23,13 @@ package object http extends PathSyntax with RequestSyntax with RouteDecoderModul
    * value. If you have difficulty using this function, then please use the
    * constructors on [[zio.http.Handler]] directly.
    */
-  def handler[H](handler: => H)(implicit h: HandlerConstructor[H]): Handler[h.Env, h.Err, h.In, h.Out] =
+  def handler[H](handler: => H)(implicit h: ToHandler[H]): Handler[h.Env, h.Err, h.In, h.Out] =
     h.toHandler(handler)
 
   def handlerTODO(message: String): Handler[Any, Nothing, Any, Nothing] =
     handler(ZIO.dieMessage(message))
 
   type RequestHandler[-R, +Err] = Handler[R, Err, Request, Response]
-
-  type HttpAppMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
-    HttpAppMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
-      type OutEnv[Env] = Env
-      type OutErr[Err] = Err
-    }
-
-  type HandlerAspect[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
-    HandlerAspect.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
-      type OutEnv[Env] = Env
-      type OutErr[Err] = Err
-    }
-
-  type RequestHandlerMiddleware[+LowerEnv, -UpperEnv, +LowerErr, -UpperErr] =
-    RequestHandlerMiddleware.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr] {
-      type OutEnv[Env] = Env
-      type OutErr[Err] = Err
-    }
-
-  type HttpApp[-R, +Err] = Http[R, Err, Request, Response]
-  type UHttpApp          = HttpApp[Any, Nothing]
-  type RHttpApp[-R]      = HttpApp[R, Throwable]
-  type EHttpApp          = HttpApp[Any, Throwable]
-  type UHttp[-A, +B]     = Http[Any, Nothing, A, B]
-  type App[-R]           = HttpApp[R, Response]
 
   type Client = ZClient[Any, Body, Throwable, Response]
   def Client: ZClient.type = ZClient

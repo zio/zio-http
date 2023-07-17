@@ -29,8 +29,8 @@ object HttpAppMiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
       test("combine") {
         for {
           ref <- Ref.make(0)
-          mid1 = HttpAppMiddleware.runBefore(ref.update(_ + 1))
-          mid2 = HttpAppMiddleware.runBefore(ref.update(_ + 2))
+          mid1 = Middleware.runBefore(ref.update(_ + 1))
+          mid2 = Middleware.runBefore(ref.update(_ + 2))
           app1 = Handler.ok @@ mid1 @@ mid2
           app2 = Handler.ok @@ (mid1 ++ mid2)
           _       <- app1.runZIO(Request.get(URL.root))
@@ -40,27 +40,27 @@ object HttpAppMiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
         } yield assertTrue(result1 == 3, result2 == 6)
       },
       test("runBefore") {
-        val mid = HttpAppMiddleware.runBefore(Console.printLine("A"))
-        val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("B").as(Response.ok)) @@ mid
+        val mid = Middleware.runBefore(Console.printLine("A").orDie)
+        val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("B").as(Response.ok)).ignore @@ mid
         assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
       },
       test("runAfter") {
-        val mid = HttpAppMiddleware.runAfter(Console.printLine("B").orDie)
-        val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("A").as(Response.ok)) @@ mid
+        val mid = Middleware.runAfter(Console.printLine("B").orDie)
+        val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("A").as(Response.ok)).ignore @@ mid
         assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n")))
       },
       test("runBefore and runAfter") {
         val mid =
-          HttpAppMiddleware.runBefore(Console.printLine("A")) ++ HttpAppMiddleware.runAfter(
+          Middleware.runBefore(Console.printLine("A").orDie) ++ Middleware.runAfter(
             Console.printLine("C").orDie,
           )
-        val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("B").as(Response.ok)) @@ mid
+        val app = Handler.fromFunctionZIO((_: Request) => Console.printLine("B").as(Response.ok)).ignore @@ mid
         assertZIO(app.runZIO(Request.get(URL.root)) *> TestConsole.output)(equalTo(Vector("A\n", "B\n", "C\n")))
       },
       test("when") {
         for {
           ref <- Ref.make(0)
-          mid  = HttpAppMiddleware.runBefore(ref.update(_ + 1)).when(_.method == Method.GET)
+          mid  = Middleware.runBefore(ref.update(_ + 1)).when(_.method == Method.GET)
           app1 = Handler.ok @@ mid
           _       <- app1.runZIO(Request.get(URL.root))
           result1 <- ref.get
@@ -71,7 +71,7 @@ object HttpAppMiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
       test("whenZIO") {
         for {
           ref <- Ref.make(0)
-          mid  = HttpAppMiddleware.runBefore(ref.update(_ + 1)).whenZIO(req => ZIO.succeed(req.method == Method.GET))
+          mid  = Middleware.runBefore(ref.update(_ + 1)).whenZIO(req => ZIO.succeed(req.method == Method.GET))
           app1 = Handler.ok @@ mid
           _       <- app1.runZIO(Request.get(URL.root))
           result1 <- ref.get

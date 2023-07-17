@@ -25,7 +25,7 @@ import zio.http.URL.Location
 object ZClientAspectSpec extends ZIOSpecDefault {
   def extractStatus(response: Response): Status = response.status
 
-  val app: App[Any] = Handler.fromFunction[Request] { _ => Response.text("hello") }.toHttp
+  val app: HttpApp2[Any] = Handler.fromFunction[Request] { _ => Response.text("hello") }.toHttpApp
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("ZClientAspect")(

@@ -34,8 +34,8 @@ object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
             Response.text(responseBody)
           } // this should not be run, as the request is invalid
         }
-        .toHttp
-        .withDefaultErrorResponse
+        .ignore
+        .toHttpApp
       for {
         port <- Server.install(app)
         url     = URL.decode(s"http://localhost:$port").toOption.get

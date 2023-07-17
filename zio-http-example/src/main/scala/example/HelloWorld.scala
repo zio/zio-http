@@ -12,7 +12,7 @@ object HelloWorld extends ZIOAppDefault {
     Method.GET / "json" -> handler(Response.json("""{"greetings": "Hello World!"}"""))
 
   // Create HTTP route
-  val app: App[Any] = Routes(textRoute, jsonRoute).toApp
+  val app = Routes(textRoute, jsonRoute).toApp
 
   // Run it like any simple app
   override val run = Server.serve(app).provide(Server.default)

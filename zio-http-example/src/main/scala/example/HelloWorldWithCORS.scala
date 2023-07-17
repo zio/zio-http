@@ -2,10 +2,9 @@ package example
 
 import zio._
 
-import zio.http.Header.{AccessControlAllowMethods, AccessControlAllowOrigin, Origin}
-import zio.http.HttpAppMiddleware.cors
 import zio.http._
-import zio.http.internal.middlewares.Cors.CorsConfig
+import zio.http.Header.{AccessControlAllowMethods, AccessControlAllowOrigin, Origin}
+import zio.http.Middleware.{cors, CorsConfig}
 
 object HelloWorldWithCORS extends ZIOAppDefault {
 
@@ -20,7 +19,7 @@ object HelloWorldWithCORS extends ZIOAppDefault {
     )
 
   // Create HTTP route with CORS enabled
-  val app: App[Any] =
+  val app: HttpApp2[Any] =
     Routes(
       Method.GET / "text" -> handler(Response.text("Hello World!")),
       Method.GET / "json" -> handler(Response.json("""{"greetings": "Hello World!"}""")),

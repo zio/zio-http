@@ -180,6 +180,11 @@ object RoutePattern {
         case None        => Chunk.empty
         case Some(value) => value.get(path)
       }
+
+    def map[B](f: A => B): Tree[B] =
+      Tree(roots.map { case (k, v) =>
+        k -> v.map(f)
+      })
   }
   private[http] object Tree                                                          {
     def apply[A](routePattern: RoutePattern[_], value: A): Tree[A] = {

@@ -6,7 +6,7 @@ import zio.http._
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route
-  val app: App[Any] = Routes(
+  val app: HttpApp2[Any] = Routes(
     Method.GET / "text" -> handler(Response.text("Hello World!")),
     Method.GET / "json" -> handler(Response.json("""{"greetings": "Hello World!"}""")),
   ).toApp

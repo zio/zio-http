@@ -20,21 +20,21 @@ import zio._
 import zio.metrics.{Metric, MetricLabel, MetricState}
 import zio.test._
 
-import zio.http.HttpAppMiddleware.metrics
+import zio.http.Middleware.metrics
 import zio.http._
+import zio.http.codec.{PathCodec, SegmentCodec}
 import zio.http.internal.HttpAppTestExtensions
 
 object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("MetricsSpec")(
       test("http_requests_total & http_errors_total") {
-        val app = Http
-          .collectHandler[Request] {
-            case Method.GET -> Root / "ok"     => Handler.ok
-            case Method.GET -> Root / "error"  => Handler.error(HttpError.InternalServerError())
-            case Method.GET -> Root / "fail"   => Handler.fail(Response.status(Status.Forbidden))
-            case Method.GET -> Root / "defect" => Handler.die(new Throwable("boom"))
-          } @@ metrics(
+        val app = Routes(
+          Method.GET / "ok"     -> Handler.ok,
+          Method.GET / "error"  -> Handler.error(HttpError.InternalServerError()),
+          Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
+          Method.GET / "defect" -> Handler.die(new Throwable("boom")),
+        ).toApp @@ metrics(
           extraLabels = Set(MetricLabel("test", "http_requests_total & http_errors_total")),
         )
 
@@ -65,7 +65,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         )
       },
       test("http_requests_total with path label mapper") {
-        val app = Handler.ok.toHttp @@ metrics(
+        val app = Handler.ok.toHttpApp @@ metrics(
           pathLabelMapper = { case Method.GET -> Root / "user" / _ =>
             "/user/:id"
           },
@@ -86,15 +86,15 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         val histogram = Metric
           .histogram(
             "http_request_duration_seconds",
-            Metrics.defaultBoundaries,
+            Middleware.defaultBoundaries,
           )
           .tagged("test", "http_request_duration_seconds")
           .tagged("path", "/ok")
           .tagged("method", "GET")
           .tagged("status", "200")
 
-        val app: HttpApp[Any, Nothing] =
-          Handler.ok.toHttp @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
+        val app: HttpApp2[Any] =
+          Handler.ok.toHttpApp @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
 
         for {
           _        <- app.runZIO(Request.get(url = URL(Root / "ok")))
@@ -110,10 +110,9 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
 
         for {
           promise <- Promise.make[Nothing, Unit]
-          app = Http
-            .collectHandler[Request] { case _ =>
-              Handler.fromZIO(promise.succeed(())) *> Handler.ok.delay(10.seconds)
-            } @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
+          app = Routes(
+            Method.ANY / PathCodec.trailing -> (Handler.fromZIO(promise.succeed(())) *> Handler.ok.delay(10.seconds)),
+          ).toApp @@ metrics(extraLabels = Set(MetricLabel("test", "http_concurrent_requests_total")))
           before <- gauge.value
           _      <- app.runZIO(Request.get(url = URL(Root / "slow"))).fork
           _      <- promise.await

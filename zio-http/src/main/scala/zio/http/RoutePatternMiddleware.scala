@@ -40,6 +40,12 @@ sealed abstract class RoutePatternMiddleware[-Env, A] { self =>
 
     Route.route[A, Env1](self)(handler)
   }
+
+  def provideEnvironment(env: ZEnvironment[Env]): RoutePatternMiddleware[Any, A] = {
+    implicit val z = zippable
+
+    RoutePatternMiddleware(routePattern, middleware.provideEnvironment(env))
+  }
 }
 object RoutePatternMiddleware                         {
   def apply[Env, PI, MC, Out](rp: RoutePattern[PI], mc: Middleware[Env, MC])(implicit

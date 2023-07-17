@@ -21,7 +21,7 @@ object WebSocketEcho extends ZIOAppDefault {
       }
     }
 
-  private val app: App[Any] =
+  private val app: HttpApp2[Any] =
     Routes(
       Method.GET / "greet" / string("name") -> handler { (name: String, req: Request) =>
         Response.text(s"Greetings {$name}!")

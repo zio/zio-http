@@ -12,7 +12,7 @@ import zio.http.{Headers, Method, Scheme, Status, Version}
  *   Contains the user-specified behavior that takes the place of the usual
  *   Server
  */
-final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocketBehavior: Ref[SocketApp[Any]])
+final case class TestClient(behavior: Ref[PartialFunction[Request, ZIO[Any, Response, Response]]], serverSocketBehavior: Ref[SocketApp[Any]])
     extends ZClient.Driver[Any, Throwable] {
 
   /**
@@ -31,7 +31,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
     expectedRequest: Request,
     response: Response,
   ): ZIO[Any, Nothing, Unit] = {
-    val handler: PartialFunction[Request, ZIO[Any, Throwable, Response]] = {
+    val handler: PartialFunction[Request, ZIO[Any, Response, Response]] = {
 
       case realRequest if {
             // The way that the Client breaks apart and re-assembles the request prevents a straightforward
@@ -58,14 +58,13 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
    *   }}}
    */
   def addHandler[R](
-    handler: PartialFunction[Request, ZIO[R, Throwable, Response]],
+    handler: PartialFunction[Request, ZIO[R, Response, Response]],
   ): ZIO[R, Nothing, Unit] =
     for {
       r                <- ZIO.environment[R]
       previousBehavior <- behavior.get
-      newBehavior                  = handler.andThen(_.provideEnvironment(r))
-      app: HttpApp[Any, Throwable] = Http.collectZIO(newBehavior)
-      _ <- behavior.set(previousBehavior.defaultWith(app))
+      newBehavior     = handler.andThen(_.provideEnvironment(r))
+      _ <- behavior.set(previousBehavior.orElse(newBehavior))
     } yield ()
 
   def headers: Headers = Headers.empty
@@ -96,10 +95,7 @@ final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocket
         version = version,
         remoteAddress = None,
       )
-      response <- currentBehavior.runZIO(request).catchAll {
-        case Some(value) => ZIO.succeed(Response(status = Status.BadRequest, body = Body.fromString(value.toString)))
-        case None        => ZIO.succeed(Response.status(Status.NotFound))
-      }
+      response <- currentBehavior(request).merge
     } yield response
 
   def socket[Env1](
@@ -166,7 +162,7 @@ object TestClient {
    *   }}}
    */
   def addHandler[R](
-    handler: PartialFunction[Request, ZIO[R, Throwable, Response]],
+    handler: PartialFunction[Request, ZIO[R, Response, Response]],
   ): ZIO[R with TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
@@ -178,7 +174,7 @@ object TestClient {
   val layer: ZLayer[Any, Nothing, TestClient & Client] =
     ZLayer.scopedEnvironment {
       for {
-        behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
+        behavior       <- Ref.make[PartialFunction[Request, ZIO[Any, Response, Response]]](PartialFunction.empty)
         socketBehavior <- Ref.make[SocketApp[Any]](Handler.unit)
         driver = TestClient(behavior, socketBehavior)
       } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))

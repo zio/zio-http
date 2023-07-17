@@ -39,7 +39,7 @@ object WebSocketSpec extends HttpRunnableSpec {
               case event @ Unregistered => msg.add(event, true)
               case event                => msg.add(event)
             }
-          }.toHttpApp
+          }.toHttpAppWS
         }
 
         res <- ZIO.scoped {
@@ -85,7 +85,7 @@ object WebSocketSpec extends HttpRunnableSpec {
             case _            =>
               ZIO.unit
           }
-        }.toHttpApp.deployWS
+        }.toHttpAppWS.deployWS
 
         // Setup Client
         // Client closes the connection after 1 second
@@ -111,7 +111,7 @@ object WebSocketSpec extends HttpRunnableSpec {
       } yield assertCompletes
     } @@ nonFlaky,
     test("Multiple websocket upgrades") {
-      val app   = Handler.succeed(WebSocketFrame.text("BAR")).toHttpApp.deployWS
+      val app   = Handler.succeed(WebSocketFrame.text("BAR")).toHttpAppWS.deployWS
       val codes = ZIO
         .foreach(1 to 1024)(_ => app.runZIO(Handler.unit).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))
@@ -129,7 +129,7 @@ object WebSocketSpec extends HttpRunnableSpec {
               case event @ Unregistered => msg.add(event, true)
               case event                => msg.add(event)
             }
-          }.toHttpApp
+          }.toHttpAppWS
         }
 
         res <- ZIO.scoped {
@@ -178,7 +178,7 @@ object WebSocketSpec extends HttpRunnableSpec {
                   case _                                                            => ZIO.unit
                 }
               }
-          }.toHttpApp
+          }.toHttpAppWS
         }
 
         queue1 <- Queue.unbounded[String]

@@ -68,15 +68,11 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
       }
     }
 
-  def incoming(in: IncomingIn): ZIO[Env, OutgoingOut, (State, IncomingOut)]
+  private[http] def incoming(in: IncomingIn): ZIO[Env, OutgoingOut, (State, IncomingOut)]
 
+  // TODO: Make this the one true representation and delete `incoming`
   lazy val incomingHandler: Handler[Env, OutgoingOut, IncomingIn, (State, IncomingOut)] =
     Handler.fromFunctionZIO[IncomingIn](incoming(_))
-
-  lazy val outgoingHandler: Handler[Env, Nothing, (State, OutgoingIn), OutgoingOut] =
-    Handler.fromFunctionZIO[(State, OutgoingIn)] { case (state, in) =>
-      outgoing(state, in)
-    }
 
   def mapIncoming[IncomingOut2](
     f: IncomingOut => IncomingOut2,
@@ -88,7 +84,18 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
   ): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut2] =
     ProtocolStack.interceptOutgoingHandler(Handler.fromFunction(f)) ++ self
 
-  def outgoing(state: State, in: OutgoingIn): ZIO[Env, Nothing, OutgoingOut]
+  private[http] def outgoing(state: State, in: OutgoingIn): ZIO[Env, Nothing, OutgoingOut]
+
+  // TODO: Make this the one true representation and delete `outgoing`
+  lazy val outgoingHandler: Handler[Env, Nothing, (State, OutgoingIn), OutgoingOut] =
+    Handler.fromFunctionZIO[(State, OutgoingIn)] { case (state, in) =>
+      outgoing(state, in)
+    }
+
+  def provideEnvironment(env: ZEnvironment[Env]): ProtocolStack[Any, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
+    ProtocolStack.interceptHandlerStateful(incomingHandler.provideEnvironment(env))(
+      outgoingHandler.provideEnvironment(env),
+    )
 
   final def ++[Env1 <: Env, MiddleIncoming, MiddleOutgoing](
     that: ProtocolStack[Env1, IncomingOut, MiddleIncoming, MiddleOutgoing, OutgoingIn],

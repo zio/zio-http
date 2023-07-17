@@ -49,7 +49,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
         }
       },
     ),
-  ).ignoreErrors.toApp
+  ).ignore.toApp
 
   // TODO: test failure cases
 

@@ -4,8 +4,8 @@ import java.time.Clock
 
 import zio._
 
-import zio.http.HttpAppMiddleware.bearerAuth
 import zio.http._
+import zio.http.Middleware.bearerAuth
 import zio.http.codec.PathCodec.string
 
 import pdi.jwt.{Jwt, JwtAlgorithm, JwtClaim}
@@ -41,7 +41,7 @@ object AuthenticationServer extends ZIOAppDefault {
   }
 
   // Http app that is accessible only via a jwt token
-  def user: App[Any] = Routes(
+  def user: HttpApp2[Any] = Routes(
     Method.GET / "user" / string("name") / "greet" -> handler { (name: String, req: Request) =>
       Response.text(s"Welcome to the ZIO party! ${name}")
     },
@@ -49,7 +49,7 @@ object AuthenticationServer extends ZIOAppDefault {
 
   // App that let's the user login
   // Login is successful only if the password is the reverse of the username
-  def login: App[Any] =
+  def login: HttpApp2[Any] =
     Routes(
       Method.GET / "login" / string("username") / string("password") ->
         handler { (username: String, password: String, req: Request) =>
@@ -59,7 +59,7 @@ object AuthenticationServer extends ZIOAppDefault {
     ).toApp
 
   // Composing all the HttpApps together
-  val app: App[Any] = login ++ user
+  val app: HttpApp2[Any] = login ++ user
 
   // Run it like any simple app
   override val run = Server.serve(app).provide(Server.default)

@@ -10,6 +10,12 @@ import zio._
 sealed trait Route[-Env, +Err] { self =>
 
   /**
+   * Augments this route with the specified middleware.
+   */
+  def @@[Env1 <: Env](aspect: RouteAspect[Nothing, Env1]): Route[Env1, Err] =
+    Route.Augmented(self, aspect)
+
+  /**
    * Applies the route to the specified request. The route must be defined for
    * the request, or else this method will fail fatally. Note that you may only
    * call this function when you have handled all errors produced by the route,
@@ -25,10 +31,12 @@ sealed trait Route[-Env, +Err] { self =>
    * that does not handle its errors into one that does handle its errors.
    */
   final def handleError(f: Err => Response): Route[Env, Nothing] =
-    self match {
-      case Route.Handled(r, h, l)      => Route.Handled(r, h, l)
-      case Route.Unhandled(r, h, z, l) => Route.handled(r)(h.mapError(f))(z, l)
+    self.handleErrorCause { cause =>
+      cause.failureOption.map(f).getOrElse(Response(status = Status.InternalServerError))
     }
+
+  final def handleErrorCause(f: Cause[Err] => Response): Route[Env, Nothing] =
+    Route.HandleErrorCause(self, f)
 
   /**
    * Returns a route that ignores any errors produced by this one, translating
@@ -36,7 +44,7 @@ sealed trait Route[-Env, +Err] { self =>
    * useful feedback to users of the API, it's a good idea to capture some
    * information on the failure and embed it into the response.
    */
-  final def ignoreErrors: Route[Env, Nothing] =
+  final def ignore: Route[Env, Nothing] =
     handleError(_ => Response(status = Status.InternalServerError))
 
   /**
@@ -46,14 +54,8 @@ sealed trait Route[-Env, +Err] { self =>
 
   def location: Trace
 
-  /**
-   * Changes the error type of the route, without eliminating it.
-   */
-  final def mapError[Err2](f: Err => Err2): Route[Env, Err2] =
-    self match {
-      case Route.Handled(r, h, l)      => Route.Handled(r, h, l)
-      case Route.Unhandled(r, h, z, l) => Route.Unhandled(r, h.mapError(f), z, l)
-    }
+  final def provideEnvironment(env: ZEnvironment[Env]): Route[Any, Err] =
+    Route.Provide(self, env)
 
   /**
    * The route pattern over which the route is defined. The route can only
@@ -61,9 +63,20 @@ sealed trait Route[-Env, +Err] { self =>
    */
   def routePattern: RoutePattern[_]
 
-  def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response]
+  def toHandler(f: Cause[Err] => Response): Handler[Env, Response, Request, Response]
 
-  final def toApp(implicit ev: Err <:< Nothing): App[Env] = Routes(self).toApp
+  def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response] = {
+    val defaultErrorHandler: Cause[Err] => Response =
+      cause =>
+        cause.map(ev).failureOption match {
+          case None           => Response(status = Status.InternalServerError)
+          case Some(response) => response
+        }
+
+    toHandler(defaultErrorHandler)
+  }
+
+  final def toApp(implicit ev: Err <:< Response): HttpApp2[Env] = Routes(self).toApp
 }
 object Route {
 
@@ -85,7 +98,7 @@ object Route {
     )(implicit zippable: Zippable.Out[Params, Request, In], trace: Trace): Route[Env1, Nothing] = {
       val handler2: Handler[Env1, Response, Request, Response] = {
         val paramHandler =
-          Handler.fromFunctionZIO[(Request, rpm.Context)] { case (request, ctx) =>
+          Handler.fromFunctionZIO[(rpm.Context, Request)] { case (ctx, request) =>
             rpm.routePattern.decode(request.method, request.path) match {
               case Left(error)  => ZIO.dieMessage(error)
               case Right(value) =>
@@ -95,7 +108,7 @@ object Route {
             }
           }
 
-        rpm.middleware(paramHandler)
+        rpm.middleware.applyContext(paramHandler)
       }
 
       Handled(rpm.routePattern, handler2, trace)
@@ -109,12 +122,55 @@ object Route {
       Unhandled(rpm, handler, zippable, trace)
   }
 
+  private[http] final case class HandleErrorCause[-Env, Err](
+    route: Route[Env, Err],
+    errorHandler: Cause[Err] => Response,
+  ) extends Route[Env, Nothing] {
+    def location: Trace = route.location
+
+    def routePattern: RoutePattern[_] = route.routePattern
+
+    def toHandler(f0: Cause[Nothing] => Response): Handler[Env, Response, Request, Response] =
+      route.toHandler(errorHandler)
+
+    override def toString() = s"Route.HandleErrorCause(${route}, <function1>)"
+  }
+
+  private[http] final case class Provide[Env, +Err](
+    route: Route[Env, Err],
+    env: ZEnvironment[Env],
+  ) extends Route[Any, Err] {
+    def location: Trace = route.location
+
+    def routePattern: RoutePattern[_] = route.routePattern
+
+    def toHandler(f: Cause[Err] => Response): Handler[Any, Response, Request, Response] =
+      route.toHandler(f).provideEnvironment(env)
+
+    override def toString() = s"Route.Provide(${route}, ${env})"
+  }
+
+  private[http] final case class Augmented[-Env, +Err](
+    route: Route[Env, Err],
+    aspect: RouteAspect[Nothing, Env],
+  ) extends Route[Env, Err] {
+    def location: Trace = route.location
+
+    def routePattern: RoutePattern[_] = route.routePattern
+
+    def toHandler(f: Cause[Err] => Response): Handler[Env, Response, Request, Response] =
+      aspect(route.toHandler(f))
+
+    override def toString() = s"Route.Augmented(${route}, ${aspect})"
+  }
+
   private[http] final case class Handled[-Env](
     routePattern: RoutePattern[_],
     handler: Handler[Env, Response, Request, Response],
     location: Trace,
   ) extends Route[Env, Nothing] {
-    def toHandler(implicit ev: Nothing <:< Response): Handler[Env, Response, Request, Response] = handler
+    def toHandler(f: Cause[Nothing] => Response): Handler[Env, Response, Request, Response] =
+      handler
 
     override def toString() = s"Route.Handled(${routePattern}, ${location})"
   }
@@ -126,35 +182,12 @@ object Route {
   ) extends Route[Env, Err] { self =>
     def routePattern = rpm.routePattern
 
-    def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response] =
-      convert(self.handleError(ev))
+    def toHandler(f: Cause[Err] => Response): Handler[Env, Response, Request, Response] = {
+      implicit val z = zippable
+
+      Route.handled(rpm)(handler.catchAllCause(cause => Handler.fail(f(cause)))).toHandler(f)
+    }
 
     override def toString() = s"Route.Unhandled(${routePattern}, ${location})"
-
-    // Workaround:
-    private def convert[Env1 <: Env](handled: Route[Env1, Nothing]): Handler[Env1, Response, Request, Response] =
-      handled.toHandler
-  }
-
-  private[http] final case class Tree[-Env, +Err](tree: RoutePattern.Tree[Route[Env, Err]]) { self =>
-    final def ++[Env1 <: Env, Err1 >: Err](that: Tree[Env1, Err1]): Tree[Env1, Err1] =
-      Tree(self.tree ++ that.tree)
-
-    final def add[Env1 <: Env, Err1 >: Err](route: Route[Env1, Err1]): Tree[Env1, Err1] =
-      Tree(self.tree.add(route.routePattern, route))
-
-    final def addAll[Env1 <: Env, Err1 >: Err](routes: Iterable[Route[Env1, Err1]]): Tree[Env1, Err1] =
-      Tree(self.tree.addAll(routes.map(r => (r.routePattern, r))))
-
-    final def get(method: Method, path: Path): Chunk[Route[Env, Err]] = tree.get(method, path)
-  }
-  private[http] object Tree                                                                 {
-    def apply[Env, Err](first: Route[Env, Err], rest: Route[Env, Err]*): Tree[Env, Err] =
-      Tree.fromIterable(Chunk(first) ++ Chunk.fromIterable(rest))
-
-    val empty: Tree[Any, Nothing] = Tree(RoutePattern.Tree.empty)
-
-    def fromIterable[Env, Err](routes: Iterable[Route[Env, Err]]): Tree[Env, Err] =
-      Tree.empty.addAll(routes)
   }
 }

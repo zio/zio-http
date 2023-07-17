@@ -18,9 +18,8 @@ package zio.http.netty
 
 import java.net.InetSocketAddress
 
-import zio.http.Proxy
-import zio.http.internal.middlewares.Auth.Credentials
 import zio.http.netty.model.Conversions
+import zio.http.{Credentials, Proxy}
 
 import io.netty.handler.proxy.HttpProxyHandler
 

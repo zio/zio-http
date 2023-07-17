@@ -27,23 +27,32 @@ import java.nio.charset.Charset
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal // scalafix:ok;
+import java.util.zip.ZipFile
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
-  final def @@[
-    LowerEnv <: UpperEnv,
-    UpperEnv <: R,
-    LowerErr >: Err,
-    UpperErr >: LowerErr,
-    In1 <: In,
-  ](
-    aspect: HandlerAspect.Contextual[LowerEnv, UpperEnv, LowerErr, UpperErr],
-  )(implicit
-    trace: Trace,
-    ev: In1 <:< Request,
+  def @@[Env1 <: R, Ctx, In1 <: In](middleware: Middleware[Env1, Unit])(implicit
+    in: In1 <:< Request,
     out: Out <:< Response,
-  ): Handler[aspect.OutEnv[UpperEnv], aspect.OutErr[LowerErr], Request, Response] =
-    aspect(self.asInstanceOf[Handler[R, Err, Request, Response]])
+    err: Err <:< Response,
+  ): Handler[Env1, Response, Request, Response] = {
+    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
+      handler.asInstanceOf[Handler[R, Response, Request, Response]]
+
+    middleware(convert(self))
+  }
+
+  def @@[Env1 <: R, Ctx, In1 <: In](middleware: Middleware[Env1, Ctx])(implicit
+    zippable: Zippable.Out[Ctx, Request, In1],
+    res: Out <:< Response,
+  ): Handler[Env1, Response, Request, Response] = {
+    def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, In1, Response] =
+      handler.asInstanceOf[Handler[R, Response, In1, Response]]
+
+    middleware.applyContext(Handler.fromFunction[(Ctx, Request)] { case (ctx, req) =>
+      zippable.zip(ctx, req)
+    } >>> convert(self))
+  }
 
   /**
    * Alias for flatmap
@@ -134,6 +143,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    */
   final def as[Out1](out: Out1)(implicit trace: Trace): Handler[R, Err, In, Out1] =
     self.map(_ => out)
+
+  final def body(implicit ev: Out <:< Response): Handler[R, Err, In, Body] =
+    self.map(_.body)
 
   /**
    * Catches all the exceptions that the handler can fail with
@@ -320,17 +332,31 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       onSuccess,
     )
 
+  final def headers(implicit ev: Out <:< Response): Handler[R, Err, In, Headers] =
+    self.map(_.headers)
+
+  final def header(headerType: HeaderType)(implicit
+    ev: Out <:< Response,
+  ): Handler[R, Err, In, Option[headerType.HeaderValue]] =
+    self.headers.map(_.get(headerType))
+
+  final def ignore: Handler[R, Response, In, Out] =
+    self.mapError(_ => Response(status = Status.InternalServerError))
+
   /**
    * Transforms the output of the handler
    */
   final def map[Out1](f: Out => Out1)(implicit trace: Trace): Handler[R, Err, In, Out1] =
-    self.flatMap(out => Handler.succeed(f(out)))
+    self >>> Handler.fromFunction(f)
 
   /**
    * Transforms the failure of the handler
    */
   final def mapError[Err1](f: Err => Err1)(implicit trace: Trace): Handler[R, Err1, In, Out] =
     self.foldHandler(err => Handler.fail(f(err)), Handler.succeed(_))
+
+  final def mapErrorCause[Err1](f: Cause[Err] => Cause[Err1])(implicit trace: Trace): Handler[R, Err1, In, Out] =
+    self.foldCauseHandler(err => Handler.failCause(f(err)), Handler.succeed(_))
 
   /**
    * Transforms the output of the handler effectfully
@@ -496,8 +522,22 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       Handler.succeed(_),
     )
 
+  final def run(implicit ev: Request <:< In): ZIO[R, Err, Out] =
+    self(ev(Request()))
+
+  final def run(
+    method: Method = Method.GET,
+    path: Path = Path.root,
+    headers: Headers = Headers.empty,
+    body: Body = Body.empty,
+  )(implicit ev: Request <:< In): ZIO[R, Err, Out] =
+    self(ev(Request(method = method, url = URL.root.path(path), headers = headers, body = body)))
+
   final def runZIO(in: In): ZIO[R, Err, Out] =
     self(in)
+
+  final def status(implicit ev: Out <:< Response): Handler[R, Err, In, Status] =
+    self.map(_.status)
 
   /**
    * Returns a Handler that effectfully peeks at the success, failed or
@@ -537,15 +577,31 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   ): Handler[R1, Err1, In, Out] =
     self.tapAllZIO(_ => ZIO.unit, f)
 
-  final def toHttp(implicit trace: Trace): Http[R, Err, In, Out] =
-    Http.fromHandler(self)
+  def timeout(duration: Duration)(implicit trace: Trace): Handler[R, Err, In, Option[Out]] =
+    Handler.fromFunctionZIO[In] { request =>
+      self(request).timeout(duration)
+    }
 
-  def toHttpApp(implicit
-    ev1: Err <:< Throwable,
-    ev2: WebSocketChannel <:< In,
-    trace: Trace,
-  ): Http[R, Nothing, Any, Response] =
-    Handler.fromZIO(toResponse).toHttp
+  def timeoutFail[Out1 >: Out](out: Out1)(duration: Duration)(implicit trace: Trace): Handler[R, Err, In, Out1] =
+    Handler.fromFunctionZIO[In] { request =>
+      self(request).timeout(duration).map(_.getOrElse(out))
+    }
+
+  def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response): HttpApp2[R] = {
+    val handler: Handler[R, Response, Request, Response] =
+      self.asInstanceOf[Handler[R, Response, Request, Response]]
+
+    HttpApp2(Routes.singleton(handler.contramap[(Path, Request)](_._2)))
+  }
+
+  def toHttpAppWS(implicit err: Err <:< Throwable, in: WebSocketChannel <:< In): HttpApp2[R] = {
+    val handler1: Handler[R, Throwable, WebSocketChannel, Any] =
+      self.asInstanceOf[Handler[R, Throwable, WebSocketChannel, Any]]
+
+    val handler2 = Handler.fromZIO(handler1.toResponse)
+
+    HttpApp2(Routes.singleton(handler2.contramap[(Path, Request)](_._2)))
+  }
 
   /**
    * Creates a new response from a socket handler.
@@ -702,7 +758,7 @@ object Handler {
   def forbidden(message: => String): Handler[Any, Nothing, Any, Response] =
     error(HttpError.Forbidden(message))
 
-  def from[H](handler: => H)(implicit h: HandlerConstructor[H]): Handler[h.Env, h.Err, h.In, h.Out] =
+  def from[H](handler: => H)(implicit h: ToHandler[H]): Handler[h.Env, h.Err, h.In, h.Out] =
     h.toHandler(handler)
 
   /**
@@ -739,11 +795,6 @@ object Handler {
    * Creates a Handler from an effectful pure function
    */
   def fromFunctionZIO[In]: FromFunctionZIO[In] = new FromFunctionZIO[In](())
-
-  def fromHttp[R, Err, In, Out](http: Http[R, Err, In, Out], default: Handler[R, Err, In, Out])(implicit
-    trace: Trace,
-  ): Handler[R, Err, In, Out] =
-    http.toHandler(default)
 
   private def determineMediaType(filePath: String): Option[MediaType] = {
     filePath.lastIndexOf(".") match {
@@ -785,6 +836,74 @@ object Handler {
         }
       },
     )
+  }
+
+  /**
+   * Creates an Http app from a resource path
+   */
+  def fromResource(path: String)(implicit trace: Trace): Handler[Any, Throwable, Request, Response] =
+    Handler
+      .fromFunctionZIO[Request] { (req: Request) =>
+        ZIO
+          .attemptBlocking(getClass.getClassLoader.getResource(path))
+          .map { resource =>
+            if (resource == null) Handler.notFound
+            else fromResourceWithURL(resource)
+          }
+          .catchAll { throwable =>
+            ZIO.succeed(Handler.fail(throwable))
+          }
+      }
+      .flatten
+
+  private[zio] def fromResourceWithURL(
+    url: java.net.URL,
+  )(implicit trace: Trace): Handler[Any, Throwable, Any, Response] = {
+    url.getProtocol match {
+      case "file" =>
+        Handler.fromFile(new File(url.getPath))
+      case "jar"  =>
+        val path         = new java.net.URI(url.getPath).getPath // remove "file:" prefix and normalize whitespace
+        val bangIndex    = path.indexOf('!')
+        val filePath     = path.substring(0, bangIndex)
+        val resourcePath = path.substring(bangIndex + 2)
+        val mediaType    = determineMediaType(resourcePath)
+        val openZip      = ZIO.attemptBlockingIO(new ZipFile(filePath))
+        val closeZip     = (jar: ZipFile) => ZIO.attemptBlocking(jar.close()).ignoreLogged
+
+        def fileNotFound = new FileNotFoundException(s"Resource $resourcePath not found")
+
+        def isDirectory = new IllegalArgumentException(s"Resource $resourcePath is a directory")
+
+        val appZIO: ZIO[Any, Throwable, Response] =
+          ZIO.acquireReleaseWith(openZip)(closeZip) { jar =>
+            for {
+              entry <- ZIO
+                .attemptBlocking(Option(jar.getEntry(resourcePath)))
+                .collect(fileNotFound) { case Some(e) => e }
+              _     <- ZIO.when(entry.isDirectory)(ZIO.fail(isDirectory))
+              contentLength = entry.getSize
+              inZStream     = ZStream
+                .acquireReleaseWith(openZip)(closeZip)
+                .mapZIO(jar => ZIO.attemptBlocking(jar.getEntry(resourcePath) -> jar))
+                .flatMap { case (entry, jar) => ZStream.fromInputStream(jar.getInputStream(entry)) }
+              response      = Response(body = Body.fromStream(inZStream))
+            } yield mediaType.fold(response) { t =>
+              response
+                .addHeader(Header.ContentType(t))
+                .addHeader(Header.ContentLength(contentLength))
+            }
+          }
+
+        Handler.fromZIO {
+          appZIO.catchAll {
+            case _: FileNotFoundException => ZIO.succeed(Response(status = Status.NotFound))
+            case error: Throwable         => ZIO.fail(error)
+          }
+        }
+      case proto  =>
+        Handler.fail(new IllegalArgumentException(s"Unsupported protocol: $proto"))
+    }
   }
 
   /**

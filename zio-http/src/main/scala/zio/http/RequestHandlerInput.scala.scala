@@ -24,7 +24,7 @@ import zio.Zippable
 Your request handler is required to accept both parameters ${A}, as well as the incoming [[zio.http.Request]].
 This is true even if you wish to ignore some parameters or the request itself. Try to add missing parameters 
 until you no longer receive this error message. If all else fails, you can construct a handler manually using 
-the constructors in the companion object of [[zio.http.Handler]] using the precise type.""")
+the constructors in the companion object of [[zio.http.Handler]] using the precise types.""")
 final class RequestHandlerInput[A, I](val zippable: Zippable.Out[A, Request, I])
 object RequestHandlerInput {
   implicit def apply[A, I](implicit zippable: Zippable.Out[A, Request, I]): RequestHandlerInput[A, I] =

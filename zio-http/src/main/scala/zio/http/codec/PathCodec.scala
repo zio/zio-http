@@ -436,6 +436,13 @@ object PathCodec          {
       result
     }
 
+    def map[B](f: A => B): SegmentSubtree[B] =
+      SegmentSubtree(
+        literals.map { case (k, v) => k -> v.map(f) },
+        others.map { case (k, v) => k -> v.map(f) },
+        value.map(f),
+      )
+
     private var _othersFlat = null.asInstanceOf[Chunk[(SegmentCodec[_], SegmentSubtree[Any])]]
 
     private def othersFlat: Chunk[(SegmentCodec[_], SegmentSubtree[A])] = {

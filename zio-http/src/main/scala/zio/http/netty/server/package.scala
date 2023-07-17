@@ -23,7 +23,7 @@ import zio.http._
 import java.util.concurrent.atomic.AtomicReference // scalafix:ok;
 
 package object server {
-  private[server] type AppRef = AtomicReference[(App[Any], ZEnvironment[Any])]
+  private[server] type AppRef = AtomicReference[(HttpApp2[Any], ZEnvironment[Any])]
   private[server] type EnvRef = AtomicReference[ZEnvironment[Any]]
 
   def live: ZLayer[Server.Config, Throwable, Driver] =

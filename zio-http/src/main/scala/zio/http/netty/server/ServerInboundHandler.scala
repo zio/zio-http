@@ -47,7 +47,7 @@ private[zio] final case class ServerInboundHandler(
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
 
-  private var app: App[Any]          = _
+  private var app: HttpApp2[Any]     = _
   private var env: ZEnvironment[Any] = _
 
   val inFlightRequests: LongAdder = new LongAdder()
@@ -82,10 +82,9 @@ private[zio] final case class ServerInboundHandler(
         ensureHasApp()
         val exit =
           if (jReq.decoderResult().isFailure) {
-            val throwable = jReq.decoderResult().cause()
-            app.runServerErrorOrNull(Cause.die(throwable)).as(withDefaultErrorResponse(null, Some(throwable)))
-          } else
-            app.runZIOOrNull(req)
+            // TODO: Fatal error
+            ???
+          } else app(req)
         if (!attemptImmediateWrite(ctx, exit, time))
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
         else
@@ -103,10 +102,10 @@ private[zio] final case class ServerInboundHandler(
         ensureHasApp()
         val exit =
           if (jReq.decoderResult().isFailure) {
-            val throwable = jReq.decoderResult().cause()
-            app.runServerErrorOrNull(Cause.die(throwable)).as(withDefaultErrorResponse(null, Some(throwable)))
+            // TODO: Fatal error
+            ???
           } else
-            app.runZIOOrNull(req)
+            app(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
         } else {
@@ -128,13 +127,8 @@ private[zio] final case class ServerInboundHandler(
       case t                                                                            =>
         if (app ne null) {
           runtime.run(ctx, () => {}) {
-            // We cannot return the generated response from here, but still calling the handler for its side effect
-            // for example logging.
-            app
-              .runServerErrorOrNull(Cause.die(t))
-              .zipLeft(
-                ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t)).when(config.logWarningOnFatalError),
-              )
+            // TODO: Fatal error
+            ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t)).when(config.logWarningOnFatalError)
           }
         }
         cause match {

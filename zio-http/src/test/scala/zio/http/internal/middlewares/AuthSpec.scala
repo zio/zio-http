@@ -32,19 +32,17 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val successBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerToken))
   private val failureBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerToken + "SomethingElse"))
 
-  private val basicAuthM: RequestHandlerMiddleware[Nothing, Any, Nothing, Any]     = HttpAppMiddleware.basicAuth { c =>
+  private val basicAuthM: Middleware[Any, Unit]     = Middleware.basicAuth { c =>
     c.uname.reverse == c.upassword
   }
-  private val basicAuthZIOM: RequestHandlerMiddleware[Nothing, Any, Nothing, Any]  = HttpAppMiddleware.basicAuthZIO {
-    c =>
-      ZIO.succeed(c.uname.reverse == c.upassword)
+  private val basicAuthZIOM: Middleware[Any, Unit]  = Middleware.basicAuthZIO { c =>
+    ZIO.succeed(c.uname.reverse == c.upassword)
   }
-  private val bearerAuthM: RequestHandlerMiddleware[Nothing, Any, Nothing, Any]    = HttpAppMiddleware.bearerAuth { c =>
+  private val bearerAuthM: Middleware[Any, Unit]    = Middleware.bearerAuth { c =>
     c == bearerToken
   }
-  private val bearerAuthZIOM: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] = HttpAppMiddleware.bearerAuthZIO {
-    c =>
-      ZIO.succeed(c == bearerToken)
+  private val bearerAuthZIOM: Middleware[Any, Unit] = Middleware.bearerAuthZIO { c =>
+    ZIO.succeed(c == bearerToken)
   }
 
   def spec = suite("AuthSpec")(
@@ -93,13 +91,13 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         val app1 = Routes(Method.GET / "a" -> Handler.ok).toApp
         val app2 = Routes(Method.GET / "b" -> Handler.ok).toApp
         val app3 = Routes(Method.GET / "c" -> Handler.ok).toApp
-        val app  = (app1 ++ app2 @@ bearerAuthM ++ app3).status
+        val app  = app1 ++ app2 @@ bearerAuthM ++ app3
         for {
           s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
           s2 <- app.runZIO(Request.get(URL(Root / "b")).copy(headers = failureBearerHeader))
           s3 <- app.runZIO(Request.get(URL(Root / "c")).copy(headers = failureBearerHeader))
         } yield assertTrue(
-          s1 == Status.Ok && s2 == Status.Unauthorized && s3 == Status.Ok,
+          s1.status == Status.Ok && s2.status == Status.Unauthorized && s3.status == Status.Ok,
         )
       },
     ),
@@ -120,105 +118,15 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         val app1 = Routes(Method.GET / "a" -> Handler.ok).toApp
         val app2 = Routes(Method.GET / "b" -> Handler.ok).toApp
         val app3 = Routes(Method.GET / "c" -> Handler.ok).toApp
-        val app  = (app1 ++ app2 @@ bearerAuthZIOM ++ app3).status
+        val app  = app1 ++ app2 @@ bearerAuthZIOM ++ app3
         for {
           s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
           s2 <- app.runZIO(Request.get(URL(Root / "b")).copy(headers = failureBearerHeader))
           s3 <- app.runZIO(Request.get(URL(Root / "c")).copy(headers = failureBearerHeader))
         } yield assertTrue(
-          s1 == Status.Ok && s2 == Status.Unauthorized && s3 == Status.Ok,
+          s1.status == Status.Ok && s2.status == Status.Unauthorized && s3.status == Status.Ok,
         )
       },
-    ),
-    suite("custom")(
-      test("Providing context from auth middleware") {
-        def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((request: Request) =>
-          request.header(Header.Authorization).map(auth => AuthContext(auth.renderedValue.toString)),
-        )
-
-        val app1 = Handler.text("ok") @@ auth[Any]
-        val app2 = Handler.fromZIO {
-          for {
-            base <- ZIO.service[BaseService]
-            auth <- ZIO.service[AuthContext]
-          } yield Response.text(s"${base.value} ${auth.value}")
-        } @@ auth[BaseService]
-
-        for {
-          r1     <- app1.runZIO(Request.get(URL.empty))
-          r2     <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth"))))
-          r2body <- r2.body.asString
-          r3     <- app2.runZIO(Request.get(URL.empty))
-          r4     <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth"))))
-          r4body <- r4.body.asString
-        } yield assertTrue(
-          extractStatus(r1) == Status.Unauthorized,
-          extractStatus(r2) == Status.Ok,
-          r2body == "ok",
-          extractStatus(r3) == Status.Unauthorized,
-          extractStatus(r4) == Status.Ok,
-          r4body == "base Bearer auth",
-        )
-      }.provideLayer(ZLayer.succeed(BaseService("base"))),
-      test("Providing context from auth middleware effectfully") {
-        def auth[R0] = RequestHandlerMiddlewares.customAuthProvidingZIO[R0, UserService, Throwable, AuthContext](
-          (request: Request) =>
-            request.header(Header.Authorization) match {
-              case Some(Header.Authorization.Bearer(value)) if value.startsWith("_") =>
-                ZIO.service[UserService].map { usvc => Some(AuthContext(usvc.prefix + value)) }
-              case Some(value)                                                       =>
-                ZIO.fail(new RuntimeException(s"Invalid auth header $value"))
-              case None                                                              =>
-                ZIO.none
-            },
-        )
-
-        val app1 = Handler.text("ok") @@ auth[Any]
-        val app2 = Handler.fromZIO {
-          for {
-            base <- ZIO.service[BaseService]
-            auth <- ZIO.service[AuthContext]
-          } yield Response.text(s"${base.value} ${auth.value}")
-        } @@ auth[BaseService]
-
-        for {
-          r1 <- app1.runZIO(Request.get(URL.empty))
-          r2 <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth")))).exit
-          r3 <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("_auth"))))
-          r3body <- r3.body.asString
-          r4     <- app2.runZIO(Request.get(URL.empty))
-          r5 <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth")))).exit
-          r6 <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("_auth"))))
-          r6body <- r6.body.asString
-        } yield assertTrue(
-          extractStatus(r1) == Status.Unauthorized,
-          r2.isFailure,
-          extractStatus(r3) == Status.Ok,
-          r3body == "ok",
-          extractStatus(r4) == Status.Unauthorized,
-          r5.isFailure,
-          extractStatus(r6) == Status.Ok,
-          r6body == "base user_auth",
-        )
-      }.provide(ZLayer.succeed(BaseService("base")), ZLayer.succeed(UserService("user"))),
-      test("Contextual auth evaluation per request") {
-        def auth =
-          RequestHandlerMiddlewares.customAuthProvidingZIO[Any, CounterService, Throwable, AuthContext](_ =>
-            for {
-              counter <- ZIO.service[CounterService].map(_.counter)
-              _       <- counter.update(_ + 1)
-              value   <- counter.get
-            } yield Some(AuthContext(value.toString)),
-          )
-
-        def httpEndpoint(str: String) = Routes(Method.GET / str -> Handler.ok).toApp
-
-        val httpApi = (httpEndpoint("1") ++ httpEndpoint("2")) @@ auth
-        for {
-          r1      <- httpApi.runZIO(Request.get(URL(Root / "1")))
-          counter <- ZIO.service[CounterService].flatMap(_.counter.get)
-        } yield assertTrue(extractStatus(r1) == Status.Ok, counter == 1)
-      }.provide(ZLayer.fromZIO(Ref.make(0).map(CounterService.apply))),
     ),
   )
 

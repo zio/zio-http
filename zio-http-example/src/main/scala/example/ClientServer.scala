@@ -10,9 +10,8 @@ object ClientServer extends ZIOAppDefault {
   val app = Routes(
     Method.GET / "hello" -> handler(Response.text("hello")),
     Method.GET / ""      -> handler(ZClient.request(Request.get(url))),
-  ).ignoreErrors.toApp
+  ).ignore.toApp
 
-  val run = {
-    Server.serve(app.withDefaultErrorResponse).provide(Server.default, Client.default, Scope.default).exitCode
-  }
+  val run = 
+    Server.serve(app).provide(Server.default, Client.default, Scope.default).exitCode
 }
