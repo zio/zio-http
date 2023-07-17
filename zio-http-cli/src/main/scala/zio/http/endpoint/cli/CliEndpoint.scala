@@ -1,13 +1,15 @@
 package zio.http.endpoint.cli
 
+import scala.util.Try
+
 import zio.cli._
+import zio.json.ast._
+
+import zio.schema._
+
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
-import zio.json.ast._
-import zio.schema._
-
-import scala.util.Try
 
 private[cli] final case class CliEndpoint[A](
   embed: (A, CliRequest) => CliRequest,
