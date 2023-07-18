@@ -273,8 +273,6 @@ sealed trait PathCodec[A] { self =>
    * Renders the path codec as a string.
    */
   def render: String = {
-    import SegmentCodec._
-
     def loop(path: PathCodec[_]): String = path match {
       case PathCodec.Concat(left, right, _, _) =>
         loop(left) + loop(right)
@@ -372,8 +370,6 @@ object PathCodec          {
     value: Chunk[A],
   ) {
     self =>
-    import SegmentSubtree._
-
     def ++[A1 >: A](that: SegmentSubtree[A1]): SegmentSubtree[A1] =
       SegmentSubtree(
         mergeMaps(self.literals, that.literals)(_ ++ _),
@@ -442,7 +438,7 @@ object PathCodec          {
     def map[B](f: A => B): SegmentSubtree[B] =
       SegmentSubtree(
         literals.map { case (k, v) => k -> v.map(f) },
-        others.map { case (k, v) => k -> v.map(f) },
+        ListMap(others.toSeq.map { case (k, v) => k -> v.map(f) }: _*),
         value.map(f),
       )
 
