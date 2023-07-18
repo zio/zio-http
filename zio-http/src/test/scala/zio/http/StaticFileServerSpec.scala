@@ -27,14 +27,14 @@ import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val fileOk       = Handler.fromResource("TestFile.txt").ignore.toHttpApp.deploy
-  private val fileNotFound = Handler.fromResource("Nothing").ignore.toHttpApp.deploy
+  private val fileOk       = Handler.fromResource("TestFile.txt").toHttpApp.deploy
+  private val fileNotFound = Handler.fromResource("Nothing").toHttpApp.deploy
 
   private val testArchivePath  = getClass.getResource("/TestArchive.jar").getPath
   private val resourceOk       =
-    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).ignore.toHttpApp.deploy
+    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).toHttpApp.deploy
   private val resourceNotFound =
-    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt")).ignore.toHttpApp.deploy
+    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt")).toHttpApp.deploy
 
   override def spec = suite("StaticFileServer") {
     ZIO.scoped(serve.as(List(staticSpec)))
@@ -84,10 +84,9 @@ object StaticFileServerSpec extends HttpRunnableSpec {
       suite("invalid file")(
         test("should respond with 500") {
           final class BadFile(name: String) extends File(name) {
-            override def length: Long    = throw new Error("Haha")
-            override def isFile: Boolean = true
+            override def exists(): Boolean = throw new Error("Haha")
           }
-          val res = Handler.fromFile(new BadFile("Length Failure")).ignore.toHttpApp.deploy.run().map(_.status)
+          val res = Handler.fromFile(new BadFile("Length Failure")).toHttpApp.deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),
@@ -111,7 +110,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain))))
         },
         test("should respond with empty if not found") {
-          val res = resourceNotFound.run().map(_.status)
+          val res = resourceNotFound.run().debug("not found").map(_.status)
           assertZIO(res)(equalTo(Status.NotFound))
         },
       ),

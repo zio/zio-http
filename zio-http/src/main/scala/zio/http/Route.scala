@@ -45,7 +45,10 @@ sealed trait Route[-Env, +Err] { self =>
    * information on the failure and embed it into the response.
    */
   final def ignore: Route[Env, Nothing] =
-    handleError(_ => Response(status = Status.InternalServerError))
+    handleError {
+      case t: Throwable => Response.fromThrowable(t)
+      case e            => Response.internalServerError(e.toString())
+    }
 
   /**
    * Determines if the route is defined for the specified request.
