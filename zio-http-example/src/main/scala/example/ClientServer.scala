@@ -12,6 +12,6 @@ object ClientServer extends ZIOAppDefault {
     Method.GET / ""      -> handler(ZClient.request(Request.get(url))),
   ).ignore.toHttpApp
 
-  val run = 
+  val run =
     Server.serve(app).provide(Server.default, Client.default, Scope.default).exitCode
 }

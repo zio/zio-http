@@ -18,9 +18,9 @@ val socket = Handler.webSocket { channel =>
   }
 }
 
-val http = Http.collectZIO[Request] {
-  case Method.GET -> Root / "subscriptions" => socket.toResponse
-}
+val http = Routes(
+  Method.GET / "subscriptions" -> handler(socket.toResponse)
+)
 ```
 
 The WebSocket API leverages the already powerful `Http` domain to write web socket apps. The difference is that instead

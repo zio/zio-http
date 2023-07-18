@@ -12,12 +12,12 @@ import org.openjdk.jmh.annotations._
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class HttpCollectEval {
-  private val MAX       = 10000
-  private val req       = Request()
-  private val res       = Response.ok
-  private val app       = Routes.singleton(handler(res)).toHttpApp
-  private val http      = Routes(Route.route(Method.ANY / "text")(handler(res))).toHttpApp
-  
+  private val MAX  = 10000
+  private val req  = Request()
+  private val res  = Response.ok
+  private val app  = Routes.singleton(handler(res)).toHttpApp
+  private val http = Routes(Route.route(Method.ANY / "text")(handler(res))).toHttpApp
+
   private val base: PartialFunction[Int, Int] = { case 0 => 1 }
   private val baseTotal: Int => Int           = _ => 1
 
@@ -32,7 +32,6 @@ class HttpCollectEval {
     (0 to MAX).foreach(_ => http(Request.get(url = URL(Root / "text"))))
     ()
   }
-
 
   @Benchmark
   def benchmarkBase(): Unit = {

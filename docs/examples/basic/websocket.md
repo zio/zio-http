@@ -9,30 +9,30 @@ import zio._
 
 import zio.http.ChannelEvent.Read
 import zio.http._
+import zio.http.codec.PathCodec.string
 
 object WebSocketEcho extends ZIOAppDefault {
   private val socketApp: SocketApp[Any] =
     Handler.webSocket { channel =>
       channel.receiveAll {
         case Read(WebSocketFrame.Text("FOO")) =>
-          channel.send(Read(WebSocketFrame.text("BAR")))
-
+          channel.send(Read(WebSocketFrame.Text("BAR")))
         case Read(WebSocketFrame.Text("BAR")) =>
-          channel.send(Read(WebSocketFrame.text("FOO")))
-
-        case Read(WebSocketFrame.Text(text)) =>
-          channel.send(Read(WebSocketFrame.text(text))).repeatN(10)
-
-        case _ =>
+          channel.send(Read(WebSocketFrame.Text("FOO")))
+        case Read(WebSocketFrame.Text(text))  =>
+          channel.send(Read(WebSocketFrame.Text(text))).repeatN(10)
+        case _                                =>
           ZIO.unit
       }
     }
 
-  private val app: Http[Any, Nothing, Request, Response] =
-    Http.collectZIO[Request] {
-      case Method.GET -> Root / "greet" / name  => ZIO.succeed(Response.text(s"Greetings {$name}!"))
-      case Method.GET -> Root / "subscriptions" => socketApp.toResponse
-    }
+  private val app: HttpApp[Any] =
+    Routes(
+      Method.GET / "greet" / string("name") -> handler { (name: String, req: Request) =>
+        Response.text(s"Greetings {$name}!")
+      },
+      Method.GET / "subscriptions"          -> handler(socketApp.toResponse),
+    ).toHttpApp
 
   override val run = Server.serve(app).provide(Server.default)
 }

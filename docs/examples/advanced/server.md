@@ -15,17 +15,18 @@ import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 object HelloWorldAdvanced extends ZIOAppDefault {
   // Set a port
-  private val PORT = 0
+  val PORT = 0
 
-  private val fooBar: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> Root / "foo" => Response.text("bar")
-    case Method.GET -> Root / "bar" => Response.text("foo")
-  }
+  val fooBar =
+    Routes(
+      Method.GET / "foo" -> Handler.from(Response.text("bar")),
+      Method.GET / "bar" -> Handler.from(Response.text("foo")),
+    ).toHttpApp
 
-  private val app = Http.collectZIO[Request] {
-    case Method.GET -> Root / "random" => Random.nextString(10).map(Response.text(_))
-    case Method.GET -> Root / "utc"    => Clock.currentDateTime.map(s => Response.text(s.toString))
-  }
+  val app = Routes(
+    Method.GET / "random" -> handler(Random.nextString(10).map(Response.text(_))),
+    Method.GET / "utc"    -> handler(Clock.currentDateTime.map(s => Response.text(s.toString))),
+  ).toHttpApp
 
   val run = ZIOAppArgs.getArgs.flatMap { args =>
     // Configure thread count using CLI

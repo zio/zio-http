@@ -70,7 +70,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      behavior                     = pf.andThen(_.provideEnvironment(r))
+      behavior          = pf.andThen(_.provideEnvironment(r))
       app: HttpApp[Any] = HttpApp.collectZIO(behavior)
       _ <- driver.addApp(app, r)
     } yield ()

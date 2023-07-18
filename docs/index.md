@@ -4,7 +4,7 @@ title: "Introduction to ZIO Http"
 sidebar_label: "ZIO Http"
 ---
 
-ZIO Http is a scala library for building http apps. It is powered by ZIO and [netty](https://netty.io/) and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic scala.
+ZIO HTTP is a scala library for building http apps. It is powered by ZIO and [Netty](https://netty.io/) and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic Scala.
 
 @PROJECT_BADGES@
 
@@ -31,10 +31,10 @@ import zio.http._
 
 object HelloWorld extends ZIOAppDefault {
 
-  val app: App[Any] = 
-    Http.collect[Request] {
-      case Method.GET -> Root / "text" => Response.text("Hello World!")
-    }
+  val app: HttpApp[Any] = 
+    Routes(
+      Method.GET / "text" -> handler(Response.text("Hello World!"))
+    ).toHttpApp
 
   override val run =
     Server.serve(app).provide(Server.default)

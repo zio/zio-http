@@ -59,6 +59,12 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def @@[Env1 <: Env](aspect: RouteAspect[Nothing, Env1]): Routes[Env1, Err] =
     new Routes(routes.map(_.@@(aspect)))
 
+  def asEnvType[Env2](implicit ev: Env2 <:< Env): Routes[Env2, Err] =
+    self.asInstanceOf[Routes[Env2, Err]]
+
+  def asErrorType[Err2](implicit ev: Err <:< Err2): Routes[Env, Err2] =
+    self.asInstanceOf[Routes[Env, Err2]]
+
   /**
    * Handles all typed errors in the routes by converting them into responses.
    */
@@ -97,7 +103,7 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
    * handled and converted into responses.
    */
   def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] =
-    HttpApp(routes.asInstanceOf[Routes[Env, Response]])
+    HttpApp(asErrorType[Response])
 }
 object Routes {
 

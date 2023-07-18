@@ -12,8 +12,10 @@ import zio.http.{Headers, Method, Scheme, Status, Version}
  *   Contains the user-specified behavior that takes the place of the usual
  *   Server
  */
-final case class TestClient(behavior: Ref[PartialFunction[Request, ZIO[Any, Response, Response]]], serverSocketBehavior: Ref[SocketApp[Any]])
-    extends ZClient.Driver[Any, Throwable] {
+final case class TestClient(
+  behavior: Ref[PartialFunction[Request, ZIO[Any, Response, Response]]],
+  serverSocketBehavior: Ref[SocketApp[Any]],
+) extends ZClient.Driver[Any, Throwable] {
 
   /**
    * Adds an exact 1-1 behavior
@@ -63,7 +65,7 @@ final case class TestClient(behavior: Ref[PartialFunction[Request, ZIO[Any, Resp
     for {
       r                <- ZIO.environment[R]
       previousBehavior <- behavior.get
-      newBehavior     = handler.andThen(_.provideEnvironment(r))
+      newBehavior = handler.andThen(_.provideEnvironment(r))
       _ <- behavior.set(previousBehavior.orElse(newBehavior))
     } yield ()
 
