@@ -842,26 +842,21 @@ object Handler {
    * Creates an Http app from a resource path
    */
   def fromResource(path: String)(implicit trace: Trace): Handler[Any, Response, Any, Response] =
-    Handler
-      .fromZIO {
-        ZIO
-          .attemptBlocking(getClass.getClassLoader.getResource(path))
-          .map { resource =>
-            if (resource == null) Handler.fail(Response(status = Status.NotFound))
-            else fromResourceWithURL(resource).mapError(_ => Response(status = Status.InternalServerError))
-          }
-          .catchAll { throwable =>
-            println(s"Error loading resource $path: ${throwable.getMessage}")
-
-            ZIO.succeed(Handler.fail(Response(status = Status.InternalServerError)))
-          }
-      }
-      .flatten
+    Handler.fromZIO {
+      ZIO
+        .attemptBlocking(getClass.getClassLoader.getResource(path))
+        .map { resource =>
+          if (resource == null) Handler.fail(Response(status = Status.NotFound))
+          else fromResourceWithURL(resource).mapError(_ => Response(status = Status.InternalServerError))
+        }
+        .catchAll { throwable =>
+          ZIO.succeed(Handler.fail(Response(status = Status.InternalServerError)))
+        }
+    }.flatten
 
   private[zio] def fromResourceWithURL(
     url: java.net.URL,
   )(implicit trace: Trace): Handler[Any, Throwable, Any, Response] = {
-    println(s"Loading resource from $url")
     url.getProtocol match {
       case "file" =>
         Handler.fromFile(new File(url.getPath))

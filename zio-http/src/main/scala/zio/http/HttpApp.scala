@@ -27,7 +27,7 @@ import zio._
  */
 final case class HttpApp[-Env](routes: Routes[Env, Response])
     extends PartialFunction[Request, ZIO[Env, Response, Response]] { self =>
-  private var _tree: HttpApp.Tree[_] = HttpApp.Tree.empty
+  private var _tree: HttpApp.Tree[_] = null.asInstanceOf[HttpApp.Tree[_]]
 
   /**
    * Applies the specified route aspect to every route in the HTTP application.

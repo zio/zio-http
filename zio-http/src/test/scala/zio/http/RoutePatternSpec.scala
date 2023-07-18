@@ -40,6 +40,7 @@ object RoutePatternSpec extends ZIOSpecDefault {
         def check(method: Method, path: Path): TestResult =
           assertTrue(tree.get(method, path) == Chunk(42))
 
+        check(Method.GET, Path("")) &&
         check(Method.GET, Path("/")) &&
         check(Method.GET, Path("/users")) &&
         check(Method.PUT, Path("/users/1")) &&
@@ -53,6 +54,14 @@ object RoutePatternSpec extends ZIOSpecDefault {
 
         tree = tree.add(routePattern, ())
 
+        assertTrue(
+          tree
+            .get(
+              Method.CUSTOM("foo"),
+              Path("/users"),
+            )
+            .nonEmpty,
+        ) &&
         assertTrue(
           tree
             .get(

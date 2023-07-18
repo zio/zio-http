@@ -176,11 +176,17 @@ object RoutePattern {
         tree.add(p, v)
       }
 
-    def get(method: Method, path: Path): Chunk[A] =
-      roots.get(method) match {
+    def get(method: Method, path: Path): Chunk[A] = {
+      val wildcards = roots.get(Method.ANY) match {
         case None        => Chunk.empty
         case Some(value) => value.get(path)
       }
+
+      (roots.get(method) match {
+        case None        => Chunk.empty
+        case Some(value) => value.get(path)
+      }) ++ wildcards
+    }
 
     def map[B](f: A => B): Tree[B] =
       Tree(roots.map { case (k, v) =>
@@ -189,28 +195,11 @@ object RoutePattern {
   }
   private[http] object Tree                                                          {
     def apply[A](routePattern: RoutePattern[_], value: A): Tree[A] = {
-      val methods  =
-        routePattern.method match {
-          case Method.ANY =>
-            Chunk(
-              Method.CONNECT,
-              Method.DELETE,
-              Method.GET,
-              Method.HEAD,
-              Method.OPTIONS,
-              Method.PATCH,
-              Method.POST,
-              Method.PUT,
-              Method.TRACE,
-            )
-
-          case other => Chunk(other)
-        }
       val segments = routePattern.pathCodec.segments
 
       val subtree = SegmentSubtree.single(segments, value)
 
-      methods.map(method => Tree(ListMap(method -> subtree))).reduce(_ ++ _)
+      Tree(ListMap(routePattern.method -> subtree))
     }
 
     val empty: Tree[Nothing] = Tree(ListMap.empty)
