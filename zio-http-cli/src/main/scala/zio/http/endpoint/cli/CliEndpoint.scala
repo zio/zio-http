@@ -295,7 +295,7 @@ private[cli] object CliEndpoint {
     def loop(prefix: List[String], schema: zio.schema.Schema[_]): Set[CliEndpoint[_]] =
       schema match {
         case record: Schema.Record[_]             =>
-          Set(
+          val endpoints =
             record.fields
               .foldLeft(Set.empty[CliEndpoint[_]]) { (cliEndpoints, field) =>
                 cliEndpoints ++ loop(prefix :+ field.name, field.schema).map { cliEndpoint =>
@@ -305,8 +305,9 @@ private[cli] object CliEndpoint {
                   }
                 }
               }
-              .reduce(_ ++ _), // TODO review the case of nested sealed trait inside case class
-          )
+
+          if (endpoints.isEmpty) Set.empty
+          else Set(endpoints.reduce(_ ++ _)) // TODO review the case of nested sealed trait inside case class
         case enumeration: Schema.Enum[_]          =>
           enumeration.cases.foldLeft(Set.empty[CliEndpoint[_]]) { (cliEndpoints, enumCase) =>
             cliEndpoints ++ loop(prefix, enumCase.schema)
