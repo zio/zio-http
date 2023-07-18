@@ -175,7 +175,7 @@ object FormField {
       contentParts     = extract._4.tail // Skip the first empty line
       content          = contentParts.foldLeft(Chunk.empty[Byte])(_ ++ _.bytes)
       contentType      = extract._2
-        .flatMap(x => MediaType.forContentType(x.preposition))
+        .flatMap(x => MediaType.forContentType(x.value))
         .getOrElse(MediaType.application.`octet-stream`)
       transferEncoding = extract._3
         .flatMap(x => ContentTransferEncoding.parse(x.preposition).toOption)
@@ -190,7 +190,7 @@ object FormField {
     ast.collectFirst {
       case header: FormAST.Header if header.name == "Content-Type" =>
         MediaType
-          .forContentType(header.preposition)
+          .forContentType(header.value)
           .getOrElse(MediaType.application.`octet-stream`) // Unknown content type defaults to binary
     }.getOrElse(MediaType.text.plain) // Missing content type defaults to text
 
@@ -213,7 +213,7 @@ object FormField {
       disposition <- ZIO.fromOption(extract._1).orElseFail(FormDataMissingContentDisposition)
       name        <- ZIO.fromOption(extract._1.flatMap(_.fields.get("name"))).orElseFail(ContentDispositionMissingName)
       contentType      = extract._2
-        .flatMap(x => MediaType.forContentType(x.preposition))
+        .flatMap(x => MediaType.forContentType(x.value))
         .getOrElse(MediaType.text.plain)
       transferEncoding = extract._3
         .flatMap(x => ContentTransferEncoding.parse(x.preposition).toOption)
