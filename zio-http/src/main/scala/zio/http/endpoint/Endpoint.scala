@@ -39,10 +39,10 @@ import zio.http.{Handler, MediaType, Route, RoutePattern, Status}
  * doesn't give access to `Output` Input: Example: Int Output: Example: User
  *
  * As [[zio.http.endpoint.Endpoint]] is a purely declarative encoding of an
- * endpoint, it is possible to use this model to generate a [[zio.http.Route]] (by
- * supplying a handler for the endpoint), to generate OpenAPI documentation, to
- * generate a type-safe Scala client for the endpoint, and possibly, to generate
- * client libraries in other programming languages.
+ * endpoint, it is possible to use this model to generate a [[zio.http.Route]]
+ * (by supplying a handler for the endpoint), to generate OpenAPI documentation,
+ * to generate a type-safe Scala client for the endpoint, and possibly, to
+ * generate client libraries in other programming languages.
  */
 final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
   route: RoutePattern[PathInput],

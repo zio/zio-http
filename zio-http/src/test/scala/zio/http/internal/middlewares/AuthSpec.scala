@@ -96,9 +96,8 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
           s2 <- app.runZIO(Request.get(URL(Root / "b")).copy(headers = failureBearerHeader))
           s3 <- app.runZIO(Request.get(URL(Root / "c")).copy(headers = failureBearerHeader))
-        } yield assertTrue(
-          s1.status == Status.Ok && s2.status == Status.Unauthorized && s3.status == Status.Ok,
-        )
+          result = s1.status == Status.Ok && s2.status == Status.Unauthorized && s3.status == Status.Ok
+        } yield assertTrue(result)
       },
     ),
     suite("bearerAuthZIO")(
@@ -123,9 +122,8 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
           s2 <- app.runZIO(Request.get(URL(Root / "b")).copy(headers = failureBearerHeader))
           s3 <- app.runZIO(Request.get(URL(Root / "c")).copy(headers = failureBearerHeader))
-        } yield assertTrue(
-          s1.status == Status.Ok && s2.status == Status.Unauthorized && s3.status == Status.Ok,
-        )
+          result = s1.status == Status.Ok && s2.status == Status.Unauthorized && s3.status == Status.Ok
+        } yield assertTrue(result)
       },
     ),
   )
