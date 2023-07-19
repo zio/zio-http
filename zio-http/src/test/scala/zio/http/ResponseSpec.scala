@@ -16,6 +16,7 @@
 
 package zio.http
 
+import zio._
 import zio.test.Assertion._
 import zio.test._
 
@@ -24,6 +25,31 @@ object ResponseSpec extends ZIOSpecDefault {
   private val location: URL                     = URL.decode("www.google.com").toOption.get
 
   def spec = suite("Response")(
+    suite("fromCause")(
+      test("from Response") {
+        val cause = Cause.fail(Response.ok)
+
+        assertTrue(Response.fromCause(cause) == Response.ok)
+      },
+      test("from IllegalArgumentException") {
+        val cause = Cause.fail(new IllegalArgumentException)
+
+        assertTrue(Response.fromCause(cause).status == Status.BadRequest)
+      },
+      test("from String") {
+        val cause = Cause.fail("error")
+
+        assertTrue(Response.fromCause(cause).status == Status.InternalServerError)
+      },
+    ),
+    suite("fromThrowable")(
+      test("from Throwable") {
+        assertTrue(Response.fromThrowable(new Throwable).status == Status.InternalServerError)
+      },
+      test("from IllegalArgumentException") {
+        assertTrue(Response.fromThrowable(new IllegalArgumentException).status == Status.BadRequest)
+      },
+    ),
     suite("redirect")(
       test("Temporary redirect should produce a response with a TEMPORARY_REDIRECT") {
         val x = Response.redirect(location)

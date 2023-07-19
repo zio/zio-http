@@ -39,7 +39,7 @@ object MultipartFormData extends ZIOAppDefault {
             } yield response
           else ZIO.succeed(Response(status = Status.NotFound))
         },
-    ).ignore.toHttpApp
+    ).sandbox.toHttpApp
 
   private def program: ZIO[Client with Server with Scope, Throwable, Unit] =
     for {

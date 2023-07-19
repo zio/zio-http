@@ -29,7 +29,7 @@ object FileStreaming extends ZIOAppDefault {
     // Adds content-length header and does not use Chunked transfer encoding
     Method.GET / "video" -> Handler.fromFile(new File("src/main/resources/TestVideoFile.mp4")),
     Method.GET / "text"  -> Handler.fromFile(new File("src/main/resources/TestFile.txt")),
-  ).ignore.toHttpApp
+  ).sandbox.toHttpApp
 
   // Run it like any simple app
   val run =

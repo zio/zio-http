@@ -40,7 +40,7 @@ object ClientSpec extends HttpRunnableSpec {
       assertZIO(responseContent)(isNonEmpty)
     },
     test("echo POST request content") {
-      val app = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.ignore.toHttpApp
+      val app = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.sandbox.toHttpApp
       val res = app.deploy(Request(method = Method.POST, body = Body.fromString("ZIO user"))).flatMap(_.body.asString)
       assertZIO(res)(equalTo("ZIO user"))
     },
@@ -61,7 +61,7 @@ object ClientSpec extends HttpRunnableSpec {
       assertZIO(res)(isLeft(isSubtype[ConnectException](anything)))
     },
     test("streaming content to server") {
-      val app    = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.ignore.toHttpApp
+      val app    = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.sandbox.toHttpApp
       val stream = ZStream.fromIterable(List("a", "b", "c"), chunkSize = 1)
       val res    = app
         .deploy(Request(method = Method.POST, body = Body.fromStream(stream)))

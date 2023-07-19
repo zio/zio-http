@@ -144,6 +144,18 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def as[Out1](out: Out1)(implicit trace: Trace): Handler[R, Err, In, Out1] =
     self.map(_ => out)
 
+  final def asEnvType[R2](implicit ev: R2 <:< R): Handler[R2, Err, In, Out] =
+    self.asInstanceOf[Handler[R2, Err, In, Out]]
+
+  final def asErrorType[Err2](implicit ev: Err <:< Err2): Handler[R, Err2, In, Out] =
+    self.asInstanceOf[Handler[R, Err2, In, Out]]
+
+  final def asInType[In2](implicit ev: In2 <:< In): Handler[R, Err, In2, Out] =
+    self.asInstanceOf[Handler[R, Err, In2, Out]]
+
+  final def asOutType[Out2](implicit ev: Out <:< Out2): Handler[R, Err, In, Out2] =
+    self.asInstanceOf[Handler[R, Err, In, Out2]]
+
   final def body(implicit ev: Out <:< Response): Handler[R, Err, In, Body] =
     self.map(_.body)
 
@@ -340,12 +352,6 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   ): Handler[R, Err, In, Option[headerType.HeaderValue]] =
     self.headers.map(_.get(headerType))
 
-  final def ignore: Handler[R, Response, In, Out] =
-    self.mapError {
-      case t: Throwable => Response.fromThrowable(t)
-      case _            => Response(status = Status.InternalServerError)
-    }
-
   /**
    * Transforms the output of the handler
    */
@@ -358,8 +364,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def mapError[Err1](f: Err => Err1)(implicit trace: Trace): Handler[R, Err1, In, Out] =
     self.foldHandler(err => Handler.fail(f(err)), Handler.succeed(_))
 
-  final def mapErrorCause[Err1](f: Cause[Err] => Cause[Err1])(implicit trace: Trace): Handler[R, Err1, In, Out] =
-    self.foldCauseHandler(err => Handler.failCause(f(err)), Handler.succeed(_))
+  final def mapErrorCause[Err2](f: Cause[Err] => Err2)(implicit trace: Trace): Handler[R, Err2, In, Out] =
+    self.foldCauseHandler(err => Handler.fail(f(err)), Handler.succeed(_))
 
   /**
    * Transforms the output of the handler effectfully
@@ -525,9 +531,6 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       Handler.succeed(_),
     )
 
-  final def run(implicit ev: Request <:< In): ZIO[R, Err, Out] =
-    self(ev(Request()))
-
   final def run(
     method: Method = Method.GET,
     path: Path = Path.root,
@@ -538,6 +541,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   final def runZIO(in: In): ZIO[R, Err, Out] =
     self(in)
+
+  final def sandbox: Handler[R, Response, In, Out] =
+    self.mapErrorCause(Response.fromCause(_))
 
   final def status(implicit ev: Out <:< Response): Handler[R, Err, In, Status] =
     self.map(_.status)

@@ -26,7 +26,7 @@ object GracefulShutdown extends ZIOAppDefault {
     .fromFunctionZIO[Request] { _ =>
       ZIO.sleep(10.seconds).debug("request handler delay done").as(Response.text("done"))
     }
-    .ignore
+    .sandbox
     .toHttpApp
 
   override def run: ZIO[Any, Throwable, Unit] =

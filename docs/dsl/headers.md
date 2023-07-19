@@ -97,7 +97,7 @@ object SimpleResponseDispatcher extends ZIOAppDefault {
             Response(status = Status.Accepted, body = Body.fromChunk(message)).addHeader("X-MY-HEADER", "test")
           }
         }
-    ).ignore.toHttpApp
+    ).sandbox.toHttpApp
 }
 
 ```

@@ -357,15 +357,20 @@ object Response {
   def forbidden(message: String): Response = error(Status.Forbidden, message)
 
   /**
-    * Creates a new response from the specified cause.
-    */
-  def fromCause(cause: Cause[Throwable]): Response = 
+   * Creates a new response from the specified cause. Note that this method is
+   * not polymorphic, but will attempt to inspect the runtime class of the
+   * failure inside the cause, if any.
+   */
+  def fromCause(cause: Cause[Any]): Response = {
     cause.failureOrCause match {
-      case Left(failure) => fromThrowable(failure)
-      case Right(cause) => 
+      case Left(failure: Response)  => failure
+      case Left(failure: Throwable) => fromThrowable(failure)
+      case Left(failure: Cause[_])  => fromCause(failure)
+      case _                        =>
         if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
         else error(Status.InternalServerError, cause.prettyPrint.take(100))
     }
+  }
 
   def fromHttpError(error: HttpError): Response = new ErrorResponse(Body.empty, Headers.empty, error, error.status)
 
@@ -400,7 +405,8 @@ object Response {
   }
 
   /**
-   * Creates a new response for the specified throwable.
+   * Creates a new response for the specified throwable. Note that this method
+   * relies on the runtime class of the throwable.
    */
   def fromThrowable(throwable: Throwable): Response = {
     throwable match { // TODO: Enhance

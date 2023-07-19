@@ -69,7 +69,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
     suite("fromFile")(
       suite("failure on construction")(
         test("should respond with 500") {
-          val res = Handler.fromFile(throw new Error("Wut happened?")).ignore.toHttpApp.deploy.run().map(_.status)
+          val res = Handler.fromFile(throw new Error("Wut happened?")).sandbox.toHttpApp.deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),
@@ -77,7 +77,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         test("should respond with 500") {
           val tmpFile = File.createTempFile("test", "txt")
           tmpFile.setReadable(false)
-          val res     = Handler.fromFile(tmpFile).ignore.toHttpApp.deploy.run().map(_.status)
+          val res     = Handler.fromFile(tmpFile).sandbox.toHttpApp.deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         } @@ unix,
       ),

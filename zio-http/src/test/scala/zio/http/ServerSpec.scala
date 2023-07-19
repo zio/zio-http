@@ -73,7 +73,7 @@ object ServerSpec extends HttpRunnableSpec {
         }
     } +
       suite("error") {
-        val app = Handler.fail(new Error("SERVER_ERROR")).ignore.toHttpApp
+        val app = Handler.fail(new Error("SERVER_ERROR")).sandbox.toHttpApp
         test("status is 500") {
           val res = app.deploy.status.run()
           assertZIO(res)(equalTo(Status.InternalServerError))
@@ -106,7 +106,7 @@ object ServerSpec extends HttpRunnableSpec {
         val app = (RoutePattern.any ->
           handler { (path: Path, req: Request) =>
             req.body.asString.map(text => Response.text(text))
-          }).ignore.toHttpApp
+          }).sandbox.toHttpApp
 
         test("status is 200") {
           val res = app.deploy.status.run()
@@ -154,7 +154,7 @@ object ServerSpec extends HttpRunnableSpec {
             handler { (path: Path, req: Request) =>
               req.body.asString.map(body => Response.text(body))
             },
-        ).ignore.toHttpApp.deploy
+        ).sandbox.toHttpApp.deploy
 
         def roundTrip[R, E <: Throwable](
           app: HttpApp[R],
@@ -186,7 +186,7 @@ object ServerSpec extends HttpRunnableSpec {
             ),
           ) { case (contentEncoding, compressor, acceptEncoding, decompressor) =>
             val result = roundTrip(
-              app.ignore.toHttpApp,
+              app.sandbox.toHttpApp,
               Headers(acceptEncoding, contentEncoding),
               bodyAsStream,
               compressor,
@@ -249,7 +249,7 @@ object ServerSpec extends HttpRunnableSpec {
 
               Response.text(s"Received ${method} query on ${path}")
             },
-        ).ignore.toHttpApp
+        ).sandbox.toHttpApp
 
         test("should be able to directly return other request") {
           for {
@@ -270,7 +270,7 @@ object ServerSpec extends HttpRunnableSpec {
         .singleton(handler { (path: Path, req: Request) =>
           Response.text(req.header(Header.ContentLength).map(_.length).getOrElse(-1).toString)
         })
-        .ignore
+        .sandbox
         .toHttpApp
 
     test("has content-length") {
@@ -282,7 +282,7 @@ object ServerSpec extends HttpRunnableSpec {
       test("POST Request.getBody") {
         val app = Routes
           .singleton(handler { (path: Path, req: Request) => req.body.asChunk.as(Response.ok) })
-          .ignore
+          .sandbox
           .toHttpApp
         val res = app.deploy.status.run(path = Root, method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
@@ -292,7 +292,7 @@ object ServerSpec extends HttpRunnableSpec {
           .singleton(handler { (path: Path, req: Request) =>
             (req.body.asChunk *> req.body.asChunk).as(Response.ok)
           })
-          .ignore
+          .sandbox
           .toHttpApp
         val res = app.deploy.status.run(method = Method.POST, body = Body.fromString("some text"))
         assertZIO(res)(equalTo(Status.Ok))
@@ -307,14 +307,14 @@ object ServerSpec extends HttpRunnableSpec {
       }
     },
     test("data from file") {
-      val res = Handler.fromResource("TestFile.txt").ignore.toHttpApp.deploy.body.mapZIO(_.asString).run()
+      val res = Handler.fromResource("TestFile.txt").sandbox.toHttpApp.deploy.body.mapZIO(_.asString).run()
       assertZIO(res)(equalTo("foo\nbar"))
     },
     test("content-type header on file response") {
       val res =
         Handler
           .fromResource("TestFile2.mp4")
-          .ignore
+          .sandbox
           .toHttpApp
           .deploy
           .header(Header.ContentType)
@@ -336,7 +336,7 @@ object ServerSpec extends HttpRunnableSpec {
       }
     },
     test("text streaming") {
-      val res = Handler.fromStream(ZStream("a", "b", "c")).ignore.toHttpApp.deploy.body.mapZIO(_.asString).run()
+      val res = Handler.fromStream(ZStream("a", "b", "c")).sandbox.toHttpApp.deploy.body.mapZIO(_.asString).run()
       assertZIO(res)(equalTo("abc"))
     },
     test("echo streaming") {
@@ -349,7 +349,7 @@ object ServerSpec extends HttpRunnableSpec {
             Response,
           ]
         })
-        .ignore
+        .sandbox
         .toHttpApp
         .deploy
         .body
@@ -360,7 +360,7 @@ object ServerSpec extends HttpRunnableSpec {
     test("file-streaming") {
       val path = getClass.getResource("/TestFile.txt").getPath
       val res  =
-        Handler.fromStream(ZStream.fromPath(Paths.get(path))).ignore.toHttpApp.deploy.body.mapZIO(_.asString).run()
+        Handler.fromStream(ZStream.fromPath(Paths.get(path))).sandbox.toHttpApp.deploy.body.mapZIO(_.asString).run()
       assertZIO(res)(equalTo("foo\nbar"))
     } @@ TestAspect.os(os => !os.isWindows),
     suite("html")(
@@ -368,7 +368,7 @@ object ServerSpec extends HttpRunnableSpec {
         val res =
           Handler
             .html(zio.http.html.html(body(div(id := "foo", "bar"))))
-            .ignore
+            .sandbox
             .toHttpApp
             .deploy
             .body
@@ -377,7 +377,7 @@ object ServerSpec extends HttpRunnableSpec {
         assertZIO(res)(equalTo("""<!DOCTYPE html><html><body><div id="foo">bar</div></body></html>"""))
       },
       test("content-type") {
-        val app = Handler.html(zio.http.html.html(body(div(id := "foo", "bar")))).ignore.toHttpApp
+        val app = Handler.html(zio.http.html.html(body(div(id := "foo", "bar")))).sandbox.toHttpApp
         val res = app.deploy.header(Header.ContentType).run()
         assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.html))))
       },
@@ -385,12 +385,19 @@ object ServerSpec extends HttpRunnableSpec {
     suite("content-length")(
       suite("string") {
         test("unicode text") {
-          val res = Handler.text("äöü").ignore.toHttpApp.deploy.contentLength.run()
+          val res = Handler.text("äöü").sandbox.toHttpApp.deploy.contentLength.run()
           assertZIO(res)(isSome(equalTo(Header.ContentLength(6L))))
         } +
           test("already set") {
             val res =
-              Handler.text("1234567890").addHeader(Header.ContentLength(4L)).ignore.toHttpApp.deploy.contentLength.run()
+              Handler
+                .text("1234567890")
+                .addHeader(Header.ContentLength(4L))
+                .sandbox
+                .toHttpApp
+                .deploy
+                .contentLength
+                .run()
             assertZIO(res)(isSome(equalTo(Header.ContentLength(4L))))
           }
       },
@@ -431,7 +438,7 @@ object ServerSpec extends HttpRunnableSpec {
   )
 
   def serverErrorSpec = suite("ServerErrorSpec") {
-    val app = Handler.fail(new Error("SERVER_ERROR")).ignore.toHttpApp
+    val app = Handler.fail(new Error("SERVER_ERROR")).sandbox.toHttpApp
     test("status is 500") {
       val res = app.deploy.status.run()
       assertZIO(res)(equalTo(Status.InternalServerError))

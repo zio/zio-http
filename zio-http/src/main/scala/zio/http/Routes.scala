@@ -79,17 +79,19 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
     new Routes(routes.map(_.handleErrorCause(f)))
 
   /**
-   * Ignores errors, turning them into internal server errors.
-   */
-  def ignore: Routes[Env, Nothing] =
-    new Routes(routes.map(_.ignore))
-
-  /**
    * Returns new routes that have each been provided the specified environment,
    * thus eliminating their requirement for any specific environment.
    */
   def provideEnvironment(env: ZEnvironment[Env]): Routes[Any, Err] =
     new Routes(routes.map(_.provideEnvironment(env)))
+
+  /**
+   * Returns new routes that automatically translate all failures into
+   * responses, using best-effort heuristics to determine the appropriate HTTP
+   * status code, and attaching error details using the HTTP header `Warning`.
+   */
+  def sandbox: Routes[Env, Nothing] =
+    new Routes(routes.map(_.sandbox))
 
   /**
    * Returns new routes that are all timed out by the specified maximum

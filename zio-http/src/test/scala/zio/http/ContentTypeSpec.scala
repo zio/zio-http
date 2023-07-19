@@ -28,31 +28,31 @@ object ContentTypeSpec extends HttpRunnableSpec {
   val contentSpec = suite("Content type header on file response")(
     test("mp4") {
       val res =
-        Handler.fromResource("TestFile2.mp4").ignore.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
+        Handler.fromResource("TestFile2.mp4").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.video.`mp4`))))
     },
     test("js") {
       val res =
-        Handler.fromResource("TestFile3.js").ignore.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
+        Handler.fromResource("TestFile3.js").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.application.`javascript`))))
     },
     test("no extension") {
-      val res = Handler.fromResource("TestFile4").ignore.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
+      val res = Handler.fromResource("TestFile4").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isNone)
     },
     test("css") {
       val res =
-        Handler.fromResource("TestFile5.css").ignore.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
+        Handler.fromResource("TestFile5.css").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.`css`))))
     },
     test("mp3") {
       val res =
-        Handler.fromResource("TestFile6.mp3").ignore.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
+        Handler.fromResource("TestFile6.mp3").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.audio.`mpeg`))))
     },
     test("unidentified extension") {
       val res =
-        Handler.fromResource("truststore.jks").ignore.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
+        Handler.fromResource("truststore.jks").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isNone)
     },
     test("already set content-type") {
@@ -61,7 +61,7 @@ object ContentTypeSpec extends HttpRunnableSpec {
         Handler
           .fromResource("TestFile6.mp3")
           .map(_.addHeader(Header.ContentType(expected)))
-          .ignore
+          .sandbox
           .toHttpApp
           .deploy(Request())
           .map(

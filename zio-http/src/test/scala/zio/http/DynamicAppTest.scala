@@ -29,12 +29,12 @@ object DynamicAppTest extends ZIOSpecDefault {
   val httpApp1: HttpApp[Any] =
     Routes(
       Method.GET / "good" -> Handler.ok,
-    ).ignore.toHttpApp
+    ).sandbox.toHttpApp
 
   val httpApp2: HttpApp[Any] =
     Routes(
       Method.GET / "better" -> handler(Response.status(Status.Created)),
-    ).ignore.toHttpApp
+    ).sandbox.toHttpApp
 
   val layer =
     ZLayer.make[Client & Server & Scope](

@@ -53,7 +53,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
           _.body.asStream.runCount
             .map(bytesCount => Response.text(bytesCount.toString))
         }
-        .ignore
+        .sandbox
         .toHttpApp
       val res     = app.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
       assertZIO(res)(equalTo(size.toString))
@@ -66,7 +66,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
             _ <- req.body.asChunk
           } yield Response.ok
         }
-      }.ignore.toHttpApp
+      }.sandbox.toHttpApp
       val res = app.deploy(Request()).map(_.status)
       assertZIO(res)(equalTo(Status.InternalServerError))
     },
@@ -87,7 +87,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
               Response.text(body.length.toString)
             }
         },
-      ).ignore.toHttpApp
+      ).sandbox.toHttpApp
       val sizes = Chunk(0, 8192, 1024 * 1024)
       sizes.map { size =>
         test(s"with body length $size") {

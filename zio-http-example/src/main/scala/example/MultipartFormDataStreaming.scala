@@ -61,7 +61,7 @@ object MultipartFormDataStreaming extends ZIOAppDefault {
           } yield Response.text(count.toString)
         else ZIO.succeed(Response(status = Status.NotFound))
       },
-    ).ignore.toHttpApp @@ Middleware.debug
+    ).sandbox.toHttpApp @@ Middleware.debug
 
   private def program: ZIO[Server, Throwable, Unit] =
     for {

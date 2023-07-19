@@ -41,7 +41,7 @@ object SSLSpec extends ZIOSpecDefault {
         body <- req.body.asString
       } yield Response.text(body)
     },
-  ).ignore.toHttpApp
+  ).sandbox.toHttpApp
 
   val successUrl =
     URL.decode("https://localhost:8073/success").toOption.get
