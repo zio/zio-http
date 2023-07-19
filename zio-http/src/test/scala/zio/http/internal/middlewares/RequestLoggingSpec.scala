@@ -33,7 +33,7 @@ object RequestLoggingSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   ).ignore.toHttpApp
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
-    suite("RequestLogging")(
+    suite("RequestLoggingSpec")(
       test("logs successful request") {
         for {
           _       <- (app @@ requestLogging()).runZIO(Request.get(url = URL(Root / "ok")))

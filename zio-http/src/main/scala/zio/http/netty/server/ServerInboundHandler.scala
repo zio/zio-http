@@ -82,8 +82,8 @@ private[zio] final case class ServerInboundHandler(
         ensureHasApp()
         val exit =
           if (jReq.decoderResult().isFailure) {
-            // TODO: Fatal error
-            ???
+            // Fatal server error:
+            Exit.fail(Response.internalServerError(jReq.decoderResult().cause().getMessage()))
           } else app(req)
         if (!attemptImmediateWrite(ctx, exit, time))
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
@@ -102,8 +102,8 @@ private[zio] final case class ServerInboundHandler(
         ensureHasApp()
         val exit =
           if (jReq.decoderResult().isFailure) {
-            // TODO: Fatal error
-            ???
+            // Fatal server error:
+            Exit.fail(Response.internalServerError(jReq.decoderResult().cause().getMessage()))
           } else
             app(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
@@ -123,19 +123,21 @@ private[zio] final case class ServerInboundHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
     cause match {
-      case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
-      case t                                                                            =>
-        if (app ne null) {
+      case ioe: IOException if ioe.getMessage != null && ioe.getMessage.startsWith("Connection reset") =>
+      // Why are we writing when the other side closed already?
+      case cause                                                                                       =>
+        if (config.logWarningOnFatalError) {
           runtime.run(ctx, () => {}) {
             // TODO: Fatal error
-            ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(t)).when(config.logWarningOnFatalError)
+            ZIO.logWarningCause(s"Fatal exception in Netty", Cause.die(cause))
           }
         }
+
         cause match {
           case _: ReadTimeoutException =>
             ctx.close()
           case _                       =>
-            super.exceptionCaught(ctx, t)
+            super.exceptionCaught(ctx, cause)
         }
     }
 
@@ -183,26 +185,19 @@ private[zio] final case class ServerInboundHandler(
     jRequest: HttpRequest,
     time: ServerTime,
   ): Task[Unit] = {
+    if (response.isWebSocket) ZIO.attempt(upgradeToWebSocket(ctx, jRequest, response, runtime))
+    else
+      NettyResponseEncoder.encode(response).flatMap { jResponse =>
+        setServerTime(time, response, jResponse)
+        ctx.writeAndFlush(jResponse)
 
-    for {
-      _ <-
-        if (response.isWebSocket) ZIO.attempt(upgradeToWebSocket(ctx, jRequest, response, runtime))
-        else
-          for {
-            jResponse <- NettyResponseEncoder.encode(response)
-            _         <- ZIO.attempt {
-              setServerTime(time, response, jResponse)
-              ctx.writeAndFlush(jResponse)
-            }
-            flushed   <-
-              if (!jResponse.isInstanceOf[FullHttpResponse])
-                NettyBodyWriter
-                  .write(response.body, ctx)
-              else
-                ZIO.succeed(true)
-            _         <- ZIO.attempt(ctx.flush()).when(!flushed)
-          } yield ()
-    } yield ()
+        (if (!jResponse.isInstanceOf[FullHttpResponse]) {
+           NettyBodyWriter.write(response.body, ctx)
+         } else Exit.succeed(true)).map(flushed =>
+          if (!flushed) ctx.flush()
+          else (),
+        )
+      }
   }
 
   private def attemptImmediateWrite(
@@ -314,14 +309,11 @@ private[zio] final case class ServerInboundHandler(
     }
   }
 
-  private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest)(ensured: () => Unit): Unit = {
-    // TODO: this can be done without ZIO
-    runtime.run(ctx, ensured) {
-      for {
-        response <- ZIO.succeed(HttpError.NotFound(jReq.uri()).toResponse)
-        done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-        _        <- attemptFullWrite(ctx, response, jReq, time).unless(done)
-      } yield ()
+  private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
+    val response = Response.notFound(jReq.uri())
+    val done     = attemptFastWrite(ctx, response, time)
+    if (!done) {
+      attemptFullWrite(ctx, response, jReq, time)
     }
   }
 
@@ -332,45 +324,34 @@ private[zio] final case class ServerInboundHandler(
     jReq: HttpRequest,
   )(ensured: () => Unit): Unit = {
     runtime.run(ctx, ensured) {
-      val pgm = for {
-        response <- exit.sandbox.catchAll { error =>
-          error.failureOrCause
-            .fold[UIO[Response]](
-              response => ZIO.succeed(response),
-              cause =>
-                if (cause.isInterruptedOnly) {
-                  interrupted(ctx).as(null)
-                } else {
-                  ZIO.succeed(withDefaultErrorResponse(null, Some(FiberFailure(cause))))
-                },
-            )
-        }
-        _        <-
-          if (response ne null) {
-            for {
-              done <- ZIO.attempt(attemptFastWrite(ctx, response, time)).catchSomeCause { case cause =>
-                ZIO.attempt(
-                  attemptFastWrite(ctx, withDefaultErrorResponse(null, Some(cause.squash)).freeze, time),
-                )
-              }
-              _    <- attemptFullWrite(ctx, response, jReq, time).catchSomeCause { case cause =>
-                ZIO.attempt(
-                  attemptFastWrite(ctx, withDefaultErrorResponse(null, Some(cause.squash)).freeze, time),
-                )
-
-              }
-                .unless(done)
-            } yield ()
-          } else {
-            ZIO.attempt(
-              if (ctx.channel().isOpen) {
-                writeNotFound(ctx, jReq)(() => ())
+      exit.catchAllCause { error =>
+        error.failureOrCause
+          .fold[UIO[Response]](
+            response => ZIO.succeed(response),
+            cause =>
+              if (cause.isInterruptedOnly) {
+                interrupted(ctx).as(null)
+              } else {
+                ZIO.succeed(Response.fromThrowable(FiberFailure(cause)))
               },
-            )
-          }
-      } yield ()
+          )
+      }.map { response =>
+        if (response ne null) {
+          try {
+            val done = attemptFastWrite(ctx, response, time)
 
-      pgm.provideEnvironment(env)
+            if (!done) {
+              attemptFullWrite(ctx, response, jReq, time)
+            }
+          } catch {
+            case NonFatal(cause) => attemptFastWrite(ctx, Response.fromThrowable(cause).freeze, time)
+          }
+        } else {
+          if (ctx.channel().isOpen) {
+            writeNotFound(ctx, jReq)
+          }
+        }
+      }.provideEnvironment(env)
     }
   }
 

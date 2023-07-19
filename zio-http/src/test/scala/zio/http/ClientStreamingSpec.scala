@@ -281,7 +281,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
     )
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
-    suite("Client streaming")(
+    suite("ClientStreamingSpec")(
       suite("streaming server")(
         tests(streamingServer = true) ++
           streamingOnlyTests: _*,

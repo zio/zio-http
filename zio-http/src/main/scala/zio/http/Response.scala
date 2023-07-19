@@ -342,7 +342,9 @@ object Response {
   def badRequest(message: String): Response = error(Status.BadRequest, message)
 
   def error(status: Status, message: String): Response = {
-    val message2 = if (message == null) status.text else message
+    import zio.http.internal.OutputEncoder
+
+    val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
 
     Response(status = status, headers = Headers(Header.Warning(status.code, "ZIO HTTP", message2)))
   }
@@ -389,20 +391,20 @@ object Response {
   /**
    * Creates a new response for the specified throwable.
    */
-  def fromThrowable(throwable: Throwable): Response =
+  def fromThrowable(throwable: Throwable): Response = {
     throwable match { // TODO: Enhance
       case _: AccessDeniedException           => error(Status.Forbidden, throwable.getMessage)
       case _: IllegalAccessException          => error(Status.Forbidden, throwable.getMessage)
       case _: IllegalAccessError              => error(Status.Forbidden, throwable.getMessage)
       case _: NotDirectoryException           => error(Status.BadRequest, throwable.getMessage)
       case _: IllegalArgumentException        => error(Status.BadRequest, throwable.getMessage)
-      case _: IllegalStateException           => error(Status.BadRequest, throwable.getMessage)
       case _: IllegalFormatException          => error(Status.BadRequest, throwable.getMessage)
       case _: java.io.FileNotFoundException   => error(Status.NotFound, throwable.getMessage)
       case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
       case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
       case _                                  => error(Status.InternalServerError, throwable.getMessage)
     }
+  }
 
   def gatewayTimeout: Response = error(Status.GatewayTimeout)
 
