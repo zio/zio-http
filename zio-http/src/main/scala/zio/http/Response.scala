@@ -356,6 +356,17 @@ object Response {
 
   def forbidden(message: String): Response = error(Status.Forbidden, message)
 
+  /**
+    * Creates a new response from the specified cause.
+    */
+  def fromCause(cause: Cause[Throwable]): Response = 
+    cause.failureOrCause match {
+      case Left(failure) => fromThrowable(failure)
+      case Right(cause) => 
+        if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
+        else error(Status.InternalServerError, cause.prettyPrint.take(100))
+    }
+
   def fromHttpError(error: HttpError): Response = new ErrorResponse(Body.empty, Headers.empty, error, error.status)
 
   /**
