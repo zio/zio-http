@@ -202,11 +202,17 @@ object Route                   {
     def routePattern = rpm.routePattern
 
     override def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response] = {
-      implicit val z = zippable
-
-      Route.handled(rpm)(handler.asErrorType[Response]).toHandler
+      convert(handler.asErrorType[Response])
     }
 
     override def toString() = s"Route.Unhandled(${routePattern}, ${location})"
+
+    private def convert[Env1 <: Env](
+      handler: Handler[Env1, Response, Input, Response],
+    ): Handler[Env1, Response, Request, Response] = {
+      implicit val z = zippable
+
+      Route.handled(rpm)(handler).toHandler
+    }
   }
 }
