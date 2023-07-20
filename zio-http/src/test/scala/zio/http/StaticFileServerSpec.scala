@@ -27,16 +27,20 @@ import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val fileOk       = Handler.fromResource("TestFile.txt").toHttpApp.deploy
-  private val fileNotFound = Handler.fromResource("Nothing").toHttpApp.deploy
+  private val fileOk       = Handler.fromResource("TestFile.txt").sandbox.toHttpApp.deploy
+  private val fileNotFound = Handler.fromResource("Nothing").sandbox.toHttpApp.deploy
 
   private val testArchivePath  = getClass.getResource("/TestArchive.jar").getPath
   private val resourceOk       =
-    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).toHttpApp.deploy
+    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).sandbox.toHttpApp.deploy
   private val resourceNotFound =
-    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt")).toHttpApp.deploy
+    Handler
+      .fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt"))
+      .sandbox
+      .toHttpApp
+      .deploy
 
-  override def spec = suite("StaticFileServer") {
+  override def spec = suite("StaticFileServerSpec") {
     ZIO.scoped(serve.as(List(staticSpec)))
   }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
     timeout(5 seconds) @@ withLiveClock
@@ -86,7 +90,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           final class BadFile(name: String) extends File(name) {
             override def exists(): Boolean = throw new Error("Haha")
           }
-          val res = Handler.fromFile(new BadFile("Length Failure")).toHttpApp.deploy.run().map(_.status)
+          val res = Handler.fromFile(new BadFile("Length Failure")).sandbox.toHttpApp.deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),

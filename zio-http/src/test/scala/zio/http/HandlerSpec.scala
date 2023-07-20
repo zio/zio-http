@@ -399,7 +399,7 @@ object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
         val http = Handler.fromFileZIO(ZIO.succeed(new java.io.File("does-not-exist")))
 
         for {
-          status <- http.merge.status.run()
+          status <- http.sandbox.merge.status.run()
         } yield assertTrue(status == Status.NotFound)
       },
       test("must fail if given file is a directory") {
@@ -410,9 +410,16 @@ object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
           val http     = Handler.fromFileZIO(ZIO.succeed(tempFile))
 
           for {
-            status <- http.merge.status.run()
+            status <- http.sandbox.merge.status.run()
           } yield assertTrue(status == Status.BadRequest)
         }
+      },
+      test("resource regression") {
+        val handler = Handler.fromResource("TestFile.txt").sandbox
+
+        for {
+          status <- handler.merge.status.run()
+        } yield assertTrue(status == Status.Ok)
       },
     ),
   ) @@ timeout(10 seconds)

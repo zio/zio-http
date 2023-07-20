@@ -30,34 +30,6 @@ import zio.http._
  * requests.
  */
 abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
-
-  implicit class RunnableClientHttpSyntax[R, A](app: Handler[R, Response, Request, A]) {
-
-    /**
-     * Runs the deployed Http app by making a real http request to it. The
-     * method allows us to configure individual constituents of a ClientRequest.
-     */
-    def run(
-      version: Version = Version.Default,
-      method: Method = Method.ANY,
-      path: Path = Root,
-      headers: Headers = Headers.empty,
-      body: Body = Body.empty,
-      addZioUserAgentHeader: Boolean = false,
-    ): ZIO[R, Response, A] =
-      app
-        .runZIO(
-          Request(
-            body = body,
-            headers = headers.combineIf(addZioUserAgentHeader)(Headers(Client.defaultUAHeader)),
-            method = method,
-            url = URL(path), // url set here is overridden later via `deploy` method
-            version = version,
-            remoteAddress = None,
-          ),
-        )
-  }
-
   implicit class RunnableHttpClientAppSyntax[R](route: HttpApp[R]) {
 
     def app: HttpApp[R] = route

@@ -2,15 +2,22 @@ package zio.http
 
 import zio._
 
-import zio.http.Route.Provide
+import zio.http.Route.Provided
 
 /**
  * Represents a single route, which has either handled its errors by converting
  * them into responses, or which has polymorphic errors, which must later be
  * converted into responses before the route can be executed.
+ *
+ * Routes have the property that, before conversion into handlers, they will
+ * fully handle all errors, including defects, translating them appropriately
+ * into responses that can be delivered to clients. Thus, the handlers returned
+ * by `toHandler` will never fail, and will always produce a valid response.
+ *
+ * Individual routes can be aggregated using [[ziop.http.Routes]].
  */
 sealed trait Route[-Env, +Err] { self =>
-  import Route.{Augmented, Handled, Provide, Unhandled}
+  import Route.{Augmented, Handled, Provided, Unhandled}
 
   /**
    * Augments this route with the specified middleware.
@@ -42,7 +49,7 @@ sealed trait Route[-Env, +Err] { self =>
    */
   final def handleErrorCause(f: Cause[Err] => Response): Route[Env, Nothing] =
     self match {
-      case Provide(route, env)                      => Provide(route.handleErrorCause(f), env)
+      case Provided(route, env)                     => Provided(route.handleErrorCause(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorCause(f), aspect)
       case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
 
@@ -78,7 +85,7 @@ sealed trait Route[-Env, +Err] { self =>
   def location: Trace
 
   final def provideEnvironment(env: ZEnvironment[Env]): Route[Any, Err] =
-    Route.Provide(self, env)
+    Route.Provided(self, env)
 
   /**
    * The route pattern over which the route is defined. The route can only
@@ -147,7 +154,7 @@ object Route                   {
       Unhandled(rpm, handler, zippable, trace)
   }
 
-  private final case class Provide[Env, +Err](
+  private final case class Provided[Env, +Err](
     route: Route[Env, Err],
     env: ZEnvironment[Env],
   ) extends Route[Any, Err] {
@@ -158,7 +165,7 @@ object Route                   {
     override def toHandler(implicit ev: Err <:< Response): Handler[Any, Response, Request, Response] =
       route.toHandler.provideEnvironment(env)
 
-    override def toString() = s"Route.Provide(${route}, ${env})"
+    override def toString() = s"Route.Provided(${route}, ${env})"
   }
 
   private final case class Augmented[-Env, +Err](

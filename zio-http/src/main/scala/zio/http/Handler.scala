@@ -596,6 +596,12 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       self(request).timeout(duration).map(_.getOrElse(out))
     }
 
+  /**
+   * Converts the request handler into an HTTP application. Note that the
+   * handler of the HTTP application is not identical to this handler, because
+   * the handler has been appropriately sandboxed, turning all possible failures
+   * into well-formed HTTP responses.
+   */
   def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response): HttpApp[R] = {
     val handler: Handler[R, Response, Request, Response] =
       self.asInstanceOf[Handler[R, Response, Request, Response]]
@@ -603,14 +609,8 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     HttpApp(Routes.singleton(handler.contramap[(Path, Request)](_._2)))
   }
 
-  def toHttpAppWS(implicit err: Err <:< Throwable, in: WebSocketChannel <:< In): HttpApp[R] = {
-    val handler1: Handler[R, Throwable, WebSocketChannel, Any] =
-      self.asInstanceOf[Handler[R, Throwable, WebSocketChannel, Any]]
-
-    val handler2 = Handler.fromZIO(handler1.toResponse)
-
-    HttpApp(Routes.singleton(handler2.contramap[(Path, Request)](_._2)))
-  }
+  def toHttpAppWS(implicit err: Err <:< Throwable, in: WebSocketChannel <:< In): HttpApp[R] =
+    Handler.fromZIO(self.toResponse).toHttpApp
 
   /**
    * Creates a new response from a socket handler.
@@ -815,11 +815,11 @@ object Handler {
     }
   }
 
-  def fromFile[R](makeFile: => File)(implicit trace: Trace): Handler[R, Response, Any, Response] =
+  def fromFile[R](makeFile: => File)(implicit trace: Trace): Handler[R, Throwable, Any, Response] =
     fromFileZIO(ZIO.attempt(makeFile))
 
-  def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit trace: Trace): Handler[R, Response, Any, Response] = {
-    Handler.fromZIO[R, Response, Response](
+  def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit trace: Trace): Handler[R, Throwable, Any, Response] = {
+    Handler.fromZIO[R, Throwable, Response](
       getFile.flatMap { file =>
         ZIO.suspend {
           if (!file.exists()) {
@@ -845,27 +845,26 @@ object Handler {
             }
           }
         }
-      }.mapError(Response.fromThrowable(_)),
+      },
     )
   }
 
   /**
    * Creates a handler from a resource path
    */
-  def fromResource(path: String)(implicit trace: Trace): Handler[Any, Response, Any, Response] =
+  def fromResource(path: String)(implicit trace: Trace): Handler[Any, Throwable, Any, Response] =
     Handler.fromZIO {
       ZIO
         .attemptBlocking(getClass.getClassLoader.getResource(path))
         .map { resource =>
-          if (resource == null) Handler.fail(Response(status = Status.NotFound))
+          if (resource == null) Handler.fail(new FileNotFoundException(s"Resource $path not found"))
           else fromResourceWithURL(resource)
         }
-        .mapError(Response.fromThrowable(_))
     }.flatten
 
   private[zio] def fromResourceWithURL(
     url: java.net.URL,
-  )(implicit trace: Trace): Handler[Any, Response, Any, Response] = {
+  )(implicit trace: Trace): Handler[Any, Throwable, Any, Response] = {
     url.getProtocol match {
       case "file" => Handler.fromFile(new File(url.getPath))
       case "jar"  =>
@@ -901,11 +900,10 @@ object Handler {
                   .addHeader(Header.ContentLength(contentLength))
               }
             }
-            .mapError(Response.fromThrowable(_))
         }
 
       case proto =>
-        Handler.fail(Response.badRequest(s"Unsupported protocol: $proto"))
+        Handler.fail(new IllegalArgumentException(s"Unsupported protocol: $proto"))
     }
   }
 
