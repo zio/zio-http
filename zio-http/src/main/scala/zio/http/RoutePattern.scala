@@ -73,7 +73,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
   def ->[Env, Err](handler: Handler[Env, Response, Request, Response])(implicit
     trace: zio.Trace,
   ): Route[Env, Err] =
-    Route.Handled(self, handler, trace)
+    Route.handled(self)(handler)
 
   /**
    * Combines this route pattern with the specified middleware, which can be

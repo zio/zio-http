@@ -26,7 +26,7 @@ import zio.test._
 object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
 
   def spec = suite("Handler")(
-    suite("ignore")(
+    suite("sandbox")(
       test("response failure is passed through") {
         val handler =
           Handler

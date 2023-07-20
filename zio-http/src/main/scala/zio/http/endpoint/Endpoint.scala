@@ -172,7 +172,7 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
         case cause => Handler.failCause(cause)
       }
 
-    Route.handled(self.route)(handler.contramap[(Any, zio.http.Request)](_._2))
+    Route.handled(self.route)(handler)
   }
 
   /**

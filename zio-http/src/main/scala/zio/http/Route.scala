@@ -34,21 +34,17 @@ sealed trait Route[-Env, +Err] { self =>
    * that does not handle its errors into one that does handle its errors.
    */
   final def handleError(f: Err => Response): Route[Env, Nothing] =
-    self.handleErrorCause { cause =>
-      cause.failureOrCause match {
-        case Left(failure) => f(failure)
-        case Right(cause)  => Response.fromCause(cause)
-      }
-    }
+    self.handleErrorCause(Response.fromCauseWith(_)(f))
 
+  /**
+   * Handles the error of the route. This method can be used to convert a route
+   * that does not handle its errors into one that does handle its errors.
+   */
   final def handleErrorCause(f: Cause[Err] => Response): Route[Env, Nothing] =
     self match {
       case Provide(route, env)                      => Provide(route.handleErrorCause(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorCause(f), aspect)
-      case Handled(routePattern, handler, location) =>
-        val f2: Cause[Response] => Response = f.asInstanceOf[Cause[Response] => Response]
-
-        Handled(routePattern, handler.mapErrorCause(f2), location)
+      case Handled(routePattern, handler, location) => Handled(routePattern, handler, location)
 
       case Unhandled(rpm, handler, zippable, location) =>
         val handler2: Handler[Env, Response, Request, Response] = {
@@ -63,6 +59,7 @@ sealed trait Route[-Env, +Err] { self =>
               }
             }
 
+          // Sandbox before applying middleware:
           rpm.middleware.applyContext(paramHandler.mapErrorCause(f))
         }
 
@@ -74,6 +71,10 @@ sealed trait Route[-Env, +Err] { self =>
    */
   final def isDefinedAt(request: Request): Boolean = routePattern.matches(request.method, request.path)
 
+  /**
+   * The location where the route was created, which is useful for debugging
+   * purposes.
+   */
   def location: Trace
 
   final def provideEnvironment(env: ZEnvironment[Env]): Route[Any, Err] =
@@ -99,8 +100,12 @@ sealed trait Route[-Env, +Err] { self =>
 }
 object Route                   {
 
-  def handled[Params](routePattern: RoutePattern[Params]): HandledConstructor[Any, Params] =
-    handled(RoutePatternMiddleware(routePattern, Middleware.identity))
+  def handled[Env](
+    routePattern: RoutePattern[_],
+  )(handler: Handler[Env, Response, Request, Response])(implicit trace: Trace): Route[Env, Nothing] = {
+    // Sandbox before constructing:
+    Route.Handled(routePattern, handler.sandbox, Trace.empty)
+  }
 
   def handled[Params, Env](rpm: RoutePatternMiddleware[Env, Params]): HandledConstructor[Env, Params] =
     new HandledConstructor[Env, Params](rpm)
@@ -127,7 +132,8 @@ object Route                   {
             }
           }
 
-        rpm.middleware.applyContext(paramHandler)
+        // Sandbox before applying middleware:
+        rpm.middleware.applyContext(paramHandler.sandbox)
       }
 
       Handled(rpm.routePattern, handler2, trace)
@@ -141,7 +147,7 @@ object Route                   {
       Unhandled(rpm, handler, zippable, trace)
   }
 
-  private[http] final case class Provide[Env, +Err](
+  private final case class Provide[Env, +Err](
     route: Route[Env, Err],
     env: ZEnvironment[Env],
   ) extends Route[Any, Err] {
@@ -155,7 +161,7 @@ object Route                   {
     override def toString() = s"Route.Provide(${route}, ${env})"
   }
 
-  private[http] final case class Augmented[-Env, +Err](
+  private final case class Augmented[-Env, +Err](
     route: Route[Env, Err],
     aspect: RouteAspect[Nothing, Env],
   ) extends Route[Env, Err] {
@@ -169,7 +175,7 @@ object Route                   {
     override def toString() = s"Route.Augmented(${route}, ${aspect})"
   }
 
-  private[http] final case class Handled[-Env](
+  private final case class Handled[-Env](
     routePattern: RoutePattern[_],
     handler: Handler[Env, Response, Request, Response],
     location: Trace,
@@ -179,7 +185,7 @@ object Route                   {
 
     override def toString() = s"Route.Handled(${routePattern}, ${location})"
   }
-  private[http] final case class Unhandled[Params, Input, -Env, +Err](
+  private final case class Unhandled[Params, Input, -Env, +Err](
     rpm: RoutePatternMiddleware[Env, Params],
     handler: Handler[Env, Err, Input, Response],
     zippable: Zippable.Out[Params, Request, Input],

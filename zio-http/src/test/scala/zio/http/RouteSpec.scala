@@ -18,12 +18,13 @@ package zio.http
 
 import scala.collection.Seq
 
+import zio._
 import zio.test._
 
 object RouteSpec extends ZIOSpecDefault {
   def spec = suite("RouteSpec")(
-    suite("Route#ignore")(
-      test("infallible route does not change under ignore") {
+    suite("Route#sandbox")(
+      test("infallible route does not change under sandbox") {
         val route =
           Method.GET / "foo" -> handler(Response.ok)
 
@@ -41,8 +42,24 @@ object RouteSpec extends ZIOSpecDefault {
         val ignored = route.sandbox
 
         for {
-          result <- ignored.toHandler.merge.run().debug("dying")
+          result <- ignored.toHandler.merge.run()
         } yield assertTrue(result.status == Status.InternalServerError)
+      },
+    ),
+    suite("auto-sandboxing for middleware")(
+      test("die error does not stop middleware from executing") {
+        val route =
+          Method.GET / "foo" ->
+            Handler.die(new Throwable("boom"))
+
+        val handler = route.toHandler
+
+        for {
+          ref <- Ref.make(0)
+          middleware = Middleware.runBefore(ref.update(_ + 1)) ++ Middleware.runAfter(ref.update(_ + 1))
+          _   <- (handler @@ middleware).run().exit
+          cnt <- ref.get
+        } yield assertTrue(cnt == 2)
       },
     ),
   )

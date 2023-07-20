@@ -95,9 +95,13 @@ final case class Middleware[-Env, +CtxOut](
   ): Handler[Env1, Response, Request, Response] =
     if (self == Middleware.identity) handler
     else {
-      protocol.incomingHandler >>> Handler.fromFunctionZIO[(protocol.State, (Request, CtxOut))] {
-        case (state, (request, _)) => handler(request).map(response => (state, response))
-      } >>> protocol.outgoingHandler
+      for {
+        tuple <- protocol.incomingHandler
+        (state, (request, ctxOut)) = tuple
+        either   <- Handler.fromZIO(handler(request)).either
+        response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
+        response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+      } yield response
     }
 
   /**
@@ -109,9 +113,13 @@ final case class Middleware[-Env, +CtxOut](
   ): Handler[Env1, Response, Request, Response] = {
     if (self == Middleware.identity) handler.contramap[Request](req => (().asInstanceOf[CtxOut], req))
     else {
-      protocol.incomingHandler >>> Handler.fromFunctionZIO[(protocol.State, (Request, CtxOut))] {
-        case (state, (request, ctxOut)) => handler((ctxOut, request)).map(response => (state, response))
-      } >>> protocol.outgoingHandler
+      for {
+        tuple <- protocol.incomingHandler
+        (state, (request, ctxOut)) = tuple
+        either   <- Handler.fromZIO(handler((ctxOut, request))).either
+        response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
+        response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+      } yield response
     }
   }
 

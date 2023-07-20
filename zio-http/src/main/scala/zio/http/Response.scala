@@ -372,6 +372,17 @@ object Response {
     }
   }
 
+  /**
+   * Creates a new response from the specified cause, translating any typed
+   * error to a response using the provided function.
+   */
+  def fromCauseWith[E](cause: Cause[E])(f: E => Response): Response = {
+    cause.failureOrCause match {
+      case Left(failure) => f(failure)
+      case Right(cause)  => fromCause(cause)
+    }
+  }
+
   def fromHttpError(error: HttpError): Response = new ErrorResponse(Body.empty, Headers.empty, error, error.status)
 
   /**

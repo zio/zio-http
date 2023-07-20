@@ -74,7 +74,7 @@ object RequestLoggingSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           entries <- ZTestLogger.logOutput
           first = entries.head
         } yield assertTrue(
-          first.message() == "Http request failed",
+          first.message() == "Http request served",
           first.annotations == Map(
             "method"        -> "GET",
             "duration_ms"   -> "0",
@@ -94,7 +94,7 @@ object RequestLoggingSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           entries <- ZTestLogger.logOutput
           first = entries.head
         } yield assertTrue(
-          first.message() == "Http request failed",
+          first.message() == "Http request served",
           first.annotations == Map(
             "method"        -> "GET",
             "duration_ms"   -> "0",
