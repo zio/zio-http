@@ -426,7 +426,6 @@ object Response {
       case _: IllegalAccessError              => error(Status.Forbidden, throwable.getMessage)
       case _: NotDirectoryException           => error(Status.BadRequest, throwable.getMessage)
       case _: IllegalArgumentException        => error(Status.BadRequest, throwable.getMessage)
-      case _: IllegalFormatException          => error(Status.BadRequest, throwable.getMessage)
       case _: java.io.FileNotFoundException   => error(Status.NotFound, throwable.getMessage)
       case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
       case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)

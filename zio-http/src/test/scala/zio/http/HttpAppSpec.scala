@@ -21,20 +21,22 @@ import zio.test.Assertion._
 import zio.test._
 
 object HttpAppSpec extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
+
   def spec = suite("HttpAppSpec")(
     test("empty not found") {
       val app = HttpApp.empty
 
       for {
         result <- app.run()
-      } yield assertTrue(result.status == Status.NotFound)
+      } yield assertTrue(extractStatus(result) == Status.NotFound)
     },
     test("compose empty not found") {
       val app = HttpApp.empty ++ HttpApp.empty
 
       for {
         result <- app.run()
-      } yield assertTrue(result.status == Status.NotFound)
+      } yield assertTrue(extractStatus(result) == Status.NotFound)
     },
     test("run identity") {
       val body = Body.fromString("foo")

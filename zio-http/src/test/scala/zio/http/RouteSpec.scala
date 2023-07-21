@@ -22,6 +22,8 @@ import zio._
 import zio.test._
 
 object RouteSpec extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
+
   def spec = suite("RouteSpec")(
     suite("Route#sandbox")(
       test("infallible route does not change under sandbox") {
@@ -32,7 +34,7 @@ object RouteSpec extends ZIOSpecDefault {
 
         for {
           result <- ignored.toHandler.run().merge
-        } yield assertTrue(result.status == Status.Ok)
+        } yield assertTrue(extractStatus(result) == Status.Ok)
       },
       test("route dying with throwable ends in internal server error") {
         val route =
@@ -43,7 +45,7 @@ object RouteSpec extends ZIOSpecDefault {
 
         for {
           result <- ignored.toHandler.merge.run()
-        } yield assertTrue(result.status == Status.InternalServerError)
+        } yield assertTrue(extractStatus(result) == Status.InternalServerError)
       },
     ),
     suite("auto-sandboxing for middleware")(

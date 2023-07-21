@@ -34,20 +34,20 @@ object ResponseSpec extends ZIOSpecDefault {
       test("from IllegalArgumentException") {
         val cause = Cause.fail(new IllegalArgumentException)
 
-        assertTrue(Response.fromCause(cause).status == Status.BadRequest)
+        assertTrue(extractStatus(Response.fromCause(cause)) == Status.BadRequest)
       },
       test("from String") {
         val cause = Cause.fail("error")
 
-        assertTrue(Response.fromCause(cause).status == Status.InternalServerError)
+        assertTrue(extractStatus(Response.fromCause(cause)) == Status.InternalServerError)
       },
     ),
     suite("fromThrowable")(
       test("from Throwable") {
-        assertTrue(Response.fromThrowable(new Throwable).status == Status.InternalServerError)
+        assertTrue(extractStatus(Response.fromThrowable(new Throwable)) == Status.InternalServerError)
       },
       test("from IllegalArgumentException") {
-        assertTrue(Response.fromThrowable(new IllegalArgumentException).status == Status.BadRequest)
+        assertTrue(extractStatus(Response.fromThrowable(new IllegalArgumentException)) == Status.BadRequest)
       },
     ),
     suite("redirect")(
