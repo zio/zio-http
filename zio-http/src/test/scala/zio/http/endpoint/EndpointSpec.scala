@@ -883,8 +883,8 @@ object EndpointSpec extends ZIOSpecDefault {
   ): ZIO[R, Response, TestResult] = {
     val request = Request(method = method, url = URL.decode(url).toOption.get)
     for {
-      error <- service.toHttpApp.runZIO(request).flip
-      result = error.status == Status.NotFound
+      response <- service.toHttpApp.runZIO(request)
+      result = response.status == Status.NotFound
     } yield assertTrue(result)
   }
 

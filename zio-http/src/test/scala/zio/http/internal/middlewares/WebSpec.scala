@@ -126,7 +126,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         assertZIO(headers.runZIO(Request.get(URL.empty)))(contains("ValueA") && contains("ValueB"))
       },
       test("add and remove header") {
-        val middleware = addHeader("KeyA", "ValueA") ++ removeHeader("KeyA")
+        val middleware = removeHeader("KeyA") ++ addHeader("KeyA", "ValueA")
         val program    = (Handler.ok @@ middleware) rawHeader "KeyA"
         assertZIO(program.runZIO(Request.get(URL.empty)))(isNone)
       },
@@ -240,7 +240,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         )
 
         checkAll(urls zip Gen.fromIterable(Seq(true, false))) { case (url, expected, perm) =>
-          val app      = Handler.ok @@ redirectTrailingSlash(perm)
+          val app      = (Handler.ok @@ redirectTrailingSlash(perm)).toHttpApp
           val location = if (url != expected) Some(expected) else None
           val status   =
             if (url == expected) Status.Ok
@@ -249,7 +249,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
 
           for {
             url      <- ZIO.fromEither(URL.decode(url))
-            response <- app.runZIO(Request.get(url = url))
+            response <- app.runZIO(Request.get(url = url)).debug("response")
             _        <- ZIO.debug(response.headerOrFail(Header.Location))
           } yield assertTrue(
             extractStatus(response) == status,
@@ -268,7 +268,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         )
 
         checkAll(urls) { url =>
-          val app = Handler.ok @@ redirectTrailingSlash(true)
+          val app = (Handler.ok @@ redirectTrailingSlash(true)).toHttpApp
           for {
             url      <- ZIO.fromEither(URL.decode(url))
             response <- app.runZIO(Request.get(url = url))

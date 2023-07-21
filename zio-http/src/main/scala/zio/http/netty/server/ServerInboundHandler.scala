@@ -124,8 +124,8 @@ private[zio] final case class ServerInboundHandler(
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit =
     cause match {
-      case ioe: IOException if ioe.getMessage.contentEquals("Connection reset by peer") =>
-      case t                                                                            =>
+      case ioe: IOException if ioe.getMessage.startsWith("Connection reset by peer") =>
+      case t                                                                         =>
         if (app ne null) {
           runtime.run(ctx, () => {}) {
             // We cannot return the generated response from here, but still calling the handler for its side effect

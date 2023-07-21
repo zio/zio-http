@@ -71,13 +71,13 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
     path: Path = Path.root,
     headers: Headers = Headers.empty,
     body: Body = Body.empty,
-  ): ZIO[Env, Response, Response] =
+  ): ZIO[Env, Nothing, Response] =
     runZIO(Request(method = method, url = URL.root.path(path), headers = headers, body = body))
 
   /**
    * An alias for `apply`.
    */
-  def runZIO(request: Request): ZIO[Env, Response, Response] =
+  def runZIO(request: Request): ZIO[Env, Nothing, Response] =
     toHandler(request)
 
   /**
@@ -90,22 +90,24 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
   /**
    * Converts the HTTP application into a request handler.
    */
-  val toHandler: Handler[Env, Response, Request, Response] =
-    Handler.fromFunctionHandler[Request] { req =>
-      val chunk = tree.get(req.method, req.path)
+  val toHandler: Handler[Env, Nothing, Request, Response] =
+    Handler
+      .fromFunctionHandler[Request] { req =>
+        val chunk = tree.get(req.method, req.path)
 
-      if (chunk.length == 0) Handler.notFound
-      else if (chunk.length == 1) chunk(0)
-      else {
-        // TODO: Support precomputed fallback among all chunk elements:
-        chunk.tail.foldLeft(chunk.head) { (acc, h) =>
-          acc.catchAll { response =>
-            if (response.status == Status.NotFound) h
-            else Handler.fail(response)
+        if (chunk.length == 0) Handler.notFound
+        else if (chunk.length == 1) chunk(0)
+        else {
+          // TODO: Support precomputed fallback among all chunk elements:
+          chunk.tail.foldLeft(chunk.head) { (acc, h) =>
+            acc.catchAll { response =>
+              if (response.status == Status.NotFound) h
+              else Handler.fail(response)
+            }
           }
         }
       }
-    }
+      .merge
 
   /**
    * Accesses the underlying tree that provides fast dispatch to handlers.

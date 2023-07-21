@@ -722,8 +722,8 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
     isPermanent: Boolean,
   ): Middleware[Any, Unit] =
     ifRequestThenElse(request => request.url.path.hasTrailingSlash && request.url.queryParams.isEmpty)(
-      ifTrue = Middleware.identity,
-      ifFalse = updatePath(_.dropTrailingSlash) ++ failWith(request => Response.redirect(request.url, isPermanent)),
+      ifTrue = updatePath(_.dropTrailingSlash) ++ failWith(request => Response.redirect(request.url, isPermanent)),
+      ifFalse = Middleware.identity,
     )
 
   /**
