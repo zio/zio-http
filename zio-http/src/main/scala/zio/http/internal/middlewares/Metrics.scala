@@ -113,9 +113,7 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
                       report(start, requestLabels, labels)
                     }
                   }
-                case None          =>
-                  report(start, requestLabels, requestLabels ++ status404) *>
-                    ZIO.fail(None)
+                case None          => ZIO.fail(None)
               }
           } yield handler
         }

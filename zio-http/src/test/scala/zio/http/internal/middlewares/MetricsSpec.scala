@@ -30,10 +30,11 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       test("http_requests_total & http_errors_total") {
         val app = Http
           .collectHandler[Request] {
-            case Method.GET -> Root / "ok"     => Handler.ok
-            case Method.GET -> Root / "error"  => Handler.error(HttpError.InternalServerError())
-            case Method.GET -> Root / "fail"   => Handler.fail(Response.status(Status.Forbidden))
-            case Method.GET -> Root / "defect" => Handler.die(new Throwable("boom"))
+            case Method.GET -> Root / "ok"        => Handler.ok
+            case Method.GET -> Root / "error"     => Handler.error(HttpError.InternalServerError())
+            case Method.GET -> Root / "fail"      => Handler.fail(Response.status(Status.Forbidden))
+            case Method.GET -> Root / "defect"    => Handler.die(new Throwable("boom"))
+            case Method.GET -> Root / "not-found" => Handler.notFound
           } @@ metrics(
           extraLabels = Set(MetricLabel("test", "http_requests_total & http_errors_total")),
         )
@@ -89,6 +90,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           pathLabelMapper = { case Method.GET -> Root / "company" / _ =>
             "/company/:id"
           },
+          extraLabels = Set(MetricLabel("test", "http_requests_total with two path label mappers")),
         )
         val app2 = Http.collectHandler[Request] { case _ @Method.GET -> Root / "user" / _ =>
           Handler.ok
@@ -96,16 +98,18 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           pathLabelMapper = { case Method.GET -> Root / "user" / _ =>
             "/user/:id"
           },
+          extraLabels = Set(MetricLabel("test", "http_requests_total with two path label mappers")),
         )
 
-        val total              = Metric.counterInt("http_requests_total")
-        val totalUser1NotFound = total.tagged("path", "/user/1").tagged("method", "GET").tagged("status", "404")
+        val total   =
+          Metric.counterInt("http_requests_total").tagged("test", "http_requests_total with two path label mappers")
+        val totalOk = total.tagged("path", "/user/:id").tagged("method", "GET").tagged("status", "200")
 
         val app = app1 ++ app2
         for {
-          _                       <- app.runZIO(Request.get(url = URL(Root / "user" / "1")))
-          totalUser1NotFoundCount <- totalUser1NotFound.value
-        } yield assertTrue(totalUser1NotFoundCount == MetricState.Counter(0))
+          _            <- app.runZIO(Request.get(url = URL(Root / "user" / "1")))
+          totalOkCount <- totalOk.value
+        } yield assertTrue(totalOkCount == MetricState.Counter(1))
       },
       test("http_requests_total with two path label mappers reverse order") {
         val app1 = Http.collectHandler[Request] { case _ @Method.GET -> Root / "company" / _ =>
@@ -114,6 +118,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           pathLabelMapper = { case Method.GET -> Root / "company" / _ =>
             "/company/:id"
           },
+          extraLabels = Set(MetricLabel("test", "http_requests_total with two path label mappers reverse order")),
         )
         val app2 = Http.collectHandler[Request] { case _ @Method.GET -> Root / "user" / _ =>
           Handler.ok
@@ -121,16 +126,19 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           pathLabelMapper = { case Method.GET -> Root / "user" / _ =>
             "/user/:id"
           },
+          extraLabels = Set(MetricLabel("test", "http_requests_total with two path label mappers reverse order")),
         )
 
-        val total              = Metric.counterInt("http_requests_total")
-        val totalUser1NotFound = total.tagged("path", "/user/1").tagged("method", "GET").tagged("status", "404")
+        val total   = Metric
+          .counterInt("http_requests_total")
+          .tagged("test", "http_requests_total with two path label mappers reverse order")
+        val totalOk = total.tagged("path", "/user/:id").tagged("method", "GET").tagged("status", "200")
 
         val app = app2 ++ app1
         for {
-          _                       <- app.runZIO(Request.get(url = URL(Root / "user" / "1")))
-          totalUser1NotFoundCount <- totalUser1NotFound.value
-        } yield assertTrue(totalUser1NotFoundCount == MetricState.Counter(0))
+          _            <- app.runZIO(Request.get(url = URL(Root / "user" / "1")))
+          totalOkCount <- totalOk.value
+        } yield assertTrue(totalOkCount == MetricState.Counter(1))
       },
       test("http_request_duration_seconds") {
         val histogram = Metric
