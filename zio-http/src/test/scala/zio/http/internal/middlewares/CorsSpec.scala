@@ -36,7 +36,7 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
     Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
   }.toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
 
-  override def spec = suite("CorsMiddlewares")(
+  override def spec = suite("CorsSpec")(
     test("OPTIONS request") {
       val request = Request
         .options(URL(Root / "success"))

@@ -25,7 +25,7 @@ import zio._
  * HTTP applications can be installed into a [[zio.http.Server]], which is
  * capable of using them to serve requests.
  */
-final case class HttpApp[-Env](routes: Routes[Env, Response])
+final case class HttpApp[-Env](routes: Routes[Env, Response], notFound: Option[Route[Env, Nothing]] = None)
     extends PartialFunction[Request, ZIO[Env, Response, Response]] { self =>
   private var _tree: HttpApp.Tree[_] = null.asInstanceOf[HttpApp.Tree[_]]
 
@@ -33,7 +33,7 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
    * Applies the specified route aspect to every route in the HTTP application.
    */
   def @@[Env1 <: Env](aspect: RouteAspect[Nothing, Env1]): HttpApp[Env1] =
-    HttpApp(routes @@ aspect)
+    HttpApp(routes @@ aspect, Some(notFound.getOrElse(Route.notFound) @@ aspect))
 
   /**
    * Combines this HTTP application with the specified HTTP application. In case
@@ -41,7 +41,7 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
    * over the routes in the specified HTTP application.
    */
   def ++[Env1 <: Env](that: HttpApp[Env1]): HttpApp[Env1] =
-    HttpApp(routes ++ that.routes)
+    HttpApp(routes = routes ++ that.routes, notFound = notFound.orElse(that.notFound))
 
   /**
    * Executes the HTTP application with the specified request input, returning
@@ -64,7 +64,7 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
    * HTTP application that has no environmental requirements.
    */
   def provideEnvironment(env: ZEnvironment[Env]): HttpApp[Any] =
-    HttpApp(routes.provideEnvironment(env))
+    HttpApp(routes.provideEnvironment(env), notFound.map(_.provideEnvironment(env)))
 
   def run(
     method: Method = Method.GET,
@@ -114,7 +114,7 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
    */
   def tree: HttpApp.Tree[Env] = {
     if (_tree eq null) {
-      _tree = HttpApp.Tree.fromRoutes(routes)
+      _tree = HttpApp.Tree.fromRoutes(notFound.fold(routes)(routes :+ _))
     }
 
     _tree.asInstanceOf[HttpApp.Tree[Env]]
@@ -138,7 +138,7 @@ object HttpApp                                                     {
       Routes.singleton {
         Handler.fromFunctionZIO[(Path, Request)] { case (path: Path, request: Request) =>
           if (pf.isDefinedAt(request)) pf(request)
-          else ZIO.succeed(Response(status = Status.NotFound))
+          else ZIO.succeed(Response.notFound)
         }
       },
     )

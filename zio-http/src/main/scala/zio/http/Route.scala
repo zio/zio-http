@@ -117,6 +117,9 @@ object Route                   {
   def handled[Params, Env](rpm: RoutePatternMiddleware[Env, Params]): HandledConstructor[Env, Params] =
     new HandledConstructor[Env, Params](rpm)
 
+  val notFound: Route[Any, Nothing] =
+    Handled(RoutePattern.any, Handler.notFound, Trace.empty)
+
   def route[Params](routePattern: RoutePattern[Params]): UnhandledConstructor[Any, Params] =
     route(RoutePatternMiddleware(routePattern, Middleware.identity))
 
