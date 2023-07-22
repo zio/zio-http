@@ -16,14 +16,15 @@
 
 package zio.http.netty.model
 
-import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
-import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.WebSocketScheme
+import scala.collection.AbstractIterator
+
 import zio.http.Server.Config.CompressionOptions
 import zio.http._
 import zio.http.internal.{CaseMode, CharSequenceExtensions}
 
-import scala.collection.AbstractIterator
+import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
+import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketScheme
 
 private[netty] object Conversions {
   def methodFromNetty(method: HttpMethod): Method =
