@@ -40,6 +40,7 @@ sealed trait Method { self =>
 }
 
 object Method {
+  def Default: Method = GET
 
   def fromString(method: String): Method =
     method.toUpperCase match {
@@ -66,6 +67,4 @@ object Method {
   object DELETE  extends Method { val name = "DELETE"  }
   object TRACE   extends Method { val name = "TRACE"   }
   object CONNECT extends Method { val name = "CONNECT" }
-
-  object Default extends Method { val name = "GET" }
 }

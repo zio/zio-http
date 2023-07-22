@@ -16,15 +16,14 @@
 
 package zio.http.netty.model
 
-import scala.collection.AbstractIterator
-
+import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
+import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import zio.http.Server.Config.CompressionOptions
 import zio.http._
 import zio.http.internal.{CaseMode, CharSequenceExtensions}
 
-import io.netty.handler.codec.compression.{DeflateOptions, StandardCompressionOptions}
-import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.WebSocketScheme
+import scala.collection.AbstractIterator
 
 private[netty] object Conversions {
   def methodFromNetty(method: HttpMethod): Method =
@@ -52,7 +51,6 @@ private[netty] object Conversions {
       case Method.DELETE       => HttpMethod.DELETE
       case Method.TRACE        => HttpMethod.TRACE
       case Method.CONNECT      => HttpMethod.CONNECT
-      case Method.Default      => HttpMethod.GET
       case Method.CUSTOM(name) => new HttpMethod(name)
     }
 
@@ -259,9 +257,9 @@ private[netty] object Conversions {
         StandardCompressionOptions.deflate(compressionOptions.level, compressionOptions.bits, compressionOptions.mem)
     }
 
-  def versionToNetty(version: Version): HttpVersion = version match {
-    case Version.Http_1_0 => HttpVersion.HTTP_1_0
-    case Version.Http_1_1 => HttpVersion.HTTP_1_1
-    case Version.Default  => HttpVersion.HTTP_1_1
-  }
+  def versionToNetty(version: Version): HttpVersion =
+    version match {
+      case Version.Http_1_0 => HttpVersion.HTTP_1_0
+      case Version.Http_1_1 => HttpVersion.HTTP_1_1
+    }
 }

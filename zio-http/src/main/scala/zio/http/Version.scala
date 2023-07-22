@@ -42,15 +42,13 @@ object Version {
   /**
    * Indicates no preference for version. The default version will be used.
    */
-  case object Default extends Version {
-    val ordinal = 0
-  }
+  def Default: Version = Http_1_1
 
   case object Http_1_0 extends Version {
-    val ordinal = 1
+    override val ordinal = 0
   }
 
   case object Http_1_1 extends Version {
-    val ordinal = 2
+    override val ordinal = 1
   }
 }
