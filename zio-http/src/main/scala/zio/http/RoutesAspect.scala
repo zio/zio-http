@@ -93,7 +93,7 @@ object RoutesAspect           {
 
     // Middleware:
     val middleware =
-      Middleware.interceptIncomingHandler {
+      Middleware.interceptHandlerStateful[Any, Headers, Unit](
         Handler.fromFunction[Request] { request =>
           val originHeader = request.header(Header.Origin)
           val acrhHeader   = request.header(Header.AccessControlRequestHeaders)
@@ -102,15 +102,17 @@ object RoutesAspect           {
             case Some(origin) =>
               config.allowedOrigin(origin) match {
                 case Some(allowOrigin) if config.allowedMethods.contains(request.method) =>
-                  request.addHeaders(corsHeaders(allowOrigin, acrhHeader, isPreflight = false)) -> ()
+                  corsHeaders(allowOrigin, acrhHeader, isPreflight = false) -> (request, ())
                 case _                                                                   =>
-                  request -> ()
+                  Headers.empty -> (request, ())
               }
 
-            case None => request -> ()
+            case None => Headers.empty -> (request, ())
           }
-        }
-      }
+        },
+      )(Handler.fromFunction[(Headers, Response)] { case (headers, response) =>
+        response.addHeaders(headers)
+      })
 
     val optionsRoute =
       Method.OPTIONS / trailing -> handler { (_: Path, request: Request) =>
