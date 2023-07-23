@@ -53,11 +53,8 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def +:[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
     new Routes(route +: routes)
 
-  /**
-   * Augments this collection of routes with the specified middleware.
-   */
-  def @@[Env1 <: Env](aspect: RouteAspect[Nothing, Env1]): Routes[Env1, Err] =
-    new Routes(routes.map(_.@@(aspect)))
+  def @@[Env1 <: Env](aspect: RoutesAspect[Env1]): Routes[Env1, Err] =
+    aspect(self)
 
   def asEnvType[Env2](implicit ev: Env2 <:< Env): Routes[Env2, Err] =
     self.asInstanceOf[Routes[Env2, Err]]
@@ -98,7 +95,7 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
    * duration.
    */
   def timeout(duration: Duration): Routes[Env, Err] =
-    self @@ RouteAspect.timeout(duration)
+    self @@ RoutesAspect.timeout(duration)
 
   /**
    * Converts the routes into an app, which can be done only when errors are
@@ -106,6 +103,15 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
    */
   def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] =
     HttpApp(asErrorType[Response])
+
+  /**
+   * Returns new routes whose handlers are transformed by the specified
+   * function.
+   */
+  def transform[Env1 <: Env](
+    f: Handler[Env1, Response, Request, Response] => Handler[Env1, Response, Request, Response],
+  ): Routes[Env1, Err] =
+    new Routes(routes.map(_.@@(f)))
 }
 object Routes {
 

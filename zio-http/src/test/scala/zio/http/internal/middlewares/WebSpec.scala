@@ -106,11 +106,11 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("race")(
       test("achieved") {
-        val program = runApp(self.app @@ RouteAspect.timeout(5 seconds)).map(_.status)
+        val program = runApp(self.app @@ RoutesAspect.timeout(5 seconds)).map(_.status)
         assertZIO(program)(equalTo(Status.Ok))
       },
       test("un-achieved") {
-        val program = runApp(self.app @@ RouteAspect.timeout(500 millis)).map(_.status)
+        val program = runApp(self.app @@ RoutesAspect.timeout(500 millis)).map(_.status)
         assertZIO(program)(equalTo(Status.RequestTimeout))
       },
     ),
@@ -217,7 +217,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
         )
         checkAll(urls) { case (url, expected) =>
           val app = Routes(
-            Method.ANY / PathCodec.trailing -> handler { (path: Path, req: Request) =>
+            Method.ANY / PathCodec.trailing -> handler { (_: Path, req: Request) =>
               Response.text(req.url.encode)
             },
           ).toHttpApp @@ dropTrailingSlash(onlyIfNoQueryParams = true)

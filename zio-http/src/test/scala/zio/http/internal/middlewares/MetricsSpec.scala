@@ -40,28 +40,24 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
 
         val total   = Metric.counterInt("http_requests_total").tagged("test", "http_requests_total & http_errors_total")
         val totalOk = total.tagged("path", "/ok").tagged("method", "GET").tagged("status", "200")
-        val totalErrors   = total.tagged("path", "/error").tagged("method", "GET").tagged("status", "500")
-        val totalFails    = total.tagged("path", "/fail").tagged("method", "GET").tagged("status", "403")
-        val totalDefects  = total.tagged("path", "/defect").tagged("method", "GET").tagged("status", "500")
-        val totalNotFound = total.tagged("path", "/not-found").tagged("method", "GET").tagged("status", "404")
+        val totalErrors  = total.tagged("path", "/error").tagged("method", "GET").tagged("status", "500")
+        val totalFails   = total.tagged("path", "/fail").tagged("method", "GET").tagged("status", "403")
+        val totalDefects = total.tagged("path", "/defect").tagged("method", "GET").tagged("status", "500")
 
         for {
-          _                  <- app.runZIO(Request.get("/ok"))
-          _                  <- app.runZIO(Request.get("/error"))
-          _                  <- app.runZIO(Request.get("/fail")).exit
-          _                  <- app.runZIO(Request.get("/defect")).exit
-          _                  <- app.runZIO(Request.get("/not-found")).exit
-          totalOkCount       <- totalOk.value
-          totalErrorsCount   <- totalErrors.value
-          totalFailsCount    <- totalFails.value
-          totalDefectsCount  <- totalDefects.value
-          totalNotFoundCount <- totalNotFound.value
+          _                 <- app.runZIO(Request.get("/ok"))
+          _                 <- app.runZIO(Request.get("/error"))
+          _                 <- app.runZIO(Request.get("/fail")).exit
+          _                 <- app.runZIO(Request.get("/defect")).exit
+          totalOkCount      <- totalOk.value
+          totalErrorsCount  <- totalErrors.value
+          totalFailsCount   <- totalFails.value
+          totalDefectsCount <- totalDefects.value
         } yield assertTrue(
           totalOkCount == MetricState.Counter(1),
           totalErrorsCount == MetricState.Counter(1),
           totalFailsCount == MetricState.Counter(1),
           totalDefectsCount == MetricState.Counter(1),
-          totalNotFoundCount == MetricState.Counter(1),
         )
       },
       test("http_requests_total with path label mapper") {

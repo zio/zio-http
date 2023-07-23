@@ -11,7 +11,7 @@ object BasicAuth extends ZIOAppDefault {
   // Http app that requires a JWT claim
   val user: HttpApp[Any] = Routes(
     Method.GET / "user" / string("name") / "greet" ->
-      handler { (name: String, req: Request) =>
+      handler { (name: String, _: Request) =>
         Response.text(s"Welcome to the ZIO party! ${name}")
       },
   ).toHttpApp

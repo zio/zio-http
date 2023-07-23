@@ -33,7 +33,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
   private val app = Routes(
     Method.POST / "streaming" -> handler((req: Request) => Response(body = Body.fromStream(req.body.asStream))),
     Method.GET / "slow"       -> handler(ZIO.sleep(1.hour).as(Response.text("done"))),
-    Method.ANY / trailing     -> handler((path: Path, req: Request) => req.body.asString.map(Response.text(_))),
+    Method.ANY / trailing     -> handler((_: Path, req: Request) => req.body.asString.map(Response.text(_))),
   ).sandbox.toHttpApp
 
   private val connectionCloseHeader = Headers(Header.Connection.Close)

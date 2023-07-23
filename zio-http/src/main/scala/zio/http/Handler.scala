@@ -39,7 +39,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
       handler.asInstanceOf[Handler[R, Response, Request, Response]]
 
-    middleware(convert(self))
+    middleware.applyHandler(convert(self))
   }
 
   def @@[Env1 <: R, Ctx, In1 <: In](middleware: Middleware[Env1, Ctx])(implicit
@@ -49,7 +49,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, In1, Response] =
       handler.asInstanceOf[Handler[R, Response, In1, Response]]
 
-    middleware.applyContext(Handler.fromFunction[(Ctx, Request)] { case (ctx, req) =>
+    middleware.applyHandlerContext(Handler.fromFunction[(Ctx, Request)] { case (ctx, req) =>
       zippable.zip(ctx, req)
     } >>> convert(self))
   }

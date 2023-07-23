@@ -3,7 +3,7 @@ package example
 import zio._
 
 import zio.http.Header.{AccessControlAllowMethods, AccessControlAllowOrigin, Origin}
-import zio.http.Middleware.{CorsConfig, cors}
+import zio.http.RoutesAspect.{CorsConfig, cors}
 import zio.http._
 
 object HelloWorldWithCORS extends ZIOAppDefault {

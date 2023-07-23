@@ -50,7 +50,7 @@ final case class Middleware[-Env, +CtxOut](
     Response,
     Response,
   ],
-) extends RouteAspect[Nothing, Env] { self =>
+) extends RoutesAspect[Env] { self =>
 
   /**
    * Combines this middleware with the specified middleware sequentially, such
@@ -90,25 +90,27 @@ final case class Middleware[-Env, +CtxOut](
    * Applies middleware to the specified handler, which may ignore the context
    * produced by this middleware.
    */
-  def apply[Env1 >: Nothing <: Env](
-    handler: Handler[Env1, Response, Request, Response],
-  ): Handler[Env1, Response, Request, Response] =
-    if (self == Middleware.identity) handler
-    else {
-      for {
-        tuple <- protocol.incomingHandler
-        (state, (request, ctxOut)) = tuple
-        either   <- Handler.fromZIO(handler(request)).either
-        response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
-        response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
-      } yield response
+  def apply[Env1 <: Env, Err](
+    routes: Routes[Env1, Err],
+  ): Routes[Env1, Err] =
+    routes.transform[Env1] { handler =>
+      if (self == Middleware.identity) handler
+      else {
+        for {
+          tuple <- protocol.incomingHandler
+          (state, (request, ctxOut)) = tuple
+          either   <- Handler.fromZIO(handler(request)).either
+          response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
+          response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+        } yield response
+      }
     }
 
   /**
    * Applies middleware to the specified handler, which must process the context
    * produced by this middleware.
    */
-  def applyContext[Env1 <: Env](
+  def applyHandlerContext[Env1 <: Env](
     handler: Handler[Env1, Response, (CtxOut, Request), Response],
   ): Handler[Env1, Response, Request, Response] = {
     if (self == Middleware.identity) handler.contramap[Request](req => (().asInstanceOf[CtxOut], req))
@@ -122,6 +124,18 @@ final case class Middleware[-Env, +CtxOut](
       } yield response
     }
   }
+
+  def applyHandler[Env1 <: Env](handler: RequestHandler[Env1, Response]): RequestHandler[Env1, Response] =
+    if (self == Middleware.identity) handler
+    else {
+      for {
+        tuple <- protocol.incomingHandler
+        (state, (request, ctxOut)) = tuple
+        either   <- Handler.fromZIO(handler(request)).either
+        response <- Handler.fromZIO(protocol.outgoingHandler((state, either.merge)))
+        response <- if (either.isLeft) Handler.fail(response) else Handler.succeed(response)
+      } yield response
+    }
 
   /**
    * Returns new middleware that transforms the context of the middleware to the
@@ -172,19 +186,6 @@ final case class Middleware[-Env, +CtxOut](
     Middleware.whenZIO(condition)(self.unit)
 }
 object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]] {
-
-  /**
-   * Configuration for the CORS middleware.
-   */
-  final case class CorsConfig(
-    allowedOrigin: Header.Origin => Option[Header.AccessControlAllowOrigin] = origin =>
-      Some(Header.AccessControlAllowOrigin.Specific(origin)),
-    allowedMethods: Header.AccessControlAllowMethods = Header.AccessControlAllowMethods.All,
-    allowedHeaders: Header.AccessControlAllowHeaders = Header.AccessControlAllowHeaders.All,
-    allowCredentials: Header.AccessControlAllowCredentials = Header.AccessControlAllowCredentials.Allow,
-    exposedHeaders: Header.AccessControlExposeHeaders = Header.AccessControlExposeHeaders.All,
-    maxAge: Option[Header.AccessControlMaxAge] = None,
-  )
 
   /**
    * Sets a cookie in the response headers
@@ -286,97 +287,6 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
    */
   def beautifyErrors: Middleware[Any, Unit] =
     intercept(replaceErrorResponse)
-
-  /**
-   * Creates a middleware for Cross-Origin Resource Sharing (CORS) using default
-   * options.
-   * @see
-   *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-   */
-  def cors: Middleware[Any, Unit] = cors(CorsConfig())
-
-  /**
-   * Creates a middleware for Cross-Origin Resource Sharing (CORS).
-   * @see
-   *   https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-   */
-  def cors(config: CorsConfig): Middleware[Any, Unit] = {
-    def allowedHeaders(
-      requestedHeaders: Option[Header.AccessControlRequestHeaders],
-      allowedHeaders: Header.AccessControlAllowHeaders,
-    ): Header.AccessControlAllowHeaders =
-      // Returning an intersection of requested headers and allowed headers
-      // if there are no requested headers, we return the configured allowed headers without modification
-      allowedHeaders match {
-        case Header.AccessControlAllowHeaders.Some(values) =>
-          requestedHeaders match {
-            case Some(Header.AccessControlRequestHeaders(headers)) =>
-              val intersection = headers.toSet.intersect(values.toSet)
-              NonEmptyChunk.fromIterableOption(intersection) match {
-                case Some(values) => Header.AccessControlAllowHeaders.Some(values)
-                case None         => Header.AccessControlAllowHeaders.None
-              }
-            case None                                              => allowedHeaders
-          }
-        case Header.AccessControlAllowHeaders.All          =>
-          requestedHeaders match {
-            case Some(Header.AccessControlRequestHeaders(headers)) => Header.AccessControlAllowHeaders.Some(headers)
-            case _                                                 => Header.AccessControlAllowHeaders.All
-          }
-        case Header.AccessControlAllowHeaders.None         => Header.AccessControlAllowHeaders.None
-      }
-
-    def corsHeaders(
-      allowOrigin: Header.AccessControlAllowOrigin,
-      requestedHeaders: Option[Header.AccessControlRequestHeaders],
-      isPreflight: Boolean,
-    ): Headers =
-      Headers(
-        allowOrigin,
-        config.allowedMethods,
-        config.allowCredentials,
-      ) ++
-        Headers.ifThenElse(isPreflight)(
-          onTrue = Headers(allowedHeaders(requestedHeaders, config.allowedHeaders)),
-          onFalse = Headers(config.exposedHeaders),
-        ) ++ config.maxAge.fold(Headers.empty)(Headers(_))
-
-    Middleware.interceptIncomingHandler {
-      Handler.fromFunctionExit[Request] { request =>
-        val originHeader = request.headers.header(Header.Origin)
-        val acrmHeader   = request.headers.header(Header.AccessControlRequestMethod)
-        val acrhHeader   = request.header(Header.AccessControlRequestHeaders)
-
-        (
-          request.method,
-          originHeader,
-          acrmHeader,
-        ) match {
-          case (Method.OPTIONS, Some(origin), Some(acrm)) =>
-            config.allowedOrigin(origin) match {
-              case Some(allowOrigin) if config.allowedMethods.contains(acrm.method) =>
-                Exit.fail(
-                  Response(
-                    Status.NoContent,
-                    headers = corsHeaders(allowOrigin, acrhHeader, isPreflight = true),
-                  ),
-                )
-              case _                                                                =>
-                Exit.succeed(request -> ())
-            }
-          case (_, Some(origin), _)                       =>
-            config.allowedOrigin(origin) match {
-              case Some(allowOrigin) if config.allowedMethods.contains(request.method) =>
-                Exit.succeed(request.addHeaders(corsHeaders(allowOrigin, acrhHeader, isPreflight = false)) -> ())
-              case _                                                                   =>
-                Exit.succeed(request -> ())
-            }
-          case _                                          =>
-            Exit.succeed(request -> ())
-        }
-      }
-    }
-  }
 
   /**
    * Creates an authentication middleware that only allows authenticated

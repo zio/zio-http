@@ -60,7 +60,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
     },
     test("multiple body read") {
       val app = Routes.singleton {
-        handler { (path: Path, req: Request) =>
+        handler { (_: Path, req: Request) =>
           for {
             _ <- req.body.asChunk
             _ <- req.body.asChunk

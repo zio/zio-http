@@ -104,7 +104,7 @@ object ServerSpec extends HttpRunnableSpec {
       } +
       suite("echo content") {
         val app = (RoutePattern.any ->
-          handler { (path: Path, req: Request) =>
+          handler { (_: Path, req: Request) =>
             req.body.asString.map(text => Response.text(text))
           }).sandbox.toHttpApp
 
@@ -127,7 +127,7 @@ object ServerSpec extends HttpRunnableSpec {
           test("data") {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
             val app        =
-              Routes(RoutePattern.any -> handler((path: Path, req: Request) => Response(body = req.body))).toHttpApp
+              Routes(RoutePattern.any -> handler((_: Path, req: Request) => Response(body = req.body))).toHttpApp
             val res        = app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromStream(dataStream))
             assertZIO(res)(equalTo(MaxSize))
           }
@@ -151,7 +151,7 @@ object ServerSpec extends HttpRunnableSpec {
 
         val app = Routes(
           RoutePattern.any ->
-            handler { (path: Path, req: Request) =>
+            handler { (_: Path, req: Request) =>
               req.body.asString.map(body => Response.text(body))
             },
         ).sandbox.toHttpApp.deploy
@@ -267,7 +267,7 @@ object ServerSpec extends HttpRunnableSpec {
   def requestSpec = suite("RequestSpec") {
     val app: HttpApp[Any] =
       Routes
-        .singleton(handler { (path: Path, req: Request) =>
+        .singleton(handler { (_: Path, req: Request) =>
           Response.text(req.header(Header.ContentLength).map(_.length).getOrElse(-1).toString)
         })
         .sandbox
@@ -281,7 +281,7 @@ object ServerSpec extends HttpRunnableSpec {
     } +
       test("POST Request.getBody") {
         val app = Routes
-          .singleton(handler { (path: Path, req: Request) => req.body.asChunk.as(Response.ok) })
+          .singleton(handler { (_: Path, req: Request) => req.body.asChunk.as(Response.ok) })
           .sandbox
           .toHttpApp
         val res = app.deploy.status.run(path = Root, method = Method.POST, body = Body.fromString("some text"))
@@ -289,7 +289,7 @@ object ServerSpec extends HttpRunnableSpec {
       } +
       test("body can be read multiple times") {
         val app = Routes
-          .singleton(handler { (path: Path, req: Request) =>
+          .singleton(handler { (_: Path, req: Request) =>
             (req.body.asChunk *> req.body.asChunk).as(Response.ok)
           })
           .sandbox
@@ -341,7 +341,7 @@ object ServerSpec extends HttpRunnableSpec {
     },
     test("echo streaming") {
       val res = Routes
-        .singleton(handler { (path: Path, req: Request) =>
+        .singleton(handler { (_: Path, req: Request) =>
           Handler.fromStream(ZStream.fromZIO(req.body.asChunk).flattenChunks): Handler[
             Any,
             Throwable,
@@ -424,7 +424,7 @@ object ServerSpec extends HttpRunnableSpec {
   def requestBodySpec = suite("RequestBodySpec")(
     test("POST Request stream") {
       val app: HttpApp[Any] = Routes.singleton {
-        handler { (path: Path, req: Request) =>
+        handler { (_: Path, req: Request) =>
           Response(body = Body.fromStream(req.body.asStream))
         }
       }.toHttpApp

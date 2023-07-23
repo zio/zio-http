@@ -20,7 +20,7 @@ import zio.ZIO
 import zio.test._
 
 import zio.http.Header.AccessControlAllowMethods
-import zio.http.Middleware.{CorsConfig, cors}
+import zio.http.RoutesAspect.{CorsConfig, cors}
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.internal.middlewares.CorsSpec.app

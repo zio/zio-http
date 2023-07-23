@@ -22,8 +22,10 @@ sealed trait Route[-Env, +Err] { self =>
   /**
    * Augments this route with the specified middleware.
    */
-  def @@[Env1 <: Env](aspect: RouteAspect[Nothing, Env1]): Route[Env1, Err] =
-    Route.Augmented(self, aspect)
+  def @@[Env1 <: Env](
+    aspect: Handler[Env1, Response, Request, Response] => Handler[Env1, Response, Request, Response],
+  ): Route[Env1, Err] =
+    Route.Augmented[Env1, Err](self, aspect)
 
   /**
    * Applies the route to the specified request. The route must be defined for
@@ -35,6 +37,11 @@ sealed trait Route[-Env, +Err] { self =>
     toHandler.apply(request)
 
   def asErrorType[Err2](implicit ev: Err <:< Err2): Route[Env, Err2] = self.asInstanceOf[Route[Env, Err2]]
+
+  def augmented[Env1 <: Env](
+    f: Handler[Env1, Response, Request, Response] => Handler[Env1, Response, Request, Response],
+  ): Route[Env1, Err] =
+    Route.Augmented(self, f)
 
   /**
    * Handles the error of the route. This method can be used to convert a route
@@ -67,7 +74,7 @@ sealed trait Route[-Env, +Err] { self =>
             }
 
           // Sandbox before applying middleware:
-          rpm.middleware.applyContext(paramHandler.mapErrorCause(f))
+          rpm.middleware.applyHandlerContext(paramHandler.mapErrorCause(f))
         }
 
         Handled(rpm.routePattern, handler2, location)
@@ -143,7 +150,7 @@ object Route                   {
           }
 
         // Sandbox before applying middleware:
-        rpm.middleware.applyContext(paramHandler.sandbox)
+        rpm.middleware.applyHandlerContext(paramHandler.sandbox)
       }
 
       Handled(rpm.routePattern, handler2, trace)
@@ -171,9 +178,9 @@ object Route                   {
     override def toString() = s"Route.Provided(${route}, ${env})"
   }
 
-  private final case class Augmented[-Env, +Err](
+  private final case class Augmented[Env, +Err](
     route: Route[Env, Err],
-    aspect: RouteAspect[Nothing, Env],
+    aspect: Handler[Env, Response, Request, Response] => Handler[Env, Response, Request, Response],
   ) extends Route[Env, Err] {
     def location: Trace = route.location
 

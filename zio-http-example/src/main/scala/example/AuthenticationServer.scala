@@ -42,7 +42,7 @@ object AuthenticationServer extends ZIOAppDefault {
 
   // Http app that is accessible only via a jwt token
   def user: HttpApp[Any] = Routes(
-    Method.GET / "user" / string("name") / "greet" -> handler { (name: String, req: Request) =>
+    Method.GET / "user" / string("name") / "greet" -> handler { (name: String, _: Request) =>
       Response.text(s"Welcome to the ZIO party! ${name}")
     },
   ).toHttpApp @@ bearerAuth(jwtDecode(_).isDefined)
@@ -52,7 +52,7 @@ object AuthenticationServer extends ZIOAppDefault {
   def login: HttpApp[Any] =
     Routes(
       Method.GET / "login" / string("username") / string("password") ->
-        handler { (username: String, password: String, req: Request) =>
+        handler { (username: String, password: String, _: Request) =>
           if (password.reverse.hashCode == username.hashCode) Response.text(jwtEncode(username))
           else Response.text("Invalid username or password.").status(Status.Unauthorized)
         },
