@@ -93,26 +93,26 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
         http: HttpApp[R1, Err1],
       )(implicit trace: Trace): HttpApp[R1, Err1] =
         Http.fromOptionalHandlerZIO[Request] { req =>
-          val requestLabels = labelsForRequest(req)
-
           for {
             start           <- Clock.nanoTime
-            _               <- concurrentRequests.tagged(requestLabels).increment
             optionalHandler <- http.runHandler(req)
             handler         <-
               optionalHandler match {
                 case Some(handler) =>
-                  ZIO.succeed {
-                    handler.onExit { exit =>
-                      val labels =
-                        requestLabels ++ exit.foldExit(
-                          cause => cause.failureOption.fold(status500)(statusLabelForError),
-                          labelsForResponse,
-                        )
+                  val requestLabels = labelsForRequest(req)
 
-                      report(start, requestLabels, labels)
+                  concurrentRequests.tagged(requestLabels).increment *>
+                    ZIO.succeed {
+                      handler.onExit { exit =>
+                        val labels =
+                          requestLabels ++ exit.foldExit(
+                            cause => cause.failureOption.fold(status500)(statusLabelForError),
+                            labelsForResponse,
+                          )
+
+                        report(start, requestLabels, labels)
+                      }
                     }
-                  }
                 case None          => ZIO.fail(None)
               }
           } yield handler
