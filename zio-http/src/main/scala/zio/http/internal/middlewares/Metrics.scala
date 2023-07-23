@@ -55,7 +55,6 @@ private[zio] trait Metrics { self: RequestHandlerMiddlewares =>
       val requestsTotal: Counter[RuntimeFlags] = Metric.counterInt(totalRequestsName)
       val concurrentRequests: Gauge[Double]    = Metric.gauge(concurrentRequestsName)
       val requestDuration: Histogram[Double]   = Metric.histogram(requestDurationName, requestDurationBoundaries)
-      val status404: Set[MetricLabel]          = Set(MetricLabel("status", "404"))
       val status500: Set[MetricLabel]          = Set(MetricLabel("status", "500"))
       val nanosToSeconds: Double               = 1e9d
 

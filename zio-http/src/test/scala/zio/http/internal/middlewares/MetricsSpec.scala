@@ -47,12 +47,12 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         val totalNotFound = total.tagged("path", "/not-found").tagged("method", "GET").tagged("status", "404")
 
         for {
-          _            <- app.runZIO(Request.get(url = URL(Root / "ok")))
-          _            <- app.runZIO(Request.get(url = URL(Root / "error")))
-          _            <- app.runZIO(Request.get(url = URL(Root / "fail"))).ignore
-          _            <- app.runZIO(Request.get(url = URL(Root / "defect"))).catchAllDefect(_ => ZIO.unit)
-          _            <- app.runZIO(Request.get(url = URL(Root / "not-found"))).ignore.catchAllDefect(_ => ZIO.unit)
-          totalOkCount <- totalOk.value
+          _                  <- app.runZIO(Request.get(url = URL(Root / "ok")))
+          _                  <- app.runZIO(Request.get(url = URL(Root / "error")))
+          _                  <- app.runZIO(Request.get(url = URL(Root / "fail"))).ignore
+          _                  <- app.runZIO(Request.get(url = URL(Root / "defect"))).catchAllDefect(_ => ZIO.unit)
+          _                  <- app.runZIO(Request.get(url = URL(Root / "not-found")))
+          totalOkCount       <- totalOk.value
           totalErrorsCount   <- totalErrors.value
           totalFailsCount    <- totalFails.value
           totalDefectsCount  <- totalDefects.value
