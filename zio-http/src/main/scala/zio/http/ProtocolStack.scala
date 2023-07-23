@@ -20,7 +20,7 @@ import zio._
 
 /**
  * A [[zio.http.ProtocolStack]] represents a linear stack of protocol layers,
- * each of which can statefully transform incoming and outgoing values of a
+ * each of which can statefully transform incoming and outgoing values of some
  * handler.
  *
  * Protocol stacks can be thought of as a formal model of the process of

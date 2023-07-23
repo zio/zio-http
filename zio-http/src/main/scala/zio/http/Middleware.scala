@@ -37,7 +37,7 @@ import zio.http.html._
  * start time of the request in the incoming interceptor, and pass this state to
  * the outgoing interceptor, which can then compute the duration.
  *
- * The [[zio.http.Middleware]] is more than just a wrapper around
+ * [[zio.http.Middleware]] is more than just a wrapper around
  * [[zio.http.ProtocolStack]], as its concatenation operator has been
  * specialized to entuple contexts, so that each layer may only add context to
  * the contextual output.
