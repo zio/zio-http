@@ -82,7 +82,7 @@ object StaticServerSpec extends HttpRunnableSpec {
       }
     },
     test("500 response") {
-      checkAll(methodGenWithoutHEAD) { method =>
+      checkAll(methodGenWithoutOPTIONS) { method =>
         val actual = status(method, Root / "ExitFailure")
         assertZIO(actual)(equalTo(Status.InternalServerError))
       }
