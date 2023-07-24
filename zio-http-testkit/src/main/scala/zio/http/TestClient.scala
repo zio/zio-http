@@ -33,16 +33,22 @@ final case class TestClient(
     expectedRequest: Request,
     response: Response,
   ): ZIO[Any, Nothing, Unit] = {
-    val handler: PartialFunction[Request, ZIO[Any, Response, Response]] = {
+    val handler = new PartialFunction[Request, ZIO[Any, Response, Response]] {
 
-      case realRequest if {
-            // The way that the Client breaks apart and re-assembles the request prevents a straightforward
-            //    expectedRequest == realRequest
-            expectedRequest.url.relative == realRequest.url &&
-            expectedRequest.method == realRequest.method &&
-            expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
-          } =>
-        ZIO.succeed(response)
+      def isDefinedAt(realRequest: Request): Boolean = {
+        // The way that the Client breaks apart and re-assembles the request prevents a straightforward
+        //    expectedRequest == realRequest
+        val defined = expectedRequest.url.relative == realRequest.url &&
+          expectedRequest.method == realRequest.method &&
+          expectedRequest.headers.toSet.forall(expectedHeader => realRequest.headers.toSet.contains(expectedHeader))
+
+        defined
+      }
+
+      def apply(request: Request): ZIO[Any, Response, Response] =
+        if (!isDefinedAt(request))
+          throw new MatchError(s"TestClient received unexpected request: $request (expected: $expectedRequest)")
+        else ZIO.succeed(response)
     }
     addHandler(handler)
   }
@@ -63,10 +69,9 @@ final case class TestClient(
     handler: PartialFunction[Request, ZIO[R, Response, Response]],
   ): ZIO[R, Nothing, Unit] =
     for {
-      r                <- ZIO.environment[R]
-      previousBehavior <- behavior.get
+      r <- ZIO.environment[R]
       newBehavior = handler.andThen(_.provideEnvironment(r))
-      _ <- behavior.set(previousBehavior.orElse(newBehavior))
+      _ <- behavior.update(_.orElse(newBehavior))
     } yield ()
 
   def headers: Headers = Headers.empty
@@ -86,19 +91,27 @@ final case class TestClient(
     headers: Headers,
     body: Body,
     sslConfig: Option[zio.http.ClientSSLConfig],
-  )(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+    val notFound: PartialFunction[Request, ZIO[Any, Response, Response]] = { case _: Request =>
+      ZIO.succeed(Response.notFound)
+    }
+
     for {
-      currentBehavior <- behavior.get
+      currentBehavior <- behavior.get.map(_.orElse(notFound))
       request = Request(
         body = body,
         headers = headers,
-        method = method,
+        method = if (method == Method.ANY) Method.GET else method,
         url = url.relative,
         version = version,
         remoteAddress = None,
       )
+      _        <- ZIO.when(!currentBehavior.isDefinedAt(request)) {
+        ZIO.fail(new Throwable(s"TestClient does not have a handler for $request"))
+      }
       response <- currentBehavior(request).merge
     } yield response
+  }
 
   def socket[Env1](
     version: Version,
