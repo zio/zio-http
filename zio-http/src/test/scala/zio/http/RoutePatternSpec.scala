@@ -141,6 +141,19 @@ object RoutePatternSpec extends ZIOSpecDefault {
 
         assertTrue(tree.get(Method.GET, Path("/users/123")).contains(1))
       },
+      test("more specific beats less specific") {
+        var tree: Tree[Int] = RoutePattern.Tree.empty
+
+        val pattern1 = Method.ANY / "users"
+        val pattern2 = Method.OPTIONS / "users"
+        val pattern3 = Method.ANY / "users"
+
+        tree = tree.add(pattern1, 1)
+        tree = tree.add(pattern2, 2)
+        tree = tree.add(pattern3, 3)
+
+        assertTrue(tree.get(Method.OPTIONS, Path("/users")) == Chunk(2, 1, 3))
+      },
       test("multiple routes") {
         var tree: Tree[Unit] = RoutePattern.Tree.empty
 

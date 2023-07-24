@@ -82,7 +82,7 @@ object StaticServerSpec extends HttpRunnableSpec {
   )
 
   override def spec =
-    suite("Server") {
+    suite("StaticServerSpec") {
       app
         .as(
           List(staticAppSpec, nonZIOSpec, throwableAppSpec, multiHeadersSpec),

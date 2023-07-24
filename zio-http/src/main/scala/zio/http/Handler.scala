@@ -364,8 +364,14 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def mapError[Err1](f: Err => Err1)(implicit trace: Trace): Handler[R, Err1, In, Out] =
     self.foldHandler(err => Handler.fail(f(err)), Handler.succeed(_))
 
+  /**
+   * Transforms all failures except pure interruption.
+   */
   final def mapErrorCause[Err2](f: Cause[Err] => Err2)(implicit trace: Trace): Handler[R, Err2, In, Out] =
-    self.foldCauseHandler(err => Handler.fail(f(err)), Handler.succeed(_))
+    self.foldCauseHandler(
+      err => if (err.isInterruptedOnly) Handler.failCause(err.asInstanceOf[Cause[Nothing]]) else Handler.fail(f(err)),
+      Handler.succeed(_),
+    )
 
   /**
    * Transforms the output of the handler effectfully

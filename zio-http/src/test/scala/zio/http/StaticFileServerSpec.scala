@@ -82,7 +82,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           val tmpFile = File.createTempFile("test", "txt")
           tmpFile.setReadable(false)
           val res     = Handler.fromFile(tmpFile).sandbox.toHttpApp.deploy.run().map(_.status)
-          assertZIO(res)(equalTo(Status.InternalServerError))
+          assertZIO(res)(equalTo(Status.Forbidden))
         } @@ unix,
       ),
       suite("invalid file")(
