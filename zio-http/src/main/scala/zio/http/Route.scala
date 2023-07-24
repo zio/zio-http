@@ -136,19 +136,19 @@ object Route                   {
     Route.Handled(routePattern, handler.sandbox, Trace.empty)
   }
 
-  def handled[Params, Env](rpm: RoutePatternMiddleware[Env, Params]): HandledConstructor[Env, Params] =
+  def handled[Params, Env](rpm: Route.Builder[Env, Params]): HandledConstructor[Env, Params] =
     new HandledConstructor[Env, Params](rpm)
 
   val notFound: Route[Any, Nothing] =
     Handled(RoutePattern.any, Handler.notFound, Trace.empty)
 
   def route[Params](routePattern: RoutePattern[Params]): UnhandledConstructor[Any, Params] =
-    route(RoutePatternMiddleware(routePattern, Middleware.identity))
+    route(Route.Builder(routePattern, Middleware.identity))
 
-  def route[Params, Env](rpm: RoutePatternMiddleware[Env, Params]): UnhandledConstructor[Env, Params] =
+  def route[Params, Env](rpm: Route.Builder[Env, Params]): UnhandledConstructor[Env, Params] =
     new UnhandledConstructor[Env, Params](rpm)
 
-  final class HandledConstructor[-Env, Params](val rpm: RoutePatternMiddleware[Env, Params]) extends AnyVal {
+  final class HandledConstructor[-Env, Params](val rpm: Route.Builder[Env, Params]) extends AnyVal {
     def apply[Env1 <: Env, In](
       handler: Handler[Env1, Response, In, Response],
     )(implicit zippable: Zippable.Out[Params, Request, In], trace: Trace): Route[Env1, Nothing] = {
@@ -172,11 +172,55 @@ object Route                   {
     }
   }
 
-  final class UnhandledConstructor[-Env, Params](val rpm: RoutePatternMiddleware[Env, Params]) extends AnyVal {
+  final class UnhandledConstructor[-Env, Params](val rpm: Route.Builder[Env, Params]) extends AnyVal {
     def apply[Env1 <: Env, Err, Input](
       handler: Handler[Env1, Err, Input, Response],
     )(implicit zippable: Zippable.Out[Params, Request, Input], trace: Trace): Route[Env1, Err] =
       Unhandled(rpm, handler, zippable, trace)
+  }
+
+  /**
+   * A combination of a route pattern and middleware, used for building routes
+   * that depend on middleware context (such as authentication).
+   */
+  sealed abstract class Builder[-Env, A] { self =>
+    type PathInput
+    type Context
+
+    def routePattern: RoutePattern[PathInput]
+    def middleware: Middleware[Env, Context]
+    def zippable: Zippable.Out[PathInput, Context, A]
+
+    /**
+     * Constructs a route from this route pattern and middleware.
+     */
+    def ->[Env1 <: Env, Err, I](handler: Handler[Env1, Err, I, Response])(implicit
+      input: RequestHandlerInput[A, I],
+      trace: Trace,
+    ): Route[Env1, Err] = {
+      implicit val z = input.zippable
+
+      Route.route[A, Env1](self)(handler)
+    }
+
+    def provideEnvironment(env: ZEnvironment[Env]): Route.Builder[Any, A] = {
+      implicit val z = zippable
+
+      Route.Builder(routePattern, middleware.provideEnvironment(env))
+    }
+  }
+  object Builder                         {
+    def apply[Env, PI, MC, Out](rp: RoutePattern[PI], mc: Middleware[Env, MC])(implicit
+      z: Zippable.Out[PI, MC, Out],
+    ): Route.Builder[Env, Out] =
+      new Route.Builder[Env, Out] {
+        type PathInput = PI
+        type Context   = MC
+
+        def routePattern: RoutePattern[PathInput]           = rp
+        def middleware: Middleware[Env, Context]            = mc
+        def zippable: Zippable.Out[PathInput, Context, Out] = z
+      }
   }
 
   private final case class Provided[Env, +Err](
@@ -218,7 +262,7 @@ object Route                   {
     override def toString() = s"Route.Handled(${routePattern}, ${location})"
   }
   private final case class Unhandled[Params, Input, -Env, +Err](
-    rpm: RoutePatternMiddleware[Env, Params],
+    rpm: Route.Builder[Env, Params],
     handler: Handler[Env, Err, Input, Response],
     zippable: Zippable.Out[Params, Request, Input],
     location: Trace,
