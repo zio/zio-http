@@ -32,7 +32,7 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
   /**
    * Applies the specified route aspect to every route in the HTTP application.
    */
-  def @@[Env1 <: Env](aspect: RoutesAspect[Env1]): HttpApp[Env1] =
+  def @@[Env1 <: Env](aspect: Middleware[Env1]): HttpApp[Env1] =
     copy(routes = routes @@ aspect)
 
   /**
@@ -85,7 +85,7 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
    * specified duration elapses.
    */
   def timeout(duration: Duration): HttpApp[Env] =
-    self @@ RoutesAspect.timeout(duration)
+    self @@ Middleware.timeout(duration)
 
   /**
    * Converts the HTTP application into a request handler.

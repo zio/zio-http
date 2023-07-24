@@ -22,7 +22,7 @@ import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
 import zio.{Exit, Scope, ZIO, durationInt}
 
 import zio.http.Header.AccessControlAllowMethods
-import zio.http.RoutesAspect.{CorsConfig, cors}
+import zio.http.Middleware.{CorsConfig, cors}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLayer, testClientLayer}
 
 object StaticServerSpec extends HttpRunnableSpec {

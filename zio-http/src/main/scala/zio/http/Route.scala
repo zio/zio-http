@@ -35,7 +35,7 @@ sealed trait Route[-Env, +Err] { self =>
   import Route.{Augmented, Handled, Provided, Unhandled}
 
   /**
-   * Augments this route with the specified middleware.
+   * Augments this route with the specified aspect.
    */
   def @@[Env1 <: Env](
     aspect: Handler[Env1, Response, Request, Response] => Handler[Env1, Response, Request, Response],
@@ -88,8 +88,8 @@ sealed trait Route[-Env, +Err] { self =>
               }
             }
 
-          // Sandbox before applying middleware:
-          rpm.middleware.applyHandlerContext(paramHandler.mapErrorCause(f))
+          // Sandbox before applying aspect:
+          rpm.aspect.applyHandlerContext(paramHandler.mapErrorCause(f))
         }
 
         Handled(rpm.routePattern, handler2, location)
@@ -143,7 +143,7 @@ object Route                   {
     Handled(RoutePattern.any, Handler.notFound, Trace.empty)
 
   def route[Params](routePattern: RoutePattern[Params]): UnhandledConstructor[Any, Params] =
-    route(Route.Builder(routePattern, Middleware.identity))
+    route(Route.Builder(routePattern, HandlerAspect.identity))
 
   def route[Params, Env](rpm: Route.Builder[Env, Params]): UnhandledConstructor[Env, Params] =
     new UnhandledConstructor[Env, Params](rpm)
@@ -164,8 +164,8 @@ object Route                   {
             }
           }
 
-        // Sandbox before applying middleware:
-        rpm.middleware.applyHandlerContext(paramHandler.sandbox)
+        // Sandbox before applying aspect:
+        rpm.aspect.applyHandlerContext(paramHandler.sandbox)
       }
 
       Handled(rpm.routePattern, handler2, trace)
@@ -180,19 +180,19 @@ object Route                   {
   }
 
   /**
-   * A combination of a route pattern and middleware, used for building routes
-   * that depend on middleware context (such as authentication).
+   * A combination of a route pattern and aspect, used for building routes that
+   * depend on aspect context (such as authentication).
    */
   sealed abstract class Builder[-Env, A] { self =>
     type PathInput
     type Context
 
     def routePattern: RoutePattern[PathInput]
-    def middleware: Middleware[Env, Context]
+    def aspect: HandlerAspect[Env, Context]
     def zippable: Zippable.Out[PathInput, Context, A]
 
     /**
-     * Constructs a route from this route pattern and middleware.
+     * Constructs a route from this route pattern and aspect.
      */
     def ->[Env1 <: Env, Err, I](handler: Handler[Env1, Err, I, Response])(implicit
       input: RequestHandlerInput[A, I],
@@ -206,11 +206,11 @@ object Route                   {
     def provideEnvironment(env: ZEnvironment[Env]): Route.Builder[Any, A] = {
       implicit val z = zippable
 
-      Route.Builder(routePattern, middleware.provideEnvironment(env))
+      Route.Builder(routePattern, aspect.provideEnvironment(env))
     }
   }
   object Builder                         {
-    def apply[Env, PI, MC, Out](rp: RoutePattern[PI], mc: Middleware[Env, MC])(implicit
+    def apply[Env, PI, MC, Out](rp: RoutePattern[PI], mc: HandlerAspect[Env, MC])(implicit
       z: Zippable.Out[PI, MC, Out],
     ): Route.Builder[Env, Out] =
       new Route.Builder[Env, Out] {
@@ -218,7 +218,7 @@ object Route                   {
         type Context   = MC
 
         def routePattern: RoutePattern[PathInput]           = rp
-        def middleware: Middleware[Env, Context]            = mc
+        def aspect: HandlerAspect[Env, Context]             = mc
         def zippable: Zippable.Out[PathInput, Context, Out] = z
       }
   }

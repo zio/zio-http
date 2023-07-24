@@ -53,7 +53,7 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
   def +:[Env1 <: Env, Err1 >: Err](route: zio.http.Route[Env1, Err1]): Routes[Env1, Err1] =
     new Routes(route +: routes)
 
-  def @@[Env1 <: Env](aspect: RoutesAspect[Env1]): Routes[Env1, Err] =
+  def @@[Env1 <: Env](aspect: Middleware[Env1]): Routes[Env1, Err] =
     aspect(self)
 
   def asEnvType[Env2](implicit ev: Env2 <:< Env): Routes[Env2, Err] =
@@ -95,7 +95,7 @@ final class Routes[-Env, +Err] private (val routes: Chunk[zio.http.Route[Env, Er
    * duration.
    */
   def timeout(duration: Duration): Routes[Env, Err] =
-    self @@ RoutesAspect.timeout(duration)
+    self @@ Middleware.timeout(duration)
 
   /**
    * Converts the routes into an app, which can be done only when errors are

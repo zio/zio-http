@@ -106,11 +106,11 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("race")(
       test("achieved") {
-        val program = runApp(self.app @@ RoutesAspect.timeout(5 seconds)).map(_.status)
+        val program = runApp(self.app @@ Middleware.timeout(5 seconds)).map(_.status)
         assertZIO(program)(equalTo(Status.Ok))
       },
       test("un-achieved") {
-        val program = runApp(self.app @@ RoutesAspect.timeout(500 millis)).map(_.status)
+        val program = runApp(self.app @@ Middleware.timeout(500 millis)).map(_.status)
         assertZIO(program)(equalTo(Status.RequestTimeout))
       },
     ),

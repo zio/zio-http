@@ -25,7 +25,7 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
     // print debug info about request and response
     Middleware.debug ++
       // close connection if request takes more than 3 seconds
-      RoutesAspect.timeout(3 seconds) ++
+      Middleware.timeout(3 seconds) ++
       // add static header
       Middleware.addHeader("X-Environment", "Dev") ++
       // add dynamic header

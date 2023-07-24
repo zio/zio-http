@@ -52,8 +52,8 @@ sealed trait EndpointMiddleware { self =>
 
   def implement[R, S](incoming: In => ZIO[R, Err, S])(
     outgoing: S => ZIO[R, Err, Out],
-  ): Middleware[R, S] =
-    Middleware.interceptHandlerStateful(
+  ): HandlerAspect[R, S] =
+    HandlerAspect.interceptHandlerStateful(
       Handler.fromFunctionZIO[Request] { request =>
         input.decodeRequest(request).orDie.flatMap { in =>
           incoming(in).catchAll(e => ZIO.fail(error.encodeResponse(e))).map((s: S) => (s, (request, s)))

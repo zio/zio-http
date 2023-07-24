@@ -62,7 +62,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
     zippable: RequestHandlerInput[A, I],
     trace: zio.Trace,
   ): Route[Env, Err] =
-    Route.route(Route.Builder(self, Middleware.identity))(handler)(zippable.zippable, trace)
+    Route.route(Route.Builder(self, HandlerAspect.identity))(handler)(zippable.zippable, trace)
 
   /**
    * Creates a route from this pattern and the specified handler, which ignores
@@ -79,7 +79,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    * Combines this route pattern with the specified middleware, which can be
    * used to build a route by providing a handler.
    */
-  def ->[Env, Context](middleware: Middleware[Env, Context])(implicit
+  def ->[Env, Context](middleware: HandlerAspect[Env, Context])(implicit
     zippable: Zippable[A, Context],
   ): Route.Builder[Env, zippable.Out] =
     Route.Builder(self, middleware)(zippable)

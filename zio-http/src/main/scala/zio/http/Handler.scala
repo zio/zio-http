@@ -31,7 +31,7 @@ import java.util.zip.ZipFile
 
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
-  def @@[Env1 <: R, Ctx, In1 <: In](middleware: Middleware[Env1, Unit])(implicit
+  def @@[Env1 <: R, Ctx, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
     in: In1 <:< Request,
     out: Out <:< Response,
     err: Err <:< Response,
@@ -39,17 +39,17 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, Request, Response] =
       handler.asInstanceOf[Handler[R, Response, Request, Response]]
 
-    middleware.applyHandler(convert(self))
+    aspect.applyHandler(convert(self))
   }
 
-  def @@[Env1 <: R, Ctx, In1 <: In](middleware: Middleware[Env1, Ctx])(implicit
+  def @@[Env1 <: R, Ctx, In1 <: In](aspect: HandlerAspect[Env1, Ctx])(implicit
     zippable: Zippable.Out[Ctx, Request, In1],
     res: Out <:< Response,
   ): Handler[Env1, Response, Request, Response] = {
     def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, In1, Response] =
       handler.asInstanceOf[Handler[R, Response, In1, Response]]
 
-    middleware.applyHandlerContext(Handler.fromFunction[(Ctx, Request)] { case (ctx, req) =>
+    aspect.applyHandlerContext(Handler.fromFunction[(Ctx, Request)] { case (ctx, req) =>
       zippable.zip(ctx, req)
     } >>> convert(self))
   }
