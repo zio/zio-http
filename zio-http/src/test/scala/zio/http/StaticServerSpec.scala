@@ -45,7 +45,9 @@ object StaticServerSpec extends HttpRunnableSpec {
     Method.GET / "success-cors" -> handler(Response.ok.addHeader(Header.Vary("test1", "test2"))),
   ).toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
 
-  private val app = serve { nonZIO ++ staticApp ++ staticAppWithCors }
+  private val combined = nonZIO ++ staticApp ++ staticAppWithCors
+
+  private val app = serve { combined }
 
   private val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
     List(

@@ -185,7 +185,46 @@ final case class Middleware[-Env, +CtxOut](
   def whenZIO[Env1 <: Env](condition: Request => ZIO[Env1, Response, Boolean]): Middleware[Env1, Unit] =
     Middleware.whenZIO(condition)(self.unit)
 }
-object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]] {
+object Middleware extends Middlewares {
+
+  final class InterceptPatch[State](val fromRequest: Request => State) extends AnyVal {
+    def apply(result: (Response, State) => Response.Patch): Middleware[Any, Unit] =
+      Middleware.interceptHandlerStateful(
+        Handler.fromFunction[Request] { request =>
+          val state = fromRequest(request)
+          (state, (request, ()))
+        },
+      )(
+        Handler.fromFunction[(State, Response)] { case (state, response) => response.patch(result(response, state)) },
+      )
+  }
+
+  final class InterceptPatchZIO[Env, State](val fromRequest: Request => ZIO[Env, Response, State]) extends AnyVal {
+    def apply(result: (Response, State) => ZIO[Env, Response, Response.Patch]): Middleware[Env, Unit] =
+      Middleware.interceptHandlerStateful(
+        Handler.fromFunctionZIO[Request] { request =>
+          fromRequest(request).map((_, (request, ())))
+        },
+      )(
+        Handler.fromFunctionZIO[(State, Response)] { case (state, response) =>
+          result(response, state).map(response.patch(_)).merge
+        },
+      )
+  }
+
+  final class Allow(val unit: Unit) extends AnyVal {
+    def apply(condition: Request => Boolean): Middleware[Any, Unit] =
+      Middleware.ifRequestThenElse(condition)(ifFalse = fail(Response.status(Status.Forbidden)), ifTrue = identity)
+  }
+
+  final class AllowZIO(val unit: Unit) extends AnyVal {
+    def apply[Env](
+      condition: Request => ZIO[Env, Response, Boolean],
+    ): Middleware[Env, Unit] =
+      Middleware.ifRequestThenElseZIO(condition)(ifFalse = fail(Response.status(Status.Forbidden)), ifTrue = identity)
+  }
+}
+private[http] trait Middlewares extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]] {
 
   /**
    * Sets a cookie in the response headers
@@ -205,13 +244,13 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
    * Creates a middleware which can allow or disallow access to an http based on
    * the predicate
    */
-  def allow: Allow = new Allow(())
+  def allow: Middleware.Allow = new Middleware.Allow(())
 
   /**
    * Creates a middleware which can allow or disallow access to an http based on
    * the effectful predicate.
    */
-  def allowZIO: AllowZIO = new AllowZIO(())
+  def allowZIO: Middleware.AllowZIO = new Middleware.AllowZIO(())
 
   /**
    * Creates a middleware for basic authentication
@@ -528,13 +567,14 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
   /**
    * Creates a new middleware using transformation functions
    */
-  def interceptPatch[S](fromRequest: Request => S): InterceptPatch[S] = new InterceptPatch[S](fromRequest)
+  def interceptPatch[S](fromRequest: Request => S): Middleware.InterceptPatch[S] =
+    new Middleware.InterceptPatch[S](fromRequest)
 
   /**
    * Creates a new middleware using effectful transformation functions
    */
-  def interceptPatchZIO[Env, S](fromRequest: Request => ZIO[Env, Response, S]): InterceptPatchZIO[Env, S] =
-    new InterceptPatchZIO[Env, S](fromRequest)
+  def interceptPatchZIO[Env, S](fromRequest: Request => ZIO[Env, Response, S]): Middleware.InterceptPatchZIO[Env, S] =
+    new Middleware.InterceptPatchZIO[Env, S](fromRequest)
 
   /**
    * Creates middleware that will track metrics.
@@ -858,43 +898,6 @@ object Middleware extends zio.http.internal.HeaderModifier[Middleware[Any, Unit]
     middleware: Middleware[Env, Unit],
   ): Middleware[Env, Unit] =
     ifRequestThenElseZIO(condition)(ifFalse = identity, ifTrue = middleware)
-
-  final class InterceptPatch[State](val fromRequest: Request => State) extends AnyVal {
-    def apply(result: (Response, State) => Response.Patch): Middleware[Any, Unit] =
-      Middleware.interceptHandlerStateful(
-        Handler.fromFunction[Request] { request =>
-          val state = fromRequest(request)
-          (state, (request, ()))
-        },
-      )(
-        Handler.fromFunction[(State, Response)] { case (state, response) => response.patch(result(response, state)) },
-      )
-  }
-
-  final class InterceptPatchZIO[Env, State](val fromRequest: Request => ZIO[Env, Response, State]) extends AnyVal {
-    def apply(result: (Response, State) => ZIO[Env, Response, Response.Patch]): Middleware[Env, Unit] =
-      Middleware.interceptHandlerStateful(
-        Handler.fromFunctionZIO[Request] { request =>
-          fromRequest(request).map((_, (request, ())))
-        },
-      )(
-        Handler.fromFunctionZIO[(State, Response)] { case (state, response) =>
-          result(response, state).map(response.patch(_)).merge
-        },
-      )
-  }
-
-  final class Allow(val unit: Unit) extends AnyVal {
-    def apply(condition: Request => Boolean): Middleware[Any, Unit] =
-      Middleware.ifRequestThenElse(condition)(ifFalse = fail(Response.status(Status.Forbidden)), ifTrue = identity)
-  }
-
-  final class AllowZIO(val unit: Unit) extends AnyVal {
-    def apply[Env](
-      condition: Request => ZIO[Env, Response, Boolean],
-    ): Middleware[Env, Unit] =
-      Middleware.ifRequestThenElseZIO(condition)(ifFalse = fail(Response.status(Status.Forbidden)), ifTrue = identity)
-  }
 
   private def replaceErrorResponse(request: Request, response: Response): Response = {
     def htmlResponse: Body = {

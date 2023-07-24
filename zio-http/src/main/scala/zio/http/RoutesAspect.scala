@@ -147,9 +147,12 @@ object RoutesAspect           {
                   headers = corsHeaders(allowOrigin, acrhHeader, isPreflight = true),
                 )
 
-              case _ => Response.notFound
+              case _ =>
+                println(s"cors: not found: $origin, $acrm, $request")
+                Response.notFound
             }
           case _                          =>
+            println(s"cors: not found: $request")
             Response.notFound
         }
       }

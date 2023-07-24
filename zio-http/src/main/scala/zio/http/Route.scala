@@ -19,7 +19,7 @@ import zio._
 
 import zio.http.Route.Provided
 
-/**
+/*
  * Represents a single route, which has either handled its errors by converting
  * them into responses, or which has polymorphic errors, which must later be
  * converted into responses before the route can be executed.
@@ -29,7 +29,7 @@ import zio.http.Route.Provided
  * into responses that can be delivered to clients. Thus, the handlers returned
  * by `toHandler` will never fail, and will always produce a valid response.
  *
- * Individual routes can be aggregated using [[ziop.http.Routes]].
+ * Individual routes can be aggregated using [[zio.http.Routes]].
  */
 sealed trait Route[-Env, +Err] { self =>
   import Route.{Augmented, Handled, Provided, Unhandled}
