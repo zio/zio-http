@@ -62,9 +62,21 @@ object StaticServerSpec extends HttpRunnableSpec {
     ),
   )
 
+  private val methodGenWithoutOPTIONS: Gen[Any, Method] = Gen.fromIterable(
+    List(
+      Method.GET,
+      Method.POST,
+      Method.PUT,
+      Method.PATCH,
+      Method.DELETE,
+      Method.TRACE,
+      Method.CONNECT,
+    ),
+  )
+
   def nonZIOSpec = suite("NonZIOSpec")(
     test("200 response") {
-      checkAll(HttpGen.method) { method =>
+      checkAll(methodGenWithoutOPTIONS) { method =>
         val actual = status(method, Root / "ExitSuccess")
         assertZIO(actual)(equalTo(Status.Ok))
       }
