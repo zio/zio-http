@@ -41,6 +41,11 @@ trait Channel[-In, +Out] { self =>
   def send(in: In): Task[Unit]
 
   /**
+   * Send all messages to the channel.
+   */
+  def sendAll(in: Iterable[In]): Task[Unit]
+
+  /**
    * Shut down the channel.
    */
   def shutdown: UIO[Unit]
@@ -57,6 +62,8 @@ trait Channel[-In, +Out] { self =>
         self.receive
       def send(in: In2): Task[Unit] =
         self.send(f(in))
+      def sendAll(in: Iterable[In2]): Task[Unit] =
+        self.sendAll(in.map(f))
       def shutdown: UIO[Unit]       =
         self.shutdown
     }
@@ -73,6 +80,8 @@ trait Channel[-In, +Out] { self =>
         self.receive.map(f)
       def send(in: In): Task[Unit] =
         self.send(in)
+      def sendAll(in: Iterable[In]): Task[Unit] =
+        self.sendAll(in)
       def shutdown: UIO[Unit]      =
         self.shutdown
     }
