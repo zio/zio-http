@@ -13,7 +13,7 @@ import zio.http.{Headers, Method, Scheme, Status, Version}
  *   Server
  */
 final case class TestClient(behavior: Ref[HttpApp[Any, Throwable]], serverSocketBehavior: Ref[SocketApp[Any]])
-    extends Client {
+    extends ZClient.Driver[Any, Throwable] {
 
   /**
    * Adds an exact 1-1 behavior
@@ -175,12 +175,13 @@ object TestClient {
   ): ZIO[TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
 
-  val layer: ZLayer[Any, Nothing, TestClient] =
-    ZLayer.scoped {
+  val layer: ZLayer[Any, Nothing, TestClient & Client] =
+    ZLayer.scopedEnvironment {
       for {
         behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
         socketBehavior <- Ref.make[SocketApp[Any]](Handler.unit)
-      } yield TestClient(behavior, socketBehavior)
+        driver = TestClient(behavior, socketBehavior)
+      } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
     }
 
 }

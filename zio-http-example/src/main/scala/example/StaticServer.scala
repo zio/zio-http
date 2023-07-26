@@ -18,7 +18,7 @@ object StaticServer extends ZIOAppDefault {
             // Accessing the files in the directory
             val files = file.listFiles.toList.sortBy(_.getName)
             val base  = "/static/"
-            val rest  = path.dropLast(1)
+            val rest  = path.dropRight(1)
 
             // Custom UI to list all the files in the directory
             Handler.template(s"File Explorer ~$base${path}") {

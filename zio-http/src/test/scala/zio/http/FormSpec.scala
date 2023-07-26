@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets
 import scala.annotation.nowarn
 
 import zio._
+import zio.test.Assertion._
 import zio.test._
 
 import zio.stream.{ZStream, ZStreamAspect}
@@ -29,6 +30,7 @@ import zio.http.Header.ContentTransferEncoding
 import zio.http.forms.Fixtures._
 
 object FormSpec extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
 
   val urlEncodedSuite =
     suite("application/x-www-form-urlencoded ")(
@@ -91,23 +93,21 @@ object FormSpec extends ZIOSpecDefault {
         encoding = form.multipartBytes(boundary)
         bytes <- encoding.runCollect
         (text: FormField.Text) :: (image1: FormField.Binary) :: (image2: FormField.Binary) :: Nil = form.formData.toList
-      } yield assertTrue(
-        bytes == multipartFormBytes1,
-        form.formData.size == 3,
-        text.name == "submit-name",
-        text.value == "Larry",
-        text.contentType == MediaType.text.plain,
-        text.filename.isEmpty,
-        image1.name == "files",
-        image1.data == Chunk[Byte](0x50, 0x4e, 0x47),
-        image1.contentType == MediaType.image.png,
-        image1.transferEncoding.isEmpty,
-        image1.filename.get == "file1.txt",
-        image2.name == "corgi",
-        image2.contentType == MediaType.image.png,
-        image2.transferEncoding.get == ContentTransferEncoding.Base64,
-        image2.data == Chunk.fromArray(base64Corgi.getBytes()),
-      )
+      } yield assert(bytes)(equalTo(multipartFormBytes1)) &&
+        assert(form.formData.size)(equalTo(3)) &&
+        assert(text.name)(equalTo("submit-name")) &&
+        assert(text.value)(equalTo("Larry")) &&
+        assert(text.contentType)(equalTo(MediaType.text.plain)) &&
+        assert(text.filename)(isNone) &&
+        assert(image1.name)(equalTo("files")) &&
+        assert(image1.data)(equalTo(Chunk[Byte](0x50, 0x4e, 0x47))) &&
+        assert(image1.contentType)(equalTo(MediaType.image.png)) &&
+        assert(image1.transferEncoding)(isNone) &&
+        assert(image1.filename)(isSome(equalTo("file1.txt"))) &&
+        assert(image2.name)(equalTo("corgi")) &&
+        assert(image2.contentType)(equalTo(MediaType.image.png)) &&
+        assert(image2.transferEncoding)(isSome(equalTo(ContentTransferEncoding.Base64))) &&
+        assert(image2.data)(equalTo(Chunk.fromArray(base64Corgi.getBytes())))
     },
     test("decoding 2") {
       Form.fromMultipartBytes(multipartFormBytes3).map { form =>
@@ -174,22 +174,20 @@ object FormSpec extends ZIOSpecDefault {
           .map { formData =>
             val (text: FormField.Text) :: (image1: FormField.Binary) :: (image2: FormField.Binary) :: Nil =
               formData.toList
-            assertTrue(
-              formData.size == 3,
-              text.name == "submit-name",
-              text.value == "Larry",
-              text.contentType == MediaType.text.plain,
-              text.filename.isEmpty,
-              image1.name == "files",
-              image1.data == Chunk[Byte](0x50, 0x4e, 0x47),
-              image1.contentType == MediaType.image.png,
-              image1.transferEncoding.isEmpty,
-              image1.filename.get == "file1.txt",
-              image2.name == "corgi",
-              image2.contentType == MediaType.image.png,
-              image2.transferEncoding.get == ContentTransferEncoding.Base64,
-              image2.data == Chunk.fromArray(base64Corgi.getBytes()),
-            )
+            assert(formData.size)(equalTo(3)) &&
+            assert(text.name)(equalTo("submit-name")) &&
+            assert(text.value)(equalTo("Larry")) &&
+            assert(text.contentType)(equalTo(MediaType.text.plain)) &&
+            assert(text.filename)(isNone) &&
+            assert(image1.name)(equalTo("files")) &&
+            assert(image1.data)(equalTo(Chunk[Byte](0x50, 0x4e, 0x47))) &&
+            assert(image1.contentType)(equalTo(MediaType.image.png)) &&
+            assert(image1.transferEncoding)(isNone) &&
+            assert(image1.filename)(isSome(equalTo("file1.txt"))) &&
+            assert(image2.name)(equalTo("corgi")) &&
+            assert(image2.contentType)(equalTo(MediaType.image.png)) &&
+            assert(image2.transferEncoding)(isSome(equalTo(ContentTransferEncoding.Base64))) &&
+            assert(image2.data)(equalTo(Chunk.fromArray(base64Corgi.getBytes())))
           }
       },
       test("decoding 2") {

@@ -3,7 +3,7 @@ const sidebars = {
     {
       type: "category",
       label: "ZIO Http",
-      collapsed: false,
+      collapsed: true,
       link: { type: "doc", id: "index" },
       items: [
         "setup",

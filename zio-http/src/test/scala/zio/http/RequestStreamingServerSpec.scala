@@ -25,6 +25,7 @@ import zio.http.ServerSpec.requestBodySpec
 import zio.http.internal.{DynamicServer, HttpRunnableSpec}
 
 object RequestStreamingServerSpec extends HttpRunnableSpec {
+  def extractStatus(res: Response): Status = res.status
 
   private val configAppWithRequestStreaming =
     Server.Config.default
@@ -73,7 +74,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
             Handler.fromZIO {
               val host       = req.headers.get(Header.Host).get
               val newRequest =
-                req.copy(url = req.url.withPath("/2").withHost(host.hostAddress).withPort(host.port.getOrElse(80)))
+                req.copy(url = req.url.path("/2").host(host.hostAddress).port(host.port.getOrElse(80)))
               ZIO.debug(s"#1: got response, forwarding") *>
                 ZIO.serviceWithZIO[Client] { client =>
                   client.request(newRequest)
@@ -100,7 +101,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
             res       <- app.deploy.run(method = Method.POST, path = Root / "1", body = Body.fromChunk(testBytes))
             str       <- res.body.asString
           } yield assertTrue(
-            res.status.isSuccess,
+            extractStatus(res).isSuccess,
             str == testBytes.length.toString,
           )
         }

@@ -137,13 +137,13 @@ ZIO-HTTP provides a simple way to add headers to a client `Request`.
 
 ```scala mdoc:silent
 val headers = Headers(Header.Host("sports.api.decathlon.com"), Header.Accept(MediaType.application.json))
-Client.request("http://sports.api.decathlon.com/test", headers = headers)
+Client.request(Request.get("http://sports.api.decathlon.com/test").addHeaders(headers))
 ```
 
 ### Reading headers from `Response`
 
 ```scala mdoc:silent
-Client.request("http://sports.api.decathlon.com/test").map(_.headers)
+Client.request(Request.get("http://sports.api.decathlon.com/test")).map(_.headers)
 ```
 
 <details>
@@ -162,7 +162,7 @@ object SimpleClientJson extends ZIOAppDefault {
 
   val program = for {
     // Pass headers to request
-    res <- Client.request(url, headers = headers)
+    res <- Client.request(Request.get(url).addHeaders(headers))
     // List all response headers
     _ <- Console.printLine(res.headers.toList.mkString("\n"))
     data <-
@@ -175,7 +175,7 @@ object SimpleClientJson extends ZIOAppDefault {
   } yield ()
 
   override def run =
-    program.provide(Client.default)
+    program.provide(Client.default, Scope.default)
 
 }
 ```

@@ -65,7 +65,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
 
     if (r.frozen != self.frozen) return false
 
-    if (r.serverTime != self.serverTime) return false
+    if (r.addServerTime != self.addServerTime) return false
 
     if (r.socketApp != self.socketApp) return false
 
@@ -85,7 +85,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
     result = prime * result + headers.hashCode
     result = prime * result + status.hashCode
     result = prime * result + frozen.hashCode
-    result = prime * result + serverTime.hashCode
+    result = prime * result + addServerTime.hashCode
     result = prime * result + socketApp.hashCode
     result
   }
@@ -108,12 +108,12 @@ sealed trait Response extends HeaderOps[Response] { self =>
 
   final def patch(p: Response.Patch): Response = p.apply(self)
 
-  private[zio] def serverTime: Boolean = false
+  private[zio] def addServerTime: Boolean = false
 
   /**
    * Sets the status of the response
    */
-  final def withStatus(status: Status): Response =
+  final def status(status: Status): Response =
     self.copy(status = status)
 
   private[zio] final def socketApp: Option[SocketApp[Any]] = self match {
@@ -128,7 +128,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
    */
   final def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.response(self)
 
-  def withServerTime: Response
+  def serverTime: Response
 }
 
 object Response {
@@ -138,7 +138,7 @@ object Response {
 
     override def frozen: Boolean = parent.frozen
 
-    override def serverTime: Boolean = parent.serverTime
+    override def addServerTime: Boolean = parent.addServerTime
   }
 
   object GetApp {
@@ -178,13 +178,15 @@ object Response {
 
     }
 
+    override def toString(): String = s"Response(status = $status, headers = $headers, body = $body)"
+
     override def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
-    override def withServerTime: Response = new BasicResponse(body, headers, status) with InternalState {
+    override def serverTime: Response = new BasicResponse(body, headers, status) with InternalState {
 
       override val parent: Response = self
 
-      override def serverTime: Boolean = true
+      override def addServerTime: Boolean = true
     }
 
   }
@@ -209,14 +211,17 @@ object Response {
 
     }
 
+    override final def toString(): String =
+      s"SocketAppResponse(status = $status, headers = $headers, body = $body, socketApp = $socketApp0)"
+
     override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
-    override final def withServerTime: Response = new SocketAppResponse(body, headers, socketApp0, status)
+    override final def serverTime: Response = new SocketAppResponse(body, headers, socketApp0, status)
       with InternalState {
 
       override val parent: Response = self
 
-      override def serverTime: Boolean = true
+      override def addServerTime: Boolean = true
     }
 
   }
@@ -234,14 +239,16 @@ object Response {
       override def frozen: Boolean  = true
     }
 
+    override def toString(): String =
+      s"ErrorResponse(status = $status, headers = $headers, body = $body, error = $httpError0)"
+
     override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
-    override final def withServerTime: Response = new ErrorResponse(body, headers, httpError0, status)
-      with InternalState {
+    override final def serverTime: Response = new ErrorResponse(body, headers, httpError0, status) with InternalState {
 
       override val parent: Response = self
 
-      override def serverTime: Boolean = true
+      override def addServerTime: Boolean = true
     }
   }
 
@@ -264,13 +271,15 @@ object Response {
       override def frozen: Boolean  = true
     }
 
+    override final def toString(): String =
+      s"NativeResponse(status = $status, headers = $headers, body = $body)"
+
     override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
 
-    override final def withServerTime: Response = new NativeResponse(body, headers, status, onClose)
-      with InternalState {
+    override final def serverTime: Response = new NativeResponse(body, headers, status, onClose) with InternalState {
       override val parent: Response = self
 
-      override def serverTime: Boolean = true
+      override def addServerTime: Boolean = true
     }
   }
 
@@ -287,7 +296,7 @@ object Response {
           case Patch.Empty                  => res
           case Patch.AddHeaders(headers)    => res.addHeaders(headers)
           case Patch.RemoveHeaders(headers) => res.removeHeaders(headers)
-          case Patch.SetStatus(status)      => res.withStatus(status)
+          case Patch.SetStatus(status)      => res.status(status)
           case Patch.Combine(self, other)   => loop(self(res), other)
           case Patch.UpdateHeaders(f)       => res.updateHeaders(f)
         }
@@ -316,7 +325,7 @@ object Response {
     def addHeader(name: CharSequence, value: CharSequence): Patch = addHeaders(Headers(name, value))
 
     def removeHeaders(headerTypes: Set[HeaderType]): Patch = RemoveHeaders(headerTypes.map(_.name))
-    def withStatus(status: Status): Patch                  = SetStatus(status)
+    def status(status: Status): Patch                      = SetStatus(status)
     def updateHeaders(f: Headers => Headers): Patch        = UpdateHeaders(f)
   }
 

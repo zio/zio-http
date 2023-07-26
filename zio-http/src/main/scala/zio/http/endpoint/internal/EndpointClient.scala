@@ -28,13 +28,13 @@ private[endpoint] final case class EndpointClient[I, E, O, M <: EndpointMiddlewa
 ) {
   def execute(client: Client, invocation: Invocation[I, E, O, M])(
     mi: invocation.middleware.In,
-  )(implicit alt: Alternator[E, invocation.middleware.Err], trace: Trace): ZIO[Any, alt.Out, O] = {
+  )(implicit alt: Alternator[E, invocation.middleware.Err], trace: Trace): ZIO[Scope, alt.Out, O] = {
     val request0 = endpoint.input.encodeRequest(invocation.input)
     val request  = request0.copy(url = endpointRoot ++ request0.url)
 
     val requestPatch = invocation.middleware.input.encodeRequestPatch(mi)
 
-    client.request(request.patch(requestPatch)).orDie.flatMap { response =>
+    client(request.patch(requestPatch)).orDie.flatMap { response =>
       if (response.status.isSuccess) {
         endpoint.output.decodeResponse(response).orDie
       } else {

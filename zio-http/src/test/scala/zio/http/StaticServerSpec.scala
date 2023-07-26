@@ -43,7 +43,7 @@ object StaticServerSpec extends HttpRunnableSpec {
   }
 
   private val staticAppWithCors = Http.collectZIO[Request] { case Method.GET -> Root / "success-cors" =>
-    ZIO.succeed(Response.ok.withHeader(Header.Vary("test1", "test2")))
+    ZIO.succeed(Response.ok.addHeader(Header.Vary("test1", "test2")))
   } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
 
   private val app = serve { (nonZIO ++ staticApp ++ staticAppWithCors).withDefaultErrorResponse }

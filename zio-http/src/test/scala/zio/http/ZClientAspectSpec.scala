@@ -23,6 +23,7 @@ import zio.{Chunk, Scope, ZIO, ZLayer}
 import zio.http.URL.Location
 
 object ZClientAspectSpec extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
 
   val app: App[Any] = Handler.fromFunction[Request] { _ => Response.text("hello") }.toHttp
 
@@ -35,10 +36,10 @@ object ZClientAspectSpec extends ZIOSpecDefault {
           client = baseClient.url(
             URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", port)),
           ) @@ ZClientAspect.debug
-          response <- client.get("/hello")
+          response <- client.request(Request.get(URL.empty / "hello"))
           output   <- TestConsole.output
         } yield assertTrue(
-          response.status == Status.Ok,
+          extractStatus(response) == Status.Ok,
           output.size == 1,
           output.head.startsWith(s"200 GET http://localhost:$port/hello"),
           output.head.endsWith("ms\n"),
@@ -52,16 +53,16 @@ object ZClientAspectSpec extends ZIOSpecDefault {
             .url(
               URL(Path.empty, Location.Absolute(Scheme.HTTP, "localhost", port)),
             )
-            .withDisabledStreaming @@ ZClientAspect.requestLogging(
+            .disableStreaming @@ ZClientAspect.requestLogging(
             loggedRequestHeaders = Set(Header.UserAgent),
             logResponseBody = true,
           )
-          response <- client.get("/hello")
+          response <- client.request(Request.get(URL.empty / "hello"))
           output   <- ZTestLogger.logOutput
           messages    = output.map(_.message())
           annotations = output.map(_.annotations)
         } yield assertTrue(
-          response.status == Status.Ok,
+          extractStatus(response) == Status.Ok,
           messages == Chunk("Http client request"),
           annotations.size == 1,
           (annotations.head - "duration_ms") ==
@@ -81,5 +82,6 @@ object ZClientAspectSpec extends ZIOSpecDefault {
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
       Server.live,
       Client.default,
+      Scope.default,
     ) @@ withLiveClock
 }

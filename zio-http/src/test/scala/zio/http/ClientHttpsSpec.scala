@@ -16,16 +16,13 @@
 
 package zio.http
 
-import zio.test.Assertion.{anything, equalTo, fails, isSubtype}
+import zio.test.Assertion.{anything, equalTo, fails, hasField}
 import zio.test.TestAspect.{ignore, timeout}
 import zio.test.{ZIOSpecDefault, assertZIO}
-import zio.{ZLayer, durationInt}
+import zio.{Scope, ZLayer, durationInt}
 
-import zio.http.Status
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
-
-import io.netty.handler.codec.DecoderException
 
 object ClientHttpsSpec extends ZIOSpecDefault {
 
@@ -34,19 +31,33 @@ object ClientHttpsSpec extends ZIOSpecDefault {
     trustStorePassword = "changeit",
   )
 
+  val waterAerobics =
+    URL.decode("https://sports.api.decathlon.com/groups/water-aerobics").toOption.get
+
+  val badRequest =
+    URL
+      .decode(
+        "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
+      )
+      .toOption
+      .get
+
+  val untrusted =
+    URL.decode("https://untrusted-root.badssl.com/").toOption.get
+
   override def spec = suite("Https Client request")(
     test("respond Ok") {
-      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
+      val actual = Client.request(Request.get(waterAerobics))
       assertZIO(actual)(anything)
     },
     test("respond Ok with sslConfig") {
-      val actual = Client.request("https://sports.api.decathlon.com/groups/water-aerobics")
+      val actual = Client.request(Request.get(waterAerobics))
       assertZIO(actual)(anything)
     },
     test("should respond as Bad Request") {
       val actual = Client
         .request(
-          "https://www.whatissslcertificate.com/google-has-made-the-list-of-untrusted-providers-of-digital-certificates/",
+          Request.get(badRequest),
         )
         .map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
@@ -54,10 +65,10 @@ object ClientHttpsSpec extends ZIOSpecDefault {
     test("should throw DecoderException for handshake failure") {
       val actual = Client
         .request(
-          "https://untrusted-root.badssl.com/",
+          Request.get(untrusted),
         )
         .exit
-      assertZIO(actual)(fails(isSubtype[DecoderException](anything)))
+      assertZIO(actual)(fails(hasField("class.simpleName", _.getClass.getSimpleName, equalTo("DecoderException"))))
     },
   ).provide(
     ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
@@ -65,6 +76,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
     NettyClientDriver.live,
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),
+    Scope.default,
   ) @@ timeout(
     30 seconds,
   ) @@ ignore

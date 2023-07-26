@@ -83,7 +83,7 @@ private[zio] final case class ServerInboundHandler(
         val exit =
           if (jReq.decoderResult().isFailure) {
             val throwable = jReq.decoderResult().cause()
-            app.runServerErrorOrNull(Cause.die(throwable)).as(defaultErrorResponse(null, Some(throwable)))
+            app.runServerErrorOrNull(Cause.die(throwable)).as(withDefaultErrorResponse(null, Some(throwable)))
           } else
             app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time))
@@ -104,7 +104,7 @@ private[zio] final case class ServerInboundHandler(
         val exit =
           if (jReq.decoderResult().isFailure) {
             val throwable = jReq.decoderResult().cause()
-            app.runServerErrorOrNull(Cause.die(throwable)).as(defaultErrorResponse(null, Some(throwable)))
+            app.runServerErrorOrNull(Cause.die(throwable)).as(withDefaultErrorResponse(null, Some(throwable)))
           } else
             app.runZIOOrNull(req)
         if (!attemptImmediateWrite(ctx, exit, time)) {
@@ -176,7 +176,7 @@ private[zio] final case class ServerInboundHandler(
         try {
           fastEncode(response, body.unsafeAsArray)
         } catch {
-          case NonFatal(e) => fastEncode(defaultErrorResponse(null, Some(e)).freeze, Array.emptyByteArray)
+          case NonFatal(e) => fastEncode(withDefaultErrorResponse(null, Some(e)).freeze, Array.emptyByteArray)
         }
       case _                      => false
     }
@@ -243,15 +243,15 @@ private[zio] final case class ServerInboundHandler(
       case nettyReq: FullHttpRequest =>
 //        println(s"Got ready http request")
         Request(
-          NettyBody.fromByteBuf(
+          body = NettyBody.fromByteBuf(
             nettyReq.content(),
             contentType,
           ),
-          headers,
-          Conversions.methodFromNetty(nettyReq.method()),
-          URL.decode(nettyReq.uri()).getOrElse(URL.empty),
-          protocolVersion,
-          remoteAddress,
+          headers = headers,
+          method = Conversions.methodFromNetty(nettyReq.method()),
+          url = URL.decode(nettyReq.uri()).getOrElse(URL.empty),
+          version = protocolVersion,
+          remoteAddress = remoteAddress,
         )
       case nettyReq: HttpRequest     =>
 //        println(s"Got streaming http request")
@@ -264,12 +264,12 @@ private[zio] final case class ServerInboundHandler(
         )
 
         Request(
-          body,
-          headers,
-          Conversions.methodFromNetty(nettyReq.method()),
-          URL.decode(nettyReq.uri()).getOrElse(URL.empty),
-          protocolVersion,
-          remoteAddress,
+          body = body,
+          headers = headers,
+          method = Conversions.methodFromNetty(nettyReq.method()),
+          url = URL.decode(nettyReq.uri()).getOrElse(URL.empty),
+          version = protocolVersion,
+          remoteAddress = remoteAddress,
         )
     }
 
@@ -277,7 +277,7 @@ private[zio] final case class ServerInboundHandler(
 
   private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
     val _ =
-      if (response.serverTime)
+      if (response.addServerTime)
         jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
   }
 
@@ -347,7 +347,7 @@ private[zio] final case class ServerInboundHandler(
                 if (cause.isInterruptedOnly) {
                   interrupted(ctx).as(null)
                 } else {
-                  ZIO.succeed(defaultErrorResponse(null, Some(FiberFailure(cause))))
+                  ZIO.succeed(withDefaultErrorResponse(null, Some(FiberFailure(cause))))
                 },
             )
         }
@@ -356,12 +356,12 @@ private[zio] final case class ServerInboundHandler(
             for {
               done <- ZIO.attempt(attemptFastWrite(ctx, response, time)).catchSomeCause { case cause =>
                 ZIO.attempt(
-                  attemptFastWrite(ctx, defaultErrorResponse(null, Some(cause.squash)).freeze, time),
+                  attemptFastWrite(ctx, withDefaultErrorResponse(null, Some(cause.squash)).freeze, time),
                 )
               }
               _    <- attemptFullWrite(ctx, response, jReq, time).catchSomeCause { case cause =>
                 ZIO.attempt(
-                  attemptFastWrite(ctx, defaultErrorResponse(null, Some(cause.squash)).freeze, time),
+                  attemptFastWrite(ctx, withDefaultErrorResponse(null, Some(cause.squash)).freeze, time),
                 )
 
               }
@@ -385,7 +385,7 @@ private[zio] final case class ServerInboundHandler(
       ctx.channel().close()
     }.unit.orDie
 
-  private def defaultErrorResponse(responseOrNull: Response, cause: Option[Throwable]): Response =
+  private def withDefaultErrorResponse(responseOrNull: Response, cause: Option[Throwable]): Response =
     if (responseOrNull ne null) responseOrNull else HttpError.InternalServerError(cause = cause).toResponse
 }
 

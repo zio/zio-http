@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets
 
 import zio.test.TestAspect.withLiveClock
 import zio.test.{ZIOSpecDefault, assertTrue}
-import zio.{Chunk, ZIO, ZInputStream, ZLayer}
+import zio.{Chunk, Scope, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
 
@@ -61,12 +61,11 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
           client       <- ZIO.service[Client]
           _            <- server.install(app).fork
           response     <- client.request(
-            Request
-              .default(
-                method = Method.GET,
-                url = URL(Root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
-              )
-              .withHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
+            Request(
+              method = Method.GET,
+              url = URL(Root / "text", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
+            )
+              .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
           res          <- response.body.asChunk
           decompressed <- decompressed(res)
@@ -78,12 +77,11 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
           client       <- ZIO.service[Client]
           _            <- server.install(app).fork
           response     <- client.request(
-            Request
-              .default(
-                method = Method.GET,
-                url = URL(Root / "stream", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
-              )
-              .withHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
+            Request(
+              method = Method.GET,
+              url = URL(Root / "stream", kind = URL.Location.Absolute(Scheme.HTTP, "localhost", server.port)),
+            )
+              .addHeader(Header.AcceptEncoding(Header.AcceptEncoding.GZip(), Header.AcceptEncoding.Deflate())),
           )
           res          <- response.body.asChunk
           decompressed <- decompressed(res)
@@ -94,6 +92,7 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
       ZLayer.succeed(serverConfig),
       Server.live,
       Client.default,
+      Scope.default,
     ) @@ withLiveClock
 
   private def decompressed(bytes: Chunk[Byte]): ZIO[Any, Throwable, String] =

@@ -34,6 +34,8 @@ import zio.http.endpoint.internal.EndpointServer
 import zio.http.forms.Fixtures.formField
 
 object EndpointSpec extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
+
   case class NewPost(value: String)
 
   def spec = suite("EndpointSpec")(
@@ -103,7 +105,7 @@ object EndpointSpec extends ZIOSpecDefault {
           response <- routes.toApp.runZIO(
             Request.get(URL.decode("/posts?id=notanid").toOption.get),
           )
-        } yield assertTrue(response.status.code == 400)
+        } yield assertTrue(extractStatus(response).code == 400)
       },
       test("out of order api") {
         val testRoutes = testEndpoint(
@@ -355,11 +357,10 @@ object EndpointSpec extends ZIOSpecDefault {
           notCreated <- routes.toApp.runZIO(requestNotCreated)
           header = notCreated.rawHeader("X-Header").get
           response <- routes.toApp.runZIO(requestCreated)
-        } yield assertTrue(
-          header == "not created",
-          notCreated.status == Status.Ok,
-          response.status == Status.Created,
-        )
+          value = header == "not created" &&
+            extractStatus(notCreated) == Status.Ok &&
+            extractStatus(response) == Status.Created
+        } yield assertTrue(value)
 
       },
       suite("request bodies")(
@@ -379,14 +380,14 @@ object EndpointSpec extends ZIOSpecDefault {
           val request =
             Request
               .post(
-                Body.fromString("""{"value": "My new post!"}"""),
                 URL.decode("/posts").toOption.get,
+                Body.fromString("""{"value": "My new post!"}"""),
               )
 
           for {
             response <- routes.toApp.runZIO(request).mapError(_.get)
             body     <- response.body.asString.orDie
-          } yield assertTrue(response.status.isSuccess) && assertTrue(body == "42")
+          } yield assertTrue(extractStatus(response).isSuccess) && assertTrue(body == "42")
         },
         test("bad request for failed codec") {
           implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
@@ -404,11 +405,11 @@ object EndpointSpec extends ZIOSpecDefault {
             response <- routes.toApp.runZIO(
               Request
                 .post(
-                  Body.fromString("""{"vale": "My new post!"}"""),
                   URL.decode("/posts").toOption.get,
+                  Body.fromString("""{"vale": "My new post!"}"""),
                 ),
             )
-          } yield assertTrue(response.status.code == 400)
+          } yield assertTrue(extractStatus(response).code == 400)
         },
       ),
       suite("404")(
@@ -471,7 +472,7 @@ object EndpointSpec extends ZIOSpecDefault {
           for {
             response <- routes.toApp.runZIO(request).mapError(_.get)
             body     <- response.body.asString.orDie
-          } yield assertTrue(response.status.code == 999, body == "\"path(users, 123)\"")
+          } yield assertTrue(extractStatus(response).code == 999, body == "\"path(users, 123)\"")
         },
         test("status depending on the error subtype") {
           val routes =
@@ -497,9 +498,9 @@ object EndpointSpec extends ZIOSpecDefault {
             response2 <- routes.toApp.runZIO(request2).mapError(_.get)
             body2     <- response2.body.asString.orDie
           } yield assertTrue(
-            response1.status == Status.NotFound,
+            extractStatus(response1) == Status.NotFound,
             body1 == "{\"userId\":123}",
-            response2.status == Status.InternalServerError,
+            extractStatus(response2) == Status.InternalServerError,
             body2 == "{\"message\":\"something went wrong\"}",
           )
         },
@@ -569,7 +570,7 @@ object EndpointSpec extends ZIOSpecDefault {
                   byteStream.runCount
                 }
             result   <- route.toApp
-              .runZIO(Request.post(Body.fromChunk(bytes), URL.decode("/test-byte-stream").toOption.get))
+              .runZIO(Request.post(URL.decode("/test-byte-stream").toOption.get, Body.fromChunk(bytes)))
               .exit
             response <- result match {
               case Exit.Success(value) => ZIO.succeed(value)
@@ -704,7 +705,7 @@ object EndpointSpec extends ZIOSpecDefault {
             boundary <- Boundary.randomUUID
             result   <- route.toApp
               .runZIO(
-                Request.post(Body.fromMultipartForm(form, boundary), URL.decode("/test-form").toOption.get),
+                Request.post(URL.decode("/test-form").toOption.get, Body.fromMultipartForm(form, boundary)),
               )
               .exit
             response <- result match {
@@ -774,7 +775,7 @@ object EndpointSpec extends ZIOSpecDefault {
             val form =
               Form(
                 fields.map(_._1).zipWithIndex.map { case (field, idx) =>
-                  if (field.name.isEmpty) field.withName(s"field$idx") else field
+                  if (field.name.isEmpty) field.name(s"field$idx") else field
                 },
               )
 
@@ -782,7 +783,7 @@ object EndpointSpec extends ZIOSpecDefault {
               boundary   <- Boundary.randomUUID
               result     <- route.toApp
                 .runZIO(
-                  Request.post(Body.fromMultipartForm(form, boundary), URL.decode("/test-form").toOption.get),
+                  Request.post(URL.decode("/test-form").toOption.get, Body.fromMultipartForm(form, boundary)),
                 )
                 .exit
               response   <- result match {
@@ -853,7 +854,7 @@ object EndpointSpec extends ZIOSpecDefault {
     url: String,
     method: Method,
   ): ZIO[R, Response, TestResult] = {
-    val request = Request.default(method = method, url = URL.decode(url).toOption.get)
+    val request = Request(method = method, url = URL.decode(url).toOption.get)
     for {
       error <- service.toApp.runZIO(request).flip
     } yield assertTrue(error == None)

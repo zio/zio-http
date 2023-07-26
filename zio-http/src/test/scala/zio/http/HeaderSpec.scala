@@ -16,10 +16,9 @@
 
 package zio.http
 
+import zio.NonEmptyChunk
 import zio.test.Assertion._
 import zio.test.{ZIOSpecDefault, assert}
-
-import io.netty.handler.codec.http.{HttpHeaderNames, HttpHeaderValues}
 
 object HeaderSpec extends ZIOSpecDefault {
 
@@ -30,30 +29,30 @@ object HeaderSpec extends ZIOSpecDefault {
         assert(actual)(isNone)
       },
       test("should return header from predefined headers list by String") {
-        val actual = predefinedHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        val actual = predefinedHeaders.rawHeader(Header.ContentType.name)
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
       test("should return header from predefined headers list by String of another case") {
         val actual = predefinedHeaders.rawHeader("Content-Type")
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
       test("should return header from predefined headers list by AsciiString") {
-        val actual = predefinedHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        val actual = predefinedHeaders.rawHeader(Header.ContentType.name)
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
       test("should return header from custom headers list by String") {
-        val actual = customHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
+        val actual = customHeaders.rawHeader(Header.ContentType.name)
         assert(actual)(isSome(equalTo(customContentJsonHeader.renderedValue)))
       },
       test("should return header from custom headers list by AsciiString") {
-        val actual = customHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
+        val actual = customHeaders.rawHeader(Header.ContentType.name)
         assert(actual)(isSome(equalTo(customContentJsonHeader.renderedValue)))
       },
     ),
     suite("getHeaderValue")(
       test("should return header value") {
-        val actual = predefinedHeaders.rawHeader(HttpHeaderNames.CONTENT_TYPE)
-        assert(actual)(isSome(equalTo(HttpHeaderValues.APPLICATION_JSON.toString)))
+        val actual = predefinedHeaders.rawHeader(Header.ContentType.name)
+        assert(actual)(isSome(equalTo(MediaType.application.json.fullType)))
       },
     ),
     suite("hasHeader")(
@@ -166,6 +165,62 @@ object HeaderSpec extends ZIOSpecDefault {
         assert(actual)(isFalse)
       },
     ),
+    suite("acceptEncoding")(
+      /*
+        zstd is not supported in zio-http but is a default header with curl's --compressed
+        however as it might be added in the future, we use a string that is probably never going to be a header
+       */
+      test("should parse an known header") {
+        val header = Header.AcceptEncoding.parse("br")
+        assert(header)(isRight(equalTo(Header.AcceptEncoding.Br())))
+      },
+      test("should parse an known header with weight") {
+        val header = Header.AcceptEncoding.parse("br;q=0.8")
+        assert(header)(isRight(equalTo(Header.AcceptEncoding.Br(Some(0.8)))))
+      },
+      test("ignore an invalid wight") {
+        val header = Header.AcceptEncoding.parse("br;q=INVALID")
+        assert(header)(isRight(equalTo(Header.AcceptEncoding.Br())))
+      },
+      test("should parse an unknown header") {
+        val header = Header.AcceptEncoding.parse("zio-http")
+        assert(header)(isRight(equalTo(Header.AcceptEncoding.Unknown("zio-http"))))
+      },
+      test("should parse a list of accepted encodings") {
+        val header = Header.AcceptEncoding.parse("gzip, br;q=0.8, zio-http")
+        assert(header)(
+          isRight(
+            equalTo(
+              Header.AcceptEncoding.Multiple(
+                NonEmptyChunk(
+                  Header.AcceptEncoding.GZip(),
+                  Header.AcceptEncoding.Br(Some(0.8)),
+                  Header.AcceptEncoding.Unknown("zio-http"),
+                ),
+              ),
+            ),
+          ),
+        )
+      },
+      test("should parse an unknown header with weight") {
+        val header = Header.AcceptEncoding.parse("zio-http;q=0.6")
+        assert(header)(isRight(equalTo(Header.AcceptEncoding.Unknown("zio-http", Some(0.6d)))))
+      },
+    ),
+    suite("isFormMultipartContentType")(
+      test("should return true if content-type is multipart/form-data") {
+        val actual = contentTypeFormMultipart.hasFormMultipartContentType
+        assert(actual)(isTrue)
+      },
+      test("should return false if content-type is not multipart/form-data") {
+        val actual = contentTypeTextPlain.hasFormMultipartContentType
+        assert(actual)(isFalse)
+      },
+      test("should return false if content-type doesn't exist") {
+        val actual = acceptJson.hasFormMultipartContentType
+        assert(actual)(isFalse)
+      },
+    ),
   )
 
   private val acceptJson                = Headers(Header.Accept(MediaType.application.json))
@@ -174,6 +229,7 @@ object HeaderSpec extends ZIOSpecDefault {
   private val contentTypeXml            = Headers(Header.ContentType(MediaType.application.xml))
   private val contentTypeJson           = Headers(Header.ContentType(MediaType.application.json))
   private val contentTypeFormUrlEncoded = Headers(Header.ContentType(MediaType.application.`x-www-form-urlencoded`))
+  private val contentTypeFormMultipart  = Headers(Header.ContentType(MediaType.multipart.`form-data`))
   private def customAcceptJsonHeader    = Header.Accept(MediaType.application.json)
   private def customContentJsonHeader   = Header.ContentType(MediaType.application.json)
   private def customHeaders: Headers    = Headers(customContentJsonHeader, customAcceptJsonHeader)

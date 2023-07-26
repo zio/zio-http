@@ -27,6 +27,8 @@ import zio.http.internal.middlewares.Cors.CorsConfig
 import zio.http.internal.middlewares.CorsSpec.app
 
 object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
+  def extractStatus(response: Response): Status = response.status
+
   val app = Http
     .collectZIO[Request] {
       case Method.GET -> Root / "success" => ZIO.succeed(Response.ok)
@@ -48,7 +50,7 @@ object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       for {
         res <- app.runZIO(request)
       } yield assertTrue(
-        res.status == Status.NoContent,
+        extractStatus(res) == Status.NoContent,
         res.hasHeader(Header.AccessControlAllowCredentials.Allow),
         res.hasHeader(Header.AccessControlAllowMethods(Method.GET)),
         res.hasHeader(Header.AccessControlAllowOrigin("http", "test-env")),

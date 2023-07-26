@@ -24,6 +24,7 @@ import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
 object DynamicAppTest extends ZIOSpecDefault {
+  def extractStatus(response: Response): Status = response.status
 
   val httpApp1: App[Any] = Http
     .collect[Request] { case Method.GET -> Root / "good" =>
@@ -38,7 +39,7 @@ object DynamicAppTest extends ZIOSpecDefault {
     .withDefaultErrorResponse
 
   val layer =
-    ZLayer.make[Client & Server](
+    ZLayer.make[Client & Server & Scope](
       ZLayer.succeed(ZClient.Config.default),
       NettyClientDriver.live,
       Client.customized,
@@ -46,18 +47,21 @@ object DynamicAppTest extends ZIOSpecDefault {
       Server.live,
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.default),
+      Scope.default,
     )
 
   def spec = suite("Server")(
     test("Should allow dynamic changes to the installed app") {
       for {
-        port            <- Server.install(httpApp1)
-        okResponse      <- Client.request(s"http://localhost:$port/good")
+        port <- Server.install(httpApp1)
+        good   = URL.decode(s"http://localhost:$port/good").toOption.get
+        better = URL.decode(s"http://localhost:$port/better").toOption.get
+        okResponse      <- Client.request(Request.get(good))
         _               <- Server.install(httpApp2)
-        createdResponse <- Client.request(s"http://localhost:$port/better")
+        createdResponse <- Client.request(Request.get(better))
       } yield assertTrue(
-        okResponse.status == Status.Ok &&
-          createdResponse.status == Status.Created,
+        extractStatus(okResponse) == Status.Ok &&
+          extractStatus(createdResponse) == Status.Created,
       ) // fails here because the response is Status.NotFound
     }.provideLayer(layer) @@ withLiveClock,
   )

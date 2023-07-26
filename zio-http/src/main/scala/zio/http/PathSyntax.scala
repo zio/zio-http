@@ -16,39 +16,20 @@
 
 package zio.http
 
-import zio.http.Path.Segment
-
 private[zio] trait PathSyntax { module =>
   val Root: Path = Path.root
 
   val Empty: Path = Path.empty
 
   object /: {
-    def unapply(path: Path): Option[(String, Path)] =
-      for {
-        head <- path.segments.headOption.map {
-          case Segment.Text(text) => text
-          case Segment.Root       => ""
-        }
-        tail = path.segments.drop(1)
-      } yield (head, Path(tail))
+    def unapply(path: Path): Option[(String, Path)] = path.unapply
   }
 
   object / {
-    def unapply(path: Path): Option[(Path, String)] = {
-      if (path.segments.length == 1) {
-        val last = path.segments.last match {
-          case Segment.Text(text) => text
-          case Segment.Root       => ""
-        }
-        Some(Empty -> last)
-      } else if (path.segments.length >= 2) {
-        val last = path.segments.last match {
-          case Segment.Root       => ""
-          case Segment.Text(text) => text
-        }
-        Some(Path(path.segments.init) -> last)
-      } else None
-    }
+    def unapply(path: Path): Option[(Path, String)] = path.unapplyRight
   }
+
+  val TrailingSlash: Path.Flag.TrailingSlash.type with Path.Flag = Path.Flag.TrailingSlash
+
+  val LeadingSlash: Path.Flag.LeadingSlash.type with Path.Flag = Path.Flag.LeadingSlash
 }

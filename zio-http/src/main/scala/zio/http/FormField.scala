@@ -75,7 +75,7 @@ sealed trait FormField {
       ZIO.succeed(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
   }
 
-  def withName(newName: String): FormField = this match {
+  def name(newName: String): FormField = this match {
     case FormField.Binary(_, data, contentType, transferEncoding, filename)          =>
       FormField.Binary(newName, data, contentType, transferEncoding, filename)
     case FormField.StreamingBinary(_, contentType, transferEncoding, filename, data) =>
@@ -189,8 +189,10 @@ object FormField {
   private[http] def getContentType(ast: Chunk[FormAST]): MediaType =
     ast.collectFirst {
       case header: FormAST.Header if header.name == "Content-Type" =>
-        MediaType.forContentType(header.preposition)
-    }.flatten.getOrElse(MediaType.text.plain)
+        MediaType
+          .forContentType(header.preposition)
+          .getOrElse(MediaType.application.`octet-stream`) // Unknown content type defaults to binary
+    }.getOrElse(MediaType.text.plain) // Missing content type defaults to text
 
   private[http] def incomingStreamingBinary(
     ast: Chunk[FormAST],

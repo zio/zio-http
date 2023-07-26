@@ -54,10 +54,10 @@ Response.html(Html.fromString("html text"))
 
 ### Specialized Response Operators
 
-`withStatus` to update the `status` of `Response`
+`status` to update the `status` of `Response`
 
 ```scal mdoca
-Response.text("Hello World!").withStatus(Status.NOT_FOUND)
+Response.text("Hello World!").status(Status.NOT_FOUND)
 ```
 
 `updateHeaders` to update the `headers` of `Response`

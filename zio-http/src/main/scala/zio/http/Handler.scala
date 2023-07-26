@@ -22,8 +22,9 @@ import zio.http.Header.HeaderType
 import zio.http.internal.HeaderModifier
 import zio.stream.ZStream
 
-import java.io.File
+import java.io.{File, FileNotFoundException, IOException}
 import java.nio.charset.Charset
+import java.nio.file.{AccessDeniedException, NotDirectoryException}
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal // scalafix:ok;
 
@@ -215,8 +216,9 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     headers: Headers,
   )(implicit ev1: Err <:< Throwable, ev2: WebSocketChannel <:< In): ZIO[R with Client with Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client] { client =>
-      if (url.isAbsolute) client.socket(url = url, headers = headers, app = self.asInstanceOf[SocketApp[R]])
-      else client.socket(url = client.url ++ url, headers = headers, app = self.asInstanceOf[SocketApp[R]])
+      val client2 = if (url.isAbsolute) client.url(url) else client.addUrl(url)
+
+      client2.addHeaders(headers).socket(self.asInstanceOf[SocketApp[R]])
     }
 
   /**
@@ -725,6 +727,45 @@ object Handler {
   ): Handler[R, Err, In, Out] =
     http.toHandler(default)
 
+  private def determineMediaType(filePath: String): Option[MediaType] = {
+    filePath.lastIndexOf(".") match {
+      case -1 => None
+      case i  =>
+        // Extract file extension
+        val ext = filePath.substring(i + 1)
+        MediaType.forFileExtension(ext)
+    }
+  }
+
+  def fromFileZIO[R](getFile: ZIO[R, Throwable, File])(implicit trace: Trace): Handler[R, Throwable, Any, Response] = {
+    Handler.fromZIO[R, Throwable, Response](
+      getFile.flatMap { file =>
+        if (!file.exists()) {
+          ZIO.fail(new FileNotFoundException())
+        } else if (file.isFile && !file.canRead) {
+          ZIO.fail(new AccessDeniedException(file.getAbsolutePath))
+        } else {
+          if (file.isFile) {
+            val length   = Headers(Header.ContentLength(file.length()))
+            val response = http.Response(headers = length, body = Body.fromFile(file))
+            val pathName = file.toPath.toString
+
+            // Set MIME type in the response headers. This is only relevant in
+            // case of RandomAccessFile transfers as browsers use the MIME type,
+            // not the file extension, to determine how to process a URL.
+            // {{{<a href="MSDN Doc">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type</a>}}}
+            determineMediaType(pathName) match {
+              case Some(mediaType) => ZIO.succeed(response.addHeader(Header.ContentType(mediaType)))
+              case None            => ZIO.succeed(response)
+            }
+          } else {
+            ZIO.fail(new NotDirectoryException(s"Found directory instead of a file."))
+          }
+        }
+      },
+    )
+  }
+
   /**
    * Creates a Handler that always succeeds with a 200 status code and the
    * provided ZStream as the body
@@ -887,25 +928,25 @@ object Handler {
     /**
      * Overwrites the method in the incoming request
      */
-    def withMethod(method: Method): RequestHandler[R, Err] =
+    def method(method: Method): RequestHandler[R, Err] =
       self.contramap[Request](_.copy(method = method))
 
     /**
      * Overwrites the path in the incoming request
      */
-    def withPath(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.updatePath(path))
+    def path(path: Path): RequestHandler[R, Err] = self.contramap[Request](_.updatePath(path))
 
     /**
      * Sets the status in the response produced by the app
      */
-    def withStatus(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(
-      Response.Patch.withStatus(status),
+    def status(status: Status)(implicit trace: Trace): RequestHandler[R, Err] = patch(
+      Response.Patch.status(status),
     )
 
     /**
      * Overwrites the url in the incoming request
      */
-    def withUrl(url: URL): RequestHandler[R, Err] = self.contramap[Request](_.copy(url = url))
+    def url(url: URL): RequestHandler[R, Err] = self.contramap[Request](_.copy(url = url))
 
     /**
      * Updates the current Headers with new one, using the provided update

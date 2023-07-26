@@ -24,6 +24,8 @@ import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 
 object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
+  def extractStatus(response: Response): Status = response.status
+
   private val successBasicHeader: Headers  = Headers(Header.Authorization.Basic("user", "resu"))
   private val failureBasicHeader: Headers  = Headers(Header.Authorization.Basic("user", "user"))
   private val bearerToken: String          = "dummyBearerToken"
@@ -162,11 +164,11 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           r4     <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth"))))
           r4body <- r4.body.asString
         } yield assertTrue(
-          r1.status == Status.Unauthorized,
-          r2.status == Status.Ok,
+          extractStatus(r1) == Status.Unauthorized,
+          extractStatus(r2) == Status.Ok,
           r2body == "ok",
-          r3.status == Status.Unauthorized,
-          r4.status == Status.Ok,
+          extractStatus(r3) == Status.Unauthorized,
+          extractStatus(r4) == Status.Ok,
           r4body == "base Bearer auth",
         )
       }.provideLayer(ZLayer.succeed(BaseService("base"))),
@@ -201,13 +203,13 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
           r6 <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("_auth"))))
           r6body <- r6.body.asString
         } yield assertTrue(
-          r1.status == Status.Unauthorized,
+          extractStatus(r1) == Status.Unauthorized,
           r2.isFailure,
-          r3.status == Status.Ok,
+          extractStatus(r3) == Status.Ok,
           r3body == "ok",
-          r4.status == Status.Unauthorized,
+          extractStatus(r4) == Status.Unauthorized,
           r5.isFailure,
-          r6.status == Status.Ok,
+          extractStatus(r6) == Status.Ok,
           r6body == "base user_auth",
         )
       }.provide(ZLayer.succeed(BaseService("base")), ZLayer.succeed(UserService("user"))),
@@ -229,7 +231,7 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
         for {
           r1      <- httpApi.runZIO(Request.get(URL(Root / "1")))
           counter <- ZIO.service[CounterService].flatMap(_.counter.get)
-        } yield assertTrue(r1.status == Status.Ok, counter == 1)
+        } yield assertTrue(extractStatus(r1) == Status.Ok, counter == 1)
       }.provide(ZLayer.fromZIO(Ref.make(0).map(CounterService.apply))),
     ),
   )

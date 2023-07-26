@@ -88,17 +88,18 @@ object HttpCliApp {
         command = command,
       ) { case CliRequest(url, method, headers, body) =>
         for {
-          response <- Client
-            .request(
-              Request
-                .default(
-                  method,
-                  url.withHost(host).withPort(port),
-                  Body.fromString(body.toString),
-                )
-                .setHeaders(headers),
+          response <- ZIO
+            .serviceWithZIO[Client](client =>
+              client(
+                Request(
+                  method = method,
+                  url = url.host(host).port(port),
+                  headers = headers,
+                  body = Body.fromString(body.toString),
+                ),
+              ),
             )
-            .provide(Client.default)
+            .provide(Client.default, Scope.default)
           _        <- Console.printLine(s"Got response")
           _        <- Console.printLine(s"Status: ${response.status}")
           body     <- response.body.asString
