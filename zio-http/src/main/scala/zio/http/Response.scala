@@ -94,11 +94,6 @@ sealed trait Response extends HeaderOps[Response] { self =>
 
   def headers: Headers
 
-  private[zio] final def httpError: Option[HttpError] = self match {
-    case Response.GetError(error) => Some(error)
-    case _                        => None
-  }
-
   /** Consumes the streaming body fully and then drops it */
   final def ignoreBody: ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
@@ -147,13 +142,6 @@ object Response {
     def unapply(response: Response): Option[SocketApp[Any]] = response match {
       case resp: SocketAppResponse => Some(resp.socketApp0)
       case _                       => None
-    }
-  }
-
-  object GetError {
-    def unapply(response: Response): Option[HttpError] = response match {
-      case resp: ErrorResponse => Some(resp.httpError0)
-      case _                   => None
     }
   }
 
@@ -226,32 +214,6 @@ object Response {
       override def addServerTime: Boolean = true
     }
 
-  }
-
-  private[zio] class ErrorResponse(val body: Body, val headers: Headers, val httpError0: HttpError, val status: Status)
-      extends Response { self =>
-
-    override def copy(status: Status, headers: Headers, body: Body): Response =
-      new ErrorResponse(body, headers, httpError0, status) with InternalState {
-        override val parent: Response = self
-      }
-
-    override def freeze: Response = new ErrorResponse(body, headers, httpError0, status) with InternalState {
-      override val parent: Response = self
-      override def frozen: Boolean  = true
-    }
-
-    override def toString(): String =
-      s"ErrorResponse(status = $status, headers = $headers, body = $body, error = $httpError0)"
-
-    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
-
-    override final def serverTime: Response = new ErrorResponse(body, headers, httpError0, status) with InternalState {
-
-      override val parent: Response = self
-
-      override def addServerTime: Boolean = true
-    }
   }
 
   private[zio] class NativeResponse(
@@ -382,8 +344,6 @@ object Response {
       case Right(cause)  => fromCause(cause)
     }
   }
-
-  def fromHttpError(error: HttpError): Response = new ErrorResponse(Body.empty, Headers.empty, error, error.status)
 
   /**
    * Creates a response with content-type set to text/event-stream

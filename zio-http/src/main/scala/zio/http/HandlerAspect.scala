@@ -906,18 +906,13 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
 
   private def replaceErrorResponse(request: Request, response: Response): Response = {
     def htmlResponse: Body = {
-      val message: String = response.httpError.map(_.message).getOrElse("")
+      val message: String = response.header(Header.Warning).map(_.text).getOrElse("")
       val data            = Template.container(s"${response.status}") {
         div(
           div(
             styles := Seq("text-align" -> "center"),
             div(s"${response.status.code}", styles := Seq("font-size" -> "20em")),
             div(message),
-          ),
-          div(
-            response.httpError.get.foldCause(div()) { throwable =>
-              div(h3("Cause:"), pre(prettify(throwable)))
-            },
           ),
         )
       }
@@ -947,23 +942,12 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
       response
   }
 
-  private def prettify(throwable: Throwable): String = {
-    val sw = new StringWriter
-    throwable.printStackTrace(new PrintWriter(sw))
-    s"${sw.toString}"
-  }
-
-  private def formatCause(response: Response): String =
-    response.httpError.get.foldCause("") { throwable =>
-      s"${scala.Console.BOLD}Cause: ${scala.Console.RESET}\n ${prettify(throwable)}"
-    }
-
   private def formatErrorMessage(response: Response) = {
-    val errorMessage: String = response.httpError.map(_.message).getOrElse("")
+    val errorMessage: String = response.header(Header.Warning).map(_.text).getOrElse("")
     val status               = response.status.code
     s"${scala.Console.BOLD}${scala.Console.RED}${response.status} ${scala.Console.RESET} - " +
       s"${scala.Console.BOLD}${scala.Console.CYAN}$status ${scala.Console.RESET} - " +
-      s"$errorMessage\n${formatCause(response)}"
+      s"$errorMessage"
   }
 
   private[http] val defaultBoundaries = MetricKeyType.Histogram.Boundaries.fromChunk(
