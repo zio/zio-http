@@ -29,7 +29,7 @@ object HttpsClient extends ZIOAppDefault {
   } yield ()
 
   val run =
-    program.provide(
+    program.provideSome[Scope](
       ZLayer.succeed(clientConfig),
       Client.customized,
       NettyClientDriver.live,
