@@ -795,7 +795,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   /**
    * Creates middleware that will update the headers of the response.
    */
-  override def updateHeaders(update: Headers => Headers): HandlerAspect[Any, Unit] =
+  override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): HandlerAspect[Any, Unit] =
     updateResponse(_.updateHeaders(update))
 
   /**

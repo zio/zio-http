@@ -17,6 +17,7 @@
 package zio.http
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A `Channel` is an asynchronous communication channel that supports receiving
@@ -65,7 +66,7 @@ trait Channel[-In, +Out] { self =>
    * Constructs a new channel that automatically transforms messages received
    * from this channel using the specified function.
    */
-  final def map[Out2](f: Out => Out2): Channel[In, Out2] =
+  final def map[Out2](f: Out => Out2)(implicit trace: Trace): Channel[In, Out2] =
     new Channel[In, Out2] {
       def awaitShutdown: UIO[Unit] =
         self.awaitShutdown
@@ -81,6 +82,6 @@ trait Channel[-In, +Out] { self =>
    * Reads all messages from the channel, handling them with the specified
    * function.
    */
-  final def receiveAll[Env](f: Out => ZIO[Env, Throwable, Any]): ZIO[Env, Throwable, Nothing] =
+  final def receiveAll[Env](f: Out => ZIO[Env, Throwable, Any])(implicit trace: Trace): ZIO[Env, Throwable, Nothing] =
     receive.flatMap(f).forever
 }

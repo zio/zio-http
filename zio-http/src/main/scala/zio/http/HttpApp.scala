@@ -17,6 +17,7 @@
 package zio.http
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * An HTTP application is a collection of routes, all of whose errors have been
@@ -84,13 +85,15 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
    * Returns a new HTTP application whose requests will be timed out after the
    * specified duration elapses.
    */
-  def timeout(duration: Duration): HttpApp[Env] =
+  def timeout(duration: Duration)(implicit trace: Trace): HttpApp[Env] =
     self @@ Middleware.timeout(duration)
 
   /**
    * Converts the HTTP application into a request handler.
    */
-  val toHandler: Handler[Env, Nothing, Request, Response] =
+  val toHandler: Handler[Env, Nothing, Request, Response] = {
+    // do we want this?
+    implicit val trace: Trace = Trace.empty
     Handler
       .fromFunctionHandler[Request] { req =>
         val chunk = tree.get(req.method, req.path)
@@ -108,6 +111,7 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
         }
       }
       .merge
+  }
 
   /**
    * Accesses the underlying tree that provides fast dispatch to handlers.
@@ -133,7 +137,7 @@ object HttpApp                                                     {
    * HTTP, you should instead look at the new way of defining routes using
    * [[zio.http.Routes]].
    */
-  def collectZIO[R](pf: PartialFunction[Request, ZIO[R, Response, Response]]): HttpApp[R] =
+  def collectZIO[R](pf: PartialFunction[Request, ZIO[R, Response, Response]])(implicit trace: Trace): HttpApp[R] =
     HttpApp(
       Routes.singleton {
         Handler.fromFunctionZIO[(Path, Request)] { case (_: Path, request: Request) =>

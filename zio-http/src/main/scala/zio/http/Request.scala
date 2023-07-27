@@ -18,7 +18,8 @@ package zio.http
 
 import java.net.InetAddress
 
-import zio.ZIO
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Trace, ZIO}
 
 import zio.http.internal.HeaderOps
 
@@ -66,7 +67,7 @@ final case class Request(
   /**
    * Collects the potentially streaming body of the request into a single chunk.
    */
-  def collect: ZIO[Any, Throwable, Request] =
+  def collect(implicit trace: Trace): ZIO[Any, Throwable, Request] =
     if (self.body.isComplete) ZIO.succeed(self)
     else
       self.body.asChunk.map { bytes =>
@@ -81,7 +82,7 @@ final case class Request(
   def dropTrailingSlash: Request = updateURL(_.dropTrailingSlash)
 
   /** Consumes the streaming body fully and then drops it */
-  def ignoreBody: ZIO[Any, Throwable, Request] =
+  def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Request] =
     self.collect.map(_.copy(body = Body.empty))
 
   def patch(p: Request.Patch): Request =
@@ -94,7 +95,7 @@ final case class Request(
   /**
    * Updates the headers using the provided function
    */
-  override def updateHeaders(update: Headers => Headers): Request =
+  override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Request =
     self.copy(headers = update(self.headers))
 
   def updateURL(f: URL => URL): Request = copy(url = f(url))

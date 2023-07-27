@@ -20,6 +20,7 @@ import java.io.UnsupportedEncodingException
 import java.nio.charset.Charset
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream._
 
@@ -46,7 +47,7 @@ final case class Form(formData: Chunk[FormField]) {
    * Runs all streaming form data and stores them in memory, returning a Form
    * that has no streaming parts.
    */
-  def collectAll: ZIO[Any, Throwable, Form] =
+  def collectAll(implicit trace: Trace): ZIO[Any, Throwable, Form] =
     ZIO
       .foreach(formData) {
         case streamingBinary: StreamingBinary =>
@@ -71,7 +72,7 @@ final case class Form(formData: Chunk[FormField]) {
    * Encodes the form using multipart encoding, choosing a random UUID as the
    * boundary.
    */
-  def multipartBytesUUID: zio.UIO[(Boundary, ZStream[Any, Nothing, Byte])] =
+  def multipartBytesUUID(implicit trace: Trace): zio.UIO[(Boundary, ZStream[Any, Nothing, Byte])] =
     Boundary.randomUUID.map { boundary =>
       boundary -> multipartBytes(boundary)
     }
@@ -81,7 +82,7 @@ final case class Form(formData: Chunk[FormField]) {
    */
   def multipartBytes(
     boundary: Boundary,
-  ): ZStream[Any, Nothing, Byte] = {
+  )(implicit trace: Trace): ZStream[Any, Nothing, Byte] = {
 
     val encapsulatingBoundary = FormAST.EncapsulatingBoundary(boundary)
     val closingBoundary       = FormAST.ClosingBoundary(boundary)
@@ -201,7 +202,7 @@ object Form {
   def fromMultipartBytes(
     bytes: Chunk[Byte],
     charset: Charset = Charsets.Utf8,
-  ): ZIO[Any, Throwable, Form] =
+  )(implicit trace: Trace): ZIO[Any, Throwable, Form] =
     for {
       boundary <- ZIO
         .fromOption(Boundary.fromContent(bytes, charset))
