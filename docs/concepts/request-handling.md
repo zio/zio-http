@@ -40,7 +40,7 @@ import zio.http._
 object RequestStreaming extends ZIOAppDefault {
 
   // Create HTTP route which echos back the request body
-  val app = Http.collect[Request] { case req @ Method.POST -> Root / "echo" =>
+  val app = Routes(Method.POST / "echo" -> handler { (req: Request) =>
     // Returns a stream of bytes from the request
     // The stream supports back-pressure
     val stream = req.body.asStream
@@ -50,7 +50,7 @@ object RequestStreaming extends ZIOAppDefault {
     val data = Body.fromStream(stream)
 
     Response(body = data)
-  }
+  }).toHttpApp
 
   // Run it like any simple app
   val run: UIO[ExitCode] =
@@ -58,19 +58,26 @@ object RequestStreaming extends ZIOAppDefault {
 }
 ```
 
-**Explainaition**:
+**Explanation**:
 
-- `app` Definition: The `app` value represents an HttpApp that handles incoming requests. It is defined using the `Http.collect` combinator, which pattern matches on the incoming Request. In this case, it matches a POST request to the `/echo` endpoint.
+The code defines an HTTP server application using ZIO and ZIO-HTTP, which handles incoming requests and echoes back the request body :
 
-- Request Matching: The `Http.collect` combinator pattern matches on the request using a partial function. It checks if the request's method is     `POST` and if the request path is `/echo`.
+1. **Routes and Handler Function**:
+   - The application uses the `Routes` builder to define HTTP routes and their corresponding handler functions. In this case, there's a single route that matches POST requests to the `/echo` endpoint.
+   - The handler function takes a `Request` as input, representing the incoming HTTP request. It processes the request body as a stream of bytes using `req.body.asStream`.
 
-- Request Processing: Once a matching rule is found, the code inside the `Http.collect` block is executed. In this case, it retrieves the request body as a stream of bytes using `req.body.asStream`.
+2. **Creating HttpData from Stream**:
+   - The stream of bytes obtained from the request body is used to create an `HttpData` instance. `HttpData` represents the body of an HTTP response and can be created from various sources, including streams, byte arrays, or strings.
 
-- Creating `HttpData`: The code then creates an HttpData instance from the request stream using `Body.fromStream(stream)`. `HttpData` represents the body of an HTTP response and can be created from various sources, such as streams, byte arrays, or strings.
+3. **Generating the Response**:
+   - The handler constructs a `Response` with the created `HttpData` as the response body. This means that the server will echo back the received request body to the client.
 
-- Generating the Response: Finally, the code constructs a `Response` with the created `HttpData` as the body. The response will echo back the received request body.
+4. **Converting Routes to HttpApp**:
+   - The `Routes` instance is transformed into an `HttpApp` using the `toHttpApp` method. This conversion allows the `Routes` to be used as a standard `HttpApp`, compatible with the server.
 
-- Running the Server: The `run` value is responsible for starting the server and handling incoming requests. It uses the `Server.serve` method to serve the app as the main application. The server is provided with the default server configuration using `Server.default`. The `exitCode` method is used to provide an appropriate exit code for the application.
-
+5. **Running the Server**:
+   - The `run` value is responsible for starting the server and handling incoming requests. It uses the `Server.serve` method to serve the transformed `HttpApp`.
+   - The server is provided with the default server configuration using `Server.default`.
+   - The `exitCode` method is used to provide an appropriate exit code for the application.
 
 Overall, the concept of request handling in ZIO-HTTP revolves around defining HttpApp instances, matching incoming requests, processing them, generating responses, and composing multiple HttpApp instances to build a complete HTTP server application. The functional and composable nature of ZIO allows for a flexible and modular approach to building robust and scalable HTTP services.

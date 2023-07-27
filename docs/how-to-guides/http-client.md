@@ -7,6 +7,7 @@ title: HTTP Client
 This example provided demonstrates how to perform an HTTP client request using the zio-http library in Scala with ZIO.
 
 
+
 ## `build.sbt` Setup 
 
 ```scala
@@ -22,19 +23,20 @@ libraryDependencies ++= Seq(
 
 ```scala
 import zio._
-import zio.http.Client
+
+import zio.http._
 
 object SimpleClient extends ZIOAppDefault {
-  val url = "http://sports.api.decathlon.com/groups/water-aerobics"
+  val url = URL.decode("http://sports.api.decathlon.com/groups/water-aerobics").toOption.get
 
   val program = for {
-    res  <- Client.request(Request.get(url))
-    data <- res.body.asString
-    _    <- Console.printLine(data).catchAll(e => ZIO.logError(e.getMessage))
+    client <- ZIO.service[Client]
+    res    <- client.url(url).get("/")
+    data   <- res.body.asString
+    _      <- Console.printLine(data)
   } yield ()
 
   override val run = program.provide(Client.default, Scope.default)
-
 
 }
 

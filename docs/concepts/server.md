@@ -7,19 +7,31 @@ title: Server
 
 The concept of a server in ZIO-HTTP revolves around handling incoming HTTP requests and producing corresponding HTTP responses. The server is responsible for listening on a specific port, accepting incoming connections, and routing requests to appropriate handlers based on their HTTP method and path.
 
-ZIO-HTTP provides a simple and composable DSL for defining HTTP servers using the `Http` type. The `Http` type represents an HTTP route or endpoint that can handle incoming requests and produce responses. Servers in ZIO-HTTP are created by defining an Http route and then using the `Server.serve` method to start the server and bind it to a specific port.
+ZIO-HTTP provides a simple and composable DSL for defining HTTP servers using the `Http` type. The `Http` type represents an HTTP route or endpoint that can handle incoming requests and produce responses. Servers in ZIO-HTTP are created by defining an HTTP route and then using the `Server.serve` method to start the server and bind it to a specific port.
 
 Here are the key components involved in the server concept in ZIO-HTTP:
 
-- HTTP Route: A route is defined using the `Http.collect` method, which takes a partial function mapping requests to their corresponding responses. The partial function matches on the HTTP method and path of the request and returns a `Response` for each matched request.
+1. **HTTP Route**:
+   - A route is defined using the `Http.collect` method, which takes a partial function mapping requests to their corresponding responses.
+   - The partial function matches on the HTTP method and path of the request and returns a `Response` for each matched request.
+   - This allows developers to define multiple routes and their corresponding handlers to handle different types of requests.
 
-- Server Configuration: The server configuration includes information such as the host, port, SSL settings, and other options. In ZIO-HTTP, the server configuration is provided through the `ServerConfig` type, which can be customized as needed.
+2. **Server Configuration**:
+   - The server configuration includes information such as the host, port, SSL settings, and other options.
+   - In ZIO-HTTP, the server configuration is provided through the `ServerConfig` type, which can be customized as needed.
+   - This allows developers to configure the server to meet specific requirements, such as enabling HTTPS or adjusting thread pool sizes.
 
-- Starting the Server: The `Server.serve` method is used to start the server by providing it with the HTTP route and the server configuration. This method creates a ZIO effect that represents the running server. The server will listen for incoming connections and route the requests to the appropriate handlers defined in the route.
+3. **Starting the Server**:
+   - The `Server.serve` method is used to start the server by providing it with the HTTP route and the server configuration.
+   - This method creates a ZIO effect that represents the running server. The server will listen for incoming connections and route the requests to the appropriate handlers defined in the route.
+   - The server is started asynchronously and can run indefinitely until explicitly shut down.
 
-- Server Environment: ZIO-HTTP leverages the ZIO library, which uses an environment-based approach for dependency injection. The server environment consists of the necessary services and resources required for the server to operate, such as the event loop, clock, console, and any other dependencies needed by the defined routes.
+4. **Server Environment**:
+   - ZIO-HTTP leverages the ZIO library, which uses an environment-based approach for dependency injection.
+   - The server environment consists of the necessary services and resources required for the server to operate, such as the event loop, clock, console, and any other dependencies needed by the defined routes.
+   - This ensures that the server has access to all the required resources and allows for easy testing and mocking of dependencies.
 
-By combining these components, ZIO-HTTP allows you to define and run servers that handle incoming HTTP requests and produce HTTP responses. The server concept in ZIO-HTTP emphasizes composability, type-safety, and a functional programming approach, making it easier to build robust and scalable HTTP servers in a purely functional manner.
+By combining these components, ZIO-HTTP allows you to define and run servers that handle incoming HTTP requests and produce HTTP responses. The server concept in ZIO-HTTP emphasizes composability, type-safety, and a functional programming approach, making it easier to build robust and scalable HTTP servers in a purely functional manner. The flexible and composable nature of ZIO-HTTP enables developers to create sophisticated and high-performance servers with ease.
 
 Here is an example:
 

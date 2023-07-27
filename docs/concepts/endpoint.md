@@ -5,108 +5,36 @@ title: Endpoint
 
 ## Endpoint
 
-Endpoints in ZIO-HTTP represent individual API operations or routes that the server can handle. They define the structure and behavior of the API endpoints in a type-safe manner. Let's break down the key aspects:
+Endpoints in ZIO-HTTP represent individual API operations or routes that the server can handle. They encapsulate the structure and behavior of the API endpoints in a type-safe manner, making them a fundamental building block for defining HTTP APIs.
 
-- Endpoint Definition:
-  - Endpoints are defined using the `Endpoint` object's combinators, such as `get`, `post`, `path`, `query`, and more.
-  
-  - Combinators allow you to specify the HTTP method, URL path, query parameters, request/response bodies, and other details of the endpoint.
+### Endpoint Definition:
 
-- Middleware:
-  - Middleware can be applied to endpoints using the `@@` operator to add additional behavior or processing to the endpoint.
+- Endpoints are defined using the `Endpoint` object's combinators, such as `get`, `post`, `path`, `query`, and more. These combinators allow you to specify various aspects of the endpoint, such as the HTTP method, URL path, query parameters, request/response bodies, and more.
 
-  - Middleware can handle authentication, validation, error handling, logging, or any custom logic needed for the endpoint.
+### Middleware:
 
-- Endpoint Implementation:
-  - Endpoints are implemented using the `implement` method, which takes a function specifying the logic to handle the request and generate the response.
+- Middleware can be applied to endpoints using the `@@` operator. Middleware allows you to add additional behavior or processing to the endpoint. For instance, you can handle authentication, validation, error handling, logging, or implement any custom logic needed for the endpoint using middleware.
 
-  - Inside the implementation function, you can use ZIO effects to perform computations, interact with dependencies, and produce the desired response.
+### Endpoint Implementation:
 
-- Endpoint Composition:
-  - Endpoints can be composed together using operators like `++`, allowing you to build a collection of endpoints that make up your API.
+- Endpoints are implemented using the `implement` method, which takes a function specifying the logic to handle the request and generate the response. This implementation function receives an instance of the request as input and produces an instance of the response as output.
 
-  - Composition enables structuring the API by grouping related endpoints or creating reusable components.
+- Inside the implementation function, you can use ZIO effects to perform computations, interact with dependencies, and produce the desired response. ZIO's functional approach makes it easy to handle errors, perform asynchronous operations, and compose complex behaviors within the endpoint implementation.
 
-- Converting to App:
-  - To serve the defined endpoints, they need to be converted to an HTTP application (`HttpApp`).
+### Endpoint Composition:
 
-  - This conversion is done using the `toApp` method, which prepares the endpoints to be served as an HTTP application.
+- Endpoints can be composed together using operators like `++`, allowing you to build a collection of endpoints that make up your API. This composition enables you to structure the API by grouping related endpoints or creating reusable components.
 
-  - Any required middleware can be applied during this conversion to the final app.
+### Converting to App:
 
-- Server:
-  - The server is responsible for starting the HTTP server and making the app available to handle incoming requests.
+- To serve the defined endpoints, they need to be converted to an HTTP application (`HttpApp`). This conversion is done using the `toApp` method, which prepares the endpoints to be served as an HTTP application.
 
-  - The `Server.serve` method is used to start the server by providing the HTTP application and any necessary configurations.
+- Any required middleware can be applied during this conversion to the final app. Middleware added to the endpoints will be applied to the HTTP application, ensuring that the specified behavior is enforced for each incoming request.
 
-- Client Interaction:
-  - ZIO-HTTP also provides facilities to interact with endpoints as a client.
+### Running an App:
 
-  - An `EndpointExecutor` can be created to execute the defined endpoints on the client-side, providing input values and handling the response.
+- ZIO HTTP server requires an `HttpApp[R]` to run. The server can be started using the `Server.serve()` method, which takes the HTTP application as input and any necessary configurations.
 
-Overall, endpoints in ZIO-HTTP define the structure, behavior, and implementation of individual API operations. They enable type-safe routing, request/response handling, and composition of API routes. Endpoints can be converted into an HTTP application and served by a server, or executed on the client-side using an `EndpointExecutor`.
+- The server is responsible for listening on the specified port, accepting incoming connections, and handling the incoming HTTP requests by routing them to the appropriate endpoints.
 
-Here is an Example:
-
-```scala
-package example
-
-import zio._
-
-import zio.http.Header.Authorization
-import zio.http._
-import zio.http.codec.HttpCodec
-import zio.http.endpoint._
-
-object EndpointExamples extends ZIOAppDefault {
-  import HttpCodec._
-
-  val auth = EndpointMiddleware.auth
-
-  // MiddlewareSpec can be added at the service level as well
-  val getUser =
-    Endpoint.get("users" / int("userId")).out[Int] @@ auth
-
-  val getUserRoute =
-    getUser.implement { id =>
-      ZIO.succeed(id)
-    }
-
-  val getUserPosts =
-    Endpoint
-      .get("users" / int("userId") / "posts" / int("postId"))
-      .query(query("name"))
-      .out[List[String]] @@ auth
-
-  val getUserPostsRoute =
-    getUserPosts.implement[Any] { case (id1: Int, id2: Int, query: String) =>
-      ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
-    }
-
-  val routes = getUserRoute ++ getUserPostsRoute
-
-  val app = routes.toApp(auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
-
-  val request = Request.get(url = URL.decode("/users/1").toOption.get)
-
-  val run = Server.serve(app).provide(Server.default)
-
-  object ClientExample {
-    def example(client: Client) = {
-      val locator =
-        EndpointLocator.fromURL(URL.decode("http://localhost:8080").toOption.get)
-
-      val executor: EndpointExecutor[Authorization] =
-        EndpointExecutor(client, locator, ZIO.succeed(Authorization.Basic("user", "pass")))
-
-      val x1 = getUser(42)
-      val x2 = getUserPosts(42, 200, "adam")
-
-      val result1: UIO[Int]          = executor(x1)
-      val result2: UIO[List[String]] = executor(x2)
-
-      result1.zip(result2).debug
-    }
-  }
-}
-```
+With `Endpoint` in ZIO-HTTP, you can define and implement your API endpoints in a type-safe and composable way. The DSL allows you to specify the details of each endpoint, handle middleware for additional behavior, and easily compose endpoints to structure your API. This powerful concept empowers developers to build robust and scalable API services using ZIO-HTTP.
