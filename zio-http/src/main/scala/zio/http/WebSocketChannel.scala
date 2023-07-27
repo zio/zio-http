@@ -41,10 +41,20 @@ private[http] object WebSocketChannel {
           case _             => ZIO.unit
         }
       def sendAll(in: Iterable[WebSocketChannelEvent]): Task[Unit] =
-        ZIO.foreachDiscard(in) {
-          case Read(message) => nettyChannel.write(frameToNetty(message))
-          case _             => ZIO.unit
-        } *> nettyChannel.flush
+        ZIO.suspendSucceed {
+          val iterator = in.iterator
+
+          ZIO.whileLoop(iterator.hasNext) {
+            val in = iterator.next()
+            in match {
+              case Read(message) =>
+                if (iterator.hasNext) nettyChannel.write(frameToNetty(message))
+                else nettyChannel.writeAndFlush(frameToNetty(message))
+              case _             =>
+                ZIO.unit
+            }
+          }(_ => ())
+        }
       def shutdown: UIO[Unit]                                      =
         nettyChannel.close(false).orDie
     }
