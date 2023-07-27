@@ -19,6 +19,7 @@ package zio.http
 import java.nio.charset.Charset
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.{Take, ZChannel, ZStream}
 
@@ -31,7 +32,7 @@ final case class StreamingForm(source: ZStream[Any, Throwable, Byte], boundary: 
   /**
    * Runs the streaming form and collects all parts in memory, returning a Form
    */
-  def collectAll: ZIO[Any, Throwable, Form] =
+  def collectAll(implicit trace: Trace): ZIO[Any, Throwable, Form] =
     fields.mapZIO {
       case sb: FormField.StreamingBinary =>
         sb.collect

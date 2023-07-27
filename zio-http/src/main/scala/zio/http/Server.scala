@@ -20,6 +20,7 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.atomic.{AtomicInteger, LongAdder}
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Server.Config.ResponseCompressionConfig
 import zio.http.netty.NettyConfig
@@ -360,7 +361,9 @@ object Server {
     }
   }
 
-  def configured(path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "server")): ZLayer[Any, Throwable, Server] =
+  def configured(
+    path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "server"),
+  )(implicit trace: Trace): ZLayer[Any, Throwable, Server] =
     ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*))).mapError(error =>
       new RuntimeException(s"Configuration error: $error"),
     ) >>> live
