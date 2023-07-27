@@ -46,10 +46,9 @@ object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
         res  <- Client.request(Request(url = url, headers = headers, body = Body.fromString("some-body")))
         data <- res.body.asString
       } yield assertTrue(extractStatus(res) == Status.InternalServerError, data == "")
-    }.provide(
+    }.provideSome[Scope](
       Client.default,
       Server.live,
       ZLayer.succeed(serverConfig),
-      Scope.default,
     ) @@ withLiveClock
 }

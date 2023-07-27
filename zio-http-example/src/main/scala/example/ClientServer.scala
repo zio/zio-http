@@ -13,5 +13,5 @@ object ClientServer extends ZIOAppDefault {
   ).sandbox.toHttpApp
 
   val run =
-    Server.serve(app).provide(Server.default, Client.default, Scope.default).exitCode
+    Server.serve(app).provideSome[Scope](Server.default, Client.default).exitCode
 }

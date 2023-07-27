@@ -93,6 +93,6 @@ object TestClientSpec extends ZIOSpecDefault {
           } yield assertTrue(extractStatus(response) == Status.SwitchingProtocols)
         },
       ),
-    ).provide(TestClient.layer, Scope.default)
+    ).provideSome[Scope](TestClient.layer)
 
 }

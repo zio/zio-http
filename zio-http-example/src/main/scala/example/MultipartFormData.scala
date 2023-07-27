@@ -69,9 +69,8 @@ object MultipartFormData extends ZIOAppDefault {
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
     program
-      .provide(
+      .provideSome[Scope](
         Server.default,
         Client.default,
-        Scope.default,
       )
 }

@@ -70,13 +70,12 @@ object ClientHttpsSpec extends ZIOSpecDefault {
         .exit
       assertZIO(actual)(fails(hasField("class.simpleName", _.getClass.getSimpleName, equalTo("DecoderException"))))
     },
-  ).provide(
+  ).provideSome[Scope](
     ZLayer.succeed(ZClient.Config.default.ssl(sslConfig)),
     Client.customized,
     NettyClientDriver.live,
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),
-    Scope.default,
   ) @@ timeout(
     30 seconds,
   ) @@ ignore

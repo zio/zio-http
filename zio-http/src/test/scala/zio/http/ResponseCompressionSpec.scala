@@ -91,11 +91,10 @@ object ResponseCompressionSpec extends ZIOSpecDefault {
           expected = (0 until 1000).mkString("\n") + "\n"
         } yield assertTrue(decompressed == expected)
       },
-    ).provide(
+    ).provideSome[Scope](
       ZLayer.succeed(serverConfig),
       Server.live,
       Client.default,
-      Scope.default,
     ) @@ withLiveClock
 
   private def decompressed(bytes: Chunk[Byte]): ZIO[Any, Throwable, String] =

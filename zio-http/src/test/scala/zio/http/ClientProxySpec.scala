@@ -38,13 +38,12 @@ object ClientProxySpec extends HttpRunnableSpec {
           proxyUrl        <- ZIO.fromEither(URL.decode("http://localhost:0001"))
           out             <- ZClient
             .request(Request.get(url = serverUrl))
-            .provide(
+            .provideSome[Scope](
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(Proxy(proxyUrl))),
               NettyClientDriver.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.default),
-              Scope.default,
             )
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
@@ -60,13 +59,12 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request.get(url = url),
             )
-            .provide(
+            .provideSome[Scope](
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
               NettyClientDriver.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.default),
-              Scope.default,
             )
         } yield out
       assertZIO(res.either)(isRight)
@@ -94,13 +92,12 @@ object ClientProxySpec extends HttpRunnableSpec {
             .request(
               Request.get(url = url),
             )
-            .provide(
+            .provideSome[Scope](
               Client.customized,
               ZLayer.succeed(ZClient.Config.default.proxy(proxy)),
               NettyClientDriver.live,
               DnsResolver.default,
               ZLayer.succeed(NettyConfig.default),
-              Scope.default,
             )
         } yield out
       assertZIO(res.either)(isRight)
@@ -109,6 +106,6 @@ object ClientProxySpec extends HttpRunnableSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ClientProxy") {
     serve.as(List(clientProxySpec))
-  }.provideShared(DynamicServer.live, severTestLayer) @@
+  }.provideSomeShared[Scope](DynamicServer.live, severTestLayer) @@
     timeout(5 seconds) @@ sequential @@ withLiveClock
 }

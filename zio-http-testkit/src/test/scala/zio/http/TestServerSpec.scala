@@ -88,11 +88,10 @@ object TestServerSpec extends ZIOSpecDefault {
       .provideSome[Client with Driver with Scope](
         TestServer.layer,
       ),
-  ).provide(
+  ).provideSome[Scope](
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     Client.default,
     NettyDriver.live,
-    Scope.default,
   )
 
   private def requestToCorrectPort =

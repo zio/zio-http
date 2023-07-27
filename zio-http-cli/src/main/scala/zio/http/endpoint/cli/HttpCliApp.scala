@@ -87,24 +87,26 @@ object HttpCliApp {
         figFont = figFont,
         command = command,
       ) { case CliRequest(url, method, headers, body) =>
-        for {
-          response <- ZIO
-            .serviceWithZIO[Client](client =>
-              client(
-                Request(
-                  method = method,
-                  url = url.host(host).port(port),
-                  headers = headers,
-                  body = Body.fromString(body.toString),
+        ZIO.scoped {
+          for {
+            response <- ZIO
+              .serviceWithZIO[Client](client =>
+                client(
+                  Request(
+                    method = method,
+                    url = url.host(host).port(port),
+                    headers = headers,
+                    body = Body.fromString(body.toString),
+                  ),
                 ),
-              ),
-            )
-            .provide(Client.default, Scope.default)
-          _        <- Console.printLine(s"Got response")
-          _        <- Console.printLine(s"Status: ${response.status}")
-          body     <- response.body.asString
-          _        <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
-        } yield ()
+              )
+              .provideSome[Scope](Client.default)
+            _        <- Console.printLine(s"Got response")
+            _        <- Console.printLine(s"Status: ${response.status}")
+            body     <- response.body.asString
+            _        <- Console.printLine(s"""Body: ${if (body.nonEmpty) body else "<empty>"}""")
+          } yield ()
+        }
       }
     }
   }

@@ -304,12 +304,11 @@ object ClientStreamingSpec extends HttpRunnableSpec {
       suite("non-streaming server")(
         tests(streamingServer = false): _*,
       ),
-    ).provide(
+    ).provideSome[Scope](
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.default),
       ZLayer.succeed(Client.Config.default.connectionTimeout(100.seconds).idleTimeout(100.seconds)),
       Client.live,
-      Scope.default,
     ) @@ withLiveClock @@ sequential
 
   private def server(streaming: Boolean): ZIO[Any, Throwable, Int] =

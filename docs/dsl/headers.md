@@ -153,7 +153,7 @@ object SimpleClientJson extends ZIOAppDefault {
   } yield ()
 
   override def run =
-    program.provide(Client.default, Scope.default)
+    program.provide(Client.default)
 
 }
 ```

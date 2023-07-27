@@ -18,12 +18,11 @@ object ClientWithDecompression extends ZIOAppDefault {
 
   val config       = ZClient.Config.default.requestDecompression(true)
   override val run =
-    program.provide(
+    program.provideSome[Scope](
       ZLayer.succeed(config),
       Client.live,
       ZLayer.succeed(NettyConfig.default),
       DnsResolver.default,
-      Scope.default,
     )
 
 }

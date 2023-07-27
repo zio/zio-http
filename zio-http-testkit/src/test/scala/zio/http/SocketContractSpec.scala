@@ -11,7 +11,7 @@ import zio.http.{Headers, Status, Version}
 
 object SocketContractSpec extends ZIOSpecDefault {
 
-  def spec: Spec[Any, Any] =
+  def spec: Spec[Scope, Any] =
     suite("SocketOps")(
       contract("Successful Multi-message application") { p =>
         val socketServer: Handler[Any, Throwable, WebSocketChannel, Unit] =
@@ -102,12 +102,11 @@ object SocketContractSpec extends ZIOSpecDefault {
           )
           _        <- promise.await.timeout(10.seconds)
         } yield assert(response.status)(equalTo(Status.SwitchingProtocols))
-      }.provideSome[Client](
+      }.provideSome[Client with Scope](
         TestServer.layer,
         NettyDriver.live,
         ZLayer.succeed(Server.Config.default.onAnyOpenPort),
-        Scope.default,
-      ).provide(Client.default),
+      ).provideSome[Scope](Client.default),
       test("Test") {
         for {
           portAndPromise <- testServerSetup(serverApp)
@@ -118,7 +117,7 @@ object SocketContractSpec extends ZIOSpecDefault {
           )
           _        <- promise.await.timeout(10.seconds)
         } yield assert(response.status)(equalTo(Status.SwitchingProtocols))
-      }.provide(TestClient.layer, Scope.default),
+      }.provideSome[Scope](TestClient.layer),
     )
   }
 

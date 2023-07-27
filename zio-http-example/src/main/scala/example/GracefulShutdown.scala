@@ -29,7 +29,7 @@ object GracefulShutdown extends ZIOAppDefault {
     .sandbox
     .toHttpApp
 
-  override def run: ZIO[Any, Throwable, Unit] =
+  override def run: ZIO[Scope, Throwable, Unit] =
     (for {
       started  <- Promise.make[Nothing, Unit]
       fiber    <- Server
@@ -47,8 +47,7 @@ object GracefulShutdown extends ZIOAppDefault {
       body     <- response.body.asString
       _        <- Console.printLine(response.status)
       _        <- Console.printLine(body)
-    } yield ()).provide(
+    } yield ()).provideSome[Scope](
       Client.default,
-      Scope.default,
     )
 }

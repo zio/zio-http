@@ -107,10 +107,9 @@ object TestCliServer extends zio.ZIOAppDefault with TestCliEndpoints {
 object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {
   val run =
     clientExample
-      .provide(
+      .provideSome[Scope](
         EndpointExecutor.make(serviceName = "test"),
         Client.default,
-        Scope.default,
       )
 
   lazy val clientExample: URIO[EndpointExecutor[Unit] & Scope, Unit] =

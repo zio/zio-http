@@ -59,13 +59,12 @@ object SSLSpec extends ZIOSpecDefault {
               .request(Request.get(successUrl))
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
-          }.provide(
+          }.provideSome[Scope](
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
-            Scope.default,
           ),
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
@@ -75,39 +74,36 @@ object SSLSpec extends ZIOSpecDefault {
                   ZIO.succeed("DecoderException")
               }
             assertZIO(actual)(equalTo("DecoderException"))
-          }.provide(
+          }.provideSome[Scope](
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL2)),
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
-            Scope.default,
           ),
           test("succeed when client has default SSL") {
             val actual = Client
               .request(Request.get(successUrl))
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
-          }.provide(
+          }.provideSome[Scope](
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(ClientSSLConfig.Default)),
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
-            Scope.default,
           ),
           test("Https Redirect when client makes http request") {
             val actual = Client
               .request(Request.get(successUrl))
               .map(_.status)
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
-          }.provide(
+          }.provideSome[Scope](
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
-            Scope.default,
           ),
           test("Https request with a large payload should respond with 413") {
             check(payload) { payload =>
@@ -118,17 +114,16 @@ object SSLSpec extends ZIOSpecDefault {
                 .map(_.status)
               assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
             }
-          }.provide(
+          }.provideSome[Scope](
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
             NettyClientDriver.live,
             DnsResolver.default,
             ZLayer.succeed(NettyConfig.default),
-            Scope.default,
           ),
         ),
       ),
-  ).provideShared(
+  ).provideSomeShared[Scope](
     Server.default,
   ) @@
     timeout(5 second) @@ ignore

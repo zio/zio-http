@@ -101,11 +101,10 @@ object StaticServerSpec extends HttpRunnableSpec {
         .as(
           List(staticAppSpec, nonZIOSpec, throwableAppSpec, multiHeadersSpec),
         )
-    }.provideSomeShared[TestEnvironment](
+    }.provideSomeShared[TestEnvironment with Scope](
       DynamicServer.live,
       severTestLayer,
       testClientLayer,
-      Scope.default,
     ) @@ timeout(30 seconds) @@ withLiveClock
 
   def staticAppSpec    =

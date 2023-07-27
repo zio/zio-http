@@ -42,7 +42,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
 
   override def spec = suite("StaticFileServerSpec") {
     ZIO.scoped(serve.as(List(staticSpec)))
-  }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
+  }.provideSomeShared[Scope](DynamicServer.live, severTestLayer, Client.default) @@
     timeout(5 seconds) @@ withLiveClock
 
   private def staticSpec = suite("Static RandomAccessFile Server")(

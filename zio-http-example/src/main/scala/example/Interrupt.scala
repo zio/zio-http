@@ -42,12 +42,11 @@ object MyClient extends ZIOAppDefault {
     reqWithTimeout.exit
       .debug("Client finished")
 //      .provide(Client.default)
-      .provide(
+      .provideSome[Scope](
         Client.live,
         ZLayer.succeed(ZClient.Config.default.fixedConnectionPool(2)),
         ZLayer.succeed(NettyConfig.default),
         DnsResolver.default,
-        Scope.default,
       )
       // .provide(Client.live, NettyClientDriver.fromConfig, ClientConfig.live(ClientConfig().fixedConnectionPool(2)))
       .debug("EXIT")

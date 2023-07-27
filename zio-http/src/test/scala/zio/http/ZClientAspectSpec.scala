@@ -78,10 +78,9 @@ object ZClientAspectSpec extends ZIOSpecDefault {
           annotations.head.contains("duration_ms"),
         ),
       ),
-    ).provide(
+    ).provideSome[Scope](
       ZLayer.succeed(Server.Config.default.onAnyOpenPort),
       Server.live,
       Client.default,
-      Scope.default,
     ) @@ withLiveClock
 }

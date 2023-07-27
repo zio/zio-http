@@ -56,6 +56,6 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
   }
 
   val run =
-    app.provide(Client.default, Scope.default)
+    app.provideSome[Scope](Client.default)
 
 }

@@ -33,8 +33,8 @@ import zio.http.codec.{Doc, HttpCodec, QueryCodec}
 import zio.http.netty.server.NettyDriver
 
 object EndpointRoundtripSpec extends ZIOSpecDefault {
-  val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
-    ZLayer.make[Server & Client & Scope](
+  val testLayer: ZLayer[Scope, Throwable, Server & Client] =
+    ZLayer.makeSome[Scope, Server & Client](
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
       Client.customized.map(env => ZEnvironment(env.get @@ ZClientAspect.debug)),
@@ -42,7 +42,6 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
       NettyDriver.live,
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
-      Scope.default,
     )
 
   def extractStatus(response: Response): Status = response.status
@@ -122,7 +121,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
       result <- errorF(out)
     } yield result
 
-  def spec: Spec[Any, Any] =
+  def spec: Spec[Scope, Any] =
     suite("EndpointRoundtripSpec")(
       test("simple get") {
         val usersPostAPI =
@@ -441,5 +440,5 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
           )
         }
       } @@ timeout(10.seconds) @@ ifEnvNotSet("CI"), // NOTE: random hangs on CI
-    ).provideLayer(testLayer) @@ withLiveClock @@ sequential @@ timeout(300.seconds)
+    ).provideSomeLayer[Scope](testLayer) @@ withLiveClock @@ sequential @@ timeout(300.seconds)
 }

@@ -457,12 +457,11 @@ object ServerSpec extends HttpRunnableSpec {
     suite("ServerSpec") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
-    }.provideSomeShared[TestEnvironment](
+    }.provideSomeShared[TestEnvironment with Scope](
       DynamicServer.live,
       ZLayer.succeed(configApp),
       Server.live,
       Client.default,
-      Scope.default,
     ) @@ timeout(30 seconds) @@ sequential @@ withLiveClock
 
 }

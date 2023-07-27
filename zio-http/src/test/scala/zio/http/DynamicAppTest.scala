@@ -37,7 +37,7 @@ object DynamicAppTest extends ZIOSpecDefault {
     ).sandbox.toHttpApp
 
   val layer =
-    ZLayer.make[Client & Server & Scope](
+    ZLayer.makeSome[Scope, Client & Server](
       ZLayer.succeed(ZClient.Config.default),
       NettyClientDriver.live,
       Client.customized,
@@ -45,7 +45,6 @@ object DynamicAppTest extends ZIOSpecDefault {
       Server.live,
       DnsResolver.default,
       ZLayer.succeed(NettyConfig.default),
-      Scope.default,
     )
 
   def spec = suite("Server")(
@@ -61,6 +60,6 @@ object DynamicAppTest extends ZIOSpecDefault {
         extractStatus(okResponse) == Status.Ok &&
           extractStatus(createdResponse) == Status.Created,
       ) // fails here because the response is Status.NotFound
-    }.provideLayer(layer) @@ withLiveClock,
+    }.provideSomeLayer[Scope](layer) @@ withLiveClock,
   )
 }
