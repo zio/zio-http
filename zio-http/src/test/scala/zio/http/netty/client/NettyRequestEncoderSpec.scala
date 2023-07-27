@@ -73,13 +73,13 @@ object NettyRequestEncoderSpec extends ZIOSpecDefault {
       test("uri") {
         check(anyClientParam) { params =>
           val req = encode(params).map(_.uri())
-          assertZIO(req)(equalTo(params.url.relative.encode))
+          assertZIO(req)(equalTo(params.url.relative.addLeadingSlash.encode))
         }
       },
       test("uri on Body.RandomAccessFile") {
         check(HttpGen.clientParamsForFileBody()) { params =>
           val req = encode(params).map(_.uri())
-          assertZIO(req)(equalTo(params.url.relative.encode))
+          assertZIO(req)(equalTo(params.url.relative.addLeadingSlash.encode))
         }
       },
     ),
@@ -121,9 +121,15 @@ object NettyRequestEncoderSpec extends ZIOSpecDefault {
     test("url with an empty path and query params") {
       check(clientParamWithEmptyPathAndQueryParams) { params =>
         val uri = encode(params).map(_.uri)
-        assertZIO(uri)(not(equalTo(params.url.encode)))
+        assertZIO(uri)(not(equalTo(params.url.encode))) &&
         assertZIO(uri)(equalTo(params.url.addLeadingSlash.encode))
       }
+    },
+    test("leading slash added to path") {
+      val url     = URL.decode("https://api.github.com").toOption.get / "something" / "else"
+      val req     = Request(url = url)
+      val encoded = encode(req).map(_.uri)
+      assertZIO(encoded)(equalTo("/something/else"))
     },
   )
 }
