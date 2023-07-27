@@ -21,7 +21,7 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
       handler(
         Response
           .text(plainTextMessage)
-          .serverTime
+//          .serverTime
           .addHeader(Header.Server(STATIC_SERVER_NAME))
           .freeze,
       ),
@@ -29,7 +29,7 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
       handler(
         Response
           .json(jsonMessage)
-          .serverTime
+//          .serverTime
           .addHeader(Header.Server(STATIC_SERVER_NAME))
           .freeze,
       ),

@@ -38,7 +38,7 @@ final class WebSocketClientInboundHandler(
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
-      onResponse.succeed(NettyResponse.make(ctx, msg))
+      onResponse.succeed(NettyResponse.make(ctx, msg).response)
     }(unsafeClass, trace)
 
     ctx.fireChannelRead(msg.retain())

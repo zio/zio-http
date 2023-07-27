@@ -160,7 +160,7 @@ private[zio] final case class ServerInboundHandler(
       NettyResponseEncoder.fastEncode(response, bytes) match {
         case jResponse: FullHttpResponse if response.frozen =>
           val djResponse = jResponse.retainedDuplicate()
-          setServerTime(time, response, djResponse)
+          //setServerTime(time, response, djResponse)
           ctx.writeAndFlush(djResponse, ctx.voidPromise())
           true
         case _                                              => false
@@ -192,7 +192,7 @@ private[zio] final case class ServerInboundHandler(
           for {
             jResponse <- NettyResponseEncoder.encode(response)
             _         <- ZIO.attempt {
-              setServerTime(time, response, jResponse)
+              //setServerTime(time, response, jResponse)
               ctx.writeAndFlush(jResponse)
             }
             flushed   <-
@@ -270,11 +270,12 @@ private[zio] final case class ServerInboundHandler(
 
   }
 
-  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
-    val _ =
-      if (response.addServerTime)
-        jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
-  }
+  //TODO: reimplement it on server settings level
+//  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
+//    val _ =
+//      if (response.addServerTime)
+//        jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
+//  }
 
   /*
    * Checks if the response requires to switch protocol to websocket. Returns
