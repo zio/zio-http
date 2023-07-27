@@ -26,7 +26,7 @@ import zio.http.netty.server.NettyDriver
 trait Driver {
   def start(implicit trace: Trace): RIO[Scope, StartResult]
 
-  def addApp[R](newApp: App[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
+  def addApp[R](newApp: HttpApp[R], env: ZEnvironment[R])(implicit trace: Trace): UIO[Unit]
 
   def createClientDriver()(implicit trace: Trace): ZIO[Scope, Throwable, ClientDriver]
 }

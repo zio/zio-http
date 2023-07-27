@@ -38,7 +38,7 @@ private[zio] object NettyRequestEncoder {
 
     // As per the spec, the path should contain only the relative path.
     // Host and port information should be in the headers.
-    val path = replaceEmptyPathWithSlash(req.url).relative.encode
+    val path = replaceEmptyPathWithSlash(req.url).relative.addLeadingSlash.encode
 
     val encodedReqHeaders = Conversions.headersToNetty(req.allHeaders)
 

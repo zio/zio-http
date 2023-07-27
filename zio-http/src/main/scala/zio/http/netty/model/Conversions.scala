@@ -52,7 +52,7 @@ private[netty] object Conversions {
       case Method.DELETE       => HttpMethod.DELETE
       case Method.TRACE        => HttpMethod.TRACE
       case Method.CONNECT      => HttpMethod.CONNECT
-      case Method.Default      => HttpMethod.GET
+      case Method.ANY          => HttpMethod.GET
       case Method.CUSTOM(name) => new HttpMethod(name)
     }
 

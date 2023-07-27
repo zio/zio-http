@@ -11,7 +11,7 @@ This section describes, ZIO HTTP Server and different configurations you can pro
 import zio.http._
 import zio._
 
-def app: App[Any] = ???
+def app: HttpApp[Any] = ???
 ```
 
 ```scala mdoc:silent:crash

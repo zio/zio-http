@@ -16,8 +16,7 @@
 
 package zio.http
 
-import java.io.FileNotFoundException
-import java.nio.file.{Files, NotDirectoryException}
+import java.nio.file.Files
 
 import zio._
 import zio.test.Assertion._
@@ -27,6 +26,32 @@ import zio.test._
 object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
 
   def spec = suite("Handler")(
+    suite("sandbox")(
+      test("response failure is passed through") {
+        val handler =
+          Handler
+            .fromFunctionZIO[Any] { _ =>
+              ZIO.fail(Response.notFound)
+            }
+            .sandbox
+
+        for {
+          result <- handler.run().either
+        } yield assertTrue(result == Left(Response.notFound))
+      },
+      test("illegal argument exception becomes bad request") {
+        val handler =
+          Handler
+            .fromFunctionZIO[Any] { _ =>
+              ZIO.fail(new IllegalArgumentException)
+            }
+            .sandbox
+
+        for {
+          result <- handler.merge.status.run()
+        } yield assertTrue(result == Status.BadRequest)
+      },
+    ),
     suite("flatMap")(
       test("should flatten") {
         val app    = Handler.succeed(1).flatMap(i => Handler.succeed(i + 1))
@@ -372,7 +397,10 @@ object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
       },
       test("must fail if file does not exist") {
         val http = Handler.fromFileZIO(ZIO.succeed(new java.io.File("does-not-exist")))
-        assertZIO(http.apply {}.exit)(failsWithA[FileNotFoundException])
+
+        for {
+          status <- http.sandbox.merge.status.run()
+        } yield assertTrue(status == Status.NotFound)
       },
       test("must fail if given file is a directory") {
         ZIO.acquireRelease(ZIO.attempt(Files.createTempDirectory(""))) { tempPath =>
@@ -380,8 +408,18 @@ object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
         } flatMap { tempPath =>
           val tempFile = tempPath.toFile
           val http     = Handler.fromFileZIO(ZIO.succeed(tempFile))
-          assertZIO(http.apply {}.exit)(failsWithA[NotDirectoryException])
+
+          for {
+            status <- http.sandbox.merge.status.run()
+          } yield assertTrue(status == Status.BadRequest)
         }
+      },
+      test("resource regression") {
+        val handler = Handler.fromResource("TestFile.txt").sandbox
+
+        for {
+          status <- handler.merge.status.run()
+        } yield assertTrue(status == Status.Ok)
       },
     ),
   ) @@ timeout(10 seconds)

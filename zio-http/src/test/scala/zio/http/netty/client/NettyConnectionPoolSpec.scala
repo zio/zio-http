@@ -24,17 +24,17 @@ import zio.test._
 import zio.stream.ZStream
 
 import zio.http._
+import zio.http.codec.PathCodec.trailing
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.netty.NettyConfig
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
 
-  private val app = Http.collectZIO[Request] {
-    case req @ Method.POST -> Root / "streaming" => ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
-    case Method.GET -> Root / "slow"             => ZIO.sleep(1.hour).as(Response.text("done"))
-    case req                                     =>
-      req.body.asString.map(Response.text(_))
-  }
+  private val app = Routes(
+    Method.POST / "streaming" -> handler((req: Request) => Response(body = Body.fromStream(req.body.asStream))),
+    Method.GET / "slow"       -> handler(ZIO.sleep(1.hour).as(Response.text("done"))),
+    Method.ANY / trailing     -> handler((_: Path, req: Request) => req.body.asString.map(Response.text(_))),
+  ).sandbox.toHttpApp
 
   private val connectionCloseHeader = Headers(Header.Connection.Close)
   private val keepAliveHeader       = Headers(Header.Connection.KeepAlive)
@@ -52,13 +52,15 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           test("not streaming") {
             val res =
               ZIO.foreachPar((1 to N).toList) { idx =>
-                app.deploy.body
-                  .run(
-                    method = Method.POST,
-                    body = Body.fromString(idx.toString),
-                    headers = extraHeaders,
+                app
+                  .deploy(
+                    Request(
+                      method = Method.POST,
+                      body = Body.fromString(idx.toString),
+                      headers = extraHeaders,
+                    ),
                   )
-                  .flatMap(_.asString)
+                  .flatMap(_.body.asString)
               }
             assertZIO(res)(
               equalTo(
@@ -70,13 +72,15 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             val res      = ZIO
               .foreachPar((1 to N).toList) { idx =>
                 val stream = ZStream.fromIterable(List("a", "b", "c-", idx.toString), chunkSize = 1)
-                app.deploy.body
-                  .run(
-                    method = Method.POST,
-                    body = Body.fromStream(stream),
-                    headers = extraHeaders,
+                app
+                  .deploy(
+                    Request(
+                      method = Method.POST,
+                      body = Body.fromStream(stream),
+                      headers = extraHeaders,
+                    ),
                   )
-                  .flatMap(_.asString)
+                  .flatMap(_.body.asString)
               }
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
@@ -84,14 +88,16 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           test("streaming response") {
             val res =
               ZIO.foreachPar((1 to N).toList) { idx =>
-                app.deploy.body
-                  .run(
-                    method = Method.POST,
-                    path = Root / "streaming",
-                    body = Body.fromString(idx.toString),
-                    headers = extraHeaders,
+                app
+                  .deploy(
+                    Request(
+                      method = Method.POST,
+                      url = URL.root / "streaming",
+                      body = Body.fromString(idx.toString),
+                      headers = extraHeaders,
+                    ),
                   )
-                  .flatMap(_.asString)
+                  .flatMap(_.body.asString)
               }
             assertZIO(res)(
               equalTo(
@@ -102,14 +108,16 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           test("streaming request and response") {
             val res      = ZIO.foreachPar((1 to N).toList) { idx =>
               val stream = ZStream.fromIterable(List("a", "b", "c-", idx.toString), chunkSize = 1)
-              app.deploy.body
-                .run(
-                  method = Method.POST,
-                  path = Root / "streaming",
-                  body = Body.fromStream(stream),
-                  headers = extraHeaders,
+              app
+                .deploy(
+                  Request(
+                    method = Method.POST,
+                    url = URL.root / "streaming",
+                    body = Body.fromStream(stream),
+                    headers = extraHeaders,
+                  ),
                 )
-                .flatMap(_.asString)
+                .flatMap(_.body.asString)
             }
             val expected = (1 to N).map(idx => s"abc-$idx").toList
             assertZIO(res)(equalTo(expected))
@@ -117,14 +125,16 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
           test("interrupting the parallel clients") {
             val res =
               ZIO.foreachPar(1 to 16) { idx =>
-                app.deploy.body
-                  .run(
-                    method = Method.GET,
-                    path = Root / "slow",
-                    body = Body.fromString(idx.toString),
-                    headers = extraHeaders,
+                app
+                  .deploy(
+                    Request(
+                      method = Method.GET,
+                      url = URL.root / "slow",
+                      body = Body.fromString(idx.toString),
+                      headers = extraHeaders,
+                    ),
                   )
-                  .flatMap(_.asString)
+                  .flatMap(_.body.asString)
                   .fork
                   .flatMap { fib =>
                     fib.interrupt.unit.delay(500.millis)
@@ -136,14 +146,16 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             val res =
               // ZIO.scoped {
               ZIO.foreach(1 to 16) { idx =>
-                app.deploy.body
-                  .run(
-                    method = Method.GET,
-                    path = Root / "slow",
-                    body = Body.fromString(idx.toString),
-                    headers = extraHeaders,
+                app
+                  .deploy(
+                    Request(
+                      method = Method.GET,
+                      url = URL.root / "slow",
+                      body = Body.fromString(idx.toString),
+                      headers = extraHeaders,
+                    ),
                   )
-                  .flatMap(_.asString)
+                  .flatMap(_.body.asString)
                   .fork
                   .flatMap { fib =>
                     fib.interrupt.unit.delay(100.millis)

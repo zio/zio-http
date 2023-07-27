@@ -27,28 +27,31 @@ import zio.stream.ZStream
 
 object ResponseCompressionSpec extends ZIOSpecDefault {
 
-  private val text: HttpApp[Any, Nothing] =
-    Http.collect[Request] { case Method.GET -> Root / "text" =>
-      Response.text("Hello World!\n")
-    }
+  private val text: HttpApp[Any] =
+    Routes(
+      Method.GET / "text" -> handler(Response.text("Hello World!\n")),
+    ).toHttpApp
 
   private val stream =
-    Http.collect[Request] { case Method.GET -> Root / "stream" =>
-      Response(
-        Status.Ok,
-        Headers(
-          Header.ContentType(MediaType.text.plain),
+    Routes(
+      Method.GET / "stream" ->
+        handler(
+          Response(
+            Status.Ok,
+            Headers(
+              Header.ContentType(MediaType.text.plain),
+            ),
+            Body.fromStream(
+              ZStream
+                .unfold[Long, String](0L) { s =>
+                  if (s < 1000) Some((s"$s\n", s + 1)) else None
+                }
+                .grouped(10)
+                .map(_.mkString),
+            ),
+          ),
         ),
-        Body.fromStream(
-          ZStream
-            .unfold[Long, String](0L) { s =>
-              if (s < 1000) Some((s"$s\n", s + 1)) else None
-            }
-            .grouped(10)
-            .map(_.mkString),
-        ),
-      )
-    }
+    ).toHttpApp
 
   private val app                              = text ++ stream
   private lazy val serverConfig: Server.Config = Server.Config.default.port(0).responseCompression()

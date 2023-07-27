@@ -20,7 +20,7 @@ object AuthenticationClient extends ZIOAppDefault {
     client   <- ZIO.service[Client]
     // Making a login request to obtain the jwt token. In this example the password should be the reverse string of username.
     token    <- client(Request.get(loginUrl)).flatMap(_.body.asString)
-    // Once the jwt token is procured, adding it as a Barer token in Authorization header while accessing a protected route.
+    // Once the jwt token is procured, adding it as a Bearer token in Authorization header while accessing a protected route.
     response <- client(Request.get(greetUrl).addHeader(Header.Authorization.Bearer(token)))
     body     <- response.body.asString
     _        <- Console.printLine(body)
