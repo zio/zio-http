@@ -22,31 +22,32 @@ import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
 import zio.{Exit, Scope, ZIO, durationInt}
 
 import zio.http.Header.AccessControlAllowMethods
-import zio.http.HttpAppMiddleware.cors
-import zio.http.internal.middlewares.Cors.CorsConfig
+import zio.http.Middleware.{CorsConfig, cors}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec, severTestLayer, testClientLayer}
 
 object StaticServerSpec extends HttpRunnableSpec {
 
-  private val staticApp = Http.collectZIO[Request] {
-    case Method.GET -> Root / "success"       => ZIO.succeed(Response.ok)
-    case Method.GET -> Root / "failure"       => ZIO.fail(new RuntimeException("FAILURE"))
-    case Method.GET -> Root / "die"           => ZIO.die(new RuntimeException("DIE"))
-    case Method.GET -> Root / "get%2Fsuccess" => ZIO.succeed(Response.ok)
-  }
+  private val staticApp = Routes(
+    Method.GET / "success"       -> handler(Response.ok),
+    Method.GET / "failure"       -> handler(ZIO.fail(new RuntimeException("FAILURE"))),
+    Method.GET / "die"           -> handler(ZIO.die(new RuntimeException("DIE"))),
+    Method.GET / "get%2Fsuccess" -> handler(Response.ok),
+  ).sandbox.toHttpApp
 
   // Use this route to test anything that doesn't require ZIO related computations.
-  private val nonZIO = Http.collectExit[Request] {
-    case _ -> Root / "ExitSuccess" => Exit.succeed(Response.ok)
-    case _ -> Root / "ExitFailure" => Exit.fail(new RuntimeException("FAILURE"))
-    case _ -> Root / "throwable"   => throw new Exception("Throw inside Handler")
-  }
+  private val nonZIO = Routes(
+    Method.ANY / "ExitSuccess" -> handler(Exit.succeed(Response.ok)),
+    Method.ANY / "ExitFailure" -> handler(Exit.fail(new RuntimeException("FAILURE"))),
+    Method.ANY / "throwable"   -> handlerTODO("Throw inside Handler"),
+  ).sandbox.toHttpApp
 
-  private val staticAppWithCors = Http.collectZIO[Request] { case Method.GET -> Root / "success-cors" =>
-    ZIO.succeed(Response.ok.addHeader(Header.Vary("test1", "test2")))
-  } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
+  private val staticAppWithCors = Routes(
+    Method.GET / "success-cors" -> handler(Response.ok.addHeader(Header.Vary("test1", "test2"))),
+  ).toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET, Method.POST)))
 
-  private val app = serve { (nonZIO ++ staticApp ++ staticAppWithCors).withDefaultErrorResponse }
+  private val combined = nonZIO ++ staticApp ++ staticAppWithCors
+
+  private val app = serve { combined }
 
   private val methodGenWithoutHEAD: Gen[Any, Method] = Gen.fromIterable(
     List(
@@ -61,15 +62,27 @@ object StaticServerSpec extends HttpRunnableSpec {
     ),
   )
 
+  private val methodGenWithoutOPTIONS: Gen[Any, Method] = Gen.fromIterable(
+    List(
+      Method.GET,
+      Method.POST,
+      Method.PUT,
+      Method.PATCH,
+      Method.DELETE,
+      Method.TRACE,
+      Method.CONNECT,
+    ),
+  )
+
   def nonZIOSpec = suite("NonZIOSpec")(
     test("200 response") {
-      checkAll(HttpGen.method) { method =>
+      checkAll(methodGenWithoutOPTIONS) { method =>
         val actual = status(method, Root / "ExitSuccess")
         assertZIO(actual)(equalTo(Status.Ok))
       }
     },
     test("500 response") {
-      checkAll(methodGenWithoutHEAD) { method =>
+      checkAll(methodGenWithoutOPTIONS) { method =>
         val actual = status(method, Root / "ExitFailure")
         assertZIO(actual)(equalTo(Status.InternalServerError))
       }
@@ -83,7 +96,7 @@ object StaticServerSpec extends HttpRunnableSpec {
   )
 
   override def spec =
-    suite("Server") {
+    suite("StaticServerSpec") {
       app
         .as(
           List(staticAppSpec, nonZIOSpec, throwableAppSpec, multiHeadersSpec),

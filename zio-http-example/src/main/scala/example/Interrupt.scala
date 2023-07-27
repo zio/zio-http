@@ -11,11 +11,12 @@ import zio.http.netty.NettyConfig
 
 object MyServer extends ZIOAppDefault {
 
-  val app = Http.collectZIO[Request] { case Method.GET -> Path.root =>
-    ZIO.sleep(10.seconds).map(_ => Response.text("done")).onExit { e =>
-      Console.printLine(e).exit
-    }
-  }
+  val app = Routes(
+    Method.GET / "" ->
+      handler(ZIO.sleep(10.seconds).map(_ => Response.text("done")).onExit { e =>
+        Console.printLine(e).exit
+      }),
+  ).toHttpApp
 
   def run =
     Server.serve(app).provide(Server.default)

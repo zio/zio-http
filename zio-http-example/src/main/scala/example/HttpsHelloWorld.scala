@@ -6,10 +6,10 @@ import zio.http._
 
 object HttpsHelloWorld extends ZIOAppDefault {
   // Create HTTP route
-  val app: HttpApp[Any, Nothing] = Http.collect[Request] {
-    case Method.GET -> Root / "text" => Response.text("Hello World!")
-    case Method.GET -> Root / "json" => Response.json("""{"greetings": "Hello World!"}""")
-  }
+  val app: HttpApp[Any] = Routes(
+    Method.GET / "text" -> handler(Response.text("Hello World!")),
+    Method.GET / "json" -> handler(Response.json("""{"greetings": "Hello World!"}""")),
+  ).toHttpApp
 
   /**
    * In this example an inbuilt API using keystore is used. For testing this

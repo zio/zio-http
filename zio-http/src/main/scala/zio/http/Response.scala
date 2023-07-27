@@ -16,6 +16,9 @@
 
 package zio.http
 
+import java.nio.file.{AccessDeniedException, NotDirectoryException}
+import java.util.IllegalFormatException
+
 import scala.annotation.tailrec
 
 import zio._
@@ -27,7 +30,6 @@ import zio.http.html.Html
 import zio.http.internal.HeaderOps
 
 sealed trait Response extends HeaderOps[Response] { self =>
-
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
@@ -335,7 +337,61 @@ object Response {
     body: Body = Body.empty,
   ): Response = new BasicResponse(body, headers, status)
 
+  def badRequest: Response = error(Status.BadRequest)
+
+  def badRequest(message: String): Response = error(Status.BadRequest, message)
+
+  def error(status: Status, message: String): Response = {
+    import zio.http.internal.OutputEncoder
+
+    val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
+
+    Response(status = status, headers = Headers(Header.Warning(status.code, "ZIO HTTP", message2)))
+  }
+
+  def error(status: Status): Response =
+    error(status, status.text)
+
+  def forbidden: Response = error(Status.Forbidden)
+
+  def forbidden(message: String): Response = error(Status.Forbidden, message)
+
+  /**
+   * Creates a new response from the specified cause. Note that this method is
+   * not polymorphic, but will attempt to inspect the runtime class of the
+   * failure inside the cause, if any.
+   */
+  def fromCause(cause: Cause[Any]): Response = {
+    cause.failureOrCause match {
+      case Left(failure: Response)  => failure
+      case Left(failure: Throwable) => fromThrowable(failure)
+      case Left(failure: Cause[_])  => fromCause(failure)
+      case _                        =>
+        if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
+        else error(Status.InternalServerError, cause.prettyPrint.take(100))
+    }
+  }
+
+  /**
+   * Creates a new response from the specified cause, translating any typed
+   * error to a response using the provided function.
+   */
+  def fromCauseWith[E](cause: Cause[E])(f: E => Response): Response = {
+    cause.failureOrCause match {
+      case Left(failure) => f(failure)
+      case Right(cause)  => fromCause(cause)
+    }
+  }
+
   def fromHttpError(error: HttpError): Response = new ErrorResponse(Body.empty, Headers.empty, error, error.status)
+
+  /**
+   * Creates a response with content-type set to text/event-stream
+   * @param data
+   *   \- stream of data to be sent as Server Sent Events
+   */
+  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
+    new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
 
   /**
    * Creates a new response for the provided socket
@@ -357,8 +413,29 @@ object Response {
         Status.SwitchingProtocols,
       )
     }
-
   }
+
+  /**
+   * Creates a new response for the specified throwable. Note that this method
+   * relies on the runtime class of the throwable.
+   */
+  def fromThrowable(throwable: Throwable): Response = {
+    throwable match { // TODO: Enhance
+      case _: AccessDeniedException           => error(Status.Forbidden, throwable.getMessage)
+      case _: IllegalAccessException          => error(Status.Forbidden, throwable.getMessage)
+      case _: IllegalAccessError              => error(Status.Forbidden, throwable.getMessage)
+      case _: NotDirectoryException           => error(Status.BadRequest, throwable.getMessage)
+      case _: IllegalArgumentException        => error(Status.BadRequest, throwable.getMessage)
+      case _: java.io.FileNotFoundException   => error(Status.NotFound, throwable.getMessage)
+      case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
+      case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
+      case _                                  => error(Status.InternalServerError, throwable.getMessage)
+    }
+  }
+
+  def gatewayTimeout: Response = error(Status.GatewayTimeout)
+
+  def gatewayTimeout(message: String): Response = error(Status.GatewayTimeout, message)
 
   /**
    * Creates a response with content-type set to text/html
@@ -370,6 +447,14 @@ object Response {
       status,
     )
 
+  def httpVersionNotSupported: Response = error(Status.HttpVersionNotSupported)
+
+  def httpVersionNotSupported(message: String): Response = error(Status.HttpVersionNotSupported, message)
+
+  def internalServerError: Response = error(Status.InternalServerError)
+
+  def internalServerError(message: String): Response = error(Status.InternalServerError, message)
+
   /**
    * Creates a response with content-type set to application/json
    */
@@ -379,6 +464,22 @@ object Response {
       contentTypeJson,
       Status.Ok,
     )
+
+  def networkAuthenticationRequired: Response = error(Status.NetworkAuthenticationRequired)
+
+  def networkAuthenticationRequired(message: String): Response = error(Status.NetworkAuthenticationRequired, message)
+
+  def notExtended: Response = error(Status.NotExtended)
+
+  def notExtended(message: String): Response = error(Status.NotExtended, message)
+
+  def notFound: Response = error(Status.NotFound)
+
+  def notFound(message: String): Response = error(Status.NotFound, message)
+
+  def notImplemented: Response = error(Status.NotImplemented)
+
+  def notImplemented(message: String): Response = error(Status.NotImplemented, message)
 
   /**
    * Creates an empty response with status 200
@@ -400,6 +501,10 @@ object Response {
   def seeOther(location: URL): Response =
     new BasicResponse(Body.empty, Headers(Header.Location(location)), Status.SeeOther)
 
+  def serviceUnavailable: Response = error(Status.ServiceUnavailable)
+
+  def serviceUnavailable(message: String): Response = error(Status.ServiceUnavailable, message)
+
   /**
    * Creates an empty response with the provided Status
    */
@@ -415,13 +520,9 @@ object Response {
       Status.Ok,
     )
 
-  /**
-   * Creates a response with content-type set to text/event-stream
-   * @param data
-   *   \- stream of data to be sent as Server Sent Events
-   */
-  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
-    new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
+  def unauthorized: Response = error(Status.Unauthorized)
+
+  def unauthorized(message: String): Response = error(Status.Unauthorized, message)
 
   private lazy val contentTypeJson: Headers        = Headers(Header.ContentType(MediaType.application.json).untyped)
   private lazy val contentTypeHtml: Headers        = Headers(Header.ContentType(MediaType.text.html).untyped)

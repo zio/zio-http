@@ -8,14 +8,14 @@ import zio.http._
 
 object HelloWorldWithMiddlewares extends ZIOAppDefault {
 
-  val app: HttpApp[Any, Nothing] = Http.collectZIO[Request] {
+  val app: HttpApp[Any] = Routes(
     // this will return result instantly
-    case Method.GET -> Root / "text"         => ZIO.succeed(Response.text("Hello World!"))
+    Method.GET / "text"         -> handler(ZIO.succeed(Response.text("Hello World!"))),
     // this will return result after 5 seconds, so with 3 seconds timeout it will fail
-    case Method.GET -> Root / "long-running" => ZIO.succeed(Response.text("Hello World!")).delay(5 seconds)
-  }
+    Method.GET / "long-running" -> handler(ZIO.succeed(Response.text("Hello World!")).delay(5 seconds)),
+  ).toHttpApp
 
-  val serverTime: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] = HttpAppMiddleware.patchZIO(_ =>
+  val serverTime = Middleware.patchZIO(_ =>
     for {
       currentMilliseconds <- Clock.currentTime(TimeUnit.MILLISECONDS)
       header = Response.Patch.addHeader("X-Time", currentMilliseconds.toString)
@@ -23,14 +23,14 @@ object HelloWorldWithMiddlewares extends ZIOAppDefault {
   )
   val middlewares =
     // print debug info about request and response
-    HttpAppMiddleware.debug ++
+    Middleware.debug ++
       // close connection if request takes more than 3 seconds
-      HttpAppMiddleware.timeout(3 seconds) ++
+      Middleware.timeout(3 seconds) ++
       // add static header
-      HttpAppMiddleware.addHeader("X-Environment", "Dev") ++
+      Middleware.addHeader("X-Environment", "Dev") ++
       // add dynamic header
       serverTime
 
   // Run it like any simple app
-  val run = Server.serve((app @@ middlewares).withDefaultErrorResponse).provide(Server.default)
+  val run = Server.serve(app @@ middlewares).provide(Server.default)
 }

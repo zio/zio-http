@@ -93,22 +93,23 @@ The cookies can be signed with a signature:
 
 ```scala mdoc
 val cookie2 = Cookie.Response("key", "hello", maxAge = Some(5.days))
-val app = Http.collect[Request] { case Method.GET -> Root / "cookie" =>
-  Response.ok.addCookie(cookie2.sign("secret"))
-}
+val app = 
+  Routes(
+    Method.GET / "cookie" -> handler(Response.ok.addCookie(cookie2.sign("secret")))
+  ).toHttpApp
 ```
 
 - Using `signCookies` middleware
 
-To sign all the cookies in your `HttpApp`, you can use `signCookies` middleware:
+To sign all the cookies in your routes, you can use `signCookies` middleware:
 
 ```scala mdoc
-import RequestHandlerMiddlewares.signCookies
+import Middleware.signCookies
 
-private val app2 = Http.collect[Request] {
-  case Method.GET -> Root / "cookie" => Response.ok.addCookie(cookie2)
-  case Method.GET -> Root / "secure-cookie" => Response.ok.addCookie(cookie2.copy(isSecure = true))
-}
+private val app2 = Routes(
+  Method.GET / "cookie" -> handler(Response.ok.addCookie(cookie2)),
+  Method.GET / "secure-cookie" -> handler(Response.ok.addCookie(cookie2.copy(isSecure = true)))
+).toHttpApp
 
 // Run it like any simple app
 def run(args: List[String]): ZIO[Any, Throwable, Nothing] =
@@ -128,12 +129,13 @@ It updates the response header `Set-Cookie` as ```Set-Cookie: <cookie-name>=<coo
 
 ## Getting Cookie from Request
 
-In HTTP requests, cookies are stored in the `cookie` header. `cookiesDecoded` can be used to get all the cookies in the
-request:
+In HTTP requests, cookies are stored in the `cookie` header. `cookiesDecoded` can be used to get all the cookies in the request:
 
 ```scala mdoc
- private val app3 = Http.collect[Request] {
-  case req@Method.GET -> Root / "cookie" =>
-    Response.text(req.header(Header.Cookie).map(_.value.toChunk).getOrElse(Chunk.empty).mkString(""))
-}
+ private val app3 = 
+  Routes(
+    Method.GET / "cookie" -> handler { (req: Request) =>
+      Response.text(req.header(Header.Cookie).map(_.value.toChunk).getOrElse(Chunk.empty).mkString(""))
+    }
+  )
 ```

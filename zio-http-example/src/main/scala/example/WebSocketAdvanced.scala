@@ -4,6 +4,7 @@ import zio._
 
 import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
 import zio.http._
+import zio.http.codec.PathCodec.string
 
 object WebSocketAdvanced extends ZIOAppDefault {
 
@@ -42,11 +43,13 @@ object WebSocketAdvanced extends ZIOAppDefault {
       }
     }
 
-  val app: Http[Any, Nothing, Request, Response] =
-    Http.collectZIO[Request] {
-      case Method.GET -> Root / "greet" / name  => ZIO.succeed(Response.text(s"Greetings ${name}!"))
-      case Method.GET -> Root / "subscriptions" => socketApp.toResponse
-    }
+  val app: HttpApp[Any] =
+    Routes(
+      Method.GET / "greet" / string("name") -> handler { (name: String, _: Request) =>
+        Response.text(s"Greetings ${name}!")
+      },
+      Method.GET / "subscriptions"          -> handler(socketApp.toResponse),
+    ).toHttpApp
 
   override val run = Server.serve(app).provide(Server.default)
 }

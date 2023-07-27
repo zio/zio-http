@@ -32,33 +32,25 @@ import zio.http.netty.NettyConfig.LeakDetectionLevel
 object ClientStreamingSpec extends HttpRunnableSpec {
   def extractStatus(response: Response): Status = response.status
 
-  val app = Http
-    .collectZIO[Request] {
-      case Method.GET -> Root / "simple-get"            =>
-        ZIO.succeed(Response.text("simple response"))
-      case Method.GET -> Root / "streaming-get"         =>
-        ZIO.succeed(
-          Response(body = Body.fromStream(ZStream.fromIterable("streaming response".getBytes).rechunk(3))),
-        )
-      case req @ Method.POST -> Root / "simple-post"    =>
-        req.ignoreBody.as(Response.ok)
-      case req @ Method.POST -> Root / "streaming-echo" =>
-        ZIO.succeed(Response(body = Body.fromStream(req.body.asStream)))
-      case req @ Method.POST -> Root / "form"           =>
-        req.body.asMultipartFormStream.flatMap { form =>
-          form.collectAll.flatMap { inMemoryForm =>
-            Body.fromMultipartFormUUID(inMemoryForm).map { body =>
-              Response(body = body)
-            }
+  val app = Routes(
+    Method.GET / "simple-get"      ->
+      handler(Response.text("simple response")),
+    Method.GET / "streaming-get"   ->
+      handler(
+        Response(body = Body.fromStream(ZStream.fromIterable("streaming response".getBytes).rechunk(3))),
+      ),
+    Method.POST / "simple-post"    -> handler((req: Request) => req.ignoreBody.as(Response.ok)),
+    Method.POST / "streaming-echo" -> handler((req: Request) => Response(body = Body.fromStream(req.body.asStream))),
+    Method.POST / "form"           -> handler((req: Request) =>
+      req.body.asMultipartFormStream.flatMap { form =>
+        form.collectAll.flatMap { inMemoryForm =>
+          Body.fromMultipartFormUUID(inMemoryForm).map { body =>
+            Response(body = body)
           }
         }
-    }
-    .errorHandler(
-      Some((cause: Cause[Nothing]) =>
-        ZIO.logErrorCause("Fatal server error", cause).as(Response.status(Status.InternalServerError)),
-      ),
-    )
-    .withDefaultErrorResponse
+      },
+    ),
+  ).sandbox.toHttpApp
 
   // TODO: test failure cases
 
@@ -304,7 +296,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
     )
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
-    suite("Client streaming")(
+    suite("ClientStreamingSpec")(
       suite("streaming server")(
         tests(streamingServer = true) ++
           streamingOnlyTests: _*,

@@ -51,6 +51,8 @@ object TextCodec {
 
   implicit val int: TextCodec[Int] = IntCodec
 
+  implicit val long: TextCodec[Long] = LongCodec
+
   implicit val string: TextCodec[String] = StringCodec
 
   implicit val uuid: TextCodec[UUID] = UUIDCodec
@@ -101,6 +103,29 @@ object TextCodec {
     }
 
     override def toString(): String = "TextCodec.int"
+  }
+
+  case object LongCodec extends TextCodec[Long] {
+    def apply(value: String): Long = java.lang.Long.parseLong(value)
+
+    def describe: String = "a long integer"
+
+    def encode(value: Long): String = value.toString
+
+    def isDefinedAt(value: String): Boolean = {
+      var i       = 0
+      var defined = true
+      while (i < value.length) {
+        if (!value.charAt(i).isDigit) {
+          defined = false
+          i = value.length
+        }
+        i += 1
+      }
+      defined && i >= 1
+    }
+
+    override def toString(): String = "TextCodec.long"
   }
 
   case object BooleanCodec extends TextCodec[Boolean] {

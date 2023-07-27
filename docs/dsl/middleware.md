@@ -10,14 +10,18 @@ Consider the following example where we have two endpoints within HttpApp
 * GET all users
 
 ```scala
-private val app = Http.collectZIO[Request] {
-  case Method.GET -> Root / "users" / id =>
-    // core business logic  
-    dbService.lookupUsersById(id).map(Response.json(_.json))
-  case Method.GET -> Root / "users"    =>
-    // core business logic  
-    dbService.paginatedUsers(pageNum).map(Response.json(_.json))
-}
+val routes = Routes(
+  Method.GET / "users" / int("id") -> 
+    handler { (id: Int, req: Request) =>
+      // core business logic  
+      dbService.lookupUsersById(id).map(Response.json(_.json))
+    },
+  Method.GET / "users" ->
+    handler {
+      // core business logic  
+      dbService.paginatedUsers(pageNum).map(Response.json(_.json))
+    }
+)
 ```
 
 #### The polluted code violates the principle of "Separation of concerns"
@@ -86,22 +90,26 @@ import zio._
 import zio.http._
 
 // compose basic auth, request/response logging, timeouts middlewares
-val composedMiddlewares = RequestHandlerMiddlewares.basicAuth("user","pw") ++ 
-        RequestHandlerMiddlewares.debug ++ 
-        RequestHandlerMiddlewares.timeout(5.seconds) 
+val composedMiddlewares = Middleware.basicAuth("user","pw") ++ 
+        Middleware.debug ++ 
+        Middleware.timeout(5.seconds) 
 ```
 
 And then we can attach our composed bundle of middlewares to an Http using `@@`
 
 ```scala
-val app = Http.collectZIO[Request] {
-  case Method.GET -> Root / "users" / id =>
-    // core business logic  
-    dbService.lookupUsersById(id).map(Response.json(_.json))
-  case Method.GET -> Root / "users"    =>
-    // core business logic  
-    dbService.paginatedUsers(pageNum).map(Response.json(_.json))
-} @@ composedMiddlewares // attach composedMiddlewares to the app using @@
+ val routes = Routes(
+  Method.GET / "users" / int("id") -> 
+    handler { (id: Int, req: Request) =>
+      // core business logic  
+      dbService.lookupUsersById(id).map(Response.json(_.json))
+    },
+  Method.GET / "users" ->
+    handler {
+      // core business logic  
+      dbService.paginatedUsers(pageNum).map(Response.json(_.json))
+    }
+) @@ composedMiddlewares // attach composedMiddlewares to the routes using @@
 ```
 
 Observe how we gained the following benefits by using middlewares
@@ -117,16 +125,18 @@ A middleware helps in addressing common crosscutting concerns without duplicatin
 
 #### Attaching middleware to Http
 
-`@@` operator is used to attach a middleware to an Http. Example below shows a middleware attached to an HttpApp
+The `@@` operator is used to attach a middleware to routes and HTTP applications. Example below shows a middleware attached to an HttpApp:
 
 ```scala mdoc:silent
-val app = Http.collect[Request] {
-  case Method.GET -> Root / name => Response.text(s"Hello $name")
-}
-val appWithMiddleware = app @@ RequestHandlerMiddlewares.debug
+val app = Routes(
+  Method.GET / string("name") -> handler { (name: String, req: Request) => 
+    Response.text(s"Hello $name")
+  }
+).toHttpApp
+val appWithMiddleware = app @@ Middleware.debug
 ```
 
-Logically the code above translates to `Middleware.debug(app)`
+Logically the code above translates to `Middleware.debug(app)`, which transforms the app using the middleware.
 
 #### A simple middleware example
 
@@ -139,15 +149,18 @@ We create a middleware that appends an additional header to the response indicat
 import zio._
 import zio.http._
 
-lazy val patchEnv = RequestHandlerMiddlewares.addHeader("X-Environment", "Dev")
+lazy val patchEnv = Middleware.addHeader("X-Environment", "Dev")
 ```
 
-A test `App` with attached middleware:
+A test `HttpApp` with attached middleware:
 
 ```scala mdoc:silent
-val app = Http.collect[Request] {
-  case Method.GET -> Root / name => Response.text(s"Hello $name")
-}
+val app = Routes(
+  Method.GET / string("name") -> handler { (name: String, req: Request) =>
+    Response.text(s"Hello $name")
+  }
+).toHttpApp
+
 val appWithMiddleware = app @@ patchEnv
 ```
 
@@ -172,15 +185,12 @@ Hello Bob
 
 ## Combining middlewares
 
-Middlewares can be combined using several special operators like `++`, `<>` and `>>>`
-
-### Using `++` combinator
-
-`>>>` and `++` are aliases for `andThen`. It combines two middlewares.
+Middlewares can be combined using `++`.
 
 For example, if we have three middlewares f1, f2, f3
 
-f1 ++ f2 ++ f3 applies on an `http`, from left to right with f1 first followed by others, like this 
+`f1 ++ f2 ++ f3` applies from left to right with f1 first followed by others, like this 
+
 ```scala
   f3(f2(f1(http)))
 ```
@@ -190,23 +200,26 @@ Start with imports:
 
 ```scala mdoc:silent:reset
 import zio.http._
-import zio.http.RequestHandlerMiddlewares.basicAuth
+import zio.http.Middleware.basicAuth
 import zio._
 ```
 
 A user app with single endpoint that welcomes a user:
 
 ```scala mdoc:silent
-val userApp = Http.collect[Request] { case Method.GET -> Root / "user" / name / "greet" =>
-  Response.text(s"Welcome to the ZIO party! ${name}")
-}
+val userApp = 
+  Routes(
+    Method.GET / "user" / string("name") / "greet" -> handler { (name: String, req: Request) =>
+      Response.text(s"Welcome to the ZIO party! ${name}")
+    }
+  ).toHttpApp
 ```
 
-A basicAuth middleware with hardcoded user pw and another patches response with environment value:
+A basicAuth middleware with hardcoded user password and another patches response with environment value:
 
 ```scala mdoc:silent
 val basicAuthMW = basicAuth("admin", "admin")
-val patchEnv = RequestHandlerMiddlewares.addHeader("X-Environment", "Dev")
+val patchEnv = Middleware.addHeader("X-Environment", "Dev")
 // apply combined middlewares to the userApp
 val appWithMiddleware = userApp @@ (basicAuthMW ++ patchEnv)
 ```
@@ -235,7 +248,6 @@ We notice in the response that first basicAuth middleware responded `HTTP/1.1 40
 - `when` applies middleware only if the condition function evaluates to true
 -`whenZIO` applies middleware only if the condition function(with effect) evaluates
 
-
 ## A complete example of a middleware
 
 <details>
@@ -249,17 +261,17 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 object Example extends ZIOAppDefault {
-  val app: App[Any] =
-    Http.collectZIO[Request] {
+  val app: HttpApp[Any] =
+    Routes(
       // this will return result instantly
-      case Method.GET -> Root / "text" => ZIO.succeed(Response.text("Hello World!"))
+      Method.GET / "text" -> handler(Response.text("Hello World!")),
       // this will return result after 5 seconds, so with 3 seconds timeout it will fail
-      case Method.GET -> Root / "long-running" => ZIO.succeed(Response.text("Hello World!")).delay(5.seconds)
-    }
+      Method.GET / "long-running" -> handler(ZIO.succeed(Response.text("Hello World!")).delay(5.seconds))
+    ).toHttpApp
 
   val middlewares =
-    RequestHandlerMiddlewares.debug ++ // print debug info about request and response 
-      RequestHandlerMiddlewares.addHeader("X-Environment", "Dev") // add static header   
+    Middleware.debug ++ // print debug info about request and response 
+      Middleware.addHeader("X-Environment", "Dev") // add static header   
 
   override def run =
     Server.serve(app @@ middlewares).provide(Server.default)
