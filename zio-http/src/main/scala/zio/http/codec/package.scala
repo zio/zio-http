@@ -15,6 +15,7 @@
  */
 
 package zio.http
+
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 package object codec {
