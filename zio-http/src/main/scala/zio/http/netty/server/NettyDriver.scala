@@ -20,7 +20,6 @@ import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Driver.StartResult
 import zio.http.netty._
