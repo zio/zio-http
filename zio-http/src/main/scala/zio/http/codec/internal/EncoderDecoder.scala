@@ -297,9 +297,13 @@ private[codec] object EncoderDecoder                   {
         val query = queries(i).erase
 
         val queryParamValue =
-          queryParams
-            .getOrElse(query.name, Nil)
-            .collectFirst(query.textCodec)
+          NonEmptyChunk
+            .fromChunk(
+              queryParams
+                .getOrElse(query.name, Nil)
+                .collect(query.textCodec),
+            )
+            .map(_.flatten)
 
         queryParamValue match {
           case Some(value) =>
@@ -483,7 +487,7 @@ private[codec] object EncoderDecoder                   {
       var i = 0
       while (i < inputs.length) {
         val query = flattened.query(i).erase
-        val input = inputs(i)
+        val input = inputs(i).asInstanceOf[NonEmptyChunk[Any]]
 
         val value = query.textCodec.encode(input)
 

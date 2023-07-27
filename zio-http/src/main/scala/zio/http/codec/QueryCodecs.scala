@@ -15,30 +15,62 @@
  */
 
 package zio.http.codec
+
+import zio.NonEmptyChunk
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-private[codec] trait QueryCodecs {
+
+private[codec] trait QueryCodecs { self =>
+  def queryMany(name: String): QueryCodec[NonEmptyChunk[String]] =
+    HttpCodec.Query(name)
+
   def query(name: String): QueryCodec[String] =
-    HttpCodec.Query(name, TextCodec.string)
+    queryMany(name).transform[String](_.head, NonEmptyChunk.single)
 
   def queryBool(name: String): QueryCodec[Boolean] =
-    HttpCodec.Query(name, TextCodec.boolean)
+    self.query(name).transformOrFailLeft(
+      raw =>
+        try Right(raw.toBoolean)
+        catch { case _: IllegalArgumentException => Left("Failed to read query parameter as Boolean") },
+      _.toString,
+    )
 
   def queryInt(name: String): QueryCodec[Int] =
-    HttpCodec.Query(name, TextCodec.int)
+    self.query(name).transformOrFailLeft(
+      raw =>
+        try Right(raw.toInt)
+        catch { case _: NumberFormatException => Left("Failed to read query parameter as Int") },
+      _.toString,
+    )
 
-  def queryAs[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
-    HttpCodec.Query(name, codec)
+  def queryLong(name: String): QueryCodec[Long] =
+    self.query(name).transformOrFailLeft(
+      raw =>
+        try Right(raw.toLong)
+        catch { case _: NumberFormatException => Left("Failed to read query parameter as Long") },
+      _.toString,
+    )
 
-  def paramStr(name: String): QueryCodec[String] =
-    HttpCodec.Query(name, TextCodec.string)
+  def queryBigDecimal(name: String): QueryCodec[BigDecimal] =
+    self.query(name).transformOrFailLeft(
+      raw =>
+        try Right(BigDecimal(raw))
+        catch { case _: NumberFormatException => Left("Failed to read query parameter as BigDecimal") },
+      _.toString,
+    )
 
-  def paramBool(name: String): QueryCodec[Boolean] =
-    HttpCodec.Query(name, TextCodec.boolean)
+  def queryDouble(name: String): QueryCodec[Double] =
+    self.query(name).transformOrFailLeft(
+      raw =>
+        try Right(raw.toDouble)
+        catch { case _: NumberFormatException => Left("Failed to read query parameter as Double") },
+      _.toString,
+    )
 
-  def paramInt(name: String): QueryCodec[Int] =
-    HttpCodec.Query(name, TextCodec.int)
-
-  def paramAs[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
-    HttpCodec.Query(name, codec)
-
+  def queryFloat(name: String): QueryCodec[Float] =
+    self.query(name).transformOrFailLeft(
+      raw =>
+        try Right(raw.toFloat)
+        catch { case _: NumberFormatException => Left("Failed to read query parameter as Float") },
+      _.toString,
+    )
 }

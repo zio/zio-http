@@ -2,7 +2,7 @@ package example
 
 import zio._
 
-import zio.http.Header.Authorization
+import )zio.http.Header.Authorization
 import zio.http.codec.{HttpCodec, PathCodec}
 import zio.http.endpoint._
 import zio.http.{int => _, _}
@@ -15,7 +15,7 @@ object EndpointExamples extends ZIOAppDefault {
 
   // MiddlewareSpec can be added at the service level as well
   val getUser =
-    Endpoint(Method.GET / "users" / int("userId")).out[Int] @@ auth
+    Endpoint(Method.GET / "users" / int("userId").out[Int] @@ auth
 
   val getUserRoute =
     getUser.implement {

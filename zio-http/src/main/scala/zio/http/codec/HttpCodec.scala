@@ -492,7 +492,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   }
 
   private[http] final case class Status[A](codec: SimpleCodec[zio.http.Status, A], index: Int = 0)
-      extends Atom[HttpCodecType.Status, A] {
+      extends Atom[HttpCodecType.Status, A]               {
     self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
 
@@ -529,8 +529,8 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
 
     def index(index: Int): ContentStream[A] = copy(index = index)
   }
-  private[http] final case class Query[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[HttpCodecType.Query, A]  {
+  private[http] final case class Query[A](name: String, textCodec: TextCodec[NonEmptyChunk[A]], index: Int = 0)
+      extends Atom[HttpCodecType.Query, NonEmptyChunk[A]] {
     self =>
     def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 

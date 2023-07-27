@@ -16,6 +16,8 @@
 
 package zio.http.codec
 
+import zio.NonEmptyChunk
+
 import java.util.UUID
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
@@ -58,6 +60,23 @@ object TextCodec {
   implicit val string: TextCodec[String] = StringCodec
 
   implicit val uuid: TextCodec[UUID] = UUIDCodec
+
+  implicit def nonEmptyChunk[A](implicit codec: TextCodec[A]): TextCodec[NonEmptyChunk[A]] =
+    NonEmptyChunkCodec(codec)
+
+  final case class NonEmptyChunkCodec[A](underlying: TextCodec[A], delimiter: String = ",")
+      extends TextCodec[NonEmptyChunk[A]] {
+    def apply(value: String): NonEmptyChunk[A] =
+      NonEmptyChunk
+        .fromIterableOption(value.split(delimiter))
+        .fold(throw new MatchError(value))(chunk => chunk.map(underlying.apply))
+
+    def describe: String = s"a non-empty chunk of ${underlying.describe}"
+
+    def encode(value: NonEmptyChunk[A]): String = value.map(underlying.encode).mkString(delimiter)
+
+    def isDefinedAt(value: String): Boolean = value.split(delimiter).forall(underlying.isDefinedAt)
+  }
 
   final case class Constant(string: String) extends TextCodec[Unit] {
 
