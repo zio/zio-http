@@ -346,20 +346,14 @@ private[zio] final case class ServerInboundHandler(
         }
         _        <-
           if (response ne null) {
-            for {
-              done <- ZIO.attempt(attemptFastWrite(ctx, response, time)).catchSomeCause { case cause =>
-                ZIO.attempt(
-                  attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash).freeze, time),
-                )
-              }
-              _    <- attemptFullWrite(ctx, response, jReq, time).catchSomeCause { case cause =>
-                ZIO.attempt(
-                  attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash).freeze, time),
-                )
-
-              }
-                .unless(done)
-            } yield ()
+            (for {
+              done <- ZIO.attempt(attemptFastWrite(ctx, response, time))
+              _    <- attemptFullWrite(ctx, response, jReq, time).unless(done)
+            } yield ()).catchSomeCause { case cause =>
+              ZIO.attempt(
+                attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash).freeze, time),
+              )
+            }
           } else {
             ZIO.attempt(
               if (ctx.channel().isOpen) {
