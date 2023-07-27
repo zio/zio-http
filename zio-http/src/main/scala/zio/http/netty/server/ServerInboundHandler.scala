@@ -190,10 +190,11 @@ private[zio] final case class ServerInboundHandler(
         if (response.isWebSocket) ZIO.attempt(upgradeToWebSocket(ctx, jRequest, response, runtime))
         else
           for {
-            jResponse <- ZIO.attempt(NettyResponseEncoder.encode(ctx, response, runtime))
-            _         <- ZIO.attempt {
+            jResponse <- ZIO.attempt {
+              val jResponse = NettyResponseEncoder.encode(ctx, response, runtime)
               setServerTime(time, response, jResponse)
               ctx.writeAndFlush(jResponse)
+              jResponse
             }
             flushed   <-
               if (!jResponse.isInstanceOf[FullHttpResponse])
