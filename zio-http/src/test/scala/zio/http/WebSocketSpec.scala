@@ -117,7 +117,7 @@ object WebSocketSpec extends HttpRunnableSpec {
         .map(_.count(_ == Status.SwitchingProtocols))
 
       assertZIO(codes)(equalTo(1024))
-    } @@ ignore,
+    },
     test("channel events between client and server when the provided URL is HTTP") {
       for {
         msg <- MessageCollector.make[WebSocketChannelEvent]
