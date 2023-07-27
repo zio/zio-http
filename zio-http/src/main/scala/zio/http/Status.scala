@@ -48,117 +48,124 @@ sealed trait Status extends Product with Serializable { self =>
 }
 
 object Status {
-  case object Continue extends Status { override val code: Int = 100 }
+  sealed trait Informational extends Status // 100 – 199
+  sealed trait Success       extends Status // 200 – 299
+  sealed trait Redirection   extends Status // 300 – 399
+  sealed trait Error         extends Status // 400 – 499
+  sealed trait ClientError   extends Error  // 400 – 499
+  sealed trait ServerError   extends Error  // 500 – 599
 
-  case object SwitchingProtocols extends Status { override val code: Int = 101 }
+  case object Continue extends Informational { override val code: Int = 100 }
 
-  case object Processing extends Status { override val code: Int = 102 }
+  case object SwitchingProtocols extends Informational { override val code: Int = 101 }
 
-  case object Ok extends Status { override val code: Int = 200 }
+  case object Processing extends Informational { override val code: Int = 102 }
 
-  case object Created extends Status { override val code: Int = 201 }
+  case object Ok extends Success { override val code: Int = 200 }
 
-  case object Accepted extends Status { override val code: Int = 202 }
+  case object Created extends Success { override val code: Int = 201 }
 
-  case object NonAuthoritativeInformation extends Status { override val code: Int = 203 }
+  case object Accepted extends Success { override val code: Int = 202 }
 
-  case object NoContent extends Status { override val code: Int = 204 }
+  case object NonAuthoritativeInformation extends Success { override val code: Int = 203 }
 
-  case object ResetContent extends Status { override val code: Int = 205 }
+  case object NoContent extends Success { override val code: Int = 204 }
 
-  case object PartialContent extends Status { override val code: Int = 206 }
+  case object ResetContent extends Success { override val code: Int = 205 }
 
-  case object MultiStatus extends Status { override val code: Int = 207 }
+  case object PartialContent extends Success { override val code: Int = 206 }
 
-  case object MultipleChoices extends Status { override val code: Int = 300 }
+  case object MultiStatus extends Success { override val code: Int = 207 }
 
-  case object MovedPermanently extends Status { override val code: Int = 301 }
+  case object MultipleChoices extends Redirection { override val code: Int = 300 }
 
-  case object Found extends Status { override val code: Int = 302 }
+  case object MovedPermanently extends Redirection { override val code: Int = 301 }
 
-  case object SeeOther extends Status { override val code: Int = 303 }
+  case object Found extends Redirection { override val code: Int = 302 }
 
-  case object NotModified extends Status { override val code: Int = 304 }
+  case object SeeOther extends Redirection { override val code: Int = 303 }
 
-  case object UseProxy extends Status { override val code: Int = 305 }
+  case object NotModified extends Redirection { override val code: Int = 304 }
 
-  case object TemporaryRedirect extends Status { override val code: Int = 307 }
+  case object UseProxy extends Redirection { override val code: Int = 305 }
 
-  case object PermanentRedirect extends Status { override val code: Int = 308 }
+  case object TemporaryRedirect extends Redirection { override val code: Int = 307 }
 
-  case object BadRequest extends Status { override val code: Int = 400 }
+  case object PermanentRedirect extends Redirection { override val code: Int = 308 }
 
-  case object Unauthorized extends Status { override val code: Int = 401 }
+  case object BadRequest extends ClientError { override val code: Int = 400 }
 
-  case object PaymentRequired extends Status { override val code: Int = 402 }
+  case object Unauthorized extends ClientError { override val code: Int = 401 }
 
-  case object Forbidden extends Status { override val code: Int = 403 }
+  case object PaymentRequired extends ClientError { override val code: Int = 402 }
 
-  case object NotFound extends Status { override val code: Int = 404 }
+  case object Forbidden extends ClientError { override val code: Int = 403 }
 
-  case object MethodNotAllowed extends Status { override val code: Int = 405 }
+  case object NotFound extends ClientError { override val code: Int = 404 }
 
-  case object NotAcceptable extends Status { override val code: Int = 406 }
+  case object MethodNotAllowed extends ClientError { override val code: Int = 405 }
 
-  case object ProxyAuthenticationRequired extends Status { override val code: Int = 407 }
+  case object NotAcceptable extends ClientError { override val code: Int = 406 }
 
-  case object RequestTimeout extends Status { override val code: Int = 408 }
+  case object ProxyAuthenticationRequired extends ClientError { override val code: Int = 407 }
 
-  case object Conflict extends Status { override val code: Int = 409 }
+  case object RequestTimeout extends ClientError { override val code: Int = 408 }
 
-  case object Gone extends Status { override val code: Int = 410 }
+  case object Conflict extends ClientError { override val code: Int = 409 }
 
-  case object LengthRequired extends Status { override val code: Int = 411 }
+  case object Gone extends ClientError { override val code: Int = 410 }
 
-  case object PreconditionFailed extends Status { override val code: Int = 412 }
+  case object LengthRequired extends ClientError { override val code: Int = 411 }
 
-  case object RequestEntityTooLarge extends Status { override val code: Int = 413 }
+  case object PreconditionFailed extends ClientError { override val code: Int = 412 }
 
-  case object RequestUriTooLong extends Status { override val code: Int = 414 }
+  case object RequestEntityTooLarge extends ClientError { override val code: Int = 413 }
 
-  case object UnsupportedMediaType extends Status { override val code: Int = 415 }
+  case object RequestUriTooLong extends ClientError { override val code: Int = 414 }
 
-  case object RequestedRangeNotSatisfiable extends Status { override val code: Int = 416 }
+  case object UnsupportedMediaType extends ClientError { override val code: Int = 415 }
 
-  case object ExpectationFailed extends Status { override val code: Int = 417 }
+  case object RequestedRangeNotSatisfiable extends ClientError { override val code: Int = 416 }
 
-  case object MisdirectedRequest extends Status { override val code: Int = 421 }
+  case object ExpectationFailed extends ClientError { override val code: Int = 417 }
 
-  case object UnprocessableEntity extends Status { override val code: Int = 422 }
+  case object MisdirectedRequest extends ClientError { override val code: Int = 421 }
 
-  case object Locked extends Status { override val code: Int = 423 }
+  case object UnprocessableEntity extends ClientError { override val code: Int = 422 }
 
-  case object FailedDependency extends Status { override val code: Int = 424 }
+  case object Locked extends ClientError { override val code: Int = 423 }
 
-  case object UnorderedCollection extends Status { override val code: Int = 425 }
+  case object FailedDependency extends ClientError { override val code: Int = 424 }
 
-  case object UpgradeRequired extends Status { override val code: Int = 426 }
+  case object UnorderedCollection extends ClientError { override val code: Int = 425 }
 
-  case object PreconditionRequired extends Status { override val code: Int = 428 }
+  case object UpgradeRequired extends ClientError { override val code: Int = 426 }
 
-  case object TooManyRequests extends Status { override val code: Int = 429 }
+  case object PreconditionRequired extends ClientError { override val code: Int = 428 }
 
-  case object RequestHeaderFieldsTooLarge extends Status { override val code: Int = 431 }
+  case object TooManyRequests extends ClientError { override val code: Int = 429 }
 
-  case object InternalServerError extends Status { override val code: Int = 500 }
+  case object RequestHeaderFieldsTooLarge extends ClientError { override val code: Int = 431 }
 
-  case object NotImplemented extends Status { override val code: Int = 501 }
+  case object InternalServerError extends ServerError { override val code: Int = 500 }
 
-  case object BadGateway extends Status { override val code: Int = 502 }
+  case object NotImplemented extends ServerError { override val code: Int = 501 }
 
-  case object ServiceUnavailable extends Status { override val code: Int = 503 }
+  case object BadGateway extends ServerError { override val code: Int = 502 }
 
-  case object GatewayTimeout extends Status { override val code: Int = 504 }
+  case object ServiceUnavailable extends ServerError { override val code: Int = 503 }
 
-  case object HttpVersionNotSupported extends Status { override val code: Int = 505 }
+  case object GatewayTimeout extends ServerError { override val code: Int = 504 }
 
-  case object VariantAlsoNegotiates extends Status { override val code: Int = 506 }
+  case object HttpVersionNotSupported extends ServerError { override val code: Int = 505 }
 
-  case object InsufficientStorage extends Status { override val code: Int = 507 }
+  case object VariantAlsoNegotiates extends ServerError { override val code: Int = 506 }
 
-  case object NotExtended extends Status { override val code: Int = 510 }
+  case object InsufficientStorage extends ServerError { override val code: Int = 507 }
 
-  case object NetworkAuthenticationRequired extends Status { override val code: Int = 511 }
+  case object NotExtended extends ServerError { override val code: Int = 510 }
+
+  case object NetworkAuthenticationRequired extends ServerError { override val code: Int = 511 }
 
   final case class Custom(override val code: Int) extends Status
 

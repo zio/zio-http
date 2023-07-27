@@ -303,7 +303,7 @@ object Response {
 
   def badRequest(message: String): Response = error(Status.BadRequest, message)
 
-  def error(status: Status, message: String): Response = {
+  def error(status: Status.Error, message: String): Response = {
     import zio.http.internal.OutputEncoder
 
     val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
@@ -311,7 +311,7 @@ object Response {
     Response(status = status, headers = Headers(Header.Warning(status.code, "ZIO HTTP", message2)))
   }
 
-  def error(status: Status): Response =
+  def error(status: Status.Error): Response =
     error(status, status.text)
 
   def forbidden: Response = error(Status.Forbidden)

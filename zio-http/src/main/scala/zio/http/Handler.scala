@@ -741,13 +741,13 @@ object Handler {
   /**
    * Creates a handler with an error and the default error message.
    */
-  def error(status: => Status): Handler[Any, Nothing, Any, Response] =
+  def error(status: => Status.Error): Handler[Any, Nothing, Any, Response] =
     response(Response.error(status))
 
   /**
    * Creates a handler with an error and the specified error message.
    */
-  def error(status: => Status, message: => String): Handler[Any, Nothing, Any, Response] =
+  def error(status: => Status.Error, message: => String): Handler[Any, Nothing, Any, Response] =
     response(Response.error(status, message))
 
   /**
