@@ -19,6 +19,7 @@ package zio.http.netty
 import java.time.Duration
 
 import zio.Chunk
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Cookie.SameSite
 import zio.http.internal.CookieEncoding

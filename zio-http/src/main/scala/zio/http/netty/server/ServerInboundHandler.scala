@@ -24,6 +24,7 @@ import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 import zio.http.netty._
@@ -35,7 +36,6 @@ import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 import io.netty.handler.timeout.ReadTimeoutException
-
 @Sharable
 private[zio] final case class ServerInboundHandler(
   appRef: AppRef,

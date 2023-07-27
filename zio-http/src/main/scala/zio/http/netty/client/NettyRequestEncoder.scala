@@ -16,6 +16,7 @@
 
 package zio.http.netty.client
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Task, Trace, ZIO}
 
 import zio.http.Request
@@ -24,7 +25,6 @@ import zio.http.netty.model.Conversions
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, DefaultHttpRequest, HttpHeaderNames, HttpRequest}
-
 private[zio] object NettyRequestEncoder {
 
   /**

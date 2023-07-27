@@ -20,6 +20,7 @@ import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Driver.StartResult
 import zio.http.netty._
@@ -29,7 +30,6 @@ import zio.http.{ClientDriver, Driver, HttpApp, Server}
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.util.ResourceLeakDetector
-
 private[zio] final case class NettyDriver(
   appRef: AppRef,
   channelFactory: ChannelFactory[ServerChannel],
