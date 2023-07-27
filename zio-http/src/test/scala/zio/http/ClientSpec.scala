@@ -64,7 +64,7 @@ object ClientSpec extends HttpRunnableSpec {
       val app    = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.sandbox.toHttpApp
       val stream = ZStream.fromIterable(List("a", "b", "c"), chunkSize = 1)
       val res    = app
-        .deploy(Request(method = Method.POST, body = Body.fromStream(stream)))
+        .deploy(Request(method = Method.POST, body = Body.fromCharSequenceStream(stream)))
         .flatMap(_.body.asString)
       assertZIO(res)(equalTo("abc"))
     },

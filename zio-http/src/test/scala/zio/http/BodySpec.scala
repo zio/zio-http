@@ -14,47 +14,88 @@
  * limitations under the License.
  */
 
-package zio.http
-
 import java.io.File
 
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test._
 import zio.{Scope, durationInt}
-
 import zio.stream.ZStream
 
 object BodySpec extends ZIOHttpSpec {
   private val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
 
-  override def spec: Spec[TestEnvironment with Scope, Throwable] =
-    suite("BodySpec")(
-      suite("outgoing")(
-        suite("encode")(
-          suite("fromStream")(
-            test("success") {
-              check(Gen.string) { payload =>
-                val stringBuffer    = payload.getBytes(Charsets.Http)
-                val responseContent = ZStream.fromIterable(stringBuffer, chunkSize = 2)
-                val res             = Body.fromStream(responseContent).asString(Charsets.Http)
-                assertZIO(res)(equalTo(payload))
-              }
-            },
-          ),
-          suite("fromFile")(
-            test("success") {
-              lazy val file = testFile
-              val res       = Body.fromFile(file).asString(Charsets.Http)
-              assertZIO(res)(equalTo("foo\nbar"))
-            },
-            test("success small chunk") {
-              lazy val file = testFile
-              val res       = Body.fromFile(file, 3).asString(Charsets.Http)
-              assertZIO(res)(equalTo("foo\nbar"))
-            },
+    override def spec: Spec[TestEnvironment with Scope, Throwable] =
+      suite("BodySpec")(
+        suite("outgoing")(
+          suite("encode")(
+            suite("fromStream")(
+              test("success") {
+                check(Gen.string) { payload =>
+                  val stringBuffer    = payload.getBytes(Charsets.Http)
+                  val responseContent = ZStream.fromIterable(stringBuffer, chunkSize = 2)
+                  val res             = Body.fromStream(responseContent).asString(Charsets.Http)
+                  assertZIO(res)(equalTo(payload))
+                }
+              },
+            ),
+            suite("fromFile")(
+              test("success") {
+                lazy val file = testFile
+                val res       = Body.fromFile(file).asString(Charsets.Http)
+                assertZIO(res)(equalTo("foo\nbar"))
+              },
+              test("success small chunk") {
+                lazy val file = testFile
+                val res       = Body.fromFile(file, 3).asString(Charsets.Http)
+                assertZIO(res)(equalTo("foo\nbar"))
+              },
+            ),
           ),
         ),
-      ),
-    ) @@ timeout(10 seconds)
+      ) @@ timeout(10 seconds)
+  }
+}
+
+package outside.world {
+  import zio.http._
+  import zio.Chunk
+  object BodyPublicSpec extends ZIOSpecDefault {
+    private val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
+
+    def spec: Spec[TestEnvironment with Scope, Any] =
+      suite("BodyPublicSpec")(
+        suite("fromFile")(
+          test("returns the hinted mediaType when one is provided") {
+            lazy val file = testFile
+            val body      = Body.fromFile(file, mediaType = Option(MediaType.text.plain))
+            assertTrue(body.getMediaType == Option(MediaType.text.plain))
+          },
+        ),
+        suite("fromChunk")(
+          test("returns the hinted mediaType when one is provided") {
+            val body = Body.fromChunk(Chunk.fromArray("test".getBytes()), mediaType = Option(MediaType.text.plain))
+            assertTrue(body.getMediaType == Option(MediaType.text.plain))
+          },
+        ),
+        suite("fromStream")(
+          test("returns the hinted mediaType when one is provided") {
+            val body = Body.fromCharSequenceStream(ZStream.succeed("test"), mediaType = Option(MediaType.text.plain))
+            assertTrue(body.getMediaType == Option(MediaType.text.plain))
+          },
+        ),
+        suite("fromString")(
+          test("returns the hinted mediaType when one is provided") {
+            val body = Body.fromString("test", mediaType = Option(MediaType.text.plain))
+            assertTrue(body.getMediaType == Option(MediaType.text.plain))
+          },
+        ),
+        suite("fromCharSequence")(
+          test("returns the hinted mediaType when one is provided") {
+            val body = Body.fromCharSequence("test", mediaType = Option(MediaType.text.plain))
+            assertTrue(body.getMediaType == Option(MediaType.text.plain))
+          },
+        ),
+      )
+  }
 }

@@ -128,7 +128,8 @@ object ServerSpec extends HttpRunnableSpec {
             val dataStream = ZStream.repeat("A").take(MaxSize.toLong)
             val app        =
               Routes(RoutePattern.any -> handler((_: Path, req: Request) => Response(body = req.body))).toHttpApp
-            val res        = app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromStream(dataStream))
+            val res        =
+              app.deploy.body.mapZIO(_.asChunk.map(_.length)).run(body = Body.fromCharSequenceStream(dataStream))
             assertZIO(res)(equalTo(MaxSize))
           }
       } +

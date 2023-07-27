@@ -35,7 +35,8 @@ object NettyBody extends BodyEncoding {
   /**
    * Helper to create Body from AsciiString
    */
-  def fromAsciiString(asciiString: AsciiString): Body = AsciiStringBody(asciiString)
+  def fromAsciiString(asciiString: AsciiString, mediaType: Option[MediaType] = None): Body =
+    AsciiStringBody(asciiString, mediaType)
 
   private[zio] def fromAsync(
     unsafeAsync: UnsafeAsync => Unit,
@@ -48,8 +49,8 @@ object NettyBody extends BodyEncoding {
   def fromByteBuf(byteBuf: ByteBuf, contentTypeHeader: Option[Header.ContentType] = None): Body =
     ByteBufBody(byteBuf, contentTypeHeader.map(_.mediaType), contentTypeHeader.flatMap(_.boundary))
 
-  override def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
-    fromAsciiString(new AsciiString(charSequence, charset))
+  override def fromCharSequence(charSequence: CharSequence, charset: Charset, mediaType: Option[MediaType]): Body =
+    fromAsciiString(new AsciiString(charSequence, charset), mediaType)
 
   private[zio] final case class AsciiStringBody(
     asciiString: AsciiString,

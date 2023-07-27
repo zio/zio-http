@@ -176,7 +176,7 @@ object Response {
    *   \- stream of data to be sent as Server Sent Events
    */
   def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
-    Response(Status.Ok, contentTypeEventStream, Body.fromStream(data.map(_.encode)))
+    Response(Status.Ok, contentTypeEventStream, Body.fromCharSequenceStream(data.map(_.encode)))
 
   /**
    * Creates a new response for the provided socket app

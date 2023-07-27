@@ -126,10 +126,12 @@ trait Body { self =>
    */
   def isEmpty: Boolean
 
+  final def getMediaType: Option[MediaType] = this.mediaType
+
   private[zio] def mediaType: Option[MediaType]
   private[zio] def boundary: Option[Boundary]
 
-  private[zio] def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body
+  private[http] def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body
 }
 
 object Body {
@@ -142,18 +144,23 @@ object Body {
   /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
-  def fromCharSequence(charSequence: CharSequence, charset: Charset = Charsets.Http): Body =
-    BodyEncoding.default.fromCharSequence(charSequence, charset)
+  def fromCharSequence(
+    charSequence: CharSequence,
+    charset: Charset = Charsets.Http,
+    mediaType: Option[MediaType] = None,
+  ): Body =
+    BodyEncoding.default.fromCharSequence(charSequence, charset, mediaType)
 
   /**
    * Constructs a [[zio.http.Body]] from a chunk of bytes.
    */
-  def fromChunk(data: Chunk[Byte]): Body = ChunkBody(data)
+  def fromChunk(data: Chunk[Byte], mediaType: Option[MediaType] = None): Body = ChunkBody(data, mediaType)
 
   /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
-  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4): Body = FileBody(file, chunkSize)
+  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4, mediaType: Option[MediaType] = None): Body =
+    FileBody(file, chunkSize, mediaType)
 
   /**
    * Constructs a [[zio.http.Body]] from from form data, using multipart
@@ -183,21 +190,27 @@ object Body {
   /**
    * Constructs a [[zio.http.Body]] from a stream of bytes.
    */
-  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body = StreamBody(stream)
+  def fromStream(stream: ZStream[Any, Throwable, Byte], mediaType: Option[MediaType] = None): Body =
+    StreamBody(stream, mediaType)
 
   /**
    * Constructs a [[zio.http.Body]] from a stream of text, using the specified
    * character set, which defaults to the HTTP character set.
    */
-  def fromStream(stream: ZStream[Any, Throwable, CharSequence], charset: Charset = Charsets.Http)(implicit
+  def fromCharSequenceStream(
+    stream: ZStream[Any, Throwable, CharSequence],
+    charset: Charset = Charsets.Http,
+    mediaType: Option[MediaType] = None,
+  )(implicit
     trace: Trace,
   ): Body =
-    fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
+    fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks, mediaType)
 
   /**
    * Helper to create Body from String
    */
-  def fromString(text: String, charset: Charset = Charsets.Http): Body = fromCharSequence(text, charset)
+  def fromString(text: String, charset: Charset = Charsets.Http, mediaType: Option[MediaType] = None): Body =
+    fromCharSequence(text, charset, mediaType)
 
   /**
    * Constructs a [[zio.http.Body]] from form data using URL encoding and the
