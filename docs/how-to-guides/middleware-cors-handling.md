@@ -8,10 +8,9 @@ This code provides a practical example of setting up an HTTP server with Cross-O
 ```scala mdoc:silent
 import zio._
 
-import zio.http.Header.{AccessControlAllowMethods, AccessControlAllowOrigin, Origin}
-import zio.http.HttpAppMiddleware.cors
 import zio.http._
-import zio.http.internal.middlewares.Cors.CorsConfig
+import zio.http.Header.{AccessControlAllowMethods, AccessControlAllowOrigin, Origin}
+import zio.http.Middleware.{cors, CorsConfig}
 
 object HelloWorldWithCORS extends ZIOAppDefault {
 
@@ -19,18 +18,18 @@ object HelloWorldWithCORS extends ZIOAppDefault {
   val config: CorsConfig =
     CorsConfig(
       allowedOrigin = {
-        case origin@Origin.Value(_, host, _) if host == "dev" => Some(AccessControlAllowOrigin.Specific(origin))
-        case _ => None
+        case origin @ Origin.Value(_, host, _) if host == "dev" => Some(AccessControlAllowOrigin.Specific(origin))
+        case _                                                  => None
       },
       allowedMethods = AccessControlAllowMethods(Method.PUT, Method.DELETE),
     )
 
   // Create HTTP route with CORS enabled
-  val app: HttpApp[Any, Nothing] =
-    Http.collect[Request] {
-      case Method.GET -> Root / "text" => Response.text("Hello World!")
-      case Method.GET -> Root / "json" => Response.json("""{"greetings": "Hello World!"}""")
-    } @@ cors(config)
+  val app: HttpApp[Any] =
+    Routes(
+      Method.GET / "text" -> handler(Response.text("Hello World!")),
+      Method.GET / "json" -> handler(Response.json("""{"greetings": "Hello World!"}""")),
+    ).toHttpApp @@ cors(config)
 
   // Run it like any simple app
   val run =

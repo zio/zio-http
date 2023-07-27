@@ -27,16 +27,20 @@ import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 
 object StaticFileServerSpec extends HttpRunnableSpec {
 
-  private val fileOk       = Http.fromResource("TestFile.txt").deploy
-  private val fileNotFound = Http.fromResource("Nothing").deploy
+  private val fileOk       = Handler.fromResource("TestFile.txt").sandbox.toHttpApp.deploy
+  private val fileNotFound = Handler.fromResource("Nothing").sandbox.toHttpApp.deploy
 
   private val testArchivePath  = getClass.getResource("/TestArchive.jar").getPath
   private val resourceOk       =
-    Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).deploy
+    Handler.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/TestFile.txt")).sandbox.toHttpApp.deploy
   private val resourceNotFound =
-    Http.fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt")).deploy
+    Handler
+      .fromResourceWithURL(new java.net.URL(s"jar:file:$testArchivePath!/NonExistent.txt"))
+      .sandbox
+      .toHttpApp
+      .deploy
 
-  override def spec = suite("StaticFileServer") {
+  override def spec = suite("StaticFileServerSpec") {
     ZIO.scoped(serve.as(List(staticSpec)))
   }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
     timeout(5 seconds) @@ withLiveClock
@@ -57,7 +61,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           assertZIO(res)(equalTo("foo\nbar"))
         },
         test("should have content-type") {
-          val res = fileOk.run().map(_.header(Header.ContentType))
+          val res = fileOk.run().debug("fileOk").map(_.header(Header.ContentType))
           assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain))))
         },
         test("should respond with empty if file not found") {
@@ -69,7 +73,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
     suite("fromFile")(
       suite("failure on construction")(
         test("should respond with 500") {
-          val res = Http.fromFile(throw new Error("Wut happened?")).deploy.run().map(_.status)
+          val res = Handler.fromFile(throw new Error("Wut happened?")).sandbox.toHttpApp.deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),
@@ -77,17 +81,16 @@ object StaticFileServerSpec extends HttpRunnableSpec {
         test("should respond with 500") {
           val tmpFile = File.createTempFile("test", "txt")
           tmpFile.setReadable(false)
-          val res     = Http.fromFile(tmpFile).deploy.run().map(_.status)
-          assertZIO(res)(equalTo(Status.InternalServerError))
+          val res     = Handler.fromFile(tmpFile).sandbox.toHttpApp.deploy.run().map(_.status)
+          assertZIO(res)(equalTo(Status.Forbidden))
         } @@ unix,
       ),
       suite("invalid file")(
         test("should respond with 500") {
           final class BadFile(name: String) extends File(name) {
-            override def length: Long    = throw new Error("Haha")
-            override def isFile: Boolean = true
+            override def exists(): Boolean = throw new Error("Haha")
           }
-          val res = Http.fromFile(new BadFile("Length Failure")).deploy.run().map(_.status)
+          val res = Handler.fromFile(new BadFile("Length Failure")).sandbox.toHttpApp.deploy.run().map(_.status)
           assertZIO(res)(equalTo(Status.InternalServerError))
         },
       ),
@@ -111,7 +114,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.plain))))
         },
         test("should respond with empty if not found") {
-          val res = resourceNotFound.run().map(_.status)
+          val res = resourceNotFound.run().debug("not found").map(_.status)
           assertZIO(res)(equalTo(Status.NotFound))
         },
       ),

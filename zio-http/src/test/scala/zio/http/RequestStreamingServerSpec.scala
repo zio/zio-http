@@ -53,53 +53,48 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
           _.body.asStream.runCount
             .map(bytesCount => Response.text(bytesCount.toString))
         }
-        .toHttp
-      val res     = app.deploy.body.mapZIO(_.asString).run(body = Body.fromString(content))
+        .sandbox
+        .toHttpApp
+      val res     = app.deploy(Request(body = Body.fromString(content))).flatMap(_.body.asString)
       assertZIO(res)(equalTo(size.toString))
     },
     test("multiple body read") {
-      val app = Http.collectZIO[Request] { case req =>
-        for {
-          _ <- req.body.asChunk
-          _ <- req.body.asChunk
-        } yield Response.ok
-      }
-      val res = app.deploy.status.run()
+      val app = Routes.singleton {
+        handler { (_: Path, req: Request) =>
+          for {
+            _ <- req.body.asChunk
+            _ <- req.body.asChunk
+          } yield Response.ok
+        }
+      }.sandbox.toHttpApp
+      val res = app.deploy(Request()).map(_.status)
       assertZIO(res)(equalTo(Status.InternalServerError))
     },
     suite("streaming request passed to client")({
-      val app   = Http
-        .collectHandler[Request] {
-          case req @ Method.POST -> Root / "1" =>
-            Handler.fromZIO {
-              val host       = req.headers.get(Header.Host).get
-              val newRequest =
-                req.copy(url = req.url.path("/2").host(host.hostAddress).port(host.port.getOrElse(80)))
-              ZIO.debug(s"#1: got response, forwarding") *>
-                ZIO.serviceWithZIO[Client] { client =>
-                  client.request(newRequest)
-                }
+      val app   = Routes(
+        Method.POST / "1" -> handler { (req: Request) =>
+          val host       = req.headers.get(Header.Host).get
+          val newRequest =
+            req.copy(url = req.url.path("/2").host(host.hostAddress).port(host.port.getOrElse(80)))
+          ZIO.debug(s"#1: got response, forwarding") *>
+            ZIO.serviceWithZIO[Client] { client =>
+              client.request(newRequest)
             }
-          case req @ Method.POST -> Root / "2" =>
-            Handler.fromZIO {
-              ZIO.debug("#2: got response, collecting") *>
-                req.body.asChunk.map { body =>
-                  Response.text(body.length.toString)
-                }
+        },
+        Method.POST / "2" -> handler { (req: Request) =>
+          ZIO.debug("#2: got response, collecting") *>
+            req.body.asChunk.map { body =>
+              Response.text(body.length.toString)
             }
-        }
-        .catchAllCauseZIO(cause =>
-          ZIO
-            .debug(s"got error: $cause")
-            .as(Response.fromHttpError(HttpError.InternalServerError(cause = Some(FiberFailure(cause))))),
-        )
+        },
+      ).sandbox.toHttpApp
       val sizes = Chunk(0, 8192, 1024 * 1024)
       sizes.map { size =>
         test(s"with body length $size") {
           for {
             testBytes <- Random.nextBytes(size)
-            res       <- app.deploy.run(method = Method.POST, path = Root / "1", body = Body.fromChunk(testBytes))
-            str       <- res.body.asString
+            res <- app.deploy(Request(method = Method.POST, url = URL.root / "1", body = Body.fromChunk(testBytes)))
+            str <- res.body.asString
           } yield assertTrue(
             extractStatus(res).isSuccess,
             str == testBytes.length.toString,

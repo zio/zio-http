@@ -39,9 +39,9 @@ Response(
 Using `Middlewares`:
 
 ```scala mdoc
-import RequestHandlerMiddlewares.addHeader
+import Middleware.addHeader
 
-Handler.ok @@ addHeader(Header.ContentLength(0L))
+Routes(Method.GET / "hello" -> Handler.ok) @@ addHeader(Header.ContentLength(0L))
 ```
 
 ### Reading Headers from `Request`
@@ -49,9 +49,11 @@ Handler.ok @@ addHeader(Header.ContentLength(0L))
 On the Server-side you can read Request headers as given below
 
 ```scala mdoc
-Http.collect[Request] {
-  case req@Method.GET -> Root / "streamOrNot" => Response.text(req.headers.map(_.toString).mkString("\n"))
-}
+Routes(
+  Method.GET / "streamOrNot" -> handler { (req: Request) =>
+    Response.text(req.headers.map(_.toString).mkString("\n"))
+  }
+)
 ```
 
 <details>
@@ -73,59 +75,35 @@ object SimpleResponseDispatcher extends ZIOAppDefault {
   // Create a message as a Chunk[Byte]
   val message = Chunk.fromArray("Hello world !\r\n".getBytes(Charsets.Http))
   // Use `Http.collect` to match on route
-  val app: App[Any] =
-    Http.collect[Request] {
+  val app: HttpApp[Any] =
+    Routes(
       // Simple (non-stream) based route
-      case Method.GET -> Root / "health" => Response.ok
+      Method.GET / "health" -> handler(Response.ok),
 
       // From Request(req), the headers are accessible.
-      case req@Method.GET -> Root / "streamOrNot" =>
-        // Checking if client is able to handle streaming response
-        val acceptsStreaming: Boolean = req.header(Header.Accept).exists(_.mimeTypes.contains(Header.Accept.MediaTypeWithQFactor(MediaType.application.`octet-stream`, None)))
-        if (acceptsStreaming)
-          Response(
-            status = Status.Ok,
-            // Setting response header 
-            headers = Headers(Header.ContentLength(message.length.toLong)), // adding CONTENT-LENGTH header
-            body = Body.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
-          )
-        else {
-          // Adding a custom header to Response
-          Response(status = Status.Accepted, body = Body.fromChunk(message)).addHeader("X-MY-HEADER", "test")
+      Method.GET / "streamOrNot" -> 
+        handler { (req: Request) => 
+          // Checking if client is able to handle streaming response
+          val acceptsStreaming: Boolean = req.header(Header.Accept).exists(_.mimeTypes.contains(Header.Accept.MediaTypeWithQFactor(MediaType.application.`octet-stream`, None)))
+          if (acceptsStreaming)
+            Response(
+              status = Status.Ok,
+              // Setting response header 
+              headers = Headers(Header.ContentLength(message.length.toLong)), // adding CONTENT-LENGTH header
+              body = Body.fromStream(ZStream.fromChunk(message)), // Encoding content using a ZStream
+            )
+          else {
+            // Adding a custom header to Response
+            Response(status = Status.Accepted, body = Body.fromChunk(message)).addHeader("X-MY-HEADER", "test")
+          }
         }
-    }
+    ).sandbox.toHttpApp
 }
 
 ```
-
-The following example shows how Headers could be added to `Response` in a `RequestHandlerMiddleware` implementation:
-
-```scala mdoc:silent
-
-/**
- * Creates an authentication middleware that only allows authenticated requests to be passed on to the app.
- */
-final def customAuth(
-                      verify: Headers => Boolean,
-                      responseHeaders: Headers = Headers.empty,
-                      responseStatus: Status = Status.Unauthorized,
-                    ): RequestHandlerMiddleware[Nothing, Any, Nothing, Any] =
-  new RequestHandlerMiddleware.Simple[Any, Nothing] {
-    override def apply[R1 <: Any, Err1 >: Nothing](
-                                                    handler: Handler[R1, Err1, Request, Response],
-                                                  )(implicit trace: Trace): Handler[R1, Err1, Request, Response] =
-      Handler.fromFunctionHandler[Request] { request =>
-        if (verify(request.headers)) handler
-        else Handler.status(responseStatus).addHeaders(responseHeaders)
-      }
-  }
-
-```
-
 More examples:
 
-- [BasicAuth](https://github.com/zio/zio-http/blob/main/example/src/main/scala/BasicAuth.scala)
-- [Authentication](https://github.com/zio/zio-http/blob/main/example/src/main/scala/Authentication.scala)
+- [Middleware](https://github.com/zio/zio-http/blob/main/example/src/main/scala/Middleware.scala)
 
 </details>
 

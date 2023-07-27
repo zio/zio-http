@@ -19,8 +19,7 @@ package zio.http.netty
 import zio.test.Assertion.{equalTo, isNone, isNull, isSome}
 import zio.test._
 
-import zio.http.internal.middlewares.Auth.Credentials
-import zio.http.{Proxy, URL}
+import zio.http.{Credentials, Proxy, URL}
 
 object NettyProxySpec extends ZIOSpecDefault {
   private val validUrl = URL.decode("http://localhost:8123").toOption.getOrElse(URL.empty)

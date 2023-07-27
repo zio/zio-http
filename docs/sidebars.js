@@ -82,7 +82,7 @@ const sidebars = {
           link: { type: "doc", id: "index" },
           items: [
             "dsl/server",
-            "dsl/http",
+            "dsl/routes",
             "dsl/request",
             "dsl/response",
             "dsl/body",

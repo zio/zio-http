@@ -27,33 +27,46 @@ object ContentTypeSpec extends HttpRunnableSpec {
 
   val contentSpec = suite("Content type header on file response")(
     test("mp4") {
-      val res = Http.fromResource("TestFile2.mp4").deploy.contentType.run()
+      val res =
+        Handler.fromResource("TestFile2.mp4").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.video.`mp4`))))
     },
     test("js") {
-      val res = Http.fromResource("TestFile3.js").deploy.contentType.run()
+      val res =
+        Handler.fromResource("TestFile3.js").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.application.`javascript`))))
     },
     test("no extension") {
-      val res = Http.fromResource("TestFile4").deploy.contentType.run()
+      val res = Handler.fromResource("TestFile4").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isNone)
     },
     test("css") {
-      val res = Http.fromResource("TestFile5.css").deploy.contentType.run()
+      val res =
+        Handler.fromResource("TestFile5.css").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.`css`))))
     },
     test("mp3") {
-      val res = Http.fromResource("TestFile6.mp3").deploy.contentType.run()
+      val res =
+        Handler.fromResource("TestFile6.mp3").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.audio.`mpeg`))))
     },
     test("unidentified extension") {
-      val res = Http.fromResource("truststore.jks").deploy.contentType.run()
+      val res =
+        Handler.fromResource("truststore.jks").sandbox.toHttpApp.deploy(Request()).map(_.header(Header.ContentType))
       assertZIO(res)(isNone)
     },
     test("already set content-type") {
       val expected = MediaType.application.`json`
       val res      =
-        Http.fromResource("TestFile6.mp3").map(_.addHeader(Header.ContentType(expected))).deploy.contentType.run()
+        Handler
+          .fromResource("TestFile6.mp3")
+          .map(_.addHeader(Header.ContentType(expected)))
+          .sandbox
+          .toHttpApp
+          .deploy(Request())
+          .map(
+            _.header(Header.ContentType),
+          )
       assertZIO(res)(isSome(equalTo(Header.ContentType(expected))))
     },
   )

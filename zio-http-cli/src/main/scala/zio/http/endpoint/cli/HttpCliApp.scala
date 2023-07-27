@@ -41,7 +41,7 @@ object HttpCliApp {
     name: String,
     version: String,
     summary: HelpDoc.Span,
-    endpoints: Chunk[Endpoint[_, _, _, M]],
+    endpoints: Chunk[Endpoint[_, _, _, _, M]],
     host: String,
     port: Int,
     footer: HelpDoc = HelpDoc.Empty,

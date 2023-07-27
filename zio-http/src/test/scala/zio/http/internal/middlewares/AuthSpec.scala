@@ -32,207 +32,99 @@ object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   private val successBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerToken))
   private val failureBearerHeader: Headers = Headers(Header.Authorization.Bearer(bearerToken + "SomethingElse"))
 
-  private val basicAuthM: RequestHandlerMiddleware[Nothing, Any, Nothing, Any]     = HttpAppMiddleware.basicAuth { c =>
+  private val basicAuthM     = HandlerAspect.basicAuth { c =>
     c.uname.reverse == c.upassword
   }
-  private val basicAuthZIOM: RequestHandlerMiddleware[Nothing, Any, Nothing, Any]  = HttpAppMiddleware.basicAuthZIO {
-    c =>
-      ZIO.succeed(c.uname.reverse == c.upassword)
+  private val basicAuthZIOM  = HandlerAspect.basicAuthZIO { c =>
+    ZIO.succeed(c.uname.reverse == c.upassword)
   }
-  private val bearerAuthM: RequestHandlerMiddleware[Nothing, Any, Nothing, Any]    = HttpAppMiddleware.bearerAuth { c =>
+  private val bearerAuthM    = HandlerAspect.bearerAuth { c =>
     c == bearerToken
   }
-  private val bearerAuthZIOM: RequestHandlerMiddleware[Nothing, Any, Nothing, Any] = HttpAppMiddleware.bearerAuthZIO {
-    c =>
-      ZIO.succeed(c == bearerToken)
+  private val bearerAuthZIOM = HandlerAspect.bearerAuthZIO { c =>
+    ZIO.succeed(c == bearerToken)
   }
 
   def spec = suite("AuthSpec")(
     suite("basicAuth")(
       test("HttpApp is accepted if the basic authentication succeeds") {
-        val app = (Handler.ok @@ basicAuthM).status
+        val app = (Handler.ok @@ basicAuthM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo(Status.Ok))
       },
       test("Uses forbidden app if the basic authentication fails") {
-        val app = (Handler.ok @@ basicAuthM).status
+        val app = (Handler.ok @@ basicAuthM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(equalTo(Status.Unauthorized))
       },
       test("Responses should have WWW-Authentication header if Basic Auth failed") {
-        val app = (Handler.ok @@ basicAuthM).header(Header.WWWAuthenticate)
+        val app = (Handler.ok @@ basicAuthM).merge.header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
       },
     ),
     suite("basicAuthZIO")(
       test("HttpApp is accepted if the basic authentication succeeds") {
-        val app = (Handler.ok @@ basicAuthZIOM).status
+        val app = (Handler.ok @@ basicAuthZIOM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBasicHeader)))(equalTo(Status.Ok))
       },
       test("Uses forbidden app if the basic authentication fails") {
-        val app = (Handler.ok @@ basicAuthZIOM).status
+        val app = (Handler.ok @@ basicAuthZIOM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(equalTo(Status.Unauthorized))
       },
       test("Responses should have WWW-Authentication header if Basic Auth failed") {
-        val app = (Handler.ok @@ basicAuthZIOM).header(Header.WWWAuthenticate)
+        val app = (Handler.ok @@ basicAuthZIOM).merge.header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBasicHeader)))(isSome)
       },
     ),
     suite("bearerAuth")(
       test("HttpApp is accepted if the bearer authentication succeeds") {
-        val app = (Handler.ok @@ bearerAuthM).status
+        val app = (Handler.ok @@ bearerAuthM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBearerHeader)))(equalTo(Status.Ok))
       },
       test("Uses forbidden app if the bearer authentication fails") {
-        val app = (Handler.ok @@ bearerAuthM).status
+        val app = (Handler.ok @@ bearerAuthM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(equalTo(Status.Unauthorized))
       },
       test("Responses should have WWW-Authentication header if bearer Auth failed") {
-        val app = (Handler.ok @@ bearerAuthM).header(Header.WWWAuthenticate)
+        val app = (Handler.ok @@ bearerAuthM).merge.header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Http.collectHandler[Request] { case Method.GET -> Root / "a" =>
-          Handler.ok
-        }
-        val app2 = Http.collectHandler[Request] { case Method.GET -> Root / "b" =>
-          Handler.ok
-        }
-        val app3 = Http.collectHandler[Request] { case Method.GET -> Root / "c" =>
-          Handler.ok
-        }
-        val app  = (app1 ++ app2 @@ bearerAuthM ++ app3).status
+        val app1 = Routes(Method.GET / "a" -> Handler.ok).toHttpApp
+        val app2 = Routes(Method.GET / "b" -> Handler.ok).toHttpApp
+        val app3 = Routes(Method.GET / "c" -> Handler.ok).toHttpApp
+        val app  = app1 ++ app2 @@ bearerAuthM ++ app3
         for {
           s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
           s2 <- app.runZIO(Request.get(URL(Root / "b")).copy(headers = failureBearerHeader))
           s3 <- app.runZIO(Request.get(URL(Root / "c")).copy(headers = failureBearerHeader))
-        } yield assertTrue(
-          s1 == Status.Ok && s2 == Status.Unauthorized && s3 == Status.Ok,
-        )
+          result = s1.status == Status.Ok && s2.status == Status.Unauthorized && s3.status == Status.Ok
+        } yield assertTrue(result)
       },
     ),
     suite("bearerAuthZIO")(
       test("HttpApp is accepted if the bearer authentication succeeds") {
-        val app = (Handler.ok @@ bearerAuthZIOM).status
+        val app = (Handler.ok @@ bearerAuthZIOM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = successBearerHeader)))(equalTo(Status.Ok))
       },
       test("Uses forbidden app if the bearer authentication fails") {
-        val app = (Handler.ok @@ bearerAuthZIOM).status
+        val app = (Handler.ok @@ bearerAuthZIOM).merge.status
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(equalTo(Status.Unauthorized))
       },
       test("Responses should have WWW-Authentication header if bearer Auth failed") {
-        val app = (Handler.ok @@ bearerAuthZIOM).header(Header.WWWAuthenticate)
+        val app = (Handler.ok @@ bearerAuthZIOM).merge.header(Header.WWWAuthenticate)
         assertZIO(app.runZIO(Request.get(URL.empty).copy(headers = failureBearerHeader)))(isSome)
       },
       test("Does not affect fallback apps") {
-        val app1 = Http.collectHandler[Request] { case Method.GET -> Root / "a" =>
-          Handler.ok
-        }
-        val app2 = Http.collectHandler[Request] { case Method.GET -> Root / "b" =>
-          Handler.ok
-        }
-        val app3 = Http.collectHandler[Request] { case Method.GET -> Root / "c" =>
-          Handler.ok
-        }
-        val app  = (app1 ++ app2 @@ bearerAuthZIOM ++ app3).status
+        val app1 = Routes(Method.GET / "a" -> Handler.ok).toHttpApp
+        val app2 = Routes(Method.GET / "b" -> Handler.ok).toHttpApp
+        val app3 = Routes(Method.GET / "c" -> Handler.ok).toHttpApp
+        val app  = app1 ++ app2 @@ bearerAuthZIOM ++ app3
         for {
           s1 <- app.runZIO(Request.get(URL(Root / "a")).copy(headers = failureBearerHeader))
           s2 <- app.runZIO(Request.get(URL(Root / "b")).copy(headers = failureBearerHeader))
           s3 <- app.runZIO(Request.get(URL(Root / "c")).copy(headers = failureBearerHeader))
-        } yield assertTrue(
-          s1 == Status.Ok && s2 == Status.Unauthorized && s3 == Status.Ok,
-        )
+          result = s1.status == Status.Ok && s2.status == Status.Unauthorized && s3.status == Status.Ok
+        } yield assertTrue(result)
       },
-    ),
-    suite("custom")(
-      test("Providing context from auth middleware") {
-        def auth[R0] = RequestHandlerMiddlewares.customAuthProviding[R0, AuthContext]((request: Request) =>
-          request.header(Header.Authorization).map(auth => AuthContext(auth.renderedValue.toString)),
-        )
-
-        val app1 = Handler.text("ok") @@ auth[Any]
-        val app2 = Handler.fromZIO {
-          for {
-            base <- ZIO.service[BaseService]
-            auth <- ZIO.service[AuthContext]
-          } yield Response.text(s"${base.value} ${auth.value}")
-        } @@ auth[BaseService]
-
-        for {
-          r1     <- app1.runZIO(Request.get(URL.empty))
-          r2     <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth"))))
-          r2body <- r2.body.asString
-          r3     <- app2.runZIO(Request.get(URL.empty))
-          r4     <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth"))))
-          r4body <- r4.body.asString
-        } yield assertTrue(
-          extractStatus(r1) == Status.Unauthorized,
-          extractStatus(r2) == Status.Ok,
-          r2body == "ok",
-          extractStatus(r3) == Status.Unauthorized,
-          extractStatus(r4) == Status.Ok,
-          r4body == "base Bearer auth",
-        )
-      }.provideLayer(ZLayer.succeed(BaseService("base"))),
-      test("Providing context from auth middleware effectfully") {
-        def auth[R0] = RequestHandlerMiddlewares.customAuthProvidingZIO[R0, UserService, Throwable, AuthContext](
-          (request: Request) =>
-            request.header(Header.Authorization) match {
-              case Some(Header.Authorization.Bearer(value)) if value.startsWith("_") =>
-                ZIO.service[UserService].map { usvc => Some(AuthContext(usvc.prefix + value)) }
-              case Some(value)                                                       =>
-                ZIO.fail(new RuntimeException(s"Invalid auth header $value"))
-              case None                                                              =>
-                ZIO.none
-            },
-        )
-
-        val app1 = Handler.text("ok") @@ auth[Any]
-        val app2 = Handler.fromZIO {
-          for {
-            base <- ZIO.service[BaseService]
-            auth <- ZIO.service[AuthContext]
-          } yield Response.text(s"${base.value} ${auth.value}")
-        } @@ auth[BaseService]
-
-        for {
-          r1 <- app1.runZIO(Request.get(URL.empty))
-          r2 <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth")))).exit
-          r3 <- app1.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("_auth"))))
-          r3body <- r3.body.asString
-          r4     <- app2.runZIO(Request.get(URL.empty))
-          r5 <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("auth")))).exit
-          r6 <- app2.runZIO(Request.get(URL.empty).copy(headers = Headers(Header.Authorization.Bearer("_auth"))))
-          r6body <- r6.body.asString
-        } yield assertTrue(
-          extractStatus(r1) == Status.Unauthorized,
-          r2.isFailure,
-          extractStatus(r3) == Status.Ok,
-          r3body == "ok",
-          extractStatus(r4) == Status.Unauthorized,
-          r5.isFailure,
-          extractStatus(r6) == Status.Ok,
-          r6body == "base user_auth",
-        )
-      }.provide(ZLayer.succeed(BaseService("base")), ZLayer.succeed(UserService("user"))),
-      test("Contextual auth evaluation per request") {
-        def auth =
-          RequestHandlerMiddlewares.customAuthProvidingZIO[Any, CounterService, Throwable, AuthContext](_ =>
-            for {
-              counter <- ZIO.service[CounterService].map(_.counter)
-              _       <- counter.update(_ + 1)
-              value   <- counter.get
-            } yield Some(AuthContext(value.toString)),
-          )
-
-        def httpEndpoint(str: String) = Http.collect[Request] { case Method.GET -> Root / `str` =>
-          Response.ok
-        }
-
-        val httpApi = (httpEndpoint("1") ++ httpEndpoint("2")) @@ auth
-        for {
-          r1      <- httpApi.runZIO(Request.get(URL(Root / "1")))
-          counter <- ZIO.service[CounterService].flatMap(_.counter.get)
-        } yield assertTrue(extractStatus(r1) == Status.Ok, counter == 1)
-      }.provide(ZLayer.fromZIO(Ref.make(0).map(CounterService.apply))),
     ),
   )
 

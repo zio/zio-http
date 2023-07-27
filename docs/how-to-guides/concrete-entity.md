@@ -3,12 +3,17 @@ id: concrete-entity
 title: "Concrete Entity Example"
 ---
 
+<<<<<<< HEAD:docs/how-to-guides/concrete-entity.md
 `Concrete entities` refer to specific data models or classes that represent the request and response payloads in an HTTP application. This code is an example demonstrating how to build an application using concrete entities in ZIO-HTTP.
 
 
 ## Code
 
 ```scala
+=======
+```scala mdoc:silent
+
+>>>>>>> main:docs/examples/advanced/concrete-entity.md
 import zio._
 
 import zio.http._
@@ -28,13 +33,14 @@ object ConcreteEntity extends ZIOAppDefault {
       UserCreated(2)
     }
 
-  val app: RequestHandler[Any, Nothing] =
+  val app: HttpApp[Any] =
     user
       .contramap[Request](req => CreateUser(req.path.encode))     // Http[Any, Nothing, Request, UserCreated]
       .map(userCreated => Response.text(userCreated.id.toString)) // Http[Any, Nothing, Request, Response]
+      .toHttpApp
 
   // Run it like any simple app
   val run =
-    Server.serve(app.toHttp.withDefaultErrorResponse).provide(Server.default)
+    Server.serve(app).provide(Server.default)
 }
 ```

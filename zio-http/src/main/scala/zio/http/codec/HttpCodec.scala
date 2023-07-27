@@ -101,17 +101,6 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     self.asQuery ++ that
 
   /**
-   * Combines two route codecs into another route codec.
-   */
-  final def /[Value2](
-    that: PathCodec[Value2],
-  )(implicit
-    combiner: Combiner[Value, Value2],
-    ev: HttpCodecType.Path <:< AtomTypes,
-  ): PathCodec[combiner.Out] =
-    self.asRoute ++ that
-
-  /**
    * Produces a flattened collection of alternatives. Once flattened, each codec
    * inside the returned collection is guaranteed to contain no nested
    * alternatives.
@@ -124,13 +113,6 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    */
   final def asQuery(implicit ev: HttpCodecType.Query <:< AtomTypes): QueryCodec[Value] =
     self.asInstanceOf[QueryCodec[Value]]
-
-  /**
-   * Reinterpets this codec as a route codec assuming evidence that this
-   * interpretation is sound.
-   */
-  final def asRoute(implicit ev: HttpCodecType.Path <:< AtomTypes): PathCodec[Value] =
-    self.asInstanceOf[PathCodec[Value]]
 
   /**
    * Transforms the type parameter to `Unit` by specifying that all possible
@@ -288,15 +270,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, in => Right(f(in)), g)
 }
 
-object HttpCodec
-    extends ContentCodecs
-    with HeaderCodecs
-    with MethodCodecs
-    with PathCodecs
-    with QueryCodecs
-    with StatusCodecs {
-  implicit def stringToLiteral(string: String): PathCodec[Unit] = literal(string)
-
+object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with QueryCodecs with StatusCodecs {
   def enumeration[Value]: Enumeration[Value] =
     new Enumeration[Value](())
 
@@ -525,8 +499,8 @@ object HttpCodec
 
     def index(index: Int): Status[A] = copy(index = index)
   }
-  private[http] final case class Path[A](textCodec: TextCodec[A], name: Option[String], index: Int = 0)
-      extends Atom[HttpCodecType.Path, A]   { self =>
+  private[http] final case class Path[A](pathCodec: PathCodec[A], index: Int = 0) extends Atom[HttpCodecType.Path, A] {
+    self =>
     def erase: Path[Any] = self.asInstanceOf[Path[Any]]
 
     def tag: AtomTag = AtomTag.Path
@@ -621,7 +595,9 @@ object HttpCodec
     type Out   = Either[A, B]
   }
 
-  private[http] def flattenFallbacks[AtomTypes, A](api: HttpCodec[AtomTypes, A]): Chunk[HttpCodec[AtomTypes, A]] = {
+  private[http] def flattenFallbacks[AtomTypes, A](
+    api: HttpCodec[AtomTypes, A],
+  ): Chunk[HttpCodec[AtomTypes, A]] = {
     def rewrite[T, B](api: HttpCodec[T, B]): Chunk[HttpCodec[T, B]] =
       api match {
         case fallback @ HttpCodec.Fallback(left, right) =>

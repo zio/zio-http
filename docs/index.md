@@ -4,7 +4,13 @@ title: "Introduction to ZIO Http"
 sidebar_label: "ZIO Http"
 ---
 
-ZIO HTTP is an powerful library that empowers developers to build highly performant HTTP-based services and clients using functional Scala and ZIO, with Netty as its core. This library provides powerful functional domains that make it easy to create, modify, and compose applications. Let's start by exploring the HTTP domain, which involves creating an HTTP app when using ZIO HTTP. Here's an example of a simple echo server using ZIO-HTTP:
+ZIO HTTP is a scala library for building http apps. It is powered by ZIO and [Netty](https://netty.io/) and aims at being the defacto solution for writing, highly scalable and performant web applications using idiomatic Scala.
+
+@PROJECT_BADGES@
+
+## Installation
+
+Setup via `build.sbt`:
 
 ```scala
 package example
@@ -15,11 +21,10 @@ import zio.http._
 
 object RequestStreaming extends ZIOAppDefault {
 
-  // Create HTTP route which echos back the request body
-  val app = Http.collect[Request] { case req @ Method.POST -> Root / "echo" =>
-    // Returns a stream of bytes from the request
-    // The stream supports back-pressure
-    val stream = req.body.asStream
+  val app: HttpApp[Any] = 
+    Routes(
+      Method.GET / "text" -> handler(Response.text("Hello World!"))
+    ).toHttpApp
 
     // Creating HttpData from the stream
     // This works for file of any size

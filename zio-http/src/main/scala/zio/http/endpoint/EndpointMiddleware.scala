@@ -18,8 +18,8 @@ package zio.http.endpoint
 
 import zio.ZIO
 
+import zio.http._
 import zio.http.codec._
-import zio.http.{Header, Method}
 
 /**
  * A description of endpoint middleware, in terms of what the middleware
@@ -52,8 +52,19 @@ sealed trait EndpointMiddleware { self =>
 
   def implement[R, S](incoming: In => ZIO[R, Err, S])(
     outgoing: S => ZIO[R, Err, Out],
-  ): RoutesMiddleware[R, S, this.type] =
-    RoutesMiddleware.make[this.type](this)(incoming)(outgoing)
+  ): HandlerAspect[R, S] =
+    HandlerAspect.interceptHandlerStateful(
+      Handler.fromFunctionZIO[Request] { request =>
+        input.decodeRequest(request).orDie.flatMap { in =>
+          incoming(in).catchAll(e => ZIO.fail(error.encodeResponse(e))).map((s: S) => (s, (request, s)))
+        }
+      },
+    )(
+      Handler.fromFunctionZIO[(S, Response)] { case (state, response) =>
+        outgoing(state)
+          .fold(e => error.encodeResponse(e), (out: Out) => response.patch(output.encodeResponsePatch(out)))
+      },
+    )
 
   def mapIn[MiddlewareIn2](
     f: HttpCodec[HttpCodecType.Header with HttpCodecType.Query with HttpCodecType.Method, In] => HttpCodec[

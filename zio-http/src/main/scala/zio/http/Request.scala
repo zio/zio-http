@@ -24,7 +24,7 @@ import zio.http.internal.HeaderOps
 
 final case class Request(
   version: Version = Version.Default,
-  method: Method = Method.Default,
+  method: Method = Method.ANY,
   url: URL = URL.empty,
   headers: Headers = Headers.empty,
   body: Body = Body.empty,
@@ -73,12 +73,12 @@ final case class Request(
         self.copy(body = Body.fromChunk(bytes))
       }
 
-  def dropLeadingSlash: Request = self.copy(url = url.dropLeadingSlash)
+  def dropLeadingSlash: Request = updateURL(_.dropLeadingSlash)
 
   /**
    * Drops trailing slash from the path.
    */
-  def dropTrailingSlash: Request = self.copy(url = self.url.dropTrailingSlash)
+  def dropTrailingSlash: Request = updateURL(_.dropTrailingSlash)
 
   /** Consumes the streaming body fully and then drops it */
   def ignoreBody: ZIO[Any, Throwable, Request] =
@@ -87,15 +87,24 @@ final case class Request(
   def patch(p: Request.Patch): Request =
     self.copy(headers = self.headers ++ p.addHeaders, url = self.url.addQueryParams(p.addQueryParams))
 
-  val path = url.path
+  def path: Path = url.path
 
-  def updatePath(path: Path): Request = self.copy(url = self.url.copy(path = path))
+  def path(path: Path): Request = updateURL(_.path(path))
 
   /**
    * Updates the headers using the provided function
    */
   override def updateHeaders(update: Headers => Headers): Request =
     self.copy(headers = update(self.headers))
+
+  def updateURL(f: URL => URL): Request = copy(url = f(url))
+
+  /**
+   * Unnests the request by the specified prefix. If the request URL is not
+   * nested at the specified path, then this has no effect on the URL.
+   */
+  def unnest(prefix: Path): Request =
+    copy(url = self.url.copy(path = self.url.path.unnest(prefix)))
 }
 
 object Request {
