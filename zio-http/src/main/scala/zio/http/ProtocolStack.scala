@@ -73,7 +73,7 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
 
   // TODO: Make this the one true representation and delete `incoming`
   lazy val incomingHandler: Handler[Env, OutgoingOut, IncomingIn, (State, IncomingOut)] =
-    Handler.fromFunctionZIO[IncomingIn](incoming(_)(Trace.empty)) // todo: remove Trace.empty
+    Handler.fromFunctionZIO[IncomingIn](incoming(_)(Trace.empty))
 
   def mapIncoming[IncomingOut2](
     f: IncomingOut => IncomingOut2,
@@ -90,7 +90,7 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
   // TODO: Make this the one true representation and delete `outgoing`
   lazy val outgoingHandler: Handler[Env, Nothing, (State, OutgoingIn), OutgoingOut] =
     Handler.fromFunctionZIO[(State, OutgoingIn)] { case (state, in) =>
-      outgoing(state, in)(Trace.empty) // todo: remove Trace.empty
+      outgoing(state, in)(Trace.empty)
     }
 
   def provideEnvironment(env: ZEnvironment[Env])(implicit

@@ -92,7 +92,6 @@ final case class HttpApp[-Env](routes: Routes[Env, Response])
    * Converts the HTTP application into a request handler.
    */
   val toHandler: Handler[Env, Nothing, Request, Response] = {
-    // do we want this?
     implicit val trace: Trace = Trace.empty
     Handler
       .fromFunctionHandler[Request] { req =>
