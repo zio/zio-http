@@ -52,10 +52,10 @@ final case class Response(
   def ignoreBody: ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
 
-  def isWebSocket: Boolean = socketApp match {
-    case Some(_) => self.status == Status.SwitchingProtocols
-    case _       => false
-  }
+//  def isWebSocket: Boolean = self match {
+//    case _: SocketAppResponse => self.status == Status.SwitchingProtocols
+//    case _                    => false
+//  }
 
   def patch(p: Response.Patch): Response = p.apply(self)
 
@@ -85,7 +85,7 @@ object Response {
     def close(implicit trace: Trace): Task[Unit]
   }
 
-  private[zio] case class NativeResponse(
+  private[zio] class NativeResponse(
     response: Response,
     onClose: () => Task[Unit],
   ) extends CloseableResponse { self =>
