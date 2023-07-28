@@ -26,7 +26,7 @@ import zio.{Promise, Trace, Unsafe, ZIO}
 
 object NettyResponse {
 
-  final def make(jRes: FullHttpResponse): Response = {
+  final def apply(jRes: FullHttpResponse): Response = {
     val status       = Conversions.statusFromNetty(jRes.status())
     val headers      = Conversions.headersFromNetty(jRes.headers())
     val copiedBuffer = Unpooled.copiedBuffer(jRes.content())

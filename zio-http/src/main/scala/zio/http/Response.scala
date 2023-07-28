@@ -47,8 +47,6 @@ final case class Response(
         self.copy(body = Body.fromChunk(bytes))
       }
 
-  def frozen: Boolean = false // TODO: remove
-
   /** Consumes the streaming body fully and then drops it */
   def ignoreBody: ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
