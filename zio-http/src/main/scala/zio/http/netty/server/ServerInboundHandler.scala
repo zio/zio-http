@@ -324,37 +324,35 @@ private[zio] final case class ServerInboundHandler(
     jReq: HttpRequest,
   )(ensured: () => Unit): Unit = {
     runtime.run(ctx, ensured) {
-      val pgm = for {
-        response <- exit.sandbox.catchAll { error =>
-          error.failureOrCause
-            .fold[UIO[Response]](
-              response => ZIO.succeed(response),
-              cause =>
-                if (cause.isInterruptedOnly) {
-                  interrupted(ctx).as(null)
-                } else {
-                  ZIO.succeed(withDefaultErrorResponse(FiberFailure(cause)))
-                },
-            )
-        }
-        _        <-
-          if (response ne null) {
-            (for {
-              done <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-              _    <- attemptFullWrite(ctx, response, jReq, time).unless(done)
-            } yield ()).catchSomeCause { case cause =>
-              ZIO.attempt(
-                attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash).freeze, time),
-              )
-            }
-          } else {
-            ZIO.attempt(
-              if (ctx.channel().isOpen) {
-                writeNotFound(ctx, jReq)
+      val pgm = exit.sandbox.catchAll { error =>
+        error.failureOrCause
+          .fold[UIO[Response]](
+            response => ZIO.succeed(response),
+            cause =>
+              if (cause.isInterruptedOnly) {
+                interrupted(ctx).as(null)
+              } else {
+                ZIO.succeed(withDefaultErrorResponse(FiberFailure(cause)))
               },
+          )
+      }.flatMap { response =>
+        if (response ne null) {
+          (for {
+            done <- ZIO.attempt(attemptFastWrite(ctx, response, time))
+            _    <- attemptFullWrite(ctx, response, jReq, time).unless(done)
+          } yield ()).catchSomeCause { case cause =>
+            ZIO.attempt(
+              attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash).freeze, time),
             )
           }
-      } yield ()
+        } else {
+          ZIO.attempt(
+            if (ctx.channel().isOpen) {
+              writeNotFound(ctx, jReq)
+            },
+          )
+        }
+      }
 
       pgm.provideEnvironment(env)
     }
