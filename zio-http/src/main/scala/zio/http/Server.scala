@@ -340,7 +340,7 @@ object Server {
         config           <- ZIO.service[Config]
         inFlightRequests <- Promise.make[Throwable, LongAdder]
         _                <- Scope.addFinalizer(
-          inFlightRequests.await.flatMap { counter =>
+          ZIO.clock.debug("Clock in graceful shutdown") *> inFlightRequests.await.flatMap { counter =>
             ZIO
               .succeed(counter.longValue())
               .repeat(
