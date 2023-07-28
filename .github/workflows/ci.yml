@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.12.18, 2.13.10, 3.3.0]
+        scala: [2.12.18, 2.13.11, 3.3.0]
         java: [graal_21.1.0@11, temurin@8]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -54,7 +54,7 @@ jobs:
           cache: sbt
 
       - name: Check formatting
-        if: matrix.scala == '2.13.10'
+        if: matrix.scala == '2.13.11'
         run: sbt ++2.13.10 fmtCheck
 
       - name: Check that workflows are up to date
@@ -68,7 +68,7 @@ jobs:
         run: sbt ++2.13.10 doc
 
       - name: zio-http-shaded Tests
-        if: matrix.scala == '2.13.10'
+        if: matrix.scala == '2.13.11'
         env:
           PUBLISH_SHADED: true
         run: sbt '++ ${{ matrix.scala }}' zioHttpShadedTests/test
@@ -89,7 +89,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.10]
+        scala: [2.13.11]
         java: [graal_21.1.0@11]
     runs-on: ${{ matrix.os }}
     steps:
@@ -171,7 +171,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.10]
+        scala: [2.13.11]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -182,7 +182,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.10]
+        scala: [2.13.11]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -215,7 +215,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.10]
+        scala: [2.13.11]
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
