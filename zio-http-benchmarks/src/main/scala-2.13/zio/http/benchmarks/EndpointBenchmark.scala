@@ -227,7 +227,7 @@ class EndpointBenchmark {
     Method.GET / "first" / int("id1") / "second" / int("id2") / "third" / int("id3") / "fourth" / int(
       "id4",
     ) / "fifth" / int("id5") / "sixth" / int("id6") / "seventh" / int("id7") ->
-      handler { (id1: Int, id2: Int, id3: Int, id4: Int, id5: Int, id6: Int, id7: Int, req: Request) =>
+      handler { (_: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Request) =>
         ZIO.succeed(Response.ok)
       },
   ).toHttpApp

@@ -318,8 +318,8 @@ private[zio] final case class ServerInboundHandler(
 
   private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
     runtime.run(ctx, () => ()) {
-      val response = HttpError.NotFound(jReq.uri()).toResponse
-      val done     = attemptFastWrite(ctx, response, time)
+      val response = Response.notFound(jReq.uri())
+      val done = attemptFastWrite(ctx, response, time)
       attemptFullWrite(ctx, response, jReq, time).unless(done)
     }
   }
@@ -373,7 +373,7 @@ private[zio] final case class ServerInboundHandler(
     }.unit.orDie
 
   private def withDefaultErrorResponse(cause: Throwable): Response =
-    HttpError.InternalServerError(cause = Some(cause)).toResponse
+    Response.internalServerError(cause.getMessage)
 }
 
 object ServerInboundHandler {

@@ -31,7 +31,7 @@ object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
       test("http_requests_total & http_errors_total") {
         val app = Routes(
           Method.GET / "ok"     -> Handler.ok,
-          Method.GET / "error"  -> Handler.error(HttpError.InternalServerError()),
+          Method.GET / "error"  -> Handler.internalServerError,
           Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
           Method.GET / "defect" -> Handler.die(new Throwable("boom")),
         ).toHttpApp @@ metrics(

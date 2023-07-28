@@ -278,12 +278,12 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
     ),
     suite("prettify error")(
       test("should not add anything to the body  as request do not have an accept header") {
-        val app = (Handler.errorMessage("Error !!!") @@ beautifyErrors) rawHeader "content-type"
+        val app = (Handler.internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
         assertZIO(app.runZIO(Request.get(URL.empty)))(isNone)
       },
       test("should return a html body as the request has accept header set to text/html.") {
         val app = (Handler
-          .errorMessage("Error !!!") @@ beautifyErrors) rawHeader "content-type"
+          .internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
         assertZIO(
           app.runZIO(
             Request.get(URL.empty).copy(headers = Headers(Header.Accept(MediaType.text.`html`))),
@@ -292,7 +292,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       },
       test("should return a plain body as the request has accept header set to */*.") {
         val app = (Handler
-          .errorMessage("Error !!!") @@ beautifyErrors) rawHeader "content-type"
+          .internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
         assertZIO(
           app.runZIO(
             Request
@@ -303,7 +303,7 @@ object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
       },
       test("should not add anything to the body as the request has accept header set to application/json.") {
         val app = (Handler
-          .errorMessage("Error !!!") @@ beautifyErrors) rawHeader "content-type"
+          .internalServerError("Error !!!") @@ beautifyErrors) rawHeader "content-type"
         assertZIO(
           app.runZIO(
             Request.get(URL.empty).copy(headers = Headers(Header.Accept(MediaType.application.json))),
