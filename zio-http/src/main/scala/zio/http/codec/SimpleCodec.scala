@@ -15,6 +15,7 @@
  */
 
 package zio.http.codec
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A simple codec is either equal to a given value, or unconstrained within a

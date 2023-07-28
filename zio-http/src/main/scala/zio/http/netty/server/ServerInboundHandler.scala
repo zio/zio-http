@@ -319,7 +319,7 @@ private[zio] final case class ServerInboundHandler(
     // TODO: this can be done without ZIO
     runtime.run(ctx, ensured) {
       for {
-        response <- ZIO.succeed(HttpError.NotFound(jReq.uri()).toResponse)
+        response <- ZIO.succeed(Response.notFound(jReq.uri()))
         done     <- ZIO.attempt(attemptFastWrite(ctx, response, time))
         _        <- attemptFullWrite(ctx, response, jReq, time).unless(done)
       } yield ()
@@ -381,7 +381,8 @@ private[zio] final case class ServerInboundHandler(
     }.unit.orDie
 
   private def withDefaultErrorResponse(responseOrNull: Response, cause: Option[Throwable]): Response =
-    if (responseOrNull ne null) responseOrNull else HttpError.InternalServerError(cause = cause).toResponse
+    if (responseOrNull ne null) responseOrNull
+    else Response.internalServerError(cause.map(_.getMessage()).getOrElse(""))
 }
 
 object ServerInboundHandler {

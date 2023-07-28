@@ -16,6 +16,8 @@
 
 package zio.http.codec
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.stream.ZStream
 
 import zio.schema.Schema
