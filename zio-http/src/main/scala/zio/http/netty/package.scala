@@ -16,10 +16,10 @@
 
 package zio.http
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Trace, ZIO}
 
 import io.netty.util.AsciiString
-
 package object netty {
 
   private[zio] object Names {

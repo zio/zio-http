@@ -35,14 +35,6 @@ sealed trait Route[-Env, +Err] { self =>
   import Route.{Augmented, Handled, Provided, Unhandled}
 
   /**
-   * Augments this route with the specified aspect.
-   */
-  def @@[Env1 <: Env](
-    aspect: Handler[Env1, Response, Request, Response] => Handler[Env1, Response, Request, Response],
-  ): Route[Env1, Err] =
-    Route.Augmented[Env1, Err](self, aspect)
-
-  /**
    * Applies the route to the specified request. The route must be defined for
    * the request, or else this method will fail fatally. Note that you may only
    * call this function when you have handled all errors produced by the route,
@@ -52,11 +44,6 @@ sealed trait Route[-Env, +Err] { self =>
     toHandler.apply(request)
 
   def asErrorType[Err2](implicit ev: Err <:< Err2): Route[Env, Err2] = self.asInstanceOf[Route[Env, Err2]]
-
-  def augmented[Env1 <: Env](
-    f: Handler[Env1, Response, Request, Response] => Handler[Env1, Response, Request, Response],
-  ): Route[Env1, Err] =
-    Route.Augmented(self, f)
 
   /**
    * Handles the error of the route. This method can be used to convert a route
@@ -126,6 +113,11 @@ sealed trait Route[-Env, +Err] { self =>
   def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response]
 
   final def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] = Routes(self).toHttpApp
+
+  def transform[Env1 <: Env](
+    f: Handler[Env1, Response, Request, Response] => Handler[Env1, Response, Request, Response],
+  ): Route[Env1, Err] =
+    Route.Augmented(self, f)
 }
 object Route                   {
 

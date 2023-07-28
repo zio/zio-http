@@ -1,6 +1,7 @@
 import BuildHelper._
 import Dependencies._
 import sbt.librarymanagement.ScalaArtifacts.isScala3
+import scala.concurrent.duration._
 
 val releaseDrafterVersion = "5"
 
@@ -27,7 +28,7 @@ ThisBuild / githubWorkflowAddedJobs    :=
       steps = List(WorkflowStep.Use(UseRef.Public("release-drafter", "release-drafter", s"v${releaseDrafterVersion}"))),
       cond = Option("${{ github.base_ref == 'main' }}"),
     ),
-  ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) // ++ BenchmarkWorkFlow() 
+  ) ++ ScoverageWorkFlow(50, 60) ++ JmhBenchmarkWorkflow(1) // ++ BenchmarkWorkFlow()
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
@@ -49,11 +50,11 @@ ThisBuild / githubWorkflowPublish       :=
       name = Some("Release Shaded"),
       env = Map(
         Shading.env.PUBLISH_SHADED -> "true",
-        "PGP_PASSPHRASE" -> "${{ secrets.PGP_PASSPHRASE }}",
-        "PGP_SECRET" -> "${{ secrets.PGP_SECRET }}",
-        "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
-        "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}",
-        "CI_SONATYPE_RELEASE" -> "${{ secrets.CI_SONATYPE_RELEASE }}",
+        "PGP_PASSPHRASE"           -> "${{ secrets.PGP_PASSPHRASE }}",
+        "PGP_SECRET"               -> "${{ secrets.PGP_SECRET }}",
+        "SONATYPE_PASSWORD"        -> "${{ secrets.SONATYPE_PASSWORD }}",
+        "SONATYPE_USERNAME"        -> "${{ secrets.SONATYPE_USERNAME }}",
+        "CI_SONATYPE_RELEASE"      -> "${{ secrets.CI_SONATYPE_RELEASE }}",
       ),
     ),
   )
@@ -88,8 +89,9 @@ ThisBuild / githubWorkflowBuildPostamble :=
           name = Some("zio-http-shaded Tests"),
           commands = List("zioHttpShadedTests/test"),
           cond = Some(s"matrix.scala == '$Scala213'"),
-          env = Map(Shading.env.PUBLISH_SHADED -> "true")
-        ))
+          env = Map(Shading.env.PUBLISH_SHADED -> "true"),
+        ),
+      ),
     ).steps
 
 inThisBuild(
@@ -99,6 +101,8 @@ inThisBuild(
     licenses     := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
   ),
 )
+
+ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
 lazy val root = (project in file("."))
   .settings(stdSettings("zio-http-root"))
@@ -113,7 +117,7 @@ lazy val root = (project in file("."))
   )
 
 lazy val zioHttp = (project in file("zio-http"))
-  .enablePlugins(Shading.plugins() : _*)
+  .enablePlugins(Shading.plugins(): _*)
   .settings(stdSettings("zio-http"))
   .settings(publishSetting(true))
   .settings(settingsWithHeaderLicense)
@@ -132,44 +136,53 @@ lazy val zioHttp = (project in file("zio-http"))
     ),
     libraryDependencies ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n <= 12 => Seq(`scala-compact-collection`)
+        case Some((2, n)) if n <= 12 =>
+          Seq(`scala-compact-collection`)
         case _                       => Seq.empty
+      }
+    },
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) =>
+          Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value)
+        case _          => Seq.empty
       }
     },
   )
 
 /**
- * Special subproject to sanity test the shaded version of zio-http.
- * Run using `sbt -Dpublish.shaded zioHttpShadedTests/test`.
- * This will trigger `publishLocal` on zio-http and then run tests using the shaded artifact as a dependency, instead of zio-http classes.
+ * Special subproject to sanity test the shaded version of zio-http. Run using
+ * `sbt -Dpublish.shaded zioHttpShadedTests/test`. This will trigger
+ * `publishLocal` on zio-http and then run tests using the shaded artifact as a
+ * dependency, instead of zio-http classes.
  */
-lazy val zioHttpShadedTests = if(Shading.shadingEnabled) {
+lazy val zioHttpShadedTests = if (Shading.shadingEnabled) {
   (project in file("zio-http-shaded-tests"))
     .settings(stdSettings("zio-http-shaded-tests"))
     .settings(
-      Compile / sources := Nil,
-      Test / sources := (
+      Compile / sources        := Nil,
+      Test / sources           := (
         baseDirectory.value / ".." / "zio-http" / "src" / "test" / "scala" ** "*.scala" ---
           // Exclude tests of netty specific internal stuff
           baseDirectory.value / ".." / "zio-http" / "src" / "test" / "scala" ** "netty" ** "*.scala"
-        ).get,
-      Test / scalaSource := (baseDirectory.value / ".." / "zio-http" / "src" / "test" / "scala"),
+      ).get,
+      Test / scalaSource       := (baseDirectory.value / ".." / "zio-http" / "src" / "test" / "scala"),
       Test / resourceDirectory := (baseDirectory.value / ".." / "zio-http" / "src" / "test" / "resources"),
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
       libraryDependencies ++= Seq(
         `zio-test-sbt`,
         `zio-test`,
         "dev.zio" %% "zio-http-shaded" % version.value,
-      )
+      ),
     )
     .settings(publishSetting(false))
     .settings(Test / test := (Test / test).dependsOn(zioHttp / publishLocal).value)
 } else {
   (project in file(".")).settings(
     Compile / sources := Nil,
-    Test / sources := Nil,
-    name := "noop",
-    publish / skip := true,
+    Test / sources    := Nil,
+    name              := "noop",
+    publish / skip    := true,
   )
 }
 
@@ -200,7 +213,7 @@ lazy val zioHttpExample = (project in file("zio-http-example"))
   .dependsOn(zioHttp, zioHttpCli)
 
 lazy val zioHttpTestkit = (project in file("zio-http-testkit"))
-  .enablePlugins(Shading.plugins() : _*)
+  .enablePlugins(Shading.plugins(): _*)
   .settings(stdSettings("zio-http-testkit"))
   .settings(publishSetting(true))
   .settings(Shading.shadingSettings())

@@ -16,6 +16,7 @@
 
 package zio.http.netty
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Promise, Trace, Unsafe, ZIO}
 
 import zio.http.Response.NativeResponse
@@ -31,6 +32,7 @@ object NettyResponse {
 
   final def make(ctx: ChannelHandlerContext, jRes: FullHttpResponse)(implicit
     unsafe: Unsafe,
+    trace: Trace,
   ): NativeResponse = {
     val status       = Conversions.statusFromNetty(jRes.status())
     val headers      = Conversions.headersFromNetty(jRes.headers())

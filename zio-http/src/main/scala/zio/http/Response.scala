@@ -22,6 +22,7 @@ import java.util.IllegalFormatException
 import scala.annotation.tailrec
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -39,7 +40,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
    * Collects the potentially streaming body of the response into a single
    * chunk.
    */
-  def collect: ZIO[Any, Throwable, Response] =
+  def collect(implicit trace: Trace): ZIO[Any, Throwable, Response] =
     if (self.body.isComplete) ZIO.succeed(self)
     else
       self.body.asChunk.map { bytes =>
@@ -94,13 +95,8 @@ sealed trait Response extends HeaderOps[Response] { self =>
 
   def headers: Headers
 
-  private[zio] final def httpError: Option[HttpError] = self match {
-    case Response.GetError(error) => Some(error)
-    case _                        => None
-  }
-
   /** Consumes the streaming body fully and then drops it */
-  final def ignoreBody: ZIO[Any, Throwable, Response] =
+  final def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
 
   final def isWebSocket: Boolean = self match {
@@ -108,7 +104,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
     case _                    => false
   }
 
-  final def patch(p: Response.Patch): Response = p.apply(self)
+  final def patch(p: Response.Patch)(implicit trace: Trace): Response = p.apply(self)
 
   private[zio] def addServerTime: Boolean = false
 
@@ -150,13 +146,6 @@ object Response {
     }
   }
 
-  object GetError {
-    def unapply(response: Response): Option[HttpError] = response match {
-      case resp: ErrorResponse => Some(resp.httpError0)
-      case _                   => None
-    }
-  }
-
   private[zio] trait CloseableResponse extends Response {
     def close(implicit trace: Trace): Task[Unit]
   }
@@ -182,7 +171,8 @@ object Response {
 
     override def toString(): String = s"Response(status = $status, headers = $headers, body = $body)"
 
-    override def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+      copy(headers = update(headers))
 
     override def serverTime: Response = new BasicResponse(body, headers, status) with InternalState {
 
@@ -216,7 +206,8 @@ object Response {
     override final def toString(): String =
       s"SocketAppResponse(status = $status, headers = $headers, body = $body, socketApp = $socketApp0)"
 
-    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+      copy(headers = update(headers))
 
     override final def serverTime: Response = new SocketAppResponse(body, headers, socketApp0, status)
       with InternalState {
@@ -226,32 +217,6 @@ object Response {
       override def addServerTime: Boolean = true
     }
 
-  }
-
-  private[zio] class ErrorResponse(val body: Body, val headers: Headers, val httpError0: HttpError, val status: Status)
-      extends Response { self =>
-
-    override def copy(status: Status, headers: Headers, body: Body): Response =
-      new ErrorResponse(body, headers, httpError0, status) with InternalState {
-        override val parent: Response = self
-      }
-
-    override def freeze: Response = new ErrorResponse(body, headers, httpError0, status) with InternalState {
-      override val parent: Response = self
-      override def frozen: Boolean  = true
-    }
-
-    override def toString(): String =
-      s"ErrorResponse(status = $status, headers = $headers, body = $body, error = $httpError0)"
-
-    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
-
-    override final def serverTime: Response = new ErrorResponse(body, headers, httpError0, status) with InternalState {
-
-      override val parent: Response = self
-
-      override def addServerTime: Boolean = true
-    }
   }
 
   private[zio] class NativeResponse(
@@ -276,7 +241,8 @@ object Response {
     override final def toString(): String =
       s"NativeResponse(status = $status, headers = $headers, body = $body)"
 
-    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+      copy(headers = update(headers))
 
     override final def serverTime: Response = new NativeResponse(body, headers, status, onClose) with InternalState {
       override val parent: Response = self
@@ -289,8 +255,8 @@ object Response {
    * Models the set of operations that one would want to apply on a Response.
    */
   sealed trait Patch { self =>
-    def ++(that: Patch): Patch         = Patch.Combine(self, that)
-    def apply(res: Response): Response = {
+    def ++(that: Patch): Patch                                = Patch.Combine(self, that)
+    def apply(res: Response)(implicit trace: Trace): Response = {
 
       @tailrec
       def loop(res: Response, patch: Patch): Response =
@@ -341,7 +307,7 @@ object Response {
 
   def badRequest(message: String): Response = error(Status.BadRequest, message)
 
-  def error(status: Status, message: String): Response = {
+  def error(status: Status.Error, message: String): Response = {
     import zio.http.internal.OutputEncoder
 
     val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
@@ -349,7 +315,7 @@ object Response {
     Response(status = status, headers = Headers(Header.Warning(status.code, "ZIO HTTP", message2)))
   }
 
-  def error(status: Status): Response =
+  def error(status: Status.Error): Response =
     error(status, status.text)
 
   def forbidden: Response = error(Status.Forbidden)
@@ -383,14 +349,12 @@ object Response {
     }
   }
 
-  def fromHttpError(error: HttpError): Response = new ErrorResponse(Body.empty, Headers.empty, error, error.status)
-
   /**
    * Creates a response with content-type set to text/event-stream
    * @param data
    *   \- stream of data to be sent as Server Sent Events
    */
-  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
+  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
     new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
 
   /**

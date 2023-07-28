@@ -16,6 +16,8 @@
 
 package zio.http
 
+import java.util.UUID
+
 import zio.Chunk
 import zio.test.Assertion._
 import zio.test._
@@ -178,6 +180,63 @@ object URLSpec extends ZIOSpecDefault {
           assertTrue(
             URL.decode("https://localhost:80").toOption.flatMap(_.hostPort) == Some("localhost:80"),
           )
+        },
+      ),
+      suite("string interpolator")(
+        test("valid static absolute url") {
+          val url = url"https://api.com:8080/users?x=10&y=20"
+          assertTrue(
+            url == URL.decode("https://api.com:8080/users?x=10&y=20").toOption.get,
+          )
+        },
+        test("valid static relative url") {
+          val url = url"/users?x=10&y=20"
+          assertTrue(
+            url == URL.decode("/users?x=10&y=20").toOption.get,
+          )
+        },
+        test("invalid url") {
+          val result = typeCheck {
+            """val url: URL = url"http:/x/y/z"
+            """
+          }
+          assertZIO(result)(isLeft)
+        },
+        test("dynamic absolute url") {
+          val host   = "localhost"
+          val port   = 8080
+          val entity = "users"
+          val url    = url"http://$host:$port/$entity/get"
+          assertTrue(
+            url == URL.decode(s"http://localhost:8080/users/get").toOption.get,
+          )
+        },
+        test("dynamic relative url") {
+          val entity = "users"
+          val uuid   = UUID.fromString("1E7E4039-66AE-4CFA-A493-0AC0FC0AD45B")
+          val bool   = false
+          val url    = url"$entity/$uuid/get?valid=$bool"
+          assertTrue(
+            url == URL.decode(s"users/1e7e4039-66ae-4cfa-a493-0ac0fc0ad45b/get?valid=false").toOption.get,
+          )
+        },
+        test("dynamic invalid url") {
+          val result = typeCheck {
+            """val a = "hello"
+               val b = 10
+               val url: URL = url"http:/$a:$b/y/z"
+            """
+          }
+          assertZIO(result)(isLeft)
+        },
+        test("dynamic invalid url 2") {
+          val result = typeCheck {
+            """val a = "hello"
+               val b = false
+               val url: URL = url"http://$a:$b/y/z"
+            """
+          }
+          assertZIO(result)(isLeft)
         },
       ),
     )
