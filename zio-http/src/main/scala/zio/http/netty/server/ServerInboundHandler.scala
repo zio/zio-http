@@ -16,25 +16,22 @@
 
 package zio.http.netty.server
 
-import java.io.IOException
-import java.net.InetSocketAddress
-import java.util.concurrent.atomic.LongAdder
-
-import scala.annotation.tailrec
-import scala.util.control.NonFatal
-
+import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel._
+import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
+import io.netty.handler.timeout.ReadTimeoutException
 import zio._
-
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
 
-import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel._
-import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
-import io.netty.handler.timeout.ReadTimeoutException
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.util.concurrent.atomic.LongAdder
+import scala.annotation.tailrec
+import scala.util.control.NonFatal
 
 @Sharable
 private[zio] final case class ServerInboundHandler(
@@ -157,14 +154,16 @@ private[zio] final case class ServerInboundHandler(
   ): Boolean = {
 
     def fastEncode(response: Response, bytes: Array[Byte]) = {
-      NettyResponseEncoder.fastEncode(response, bytes) match {
-        case jResponse: FullHttpResponse if response.frozen =>
-          val djResponse = jResponse.retainedDuplicate()
-          //setServerTime(time, response, djResponse)
-          ctx.writeAndFlush(djResponse, ctx.voidPromise())
-          true
-        case _                                              => false
-      }
+      ctx.writeAndFlush(NettyResponseEncoder.fastEncode(response, bytes), ctx.voidPromise())
+      false
+//      NettyResponseEncoder.fastEncode(response, bytes) match {
+//        case jResponse: FullHttpResponse if response.frozen =>
+//          val djResponse = jResponse.retainedDuplicate()
+//          //setServerTime(time, response, djResponse)
+//          ctx.writeAndFlush(djResponse, ctx.voidPromise())
+//          true
+//        case _                                              => false
+//      }
     }
 
     response.body match {
@@ -172,7 +171,7 @@ private[zio] final case class ServerInboundHandler(
         try {
           fastEncode(response, body.unsafeAsArray)
         } catch {
-          case NonFatal(e) => fastEncode(withDefaultErrorResponse(null, Some(e)).freeze, Array.emptyByteArray)
+          case NonFatal(e) => fastEncode(withDefaultErrorResponse(null, Some(e)), Array.emptyByteArray)
         }
       case _                      => false
     }
@@ -192,7 +191,7 @@ private[zio] final case class ServerInboundHandler(
           for {
             jResponse <- NettyResponseEncoder.encode(response)
             _         <- ZIO.attempt {
-              //setServerTime(time, response, jResponse)
+              // setServerTime(time, response, jResponse)
               ctx.writeAndFlush(jResponse)
             }
             flushed   <-
@@ -270,7 +269,7 @@ private[zio] final case class ServerInboundHandler(
 
   }
 
-  //TODO: reimplement it on server settings level
+  // TODO: reimplement it on server settings level
 //  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
 //    val _ =
 //      if (response.addServerTime)
