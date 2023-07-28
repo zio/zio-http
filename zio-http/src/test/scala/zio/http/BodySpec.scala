@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+package zio.http 
+
 import java.io.File
 
 import zio.test.Assertion.equalTo
@@ -53,49 +55,11 @@ object BodySpec extends ZIOHttpSpec {
             ),
           ),
         ),
-      ) @@ timeout(10 seconds)
-  }
-}
-
-package public.api {
-  import zio.http._
-  import zio.Chunk
-  object BodyPublicSpec extends ZIOSpecDefault {
-    private val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
-
-    def spec: Spec[TestEnvironment with Scope, Any] =
-      suite("BodyPublicSpec")(
-        suite("fromFile")(
-          test("returns the hinted mediaType when one is provided") {
-            lazy val file = testFile
-            val body      = Body.fromFile(file).mediaType(MediaType.text.plain)
-            assertTrue(body.mediaType == Option(MediaType.text.plain))
-          },
-        ),
-        suite("fromChunk")(
-          test("returns the hinted mediaType when one is provided") {
-            val body = Body.fromChunk(Chunk.fromArray("test".getBytes())).mediaType(MediaType.text.plain)
-            assertTrue(body.mediaType == Option(MediaType.text.plain))
-          },
-        ),
-        suite("fromStream")(
-          test("returns the hinted mediaType when one is provided") {
-            val body = Body.fromCharSequenceStream(ZStream.succeed("test")).mediaType(MediaType.text.plain)
-            assertTrue(body.mediaType == Option(MediaType.text.plain))
-          },
-        ),
-        suite("fromString")(
-          test("returns the hinted mediaType when one is provided") {
+        suite("mediaType")(
+          test("updates the Body media type with the provided value") {
             val body = Body.fromString("test").mediaType(MediaType.text.plain)
             assertTrue(body.mediaType == Option(MediaType.text.plain))
           },
         ),
-        suite("fromCharSequence")(
-          test("returns the hinted mediaType when one is provided") {
-            val body = Body.fromCharSequence("test").mediaType(MediaType.text.plain)
-            assertTrue(body.mediaType == Option(MediaType.text.plain))
-          },
-        ),
-      )
+      ) @@ timeout(10 seconds)
   }
-}
