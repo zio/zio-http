@@ -194,8 +194,8 @@ private[zio] final case class ServerInboundHandler(
         setServerTime(time, response, jResponse)
         ctx.writeAndFlush(jResponse)
         if (!jResponse.isInstanceOf[FullHttpResponse])
-          Some(NettyBodyWriter
-            .writeAndFlush(response.body, ctx))
+          NettyBodyWriter
+            .writeAndFlush(response.body, ctx)
         else
           None
       }
@@ -313,7 +313,7 @@ private[zio] final case class ServerInboundHandler(
   }
 
   private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
-    runtime.run(ctx, () => ()) {
+    runtime.run(ctx, NettyRuntime.noopEnsuring) {
       val response = Response.notFound(jReq.uri())
       val done     = attemptFastWrite(ctx, response, time)
       attemptFullWrite(ctx, response, jReq, time).unless(done)

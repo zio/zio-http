@@ -29,47 +29,43 @@ import io.netty.channel._
 import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
 object NettyBodyWriter {
 
-  def writeAndFlush(body: Body, ctx: ChannelHandlerContext)(implicit trace: Trace): ZIO[Any, Throwable, Unit] =
+  def writeAndFlush(body: Body, ctx: ChannelHandlerContext)(implicit trace: Trace): Option[Task[Unit]] =
     body match {
       case body: ByteBufBody                  =>
-        ZIO.succeed {
-          ctx.write(body.byteBuf)
-          ctx.flush()
-        }
+        ctx.write(body.byteBuf)
+        ctx.flush()
+        None
       case body: FileBody                     =>
-        ZIO.succeed {
-          val file = body.file
-          // Write the content.
-          ctx.write(new DefaultFileRegion(file, 0, file.length()))
+        val file = body.file
+        // Write the content.
+        ctx.write(new DefaultFileRegion(file, 0, file.length()))
 
-          // Write the end marker.
-          ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-        }
+        // Write the end marker.
+        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+        None
       case AsyncBody(async, _, _)             =>
-        ZIO.attempt {
-          async(
-            new UnsafeAsync {
-              override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
-                val nettyMsg = message match {
-                  case b: ByteArray => Unpooled.wrappedBuffer(b.array)
-                  case other        => Unpooled.wrappedBuffer(other.toArray)
-                }
-                ctx.writeAndFlush(nettyMsg)
-                if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+        async(
+          new UnsafeAsync {
+            override def apply(message: Chunk[Byte], isLast: Boolean): Unit = {
+              val nettyMsg = message match {
+                case b: ByteArray => Unpooled.wrappedBuffer(b.array)
+                case other        => Unpooled.wrappedBuffer(other.toArray)
               }
+              ctx.writeAndFlush(nettyMsg)
+              if (isLast) ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+            }
 
-              override def fail(cause: Throwable): Unit =
-                ctx.fireExceptionCaught(cause)
-            },
-          )
-        }
+            override def fail(cause: Throwable): Unit =
+              ctx.fireExceptionCaught(cause)
+          },
+        )
+        None
       case AsciiStringBody(asciiString, _, _) =>
-        ZIO.attempt {
-          ctx.write(Unpooled.wrappedBuffer(asciiString.array()))
-          ctx.flush()
-        }
+        ctx.write(Unpooled.wrappedBuffer(asciiString.array()))
+        ctx.flush()
+        None
       case StreamBody(stream, _, _)           =>
-        stream.chunks
+        Some(stream.chunks
           .runFoldZIO(Option.empty[Chunk[Byte]]) {
             case (Some(previous), current) =>
               NettyFutureExecutor.executed {
@@ -89,12 +85,13 @@ object NettyBodyWriter {
               NettyFutureExecutor.executed {
                 ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
               }
-          }
+          })
       case ChunkBody(data, _, _)              =>
-        ZIO.succeed {
-          ctx.write(Unpooled.wrappedBuffer(data.toArray))
-          ctx.flush()
-        }
-      case EmptyBody                          => ZIO.succeed(ctx.flush())
+        ctx.write(Unpooled.wrappedBuffer(data.toArray))
+        ctx.flush()
+        None
+      case EmptyBody                          =>
+        ctx.flush()
+        None
     }
 }
