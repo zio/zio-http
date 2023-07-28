@@ -20,6 +20,7 @@ import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.URL.Location
 import zio.http._
@@ -36,7 +37,6 @@ import io.netty.channel.{
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.proxy.HttpProxyHandler
 import io.netty.handler.timeout.ReadTimeoutHandler
-
 trait NettyConnectionPool extends ConnectionPool[JChannel]
 
 object NettyConnectionPool {

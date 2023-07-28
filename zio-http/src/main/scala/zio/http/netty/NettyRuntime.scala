@@ -17,6 +17,7 @@
 package zio.http.netty
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.channel._
 import io.netty.util.concurrent.{Future, GenericFutureListener}
@@ -78,7 +79,9 @@ private[zio] trait NettyRuntime { self =>
   )(implicit unsafe: Unsafe, trace: Trace): Unit =
     run(ctx, ensured, interruptOnClose = false)(program)
 
-  private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _]): GenericFutureListener[Future[_ >: Void]] =
+  private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _])(implicit
+    trace: Trace,
+  ): GenericFutureListener[Future[_ >: Void]] =
     (_: Future[_ >: Void]) => {
       val _ = rtm.unsafe.fork {
         fiber.interrupt

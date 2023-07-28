@@ -85,6 +85,29 @@ object FormSpec extends ZIOSpecDefault {
         form2 == form,
       )
     },
+    test("encoding with custom paramaters [charset]") {
+
+      val form = Form(
+        FormField.textField(
+          "csv-data",
+          "foo,bar,baz",
+          MediaType.text.csv.copy(parameters = Map("charset" -> "UTF-8")),
+        ),
+      )
+
+      val actualByteStream = form.multipartBytes(Boundary("(((AaB03x)))"))
+
+      def stringify(bytes: Chunk[Byte]): String =
+        new String(bytes.toArray, StandardCharsets.UTF_8)
+
+      for {
+        form4       <- Form.fromMultipartBytes(multipartFormBytes4)
+        actualBytes <- actualByteStream.runCollect
+      } yield assertTrue(
+        stringify(actualBytes) == stringify(multipartFormBytes4),
+        form4.formData.head.contentType == form.formData.head.contentType,
+      )
+    },
     test("decoding") {
       val boundary = Boundary("AaB03x")
 

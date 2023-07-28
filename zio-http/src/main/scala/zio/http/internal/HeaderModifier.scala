@@ -16,6 +16,8 @@
 
 package zio.http.internal
 
+import zio.Trace
+
 import zio.http.Header.HeaderType
 import zio.http._
 
@@ -50,5 +52,5 @@ trait HeaderModifier[+A] { self =>
    * Updates the current Headers with new one, using the provided update
    * function passed.
    */
-  def updateHeaders(update: Headers => Headers): A
+  def updateHeaders(update: Headers => Headers)(implicit trace: Trace): A
 }

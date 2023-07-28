@@ -16,6 +16,7 @@
 
 package zio.http.netty.client
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Promise, Trace, Unsafe}
 
 import zio.http.Response
@@ -23,7 +24,6 @@ import zio.http.netty.{NettyResponse, NettyRuntime}
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
-
 final class WebSocketClientInboundHandler(
   rtm: NettyRuntime,
   onResponse: Promise[Throwable, Response],
