@@ -47,8 +47,6 @@ final case class Response(
         self.copy(body = Body.fromChunk(bytes))
       }
 
-  def freeze: Response = ??? // TODO: remove
-
   def frozen: Boolean = false // TODO: remove
 
   /** Consumes the streaming body fully and then drops it */

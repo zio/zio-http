@@ -21,17 +21,13 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
       handler(
         Response
           .text(plainTextMessage)
-//          .serverTime
-          .addHeader(Header.Server(STATIC_SERVER_NAME))
-          .freeze,
+          .addHeader(Header.Server(STATIC_SERVER_NAME)),
       ),
     Method.GET / "json"      ->
       handler(
         Response
           .json(jsonMessage)
-//          .serverTime
-          .addHeader(Header.Server(STATIC_SERVER_NAME))
-          .freeze,
+          .addHeader(Header.Server(STATIC_SERVER_NAME)),
       ),
   ).toHttpApp
 
