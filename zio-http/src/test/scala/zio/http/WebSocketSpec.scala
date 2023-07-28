@@ -27,14 +27,14 @@ import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 
 object WebSocketSpec extends HttpRunnableSpec {
   implicit class scopeDisconnect(scope: zio.Scope)                {
-    def disconnect: Scope =
+    def disconnect(label: String): Scope =
       new Scope {
         def addFinalizerExit(finalizer: Exit[Any, Any] => UIO[Any])(implicit trace: zio.Trace): UIO[Unit] =
           scope.addFinalizerExit { (exit: Exit[Any, Any]) =>
             val warn =
               ZIO
                 .logWarning(
-                  "A finalizer has taken more than 1 minute to complete. Skipping and moving onto the next one.",
+                  s"A finalizer for layer ${label} has taken more than 1 minute to complete. Skipping this finalizer and moving onto the next one.",
                 )
                 .delay(1.minute)
                 .unit
@@ -47,11 +47,11 @@ object WebSocketSpec extends HttpRunnableSpec {
       }
   }
   implicit class layerDisconnect[I, E, O](layer: ZLayer[I, E, O]) {
-    def disconnect: ZLayer[I, E, O] =
+    def disconnect(label: String): ZLayer[I, E, O] =
       ZLayer.scopedEnvironment[I] {
         for {
           scope <- ZIO.scope
-          zenv  <- layer.build(scope.disconnect)
+          zenv  <- layer.build(scope.disconnect(label))
         } yield zenv
       }
   }
@@ -242,9 +242,9 @@ object WebSocketSpec extends HttpRunnableSpec {
     }
   }
     .provideShared(
-      DynamicServer.live.disconnect,
-      severTestLayer.disconnect,
-      Client.default.disconnect,
+      DynamicServer.live.disconnect("DynamicServer.live"),
+      severTestLayer.disconnect("serverTestLayer"),
+      Client.default.disconnect("Client.default"),
       Scope.default,
     ) @@
     timeout(30 seconds) @@ diagnose(30.seconds) @@ withLiveClock @@ sequential
