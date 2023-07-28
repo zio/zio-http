@@ -57,7 +57,7 @@ object BodySpec extends ZIOHttpSpec {
   }
 }
 
-package outside.world {
+package public.api {
   import zio.http._
   import zio.Chunk
   object BodyPublicSpec extends ZIOSpecDefault {
@@ -68,32 +68,32 @@ package outside.world {
         suite("fromFile")(
           test("returns the hinted mediaType when one is provided") {
             lazy val file = testFile
-            val body      = Body.fromFile(file, mediaType = Option(MediaType.text.plain))
-            assertTrue(body.getMediaType == Option(MediaType.text.plain))
+            val body      = Body.fromFile(file).mediaType(MediaType.text.plain)
+            assertTrue(body.mediaType == Option(MediaType.text.plain))
           },
         ),
         suite("fromChunk")(
           test("returns the hinted mediaType when one is provided") {
-            val body = Body.fromChunk(Chunk.fromArray("test".getBytes()), mediaType = Option(MediaType.text.plain))
-            assertTrue(body.getMediaType == Option(MediaType.text.plain))
+            val body = Body.fromChunk(Chunk.fromArray("test".getBytes())).mediaType(MediaType.text.plain)
+            assertTrue(body.mediaType == Option(MediaType.text.plain))
           },
         ),
         suite("fromStream")(
           test("returns the hinted mediaType when one is provided") {
-            val body = Body.fromCharSequenceStream(ZStream.succeed("test"), mediaType = Option(MediaType.text.plain))
-            assertTrue(body.getMediaType == Option(MediaType.text.plain))
+            val body = Body.fromCharSequenceStream(ZStream.succeed("test")).mediaType(MediaType.text.plain)
+            assertTrue(body.mediaType == Option(MediaType.text.plain))
           },
         ),
         suite("fromString")(
           test("returns the hinted mediaType when one is provided") {
-            val body = Body.fromString("test", mediaType = Option(MediaType.text.plain))
-            assertTrue(body.getMediaType == Option(MediaType.text.plain))
+            val body = Body.fromString("test").mediaType(MediaType.text.plain)
+            assertTrue(body.mediaType == Option(MediaType.text.plain))
           },
         ),
         suite("fromCharSequence")(
           test("returns the hinted mediaType when one is provided") {
-            val body = Body.fromCharSequence("test", mediaType = Option(MediaType.text.plain))
-            assertTrue(body.getMediaType == Option(MediaType.text.plain))
+            val body = Body.fromCharSequence("test").mediaType(MediaType.text.plain)
+            assertTrue(body.mediaType == Option(MediaType.text.plain))
           },
         ),
       )

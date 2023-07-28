@@ -20,14 +20,9 @@ import java.nio.charset.Charset
 
 import zio.http.netty.NettyBody
 import zio.http.{Body, Charsets}
-import zio.http.MediaType
 
 trait BodyEncoding {
-  def fromCharSequence(
-    charSequence: CharSequence,
-    charset: Charset = Charsets.Http,
-    mediaType: Option[MediaType] = None,
-  ): Body
+  def fromCharSequence(charSequence: CharSequence, charset: Charset = Charsets.Http): Body
 }
 
 object BodyEncoding {

@@ -126,12 +126,20 @@ trait Body { self =>
    */
   def isEmpty: Boolean
 
-  final def getMediaType: Option[MediaType] = this.mediaType
+  /**
+    * Returns the media type for this Body 
+    */
+  def mediaType: Option[MediaType]
 
-  private[zio] def mediaType: Option[MediaType]
+  /**
+    * Updates the media type attached to this body, returning a new Body
+    * with the updated media type 
+    */
+  def mediaType(newMediaType: MediaType): Body
+
   private[zio] def boundary: Option[Boundary]
 
-  private[http] def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body
+  def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body
 }
 
 object Body {
@@ -147,20 +155,19 @@ object Body {
   def fromCharSequence(
     charSequence: CharSequence,
     charset: Charset = Charsets.Http,
-    mediaType: Option[MediaType] = None,
   ): Body =
-    BodyEncoding.default.fromCharSequence(charSequence, charset, mediaType)
+    BodyEncoding.default.fromCharSequence(charSequence, charset)
 
   /**
    * Constructs a [[zio.http.Body]] from a chunk of bytes.
    */
-  def fromChunk(data: Chunk[Byte], mediaType: Option[MediaType] = None): Body = ChunkBody(data, mediaType)
+  def fromChunk(data: Chunk[Byte]): Body = ChunkBody(data)
 
   /**
    * Constructs a [[zio.http.Body]] from the contents of a file.
    */
-  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4, mediaType: Option[MediaType] = None): Body =
-    FileBody(file, chunkSize, mediaType)
+  def fromFile(file: java.io.File, chunkSize: Int = 1024 * 4): Body =
+    FileBody(file, chunkSize)
 
   /**
    * Constructs a [[zio.http.Body]] from from form data, using multipart
@@ -190,8 +197,8 @@ object Body {
   /**
    * Constructs a [[zio.http.Body]] from a stream of bytes.
    */
-  def fromStream(stream: ZStream[Any, Throwable, Byte], mediaType: Option[MediaType] = None): Body =
-    StreamBody(stream, mediaType)
+  def fromStream(stream: ZStream[Any, Throwable, Byte]): Body =
+    StreamBody(stream)
 
   /**
    * Constructs a [[zio.http.Body]] from a stream of text, using the specified
@@ -200,17 +207,16 @@ object Body {
   def fromCharSequenceStream(
     stream: ZStream[Any, Throwable, CharSequence],
     charset: Charset = Charsets.Http,
-    mediaType: Option[MediaType] = None,
   )(implicit
     trace: Trace,
   ): Body =
-    fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks, mediaType)
+    fromStream(stream.map(seq => Chunk.fromArray(seq.toString.getBytes(charset))).flattenChunks)
 
   /**
    * Helper to create Body from String
    */
-  def fromString(text: String, charset: Charset = Charsets.Http, mediaType: Option[MediaType] = None): Body =
-    fromCharSequence(text, charset, mediaType)
+  def fromString(text: String, charset: Charset = Charsets.Http): Body =
+    fromCharSequence(text, charset)
 
   /**
    * Constructs a [[zio.http.Body]] from form data using URL encoding and the
@@ -248,9 +254,11 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = Array.empty[Byte]
 
-    override private[zio] def mediaType: Option[MediaType] = None
-
     override private[zio] def boundary: Option[Boundary] = None
+
+    override def mediaType: Option[MediaType] = None
+
+    override def mediaType(newMediaType: MediaType): Body = EmptyBody
 
     override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body = EmptyBody
   }
@@ -277,6 +285,8 @@ object Body {
     override def toString(): String = s"Body.fromChunk($data)"
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
+
+    override def mediaType(newMediaType: MediaType): Body = contentType(newMediaType)
 
     override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
@@ -324,6 +334,8 @@ object Body {
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       Files.readAllBytes(file.toPath)
 
+    override def mediaType(newMediaType: MediaType): Body = contentType(newMediaType)
+
     override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
@@ -343,6 +355,8 @@ object Body {
     override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = stream.runCollect
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
+
+    override def mediaType(newMediaType: MediaType): Body = contentType(newMediaType)
 
     override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))

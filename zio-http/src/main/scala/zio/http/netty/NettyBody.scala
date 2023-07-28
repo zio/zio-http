@@ -35,8 +35,7 @@ object NettyBody extends BodyEncoding {
   /**
    * Helper to create Body from AsciiString
    */
-  def fromAsciiString(asciiString: AsciiString, mediaType: Option[MediaType] = None): Body =
-    AsciiStringBody(asciiString, mediaType)
+  def fromAsciiString(asciiString: AsciiString): Body = AsciiStringBody(asciiString)
 
   private[zio] def fromAsync(
     unsafeAsync: UnsafeAsync => Unit,
@@ -49,8 +48,8 @@ object NettyBody extends BodyEncoding {
   def fromByteBuf(byteBuf: ByteBuf, contentTypeHeader: Option[Header.ContentType] = None): Body =
     ByteBufBody(byteBuf, contentTypeHeader.map(_.mediaType), contentTypeHeader.flatMap(_.boundary))
 
-  override def fromCharSequence(charSequence: CharSequence, charset: Charset, mediaType: Option[MediaType]): Body =
-    fromAsciiString(new AsciiString(charSequence, charset), mediaType)
+  override def fromCharSequence(charSequence: CharSequence, charset: Charset): Body =
+    fromAsciiString(new AsciiString(charSequence, charset))
 
   private[zio] final case class AsciiStringBody(
     asciiString: AsciiString,
@@ -75,6 +74,8 @@ object NettyBody extends BodyEncoding {
     override def toString(): String = s"Body.fromAsciiString($asciiString)"
 
     private[zio] override def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = asciiString.array()
+
+    override def mediaType(newMediaType: MediaType): Body = contentType(newMediaType)
 
     override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
@@ -103,6 +104,8 @@ object NettyBody extends BodyEncoding {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       ByteBufUtil.getBytes(byteBuf)
+
+    override def mediaType(newMediaType: MediaType): Body = contentType(newMediaType)
 
     override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
@@ -142,6 +145,8 @@ object NettyBody extends BodyEncoding {
     override def isEmpty: Boolean = false
 
     override def toString(): String = s"AsyncBody($unsafeAsync)"
+
+    override def mediaType(newMediaType: MediaType): Body = contentType(newMediaType)
 
     override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
