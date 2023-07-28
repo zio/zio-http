@@ -68,35 +68,19 @@ private[zio] final case class ServerInboundHandler(
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpObject): Unit = {
 
     msg match {
-      case jReq: FullHttpRequest =>
-        val req = makeZioRequest(ctx, jReq)
-        inFlightRequests.increment()
-
-        val releaseRequest = { () =>
-          inFlightRequests.decrement()
-          if (jReq.refCnt() > 0) {
-            val _ = jReq.release()
-          }
-        }
-
-        ensureHasApp()
-        val exit =
-          if (jReq.decoderResult().isFailure) {
-            val throwable = jReq.decoderResult().cause()
-            Exit.succeed(Response.fromThrowable(throwable))
-          } else
-            app(req)
-        if (!attemptImmediateWrite(ctx, exit, time))
-          writeResponse(ctx, env, exit, jReq)(releaseRequest)
-        else
-          releaseRequest()
-
       case jReq: HttpRequest =>
         val req = makeZioRequest(ctx, jReq)
         inFlightRequests.increment()
 
         val releaseRequest = { () =>
           inFlightRequests.decrement()
+          jReq match {
+            case jFullReq: FullHttpRequest =>
+              if (jFullReq.refCnt() > 0) {
+                val _ = jFullReq.release()
+              }
+            case _                         =>
+          }
           ()
         }
 
@@ -348,7 +332,7 @@ private[zio] final case class ServerInboundHandler(
             }
             None
           }
-        }.flatMap { effect => effect.getOrElse(ZIO.unit) }.catchSomeCause { case cause =>
+        }.flatMap(_.getOrElse(ZIO.unit)).catchSomeCause { case cause =>
           ZIO.attempt(
             attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash).freeze, time),
           )
