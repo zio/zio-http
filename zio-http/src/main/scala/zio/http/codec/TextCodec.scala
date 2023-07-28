@@ -16,7 +16,7 @@
 
 package zio.http.codec
 
-import zio.NonEmptyChunk
+import zio.{Chunk, NonEmptyChunk}
 
 import java.util.UUID
 
@@ -46,6 +46,18 @@ sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
   def isDefinedAt(value: String): Boolean
 
   private[http] final def erase: TextCodec[Any] = self.asInstanceOf[TextCodec[Any]]
+
+  // Maybe not a good idea?
+  final def transform[B](f: A => B, g: B => A): TextCodec[B] =
+    new TextCodec[B] {
+      def apply(value: String): B = f(self.apply(value))
+
+      def describe: String = self.describe
+
+      def encode(value: B): String = self.encode(g(value))
+
+      def isDefinedAt(value: String): Boolean = self.isDefinedAt(value)
+    }
 }
 
 object TextCodec {
@@ -60,23 +72,6 @@ object TextCodec {
   implicit val string: TextCodec[String] = StringCodec
 
   implicit val uuid: TextCodec[UUID] = UUIDCodec
-
-  implicit def nonEmptyChunk[A](implicit codec: TextCodec[A]): TextCodec[NonEmptyChunk[A]] =
-    NonEmptyChunkCodec(codec)
-
-  final case class NonEmptyChunkCodec[A](underlying: TextCodec[A], delimiter: String = ",")
-      extends TextCodec[NonEmptyChunk[A]] {
-    def apply(value: String): NonEmptyChunk[A] =
-      NonEmptyChunk
-        .fromIterableOption(value.split(delimiter))
-        .fold(throw new MatchError(value))(chunk => chunk.map(underlying.apply))
-
-    def describe: String = s"a non-empty chunk of ${underlying.describe}"
-
-    def encode(value: NonEmptyChunk[A]): String = value.map(underlying.encode).mkString(delimiter)
-
-    def isDefinedAt(value: String): Boolean = value.split(delimiter).forall(underlying.isDefinedAt)
-  }
 
   final case class Constant(string: String) extends TextCodec[Unit] {
 

@@ -16,43 +16,58 @@
 
 package zio.http.codec
 
-import scala.util.Try
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.Header
 import zio.http.Header.HeaderType
+import zio.http.internal.DateEncoding
 
-private[codec] trait HeaderCodecs {
-  private[http] def headerCodec[A](name: String, value: TextCodec[A]): HeaderCodec[A] =
-    HttpCodec.Header(name, value)
+private[codec] trait HeaderCodecs { self =>
+  def string(name: String): HeaderCodec[String] =
+    HttpCodec.Header(name)
+
+  def long(name: String): HeaderCodec[Long] =
+    self
+      .string(name)
+      .transformOrFailLeft(
+        raw =>
+          try Right(raw.toLong)
+          catch { case _: NumberFormatException => Left("Header was not a long") },
+        _.toString,
+      )
+
+  def int(name: String): HeaderCodec[Int] =
+    self
+      .string(name)
+      .transformOrFailLeft(
+        raw =>
+          try Right(raw.toInt)
+          catch { case _: NumberFormatException => Left("Header was not an int") },
+        _.toString,
+      )
+
+  def bigDecimal(name: String): HeaderCodec[BigDecimal] =
+    self
+      .string(name)
+      .transformOrFailLeft(
+        raw =>
+          try Right(BigDecimal(raw))
+          catch { case _: NumberFormatException => Left("Header was not a BigDecimal") },
+        _.toString,
+      )
+
+  def zonedDateTime(name: String): HeaderCodec[java.time.ZonedDateTime] =
+    self
+      .string(name)
+      .transformOrFailLeft(
+        raw => DateEncoding.default.decodeDate(raw).toRight("Header was not a ZonedDateTime"),
+        DateEncoding.default.encodeDate,
+      )
 
   def header(headerType: HeaderType): HeaderCodec[headerType.HeaderValue] =
-    headerCodec(headerType.name, TextCodec.string)
+    self
+      .string(headerType.name)
       .transformOrFailLeft(headerType.parse(_), headerType.render(_))
-
-  def name[A](name: String)(implicit codec: TextCodec[A]): HeaderCodec[A] =
-    headerCodec(name, codec)
-
-  def nameTransform[A, B](
-    name: String,
-    parse: B => A,
-    render: A => B,
-  )(implicit codec: TextCodec[B]): HeaderCodec[A] =
-    headerCodec(name, codec).transformOrFailLeft(
-      s => Try(parse(s)).toEither.left.map(e => s"Failed to parse header $name: ${e.getMessage}"),
-      render,
-    )
-
-  def nameTransformOption[A, B](name: String, parse: B => Option[A], render: A => B)(implicit
-    codec: TextCodec[B],
-  ): HeaderCodec[A] =
-    headerCodec(name, codec).transformOrFailLeft(parse(_).toRight(s"Failed to parse header $name"), render)
-
-  def nameTransformOrFail[A, B](name: String, parse: B => Either[String, A], render: A => B)(implicit
-    codec: TextCodec[B],
-  ): HeaderCodec[A] =
-    headerCodec(name, codec).transformOrFailLeft(parse, render)
 
   final val accept: HeaderCodec[Header.Accept]                 = header(Header.Accept)
   final val acceptEncoding: HeaderCodec[Header.AcceptEncoding] = header(Header.AcceptEncoding)

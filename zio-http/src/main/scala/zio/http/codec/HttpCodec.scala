@@ -492,7 +492,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   }
 
   private[http] final case class Status[A](codec: SimpleCodec[zio.http.Status, A], index: Int = 0)
-      extends Atom[HttpCodecType.Status, A]               {
+      extends Atom[HttpCodecType.Status, A]                    {
     self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
 
@@ -529,14 +529,12 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
 
     def index(index: Int): ContentStream[A] = copy(index = index)
   }
-  private[http] final case class Query[A](name: String, textCodec: TextCodec[NonEmptyChunk[A]], index: Int = 0)
-      extends Atom[HttpCodecType.Query, NonEmptyChunk[A]] {
-    self =>
-    def erase: Query[Any] = self.asInstanceOf[Query[Any]]
 
+  private[http] final case class Query(name: String, index: Int = 0)
+      extends Atom[HttpCodecType.Query, NonEmptyChunk[String]] {
     def tag: AtomTag = AtomTag.Query
 
-    def index(index: Int): Query[A] = copy(index = index)
+    def index(index: Int): Query = copy(index = index)
   }
 
   private[http] final case class Method[A](codec: SimpleCodec[zio.http.Method, A], index: Int = 0)
@@ -548,14 +546,11 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def index(index: Int): Method[A] = copy(index = index)
   }
 
-  private[http] final case class Header[A](name: String, textCodec: TextCodec[A], index: Int = 0)
-      extends Atom[HttpCodecType.Header, A] {
-    self =>
-    def erase: Header[Any] = self.asInstanceOf[Header[Any]]
-
+  private[http] final case class Header(name: String, index: Int = 0)
+      extends Atom[HttpCodecType.Header, String] {
     def tag: AtomTag = AtomTag.Header
 
-    def index(index: Int): Header[A] = copy(index = index)
+    def index(index: Int): Header = copy(index = index)
   }
 
   private[http] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)

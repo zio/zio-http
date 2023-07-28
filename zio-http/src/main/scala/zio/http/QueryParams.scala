@@ -17,17 +17,14 @@
 package zio.http
 
 import java.nio.charset.Charset
-
-import zio.Chunk
-
+import zio.{Chunk, NonEmptyChunk}
 import zio.http.Charsets
 import zio.http.internal.QueryParamEncoding
 
 /**
  * A collection of query parameters.
  */
-final case class QueryParams(map: Map[String, Chunk[String]]) {
-  self =>
+final case class QueryParams(map: Map[String, Chunk[String]]) { self =>
 
   /**
    * Combines two collections of query parameters together. If there are
@@ -87,6 +84,12 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
    * Retrieves the query parameter values having the specified name.
    */
   def get(key: String): Option[Chunk[String]] = map.get(key)
+
+  /**
+   * Retrieves the
+   */
+  def getNonEmpty(key: String): Option[NonEmptyChunk[String]] =
+    map.get(key).flatMap(NonEmptyChunk.fromChunk)
 
   /**
    * Retrieves the query parameter value having the specified name, or else uses

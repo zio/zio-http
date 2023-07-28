@@ -34,9 +34,6 @@ object HttpCodecError {
   final case class MalformedMethod(expected: zio.http.Method, actual: zio.http.Method)  extends HttpCodecError {
     def message = s"Expected $expected but found $actual"
   }
-  final case class PathTooShort(path: Path, textCodec: TextCodec[_])                    extends HttpCodecError {
-    def message = s"Expected to find ${textCodec} but found pre-mature end to the path ${path}"
-  }
   final case class MalformedPath(path: Path, pathCodec: PathCodec[_], error: String)    extends HttpCodecError {
     def message = s"Malformed path ${path} failed to decode using $pathCodec: $error"
   }
@@ -48,9 +45,6 @@ object HttpCodecError {
   }
   final case class MissingQueryParam(queryParamName: String)                            extends HttpCodecError {
     def message = s"Missing query parameter $queryParamName"
-  }
-  final case class MalformedQueryParam(queryParamName: String, textCodec: TextCodec[_]) extends HttpCodecError {
-    def message = s"Malformed query parameter $queryParamName failed to decode using $textCodec"
   }
   final case class MalformedBody(details: String, cause: Option[Throwable] = None)      extends HttpCodecError {
     def message = s"Malformed request body failed to decode: $details"

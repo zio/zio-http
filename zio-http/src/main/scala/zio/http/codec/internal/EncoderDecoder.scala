@@ -294,16 +294,10 @@ private[codec] object EncoderDecoder                   {
       var i       = 0
       val queries = flattened.query
       while (i < queries.length) {
-        val query = queries(i).erase
+        val query = queries(i)
 
         val queryParamValue =
-          NonEmptyChunk
-            .fromChunk(
-              queryParams
-                .getOrElse(query.name, Nil)
-                .collect(query.textCodec),
-            )
-            .map(_.flatten)
+          queryParams.getNonEmpty(query.name)
 
         queryParamValue match {
           case Some(value) =>
@@ -348,13 +342,11 @@ private[codec] object EncoderDecoder                   {
     private def decodeHeaders(headers: Headers, inputs: Array[Any]): Unit = {
       var i = 0
       while (i < flattened.header.length) {
-        val header = flattened.header(i).erase
+        val header = flattened.header(i)
 
         headers.get(header.name) match {
           case Some(value) =>
-            inputs(i) = header.textCodec
-              .decode(value)
-              .getOrElse(throw HttpCodecError.MalformedHeader(header.name, header.textCodec))
+            inputs(i) = value
 
           case None =>
             throw HttpCodecError.MissingHeader(header.name)
@@ -486,12 +478,10 @@ private[codec] object EncoderDecoder                   {
 
       var i = 0
       while (i < inputs.length) {
-        val query = flattened.query(i).erase
-        val input = inputs(i).asInstanceOf[NonEmptyChunk[Any]]
+        val query = flattened.query(i)
+        val input = inputs(i).asInstanceOf[NonEmptyChunk[String]]
 
-        val value = query.textCodec.encode(input)
-
-        queryParams = queryParams.add(query.name, value)
+        queryParams = queryParams.addAll(query.name, input.toChunk)
 
         i = i + 1
       }
@@ -515,12 +505,10 @@ private[codec] object EncoderDecoder                   {
 
       var i = 0
       while (i < inputs.length) {
-        val header = flattened.header(i).erase
-        val input  = inputs(i)
+        val header = flattened.header(i)
+        val input  = inputs(i).asInstanceOf[String]
 
-        val value = header.textCodec.encode(input)
-
-        headers = headers ++ Headers(header.name, value)
+        headers = headers ++ Headers(header.name, input)
 
         i = i + 1
       }

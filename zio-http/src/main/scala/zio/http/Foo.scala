@@ -7,14 +7,15 @@ import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 object Foo extends ZIOAppDefault {
 
   val app = Endpoint(
-    Method.GET / "foo" / int("bar")
+    Method.GET / "foo"
   ).query(
-    QueryCodec.paramStr("baz")
+    QueryCodec.queryMany("baz").optional
   )
     .out[String]
     .implement(
-    Handler.fromFunctionZIO { case (bar, baz) =>
-      ZIO.succeed(s"bar: $bar, baz: $baz")
+    Handler.fromFunctionZIO { case (baz) =>
+      println(s"baz: $baz")
+      ZIO.succeed(s"baz: ${baz.map(_.map(_.toCharArray.map(_.toInt).toList))}")
     }
   )
     .toHttpApp
