@@ -86,9 +86,7 @@ final case class Response(
 
 }
 
-object ResponseObject extends ResponseObject
-
-trait ResponseObject {
+object ResponseObject {
   import Response._
 
   private trait InternalState extends Response {
