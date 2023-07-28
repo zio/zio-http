@@ -28,7 +28,7 @@ import java.nio.file.{AccessDeniedException, NotDirectoryException}
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal // scalafix:ok;
 import java.util.zip.ZipFile
-
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
   def @@[Env1 <: R, Ctx, In1 <: In](aspect: HandlerAspect[Env1, Unit])(implicit
@@ -45,6 +45,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   def @@[Env1 <: R, Ctx, In1 <: In](aspect: HandlerAspect[Env1, Ctx])(implicit
     zippable: Zippable.Out[Ctx, Request, In1],
     res: Out <:< Response,
+    trace: Trace,
   ): Handler[Env1, Response, Request, Response] = {
     def convert(handler: Handler[R, Err, In, Out]): Handler[R, Response, In1, Response] =
       handler.asInstanceOf[Handler[R, Response, In1, Response]]
@@ -156,7 +157,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def asOutType[Out2](implicit ev: Out <:< Out2): Handler[R, Err, In, Out2] =
     self.asInstanceOf[Handler[R, Err, In, Out2]]
 
-  final def body(implicit ev: Out <:< Response): Handler[R, Err, In, Body] =
+  final def body(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Body] =
     self.map(_.body)
 
   /**
@@ -238,7 +239,11 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   def connect(
     url: URL,
     headers: Headers,
-  )(implicit ev1: Err <:< Throwable, ev2: WebSocketChannel <:< In): ZIO[R with Client with Scope, Throwable, Response] =
+  )(implicit
+    ev1: Err <:< Throwable,
+    ev2: WebSocketChannel <:< In,
+    trace: Trace,
+  ): ZIO[R with Client with Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client] { client =>
       val client2 = if (url.isAbsolute) client.url(url) else client.addUrl(url)
 
@@ -344,11 +349,12 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
       onSuccess,
     )
 
-  final def headers(implicit ev: Out <:< Response): Handler[R, Err, In, Headers] =
+  final def headers(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Headers] =
     self.map(_.headers)
 
   final def header(headerType: HeaderType)(implicit
     ev: Out <:< Response,
+    trace: Trace,
   ): Handler[R, Err, In, Option[headerType.HeaderValue]] =
     self.headers.map(_.get(headerType))
 
@@ -548,10 +554,10 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
   final def runZIO(in: In): ZIO[R, Err, Out] =
     self(in)
 
-  final def sandbox: Handler[R, Response, In, Out] =
+  final def sandbox(implicit trace: Trace): Handler[R, Response, In, Out] =
     self.mapErrorCause(Response.fromCause(_))
 
-  final def status(implicit ev: Out <:< Response): Handler[R, Err, In, Status] =
+  final def status(implicit ev: Out <:< Response, trace: Trace): Handler[R, Err, In, Status] =
     self.map(_.status)
 
   /**
@@ -615,7 +621,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     HttpApp(Routes.singleton(handler.contramap[(Path, Request)](_._2)))
   }
 
-  def toHttpAppWS(implicit err: Err <:< Throwable, in: WebSocketChannel <:< In): HttpApp[R] =
+  def toHttpAppWS(implicit err: Err <:< Throwable, in: WebSocketChannel <:< In, trace: Trace): HttpApp[R] =
     Handler.fromZIO(self.toResponse).toHttpApp
 
   /**
@@ -762,7 +768,7 @@ object Handler {
   def firstSuccessOf[R, Err, In, Out](
     handlers: NonEmptyChunk[Handler[R, Err, In, Out]],
     isRecoverable: Cause[Err] => Boolean = (cause: Cause[Err]) => !cause.isDie,
-  ): Handler[R, Err, In, Out] =
+  )(implicit trace: Trace): Handler[R, Err, In, Out] =
     handlers.tail.foldLeft[Handler[R, Err, In, Out]](handlers.head) { (acc, handler) =>
       acc.catchAllCause { cause =>
         if (isRecoverable(cause)) {
@@ -1136,7 +1142,7 @@ object Handler {
      * Updates the current Headers with new one, using the provided update
      * function passed.
      */
-    override def updateHeaders(update: Headers => Headers): RequestHandler[R, Err] =
+    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): RequestHandler[R, Err] =
       self.map(_.updateHeaders(update))
   }
 

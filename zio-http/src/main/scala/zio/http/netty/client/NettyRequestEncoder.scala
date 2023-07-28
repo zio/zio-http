@@ -16,6 +16,7 @@
 
 package zio.http.netty.client
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Task, Trace, ZIO}
 
 import zio.http.Request
@@ -24,7 +25,6 @@ import zio.http.netty.model.Conversions
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, DefaultHttpRequest, HttpHeaderNames, HttpRequest}
-
 private[zio] object NettyRequestEncoder {
 
   /**
@@ -38,7 +38,7 @@ private[zio] object NettyRequestEncoder {
 
     // As per the spec, the path should contain only the relative path.
     // Host and port information should be in the headers.
-    val path = replaceEmptyPathWithSlash(req.url).relative.encode
+    val path = replaceEmptyPathWithSlash(req.url).relative.addLeadingSlash.encode
 
     val encodedReqHeaders = Conversions.headersToNetty(req.allHeaders)
 

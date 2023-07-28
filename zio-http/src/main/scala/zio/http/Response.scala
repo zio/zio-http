@@ -22,6 +22,7 @@ import java.util.IllegalFormatException
 import scala.annotation.tailrec
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -39,7 +40,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
    * Collects the potentially streaming body of the response into a single
    * chunk.
    */
-  def collect: ZIO[Any, Throwable, Response] =
+  def collect(implicit trace: Trace): ZIO[Any, Throwable, Response] =
     if (self.body.isComplete) ZIO.succeed(self)
     else
       self.body.asChunk.map { bytes =>
@@ -95,7 +96,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
   def headers: Headers
 
   /** Consumes the streaming body fully and then drops it */
-  final def ignoreBody: ZIO[Any, Throwable, Response] =
+  final def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
 
   final def isWebSocket: Boolean = self match {
@@ -103,7 +104,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
     case _                    => false
   }
 
-  final def patch(p: Response.Patch): Response = p.apply(self)
+  final def patch(p: Response.Patch)(implicit trace: Trace): Response = p.apply(self)
 
   private[zio] def addServerTime: Boolean = false
 
@@ -170,7 +171,8 @@ object Response {
 
     override def toString(): String = s"Response(status = $status, headers = $headers, body = $body)"
 
-    override def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+      copy(headers = update(headers))
 
     override def serverTime: Response = new BasicResponse(body, headers, status) with InternalState {
 
@@ -204,7 +206,8 @@ object Response {
     override final def toString(): String =
       s"SocketAppResponse(status = $status, headers = $headers, body = $body, socketApp = $socketApp0)"
 
-    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+      copy(headers = update(headers))
 
     override final def serverTime: Response = new SocketAppResponse(body, headers, socketApp0, status)
       with InternalState {
@@ -238,7 +241,8 @@ object Response {
     override final def toString(): String =
       s"NativeResponse(status = $status, headers = $headers, body = $body)"
 
-    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+      copy(headers = update(headers))
 
     override final def serverTime: Response = new NativeResponse(body, headers, status, onClose) with InternalState {
       override val parent: Response = self
@@ -251,8 +255,8 @@ object Response {
    * Models the set of operations that one would want to apply on a Response.
    */
   sealed trait Patch { self =>
-    def ++(that: Patch): Patch         = Patch.Combine(self, that)
-    def apply(res: Response): Response = {
+    def ++(that: Patch): Patch                                = Patch.Combine(self, that)
+    def apply(res: Response)(implicit trace: Trace): Response = {
 
       @tailrec
       def loop(res: Response, patch: Patch): Response =
@@ -350,7 +354,7 @@ object Response {
    * @param data
    *   \- stream of data to be sent as Server Sent Events
    */
-  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
+  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
     new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
 
   /**

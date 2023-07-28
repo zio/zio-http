@@ -17,6 +17,7 @@
 package zio.http.netty
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.ChannelEvent.UserEvent
 import zio.http.netty.client.ChannelState

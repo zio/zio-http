@@ -108,8 +108,11 @@ private[http] object FormAST {
     private def makeField(name: String, value: Option[String]): String =
       value.map(makeField(name, _)).getOrElse("")
 
-    def contentType(contentType: MediaType, charset: Option[Charset] = None): Header =
-      Header("Content-Type", s"${contentType.fullType}${makeField("charset", charset.map(_.name))}")
+    def contentType(contentType: MediaType): Header =
+      Header(
+        "Content-Type",
+        s"${contentType.fullType}${contentType.parameters.map { case (name, value) => s"; $name=$value" }.mkString("")}",
+      )
 
     def contentDisposition(name: String, filename: Option[String] = None): Header =
       Header("Content-Disposition", s"""form-data${makeField("name", name)}${makeField("filename", filename)}""")
