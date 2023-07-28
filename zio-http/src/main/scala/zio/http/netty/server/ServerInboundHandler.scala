@@ -184,8 +184,8 @@ private[zio] final case class ServerInboundHandler(
     response: Response,
     jRequest: HttpRequest,
     time: ServerTime,
-  ): Task[Unit] = {
-    val result: Task[Option[Task[Unit]]] = ZIO.attempt {
+  ): Option[Task[Unit]] = {
+    {
       if (response.isWebSocket) {
         upgradeToWebSocket(ctx, jRequest, response, runtime)
         None
@@ -200,7 +200,6 @@ private[zio] final case class ServerInboundHandler(
           None
       }
     }
-    result.flatMap(_.getOrElse(ZIO.succeed(())))
   }
 
   private def attemptImmediateWrite(
@@ -336,20 +335,22 @@ private[zio] final case class ServerInboundHandler(
               },
           )
       }.flatMap { response =>
-        if (response ne null) {
-          (for {
-            done <- ZIO.attempt(attemptFastWrite(ctx, response, time))
-            _    <- attemptFullWrite(ctx, response, jReq, time).unless(done)
-          } yield ()).catchSomeCause { case cause =>
-            ZIO.attempt(
-              attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash).freeze, time),
-            )
-          }
-        } else {
-          ZIO.attempt(
+        ZIO.attempt {
+          if (response ne null) {
+            val done = attemptFastWrite(ctx, response, time)
+            if (!done)
+              attemptFullWrite(ctx, response, jReq, time)
+            else
+              None
+          } else {
             if (ctx.channel().isOpen) {
               writeNotFound(ctx, jReq)
-            },
+            }
+            None
+          }
+        }.flatMap { effect => effect.getOrElse(ZIO.unit) }.catchSomeCause { case cause =>
+          ZIO.attempt(
+            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash).freeze, time),
           )
         }
       }
