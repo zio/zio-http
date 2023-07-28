@@ -30,6 +30,9 @@ final case class Response(
   body: Body,
   socketApp: Option[SocketApp[Any]], // TODO: move to Body
 ) extends HeaderOps[Response] { self =>
+
+  private[http] var encoded: AnyRef = null
+
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
@@ -44,18 +47,16 @@ final case class Response(
         self.copy(body = Body.fromChunk(bytes))
       }
 
-  def freeze: Response = self // TODO: remove
-
   def frozen: Boolean = false // TODO: remove
 
   /** Consumes the streaming body fully and then drops it */
   def ignoreBody: ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
 
-  def isWebSocket: Boolean = socketApp match {
-    case Some(_) => self.status == Status.SwitchingProtocols
-    case _       => false
-  }
+//  def isWebSocket: Boolean = self match {
+//    case _: SocketAppResponse => self.status == Status.SwitchingProtocols
+//    case _                    => false
+//  }
 
   def patch(p: Response.Patch): Response = p.apply(self)
 
@@ -85,7 +86,7 @@ object Response {
     def close(implicit trace: Trace): Task[Unit]
   }
 
-  private[zio] case class NativeResponse(
+  private[zio] class NativeResponse(
     response: Response,
     onClose: () => Task[Unit],
   ) extends CloseableResponse { self =>

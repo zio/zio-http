@@ -352,12 +352,12 @@ private[zio] final case class ServerInboundHandler(
             for {
               done <- ZIO.attempt(attemptFastWrite(ctx, response, time)).catchSomeCause { case cause =>
                 ZIO.attempt(
-                  attemptFastWrite(ctx, withDefaultErrorResponse(null, Some(cause.squash)).freeze, time),
+                  attemptFastWrite(ctx, withDefaultErrorResponse(null, Some(cause.squash)), time),
                 )
               }
               _    <- attemptFullWrite(ctx, response, jReq, time).catchSomeCause { case cause =>
                 ZIO.attempt(
-                  attemptFastWrite(ctx, withDefaultErrorResponse(null, Some(cause.squash)).freeze, time),
+                  attemptFastWrite(ctx, withDefaultErrorResponse(null, Some(cause.squash)), time),
                 )
 
               }
