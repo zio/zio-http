@@ -127,13 +127,13 @@ final case class TestClient(
       promise               <- Promise.make[Nothing, Unit]
       testChannelClient     <- TestChannel.make(in, out, promise)
       testChannelServer     <- TestChannel.make(out, in, promise)
-      _                     <- currentSocketBehavior.runZIO(testChannelClient).forkDaemon
-      _                     <- app.provideEnvironment(env).runZIO(testChannelServer).forkDaemon
+      _                     <- currentSocketBehavior.handler.runZIO(testChannelClient).forkDaemon
+      _                     <- app.provideEnvironment(env).handler.runZIO(testChannelServer).forkDaemon
     } yield Response.status(Status.SwitchingProtocols)
   }
 
   def installSocketApp[Env1](
-    app: Handler[Any, Throwable, WebSocketChannel, Unit],
+    app: SocketApp[Any],
   ): ZIO[Env1, Nothing, Unit] =
     for {
       env <- ZIO.environment[Env1]
@@ -182,7 +182,7 @@ object TestClient {
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
   def installSocketApp(
-    app: Handler[Any, Throwable, WebSocketChannel, Unit],
+    app: SocketApp[Any],
   ): ZIO[TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
 
@@ -190,7 +190,7 @@ object TestClient {
     ZLayer.scopedEnvironment {
       for {
         behavior       <- Ref.make[PartialFunction[Request, ZIO[Any, Response, Response]]](PartialFunction.empty)
-        socketBehavior <- Ref.make[SocketApp[Any]](Handler.unit)
+        socketBehavior <- Ref.make[SocketApp[Any]](SocketApp.unit)
         driver = TestClient(behavior, socketBehavior)
       } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
     }

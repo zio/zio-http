@@ -288,20 +288,26 @@ private[zio] final case class ServerInboundHandler(
     runtime: NettyRuntime,
   ): Unit = {
     val app = res.socketApp
+
     jReq match {
       case jReq: FullHttpRequest =>
         val queue = runtime.runtime(ctx).unsafe.run(Queue.unbounded[WebSocketChannelEvent]).getOrThrowFiberFailure()
+        val webSocketApp = app.getOrElse(SocketApp.unit)
+        val request      = makeZioRequest(ctx, jReq)
+        val customConfig =
+          runtime.runtime(ctx).unsafe.run { webSocketApp.customConfig.runZIO(request) }.getOrThrowFiberFailure()
         runtime.runtime(ctx).unsafe.run {
           val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
           val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
-          val webSocketApp     = app.getOrElse(Handler.unit)
-          webSocketApp.runZIO(webSocketChannel).ignoreLogged.forkDaemon
+          webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
         }
         ctx
           .channel()
           .pipeline()
           .addLast(
-            new WebSocketServerProtocolHandler(NettySocketProtocol.serverBuilder(config.webSocketConfig).build()),
+            new WebSocketServerProtocolHandler(
+              NettySocketProtocol.serverBuilder(customConfig.getOrElse(config.webSocketConfig)).build(),
+            ),
           )
           .addLast(Names.WebSocketHandler, new WebSocketAppHandler(runtime, queue, None))
 

@@ -358,14 +358,6 @@ object Response {
     new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
 
   /**
-   * Creates a new response for the provided socket
-   */
-  def fromSocket[R](
-    http: Handler[R, Throwable, WebSocketChannel, Any],
-  )(implicit trace: Trace): ZIO[R, Nothing, Response] =
-    fromSocketApp(http)
-
-  /**
    * Creates a new response for the provided socket app
    */
   def fromSocketApp[R](app: SocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
