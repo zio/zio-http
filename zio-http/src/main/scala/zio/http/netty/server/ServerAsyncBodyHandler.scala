@@ -18,4 +18,4 @@ package zio.http.netty.server
 
 import zio.http.netty.AsyncBodyReader
 
-private[zio] final class ServerAsyncBodyHandler extends AsyncBodyReader {}
+private[netty] final class ServerAsyncBodyHandler extends AsyncBodyReader {}

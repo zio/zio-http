@@ -22,7 +22,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import io.netty.channel._
 import io.netty.util.concurrent.{Future, GenericFutureListener}
 
-private[zio] trait NettyRuntime { self =>
+private[netty] trait NettyRuntime { self =>
 
   def runtime(ctx: ChannelHandlerContext): Runtime[Any]
 
@@ -89,7 +89,7 @@ private[zio] trait NettyRuntime { self =>
     }
 }
 
-private[zio] object NettyRuntime {
+private[netty] object NettyRuntime {
 
   val noopEnsuring = () => ()
 

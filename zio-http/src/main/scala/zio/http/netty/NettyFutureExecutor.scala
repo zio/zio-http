@@ -23,7 +23,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.util.concurrent.{Future, GenericFutureListener}
 
-private[zio] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
+private[netty] final class NettyFutureExecutor[A] private (jFuture: Future[A]) {
 
   /**
    * Resolves when the underlying future resolves and removes the handler

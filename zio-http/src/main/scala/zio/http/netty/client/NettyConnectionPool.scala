@@ -37,9 +37,9 @@ import io.netty.channel.{
 import io.netty.handler.codec.http.{HttpClientCodec, HttpContentDecompressor}
 import io.netty.handler.proxy.HttpProxyHandler
 import io.netty.handler.timeout.ReadTimeoutHandler
-trait NettyConnectionPool extends ConnectionPool[JChannel]
+private[netty] trait NettyConnectionPool extends ConnectionPool[JChannel]
 
-object NettyConnectionPool {
+private[netty] object NettyConnectionPool {
 
   protected def createChannel(
     channelFactory: JChannelFactory[JChannel],

@@ -21,7 +21,7 @@ import io.netty.util.AsciiString
 import java.text.SimpleDateFormat
 import java.util.Date // scalafix:ok;
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-private[zio] final class ServerTime(minDuration: Long) {
+private[netty] final class ServerTime(minDuration: Long) {
 
   private var last: Long               = System.currentTimeMillis()
   private var lastString: CharSequence = ServerTime.format(new Date(last))
@@ -46,7 +46,7 @@ private[zio] final class ServerTime(minDuration: Long) {
   }
 }
 
-object ServerTime {
+private[netty] object ServerTime {
   private val format = new SimpleDateFormat("E, dd MMM yyyy HH:mm:ss z")
 
   def format(d: Date): CharSequence = new AsciiString(format.format(d))

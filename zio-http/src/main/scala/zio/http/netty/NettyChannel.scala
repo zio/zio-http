@@ -22,7 +22,7 @@ import zio.{Task, Trace, UIO, ZIO}
 import zio.http.Channel
 
 import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
-final case class NettyChannel[-A](
+private[netty] final case class NettyChannel[-A](
   private val channel: JChannel,
   private val convert: A => Any,
 ) {
@@ -62,6 +62,6 @@ final case class NettyChannel[-A](
   }
 }
 
-object NettyChannel {
+private[netty] object NettyChannel {
   def make[A](channel: JChannel): NettyChannel[A] = NettyChannel(channel, identity)
 }

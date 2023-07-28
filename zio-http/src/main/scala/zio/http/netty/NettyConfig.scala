@@ -22,7 +22,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 import io.netty.util.ResourceLeakDetector
-final case class NettyConfig(
+private[http] final case class NettyConfig(
   leakDetectionLevel: LeakDetectionLevel,
   channelType: ChannelType,
   nThreads: Int,
@@ -68,9 +68,9 @@ object NettyConfig {
     0,
   )
 
-  sealed trait LeakDetectionLevel {
+  private[netty] sealed trait LeakDetectionLevel {
     self =>
-    private[netty] def toNetty: ResourceLeakDetector.Level = self match {
+    def toNetty: ResourceLeakDetector.Level = self match {
       case LeakDetectionLevel.DISABLED => ResourceLeakDetector.Level.DISABLED
       case LeakDetectionLevel.SIMPLE   => ResourceLeakDetector.Level.SIMPLE
       case LeakDetectionLevel.ADVANCED => ResourceLeakDetector.Level.ADVANCED

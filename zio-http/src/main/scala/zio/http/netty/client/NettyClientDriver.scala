@@ -16,8 +16,6 @@
 
 package zio.http.netty.client
 
-import java.util.concurrent.TimeUnit
-
 import scala.collection.mutable
 
 import zio._
@@ -32,8 +30,8 @@ import zio.http.netty.socket.NettySocketProtocol
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
-import io.netty.handler.timeout.ReadTimeoutHandler
-final case class NettyClientDriver private (
+
+private[netty] final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,
   nettyRuntime: NettyRuntime,
@@ -167,15 +165,17 @@ final case class NettyClientDriver private (
 object NettyClientDriver {
   private implicit val trace: Trace = Trace.empty
 
-  val live: ZLayer[NettyConfig, Throwable, ClientDriver] =
-    (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>
+  val live: ZLayer[Any, Throwable, ClientDriver] =
+    ZLayer.succeed(
+      NettyConfig.default,
+    ) >+> (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>
       ZLayer {
         for {
           eventLoopGroup <- ZIO.service[EventLoopGroup]
           channelFactory <- ZIO.service[ChannelFactory[Channel]]
           nettyRuntime   <- ZIO.service[NettyRuntime]
-          clientConfig   <- ZIO.service[NettyConfig]
-        } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
+          nettyConfig    <- ZIO.service[NettyConfig]
+        } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, nettyConfig)
       }
 
 }

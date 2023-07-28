@@ -22,7 +22,7 @@ import zio.{Trace, ZIO}
 import io.netty.util.AsciiString
 package object netty {
 
-  private[zio] object Names {
+  private[netty] object Names {
     val HttpObjectAggregator           = "HTTP_OBJECT_AGGREGATOR"
     val HttpRequestHandler             = "HTTP_REQUEST"
     val HttpKeepAliveHandler           = "HTTP_KEEPALIVE"

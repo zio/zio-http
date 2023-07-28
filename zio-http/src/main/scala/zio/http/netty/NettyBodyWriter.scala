@@ -27,7 +27,7 @@ import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, ByteBufBody, Unsafe
 import io.netty.buffer.Unpooled
 import io.netty.channel._
 import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
-object NettyBodyWriter {
+private[netty] object NettyBodyWriter {
 
   def write(body: Body, ctx: ChannelHandlerContext)(implicit trace: Trace): ZIO[Any, Throwable, Boolean] =
     body match {

@@ -27,7 +27,7 @@ import zio.http.netty.model.Conversions
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
 
-private[zio] object NettyResponseEncoder {
+private[netty] object NettyResponseEncoder {
 
   private val frozenCache    = new ConcurrentHashMap[Response, FullHttpResponse]()
   private val frozenZioCache = new ConcurrentHashMap[Response, UIO[HttpResponse]]()

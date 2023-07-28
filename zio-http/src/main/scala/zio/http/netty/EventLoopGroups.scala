@@ -30,7 +30,7 @@ import io.netty.incubator.channel.uring.IOUringEventLoopGroup
 /**
  * Simple wrapper over NioEventLoopGroup
  */
-object EventLoopGroups {
+private[netty] object EventLoopGroups {
   trait Config extends ChannelType.Config {
     def nThreads: Int
   }

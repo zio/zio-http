@@ -25,19 +25,19 @@ import io.netty.channel.epoll._
 import io.netty.channel.kqueue._
 import io.netty.channel.socket.nio._
 import io.netty.incubator.channel.uring._
-object ChannelFactories {
+private[netty] object ChannelFactories {
 
-  private[zio] def make[A <: Channel](channel: => A)(implicit trace: Trace): UIO[ChannelFactory[A]] =
+  def make[A <: Channel](channel: => A)(implicit trace: Trace): UIO[ChannelFactory[A]] =
     ZIO.succeed(new ChannelFactory[A] {
       override def newChannel(): A = channel
     })
 
-  private[zio] def serverChannel[A <: ServerChannel](channel: => A)(implicit trace: Trace) =
+  def serverChannel[A <: ServerChannel](channel: => A)(implicit trace: Trace) =
     make[ServerChannel](channel)
 
-  private[zio] def clientChannel(channel: => Channel)(implicit trace: Trace) = make(channel)
+  def clientChannel(channel: => Channel)(implicit trace: Trace) = make(channel)
 
-  object Server {
+  private[netty] object Server {
     def nio(implicit trace: Trace)    = serverChannel(new NioServerSocketChannel())
     def epoll(implicit trace: Trace)  = serverChannel(new EpollServerSocketChannel())
     def uring(implicit trace: Trace)  = serverChannel(new IOUringServerSocketChannel())
@@ -62,7 +62,7 @@ object ChannelFactories {
     }
   }
 
-  object Client {
+  private[netty] object Client {
     def nio(implicit trace: Trace)      = clientChannel(new NioSocketChannel())
     def epoll(implicit trace: Trace)    = clientChannel(new EpollSocketChannel())
     def kqueue(implicit trace: Trace)   = clientChannel(new KQueueSocketChannel())

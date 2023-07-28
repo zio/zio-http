@@ -29,7 +29,7 @@ import zio.http.{ClientDriver, Driver, HttpApp, Server}
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel._
 import io.netty.util.ResourceLeakDetector
-private[zio] final case class NettyDriver(
+private[netty] final case class NettyDriver(
   appRef: AppRef,
   channelFactory: ChannelFactory[ServerChannel],
   channelInitializer: ChannelInitializer[Channel],

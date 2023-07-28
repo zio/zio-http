@@ -27,7 +27,7 @@ import zio.http.{Cookie, Path}
 
 import io.netty.handler.codec.http.{cookie => jCookie}
 
-private[http] object NettyCookieEncoding extends CookieEncoding {
+private[netty] object NettyCookieEncoding extends CookieEncoding {
   override final def encodeRequestCookie(cookie: Cookie.Request, validate: Boolean): String = {
     val encoder = if (validate) jCookie.ClientCookieEncoder.STRICT else jCookie.ClientCookieEncoder.LAX
     val builder = new jCookie.DefaultCookie(cookie.name, cookie.content)

@@ -18,7 +18,7 @@ package zio.http.netty
 
 sealed trait ChannelType
 
-object ChannelType {
+private[netty] object ChannelType {
   case object NIO extends ChannelType
 
   case object EPOLL extends ChannelType

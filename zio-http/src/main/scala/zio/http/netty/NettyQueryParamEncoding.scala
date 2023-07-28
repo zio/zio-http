@@ -27,7 +27,7 @@ import zio.http.internal.QueryParamEncoding
 
 import io.netty.handler.codec.http.{QueryStringDecoder, QueryStringEncoder}
 
-private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
+private[netty] object NettyQueryParamEncoding extends QueryParamEncoding {
   override final def decode(queryStringFragment: String, charset: Charset): QueryParams = {
     if (queryStringFragment == null || queryStringFragment.isEmpty) {
       QueryParams.empty

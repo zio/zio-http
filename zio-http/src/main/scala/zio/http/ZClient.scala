@@ -283,7 +283,7 @@ object ZClient {
       driver,
     )
 
-  lazy val live: ZLayer[ZClient.Config with NettyConfig with DnsResolver, Throwable, Client] = {
+  lazy val live: ZLayer[ZClient.Config with DnsResolver, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
     (NettyClientDriver.live ++ ZLayer.service[DnsResolver]) >>> customized
   }.fresh

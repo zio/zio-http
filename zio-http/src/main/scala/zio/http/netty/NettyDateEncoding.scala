@@ -23,7 +23,7 @@ import zio.http.internal.DateEncoding
 
 import io.netty.handler.codec.DateFormatter
 
-private[http] object NettyDateEncoding extends DateEncoding {
+private[netty] object NettyDateEncoding extends DateEncoding {
   override def encodeDate(date: ZonedDateTime): String =
     DateFormatter.format(Date.from(date.toInstant))
 

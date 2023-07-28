@@ -35,7 +35,7 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
 }
 import io.netty.handler.ssl.util.SelfSignedCertificate
 import io.netty.handler.ssl.{SslContext, SslHandler, _}
-object SSLUtil {
+private[netty] object SSLUtil {
 
   implicit class SslContextBuilderOps(self: SslContextBuilder) {
     def toNettyProvider(sslProvider: Provider): SslProvider = sslProvider match {
@@ -80,7 +80,7 @@ object SSLUtil {
 
 }
 
-private[zio] class ServerSSLDecoder(sslConfig: SSLConfig, cfg: Server.Config) extends ByteToMessageDecoder {
+private[netty] class ServerSSLDecoder(sslConfig: SSLConfig, cfg: Server.Config) extends ByteToMessageDecoder {
 
   override def decode(context: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
     val pipeline      = context.channel().pipeline()

@@ -20,12 +20,11 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Task, Trace, ZIO}
 
 import zio.http.Request
-import zio.http.netty._
 import zio.http.netty.model.Conversions
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.{DefaultFullHttpRequest, DefaultHttpRequest, HttpHeaderNames, HttpRequest}
-private[zio] object NettyRequestEncoder {
+private[netty] object NettyRequestEncoder {
 
   /**
    * Converts a ZIO HTTP request to a Netty HTTP request.

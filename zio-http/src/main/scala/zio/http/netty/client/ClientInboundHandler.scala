@@ -28,7 +28,7 @@ import io.netty.handler.codec.http._
 /**
  * Handles HTTP response
  */
-final class ClientInboundHandler(
+private[netty] final class ClientInboundHandler(
   rtm: NettyRuntime,
   req: Request,
   jReq: HttpRequest,

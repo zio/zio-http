@@ -37,7 +37,7 @@ import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 import io.netty.handler.timeout.ReadTimeoutException
 @Sharable
-private[zio] final case class ServerInboundHandler(
+private[netty] final case class ServerInboundHandler(
   appRef: AppRef,
   config: Server.Config,
   runtime: NettyRuntime,
@@ -384,7 +384,7 @@ private[zio] final case class ServerInboundHandler(
     if (responseOrNull ne null) responseOrNull else HttpError.InternalServerError(cause = cause).toResponse
 }
 
-object ServerInboundHandler {
+private[netty] object ServerInboundHandler {
 
   val live: ZLayer[
     ServerTime with Server.Config with NettyRuntime with AppRef,

@@ -33,7 +33,7 @@ import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame
  * A generic SocketApp handler that can be used on both - the client and the
  * server.
  */
-private[zio] final class WebSocketAppHandler(
+private[netty] final class WebSocketAppHandler(
   zExec: NettyRuntime,
   queue: Queue[WebSocketChannelEvent],
   onComplete: Option[Promise[Throwable, ChannelState]],

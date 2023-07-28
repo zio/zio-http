@@ -37,7 +37,7 @@ import io.netty.handler.timeout.ReadTimeoutHandler
  * Initializes the netty channel with default handlers
  */
 @Sharable
-private[zio] final case class ServerChannelInitializer(
+private[netty] final case class ServerChannelInitializer(
   cfg: Server.Config,
   reqHandler: ChannelInboundHandler,
 ) extends ChannelInitializer[Channel] {
@@ -100,7 +100,7 @@ private[zio] final case class ServerChannelInitializer(
 
 }
 
-object ServerChannelInitializer {
+private[netty] object ServerChannelInitializer {
   implicit val trace: Trace = Trace.empty
 
   val layer: ZLayer[SimpleChannelInboundHandler[HttpObject] with Server.Config, Nothing, ServerChannelInitializer] =

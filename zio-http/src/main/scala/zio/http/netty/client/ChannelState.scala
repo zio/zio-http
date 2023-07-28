@@ -16,11 +16,9 @@
 
 package zio.http.netty.client
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.Status
 
-sealed trait ChannelState { self =>
+private[http] sealed trait ChannelState { self =>
   def &&(other: ChannelState): ChannelState =
     (self, other) match {
       case (ChannelState.Reusable, ChannelState.Reusable) => ChannelState.Reusable
@@ -28,7 +26,7 @@ sealed trait ChannelState { self =>
     }
 }
 
-object ChannelState {
+private[http] object ChannelState {
   case object Invalid  extends ChannelState
   case object Reusable extends ChannelState
 

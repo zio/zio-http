@@ -28,7 +28,7 @@ import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 
-object NettyResponse {
+private[netty] object NettyResponse {
 
   final def make(ctx: ChannelHandlerContext, jRes: FullHttpResponse)(implicit
     unsafe: Unsafe,

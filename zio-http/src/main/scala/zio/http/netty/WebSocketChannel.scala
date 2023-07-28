@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package zio.http
+package zio.http.netty
 
 import zio._
 
-import zio.http.ChannelEvent.{ExceptionCaught, Read, Registered, Unregistered, UserEventTriggered}
-import zio.http.netty.NettyChannel
+import zio.http.ChannelEvent.Read
+import zio.http.{WebSocketChannel, WebSocketChannelEvent, WebSocketFrame}
 
-import io.netty.buffer.{ByteBufUtil, Unpooled}
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
 
-private[http] object WebSocketChannel {
+private[netty] object WebSocketChannel {
 
   def make(
     nettyChannel: NettyChannel[JWebSocketFrame],
