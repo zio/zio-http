@@ -19,17 +19,21 @@ package zio.http.netty.server
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.LongAdder
+
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
+
 import zio._
+
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
+
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
 import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
+import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 import io.netty.handler.timeout.ReadTimeoutException
 
 @Sharable
@@ -154,7 +158,7 @@ private[zio] final case class ServerInboundHandler(
 
     def fastEncode(response: Response, bytes: Array[Byte]): Boolean = {
       if (response.frozen) {
-        val jResponse = NettyResponseEncoder.fastEncode(response, bytes)
+        val jResponse  = NettyResponseEncoder.fastEncode(response, bytes)
         val djResponse = jResponse.retainedDuplicate()
         setServerTime(time, response, djResponse)
         ctx.writeAndFlush(djResponse, ctx.voidPromise())
@@ -315,7 +319,7 @@ private[zio] final case class ServerInboundHandler(
   private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
     runtime.run(ctx, () => ()) {
       val response = HttpError.NotFound(jReq.uri()).toResponse
-      val done = attemptFastWrite(ctx, response, time)
+      val done     = attemptFastWrite(ctx, response, time)
       attemptFullWrite(ctx, response, jReq, time).unless(done)
     }
   }
