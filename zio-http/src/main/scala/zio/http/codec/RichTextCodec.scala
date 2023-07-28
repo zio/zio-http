@@ -21,6 +21,7 @@ import java.lang.Integer.parseInt
 import scala.annotation.tailrec
 import scala.collection.immutable.BitSet
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Chunk, NonEmptyChunk}
 
 /**

@@ -16,8 +16,9 @@
 
 package zio.http.codec
 
-import zio.http.Status
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
+import zio.http.Status
 private[codec] trait StatusCodecs {
   def status(status: Status): StatusCodec[Unit] = HttpCodec.Status(SimpleCodec.Specified(status))
 
