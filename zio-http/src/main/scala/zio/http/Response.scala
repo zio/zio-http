@@ -44,7 +44,7 @@ final case class Response(
         self.copy(body = Body.fromChunk(bytes))
       }
 
-  def freeze: Response = ??? // TODO: remove
+  def freeze: Response = self // TODO: remove
 
   def frozen: Boolean = false // TODO: remove
 
