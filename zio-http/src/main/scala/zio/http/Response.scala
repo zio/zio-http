@@ -78,21 +78,6 @@ final case class Response(
 
 object Response {
 
-  // TODO: move to handler
-  private[zio] trait CloseableResponse {
-    def close(implicit trace: Trace): Task[Unit]
-  }
-
-  private[zio] class NativeResponse(
-    response: Response,
-    onClose: () => Task[Unit],
-  ) extends CloseableResponse { self =>
-
-    override final def close(implicit trace: Trace): Task[Unit] = onClose()
-
-  }
-  // end TODO
-
   /**
    * Models the set of operations that one would want to apply on a Response.
    */
