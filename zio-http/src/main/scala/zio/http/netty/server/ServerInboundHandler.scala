@@ -313,11 +313,8 @@ private[zio] final case class ServerInboundHandler(
   }
 
   private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
-    runtime.run(ctx, NettyRuntime.noopEnsuring) {
-      val response = Response.notFound(jReq.uri())
-      val done     = attemptFastWrite(ctx, response, time)
-      attemptFullWrite(ctx, response, jReq, time).unless(done)
-    }
+    val response = Response.notFound(jReq.uri()).freeze
+    attemptFastWrite(ctx, response, time)
   }
 
   private def writeResponse(
