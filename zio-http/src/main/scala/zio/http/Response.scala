@@ -30,22 +30,22 @@ final case class Response(
   override def updateHeaders(update: Headers => Headers): Response =
     copy(headers = update(headers))
 
-  def copy(status: Status = this.status, headers: Headers = this.headers, body: Body = this.body): Response =
-    Response(status, headers, body)
-
   def freeze: Response = this
 
-  override def equals(o: Any): Boolean = o match {
-    case that: Response =>
-      this.body == that.body &&
-        this.headers == that.headers &&
-        this.status == that.status
-    case _ => false
-  }
+override def equals(o: Any): Boolean = o match {
+  case that: Response =>
+    this.body == that.body &&
+    this.headers == that.headers &&
+    this.status == that.status &&
+    this.frozen == that.frozen &&
+    this.socketApp == that.socketApp
+  case _ => false
+}
 
-  override lazy val hashCode: Int =
-    31 * (31 * (31 * (31 * (31 * (31 * getClass.hashCode + body.hashCode) + headers.hashCode) + status.hashCode)))
-
+ override lazy val hashCode: Int = {
+  val prime = 31
+  prime * (prime * (prime * (prime * (prime * (getClass.hashCode + body.hashCode) + headers.hashCode) + status.hashCode) + frozen.hashCode) + socketApp.hashCode)
+}
   override def toString(): String =
     s"Response(status = $status, headers = $headers, body = $body)"
 
@@ -63,6 +63,10 @@ final case class Response(
   }
 
   final def patch(p: Response.Patch): Response = p.apply(this)
+
+  // This method is already provided by the case class, so we don't need to redefine it.
+  // def copy(status: Status = this.status, headers: Headers = this.headers, body: Body = this.body): Response =
+  //   Response(status, headers, body)
 
   private[zio] def addServerTime: Boolean = false
 
@@ -83,9 +87,7 @@ final case class Response(
   final def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.response(this)
 
   def serverTime: Response = copy()
-
 }
-
 object ResponseObject {
   import Response._
 
