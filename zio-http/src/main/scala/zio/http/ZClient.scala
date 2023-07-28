@@ -188,16 +188,23 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
   private def requestRaw(method: Method, suffix: String, body: Body)(implicit
     trace: Trace,
-  ): ZIO[Env & Scope, Err, Response] =
+  ): ZIO[Env & Scope, Err, Response] = {
+    val requestHeaders = body.mediaType match {
+      case None        => headers
+      case Some(value) =>
+        headers.combineIf(!headers.exists(_.headerType == Header.ContentType))(Headers(Header.ContentType(value)))
+    }
+
     driver
       .request(
         version,
         method,
         if (suffix.nonEmpty) url.addPath(suffix) else url,
-        headers,
+        requestHeaders,
         body,
         sslConfig,
       )
+  }
 
   def retry[Env1 <: Env](policy: Schedule[Env1, Err, Any]): ZClient[Env1, In, Err, Out] =
     transform[Env1, In, Err, Out](bodyEncoder, bodyDecoder, self.driver.retry(policy))
@@ -630,7 +637,13 @@ object ZClient {
       body: Body,
       sslConfig: Option[ClientSSLConfig],
     )(implicit trace: Trace): ZIO[Scope, Throwable, Response] = {
-      val request = Request(version, method, url, headers, body, None)
+      val requestHeaders = body.mediaType match {
+        case None        => headers
+        case Some(value) =>
+          headers.combineIf(!headers.exists(_.headerType == Header.ContentType))(Headers(Header.ContentType(value)))
+      }
+
+      val request = Request(version, method, url, requestHeaders, body, None)
       val cfg     = sslConfig.fold(config)(config.ssl)
 
       requestAsync(request, cfg, () => WebSocketApp.unit, None)
