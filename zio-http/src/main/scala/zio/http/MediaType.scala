@@ -42,7 +42,7 @@ object MediaType extends MediaTypes {
       val (contentType1, parameter) = contentType.splitAt(index)
       contentTypeMap
         .get(contentType1)
-        .map(_.copy(parameters = parseOptionalParameters(parameter.tail.split(";"))))
+        .map(_.copy(parameters = parseOptionalParameters(parameter.split(";"))))
     }
   }
 
@@ -76,6 +76,6 @@ object MediaType extends MediaTypes {
       case _                         => parameterMap
     }
 
-    loop(parameters.toIndexedSeq, Map.empty)
+    loop(parameters.toIndexedSeq, Map.empty).map { case (key, value) => key.trim -> value.trim }
   }
 }

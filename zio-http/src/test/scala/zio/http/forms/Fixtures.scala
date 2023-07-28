@@ -89,6 +89,16 @@ object Fixtures {
          |""".stripMargin.getBytes(),
     )
 
+  val multipartFormBytes4 =
+    Chunk.fromArray(
+      s"""|--(((AaB03x)))${CR}
+          |Content-Disposition: form-data; name="csv-data"${CR}
+          |Content-Type: text/csv; charset=UTF-8${CR}
+          |${CR}
+          |foo,bar,baz${CR}
+          |--(((AaB03x)))--${CRLF}""".stripMargin.getBytes(),
+    )
+
   private def simpleFormField: Gen[Any, (FormField, Schema[Any], Option[String], Boolean)] =
     for {
       name         <- Gen.option(Gen.string1(Gen.alphaNumericChar))

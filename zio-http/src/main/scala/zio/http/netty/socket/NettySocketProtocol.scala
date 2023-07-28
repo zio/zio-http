@@ -16,6 +16,8 @@
 
 package zio.http.netty.socket
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.{SocketDecoder, WebSocketConfig}
 
 import io.netty.handler.codec.http.websocketx.{
@@ -24,7 +26,6 @@ import io.netty.handler.codec.http.websocketx.{
   WebSocketDecoderConfig,
   WebSocketServerProtocolConfig,
 }
-
 private[netty] object NettySocketProtocol {
 
   def clientBuilder(webSocketConfig: WebSocketConfig): WebSocketClientProtocolConfig.Builder =

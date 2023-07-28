@@ -18,6 +18,8 @@ package zio.http.netty.model
 
 import scala.collection.AbstractIterator
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.Server.Config.CompressionOptions
 import zio.http._
 import zio.http.internal.{CaseMode, CharSequenceExtensions}
