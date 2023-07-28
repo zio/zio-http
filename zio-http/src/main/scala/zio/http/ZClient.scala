@@ -189,18 +189,12 @@ final case class ZClient[-Env, -In, +Err, +Out](
   private def requestRaw(method: Method, suffix: String, body: Body)(implicit
     trace: Trace,
   ): ZIO[Env & Scope, Err, Response] = {
-    val requestHeaders = body.mediaType match {
-      case None        => headers
-      case Some(value) =>
-        headers.combineIf(!headers.exists(_.headerType == Header.ContentType))(Headers(Header.ContentType(value)))
-    }
-
     driver
       .request(
         version,
         method,
         if (suffix.nonEmpty) url.addPath(suffix) else url,
-        requestHeaders,
+        headers,
         body,
         sslConfig,
       )
