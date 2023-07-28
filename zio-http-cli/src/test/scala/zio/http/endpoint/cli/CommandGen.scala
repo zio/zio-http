@@ -21,18 +21,18 @@ object CommandGen {
 
   def getSegment(segment: SegmentCodec[_]): (String, String) = {
     def fromSegment[A](segment: SegmentCodec[A]): (String, String) =
-        segment match {
-        case SegmentCodec.UUID(name, doc)    => (name, "text")
-        case SegmentCodec.Text(name, doc)  => (name, "text")
-        case SegmentCodec.IntSeg(name, doc)     => (name, "integer")
-        case SegmentCodec.LongSeg(name, doc)     => (name, "integer")
-        case SegmentCodec.BoolSeg(name, doc) => (name, "boolean")
-        case SegmentCodec.Literal(value, doc)  => ("", "")
-        case SegmentCodec.Trailing(doc) => ("", "")
-        case SegmentCodec.Empty(_) => ("", "")
+      segment match {
+        case SegmentCodec.UUID(name, doc)     => (name, "text")
+        case SegmentCodec.Text(name, doc)     => (name, "text")
+        case SegmentCodec.IntSeg(name, doc)   => (name, "integer")
+        case SegmentCodec.LongSeg(name, doc)  => (name, "integer")
+        case SegmentCodec.BoolSeg(name, doc)  => (name, "boolean")
+        case SegmentCodec.Literal(value, doc) => ("", "")
+        case SegmentCodec.Trailing(doc)       => ("", "")
+        case SegmentCodec.Empty(_)            => ("", "")
       }
-      fromSegment(segment)
-    }
+    fromSegment(segment)
+  }
 
   lazy val anyEndpoint: Gen[Any, HelpRepr[Endpoint[_, _, _, _, EndpointMiddleware.None]]] =
     anyCodec
@@ -46,12 +46,12 @@ object CommandGen {
       case _: HttpOptions.Constant => false
       case _                       => true
     }.map {
-      case HttpOptions.Path(pathCodec, _)  =>
-        pathCodec.segments.toList.flatMap {
-          case segment => getSegment(segment) match {
-            case (_, "") => Nil
+      case HttpOptions.Path(pathCodec, _)        =>
+        pathCodec.segments.toList.flatMap { case segment =>
+          getSegment(segment) match {
+            case (_, "")           => Nil
             case (name, "boolean") => s"[${getName(name, "")}]" :: Nil
-            case (name, codec) => s"${getName(name, "")} $codec" :: Nil
+            case (name, codec)     => s"${getName(name, "")} $codec" :: Nil
           }
         }
       case HttpOptions.Query(name, textCodec, _) =>

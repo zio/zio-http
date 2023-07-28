@@ -44,7 +44,7 @@ private[cli] final case class CliEndpoint(
       }) :: url
         .filter(
           _ match {
-            case _: HttpOptions.Path  => true
+            case _: HttpOptions.Path          => true
             case _: HttpOptions.QueryConstant => true
             case _                            => false
           },

@@ -78,15 +78,13 @@ object EndpointGen {
     }
 
   lazy val anyPathCodec: Gen[Any, PathCodec[_]] =
-    anyTextCodec.zip(Gen.alphaNumericStringBounded(1, 30)).map {
-      case (codec, name) =>
-        OptionsGen.toPathCodec(name, codec)
+    anyTextCodec.zip(Gen.alphaNumericStringBounded(1, 30)).map { case (codec, name) =>
+      OptionsGen.toPathCodec(name, codec)
     }
 
   lazy val anyPath: Gen[Any, CliReprOf[Codec[_]]] =
-    anyPathCodec.map {
-      case codec                      =>
-        CliRepr(HttpCodec.Path(codec), CliEndpoint(url = HttpOptions.Path(codec) :: Nil))
+    anyPathCodec.map { case codec =>
+      CliRepr(HttpCodec.Path(codec), CliEndpoint(url = HttpOptions.Path(codec) :: Nil))
     }
 
   lazy val anyQuery: Gen[Any, CliReprOf[Codec[_]]] =

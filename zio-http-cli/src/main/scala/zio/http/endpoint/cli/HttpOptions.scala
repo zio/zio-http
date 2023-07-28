@@ -240,11 +240,10 @@ private[cli] object HttpOptions {
   final case class Path(pathCodec: PathCodec[_], doc: Doc = Doc.empty) extends URLOptions {
     self =>
 
-    override val name = pathCodec.segments
-      .map {
-        case SegmentCodec.Literal(value, _) => value
-        case _ => ""
-      }
+    override val name = pathCodec.segments.map {
+      case SegmentCodec.Literal(value, _) => value
+      case _                              => ""
+    }
       .filter(_ != "")
       .mkString("-")
 
@@ -255,17 +254,14 @@ private[cli] object HttpOptions {
     override val tag = "/" + name
 
     override def transform(request: Options[CliRequest]): Options[CliRequest] =
-      options.foldRight(request) {
-        case (opts, req) => 
-          (req ++ opts).map { case (cliRequest, value) =>
-            if (true) cliRequest.addPathParam(value)
-            else cliRequest
-          }
+      options.foldRight(request) { case (opts, req) =>
+        (req ++ opts).map { case (cliRequest, value) =>
+          if (true) cliRequest.addPathParam(value)
+          else cliRequest
+        }
       }
-      
 
   }
-
 
   final case class Query(override val name: String, textCodec: TextCodec[_], doc: Doc = Doc.empty) extends URLOptions {
     self =>
@@ -316,8 +312,8 @@ private[cli] object HttpOptions {
 
   private[cli] def optionsFromSegment(segment: SegmentCodec[_]): Options[String] = {
     def fromSegment[A](segment: SegmentCodec[A]): Options[String] =
-        segment match {
-        case SegmentCodec.UUID(name, doc)    =>
+      segment match {
+        case SegmentCodec.UUID(name, doc)     =>
           Options
             .text(name)
             .mapOrFail(str =>
@@ -327,17 +323,18 @@ private[cli] object HttpOptions {
                   HelpDoc.p(HelpDoc.Span.code(error.getMessage())),
                 )
               },
-            ).map(_.toString)
-        case SegmentCodec.Text(name, doc)  => Options.text(name)
-        case SegmentCodec.IntSeg(name, doc)     => Options.integer(name).map(_.toInt).map(_.toString)
-        case SegmentCodec.LongSeg(name, doc)     => Options.integer(name).map(_.toInt).map(_.toString)
-        case SegmentCodec.BoolSeg(name, doc) => Options.boolean(name).map(_.toString)
-        case SegmentCodec.Literal(value, doc)  => Options.Empty.map(_ => value)
-        case SegmentCodec.Trailing(doc) => ??? // FIXME
-        case SegmentCodec.Empty(_) => Options.none.map(_.toString)
+            )
+            .map(_.toString)
+        case SegmentCodec.Text(name, doc)     => Options.text(name)
+        case SegmentCodec.IntSeg(name, doc)   => Options.integer(name).map(_.toInt).map(_.toString)
+        case SegmentCodec.LongSeg(name, doc)  => Options.integer(name).map(_.toInt).map(_.toString)
+        case SegmentCodec.BoolSeg(name, doc)  => Options.boolean(name).map(_.toString)
+        case SegmentCodec.Literal(value, doc) => Options.Empty.map(_ => value)
+        case SegmentCodec.Trailing(doc)       => ??? // FIXME
+        case SegmentCodec.Empty(_)            => Options.none.map(_.toString)
       }
 
     fromSegment(segment)
   }
-    
+
 }
