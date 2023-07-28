@@ -153,8 +153,8 @@ private[zio] final case class ServerInboundHandler(
   ): Boolean = {
 
     def fastEncode(response: Response, bytes: Array[Byte]): Boolean = {
-      val jResponse = NettyResponseEncoder.fastEncode(response, bytes)
       if (response.frozen) {
+        val jResponse = NettyResponseEncoder.fastEncode(response, bytes)
         val djResponse = jResponse.retainedDuplicate()
         setServerTime(time, response, djResponse)
         ctx.writeAndFlush(djResponse, ctx.voidPromise())
