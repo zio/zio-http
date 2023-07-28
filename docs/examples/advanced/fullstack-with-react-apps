@@ -24,7 +24,7 @@ object HelloWorld extends ZIOAppDefault {
         // Content-type response headers are automatically identified and added
         // Adds content-length header and does not use Chunked transfer encoding
         case Method.GET -> Root => Http.fromFile(new File(s"$buildDirectory/index.html"))
-        case Method.GET -> Root / file => Http.fromFile(new File(s"$buildDirectory/$file"))
+        case Method.GET -> "" /: file => Http.fromFile(new File(s"$buildDirectory/$file"))
     }
     
     // Run it like any simple app
