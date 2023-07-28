@@ -19,6 +19,8 @@ package zio.http.netty.server
 import java.io.FileInputStream
 import java.util
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.SSLConfig.{HttpBehaviour, Provider}
 import zio.http.netty.Names
 import zio.http.{SSLConfig, Server}
@@ -33,7 +35,6 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.{
 }
 import io.netty.handler.ssl.util.SelfSignedCertificate
 import io.netty.handler.ssl.{SslContext, SslHandler, _}
-
 object SSLUtil {
 
   implicit class SslContextBuilderOps(self: SslContextBuilder) {

@@ -18,6 +18,7 @@ package zio.http.netty
 
 import zio.Chunk.ByteArray
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Body
 import zio.http.Body._
@@ -26,10 +27,9 @@ import zio.http.netty.NettyBody.{AsciiStringBody, AsyncBody, ByteBufBody, Unsafe
 import io.netty.buffer.Unpooled
 import io.netty.channel._
 import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
-
 object NettyBodyWriter {
 
-  def write(body: Body, ctx: ChannelHandlerContext): ZIO[Any, Throwable, Boolean] =
+  def write(body: Body, ctx: ChannelHandlerContext)(implicit trace: Trace): ZIO[Any, Throwable, Boolean] =
     body match {
       case body: ByteBufBody                  =>
         ZIO.succeed {

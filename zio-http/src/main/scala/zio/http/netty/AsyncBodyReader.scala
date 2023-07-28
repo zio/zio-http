@@ -16,6 +16,7 @@
 
 package zio.http.netty
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Chunk, ChunkBuilder, Trace, Unsafe}
 
 import zio.http.netty.AsyncBodyReader.State
@@ -24,7 +25,6 @@ import zio.http.netty.NettyBody.UnsafeAsync
 import io.netty.buffer.ByteBufUtil
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{HttpContent, LastHttpContent}
-
 abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInboundHandler[HttpContent](true) {
 
   protected val unsafeClass: Unsafe = Unsafe.unsafe

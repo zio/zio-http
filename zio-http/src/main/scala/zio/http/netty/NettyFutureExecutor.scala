@@ -19,6 +19,7 @@ package zio.http.netty
 import java.util.concurrent.CancellationException
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.util.concurrent.{Future, GenericFutureListener}
 
