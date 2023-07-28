@@ -66,7 +66,8 @@ object NettyFutureExecutor {
   def make[A](jFuture: => Future[A])(implicit trace: Trace): Task[NettyFutureExecutor[A]] =
     ZIO.succeed(new NettyFutureExecutor(jFuture))
 
-  def executed[A](jFuture: => Future[A])(implicit trace: Trace): Task[Unit] = make(jFuture).flatMap(_.execute.unit)
+  def executed[A](jFuture: => Future[A])(implicit trace: Trace): Task[Unit] =
+    make(jFuture).flatMap(_.execute.unit)
 
   def scoped[A](jFuture: => Future[A])(implicit trace: Trace): ZIO[Scope, Throwable, Unit] =
     make(jFuture).flatMap(_.scoped.unit)
