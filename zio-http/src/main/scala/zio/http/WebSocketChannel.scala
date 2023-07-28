@@ -31,16 +31,26 @@ private[http] object WebSocketChannel {
     queue: Queue[WebSocketChannelEvent],
   ): WebSocketChannel =
     new WebSocketChannel {
-      def awaitShutdown: UIO[Unit]                    =
+      def awaitShutdown: UIO[Unit]                                 =
         nettyChannel.awaitClose
-      def receive: Task[WebSocketChannelEvent]        =
+      def receive: Task[WebSocketChannelEvent]                     =
         queue.take
-      def send(in: WebSocketChannelEvent): Task[Unit] =
+      def send(in: WebSocketChannelEvent): Task[Unit]              =
         in match {
           case Read(message) => nettyChannel.writeAndFlush(frameToNetty(message))
           case _             => ZIO.unit
         }
-      def shutdown: UIO[Unit]                         =
+      def sendAll(in: Iterable[WebSocketChannelEvent]): Task[Unit] =
+        ZIO.suspendSucceed {
+          val iterator = in.iterator.collect { case Read(message) => message }
+
+          ZIO.whileLoop(iterator.hasNext) {
+            val message = iterator.next()
+            if (iterator.hasNext) nettyChannel.write(frameToNetty(message))
+            else nettyChannel.writeAndFlush(frameToNetty(message))
+          }(_ => ())
+        }
+      def shutdown: UIO[Unit]                                      =
         nettyChannel.close(false).orDie
     }
 
