@@ -105,7 +105,7 @@ object CliSpec extends ZIOSpecDefault {
       .cliApp
 
   override def spec =
-    suite("HttpCLI")(
+    suite("HttpCliSpec")(
       suite("GenTests")(
         test("fromEndpoint generates the correct CliEndpoint") {
           check(EndpointGen.anyCliEndpoint) { case CliRepr(endpoint, repr) =>
@@ -154,7 +154,7 @@ object CliSpec extends ZIOSpecDefault {
         },
         test("Stream content endpoint") {
           for {
-            response <- cliApp.run(List("update", "--path1", "--path2", "sampleText", "--bodyStream", "342"))
+            response <- cliApp.run(List("update", "--path2", "sampleText", "--path1", "--bodyStream", "342"))
             result   <- response match {
               case r: Response => r.body.asString
               case _           => ZIO.succeed("wrong type")
