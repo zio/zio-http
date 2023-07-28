@@ -20,6 +20,7 @@ object OptionsGen {
       case TextCodec.UUIDCodec    => PathCodec.uuid(name)
       case TextCodec.StringCodec  => PathCodec.string(name)
       case TextCodec.IntCodec     => PathCodec.int(name)
+      case TextCodec.LongCodec    => PathCodec.long(name)
       case TextCodec.BooleanCodec => PathCodec.bool(name)
       case TextCodec.Constant(_)  => PathCodec.empty
     }

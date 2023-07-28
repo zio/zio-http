@@ -115,6 +115,7 @@ object CommandGen {
       case TextCodec.UUIDCodec    => "text"
       case TextCodec.StringCodec  => "text"
       case TextCodec.IntCodec     => "integer"
+      case TextCodec.LongCodec    => "integer"
       case TextCodec.BooleanCodec => ""
       case _                      => ""
     }
