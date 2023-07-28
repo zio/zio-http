@@ -14,7 +14,7 @@ import zio.http.{Headers, Method, Scheme, Status, Version}
  */
 final case class TestClient(
   behavior: Ref[PartialFunction[Request, ZIO[Any, Response, Response]]],
-  serverSocketBehavior: Ref[SocketApp[Any]],
+  serverSocketBehavior: Ref[WebSocketApp[Any]],
 ) extends ZClient.Driver[Any, Throwable] {
 
   /**
@@ -117,7 +117,7 @@ final case class TestClient(
     version: Version,
     url: URL,
     headers: Headers,
-    app: SocketApp[Env1],
+    app: WebSocketApp[Env1],
   )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
     for {
       env                   <- ZIO.environment[Env1]
@@ -133,7 +133,7 @@ final case class TestClient(
   }
 
   def installSocketApp[Env1](
-    app: SocketApp[Any],
+    app: WebSocketApp[Any],
   ): ZIO[Env1, Nothing, Unit] =
     for {
       env <- ZIO.environment[Env1]
@@ -182,7 +182,7 @@ object TestClient {
     ZIO.serviceWithZIO[TestClient](_.addHandler(handler))
 
   def installSocketApp(
-    app: SocketApp[Any],
+    app: WebSocketApp[Any],
   ): ZIO[TestClient, Nothing, Unit] =
     ZIO.serviceWithZIO[TestClient](_.installSocketApp(app))
 
@@ -190,7 +190,7 @@ object TestClient {
     ZLayer.scopedEnvironment {
       for {
         behavior       <- Ref.make[PartialFunction[Request, ZIO[Any, Response, Response]]](PartialFunction.empty)
-        socketBehavior <- Ref.make[SocketApp[Any]](SocketApp.unit)
+        socketBehavior <- Ref.make[WebSocketApp[Any]](WebSocketApp.unit)
         driver = TestClient(behavior, socketBehavior)
       } yield ZEnvironment[TestClient, Client](driver, ZClient.fromDriver(driver))
     }

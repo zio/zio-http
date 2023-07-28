@@ -2,9 +2,9 @@ package zio.http
 
 import zio._
 
-final case class SocketApp[-R](
+final case class WebSocketApp[-R](
   handler: Handler[R, Throwable, WebSocketChannel, Any],
-  customConfig: Handler[R, Throwable, Request, Option[WebSocketConfig]],
+  customConfig: Option[WebSocketConfig],
 ) { self =>
 
   /**
@@ -31,35 +31,35 @@ final case class SocketApp[-R](
       client2.addHeaders(headers).socket(self)
     }
 
-  def provideEnvironment(r: ZEnvironment[R])(implicit trace: Trace): SocketApp[Any] =
-    SocketApp(handler.provideEnvironment(r), customConfig.provideEnvironment(r))
+  def provideEnvironment(r: ZEnvironment[R])(implicit trace: Trace): WebSocketApp[Any] =
+    WebSocketApp(handler.provideEnvironment(r), customConfig)
 
   def provideLayer[R0](layer: ZLayer[R0, Throwable, R])(implicit
     trace: Trace,
-  ): SocketApp[R0] =
-    SocketApp(handler.provideLayer(layer), customConfig.provideLayer(layer))
+  ): WebSocketApp[R0] =
+    WebSocketApp(handler.provideLayer(layer), customConfig)
 
   def provideSomeEnvironment[R1](f: ZEnvironment[R1] => ZEnvironment[R])(implicit
     trace: Trace,
-  ): SocketApp[R1] =
-    SocketApp(handler.provideSomeEnvironment(f), customConfig.provideSomeEnvironment(f))
+  ): WebSocketApp[R1] =
+    WebSocketApp(handler.provideSomeEnvironment(f), customConfig)
 
   def provideSomeLayer[R0, R1: Tag](
     layer: ZLayer[R0, Throwable, R1],
-  )(implicit ev: R0 with R1 <:< R, trace: Trace): SocketApp[R0] =
-    SocketApp(handler.provideSomeLayer(layer), customConfig.provideSomeLayer(layer))
+  )(implicit ev: R0 with R1 <:< R, trace: Trace): WebSocketApp[R0] =
+    WebSocketApp(handler.provideSomeLayer(layer), customConfig)
 
   def tapErrorCauseZIO[R1 <: R](
     f: Cause[Throwable] => ZIO[R1, Throwable, Any],
-  )(implicit trace: Trace): SocketApp[R1] =
-    SocketApp(handler.tapErrorCauseZIO(f), customConfig.tapErrorCauseZIO(f))
+  )(implicit trace: Trace): WebSocketApp[R1] =
+    WebSocketApp(handler.tapErrorCauseZIO(f), customConfig)
 
   /**
    * Returns a Handler that effectfully peeks at the failure of this SocketApp.
    */
   def tapErrorZIO[R1 <: R](
     f: Throwable => ZIO[R1, Throwable, Any],
-  )(implicit trace: Trace): SocketApp[R1] =
+  )(implicit trace: Trace): WebSocketApp[R1] =
     self.tapErrorCauseZIO(cause => cause.failureOption.fold[ZIO[R1, Throwable, Any]](ZIO.unit)(f))
 
   /**
@@ -74,11 +74,14 @@ final case class SocketApp[-R](
 
   def toHttpAppWS(implicit trace: Trace): HttpApp[R] =
     Handler.fromZIO(self.toResponse).toHttpApp
+
+  def withConfig(config: WebSocketConfig): WebSocketApp[R] =
+    copy(customConfig = Some(config))
 }
 
-object SocketApp {
-  def apply[R](handler: Handler[R, Throwable, WebSocketChannel, Any]): SocketApp[R] =
-    SocketApp(handler, Handler.succeed(None))
+object WebSocketApp {
+  def apply[R](handler: Handler[R, Throwable, WebSocketChannel, Any]): WebSocketApp[R] =
+    WebSocketApp(handler, None)
 
-  val unit: SocketApp[Any] = SocketApp(Handler.unit)
+  val unit: WebSocketApp[Any] = WebSocketApp(Handler.unit)
 }

@@ -143,7 +143,7 @@ object WebSocketSpec extends HttpRunnableSpec {
       val app   =
         Handler.webSocket(channel => channel.send(ChannelEvent.Read(WebSocketFrame.text("BAR")))).toHttpAppWS.deployWS
       val codes = ZIO
-        .foreach(1 to 1024)(_ => app.runZIO(SocketApp.unit).map(_.status))
+        .foreach(1 to 1024)(_ => app.runZIO(WebSocketApp.unit).map(_.status))
         .map(_.count(_ == Status.SwitchingProtocols))
 
       assertZIO(codes)(equalTo(1024))

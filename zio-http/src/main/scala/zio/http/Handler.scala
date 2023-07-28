@@ -685,18 +685,6 @@ object Handler {
     error(Status.BadRequest, message)
 
   /**
-   * Constructs a handler from two functions, one that configures web socket and
-   * another that uses a web socket.
-   *
-   * If the config function returns with None, the server configuration is used.
-   */
-  final def customWebSocket[Env](
-    config: Request => ZIO[Env, Throwable, Option[WebSocketConfig]],
-    f: WebSocketChannel => ZIO[Env, Throwable, Any],
-  ): SocketApp[Env] =
-    SocketApp(Handler.fromFunctionZIO(f), Handler.fromFunctionZIO(config))
-
-  /**
    * Returns a handler that dies with the specified `Throwable`. This method can
    * be used for terminating an handler because a defect has been detected in
    * the code. Terminating a handler leads to aborting handling of an HTTP
@@ -1073,8 +1061,8 @@ object Handler {
    */
   final def webSocket[Env](
     f: WebSocketChannel => ZIO[Env, Throwable, Any],
-  ): SocketApp[Env] =
-    SocketApp(Handler.fromFunctionZIO(f))
+  ): WebSocketApp[Env] =
+    WebSocketApp(Handler.fromFunctionZIO(f))
 
   final implicit class RequestHandlerSyntax[-R, +Err](val self: RequestHandler[R, Err])
       extends HeaderModifier[RequestHandler[R, Err]] {

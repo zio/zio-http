@@ -114,7 +114,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
   final def status(status: Status): Response =
     self.copy(status = status)
 
-  private[zio] final def socketApp: Option[SocketApp[Any]] = self match {
+  private[zio] final def socketApp: Option[WebSocketApp[Any]] = self match {
     case Response.GetApp(app) => Some(app)
     case _                    => None
   }
@@ -140,7 +140,7 @@ object Response {
   }
 
   object GetApp {
-    def unapply(response: Response): Option[SocketApp[Any]] = response match {
+    def unapply(response: Response): Option[WebSocketApp[Any]] = response match {
       case resp: SocketAppResponse => Some(resp.socketApp0)
       case _                       => None
     }
@@ -186,7 +186,7 @@ object Response {
   private[zio] class SocketAppResponse(
     val body: Body,
     val headers: Headers,
-    val socketApp0: SocketApp[Any],
+    val socketApp0: WebSocketApp[Any],
     val status: Status,
   ) extends Response { self =>
 
@@ -360,7 +360,7 @@ object Response {
   /**
    * Creates a new response for the provided socket app
    */
-  def fromSocketApp[R](app: SocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
+  def fromSocketApp[R](app: WebSocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
       new SocketAppResponse(
         Body.empty,
