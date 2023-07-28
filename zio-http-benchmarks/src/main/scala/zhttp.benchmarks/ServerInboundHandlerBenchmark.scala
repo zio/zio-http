@@ -7,32 +7,63 @@ import zio._
 import zio.http._
 
 import org.openjdk.jmh.annotations._
+import sttp.client3.{HttpClientSyncBackend, UriContext, basicRequest}
+import sttp.model.Uri
 
 @Warmup(iterations = 2)
 @Measurement(iterations = 3)
-@Fork(value = 1)
 @State(org.openjdk.jmh.annotations.Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
 class ServerInboundHandlerBenchmark {
+  private val testResponse = ZIO.succeed(Response.text("Hello World!"))
+  private val testEndPoint = "test"
+  private val testRoute    = Route.route(Method.GET / testEndPoint)(handler(testResponse))
+  private val testUrl      = s"http://localhost:8080/$testEndPoint"
+  private val testRequest  = basicRequest.get(uri"$testUrl")
 
-  private val MAX      = 10000
-  private val PAR      = 10
-  private val res      = ZIO.succeed(Response.text("Hello World!"))
-  private val endPoint = "test"
-  private val http     = Routes(Route.route(Method.GET / endPoint)(handler(res))).toHttpApp
+  private val shutdownResponse = Response.text("shutting down")
+  private val shutdownEndpoint = "shutdown"
+  private val shutdownUrl      = s"http://localhost:8080/$shutdownEndpoint"
 
-  def benchmarkZioParallel(): Task[Unit] =
-    (for {
-      port   <- Server.install(http)
+  private val backend = HttpClientSyncBackend()
+
+  private def shutdownRoute(shutdownSignal: Promise[Nothing, Unit]) =
+    Route.route(Method.GET / shutdownEndpoint)(handler(shutdownSignal.succeed(()).as(shutdownResponse)))
+  private def http(shutdownSignal: Promise[Nothing, Unit]) = Routes(testRoute, shutdownRoute(shutdownSignal)).toHttpApp
+
+  @Setup(Level.Trial)
+  def setup(): Unit = {
+    val startServer: Task[Unit] = (for {
+      shutdownSignal <- Promise.make[Nothing, Unit]
+      fiber          <- Server.serve(http(shutdownSignal)).fork
+      _              <- shutdownSignal.await *> fiber.interrupt
+    } yield ()).provideLayer(Server.default)
+
+    val waitForServerStarted: Task[Unit] = (for {
       client <- ZIO.service[Client]
-      url    <- ZIO.fromEither(URL.decode(s"http://localhost:$port/$endPoint"))
-      call = client.request(Request(url = url))
-      _ <- ZIO.collectAllParDiscard(List.fill(MAX)(call)).withParallelism(PAR)
-    } yield ()).provide(Server.default, ZClient.default, zio.Scope.default)
+      _      <- client.request(Request(url = URL.decode(testUrl).toOption.get))
+    } yield ()).provide(ZClient.default, zio.Scope.default)
+
+    Unsafe.unsafe(implicit u => Runtime.default.unsafe.fork(startServer))
+    Unsafe.unsafe(implicit u =>
+      Runtime.default.unsafe.run(waitForServerStarted.retry(Schedule.fixed(1.second))).getOrThrow(),
+    )
+  }
+
+  @TearDown(Level.Trial)
+  def tearDown(): Unit = {
+    val stopServer = (for {
+      client <- ZIO.service[Client]
+      _      <- client.request(Request(url = URL.decode(shutdownUrl).toOption.get))
+    } yield ()).provide(ZClient.default, zio.Scope.default)
+    Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(stopServer).getOrThrow())
+  }
 
   @Benchmark
-  def benchmarkAppParallel(): Unit = {
-    zio.Unsafe.unsafe(implicit u => zio.Runtime.default.unsafe.run(benchmarkZioParallel()))
+  def benchmarkApp(): Unit = {
+    val statusCode = testRequest.send(backend).code
+    if (!statusCode.isSuccess)
+      throw new RuntimeException(s"Received unexpected status code ${statusCode.code}")
   }
 }
