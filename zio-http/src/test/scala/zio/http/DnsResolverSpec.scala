@@ -145,7 +145,7 @@ object DnsResolverSpec extends ZIOSpecDefault {
     }
 
   private final case class TestResolver() extends DnsResolver {
-    override def resolve(host: String): ZIO[Any, UnknownHostException, Chunk[InetAddress]] =
+    override def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]] =
       if (host.startsWith("host"))
         ZIO.succeed(Chunk(InetAddress.getByAddress(Array(127, 0, 0, host.stripPrefix("host").toByte))))
       else
