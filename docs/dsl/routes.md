@@ -93,10 +93,10 @@ Handler.status(Status.Ok)
 
 ### Handler.error
 
-Creates a `Handler` that always fails with the given `HttpError`.
+Creates a `Handler` that always fails with the given error.
 
 ```scala mdoc:silent
-Handler.error(HttpError.Forbidden())
+Handler.error(Status.Forbidden)
 ```
 
 ### Handler.response
