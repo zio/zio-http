@@ -1,6 +1,6 @@
 package zio.http
 
-import zio.{Cause, Scope, Tag, Trace, ZEnvironment, ZIO, ZLayer}
+import zio._
 
 final case class SocketApp[-R](
   handler: Handler[R, Throwable, WebSocketChannel, Any],
