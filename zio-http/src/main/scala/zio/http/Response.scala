@@ -30,6 +30,9 @@ final case class Response(
   body: Body,
   socketApp: Option[SocketApp[Any]], // TODO: move to Body
 ) extends HeaderOps[Response] { self =>
+
+  private[http] var encoded: AnyRef = null
+
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
