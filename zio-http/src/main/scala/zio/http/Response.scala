@@ -18,7 +18,7 @@ final case class Response(
 
   /**
    * Collects the potentially streaming body of the response into a single
-   * chunk.
+   * chunk
    */
   def collect: ZIO[Any, Throwable, Response] =
     if (body.isComplete) ZIO.succeed(this)
@@ -86,9 +86,7 @@ final case class Response(
 
 }
 
-object ResponseObject extends ResponseObject
-
-trait ResponseObject {
+object ResponseObject {
   import Response._
 
   private trait InternalState extends Response {
