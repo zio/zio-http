@@ -8,10 +8,7 @@ import zio.http._
 
 import org.openjdk.jmh.annotations._
 import sttp.client3.{HttpClientSyncBackend, UriContext, basicRequest}
-import sttp.model.Uri
 
-@Warmup(iterations = 2)
-@Measurement(iterations = 3)
 @State(org.openjdk.jmh.annotations.Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))
 @OutputTimeUnit(TimeUnit.SECONDS)
