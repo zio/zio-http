@@ -185,25 +185,22 @@ private[zio] final case class ServerInboundHandler(
     jRequest: HttpRequest,
     time: ServerTime,
   ): Task[Unit] = {
-    for {
-      _ <-
-        if (response.isWebSocket) ZIO.attempt(upgradeToWebSocket(ctx, jRequest, response, runtime))
+    val result: Task[Option[Task[Unit]]] = ZIO.attempt {
+      if (response.isWebSocket) {
+        upgradeToWebSocket(ctx, jRequest, response, runtime)
+        None
+      } else {
+        val jResponse = NettyResponseEncoder.encode(ctx, response, runtime)
+        setServerTime(time, response, jResponse)
+        ctx.writeAndFlush(jResponse)
+        if (!jResponse.isInstanceOf[FullHttpResponse])
+          Some(NettyBodyWriter
+            .writeAndFlush(response.body, ctx))
         else
-          for {
-            jResponse <- ZIO.attempt {
-              val jResponse = NettyResponseEncoder.encode(ctx, response, runtime)
-              setServerTime(time, response, jResponse)
-              ctx.writeAndFlush(jResponse)
-              jResponse
-            }
-            _         <-
-              if (!jResponse.isInstanceOf[FullHttpResponse])
-                NettyBodyWriter
-                  .writeAndFlush(response.body, ctx)
-              else
-                ZIO.succeed(())
-          } yield ()
-    } yield ()
+          None
+      }
+    }
+    result.flatMap(_.getOrElse(ZIO.succeed(())))
   }
 
   private def attemptImmediateWrite(
