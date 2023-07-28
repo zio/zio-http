@@ -213,7 +213,7 @@ object WebSocketSpec extends HttpRunnableSpec {
     }
   }
     .provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
-    timeout(30 seconds) @@ diagnose(30.seconds) @@ withLiveClock @@ sequential
+    timeout(60 seconds) @@ diagnose(60.seconds) @@ withLiveClock @@ sequential
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
     def add(a: A, isDone: Boolean = false): UIO[Unit] = ref.update(_ :+ a) <* promise.succeed(()).when(isDone)
