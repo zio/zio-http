@@ -30,24 +30,24 @@ object CliSpec extends ZIOSpecDefault {
 
   val headerCodec = HttpCodec.Header("header", TextCodec.string)
 
-  val path1 = HttpCodec.Path(TextCodec.boolean, Some("path1"))
+  val path1 = PathCodec.bool("path1")
 
-  val path2 = HttpCodec.Path(TextCodec.string, Some("path2"))
+  val path2 = PathCodec.string("path2")
 
   val path3 = path1 / path2
 
-  val simpleEndpoint = Endpoint.get(path1).inCodec(bodyCodec1).inCodec(headerCodec)
+  val simpleEndpoint = Endpoint(Method.GET / path1).inCodec(bodyCodec1).inCodec(headerCodec)
 
-  val multiformEndpoint = Endpoint.post(path2).inCodec(bodyCodec1).inCodec(bodyCodec2)
+  val multiformEndpoint = Endpoint(Method.POST / path2).inCodec(bodyCodec1).inCodec(bodyCodec2)
 
-  val streamEndpoint = Endpoint.put(path3).inCodec(bodyStream)
+  val streamEndpoint = Endpoint(Method.PUT / path3).inCodec(bodyStream)
 
   val endpoints = Chunk(simpleEndpoint, multiformEndpoint, streamEndpoint)
 
   val testClient: ZLayer[Any, Nothing, TestClient & Client] =
     ZLayer.scopedEnvironment {
       for {
-        behavior       <- Ref.make[HttpApp[Any, Throwable]](Http.empty)
+        behavior       <- Ref.make[PartialFunction[Request, ZIO[Any, Response, Response]]](PartialFunction.empty)
         socketBehavior <- Ref.make[SocketApp[Any]](Handler.unit)
         driver = TestClient(behavior, socketBehavior)
         _ <- driver.addHandler {
@@ -62,6 +62,7 @@ object CliSpec extends ZIOSpecDefault {
                 .map(_.formData)
                 .map(_.map(_.stringValue.toString()))
                 .map(_.toString())
+                .mapError(e => Response.error(Status.BadRequest, e.getMessage()))
             } yield if (text == "Chunk(Some(342.76))") Response.text("received 1") else Response.text(text)
           case Request(_, Method.POST, _, _, body, _)                                           =>
             for {
@@ -69,6 +70,7 @@ object CliSpec extends ZIOSpecDefault {
                 .map(_.formData)
                 .map(_.map(_.stringValue.toString()))
                 .map(_.toString())
+                .mapError(e => Response.error(Status.BadRequest, e.getMessage()))
               response <-
                 if (text == """Chunk(Some(342.76),Some("sample"))""") ZIO.succeed("received 2")
                 else ZIO.succeed(text)
@@ -79,6 +81,7 @@ object CliSpec extends ZIOSpecDefault {
                 .map(_.formData)
                 .map(_.map(_.stringValue.toString()))
                 .map(_.toString())
+                .mapError(e => Response.error(Status.BadRequest, e.getMessage()))
               response <-
                 if (text == "Chunk(Some(342))") ZIO.succeed("received 3")
                 else ZIO.succeed(text)

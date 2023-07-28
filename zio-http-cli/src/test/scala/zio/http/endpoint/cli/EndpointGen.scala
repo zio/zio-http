@@ -25,8 +25,8 @@ object EndpointGen {
   def fromInputCodec[Input](
     doc: Doc,
     input: HttpCodec[CodecType, Input],
-  ): Endpoint[Input, ZNothing, ZNothing, EndpointMiddleware.None] =
-    Endpoint(input, HttpCodec.unused, HttpCodec.unused, doc, EndpointMiddleware.None)
+  ): Endpoint[Path, Input, ZNothing, ZNothing, EndpointMiddleware.None] =
+    Endpoint(RoutePattern.any, input, HttpCodec.unused, HttpCodec.unused, doc, EndpointMiddleware.None)
 
   lazy val anyCliEndpoint: Gen[Any, CliReprOf[CliEndpoint]] =
     anyCodec.map(
@@ -77,14 +77,16 @@ object EndpointGen {
       )
     }
 
+  lazy val anyPathCodec: Gen[Any, PathCodec[_]] =
+    anyTextCodec.zip(Gen.alphaNumericStringBounded(1, 30)).map {
+      case (codec, name) =>
+        OptionsGen.toPathCodec(name, codec)
+    }
+
   lazy val anyPath: Gen[Any, CliReprOf[Codec[_]]] =
-    anyTextCodec.zip(Gen.option(Gen.alphaNumericStringBounded(1, 30))).map {
-      case (codec, Some(name))                       =>
-        CliRepr(HttpCodec.Path(codec, Some(name)), CliEndpoint(url = HttpOptions.Path(name, codec) :: Nil))
-      case (codec @ TextCodec.Constant(value), name) =>
-        CliRepr(HttpCodec.Path(codec, name), CliEndpoint(url = HttpOptions.PathConstant(value) :: Nil))
-      case (codec, name)                             =>
-        CliRepr(HttpCodec.Path(codec, name), CliEndpoint.empty)
+    anyPathCodec.map {
+      case codec                      =>
+        CliRepr(HttpCodec.Path(codec), CliEndpoint(url = HttpOptions.Path(codec) :: Nil))
     }
 
   lazy val anyQuery: Gen[Any, CliReprOf[Codec[_]]] =

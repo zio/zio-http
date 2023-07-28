@@ -204,7 +204,7 @@ private[cli] object HttpOptions {
       extends HeaderOptions {
     self =>
 
-    lazy val options: Options[_] = optionsFromCodec(textCodec)(name)
+    lazy val options: Options[_] = optionsFromTextCodec(textCodec)(name)
 
     override def ??(doc: Doc): Header = self.copy(doc = self.doc + doc)
 
@@ -237,40 +237,41 @@ private[cli] object HttpOptions {
     override def ??(doc: Doc): URLOptions
   }
 
-  final case class Path(override val name: String, textCodec: TextCodec[_], doc: Doc = Doc.empty) extends URLOptions {
+  final case class Path(pathCodec: PathCodec[_], doc: Doc = Doc.empty) extends URLOptions {
     self =>
 
-    lazy val options: Options[_] = optionsFromCodec(textCodec)(name)
+    override val name = pathCodec.segments
+      .map {
+        case SegmentCodec.Literal(value, _) => value
+        case _ => ""
+      }
+      .filter(_ != "")
+      .mkString("-")
+
+    lazy val options: zio.Chunk[Options[String]] = pathCodec.segments.map(optionsFromSegment)
 
     override def ??(doc: Doc): Path = self.copy(doc = self.doc + doc)
 
     override val tag = "/" + name
 
     override def transform(request: Options[CliRequest]): Options[CliRequest] =
-      (request ++ options).map { case (cliRequest, value) =>
-        if (true) cliRequest.addPathParam(value.toString())
-        else cliRequest
+      options.foldRight(request) {
+        case (opts, req) => 
+          (req ++ opts).map { case (cliRequest, value) =>
+            if (true) cliRequest.addPathParam(value)
+            else cliRequest
+          }
       }
+      
 
   }
 
-  final case class PathConstant(override val name: String, doc: Doc = Doc.empty) extends URLOptions with Constant {
-    self =>
-
-    override val tag = "/" + name
-
-    override def ??(doc: Doc): PathConstant = self.copy(doc = self.doc + doc)
-
-    override def transform(request: Options[CliRequest]): Options[CliRequest] =
-      request.map(_.addPathParam(name))
-
-  }
 
   final case class Query(override val name: String, textCodec: TextCodec[_], doc: Doc = Doc.empty) extends URLOptions {
     self =>
 
     override val tag             = "?" + name
-    lazy val options: Options[_] = optionsFromCodec(textCodec)(name)
+    lazy val options: Options[_] = optionsFromTextCodec(textCodec)(name)
 
     override def ??(doc: Doc): Query = self.copy(doc = self.doc + doc)
 
@@ -294,7 +295,7 @@ private[cli] object HttpOptions {
 
   }
 
-  private[cli] def optionsFromCodec[A](textCodec: TextCodec[A]): (String => Options[A]) =
+  private[cli] def optionsFromTextCodec[A](textCodec: TextCodec[A]): (String => Options[A]) =
     textCodec match {
       case TextCodec.UUIDCodec    =>
         Options
@@ -312,4 +313,31 @@ private[cli] object HttpOptions {
       case TextCodec.BooleanCodec => Options.boolean(_)
       case TextCodec.Constant(_)  => _ => Options.none
     }
+
+  private[cli] def optionsFromSegment(segment: SegmentCodec[_]): Options[String] = {
+    def fromSegment[A](segment: SegmentCodec[A]): Options[String] =
+        segment match {
+        case SegmentCodec.UUID(name, doc)    =>
+          Options
+            .text(name)
+            .mapOrFail(str =>
+              Try(java.util.UUID.fromString(str)).toEither.left.map { error =>
+                ValidationError(
+                  ValidationErrorType.InvalidValue,
+                  HelpDoc.p(HelpDoc.Span.code(error.getMessage())),
+                )
+              },
+            ).map(_.toString)
+        case SegmentCodec.Text(name, doc)  => Options.text(name)
+        case SegmentCodec.IntSeg(name, doc)     => Options.integer(name).map(_.toInt).map(_.toString)
+        case SegmentCodec.LongSeg(name, doc)     => Options.integer(name).map(_.toInt).map(_.toString)
+        case SegmentCodec.BoolSeg(name, doc) => Options.boolean(name).map(_.toString)
+        case SegmentCodec.Literal(value, doc)  => Options.Empty.map(_ => value)
+        case SegmentCodec.Trailing(doc) => ??? // FIXME
+        case SegmentCodec.Empty(_) => Options.none.map(_.toString)
+      }
+
+    fromSegment(segment)
+  }
+    
 }

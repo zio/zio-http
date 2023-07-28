@@ -44,12 +44,13 @@ private[cli] final case class CliEndpoint(
       }) :: url
         .filter(
           _ match {
-            case _: HttpOptions.PathConstant  => true
+            case _: HttpOptions.Path  => true
             case _: HttpOptions.QueryConstant => true
             case _                            => false
           },
         )
         .map(_.name)
+        .filter(_ != "")
     }.mkString("-")
     else {
       {
@@ -125,13 +126,8 @@ private[cli] object CliEndpoint {
           case _                                     => CliEndpoint.empty
         }
 
-      case HttpCodec.Path(textCodec, Some(name), _) =>
-        CliEndpoint(url = HttpOptions.Path(name, textCodec) :: List())
-      case HttpCodec.Path(textCodec, None, _)       =>
-        textCodec.asInstanceOf[TextCodec[_]] match {
-          case TextCodec.Constant(value) => CliEndpoint(url = HttpOptions.PathConstant(value) :: List())
-          case _                         => CliEndpoint.empty
-        }
+      case HttpCodec.Path(pathCodec, _) =>
+        CliEndpoint(url = HttpOptions.Path(pathCodec) :: List())
 
       case HttpCodec.Query(name, textCodec, _) =>
         textCodec.asInstanceOf[TextCodec[_]] match {

@@ -17,7 +17,7 @@ object HttpCommand {
   /*
    * Transforms an Endpoint in its corresponding Command[CliRequest].
    */
-  def getCommand[M <: EndpointMiddleware](endpoint: Endpoint[_, _, _, M], cliStyle: Boolean): Command[CliRequest] = {
+  def getCommand[M <: EndpointMiddleware](endpoint: Endpoint[_, _, _, _, M], cliStyle: Boolean): Command[CliRequest] = {
     val cliEndpoint = CliEndpoint.fromEndpoint(endpoint)
 
     val doc = cliEndpoint.doc.toPlaintext()
@@ -45,7 +45,7 @@ object HttpCommand {
    */
   def fromEndpoints[M <: EndpointMiddleware](
     name: String,
-    endpoints: Chunk[Endpoint[_, _, _, M]],
+    endpoints: Chunk[Endpoint[_, _, _, _, M]],
     cliStyle: Boolean,
   ): Command[CliRequest] = {
 
