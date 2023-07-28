@@ -718,8 +718,14 @@ object Handler {
   /**
    * Creates a handler which always responds with a 400 status code.
    */
+  def badRequest: Handler[Any, Nothing, Any, Response] =
+    error(Status.BadRequest)
+
+  /**
+   * Creates a handler which always responds with a 400 status code.
+   */
   def badRequest(message: => String): Handler[Any, Nothing, Any, Response] =
-    error(HttpError.BadRequest(message))
+    error(Status.BadRequest, message)
 
   /**
    * Returns a handler that dies with the specified `Throwable`. This method can
@@ -739,16 +745,16 @@ object Handler {
     die(new RuntimeException(message))
 
   /**
-   * Creates a handler with HttpError.
+   * Creates a handler with an error and the default error message.
    */
-  def error(error: => HttpError): Handler[Any, Nothing, Any, Response] =
-    response(Response.fromHttpError(error))
+  def error(status: => Status.Error): Handler[Any, Nothing, Any, Response] =
+    response(Response.error(status))
 
   /**
-   * Creates a handler that responds with 500 status code
+   * Creates a handler with an error and the specified error message.
    */
-  def errorMessage(message: => String): Handler[Any, Nothing, Any, Response] =
-    error(HttpError.InternalServerError(message))
+  def error(status: => Status.Error, message: => String): Handler[Any, Nothing, Any, Response] =
+    response(Response.error(status, message))
 
   /**
    * Creates a Handler that always fails
@@ -776,8 +782,14 @@ object Handler {
   /**
    * Creates a handler that responds with 403 - Forbidden status code
    */
+  def forbidden: Handler[Any, Nothing, Any, Response] =
+    error(Status.Forbidden)
+
+  /**
+   * Creates a handler that responds with 403 - Forbidden status code
+   */
   def forbidden(message: => String): Handler[Any, Nothing, Any, Response] =
-    error(HttpError.Forbidden(message))
+    error(Status.Forbidden, message)
 
   def from[H](handler: => H)(implicit h: ToHandler[H]): Handler[h.Env, h.Err, h.In, h.Out] =
     h.toHandler(handler)
@@ -984,11 +996,23 @@ object Handler {
       override def apply(in: A): ZIO[Any, Nothing, A] = Exit.succeed(in)
     }
 
+  def internalServerError: Handler[Any, Nothing, Any, Response] =
+    error(Status.InternalServerError)
+
+  def internalServerError(message: => String): Handler[Any, Nothing, Any, Response] =
+    error(Status.InternalServerError, message)
+
+  /**
+   * Creates a handler which always responds with a 405 status code.
+   */
+  def methodNotAllowed: Handler[Any, Nothing, Any, Response] =
+    error(Status.MethodNotAllowed)
+
   /**
    * Creates a handler which always responds with a 405 status code.
    */
   def methodNotAllowed(message: => String): Handler[Any, Nothing, Any, Response] =
-    error(HttpError.MethodNotAllowed(message))
+    error(Status.MethodNotAllowed, message)
 
   /**
    * Creates a handler that fails with a NotFound exception.
@@ -996,8 +1020,11 @@ object Handler {
   def notFound: Handler[Any, Nothing, Request, Response] =
     Handler
       .fromFunctionHandler[Request] { request =>
-        error(HttpError.NotFound(request.url.path.encode))
+        error(Status.NotFound, request.url.path.encode)
       }
+
+  def notFound(message: => String): Handler[Any, Nothing, Any, Response] =
+    error(Status.NotFound, message)
 
   /**
    * Creates a handler which always responds with a 200 status code.

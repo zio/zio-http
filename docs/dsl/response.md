@@ -66,12 +66,12 @@ Response.text("Hello World!").status(Status.NOT_FOUND)
 Response.ok.updateHeaders(_ => Headers("key", "value"))
 ```
 
-### Response from HttpError
+### Response from Http Errors
 
-`fromHttpError` creates a response with provided `HttpError`
+`error` creates a response with a provided status code and message.
 
 ```scala mdoc
- Response.fromHttpError(HttpError.BadRequest())
+ Response.error(Status.BadRequest, "It's not good!")
 ```
 
 ## Adding Cookie to Response
