@@ -21,6 +21,7 @@ import java.nio.charset._
 import java.nio.file._
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -161,7 +162,7 @@ object Body {
   def fromMultipartForm(
     form: Form,
     specificBoundary: Boundary,
-  ): Body = {
+  )(implicit trace: Trace): Body = {
     val bytes = form.multipartBytes(specificBoundary)
 
     StreamBody(bytes, Some(MediaType.multipart.`form-data`), Some(specificBoundary))
@@ -174,7 +175,7 @@ object Body {
    */
   def fromMultipartFormUUID(
     form: Form,
-  ): UIO[Body] =
+  )(implicit trace: Trace): UIO[Body] =
     form.multipartBytesUUID.map { case (boundary, bytes) =>
       StreamBody(bytes, Some(MediaType.multipart.`form-data`), Some(boundary))
     }
@@ -331,8 +332,8 @@ object Body {
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
-  private val zioEmptyArray = ZIO.succeed(Array.empty[Byte])
+  private val zioEmptyArray = ZIO.succeed(Array.empty[Byte])(Trace.empty)
 
-  private val zioEmptyChunk = ZIO.succeed(Chunk.empty[Byte])
+  private val zioEmptyChunk = ZIO.succeed(Chunk.empty[Byte])(Trace.empty)
 
 }

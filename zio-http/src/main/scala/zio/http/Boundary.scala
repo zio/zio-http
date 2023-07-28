@@ -18,7 +18,8 @@ package zio.http
 
 import java.nio.charset.Charset
 
-import zio.Chunk
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Chunk, Trace}
 
 /**
  * A multipart boundary, which consists of both the boundary and its charset.
@@ -72,7 +73,7 @@ object Boundary {
   def fromString(content: String, charset: Charset): Option[Boundary] =
     fromContent(Chunk.fromArray(content.getBytes(charset)), charset)
 
-  def randomUUID: zio.UIO[Boundary] =
+  def randomUUID(implicit trace: Trace): zio.UIO[Boundary] =
     zio.Random.nextUUID.map { id =>
       Boundary(s"(((${id.toString()})))")
     }

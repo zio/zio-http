@@ -19,10 +19,10 @@ package zio.http
 import java.util.concurrent.atomic.LongAdder
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Driver.StartResult
 import zio.http.netty.server.NettyDriver
-
 trait Driver {
   def start(implicit trace: Trace): RIO[Scope, StartResult]
 
