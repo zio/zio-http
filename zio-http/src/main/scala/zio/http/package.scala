@@ -20,7 +20,7 @@ import java.util.UUID
 
 import zio.http.codec.PathCodec
 
-package object http {
+package object http extends UrlInterpolator {
 
   /**
    * A smart constructor that attempts to construct a handler from the specified

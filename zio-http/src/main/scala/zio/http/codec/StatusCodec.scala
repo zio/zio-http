@@ -15,5 +15,5 @@
  */
 
 package zio.http.codec
-
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 object StatusCodec extends StatusCodecs
