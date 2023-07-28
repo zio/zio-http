@@ -25,9 +25,10 @@ import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 
 import scala.collection.mutable
-
 final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,

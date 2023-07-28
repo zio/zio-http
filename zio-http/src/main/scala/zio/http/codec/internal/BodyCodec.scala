@@ -17,6 +17,7 @@
 package zio.http.codec.internal
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -41,12 +42,12 @@ private[internal] sealed trait BodyCodec[A] { self =>
   /**
    * Attempts to decode the `A` from a body using the given codec.
    */
-  def decodeFromBody(body: Body, codec: BinaryCodec[Element]): IO[Throwable, A]
+  def decodeFromBody(body: Body, codec: BinaryCodec[Element])(implicit trace: Trace): IO[Throwable, A]
 
   /**
    * Encodes the `A` to a body in the given codec.
    */
-  def encodeToBody(value: A, codec: BinaryCodec[Element]): Body
+  def encodeToBody(value: A, codec: BinaryCodec[Element])(implicit trace: Trace): Body
 
   /**
    * Erases the type for easier use in the internal implementation.
@@ -78,9 +79,9 @@ private[internal] object BodyCodec {
   case object Empty extends BodyCodec[Unit] {
     type Element = Unit
 
-    def decodeFromBody(body: Body, codec: BinaryCodec[Unit]): IO[Nothing, Unit] = ZIO.unit
+    def decodeFromBody(body: Body, codec: BinaryCodec[Unit])(implicit trace: Trace): IO[Nothing, Unit] = ZIO.unit
 
-    def encodeToBody(value: Unit, codec: BinaryCodec[Unit]): Body = Body.empty
+    def encodeToBody(value: Unit, codec: BinaryCodec[Unit])(implicit trace: Trace): Body = Body.empty
 
     def schema: Schema[Unit] = Schema[Unit]
 
@@ -91,7 +92,7 @@ private[internal] object BodyCodec {
 
   final case class Single[A](schema: Schema[A], mediaType: Option[MediaType], name: Option[String])
       extends BodyCodec[A] {
-    def decodeFromBody(body: Body, codec: BinaryCodec[A]): IO[Throwable, A] = {
+    def decodeFromBody(body: Body, codec: BinaryCodec[A])(implicit trace: Trace): IO[Throwable, A] = {
       if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
       else
         body.asChunk.flatMap { chunk =>
@@ -99,7 +100,7 @@ private[internal] object BodyCodec {
         }
     }
 
-    def encodeToBody(value: A, codec: BinaryCodec[A]): Body =
+    def encodeToBody(value: A, codec: BinaryCodec[A])(implicit trace: Trace): Body =
       Body.fromChunk(codec.encode(value))
 
     type Element = A
@@ -107,10 +108,12 @@ private[internal] object BodyCodec {
 
   final case class Multiple[E](schema: Schema[E], mediaType: Option[MediaType], name: Option[String])
       extends BodyCodec[ZStream[Any, Nothing, E]] {
-    def decodeFromBody(body: Body, codec: BinaryCodec[E]): IO[Throwable, ZStream[Any, Nothing, E]] =
+    def decodeFromBody(body: Body, codec: BinaryCodec[E])(implicit
+      trace: Trace,
+    ): IO[Throwable, ZStream[Any, Nothing, E]] =
       ZIO.succeed((body.asStream >>> codec.streamDecoder).orDie)
 
-    def encodeToBody(value: ZStream[Any, Nothing, E], codec: BinaryCodec[E]): Body =
+    def encodeToBody(value: ZStream[Any, Nothing, E], codec: BinaryCodec[E])(implicit trace: Trace): Body =
       Body.fromStream(value >>> codec.streamEncoder)
 
     type Element = E

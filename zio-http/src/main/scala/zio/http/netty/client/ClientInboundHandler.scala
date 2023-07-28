@@ -21,6 +21,7 @@ import io.netty.handler.codec.http._
 import zio._
 import zio.http.netty.{NettyBodyWriter, NettyResponse, NettyRuntime}
 import zio.http.{Request, Response}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * Handles HTTP response

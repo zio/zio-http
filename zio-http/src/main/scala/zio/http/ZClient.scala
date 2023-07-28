@@ -36,7 +36,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def apply(request: Request)(implicit ev: Body <:< In, trace: Trace): ZIO[Env & Scope, Err, Out] =
     self.request(request)
 
-  override def updateHeaders(update: Headers => Headers): ZClient[Env, In, Err, Out] =
+  override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): ZClient[Env, In, Err, Out] =
     copy(headers = update(headers))
 
   /**

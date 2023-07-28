@@ -26,6 +26,7 @@ import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import java.io.IOException
 import java.net.InetSocketAddress

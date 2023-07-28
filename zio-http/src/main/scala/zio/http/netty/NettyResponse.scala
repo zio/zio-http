@@ -23,6 +23,7 @@ import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
 import zio.http.netty.model.Conversions
 import zio.http.{Body, Header, Response}
 import zio.{Promise, Trace, Unsafe, ZIO}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 object NettyResponse {
 

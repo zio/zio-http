@@ -20,6 +20,7 @@ import zio._
 import zio.http.html.Html
 import zio.http.internal.HeaderOps
 import zio.stream.ZStream
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
 import scala.annotation.tailrec
@@ -40,7 +41,7 @@ final case class Response(
    * Collects the potentially streaming body of the response into a single
    * chunk.
    */
-  def collect: ZIO[Any, Throwable, Response] =
+  def collect(implicit trace: Trace): ZIO[Any, Throwable, Response] =
     if (self.body.isComplete) ZIO.succeed(self)
     else
       self.body.asChunk.map { bytes =>
@@ -48,13 +49,13 @@ final case class Response(
       }
 
   /** Consumes the streaming body fully and then drops it */
-  def ignoreBody: ZIO[Any, Throwable, Response] =
+  def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
 
   def isWebSocket: Boolean =
     socketApp.isDefined && self.status == Status.SwitchingProtocols
 
-  def patch(p: Response.Patch): Response = p.apply(self)
+  def patch(p: Response.Patch)(implicit trace: Trace): Response = p.apply(self)
 
   /**
    * Sets the status of the response
@@ -71,7 +72,7 @@ final case class Response(
    * Updates the current Headers with new one, using the provided update
    * function passed.
    */
-  override def updateHeaders(update: Headers => Headers): Response =
+  override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
     copy(headers = update(headers))
 }
 
@@ -96,8 +97,8 @@ object Response {
    * Models the set of operations that one would want to apply on a Response.
    */
   sealed trait Patch { self =>
-    def ++(that: Patch): Patch         = Patch.Combine(self, that)
-    def apply(res: Response): Response = {
+    def ++(that: Patch): Patch                                = Patch.Combine(self, that)
+    def apply(res: Response)(implicit trace: Trace): Response = {
 
       @tailrec
       def loop(res: Response, patch: Patch): Response =
@@ -196,7 +197,7 @@ object Response {
    * @param data
    *   \- stream of data to be sent as Server Sent Events
    */
-  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
+  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
     Response(Status.Ok, contentTypeEventStream, Body.fromStream(data.map(_.encode)))
 
   /**

@@ -16,19 +16,18 @@
 
 package zio.http.netty
 
-import java.util.concurrent.ConcurrentHashMap
-
-import zio._
-
-import zio.http._
-import zio.http.netty.model.Conversions
-
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
+import zio._
+import zio.http._
+import zio.http.netty.model.Conversions
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import java.util.concurrent.ConcurrentHashMap
 
 private[zio] object NettyResponseEncoder {
 
-  def encode(response: Response): ZIO[Any, Throwable, HttpResponse] = {
+  def encode(response: Response)(implicit trace: Trace): ZIO[Any, Throwable, HttpResponse] = {
     val body = response.body
     if (body.isComplete) {
       body.asArray.flatMap(bytes => ZIO.attemptUnsafe(implicit unsafe => fastEncode(response, bytes)))
@@ -41,7 +40,7 @@ private[zio] object NettyResponseEncoder {
     }
   }
 
-  def fastEncode(response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): FullHttpResponse = {
+  def fastEncode(response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe, trace: Trace): FullHttpResponse = {
     if (response.encoded eq null) {
       response.encoded = doEncode(response, bytes)
     }

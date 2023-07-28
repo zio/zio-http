@@ -19,6 +19,7 @@ package zio.http
 import zio.http.ClientDriver.ChannelInterface
 import zio.http.netty.client.ChannelState
 import zio.{Promise, Scope, Trace, ZIO, ZLayer}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 trait ClientDriver {
   type Connection
@@ -45,11 +46,13 @@ object ClientDriver {
     def interrupt: ZIO[Any, Throwable, Unit]
   }
 
-  val shared: ZLayer[Driver, Throwable, ClientDriver] =
+  val shared: ZLayer[Driver, Throwable, ClientDriver] = {
+    implicit val trace: Trace = Trace.empty
     ZLayer.scoped {
       for {
         driver       <- ZIO.service[Driver]
         clientDriver <- driver.createClientDriver()
       } yield clientDriver
     }
+  }
 }

@@ -15,7 +15,7 @@
  */
 
 package zio.http.codec
-
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 private[codec] trait MethodCodecs {
   import HttpCodecType.Method
 
