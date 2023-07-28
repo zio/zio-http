@@ -27,7 +27,7 @@ object RequestLoggingSpec extends ZIOSpecDefault with HttpAppTestExtensions {
 
   private val app = Routes(
     Method.GET / "ok"     -> Handler.ok,
-    Method.GET / "error"  -> Handler.error(HttpError.InternalServerError()),
+    Method.GET / "error"  -> Handler.internalServerError,
     Method.GET / "fail"   -> Handler.fail(Response.status(Status.Forbidden)),
     Method.GET / "defect" -> Handler.die(new Throwable("boom")),
   ).sandbox.toHttpApp

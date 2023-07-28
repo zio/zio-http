@@ -18,6 +18,7 @@ package zio.http.codec.internal
 
 import scala.util.control.NoStackTrace
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 case object HaltException
     extends RuntimeException("This exception is used only for control flow purposes")
     with NoStackTrace

@@ -20,6 +20,7 @@ import java.time._
 import java.util.UUID
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -145,7 +146,7 @@ private[codec] object EncoderDecoder                   {
         erased.encodeToBody(_, jsonCodec)
       }
 
-    private val formFieldEncoders: Chunk[(String, Any) => FormField]      =
+    private val formFieldEncoders: Chunk[(String, Any) => FormField] =
       flattened.content.map { bodyCodec => (name: String, value: Any) =>
         {
           val erased = bodyCodec.erase
@@ -162,6 +163,9 @@ private[codec] object EncoderDecoder                   {
           }
         }
       }
+
+    implicit val trace: Trace = Trace.empty
+
     private val jsonDecoders: Chunk[Body => IO[Throwable, _]]             =
       flattened.content.map { bodyCodec =>
         val jsonCodec = JsonCodec.schemaBasedBinaryCodec(bodyCodec.schema)
