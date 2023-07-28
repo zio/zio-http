@@ -17,11 +17,11 @@
 package zio.http.netty
 
 import zio.Config
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 import io.netty.util.ResourceLeakDetector
-
 final case class NettyConfig(
   leakDetectionLevel: LeakDetectionLevel,
   channelType: ChannelType,

@@ -16,11 +16,12 @@
 
 package zio.http.netty.server
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.SSLConfig.HttpBehaviour
 
 import io.netty.channel.{ChannelFutureListener, ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.{DefaultHttpResponse, HttpMessage, HttpResponseStatus, HttpVersion}
-
 private[zio] class ServerHttpsHandler(httpBehaviour: HttpBehaviour) extends SimpleChannelInboundHandler[HttpMessage] {
   override def channelRead0(ctx: ChannelHandlerContext, msg: HttpMessage): Unit = {
 
