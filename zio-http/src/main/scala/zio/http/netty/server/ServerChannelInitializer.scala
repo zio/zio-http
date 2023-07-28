@@ -19,6 +19,7 @@ package zio.http.netty.server
 import java.util.concurrent.TimeUnit
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Server
 import zio.http.Server.RequestStreaming

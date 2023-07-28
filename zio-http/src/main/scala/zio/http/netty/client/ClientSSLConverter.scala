@@ -20,11 +20,12 @@ import java.io.{FileInputStream, InputStream}
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.ClientSSLConfig
 
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
-
 object ClientSSLConverter {
   private def trustStoreToSslContext(trustStoreStream: InputStream, trustStorePassword: String): SslContext = {
     val trustStore          = KeyStore.getInstance("JKS")

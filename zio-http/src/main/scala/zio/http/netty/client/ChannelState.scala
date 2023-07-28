@@ -16,6 +16,8 @@
 
 package zio.http.netty.client
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.Status
 
 sealed trait ChannelState { self =>

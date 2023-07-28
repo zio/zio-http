@@ -1,6 +1,7 @@
 import BuildHelper._
 import Dependencies._
 import sbt.librarymanagement.ScalaArtifacts.isScala3
+import scala.concurrent.duration._
 
 val releaseDrafterVersion = "5"
 
@@ -100,6 +101,8 @@ inThisBuild(
     licenses     := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
   ),
 )
+
+ThisBuild / githubWorkflowBuildTimeout := Some(60.minutes)
 
 lazy val root = (project in file("."))
   .settings(stdSettings("zio-http-root"))
