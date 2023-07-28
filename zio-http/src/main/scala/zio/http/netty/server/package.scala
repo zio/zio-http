@@ -21,9 +21,9 @@ import zio._
 import zio.http._
 
 import java.util.concurrent.atomic.AtomicReference // scalafix:ok;
-
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 package object server {
-  private[server] type AppRef = AtomicReference[(App[Any], ZEnvironment[Any])]
+  private[server] type AppRef = AtomicReference[(HttpApp[Any], ZEnvironment[Any])]
   private[server] type EnvRef = AtomicReference[ZEnvironment[Any]]
 
   def live: ZLayer[Server.Config, Throwable, Driver] =

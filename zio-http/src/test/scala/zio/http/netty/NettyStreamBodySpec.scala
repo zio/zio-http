@@ -13,10 +13,10 @@ import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 object NettyStreamBodySpec extends HttpRunnableSpec {
 
-  def app(streams: Iterator[ZStream[Any, Throwable, Byte]], len: Long) = {
-    Http
-      .collectZIO[Request] { case Method.GET -> Root / "with-content-length" =>
-        ZIO.succeed(
+  def app(streams: Iterator[ZStream[Any, Throwable, Byte]], len: Long) =
+    Routes(
+      Method.GET / "with-content-length" ->
+        handler(
           http.Response(
             status = Status.Ok,
             // content length header is important,
@@ -24,10 +24,8 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
             headers = Headers(Header.ContentLength(len)),
             body = Body.fromStream(streams.next()),
           ),
-        )
-      }
-      .withDefaultErrorResponse
-  }
+        ),
+    ).sandbox.toHttpApp
 
   private def server(
     streams: Iterator[ZStream[Any, Throwable, Byte]],

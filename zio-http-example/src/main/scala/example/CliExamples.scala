@@ -12,6 +12,8 @@ import zio.http.endpoint._
 import zio.http.endpoint.cli._
 
 trait TestCliEndpoints {
+  import zio.http.codec.PathCodec._
+
   import HttpCodec._
   final case class User(
     @description("The unique identifier of the User")
@@ -37,24 +39,25 @@ trait TestCliEndpoints {
   }
 
   val getUser =
-    Endpoint
-      .get("users" / int("userId") ?? Doc.p("The unique identifier of the user"))
+    Endpoint(Method.GET / "users" / int("userId") ?? Doc.p("The unique identifier of the user"))
       .header(HeaderCodec.location ?? Doc.p("The user's location"))
       .out[User] ?? Doc.p("Get a user by ID")
 
   val getUserPosts =
-    Endpoint
-      .get(
+    Endpoint(
+      Method.GET /
         "users" / int("userId") ?? Doc.p("The unique identifier of the user") /
-          "posts" / int("postId") ?? Doc.p("The unique identifier of the post") ^? paramStr("user-name") ?? Doc.p(
-            "The user's name",
-          ),
+        "posts" / int("postId") ?? Doc.p("The unique identifier of the post"),
+    )
+      .query(
+        paramStr("user-name") ?? Doc.p(
+          "The user's name",
+        ),
       )
       .out[List[Post]] ?? Doc.p("Get a user's posts by userId and postId")
 
   val createUser =
-    Endpoint
-      .post("users")
+    Endpoint(Method.POST / "users")
       .in[User]
       .out[String] ?? Doc.p("Create a new user")
 }
@@ -77,23 +80,29 @@ object TestCliApp extends zio.cli.ZIOCliDefault with TestCliEndpoints {
 
 object TestCliServer extends zio.ZIOAppDefault with TestCliEndpoints {
   val getUserRoute =
-    getUser.implement { case (id, _) =>
-      ZIO.succeed(User(id, "Juanito", Some("juanito@test.com")))
+    getUser.implement {
+      Handler.fromFunction { case (id, _) =>
+        User(id, "Juanito", Some("juanito@test.com"))
+      }
     }
 
   val getUserPostsRoute =
-    getUserPosts.implement { case (userId, postId, name) =>
-      ZIO.succeed(List(Post(userId, postId, name)))
+    getUserPosts.implement {
+      Handler.fromFunction { case (userId, postId, name) =>
+        List(Post(userId, postId, name))
+      }
     }
 
   val createUserRoute =
-    createUser.implement { user =>
-      ZIO.succeed(user.name)
+    createUser.implement {
+      Handler.fromFunction { user =>
+        user.name
+      }
     }
 
-  val routes = getUserRoute ++ getUserPostsRoute ++ createUserRoute
+  val routes = Routes(getUserRoute, getUserPostsRoute, createUserRoute)
 
-  val run = Server.serve(routes.toApp).provide(Server.default)
+  val run = Server.serve(routes.toHttpApp).provide(Server.default)
 }
 
 object TestCliClient extends zio.ZIOAppDefault with TestCliEndpoints {

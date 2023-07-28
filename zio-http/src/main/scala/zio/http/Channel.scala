@@ -17,6 +17,7 @@
 package zio.http
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A `Channel` is an asynchronous communication channel that supports receiving
@@ -41,6 +42,11 @@ trait Channel[-In, +Out] { self =>
   def send(in: In): Task[Unit]
 
   /**
+   * Send all messages to the channel.
+   */
+  def sendAll(in: Iterable[In]): Task[Unit]
+
+  /**
    * Shut down the channel.
    */
   def shutdown: UIO[Unit]
@@ -51,13 +57,15 @@ trait Channel[-In, +Out] { self =>
    */
   final def contramap[In2](f: In2 => In): Channel[In2, Out] =
     new Channel[In2, Out] {
-      def awaitShutdown: UIO[Unit]  =
+      def awaitShutdown: UIO[Unit]               =
         self.awaitShutdown
-      def receive: Task[Out]        =
+      def receive: Task[Out]                     =
         self.receive
-      def send(in: In2): Task[Unit] =
+      def send(in: In2): Task[Unit]              =
         self.send(f(in))
-      def shutdown: UIO[Unit]       =
+      def sendAll(in: Iterable[In2]): Task[Unit] =
+        self.sendAll(in.map(f))
+      def shutdown: UIO[Unit]                    =
         self.shutdown
     }
 
@@ -65,15 +73,17 @@ trait Channel[-In, +Out] { self =>
    * Constructs a new channel that automatically transforms messages received
    * from this channel using the specified function.
    */
-  final def map[Out2](f: Out => Out2): Channel[In, Out2] =
+  final def map[Out2](f: Out => Out2)(implicit trace: Trace): Channel[In, Out2] =
     new Channel[In, Out2] {
-      def awaitShutdown: UIO[Unit] =
+      def awaitShutdown: UIO[Unit]              =
         self.awaitShutdown
-      def receive: Task[Out2]      =
+      def receive: Task[Out2]                   =
         self.receive.map(f)
-      def send(in: In): Task[Unit] =
+      def send(in: In): Task[Unit]              =
         self.send(in)
-      def shutdown: UIO[Unit]      =
+      def sendAll(in: Iterable[In]): Task[Unit] =
+        self.sendAll(in)
+      def shutdown: UIO[Unit]                   =
         self.shutdown
     }
 
@@ -81,6 +91,6 @@ trait Channel[-In, +Out] { self =>
    * Reads all messages from the channel, handling them with the specified
    * function.
    */
-  final def receiveAll[Env](f: Out => ZIO[Env, Throwable, Any]): ZIO[Env, Throwable, Nothing] =
+  final def receiveAll[Env](f: Out => ZIO[Env, Throwable, Any])(implicit trace: Trace): ZIO[Env, Throwable, Nothing] =
     receive.flatMap(f).forever
 }

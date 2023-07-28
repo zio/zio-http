@@ -79,8 +79,8 @@ private[cli] object CliEndpoint {
   /*
    * Extract the information of input or output of an Endpoint.
    */
-  def fromEndpoint[In, Err, Out, M <: EndpointMiddleware](
-    endpoint: Endpoint[In, Err, Out, M],
+  def fromEndpoint[P, In, Err, Out, M <: EndpointMiddleware](
+    endpoint: Endpoint[P, In, Err, Out, M],
     getInput: Boolean = true,
   ): CliEndpoint =
     if (getInput) fromCodec(endpoint.input) ?? endpoint.doc

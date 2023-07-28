@@ -18,6 +18,8 @@ package zio.http.codec
 
 import java.util.UUID
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 /**
  * A [[zio.http.codec.TextCodec]] defines a codec for a text fragment. The text
  * fragment can be decoded into a value, or the value can be encoded into a text
@@ -50,6 +52,8 @@ object TextCodec {
   def constant(string: String): TextCodec[Unit] = Constant(string)
 
   implicit val int: TextCodec[Int] = IntCodec
+
+  implicit val long: TextCodec[Long] = LongCodec
 
   implicit val string: TextCodec[String] = StringCodec
 
@@ -101,6 +105,29 @@ object TextCodec {
     }
 
     override def toString(): String = "TextCodec.int"
+  }
+
+  case object LongCodec extends TextCodec[Long] {
+    def apply(value: String): Long = java.lang.Long.parseLong(value)
+
+    def describe: String = "a long integer"
+
+    def encode(value: Long): String = value.toString
+
+    def isDefinedAt(value: String): Boolean = {
+      var i       = 0
+      var defined = true
+      while (i < value.length) {
+        if (!value.charAt(i).isDigit) {
+          defined = false
+          i = value.length
+        }
+        i += 1
+      }
+      defined && i >= 1
+    }
+
+    override def toString(): String = "TextCodec.long"
   }
 
   case object BooleanCodec extends TextCodec[Boolean] {

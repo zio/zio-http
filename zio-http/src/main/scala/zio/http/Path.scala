@@ -38,7 +38,7 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    */
   def /(name: String): Path =
     if (name == "") addTrailingSlash
-    else if (isRoot) Path(Flags(LeadingSlash), Chunk(name))
+    else if (isRoot) Path(Flags(Flag.LeadingSlash), Chunk(name))
     else Path(Flag.TrailingSlash.remove(flags), segments = segments :+ name)
 
   /**
@@ -50,13 +50,15 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
    */
   def /:(name: String): Path =
     if (name == "") addLeadingSlash
-    else if (isRoot) Path(Flags(TrailingSlash), Chunk(name))
+    else if (isRoot) Path(Flags(Flag.TrailingSlash), Chunk(name))
     else Path(Flag.LeadingSlash.remove(flags), segments = name +: segments)
 
   /**
    * Combines two paths together to create a new one, having a leading slash if
    * only the left path has a leading slash, and a trailing slash if only the
-   * right path has a trailing slash.
+   * right path has a trailing slash. Note that if you concat the empty path to
+   * any other path, either on the left or right hand side, you get back that
+   * same path unmodified.
    */
   def ++(that: Path): Path =
     if (self.isEmpty) that
@@ -180,15 +182,17 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
       if (hasLeadingSlash) Path.root
       else if (hasTrailingSlash) Path.root
       else Path.empty
-    } else {
-      Path(flags, segments)
-    }
+    } else self
 
   /**
    * Creates a new path from this one with it's segments reversed.
    */
   def reverse: Path = Path(Flags.reverse(flags), segments.reverse)
 
+  /**
+   * Returns the "size" of a path, which counts leading and trailing slash, if
+   * present.
+   */
   def size: Int =
     if (isEmpty) 0
     else if (isRoot) 1
@@ -224,6 +228,13 @@ final case class Path private (flags: Path.Flags, segments: Chunk[String]) { sel
     else if (segments.nonEmpty) Some((copy(segments = segments.dropRight(1)), segments.last))
     else if (hasLeadingSlash) Some((Path.empty, ""))
     else None
+
+  /**
+   * Unnests a path that has been nested at the specified prefix. If the path is
+   * not nested at the specified prefix, the same path is returned.
+   */
+  def unnest(prefix: Path): Path =
+    if (startsWith(prefix)) drop(prefix.size) else self
 }
 
 object Path {

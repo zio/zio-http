@@ -3,18 +3,18 @@ id: body
 title: Body
 ---
 
-`Body` is a domain to model content for `Request`, `Response` and `ClientRequest`. ZIO HTTP uses Netty at it's core and Netty handles content as `ByteBuf`. `Body` helps you decode and encode this content into simpler, easier to use data types while creating a Request or Response.
+`Body` is a domain to model content for `Request` and `Response`. ZIO HTTP uses Netty at its core and Netty handles content as `ByteBuf`. `Body` helps you decode and encode this content into simpler, easier to use data types while creating a Request or Response.
 
 ## Server-side usage of `Body`
 
-On the server-side, `ZIO-HTTP` models content in `Request` and `Response` as `Body` with `Body.Empty` as the default value. To add content while creating a `Response` you can use the `Response` constructor:
+On the server-side, `ZIO-HTTP` models content in `Request` and `Response` as `Body` with `Body.empty` as the default value. To add content while creating a `Response` you can use the `Response` constructor:
 
 ```scala mdoc:silent
   import zio._
   import zio.http._
   import zio.stream._
 
-  val res: Response = Response( body = Body.fromString("Some String"))
+  val res: Response = Response(body = Body.fromString("Some String"))
 ```
 
 To add content while creating a `Request` for unit tests, you can use the `Request` constructor:
@@ -25,7 +25,7 @@ To add content while creating a `Request` for unit tests, you can use the `Reque
 
 ## Client-side usage of `Body`
 
-On the client-side, `ZIO-HTTP` models content in `ClientRequest` as `Body` with `Body.Empty` as the default value.
+On the client-side, `ZIO-HTTP` models content in `Client` as `Body` with `Body.Empty` as the default value.
 
 To add content while making a request using ZIO HTTP you can use the `Client.request` method:
 

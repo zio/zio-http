@@ -12,7 +12,7 @@ import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
 object HttpsClient extends ZIOAppDefault {
-  val url     = "https://sports.api.decathlon.com/groups/water-aerobics"
+  val url     = URL.decode("https://sports.api.decathlon.com/groups/water-aerobics").toOption.get
   val headers = Headers(Header.Host("sports.api.decathlon.com"))
 
   val sslConfig = ClientSSLConfig.FromTrustStoreResource(
@@ -23,7 +23,7 @@ object HttpsClient extends ZIOAppDefault {
   val clientConfig = ZClient.Config.default.ssl(sslConfig)
 
   val program = for {
-    res  <- Client.request(Request.get(url).addHeaders(headers))
+    res  <- ZClient.request(Request.get(url).addHeaders(headers))
     data <- res.body.asString
     _    <- Console.printLine(data)
   } yield ()

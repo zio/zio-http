@@ -18,13 +18,14 @@ package zio.http
 
 import java.net.InetAddress
 
-import zio.ZIO
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Trace, ZIO}
 
 import zio.http.internal.HeaderOps
 
 final case class Request(
   version: Version = Version.Default,
-  method: Method = Method.Default,
+  method: Method = Method.ANY,
   url: URL = URL.empty,
   headers: Headers = Headers.empty,
   body: Body = Body.empty,
@@ -66,36 +67,45 @@ final case class Request(
   /**
    * Collects the potentially streaming body of the request into a single chunk.
    */
-  def collect: ZIO[Any, Throwable, Request] =
+  def collect(implicit trace: Trace): ZIO[Any, Throwable, Request] =
     if (self.body.isComplete) ZIO.succeed(self)
     else
       self.body.asChunk.map { bytes =>
         self.copy(body = Body.fromChunk(bytes))
       }
 
-  def dropLeadingSlash: Request = self.copy(url = url.dropLeadingSlash)
+  def dropLeadingSlash: Request = updateURL(_.dropLeadingSlash)
 
   /**
    * Drops trailing slash from the path.
    */
-  def dropTrailingSlash: Request = self.copy(url = self.url.dropTrailingSlash)
+  def dropTrailingSlash: Request = updateURL(_.dropTrailingSlash)
 
   /** Consumes the streaming body fully and then drops it */
-  def ignoreBody: ZIO[Any, Throwable, Request] =
+  def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Request] =
     self.collect.map(_.copy(body = Body.empty))
 
   def patch(p: Request.Patch): Request =
     self.copy(headers = self.headers ++ p.addHeaders, url = self.url.addQueryParams(p.addQueryParams))
 
-  val path = url.path
+  def path: Path = url.path
 
-  def updatePath(path: Path): Request = self.copy(url = self.url.copy(path = path))
+  def path(path: Path): Request = updateURL(_.path(path))
 
   /**
    * Updates the headers using the provided function
    */
-  override def updateHeaders(update: Headers => Headers): Request =
+  override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Request =
     self.copy(headers = update(self.headers))
+
+  def updateURL(f: URL => URL): Request = copy(url = f(url))
+
+  /**
+   * Unnests the request by the specified prefix. If the request URL is not
+   * nested at the specified path, then this has no effect on the URL.
+   */
+  def unnest(prefix: Path): Request =
+    copy(url = self.url.copy(path = self.url.path.unnest(prefix)))
 }
 
 object Request {

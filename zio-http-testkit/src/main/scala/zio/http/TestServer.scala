@@ -66,23 +66,23 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
    *   }}}
    */
   def addHandler[R](
-    pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
+    pf: PartialFunction[Request, ZIO[R, Response, Response]],
   ): ZIO[R, Nothing, Unit] =
     for {
       r <- ZIO.environment[R]
-      behavior                     = pf.andThen(_.provideEnvironment(r))
-      app: HttpApp[Any, Throwable] = Http.collectZIO(behavior)
-      _ <- driver.addApp(app.withDefaultErrorResponse, r)
+      behavior          = pf.andThen(_.provideEnvironment(r))
+      app: HttpApp[Any] = HttpApp.collectZIO(behavior)
+      _ <- driver.addApp(app, r)
     } yield ()
 
-  override def install[R](httpApp: App[R])(implicit
+  override def install[R](httpApp: HttpApp[R])(implicit
     trace: zio.Trace,
   ): URIO[R, Unit] =
     ZIO
       .environment[R]
       .flatMap(
         driver.addApp(
-          httpApp.withDefaultErrorResponse,
+          httpApp,
           _,
         ),
       )
@@ -92,7 +92,7 @@ final case class TestServer(driver: Driver, bindPort: Int) extends Server {
 
 object TestServer {
   def addHandler[R](
-    pf: PartialFunction[Request, ZIO[R, Throwable, Response]],
+    pf: PartialFunction[Request, ZIO[R, Response, Response]],
   ): ZIO[R with TestServer, Nothing, Unit] =
     ZIO.serviceWithZIO[TestServer](_.addHandler(pf))
 

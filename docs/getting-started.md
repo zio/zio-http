@@ -3,22 +3,20 @@ id: getting-started
 title: Getting Started
 ---
 
-**ZIO HTTP** is a powerful library that is used to build highly performant HTTP-based services and clients using
-functional scala and ZIO and uses [Netty](https://netty.io/) as its core.
+**ZIO HTTP** is a powerful library that is used to build highly performant HTTP-based services and clients using functional scala and ZIO and uses [Netty](https://netty.io/) as its core.
 
-ZIO HTTP has powerful functional domains which help in creating, modifying, composing apps easily. Let's start with the
-HTTP domain.
+ZIO HTTP has powerful functional domains that help in creating, modifying, composing apps easily. Let's start with the HTTP domain.
 
 The first step when using ZIO HTTP is creating an HTTP app.
 
 ## Http and Handler
 
-`Handler` describes the transformation from an incoming `Request` to an outgoing `Response` type. The `Http` type on top
-if this
-provides input-dependent routing to different `Handler` values. There are some default handler constructors such
-as `Handler.text`, `Handler.html`, `Handler.fromFile`, `Handler.fromData`, `Handler.fromStream`, `Handler.fromEffect`.
+`Handler` describes the transformation from an incoming `Request` to an outgoing `Response` type. The `Http` 
+type on top if this  provides input-dependent routing to different `Handler` values. There are some default 
+handler constructors such as `Handler.text`, `Handler.html`, `Handler.fromFile`, `Handler.fromData`, `Handler.fromStream`, `Handler.fromEffect`.
 
-A `Handler` can always be transformed to a `Http` value using the `.toHttp` method.
+A `Handler` can always be transformed to a `HttpApp` value using the `.toHttpApp` method, in which case the 
+HTTP application will handle all routes.
 
 ### Creating a "_Hello World_" app
 
@@ -27,98 +25,90 @@ Creating an HTTP app using ZIO Http is as simple as given below, this app will a
 ```scala mdoc:silent
 import zio.http._
 
-val app = Handler.text("Hello World!").toHttp
+val app = Handler.text("Hello World!").toHttpApp
 ```
 
-An application can be made using any of the available operators on `zio.Http`. In the above program for any Http
-request, the response is always `"Hello World!"`.
+An application can be made using any of the available operators on `zio.Http`. In the above program for any Http request, the response is always `"Hello World!"`.
 
 ### Routing
 
-For handling routes, Http Domain has a `collect` method that, accepts different requests and produces responses. Pattern
-matching on the route is supported by the framework.
+For handling routes, ZIO HTTP has a `Routes` value, which allows you to aggregate a collection of 
+individual routes.
+
+Behind the scenes, ZIO HTTP builds an efficient prefix-tree whenever needed to optimize dispatch.
+
 The example below shows how to create routes:
 
 ```scala mdoc:silent:reset
 import zio.http._
 
-val app = Http.collect[Request] {
-  case Method.GET -> Root / "fruits" / "a" => Response.text("Apple")
-  case Method.GET -> Root / "fruits" / "b" => Response.text("Banana")
-}
+val routes = Routes(
+  Method.GET / "fruits" / "a" -> handler(Response.text("Apple")),
+  Method.GET / "fruits" / "b" -> handler(Response.text("Banana"))
+)
 ```
 
-You can create typed routes as well. The below example shows how to accept count as `Int` only:
+You can create parameterized routes as well:
 
- ```scala mdoc:silent:reset
+```scala mdoc:silent:reset
 import zio.http._
 
-val app = Http.collect[Request] {
-  case Method.GET -> Root / "Apple" / int(count) => Response.text(s"Apple: $count")
-}
- ```
-
-Pattern matching on route is supported by the framework
+val routes = Routes(
+  Method.GET / "Apple" / int("count") ->
+    handler { (count: Int, req: Request) =>
+      Response.text(s"Apple: $count")
+    }
+)
+```
 
 ### Composition
 
-Apps can be composed using operators in `Http`:
-
-- Using the `++` operator. The way it works is, if none of the routes match in `a`, then the control is passed on to
-  the `b` app:
+Routes can be composed using the `++` operator, which works by combining the routes.
 
 ```scala mdoc:silent:reset
 import zio.http._
 
-val a = Http.collect[Request] { case Method.GET -> Root / "a" => Response.ok }
-val b = Http.collect[Request] { case Method.GET -> Root / "b" => Response.ok }
+val a = Routes(Method.GET / "a" -> Handler.ok)
+val b = Routes(Method.GET / "b" -> Handler.ok)
 
-val app = a ++ b
-```
-
-- Using the `<>` operator. The way it works is, if `a` fails, then the control is passed on to the `b` app:
-
-```scala mdoc:silent:reset
-import zio.http._
-
-val a = Handler.fail(new Error("SERVER_ERROR"))
-val b = Handler.text("OK")
-
-val app = (a <> b).toHttp
+val routes = a ++ b
 ```
 
 ### ZIO Integration
 
-For creating effectful apps, you can use `collectZIO` and wrap `Response` with `ZIO` to produce ZIO effect value.
+For creating effectful apps, you can use handlers that return ZIO effects:
 
 ```scala mdoc:silent:reset
 import zio.http._
 import zio._
 
-val app = Http.collectZIO[Request] {
-  case Method.GET -> Root / "hello" => ZIO.succeed(Response.text("Hello World"))
-}
+val routes = Routes(
+  Method.GET / "hello" -> handler(ZIO.succeed(Response.text("Hello World")))
+)
 ```
 
 ### Accessing the Request
 
-To access the request use `@` as it binds a matched pattern to a variable and can be used while creating a response:
+To access the request, just create a handler that accepts the request:
 
 ```scala mdoc:silent:reset
 import zio.http._
 import zio._
 
-val app = Http.collectZIO[Request] {
-  case req@Method.GET -> Root / "fruits" / "a" =>
-    ZIO.succeed(Response.text("URL:" + req.url.path.toString + " Headers: " + req.headers))
-  case req@Method.POST -> Root / "fruits" / "a" =>
+val routes = Routes(
+  Method.GET / "fruits" / "a" -> handler { (req: Request) =>
+    Response.text("URL:" + req.url.path.toString + " Headers: " + req.headers)
+  },
+
+  Method.POST / "fruits" / "a" -> handler { (req: Request) =>
     req.body.asString.map(Response.text(_))
-}
+  }
+)
 ```
 
 ### Testing
 
-You can run `Http` as a function of `A => ZIO[R, Option[E], B]` to test it by using the `runZIO` method.
+You can run `HttpApp` as a function of `A => ZIO[R, Response, Response]` to test it by using the `runZIO` method.
 
 ```scala mdoc:silent:reset
 import zio.test._
@@ -129,7 +119,7 @@ object Spec extends ZIOSpecDefault {
 
   def spec = suite("http")(
     test("should be ok") {
-      val app = Handler.ok.toHttp
+      val app = Handler.ok.toHttpApp
       val req = Request.get(URL(Root))
       assertZIO(app.runZIO(req))(equalTo(Response.ok))
     }
@@ -137,20 +127,16 @@ object Spec extends ZIOSpecDefault {
 }
 ```
 
-When we call the `app` with the `request` it calls the apply method of `Http` via `zio.test` package
-
 ## Socket
 
-`Socket` is functional domain in ZIO HTTP. It provides constructors to create socket apps.
-A socket app is an app that handles WebSocket connections.
+`Socket` is functional domain in ZIO HTTP. It provides constructors to create socket apps. A socket app is 
+an app that handles WebSocket connections.
 
 ### Creating a socket app
 
-Socket app can be created by using `Socket` constructors. To create a socket app, you need to create a socket that
-accepts `WebSocketChannel` and produces `ZIO`.
-Finally, we need to convert socketApp to `Response` using `toResponse`, so that we can run it like any other HTTP
-app.   
-The below example shows a simple socket app, we are using `collectZIO` which sends WebsSocketTextFrame "
+Socket app can be created by using `Socket` constructors. To create a socket app, you need to create a socket that accepts `WebSocketChannel` and produces `ZIO`. Finally, we need to convert socketApp to `Response` using `toResponse`, so that we can run it like any other HTTP app.   
+
+The below example shows a simple socket app,  which sends WebsSocketTextFrame "
 BAR" on receiving WebsSocketTextFrame "FOO".
 
 ```scala mdoc:silent:reset
@@ -158,7 +144,7 @@ import zio.http._
 import zio.stream._
 import zio._
 
-private val socket =
+val socket =
   Handler.webSocket { channel =>
     channel.receiveAll {
       case ChannelEvent.Read(WebSocketFrame.Text("FOO")) =>
@@ -168,30 +154,30 @@ private val socket =
     }
   }
 
-private val app = 
-  Http.collectZIO[Request] {
-    case Method.GET -> Root / "greet" / name => ZIO.succeed(Response.text(s"Greetings {$name}!"))
-    case Method.GET -> Root / "ws" => socket.toResponse
-  }
+val routes = 
+  Routes(
+    Method.GET / "greet" / string("name") -> handler { (name: String, req: Request) => 
+      Response.text(s"Greetings {$name}!")
+    },
+    Method.GET / "ws" -> handler(socket.toResponse)
+  )
 ```
 
 ## Server
 
 As we have seen how to create HTTP apps, the only thing left is to run an HTTP server and serve requests.
-ZIO HTTP provides a way to set configurations for your server. The server can be configured according to the leak
-detection level, request size, address etc.
+ZIO HTTP provides a way to set configurations for your server. The server can be configured according to the leak detection level, request size, address etc.
 
 ### Starting an HTTP App
 
-To launch our app, we need to start the server on a port. The below example shows a simple HTTP app that responds with
-empty content and a `200` status code, deployed on port `8090` using `Server.start`.
+To launch our app, we need to start the server on a port. The below example shows a simple HTTP app that responds with empty content and a `200` status code, deployed on port `8090` using `Server.start`.
 
 ```scala mdoc:silent:reset
 import zio.http._
 import zio._
 
 object HelloWorld extends ZIOAppDefault {
-  val app = Handler.ok.toHttp
+  val app = Handler.ok.toHttpApp
 
   override def run =
     Server.serve(app).provide(Server.defaultWithPort(8090))

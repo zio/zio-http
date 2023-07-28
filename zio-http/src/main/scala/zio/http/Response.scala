@@ -16,9 +16,13 @@
 
 package zio.http
 
+import java.nio.file.{AccessDeniedException, NotDirectoryException}
+import java.util.IllegalFormatException
+
 import scala.annotation.tailrec
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -27,7 +31,6 @@ import zio.http.html.Html
 import zio.http.internal.HeaderOps
 
 sealed trait Response extends HeaderOps[Response] { self =>
-
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
@@ -37,7 +40,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
    * Collects the potentially streaming body of the response into a single
    * chunk.
    */
-  def collect: ZIO[Any, Throwable, Response] =
+  def collect(implicit trace: Trace): ZIO[Any, Throwable, Response] =
     if (self.body.isComplete) ZIO.succeed(self)
     else
       self.body.asChunk.map { bytes =>
@@ -92,13 +95,8 @@ sealed trait Response extends HeaderOps[Response] { self =>
 
   def headers: Headers
 
-  private[zio] final def httpError: Option[HttpError] = self match {
-    case Response.GetError(error) => Some(error)
-    case _                        => None
-  }
-
   /** Consumes the streaming body fully and then drops it */
-  final def ignoreBody: ZIO[Any, Throwable, Response] =
+  final def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
 
   final def isWebSocket: Boolean = self match {
@@ -106,7 +104,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
     case _                    => false
   }
 
-  final def patch(p: Response.Patch): Response = p.apply(self)
+  final def patch(p: Response.Patch)(implicit trace: Trace): Response = p.apply(self)
 
   private[zio] def addServerTime: Boolean = false
 
@@ -148,13 +146,6 @@ object Response {
     }
   }
 
-  object GetError {
-    def unapply(response: Response): Option[HttpError] = response match {
-      case resp: ErrorResponse => Some(resp.httpError0)
-      case _                   => None
-    }
-  }
-
   private[zio] trait CloseableResponse extends Response {
     def close(implicit trace: Trace): Task[Unit]
   }
@@ -180,7 +171,8 @@ object Response {
 
     override def toString(): String = s"Response(status = $status, headers = $headers, body = $body)"
 
-    override def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+      copy(headers = update(headers))
 
     override def serverTime: Response = new BasicResponse(body, headers, status) with InternalState {
 
@@ -214,7 +206,8 @@ object Response {
     override final def toString(): String =
       s"SocketAppResponse(status = $status, headers = $headers, body = $body, socketApp = $socketApp0)"
 
-    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+      copy(headers = update(headers))
 
     override final def serverTime: Response = new SocketAppResponse(body, headers, socketApp0, status)
       with InternalState {
@@ -224,32 +217,6 @@ object Response {
       override def addServerTime: Boolean = true
     }
 
-  }
-
-  private[zio] class ErrorResponse(val body: Body, val headers: Headers, val httpError0: HttpError, val status: Status)
-      extends Response { self =>
-
-    override def copy(status: Status, headers: Headers, body: Body): Response =
-      new ErrorResponse(body, headers, httpError0, status) with InternalState {
-        override val parent: Response = self
-      }
-
-    override def freeze: Response = new ErrorResponse(body, headers, httpError0, status) with InternalState {
-      override val parent: Response = self
-      override def frozen: Boolean  = true
-    }
-
-    override def toString(): String =
-      s"ErrorResponse(status = $status, headers = $headers, body = $body, error = $httpError0)"
-
-    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
-
-    override final def serverTime: Response = new ErrorResponse(body, headers, httpError0, status) with InternalState {
-
-      override val parent: Response = self
-
-      override def addServerTime: Boolean = true
-    }
   }
 
   private[zio] class NativeResponse(
@@ -274,7 +241,8 @@ object Response {
     override final def toString(): String =
       s"NativeResponse(status = $status, headers = $headers, body = $body)"
 
-    override final def updateHeaders(update: Headers => Headers): Response = copy(headers = update(headers))
+    override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+      copy(headers = update(headers))
 
     override final def serverTime: Response = new NativeResponse(body, headers, status, onClose) with InternalState {
       override val parent: Response = self
@@ -287,8 +255,8 @@ object Response {
    * Models the set of operations that one would want to apply on a Response.
    */
   sealed trait Patch { self =>
-    def ++(that: Patch): Patch         = Patch.Combine(self, that)
-    def apply(res: Response): Response = {
+    def ++(that: Patch): Patch                                = Patch.Combine(self, that)
+    def apply(res: Response)(implicit trace: Trace): Response = {
 
       @tailrec
       def loop(res: Response, patch: Patch): Response =
@@ -335,7 +303,59 @@ object Response {
     body: Body = Body.empty,
   ): Response = new BasicResponse(body, headers, status)
 
-  def fromHttpError(error: HttpError): Response = new ErrorResponse(Body.empty, Headers.empty, error, error.status)
+  def badRequest: Response = error(Status.BadRequest)
+
+  def badRequest(message: String): Response = error(Status.BadRequest, message)
+
+  def error(status: Status.Error, message: String): Response = {
+    import zio.http.internal.OutputEncoder
+
+    val message2 = OutputEncoder.encodeHtml(if (message == null) status.text else message)
+
+    Response(status = status, headers = Headers(Header.Warning(status.code, "ZIO HTTP", message2)))
+  }
+
+  def error(status: Status.Error): Response =
+    error(status, status.text)
+
+  def forbidden: Response = error(Status.Forbidden)
+
+  def forbidden(message: String): Response = error(Status.Forbidden, message)
+
+  /**
+   * Creates a new response from the specified cause. Note that this method is
+   * not polymorphic, but will attempt to inspect the runtime class of the
+   * failure inside the cause, if any.
+   */
+  def fromCause(cause: Cause[Any]): Response = {
+    cause.failureOrCause match {
+      case Left(failure: Response)  => failure
+      case Left(failure: Throwable) => fromThrowable(failure)
+      case Left(failure: Cause[_])  => fromCause(failure)
+      case _                        =>
+        if (cause.isInterruptedOnly) error(Status.RequestTimeout, cause.prettyPrint.take(100))
+        else error(Status.InternalServerError, cause.prettyPrint.take(100))
+    }
+  }
+
+  /**
+   * Creates a new response from the specified cause, translating any typed
+   * error to a response using the provided function.
+   */
+  def fromCauseWith[E](cause: Cause[E])(f: E => Response): Response = {
+    cause.failureOrCause match {
+      case Left(failure) => f(failure)
+      case Right(cause)  => fromCause(cause)
+    }
+  }
+
+  /**
+   * Creates a response with content-type set to text/event-stream
+   * @param data
+   *   \- stream of data to be sent as Server Sent Events
+   */
+  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
+    new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
 
   /**
    * Creates a new response for the provided socket
@@ -357,8 +377,29 @@ object Response {
         Status.SwitchingProtocols,
       )
     }
-
   }
+
+  /**
+   * Creates a new response for the specified throwable. Note that this method
+   * relies on the runtime class of the throwable.
+   */
+  def fromThrowable(throwable: Throwable): Response = {
+    throwable match { // TODO: Enhance
+      case _: AccessDeniedException           => error(Status.Forbidden, throwable.getMessage)
+      case _: IllegalAccessException          => error(Status.Forbidden, throwable.getMessage)
+      case _: IllegalAccessError              => error(Status.Forbidden, throwable.getMessage)
+      case _: NotDirectoryException           => error(Status.BadRequest, throwable.getMessage)
+      case _: IllegalArgumentException        => error(Status.BadRequest, throwable.getMessage)
+      case _: java.io.FileNotFoundException   => error(Status.NotFound, throwable.getMessage)
+      case _: java.net.ConnectException       => error(Status.ServiceUnavailable, throwable.getMessage)
+      case _: java.net.SocketTimeoutException => error(Status.GatewayTimeout, throwable.getMessage)
+      case _                                  => error(Status.InternalServerError, throwable.getMessage)
+    }
+  }
+
+  def gatewayTimeout: Response = error(Status.GatewayTimeout)
+
+  def gatewayTimeout(message: String): Response = error(Status.GatewayTimeout, message)
 
   /**
    * Creates a response with content-type set to text/html
@@ -370,6 +411,14 @@ object Response {
       status,
     )
 
+  def httpVersionNotSupported: Response = error(Status.HttpVersionNotSupported)
+
+  def httpVersionNotSupported(message: String): Response = error(Status.HttpVersionNotSupported, message)
+
+  def internalServerError: Response = error(Status.InternalServerError)
+
+  def internalServerError(message: String): Response = error(Status.InternalServerError, message)
+
   /**
    * Creates a response with content-type set to application/json
    */
@@ -379,6 +428,22 @@ object Response {
       contentTypeJson,
       Status.Ok,
     )
+
+  def networkAuthenticationRequired: Response = error(Status.NetworkAuthenticationRequired)
+
+  def networkAuthenticationRequired(message: String): Response = error(Status.NetworkAuthenticationRequired, message)
+
+  def notExtended: Response = error(Status.NotExtended)
+
+  def notExtended(message: String): Response = error(Status.NotExtended, message)
+
+  def notFound: Response = error(Status.NotFound)
+
+  def notFound(message: String): Response = error(Status.NotFound, message)
+
+  def notImplemented: Response = error(Status.NotImplemented)
+
+  def notImplemented(message: String): Response = error(Status.NotImplemented, message)
 
   /**
    * Creates an empty response with status 200
@@ -400,6 +465,10 @@ object Response {
   def seeOther(location: URL): Response =
     new BasicResponse(Body.empty, Headers(Header.Location(location)), Status.SeeOther)
 
+  def serviceUnavailable: Response = error(Status.ServiceUnavailable)
+
+  def serviceUnavailable(message: String): Response = error(Status.ServiceUnavailable, message)
+
   /**
    * Creates an empty response with the provided Status
    */
@@ -415,13 +484,9 @@ object Response {
       Status.Ok,
     )
 
-  /**
-   * Creates a response with content-type set to text/event-stream
-   * @param data
-   *   \- stream of data to be sent as Server Sent Events
-   */
-  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
-    new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
+  def unauthorized: Response = error(Status.Unauthorized)
+
+  def unauthorized(message: String): Response = error(Status.Unauthorized, message)
 
   private lazy val contentTypeJson: Headers        = Headers(Header.ContentType(MediaType.application.json).untyped)
   private lazy val contentTypeHtml: Headers        = Headers(Header.ContentType(MediaType.text.html).untyped)

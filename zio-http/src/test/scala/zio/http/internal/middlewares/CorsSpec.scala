@@ -20,26 +20,23 @@ import zio.ZIO
 import zio.test._
 
 import zio.http.Header.AccessControlAllowMethods
-import zio.http.HttpAppMiddleware.cors
+import zio.http.Middleware.{CorsConfig, cors}
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
-import zio.http.internal.middlewares.Cors.CorsConfig
 import zio.http.internal.middlewares.CorsSpec.app
 
 object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
   def extractStatus(response: Response): Status = response.status
 
-  val app = Http
-    .collectZIO[Request] {
-      case Method.GET -> Root / "success" => ZIO.succeed(Response.ok)
-      case Method.GET -> Root / "failure" => ZIO.fail("failure")
-      case Method.GET -> Root / "die"     => ZIO.dieMessage("die")
-    }
-    .catchAllCauseZIO { cause =>
-      ZIO.succeed(Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint)))
-    } @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
+  val app = Routes(
+    Method.GET / "success" -> handler(Response.ok),
+    Method.GET / "failure" -> handler(ZIO.fail("failure")),
+    Method.GET / "die"     -> handler(ZIO.dieMessage("die")),
+  ).handleErrorCause { cause =>
+    Response(Status.InternalServerError, body = Body.fromString(cause.prettyPrint))
+  }.toHttpApp @@ cors(CorsConfig(allowedMethods = AccessControlAllowMethods(Method.GET)))
 
-  override def spec = suite("CorsMiddlewares")(
+  override def spec = suite("CorsSpec")(
     test("OPTIONS request") {
       val request = Request
         .options(URL(Root / "success"))

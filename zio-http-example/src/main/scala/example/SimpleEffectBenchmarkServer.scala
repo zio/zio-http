@@ -16,24 +16,24 @@ object SimpleEffectBenchmarkServer extends ZIOAppDefault {
 
   private val STATIC_SERVER_NAME = "zio-http"
 
-  private val app: HttpApp[Any, Nothing] = Http.collectZIO[Request] {
-    case Method.GET -> Root / "plaintext" =>
-      ZIO.succeed(
+  private val app: HttpApp[Any] = Routes(
+    Method.GET / "plaintext" ->
+      handler(
         Response
           .text(plainTextMessage)
           .serverTime
           .addHeader(Header.Server(STATIC_SERVER_NAME))
           .freeze,
-      )
-    case Method.GET -> Root / "json"      =>
-      ZIO.succeed(
+      ),
+    Method.GET / "json"      ->
+      handler(
         Response
           .json(jsonMessage)
           .serverTime
           .addHeader(Header.Server(STATIC_SERVER_NAME))
           .freeze,
-      )
-  }
+      ),
+  ).toHttpApp
 
   private val config = Server.Config.default
     .port(8080)

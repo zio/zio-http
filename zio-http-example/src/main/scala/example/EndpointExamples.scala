@@ -3,38 +3,42 @@ package example
 import zio._
 
 import zio.http.Header.Authorization
-import zio.http._
-import zio.http.codec.HttpCodec
+import zio.http.codec.{HttpCodec, PathCodec}
 import zio.http.endpoint._
+import zio.http.{int => _, _}
 
 object EndpointExamples extends ZIOAppDefault {
   import HttpCodec._
+  import PathCodec._
 
   val auth = EndpointMiddleware.auth
 
   // MiddlewareSpec can be added at the service level as well
   val getUser =
-    Endpoint.get("users" / int("userId")).out[Int] @@ auth
+    Endpoint(Method.GET / "users" / int("userId")).out[Int] @@ auth
 
   val getUserRoute =
-    getUser.implement { id =>
-      ZIO.succeed(id)
+    getUser.implement {
+      Handler.fromFunction[Int] { id =>
+        id
+      }
     }
 
   val getUserPosts =
-    Endpoint
-      .get("users" / int("userId") / "posts" / int("postId"))
+    Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
       .query(query("name"))
       .out[List[String]] @@ auth
 
   val getUserPostsRoute =
-    getUserPosts.implement[Any] { case (id1: Int, id2: Int, query: String) =>
-      ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
+    getUserPosts.implement[Any] {
+      Handler.fromFunctionZIO[(Int, Int, String)] { case (id1: Int, id2: Int, query: String) =>
+        ZIO.succeed(List(s"API2 RESULT parsed: users/$id1/posts/$id2?name=$query"))
+      }
     }
 
-  val routes = getUserRoute ++ getUserPostsRoute
+  val routes = Routes(getUserRoute, getUserPostsRoute)
 
-  val app = routes.toApp(auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
+  val app = routes.toHttpApp // (auth.implement(_ => ZIO.unit)(_ => ZIO.unit))
 
   val request = Request.get(url = URL.decode("/users/1").toOption.get)
 

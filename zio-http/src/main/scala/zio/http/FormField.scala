@@ -15,10 +15,10 @@
  */
 
 package zio.http
-
 import java.nio.charset._
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.{Take, ZPipeline, ZStream}
 
@@ -49,7 +49,7 @@ sealed trait FormField {
    * Gets the value of this form field as a String. If it is a binary field, the
    * value is interpreted as an UTF-8 byte stream.
    */
-  final def asText: ZIO[Any, CharacterCodingException, String] = this match {
+  final def asText(implicit trace: Trace): ZIO[Any, CharacterCodingException, String] = this match {
     case FormField.Text(_, value, _, _)                =>
       ZIO.succeed(value)
     case FormField.Binary(_, value, _, _, _)           =>
@@ -64,7 +64,7 @@ sealed trait FormField {
    * Gets the value of this form field as a chunk of bytes. If it is a text
    * field, the value gets encoded as an UTF-8 byte stream.
    */
-  final def asChunk: ZIO[Any, Nothing, Chunk[Byte]] = this match {
+  final def asChunk(implicit trace: Trace): ZIO[Any, Nothing, Chunk[Byte]] = this match {
     case FormField.Text(_, value, _, _)                =>
       ZIO.succeed(Chunk.fromArray(value.getBytes(Charsets.Utf8)))
     case FormField.Binary(_, value, _, _, _)           =>
@@ -123,7 +123,7 @@ object FormField {
     filename: Option[String] = None,
     data: ZStream[Any, Nothing, Byte],
   ) extends FormField {
-    def collect: ZIO[Any, Nothing, Binary] = {
+    def collect(implicit trace: Trace): ZIO[Any, Nothing, Binary] = {
       data.runCollect.map { bytes =>
         Binary(name, bytes, contentType, transferEncoding, filename)
       }
@@ -145,7 +145,7 @@ object FormField {
   private[http] def fromFormAST(
     ast: Chunk[FormAST],
     defaultCharset: Charset = StandardCharsets.UTF_8,
-  ): ZIO[Any, FormDecodingError, FormField] = {
+  )(implicit trace: Trace): ZIO[Any, FormDecodingError, FormField] = {
     val extract =
       ast.foldLeft(
         (
@@ -175,7 +175,7 @@ object FormField {
       contentParts     = extract._4.tail // Skip the first empty line
       content          = contentParts.foldLeft(Chunk.empty[Byte])(_ ++ _.bytes)
       contentType      = extract._2
-        .flatMap(x => MediaType.forContentType(x.preposition))
+        .flatMap(x => MediaType.forContentType(x.value))
         .getOrElse(MediaType.application.`octet-stream`)
       transferEncoding = extract._3
         .flatMap(x => ContentTransferEncoding.parse(x.preposition).toOption)
@@ -190,14 +190,14 @@ object FormField {
     ast.collectFirst {
       case header: FormAST.Header if header.name == "Content-Type" =>
         MediaType
-          .forContentType(header.preposition)
+          .forContentType(header.value)
           .getOrElse(MediaType.application.`octet-stream`) // Unknown content type defaults to binary
     }.getOrElse(MediaType.text.plain) // Missing content type defaults to text
 
   private[http] def incomingStreamingBinary(
     ast: Chunk[FormAST],
     queue: Queue[Take[Nothing, Byte]],
-  ): ZIO[Any, FormDecodingError, FormField] = {
+  )(implicit trace: Trace): ZIO[Any, FormDecodingError, FormField] = {
     val extract =
       ast.foldLeft((Option.empty[FormAST.Header], Option.empty[FormAST.Header], Option.empty[FormAST.Header])) {
         case (accum, header: FormAST.Header) if header.name == "Content-Disposition"       =>
@@ -213,7 +213,7 @@ object FormField {
       disposition <- ZIO.fromOption(extract._1).orElseFail(FormDataMissingContentDisposition)
       name        <- ZIO.fromOption(extract._1.flatMap(_.fields.get("name"))).orElseFail(ContentDispositionMissingName)
       contentType      = extract._2
-        .flatMap(x => MediaType.forContentType(x.preposition))
+        .flatMap(x => MediaType.forContentType(x.value))
         .getOrElse(MediaType.text.plain)
       transferEncoding = extract._3
         .flatMap(x => ContentTransferEncoding.parse(x.preposition).toOption)

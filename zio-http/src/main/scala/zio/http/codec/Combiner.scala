@@ -16,6 +16,8 @@
 
 package zio.http.codec
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 /**
  * A combiner is a type class responsible for combining invariant type
  * parameters using a tuple. It is used to compose the parameters of the

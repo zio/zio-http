@@ -20,6 +20,7 @@ import java.time._
 import java.util.UUID
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -145,7 +146,7 @@ private[codec] object EncoderDecoder                   {
         erased.encodeToBody(_, jsonCodec)
       }
 
-    private val formFieldEncoders: Chunk[(String, Any) => FormField]      =
+    private val formFieldEncoders: Chunk[(String, Any) => FormField] =
       flattened.content.map { bodyCodec => (name: String, value: Any) =>
         {
           val erased = bodyCodec.erase
@@ -162,6 +163,9 @@ private[codec] object EncoderDecoder                   {
           }
         }
       }
+
+    implicit val trace: Trace = Trace.empty
+
     private val jsonDecoders: Chunk[Body => IO[Throwable, _]]             =
       flattened.content.map { bodyCodec =>
         val jsonCodec = JsonCodec.schemaBasedBinaryCodec(bodyCodec.schema)
@@ -268,27 +272,21 @@ private[codec] object EncoderDecoder                   {
     private def decodePaths(path: Path, inputs: Array[Any]): Unit = {
       assert(flattened.path.length == inputs.length)
 
-      var i        = 0
-      var j        = 0
-      val segments = path.segments
+      var i = 0
+
       while (i < inputs.length) {
-        val textCodec = flattened.path(i).erase
+        val pathCodec = flattened.path(i).erase
 
-        if (j >= segments.length) throw HttpCodecError.PathTooShort(path, textCodec)
-        else {
-          val segment = segments(j)
+        val decoded = pathCodec.decode(path)
 
-          if (segment.length != 0) {
-            val textCodec = flattened.path(i).erase
+        inputs(i) = decoded match {
+          case Left(error) =>
+            throw HttpCodecError.MalformedPath(path, pathCodec, error)
 
-            inputs(i) = textCodec
-              .decode(segment)
-              .getOrElse(throw HttpCodecError.MalformedPath(path, segment, textCodec))
-
-            i = i + 1
-          }
-          j = j + 1
+          case Right(value) => value
         }
+
+        i = i + 1
       }
     }
 
@@ -464,16 +462,15 @@ private[codec] object EncoderDecoder                   {
       }
 
     private def encodePath(inputs: Array[Any]): Path = {
-      var path = Path.empty
+      var path: Path = Path.empty
 
       var i = 0
       while (i < inputs.length) {
-        val textCodec = flattened.path(i).erase
+        val pathCodec = flattened.path(i).erase
         val input     = inputs(i)
 
-        val segment = textCodec.encode(input)
+        path = path ++ pathCodec.encode(input)
 
-        path = path / segment
         i = i + 1
       }
 

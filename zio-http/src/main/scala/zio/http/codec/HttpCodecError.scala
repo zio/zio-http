@@ -19,6 +19,7 @@ package zio.http.codec
 import scala.util.control.NoStackTrace
 
 import zio.Cause
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.{Path, Status}
 
@@ -36,8 +37,8 @@ object HttpCodecError {
   final case class PathTooShort(path: Path, textCodec: TextCodec[_])                    extends HttpCodecError {
     def message = s"Expected to find ${textCodec} but found pre-mature end to the path ${path}"
   }
-  final case class MalformedPath(path: Path, segment: String, textCodec: TextCodec[_])  extends HttpCodecError {
-    def message = "Malformed path segment \"" + segment + "\" of " + s"${path} failed to decode using $textCodec"
+  final case class MalformedPath(path: Path, pathCodec: PathCodec[_], error: String)    extends HttpCodecError {
+    def message = s"Malformed path ${path} failed to decode using $pathCodec: $error"
   }
   final case class MalformedStatus(expected: Status, actual: Status)                    extends HttpCodecError {
     def message = s"Expected status code ${expected} but found ${actual}"

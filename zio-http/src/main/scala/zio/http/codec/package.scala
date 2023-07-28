@@ -15,13 +15,11 @@
  */
 
 package zio.http
-
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 package object codec {
-  type ContentCodec[A]   = HttpCodec[HttpCodecType.Content, A]
-  type HeaderCodec[A]    = HttpCodec[HttpCodecType.Header, A]
-  type MethodCodec[A]    = HttpCodec[HttpCodecType.Method, A]
-  type PathCodec[A]      = HttpCodec[HttpCodecType.Path, A]
-  type PathQueryCodec[A] = HttpCodec[HttpCodecType.Path with HttpCodecType.Query, A]
-  type QueryCodec[A]     = HttpCodec[HttpCodecType.Query, A]
-  type StatusCodec[A]    = HttpCodec[HttpCodecType.Status, A]
+  type ContentCodec[A] = HttpCodec[HttpCodecType.Content, A]
+  type HeaderCodec[A]  = HttpCodec[HttpCodecType.Header, A]
+  type MethodCodec[A]  = HttpCodec[HttpCodecType.Method, A]
+  type QueryCodec[A]   = HttpCodec[HttpCodecType.Query, A]
+  type StatusCodec[A]  = HttpCodec[HttpCodecType.Status, A]
 }

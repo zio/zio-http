@@ -84,34 +84,34 @@ class EndpointBenchmark {
 
   private val REPEAT_N = 1000
 
+  import zio.http.codec.PathCodec.int
+
   // # Small Data Request
 
   // API DSL
   val usersPosts =
-    Endpoint
-      .get(PathCodec.literal("users") / PathCodec.int("userId") / "posts" / PathCodec.int("limit"))
+    Endpoint(Method.GET / "users" / int("userId") / "posts" / int("limit"))
       .query(QueryCodec.query("query"))
       .out[ExampleData]
 
   val handledUsersPosts =
-    usersPosts.implement { case (userId, postId, limit) =>
-      ZIO.succeed(ExampleData(userId, postId, limit))
+    usersPosts.implement {
+      Handler.fromFunction { case (userId, postId, limit) =>
+        ExampleData(userId, postId, limit)
+      }
     }
 
-  val apiHttpApp = handledUsersPosts.toApp
+  val apiHttpApp = handledUsersPosts.toHttpApp
 
   // Collect DSL
-  val collectHttpApp = Http.collectZIO[Request] { //
-    case req @ Method.GET -> Root / "users" / userId / "posts" / postId =>
-      val userIdInt = userId.toInt
-      val postIdInt = postId.toInt
-      val query     = req.url.queryParams.get("query").flatMap(_.headOption).get
-      ZIO.succeed(
-        Response.json(
-          ExampleData(userIdInt, postIdInt, query).toJson,
-        ),
-      )
-  }
+  val collectHttpApp = Routes(
+    Method.GET / "users" / int("userId") / "posts" / int("postId") -> handler {
+      (userIdInt: Int, postIdInt: Int, req: Request) =>
+        val query = req.url.queryParams.get("query").flatMap(_.headOption).get
+
+        Response.json(ExampleData(userIdInt, postIdInt, query).toJson)
+    },
+  ).toHttpApp
 
   // Tapir Akka DSL
 
@@ -208,28 +208,29 @@ class EndpointBenchmark {
 
   // API DSL
 
-  val deepPathHttpApp = Endpoint
-    .get(
-      PathCodec.literal("first") /
-        PathCodec.int("id1") / "second" / PathCodec.int("id2") / "third" / PathCodec.int(
-          "id3",
-        ) / "fourth" / PathCodec.int("id4") / "fifth" / PathCodec.int("id5") / "sixth" / PathCodec.int(
-          "id5",
-        ) / "seventh" / PathCodec.int("id5"),
-    )
+  val deepPathHttpApp = Endpoint(
+    Method.GET /
+      "first" /
+      int("id1") / "second" / int("id2") / "third" / int(
+        "id3",
+      ) / "fourth" / int("id4") / "fifth" / int("id5") / "sixth" / int(
+        "id5",
+      ) / "seventh" / int("id5"),
+  )
     .out[Unit]
-    .implement { _ =>
-      ZIO.unit
-    }
-    .toApp
+    .implement(Handler.unit)
+    .toHttpApp
 
   // Collect DSL
 
-  val deepPathCollectHttpApp = Http.collectZIO[Request] { //
-    case Method.GET -> Root / "first" / id1 / "second" / id2 / "third" / id3 / "fourth" / id4 / "fifth" / id5 / "sixth" / id6 / "seventh" / id7 =>
-      val _ = (id1.toInt, id2.toInt, id3.toInt, id4.toInt, id5.toInt, id6.toInt, id7.toInt)
-      ZIO.unit
-  }
+  val deepPathCollectHttpApp = Routes(
+    Method.GET / "first" / int("id1") / "second" / int("id2") / "third" / int("id3") / "fourth" / int(
+      "id4",
+    ) / "fifth" / int("id5") / "sixth" / int("id6") / "seventh" / int("id7") ->
+      handler { (_: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Request) =>
+        ZIO.succeed(Response.ok)
+      },
+  ).toHttpApp
 
   // Tapir Akka DSL
 
@@ -332,189 +333,165 @@ class EndpointBenchmark {
 
   // API DSL
 
-  val broadUsers                     = Endpoint.get(PathCodec.literal("users")).out[Unit].implement { _ => ZIO.unit }
-  val broadUsersId                   =
-    Endpoint.get(PathCodec.literal("users") / PathCodec.int("userId")).out[Unit].implement { _ => ZIO.unit }
-  val boardUsersPosts                =
-    Endpoint
-      .get(PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts"))
+  val broadUsers                       = Endpoint(Method.GET / "users").out[Unit].implement(Handler.unit)
+  val broadUsersId                     =
+    Endpoint(Method.GET / "users" / int("userId")).out[Unit].implement(Handler.unit)
+  val boardUsersPosts                  =
+    Endpoint(Method.GET / "users" / int("userId") / "posts")
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
-  val boardUsersPostsId              =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts") / PathCodec.int("postId"),
-      )
+      .implement(Handler.unit)
+  val boardUsersPostsId                =
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "posts" / int("postId"),
+    )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
-  val boardUsersPostsComments        =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts") / PathCodec.int(
+      .implement(Handler.unit)
+  val boardUsersPostsComments          =
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "posts" / int(
           "postId",
-        ) / PathCodec
-          .literal("comments"),
-      )
+        ) / "comments",
+    )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
-  val boardUsersPostsCommentsId      =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts") / PathCodec.int(
+      .implement(Handler.unit)
+  val boardUsersPostsCommentsId        =
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "posts" / int(
           "postId",
-        ) / PathCodec
-          .literal("comments") / PathCodec.int("commentId"),
-      )
+        ) / "comments" / int("commentId"),
+    )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
-  val broadPosts                     = Endpoint.get(PathCodec.literal("posts")).out[Unit].implement { _ => ZIO.unit }
-  val broadPostsId                   =
-    Endpoint.get(PathCodec.literal("posts") / PathCodec.int("postId")).out[Unit].implement { _ => ZIO.unit }
-  val boardPostsComments             =
-    Endpoint
-      .get(PathCodec.literal("posts") / PathCodec.int("postId") / PathCodec.literal("comments"))
+      .implement(Handler.unit)
+  val broadPosts                       = Endpoint(Method.GET / "posts").out[Unit].implement(Handler.unit)
+  val broadPostsId                     =
+    Endpoint(Method.GET / "posts" / int("postId")).out[Unit].implement(Handler.unit)
+  val boardPostsComments               =
+    Endpoint(Method.GET / "posts" / int("postId") / "comments")
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
-  val boardPostsCommentsId           =
-    Endpoint
-      .get(
-        PathCodec.literal("posts") / PathCodec.int("postId") / PathCodec.literal("comments") / PathCodec.int(
+      .implement(Handler.unit)
+  val boardPostsCommentsId             =
+    Endpoint(
+      Method.GET /
+        "posts" / int("postId") / "comments" / int(
           "commentId",
         ),
-      )
+    )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
-  val broadComments                  = Endpoint.get(PathCodec.literal("comments")).out[Unit].implement { _ => ZIO.unit }
-  val broadCommentsId                =
-    Endpoint.get(PathCodec.literal("comments") / PathCodec.int("commentId")).out[Unit].implement { _ => ZIO.unit }
-  val broadUsersComments             =
-    Endpoint
-      .get(PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("comments"))
+      .implement(Handler.unit)
+  val broadComments                    = Endpoint(Method.GET / "comments").out[Unit].implement(Handler.unit)
+  val broadCommentsId                  =
+    Endpoint(Method.GET / "comments" / int("commentId")).out[Unit].implement(Handler.unit)
+  val broadUsersComments               =
+    Endpoint(Method.GET / "users" / int("userId") / "comments")
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
-  val broadUsersCommentsId           =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("comments") / PathCodec.int(
+      .implement(Handler.unit)
+  val broadUsersCommentsId             =
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "comments" / int(
           "commentId",
         ),
-      )
+    )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
-  val boardUsersPostsCommentsReplies =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts") / PathCodec.int(
+      .implement(Handler.unit)
+  val boardUsersPostsCommentsReplies   =
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "posts" / int(
           "postId",
-        ) / PathCodec
-          .literal("comments") / PathCodec.int("commentId") / PathCodec.literal(
-          "replies",
-        ),
-      )
+        ) / "comments" / int("commentId") /
+        "replies",
+    )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
+      .implement(Handler.unit)
   val boardUsersPostsCommentsRepliesId =
-    Endpoint
-      .get(
-        PathCodec.literal("users") / PathCodec.int("userId") / PathCodec.literal("posts") / PathCodec.int(
+    Endpoint(
+      Method.GET /
+        "users" / int("userId") / "posts" / int(
           "postId",
-        ) / PathCodec
-          .literal("comments") / PathCodec.int("commentId") / PathCodec.literal(
-          "replies",
-        ) / PathCodec.int("replyId"),
-      )
+        ) / "comments" / int("commentId") / "replies" / int("replyId"),
+    )
       .out[Unit]
-      .implement { _ =>
-        ZIO.unit
-      }
+      .implement(Handler.unit)
 
   val broadApiApp =
-    (
-      broadUsers ++
-        broadUsersId ++
-        boardUsersPosts ++
-        boardUsersPostsId ++
-        boardUsersPostsComments ++
-        boardUsersPostsCommentsId ++
-        broadPosts ++
-        broadPostsId ++
-        boardPostsComments ++
-        boardPostsCommentsId ++
-        broadComments ++
-        broadCommentsId ++
-        broadUsersComments ++
-        broadUsersCommentsId ++
-        boardUsersPostsCommentsReplies ++
-        boardUsersPostsCommentsRepliesId
-    ).toApp
+    Routes(
+      broadUsers,
+      broadUsersId,
+      boardUsersPosts,
+      boardUsersPostsId,
+      boardUsersPostsComments,
+      boardUsersPostsCommentsId,
+      broadPosts,
+      broadPostsId,
+      boardPostsComments,
+      boardPostsCommentsId,
+      broadComments,
+      broadCommentsId,
+      broadUsersComments,
+      broadUsersCommentsId,
+      boardUsersPostsCommentsReplies,
+      boardUsersPostsCommentsRepliesId,
+    ).toHttpApp
 
   // Collect DSL
 
-  val broadCollectApp = Http.collectZIO[Request] {
-    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments" / commentId                       =>
-      val _ = (userId.toInt, postId.toInt, commentId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments"                                   =>
-      val _ = (userId.toInt, postId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "posts" / postId                                                =>
-      val _ = (userId.toInt, postId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "posts"                                                         =>
-      val _ = userId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId                                                                   =>
-      val _ = userId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "users"                                                                            =>
-      ZIO.unit
-    case Method.GET -> Root / "posts" / postId / "comments" / commentId                                          =>
-      val _ = (postId.toInt, commentId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "posts" / postId / "comments"                                                      =>
-      val _ = postId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "posts" / postId                                                                   =>
-      val _ = postId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "posts"                                                                            =>
-      ZIO.unit
-    case Method.GET -> Root / "comments" / commentId                                                             =>
-      val _ = commentId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "comments"                                                                         =>
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "comments"                                                      =>
-      val _ = userId.toInt
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "comments" / commentId                                          =>
-      val _ = (userId.toInt, commentId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments" / commentId / "replies" / replyId =>
-      val _ = (userId.toInt, postId.toInt, commentId.toInt, replyId.toInt)
-      ZIO.unit
-    case Method.GET -> Root / "users" / userId / "posts" / postId / "comments" / commentId / "replies"           =>
-      val _ = (userId.toInt, postId.toInt, commentId.toInt)
-      ZIO.unit
-  }
+  val broadCollectApp = Routes(
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") -> handler {
+      (userId: Int, postId: Int, commentId: Int, request: Request) =>
+        Response()
+    },
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments"                    -> handler {
+      (userId: Int, postId: Int, req: Request) =>
+        Response()
+    },
+    Method.GET / "users" / int("userId") / "posts" / int("postId")                                 -> handler {
+      (userId: Int, postId: Int, req: Request) =>
+        Response()
+    },
+    Method.GET / "users" / int("userId") / "posts"                       -> handler { (userId: Int, req: Request) =>
+      Response()
+    },
+    Method.GET / "users" / int("userId")                                 -> handler { (userId: Int, req: Request) =>
+      Response()
+    },
+    Method.GET / "users"                                                 -> handler(Response()),
+    Method.GET / "posts" / int("postId") / "comments" / int("commentId") -> handler {
+      (postId: Int, commentId: Int, req: Request) =>
+        Response()
+    },
+    Method.GET / "posts" / int("postId") / "comments"                    -> handler { (postId: Int, req: Request) =>
+      Response()
+    },
+    Method.GET / "posts" / int("postId")                                 -> handler { (postId: Int, req: Request) =>
+      Response()
+    },
+    Method.GET / "posts"                                                 -> handler(Response()),
+    Method.GET / "comments" / int("commentId")                           -> handler { (commentId: Int, req: Request) =>
+      Response()
+    },
+    Method.GET / "comments"                                              -> handler(Response()),
+    Method.GET / "users" / int("userId") / "comments"                    -> handler { (userId: Int, req: Request) =>
+      Response()
+    },
+    Method.GET / "users" / int("userId") / "comments" / int("commentId") -> handler {
+      (userId: Int, commentId: Int, req: Request) =>
+        Response()
+    },
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies" / int(
+      "replyId",
+    )             -> handler { (userId: Int, postId: Int, commentId: Int, replyId: Int, req: Request) =>
+      Response()
+    },
+    Method.GET / "users" / int("userId") / "posts" / int("postId") / "comments" / int(
+      "commentId",
+    ) / "replies" -> handler { (userId: Int, postId: Int, commentId: Int, req: Request) =>
+      Response()
+    },
+  ).toHttpApp
 
   // Tapir Akka DSL
 

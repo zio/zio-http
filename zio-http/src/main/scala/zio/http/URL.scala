@@ -24,7 +24,6 @@ import zio.Chunk
 
 import zio.http.URL.{Fragment, Location, portFromScheme}
 import zio.http.internal.QueryParamEncoding
-import zio.http.{Charsets, Scheme}
 
 final case class URL(
   path: Path,
@@ -227,7 +226,7 @@ object URL {
 
   def fromURI(uri: URI): Option[URL] = if (uri.isAbsolute) fromAbsoluteURI(uri) else fromRelativeURI(uri)
 
-  def root: URL = URL(Root)
+  def root: URL = URL(Path.root)
 
   sealed trait Location { self =>
     def ++(that: Location): Location =
@@ -273,7 +272,7 @@ object URL {
     }
   }
 
-  private def fromAbsoluteURI(uri: URI): Option[URL] = {
+  private[http] def fromAbsoluteURI(uri: URI): Option[URL] = {
     for {
       scheme <- Scheme.decode(uri.getScheme)
       host   <- Option(uri.getHost)
@@ -285,7 +284,7 @@ object URL {
     } yield URL(path3, connection, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
   }
 
-  private def fromRelativeURI(uri: URI): Option[URL] = for {
+  private[http] def fromRelativeURI(uri: URI): Option[URL] = for {
     path <- Option(uri.getRawPath)
   } yield URL(Path.decode(path), Location.Relative, QueryParams.decode(uri.getRawQuery), Fragment.fromURI(uri))
 

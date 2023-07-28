@@ -15,10 +15,11 @@
  */
 
 package zio.http.codec
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A simple codec is either equal to a given value, or unconstrained within a
- * domain of values.
+ * domain of values. There are no other possibilities.
  */
 sealed trait SimpleCodec[Input, Output] extends PartialFunction[Input, Output] {
   def isDefinedAt(input: Input): Boolean

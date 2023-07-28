@@ -17,20 +17,21 @@
 package zio.http.codec.internal
 
 import zio.Chunk
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.codec.HttpCodec._
 import zio.http.codec._
 
 private[http] final case class AtomizedCodecs(
   method: Chunk[SimpleCodec[zio.http.Method, _]],
-  path: Chunk[TextCodec[_]],
+  path: Chunk[PathCodec[_]],
   query: Chunk[Query[_]],
   header: Chunk[Header[_]],
   content: Chunk[BodyCodec[_]],
   status: Chunk[SimpleCodec[zio.http.Status, _]],
 ) { self =>
   def append(atom: Atom[_, _]): AtomizedCodecs = atom match {
-    case path0: Path[_]            => self.copy(path = path :+ path0.textCodec)
+    case path0: Path[_]            => self.copy(path = path :+ path0.pathCodec)
     case method0: Method[_]        => self.copy(method = method :+ method0.codec)
     case query0: Query[_]          => self.copy(query = query :+ query0)
     case header0: Header[_]        => self.copy(header = header :+ header0)

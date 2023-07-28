@@ -5,6 +5,7 @@ sidebar_label: "Concrete Entity"
 ---
 
 ```scala mdoc:silent
+
 import zio._
 
 import zio.http._
@@ -24,13 +25,14 @@ object ConcreteEntity extends ZIOAppDefault {
       UserCreated(2)
     }
 
-  val app: RequestHandler[Any, Nothing] =
+  val app: HttpApp[Any] =
     user
       .contramap[Request](req => CreateUser(req.path.encode))     // Http[Any, Nothing, Request, UserCreated]
       .map(userCreated => Response.text(userCreated.id.toString)) // Http[Any, Nothing, Request, Response]
+      .toHttpApp
 
   // Run it like any simple app
   val run =
-    Server.serve(app.toHttp.withDefaultErrorResponse).provide(Server.default)
+    Server.serve(app).provide(Server.default)
 }
 ```

@@ -23,7 +23,6 @@ import zio.test.TestAspect.{sequential, timeout, withLiveClock}
 import zio.test._
 import zio.{Scope, ZIO, ZLayer, durationInt}
 
-import zio.http.internal.middlewares.Auth.Credentials
 import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
@@ -55,7 +54,7 @@ object ClientProxySpec extends HttpRunnableSpec {
         for {
           port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
           url  <- ZIO.fromEither(URL.decode(s"http://localhost:$port"))
-          id   <- DynamicServer.deploy(Handler.ok.toHttp)
+          id   <- DynamicServer.deploy(Handler.ok.toHttpApp)
           proxy = Proxy.empty.url(url).headers(Headers(DynamicServer.APP_ID, id))
           out <- Client
             .request(
@@ -80,7 +79,7 @@ object ClientProxySpec extends HttpRunnableSpec {
           else
             Response.status(Status.Forbidden)
         }
-        .toHttp
+        .toHttpApp
 
       val res =
         for {

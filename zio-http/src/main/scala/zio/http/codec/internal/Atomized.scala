@@ -16,9 +16,10 @@
 
 package zio.http.codec.internal
 
-import zio.http.codec.HttpCodec
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-final case class Atomized[A](
+import zio.http.codec.HttpCodec
+private[http] final case class Atomized[A](
   method: A,
   status: A,
   path: A,
@@ -48,6 +49,6 @@ final case class Atomized[A](
     }
   }
 }
-object Atomized {
+private[http] object Atomized {
   def apply[A](defValue: => A): Atomized[A] = Atomized(defValue, defValue, defValue, defValue, defValue, defValue)
 }
