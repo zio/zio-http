@@ -16,6 +16,7 @@
 package zio.http
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Route.Provided
 
@@ -40,7 +41,7 @@ sealed trait Route[-Env, +Err] { self =>
    * call this function when you have handled all errors produced by the route,
    * converting them into responses.
    */
-  final def apply(request: Request)(implicit ev: Err <:< Response): ZIO[Env, Response, Response] =
+  final def apply(request: Request)(implicit ev: Err <:< Response, trace: Trace): ZIO[Env, Response, Response] =
     toHandler.apply(request)
 
   def asErrorType[Err2](implicit ev: Err <:< Err2): Route[Env, Err2] = self.asInstanceOf[Route[Env, Err2]]
@@ -49,14 +50,14 @@ sealed trait Route[-Env, +Err] { self =>
    * Handles the error of the route. This method can be used to convert a route
    * that does not handle its errors into one that does handle its errors.
    */
-  final def handleError(f: Err => Response): Route[Env, Nothing] =
+  final def handleError(f: Err => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self.handleErrorCause(Response.fromCauseWith(_)(f))
 
   /**
    * Handles the error of the route. This method can be used to convert a route
    * that does not handle its errors into one that does handle its errors.
    */
-  final def handleErrorCause(f: Cause[Err] => Response): Route[Env, Nothing] =
+  final def handleErrorCause(f: Cause[Err] => Response)(implicit trace: Trace): Route[Env, Nothing] =
     self match {
       case Provided(route, env)                     => Provided(route.handleErrorCause(f), env)
       case Augmented(route, aspect)                 => Augmented(route.handleErrorCause(f), aspect)
@@ -107,10 +108,10 @@ sealed trait Route[-Env, +Err] { self =>
    * using best-effort heuristics to determine the appropriate HTTP status code,
    * and attaching error details using the HTTP header `Warning`.
    */
-  final def sandbox: Route[Env, Nothing] =
+  final def sandbox(implicit trace: Trace): Route[Env, Nothing] =
     handleErrorCause(Response.fromCause(_))
 
-  def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response]
+  def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response]
 
   final def toHttpApp(implicit ev: Err <:< Response): HttpApp[Env] = Routes(self).toHttpApp
 
@@ -223,7 +224,7 @@ object Route                   {
 
     def routePattern: RoutePattern[_] = route.routePattern
 
-    override def toHandler(implicit ev: Err <:< Response): Handler[Any, Response, Request, Response] =
+    override def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Any, Response, Request, Response] =
       route.toHandler.provideEnvironment(env)
 
     override def toString() = s"Route.Provided(${route}, ${env})"
@@ -237,7 +238,7 @@ object Route                   {
 
     def routePattern: RoutePattern[_] = route.routePattern
 
-    override def toHandler(implicit ev: Err <:< Response): Handler[OutEnv, Response, Request, Response] =
+    override def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[OutEnv, Response, Request, Response] =
       aspect(route.toHandler)
 
     override def toString() = s"Route.Augmented(${route}, ${aspect})"
@@ -248,7 +249,7 @@ object Route                   {
     handler: Handler[Env, Response, Request, Response],
     location: Trace,
   ) extends Route[Env, Nothing] {
-    override def toHandler(implicit ev: Nothing <:< Response): Handler[Env, Response, Request, Response] =
+    override def toHandler(implicit ev: Nothing <:< Response, trace: Trace): Handler[Env, Response, Request, Response] =
       handler
 
     override def toString() = s"Route.Handled(${routePattern}, ${location})"
@@ -262,7 +263,7 @@ object Route                   {
 
     def routePattern = rpm.routePattern
 
-    override def toHandler(implicit ev: Err <:< Response): Handler[Env, Response, Request, Response] = {
+    override def toHandler(implicit ev: Err <:< Response, trace: Trace): Handler[Env, Response, Request, Response] = {
       convert(handler.asErrorType[Response])
     }
 
@@ -270,7 +271,7 @@ object Route                   {
 
     private def convert[Env1 <: Env](
       handler: Handler[Env1, Response, Input, Response],
-    ): Handler[Env1, Response, Request, Response] = {
+    )(implicit trace: Trace): Handler[Env1, Response, Request, Response] = {
       implicit val z = zippable
 
       Route.handled(rpm)(handler).toHandler
