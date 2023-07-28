@@ -51,10 +51,8 @@ final case class Response(
   def ignoreBody: ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
 
-//  def isWebSocket: Boolean = self match {
-//    case _: SocketAppResponse => self.status == Status.SwitchingProtocols
-//    case _                    => false
-//  }
+  def isWebSocket: Boolean =
+    socketApp.isDefined && self.status == Status.SwitchingProtocols
 
   def patch(p: Response.Patch): Response = p.apply(self)
 
