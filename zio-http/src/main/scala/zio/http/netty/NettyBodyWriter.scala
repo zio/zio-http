@@ -29,12 +29,12 @@ import io.netty.channel._
 import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
 object NettyBodyWriter {
 
-  def write(body: Body, ctx: ChannelHandlerContext)(implicit trace: Trace): ZIO[Any, Throwable, Boolean] =
+  def writeAndFlush(body: Body, ctx: ChannelHandlerContext)(implicit trace: Trace): ZIO[Any, Throwable, Unit] =
     body match {
       case body: ByteBufBody                  =>
         ZIO.succeed {
           ctx.write(body.byteBuf)
-          false
+          ctx.flush()
         }
       case body: FileBody                     =>
         ZIO.succeed {
@@ -44,7 +44,6 @@ object NettyBodyWriter {
 
           // Write the end marker.
           ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-          true
         }
       case AsyncBody(async, _, _)             =>
         ZIO.attempt {
@@ -63,12 +62,11 @@ object NettyBodyWriter {
                 ctx.fireExceptionCaught(cause)
             },
           )
-          true
         }
       case AsciiStringBody(asciiString, _, _) =>
         ZIO.attempt {
           ctx.write(Unpooled.wrappedBuffer(asciiString.array()))
-          false
+          ctx.flush()
         }
       case StreamBody(stream, _, _)           =>
         stream.chunks
@@ -90,13 +88,13 @@ object NettyBodyWriter {
             ) *>
               NettyFutureExecutor.executed {
                 ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-              }.as(true)
+              }
           }
       case ChunkBody(data, _, _)              =>
         ZIO.succeed {
           ctx.write(Unpooled.wrappedBuffer(data.toArray))
-          false
+          ctx.flush()
         }
-      case EmptyBody                          => ZIO.succeed(false)
+      case EmptyBody                          => ZIO.succeed(ctx.flush())
     }
 }
