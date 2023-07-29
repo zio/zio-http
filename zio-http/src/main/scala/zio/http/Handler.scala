@@ -16,18 +16,21 @@
 
 package zio.http
 
-import zio._
-import zio.http.html.{Html, Template}
-import zio.http.Header.HeaderType
-import zio.http.internal.HeaderModifier
-import zio.stream.ZStream
-
-import java.io.{File, FileNotFoundException, IOException}
+import java.io.{File, FileNotFoundException}
 import java.nio.charset.Charset
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
-import scala.reflect.ClassTag
-import scala.util.control.NonFatal // scalafix:ok;
 import java.util.zip.ZipFile
+
+import scala.reflect.ClassTag
+import scala.util.control.NonFatal
+
+import zio._
+
+import zio.stream.ZStream
+
+import zio.http.Header.HeaderType
+import zio.http.html.{Html, Template}
+import zio.http.internal.HeaderModifier
 // import zio.stacktracer.TracingImplicits.disableAutoTrace
 sealed trait Handler[-R, +Err, -In, +Out] { self =>
 

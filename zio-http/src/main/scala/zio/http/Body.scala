@@ -331,8 +331,8 @@ object Body {
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
-  private val zioEmptyArray = ZIO.succeed(Array.empty[Byte])(Trace.empty)
+  private val zioEmptyArray = ZIO.succeed(Array.empty[Byte])(zio.Trace.empty)
 
-  private val zioEmptyChunk = ZIO.succeed(Chunk.empty[Byte])(Trace.empty)
+  private val zioEmptyChunk = ZIO.succeed(Chunk.empty[Byte])(zio.Trace.empty)
 
 }

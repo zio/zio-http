@@ -1,6 +1,6 @@
 package zio.http.netty.client
 
-import zio.{Promise, Trace, Unsafe}
+import zio.{Promise, Unsafe}
 
 import zio.http.Response
 import zio.http.netty.NettyRuntime

@@ -111,7 +111,6 @@ private[zio] object NettyDriver {
     )
 
   val manual: ZLayer[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Nothing, Driver] = {
-    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.makeSome[EventLoopGroup & ChannelFactory[ServerChannel] & Server.Config & NettyConfig, Driver](
       ZLayer.succeed(
         new AtomicReference[(HttpApp[Any], ZEnvironment[Any])]((HttpApp.empty, ZEnvironment.empty)),

@@ -17,7 +17,6 @@
 package zio.http
 
 import java.nio.file.{AccessDeniedException, NotDirectoryException}
-import java.util.IllegalFormatException
 
 import scala.annotation.tailrec
 

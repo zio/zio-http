@@ -20,7 +20,6 @@ import zio.Chunk
 
 import zio.http.Header.HeaderType
 import zio.http.Headers
-import zio.http.internal.{CaseMode, CharSequenceExtensions}
 
 /**
  * Maintains a list of operators that parse and extract data from the headers.

@@ -17,10 +17,9 @@
 package zio.http.netty.client
 
 // import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Task, Trace, ZIO}
+import zio.{Task, ZIO}
 
 import zio.http.Request
-import zio.http.netty._
 import zio.http.netty.model.Conversions
 
 import io.netty.buffer.Unpooled

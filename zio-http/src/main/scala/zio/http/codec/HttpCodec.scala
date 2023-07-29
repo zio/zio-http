@@ -16,7 +16,6 @@
 
 package zio.http.codec
 
-import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 import zio._

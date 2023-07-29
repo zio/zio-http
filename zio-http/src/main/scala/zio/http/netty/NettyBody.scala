@@ -18,16 +18,15 @@ package zio.http.netty
 
 import java.nio.charset.Charset
 
-import zio.{Chunk, Task, Trace, Unsafe, ZIO}
+import zio.{Chunk, Task, Unsafe, ZIO}
 
 import zio.stream.ZStream
 
 import zio.http.Body.{UnsafeBytes, UnsafeWriteable}
 import zio.http.internal.BodyEncoding
-import zio.http.{Body, Boundary, Header, Headers, MediaType}
+import zio.http.{Body, Boundary, Header, MediaType}
 
 import io.netty.buffer.{ByteBuf, ByteBufUtil}
-import io.netty.channel.{Channel => JChannel}
 import io.netty.util.AsciiString
 object NettyBody extends BodyEncoding {
 

@@ -16,7 +16,6 @@
 
 package zio.http
 
-import java.io.{PrintWriter, StringWriter}
 import java.nio.charset._
 
 import zio._

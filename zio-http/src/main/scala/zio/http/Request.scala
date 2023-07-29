@@ -18,7 +18,7 @@ package zio.http
 
 import java.net.InetAddress
 
-import zio.{Trace, ZIO}
+import zio.ZIO
 
 import zio.http.internal.HeaderOps
 

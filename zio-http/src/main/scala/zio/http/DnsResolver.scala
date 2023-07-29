@@ -269,7 +269,6 @@ object DnsResolver {
     ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*))) >>> live
 
   val default: ZLayer[Any, Nothing, DnsResolver] = {
-    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.succeed(Config.default) >>> live
   }.logged("DnsResolver.default")
 
@@ -317,7 +316,6 @@ object DnsResolver {
   }
 
   val system: ZLayer[Any, Nothing, DnsResolver] = {
-    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.succeed(SystemResolver())
   }
 }

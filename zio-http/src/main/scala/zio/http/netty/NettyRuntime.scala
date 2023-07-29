@@ -96,7 +96,6 @@ private[zio] object NettyRuntime {
    * Runs ZIO programs from Netty handlers on the current ZIO runtime
    */
   val live: ZLayer[Any, Nothing, NettyRuntime] = {
-    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.fromZIO {
       ZIO
         .runtime[Any]

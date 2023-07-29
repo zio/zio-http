@@ -17,7 +17,7 @@
 package zio.http.netty.client
 
 // import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Trace}
+import zio.Promise
 
 import zio.http.Status
 import zio.http.netty.{AsyncBodyReader, NettyFutureExecutor, NettyRuntime}

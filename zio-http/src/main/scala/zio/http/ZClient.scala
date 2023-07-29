@@ -16,14 +16,14 @@
 
 package zio.http
 
+import java.net.{InetSocketAddress, URI}
+
 import zio._
+
 import zio.http.URL.Location
 import zio.http.internal.HeaderOps
 import zio.http.netty.NettyConfig
 import zio.http.netty.client._
-
-import java.net.{InetSocketAddress, URI} // scalafix:ok;
-import java.net.MalformedURLException
 
 final case class ZClient[-Env, -In, +Err, +Out](
   version: Version,
@@ -275,7 +275,6 @@ object ZClient {
   }
 
   val default: ZLayer[Any, Throwable, Client] = {
-    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     (ZLayer.succeed(Config.default) ++ ZLayer.succeed(NettyConfig.default) ++
       DnsResolver.default) >>> live
   }.logged("ZClient.default")
@@ -292,7 +291,6 @@ object ZClient {
     )
 
   lazy val live: ZLayer[ZClient.Config with NettyConfig with DnsResolver, Throwable, Client] = {
-    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     (NettyClientDriver.live ++ ZLayer.service[DnsResolver]) >>> customized
   }.fresh
 

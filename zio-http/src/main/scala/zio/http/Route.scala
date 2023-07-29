@@ -17,8 +17,6 @@ package zio.http
 
 import zio._
 
-import zio.http.Route.Provided
-
 /*
  * Represents a single route, which has either handled its errors by converting
  * them into responses, or which has polymorphic errors, which must later be

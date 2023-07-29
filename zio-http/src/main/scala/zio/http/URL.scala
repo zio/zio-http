@@ -16,7 +16,7 @@
 
 package zio.http
 
-import java.net.{MalformedURLException, URI, URISyntaxException}
+import java.net.{MalformedURLException, URI}
 
 import scala.util.Try
 

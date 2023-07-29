@@ -17,7 +17,7 @@
 package zio.http.netty
 
 // import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Trace, Unsafe, ZIO}
+import zio.{Promise, Unsafe, ZIO}
 
 import zio.http.Response.NativeResponse
 import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}

@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.{Chunk, Trace}
+import zio.Chunk
 
 import zio.http.internal.{CaseMode, CharSequenceExtensions, HeaderOps}
 

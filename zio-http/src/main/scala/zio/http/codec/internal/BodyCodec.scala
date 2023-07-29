@@ -23,7 +23,7 @@ import zio.stream.ZStream
 import zio.schema._
 import zio.schema.codec.BinaryCodec
 
-import zio.http.{Body, FormField, MediaType}
+import zio.http.{Body, MediaType}
 
 /**
  * A BodyCodec encapsulates the logic necessary to both encode and decode bodies

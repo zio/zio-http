@@ -17,7 +17,7 @@
 package zio.http.netty
 
 // import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Task, Trace, UIO, ZIO}
+import zio.{Task, UIO, ZIO}
 
 import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
 final case class NettyChannel[-A](

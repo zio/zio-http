@@ -18,7 +18,7 @@ package zio.http
 
 import java.nio.charset.Charset
 
-import zio.{Chunk, Trace}
+import zio.Chunk
 
 /**
  * A multipart boundary, which consists of both the boundary and its charset.

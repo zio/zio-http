@@ -16,8 +16,6 @@
 
 package zio.http
 
-import zio.http._
-
 sealed trait Status extends Product with Serializable { self =>
 
   def isInformational: Boolean = code >= 100 && code < 200

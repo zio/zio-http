@@ -16,8 +16,6 @@
 
 package zio.http
 
-import scala.collection.mutable
-
 import zio.{Chunk, ChunkBuilder}
 
 /**

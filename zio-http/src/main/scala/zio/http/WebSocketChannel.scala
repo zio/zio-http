@@ -18,10 +18,10 @@ package zio.http
 
 import zio._
 
-import zio.http.ChannelEvent.{ExceptionCaught, Read, Registered, Unregistered, UserEventTriggered}
+import zio.http.ChannelEvent.Read
 import zio.http.netty.NettyChannel
 
-import io.netty.buffer.{ByteBufUtil, Unpooled}
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
 
 private[http] object WebSocketChannel {

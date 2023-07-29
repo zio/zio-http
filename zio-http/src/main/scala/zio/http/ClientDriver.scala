@@ -17,7 +17,7 @@
 package zio.http
 
 // import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Scope, Trace, ZIO, ZLayer}
+import zio.{Promise, Scope, ZIO, ZLayer}
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http.netty.client.ChannelState

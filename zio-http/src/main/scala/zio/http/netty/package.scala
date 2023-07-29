@@ -17,7 +17,7 @@
 package zio.http
 
 // import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Trace, ZIO}
+import zio.ZIO
 
 import io.netty.util.AsciiString
 package object netty {

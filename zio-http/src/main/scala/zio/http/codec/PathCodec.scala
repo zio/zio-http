@@ -16,11 +16,10 @@
 
 package zio.http.codec
 
-import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
-import zio.{Chunk, NonEmptyChunk}
+import zio.Chunk
 
 import zio.http.Path
 

@@ -17,7 +17,7 @@
 package zio.http
 
 import java.net.{InetAddress, InetSocketAddress}
-import java.util.concurrent.atomic.{AtomicInteger, LongAdder}
+import java.util.concurrent.atomic.LongAdder
 
 import zio._
 
@@ -384,7 +384,6 @@ object Server {
     ) >>> live
 
   val customized: ZLayer[Config & NettyConfig, Throwable, Server] = {
-    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     NettyDriver.customized >>> base
   }.logged("Server.customized")
 
@@ -395,12 +394,10 @@ object Server {
     ZLayer.succeed(f(Config.default)) >>> live
 
   val default: ZLayer[Any, Throwable, Server] = {
-    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.succeed(Config.default) >>> live
   }
 
   lazy val live: ZLayer[Config, Throwable, Server] = {
-    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     NettyDriver.live >+> base
   }
 

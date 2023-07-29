@@ -25,7 +25,6 @@ import scala.collection.mutable
 
 import zio.{Chunk, Duration}
 
-import zio.http._
 import zio.http.internal.CookieEncoding
 
 /**
