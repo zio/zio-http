@@ -211,7 +211,7 @@ lazy val zioHttpCli = (project in file("zio-http-cli"))
     ),
   )
   .dependsOn(zioHttp)
-  .dependsOn(zioHttpTestkit)
+  .dependsOn(zioHttpTestkit % Test)
 
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))
