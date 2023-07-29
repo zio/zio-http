@@ -127,19 +127,20 @@ trait Body { self =>
   def isEmpty: Boolean
 
   /**
-    * Returns the media type for this Body 
-    */
+   * Returns the media type for this Body
+   */
   def mediaType: Option[MediaType]
 
   /**
-    * Updates the media type attached to this body, returning a new Body
-    * with the updated media type 
-    */
-  def mediaType(newMediaType: MediaType): Body
+   * Updates the media type attached to this body, returning a new Body with the
+   * updated media type
+   */
+  def contentType(newMediaType: MediaType): Body
+
+  def contentType(newMediaType: MediaType, newBoundary: Boundary): Body
 
   private[zio] def boundary: Option[Boundary]
 
-  def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body
 }
 
 object Body {
@@ -258,9 +259,9 @@ object Body {
 
     override def mediaType: Option[MediaType] = None
 
-    override def mediaType(newMediaType: MediaType): Body = EmptyBody
+    override def contentType(newMediaType: MediaType): Body = EmptyBody
 
-    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body = EmptyBody
+    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body = EmptyBody
   }
 
   private[zio] final case class ChunkBody(
@@ -286,10 +287,10 @@ object Body {
 
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = data.toArray
 
-    override def mediaType(newMediaType: MediaType): Body = contentType(newMediaType)
+    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
 
-    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
+    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
+      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
   }
 
   private[zio] final case class FileBody(
@@ -334,10 +335,10 @@ object Body {
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       Files.readAllBytes(file.toPath)
 
-    override def mediaType(newMediaType: MediaType): Body = contentType(newMediaType)
+    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
 
-    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
+    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
+      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
   }
 
   private[zio] final case class StreamBody(
@@ -356,10 +357,10 @@ object Body {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
 
-    override def mediaType(newMediaType: MediaType): Body = contentType(newMediaType)
+    override def contentType(newMediaType: MediaType): Body = contentType(newMediaType)
 
-    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
+    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
+      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
   }
 
   private[zio] final case class WebsocketBody(socketApp: WebSocketApp[Any]) extends Body {
@@ -374,16 +375,16 @@ object Body {
 
     private[zio] def boundary: Option[Boundary] = None
 
-    private[zio] def contentType(
-      newMediaType: MediaType,
-      newBoundary: Option[Boundary],
-    ): Body = this
-
     def isComplete: Boolean = true
 
     def isEmpty: Boolean = true
 
-    private[zio] def mediaType: Option[MediaType] = None
+    def mediaType: Option[MediaType] = None
+
+    def contentType(newMediaType: zio.http.MediaType): zio.http.Body = this
+
+    def contentType(newMediaType: zio.http.MediaType, newBoundary: zio.http.Boundary): zio.http.Body = this
+
   }
 
   private val zioEmptyArray = ZIO.succeed(Array.empty[Byte])(Trace.empty)

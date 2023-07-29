@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http 
+package zio.http
 
 import java.io.File
 
@@ -22,44 +22,45 @@ import zio.test.Assertion.equalTo
 import zio.test.TestAspect.timeout
 import zio.test._
 import zio.{Scope, durationInt}
+
 import zio.stream.ZStream
 
 object BodySpec extends ZIOHttpSpec {
   private val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
 
-    override def spec: Spec[TestEnvironment with Scope, Throwable] =
-      suite("BodySpec")(
-        suite("outgoing")(
-          suite("encode")(
-            suite("fromStream")(
-              test("success") {
-                check(Gen.string) { payload =>
-                  val stringBuffer    = payload.getBytes(Charsets.Http)
-                  val responseContent = ZStream.fromIterable(stringBuffer, chunkSize = 2)
-                  val res             = Body.fromStream(responseContent).asString(Charsets.Http)
-                  assertZIO(res)(equalTo(payload))
-                }
-              },
-            ),
-            suite("fromFile")(
-              test("success") {
-                lazy val file = testFile
-                val res       = Body.fromFile(file).asString(Charsets.Http)
-                assertZIO(res)(equalTo("foo\nbar"))
-              },
-              test("success small chunk") {
-                lazy val file = testFile
-                val res       = Body.fromFile(file, 3).asString(Charsets.Http)
-                assertZIO(res)(equalTo("foo\nbar"))
-              },
-            ),
+  override def spec: Spec[TestEnvironment with Scope, Throwable] =
+    suite("BodySpec")(
+      suite("outgoing")(
+        suite("encode")(
+          suite("fromStream")(
+            test("success") {
+              check(Gen.string) { payload =>
+                val stringBuffer    = payload.getBytes(Charsets.Http)
+                val responseContent = ZStream.fromIterable(stringBuffer, chunkSize = 2)
+                val res             = Body.fromStream(responseContent).asString(Charsets.Http)
+                assertZIO(res)(equalTo(payload))
+              }
+            },
+          ),
+          suite("fromFile")(
+            test("success") {
+              lazy val file = testFile
+              val res       = Body.fromFile(file).asString(Charsets.Http)
+              assertZIO(res)(equalTo("foo\nbar"))
+            },
+            test("success small chunk") {
+              lazy val file = testFile
+              val res       = Body.fromFile(file, 3).asString(Charsets.Http)
+              assertZIO(res)(equalTo("foo\nbar"))
+            },
           ),
         ),
-        suite("mediaType")(
-          test("updates the Body media type with the provided value") {
-            val body = Body.fromString("test").mediaType(MediaType.text.plain)
-            assertTrue(body.mediaType == Option(MediaType.text.plain))
-          },
-        ),
-      ) @@ timeout(10 seconds)
-  }
+      ),
+      suite("mediaType")(
+        test("updates the Body media type with the provided value") {
+          val body = Body.fromString("test").contentType(MediaType.text.plain)
+          assertTrue(body.mediaType == Option(MediaType.text.plain))
+        },
+      ),
+    ) @@ timeout(10 seconds)
+}
