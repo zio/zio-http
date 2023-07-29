@@ -133,7 +133,7 @@ private[zio] object NettyDriver {
       eventLoopGroup,
       serverChannelFactory,
       manual,
-    )
+    ).logged("NettyDriver.customized")
   }
 
   val live: ZLayer[Server.Config, Throwable, Driver] =

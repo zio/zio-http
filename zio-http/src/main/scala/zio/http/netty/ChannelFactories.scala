@@ -57,7 +57,7 @@ object ChannelFactories {
               else nio
           }
         }
-      }
+      }.logged("ChannelFactories.Server.fromConfig")
     }
   }
 

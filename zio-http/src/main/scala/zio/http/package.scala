@@ -74,4 +74,16 @@ package object http extends UrlInterpolator {
   object Trace {
     implicit val empty: Trace = new Trace {}
   }
+
+  implicit class ZLayerOps[In, E, Out](layer: ZLayer[In, E, Out]) {
+    def logged(name: String): ZLayer[In, E, Out] =
+      ZLayer.scopedEnvironment[In] {
+        for {
+          _   <- ZIO.debug(s"=== CREATING $name ===")
+          _   <- ZIO.addFinalizer(ZIO.debug(s"=== RELEASED $name ==="))
+          env <- layer.build
+          _   <- ZIO.addFinalizer(ZIO.debug(s"=== RELEASING $name ==="))
+        } yield env
+      }
+  }
 }

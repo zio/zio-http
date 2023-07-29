@@ -80,5 +80,5 @@ object EventLoopGroups {
             else nio(config.nThreads)
         }
       }
-    }
+    }.logged("EventLoopGroup.live")
 }

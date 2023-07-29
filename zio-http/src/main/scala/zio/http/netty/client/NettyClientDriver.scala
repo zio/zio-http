@@ -175,6 +175,6 @@ object NettyClientDriver {
           nettyRuntime   <- ZIO.service[NettyRuntime]
           clientConfig   <- ZIO.service[NettyConfig]
         } yield NettyClientDriver(channelFactory, eventLoopGroup, nettyRuntime, clientConfig)
-      }
+      }.logged("NettyClientDriver.live")
 
 }

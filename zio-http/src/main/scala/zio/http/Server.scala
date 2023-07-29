@@ -365,12 +365,17 @@ object Server {
         result <- driver.start.catchAllCause(cause => inFlightRequests.failCause(cause) *> ZIO.refailCause(cause))
         _      <- inFlightRequests.succeed(result.inFlightRequests)
         _      <- ZIO.addFinalizer {
-          ZIO.sleep(1.minute).zipRight(Fiber.dumpAll).forkDaemon.flatMap { fiber =>
-            shutdownPromise.succeed(fiber)
-          }
+          ZIO
+            .sleep(1.minute)
+            .zipRight(ZIO.debug("*** SERVER RELEASE TAKES LONG ***") *> Fiber.dumpAll)
+            .interruptible
+            .forkDaemon
+            .flatMap { fiber =>
+              shutdownPromise.succeed(fiber)
+            }
         }
       } yield ServerLive(driver, result.port)
-    }
+    }.logged("Server.base")
   }
 
   def configured(path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "server")): ZLayer[Any, Throwable, Server] =
