@@ -19,8 +19,6 @@ package zio.http.netty
 // import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Task, Trace, UIO, ZIO}
 
-import zio.http.Channel
-
 import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
 final case class NettyChannel[-A](
   private val channel: JChannel,
@@ -28,11 +26,12 @@ final case class NettyChannel[-A](
 ) {
   self =>
 
-  private def foreach[S](
-    await: Boolean,
-  )(run: JChannel => JChannelFuture)(implicit trace: zio.http.Trace): Task[Unit] = {
-    if (await) NettyFutureExecutor.executed(run(channel))
-    else ZIO.attempt(run(channel): Unit)
+  private def run(await: Boolean)(run: JChannel => JChannelFuture)(implicit trace: zio.http.Trace): Task[Unit] = {
+    if (await) {
+      NettyFutureExecutor.executed(run(channel))
+    } else {
+      ZIO.attempt(run(channel): Unit)
+    }
   }
 
   def autoRead(flag: Boolean)(implicit trace: zio.http.Trace): UIO[Unit] =
@@ -43,7 +42,8 @@ final case class NettyChannel[-A](
     ()
   }
 
-  def close(await: Boolean = false)(implicit trace: zio.http.Trace): Task[Unit] = foreach(await) { _.close() }
+  def close(await: Boolean = false)(implicit trace: zio.http.Trace): Task[Unit] =
+    run(await) { _.close() }
 
   def contramap[A1](f: A1 => A): NettyChannel[A1] = copy(convert = convert.compose(f))
 
@@ -55,13 +55,15 @@ final case class NettyChannel[-A](
 
   def read(implicit trace: zio.http.Trace): UIO[Unit] = ZIO.succeed(channel.read(): Unit)
 
-  def write(msg: A, await: Boolean = false)(implicit trace: zio.http.Trace): Task[Unit] = foreach(await) {
-    _.write(convert(msg))
-  }
+  def write(msg: A, await: Boolean = false)(implicit trace: zio.http.Trace): Task[Unit] =
+    run(await) {
+      _.write(convert(msg))
+    }
 
-  def writeAndFlush(msg: A, await: Boolean = true)(implicit trace: zio.http.Trace): Task[Unit] = foreach(await) {
-    _.writeAndFlush(convert(msg))
-  }
+  def writeAndFlush(msg: => A, await: Boolean = true)(implicit trace: zio.http.Trace): Task[Unit] =
+    run(await) { ch =>
+      ch.writeAndFlush(convert(msg))
+    }
 }
 
 object NettyChannel {

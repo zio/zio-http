@@ -31,19 +31,24 @@ private[http] object WebSocketChannel {
     queue: Queue[WebSocketChannelEvent],
   ): WebSocketChannel =
     new WebSocketChannel {
-      def awaitShutdown: UIO[Unit]                                 =
+      def awaitShutdown: UIO[Unit] =
         nettyChannel.awaitClose
-      def receive: Task[WebSocketChannelEvent]                     =
+
+      def receive: Task[WebSocketChannelEvent] =
         queue.take
-      def send(in: WebSocketChannelEvent): Task[Unit]              =
+
+      def send(in: WebSocketChannelEvent): Task[Unit] = {
         in match {
           case Read(message) => nettyChannel.writeAndFlush(frameToNetty(message))
           case _             => ZIO.unit
         }
+      }
+
       def sendAll(in: Iterable[WebSocketChannelEvent]): Task[Unit] =
         ZIO.suspendSucceed {
           val iterator = in.iterator.collect { case Read(message) => message }
 
+          println(s"sendAll")
           ZIO.whileLoop(iterator.hasNext) {
             val message = iterator.next()
             if (iterator.hasNext) nettyChannel.write(frameToNetty(message))
@@ -54,7 +59,7 @@ private[http] object WebSocketChannel {
         nettyChannel.close(false).orDie
     }
 
-  private def frameToNetty(frame: WebSocketFrame): JWebSocketFrame =
+  private def frameToNetty(frame: WebSocketFrame): JWebSocketFrame = {
     frame match {
       case b: WebSocketFrame.Binary                 =>
         new BinaryWebSocketFrame(b.isFinal, 0, Unpooled.wrappedBuffer(b.bytes.toArray))
@@ -71,4 +76,5 @@ private[http] object WebSocketChannel {
       case c: WebSocketFrame.Continuation           =>
         new ContinuationWebSocketFrame(c.isFinal, 0, Unpooled.wrappedBuffer(c.buffer.toArray))
     }
+  }
 }
