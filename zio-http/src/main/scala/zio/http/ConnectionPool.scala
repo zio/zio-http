@@ -31,9 +31,9 @@ trait ConnectionPool[Connection] {
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
     localAddress: Option[InetSocketAddress] = None,
-  )(implicit trace: Trace): ZIO[Scope, Throwable, Connection]
+  )(implicit trace: zio.http.Trace): ZIO[Scope, Throwable, Connection]
 
-  def invalidate(connection: Connection)(implicit trace: Trace): ZIO[Any, Nothing, Unit]
+  def invalidate(connection: Connection)(implicit trace: zio.http.Trace): ZIO[Any, Nothing, Unit]
 
   def enableKeepAlive: Boolean
 }

@@ -16,7 +16,7 @@
 
 package zio.http.netty.server
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.SSLConfig.HttpBehaviour
 

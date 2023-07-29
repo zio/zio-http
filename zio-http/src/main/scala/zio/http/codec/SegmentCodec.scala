@@ -18,7 +18,6 @@ package zio.http.codec
 import scala.language.implicitConversions
 
 import zio.Chunk
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Path
 

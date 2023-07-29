@@ -16,7 +16,7 @@
 
 package zio.http.codec.internal
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.codec.HttpCodec
 private[http] final case class Atomized[A](

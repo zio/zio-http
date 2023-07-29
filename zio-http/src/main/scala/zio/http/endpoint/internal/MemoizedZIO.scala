@@ -21,7 +21,7 @@ import zio._
 private[http] class MemoizedZIO[K, E, A] private (compute: K => IO[E, A]) { self =>
   private val mapRef: Ref[Map[K, Promise[E, A]]] = Ref.unsafe.make(Map[K, Promise[E, A]]())(Unsafe.unsafe)
 
-  def get(k: K)(implicit trace: Trace): IO[E, A] = {
+  def get(k: K)(implicit trace: zio.http.Trace): IO[E, A] = {
     ZIO.fiberIdWith { fiberId =>
       for {
         effect <- mapRef.modify[IO[E, A]] { map =>

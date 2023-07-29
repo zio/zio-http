@@ -19,7 +19,6 @@ package zio.http.codec
 import scala.util.control.NoStackTrace
 
 import zio.Cause
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.{Path, Status}
 

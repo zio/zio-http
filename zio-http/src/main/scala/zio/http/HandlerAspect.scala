@@ -239,7 +239,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * Sets an effectfully created cookie in the response headers.
    */
   def addCookieZIO[Env](cookie: ZIO[Env, Nothing, Cookie.Response])(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): HandlerAspect[Env, Unit] =
     updateResponseZIO(response => cookie.map(response.addCookie))
 
@@ -280,7 +280,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * verification function
    */
   def basicAuthZIO[Env](f: Credentials => ZIO[Env, Response, Boolean])(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): HandlerAspect[Env, Unit] =
     customAuthZIO(
       _.header(Header.Authorization) match {
@@ -315,7 +315,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    */
   def bearerAuthZIO[Env](
     f: String => ZIO[Env, Response, Boolean],
-  )(implicit trace: Trace): HandlerAspect[Env, Unit] =
+  )(implicit trace: zio.http.Trace): HandlerAspect[Env, Unit] =
     customAuthZIO(
       _.header(Header.Authorization) match {
         case Some(Header.Authorization.Bearer(token)) => f(token)
@@ -628,7 +628,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
       start: Long,
       requestLabels: Set[MetricLabel],
       labels: Set[MetricLabel],
-    )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+    )(implicit trace: zio.http.Trace): ZIO[Any, Nothing, Unit] =
       for {
         _   <- requestsTotal.tagged(labels).increment
         _   <- concurrentRequests.tagged(requestLabels).decrement
@@ -692,7 +692,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     logResponseBody: Boolean = false,
     requestCharset: Charset = StandardCharsets.UTF_8,
     responseCharset: Charset = StandardCharsets.UTF_8,
-  )(implicit trace: Trace): HandlerAspect[Any, Unit] = {
+  )(implicit trace: zio.http.Trace): HandlerAspect[Any, Unit] = {
     val loggedRequestHeaderNames  = loggedRequestHeaders.map(_.name.toLowerCase)
     val loggedResponseHeaderNames = loggedResponseHeaders.map(_.name.toLowerCase)
 
@@ -760,13 +760,13 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   /**
    * Creates middleware that will run the specified effect after every request.
    */
-  def runAfter[Env](effect: ZIO[Env, Nothing, Any])(implicit trace: Trace): HandlerAspect[Env, Unit] =
+  def runAfter[Env](effect: ZIO[Env, Nothing, Any])(implicit trace: zio.http.Trace): HandlerAspect[Env, Unit] =
     updateResponseZIO(response => effect.as(response))
 
   /**
    * Creates middleware that will run the specified effect before every request.
    */
-  def runBefore[Env](effect: ZIO[Env, Nothing, Any])(implicit trace: Trace): HandlerAspect[Env, Unit] =
+  def runBefore[Env](effect: ZIO[Env, Nothing, Any])(implicit trace: zio.http.Trace): HandlerAspect[Env, Unit] =
     updateRequestZIO(request => effect.as(request))
 
   /**
@@ -795,7 +795,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   /**
    * Creates middleware that will update the headers of the response.
    */
-  override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): HandlerAspect[Any, Unit] =
+  override def updateHeaders(update: Headers => Headers)(implicit trace: zio.http.Trace): HandlerAspect[Any, Unit] =
     updateResponse(_.updateHeaders(update))
 
   /**

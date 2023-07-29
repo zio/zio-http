@@ -16,7 +16,7 @@
 
 package zio.http
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
 import zio.http.ClientDriver.ChannelInterface
@@ -33,10 +33,10 @@ trait ClientDriver {
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
     webSocketConfig: WebSocketConfig,
-  )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface]
+  )(implicit trace: zio.http.Trace): ZIO[Scope, Throwable, ChannelInterface]
 
   def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): ZIO[Scope, Nothing, ConnectionPool[Connection]]
 }
 
@@ -47,7 +47,7 @@ object ClientDriver {
   }
 
   val shared: ZLayer[Driver, Throwable, ClientDriver] = {
-    implicit val trace: Trace = Trace.empty
+    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.scoped {
       for {
         driver       <- ZIO.service[Driver]

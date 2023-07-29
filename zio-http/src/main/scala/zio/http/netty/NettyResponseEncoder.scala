@@ -19,7 +19,6 @@ package zio.http.netty
 import java.util.concurrent.ConcurrentHashMap
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 import zio.http.netty.model.Conversions
@@ -32,7 +31,7 @@ private[zio] object NettyResponseEncoder {
   private val frozenCache    = new ConcurrentHashMap[Response, FullHttpResponse]()
   private val frozenZioCache = new ConcurrentHashMap[Response, UIO[HttpResponse]]()
 
-  def encode(response: Response)(implicit trace: Trace): ZIO[Any, Throwable, HttpResponse] = {
+  def encode(response: Response)(implicit trace: zio.http.Trace): ZIO[Any, Throwable, HttpResponse] = {
     val body = response.body
     if (body.isComplete) {
       val cachedValue = frozenZioCache.get(response)
@@ -48,7 +47,10 @@ private[zio] object NettyResponseEncoder {
     }
   }
 
-  def fastEncode(response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe, trace: Trace): FullHttpResponse =
+  def fastEncode(response: Response, bytes: Array[Byte])(implicit
+    unsafe: Unsafe,
+    trace: zio.http.Trace,
+  ): FullHttpResponse =
     if (response.frozen) {
       val encodedResponse = frozenCache.get(response)
 

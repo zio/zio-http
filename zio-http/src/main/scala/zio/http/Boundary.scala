@@ -18,7 +18,6 @@ package zio.http
 
 import java.nio.charset.Charset
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Chunk, Trace}
 
 /**
@@ -73,7 +72,7 @@ object Boundary {
   def fromString(content: String, charset: Charset): Option[Boundary] =
     fromContent(Chunk.fromArray(content.getBytes(charset)), charset)
 
-  def randomUUID(implicit trace: Trace): zio.UIO[Boundary] =
+  def randomUUID(implicit trace: zio.http.Trace): zio.UIO[Boundary] =
     zio.Random.nextUUID.map { id =>
       Boundary(s"(((${id.toString()})))")
     }

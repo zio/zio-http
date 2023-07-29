@@ -17,7 +17,6 @@
 package zio.http.netty
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.ChannelEvent.UserEvent
 import zio.http.netty.client.ChannelState
@@ -37,7 +36,7 @@ private[zio] final class WebSocketAppHandler(
   zExec: NettyRuntime,
   queue: Queue[WebSocketChannelEvent],
   onComplete: Option[Promise[Throwable, ChannelState]],
-)(implicit trace: Trace)
+)(implicit trace: zio.http.Trace)
     extends SimpleChannelInboundHandler[JWebSocketFrame] {
 
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe

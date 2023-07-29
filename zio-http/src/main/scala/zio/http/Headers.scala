@@ -60,7 +60,7 @@ sealed trait Headers extends HeaderOps[Headers] with Iterable[Header] {
 
   final def modify(f: Header => Header): Headers = Headers.FromIterable(self.map(f))
 
-  override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Headers = update(self)
+  override final def updateHeaders(update: Headers => Headers)(implicit trace: zio.http.Trace): Headers = update(self)
 
   final def when(cond: Boolean): Headers = if (cond) self else Headers.Empty
 

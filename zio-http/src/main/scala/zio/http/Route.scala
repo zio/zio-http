@@ -91,7 +91,7 @@ sealed trait Route[-Env, +Err] { self =>
    * The location where the route was created, which is useful for debugging
    * purposes.
    */
-  def location: Trace
+  def location: zio.http.Trace
 
   final def provideEnvironment(env: ZEnvironment[Env]): Route[Any, Err] =
     Route.Provided(self, env)
@@ -123,16 +123,16 @@ object Route                   {
 
   def handled[Env](
     routePattern: RoutePattern[_],
-  )(handler: Handler[Env, Response, Request, Response])(implicit trace: Trace): Route[Env, Nothing] = {
+  )(handler: Handler[Env, Response, Request, Response])(implicit trace: zio.http.Trace): Route[Env, Nothing] = {
     // Sandbox before constructing:
-    Route.Handled(routePattern, handler.sandbox, Trace.empty)
+    Route.Handled(routePattern, handler.sandbox, zio.http.Trace.empty)
   }
 
   def handled[Params, Env](rpm: Route.Builder[Env, Params]): HandledConstructor[Env, Params] =
     new HandledConstructor[Env, Params](rpm)
 
   val notFound: Route[Any, Nothing] =
-    Handled(RoutePattern.any, Handler.notFound, Trace.empty)
+    Handled(RoutePattern.any, Handler.notFound, zio.http.Trace.empty)
 
   def route[Params](routePattern: RoutePattern[Params]): UnhandledConstructor[Any, Params] =
     route(Route.Builder(routePattern, HandlerAspect.identity))
@@ -143,7 +143,7 @@ object Route                   {
   final class HandledConstructor[-Env, Params](val rpm: Route.Builder[Env, Params]) extends AnyVal {
     def apply[Env1 <: Env, In](
       handler: Handler[Env1, Response, In, Response],
-    )(implicit zippable: Zippable.Out[Params, Request, In], trace: Trace): Route[Env1, Nothing] = {
+    )(implicit zippable: Zippable.Out[Params, Request, In], trace: zio.http.Trace): Route[Env1, Nothing] = {
       val handler2: Handler[Env1, Response, Request, Response] = {
         val paramHandler =
           Handler.fromFunctionZIO[(rpm.Context, Request)] { case (ctx, request) =>
@@ -167,7 +167,7 @@ object Route                   {
   final class UnhandledConstructor[-Env, Params](val rpm: Route.Builder[Env, Params]) extends AnyVal {
     def apply[Env1 <: Env, Err, Input](
       handler: Handler[Env1, Err, Input, Response],
-    )(implicit zippable: Zippable.Out[Params, Request, Input], trace: Trace): Route[Env1, Err] =
+    )(implicit zippable: Zippable.Out[Params, Request, Input], trace: zio.http.Trace): Route[Env1, Err] =
       Unhandled(rpm, handler, zippable, trace)
   }
 
@@ -188,7 +188,7 @@ object Route                   {
      */
     def ->[Env1 <: Env, Err, I](handler: Handler[Env1, Err, I, Response])(implicit
       input: RequestHandlerInput[A, I],
-      trace: Trace,
+      trace: zio.http.Trace,
     ): Route[Env1, Err] = {
       implicit val z = input.zippable
 
@@ -219,7 +219,7 @@ object Route                   {
     route: Route[Env, Err],
     env: ZEnvironment[Env],
   ) extends Route[Any, Err] {
-    def location: Trace = route.location
+    def location: zio.http.Trace = route.location
 
     def routePattern: RoutePattern[_] = route.routePattern
 
@@ -233,7 +233,7 @@ object Route                   {
     route: Route[Env, Err],
     aspect: Handler[Env, Response, Request, Response] => Handler[Env, Response, Request, Response],
   ) extends Route[Env, Err] {
-    def location: Trace = route.location
+    def location: zio.http.Trace = route.location
 
     def routePattern: RoutePattern[_] = route.routePattern
 
@@ -246,7 +246,7 @@ object Route                   {
   private final case class Handled[-Env](
     routePattern: RoutePattern[_],
     handler: Handler[Env, Response, Request, Response],
-    location: Trace,
+    location: zio.http.Trace,
   ) extends Route[Env, Nothing] {
     override def toHandler(implicit ev: Nothing <:< Response): Handler[Env, Response, Request, Response] =
       handler
@@ -257,7 +257,7 @@ object Route                   {
     rpm: Route.Builder[Env, Params],
     handler: Handler[Env, Err, Input, Response],
     zippable: Zippable.Out[Params, Request, Input],
-    location: Trace,
+    location: zio.http.Trace,
   ) extends Route[Env, Err] { self =>
 
     def routePattern = rpm.routePattern

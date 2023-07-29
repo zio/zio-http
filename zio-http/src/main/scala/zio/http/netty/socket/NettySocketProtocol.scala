@@ -16,7 +16,7 @@
 
 package zio.http.netty.socket
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.{SocketDecoder, WebSocketConfig}
 

@@ -68,4 +68,10 @@ package object http extends UrlInterpolator {
    * A channel that allows websocket frames to be read and write to it.
    */
   type WebSocketChannelEvent = ChannelEvent[WebSocketFrame]
+
+  sealed trait Trace
+
+  object Trace {
+    implicit val empty: Trace = new Trace {}
+  }
 }

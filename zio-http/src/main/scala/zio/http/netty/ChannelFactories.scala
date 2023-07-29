@@ -17,7 +17,6 @@
 package zio.http.netty
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.channel._
 import io.netty.channel.embedded.EmbeddedChannel
@@ -27,24 +26,24 @@ import io.netty.channel.socket.nio._
 import io.netty.incubator.channel.uring._
 object ChannelFactories {
 
-  private[zio] def make[A <: Channel](channel: => A)(implicit trace: Trace): UIO[ChannelFactory[A]] =
+  private[zio] def make[A <: Channel](channel: => A)(implicit trace: zio.http.Trace): UIO[ChannelFactory[A]] =
     ZIO.succeed(new ChannelFactory[A] {
       override def newChannel(): A = channel
     })
 
-  private[zio] def serverChannel[A <: ServerChannel](channel: => A)(implicit trace: Trace) =
+  private[zio] def serverChannel[A <: ServerChannel](channel: => A)(implicit trace: zio.http.Trace) =
     make[ServerChannel](channel)
 
-  private[zio] def clientChannel(channel: => Channel)(implicit trace: Trace) = make(channel)
+  private[zio] def clientChannel(channel: => Channel)(implicit trace: zio.http.Trace) = make(channel)
 
   object Server {
-    def nio(implicit trace: Trace)    = serverChannel(new NioServerSocketChannel())
-    def epoll(implicit trace: Trace)  = serverChannel(new EpollServerSocketChannel())
-    def uring(implicit trace: Trace)  = serverChannel(new IOUringServerSocketChannel())
-    def kqueue(implicit trace: Trace) = serverChannel(new KQueueServerSocketChannel())
+    def nio(implicit trace: zio.http.Trace)    = serverChannel(new NioServerSocketChannel())
+    def epoll(implicit trace: zio.http.Trace)  = serverChannel(new EpollServerSocketChannel())
+    def uring(implicit trace: zio.http.Trace)  = serverChannel(new IOUringServerSocketChannel())
+    def kqueue(implicit trace: zio.http.Trace) = serverChannel(new KQueueServerSocketChannel())
 
     val fromConfig = {
-      implicit val trace: Trace = Trace.empty
+      implicit val trace: zio.http.Trace = zio.http.Trace.empty
       ZLayer.fromZIO {
         ZIO.service[ChannelType.Config].flatMap {
           _.channelType match {
@@ -63,13 +62,13 @@ object ChannelFactories {
   }
 
   object Client {
-    def nio(implicit trace: Trace)      = clientChannel(new NioSocketChannel())
-    def epoll(implicit trace: Trace)    = clientChannel(new EpollSocketChannel())
-    def kqueue(implicit trace: Trace)   = clientChannel(new KQueueSocketChannel())
-    def uring(implicit trace: Trace)    = clientChannel(new IOUringSocketChannel())
-    def embedded(implicit trace: Trace) = clientChannel(new EmbeddedChannel(false, false))
+    def nio(implicit trace: zio.http.Trace)      = clientChannel(new NioSocketChannel())
+    def epoll(implicit trace: zio.http.Trace)    = clientChannel(new EpollSocketChannel())
+    def kqueue(implicit trace: zio.http.Trace)   = clientChannel(new KQueueSocketChannel())
+    def uring(implicit trace: zio.http.Trace)    = clientChannel(new IOUringSocketChannel())
+    def embedded(implicit trace: zio.http.Trace) = clientChannel(new EmbeddedChannel(false, false))
 
-    implicit val trace: Trace                                              = Trace.empty
+    implicit val trace: zio.http.Trace                                     = zio.http.Trace.empty
     val live: ZLayer[ChannelType.Config, Nothing, ChannelFactory[Channel]] =
       ZLayer.fromZIO {
         ZIO.service[ChannelType.Config].flatMap {

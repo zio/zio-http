@@ -20,7 +20,7 @@ import io.netty.util.AsciiString
 
 import java.text.SimpleDateFormat
 import java.util.Date // scalafix:ok;
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 private[zio] final class ServerTime(minDuration: Long) {
 
   private var last: Long               = System.currentTimeMillis()

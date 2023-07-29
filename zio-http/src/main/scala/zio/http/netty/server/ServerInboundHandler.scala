@@ -24,7 +24,6 @@ import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http._
 import zio.http.netty._
@@ -42,7 +41,7 @@ private[zio] final case class ServerInboundHandler(
   config: Server.Config,
   runtime: NettyRuntime,
   time: ServerTime,
-)(implicit trace: Trace)
+)(implicit trace: zio.http.Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
   implicit private val unsafe: Unsafe = Unsafe.unsafe
@@ -392,7 +391,7 @@ object ServerInboundHandler {
     Nothing,
     ServerInboundHandler,
   ] = {
-    implicit val trace: Trace = Trace.empty
+    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.fromZIO {
       for {
         appRef <- ZIO.service[AppRef]
@@ -434,7 +433,7 @@ object ServerInboundHandler {
 //   config: Server.Config,
 //   runtime: NettyRuntime,
 //   time: ServerTime,
-// )(implicit trace: Trace)
+// )(implicit trace: zio.http.Trace)
 //     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
 //   implicit private val unsafe: Unsafe = Unsafe.unsafe
@@ -788,7 +787,7 @@ object ServerInboundHandler {
 //     Nothing,
 //     ServerInboundHandler,
 //   ] = {
-//     implicit val trace: Trace = Trace.empty
+//     implicit val trace: zio.http.Trace = zio.http.Trace.empty
 //     ZLayer.fromZIO {
 //       for {
 //         appRef <- ZIO.service[AppRef]

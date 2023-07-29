@@ -60,7 +60,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    */
   def ->[Env, Err, I](handler: Handler[Env, Err, I, Response])(implicit
     zippable: RequestHandlerInput[A, I],
-    trace: zio.Trace,
+    trace: zio.http.Trace,
   ): Route[Env, Err] =
     Route.route(Route.Builder(self, HandlerAspect.identity))(handler)(zippable.zippable, trace)
 
@@ -71,7 +71,7 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    * supporting contextual middleware.
    */
   def ->[Env, Err](handler: Handler[Env, Response, Request, Response])(implicit
-    trace: zio.Trace,
+    trace: zio.http.Trace,
   ): Route[Env, Err] =
     Route.handled(self)(handler)
 

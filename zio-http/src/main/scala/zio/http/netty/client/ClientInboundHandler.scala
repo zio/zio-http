@@ -17,7 +17,6 @@
 package zio.http.netty.client
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.netty.{NettyBodyWriter, NettyResponse, NettyRuntime}
 import zio.http.{Request, Response}
@@ -35,7 +34,7 @@ final class ClientInboundHandler(
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
   enableKeepAlive: Boolean,
-)(implicit trace: Trace)
+)(implicit trace: zio.http.Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 

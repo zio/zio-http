@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
@@ -51,7 +50,7 @@ final case class NettyClientDriver private (
     enableKeepAlive: Boolean,
     createSocketApp: () => SocketApp[Any],
     webSocketConfig: WebSocketConfig,
-  )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
+  )(implicit trace: zio.http.Trace): ZIO[Scope, Throwable, ChannelInterface] = {
     NettyRequestEncoder.encode(req).flatMap { jReq =>
       for {
         _     <- Scope.addFinalizer {
@@ -157,7 +156,7 @@ final case class NettyClientDriver private (
   }
 
   override def createConnectionPool(dnsResolver: DnsResolver, config: ConnectionPoolConfig)(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): ZIO[Scope, Nothing, ConnectionPool[Channel]] =
     NettyConnectionPool
       .fromConfig(config)
@@ -165,7 +164,7 @@ final case class NettyClientDriver private (
 }
 
 object NettyClientDriver {
-  private implicit val trace: Trace = Trace.empty
+  private implicit val trace: zio.http.Trace = zio.http.Trace.empty
 
   val live: ZLayer[NettyConfig, Throwable, ClientDriver] =
     (EventLoopGroups.live ++ ChannelFactories.Client.live ++ NettyRuntime.live) >>>

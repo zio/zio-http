@@ -18,7 +18,7 @@ package zio.http.codec
 
 import java.util.UUID
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A [[zio.http.codec.TextCodec]] defines a codec for a text fragment. The text

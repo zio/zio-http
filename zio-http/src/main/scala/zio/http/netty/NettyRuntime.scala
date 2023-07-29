@@ -17,7 +17,6 @@
 package zio.http.netty
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import io.netty.channel._
 import io.netty.util.concurrent.{Future, GenericFutureListener}
@@ -28,7 +27,7 @@ private[zio] trait NettyRuntime { self =>
 
   def run(ctx: ChannelHandlerContext, ensured: () => Unit, interruptOnClose: Boolean = true)(
     program: ZIO[Any, Throwable, Any],
-  )(implicit unsafe: Unsafe, trace: Trace): Unit = {
+  )(implicit unsafe: Unsafe, trace: zio.http.Trace): Unit = {
     val rtm: Runtime[Any] = runtime(ctx)
 
     def onFailure(cause: Cause[Throwable], ctx: ChannelHandlerContext): Unit = {
@@ -76,11 +75,11 @@ private[zio] trait NettyRuntime { self =>
 
   def runUninterruptible(ctx: ChannelHandlerContext, ensured: () => Unit)(
     program: ZIO[Any, Throwable, Any],
-  )(implicit unsafe: Unsafe, trace: Trace): Unit =
+  )(implicit unsafe: Unsafe, trace: zio.http.Trace): Unit =
     run(ctx, ensured, interruptOnClose = false)(program)
 
   private def closeListener(rtm: Runtime[Any], fiber: Fiber.Runtime[_, _])(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): GenericFutureListener[Future[_ >: Void]] =
     (_: Future[_ >: Void]) => {
       val _ = rtm.unsafe.fork {
@@ -97,7 +96,7 @@ private[zio] object NettyRuntime {
    * Runs ZIO programs from Netty handlers on the current ZIO runtime
    */
   val live: ZLayer[Any, Nothing, NettyRuntime] = {
-    implicit val trace: Trace = Trace.empty
+    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.fromZIO {
       ZIO
         .runtime[Any]

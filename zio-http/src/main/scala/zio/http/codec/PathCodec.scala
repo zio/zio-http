@@ -20,7 +20,6 @@ import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Chunk, NonEmptyChunk}
 
 import zio.http.Path

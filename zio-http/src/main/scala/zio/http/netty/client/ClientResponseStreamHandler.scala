@@ -16,7 +16,7 @@
 
 package zio.http.netty.client
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Promise, Trace}
 
 import zio.http.Status
@@ -29,7 +29,7 @@ final class ClientResponseStreamHandler(
   onComplete: Promise[Throwable, ChannelState],
   keepAlive: Boolean,
   status: Status,
-)(implicit trace: Trace)
+)(implicit trace: zio.http.Trace)
     extends AsyncBodyReader { self =>
 
   override def channelRead0(

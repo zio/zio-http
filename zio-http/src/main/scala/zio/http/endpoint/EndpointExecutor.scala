@@ -33,7 +33,7 @@ final case class EndpointExecutor[+MI](
   middlewareInput: UIO[MI],
 ) {
   private val metadata = {
-    implicit val trace0 = Trace.empty
+    implicit val trace0 = zio.http.Trace.empty
     zio.http.endpoint.internal
       .MemoizedZIO[Endpoint[_, _, _, _, _ <: EndpointMiddleware], EndpointNotFound, EndpointClient[
         Any,
@@ -53,7 +53,7 @@ final case class EndpointExecutor[+MI](
 
   private def getClient[P, I, E, O, M <: EndpointMiddleware](
     endpoint: Endpoint[P, I, E, O, M],
-  )(implicit trace: Trace): IO[EndpointNotFound, EndpointClient[P, I, E, O, M]] =
+  )(implicit trace: zio.http.Trace): IO[EndpointNotFound, EndpointClient[P, I, E, O, M]] =
     metadata.get(endpoint).map(_.asInstanceOf[EndpointClient[P, I, E, O, M]])
 
   def apply[P, A, E, B, M <: EndpointMiddleware](
@@ -61,7 +61,7 @@ final case class EndpointExecutor[+MI](
   )(implicit
     alt: Alternator[E, invocation.middleware.Err],
     ev: MI <:< invocation.middleware.In,
-    trace: Trace,
+    trace: zio.http.Trace,
   ): ZIO[Scope, alt.Out, B] = {
     middlewareInput.flatMap { mi =>
       getClient(invocation.endpoint).orDie.flatMap { endpointClient =>
@@ -85,7 +85,9 @@ object EndpointExecutor {
         .map(Config(_))
   }
 
-  def make(serviceName: String)(implicit trace: Trace): ZLayer[Client, zio.Config.Error, EndpointExecutor[Unit]] =
+  def make(
+    serviceName: String,
+  )(implicit trace: zio.http.Trace): ZLayer[Client, zio.Config.Error, EndpointExecutor[Unit]] =
     ZLayer {
       for {
         client <- ZIO.service[Client]

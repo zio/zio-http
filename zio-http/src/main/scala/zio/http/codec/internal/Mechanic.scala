@@ -16,7 +16,7 @@
 
 package zio.http.codec.internal
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.codec.HttpCodec._
 import zio.http.codec.{HttpCodec, HttpCodecError}

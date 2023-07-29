@@ -20,18 +20,22 @@ import java.net.{InetAddress, UnknownHostException}
 import java.time.Instant
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 trait DnsResolver {
-  def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]]
+  def resolve(host: String)(implicit trace: zio.http.Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]]
 }
 
 object DnsResolver {
-  def resolve(host: String)(implicit trace: Trace): ZIO[DnsResolver, UnknownHostException, Chunk[InetAddress]] =
+  def resolve(host: String)(implicit
+    trace: zio.http.Trace,
+  ): ZIO[DnsResolver, UnknownHostException, Chunk[InetAddress]] =
     ZIO.serviceWithZIO(_.resolve(host))
 
   private final case class SystemResolver() extends DnsResolver {
-    override def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]] =
+    override def resolve(
+      host: String,
+    )(implicit trace: zio.http.Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]] =
       ZIO
         .attemptBlocking(InetAddress.getAllByName(host))
         .refineToOrDie[UnknownHostException]
@@ -72,7 +76,9 @@ object DnsResolver {
     semaphore: Semaphore,
     entries: Ref[Map[String, CacheEntry]],
   ) extends DnsResolver {
-    override def resolve(host: String)(implicit trace: Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]] =
+    override def resolve(
+      host: String,
+    )(implicit trace: zio.http.Trace): ZIO[Any, UnknownHostException, Chunk[InetAddress]] =
       for {
         now       <- Clock.instant
         fiberId   <- ZIO.fiberId
@@ -103,18 +109,18 @@ object DnsResolver {
       } yield result
 
     /** Gets a snapshot of the cache state, for testing only */
-    private[http] def snapshot()(implicit trace: Trace): ZIO[DnsResolver, Nothing, Map[String, CacheEntry]] =
+    private[http] def snapshot()(implicit trace: zio.http.Trace): ZIO[DnsResolver, Nothing, Map[String, CacheEntry]] =
       entries.get
 
     private def startResolvingHost(
       host: String,
       targetPromise: Promise[UnknownHostException, Chunk[InetAddress]],
-    )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+    )(implicit trace: zio.http.Trace): ZIO[Any, Nothing, Unit] =
       semaphore.withPermit {
         resolver.resolve(host).intoPromise(targetPromise)
       }.fork.unit
 
-    private def refreshAndCleanup()(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+    private def refreshAndCleanup()(implicit trace: zio.http.Trace): ZIO[Any, Nothing, Unit] =
       // Resolve only adds new entries for unseen hosts, so it is safe to do this non-atomically
       for {
         fiberId            <- ZIO.fiberId
@@ -127,7 +133,7 @@ object DnsResolver {
     private def refreshOrDropEntries(
       fiberId: FiberId,
       entries: Map[String, CacheEntry],
-    )(implicit trace: Trace): ZIO[Any, Nothing, Chunk[CachePatch]] =
+    )(implicit trace: zio.http.Trace): ZIO[Any, Nothing, Chunk[CachePatch]] =
       Clock.instant.flatMap { now =>
         ZIO
           .foreach(Chunk.fromIterable(entries)) { case (host, entry) =>
@@ -180,7 +186,7 @@ object DnsResolver {
 
     private def ensureMaxSize(
       entries: Map[String, CacheEntry],
-    )(implicit trace: Trace): ZIO[Any, Nothing, Chunk[CachePatch]] =
+    )(implicit trace: zio.http.Trace): ZIO[Any, Nothing, Chunk[CachePatch]] =
       if (entries.size > maxCount) {
         val toDrop = Chunk.fromIterable(entries).sortBy(_._2.lastUpdatedAt).take(entries.size - maxCount)
         ZIO
@@ -211,7 +217,7 @@ object DnsResolver {
       maxConcurrentResolutions: Int,
       expireAction: ExpireAction,
       refreshRate: Duration,
-    )(implicit trace: Trace): ZIO[Scope, Nothing, DnsResolver] =
+    )(implicit trace: zio.http.Trace): ZIO[Scope, Nothing, DnsResolver] =
       for {
         semaphore <- Semaphore.make(maxConcurrentResolutions)
         entries   <- Ref.make(Map.empty[String, CacheEntry])
@@ -220,7 +226,7 @@ object DnsResolver {
       } yield cachingResolver
   }
 
-  private[http] def snapshot()(implicit trace: Trace): ZIO[DnsResolver, Nothing, Map[String, CacheEntry]] =
+  private[http] def snapshot()(implicit trace: zio.http.Trace): ZIO[DnsResolver, Nothing, Map[String, CacheEntry]] =
     ZIO.service[DnsResolver].flatMap {
       case cachingResolver: CachingResolver => cachingResolver.snapshot()
       case _ => ZIO.dieMessage(s"Unexpected DnsResolver implementation: ${getClass.getName}")
@@ -259,11 +265,11 @@ object DnsResolver {
 
   def configured(
     path: NonEmptyChunk[String] = NonEmptyChunk("zio", "http", "dns"),
-  )(implicit trace: Trace): ZLayer[Any, zio.Config.Error, DnsResolver] =
+  )(implicit trace: zio.http.Trace): ZLayer[Any, zio.Config.Error, DnsResolver] =
     ZLayer(ZIO.config(Config.config.nested(path.head, path.tail: _*))) >>> live
 
   val default: ZLayer[Any, Nothing, DnsResolver] = {
-    implicit val trace: Trace = Trace.empty
+    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.succeed(Config.default) >>> live
   }
 
@@ -276,7 +282,7 @@ object DnsResolver {
     refreshRate: Duration = 2.seconds,
     implementation: DnsResolver = SystemResolver(),
   ): ZLayer[Any, Nothing, DnsResolver] = {
-    implicit val trace: Trace = Trace.empty
+    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.scoped {
       CachingResolver
         .make(
@@ -292,7 +298,7 @@ object DnsResolver {
   }
 
   lazy val live: ZLayer[DnsResolver.Config, Nothing, DnsResolver] = {
-    implicit val trace: Trace = Trace.empty
+    implicit val trace: zio.http.Trace = zio.http.Trace.empty
 
     ZLayer.scoped {
       for {
@@ -311,7 +317,7 @@ object DnsResolver {
   }
 
   val system: ZLayer[Any, Nothing, DnsResolver] = {
-    implicit val trace: Trace = Trace.empty
+    implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.succeed(SystemResolver())
   }
 }

@@ -16,7 +16,7 @@
 
 package zio.http.netty.client
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Promise, Trace, Unsafe}
 
 import zio.http.Response
@@ -28,7 +28,7 @@ final class WebSocketClientInboundHandler(
   rtm: NettyRuntime,
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
-)(implicit trace: Trace)
+)(implicit trace: zio.http.Trace)
     extends SimpleChannelInboundHandler[FullHttpResponse](true) {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 

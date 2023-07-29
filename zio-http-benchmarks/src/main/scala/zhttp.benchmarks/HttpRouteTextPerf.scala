@@ -23,13 +23,13 @@ class HttpRouteTextPerf {
 
   @Benchmark
   def benchmarkHttpProgram(): Unit = {
-    runtime.unsafe.run(httpProgram)(implicitly[Trace], Unsafe.unsafe)
+    runtime.unsafe.run(httpProgram)(implicitly[zio.Trace], Unsafe.unsafe)
     ()
   }
 
   @Benchmark
   def benchmarkUIOProgram(): Unit = {
-    runtime.unsafe.run(UIOProgram)(implicitly[Trace], Unsafe.unsafe)
+    runtime.unsafe.run(UIOProgram)(implicitly[zio.Trace], Unsafe.unsafe)
     ()
   }
 }

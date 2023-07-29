@@ -16,7 +16,7 @@
 package zio.http
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 trait Middleware[-UpperEnv] { self =>
   def apply[Env1 <: UpperEnv, Err](
@@ -131,7 +131,7 @@ object Middleware extends HandlerAspects {
       })
 
     val optionsRoute = {
-      implicit val trace: Trace = Trace.empty
+      implicit val trace: zio.http.Trace = zio.http.Trace.empty
 
       Method.OPTIONS / trailing -> handler { (_: Path, request: Request) =>
         val originHeader = request.header(Header.Origin)
@@ -165,7 +165,7 @@ object Middleware extends HandlerAspects {
     }
   }
 
-  def timeout(duration: Duration)(implicit trace: Trace): Middleware[Any] =
+  def timeout(duration: Duration)(implicit trace: zio.http.Trace): Middleware[Any] =
     new Middleware[Any] {
       def apply[Env1 <: Any, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
         routes.transform[Env1] { handler =>

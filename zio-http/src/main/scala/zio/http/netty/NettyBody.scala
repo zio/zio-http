@@ -18,7 +18,6 @@ package zio.http.netty
 
 import java.nio.charset.Charset
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Chunk, Task, Trace, Unsafe, ZIO}
 
 import zio.stream.ZStream
@@ -59,16 +58,16 @@ object NettyBody extends BodyEncoding {
       with UnsafeWriteable
       with UnsafeBytes {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
+    override def asArray(implicit trace: zio.http.Trace): Task[Array[Byte]] = ZIO.succeed(asciiString.array())
 
     override def isComplete: Boolean = true
 
     override def isEmpty: Boolean = asciiString.isEmpty()
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
+    override def asChunk(implicit trace: zio.http.Trace): Task[Chunk[Byte]] =
       ZIO.succeed(Chunk.fromArray(asciiString.array()))
 
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+    override def asStream(implicit trace: zio.http.Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
     override def toString(): String = s"Body.fromAsciiString($asciiString)"
@@ -87,15 +86,15 @@ object NettyBody extends BodyEncoding {
       with UnsafeWriteable
       with UnsafeBytes {
 
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = ZIO.succeed(ByteBufUtil.getBytes(byteBuf))
+    override def asArray(implicit trace: zio.http.Trace): Task[Array[Byte]] = ZIO.succeed(ByteBufUtil.getBytes(byteBuf))
 
     override def isComplete: Boolean = true
 
     override def isEmpty: Boolean = false
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asArray.map(Chunk.fromArray)
+    override def asChunk(implicit trace: zio.http.Trace): Task[Chunk[Byte]] = asArray.map(Chunk.fromArray)
 
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+    override def asStream(implicit trace: zio.http.Trace): ZStream[Any, Throwable, Byte] =
       ZStream.unwrap(asChunk.map(ZStream.fromChunk(_)))
 
     override def toString(): String = s"Body.fromByteBuf($byteBuf)"
@@ -113,11 +112,11 @@ object NettyBody extends BodyEncoding {
     override val boundary: Option[Boundary] = None,
   ) extends Body
       with UnsafeWriteable {
-    override def asArray(implicit trace: Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
+    override def asArray(implicit trace: zio.http.Trace): Task[Array[Byte]] = asChunk.map(_.toArray)
 
-    override def asChunk(implicit trace: Trace): Task[Chunk[Byte]] = asStream.runCollect
+    override def asChunk(implicit trace: zio.http.Trace): Task[Chunk[Byte]] = asStream.runCollect
 
-    override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+    override def asStream(implicit trace: zio.http.Trace): ZStream[Any, Throwable, Byte] =
       ZStream
         .async[Any, Throwable, Byte](emit =>
           try {

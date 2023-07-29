@@ -15,7 +15,7 @@
  */
 
 package zio.http.codec
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 private[codec] trait QueryCodecs {
   def query(name: String): QueryCodec[String] =
     HttpCodec.Query(name, TextCodec.string)

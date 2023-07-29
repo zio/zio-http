@@ -145,7 +145,9 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
   ): Endpoint[PathInput, combiner.Out, Err, Output, Middleware] =
     copy(input = self.input ++ codec)
 
-  def implement[Env](original: Handler[Env, Err, Input, Output])(implicit trace: Trace): Route[Env, Nothing] = {
+  def implement[Env](
+    original: Handler[Env, Err, Input, Output],
+  )(implicit trace: zio.http.Trace): Route[Env, Nothing] = {
     import HttpCodecError.isHttpCodecError
 
     val handlers = self.alternatives.map { endpoint =>

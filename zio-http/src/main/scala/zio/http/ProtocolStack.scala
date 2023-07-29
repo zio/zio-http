@@ -17,7 +17,7 @@
 package zio.http
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+// import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * A [[zio.http.ProtocolStack]] represents a linear stack of protocol layers,
@@ -60,7 +60,7 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
 
   final def apply[Env1 <: Env, Err >: OutgoingOut, IncomingOut1 >: IncomingOut, OutgoingIn1 <: OutgoingIn](
     handler: Handler[Env1, Err, IncomingOut1, OutgoingIn1],
-  )(implicit trace: Trace): Handler[Env1, Err, IncomingIn, OutgoingOut] =
+  )(implicit trace: zio.http.Trace): Handler[Env1, Err, IncomingIn, OutgoingOut] =
     Handler.fromFunctionZIO[IncomingIn] { incomingIn =>
       incoming(incomingIn).flatMap { case (state, incomingOut) =>
         handler(incomingOut).flatMap { outgoingIn =>
@@ -69,11 +69,13 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
       }
     }
 
-  private[http] def incoming(in: IncomingIn)(implicit trace: Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)]
+  private[http] def incoming(in: IncomingIn)(implicit
+    trace: zio.http.Trace,
+  ): ZIO[Env, OutgoingOut, (State, IncomingOut)]
 
   // TODO: Make this the one true representation and delete `incoming`
   lazy val incomingHandler: Handler[Env, OutgoingOut, IncomingIn, (State, IncomingOut)] =
-    Handler.fromFunctionZIO[IncomingIn](incoming(_)(Trace.empty))
+    Handler.fromFunctionZIO[IncomingIn](incoming(_)(zio.http.Trace.empty))
 
   def mapIncoming[IncomingOut2](
     f: IncomingOut => IncomingOut2,
@@ -85,16 +87,18 @@ sealed trait ProtocolStack[-Env, -IncomingIn, +IncomingOut, -OutgoingIn, +Outgoi
   ): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut2] =
     ProtocolStack.interceptOutgoingHandler(Handler.fromFunction(f)) ++ self
 
-  private[http] def outgoing(state: State, in: OutgoingIn)(implicit trace: Trace): ZIO[Env, Nothing, OutgoingOut]
+  private[http] def outgoing(state: State, in: OutgoingIn)(implicit
+    trace: zio.http.Trace,
+  ): ZIO[Env, Nothing, OutgoingOut]
 
   // TODO: Make this the one true representation and delete `outgoing`
   lazy val outgoingHandler: Handler[Env, Nothing, (State, OutgoingIn), OutgoingOut] =
     Handler.fromFunctionZIO[(State, OutgoingIn)] { case (state, in) =>
-      outgoing(state, in)(Trace.empty)
+      outgoing(state, in)(zio.http.Trace.empty)
     }
 
   def provideEnvironment(env: ZEnvironment[Env])(implicit
-    trace: Trace,
+    trace: zio.http.Trace,
   ): ProtocolStack[Any, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
     ProtocolStack.interceptHandlerStateful(incomingHandler.provideEnvironment(env))(
       outgoingHandler.provideEnvironment(env),
@@ -115,7 +119,7 @@ object ProtocolStack                                                            
 
   def failWith[Incoming, OutgoingOut](
     f: Incoming => OutgoingOut,
-  )(implicit trace: Trace): ProtocolStack[Any, Incoming, Incoming, OutgoingOut, OutgoingOut] =
+  )(implicit trace: zio.http.Trace): ProtocolStack[Any, Incoming, Incoming, OutgoingOut, OutgoingOut] =
     interceptIncomingHandler[Any, Incoming, Incoming, OutgoingOut](Handler.fromFunctionZIO(in => ZIO.fail(f(in))))
 
   def identity[I, O]: ProtocolStack[Any, I, I, O, O] = interceptIncomingHandler(Handler.identity)
@@ -124,7 +128,7 @@ object ProtocolStack                                                            
     incoming0: Handler[Env, OutgoingOut, IncomingIn, IncomingOut],
   )(
     outgoing0: Handler[Env, Nothing, OutgoingIn, OutgoingOut],
-  )(implicit trace: Trace): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
+  )(implicit trace: zio.http.Trace): ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] =
     interceptHandlerStateful(incoming0.map(((), _)))(outgoing0.contramap[(Unit, OutgoingIn)](_._2))
 
   def interceptHandlerStateful[Env, State0, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
@@ -149,10 +153,10 @@ object ProtocolStack                                                            
   ) extends ProtocolStack[Env, IncomingIn, IncomingOut, Outgoing, Outgoing] {
     type State = Unit
 
-    def incoming(in: IncomingIn)(implicit trace: Trace): ZIO[Env, Outgoing, (State, IncomingOut)] =
+    def incoming(in: IncomingIn)(implicit trace: zio.http.Trace): ZIO[Env, Outgoing, (State, IncomingOut)] =
       handler(in).map(() -> _)
 
-    def outgoing(state: State, in: Outgoing)(implicit trace: Trace): ZIO[Env, Nothing, Outgoing] =
+    def outgoing(state: State, in: Outgoing)(implicit trace: zio.http.Trace): ZIO[Env, Nothing, Outgoing] =
       Exit.succeed(in)
   }
   private[http] final case class Outgoing[Env, Incoming, OutgoingIn, OutgoingOut](
@@ -160,9 +164,10 @@ object ProtocolStack                                                            
   ) extends ProtocolStack[Env, Incoming, Incoming, OutgoingIn, OutgoingOut] {
     type State = Unit
 
-    def incoming(in: Incoming)(implicit trace: Trace): ZIO[Env, OutgoingOut, (State, Incoming)] = Exit.succeed(() -> in)
+    def incoming(in: Incoming)(implicit trace: zio.http.Trace): ZIO[Env, OutgoingOut, (State, Incoming)] =
+      Exit.succeed(() -> in)
 
-    def outgoing(state: State, in: OutgoingIn)(implicit trace: Trace): ZIO[Env, Nothing, OutgoingOut] =
+    def outgoing(state: State, in: OutgoingIn)(implicit trace: zio.http.Trace): ZIO[Env, Nothing, OutgoingOut] =
       handler(in)
   }
   private[http] final case class Concat[
@@ -179,14 +184,14 @@ object ProtocolStack                                                            
   ) extends ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] {
     type State = (left.State, right.State)
 
-    def incoming(in: IncomingIn)(implicit trace: Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)] =
+    def incoming(in: IncomingIn)(implicit trace: zio.http.Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)] =
       left.incoming(in).flatMap { case (leftState, middleIn) =>
         right.incoming(middleIn).catchAll(out => left.outgoing(leftState, out).flip).map {
           case (rightState, incomingOut) => (leftState -> rightState) -> incomingOut
         }
       }
 
-    def outgoing(state: State, in: OutgoingIn)(implicit trace: Trace): ZIO[Env, Nothing, OutgoingOut] =
+    def outgoing(state: State, in: OutgoingIn)(implicit trace: zio.http.Trace): ZIO[Env, Nothing, OutgoingOut] =
       right.outgoing(state._2, in).flatMap { middleOut =>
         left.outgoing(state._1, middleOut)
       }
@@ -197,9 +202,10 @@ object ProtocolStack                                                            
   ) extends ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] {
     type State = State0
 
-    def incoming(in: IncomingIn)(implicit trace: Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)] = incoming0(in)
+    def incoming(in: IncomingIn)(implicit trace: zio.http.Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)] =
+      incoming0(in)
 
-    def outgoing(state: State, in: OutgoingIn)(implicit trace: Trace): ZIO[Env, Nothing, OutgoingOut] =
+    def outgoing(state: State, in: OutgoingIn)(implicit trace: zio.http.Trace): ZIO[Env, Nothing, OutgoingOut] =
       outgoing0(state, in)
   }
   private[http] final case class Cond[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut](
@@ -209,11 +215,11 @@ object ProtocolStack                                                            
   ) extends ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] {
     type State = Either[ifTrue.State, ifFalse.State]
 
-    def incoming(in: IncomingIn)(implicit trace: Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)] =
+    def incoming(in: IncomingIn)(implicit trace: zio.http.Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)] =
       if (predicate(in)) ifTrue.incoming(in).map { case (state, out) => (Left(state), out) }
       else ifFalse.incoming(in).map { case (state, out) => (Right(state), out) }
 
-    def outgoing(state: State, in: OutgoingIn)(implicit trace: Trace): ZIO[Env, Nothing, OutgoingOut] =
+    def outgoing(state: State, in: OutgoingIn)(implicit trace: zio.http.Trace): ZIO[Env, Nothing, OutgoingOut] =
       state match {
         case Left(state)  => ifTrue.outgoing(state, in)
         case Right(state) => ifFalse.outgoing(state, in)
@@ -226,13 +232,13 @@ object ProtocolStack                                                            
   ) extends ProtocolStack[Env, IncomingIn, IncomingOut, OutgoingIn, OutgoingOut] {
     type State = Either[ifTrue.State, ifFalse.State]
 
-    def incoming(in: IncomingIn)(implicit trace: Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)] =
+    def incoming(in: IncomingIn)(implicit trace: zio.http.Trace): ZIO[Env, OutgoingOut, (State, IncomingOut)] =
       predicate(in).flatMap {
         case true  => ifTrue.incoming(in).map { case (state, out) => (Left(state), out) }
         case false => ifFalse.incoming(in).map { case (state, out) => (Right(state), out) }
       }
 
-    def outgoing(state: State, in: OutgoingIn)(implicit trace: Trace): ZIO[Env, Nothing, OutgoingOut] =
+    def outgoing(state: State, in: OutgoingIn)(implicit trace: zio.http.Trace): ZIO[Env, Nothing, OutgoingOut] =
       state match {
         case Left(state)  => ifTrue.outgoing(state, in)
         case Right(state) => ifFalse.outgoing(state, in)

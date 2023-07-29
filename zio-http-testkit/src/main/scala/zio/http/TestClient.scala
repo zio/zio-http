@@ -91,7 +91,7 @@ final case class TestClient(
     headers: Headers,
     body: Body,
     sslConfig: Option[zio.http.ClientSSLConfig],
-  )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
+  )(implicit trace: zio.http.Trace): ZIO[Any, Throwable, Response] = {
     val notFound: PartialFunction[Request, ZIO[Any, Response, Response]] = { case _: Request =>
       ZIO.succeed(Response.notFound)
     }
@@ -118,7 +118,7 @@ final case class TestClient(
     url: URL,
     headers: Headers,
     app: SocketApp[Env1],
-  )(implicit trace: Trace): ZIO[Env1 with Scope, Throwable, Response] = {
+  )(implicit trace: zio.http.Trace): ZIO[Env1 with Scope, Throwable, Response] = {
     for {
       env                   <- ZIO.environment[Env1]
       currentSocketBehavior <- serverSocketBehavior.get

@@ -19,7 +19,6 @@ package zio.http.netty.server
 import java.util.concurrent.TimeUnit
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Server
 import zio.http.Server.RequestStreaming
@@ -101,7 +100,7 @@ private[zio] final case class ServerChannelInitializer(
 }
 
 object ServerChannelInitializer {
-  implicit val trace: Trace = Trace.empty
+  implicit val trace: zio.http.Trace = zio.http.Trace.empty
 
   val layer: ZLayer[SimpleChannelInboundHandler[HttpObject] with Server.Config, Nothing, ServerChannelInitializer] =
     ZLayer.fromZIO {

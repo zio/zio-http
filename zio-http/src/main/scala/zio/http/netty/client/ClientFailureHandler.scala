@@ -12,7 +12,7 @@ final class ClientFailureHandler(
   rtm: NettyRuntime,
   onResponse: Promise[Throwable, Response],
   onComplete: Promise[Throwable, ChannelState],
-)(implicit trace: Trace)
+)(implicit trace: zio.http.Trace)
     extends ChannelInboundHandlerAdapter {
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 

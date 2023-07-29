@@ -20,8 +20,6 @@ import java.io.{FileInputStream, InputStream}
 import java.security.KeyStore
 import javax.net.ssl.TrustManagerFactory
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.ClientSSLConfig
 
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory

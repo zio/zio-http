@@ -22,7 +22,6 @@ import java.util.IllegalFormatException
 import scala.annotation.tailrec
 
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
@@ -40,7 +39,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
    * Collects the potentially streaming body of the response into a single
    * chunk.
    */
-  def collect(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+  def collect(implicit trace: zio.http.Trace): ZIO[Any, Throwable, Response] =
     if (self.body.isComplete) ZIO.succeed(self)
     else
       self.body.asChunk.map { bytes =>
@@ -96,7 +95,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
   def headers: Headers
 
   /** Consumes the streaming body fully and then drops it */
-  final def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+  final def ignoreBody(implicit trace: zio.http.Trace): ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
 
   final def isWebSocket: Boolean = self match {
@@ -104,7 +103,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
     case _                    => false
   }
 
-  final def patch(p: Response.Patch)(implicit trace: Trace): Response = p.apply(self)
+  final def patch(p: Response.Patch)(implicit trace: zio.http.Trace): Response = p.apply(self)
 
   private[zio] def addServerTime: Boolean = false
 
@@ -124,7 +123,7 @@ sealed trait Response extends HeaderOps[Response] { self =>
   /**
    * Creates an Http from a Response
    */
-  final def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.response(self)
+  final def toHandler(implicit trace: zio.http.Trace): Handler[Any, Nothing, Any, Response] = Handler.response(self)
 
   def serverTime: Response
 }
@@ -147,7 +146,7 @@ object Response {
   }
 
   private[zio] trait CloseableResponse extends Response {
-    def close(implicit trace: Trace): Task[Unit]
+    def close(implicit trace: zio.http.Trace): Task[Unit]
   }
 
   private[zio] class BasicResponse(
@@ -171,7 +170,7 @@ object Response {
 
     override def toString(): String = s"Response(status = $status, headers = $headers, body = $body)"
 
-    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+    override def updateHeaders(update: Headers => Headers)(implicit trace: zio.http.Trace): Response =
       copy(headers = update(headers))
 
     override def serverTime: Response = new BasicResponse(body, headers, status) with InternalState {
@@ -206,7 +205,7 @@ object Response {
     override final def toString(): String =
       s"SocketAppResponse(status = $status, headers = $headers, body = $body, socketApp = $socketApp0)"
 
-    override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+    override final def updateHeaders(update: Headers => Headers)(implicit trace: zio.http.Trace): Response =
       copy(headers = update(headers))
 
     override final def serverTime: Response = new SocketAppResponse(body, headers, socketApp0, status)
@@ -226,7 +225,7 @@ object Response {
     onClose: () => Task[Unit],
   ) extends CloseableResponse { self =>
 
-    override final def close(implicit trace: Trace): Task[Unit] = onClose()
+    override final def close(implicit trace: zio.http.Trace): Task[Unit] = onClose()
 
     override final def copy(status: Status, headers: Headers, body: Body): Response =
       new NativeResponse(body, headers, status, onClose) with InternalState {
@@ -241,7 +240,7 @@ object Response {
     override final def toString(): String =
       s"NativeResponse(status = $status, headers = $headers, body = $body)"
 
-    override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+    override final def updateHeaders(update: Headers => Headers)(implicit trace: zio.http.Trace): Response =
       copy(headers = update(headers))
 
     override final def serverTime: Response = new NativeResponse(body, headers, status, onClose) with InternalState {
@@ -255,8 +254,8 @@ object Response {
    * Models the set of operations that one would want to apply on a Response.
    */
   sealed trait Patch { self =>
-    def ++(that: Patch): Patch                                = Patch.Combine(self, that)
-    def apply(res: Response)(implicit trace: Trace): Response = {
+    def ++(that: Patch): Patch                                         = Patch.Combine(self, that)
+    def apply(res: Response)(implicit trace: zio.http.Trace): Response = {
 
       @tailrec
       def loop(res: Response, patch: Patch): Response =
@@ -354,7 +353,7 @@ object Response {
    * @param data
    *   \- stream of data to be sent as Server Sent Events
    */
-  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
+  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: zio.http.Trace): Response =
     new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
 
   /**
@@ -362,13 +361,13 @@ object Response {
    */
   def fromSocket[R](
     http: Handler[R, Throwable, WebSocketChannel, Any],
-  )(implicit trace: Trace): ZIO[R, Nothing, Response] =
+  )(implicit trace: zio.http.Trace): ZIO[R, Nothing, Response] =
     fromSocketApp(http)
 
   /**
    * Creates a new response for the provided socket app
    */
-  def fromSocketApp[R](app: SocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
+  def fromSocketApp[R](app: SocketApp[R])(implicit trace: zio.http.Trace): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
       new SocketAppResponse(
         Body.empty,
