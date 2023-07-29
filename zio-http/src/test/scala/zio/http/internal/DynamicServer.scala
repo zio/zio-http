@@ -76,7 +76,7 @@ object DynamicServer {
         ref <- Ref.make(Map.empty[Id, HttpApp[Any]])
         pr  <- Promise.make[Nothing, Server]
       } yield new Live(ref, pr)
-    }
+    }.logged("DynamicServer.live")
 
   def port: ZIO[DynamicServer, Nothing, Int] = ZIO.environmentWithZIO[DynamicServer](_.get.port)
 

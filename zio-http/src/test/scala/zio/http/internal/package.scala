@@ -31,11 +31,13 @@ package object internal {
     ZLayer.succeed(NettyConfig.default.leakDetection(LeakDetectionLevel.PARANOID))
 
   val severTestLayer: ZLayer[Any, Throwable, Server.Config with Server] =
-    ZLayer.make[Server.Config with Server](
-      testServerConfig,
-      testNettyServerConfig,
-      Server.customized,
-    )
+    ZLayer
+      .make[Server.Config with Server](
+        testServerConfig,
+        testNettyServerConfig,
+        Server.customized,
+      )
+      .logged("serverTestLayer")
 
   val testClientConfig: ULayer[ZClient.Config] =
     ZLayer.succeed(Client.Config.default.disabledConnectionPool)

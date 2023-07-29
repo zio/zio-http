@@ -271,7 +271,7 @@ object DnsResolver {
   val default: ZLayer[Any, Nothing, DnsResolver] = {
     implicit val trace: zio.http.Trace = zio.http.Trace.empty
     ZLayer.succeed(Config.default) >>> live
-  }
+  }.logged("DnsResolver.default")
 
   private[http] def explicit(
     ttl: Duration = 10.minutes,

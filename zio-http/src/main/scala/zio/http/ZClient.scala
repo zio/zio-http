@@ -278,7 +278,7 @@ object ZClient {
     implicit val trace: zio.http.Trace = zio.http.Trace.empty
     (ZLayer.succeed(Config.default) ++ ZLayer.succeed(NettyConfig.default) ++
       DnsResolver.default) >>> live
-  }
+  }.logged("ZClient.default")
 
   def fromDriver[Env, Err](driver: Driver[Env, Err]): ZClient[Env, Body, Err, Response] =
     ZClient(

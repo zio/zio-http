@@ -386,7 +386,7 @@ object Server {
   val customized: ZLayer[Config & NettyConfig, Throwable, Server] = {
     implicit val trace: zio.http.Trace = zio.http.Trace.empty
     NettyDriver.customized >>> base
-  }
+  }.logged("Server.customized")
 
   def defaultWithPort(port: Int)(implicit trace: zio.http.Trace): ZLayer[Any, Throwable, Server] =
     defaultWith(_.port(port))

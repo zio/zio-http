@@ -212,7 +212,7 @@ object WebSocketSpec extends HttpRunnableSpec {
       serve.as(List(websocketSpec))
     }
   }
-    .provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
+    .provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default.logged("Scope.default")) @@
     timeout(60 seconds) @@ diagnose(60.seconds) @@ withLiveClock @@ sequential
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
