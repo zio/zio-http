@@ -129,11 +129,13 @@ private[zio] object NettyDriver {
       ChannelFactories.Server.fromConfig
     val eventLoopGroup: ZLayer[NettyConfig, Nothing, EventLoopGroup]                      = EventLoopGroups.live
 
-    ZLayer.makeSome[Server.Config & NettyConfig, Driver](
-      eventLoopGroup,
-      serverChannelFactory,
-      manual,
-    ).logged("NettyDriver.customized")
+    ZLayer
+      .makeSome[Server.Config & NettyConfig, Driver](
+        eventLoopGroup,
+        serverChannelFactory,
+        manual,
+      )
+      .logged("NettyDriver.customized")
   }
 
   val live: ZLayer[Server.Config, Throwable, Driver] =
