@@ -633,8 +633,7 @@ object ZClient {
     )(implicit trace: Trace): ZIO[Scope, Throwable, Response] = {
       val requestHeaders = body.mediaType match {
         case None        => headers
-        case Some(value) =>
-          headers.combineIf(!headers.exists(_.headerType == Header.ContentType))(Headers(Header.ContentType(value)))
+        case Some(value) => headers.removeHeader(Header.ContentType).addHeader(Header.ContentType(value))
       }
 
       val request = Request(version, method, url, requestHeaders, body, None)
