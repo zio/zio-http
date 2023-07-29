@@ -22,8 +22,7 @@ import zio.http.internal.HeaderOps
 import zio.http.netty.NettyConfig
 import zio.http.netty.client._
 
-import java.net.{InetSocketAddress, URI} // scalafix:ok;
-import java.net.MalformedURLException
+import java.net.{InetSocketAddress, URI}
 
 final case class ZClient[-Env, -In, +Err, +Out](
   version: Version,
@@ -659,10 +658,10 @@ object ZClient {
           config,
           () => app.provideEnvironment(env),
           Some(scope),
-        ).withFinalizer {
-          case resp: Response.CloseableResponse => resp.close.orDie
-          case _                                => ZIO.unit
-        }
+        ) // .withFinalizer {
+        //          case resp: Response.CloseableResponse => resp.close.orDie
+        //          case _                                => ZIO.unit
+        //        }
       } yield res
 
     private def requestAsync(

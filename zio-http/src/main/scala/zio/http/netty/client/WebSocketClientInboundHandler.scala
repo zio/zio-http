@@ -16,14 +16,12 @@
 
 package zio.http.netty.client
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Trace, Unsafe}
-
-import zio.http.Response
-import zio.http.netty.{NettyResponse, NettyRuntime}
-
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
+import zio.http.Response
+import zio.http.netty.{NettyResponse, NettyRuntime}
+import zio.{Promise, Trace, Unsafe}
+
 final class WebSocketClientInboundHandler(
   rtm: NettyRuntime,
   onResponse: Promise[Throwable, Response],
@@ -38,7 +36,7 @@ final class WebSocketClientInboundHandler(
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
-      onResponse.succeed(NettyResponse.make(ctx, msg))
+      onResponse.succeed(NettyResponse.make(ctx, msg).response)
     }(unsafeClass, trace)
 
     ctx.fireChannelRead(msg.retain())

@@ -16,25 +16,27 @@
 
 package zio.http
 
-import java.nio.file.{AccessDeniedException, NotDirectoryException}
-import java.util.IllegalFormatException
-
-import scala.annotation.tailrec
-
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import zio.stream.ZStream
-
-import zio.http.Response._
 import zio.http.html.Html
 import zio.http.internal.HeaderOps
+import zio.stream.ZStream
 
-sealed trait Response extends HeaderOps[Response] { self =>
+import java.nio.file.{AccessDeniedException, NotDirectoryException}
+import scala.annotation.tailrec
+
+final case class Response(
+  status: Status,
+  headers: Headers,
+  body: Body,
+) extends HeaderOps[Response] { self =>
+
+  private[http] var encoded: AnyRef = null
+
+  def isWebSocket: Boolean =
+    self.status == Status.SwitchingProtocols
+
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
-
-  def body: Body
 
   /**
    * Collects the potentially streaming body of the response into a single
@@ -47,209 +49,49 @@ sealed trait Response extends HeaderOps[Response] { self =>
         self.copy(body = Body.fromChunk(bytes))
       }
 
-  def copy(
-    status: Status = self.status,
-    headers: Headers = self.headers,
-    body: Body = self.body,
-  ): Response
-
-  override def equals(o: Any): Boolean = {
-    if (o == null) return false
-
-    if (o.getClass() != self.getClass()) return false
-
-    val r = o.asInstanceOf[Response]
-
-    if (r.body != self.body) return false
-
-    if (r.headers != self.headers) return false
-
-    if (r.status != self.status) return false
-
-    if (r.frozen != self.frozen) return false
-
-    if (r.addServerTime != self.addServerTime) return false
-
-    if (r.socketApp != self.socketApp) return false
-
-    true
-  }
-
-  def freeze: Response
-
-  def frozen: Boolean = false
-
-  override lazy val hashCode: Int = {
-    val prime  = 31
-    var result = 1
-
-    result = prime * result + getClass().hashCode()
-    result = prime * result + body.hashCode
-    result = prime * result + headers.hashCode
-    result = prime * result + status.hashCode
-    result = prime * result + frozen.hashCode
-    result = prime * result + addServerTime.hashCode
-    result = prime * result + socketApp.hashCode
-    result
-  }
-
-  def headers: Headers
+  def frozen: Boolean = false // TODO: remove
 
   /** Consumes the streaming body fully and then drops it */
-  final def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Response] =
+  def ignoreBody: ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
 
-  final def isWebSocket: Boolean = self match {
-    case _: SocketAppResponse => self.status == Status.SwitchingProtocols
-    case _                    => false
-  }
-
-  final def patch(p: Response.Patch)(implicit trace: Trace): Response = p.apply(self)
-
-  private[zio] def addServerTime: Boolean = false
+  def patch(p: Response.Patch): Response = p.apply(self)
 
   /**
    * Sets the status of the response
    */
-  final def status(status: Status): Response =
-    self.copy(status = status)
-
-  private[zio] final def socketApp: Option[WebSocketApp[Any]] = self match {
-    case Response.GetApp(app) => Some(app)
-    case _                    => None
-  }
-
-  def status: Status
+  def status(status: Status): Response =
+    copy(status = status)
 
   /**
    * Creates an Http from a Response
    */
-  final def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.response(self)
+  def toHandler(implicit trace: Trace): Handler[Any, Nothing, Any, Response] = Handler.response(self)
 
-  def serverTime: Response
+  /**
+   * Updates the current Headers with new one, using the provided update
+   * function passed.
+   */
+  override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
+    copy(headers = update(headers))
 }
 
 object Response {
 
-  private trait InternalState extends Response {
-    private[Response] def parent: Response
-
-    override def frozen: Boolean = parent.frozen
-
-    override def addServerTime: Boolean = parent.addServerTime
-  }
-
-  object GetApp {
-    def unapply(response: Response): Option[WebSocketApp[Any]] = response match {
-      case resp: SocketAppResponse => Some(resp.socketApp0)
-      case _                       => None
-    }
-  }
-
-  private[zio] trait CloseableResponse extends Response {
+  // TODO: move to handler
+  private[zio] trait CloseableResponse {
     def close(implicit trace: Trace): Task[Unit]
   }
 
-  private[zio] class BasicResponse(
-    val body: Body,
-    val headers: Headers,
-    val status: Status,
-  ) extends Response { self =>
-
-    override def copy(status: Status, headers: Headers, body: Body): Response =
-      new BasicResponse(body, headers, status) with InternalState {
-        override val parent: Response = self
-      }
-
-    override def freeze: Response = new BasicResponse(body, headers, status) with InternalState {
-
-      override val parent: Response = self
-
-      override def frozen: Boolean = true
-
-    }
-
-    override def toString(): String = s"Response(status = $status, headers = $headers, body = $body)"
-
-    override def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
-      copy(headers = update(headers))
-
-    override def serverTime: Response = new BasicResponse(body, headers, status) with InternalState {
-
-      override val parent: Response = self
-
-      override def addServerTime: Boolean = true
-    }
-
-  }
-
-  private[zio] class SocketAppResponse(
-    val body: Body,
-    val headers: Headers,
-    val socketApp0: WebSocketApp[Any],
-    val status: Status,
-  ) extends Response { self =>
-
-    override final def copy(status: Status, headers: Headers, body: Body): Response =
-      new SocketAppResponse(body, headers, socketApp0, status) with InternalState {
-        override val parent: Response = self
-      }
-
-    override final def freeze: Response = new SocketAppResponse(body, headers, socketApp0, status) with InternalState {
-
-      override val parent: Response = self
-
-      override def frozen: Boolean = true
-
-    }
-
-    override final def toString(): String =
-      s"SocketAppResponse(status = $status, headers = $headers, body = $body, socketApp = $socketApp0)"
-
-    override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
-      copy(headers = update(headers))
-
-    override final def serverTime: Response = new SocketAppResponse(body, headers, socketApp0, status)
-      with InternalState {
-
-      override val parent: Response = self
-
-      override def addServerTime: Boolean = true
-    }
-
-  }
-
-  private[zio] class NativeResponse(
-    val body: Body,
-    val headers: Headers,
-    val status: Status,
+  private[zio] case class NativeResponse(
+    response: Response,
     onClose: () => Task[Unit],
   ) extends CloseableResponse { self =>
 
     override final def close(implicit trace: Trace): Task[Unit] = onClose()
 
-    override final def copy(status: Status, headers: Headers, body: Body): Response =
-      new NativeResponse(body, headers, status, onClose) with InternalState {
-        override val parent: Response = self
-      }
-
-    override final def freeze: Response = new NativeResponse(body, headers, status, onClose) with InternalState {
-      override val parent: Response = self
-      override def frozen: Boolean  = true
-    }
-
-    override final def toString(): String =
-      s"NativeResponse(status = $status, headers = $headers, body = $body)"
-
-    override final def updateHeaders(update: Headers => Headers)(implicit trace: Trace): Response =
-      copy(headers = update(headers))
-
-    override final def serverTime: Response = new NativeResponse(body, headers, status, onClose) with InternalState {
-      override val parent: Response = self
-
-      override def addServerTime: Boolean = true
-    }
   }
+  // end TODO
 
   /**
    * Models the set of operations that one would want to apply on a Response.
@@ -297,11 +139,12 @@ object Response {
     def updateHeaders(f: Headers => Headers): Patch        = UpdateHeaders(f)
   }
 
+  // TODO: remove after removing socketApp from Response model
   def apply(
     status: Status = Status.Ok,
     headers: Headers = Headers.empty,
     body: Body = Body.empty,
-  ): Response = new BasicResponse(body, headers, status)
+  ): Response = Response(status, headers, body)
 
   def badRequest: Response = error(Status.BadRequest)
 
@@ -354,19 +197,18 @@ object Response {
    * @param data
    *   \- stream of data to be sent as Server Sent Events
    */
-  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
-    new BasicResponse(Body.fromStream(data.map(_.encode)), contentTypeEventStream, Status.Ok)
+  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
+    Response(Status.Ok, contentTypeEventStream, Body.fromStream(data.map(_.encode)))
 
   /**
    * Creates a new response for the provided socket app
    */
   def fromSocketApp[R](app: WebSocketApp[R])(implicit trace: Trace): ZIO[R, Nothing, Response] = {
     ZIO.environment[R].map { env =>
-      new SocketAppResponse(
-        Body.empty,
-        Headers.empty,
-        app.provideEnvironment(env),
+      Response(
         Status.SwitchingProtocols,
+        Headers.empty,
+        Body.fromSocketApp(app.provideEnvironment(env)),
       )
     }
   }
@@ -397,10 +239,10 @@ object Response {
    * Creates a response with content-type set to text/html
    */
   def html(data: Html, status: Status = Status.Ok): Response =
-    new BasicResponse(
-      Body.fromString("<!DOCTYPE html>" + data.encode),
-      contentTypeHtml,
+    Response(
       status,
+      contentTypeHtml,
+      Body.fromString("<!DOCTYPE html>" + data.encode),
     )
 
   def httpVersionNotSupported: Response = error(Status.HttpVersionNotSupported)
@@ -415,10 +257,10 @@ object Response {
    * Creates a response with content-type set to application/json
    */
   def json(data: CharSequence): Response =
-    new BasicResponse(
-      Body.fromCharSequence(data),
-      contentTypeJson,
+    Response(
       Status.Ok,
+      contentTypeJson,
+      Body.fromCharSequence(data),
     )
 
   def networkAuthenticationRequired: Response = error(Status.NetworkAuthenticationRequired)
@@ -440,7 +282,7 @@ object Response {
   /**
    * Creates an empty response with status 200
    */
-  def ok: Response = new BasicResponse(Body.empty, Headers.empty, Status.Ok)
+  def ok: Response = status(Status.Ok)
 
   /**
    * Creates an empty response with status 301 or 302 depending on if it's
@@ -448,14 +290,14 @@ object Response {
    */
   def redirect(location: URL, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
-    new BasicResponse(Body.empty, Headers(Header.Location(location)), status)
+    Response(status = status, headers = Headers(Header.Location(location)))
   }
 
   /**
    * Creates an empty response with status 303
    */
   def seeOther(location: URL): Response =
-    new BasicResponse(Body.empty, Headers(Header.Location(location)), Status.SeeOther)
+    Response(status = Status.SeeOther, headers = Headers(Header.Location(location)))
 
   def serviceUnavailable: Response = error(Status.ServiceUnavailable)
 
@@ -464,16 +306,17 @@ object Response {
   /**
    * Creates an empty response with the provided Status
    */
-  def status(status: Status): Response = new BasicResponse(Body.empty, Headers.empty, status)
+  def status(status: Status): Response =
+    Response(status = status)
 
   /**
    * Creates a response with content-type set to text/plain
    */
   def text(text: CharSequence): Response =
-    new BasicResponse(
-      Body.fromCharSequence(text),
-      contentTypeText,
+    Response(
       Status.Ok,
+      contentTypeText,
+      Body.fromCharSequence(text),
     )
 
   def unauthorized: Response = error(Status.Unauthorized)

@@ -16,17 +16,14 @@
 
 package zio.http.netty
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Promise, Trace, Unsafe, ZIO}
-
-import zio.http.Response.NativeResponse
-import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
-import zio.http.netty.model.Conversions
-import zio.http.{Body, Header, Response}
-
 import io.netty.buffer.Unpooled
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
+import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
+import zio.http.netty.model.Conversions
+import zio.http.Response.NativeResponse
+import zio.http.{Body, Header, Response}
+import zio.{Promise, Trace, Unsafe, ZIO}
 
 object NettyResponse {
 
@@ -39,7 +36,7 @@ object NettyResponse {
     val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
     val data         = NettyBody.fromByteBuf(copiedBuffer, headers.header(Header.ContentType))
 
-    new NativeResponse(data, headers, status, () => NettyFutureExecutor.executed(ctx.close()))
+    NativeResponse(Response(status, headers, Body.empty), () => NettyFutureExecutor.executed(ctx.close()))
   }
 
   final def make(
@@ -59,7 +56,8 @@ object NettyResponse {
       onComplete
         .succeed(ChannelState.forStatus(status))
         .as(
-          new NativeResponse(Body.empty, headers, status, () => NettyFutureExecutor.executed(ctx.close())),
+          // NativeResponse(Response(status, headers, Body.empty), () => NettyFutureExecutor.executed(ctx.close())),
+          Response(status, headers, Body.empty),
         )
     } else {
       val responseHandler = new ClientResponseStreamHandler(zExec, onComplete, keepAlive, status)
@@ -74,7 +72,8 @@ object NettyResponse {
       val data = NettyBody.fromAsync { callback =>
         responseHandler.connect(callback)
       }
-      ZIO.succeed(new NativeResponse(data, headers, status, () => NettyFutureExecutor.executed(ctx.close())))
+      // ZIO.succeed(NativeResponse(Response(status, headers, data), () => NettyFutureExecutor.executed(ctx.close())))
+      ZIO.succeed(Response(status, headers, data))
     }
   }
 }

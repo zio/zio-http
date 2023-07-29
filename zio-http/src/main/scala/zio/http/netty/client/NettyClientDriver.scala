@@ -16,23 +16,18 @@
 
 package zio.http.netty.client
 
-import java.util.concurrent.TimeUnit
-
-import scala.collection.mutable
-
+import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
+import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
+import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
 
-import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
-import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
-import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
-import io.netty.handler.timeout.ReadTimeoutHandler
+import scala.collection.mutable
+
 final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,

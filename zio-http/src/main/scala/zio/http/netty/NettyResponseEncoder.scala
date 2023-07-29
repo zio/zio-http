@@ -30,21 +30,10 @@ import io.netty.handler.codec.http._
 
 private[zio] object NettyResponseEncoder {
 
-  private val frozenCache = new ConcurrentHashMap[Response, FullHttpResponse]()
-
-  def encode(
-    ctx: ChannelHandlerContext,
-    response: Response,
-    runtime: NettyRuntime,
-  )(implicit unsafe: Unsafe, trace: Trace): HttpResponse = {
+  def encode(response: Response)(implicit trace: Trace): ZIO[Any, Throwable, HttpResponse] = {
     val body = response.body
     if (body.isComplete) {
-      val cachedValue = frozenCache.get(response)
-      if (cachedValue != null) cachedValue
-      else {
-        val bytes = runtime.runtime(ctx).unsafe.run(body.asArray).getOrThrow()
-        fastEncode(response, bytes)
-      }
+      body.asArray.flatMap(bytes => ZIO.attemptUnsafe(implicit unsafe => fastEncode(response, bytes)))
     } else {
       val jHeaders         = Conversions.headersToNetty(response.headers)
       val jStatus          = Conversions.statusToNetty(response.status)
@@ -54,18 +43,12 @@ private[zio] object NettyResponseEncoder {
     }
   }
 
-  def fastEncode(response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe, trace: Trace): FullHttpResponse =
-    if (response.frozen) {
-      val encodedResponse = frozenCache.get(response)
-
-      if (encodedResponse != null)
-        encodedResponse
-      else {
-        val encoded = doEncode(response, bytes)
-        frozenCache.put(response, encoded)
-        encoded
-      }
-    } else doEncode(response, bytes)
+  def fastEncode(response: Response, bytes: Array[Byte])(implicit unsafe: Unsafe): FullHttpResponse = {
+    if (response.encoded eq null) {
+      response.encoded = doEncode(response, bytes)
+    }
+    response.encoded.asInstanceOf[FullHttpResponse]
+  }
 
   private def doEncode(response: Response, bytes: Array[Byte]): FullHttpResponse = {
     val jHeaders         = Conversions.headersToNetty(response.headers)

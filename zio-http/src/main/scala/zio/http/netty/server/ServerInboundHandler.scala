@@ -30,6 +30,7 @@ import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
+import zio.http.Body.WebsocketBody
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._
@@ -140,15 +141,14 @@ private[zio] final case class ServerInboundHandler(
     time: ServerTime,
   ): Boolean = {
 
-    def fastEncode(response: Response, bytes: Array[Byte]): Boolean = {
-      if (response.frozen) {
-        val jResponse  = NettyResponseEncoder.fastEncode(response, bytes)
-        val djResponse = jResponse.retainedDuplicate()
-        setServerTime(time, response, djResponse)
-        ctx.writeAndFlush(djResponse, ctx.voidPromise())
-        true
-      } else
-        false
+    def fastEncode(response: Response, bytes: Array[Byte]) = {
+      NettyResponseEncoder.fastEncode(response, bytes) match {
+        case jResponse: FullHttpResponse if response.frozen =>
+          val djResponse = jResponse.retainedDuplicate()
+          ctx.writeAndFlush(djResponse, ctx.voidPromise())
+          true
+        case _                                              => false
+      }
     }
 
     response.body match {
@@ -156,7 +156,7 @@ private[zio] final case class ServerInboundHandler(
         try {
           fastEncode(response, body.unsafeAsArray)
         } catch {
-          case NonFatal(e) => fastEncode(withDefaultErrorResponse(e).freeze, Array.emptyByteArray)
+          case NonFatal(e) => fastEncode(withDefaultErrorResponse(null, Some(e)), Array.emptyByteArray)
         }
       case _                      => false
     }
@@ -168,22 +168,45 @@ private[zio] final case class ServerInboundHandler(
     response: Response,
     jRequest: HttpRequest,
     time: ServerTime,
-  ): Option[Task[Unit]] = {
-    {
-      if (response.isWebSocket) {
-        upgradeToWebSocket(ctx, jRequest, response, runtime)
-        None
-      } else {
-        val jResponse = NettyResponseEncoder.encode(ctx, response, runtime)
-        setServerTime(time, response, jResponse)
-        ctx.writeAndFlush(jResponse)
-        if (!jResponse.isInstanceOf[FullHttpResponse])
-          NettyBodyWriter
-            .writeAndFlush(response.body, ctx)
-        else
-          None
-      }
+  ): Task[Unit] = {
+    response.body match {
+      case WebsocketBody(socketApp) if response.status == Status.SwitchingProtocols =>
+        ZIO.attempt(upgradeToWebSocket(ctx, jRequest, socketApp, runtime))
+      case _                                                                        =>
+        for {
+          jResponse <- NettyResponseEncoder.encode(response)
+          _         <- ZIO.attempt {
+            // setServerTime(time, response, jResponse)
+            ctx.writeAndFlush(jResponse)
+          }
+          flushed   <-
+            if (!jResponse.isInstanceOf[FullHttpResponse])
+              NettyBodyWriter
+                .write(response.body, ctx)
+            else
+              ZIO.succeed(true)
+          _         <- ZIO.attempt(ctx.flush()).when(!flushed)
+        } yield ()
     }
+    // for {
+    //   _ <-
+    //     if (response.isWebSocket) ZIO.attempt(upgradeToWebSocket(ctx, jRequest, response, runtime))
+    //     else
+    //       for {
+    //         jResponse <- NettyResponseEncoder.encode(response)
+    //         _         <- ZIO.attempt {
+    //           // setServerTime(time, response, jResponse)
+    //           ctx.writeAndFlush(jResponse)
+    //         }
+    //         flushed   <-
+    //           if (!jResponse.isInstanceOf[FullHttpResponse])
+    //             NettyBodyWriter
+    //               .write(response.body, ctx)
+    //           else
+    //             ZIO.succeed(true)
+    //         _         <- ZIO.attempt(ctx.flush()).when(!flushed)
+    //       } yield ()
+    // } yield ()
   }
 
   private def attemptImmediateWrite(
@@ -250,11 +273,12 @@ private[zio] final case class ServerInboundHandler(
 
   }
 
-  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
-    val _ =
-      if (response.addServerTime)
-        jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
-  }
+  // TODO: reimplement it on server settings level
+//  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
+//    val _ =
+//      if (response.addServerTime)
+//        jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
+//  }
 
   /*
    * Checks if the response requires to switch protocol to websocket. Returns
@@ -264,11 +288,9 @@ private[zio] final case class ServerInboundHandler(
   private def upgradeToWebSocket(
     ctx: ChannelHandlerContext,
     jReq: HttpRequest,
-    res: Response,
+    socketApp: SocketApp[Any],
     runtime: NettyRuntime,
   ): Unit = {
-    val app = res.socketApp
-
     jReq match {
       case jReq: FullHttpRequest =>
         val queue = runtime.runtime(ctx).unsafe.run(Queue.unbounded[WebSocketChannelEvent]).getOrThrowFiberFailure()
@@ -276,7 +298,7 @@ private[zio] final case class ServerInboundHandler(
         runtime.runtime(ctx).unsafe.run {
           val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
           val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
-          webSocketApp.handler.runZIO(webSocketChannel).ignoreLogged.forkDaemon
+          socketApp.runZIO(webSocketChannel).ignoreLogged.forkDaemon
         }
         ctx
           .channel()
@@ -294,7 +316,7 @@ private[zio] final case class ServerInboundHandler(
       case jReq: HttpRequest =>
         val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
         fullRequest.headers().setAll(jReq.headers())
-        upgradeToWebSocket(ctx: ChannelHandlerContext, fullRequest, res, runtime)
+        upgradeToWebSocket(ctx: ChannelHandlerContext, fullRequest, socketApp, runtime)
     }
   }
 
@@ -310,15 +332,39 @@ private[zio] final case class ServerInboundHandler(
     jReq: HttpRequest,
   )(ensured: () => Unit): Unit = {
     runtime.run(ctx, ensured) {
-      val pgm = exit.sandbox.catchAll { error =>
-        error.failureOrCause
-          .fold[UIO[Response]](
-            response => ZIO.succeed(response),
-            cause =>
-              if (cause.isInterruptedOnly) {
-                interrupted(ctx).as(null)
-              } else {
-                ZIO.succeed(withDefaultErrorResponse(FiberFailure(cause)))
+      val pgm = for {
+        response <- exit.sandbox.catchAll { error =>
+          error.failureOrCause
+            .fold[UIO[Response]](
+              response => ZIO.succeed(response),
+              cause =>
+                if (cause.isInterruptedOnly) {
+                  interrupted(ctx).as(null)
+                } else {
+                  ZIO.succeed(withDefaultErrorResponse(null, Some(FiberFailure(cause))))
+                },
+            )
+        }
+        _        <-
+          if (response ne null) {
+            for {
+              done <- ZIO.attempt(attemptFastWrite(ctx, response, time)).catchSomeCause { case cause =>
+                ZIO.attempt(
+                  attemptFastWrite(ctx, withDefaultErrorResponse(null, Some(cause.squash)), time),
+                )
+              }
+              _    <- attemptFullWrite(ctx, response, jReq, time).catchSomeCause { case cause =>
+                ZIO.attempt(
+                  attemptFastWrite(ctx, withDefaultErrorResponse(null, Some(cause.squash)), time),
+                )
+
+              }
+                .unless(done)
+            } yield ()
+          } else {
+            ZIO.attempt(
+              if (ctx.channel().isOpen) {
+                writeNotFound(ctx, jReq)(() => ())
               },
           )
       }.flatMap { response =>
