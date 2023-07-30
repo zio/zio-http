@@ -25,9 +25,9 @@ import java.nio.file.{AccessDeniedException, NotDirectoryException}
 import scala.annotation.tailrec
 
 final case class Response(
-  status: Status,
-  headers: Headers,
-  body: Body,
+  status: Status = Status.Ok,
+  headers: Headers = Headers.empty,
+  body: Body = Body.empty,
 ) extends HeaderOps[Response] { self =>
 
   private[http] var encoded: AnyRef = null
@@ -138,13 +138,6 @@ object Response {
     def status(status: Status): Patch                      = SetStatus(status)
     def updateHeaders(f: Headers => Headers): Patch        = UpdateHeaders(f)
   }
-
-  // TODO: remove after removing socketApp from Response model
-  def apply(
-    status: Status = Status.Ok,
-    headers: Headers = Headers.empty,
-    body: Body = Body.empty,
-  ): Response = Response(status, headers, body)
 
   def badRequest: Response = error(Status.BadRequest)
 
