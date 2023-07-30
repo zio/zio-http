@@ -1,6 +1,7 @@
 package zio.http.endpoint.openapi
 
 import zio.Chunk
+
 import zio.http.endpoint.openapi.StringUtils.pascalCase
 
 private[openapi] final case class EndpointGenerator(

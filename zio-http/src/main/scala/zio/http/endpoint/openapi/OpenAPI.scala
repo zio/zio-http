@@ -18,9 +18,9 @@ package zio.http.endpoint.openapi
 
 import zio.Chunk
 import zio.json._
-import zio.json.yaml._
 import zio.json.ast.Json
 import zio.json.internal.Write
+import zio.json.yaml._
 
 final case class OpenAPIObject(
   openapi: String,

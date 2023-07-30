@@ -1,10 +1,11 @@
 package example.petstore
 
 import zio.Chunk
+
+import zio.http.Method._
 import zio.http.Status
 import zio.http.codec.{PathCodec, QueryCodec}
 import zio.http.endpoint.Endpoint
-import zio.http.Method._
 
 object SwaggerPetstore {
 

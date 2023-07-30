@@ -1,10 +1,11 @@
 package example
 
+import java.nio.file.Paths
+
 import zio._
-import zio.http.endpoint.openapi.Codegen
 import zio.internal.stacktracer.SourceLocation
 
-import java.nio.file.Paths
+import zio.http.endpoint.openapi.Codegen
 
 object OpenApiCodegen extends ZIOAppDefault {
 

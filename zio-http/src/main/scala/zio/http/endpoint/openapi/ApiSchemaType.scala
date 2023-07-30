@@ -1,8 +1,8 @@
 package zio.http.endpoint.openapi
 
-import zio.Chunk
-
 import scala.annotation.tailrec
+
+import zio.Chunk
 
 sealed trait ApiSchemaType extends Product with Serializable {
 
