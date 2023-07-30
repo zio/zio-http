@@ -96,9 +96,8 @@ object SwaggerPetstore {
     }
 
   private def processCodeGen(codeString: Either[String, String]): String =
-    codeString.toOption.get
-      .split("\n")
-      .map(line => if (line.isBlank) line.trim else line)
+    codeString.toOption.get.linesIterator
+      .map(line => if (line.trim.isEmpty) "" else line)
       .mkString("\n")
       .trim
 
