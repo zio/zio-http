@@ -16,11 +16,13 @@
 
 package zio.http.netty.client
 
-import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http._
 import zio._
+
 import zio.http.netty.{NettyBodyWriter, NettyResponse, NettyRuntime}
 import zio.http.{Request, Response}
+
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.codec.http._
 
 /**
  * Handles HTTP response

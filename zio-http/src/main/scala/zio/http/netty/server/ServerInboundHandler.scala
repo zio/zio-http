@@ -26,11 +26,11 @@ import scala.util.control.NonFatal
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
+import zio.http.Body.WebsocketBody
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-import zio.http.Body.WebsocketBody
 
 import io.netty.channel.ChannelHandler.Sharable
 import io.netty.channel._

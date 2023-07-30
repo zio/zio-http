@@ -16,13 +16,14 @@
 
 package zio.http
 
+import java.net.{InetSocketAddress, URI}
+
 import zio._
+
 import zio.http.URL.Location
 import zio.http.internal.HeaderOps
 import zio.http.netty.NettyConfig
 import zio.http.netty.client._
-
-import java.net.{InetSocketAddress, URI}
 
 final case class ZClient[-Env, -In, +Err, +Out](
   version: Version,

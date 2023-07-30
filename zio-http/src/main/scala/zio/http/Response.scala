@@ -16,13 +16,16 @@
 
 package zio.http
 
+import java.nio.file.{AccessDeniedException, NotDirectoryException}
+
+import scala.annotation.tailrec
+
 import zio._
-import zio.http.html.Html
-import zio.http.internal.HeaderOps
+
 import zio.stream.ZStream
 
-import java.nio.file.{AccessDeniedException, NotDirectoryException}
-import scala.annotation.tailrec
+import zio.http.html.Html
+import zio.http.internal.HeaderOps
 
 final case class Response(
   status: Status = Status.Ok,

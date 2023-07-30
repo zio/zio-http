@@ -16,9 +16,10 @@
 
 package zio.http
 
+import zio.{Promise, Scope, Trace, ZIO, ZLayer}
+
 import zio.http.ClientDriver.ChannelInterface
 import zio.http.netty.client.ChannelState
-import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
 trait ClientDriver {
   type Connection
