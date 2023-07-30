@@ -48,7 +48,6 @@ private[http] object WebSocketChannel {
         ZIO.suspendSucceed {
           val iterator = in.iterator.collect { case Read(message) => message }
 
-          println(s"sendAll")
           ZIO.whileLoop(iterator.hasNext) {
             val message = iterator.next()
             if (iterator.hasNext) nettyChannel.write(frameToNetty(message))
