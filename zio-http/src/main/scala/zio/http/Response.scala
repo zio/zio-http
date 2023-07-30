@@ -30,10 +30,8 @@ final case class Response(
   body: Body = Body.empty,
 ) extends HeaderOps[Response] { self =>
 
+  // To be used by encoders to avoid re-encoding static responses (optimization)
   private[http] var encoded: AnyRef = null
-
-  def isWebSocket: Boolean =
-    self.status == Status.SwitchingProtocols
 
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
