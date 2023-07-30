@@ -142,13 +142,10 @@ private[zio] final case class ServerInboundHandler(
   ): Boolean = {
 
     def fastEncode(response: Response, bytes: Array[Byte]) = {
-      NettyResponseEncoder.fastEncode(response, bytes) match {
-        case jResponse: FullHttpResponse if response.frozen =>
-          val djResponse = jResponse.retainedDuplicate()
-          ctx.writeAndFlush(djResponse, ctx.voidPromise())
-          true
-        case _                                              => false
-      }
+      val jResponse  = NettyResponseEncoder.fastEncode(response, bytes)
+      val djResponse = jResponse.retainedDuplicate()
+      ctx.writeAndFlush(djResponse, ctx.voidPromise())
+      true
     }
 
     response.body match {
