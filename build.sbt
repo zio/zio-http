@@ -130,6 +130,8 @@ lazy val zioHttp = (project in file("zio-http"))
       `zio-streams`,
       `zio-schema`,
       `zio-schema-json`,
+      `zio-json`,
+      `zio-json-yaml`,
       `zio-test`,
       `zio-test-sbt`,
       `netty-incubator`,
@@ -145,7 +147,7 @@ lazy val zioHttp = (project in file("zio-http"))
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, _)) =>
           Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value)
-        case _          => Seq.empty
+        case _            => Seq.empty
       }
     },
   )

@@ -9,6 +9,7 @@ object Dependencies {
   val ZioVersion                    = "2.0.15+81-32928b56-SNAPSHOT"
   val ZioCliVersion                 = "0.5.0"
   val ZioSchemaVersion              = "0.4.13"
+  val ZioJsonVersion                = "0.6.0"
   val SttpVersion                   = "3.3.18"
 
   val `jwt-core`                 = "com.github.jwt-scala"   %% "jwt-core"                % JwtCoreVersion
@@ -33,6 +34,8 @@ object Dependencies {
   val `zio-cli`         = "dev.zio" %% "zio-cli"         % ZioCliVersion
   val `zio-streams`     = "dev.zio" %% "zio-streams"     % ZioVersion
   val `zio-schema`      = "dev.zio" %% "zio-schema"      % ZioSchemaVersion
+  val `zio-json`        = "dev.zio" %% "zio-json"        % ZioJsonVersion
+  val `zio-json-yaml`   = "dev.zio" %% "zio-json-yaml"   % ZioJsonVersion
   val `zio-schema-json` = "dev.zio" %% "zio-schema-json" % ZioSchemaVersion
   val `zio-test`        = "dev.zio" %% "zio-test"        % ZioVersion % "test"
   val `zio-test-sbt`    = "dev.zio" %% "zio-test-sbt"    % ZioVersion % "test"
