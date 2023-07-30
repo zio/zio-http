@@ -65,7 +65,7 @@ private[openapi] object EndpointGenerator {
   def fromOpenAPIObject(openAPIObject: OpenAPIObject): EndpointGenerator = {
     val schemas           = parseSchemaTypes(openAPIObject)
     val normalizedSchemas = schemas.map { case (name, schema) => name -> schema.normalize(schemas) }
-    val endpoints         = Chunk.from {
+    val endpoints         = Chunk.fromIterable {
       openAPIObject.paths.flatten { case (pathString, pathItemObject) =>
         EndpointInfo.fromPathItemObject(pathString, pathItemObject)
       }

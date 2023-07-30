@@ -88,9 +88,9 @@ object EndpointInfo {
     }
     val path        = PathItem.parse(pathString, params.map(p => p.name -> p).toMap)
     val operationId = operationObject.operationId.getOrElse(defaultOperationId(method, path))
-    val responses   = Chunk.from(operationObject.responses.map { case (code, response) =>
+    val responses   = Chunk.fromIterable(operationObject.responses.map { case (code, response) =>
       ResponseInfo(
-        code = code.toIntOption.getOrElse(500),
+        code = scala.util.Try(code.toInt).getOrElse(500),
         description = response.description,
         content = response.content.getOrElse(Map.empty).headOption.map { case (mediaType, content) =>
           ContentInfo(
@@ -131,14 +131,14 @@ final case class ContentInfo(
 
 sealed trait PathItem extends Product with Serializable {
   def toPathCodec: String = this match {
-    case PathItem.Static(value)        => s"\"$value\""
+    case PathItem.Static(value)        => s""""$value""""
     case PathItem.Param(parameterInfo) =>
       val name        = parameterInfo.name
       val constructor = parameterInfo.schema.unwrapOptional match {
-        case ApiSchemaType.TString  => s"PathCodec.string(\"$name\")"
-        case ApiSchemaType.TInt     => s"PathCodec.int(\"$name\")"
-        case ApiSchemaType.TLong    => s"PathCodec.long(\"$name\")"
-        case ApiSchemaType.TBoolean => s"PathCodec.boolean(\"$name\")"
+        case ApiSchemaType.TString  => s"""PathCodec.string(\"$name\")"""
+        case ApiSchemaType.TInt     => s"""PathCodec.int("$name")"""
+        case ApiSchemaType.TLong    => s"""PathCodec.long("$name")"""
+        case ApiSchemaType.TBoolean => s"""PathCodec.boolean("$name")"""
         case _ => throw new Exception(s"Unsupported path param type for $name: ${parameterInfo.schema}")
       }
       if (parameterInfo.required || parameterInfo.schema.isOptional)
@@ -157,7 +157,7 @@ object PathItem {
   def parse(pathString: String, paramInfos: Map[String, ParameterInfo]): Chunk[PathItem] = {
     val pathItems = Chunk.fromArray(pathString.stripPrefix("/").split("/"))
     pathItems.map {
-      case s"{${paramName}}" =>
+      case ParamExtractor(paramName) =>
         Param(
           paramInfos.getOrElse(
             paramName,
@@ -168,6 +168,13 @@ object PathItem {
       case s => Static(s)
     }
   }
+}
+
+object ParamExtractor {
+  // "{paramName}" -> "paramName"
+  def unapply(string: String): Option[String] =
+    if (string.startsWith("{") && string.endsWith("}")) Some(string.drop(1).dropRight(1))
+    else None
 }
 
 final case class ParameterInfo(
