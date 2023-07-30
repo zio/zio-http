@@ -22,8 +22,6 @@ import zio.json.yaml._
 import zio.json.ast.Json
 import zio.json.internal.Write
 
-
-
 final case class OpenAPIObject(
   openapi: String,
   info: InfoObject,
