@@ -27,7 +27,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 object NettyResponse {
 
-  final def apply(jRes: FullHttpResponse)(implicit unsafe: Unsafe): Response = {
+  def apply(jRes: FullHttpResponse)(implicit unsafe: Unsafe): Response = {
     val status       = Conversions.statusFromNetty(jRes.status())
     val headers      = Conversions.headersFromNetty(jRes.headers())
     val copiedBuffer = Unpooled.copiedBuffer(jRes.content())
@@ -36,7 +36,7 @@ object NettyResponse {
     Response(status, headers, data)
   }
 
-  final def make(
+  def make(
     ctx: ChannelHandlerContext,
     jRes: HttpResponse,
     zExec: NettyRuntime,
