@@ -16,18 +16,20 @@
 
 package zio.http.netty.client
 
-import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
-import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
-import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
+import scala.collection.mutable
+
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.ClientDriver.ChannelInterface
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import scala.collection.mutable
+import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
+import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
+import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
 
 final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],

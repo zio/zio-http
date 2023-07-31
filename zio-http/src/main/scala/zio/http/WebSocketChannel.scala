@@ -16,12 +16,14 @@
 
 package zio.http
 
-import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.ChannelEvent.Read
 import zio.http.netty.NettyChannel
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
 
 private[http] object WebSocketChannel {
 

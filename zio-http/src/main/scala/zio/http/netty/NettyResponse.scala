@@ -16,14 +16,16 @@
 
 package zio.http.netty
 
-import io.netty.buffer.Unpooled
-import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Promise, Trace, Unsafe, ZIO}
+
 import zio.http.netty.client.{ChannelState, ClientResponseStreamHandler}
 import zio.http.netty.model.Conversions
 import zio.http.{Body, Header, Response}
-import zio.{Promise, Trace, Unsafe, ZIO}
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import io.netty.buffer.Unpooled
+import io.netty.channel.ChannelHandlerContext
+import io.netty.handler.codec.http.{FullHttpResponse, HttpResponse}
 
 object NettyResponse {
 

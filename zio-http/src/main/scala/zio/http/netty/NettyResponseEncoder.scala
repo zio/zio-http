@@ -16,13 +16,14 @@
 
 package zio.http.netty
 
-import io.netty.buffer.Unpooled
-import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.http._
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http._
 import zio.http.netty.model.Conversions
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import io.netty.buffer.Unpooled
+import io.netty.handler.codec.http._
 
 private[zio] object NettyResponseEncoder {
 

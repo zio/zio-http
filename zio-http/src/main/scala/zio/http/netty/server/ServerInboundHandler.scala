@@ -16,24 +16,27 @@
 
 package zio.http.netty.server
 
-import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel._
-import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
-import io.netty.handler.timeout.ReadTimeoutException
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.util.concurrent.atomic.LongAdder
+
+import scala.annotation.tailrec
+import scala.util.control.NonFatal
+
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.Body.WebsocketBody
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
-import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import java.io.IOException
-import java.net.InetSocketAddress
-import java.util.concurrent.atomic.LongAdder
-import scala.annotation.tailrec
-import scala.util.control.NonFatal
+import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel._
+import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
+import io.netty.handler.timeout.ReadTimeoutException
 
 @Sharable
 private[zio] final case class ServerInboundHandler(

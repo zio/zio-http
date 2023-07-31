@@ -16,12 +16,14 @@
 
 package zio.http.netty.client
 
-import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
-import io.netty.handler.codec.http._
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 import zio.http.netty.{NettyBodyWriter, NettyResponse, NettyRuntime}
 import zio.http.{Request, Response}
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+
+import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
+import io.netty.handler.codec.http._
 
 /**
  * Handles HTTP response
