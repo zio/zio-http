@@ -24,7 +24,6 @@ import zio.http._
 import zio.http.netty.model.Conversions
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-
 private[zio] object NettyResponseEncoder {
 
   def encode(response: Response)(implicit trace: Trace): ZIO[Any, Throwable, HttpResponse] = {
