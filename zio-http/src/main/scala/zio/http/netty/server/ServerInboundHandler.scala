@@ -16,27 +16,25 @@
 
 package zio.http.netty.server
 
-import java.io.IOException
-import java.net.InetSocketAddress
-import java.util.concurrent.atomic.LongAdder
-
-import scala.annotation.tailrec
-import scala.util.control.NonFatal
-
+import io.netty.channel.ChannelHandler.Sharable
+import io.netty.channel._
+import io.netty.handler.codec.http._
+import io.netty.handler.codec.http.websocketx.{WebSocketServerProtocolHandler, WebSocketFrame => JWebSocketFrame}
+import io.netty.handler.timeout.ReadTimeoutException
 import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.http.Body.WebsocketBody
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
 import zio.http.netty.socket.NettySocketProtocol
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import io.netty.channel.ChannelHandler.Sharable
-import io.netty.channel._
-import io.netty.handler.codec.http._
-import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
-import io.netty.handler.timeout.ReadTimeoutException
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.util.concurrent.atomic.LongAdder
+import scala.annotation.tailrec
+import scala.util.control.NonFatal
+
 @Sharable
 private[zio] final case class ServerInboundHandler(
   appRef: AppRef,
@@ -185,25 +183,6 @@ private[zio] final case class ServerInboundHandler(
           _         <- ZIO.attempt(ctx.flush()).when(!flushed)
         } yield ()
     }
-    // for {
-    //   _ <-
-    //     if (response.isWebSocket) ZIO.attempt(upgradeToWebSocket(ctx, jRequest, response, runtime))
-    //     else
-    //       for {
-    //         jResponse <- NettyResponseEncoder.encode(response)
-    //         _         <- ZIO.attempt {
-    //           // setServerTime(time, response, jResponse)
-    //           ctx.writeAndFlush(jResponse)
-    //         }
-    //         flushed   <-
-    //           if (!jResponse.isInstanceOf[FullHttpResponse])
-    //             NettyBodyWriter
-    //               .write(response.body, ctx)
-    //           else
-    //             ZIO.succeed(true)
-    //         _         <- ZIO.attempt(ctx.flush()).when(!flushed)
-    //       } yield ()
-    // } yield ()
   }
 
   private def attemptImmediateWrite(

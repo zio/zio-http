@@ -16,16 +16,14 @@
 
 package zio.http
 
-import java.nio.file.{AccessDeniedException, NotDirectoryException}
-
-import scala.annotation.tailrec
-
-import zio._
-
-import zio.stream.ZStream
-
+import zio.{Cause, Task, Trace, ZIO}
 import zio.http.html.Html
 import zio.http.internal.HeaderOps
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.stream.ZStream
+
+import java.nio.file.{AccessDeniedException, NotDirectoryException}
+import scala.annotation.tailrec
 
 final case class Response(
   status: Status = Status.Ok,
@@ -51,10 +49,10 @@ final case class Response(
       }
 
   /** Consumes the streaming body fully and then drops it */
-  def ignoreBody: ZIO[Any, Throwable, Response] =
+  def ignoreBody(implicit trace: Trace): ZIO[Any, Throwable, Response] =
     self.collect.map(_.copy(body = Body.empty))
 
-  def patch(p: Response.Patch): Response = p.apply(self)
+  def patch(p: Response.Patch)(implicit trace: Trace): Response = p.apply(self)
 
   /**
    * Sets the status of the response
@@ -76,21 +74,6 @@ final case class Response(
 }
 
 object Response {
-
-  // TODO: move to handler
-  private[zio] trait CloseableResponse {
-    def close(implicit trace: Trace): Task[Unit]
-  }
-
-  private[zio] case class NativeResponse(
-    response: Response,
-    onClose: () => Task[Unit],
-  ) extends CloseableResponse { self =>
-
-    override final def close(implicit trace: Trace): Task[Unit] = onClose()
-
-  }
-  // end TODO
 
   /**
    * Models the set of operations that one would want to apply on a Response.
@@ -189,7 +172,7 @@ object Response {
    * @param data
    *   \- stream of data to be sent as Server Sent Events
    */
-  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent]): Response =
+  def fromServerSentEvents(data: ZStream[Any, Nothing, ServerSentEvent])(implicit trace: Trace): Response =
     Response(Status.Ok, contentTypeEventStream, Body.fromStream(data.map(_.encode)))
 
   /**

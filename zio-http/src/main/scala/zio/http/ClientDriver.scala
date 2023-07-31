@@ -16,10 +16,10 @@
 
 package zio.http
 
-import zio.{Promise, Scope, Trace, ZIO, ZLayer}
-
 import zio.http.ClientDriver.ChannelInterface
 import zio.http.netty.client.ChannelState
+import zio.{Promise, Scope, Trace, ZIO, ZLayer}
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 trait ClientDriver {
   type Connection
