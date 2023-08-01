@@ -7,7 +7,7 @@ import zio._
 import zio.http._
 
 import org.openjdk.jmh.annotations._
-import sttp.client3.{HttpClientSyncBackend, UriContext, basicRequest}
+import sttp.client3.{HttpURLConnectionBackend, UriContext, basicRequest}
 
 @State(org.openjdk.jmh.annotations.Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))
@@ -23,7 +23,7 @@ class ServerInboundHandlerBenchmark {
   private val shutdownEndpoint = "shutdown"
   private val shutdownUrl      = s"http://localhost:8080/$shutdownEndpoint"
 
-  private val backend = HttpClientSyncBackend()
+  private val backend = HttpURLConnectionBackend()
 
   private def shutdownRoute(shutdownSignal: Promise[Nothing, Unit]) =
     Route.route(Method.GET / shutdownEndpoint)(handler(shutdownSignal.succeed(()).as(shutdownResponse)))
