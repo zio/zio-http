@@ -17,6 +17,7 @@
 package zio.http
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.ChannelEvent.{ExceptionCaught, Read, Registered, Unregistered, UserEventTriggered}
 import zio.http.netty.NettyChannel
@@ -31,31 +32,30 @@ private[http] object WebSocketChannel {
     queue: Queue[WebSocketChannelEvent],
   ): WebSocketChannel =
     new WebSocketChannel {
-      def awaitShutdown: UIO[Unit] =
+      def awaitShutdown(implicit trace: Trace): UIO[Unit] =
         nettyChannel.awaitClose
 
-      def receive: Task[WebSocketChannelEvent] =
+      def receive(implicit trace: Trace): Task[WebSocketChannelEvent] =
         queue.take
 
-      def send(in: WebSocketChannelEvent): Task[Unit] = {
+      def send(in: WebSocketChannelEvent)(implicit trace: Trace): Task[Unit] = {
         in match {
           case Read(message) => nettyChannel.writeAndFlush(frameToNetty(message))
           case _             => ZIO.unit
         }
       }
 
-      def sendAll(in: Iterable[WebSocketChannelEvent]): Task[Unit] =
+      def sendAll(in: Iterable[WebSocketChannelEvent])(implicit trace: Trace): Task[Unit] =
         ZIO.suspendSucceed {
           val iterator = in.iterator.collect { case Read(message) => message }
 
-          println(s"sendAll")
           ZIO.whileLoop(iterator.hasNext) {
             val message = iterator.next()
             if (iterator.hasNext) nettyChannel.write(frameToNetty(message))
             else nettyChannel.writeAndFlush(frameToNetty(message))
           }(_ => ())
         }
-      def shutdown: UIO[Unit]                                      =
+      def shutdown(implicit trace: Trace): UIO[Unit]                                      =
         nettyChannel.close(false).orDie
     }
 
