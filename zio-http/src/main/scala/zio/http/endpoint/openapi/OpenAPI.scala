@@ -17,10 +17,11 @@
 package zio.http.endpoint.openapi
 
 import zio.Chunk
-import zio.http.endpoint.openapi.ReferenceOr.{Reference, Value}
 import zio.json._
 import zio.json.ast.Json
 import zio.json.internal.Write
+
+import zio.http.endpoint.openapi.ReferenceOr.{Reference, Value}
 
 final case class OpenAPIObject(
   openapi: String,

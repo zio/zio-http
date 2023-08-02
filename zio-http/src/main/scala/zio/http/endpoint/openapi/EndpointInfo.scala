@@ -1,10 +1,16 @@
 package zio.http.endpoint.openapi
 
-import zio.Chunk
-import zio.http.endpoint.openapi.StringUtils.camelCase
-import zio.http.{Method, Status}
-
 import scala.util.Try
+
+import zio.{Chunk, http}
+
+import zio.schema.{Schema, StandardType}
+
+import zio.http.codec.HttpCodecType.RequestType
+import zio.http.codec.{Doc, HttpCodec, PathCodec, SegmentCodec, SimpleCodec}
+import zio.http.endpoint.openapi.StringUtils.camelCase
+import zio.http.endpoint.{Endpoint, EndpointMiddleware}
+import zio.http.{Method, Status}
 
 final case class EndpointInfo(
   path: Chunk[PathItem],
@@ -81,6 +87,7 @@ final case class EndpointInfo(
 }
 
 object EndpointInfo {
+
   def fromPathItemObject(
     pathString: String,
     pathItemObject: PathItemObject,
@@ -187,8 +194,7 @@ final case class RequestBodyInfo(
 sealed trait PathItem extends Product with Serializable {
   def toPathCodec(schemas: Map[String, ApiSchemaType]): String = this match {
     case PathItem.Static(value)        => s""""$value""""
-    case PathItem.Param(parameterInfo) =>
-      schemaCodec(parameterInfo.schema, parameterInfo.name, schemas)
+    case PathItem.Param(parameterInfo) => schemaCodec(parameterInfo.schema, parameterInfo.name, schemas)
   }
 
   private def schemaCodec(schema: ApiSchemaType, name: String, schemas: Map[String, ApiSchemaType]): String =
