@@ -18,7 +18,7 @@ libraryDependencies += "dev.zio" %% "zio-http" % "3.0.0-RC2"
 
 **NOTES ON VERSIONING:**
 
-- Older library versions `1.x` or `2.x` with organization `io.d11` of ZIO Http are derived from Dream11, the organization that donated ZIO Http to the ZIO organization in 2022. 
+- Older library versions `1.x` or `2.x` with organization `io.d11` of ZIO Http are derived from Dream11, the organization that donated ZIO Http to the ZIO organization in 2022.
 - Newer library versions, starting in 2023 and resulting from the ZIO organization (`dev.zio`) started with `0.0.x`, reaching `1.0.0` release candidates in April of 2023
 
 ## Getting Started
@@ -43,7 +43,15 @@ object HelloWorld extends ZIOAppDefault {
 
 ## Steps to run an example
 
-1. Edit the [RunSettings](https://github.com/zio/zio-http/blob/main/project/BuildHelper.scala#L107) - modify `className` to the example you'd like to run.
+1. Edit the [RunSettings](https://github.com/zio/zio-http/blob/main/project/BuildHelper.scala#L110) - modify `className` to the example you'd like to run.
+
+```scala
+def runSettings(className: String = "modify-here") = Seq(
+    fork                      := true,
+    Compile / run / mainClass := Option(className),
+  )
+```
+
 2. From sbt shell, run `~example/reStart`. You should see `Server started on port: 8080`.
 3. Send curl request for defined `http Routes`, for eg : `curl -i "http://localhost:8080/text"` for `example.HelloWorld`.
 
@@ -55,15 +63,15 @@ You can use the [sbt-revolver] plugin to start the server and run it in watch mo
 
 ## Documentation
 
-Learn more on the [ZIO Http homepage](https://github.com/zio/zio-http)!
+Learn more on the [ZIO Http homepage](https://zio.dev/zio-http/)!
 
 ## Contributing
 
-For the general guidelines, see ZIO [contributor's guide](https://zio.dev/about/contributing).
+For the general guidelines, see ZIO [contributor's guide](https://zio.dev/contributor-guidelines).
 
 ## Code of Conduct
 
-See the [Code of Conduct](https://zio.dev/about/code-of-conduct)
+See the [Code of Conduct](https://zio.dev/code-of-conduct)
 
 ## Support
 
