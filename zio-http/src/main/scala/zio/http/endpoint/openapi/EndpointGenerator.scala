@@ -131,7 +131,7 @@ private[openapi] object EndpointGenerator {
             val required   = schemaObject.required.map(_.toSet).getOrElse(Set.empty)
             val properties = schemaObject.properties.getOrElse(Map.empty).map { case (propertyName, value) =>
               val isOptional = !required.contains(propertyName)
-              propertyName -> parseSchemaType(value, names.appended(propertyName)).wrapInOptional(isOptional)
+              propertyName -> parseSchemaType(value, names :+ propertyName).wrapInOptional(isOptional)
             }
             ApiSchemaType.Object(names, properties)
 

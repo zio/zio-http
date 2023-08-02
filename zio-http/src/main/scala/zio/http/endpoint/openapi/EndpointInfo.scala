@@ -4,7 +4,6 @@ import zio.Chunk
 import zio.http.endpoint.openapi.StringUtils.camelCase
 import zio.http.{Method, Status}
 
-import scala.annotation.tailrec
 import scala.util.Try
 
 final case class EndpointInfo(
