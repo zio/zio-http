@@ -17,10 +17,10 @@
 package zio.http.endpoint.openapi
 
 import zio.Chunk
+import zio.http.endpoint.openapi.ReferenceOr.{Reference, Value}
 import zio.json._
 import zio.json.ast.Json
 import zio.json.internal.Write
-import zio.json.yaml._
 
 final case class OpenAPIObject(
   openapi: String,
@@ -28,7 +28,31 @@ final case class OpenAPIObject(
   servers: Option[Chunk[ServerObject]],
   paths: Map[String, PathItemObject],
   components: Option[ComponentsObject],
-)
+) {
+
+  def dereferenceParameter(parameter: ReferenceOr[ParameterObject]): Option[ParameterObject] =
+    dereferenceObject(parameter, _.parameters)
+
+  def dereferenceResponseObject(responseObject: ReferenceOr[ResponseObject]): Option[ResponseObject] =
+    dereferenceObject(responseObject, _.responses)
+
+  def dereferenceRequestBody(requestBody: ReferenceOr[RequestBodyObject]): Option[RequestBodyObject] =
+    dereferenceObject(requestBody, _.requestBodies)
+
+  private def dereferenceObject[A](
+    referenceOr: ReferenceOr[A],
+    getReference: ComponentsObject => Option[Map[String, ReferenceOr[A]]],
+  ): Option[A] =
+    referenceOr match {
+      case Reference(referenceObject) =>
+        for {
+          referenced <- components.flatMap(getReference).flatMap(_.get(referenceObject.$ref.split("/").last))
+          value      <- dereferenceObject(referenced, getReference) if referenced != referenceOr
+        } yield value
+
+      case Value(value) => Some(value)
+    }
+}
 
 object OpenAPIObject {
   implicit lazy val codec: JsonCodec[OpenAPIObject] = DeriveJsonCodec.gen
@@ -150,9 +174,9 @@ final case class OperationObject(
   description: Option[String],
   externalDocs: Option[ExternalDocumentationObject],
   operationId: Option[String],
-  parameters: Option[Chunk[ParameterObject]],
+  parameters: Option[Chunk[ReferenceOr[ParameterObject]]],
   requestBody: Option[ReferenceOr[RequestBodyObject]],
-  responses: Map[String, ResponseObject],
+  responses: Map[String, ReferenceOr[ResponseObject]],
   deprecated: Option[Boolean],
   servers: Option[Chunk[ServerObject]],
 )

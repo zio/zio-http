@@ -14,7 +14,7 @@ private[openapi] final case class EndpointGenerator(
   def generateCode(packageName: String): String = {
     val objectName         = pascalCase(title)
     val caseClasses        = renderCaseClassDefinitions
-    val generatedEndpoints = endpoints.map(_.toEndpointDefinition)
+    val generatedEndpoints = endpoints.map(_.toEndpointDefinition(schemas))
     s"""
 package $packageName
 
@@ -66,15 +66,27 @@ private[openapi] object EndpointGenerator {
   def fromOpenAPIObject(openAPIObject: OpenAPIObject): EndpointGenerator = {
     val schemas           = parseSchemaTypes(openAPIObject)
     val normalizedSchemas = schemas.map { case (name, schema) => name -> schema.normalize(schemas) }
-    val endpoints         = Chunk.fromIterable {
+    val aliases           = schemas.filter(!_._2.isObject)
+    val flattenedSchemas  = aliases ++ normalizedSchemas.flatMap { case (_, schema) =>
+      schema.flattenObjects
+    }
+
+    val endpoints = Chunk.fromIterable {
       openAPIObject.paths.flatten { case (pathString, pathItemObject) =>
-        EndpointInfo.fromPathItemObject(pathString, pathItemObject)
+        EndpointInfo.fromPathItemObject(pathString, pathItemObject, openAPIObject)
       }
     }
+
+    val endpointSchemas: Map[String, ApiSchemaType.Object] =
+      endpoints.flatMap { endpointInfo =>
+        endpointInfo.requestBody.map { rb => rb.content.schema.flattenObjects } ++
+          endpointInfo.responses.flatMap { _.content.map { content => content.schema.flattenObjects } }
+      }.flatten.toMap
+
     EndpointGenerator(
       openAPIObject.info.title,
       openAPIObject.info.description,
-      normalizedSchemas,
+      flattenedSchemas ++ endpointSchemas,
       endpoints,
     )
   }
@@ -82,13 +94,13 @@ private[openapi] object EndpointGenerator {
   private def parseSchemaTypes(openAPIObject: OpenAPIObject): Map[String, ApiSchemaType] = {
     val schemas = openAPIObject.components.flatMap(_.schemas).getOrElse(Map.empty)
     schemas.map { case (name, value) =>
-      name -> parseSchemaType(value, Some(name))
+      name -> parseSchemaType(value, Chunk(name))
     }
   }
 
   def parseSchemaType(
     refOrSchemaObject: ReferenceOr[SchemaObject],
-    name: Option[String] = None,
+    names: Chunk[String] = Chunk.empty,
   ): ApiSchemaType =
     refOrSchemaObject match {
       case ReferenceOr.Reference(ref) => ApiSchemaType.Ref(ref.$ref)
@@ -117,25 +129,25 @@ private[openapi] object EndpointGenerator {
 
           case SchemaObjectType.Object =>
             val required   = schemaObject.required.map(_.toSet).getOrElse(Set.empty)
-            val properties = schemaObject.properties.getOrElse(Map.empty).map { case (name, value) =>
-              val isOptional = !required.contains(name)
-              name -> parseSchemaType(value).wrapInOptional(isOptional)
+            val properties = schemaObject.properties.getOrElse(Map.empty).map { case (propertyName, value) =>
+              val isOptional = !required.contains(propertyName)
+              propertyName -> parseSchemaType(value, names.appended(propertyName)).wrapInOptional(isOptional)
             }
-            ApiSchemaType.Object(properties)
+            ApiSchemaType.Object(names, properties)
 
           case SchemaObjectType.Null =>
             ApiSchemaType.TNull
 
           case SchemaObjectType.Array =>
-            val items = parseSchemaType(schemaObject.items.get)
+            val items = parseSchemaType(schemaObject.items.get, names.appended("item"))
             ApiSchemaType.Array(items)
         }.orElse {
           schemaObject.allOf.map { allOf =>
             val types = allOf.map(parseSchemaType(_))
-            ApiSchemaType.AllOf(types)
+            ApiSchemaType.AllOf(names, types)
           }
         }
-          .getOrElse(throw new Exception(s"Could not parse schema $name : $schemaObject"))
+          .getOrElse(throw new Exception(s"Could not parse schema $names : $schemaObject"))
     }
 
 }

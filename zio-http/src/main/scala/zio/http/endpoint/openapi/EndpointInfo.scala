@@ -1,9 +1,11 @@
 package zio.http.endpoint.openapi
 
 import zio.Chunk
-
 import zio.http.endpoint.openapi.StringUtils.camelCase
 import zio.http.{Method, Status}
+
+import scala.annotation.tailrec
+import scala.util.Try
 
 final case class EndpointInfo(
   path: Chunk[PathItem],
@@ -12,6 +14,7 @@ final case class EndpointInfo(
   summary: Option[String],
   parameters: Chunk[ParameterInfo],
   responses: Chunk[ResponseInfo],
+  requestBody: Option[RequestBodyInfo],
 ) {
 
   /**
@@ -25,12 +28,13 @@ final case class EndpointInfo(
    *     .query(...)
    *     .header(...)
    *     .outError[E](...)
+   *     .in[A]
    *     .out[A](...)
    * }}}
    */
-  def toEndpointDefinition: String = {
+  def toEndpointDefinition(schemas: Map[String, ApiSchemaType]): String = {
     val endpointIdentifier = camelCase(operationId)
-    val pathString         = path.map(_.toPathCodec).mkString(" / ")
+    val pathString         = path.map(_.toPathCodec(schemas)).mkString(" / ")
     val baseDefinition     = s"""Endpoint(${method.name} / $pathString)"""
 
     val withQueryParams = parameters.collect {
@@ -49,6 +53,15 @@ final case class EndpointInfo(
         s"$acc.header($headerString)"
       }
 
+    val withIn = requestBody
+      .map(_.content)
+      .map { content =>
+        s""".in[${content.schema.renderType}]"""
+      }
+      .foldLeft(withHeaders) { case (acc, inString) =>
+        s"$acc$inString"
+      }
+
     val withOut = responses.flatMap { response =>
       response.content.map { content =>
         val status    = codeToStatus(response.code)
@@ -56,7 +69,7 @@ final case class EndpointInfo(
         s""".$outMethod[${content.schema.renderType}](Status.$status)"""
       }
     }
-      .foldLeft(withHeaders) { case (acc, outString) =>
+      .foldLeft(withIn) { case (acc, outString) =>
         s"$acc$outString"
       }
 
@@ -69,7 +82,11 @@ final case class EndpointInfo(
 }
 
 object EndpointInfo {
-  def fromPathItemObject(pathString: String, pathItemObject: PathItemObject): Chunk[EndpointInfo] =
+  def fromPathItemObject(
+    pathString: String,
+    pathItemObject: PathItemObject,
+    openAPIObject: OpenAPIObject,
+  ): Chunk[EndpointInfo] =
     Chunk(
       pathItemObject.get.map(Method.GET -> _),
       pathItemObject.put.map(Method.PUT -> _),
@@ -80,27 +97,59 @@ object EndpointInfo {
       pathItemObject.patch.map(Method.PATCH -> _),
       pathItemObject.trace.map(Method.TRACE -> _),
     ).flatten.map { case (method, operationObject) =>
-      fromOperationObject(pathString, method, operationObject)
+      fromOperationObject(pathString, method, operationObject, openAPIObject)
     }
 
-  def fromOperationObject(pathString: String, method: Method, operationObject: OperationObject): EndpointInfo = {
+  private def fromOperationObject(
+    pathString: String,
+    method: Method,
+    operationObject: OperationObject,
+    openAPIObject: OpenAPIObject,
+  ): EndpointInfo = {
     val params      = operationObject.parameters.getOrElse(Chunk.empty).map { param =>
-      ParameterInfo.fromParameterObject(param)
+      val parameterObject = openAPIObject
+        .dereferenceParameter(param)
+        .getOrElse(throw new Exception(s"Failed to dereference parameter $param"))
+      ParameterInfo.fromParameterObject(parameterObject)
     }
     val path        = PathItem.parse(pathString, params.map(p => p.name -> p).toMap)
     val operationId = operationObject.operationId.getOrElse(defaultOperationId(method, path))
-    val responses   = Chunk.fromIterable(operationObject.responses.map { case (code, response) =>
+
+    val responses = Chunk.fromIterable(operationObject.responses.map { case (code, responseOrReference) =>
+      val response     = openAPIObject.dereferenceResponseObject(responseOrReference).getOrElse {
+        throw new Exception(s"Failed to dereference response $responseOrReference")
+      }
+      val maybeContent = response.content.getOrElse(Map.empty).headOption.map { case (mediaType, content) =>
+        ContentInfo(
+          mediaType = mediaType,
+          schema = EndpointGenerator.parseSchemaType(content.schema, Chunk(operationId, "Response")),
+        )
+      }
+
       ResponseInfo(
-        code = scala.util.Try(code.toInt).getOrElse(500),
+        code = Try(code.toInt).getOrElse(500),
         description = response.description,
-        content = response.content.getOrElse(Map.empty).headOption.map { case (mediaType, content) =>
-          ContentInfo(
-            mediaType = mediaType,
-            schema = EndpointGenerator.parseSchemaType(content.schema),
-          )
-        },
+        content = maybeContent,
       )
     })
+
+    val requestBody =
+      operationObject.requestBody.map { requestBodyOrReference =>
+        val requestBody  = openAPIObject.dereferenceRequestBody(requestBodyOrReference).getOrElse {
+          throw new Exception(s"Failed to dereference request body $requestBodyOrReference")
+        }
+        val maybeContent = requestBody.content.headOption.map { case (mediaType, content) =>
+          ContentInfo(
+            mediaType = mediaType,
+            schema = EndpointGenerator.parseSchemaType(content.schema, Chunk(operationId, "Request")),
+          )
+        }
+
+        RequestBodyInfo(
+          description = requestBody.description,
+          content = maybeContent.get,
+        )
+      }
 
     EndpointInfo(
       path = path,
@@ -109,6 +158,7 @@ object EndpointInfo {
       summary = operationObject.summary,
       parameters = params,
       responses = responses,
+      requestBody = requestBody,
     )
   }
 
@@ -130,25 +180,30 @@ final case class ContentInfo(
   schema: ApiSchemaType,
 )
 
+final case class RequestBodyInfo(
+  description: Option[String],
+  content: ContentInfo,
+)
+
 sealed trait PathItem extends Product with Serializable {
-  def toPathCodec: String = this match {
+  def toPathCodec(schemas: Map[String, ApiSchemaType]): String = this match {
     case PathItem.Static(value)        => s""""$value""""
     case PathItem.Param(parameterInfo) =>
-      val name        = parameterInfo.name
-      val constructor = parameterInfo.schema.unwrapOptional match {
-        case ApiSchemaType.TString  => s"""PathCodec.string(\"$name\")"""
-        case ApiSchemaType.TInt     => s"""PathCodec.int("$name")"""
-        case ApiSchemaType.TLong    => s"""PathCodec.long("$name")"""
-        case ApiSchemaType.TBoolean => s"""PathCodec.boolean("$name")"""
-        case _ => throw new Exception(s"Unsupported path param type for $name: ${parameterInfo.schema}")
-      }
-      if (parameterInfo.required || parameterInfo.schema.isOptional)
-        constructor
-      else
-        s"$constructor.optional"
-
+      schemaCodec(parameterInfo.schema, parameterInfo.name, schemas)
   }
 
+  private def schemaCodec(schema: ApiSchemaType, name: String, schemas: Map[String, ApiSchemaType]): String =
+    schema match {
+      case ApiSchemaType.TString       => s"""PathCodec.string("$name")"""
+      case ApiSchemaType.TInt          => s"""PathCodec.int("$name")"""
+      case ApiSchemaType.TLong         => s"""PathCodec.long("$name")"""
+      case ApiSchemaType.TBoolean      => s"""PathCodec.boolean("$name")"""
+      case ApiSchemaType.Ref(ref)      => schemaCodec(schemas(ref.split("/").last), name, schemas)
+      case ApiSchemaType.Optional(tpe) =>
+        val codec = schemaCodec(tpe, name, schemas)
+        s"$codec.optional"
+      case _                           => throw new Exception(s"Unsupported path param type for $name: $schema")
+    }
 }
 
 object PathItem {
