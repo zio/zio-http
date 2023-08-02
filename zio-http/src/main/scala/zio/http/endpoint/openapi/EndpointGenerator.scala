@@ -139,7 +139,7 @@ private[openapi] object EndpointGenerator {
             ApiSchemaType.TNull
 
           case SchemaObjectType.Array =>
-            val items = parseSchemaType(schemaObject.items.get, names.appended("item"))
+            val items = parseSchemaType(schemaObject.items.get, names :+ "item")
             ApiSchemaType.Array(items)
         }.orElse {
           schemaObject.allOf.map { allOf =>
