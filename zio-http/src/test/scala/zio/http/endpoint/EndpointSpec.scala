@@ -155,9 +155,8 @@ object EndpointSpec extends ZIOHttpSpec {
               .query(queryInt("userId") | query("userId"))
               .out[String]
               .implement {
-                Handler.fromFunction { case (userId: Either[Int, String]) =>
+                Handler.fromFunction { userId =>
                   val value = userId.fold(_.toString, identity)
-
                   s"path(users) query(userId=$value)"
                 }
               },
@@ -881,29 +880,37 @@ object EndpointSpec extends ZIOHttpSpec {
         },
       ),
     ),
-    suite("Examples spec") {
+    suite("examples")(
       test("add examples to endpoint") {
-        val endpoint     = Endpoint(GET / "repos" / string("org"))
-          .out[String]
-          .examplesIn("repo" -> "zio")
-          .examplesOut("foundRepos" -> "all, zio, repos")
-        val endpoint2    =
-          Endpoint(GET / "repos" / string("org") / string("repo"))
+        check(Gen.alphaNumericString, Gen.alphaNumericString) { (repo1, repo2) =>
+          val endpoint  = Endpoint(GET / "repos" / string("org"))
             .out[String]
-            .examplesIn("repo and org" -> ("zio", "http"), "other repo and org" -> ("zio", "zio"))
-            .examplesOut("repos" -> "zio, http")
-        val inExamples1  = endpoint.examplesIn
-        val outExamples1 = endpoint.examplesOut
-        val inExamples2  = endpoint2.examplesIn
-        val outExamples2 = endpoint2.examplesOut
-        assertTrue(
-          inExamples1 == Map("repo" -> "zio"),
-          outExamples1 == Map("foundRepos" -> "all, zio, repos"),
-          inExamples2 == Map("repo and org" -> ("zio", "http"), "other repo and org" -> ("zio", "zio")),
-          outExamples2 == Map("repos" -> "zio, http"),
-        )
-      }
-    },
+            .examplesIn("org" -> "zio")
+            .examplesOut("repos" -> s"all, zio, repos, $repo1, $repo2")
+          val endpoint2 =
+            Endpoint(GET / "repos" / string("org") / string("repo"))
+              .out[String]
+              .examplesIn(
+                "org/repo1" -> ("zio", "http"),
+                "org/repo2" -> ("zio", "zio"),
+                "org/repo3" -> ("zio", repo1),
+                "org/repo4" -> ("zio", repo2),
+              )
+              .examplesOut("repos" -> s"zio, http, $repo1, $repo2")
+          assertTrue(
+            endpoint.examplesIn == Map("org" -> "zio"),
+            endpoint.examplesOut == Map("repos" -> s"all, zio, repos, $repo1, $repo2"),
+            endpoint2.examplesIn == Map(
+              "org/repo1" -> ("zio", "http"),
+              "org/repo2" -> ("zio", "zio"),
+              "org/repo3" -> ("zio", repo1),
+              "org/repo4" -> ("zio", repo2),
+            ),
+            endpoint2.examplesOut == Map("repos" -> s"zio, http, $repo1, $repo2"),
+          )
+        }
+      },
+    ),
   )
 
   def testEndpoint[R](service: Routes[R, Nothing])(
