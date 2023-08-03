@@ -143,7 +143,7 @@ object EndpointInfoFromEndpoint {
 
   def apiSchemaTypeFromSchema(schema: Schema[_]): ApiSchemaType =
     schema match {
-      case enum: Schema.Enum[_]                                  =>
+      case schemaEnum: Schema.Enum[_]                            =>
         ???
       case record: Schema.Record[_]                              =>
         val params: Map[String, ApiSchemaType] = record.fields.map { field =>
