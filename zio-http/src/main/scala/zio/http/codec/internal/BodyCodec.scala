@@ -19,11 +19,12 @@ package zio.http.codec.internal
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.stream.ZStream
+import zio.stream.{ZPipeline, ZStream}
 
 import zio.schema._
 import zio.schema.codec.BinaryCodec
 
+import zio.http.codec.HttpCodecError
 import zio.http.{Body, FormField, MediaType}
 
 /**
@@ -92,13 +93,12 @@ private[internal] object BodyCodec {
 
   final case class Single[A](schema: Schema[A], mediaType: Option[MediaType], name: Option[String])
       extends BodyCodec[A] {
-    def decodeFromBody(body: Body, codec: BinaryCodec[A])(implicit trace: Trace): IO[Throwable, A] = {
+    def decodeFromBody(body: Body, codec: BinaryCodec[A])(implicit trace: Trace): IO[Throwable, A] =
       if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
       else
         body.asChunk.flatMap { chunk =>
           ZIO.fromEither(codec.decode(chunk))
-        }
-    }
+        }.flatMap(validateZIO(schema))
 
     def encodeToBody(value: A, codec: BinaryCodec[A])(implicit trace: Trace): Body =
       Body.fromChunk(codec.encode(value))
@@ -111,11 +111,23 @@ private[internal] object BodyCodec {
     def decodeFromBody(body: Body, codec: BinaryCodec[E])(implicit
       trace: Trace,
     ): IO[Throwable, ZStream[Any, Nothing, E]] =
-      ZIO.succeed((body.asStream >>> codec.streamDecoder).orDie)
+      ZIO.succeed((body.asStream >>> codec.streamDecoder >>> validateStream(schema)).orDie)
 
     def encodeToBody(value: ZStream[Any, Nothing, E], codec: BinaryCodec[E])(implicit trace: Trace): Body =
       Body.fromStream(value >>> codec.streamEncoder)
 
     type Element = E
   }
+
+  private[internal] def validateZIO[A](schema: Schema[A])(e: A)(implicit trace: Trace): ZIO[Any, HttpCodecError, A] = {
+    val errors = Schema.validate(e)(schema)
+    if (errors.isEmpty) ZIO.succeed(e)
+    else ZIO.fail(HttpCodecError.InvalidEntity.wrap(errors))
+  }
+
+  private[internal] def validateStream[E](schema: Schema[E])(implicit
+    trace: Trace,
+  ): ZPipeline[Any, HttpCodecError, E, E] =
+    ZPipeline.mapZIO(validateZIO(schema))
+
 }
