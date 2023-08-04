@@ -232,7 +232,7 @@ jobs:
       - name: Build and run JMH benchmark
         run: |
           sbt ++${{ matrix.scala }} clean compile
-          sbt ++${{ matrix.scala }} 'benchmarks/jmh:run -i 3 -wi 3 -f1 -t1 -rf json -rff output.json .*'
+          sbt ++${{ matrix.scala }} 'zioHttpBenchmarks/jmh:run -i 3 -wi 3 -f1 -t1 -rf json -rff output.json .*'
       - name: JMH Benchmark Action
         uses: kitlangton/jmh-benchmark-action@main
         with:
