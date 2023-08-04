@@ -24,9 +24,10 @@ import zio.stream.ZStream
 
 import zio.schema._
 
-import zio.http.codec._
-import zio.http.endpoint.Endpoint.OutErrors
-import zio.http.{Handler, MediaType, Route, RoutePattern, Status}
+import zio.http.Header.Accept.MediaTypeWithQFactor
+import zio.http._
+import zio.http.codec.{HttpCodec, _}
+import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
@@ -150,9 +151,13 @@ final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointM
 
     val handlers = self.alternatives.map { endpoint =>
       Handler.fromFunctionZIO { (request: zio.http.Request) =>
+        val outputMediaTypes = request.headers
+          .get(Header.Accept)
+          .map(_.mimeTypes)
+          .getOrElse(defaultMediaTypes)
         endpoint.input.decodeRequest(request).orDie.flatMap { value =>
-          original(value).map(endpoint.output.encodeResponse(_)).catchAll { error =>
-            ZIO.succeed(endpoint.error.encodeResponse(error))
+          original(value).map(endpoint.output.encodeResponse(_, outputMediaTypes)).catchAll { error =>
+            ZIO.succeed(endpoint.error.encodeResponse(error, outputMediaTypes))
           }
         }
       }
@@ -691,4 +696,7 @@ object Endpoint {
       self.copy[PathInput, Input, alt.Out, Output, Middleware](error = self.error | codec)
     }
   }
+
+  private[endpoint] val defaultMediaTypes =
+    NonEmptyChunk(MediaTypeWithQFactor(MediaType.application.`json`, Some(1)))
 }

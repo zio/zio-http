@@ -144,19 +144,20 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
       },
       test("simple get with protobuf encoding") {
         val usersPostAPI =
-          Endpoint
-            .get(literal("users") / int("userId") / literal("posts") / int("postId"))
+          Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
             .out[Post]
             .header(HeaderCodec.accept)
 
         val usersPostHandler =
-          usersPostAPI.implement { case (userId, postId, _) =>
-            ZIO.succeed(Post(postId, "title", "body", userId))
+          usersPostAPI.implement {
+            Handler.fromFunction { case (userId, postId, _) =>
+              Post(postId, "title", "body", userId)
+            }
           }
 
         testEndpoint(
           usersPostAPI,
-          usersPostHandler,
+          Routes(usersPostHandler),
           (10, 20, Header.Accept(MediaType.parseCustomMediaType("application/protobuf").get)),
           Post(20, "title", "body", 10),
         ) && assertZIO(TestConsole.output)(contains("ContentType: application/protobuf\n"))
@@ -196,9 +197,9 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
       },
       test("throwing error in handler") {
         val api = Endpoint(POST / string("id") / "xyz" / string("name") / "abc")
-          .query(query("details"))
-          .query(query("args").optional)
-          .query(query("env").optional)
+          .query(QueryCodec.query("details"))
+          .query(QueryCodec.query("args").optional)
+          .query(QueryCodec.query("env").optional)
           .outError[String](Status.BadRequest)
           .out[String] ?? Doc.p("doc")
 

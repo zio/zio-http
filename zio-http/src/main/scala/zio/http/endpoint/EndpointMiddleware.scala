@@ -16,10 +16,11 @@
 
 package zio.http.endpoint
 
-import zio.ZIO
+import zio.{Chunk, ZIO}
 
+import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
-import zio.http.codec._
+import zio.http.codec.{HttpCodec, _}
 
 /**
  * A description of endpoint middleware, in terms of what the middleware
@@ -55,14 +56,25 @@ sealed trait EndpointMiddleware { self =>
   ): HandlerAspect[R, S] =
     HandlerAspect.interceptHandlerStateful(
       Handler.fromFunctionZIO[Request] { request =>
+        val outputMediaTypes =
+          request.headers
+            .get(Header.Accept)
+            .map(_.mimeTypes.toChunk)
+            .getOrElse(Chunk(MediaTypeWithQFactor(MediaType.application.`json`, Some(1.0))))
         input.decodeRequest(request).orDie.flatMap { in =>
-          incoming(in).catchAll(e => ZIO.fail(error.encodeResponse(e))).map((s: S) => (s, (request, s)))
+          incoming(in)
+            .catchAll(e => ZIO.fail(error.encodeResponse(e, outputMediaTypes)))
+            .map((s: S) => ((s, outputMediaTypes), (request, s)))
         }
       },
     )(
-      Handler.fromFunctionZIO[(S, Response)] { case (state, response) =>
-        outgoing(state)
-          .fold(e => error.encodeResponse(e), (out: Out) => response.patch(output.encodeResponsePatch(out)))
+      Handler.fromFunctionZIO[((S, Chunk[MediaTypeWithQFactor]), Response)] {
+        case ((state, outputMediaTypes), response) =>
+          outgoing(state)
+            .fold(
+              e => error.encodeResponse(e, outputMediaTypes),
+              (out: Out) => response.patch(output.encodeResponsePatch(out, outputMediaTypes)),
+            )
       },
     )
 

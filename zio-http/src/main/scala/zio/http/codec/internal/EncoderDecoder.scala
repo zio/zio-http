@@ -17,20 +17,10 @@
 package zio.http.codec.internal
 
 import zio._
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
-import zio.schema.codec._
-import zio.schema.{Schema, StandardType}
-
-import zio.stream.ZStream
-import zio.stream.ZStream
-import zio.schema.Schema
-import zio.schema.codec.{BinaryCodec, Codec}
-
-import zio.stream.ZStream
 import zio.schema.Schema
 import zio.schema.codec.{BinaryCodec, Codec}
 
