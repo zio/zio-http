@@ -212,8 +212,9 @@ jobs:
   benchmark:
     name: JMH Benchmarks
     permissions:
-      pull-requests: write
       contents: write
+      pull-requests: write
+      issues: write
     strategy:
       matrix:
         os: [ubuntu-latest]
