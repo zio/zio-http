@@ -213,12 +213,12 @@ object ZClientAspect {
                 case (duration, Exit.Success(response)) =>
                   ZIO
                     .logLevel(level(response.status)) {
-                      val requestHeaders  =
+                      def requestHeaders  =
                         headers.collect {
                           case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
                             LogAnnotation(header.headerName, header.renderedValue)
                         }.toSet
-                      val responseHeaders =
+                      def responseHeaders =
                         response.headers.collect {
                           case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
                             LogAnnotation(header.headerName, header.renderedValue)
