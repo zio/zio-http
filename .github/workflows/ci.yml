@@ -218,10 +218,21 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Checkout current branch (full)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Java (temurin@8)
+        if: matrix.java == 'temurin@8'
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 8
+          cache: sbt
       - name: Build and run JMH benchmark
         run: |
-          sbt clean compile 
-          sbt 'benchmarks/jmh:run -i 3 -wi 3 -f1 -t1 -rf json -rff output.json .*'
+          sbt ++${{ matrix.scala }} clean compile
+          sbt ++${{ matrix.scala }} 'benchmarks/jmh:run -i 3 -wi 3 -f1 -t1 -rf json -rff output.json .*'
       - name: JMH Benchmark Action
         uses: kitlangton/jmh-benchmark-action@main
         with:
