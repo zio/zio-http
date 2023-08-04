@@ -209,9 +209,8 @@ jobs:
         id: push_codecov
         run: 'bash <(curl -s https://codecov.io/bash)'
 
-  Jmh_publish:
-    name: Jmh Publish
-    if: ${{ github.event.label.name == 'run jmh' && github.event_name == 'pull_request' }}
+  benchmark:
+    name: JMH Benchmarks
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -219,43 +218,15 @@ jobs:
         java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Format Output
-        id: fomat_output
+      - name: Build and run JMH benchmark
         run: |
-          cat parsed_Current.txt parsed_Main.txt | sort -u > c.txt
-                    while IFS= read -r line; do
-                    if grep -q "$line" Current.txt
-                    then
-                    grep "$line" Current.txt | sed 's/^.*: //' >> finalCurrent.txt;
-                    else
-                    echo "" >> finalCurrent.txt;
-                    fi
-                      if grep -q "$line" Main.txt
-                    then
-                    grep "$line" Main.txt | sed 's/^.*: //' >> finalMain.txt;
-                    else
-                    echo "" >> finalMain.txt;
-                    fi
-                     done < c.txt
-          paste -d '|' c.txt finalCurrent.txt finalMain.txt > FinalOutput.txt
-           sed -i -e 's/^/|/' FinalOutput.txt
-           sed -i -e 's/$/|/' FinalOutput.txt
-           body=$(cat FinalOutput.txt)
-           body="${body//'%'/'%25'}"
-           body="${body//$'\n'/'%0A'}"
-           body="${body//$'\r'/'%0D'}"
-           echo $body
-           echo ::set-output name=body::$(echo $body)
-
-      
-      - uses: peter-evans/commit-comment@v1
+          sbt clean compile 
+          sbt 'benchmarks/jmh:run -i 3 -wi 3 -f1 -t1 -rf json -rff output.json .*'
+      - name: JMH Benchmark Action
+        uses: kitlangton/jmh-benchmark-action@main
         with:
-          sha: ${{github.sha}}
-          body: |
+          jmh-output-path: benchmarks/output.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fail-on-regression: true
 
-            **🚀 Jmh Benchmark:**
 
-            |Name |Current| Main|
-            |-----|----| ----|
-             ${{steps.fomat_output.outputs.body}}
-             
