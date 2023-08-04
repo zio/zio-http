@@ -20,7 +20,6 @@ import scala.util.Try
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.Header
 import zio.http.Header.HeaderType
 import zio.http.{Header, MediaType}
 
