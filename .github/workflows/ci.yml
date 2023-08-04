@@ -236,7 +236,7 @@ jobs:
       - name: JMH Benchmark Action
         uses: kitlangton/jmh-benchmark-action@main
         with:
-          jmh-output-path: benchmarks/output.json
+          jmh-output-path: zio-http-benchmarks/output.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-regression: true
 
