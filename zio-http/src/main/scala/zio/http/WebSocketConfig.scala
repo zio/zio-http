@@ -17,6 +17,7 @@
 package zio.http
 
 import zio.Duration
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 /**
  * Server side websocket configuration
