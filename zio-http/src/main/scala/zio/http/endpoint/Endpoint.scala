@@ -19,6 +19,7 @@ package zio.http.endpoint
 import scala.reflect.ClassTag
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
