@@ -155,8 +155,8 @@ object ZClientAspect {
               .flatMap(_._2)
               .unsandbox
 
-          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: SocketApp[Env1])(implicit
-            trace: Trace,
+          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
+            implicit trace: Trace,
           ): ZIO[Env1 with Scope, Err, Response] =
             client.driver.socket(version, url, headers, app)
         }
@@ -299,8 +299,8 @@ object ZClientAspect {
               .unsandbox
           }
 
-          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: SocketApp[Env1])(implicit
-            trace: Trace,
+          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
+            implicit trace: Trace,
           ): ZIO[Env1 with Scope, Err, Response] =
             client.driver.socket(version, url, headers, app)
         }

@@ -9,7 +9,7 @@ object WebSocketSimpleClient extends ZIOAppDefault {
 
   val url = "ws://ws.vi-server.org/mirror"
 
-  val socketApp: SocketApp[Any] =
+  val socketApp: WebSocketApp[Any] =
     Handler
 
       // Listen for all websocket channel events
