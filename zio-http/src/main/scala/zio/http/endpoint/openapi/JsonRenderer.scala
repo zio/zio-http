@@ -20,6 +20,7 @@ import zio.NonEmptyChunk
 import zio.http.codec.Doc
 import zio.http.endpoint.openapi.OpenAPI.LiteralOrExpression
 import zio.http.Status
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import java.net.URI
 import java.util.Base64

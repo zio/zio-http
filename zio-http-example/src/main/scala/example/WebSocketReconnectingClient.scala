@@ -10,7 +10,7 @@ object WebSocketReconnectingClient extends ZIOAppDefault {
   val url = "ws://ws.vi-server.org/mirror"
 
   // A promise is used to be able to notify application about websocket errors
-  def makeSocketApp(p: Promise[Nothing, Throwable]): SocketApp[Any] =
+  def makeSocketApp(p: Promise[Nothing, Throwable]): WebSocketApp[Any] =
     Handler
 
       // Listen for all websocket channel events
