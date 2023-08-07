@@ -23,8 +23,8 @@ import zio.http._
 import zio.http.netty.model.Conversions
 
 import io.netty.buffer.Unpooled
-import io.netty.handler.codec.http._
 import io.netty.channel.ChannelHandlerContext
+import io.netty.handler.codec.http._
 
 private[zio] object NettyResponseEncoder {
 
