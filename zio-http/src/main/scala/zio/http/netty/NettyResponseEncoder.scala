@@ -24,13 +24,19 @@ import zio.http.netty.model.Conversions
 
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http._
+import io.netty.channel.ChannelHandlerContext
 
 private[zio] object NettyResponseEncoder {
 
-  def encode(response: Response)(implicit trace: Trace): ZIO[Any, Throwable, HttpResponse] = {
+  def encode(
+    ctx: ChannelHandlerContext,
+    response: Response,
+    runtime: NettyRuntime,
+  )(implicit unsafe: Unsafe, trace: Trace): HttpResponse = {
     val body = response.body
     if (body.isComplete) {
-      body.asArray.flatMap(bytes => ZIO.attemptUnsafe(implicit unsafe => fastEncode(response, bytes)))
+      val bytes = runtime.runtime(ctx).unsafe.run(body.asArray).getOrThrow()
+      fastEncode(response, bytes)
     } else {
       val jHeaders         = Conversions.headersToNetty(response.headers)
       val jStatus          = Conversions.statusToNetty(response.status)

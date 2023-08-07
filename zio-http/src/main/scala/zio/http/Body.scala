@@ -207,7 +207,7 @@ object Body {
     fromString(form.urlEncoded(charset), charset).contentType(MediaType.application.`x-www-form-urlencoded`)
   }
 
-  def fromSocketApp(app: SocketApp[Any]): WebsocketBody =
+  def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
     WebsocketBody(app)
 
   private[zio] trait UnsafeWriteable extends Body
@@ -335,7 +335,7 @@ object Body {
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
   }
 
-  private[zio] final case class WebsocketBody(socketApp: SocketApp[Any]) extends Body {
+  private[zio] final case class WebsocketBody(socketApp: WebSocketApp[Any]) extends Body {
     def asArray(implicit trace: Trace): Task[Array[Byte]] =
       zioEmptyArray
 
