@@ -8,6 +8,7 @@ import zio.json.ast._
 import zio.schema._
 
 import zio.http._
+import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
 import zio.http.endpoint._
 
@@ -84,12 +85,12 @@ private[cli] object CliEndpoint {
             r <- fromInput(right)
           } yield l ++ r
 
-      case HttpCodec.Content(schema, _, _, _)       => fromSchema(schema)
-      case HttpCodec.ContentStream(schema, _, _, _) => fromSchema(schema)
-      case HttpCodec.Empty                          => Set.empty
-      case HttpCodec.Fallback(left, right)          => fromInput(left) ++ fromInput(right)
-      case HttpCodec.Halt                           => Set.empty
-      case HttpCodec.Query(name, queryCodec, _)     =>
+      case HttpCodec.Content(schema, _, _, _)                => fromSchema(schema)
+      case HttpCodec.ContentStream(schema, _, _, _)          => fromSchema(schema)
+      case HttpCodec.Empty                                   => Set.empty
+      case HttpCodec.Fallback(left, right)                   => fromInput(left) ++ fromInput(right)
+      case HttpCodec.Halt                                    => Set.empty
+      case HttpCodec.Query(name, queryCodec, _)              =>
         queryCodec.asInstanceOf[TextCodec[_]] match {
           case TextCodec.UUIDCodec =>
             Set(
@@ -160,7 +161,7 @@ private[cli] object CliEndpoint {
               ),
             )
         }
-      case HttpCodec.Header(name, textCodec, _)     =>
+      case HttpCodec.Header(name, textCodec, _)              =>
         textCodec.asInstanceOf[TextCodec[_]] match {
           case TextCodec.UUIDCodec        =>
             Set(
@@ -226,7 +227,7 @@ private[cli] object CliEndpoint {
               ),
             )
         }
-      case HttpCodec.Method(codec, _)               =>
+      case HttpCodec.Method(codec, _)                        =>
         codec.asInstanceOf[SimpleCodec[_, _]] match {
           case SimpleCodec.Specified(method) =>
             Set(
@@ -240,7 +241,7 @@ private[cli] object CliEndpoint {
           case SimpleCodec.Unspecified()     =>
             Set.empty
         }
-      case HttpCodec.Path(pathCodec, _)             =>
+      case HttpCodec.Path(pathCodec, _)                      =>
         pathCodec.segments.toSet.map { (segment: SegmentCodec[_]) =>
           segment match {
             case _: SegmentCodec.Empty =>
@@ -311,10 +312,10 @@ private[cli] object CliEndpoint {
               ???
           }
         }
-      case HttpCodec.Status(_, _)                   => Set.empty
-      case HttpCodec.TransformOrFail(api, _, _)     => fromInput(api)
-      case HttpCodec.WithDoc(in, doc)               => fromInput(in).map(_ describeOptions doc.toPlaintext())
-      case HttpCodec.WithExamples(in, _)            => fromInput(in)
+      case HttpCodec.Status(_, _)                            => Set.empty
+      case HttpCodec.TransformOrFail(api, _, _)              => fromInput(api)
+      case HttpCodec.Annotated(in, Metadata.Documented(doc)) => fromInput(in).map(_ describeOptions doc.toPlaintext())
+      case HttpCodec.Annotated(in, _)                        => fromInput(in)
     }
 
   private def fromSchema(schema: zio.schema.Schema[_]): Set[CliEndpoint[_]] = {
