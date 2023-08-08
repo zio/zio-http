@@ -7,7 +7,7 @@ This code sets up a WebSocket echo server and creates an HTTP server that handle
 
 <br>
 
-```scala
+```scala mdoc:silent
 import zio._
 
 import zio.http.ChannelEvent.Read
@@ -15,7 +15,7 @@ import zio.http._
 import zio.http.codec.PathCodec.string
 
 object WebSocketEcho extends ZIOAppDefault {
-  private val socketApp: SocketApp[Any] =
+  private val socketApp: WebSocketApp[Any] =
     Handler.webSocket { channel =>
       channel.receiveAll {
         case Read(WebSocketFrame.Text("FOO")) =>
@@ -50,7 +50,7 @@ object WebSocketEcho extends ZIOAppDefault {
 This code sets up an HTTP server with WebSocket support. Clients can establish WebSocket connections to the server and perform various actions based on the received WebSocket messages.
 
 
-```scala
+```scala mdoc:silent
 import zio._
 
 import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
