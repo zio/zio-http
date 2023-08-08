@@ -207,6 +207,9 @@ object Body {
     fromString(form.urlEncoded(charset), charset).contentType(MediaType.application.`x-www-form-urlencoded`)
   }
 
+  def fromSocketApp(app: WebSocketApp[Any]): WebsocketBody =
+    WebsocketBody(app)
+
   private[zio] trait UnsafeWriteable extends Body
 
   private[zio] trait UnsafeBytes extends Body {
@@ -330,6 +333,30 @@ object Body {
 
     override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
+  }
+
+  private[zio] final case class WebsocketBody(socketApp: WebSocketApp[Any]) extends Body {
+    def asArray(implicit trace: Trace): Task[Array[Byte]] =
+      zioEmptyArray
+
+    def asChunk(implicit trace: Trace): Task[Chunk[Byte]] =
+      zioEmptyChunk
+
+    def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] =
+      ZStream.empty
+
+    private[zio] def boundary: Option[Boundary] = None
+
+    private[zio] def contentType(
+      newMediaType: MediaType,
+      newBoundary: Option[Boundary],
+    ): Body = this
+
+    def isComplete: Boolean = true
+
+    def isEmpty: Boolean = true
+
+    private[zio] def mediaType: Option[MediaType] = None
   }
 
   private val zioEmptyArray = ZIO.succeed(Array.empty[Byte])(Trace.empty)
