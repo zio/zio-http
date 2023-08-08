@@ -25,26 +25,32 @@ import zio.http._
 import zio.http.netty.model.Conversions
 
 import io.netty.buffer.Unpooled
+import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.http._
 
 private[zio] object NettyResponseEncoder {
 
-  private val frozenCache    = new ConcurrentHashMap[Response, FullHttpResponse]()
-  private val frozenZioCache = new ConcurrentHashMap[Response, UIO[HttpResponse]]()
+  private val frozenCache = new ConcurrentHashMap[Response, FullHttpResponse]()
 
-  def encode(response: Response)(implicit trace: Trace): ZIO[Any, Throwable, HttpResponse] = {
+  def encode(
+    ctx: ChannelHandlerContext,
+    response: Response,
+    runtime: NettyRuntime,
+  )(implicit unsafe: Unsafe, trace: Trace): HttpResponse = {
     val body = response.body
     if (body.isComplete) {
-      val cachedValue = frozenZioCache.get(response)
+      val cachedValue = frozenCache.get(response)
       if (cachedValue != null) cachedValue
-      else
-        body.asArray.flatMap(bytes => ZIO.attemptUnsafe(implicit unsafe => fastEncode(response, bytes)))
+      else {
+        val bytes = runtime.runtime(ctx).unsafe.run(body.asArray).getOrThrow()
+        fastEncode(response, bytes)
+      }
     } else {
       val jHeaders         = Conversions.headersToNetty(response.headers)
       val jStatus          = Conversions.statusToNetty(response.status)
       val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
-      ZIO.succeed(new DefaultHttpResponse(HttpVersion.HTTP_1_1, jStatus, jHeaders))
+      new DefaultHttpResponse(HttpVersion.HTTP_1_1, jStatus, jHeaders)
     }
   }
 
@@ -55,9 +61,7 @@ private[zio] object NettyResponseEncoder {
       if (encodedResponse != null)
         encodedResponse
       else {
-        val encoded    = doEncode(response, bytes)
-        val encodedZio = ZIO.succeed(encoded)
-        frozenZioCache.put(response, encodedZio)
+        val encoded = doEncode(response, bytes)
         frozenCache.put(response, encoded)
         encoded
       }

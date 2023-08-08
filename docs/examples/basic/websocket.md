@@ -1,5 +1,10 @@
-package example
+---
+id: websocket
+title: WebSocket Example
+sidebar_label: WebSocket
+---
 
+```scala mdoc:silent
 import zio._
 
 import zio.http.ChannelEvent.Read
@@ -23,7 +28,7 @@ object WebSocketEcho extends ZIOAppDefault {
 
   private val app: HttpApp[Any] =
     Routes(
-      Method.GET / "greet" / string("name") -> handler { (name: String, _: Request) =>
+      Method.GET / "greet" / string("name") -> handler { (name: String, req: Request) =>
         Response.text(s"Greetings {$name}!")
       },
       Method.GET / "subscriptions"          -> handler(socketApp.toResponse),
@@ -31,3 +36,5 @@ object WebSocketEcho extends ZIOAppDefault {
 
   override val run = Server.serve(app).provide(Server.default)
 }
+
+```

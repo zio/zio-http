@@ -16,4 +16,6 @@
 
 package zio.http.endpoint
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 final case class EndpointNotFound(message: String, api: Endpoint[_, _, _, _, _]) extends Exception(message)
