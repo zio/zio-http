@@ -92,8 +92,11 @@ private[cli] object CliEndpoint {
     input match {
       case atom: HttpCodec.Atom[_, _]           => fromAtom(atom)
       case HttpCodec.TransformOrFail(api, _, _) => fromCodec(api)
-      case HttpCodec.WithDoc(in, doc)           => fromCodec(in) describeOptions doc
-      case HttpCodec.WithExamples(in, _)        => fromCodec(in)
+      case HttpCodec.Annotated(in, metadata)    =>
+        metadata match {
+          case HttpCodec.Metadata.Documented(doc) => fromCodec(in) describeOptions doc
+          case _                                  => fromCodec(in)
+        }
       case HttpCodec.Fallback(left, right)      => fromCodec(left) ++ fromCodec(right)
       case HttpCodec.Combine(left, right, _)    => fromCodec(left) ++ fromCodec(right)
       case _                                    => CliEndpoint.empty

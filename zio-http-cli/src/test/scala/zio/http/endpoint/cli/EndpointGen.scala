@@ -82,9 +82,8 @@ object EndpointGen {
       anyTextCodec.zip(Gen.alphaNumericStringBounded(1, 30)).map { case (codec, name) =>
         OptionsGen.toPathCodec(name, codec)
       },
-      Gen.const(PathCodec.trailing)
+      Gen.const(PathCodec.trailing),
     )
-    
 
   lazy val anyPath: Gen[Any, CliReprOf[Codec[_]]] =
     anyPathCodec.map { case codec =>

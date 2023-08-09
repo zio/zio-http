@@ -48,7 +48,7 @@ object CliSpec extends ZIOSpecDefault {
     ZLayer.scopedEnvironment {
       for {
         behavior       <- Ref.make[PartialFunction[Request, ZIO[Any, Response, Response]]](PartialFunction.empty)
-        socketBehavior <- Ref.make[SocketApp[Any]](Handler.unit)
+        socketBehavior <- Ref.make[WebSocketApp[Any]](WebSocketApp(Handler.unit))
         driver = TestClient(behavior, socketBehavior)
         _ <- driver.addHandler {
           case Request(_, Method.GET, URL(path, _, _, _), _, _, _) if path.encode == "/fromURL" =>
