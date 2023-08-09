@@ -331,7 +331,7 @@ private[cli] object HttpOptions {
         case SegmentCodec.LongSeg(name, doc)  => Options.integer(name).map(_.toInt).map(_.toString)
         case SegmentCodec.BoolSeg(name, doc)  => Options.boolean(name).map(_.toString)
         case SegmentCodec.Literal(value, doc) => Options.Empty.map(_ => value)
-        case SegmentCodec.Trailing(doc)       => ??? // FIXME
+        case SegmentCodec.Trailing(doc)       => Options.none.map(_.toString)
         case SegmentCodec.Empty(_)            => Options.none.map(_.toString)
       }
 
