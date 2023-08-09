@@ -21,15 +21,13 @@ object PlainTextBenchmarkServer extends ZIOAppDefault {
 
   private val frozenJsonResponse = Response
     .json(jsonMessage)
-    .serverTime
+//    .serverTime
     .addHeader(Header.Server(STATIC_SERVER_NAME))
-    .freeze
 
   private val frozenPlainTextResponse = Response
     .text(plainTextMessage)
-    .serverTime
+//    .serverTime
     .addHeader(Header.Server(STATIC_SERVER_NAME))
-    .freeze
 
   private def plainTextApp(response: Response): HttpApp[Any] =
     Routes(Method.GET / plaintextPath -> Handler.response(response)).toHttpApp

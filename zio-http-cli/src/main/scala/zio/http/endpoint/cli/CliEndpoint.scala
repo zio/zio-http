@@ -7,6 +7,7 @@ import zio.cli._
 import zio.schema._
 
 import zio.http._
+import zio.http.codec.HttpCodec.Metadata
 import zio.http.codec._
 import zio.http.codec.internal._
 import zio.http.endpoint._

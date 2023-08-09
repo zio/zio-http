@@ -16,14 +16,14 @@
 
 package zio.http
 
+import java.net.{InetSocketAddress, URI}
+
 import zio._
+
 import zio.http.URL.Location
 import zio.http.internal.HeaderOps
 import zio.http.netty.NettyConfig
 import zio.http.netty.client._
-
-import java.net.{InetSocketAddress, URI} // scalafix:ok;
-import java.net.MalformedURLException
 
 final case class ZClient[-Env, -In, +Err, +Out](
   version: Version,
@@ -205,7 +205,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
   def scheme(scheme: Scheme): ZClient[Env, In, Err, Out] =
     copy(url = url.scheme(scheme))
 
-  def socket[Env1 <: Env](app: SocketApp[Env1])(implicit trace: Trace): ZIO[Env1 & Scope, Err, Out] =
+  def socket[Env1 <: Env](app: WebSocketApp[Env1])(implicit trace: Trace): ZIO[Env1 & Scope, Err, Out] =
     driver
       .socket(
         Version.Default,
@@ -291,7 +291,7 @@ object ZClient {
   def request(request: Request): ZIO[Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](c => c(request))
 
-  def socket[R](socketApp: SocketApp[R]): ZIO[R with Client & Scope, Throwable, Response] =
+  def socket[R](socketApp: WebSocketApp[R]): ZIO[R with Client & Scope, Throwable, Response] =
     ZIO.serviceWithZIO[Client](c => c.socket(socketApp))
 
   trait BodyDecoder[-Env, +Err, +Out] { self =>
@@ -387,7 +387,7 @@ object ZClient {
           version: Version,
           url: URL,
           headers: Headers,
-          app: SocketApp[Env1],
+          app: WebSocketApp[Env1],
         )(implicit trace: Trace): ZIO[Env1 & Scope, Throwable, Response] =
           self0
             .socket(
@@ -420,7 +420,7 @@ object ZClient {
           version: Version,
           url: URL,
           headers: Headers,
-          app: SocketApp[Env1],
+          app: WebSocketApp[Env1],
         )(implicit trace: Trace): ZIO[Env1 & Scope, Err2, Response] =
           self
             .socket(
@@ -450,7 +450,7 @@ object ZClient {
           version: Version,
           url: URL,
           headers: Headers,
-          app: SocketApp[Env1],
+          app: WebSocketApp[Env1],
         )(implicit trace: Trace): ZIO[Env1 & Scope, Err2, Response] =
           self
             .socket(
@@ -490,7 +490,7 @@ object ZClient {
           version: Version,
           url: URL,
           headers: Headers,
-          app: SocketApp[Env2],
+          app: WebSocketApp[Env2],
         )(implicit trace: Trace): ZIO[Env2 & Scope, Err1, Response] =
           self
             .socket(
@@ -506,7 +506,7 @@ object ZClient {
       version: Version,
       url: URL,
       headers: Headers,
-      app: SocketApp[Env1],
+      app: WebSocketApp[Env1],
     )(implicit trace: Trace): ZIO[Env1 & Scope, Err, Response]
 
     def widenError[E1](implicit ev: Err <:< E1): Driver[Env, E1] = self.asInstanceOf[Driver[Env, E1]]
@@ -633,14 +633,14 @@ object ZClient {
       val request = Request(version, method, url, headers, body, None)
       val cfg     = sslConfig.fold(config)(config.ssl)
 
-      requestAsync(request, cfg, () => Handler.unit, None)
+      requestAsync(request, cfg, () => WebSocketApp.unit, None)
     }
 
     def socket[Env1](
       version: Version,
       url: URL,
       headers: Headers,
-      app: SocketApp[Env1],
+      app: WebSocketApp[Env1],
     )(implicit trace: Trace): ZIO[Env1 & Scope, Throwable, Response] =
       for {
         env <- ZIO.environment[Env1]
@@ -659,16 +659,13 @@ object ZClient {
           config,
           () => app.provideEnvironment(env),
           Some(scope),
-        ).withFinalizer {
-          case resp: Response.CloseableResponse => resp.close.orDie
-          case _                                => ZIO.unit
-        }
+        )
       } yield res
 
     private def requestAsync(
       request: Request,
       clientConfig: Config,
-      createSocketApp: () => SocketApp[Any],
+      createSocketApp: () => WebSocketApp[Any],
       outerScope: Option[Scope],
     )(implicit
       trace: Trace,

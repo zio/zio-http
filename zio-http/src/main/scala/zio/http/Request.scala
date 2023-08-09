@@ -114,31 +114,42 @@ object Request {
       Patch(self.addHeaders ++ that.addHeaders, self.addQueryParams ++ that.addQueryParams)
   }
 
-  def delete(path: String): Request = Request(method = Method.DELETE, url = URL(Path(path)))
+  def delete(path: String): Request = Request(method = Method.DELETE, url = pathOrUrl(path))
 
   def delete(url: URL): Request = Request(method = Method.DELETE, url = url)
 
-  def get(path: String): Request = Request(method = Method.GET, url = URL(Path(path)))
+  def get(path: String): Request = Request(method = Method.GET, url = pathOrUrl(path))
 
   def get(url: URL): Request = Request(method = Method.GET, url = url)
 
-  def head(path: String): Request = Request(method = Method.HEAD, url = URL(Path(path)))
+  def head(path: String): Request = Request(method = Method.HEAD, url = pathOrUrl(path))
 
   def head(url: URL): Request = Request(method = Method.HEAD, url = url)
 
-  def options(path: String): Request = Request(method = Method.OPTIONS, url = URL(Path(path)))
+  def options(path: String): Request = Request(method = Method.OPTIONS, url = pathOrUrl(path))
 
   def options(url: URL): Request = Request(method = Method.OPTIONS, url = url)
 
-  def patch(path: String, body: Body): Request = Request(method = Method.PATCH, url = URL(Path(path)), body = body)
+  def patch(path: String, body: Body): Request = Request(method = Method.PATCH, url = pathOrUrl(path), body = body)
 
   def patch(url: URL, body: Body): Request = Request(method = Method.PATCH, url = url, body = body)
 
-  def post(path: String, body: Body): Request = Request(method = Method.POST, url = URL(Path(path)), body = body)
+  def post(path: String, body: Body): Request = Request(method = Method.POST, url = pathOrUrl(path), body = body)
 
   def post(url: URL, body: Body): Request = Request(method = Method.POST, url = url, body = body)
 
-  def put(path: String, body: Body): Request = Request(method = Method.PUT, url = URL(Path(path)), body = body)
+  def put(path: String, body: Body): Request = Request(method = Method.PUT, url = pathOrUrl(path), body = body)
 
   def put(url: URL, body: Body): Request = Request(method = Method.PUT, url = url, body = body)
+
+  /**
+   * Convenience function that detects and handles cases when an absolute URL
+   * was passed in the path variant of the request constructors
+   */
+  private def pathOrUrl(path: String): URL =
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      URL.decode(path).toOption.getOrElse(URL(Path(path)))
+    } else {
+      URL(Path(path))
+    }
 }

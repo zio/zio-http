@@ -28,28 +28,28 @@ trait Channel[-In, +Out] { self =>
   /**
    * Await shutdown of the channel.
    */
-  def awaitShutdown: UIO[Unit]
+  def awaitShutdown(implicit trace: Trace): UIO[Unit]
 
   /**
    * Read a message from the channel, suspending until the next message is
    * available.
    */
-  def receive: Task[Out]
+  def receive(implicit trace: Trace): Task[Out]
 
   /**
    * Send a message to the channel.
    */
-  def send(in: In): Task[Unit]
+  def send(in: In)(implicit trace: Trace): Task[Unit]
 
   /**
    * Send all messages to the channel.
    */
-  def sendAll(in: Iterable[In]): Task[Unit]
+  def sendAll(in: Iterable[In])(implicit trace: Trace): Task[Unit]
 
   /**
    * Shut down the channel.
    */
-  def shutdown: UIO[Unit]
+  def shutdown(implicit trace: Trace): UIO[Unit]
 
   /**
    * Constructs a new channel that automatically transforms messages sent to
@@ -57,15 +57,15 @@ trait Channel[-In, +Out] { self =>
    */
   final def contramap[In2](f: In2 => In): Channel[In2, Out] =
     new Channel[In2, Out] {
-      def awaitShutdown: UIO[Unit]               =
+      def awaitShutdown(implicit trace: Trace): UIO[Unit]               =
         self.awaitShutdown
-      def receive: Task[Out]                     =
+      def receive(implicit trace: Trace): Task[Out]                     =
         self.receive
-      def send(in: In2): Task[Unit]              =
+      def send(in: In2)(implicit trace: Trace): Task[Unit]              =
         self.send(f(in))
-      def sendAll(in: Iterable[In2]): Task[Unit] =
+      def sendAll(in: Iterable[In2])(implicit trace: Trace): Task[Unit] =
         self.sendAll(in.map(f))
-      def shutdown: UIO[Unit]                    =
+      def shutdown(implicit trace: Trace): UIO[Unit]                    =
         self.shutdown
     }
 
@@ -75,15 +75,15 @@ trait Channel[-In, +Out] { self =>
    */
   final def map[Out2](f: Out => Out2)(implicit trace: Trace): Channel[In, Out2] =
     new Channel[In, Out2] {
-      def awaitShutdown: UIO[Unit]              =
+      def awaitShutdown(implicit trace: Trace): UIO[Unit]              =
         self.awaitShutdown
-      def receive: Task[Out2]                   =
+      def receive(implicit trace: Trace): Task[Out2]                   =
         self.receive.map(f)
-      def send(in: In): Task[Unit]              =
+      def send(in: In)(implicit trace: Trace): Task[Unit]              =
         self.send(in)
-      def sendAll(in: Iterable[In]): Task[Unit] =
+      def sendAll(in: Iterable[In])(implicit trace: Trace): Task[Unit] =
         self.sendAll(in)
-      def shutdown: UIO[Unit]                   =
+      def shutdown(implicit trace: Trace): UIO[Unit]                   =
         self.shutdown
     }
 

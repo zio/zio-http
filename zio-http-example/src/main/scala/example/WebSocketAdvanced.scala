@@ -8,7 +8,7 @@ import zio.http.codec.PathCodec.string
 
 object WebSocketAdvanced extends ZIOAppDefault {
 
-  val socketApp: SocketApp[Any] =
+  val socketApp: WebSocketApp[Any] =
     Handler.webSocket { channel =>
       channel.receiveAll {
         case Read(WebSocketFrame.Text("end"))                =>
@@ -24,7 +24,12 @@ object WebSocketAdvanced extends ZIOAppDefault {
 
         // Echo the same message 10 times if it's not "foo" or "bar"
         case Read(WebSocketFrame.Text(text))                 =>
-          channel.send(Read(WebSocketFrame.text(text))).repeatN(10)
+          channel
+            .send(Read(WebSocketFrame.text(s"echo $text")))
+            .repeatN(10)
+            .catchSomeCause { case cause =>
+              ZIO.logErrorCause(s"failed sending", cause)
+            }
 
         // Send a "greeting" message to the server once the connection is established
         case UserEventTriggered(UserEvent.HandshakeComplete) =>
