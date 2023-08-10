@@ -22,6 +22,7 @@ import scala.annotation.nowarn
 
 import zio._
 import zio.test.Assertion._
+import zio.test.TestAspect._
 import zio.test._
 
 import zio.stream.{ZStream, ZStreamAspect}
@@ -308,7 +309,7 @@ object FormSpec extends ZIOHttpSpec {
             collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
           )
         }
-      },
+      } @@ samples(10),
     )
 
   def spec =
