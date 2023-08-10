@@ -19,11 +19,12 @@ package zio.http.headers
 import java.time.{ZoneOffset, ZonedDateTime}
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.LastModified
+import zio.http.ZIOHttpSpec
 
-object LastModifiedSpec extends ZIOSpecDefault {
+object LastModifiedSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("LastModified spec")(
     test("LastModifiedDateTime") {
       val dateTime     = ZonedDateTime.of(1994, 11, 6, 8, 49, 37, 0, ZoneOffset.UTC)

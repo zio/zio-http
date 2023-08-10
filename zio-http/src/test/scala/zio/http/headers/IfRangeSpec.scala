@@ -19,11 +19,12 @@ package zio.http.headers
 import java.time.{ZoneOffset, ZonedDateTime}
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.IfRange
+import zio.http.ZIOHttpSpec
 
-object IfRangeSpec extends ZIOSpecDefault {
+object IfRangeSpec extends ZIOHttpSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("If-Range header encoder suite")(

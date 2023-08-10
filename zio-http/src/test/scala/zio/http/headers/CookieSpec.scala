@@ -16,12 +16,13 @@
 
 package zio.http.headers
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.Header.Cookie
+import zio.http.ZIOHttpSpec
 
-object CookieSpec extends ZIOSpecDefault {
+object CookieSpec extends ZIOHttpSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Cookie suite")(
     test("Cookie handle valid cookie") {

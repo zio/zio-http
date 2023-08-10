@@ -20,9 +20,10 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.Connection
+import zio.http.ZIOHttpSpec
 import zio.http.internal.HttpGen
 
-object ConnectionSpec extends ZIOSpecDefault {
+object ConnectionSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Connection header suite")(
     test("connection header transformation must be symmetrical") {
       check(HttpGen.connectionHeader) { connectionHeader =>

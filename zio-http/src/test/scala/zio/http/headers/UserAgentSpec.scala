@@ -17,11 +17,12 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.UserAgent
+import zio.http.ZIOHttpSpec
 
-object UserAgentSpec extends ZIOSpecDefault {
+object UserAgentSpec extends ZIOHttpSpec {
   def spec: Spec[TestEnvironment with Scope, Any] =
     suite("UserAgent suite")(
       test("UserAgent should be parsed correctly") {

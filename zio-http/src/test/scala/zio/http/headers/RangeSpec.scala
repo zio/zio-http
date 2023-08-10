@@ -17,11 +17,12 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.Range
+import zio.http.ZIOHttpSpec
 
-object RangeSpec extends ZIOSpecDefault {
+object RangeSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Range suite")(
     test("parsing of invalid Range values") {
       assertTrue(Range.parse("").isLeft, Range.parse("something").isLeft)

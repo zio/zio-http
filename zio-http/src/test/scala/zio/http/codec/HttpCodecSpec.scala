@@ -24,7 +24,7 @@ import zio.test._
 import zio.http._
 import zio.http.codec._
 
-object HttpCodecSpec extends ZIOSpecDefault {
+object HttpCodecSpec extends ZIOHttpSpec {
   val googleUrl     = URL.decode("http://google.com").toOption.get
   val usersUrl      = URL.decode("http://mywebservice.com/users").toOption.get
   val usersIdUrl    = URL.decode("http://mywebservice.com/users/42").toOption.get

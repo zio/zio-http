@@ -20,9 +20,10 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.Host
+import zio.http.ZIOHttpSpec
 import zio.http.internal.HttpGen
 
-object HostSpec extends ZIOSpecDefault {
+object HostSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Host header suite")(
       test("Empty Host") {

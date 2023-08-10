@@ -17,12 +17,12 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.SecWebSocketOrigin
-import zio.http.URL
+import zio.http.{URL, ZIOHttpSpec}
 
-object SecWebSocketOriginSpec extends ZIOSpecDefault {
+object SecWebSocketOriginSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketOrigin suite")(
     test("SecWebSocketOrigin should be properly parsed for a valid string") {
       val probe    = "wss://example.com"

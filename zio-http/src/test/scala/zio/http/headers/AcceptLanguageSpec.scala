@@ -20,8 +20,9 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.AcceptLanguage
+import zio.http.ZIOHttpSpec
 
-object AcceptLanguageSpec extends ZIOSpecDefault {
+object AcceptLanguageSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Accept Language header suite")(
       test("accept language header transformation must be symmetrical") {

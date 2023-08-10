@@ -17,12 +17,13 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{ZIOSpecDefault, _}
+import zio.test._
 
 import zio.http.Header.Location
+import zio.http.ZIOHttpSpec
 import zio.http.internal.HttpGen
 
-object LocationSpec extends ZIOSpecDefault {
+object LocationSpec extends ZIOHttpSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Location header suite")(

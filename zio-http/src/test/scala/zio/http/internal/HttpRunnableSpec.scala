@@ -16,7 +16,6 @@
 
 package zio.http.internal
 
-import zio.test.ZIOSpecDefault
 import zio.{Scope, ZIO}
 
 import zio.http.URL.Location
@@ -29,7 +28,7 @@ import zio.http._
  * should suffice. HttpRunnableSpec spins of an actual Http server and makes
  * requests.
  */
-abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
+abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
   implicit class RunnableHttpClientAppSyntax[R](route: HttpApp[R]) {
 
     def app: HttpApp[R] = route

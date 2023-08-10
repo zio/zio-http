@@ -29,7 +29,7 @@ import zio.stream.{ZStream, ZStreamAspect}
 import zio.http.Header.ContentTransferEncoding
 import zio.http.forms.Fixtures._
 
-object FormSpec extends ZIOSpecDefault {
+object FormSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   val urlEncodedSuite =

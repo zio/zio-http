@@ -20,8 +20,9 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.From
+import zio.http.ZIOHttpSpec
 
-object FromSpec extends ZIOSpecDefault {
+object FromSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("From header suite")(
       test("parse valid value") {

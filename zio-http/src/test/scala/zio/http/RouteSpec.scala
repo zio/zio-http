@@ -21,7 +21,7 @@ import scala.collection.Seq
 import zio._
 import zio.test._
 
-object RouteSpec extends ZIOSpecDefault {
+object RouteSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   def spec = suite("RouteSpec")(

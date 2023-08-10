@@ -6,7 +6,7 @@ import zio.test._
 import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
 import zio.http.{Method, Status, WebSocketFrame}
 
-object TestClientSpec extends ZIOSpecDefault {
+object TestClientSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   def spec =

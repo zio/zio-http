@@ -20,7 +20,7 @@ import zio.test.Assertion.equalTo
 import zio.test._
 import zio.{Chunk, ZIO}
 
-object QueryParamsSpec extends ZIOSpecDefault {
+object QueryParamsSpec extends ZIOHttpSpec {
 
   def spec =
     suite("QueryParams")(
