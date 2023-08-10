@@ -406,14 +406,14 @@ object ServerSpec extends HttpRunnableSpec {
       test("concurrent") {
         val size     = 100
         val expected = (0 to size) map (_ => Status.Ok)
-        val response = Response.text("abc").freeze
+        val response = Response.text("abc")
         for {
           actual <- ZIO.foreachPar(0 to size)(_ => Handler.response(response).toHttpApp.deploy.status.run())
         } yield assertTrue(actual == expected)
       },
       test("update after cache") {
         val server = "ZIO-Http"
-        val res    = Response.text("abc").freeze
+        val res    = Response.text("abc")
         for {
           actual <- Handler.response(res).addHeader(Header.Server(server)).toHttpApp.deploy.header(Header.Server).run()
         } yield assertTrue(actual.get == Header.Server(server))

@@ -86,13 +86,13 @@ abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
       } yield response
 
     def deployWS
-      : Handler[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =
+      : Handler[R with Client with DynamicServer with Scope, Throwable, WebSocketApp[Client with Scope], Response] =
       for {
         id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
         rawUrl   <- Handler.fromZIO(DynamicServer.wsURL)
         url      <- Handler.fromEither(URL.decode(rawUrl)).orDie
         client   <- Handler.fromZIO(ZIO.service[Client])
-        response <- Handler.fromFunctionZIO[SocketApp[Client with Scope]] { app =>
+        response <- Handler.fromFunctionZIO[WebSocketApp[Client with Scope]] { app =>
           ZIO.scoped[Client with Scope](
             client
               .url(url)

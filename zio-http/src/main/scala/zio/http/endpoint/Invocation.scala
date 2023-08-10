@@ -16,6 +16,8 @@
 
 package zio.http.endpoint
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 /**
  * An invocation represents a single invocation of an endpoint through provision
  * of the input that the endpoint requires.

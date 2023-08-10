@@ -845,22 +845,22 @@ object EndpointSpec extends ZIOHttpSpec {
       test("add examples to endpoint") {
         val endpoint     = Endpoint(GET / "repos" / string("org"))
           .out[String]
-          .examplesIn("zio")
-          .examplesOut("all, zio, repos")
+          .examplesIn("repo" -> "zio")
+          .examplesOut("foundRepos" -> "all, zio, repos")
         val endpoint2    =
           Endpoint(GET / "repos" / string("org") / string("repo"))
             .out[String]
-            .examplesIn(("zio", "http"), ("zio", "zio"))
-            .examplesOut("zio, http")
+            .examplesIn("repo and org" -> ("zio", "http"), "other repo and org" -> ("zio", "zio"))
+            .examplesOut("repos" -> "zio, http")
         val inExamples1  = endpoint.examplesIn
         val outExamples1 = endpoint.examplesOut
         val inExamples2  = endpoint2.examplesIn
         val outExamples2 = endpoint2.examplesOut
         assertTrue(
-          inExamples1 == Chunk("zio"),
-          outExamples1 == Chunk("all, zio, repos"),
-          inExamples2 == Chunk(("zio", "http"), ("zio", "zio")),
-          outExamples2 == Chunk("zio, http"),
+          inExamples1 == Map("repo" -> "zio"),
+          outExamples1 == Map("foundRepos" -> "all, zio, repos"),
+          inExamples2 == Map("repo and org" -> ("zio", "http"), "other repo and org" -> ("zio", "zio")),
+          outExamples2 == Map("repos" -> "zio, http"),
         )
       }
     },

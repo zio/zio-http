@@ -24,6 +24,7 @@ import zio.http.netty.{NettyResponse, NettyRuntime}
 
 import io.netty.channel.{ChannelHandlerContext, SimpleChannelInboundHandler}
 import io.netty.handler.codec.http.FullHttpResponse
+
 final class WebSocketClientInboundHandler(
   rtm: NettyRuntime,
   onResponse: Promise[Throwable, Response],
@@ -38,7 +39,7 @@ final class WebSocketClientInboundHandler(
 
   override def channelRead0(ctx: ChannelHandlerContext, msg: FullHttpResponse): Unit = {
     rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring) {
-      onResponse.succeed(NettyResponse.make(ctx, msg))
+      onResponse.succeed(NettyResponse(msg))
     }(unsafeClass, trace)
 
     ctx.fireChannelRead(msg.retain())

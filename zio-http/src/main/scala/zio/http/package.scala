@@ -57,8 +57,6 @@ package object http extends UrlInterpolator {
   type Client = ZClient[Any, Body, Throwable, Response]
   def Client: ZClient.type = ZClient
 
-  type SocketApp[-R] = Handler[R, Throwable, WebSocketChannel, Any]
-
   /**
    * A channel that allows websocket frames to be written to it.
    */

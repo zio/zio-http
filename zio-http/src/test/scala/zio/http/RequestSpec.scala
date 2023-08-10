@@ -86,6 +86,16 @@ object RequestSpec extends ZIOHttpSpec {
       val actual = Request.put(URL.empty, body)
       assertTrue(actual == expected)
     },
+    test("path string") {
+      val expected = Request(method = Method.GET, url = url"/foo/bar")
+      val actual   = Request.get("/foo/bar")
+      assertTrue(actual == expected)
+    },
+    test("absolute url string") {
+      val expected = Request(method = Method.GET, url = url"https://foo.com/bar")
+      val actual   = Request.get("https://foo.com/bar")
+      assertTrue(actual == expected)
+    },
   )
 
 }

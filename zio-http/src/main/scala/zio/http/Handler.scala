@@ -223,34 +223,6 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
     that.andThen(self)
 
   /**
-   * Creates a socket connection on the provided URL. Typically used to connect
-   * as a client.
-   */
-  def connect(
-    url: String,
-    headers: Headers = Headers.empty,
-  )(implicit
-    ev: Err <:< Throwable,
-    ev2: WebSocketChannel <:< In,
-    trace: Trace,
-  ): ZIO[R with Client with Scope, Throwable, Response] =
-    ZIO.fromEither(URL.decode(url)).orDie.flatMap(connect(_, headers))
-
-  def connect(
-    url: URL,
-    headers: Headers,
-  )(implicit
-    ev1: Err <:< Throwable,
-    ev2: WebSocketChannel <:< In,
-    trace: Trace,
-  ): ZIO[R with Client with Scope, Throwable, Response] =
-    ZIO.serviceWithZIO[Client] { client =>
-      val client2 = if (url.isAbsolute) client.url(url) else client.addUrl(url)
-
-      client2.addHeaders(headers).socket(self.asInstanceOf[SocketApp[R]])
-    }
-
-  /**
    * Transforms the input of the handler before passing it on to the current
    * Handler
    */
@@ -620,21 +592,6 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
     HttpApp(Routes.singleton(handler.contramap[(Path, Request)](_._2)))
   }
-
-  def toHttpAppWS(implicit err: Err <:< Throwable, in: WebSocketChannel <:< In, trace: Trace): HttpApp[R] =
-    Handler.fromZIO(self.toResponse).toHttpApp
-
-  /**
-   * Creates a new response from a socket handler.
-   */
-  def toResponse(implicit
-    ev1: Err <:< Throwable,
-    ev2: WebSocketChannel <:< In,
-    trace: Trace,
-  ): ZIO[R, Nothing, Response] =
-    ZIO.environment[R].flatMap { env =>
-      Response.fromSocketApp(self.asInstanceOf[SocketApp[R]].provideEnvironment(env))
-    }
 
   /**
    * Takes some defects and converts them into failures.
@@ -1102,10 +1059,10 @@ object Handler {
   /**
    * Constructs a handler from a function that uses a web socket.
    */
-  final def webSocket[Env, Err, Out](
-    f: WebSocketChannel => ZIO[Env, Err, Out],
-  ): Handler[Env, Err, WebSocketChannel, Out] =
-    Handler.fromFunctionZIO(f)
+  final def webSocket[Env](
+    f: WebSocketChannel => ZIO[Env, Throwable, Any],
+  ): WebSocketApp[Env] =
+    WebSocketApp(Handler.fromFunctionZIO(f))
 
   final implicit class RequestHandlerSyntax[-R, +Err](val self: RequestHandler[R, Err])
       extends HeaderModifier[RequestHandler[R, Err]] {
