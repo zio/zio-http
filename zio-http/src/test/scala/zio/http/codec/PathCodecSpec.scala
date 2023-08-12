@@ -18,6 +18,8 @@ package zio.http.codec
 
 import java.util.UUID
 
+import scala.util.Try
+
 import zio._
 import zio.test._
 
@@ -58,7 +60,7 @@ object PathCodecSpec extends ZIOHttpSpec {
               SegmentCodec
                 .string("post-id")
                 .transformOrFailLeft(
-                  s => s.toIntOption.toRight("Not a number").map(n => PostId(n.toString)),
+                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
                   (pid: PostId) => pid.value,
                 )
 
@@ -107,7 +109,7 @@ object PathCodecSpec extends ZIOHttpSpec {
               SegmentCodec
                 .string("post-id")
                 .transformOrFailLeft(
-                  s => s.toIntOption.toRight("Not a number").map(n => PostId(n.toString)),
+                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
                   (pid: PostId) => pid.value,
                 )
 
@@ -159,7 +161,7 @@ object PathCodecSpec extends ZIOHttpSpec {
               SegmentCodec
                 .string("post-id")
                 .transformOrFailLeft(
-                  s => s.toIntOption.toRight("Not a number").map(n => PostId(n.toString)),
+                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
                   (pid: PostId) => pid.value,
                 )
 
