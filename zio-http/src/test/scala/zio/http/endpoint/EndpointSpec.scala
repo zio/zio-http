@@ -23,7 +23,9 @@ import zio.test._
 
 import zio.stream.ZStream
 
+import zio.schema.annotation.validate
 import zio.schema.codec.{DecodeError, JsonCodec}
+import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema, StandardType}
 
 import zio.http.Header.ContentType
@@ -37,6 +39,11 @@ object EndpointSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   case class NewPost(value: String)
+
+  case class User(
+    @validate(Validation.greaterThan(0))
+    id: Int,
+  )
 
   def spec = suite("EndpointSpec")(
     suite("handler")(
@@ -545,6 +552,39 @@ object EndpointSpec extends ZIOHttpSpec {
             body1 == "{\"userId\":123}",
             extractStatus(response2) == Status.InternalServerError,
             body2 == "{\"message\":\"something went wrong\"}",
+          )
+        },
+        test("validation occurs automatically on schema") {
+
+          implicit val schema: Schema[User] = DeriveSchema.gen[User]
+
+          val routes =
+            Endpoint(POST / "users")
+              .in[User]
+              .out[String]
+              .implement {
+                Handler.fromFunctionZIO { _ =>
+                  ZIO.succeed("User ID is greater than 0")
+                }
+              }
+              .handleErrorCause { case cause =>
+                Response.text("Caught: " + cause.defects.headOption.fold("no known cause")(d => d.getMessage))
+              }
+
+          val request1 = Request.post(URL.decode("/users").toOption.get, Body.fromString("""{"id":0}"""))
+          val request2 = Request.post(URL.decode("/users").toOption.get, Body.fromString("""{"id":1}"""))
+
+          for {
+            response1 <- routes.toHttpApp.runZIO(request1)
+            body1     <- response1.body.asString.orDie
+
+            response2 <- routes.toHttpApp.runZIO(request2)
+            body2     <- response2.body.asString.orDie
+          } yield assertTrue(
+            extractStatus(response1) == Status.BadRequest,
+            body1 == "",
+            extractStatus(response2) == Status.Ok,
+            body2 == "\"User ID is greater than 0\"",
           )
         },
       ),
