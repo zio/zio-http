@@ -61,17 +61,13 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         )
       },
       test("http_requests_total with path label mapper") {
-        val app = Handler.ok.toHttpApp @@ metrics(
-          pathLabelMapper = {
-            case req if req.path.startsWith(Path("/user/")) =>
-              "/user/:id"
-          },
+        val app = (Method.GET / "user" / int("id") -> Handler.ok).toHttpApp @@ metrics(
           extraLabels = Set(MetricLabel("test", "http_requests_total with path label mapper")),
         )
 
         val total   =
           Metric.counterInt("http_requests_total").tagged("test", "http_requests_total with path label mapper")
-        val totalOk = total.tagged("path", "/user/:id").tagged("method", "GET").tagged("status", "200")
+        val totalOk = total.tagged("path", "/user/{id}").tagged("method", "GET").tagged("status", "200")
 
         for {
           _            <- app.runZIO(Request.get(url = URL(Root / "user" / "1")))
@@ -91,7 +87,9 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
           .tagged("status", "200")
 
         val app: HttpApp[Any] =
-          Handler.ok.toHttpApp @@ metrics(extraLabels = Set(MetricLabel("test", "http_request_duration_seconds")))
+          (Method.GET / "ok" -> Handler.ok).toHttpApp @@ metrics(extraLabels =
+            Set(MetricLabel("test", "http_request_duration_seconds")),
+          )
 
         for {
           _        <- app.runZIO(Request.get(url = URL(Root / "ok")))
@@ -102,8 +100,8 @@ object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
         val gauge = Metric
           .gauge("http_concurrent_requests_total")
           .tagged("test", "http_concurrent_requests_total")
-          .tagged("path", "/slow")
-          .tagged("method", "GET")
+          .tagged("path", "/...")
+          .tagged("method", "*")
 
         for {
           promise <- Promise.make[Nothing, Unit]
