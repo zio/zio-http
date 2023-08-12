@@ -647,7 +647,7 @@ object ZClient {
     )(implicit trace: Trace): ZIO[Scope, Throwable, Response] = {
       val request = Request(version, method, url, headers, body, None)
       val cfg     = config.copy(ssl = sslConfig.orElse(config.ssl), proxy = proxy.orElse(config.proxy))
-      requestAsync(request, cfg, () =>  WebSocketApp.unit, None)
+      requestAsync(request, cfg, () => WebSocketApp.unit, None)
     }
 
     def socket[Env1](
