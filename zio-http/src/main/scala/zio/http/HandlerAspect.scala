@@ -705,12 +705,12 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
 
           ZIO
             .logLevel(level(response.status)) {
-              val requestHeaders  =
+              def requestHeaders  =
                 request.headers.collect {
                   case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
                     LogAnnotation(header.headerName, header.renderedValue)
                 }.toSet
-              val responseHeaders =
+              def responseHeaders =
                 response.headers.collect {
                   case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
                     LogAnnotation(header.headerName, header.renderedValue)
