@@ -23,7 +23,7 @@ import zio.test._
 
 import zio.http.internal.HttpGen
 
-object PathSpec extends ZIOSpecDefault with ExitAssertion {
+object PathSpec extends ZIOHttpSpec with ExitAssertion {
   import Path.Flag
 
   val a = "a"

@@ -16,14 +16,15 @@
 
 package zio.http.headers
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
+import zio.test.{Spec, TestEnvironment, assertTrue, check}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.Header.TransferEncoding
 import zio.http.Header.TransferEncoding.Multiple
+import zio.http.ZIOHttpSpec
 import zio.http.internal.HttpGen
 
-object TransferEncodingSpec extends ZIOSpecDefault {
+object TransferEncodingSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("TransferEncoding suite")(
     suite("TransferEncoding header value transformation should be symmetrical")(
       test("gen single value") {

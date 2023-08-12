@@ -22,9 +22,10 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.RetryAfter
+import zio.http.ZIOHttpSpec
 import zio.http.internal.DateEncoding
 
-object RetryAfterEncodingSpec extends ZIOSpecDefault {
+object RetryAfterEncodingSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Retry-After header encoder suite")(
     test("parsing invalid retry after values") {
       assertTrue(

@@ -21,7 +21,7 @@ import zio.test._
 
 import zio.http.internal.HttpGen
 
-object StatusSpec extends ZIOSpecDefault {
+object StatusSpec extends ZIOHttpSpec {
   private val statusGen = HttpGen.status
 
   def spec = suite("Status")(

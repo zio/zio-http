@@ -33,7 +33,7 @@ import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
 import zio.http.forms.Fixtures.formField
 
-object EndpointSpec extends ZIOSpecDefault {
+object EndpointSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   case class NewPost(value: String)

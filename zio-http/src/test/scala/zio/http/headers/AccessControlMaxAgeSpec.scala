@@ -22,8 +22,9 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.AccessControlMaxAge
+import zio.http.ZIOHttpSpec
 
-object AccessControlMaxAgeSpec extends ZIOSpecDefault {
+object AccessControlMaxAgeSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Acc header suite")(
     test("parsing of invalid AccessControlMaxAge values returns default") {
       assertTrue(

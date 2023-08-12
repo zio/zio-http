@@ -19,7 +19,9 @@ package zio.http.html
 import zio.test.Assertion.equalTo
 import zio.test._
 
-case object HtmlSpec extends ZIOSpecDefault {
+import zio.http.ZIOHttpSpec
+
+case object HtmlSpec extends ZIOHttpSpec {
   def spec = {
     suite("HtmlSpec")(
       test("tags") {

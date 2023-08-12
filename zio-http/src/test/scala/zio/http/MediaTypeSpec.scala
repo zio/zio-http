@@ -18,7 +18,7 @@ package zio.http
 
 import zio.test._
 
-object MediaTypeSpec extends ZIOSpecDefault {
+object MediaTypeSpec extends ZIOHttpSpec {
   import MediaType._
 
   override def spec = suite("MediaTypeSpec")(

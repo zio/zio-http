@@ -16,13 +16,14 @@
 
 package zio.http.headers
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 import zio.{Chunk, Scope}
 
 import zio.http.Header.SecWebSocketExtensions
 import zio.http.Header.SecWebSocketExtensions.{Extension, Token}
+import zio.http.ZIOHttpSpec
 
-object SecWebSocketExtensionsSpec extends ZIOSpecDefault {
+object SecWebSocketExtensionsSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketExtensions suite")(
     test("SecWebSocketExtensions should be properly parsed for a valid string") {
       val probe = "permessage-deflate; client_max_window_bits"

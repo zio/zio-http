@@ -23,7 +23,7 @@ import zio.test._
 
 import zio.http.forms.Fixtures._
 
-object BoundarySpec extends ZIOSpecDefault {
+object BoundarySpec extends ZIOHttpSpec {
   val CRLF = "\r\n"
 
   val multipartFormBytes3 = Chunk.fromArray(s"""------heythere--${CRLF}""".getBytes(StandardCharsets.UTF_8))

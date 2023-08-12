@@ -23,7 +23,7 @@ import zio.Chunk
 import zio.test.Assertion._
 import zio.test._
 
-object GetBodyAsStringSpec extends ZIOSpecDefault {
+object GetBodyAsStringSpec extends ZIOHttpSpec {
 
   def spec = suite("getBodyAsString") {
     val charsetGen: Gen[Any, Charset] =

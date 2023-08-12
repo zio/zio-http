@@ -18,7 +18,9 @@ package zio.http.internal
 
 import zio.test._
 
-object CharSequenceExtensionsSpec extends ZIOSpecDefault {
+import zio.http.ZIOHttpSpec
+
+object CharSequenceExtensionsSpec extends ZIOHttpSpec {
 
   override def spec = suite("CharSequence extensions")(
     test("equals") {

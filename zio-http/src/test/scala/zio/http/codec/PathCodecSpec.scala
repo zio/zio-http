@@ -24,7 +24,7 @@ import zio.test._
 import zio.http._
 import zio.http.codec._
 
-object PathCodecSpec extends ZIOSpecDefault {
+object PathCodecSpec extends ZIOHttpSpec {
   def spec =
     suite("PathCodecSpec")(
       suite("parsing")(
