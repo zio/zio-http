@@ -17,12 +17,13 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
+import zio.test.{Spec, TestEnvironment, assertTrue, check}
 
 import zio.http.Header.AcceptEncoding
+import zio.http.ZIOHttpSpec
 import zio.http.internal.HttpGen
 
-object AcceptEncodingSpec extends ZIOSpecDefault {
+object AcceptEncodingSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AcceptEncoding suite")(
     suite("Encoding header value transformation should be symmetrical")(
       test("single value") {

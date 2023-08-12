@@ -22,7 +22,7 @@ import zio.test._
 
 import zio.http.Cookie.SameSite
 
-object CookieSpec extends ZIOSpecDefault {
+object CookieSpec extends ZIOHttpSpec {
   override def spec =
     suite("CookieSpec")(
       suite("getter")(

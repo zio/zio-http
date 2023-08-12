@@ -25,7 +25,7 @@ import zio.http._
 import zio.http.codec.{PathCodec, SegmentCodec}
 import zio.http.internal.HttpAppTestExtensions
 
-object MetricsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
+object MetricsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("MetricsSpec")(
       test("http_requests_total & http_errors_total") {

@@ -17,11 +17,12 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.Upgrade
+import zio.http.ZIOHttpSpec
 
-object UpgradeSpec extends ZIOSpecDefault {
+object UpgradeSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Upgrade suite")(
     suite("Upgrade header value transformation should be symmetrical")(
       test("single value") {

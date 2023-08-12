@@ -23,8 +23,9 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.Expires
+import zio.http.ZIOHttpSpec
 
-object ExpiresSpec extends ZIOSpecDefault {
+object ExpiresSpec extends ZIOHttpSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Expires header suite")(
     test("parsing of invalid expires values") {

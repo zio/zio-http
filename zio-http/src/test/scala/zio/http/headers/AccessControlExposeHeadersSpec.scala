@@ -16,12 +16,13 @@
 
 package zio.http.headers
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.Header.AccessControlExposeHeaders
+import zio.http.ZIOHttpSpec
 
-object AccessControlExposeHeadersSpec extends ZIOSpecDefault {
+object AccessControlExposeHeadersSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlExposeHeaders suite")(
     test("AccessControlExposeHeaders should be parsed correctly") {
       val accessControlExposeHeaders       = AccessControlExposeHeaders.Some(

@@ -23,7 +23,7 @@ import zio.{Ref, ZIO, ZLayer}
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 
-object AuthSpec extends ZIOSpecDefault with HttpAppTestExtensions {
+object AuthSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   def extractStatus(response: Response): Status = response.status
 
   private val successBasicHeader: Headers  = Headers(Header.Authorization.Basic("user", "resu"))

@@ -23,8 +23,9 @@ import zio.test._
 
 import zio.http.Header.Authorization
 import zio.http.Header.Authorization.Digest
+import zio.http.ZIOHttpSpec
 
-object AuthorizationSpec extends ZIOSpecDefault {
+object AuthorizationSpec extends ZIOHttpSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Authorization header suite")(

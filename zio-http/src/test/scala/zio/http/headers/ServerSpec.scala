@@ -19,8 +19,9 @@ package zio.http.headers
 import zio.test._
 
 import zio.http.Header.Server
+import zio.http.ZIOHttpSpec
 
-object ServerSpec extends ZIOSpecDefault {
+object ServerSpec extends ZIOHttpSpec {
   override def spec = suite("Server header suite")(
     test("empty server value") {
       assertTrue(Server.parse("").isLeft)

@@ -16,13 +16,14 @@
 
 package zio.http.headers
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.Header.Te
 import zio.http.Header.Te.{Deflate, GZip, Multiple, Trailers}
+import zio.http.ZIOHttpSpec
 
-object TeSpec extends ZIOSpecDefault {
+object TeSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("TE suite")(
     test("parse TE header") {
       val te = "trailers, deflate;q=0.5, gzip;q=0.2"
