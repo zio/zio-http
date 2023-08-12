@@ -16,13 +16,13 @@
 
 package zio.http.headers
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.Header.AccessControlAllowMethods
-import zio.http.Method
+import zio.http.{Method, ZIOHttpSpec}
 
-object AccessControlAllowMethodsSpec extends ZIOSpecDefault {
+object AccessControlAllowMethodsSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlAllowMethods suite")(
     test("AccessControlAllowMethods should be parsed correctly") {
       val accessControlAllowMethods       = AccessControlAllowMethods.Some(

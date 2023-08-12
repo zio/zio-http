@@ -19,7 +19,7 @@ package zio.http
 import zio.Scope
 import zio.test._
 
-object RequestSpec extends ZIOSpecDefault {
+object RequestSpec extends ZIOHttpSpec {
 
   def spec: Spec[TestEnvironment with Scope, Any] = suite("Result")(
     test("`#default`") {

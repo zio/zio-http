@@ -18,9 +18,11 @@ package zio.http.endpoint
 
 import zio.test._
 
+import zio.http.ZIOHttpSpec
 import zio.http.codec.Doc
 import zio.http.codec.Doc._
-object DocSpec extends ZIOSpecDefault {
+
+object DocSpec extends ZIOHttpSpec {
   override def spec = suite("DocSpec")(
     test("common mark rendering") {
       val complexDoc = (

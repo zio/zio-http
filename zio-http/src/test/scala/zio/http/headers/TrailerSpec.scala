@@ -20,8 +20,9 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.Trailer
+import zio.http.ZIOHttpSpec
 
-object TrailerSpec extends ZIOSpecDefault {
+object TrailerSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Trailer header suite")(
       test("parse valid value") {

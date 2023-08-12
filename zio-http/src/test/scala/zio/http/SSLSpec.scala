@@ -18,13 +18,13 @@ package zio.http
 
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{Gen, ZIOSpecDefault, assertZIO, check}
+import zio.test.{Gen, assertZIO, check}
 import zio.{Scope, ZIO, ZLayer, durationInt}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
-object SSLSpec extends ZIOSpecDefault {
+object SSLSpec extends ZIOHttpSpec {
 
   val sslConfig = SSLConfig.fromResource("server.crt", "server.key")
   val config    = Server.Config.default.port(8073).ssl(sslConfig)

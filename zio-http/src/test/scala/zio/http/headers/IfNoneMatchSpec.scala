@@ -16,12 +16,13 @@
 
 package zio.http.headers
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.Header.IfNoneMatch
+import zio.http.ZIOHttpSpec
 
-object IfNoneMatchSpec extends ZIOSpecDefault {
+object IfNoneMatchSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("IfNoneMatch suite")(
     test("IfMatch '*' should be parsed correctly") {
       val ifMatch = IfNoneMatch.parse("*")

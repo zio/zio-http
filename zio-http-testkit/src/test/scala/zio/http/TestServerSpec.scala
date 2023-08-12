@@ -5,7 +5,7 @@ import zio.test._
 
 import zio.http.netty.server.NettyDriver
 
-object TestServerSpec extends ZIOSpecDefault {
+object TestServerSpec extends ZIOHttpSpec {
   def status(response: Response): Status = response.status
 
   def spec = suite("TestServerSpec")(

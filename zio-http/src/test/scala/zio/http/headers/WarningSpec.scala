@@ -19,11 +19,12 @@ package zio.http.headers
 import java.time.{ZoneOffset, ZonedDateTime}
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.Warning
+import zio.http.ZIOHttpSpec
 
-object WarningSpec extends ZIOSpecDefault {
+object WarningSpec extends ZIOHttpSpec {
 
   private val validWarning            = "110 anderson/1.3.37 \"Response is stale\""
   private val validWarningWithDate    = "112 - \"cache down\" \"Wed, 21 Oct 2015 07:28:00 GMT\""

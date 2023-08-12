@@ -17,11 +17,12 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.SecWebSocketKey
+import zio.http.ZIOHttpSpec
 
-object SecWebSocketKeySpec extends ZIOSpecDefault {
+object SecWebSocketKeySpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketKey suite")(
     test("SecWebSocketKey should be properly parsed for a valid string") {
       val probe = "dGhlIHNhbXBsZSBub25jZQ=="

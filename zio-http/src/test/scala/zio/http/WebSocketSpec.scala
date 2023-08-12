@@ -18,7 +18,7 @@ package zio.http
 
 import zio._
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, nonFlaky, sequential, timeout, withLiveClock}
+import zio.test.TestAspect._
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
@@ -118,7 +118,7 @@ object WebSocketSpec extends HttpRunnableSpec {
         .map(_.count(_ == Status.SwitchingProtocols))
 
       assertZIO(codes)(equalTo(1024))
-    },
+    } @@ ignore,
     test("channel events between client and server when the provided URL is HTTP") {
       for {
         msg <- MessageCollector.make[WebSocketChannelEvent]

@@ -25,7 +25,7 @@ import zio.http._
 import zio.http.internal.HttpAppTestExtensions
 import zio.http.internal.middlewares.CorsSpec.app
 
-object CorsSpec extends ZIOSpecDefault with HttpAppTestExtensions {
+object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   def extractStatus(response: Response): Status = response.status
 
   val app = Routes(

@@ -7,9 +7,9 @@ import zio.test._
 
 import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
 import zio.http.netty.server.NettyDriver
-import zio.http.{Headers, Status, Version}
+import zio.http.{Headers, Status, Version, ZIOHttpSpec}
 
-object SocketContractSpec extends ZIOSpecDefault {
+object SocketContractSpec extends ZIOHttpSpec {
 
   def spec: Spec[Any, Any] =
     suite("SocketOps")(

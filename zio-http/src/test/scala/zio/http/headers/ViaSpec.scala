@@ -16,13 +16,14 @@
 
 package zio.http.headers
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.Header.Via
 import zio.http.Header.Via.ReceivedProtocol
+import zio.http.ZIOHttpSpec
 
-object ViaSpec extends ZIOSpecDefault {
+object ViaSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Via suite")(
       test("parsing of valid values") {

@@ -16,12 +16,13 @@
 
 package zio.http.headers
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 import zio.{Chunk, Scope}
 
 import zio.http.Header.AccessControlRequestHeaders
+import zio.http.ZIOHttpSpec
 
-object AccessControlRequestHeadersSpec extends ZIOSpecDefault {
+object AccessControlRequestHeadersSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlRequestHeaders suite")(
     test("AccessControlRequestHeaders") {
       val values                      = Chunk.fromIterable(List("a", "b", "c"))

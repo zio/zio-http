@@ -25,7 +25,7 @@ import zio.{Scope, durationInt}
 
 import zio.stream.ZStream
 
-object BodySpec extends ZIOSpecDefault {
+object BodySpec extends ZIOHttpSpec {
   private val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
 
   override def spec: Spec[TestEnvironment with Scope, Throwable] =

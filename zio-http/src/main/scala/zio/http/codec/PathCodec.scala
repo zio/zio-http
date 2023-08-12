@@ -188,6 +188,15 @@ sealed trait PathCodec[A] { self =>
 
         case Unit =>
           stack.push(())
+
+        case MapOrFail(f) =>
+          f(stack.pop) match {
+            case Left(failure) =>
+              fail = failure
+              i = instructions.length
+            case Right(value)  =>
+              stack.push(value)
+          }
       }
 
       i = i + 1
@@ -212,7 +221,7 @@ sealed trait PathCodec[A] { self =>
    * Encodes a value of type `A` into the method and path that this route
    * pattern would successfully match against.
    */
-  final def encode(value: A): Path = format(value)
+  final def encode(value: A): Either[String, Path] = format(value)
 
   private[http] final def erase: PathCodec[Any] = self.asInstanceOf[PathCodec[Any]]
 
@@ -220,20 +229,26 @@ sealed trait PathCodec[A] { self =>
    * Formats a value of type `A` into a path. This is useful for embedding paths
    * into HTML that is rendered by the server.
    */
-  final def format(value: A): Path = {
-    def loop(path: PathCodec[_], value: Any): Path = path match {
+  final def format(value: A): Either[String, Path] = {
+    def loop(path: PathCodec[_], value: Any): Either[String, Path] = path match {
       case PathCodec.Concat(left, right, combiner, _) =>
         val (leftValue, rightValue) = combiner.separate(value.asInstanceOf[combiner.Out])
 
-        loop(left, leftValue) ++ loop(right, rightValue)
+        for {
+          leftPath  <- loop(left, leftValue)
+          rightPath <- loop(right, rightValue)
+        } yield leftPath ++ rightPath
 
       case PathCodec.Segment(segment, _) =>
-        segment.format(value.asInstanceOf[segment.Type])
+        Right(segment.format(value.asInstanceOf[segment.Type]))
+
+      case PathCodec.TransformOrFail(api, _, g) =>
+        g.asInstanceOf[Any => Either[String, Any]](value).flatMap(loop(api, _))
     }
 
-    val path = loop(self, value)
-
-    if (path.nonEmpty) path.addLeadingSlash else path
+    loop(self, value).map { path =>
+      if (path.nonEmpty) path.addLeadingSlash else path
+    }
   }
 
   /**
@@ -263,6 +278,9 @@ sealed trait PathCodec[A] { self =>
 
         case Concat(left, right, combiner, _) =>
           loop(left) ++ loop(right) ++ Chunk(Opt.Combine(combiner))
+
+        case TransformOrFail(api, f, _) =>
+          loop(api) :+ Opt.MapOrFail(f.asInstanceOf[Any => Either[String, Any]])
       }
 
     if (_optimize eq null) _optimize = loop(self).toArray
@@ -279,6 +297,9 @@ sealed trait PathCodec[A] { self =>
         loop(left) + loop(right)
 
       case PathCodec.Segment(segment, _) => segment.render
+
+      case PathCodec.TransformOrFail(api, _, _) =>
+        loop(api)
     }
 
     loop(self)
@@ -293,12 +314,36 @@ sealed trait PathCodec[A] { self =>
 
       case PathCodec.Concat(left, right, _, _) =>
         loop(left) ++ loop(right)
+
+      case PathCodec.TransformOrFail(api, _, _) =>
+        loop(api)
     }
 
     loop(self)
   }
 
   override def toString(): String = render
+
+  final def transform[A2](f: A => A2, g: A2 => A): PathCodec[A2] =
+    PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), output => Right(g(output)))
+
+  final def transformOrFail[A2](
+    f: A => Either[String, A2],
+    g: A2 => Either[String, A],
+  ): PathCodec[A2] =
+    PathCodec.TransformOrFail[A, A2](self, f, g)
+
+  final def transformOrFailLeft[A2](
+    f: A => Either[String, A2],
+    g: A2 => A,
+  ): PathCodec[A2] =
+    PathCodec.TransformOrFail[A, A2](self, f, output => Right(g(output)))
+
+  final def transformOrFailRight[A2](
+    f: A => A2,
+    g: A2 => Either[String, A],
+  ): PathCodec[A2] =
+    PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), g)
 }
 object PathCodec          {
 
@@ -346,6 +391,15 @@ object PathCodec          {
     def ??(doc: Doc): Concat[A, B, C] = copy(doc = this.doc + doc)
   }
 
+  private[http] final case class TransformOrFail[X, A](
+    api: PathCodec[X],
+    f: X => Either[String, A],
+    g: A => Either[String, X],
+  ) extends PathCodec[A] {
+    override def ??(doc: Doc): TransformOrFail[X, A] = copy(api = api ?? doc)
+    override def doc: Doc                            = api.doc
+  }
+
   private[http] val someUnit = Some(())
 
   /**
@@ -354,15 +408,16 @@ object PathCodec          {
    */
   private[http] sealed trait Opt
   private[http] object Opt {
-    final case class Match(value: String)              extends Opt
-    final case class Combine(combiner: Combiner[_, _]) extends Opt
-    case object IntOpt                                 extends Opt
-    case object LongOpt                                extends Opt
-    case object StringOpt                              extends Opt
-    case object UUIDOpt                                extends Opt
-    case object BoolOpt                                extends Opt
-    case object TrailingOpt                            extends Opt
-    case object Unit                                   extends Opt
+    final case class Match(value: String)                     extends Opt
+    final case class Combine(combiner: Combiner[_, _])        extends Opt
+    case object IntOpt                                        extends Opt
+    case object LongOpt                                       extends Opt
+    case object StringOpt                                     extends Opt
+    case object UUIDOpt                                       extends Opt
+    case object BoolOpt                                       extends Opt
+    case object TrailingOpt                                   extends Opt
+    case object Unit                                          extends Opt
+    final case class MapOrFail(f: Any => Either[String, Any]) extends Opt
   }
 
   private[http] final case class SegmentSubtree[+A](

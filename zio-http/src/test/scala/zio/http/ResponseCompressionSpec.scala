@@ -20,12 +20,12 @@ import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 
 import zio.test.TestAspect.withLiveClock
-import zio.test.{ZIOSpecDefault, assertTrue}
+import zio.test.assertTrue
 import zio.{Chunk, Scope, ZIO, ZInputStream, ZLayer}
 
 import zio.stream.ZStream
 
-object ResponseCompressionSpec extends ZIOSpecDefault {
+object ResponseCompressionSpec extends ZIOHttpSpec {
 
   private val text: HttpApp[Any] =
     Routes(

@@ -18,13 +18,13 @@ package zio.http
 
 import zio.test.Assertion.{anything, equalTo, fails, hasField}
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{ZIOSpecDefault, assertZIO}
+import zio.test.assertZIO
 import zio.{Scope, ZLayer, durationInt}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
-object ClientHttpsSpec extends ZIOSpecDefault {
+object ClientHttpsSpec extends ZIOHttpSpec {
 
   val sslConfig = ClientSSLConfig.FromTrustStoreResource(
     trustStorePath = "truststore.jks",

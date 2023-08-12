@@ -608,7 +608,7 @@ object ZClient {
       localAddress = None,
       addUserAgentHeader = true,
       webSocketConfig = WebSocketConfig.default,
-      idleTimeout = None,
+      idleTimeout = Some(50.seconds),
       connectionTimeout = None,
     )
   }
