@@ -18,9 +18,9 @@ package zio.http
 
 import zio.NonEmptyChunk
 import zio.test.Assertion._
-import zio.test.{ZIOSpecDefault, assert}
+import zio.test.assert
 
-object HeaderSpec extends ZIOSpecDefault {
+object HeaderSpec extends ZIOHttpSpec {
 
   def spec = suite("Header")(
     suite("getHeader")(

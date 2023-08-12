@@ -19,11 +19,11 @@ package zio.http
 import java.net.{InetAddress, UnknownHostException}
 
 import zio._
-import zio.test.{Spec, TestClock, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestClock, TestEnvironment, assertTrue}
 
 import zio.http.DnsResolver.ExpireAction
 
-object DnsResolverSpec extends ZIOSpecDefault {
+object DnsResolverSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("DnsResolver")(
       test("eventually maintains the specified max count") {

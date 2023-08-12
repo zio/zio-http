@@ -17,12 +17,13 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue, check}
+import zio.test.{Spec, TestEnvironment, assertTrue, check}
 
 import zio.http.Header.AccessControlAllowHeaders
+import zio.http.ZIOHttpSpec
 import zio.http.internal.HttpGen
 
-object AccessControlAllowHeadersSpec extends ZIOSpecDefault {
+object AccessControlAllowHeadersSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlAllowHeaders suite")(
     test("AccessControlAllowHeaders should be parsed correctly for *") {
       assertTrue(

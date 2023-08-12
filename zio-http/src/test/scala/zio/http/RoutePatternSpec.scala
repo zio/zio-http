@@ -24,7 +24,7 @@ import zio.test._
 import zio.http.internal.HttpGen
 import zio.http.{int => _, uuid => _, _}
 
-object RoutePatternSpec extends ZIOSpecDefault {
+object RoutePatternSpec extends ZIOHttpSpec {
   import zio.http.Method
   import zio.http.RoutePattern._
 

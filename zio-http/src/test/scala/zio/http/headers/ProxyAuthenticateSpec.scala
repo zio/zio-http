@@ -20,9 +20,10 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.ProxyAuthenticate
+import zio.http.ZIOHttpSpec
 import zio.http.internal.HttpGen
 
-object ProxyAuthenticateSpec extends ZIOSpecDefault {
+object ProxyAuthenticateSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("ProxyAuthenticateSpec")(
       test("parsing of invalid inputs") {

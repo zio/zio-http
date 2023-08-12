@@ -25,7 +25,7 @@ import zio.http._
 import zio.http.codec.PathCodec
 import zio.http.internal.HttpAppTestExtensions
 
-object WebSpec extends ZIOSpecDefault with HttpAppTestExtensions { self =>
+object WebSpec extends ZIOHttpSpec with HttpAppTestExtensions { self =>
   def extractStatus(response: Response): Status = response.status
 
   private val app =

@@ -17,12 +17,12 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.AccessControlRequestMethod
-import zio.http.Method
+import zio.http.{Method, ZIOHttpSpec}
 
-object AccessControlRequestMethodSpec extends ZIOSpecDefault {
+object AccessControlRequestMethodSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("AccessControlRequestMethodSpec")(
     test("AccessControlRequestMethod.toAccessControlRequestMethod") {
       val method = "connect"

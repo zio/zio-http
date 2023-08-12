@@ -19,7 +19,7 @@ package zio.http.endpoint
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
-import zio.test.{Spec, TestResult, ZIOSpecDefault, assert}
+import zio.test.{Spec, TestResult, assert}
 
 import zio.stream.ZStream
 
@@ -32,7 +32,7 @@ import zio.http.codec.HttpCodec.{authorization, query}
 import zio.http.codec.{Doc, HttpCodec, QueryCodec}
 import zio.http.netty.server.NettyDriver
 
-object EndpointRoundtripSpec extends ZIOSpecDefault {
+object EndpointRoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
     ZLayer.make[Server & Client & Scope](
       Server.live,

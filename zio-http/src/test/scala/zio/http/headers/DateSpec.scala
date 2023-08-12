@@ -17,11 +17,12 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.Date
+import zio.http.ZIOHttpSpec
 
-object DateSpec extends ZIOSpecDefault {
+object DateSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Date suite")(
     suite("Date header value transformation should be symmetrical")(
       test("Date rendering should be reversible") {
