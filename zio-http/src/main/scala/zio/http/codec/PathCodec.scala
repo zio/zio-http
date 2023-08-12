@@ -242,7 +242,7 @@ sealed trait PathCodec[A] { self =>
       case PathCodec.Segment(segment, _) =>
         Right(segment.format(value.asInstanceOf[segment.Type]))
 
-      case PathCodec.TransformOrFail(api, f, g) =>
+      case PathCodec.TransformOrFail(api, _, g) =>
         g.asInstanceOf[Any => Either[String, Any]](value).flatMap(loop(api, _))
     }
 
