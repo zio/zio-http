@@ -18,6 +18,8 @@ package zio.http.codec
 
 import java.util.UUID
 
+import scala.util.Try
+
 import zio._
 import zio.test._
 
@@ -25,6 +27,9 @@ import zio.http._
 import zio.http.codec._
 
 object PathCodecSpec extends ZIOHttpSpec {
+  final case class UserId(value: Int)
+  final case class PostId(value: String)
+
   def spec =
     suite("PathCodecSpec")(
       suite("parsing")(
@@ -44,6 +49,20 @@ object PathCodecSpec extends ZIOHttpSpec {
               .string(
                 "post-id",
               )
+
+          assertTrue(codec.segments.length == 5)
+        },
+        test("transformed") {
+          val codec =
+            PathCodec.path("/users") /
+              SegmentCodec.int("user-id").transform(UserId.apply, (uid: UserId) => uid.value) /
+              SegmentCodec.literal("posts") /
+              SegmentCodec
+                .string("post-id")
+                .transformOrFailLeft(
+                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
+                  (pid: PostId) => pid.value,
+                )
 
           assertTrue(codec.segments.length == 5)
         },
@@ -82,6 +101,23 @@ object PathCodecSpec extends ZIOHttpSpec {
 
           assertTrue(codec.decode(Path("/users/1/posts/abc")) == Right((1, "abc")))
         },
+        test("transformed") {
+          val codec =
+            PathCodec.path("/users") /
+              SegmentCodec.int("user-id").transform(UserId.apply, (uid: UserId) => uid.value) /
+              SegmentCodec.literal("posts") /
+              SegmentCodec
+                .string("post-id")
+                .transformOrFailLeft(
+                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
+                  (pid: PostId) => pid.value,
+                )
+
+          assertTrue(
+            codec.decode(Path("/users/1/posts/456")) == Right((UserId(1), PostId("456"))),
+            codec.decode(Path("/users/1/posts/abc")) == Left("Not a number"),
+          )
+        },
       ),
       suite("representation")(
         test("empty") {
@@ -98,17 +134,17 @@ object PathCodecSpec extends ZIOHttpSpec {
           )
         },
       ),
-      suite("render") {
+      suite("render")(
         test("empty") {
           val codec = PathCodec.empty
 
-          assertTrue(codec.render == "/")
-        }
+          assertTrue(codec.render == "")
+        },
         test("/users") {
           val codec = PathCodec.empty / SegmentCodec.literal("users")
 
           assertTrue(codec.render == "/users")
-        }
+        },
         test("/users/{user-id}/posts/{post-id}") {
           val codec =
             PathCodec.empty / SegmentCodec.literal("users") / SegmentCodec.int("user-id") / SegmentCodec.literal(
@@ -116,7 +152,23 @@ object PathCodecSpec extends ZIOHttpSpec {
             ) / SegmentCodec.string("post-id")
 
           assertTrue(codec.render == "/users/{user-id}/posts/{post-id}")
-        }
-      },
+        },
+        test("transformed") {
+          val codec =
+            PathCodec.path("/users") /
+              SegmentCodec.int("user-id").transform(UserId.apply, (uid: UserId) => uid.value) /
+              SegmentCodec.literal("posts") /
+              SegmentCodec
+                .string("post-id")
+                .transformOrFailLeft(
+                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
+                  (pid: PostId) => pid.value,
+                )
+
+          assertTrue(
+            codec.render == "/users/{user-id}/posts/{post-id}",
+          )
+        },
+      ),
     )
 }

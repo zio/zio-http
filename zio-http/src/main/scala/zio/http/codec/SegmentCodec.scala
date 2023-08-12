@@ -65,6 +65,27 @@ sealed trait SegmentCodec[A] { self =>
     }
     _render
   }
+
+  final def transform[A2](f: A => A2, g: A2 => A): PathCodec[A2] =
+    PathCodec.Segment(self).transform(f, g)
+
+  final def transformOrFail[A2](
+    f: A => Either[String, A2],
+    g: A2 => Either[String, A],
+  ): PathCodec[A2] =
+    PathCodec.Segment(self).transformOrFail(f, g)
+
+  final def transformOrFailLeft[A2](
+    f: A => Either[String, A2],
+    g: A2 => A,
+  ): PathCodec[A2] =
+    PathCodec.Segment(self).transformOrFailLeft(f, g)
+
+  final def transformOrFailRight[A2](
+    f: A => A2,
+    g: A2 => Either[String, A],
+  ): PathCodec[A2] =
+    PathCodec.Segment(self).transformOrFailRight(f, g)
 }
 object SegmentCodec          {
   def bool(name: String): SegmentCodec[Boolean] = SegmentCodec.BoolSeg(name)
