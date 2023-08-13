@@ -6,8 +6,8 @@ import zio.http.codec._
 
 object CombinerTypesExample extends App {
 
-  val foo = paramStr("foo")
-  val bar = paramStr("bar")
+  val foo = query("foo")
+  val bar = query("bar")
 
   val combine1L1R: HttpCodec[HttpCodecType.Query, (String, String)]                 = foo & bar
   val combine1L2R: HttpCodec[HttpCodecType.Query, (String, String, String)]         = foo & (bar & bar)

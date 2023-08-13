@@ -8,7 +8,6 @@ import zio.http.endpoint._
 import zio.http.{int => _, _}
 
 object EndpointExamples extends ZIOAppDefault {
-  import HttpCodec._
   import PathCodec._
 
   val auth = EndpointMiddleware.auth
@@ -26,7 +25,7 @@ object EndpointExamples extends ZIOAppDefault {
 
   val getUserPosts =
     Endpoint(Method.GET / "users" / int("userId") / "posts" / int("postId"))
-      .query(query("name"))
+      .query(HttpCodec.query("name"))
       .out[List[String]] @@ auth
 
   val getUserPostsRoute =

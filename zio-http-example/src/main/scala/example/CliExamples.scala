@@ -14,7 +14,6 @@ import zio.http.endpoint.cli._
 trait TestCliEndpoints {
   import zio.http.codec.PathCodec._
 
-  import HttpCodec._
   final case class User(
     @description("The unique identifier of the User")
     id: Int,
@@ -50,7 +49,7 @@ trait TestCliEndpoints {
         "posts" / int("postId") ?? Doc.p("The unique identifier of the post"),
     )
       .query(
-        paramStr("user-name") ?? Doc.p(
+        HttpCodec.query("user-name") ?? Doc.p(
           "The user's name",
         ),
       )

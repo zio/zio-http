@@ -47,17 +47,6 @@ sealed trait TextCodec[A] extends PartialFunction[String, A] { self =>
 
   private[http] final def erase: TextCodec[Any] = self.asInstanceOf[TextCodec[Any]]
 
-  // Maybe not a good idea?
-  final def transform[B](f: A => B, g: B => A): TextCodec[B] =
-    new TextCodec[B] {
-      def apply(value: String): B = f(self.apply(value))
-
-      def describe: String = self.describe
-
-      def encode(value: B): String = self.encode(g(value))
-
-      def isDefinedAt(value: String): Boolean = self.isDefinedAt(value)
-    }
 }
 
 object TextCodec {
