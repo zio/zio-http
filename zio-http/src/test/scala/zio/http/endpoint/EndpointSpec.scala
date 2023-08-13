@@ -170,6 +170,24 @@ object EndpointSpec extends ZIOHttpSpec {
             assertTrue(contentType == Some(ContentType(MediaType.text.`plain`)))
         }
       },
+      test("custom status code") {
+        check(Gen.int(1, Int.MaxValue)) { id =>
+          val endpoint =
+            Endpoint(GET / "posts")
+              .query(query("id"))
+              .out[Int](Status.NotFound)
+          val routes   =
+            endpoint.implement {
+              Handler.succeed(id)
+            }
+
+          for {
+            response <- routes.toHttpApp.runZIO(
+              Request.get(URL.decode(s"/posts?id=$id").toOption.get),
+            )
+          } yield assertTrue(extractStatus(response).code == 404)
+        }
+      },
       suite("bad request for failed codec")(
         test("query codec") {
           check(Gen.int(1, Int.MaxValue), Gen.boolean) { (id, notAnId) =>
