@@ -1,12 +1,11 @@
 package zio.http.endpoint.cli
 
-import scala.util.Try
+import zio.NonEmptyChunk
 
+import scala.util.Try
 import zio.cli._
 import zio.json.ast._
-
 import zio.schema._
-
 import zio.http._
 import zio.http.codec._
 import zio.http.endpoint._
@@ -89,78 +88,24 @@ private[cli] object CliEndpoint {
       case HttpCodec.Empty                          => Set.empty
       case HttpCodec.Fallback(left, right)          => fromInput(left) ++ fromInput(right)
       case HttpCodec.Halt                           => Set.empty
-      case HttpCodec.Query(name, queryCodec, _)     =>
-        queryCodec.asInstanceOf[TextCodec[_]] match {
-          case TextCodec.UUIDCodec =>
-            Set(
-              CliEndpoint[java.util.UUID](
-                (uuid, request) => request.addQueryParam(name, uuid.toString),
-                Options
-                  .text(name)
-                  .mapOrFail(str =>
-                    Try(java.util.UUID.fromString(str)).toEither.left.map { error =>
-                      ValidationError(
-                        ValidationErrorType.InvalidValue,
-                        HelpDoc.p(HelpDoc.Span.code(error.getMessage())),
-                      )
-                    },
-                  ),
-                List.empty,
-                Doc.empty,
-              ),
-            )
-
-          case TextCodec.StringCodec =>
-            Set(
-              CliEndpoint[String](
-                (str, request) => request.addQueryParam(name, str),
-                Options.text(name),
-                List.empty,
-                Doc.empty,
-              ),
-            )
-
-          case TextCodec.IntCodec =>
-            Set(
-              CliEndpoint[BigInt](
-                (int, request) => request.addQueryParam(name, int.toString),
-                Options.integer(name),
-                List.empty,
-                Doc.empty,
-              ),
-            )
-
-          case TextCodec.LongCodec =>
-            Set(
-              CliEndpoint[BigInt](
-                (int, request) => request.addQueryParam(name, int.toString),
-                Options.integer(name),
-                List.empty,
-                Doc.empty,
-              ),
-            )
-
-          case TextCodec.BooleanCodec =>
-            Set(
-              CliEndpoint[Boolean](
-                (bool, request) => request.addQueryParam(name, bool.toString),
-                Options.boolean(name),
-                List.empty,
-                Doc.empty,
-              ),
-            )
-
-          case TextCodec.Constant(string) =>
-            Set(
-              CliEndpoint[Unit](
-                (_, request) => request.addQueryParam(name, string),
-                Options.Empty,
-                List.empty,
-                Doc.empty,
-              ),
-            )
-        }
-      case HttpCodec.Header(name, textCodec, _)     =>
+      case HttpCodec.Query(name, _)     =>
+        Set(
+          CliEndpoint[NonEmptyChunk[String]](
+            (queryParams, request) => request.addQueryParams(name, queryParams),
+            Options.text(name),
+            List.empty,
+            Doc.empty
+          )
+        )
+      case HttpCodec.Header(name, _)     =>
+        Set(
+          CliEndpoint[String](
+            (str, request) => request.addHeader(name, str),
+            Options.text(name),
+            List.empty,
+            Doc.empty,
+          ),
+        )
         textCodec.asInstanceOf[TextCodec[_]] match {
           case TextCodec.UUIDCodec        =>
             Set(

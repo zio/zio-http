@@ -40,9 +40,6 @@ object HttpCodecError {
   final case class MalformedStatus(expected: Status, actual: Status)                    extends HttpCodecError {
     def message = s"Expected status code ${expected} but found ${actual}"
   }
-  final case class MalformedHeader(headerName: String, textCodec: TextCodec[_])         extends HttpCodecError {
-    def message = s"Malformed header $headerName failed to decode using $textCodec"
-  }
   final case class MissingQueryParam(queryParamName: String)                            extends HttpCodecError {
     def message = s"Missing query parameter $queryParamName"
   }

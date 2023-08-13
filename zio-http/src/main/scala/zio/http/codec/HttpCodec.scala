@@ -18,14 +18,10 @@ package zio.http.codec
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
-
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-
 import zio.stream.ZStream
-
 import zio.schema.Schema
-
 import zio.http._
 
 /**
@@ -492,7 +488,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
   }
 
   private[http] final case class Status[A](codec: SimpleCodec[zio.http.Status, A], index: Int = 0)
-      extends Atom[HttpCodecType.Status, A]                    {
+      extends Atom[HttpCodecType.Status, A] {
     self =>
     def erase: Status[Any] = self.asInstanceOf[Status[Any]]
 
@@ -546,8 +542,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def index(index: Int): Method[A] = copy(index = index)
   }
 
-  private[http] final case class Header(name: String, index: Int = 0)
-      extends Atom[HttpCodecType.Header, String] {
+  private[http] final case class Header(name: String, index: Int = 0) extends Atom[HttpCodecType.Header, String] {
     def tag: AtomTag = AtomTag.Header
 
     def index(index: Int): Header = copy(index = index)

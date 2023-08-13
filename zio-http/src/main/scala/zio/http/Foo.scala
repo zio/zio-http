@@ -15,7 +15,7 @@ object Foo extends ZIOAppDefault {
     .implement(
     Handler.fromFunctionZIO { case (baz) =>
       println(s"baz: $baz")
-      ZIO.succeed(s"baz: ${baz.map(_.map(_.toCharArray.map(_.toInt).toList))}")
+      ZIO.succeed(s"${baz.map(_.length)}")
     }
   )
     .toHttpApp
