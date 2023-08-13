@@ -107,7 +107,7 @@ class EndpointBenchmark {
   val collectHttpApp = Routes(
     Method.GET / "users" / int("userId") / "posts" / int("postId") -> handler {
       (userIdInt: Int, postIdInt: Int, req: Request) =>
-        val query = req.url.queryParams.get("query").flatMap(_.headOption).get
+        val query = req.url.queryParams.get("query").get.head
 
         Response.json(ExampleData(userIdInt, postIdInt, query).toJson)
     },

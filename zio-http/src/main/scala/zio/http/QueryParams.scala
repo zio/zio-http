@@ -83,12 +83,7 @@ final case class QueryParams(map: Map[String, Chunk[String]]) { self =>
   /**
    * Retrieves the query parameter values having the specified name.
    */
-  def get(key: String): Option[Chunk[String]] = map.get(key)
-
-  /**
-   * Retrieves the
-   */
-  def getNonEmpty(key: String): Option[NonEmptyChunk[String]] =
+  def get(key: String): Option[NonEmptyChunk[String]] =
     map.get(key).flatMap(NonEmptyChunk.fromChunk)
 
   /**

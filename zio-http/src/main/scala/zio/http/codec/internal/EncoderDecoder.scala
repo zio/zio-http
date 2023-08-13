@@ -297,7 +297,7 @@ private[codec] object EncoderDecoder                   {
         val query = queries(i)
 
         val queryParamValue =
-          queryParams.getNonEmpty(query.name)
+          queryParams.get(query.name)
 
         queryParamValue match {
           case Some(value) =>
