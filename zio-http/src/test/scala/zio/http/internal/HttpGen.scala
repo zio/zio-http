@@ -75,13 +75,13 @@ object HttpGen {
   def genRelativeURL: Gen[Any, URL] = for {
     path        <- HttpGen.anyPath
     kind        <- HttpGen.genRelativeLocation
-    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf1(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))
 
   def genAbsoluteURL: Gen[Any, URL] = for {
     path        <- HttpGen.nonEmptyPath
     kind        <- HttpGen.genAbsoluteLocation
-    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf1(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))
 
   def genRelativeLocation: Gen[Any, Location.Relative.type] = Gen.const(URL.Location.Relative)
@@ -244,7 +244,7 @@ object HttpGen {
     last  <- Gen.elements(Path.empty, Path.root)
     path = start ++ Path(mid) ++ last
     kind        <- HttpGen.location
-    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf(Gen.alphaNumericString))
+    queryParams <- Gen.mapOf(Gen.alphaNumericString, Gen.chunkOf1(Gen.alphaNumericString))
   } yield URL(path, kind, QueryParams(queryParams))
 
   def acceptEncodingSingleValue(weight: Option[Double]): Gen[Any, AcceptEncoding] = Gen.fromIterable(

@@ -21,10 +21,12 @@ import zio.{Chunk, NonEmptyChunk}
 import zio.http.Charsets
 import zio.http.internal.QueryParamEncoding
 
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsScala}
+
 /**
  * A collection of query parameters.
  */
-final case class QueryParams(map: Map[String, Chunk[String]]) { self =>
+final case class QueryParams(map: Map[String, NonEmptyChunk[String]]) { self =>
 
   /**
    * Combines two collections of query parameters together. If there are
@@ -45,12 +47,12 @@ final case class QueryParams(map: Map[String, Chunk[String]]) { self =>
   /**
    * Adds the specified key/value pair to the query parameters.
    */
-  def add(key: String, value: String): QueryParams = addAll(key, Chunk(value))
+  def add(key: String, value: String): QueryParams = addAll(key, NonEmptyChunk.single(value))
 
   /**
    * Adds the specified key/value pairs to the query parameters.
    */
-  def addAll(key: String, value: Chunk[String]): QueryParams = {
+  def addAll(key: String, value: NonEmptyChunk[String]): QueryParams = {
     val previousValue = map.get(key)
     val newValue      = previousValue match {
       case Some(prev) => prev ++ value
@@ -77,21 +79,20 @@ final case class QueryParams(map: Map[String, Chunk[String]]) { self =>
   /**
    * Filters the query parameters using the specified predicate.
    */
-  def filter(p: (String, Chunk[String]) => Boolean): QueryParams =
+  def filter(p: (String, NonEmptyChunk[String]) => Boolean): QueryParams =
     QueryParams(map.filter(p.tupled))
 
   /**
    * Retrieves the query parameter values having the specified name.
    */
-  def get(key: String): Option[NonEmptyChunk[String]] =
-    map.get(key).flatMap(NonEmptyChunk.fromChunk)
+  def get(key: String): Option[NonEmptyChunk[String]] = map.get(key)
 
   /**
    * Retrieves the query parameter value having the specified name, or else uses
    * the default iterable.
    */
-  def getOrElse(key: String, default: => Iterable[String]): Chunk[String] =
-    map.getOrElse(key, Chunk.fromIterable(default))
+  def getOrElse(key: String, default: => NonEmptyChunk[String]): NonEmptyChunk[String] =
+    map.getOrElse(key, default)
 
   override def hashCode: Int = normalize.map.hashCode
 
@@ -130,15 +131,16 @@ final case class QueryParams(map: Map[String, Chunk[String]]) { self =>
 
 object QueryParams {
 
-  def apply(tuples: (String, Chunk[String])*): QueryParams =
-    QueryParams(map = Chunk.fromIterable(tuples).groupBy(_._1).map { case (key, values) =>
-      key -> values.flatMap(_._2)
+  def apply(tuples: (String, NonEmptyChunk[String])*): QueryParams =
+    QueryParams(map = tuples.groupBy(_._1).flatMap { case (key, values) =>
+      NonEmptyChunk
+        .fromIterableOption(values)
+        .map(_.flatMap(_._2))
+        .map(key -> _)
     })
 
   def apply(tuple1: (String, String), tuples: (String, String)*): QueryParams =
-    QueryParams(map = Chunk.fromIterable(tuple1 +: tuples.toVector).groupBy(_._1).map { case (key, values) =>
-      key -> values.map(_._2)
-    })
+    QueryParams((tuple1 +: tuples).map { case (k, v) => k -> NonEmptyChunk.single(v) }: _*)
 
   /**
    * Decodes the specified string into a collection of query parameters.
@@ -149,10 +151,15 @@ object QueryParams {
   /**
    * Empty query parameters.
    */
-  val empty: QueryParams = QueryParams(Map.empty[String, Chunk[String]])
+  val empty: QueryParams = QueryParams(Map.empty[String, NonEmptyChunk[String]])
 
   /**
    * Constructs query parameters from a form.
    */
   def fromForm(form: Form): QueryParams = form.toQueryParams
+
+  def fromJava(map: java.util.Map[String, java.util.List[String]]): QueryParams =
+    QueryParams(map.asScala.view.flatMap { case (k, v) =>
+      NonEmptyChunk.fromIterableOption(v.asScala).map(k -> _)
+    }.toMap)
 }

@@ -486,7 +486,7 @@ private[codec] object EncoderDecoder                   {
         val query = flattened.query(i)
         val input = inputs(i).asInstanceOf[NonEmptyChunk[String]]
 
-        queryParams = queryParams.addAll(query.name, input.toChunk)
+        queryParams = queryParams.addAll(query.name, input)
 
         i = i + 1
       }

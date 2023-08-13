@@ -33,10 +33,7 @@ private[http] object NettyQueryParamEncoding extends QueryParamEncoding {
       QueryParams.empty
     } else {
       val decoder = new QueryStringDecoder(queryStringFragment, charset, false)
-      val params  = decoder.parameters()
-      QueryParams(params.asScala.view.map { case (k, v) =>
-        (k, Chunk.fromIterable(v.asScala))
-      }.toMap)
+      QueryParams.fromJava(decoder.parameters())
     }
   }
 

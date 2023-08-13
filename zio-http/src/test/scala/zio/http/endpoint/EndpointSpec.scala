@@ -332,7 +332,7 @@ object EndpointSpec extends ZIOHttpSpec {
 
       },
       test("composite in codecs") {
-        val headerOrQuery = HeaderCodec.name[String]("X-Header") | QueryCodec.query("header")
+        val headerOrQuery = HeaderCodec.string("X-Header") | QueryCodec.query("header")
 
         val endpoint = Endpoint(GET / "test").out[String].inCodec(headerOrQuery)
 
@@ -370,7 +370,7 @@ object EndpointSpec extends ZIOHttpSpec {
         )
       },
       test("composite out codecs") {
-        val headerOrQuery = HeaderCodec.name[String]("X-Header") | StatusCodec.status(Status.Created)
+        val headerOrQuery = HeaderCodec.string("X-Header") | StatusCodec.status(Status.Created)
 
         val endpoint = Endpoint(GET / "test").query(QueryCodec.queryBool("Created")).outCodec(headerOrQuery)
 

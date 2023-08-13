@@ -18,7 +18,7 @@ package zio.http
 
 import zio.test.Assertion.equalTo
 import zio.test._
-import zio.{Chunk, ZIO}
+import zio.{NonEmptyChunk, ZIO}
 
 object QueryParamsSpec extends ZIOHttpSpec {
 
@@ -29,14 +29,14 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val gens = Gen.fromIterable(
             Seq(
               (
-                QueryParams(Map("a" -> Chunk("foo", "bar"), "b" -> Chunk("fii"), "c" -> Chunk("baz"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo", "bar"), "b" -> NonEmptyChunk("fii"), "c" -> NonEmptyChunk("baz"))),
                 "a",
-                QueryParams(Map("b" -> Chunk("fii"), "c" -> Chunk("baz"))),
+                QueryParams(Map("b" -> NonEmptyChunk("fii"), "c" -> NonEmptyChunk("baz"))),
               ),
               (
-                QueryParams(Map("a" -> Chunk("foo", "bar"), "b" -> Chunk("fii"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo", "bar"), "b" -> NonEmptyChunk("fii"))),
                 "c",
-                QueryParams(Map("a" -> Chunk("foo", "bar"), "b" -> Chunk("fii"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo", "bar"), "b" -> NonEmptyChunk("fii"))),
               ),
             ),
           )
@@ -51,19 +51,19 @@ object QueryParamsSpec extends ZIOHttpSpec {
             Seq(
               (
                 QueryParams(
-                  Map("a" -> Chunk("foo", "bar"), "b" -> Chunk("fii"), "c" -> Chunk("baz"), "d" -> Chunk("boo")),
+                  Map("a" -> NonEmptyChunk("foo", "bar"), "b" -> NonEmptyChunk("fii"), "c" -> NonEmptyChunk("baz"), "d" -> NonEmptyChunk("boo")),
                 ),
                 "a",
                 "c",
                 Seq("d"),
-                QueryParams(Map("b" -> Chunk("fii"))),
+                QueryParams(Map("b" -> NonEmptyChunk("fii"))),
               ),
               (
-                QueryParams(Map("a" -> Chunk("foo", "bar"), "b" -> Chunk("fii"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo", "bar"), "b" -> NonEmptyChunk("fii"))),
                 "b",
                 "c",
                 Seq("d"),
-                QueryParams(Map("a" -> Chunk("foo", "bar"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo", "bar"))),
               ),
             ),
           )
@@ -77,11 +77,11 @@ object QueryParamsSpec extends ZIOHttpSpec {
       suite("++")(
         test("success") {
           val gens = Gen.fromIterable(
-            Chunk(
+            NonEmptyChunk(
               (
-                QueryParams(Map("a" -> Chunk("foo"), "b" -> Chunk("bar"))),
-                QueryParams(Map("c" -> Chunk("faa"), "b" -> Chunk("baz"))),
-                QueryParams(Map("a" -> Chunk("foo"), "b" -> Chunk("bar", "baz"), "c" -> Chunk("faa"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar"))),
+                QueryParams(Map("c" -> NonEmptyChunk("faa"), "b" -> NonEmptyChunk("baz"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar", "baz"), "c" -> NonEmptyChunk("faa"))),
               ),
             ),
           )
@@ -95,18 +95,18 @@ object QueryParamsSpec extends ZIOHttpSpec {
       suite("add")(
         test("success when non list input value") {
           val gens = Gen.fromIterable(
-            Chunk(
+            NonEmptyChunk(
               (
-                QueryParams(Map("a" -> Chunk("foo"), "b" -> Chunk("bar"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar"))),
                 "a",
                 "faa",
-                QueryParams(Map("a" -> Chunk("foo", "faa"), "b" -> Chunk("bar"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo", "faa"), "b" -> NonEmptyChunk("bar"))),
               ),
               (
-                QueryParams(Map("a" -> Chunk("foo"), "b" -> Chunk("bar, baz"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar, baz"))),
                 "c",
                 "fee",
-                QueryParams(Map("a" -> Chunk("foo"), "b" -> Chunk("bar, baz"), "c" -> Chunk("fee"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar, baz"), "c" -> NonEmptyChunk("fee"))),
               ),
             ),
           )
@@ -118,18 +118,18 @@ object QueryParamsSpec extends ZIOHttpSpec {
         },
         test("success when list input value") {
           val gens = Gen.fromIterable(
-            Chunk(
+            NonEmptyChunk(
               (
-                QueryParams(Map("a" -> Chunk("foo"), "b" -> Chunk("bar"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar"))),
                 "a",
-                Chunk("faa", "fee"),
-                QueryParams(Map("a" -> Chunk("foo", "faa", "fee"), "b" -> Chunk("bar"))),
+                NonEmptyChunk("faa", "fee"),
+                QueryParams(Map("a" -> NonEmptyChunk("foo", "faa", "fee"), "b" -> NonEmptyChunk("bar"))),
               ),
               (
-                QueryParams(Map("a" -> Chunk("foo"), "b" -> Chunk("bar, baz"))),
+                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar, baz"))),
                 "c",
-                Chunk("fee", "faa"),
-                QueryParams(Map("a" -> Chunk("foo"), "b" -> Chunk("bar, baz"), "c" -> Chunk("fee", "faa"))),
+                NonEmptyChunk("fee", "faa"),
+                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar, baz"), "c" -> NonEmptyChunk("fee", "faa"))),
               ),
             ),
           )
@@ -146,21 +146,21 @@ object QueryParamsSpec extends ZIOHttpSpec {
             Seq(
               (
                 Seq(
-                  ("ord", Chunk("ASC")),
-                  ("txt", Chunk("scala is awesome!")),
-                  ("u", Chunk("1")),
-                  ("u", Chunk("2")),
+                  ("ord", NonEmptyChunk("ASC")),
+                  ("txt", NonEmptyChunk("scala is awesome!")),
+                  ("u", NonEmptyChunk("1")),
+                  ("u", NonEmptyChunk("2")),
                 ),
-                QueryParams(Map("ord" -> Chunk("ASC"), "txt" -> Chunk("scala is awesome!"), "u" -> Chunk("1", "2"))),
+                QueryParams(Map("ord" -> NonEmptyChunk("ASC"), "txt" -> NonEmptyChunk("scala is awesome!"), "u" -> NonEmptyChunk("1", "2"))),
               ),
               (
                 Seq(
-                  ("ord", Chunk("ASC")),
-                  ("txt", Chunk("scala, is awesome!")),
-                  ("u", Chunk("1")),
-                  ("u", Chunk("2")),
+                  ("ord", NonEmptyChunk("ASC")),
+                  ("txt", NonEmptyChunk("scala, is awesome!")),
+                  ("u", NonEmptyChunk("1")),
+                  ("u", NonEmptyChunk("2")),
                 ),
-                QueryParams(Map("ord" -> Chunk("ASC"), "txt" -> Chunk("scala, is awesome!"), "u" -> Chunk("1", "2"))),
+                QueryParams(Map("ord" -> NonEmptyChunk("ASC"), "txt" -> NonEmptyChunk("scala, is awesome!"), "u" -> NonEmptyChunk("1", "2"))),
               ),
             ),
           )
@@ -177,21 +177,21 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val gens = Gen.fromIterable(
             Seq(
               ("?", QueryParams.empty),
-              ("?foo", QueryParams(Map("foo" -> Chunk("")))),
+              ("?foo", QueryParams(Map("foo" -> NonEmptyChunk("")))),
               (
                 "?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
-                QueryParams(Map("ord" -> Chunk("ASC"), "txt" -> Chunk("scala is awesome!"), "u" -> Chunk("1", "2"))),
+                QueryParams(Map("ord" -> NonEmptyChunk("ASC"), "txt" -> NonEmptyChunk("scala is awesome!"), "u" -> NonEmptyChunk("1", "2"))),
               ),
               (
                 "?ord=ASC&txt=scala%20is%20awesome%21&u=1%2C2",
-                QueryParams(Map("ord" -> Chunk("ASC"), "txt" -> Chunk("scala is awesome!"), "u" -> Chunk("1,2"))),
+                QueryParams(Map("ord" -> NonEmptyChunk("ASC"), "txt" -> NonEmptyChunk("scala is awesome!"), "u" -> NonEmptyChunk("1,2"))),
               ),
-              ("?a=%2Cb", QueryParams(Map("a" -> Chunk(",b")))),
-              ("", QueryParams(Map.empty[String, Chunk[String]])),
-              ("?=a", QueryParams(Map("a" -> Chunk("")))),
-              ("?a=", QueryParams(Map("a" -> Chunk("")))),
-              ("?a=%2Cb%2Cd", QueryParams("a" -> Chunk(",b,d"))),
-              ("?a=%2C&a=b%2Cc", QueryParams("a" -> Chunk(",", "b,c"))),
+              ("?a=%2Cb", QueryParams(Map("a" -> NonEmptyChunk(",b")))),
+              ("", QueryParams(Map.empty[String, zio.NonEmptyChunk[String]])),
+              ("?=a", QueryParams(Map("a" -> NonEmptyChunk("")))),
+              ("?a=", QueryParams(Map("a" -> NonEmptyChunk("")))),
+              ("?a=%2Cb%2Cd", QueryParams("a" -> NonEmptyChunk(",b,d"))),
+              ("?a=%2C&a=b%2Cc", QueryParams("a" -> NonEmptyChunk(",", "b,c"))),
               ("?commas=%2C%2C%2C%2C%2C", QueryParams(("commas", ",,,,,"))),
               ("?commas=%2Cb%2Cc%2Cd%2Ce%2Cf", QueryParams(("commas", ",b,c,d,e,f"))),
             ),
@@ -208,19 +208,18 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val gens = Gen.fromIterable(
             Seq(
               (QueryParams.empty, ""),
-              (QueryParams(Map("a" -> Chunk.empty)), "?a="),
-              (QueryParams(Map("a" -> Chunk(""))), "?a="),
-              (QueryParams(Map("a" -> Chunk("foo"))), "?a=foo"),
-              (QueryParams(Map("a" -> Chunk("foo", "fee"))), "?a=foo&a=fee"),
+              (QueryParams(Map("a" -> NonEmptyChunk(""))), "?a="),
+              (QueryParams(Map("a" -> NonEmptyChunk("foo"))), "?a=foo"),
+              (QueryParams(Map("a" -> NonEmptyChunk("foo", "fee"))), "?a=foo&a=fee"),
               (
-                QueryParams(Map("a" -> Chunk("scala is awesome!", "fee"), "b" -> Chunk("ZIO is awesome!"))),
+                QueryParams(Map("a" -> NonEmptyChunk("scala is awesome!", "fee"), "b" -> NonEmptyChunk("ZIO is awesome!"))),
                 "?a=scala%20is%20awesome%21&a=fee&b=ZIO%20is%20awesome%21",
               ),
-              (QueryParams(Map("" -> Chunk(""))), ""),
-              (QueryParams(Map("" -> Chunk("a"))), ""),
-              (QueryParams(Map("a" -> Chunk(""))), "?a="),
-              (QueryParams(Map("a" -> Chunk("", "b"))), "?a=&a=b"),
-              (QueryParams(Map("a" -> Chunk("c,d"))), "?a=c%2Cd"),
+              (QueryParams(Map("" -> NonEmptyChunk(""))), ""),
+              (QueryParams(Map("" -> NonEmptyChunk("a"))), ""),
+              (QueryParams(Map("a" -> NonEmptyChunk(""))), "?a="),
+              (QueryParams(Map("a" -> NonEmptyChunk("", "b"))), "?a=&a=b"),
+              (QueryParams(Map("a" -> NonEmptyChunk("c,d"))), "?a=c%2Cd"),
             ),
           )
 
@@ -238,45 +237,41 @@ object QueryParamsSpec extends ZIOHttpSpec {
                 Gen.string1(Gen.alphaNumericChar),
                 Gen
                   .chunkOf1(Gen.string1(Gen.alphaNumericChar))
-                  .map(_.toChunk),
               )
               .map(queryParamsMap => QueryParams(queryParamsMap))
 
           val testValueEmptyList = ZIO.succeed {
             val queryParamWithEmptyList = QueryParams(
-              "0" -> Chunk(),
-              "1" -> Chunk.empty,
+              "0" -> NonEmptyChunk(""),
             )
             val result                  = QueryParams.decode(queryParamWithEmptyList.encode)
-            assert(result)(equalTo(QueryParams("0" -> Chunk(""), "1" -> Chunk(""))))
+            assert(result)(equalTo(QueryParams("0" -> NonEmptyChunk(""))))
           }
 
           val testKeyEmpty =
             ZIO.succeed {
               val queryParams = QueryParams(
-                "" -> Chunk("aa"),
-                "" -> Chunk(),
-                "" -> Chunk.empty,
+                "" -> NonEmptyChunk("aa"),
               )
               val result      = QueryParams.decode(queryParams.encode)
-              assert(result)(equalTo(QueryParams(Map.empty[String, Chunk[String]])))
+              assert(result)(equalTo(QueryParams(Map.empty[String, zio.NonEmptyChunk[String]])))
             }
 
           val testValueEmptyStringInList =
             ZIO.succeed {
               val queryParams = QueryParams(
-                "32" -> Chunk("8", ""),
+                "32" -> NonEmptyChunk("8", ""),
               )
               val result      = QueryParams.decode(queryParams.encode)
-              val expected    = QueryParams("32" -> Chunk("8"), "32" -> Chunk(""))
+              val expected    = QueryParams("32" -> NonEmptyChunk("8"), "32" -> NonEmptyChunk(""))
               assert(result)(equalTo(expected))
             }
 
           def deduplicateAndSortQueryParamValues(queryParams: QueryParams): QueryParams =
-            QueryParams(queryParams.map.map { case (k, v) => (k, v.sorted) })
+            QueryParams(queryParams.map.map { case (k, v) => (k, NonEmptyChunk.fromChunk(v.sorted).get) })
 
           def sortQueryParamValues(queryParams: QueryParams): QueryParams =
-            QueryParams(queryParams.map.map { case (k, v) => (k, v.sorted) })
+            QueryParams(queryParams.map.map { case (k, v) => (k, NonEmptyChunk.fromChunk(v.sorted).get) })
 
           for {
             nonCornerCasesTests <- check(genQueryParamsWithoutCornerCases) { case givenQueryParams =>

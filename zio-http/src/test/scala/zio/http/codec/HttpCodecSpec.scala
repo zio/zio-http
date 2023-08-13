@@ -38,7 +38,7 @@ object HttpCodecSpec extends ZIOHttpSpec {
   val emptyJson = Body.fromString("{}")
 
   val isAge                           = "isAge"
-  val codecBool                       = QueryCodec.paramBool(isAge)
+  val codecBool                       = QueryCodec.queryBool(isAge)
   def makeRequest(paramValue: String) = Request.get(googleUrl.queryParams(QueryParams(isAge -> paramValue)))
 
   def spec = suite("HttpCodecSpec")(
@@ -58,8 +58,8 @@ object HttpCodecSpec extends ZIOHttpSpec {
         } yield assertTrue(result1 == "10") && assertTrue(result2 == "20")
       } +
         test("header fallback") {
-          val codec1 = HeaderCodec.headerCodec("Authentication", TextCodec.string)
-          val codec2 = HeaderCodec.headerCodec("X-Token-ID", TextCodec.string)
+          val codec1 = HeaderCodec.string("Authentication")
+          val codec2 = HeaderCodec.string("X-Token-ID")
 
           val fallback = codec1 | codec2
 
@@ -73,13 +73,11 @@ object HttpCodecSpec extends ZIOHttpSpec {
         } +
         test("composite fallback") {
 
-          val codec1 = QueryCodec.query("skip") ++ HeaderCodec.headerCodec(
+          val codec1 = QueryCodec.query("skip") ++ HeaderCodec.string(
             "Authentication",
-            TextCodec.string,
           )
-          val codec2 = QueryCodec.query("limit") ++ HeaderCodec.headerCodec(
+          val codec2 = QueryCodec.query("limit") ++ HeaderCodec.string(
             "X-Token-ID",
-            TextCodec.string,
           )
 
           val fallback = codec1 | codec2

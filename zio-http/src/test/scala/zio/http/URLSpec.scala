@@ -17,11 +17,9 @@
 package zio.http
 
 import java.util.UUID
-
-import zio.Chunk
+import zio.{Chunk, NonEmptyChunk}
 import zio.test.Assertion._
 import zio.test._
-
 import zio.http.internal.HttpGen
 
 object URLSpec extends ZIOHttpSpec {
@@ -140,7 +138,7 @@ object URLSpec extends ZIOHttpSpec {
         test("returns relative URL if port, host, and scheme are not set") {
           val actual = URL.empty
             .path(Path.decode("/list"))
-            .queryParams(QueryParams(Map("type" -> Chunk("builder"), "query" -> Chunk("provided"))))
+            .queryParams(QueryParams(Map("type" -> NonEmptyChunk("builder"), "query" -> NonEmptyChunk("provided"))))
             .encode
 
           assertTrue(asURL(actual) == asURL("/list?query=provided&type=builder"))

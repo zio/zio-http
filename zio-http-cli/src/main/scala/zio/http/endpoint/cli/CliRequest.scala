@@ -31,7 +31,7 @@ private[cli] final case class CliRequest(
     self.copy(url = self.url.queryParams(self.url.queryParams.add(key, value)))
 
   def addQueryParams(key: String, values: NonEmptyChunk[String]) =
-    self.copy(url = self.url.queryParams(self.url.queryParams.addAll(key, values.toChunk)))
+    self.copy(url = self.url.queryParams(self.url.queryParams.addAll(key, values)))
 
   def method(method: Method): CliRequest =
     self.copy(method = method)
