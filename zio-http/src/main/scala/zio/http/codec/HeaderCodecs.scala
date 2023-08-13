@@ -16,7 +16,6 @@
 
 package zio.http.codec
 
-
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.http.Header
 import zio.http.Header.HeaderType

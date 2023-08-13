@@ -7,17 +7,16 @@ import zio.{Scope, ZIO, ZIOAppArgs, ZIOAppDefault}
 object Foo extends ZIOAppDefault {
 
   val app = Endpoint(
-    Method.GET / "foo"
+    Method.GET / "foo",
   ).query(
-    QueryCodec.queryMany("baz").optional
-  )
-    .out[String]
+    QueryCodec.queryMany("baz").optional,
+  ).out[String]
     .implement(
-    Handler.fromFunctionZIO { case (baz) =>
-      println(s"baz: $baz")
-      ZIO.succeed(s"${baz.map(_.length)}")
-    }
-  )
+      Handler.fromFunctionZIO { case baz =>
+        println(s"baz: $baz")
+        ZIO.succeed(s"${baz.map(_.length)}")
+      },
+    )
     .toHttpApp
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =

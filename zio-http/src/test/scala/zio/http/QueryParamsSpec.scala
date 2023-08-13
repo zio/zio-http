@@ -29,7 +29,9 @@ object QueryParamsSpec extends ZIOHttpSpec {
           val gens = Gen.fromIterable(
             Seq(
               (
-                QueryParams(Map("a" -> NonEmptyChunk("foo", "bar"), "b" -> NonEmptyChunk("fii"), "c" -> NonEmptyChunk("baz"))),
+                QueryParams(
+                  Map("a" -> NonEmptyChunk("foo", "bar"), "b" -> NonEmptyChunk("fii"), "c" -> NonEmptyChunk("baz")),
+                ),
                 "a",
                 QueryParams(Map("b" -> NonEmptyChunk("fii"), "c" -> NonEmptyChunk("baz"))),
               ),
@@ -51,7 +53,12 @@ object QueryParamsSpec extends ZIOHttpSpec {
             Seq(
               (
                 QueryParams(
-                  Map("a" -> NonEmptyChunk("foo", "bar"), "b" -> NonEmptyChunk("fii"), "c" -> NonEmptyChunk("baz"), "d" -> NonEmptyChunk("boo")),
+                  Map(
+                    "a" -> NonEmptyChunk("foo", "bar"),
+                    "b" -> NonEmptyChunk("fii"),
+                    "c" -> NonEmptyChunk("baz"),
+                    "d" -> NonEmptyChunk("boo"),
+                  ),
                 ),
                 "a",
                 "c",
@@ -81,7 +88,9 @@ object QueryParamsSpec extends ZIOHttpSpec {
               (
                 QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar"))),
                 QueryParams(Map("c" -> NonEmptyChunk("faa"), "b" -> NonEmptyChunk("baz"))),
-                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar", "baz"), "c" -> NonEmptyChunk("faa"))),
+                QueryParams(
+                  Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar", "baz"), "c" -> NonEmptyChunk("faa")),
+                ),
               ),
             ),
           )
@@ -106,7 +115,9 @@ object QueryParamsSpec extends ZIOHttpSpec {
                 QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar, baz"))),
                 "c",
                 "fee",
-                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar, baz"), "c" -> NonEmptyChunk("fee"))),
+                QueryParams(
+                  Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar, baz"), "c" -> NonEmptyChunk("fee")),
+                ),
               ),
             ),
           )
@@ -129,7 +140,9 @@ object QueryParamsSpec extends ZIOHttpSpec {
                 QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar, baz"))),
                 "c",
                 NonEmptyChunk("fee", "faa"),
-                QueryParams(Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar, baz"), "c" -> NonEmptyChunk("fee", "faa"))),
+                QueryParams(
+                  Map("a" -> NonEmptyChunk("foo"), "b" -> NonEmptyChunk("bar, baz"), "c" -> NonEmptyChunk("fee", "faa")),
+                ),
               ),
             ),
           )
@@ -151,7 +164,13 @@ object QueryParamsSpec extends ZIOHttpSpec {
                   ("u", NonEmptyChunk("1")),
                   ("u", NonEmptyChunk("2")),
                 ),
-                QueryParams(Map("ord" -> NonEmptyChunk("ASC"), "txt" -> NonEmptyChunk("scala is awesome!"), "u" -> NonEmptyChunk("1", "2"))),
+                QueryParams(
+                  Map(
+                    "ord" -> NonEmptyChunk("ASC"),
+                    "txt" -> NonEmptyChunk("scala is awesome!"),
+                    "u"   -> NonEmptyChunk("1", "2"),
+                  ),
+                ),
               ),
               (
                 Seq(
@@ -160,7 +179,13 @@ object QueryParamsSpec extends ZIOHttpSpec {
                   ("u", NonEmptyChunk("1")),
                   ("u", NonEmptyChunk("2")),
                 ),
-                QueryParams(Map("ord" -> NonEmptyChunk("ASC"), "txt" -> NonEmptyChunk("scala, is awesome!"), "u" -> NonEmptyChunk("1", "2"))),
+                QueryParams(
+                  Map(
+                    "ord" -> NonEmptyChunk("ASC"),
+                    "txt" -> NonEmptyChunk("scala, is awesome!"),
+                    "u"   -> NonEmptyChunk("1", "2"),
+                  ),
+                ),
               ),
             ),
           )
@@ -180,11 +205,23 @@ object QueryParamsSpec extends ZIOHttpSpec {
               ("?foo", QueryParams(Map("foo" -> NonEmptyChunk("")))),
               (
                 "?ord=ASC&txt=scala%20is%20awesome%21&u=1&u=2",
-                QueryParams(Map("ord" -> NonEmptyChunk("ASC"), "txt" -> NonEmptyChunk("scala is awesome!"), "u" -> NonEmptyChunk("1", "2"))),
+                QueryParams(
+                  Map(
+                    "ord" -> NonEmptyChunk("ASC"),
+                    "txt" -> NonEmptyChunk("scala is awesome!"),
+                    "u"   -> NonEmptyChunk("1", "2"),
+                  ),
+                ),
               ),
               (
                 "?ord=ASC&txt=scala%20is%20awesome%21&u=1%2C2",
-                QueryParams(Map("ord" -> NonEmptyChunk("ASC"), "txt" -> NonEmptyChunk("scala is awesome!"), "u" -> NonEmptyChunk("1,2"))),
+                QueryParams(
+                  Map(
+                    "ord" -> NonEmptyChunk("ASC"),
+                    "txt" -> NonEmptyChunk("scala is awesome!"),
+                    "u"   -> NonEmptyChunk("1,2"),
+                  ),
+                ),
               ),
               ("?a=%2Cb", QueryParams(Map("a" -> NonEmptyChunk(",b")))),
               ("", QueryParams(Map.empty[String, zio.NonEmptyChunk[String]])),
@@ -212,7 +249,9 @@ object QueryParamsSpec extends ZIOHttpSpec {
               (QueryParams(Map("a" -> NonEmptyChunk("foo"))), "?a=foo"),
               (QueryParams(Map("a" -> NonEmptyChunk("foo", "fee"))), "?a=foo&a=fee"),
               (
-                QueryParams(Map("a" -> NonEmptyChunk("scala is awesome!", "fee"), "b" -> NonEmptyChunk("ZIO is awesome!"))),
+                QueryParams(
+                  Map("a" -> NonEmptyChunk("scala is awesome!", "fee"), "b" -> NonEmptyChunk("ZIO is awesome!")),
+                ),
                 "?a=scala%20is%20awesome%21&a=fee&b=ZIO%20is%20awesome%21",
               ),
               (QueryParams(Map("" -> NonEmptyChunk(""))), ""),
@@ -236,7 +275,7 @@ object QueryParamsSpec extends ZIOHttpSpec {
               .mapOf(
                 Gen.string1(Gen.alphaNumericChar),
                 Gen
-                  .chunkOf1(Gen.string1(Gen.alphaNumericChar))
+                  .chunkOf1(Gen.string1(Gen.alphaNumericChar)),
               )
               .map(queryParamsMap => QueryParams(queryParamsMap))
 
