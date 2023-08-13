@@ -33,10 +33,10 @@ import zio.http.Method._
 import zio.http._
 import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
-import zio.http.endpoint._
+import zio.http.endpoint.{MultipartSpec, NotFoundSpec, QueryParameterSpec}
 import zio.http.forms.Fixtures.formField
 
-object EndpointSpec extends ZIOHttpSpec {
+object ExamplesSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   case class NewPost(value: String)
@@ -46,28 +46,27 @@ object EndpointSpec extends ZIOHttpSpec {
     id: Int,
   )
 
-  def spec = suite("DocSpec")(
-    suite("documentation")(
-      test("??") {
-        val endpoint = Endpoint(GET / "users" / int("userId")) ?? Doc.h1("hello") ?? Doc.h2("world")
-        assertTrue(endpoint.doc == Doc.h1("hello") + Doc.h2("world"))
-      },
-    ),
+  def spec = suite("ExamplesSpec")(
+    test("add examples to endpoint") {
+      val endpoint     = Endpoint(GET / "repos" / string("org"))
+        .out[String]
+        .examplesIn("repo" -> "zio")
+        .examplesOut("foundRepos" -> "all, zio, repos")
+      val endpoint2    =
+        Endpoint(GET / "repos" / string("org") / string("repo"))
+          .out[String]
+          .examplesIn("repo and org" -> ("zio", "http"), "other repo and org" -> ("zio", "zio"))
+          .examplesOut("repos" -> "zio, http")
+      val inExamples1  = endpoint.examplesIn
+      val outExamples1 = endpoint.examplesOut
+      val inExamples2  = endpoint2.examplesIn
+      val outExamples2 = endpoint2.examplesOut
+      assertTrue(
+        inExamples1 == Map("repo" -> "zio"),
+        outExamples1 == Map("foundRepos" -> "all, zio, repos"),
+        inExamples2 == Map("repo and org" -> ("zio", "http"), "other repo and org" -> ("zio", "zio")),
+        outExamples2 == Map("repos" -> "zio, http"),
+      )
+    },
   )
-
-  def testEndpoint[R](service: Routes[R, Nothing])(
-    url: String,
-    expected: String,
-  ): ZIO[R, Response, TestResult] = {
-    val request = Request.get(url = URL.decode(url).toOption.get)
-    for {
-      response <- service.toHttpApp.runZIO(request)
-      body     <- response.body.asString.orDie
-    } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
-  }
-
-  final case class ImageMetadata(description: String, createdAt: Instant)
-  object ImageMetadata {
-    implicit val schema: Schema[ImageMetadata] = DeriveSchema.gen[ImageMetadata]
-  }
 }

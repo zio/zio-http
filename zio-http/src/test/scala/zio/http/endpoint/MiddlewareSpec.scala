@@ -33,10 +33,9 @@ import zio.http.Method._
 import zio.http._
 import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
-import zio.http.endpoint._
 import zio.http.forms.Fixtures.formField
 
-object EndpointSpec extends ZIOHttpSpec {
+object MiddlewareSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   case class NewPost(value: String)
@@ -46,28 +45,26 @@ object EndpointSpec extends ZIOHttpSpec {
     id: Int,
   )
 
-  def spec = suite("DocSpec")(
-    suite("documentation")(
-      test("??") {
-        val endpoint = Endpoint(GET / "users" / int("userId")) ?? Doc.h1("hello") ?? Doc.h2("world")
-        assertTrue(endpoint.doc == Doc.h1("hello") + Doc.h2("world"))
+  def spec = suite("MiddlewareSpec")(
+    suite("@@")(
+      test("auth") {
+        val auth          = EndpointMiddleware.auth
+        assertTrue(auth == EndpointMiddleware.requireHeader(HeaderCodec.authorization))
+        val getUserBefore =
+          Endpoint(Method.GET / "users" / int("userId")).out[Int]
+        val getUserAfter  =
+          Endpoint(Method.GET / "users" / int("userId")).out[Int] @@ auth
+        assertTrue(getUserBefore.middleware.output != getUserAfter.middleware)
+      },
+      test("setCookie") {
+        val setCookie     = EndpointMiddleware.setCookie
+        assertTrue(setCookie == EndpointMiddleware.requireHeader(HeaderCodec.setCookie))
+        val getUserBefore =
+          Endpoint(Method.GET / "users" / int("userId")).out[Int]
+        val getUserAfter  =
+          Endpoint(Method.GET / "users" / int("userId")).out[Int] @@ setCookie
+        assertTrue(getUserBefore.middleware.output != getUserAfter.middleware)
       },
     ),
   )
-
-  def testEndpoint[R](service: Routes[R, Nothing])(
-    url: String,
-    expected: String,
-  ): ZIO[R, Response, TestResult] = {
-    val request = Request.get(url = URL.decode(url).toOption.get)
-    for {
-      response <- service.toHttpApp.runZIO(request)
-      body     <- response.body.asString.orDie
-    } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
-  }
-
-  final case class ImageMetadata(description: String, createdAt: Instant)
-  object ImageMetadata {
-    implicit val schema: Schema[ImageMetadata] = DeriveSchema.gen[ImageMetadata]
-  }
 }
