@@ -24,7 +24,7 @@ import zio.test._
 
 import zio.http.internal.HttpGen
 
-object URLSpec extends ZIOSpecDefault {
+object URLSpec extends ZIOHttpSpec {
   def extractPath(url: URL): Path = url.path
   def asURL(string: String): URL  = URL.decode(string).toOption.get
 

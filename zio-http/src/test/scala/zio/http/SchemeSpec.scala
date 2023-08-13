@@ -21,7 +21,7 @@ import zio.test._
 
 import zio.http.internal.HttpGen
 
-object SchemeSpec extends ZIOSpecDefault {
+object SchemeSpec extends ZIOHttpSpec {
   override def spec = suite("SchemeSpec")(
     test("string decode") {
       checkAll(HttpGen.scheme) { scheme =>

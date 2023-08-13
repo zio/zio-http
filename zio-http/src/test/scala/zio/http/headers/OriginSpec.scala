@@ -22,9 +22,9 @@ import zio.test._
 import zio.http.Header.Origin
 import zio.http.Header.Origin.{Null, Value}
 import zio.http.internal.HttpGen
-import zio.http.{Path, QueryParams}
+import zio.http.{Path, QueryParams, ZIOHttpSpec}
 
-object OriginSpec extends ZIOSpecDefault {
+object OriginSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Origin header suite")(
       test("Origin: null") {

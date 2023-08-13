@@ -465,7 +465,12 @@ private[codec] object EncoderDecoder                   {
         val pathCodec = flattened.path(i).erase
         val input     = inputs(i)
 
-        path = path ++ pathCodec.encode(input)
+        val encoded = pathCodec.encode(input) match {
+          case Left(error)  =>
+            throw HttpCodecError.MalformedPath(path, pathCodec, error)
+          case Right(value) => value
+        }
+        path = path ++ encoded
 
         i = i + 1
       }

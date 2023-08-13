@@ -16,12 +16,13 @@
 
 package zio.http.headers
 
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.Header.SecWebSocketProtocol
+import zio.http.ZIOHttpSpec
 
-object SecWebSocketProtocolSpec extends ZIOSpecDefault {
+object SecWebSocketProtocolSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SecWebSocketProtocol suite")(
     test("SecWebSocketProtocol should be properly parsed for a valid string") {
       val probe = "chat, superchat"

@@ -17,6 +17,7 @@
 package zio.http.endpoint.internal
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 private[http] class MemoizedZIO[K, E, A] private (compute: K => IO[E, A]) { self =>
   private val mapRef: Ref[Map[K, Promise[E, A]]] = Ref.unsafe.make(Map[K, Promise[E, A]]())(Unsafe.unsafe)

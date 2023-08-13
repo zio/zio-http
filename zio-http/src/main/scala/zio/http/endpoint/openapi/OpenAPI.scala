@@ -21,6 +21,7 @@ import java.net.URI
 import scala.util.matching.Regex
 
 import zio.NonEmptyChunk
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.http.Status
 import zio.http.codec.Doc

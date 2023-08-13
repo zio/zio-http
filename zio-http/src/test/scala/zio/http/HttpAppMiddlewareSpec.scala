@@ -22,7 +22,7 @@ import zio.test._
 
 import zio.http.Method
 
-object HttpAppMiddlewareSpec extends ZIOSpecDefault with ExitAssertion {
+object HttpAppMiddlewareSpec extends ZIOHttpSpec with ExitAssertion {
 
   def spec: Spec[Any, Any] =
     suite("HttpAppMiddleware")(

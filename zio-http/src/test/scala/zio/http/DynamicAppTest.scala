@@ -23,7 +23,7 @@ import zio.test._
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
-object DynamicAppTest extends ZIOSpecDefault {
+object DynamicAppTest extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   val httpApp1: HttpApp[Any] =

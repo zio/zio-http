@@ -20,7 +20,7 @@ import zio.test.TestAspect.withLiveClock
 import zio.test._
 import zio.{Scope, ZLayer}
 
-object NettyMaxHeaderLengthSpec extends ZIOSpecDefault {
+object NettyMaxHeaderLengthSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   private val serverConfig: Server.Config = Server.Config.default.onAnyOpenPort.copy(maxHeaderSize = 1)

@@ -16,7 +16,6 @@
 
 package zio.http.internal
 
-import zio.test.ZIOSpecDefault
 import zio.{Scope, ZIO}
 
 import zio.http.URL.Location
@@ -29,7 +28,7 @@ import zio.http._
  * should suffice. HttpRunnableSpec spins of an actual Http server and makes
  * requests.
  */
-abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
+abstract class HttpRunnableSpec extends ZIOHttpSpec { self =>
   implicit class RunnableHttpClientAppSyntax[R](route: HttpApp[R]) {
 
     def app: HttpApp[R] = route
@@ -87,13 +86,13 @@ abstract class HttpRunnableSpec extends ZIOSpecDefault { self =>
       } yield response
 
     def deployWS
-      : Handler[R with Client with DynamicServer with Scope, Throwable, SocketApp[Client with Scope], Response] =
+      : Handler[R with Client with DynamicServer with Scope, Throwable, WebSocketApp[Client with Scope], Response] =
       for {
         id       <- Handler.fromZIO(DynamicServer.deploy[R](app))
         rawUrl   <- Handler.fromZIO(DynamicServer.wsURL)
         url      <- Handler.fromEither(URL.decode(rawUrl)).orDie
         client   <- Handler.fromZIO(ZIO.service[Client])
-        response <- Handler.fromFunctionZIO[SocketApp[Client with Scope]] { app =>
+        response <- Handler.fromFunctionZIO[WebSocketApp[Client with Scope]] { app =>
           ZIO.scoped[Client with Scope](
             client
               .url(url)

@@ -21,8 +21,9 @@ import zio.test._
 
 import zio.http.Header.ETag
 import zio.http.Header.ETag.{Strong, Weak}
+import zio.http.ZIOHttpSpec
 
-object ETagSpec extends ZIOSpecDefault {
+object ETagSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ETag header suite")(
     test("parse ETag header") {
       assertTrue(

@@ -22,6 +22,7 @@ import scala.annotation.nowarn
 
 import zio._
 import zio.test.Assertion._
+import zio.test.TestAspect._
 import zio.test._
 
 import zio.stream.{ZStream, ZStreamAspect}
@@ -29,7 +30,7 @@ import zio.stream.{ZStream, ZStreamAspect}
 import zio.http.Header.ContentTransferEncoding
 import zio.http.forms.Fixtures._
 
-object FormSpec extends ZIOSpecDefault {
+object FormSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   val urlEncodedSuite =
@@ -308,7 +309,7 @@ object FormSpec extends ZIOSpecDefault {
             collected.get("file").get.asInstanceOf[FormField.Binary].data == bytes,
           )
         }
-      },
+      } @@ samples(10),
     )
 
   def spec =

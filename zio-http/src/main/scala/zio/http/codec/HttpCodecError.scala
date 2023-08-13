@@ -18,8 +18,10 @@ package zio.http.codec
 
 import scala.util.control.NoStackTrace
 
-import zio.Cause
 import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Cause, Chunk}
+
+import zio.schema.validation.ValidationError
 
 import zio.http.{Path, Status}
 
@@ -28,25 +30,46 @@ sealed trait HttpCodecError extends Exception with NoStackTrace {
   def message: String
 }
 object HttpCodecError {
-  final case class MissingHeader(headerName: String)                                    extends HttpCodecError {
+  final case class MissingHeader(headerName: String)                                           extends HttpCodecError {
     def message = s"Missing header $headerName"
   }
-  final case class MalformedMethod(expected: zio.http.Method, actual: zio.http.Method)  extends HttpCodecError {
+  final case class MalformedMethod(expected: zio.http.Method, actual: zio.http.Method)         extends HttpCodecError {
     def message = s"Expected $expected but found $actual"
   }
-  final case class MalformedPath(path: Path, pathCodec: PathCodec[_], error: String)    extends HttpCodecError {
+
+  final case class PathTooShort(path: Path, textCodec: TextCodec[_])                           extends HttpCodecError {
+    def message = s"Expected to find ${textCodec} but found pre-mature end to the path ${path}"
+  }
+  final case class MalformedPath(path: Path, pathCodec: PathCodec[_], error: String)           extends HttpCodecError {
     def message = s"Malformed path ${path} failed to decode using $pathCodec: $error"
   }
-  final case class MalformedStatus(expected: Status, actual: Status)                    extends HttpCodecError {
+  final case class MalformedStatus(expected: Status, actual: Status)                           extends HttpCodecError {
     def message = s"Expected status code ${expected} but found ${actual}"
   }
-  final case class MissingQueryParam(queryParamName: String)                            extends HttpCodecError {
+
+  final case class MalformedHeader(headerName: String, textCodec: TextCodec[_])                extends HttpCodecError {
+    def message = s"Malformed header $headerName failed to decode using $textCodec"
+  }
+  final case class MissingQueryParam(queryParamName: String)                                   extends HttpCodecError {
     def message = s"Missing query parameter $queryParamName"
   }
-  final case class MalformedBody(details: String, cause: Option[Throwable] = None)      extends HttpCodecError {
+  final case class MalformedQueryParam(queryParamName: String, textCodec: TextCodec[_])        extends HttpCodecError {
+    def message = s"Malformed query parameter $queryParamName failed to decode using $textCodec"
+  }
+  final case class MalformedBody(details: String, cause: Option[Throwable] = None)             extends HttpCodecError {
     def message = s"Malformed request body failed to decode: $details"
   }
-  final case class CustomError(message: String)                                         extends HttpCodecError
+  final case class InvalidEntity(details: String, cause: Chunk[ValidationError] = Chunk.empty) extends HttpCodecError {
+    def message = s"A well-formed entity failed validation: $details"
+  }
+  object InvalidEntity {
+    def wrap(errors: Chunk[ValidationError]): InvalidEntity =
+      InvalidEntity(
+        errors.foldLeft("")((acc, err) => acc + err.message + "\n"),
+        errors,
+      )
+  }
+  final case class CustomError(message: String)                                                extends HttpCodecError
 
   def isHttpCodecError(cause: Cause[Any]): Boolean = {
     !cause.isFailure && cause.defects.forall(e => e.isInstanceOf[HttpCodecError])

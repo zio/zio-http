@@ -20,7 +20,7 @@ import zio._
 import zio.test.Assertion._
 import zio.test._
 
-object ResponseSpec extends ZIOSpecDefault {
+object ResponseSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
   private val location: URL                     = URL.decode("www.google.com").toOption.get
 

@@ -16,8 +16,6 @@
 
 package zio.http.netty.client
 
-import java.util.concurrent.TimeUnit
-
 import scala.collection.mutable
 
 import zio._
@@ -32,7 +30,7 @@ import zio.http.netty.socket.NettySocketProtocol
 import io.netty.channel.{Channel, ChannelFactory, ChannelHandler, EventLoopGroup}
 import io.netty.handler.codec.http.websocketx.{WebSocketClientProtocolHandler, WebSocketFrame => JWebSocketFrame}
 import io.netty.handler.codec.http.{FullHttpRequest, HttpObjectAggregator}
-import io.netty.handler.timeout.ReadTimeoutHandler
+
 final case class NettyClientDriver private (
   channelFactory: ChannelFactory[Channel],
   eventLoopGroup: EventLoopGroup,
@@ -49,7 +47,7 @@ final case class NettyClientDriver private (
     onResponse: Promise[Throwable, Response],
     onComplete: Promise[Throwable, ChannelState],
     enableKeepAlive: Boolean,
-    createSocketApp: () => SocketApp[Any],
+    createSocketApp: () => WebSocketApp[Any],
     webSocketConfig: WebSocketConfig,
   )(implicit trace: Trace): ZIO[Scope, Throwable, ChannelInterface] = {
     NettyRequestEncoder.encode(req).flatMap { jReq =>
@@ -68,7 +66,7 @@ final case class NettyClientDriver private (
         nettyChannel     = NettyChannel.make[JWebSocketFrame](channel)
         webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
         app              = createSocketApp()
-        _ <- app.runZIO(webSocketChannel).ignoreLogged.interruptible.forkScoped
+        _ <- app.handler.runZIO(webSocketChannel).ignoreLogged.interruptible.forkScoped
       } yield {
         val pipeline                              = channel.pipeline()
         val toRemove: mutable.Set[ChannelHandler] = new mutable.HashSet[ChannelHandler]()
@@ -85,7 +83,7 @@ final case class NettyClientDriver private (
 
           val headers = Conversions.headersToNetty(req.headers)
           val config  = NettySocketProtocol
-            .clientBuilder(webSocketConfig)
+            .clientBuilder(app.customConfig.getOrElse(webSocketConfig))
             .customHeaders(headers)
             .webSocketUri(req.url.encode)
             .build()

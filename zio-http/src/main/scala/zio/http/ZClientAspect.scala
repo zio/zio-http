@@ -155,8 +155,8 @@ object ZClientAspect {
               .flatMap(_._2)
               .unsandbox
 
-          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: SocketApp[Env1])(implicit
-            trace: Trace,
+          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
+            implicit trace: Trace,
           ): ZIO[Env1 with Scope, Err, Response] =
             client.driver.socket(version, url, headers, app)
         }
@@ -213,12 +213,12 @@ object ZClientAspect {
                 case (duration, Exit.Success(response)) =>
                   ZIO
                     .logLevel(level(response.status)) {
-                      val requestHeaders  =
+                      def requestHeaders  =
                         headers.collect {
                           case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
                             LogAnnotation(header.headerName, header.renderedValue)
                         }.toSet
-                      val responseHeaders =
+                      def responseHeaders =
                         response.headers.collect {
                           case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
                             LogAnnotation(header.headerName, header.renderedValue)
@@ -299,8 +299,8 @@ object ZClientAspect {
               .unsandbox
           }
 
-          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: SocketApp[Env1])(implicit
-            trace: Trace,
+          override def socket[Env1 <: Env](version: Version, url: URL, headers: Headers, app: WebSocketApp[Env1])(
+            implicit trace: Trace,
           ): ZIO[Env1 with Scope, Err, Response] =
             client.driver.socket(version, url, headers, app)
         }

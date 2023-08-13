@@ -21,9 +21,9 @@ import java.nio.charset.StandardCharsets
 import zio._
 import zio.test._
 
-import zio.http.Boundary
+import zio.http.{Boundary, ZIOHttpSpec}
 
-object FormStateSpec extends ZIOSpecDefault {
+object FormStateSpec extends ZIOHttpSpec {
 
   val CR = '\r'
 

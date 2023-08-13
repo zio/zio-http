@@ -17,11 +17,12 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.XFrameOptions
+import zio.http.ZIOHttpSpec
 
-object XFrameOptionsSpec extends ZIOSpecDefault {
+object XFrameOptionsSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("XFrameOptions suite")(
     test("parsing of invalid XFrameOptions values") {
       assertTrue(

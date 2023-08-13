@@ -107,20 +107,20 @@ final case class RoutePattern[A](method: Method, pathCodec: PathCodec[A]) { self
    * Encodes a value of type `A` into the method and path that this route
    * pattern would successfully match against.
    */
-  final def encode(value: A): (Method, Path) = (method, format(value))
+  def encode(value: A): Either[String, (Method, Path)] = format(value).map((method, _))
 
   /**
    * Formats a value of type `A` into a path. This is useful for embedding paths
    * into HTML that is rendered by the server.
    */
-  final def format(value: A): Path = pathCodec.format(value)
+  def format(value: A): Either[String, Path] = pathCodec.format(value)
 
   /**
    * Determines if this pattern matches the specified method and path. Rather
    * than use this method, you should just try to decode it directly, for higher
    * performance, otherwise the same information will be decoded twice.
    */
-  final def matches(method: Method, path: Path): Boolean = decode(method, path).isRight
+  def matches(method: Method, path: Path): Boolean = decode(method, path).isRight
 
   /**
    * Renders the route pattern as a string.

@@ -7,7 +7,7 @@ import zio.http._
 import zio.http.codec.PathCodec.string
 
 object WebSocketEcho extends ZIOAppDefault {
-  private val socketApp: SocketApp[Any] =
+  private val socketApp: WebSocketApp[Any] =
     Handler.webSocket { channel =>
       channel.receiveAll {
         case Read(WebSocketFrame.Text("FOO")) =>

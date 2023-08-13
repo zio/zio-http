@@ -19,12 +19,12 @@ package zio.http.netty.model
 import zio.Scope
 import zio.test._
 
-import zio.http.{Header, Headers, Version}
+import zio.http.{Header, Headers, Version, ZIOHttpSpec}
 
 import io.netty.handler.codec.http.websocketx.WebSocketScheme
 import io.netty.handler.codec.http.{DefaultHttpHeaders, HttpHeaders, HttpScheme, HttpVersion}
 
-object ConversionsSpec extends ZIOSpecDefault {
+object ConversionsSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Netty conversions")(
       suite("headers")(

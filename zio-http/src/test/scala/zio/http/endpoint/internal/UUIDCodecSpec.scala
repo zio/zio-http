@@ -21,9 +21,10 @@ import java.util.UUID
 import zio.Scope
 import zio.test._
 
+import zio.http.ZIOHttpSpec
 import zio.http.codec.TextCodec.UUIDCodec
 
-object UUIDCodecSpec extends ZIOSpecDefault {
+object UUIDCodecSpec extends ZIOHttpSpec {
   val correctUUID                                          = UUID.randomUUID().toString
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("UUIDCodec")(

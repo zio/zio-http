@@ -19,7 +19,7 @@ package zio.http
 import zio.Scope
 import zio.test._
 
-object RequestSpec extends ZIOSpecDefault {
+object RequestSpec extends ZIOHttpSpec {
 
   def spec: Spec[TestEnvironment with Scope, Any] = suite("Result")(
     test("`#default`") {
@@ -84,6 +84,16 @@ object RequestSpec extends ZIOSpecDefault {
       )
 
       val actual = Request.put(URL.empty, body)
+      assertTrue(actual == expected)
+    },
+    test("path string") {
+      val expected = Request(method = Method.GET, url = url"/foo/bar")
+      val actual   = Request.get("/foo/bar")
+      assertTrue(actual == expected)
+    },
+    test("absolute url string") {
+      val expected = Request(method = Method.GET, url = url"https://foo.com/bar")
+      val actual   = Request.get("https://foo.com/bar")
       assertTrue(actual == expected)
     },
   )

@@ -16,6 +16,7 @@
 package zio.http
 
 import zio._
+import zio.metrics._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 trait Middleware[-UpperEnv] { self =>
@@ -172,4 +173,74 @@ object Middleware extends HandlerAspects {
           handler.timeoutFail(Response(status = Status.RequestTimeout))(duration)
         }
     }
+
+  /**
+   * Creates middleware that will track metrics.
+   *
+   * @param totalRequestsName
+   *   Total HTTP requests metric name.
+   * @param requestDurationName
+   *   HTTP request duration metric name.
+   * @param requestDurationBoundaries
+   *   Boundaries for the HTTP request duration metric.
+   * @param extraLabels
+   *   A set of extra labels all metrics will be tagged with.
+   */
+  def metrics(
+    concurrentRequestsName: String = "http_concurrent_requests_total",
+    totalRequestsName: String = "http_requests_total",
+    requestDurationName: String = "http_request_duration_seconds",
+    requestDurationBoundaries: MetricKeyType.Histogram.Boundaries = defaultBoundaries,
+    extraLabels: Set[MetricLabel] = Set.empty,
+  )(implicit trace: Trace): Middleware[Any] = {
+    val requestsTotal: Metric.Counter[RuntimeFlags] = Metric.counterInt(totalRequestsName)
+    val concurrentRequests: Metric.Gauge[Double]    = Metric.gauge(concurrentRequestsName)
+    val requestDuration: Metric.Histogram[Double]   = Metric.histogram(requestDurationName, requestDurationBoundaries)
+    val nanosToSeconds: Double                      = 1e9d
+
+    def labelsForRequest(routePattern: RoutePattern[_]): Set[MetricLabel] =
+      Set(
+        MetricLabel("method", routePattern.method.render),
+        MetricLabel("path", routePattern.pathCodec.render),
+      ) ++ extraLabels
+
+    def labelsForResponse(res: Response): Set[MetricLabel] =
+      Set(
+        MetricLabel("status", res.status.code.toString),
+      )
+
+    def report(
+      start: Long,
+      requestLabels: Set[MetricLabel],
+      labels: Set[MetricLabel],
+    )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
+      for {
+        _   <- requestsTotal.tagged(labels).increment
+        _   <- concurrentRequests.tagged(requestLabels).decrement
+        end <- Clock.nanoTime
+        took = end - start
+        _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
+      } yield ()
+
+    def aspect(routePattern: RoutePattern[_])(implicit trace: Trace): HandlerAspect[Any, Unit] =
+      HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { req =>
+        val requestLabels = labelsForRequest(routePattern)
+
+        for {
+          start <- Clock.nanoTime
+          _     <- concurrentRequests.tagged(requestLabels).increment
+        } yield ((start, requestLabels), (req, ()))
+      })(Handler.fromFunctionZIO[((Long, Set[MetricLabel]), Response)] { case ((start, requestLabels), response) =>
+        val allLabels = requestLabels ++ labelsForResponse(response)
+
+        report(start, requestLabels, allLabels).as(response)
+      })
+
+    new Middleware[Any] {
+      def apply[Env1, Err](routes: Routes[Env1, Err]): Routes[Env1, Err] =
+        Routes.fromIterable(
+          routes.routes.map(route => route.transform[Env1](_ @@ aspect(route.routePattern))),
+        )
+    }
+  }
 }

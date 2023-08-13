@@ -21,8 +21,9 @@ import zio.test._
 
 import zio.http.Header.DNT
 import zio.http.Header.DNT.{NotSpecified, TrackingAllowed, TrackingNotAllowed}
+import zio.http.ZIOHttpSpec
 
-object DNTSpec extends ZIOSpecDefault {
+object DNTSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("DNT header suite")(
     test("parse DNT headers") {
       assertTrue(

@@ -20,9 +20,9 @@ import zio.test._
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.Header.AcceptPatch
-import zio.http.MediaType
+import zio.http.{MediaType, ZIOHttpSpec}
 
-object AcceptPatchSpec extends ZIOSpecDefault {
+object AcceptPatchSpec extends ZIOHttpSpec {
   import MediaType._
 
   override def spec: Spec[TestEnvironment with Scope, Any] =

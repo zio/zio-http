@@ -7,14 +7,14 @@ import zio.test._
 
 import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
 import zio.http.netty.server.NettyDriver
-import zio.http.{Headers, Status, Version}
+import zio.http.{Headers, Status, Version, ZIOHttpSpec}
 
-object SocketContractSpec extends ZIOSpecDefault {
+object SocketContractSpec extends ZIOHttpSpec {
 
   def spec: Spec[Any, Any] =
     suite("SocketOps")(
       contract("Successful Multi-message application") { p =>
-        val socketServer: Handler[Any, Throwable, WebSocketChannel, Unit] =
+        val socketServer: WebSocketApp[Any] =
           Handler.webSocket { channel =>
             channel.receiveAll {
               case Read(WebSocketFrame.Text("Hi Server"))          =>
@@ -31,7 +31,7 @@ object SocketContractSpec extends ZIOSpecDefault {
 
         socketServer
       } { _ =>
-        val socketClient: Handler[Any, Throwable, WebSocketChannel, Unit] =
+        val socketClient: WebSocketApp[Any] =
           Handler.webSocket { channel =>
             channel.receiveAll {
               case ChannelEvent.Read(WebSocketFrame.Text("Hi Client")) =>
@@ -89,8 +89,8 @@ object SocketContractSpec extends ZIOSpecDefault {
   private def contract(
     name: String,
   )(
-    serverApp: Promise[Throwable, Unit] => Handler[Any, Throwable, WebSocketChannel, Unit],
-  )(clientApp: Promise[Throwable, Unit] => Handler[Any, Throwable, WebSocketChannel, Unit]) = {
+    serverApp: Promise[Throwable, Unit] => WebSocketApp[Any],
+  )(clientApp: Promise[Throwable, Unit] => WebSocketApp[Any]) = {
     suite(name)(
       test("Live") {
         for {
@@ -123,7 +123,7 @@ object SocketContractSpec extends ZIOSpecDefault {
   }
 
   private def liveServerSetup(
-    serverApp: Promise[Throwable, Unit] => Handler[Any, Throwable, WebSocketChannel, Unit],
+    serverApp: Promise[Throwable, Unit] => WebSocketApp[Any],
   ): ZIO[Server, Nothing, (RuntimeFlags, Promise[Throwable, Unit])] =
     ZIO.serviceWithZIO[Server](server =>
       for {
@@ -133,7 +133,7 @@ object SocketContractSpec extends ZIOSpecDefault {
     )
 
   private def testServerSetup(
-    serverApp: Promise[Throwable, Unit] => Handler[Any, Throwable, WebSocketChannel, Unit],
+    serverApp: Promise[Throwable, Unit] => WebSocketApp[Any],
   ): ZIO[TestClient, Nothing, (RuntimeFlags, Promise[Throwable, Unit])] =
     for {
       p <- Promise.make[Throwable, Unit]

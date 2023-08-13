@@ -23,7 +23,9 @@ import zio.test._
 
 import zio.stream.ZStream
 
+import zio.schema.annotation.validate
 import zio.schema.codec.{DecodeError, JsonCodec}
+import zio.schema.validation.Validation
 import zio.schema.{DeriveSchema, Schema, StandardType}
 
 import zio.http.Header.ContentType
@@ -33,10 +35,15 @@ import zio.http.codec.HttpCodec.{query, queryInt}
 import zio.http.codec._
 import zio.http.forms.Fixtures.formField
 
-object EndpointSpec extends ZIOSpecDefault {
+object EndpointSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   case class NewPost(value: String)
+
+  case class User(
+    @validate(Validation.greaterThan(0))
+    id: Int,
+  )
 
   def spec = suite("EndpointSpec")(
     suite("handler")(
@@ -547,6 +554,39 @@ object EndpointSpec extends ZIOSpecDefault {
             body2 == "{\"message\":\"something went wrong\"}",
           )
         },
+        test("validation occurs automatically on schema") {
+
+          implicit val schema: Schema[User] = DeriveSchema.gen[User]
+
+          val routes =
+            Endpoint(POST / "users")
+              .in[User]
+              .out[String]
+              .implement {
+                Handler.fromFunctionZIO { _ =>
+                  ZIO.succeed("User ID is greater than 0")
+                }
+              }
+              .handleErrorCause { case cause =>
+                Response.text("Caught: " + cause.defects.headOption.fold("no known cause")(d => d.getMessage))
+              }
+
+          val request1 = Request.post(URL.decode("/users").toOption.get, Body.fromString("""{"id":0}"""))
+          val request2 = Request.post(URL.decode("/users").toOption.get, Body.fromString("""{"id":1}"""))
+
+          for {
+            response1 <- routes.toHttpApp.runZIO(request1)
+            body1     <- response1.body.asString.orDie
+
+            response2 <- routes.toHttpApp.runZIO(request2)
+            body2     <- response2.body.asString.orDie
+          } yield assertTrue(
+            extractStatus(response1) == Status.BadRequest,
+            body1 == "",
+            extractStatus(response2) == Status.Ok,
+            body2 == "\"User ID is greater than 0\"",
+          )
+        },
       ),
       suite("byte stream input/output")(
         test("responding with a byte stream") {
@@ -845,22 +885,22 @@ object EndpointSpec extends ZIOSpecDefault {
       test("add examples to endpoint") {
         val endpoint     = Endpoint(GET / "repos" / string("org"))
           .out[String]
-          .examplesIn("zio")
-          .examplesOut("all, zio, repos")
+          .examplesIn("repo" -> "zio")
+          .examplesOut("foundRepos" -> "all, zio, repos")
         val endpoint2    =
           Endpoint(GET / "repos" / string("org") / string("repo"))
             .out[String]
-            .examplesIn(("zio", "http"), ("zio", "zio"))
-            .examplesOut("zio, http")
+            .examplesIn("repo and org" -> ("zio", "http"), "other repo and org" -> ("zio", "zio"))
+            .examplesOut("repos" -> "zio, http")
         val inExamples1  = endpoint.examplesIn
         val outExamples1 = endpoint.examplesOut
         val inExamples2  = endpoint2.examplesIn
         val outExamples2 = endpoint2.examplesOut
         assertTrue(
-          inExamples1 == Chunk("zio"),
-          outExamples1 == Chunk("all, zio, repos"),
-          inExamples2 == Chunk(("zio", "http"), ("zio", "zio")),
-          outExamples2 == Chunk("zio, http"),
+          inExamples1 == Map("repo" -> "zio"),
+          outExamples1 == Map("foundRepos" -> "all, zio, repos"),
+          inExamples2 == Map("repo and org" -> ("zio", "http"), "other repo and org" -> ("zio", "zio")),
+          outExamples2 == Map("repos" -> "zio, http"),
         )
       }
     },

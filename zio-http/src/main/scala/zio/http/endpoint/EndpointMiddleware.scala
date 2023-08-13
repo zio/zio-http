@@ -16,7 +16,8 @@
 
 package zio.http.endpoint
 
-import zio.ZIO
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+import zio.{Trace, ZIO}
 
 import zio.http._
 import zio.http.codec._
@@ -52,7 +53,7 @@ sealed trait EndpointMiddleware { self =>
 
   def implement[R, S](incoming: In => ZIO[R, Err, S])(
     outgoing: S => ZIO[R, Err, Out],
-  ): HandlerAspect[R, S] =
+  )(implicit trace: Trace): HandlerAspect[R, S] =
     HandlerAspect.interceptHandlerStateful(
       Handler.fromFunctionZIO[Request] { request =>
         input.decodeRequest(request).orDie.flatMap { in =>

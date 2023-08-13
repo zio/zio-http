@@ -23,6 +23,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.stream.ZStream
 import zio.schema.Schema
 import zio.http._
+import zio.http.codec.HttpCodec.{Annotated, Metadata}
 
 /**
  * A [[zio.http.codec.HttpCodec]] represents a codec for a part of an HTTP
@@ -38,28 +39,34 @@ import zio.http._
  */
 sealed trait HttpCodec[-AtomTypes, Value] {
   self =>
+
   private lazy val encoderDecoder = zio.http.codec.internal.EncoderDecoder(self)
 
   /**
    * Returns a new codec that is the same as this one, but has attached docs,
    * which will render whenever docs are generated from the codec.
    */
-  final def ??(doc: Doc): HttpCodec[AtomTypes, Value] = HttpCodec.WithDoc(self, doc)
+  final def ??(doc: Doc): HttpCodec[AtomTypes, Value] =
+    HttpCodec.Annotated(self, Metadata.Documented(doc))
 
   final def |[AtomTypes1 <: AtomTypes, Value2](
     that: HttpCodec[AtomTypes1, Value2],
-  )(implicit alternator: Alternator[Value, Value2]): HttpCodec[AtomTypes1, alternator.Out] =
-    HttpCodec
-      .Fallback(self, that)
-      .transform[alternator.Out](
-        either => either.fold(alternator.left(_), alternator.right(_)),
-        value =>
-          alternator
-            .unleft(value)
-            .map(Left(_))
-            .orElse(alternator.unright(value).map(Right(_)))
-            .get, // TODO: Solve with partiality
-      )
+  )(implicit alternator: Alternator[Value, Value2]): HttpCodec[AtomTypes1, alternator.Out] = {
+    if (self eq HttpCodec.Halt) that.asInstanceOf[HttpCodec[AtomTypes1, alternator.Out]]
+    else {
+      HttpCodec
+        .Fallback(self, that)
+        .transform[alternator.Out](
+          either => either.fold(alternator.left(_), alternator.right(_)),
+          value =>
+            alternator
+              .unleft(value)
+              .map(Left(_))
+              .orElse(alternator.unright(value).map(Right(_)))
+              .get, // TODO: Solve with partiality
+        )
+    }
+  }
 
   /**
    * Returns a new codec that is the composition of this codec and the specified
@@ -103,6 +110,13 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * alternatives.
    */
   final def alternatives: Chunk[HttpCodec[AtomTypes, Value]] = HttpCodec.flattenFallbacks(self)
+
+  /**
+   * Returns a new codec that is the same as this one, but has attached
+   * metadata, such as docs.
+   */
+  def annotate(metadata: Metadata[Value]): HttpCodec[AtomTypes, Value] =
+    HttpCodec.Annotated(self, metadata)
 
   /**
    * Reinterprets this codec as a query codec assuming evidence that this
@@ -189,13 +203,13 @@ sealed trait HttpCodec[-AtomTypes, Value] {
   ): Z =
     encoderDecoder.encodeWith(value)(f)
 
-  def examples(examples: Iterable[Value]): HttpCodec[AtomTypes, Value] =
-    HttpCodec.WithExamples(self, Chunk.fromIterable(examples))
+  def examples(examples: Iterable[(String, Value)]): HttpCodec[AtomTypes, Value] =
+    HttpCodec.Annotated(self, Metadata.Examples(Chunk.fromIterable(examples).toMap))
 
-  def examples(example1: Value, examples: Value*): HttpCodec[AtomTypes, Value] =
-    HttpCodec.WithExamples(self, example1 +: Chunk.fromIterable(examples))
+  def examples(example1: (String, Value), examples: (String, Value)*): HttpCodec[AtomTypes, Value] =
+    HttpCodec.Annotated(self, Metadata.Examples((example1 +: Chunk.fromIterable(examples)).toMap))
 
-  def examples: Chunk[Value] = Chunk.empty
+  def examples: Map[String, Value] = Map.empty
 
   /**
    * Returns a new codec that will expect the value to be equal to the specified
@@ -209,13 +223,26 @@ sealed trait HttpCodec[-AtomTypes, Value] {
       _ => expected,
     )
 
+  def named(name: String): HttpCodec[AtomTypes, Value] =
+    HttpCodec.Annotated(self, Metadata.Named(name))
+
+  /**
+   * Returns a new codec that is the same as this one, but has attached a name.
+   * This name is used for documentation generation.
+   */
+  def named(named: Metadata.Named[Value]): HttpCodec[AtomTypes, Value] =
+    HttpCodec.Annotated(self, Metadata.Named(named.name))
+
   /**
    * Returns a new codec, where the value produced by this one is optional.
    */
   final def optional: HttpCodec[AtomTypes, Option[Value]] =
-    self
-      .orElseEither(HttpCodec.empty)
-      .transform[Option[Value]](_.swap.toOption, _.fold[Either[Unit, Value]](Left(()))(Right(_)).swap)
+    Annotated(
+      self
+        .orElseEither(HttpCodec.empty)
+        .transform[Option[Value]](_.swap.toOption, _.fold[Either[Unit, Value]](Left(()))(Right(_)).swap),
+      Metadata.Optional(),
+    )
 
   final def orElseEither[AtomTypes1 <: AtomTypes, Value2](
     that: HttpCodec[AtomTypes1, Value2],
@@ -548,11 +575,30 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
     def index(index: Int): Header = copy(index = index)
   }
 
-  private[http] final case class WithDoc[AtomType, A](in: HttpCodec[AtomType, A], doc: Doc)
-      extends HttpCodec[AtomType, A]
+  private[http] final case class Annotated[AtomTypes, Value](
+    codec: HttpCodec[AtomTypes, Value],
+    metadata: Metadata[Value],
+  ) extends HttpCodec[AtomTypes, Value] {
+    override def examples: Map[String, Value] =
+      metadata match {
+        case value: Metadata.Examples[Value] =>
+          value.examples ++ codec.examples
+        case _                               =>
+          codec.examples
+      }
+  }
 
-  private[http] final case class WithExamples[AtomType, A](in: HttpCodec[AtomType, A], override val examples: Chunk[A])
-      extends HttpCodec[AtomType, A]
+  sealed trait Metadata[Value]
+
+  object Metadata {
+    final case class Named[A](name: String) extends Metadata[A]
+
+    final case class Optional[A]() extends Metadata[Option[A]]
+
+    final case class Examples[A](examples: Map[String, A]) extends Metadata[A]
+
+    final case class Documented[A](doc: Doc) extends Metadata[A]
+  }
 
   private[http] final case class TransformOrFail[AtomType, X, A](
     api: HttpCodec[AtomType, X],
@@ -604,9 +650,7 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
             r <- rewrite[T, combine.Right](right)
           } yield HttpCodec.Combine(l, r, combiner)
 
-        case HttpCodec.WithDoc(in, doc) => rewrite[T, B](in).map(_ ?? doc)
-
-        case HttpCodec.WithExamples(in, examples) => rewrite[T, B](in).map(_.examples(examples))
+        case HttpCodec.Annotated(in, metadata) => rewrite[T, B](in).map(_.annotate(metadata))
 
         case HttpCodec.Empty => Chunk.single(HttpCodec.Empty)
 

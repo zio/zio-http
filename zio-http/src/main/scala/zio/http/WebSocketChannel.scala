@@ -17,11 +17,12 @@
 package zio.http
 
 import zio._
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.ChannelEvent.{ExceptionCaught, Read, Registered, Unregistered, UserEventTriggered}
+import zio.http.ChannelEvent.Read
 import zio.http.netty.NettyChannel
 
-import io.netty.buffer.{ByteBufUtil, Unpooled}
+import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, _}
 
 private[http] object WebSocketChannel {
@@ -31,16 +32,20 @@ private[http] object WebSocketChannel {
     queue: Queue[WebSocketChannelEvent],
   ): WebSocketChannel =
     new WebSocketChannel {
-      def awaitShutdown: UIO[Unit]                                 =
+      def awaitShutdown(implicit trace: Trace): UIO[Unit] =
         nettyChannel.awaitClose
-      def receive: Task[WebSocketChannelEvent]                     =
+
+      def receive(implicit trace: Trace): Task[WebSocketChannelEvent] =
         queue.take
-      def send(in: WebSocketChannelEvent): Task[Unit]              =
+
+      def send(in: WebSocketChannelEvent)(implicit trace: Trace): Task[Unit] = {
         in match {
           case Read(message) => nettyChannel.writeAndFlush(frameToNetty(message))
           case _             => ZIO.unit
         }
-      def sendAll(in: Iterable[WebSocketChannelEvent]): Task[Unit] =
+      }
+
+      def sendAll(in: Iterable[WebSocketChannelEvent])(implicit trace: Trace): Task[Unit] =
         ZIO.suspendSucceed {
           val iterator = in.iterator.collect { case Read(message) => message }
 
@@ -50,11 +55,11 @@ private[http] object WebSocketChannel {
             else nettyChannel.writeAndFlush(frameToNetty(message))
           }(_ => ())
         }
-      def shutdown: UIO[Unit]                                      =
+      def shutdown(implicit trace: Trace): UIO[Unit]                                      =
         nettyChannel.close(false).orDie
     }
 
-  private def frameToNetty(frame: WebSocketFrame): JWebSocketFrame =
+  private def frameToNetty(frame: WebSocketFrame): JWebSocketFrame = {
     frame match {
       case b: WebSocketFrame.Binary                 =>
         new BinaryWebSocketFrame(b.isFinal, 0, Unpooled.wrappedBuffer(b.bytes.toArray))
@@ -71,4 +76,5 @@ private[http] object WebSocketChannel {
       case c: WebSocketFrame.Continuation           =>
         new ContinuationWebSocketFrame(c.isFinal, 0, Unpooled.wrappedBuffer(c.buffer.toArray))
     }
+  }
 }
