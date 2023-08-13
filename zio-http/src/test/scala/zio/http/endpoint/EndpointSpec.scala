@@ -38,6 +38,7 @@ object EndpointSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   case class NewPost(value: String)
+  case class PostCreated(id: Int)
 
   case class User(
     @validate(Validation.greaterThan(0))
@@ -495,14 +496,15 @@ object EndpointSpec extends ZIOHttpSpec {
       suite("request bodies")(
         test("simple input") {
           check(Gen.string, Gen.int(1, Int.MaxValue)) { (postValue, postId) =>
-            implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
+            implicit val newPostSchema: Schema[NewPost]         = DeriveSchema.gen[NewPost]
+            implicit val postCreatedSchema: Schema[PostCreated] = DeriveSchema.gen[PostCreated]
 
             val endpoint =
               Endpoint(POST / "posts")
                 .in[NewPost](Doc.p("New post"))
-                .out[PostCreated](MediaType.application.`json`)
+                .out[PostCreated](Status.Created)
             val routes   =
-              endpoint.implement(Handler.succeed(postId))
+              endpoint.implement(Handler.succeed(PostCreated(postId)))
             val request  =
               Request
                 .post(
@@ -512,8 +514,11 @@ object EndpointSpec extends ZIOHttpSpec {
 
             for {
               response <- routes.toHttpApp.runZIO(request)
-              body     <- response.body.asString.orDie
-            } yield assertTrue(extractStatus(response).isSuccess) && assertTrue(body == postId.toString)
+              responseCode = extractStatus(response)
+              body <- response.body.asString.orDie
+            } yield assertTrue(extractStatus(response).isSuccess) &&
+              assertTrue(responseCode == Status.Created) &&
+              assertTrue(body == s"""{"id":$postId}""")
           }
         },
         test("bad request for failed codec") {
