@@ -502,7 +502,7 @@ object EndpointSpec extends ZIOHttpSpec {
             val endpoint =
               Endpoint(POST / "posts")
                 .in[NewPost](Doc.p("New post"))
-                .out[PostCreated](Status.Created)
+                .out[PostCreated](Status.Created, MediaType.application.`json`)
             val routes   =
               endpoint.implement(Handler.succeed(PostCreated(postId)))
             val request  =
@@ -514,10 +514,12 @@ object EndpointSpec extends ZIOHttpSpec {
 
             for {
               response <- routes.toHttpApp.runZIO(request)
-              responseCode = extractStatus(response)
+              code        = extractStatus(response)
+              contentType = response.header(Header.ContentType)
               body <- response.body.asString.orDie
             } yield assertTrue(extractStatus(response).isSuccess) &&
-              assertTrue(responseCode == Status.Created) &&
+              assertTrue(code == Status.Created) &&
+              assertTrue(contentType == Some(ContentType(MediaType.application.`json`))) &&
               assertTrue(body == s"""{"id":$postId}""")
           }
         },
