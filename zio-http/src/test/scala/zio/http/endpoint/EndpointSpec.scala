@@ -258,7 +258,7 @@ object EndpointSpec extends ZIOHttpSpec {
         check(Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue)) {
           (userId, postId, commentId, replyId) =>
             val broadUsers                       =
-              Endpoint(GET / "users").out[String].implement {
+              Endpoint(GET / "users").out[String](Doc.p("Created user id")).implement {
                 Handler.succeed("path(users)")
               }
             val broadUsersId                     =
@@ -499,8 +499,8 @@ object EndpointSpec extends ZIOHttpSpec {
 
             val endpoint =
               Endpoint(POST / "posts")
-                .in[NewPost]
-                .out[Int]
+                .in[NewPost](Doc.p("New post"))
+                .out[PostCreated](MediaType.application.`json`)
             val routes   =
               endpoint.implement(Handler.succeed(postId))
             val request  =
@@ -654,7 +654,7 @@ object EndpointSpec extends ZIOHttpSpec {
 
             val routes =
               Endpoint(POST / "users")
-                .in[User]
+                .in[User](Doc.p("User schema with id"))
                 .out[String]
                 .implement {
                   Handler.fromFunctionZIO { _ =>
@@ -686,7 +686,7 @@ object EndpointSpec extends ZIOHttpSpec {
         test("responding with a byte stream") {
           check(Gen.chunkOfBounded(1, 1024)(Gen.byte)) { bytes =>
             val route = Endpoint(GET / "test-byte-stream")
-              .outStream[Byte]
+              .outStream[Byte](Doc.p("Test data"))
               .implement(Handler.succeed(ZStream.fromChunk(bytes).rechunk(16)))
 
             for {
@@ -876,9 +876,9 @@ object EndpointSpec extends ZIOHttpSpec {
               bytes <- Random.nextBytes(1024)
               route =
                 Endpoint(POST / "test-form")
-                  .inStream[Byte]("uploaded-image")
+                  .inStream[Byte]("uploaded-image", Doc.p("Image data"))
                   .in[String]("title")
-                  .in[ImageMetadata]("metadata")
+                  .in[ImageMetadata]("metadata", Doc.p("Image metadata with description and creation date and time"))
                   .out[(Long, String, ImageMetadata)]
                   .implement {
                     Handler.fromFunctionZIO { case (stream, title, metadata) =>
