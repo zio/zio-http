@@ -24,9 +24,8 @@ import zio.test._
 import zio.stream.ZStream
 
 import zio.schema.annotation.validate
-import zio.schema.codec.{DecodeError, JsonCodec}
 import zio.schema.validation.Validation
-import zio.schema.{DeriveSchema, Schema, StandardType}
+import zio.schema.{DeriveSchema, Schema}
 
 import zio.http.Header.ContentType
 import zio.http.Method._
