@@ -1052,11 +1052,11 @@ object EndpointSpec extends ZIOHttpSpec {
     suite("examples")(
       test("add examples to endpoint") {
         check(Gen.alphaNumericString, Gen.alphaNumericString) { (repo1, repo2) =>
-          val endpoint  = Endpoint(GET / "repos" / string("org"))
+          val endpoint             = Endpoint(GET / "repos" / string("org"))
             .out[String]
             .examplesIn("org" -> "zio")
             .examplesOut("repos" -> s"all, zio, repos, $repo1, $repo2")
-          val endpoint2 =
+          val endpoint2            =
             Endpoint(GET / "repos" / string("org") / string("repo"))
               .out[String]
               .examplesIn(
@@ -1066,16 +1066,25 @@ object EndpointSpec extends ZIOHttpSpec {
                 "org/repo4" -> ("zio", repo2),
               )
               .examplesOut("repos" -> s"zio, http, $repo1, $repo2")
+          val inExamples1          = endpoint.examplesIn
+          val expectedInExamples1  = Map("org" -> "zio")
+          val outExamples1         = endpoint.examplesOut
+          val expectedOutExamples1 = Map("repos" -> s"all, zio, repos, $repo1, $repo2")
+          val inExamples2          = endpoint2.examplesIn
+          val expectedInExamples2  = Map(
+            "org/repo1" -> ("zio", "http"),
+            "org/repo2" -> ("zio", "zio"),
+            "org/repo3" -> ("zio", repo1),
+            "org/repo4" -> ("zio", repo2),
+          )
+          val outExamples2         = endpoint2.examplesOut
+          val expectedOutExamples2 = Map("repos" -> s"zio, http, $repo1, $repo2")
+
           assertTrue(
-            endpoint.examplesIn == Map("org" -> "zio"),
-            endpoint.examplesOut == Map("repos" -> s"all, zio, repos, $repo1, $repo2"),
-            endpoint2.examplesIn == Map(
-              "org/repo1" -> ("zio", "http"),
-              "org/repo2" -> ("zio", "zio"),
-              "org/repo3" -> ("zio", repo1),
-              "org/repo4" -> ("zio", repo2),
-            ),
-            endpoint2.examplesOut == Map("repos" -> s"zio, http, $repo1, $repo2"),
+            inExamples1 == expectedInExamples1,
+            outExamples1 == expectedOutExamples1,
+            inExamples2 == expectedInExamples2,
+            outExamples2 == expectedOutExamples2,
           )
         }
       },
