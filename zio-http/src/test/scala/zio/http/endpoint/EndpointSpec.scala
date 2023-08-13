@@ -150,6 +150,26 @@ object EndpointSpec extends ZIOHttpSpec {
           testRoutes(s"/users/$userId?key=$key&value=$value", s"path(users, $userId, Some($key), Some($value))")
         }
       },
+      test("custom content type") {
+        check(Gen.int(1, Int.MaxValue)) { id =>
+          val endpoint =
+            Endpoint(GET / "posts")
+              .query(query("id"))
+              .out[Int](MediaType.text.`plain`)
+          val routes   =
+            endpoint.implement {
+              Handler.succeed(id)
+            }
+
+          for {
+            response <- routes.toHttpApp.runZIO(
+              Request.get(URL.decode(s"/posts?id=$id").toOption.get),
+            )
+            contentType = response.header(Header.ContentType)
+          } yield assertTrue(extractStatus(response).code == 200) &&
+            assertTrue(contentType == Some(ContentType(MediaType.text.`plain`)))
+        }
+      },
       suite("bad request for failed codec")(
         test("query codec") {
           check(Gen.int(1, Int.MaxValue), Gen.boolean) { (id, notAnId) =>
@@ -166,7 +186,9 @@ object EndpointSpec extends ZIOHttpSpec {
               response <- routes.toHttpApp.runZIO(
                 Request.get(URL.decode(s"/posts?id=$notAnId").toOption.get),
               )
-            } yield assertTrue(extractStatus(response).code == 400)
+              contentType = response.header(Header.ContentType)
+            } yield assertTrue(extractStatus(response).code == 400) &&
+              assertTrue(contentType.isEmpty)
           }
         },
         test("header codec") {
