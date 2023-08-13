@@ -46,7 +46,7 @@ object EndpointSpec extends ZIOHttpSpec {
 
   def spec = suite("EndpointSpec")(
     suite("handler")(
-      test("simple request") {
+      test("simple request with query parameter") {
         check(Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.alphaNumericString) {
           (userId, postId, username) =>
             val testRoutes = testEndpoint(
@@ -73,6 +73,40 @@ object EndpointSpec extends ZIOHttpSpec {
               s"/users/$userId/posts/$postId?name=$username",
               s"path(users, $userId, posts, $postId) query(name=$username)",
             )
+        }
+      },
+      test("simple request with header") {
+        check(Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.uuid) { (userId, postId, correlationId) =>
+          val testRoutes = testEndpointWithHeaders(
+            Routes(
+              Endpoint(GET / "users" / int("userId"))
+                .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
+                .out[String]
+                .implement {
+                  Handler.fromFunction { case (userId, correlationId) =>
+                    s"path(users, $userId) header(correlationId=$correlationId)"
+                  }
+                },
+              Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
+                .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
+                .out[String]
+                .implement {
+                  Handler.fromFunction { case (userId, postId, correlationId) =>
+                    s"path(users, $userId, posts, $postId) header(correlationId=$correlationId)"
+                  }
+                },
+            ),
+          ) _
+          testRoutes(
+            s"/users/$userId",
+            List("X-Correlation-ID" -> correlationId.toString),
+            s"path(users, $userId) header(correlationId=$correlationId)",
+          ) &&
+          testRoutes(
+            s"/users/$userId/posts/$postId",
+            List("X-Correlation-ID" -> correlationId.toString),
+            s"path(users, $userId, posts, $postId) header(correlationId=$correlationId)",
+          )
         }
       },
       test("optional query parameter") {
@@ -115,25 +149,62 @@ object EndpointSpec extends ZIOHttpSpec {
           testRoutes(s"/users/$userId?key=$key&value=$value", s"path(users, $userId, Some($key), Some($value))")
         }
       },
-      test("bad request for failed codec") {
-        check(Gen.int(1, Int.MaxValue), Gen.boolean) { (id, notAnId) =>
+      suite("bad request for failed codec")(
+        test("query codec") {
+          check(Gen.int(1, Int.MaxValue), Gen.boolean) { (id, notAnId) =>
+            val endpoint =
+              Endpoint(GET / "posts")
+                .query(queryInt("id"))
+                .out[Int]
+            val routes   =
+              endpoint.implement {
+                Handler.succeed(id)
+              }
+
+            for {
+              response <- routes.toHttpApp.runZIO(
+                Request.get(URL.decode(s"/posts?id=$notAnId").toOption.get),
+              )
+            } yield assertTrue(extractStatus(response).code == 400)
+          }
+        },
+        test("header codec") {
+          check(Gen.int(1, Int.MaxValue), Gen.alphaNumericString) { (id, notACorrelationId) =>
+            val endpoint =
+              Endpoint(GET / "posts")
+                .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
+                .out[Int]
+            val routes   =
+              endpoint.implement {
+                Handler.succeed(id)
+              }
+
+            for {
+              response <- routes.toHttpApp.runZIO(
+                Request.get(URL.decode(s"/posts").toOption.get).addHeader("X-Correlation-ID", notACorrelationId),
+              )
+            } yield assertTrue(extractStatus(response).code == 400)
+          }
+        },
+      ),
+      test("bad request for missing header")(
+        check(Gen.int(1, Int.MaxValue)) { id =>
           val endpoint =
             Endpoint(GET / "posts")
-              .query(queryInt("id"))
+              .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
               .out[Int]
-
-          val routes =
+          val routes   =
             endpoint.implement {
               Handler.succeed(id)
             }
 
           for {
             response <- routes.toHttpApp.runZIO(
-              Request.get(URL.decode(s"/posts?id=$notAnId").toOption.get),
+              Request.get(URL.decode(s"/posts").toOption.get),
             )
           } yield assertTrue(extractStatus(response).code == 400)
-        }
-      },
+        },
+      ),
       test("out of order api") {
         check(Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.alphaNumericString, Gen.int(1, Int.MaxValue)) {
           (userId, postId, name, age) =>
@@ -186,17 +257,17 @@ object EndpointSpec extends ZIOHttpSpec {
       test("broad api") {
         check(Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue)) {
           (userId, postId, commentId, replyId) =>
-            val broadUsers              =
+            val broadUsers                       =
               Endpoint(GET / "users").out[String].implement {
                 Handler.succeed("path(users)")
               }
-            val broadUsersId            =
+            val broadUsersId                     =
               Endpoint(GET / "users" / int("userId")).out[String].implement {
                 Handler.fromFunction { userId =>
                   s"path(users, $userId)"
                 }
               }
-            val boardUsersPosts         =
+            val boardUsersPosts                  =
               Endpoint(GET / "users" / int("userId") / "posts")
                 .out[String]
                 .implement {
@@ -204,7 +275,7 @@ object EndpointSpec extends ZIOHttpSpec {
                     s"path(users, $userId, posts)"
                   }
                 }
-            val boardUsersPostsId       =
+            val boardUsersPostsId                =
               Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
                 .out[String]
                 .implement {
@@ -212,7 +283,7 @@ object EndpointSpec extends ZIOHttpSpec {
                     s"path(users, $userId, posts, $postId)"
                   }
                 }
-            val boardUsersPostsComments =
+            val boardUsersPostsComments          =
               Endpoint(
                 GET /
                   "users" / int("userId") / "posts" / int("postId") / "comments",
@@ -223,7 +294,6 @@ object EndpointSpec extends ZIOHttpSpec {
                     s"path(users, $userId, posts, $postId, comments)"
                   }
                 }
-
             val boardUsersPostsCommentsId        =
               Endpoint(
                 GET /
@@ -965,16 +1035,25 @@ object EndpointSpec extends ZIOHttpSpec {
     ),
   )
 
-  def testEndpoint[R](service: Routes[R, Nothing])(
+  def testEndpointWithHeaders[R](service: Routes[R, Nothing])(
     url: String,
+    headers: List[(String, String)],
     expected: String,
   ): ZIO[R, Response, TestResult] = {
-    val request = Request.get(url = URL.decode(url).toOption.get)
+    val request = Request
+      .get(url = URL.decode(url).toOption.get)
+      .addHeaders(headers.foldLeft(Headers.empty) { case (hs, (k, v)) => hs ++ Headers(k, v) })
     for {
       response <- service.toHttpApp.runZIO(request)
       body     <- response.body.asString.orDie
     } yield assertTrue(body == "\"" + expected + "\"") // TODO: Real JSON Encoding
   }
+
+  def testEndpoint[R](service: Routes[R, Nothing])(
+    url: String,
+    expected: String,
+  ): ZIO[R, Response, TestResult] =
+    testEndpointWithHeaders(service)(url, headers = List.empty, expected)
 
   def test404[R](service: Routes[R, Nothing])(
     url: String,
