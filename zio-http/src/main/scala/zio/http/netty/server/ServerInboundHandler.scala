@@ -172,9 +172,13 @@ private[zio] final case class ServerInboundHandler(
         val jResponse = NettyResponseEncoder.encode(ctx, response, runtime)
         // setServerTime(time, response, jResponse)
         ctx.writeAndFlush(jResponse)
-        if (!jResponse.isInstanceOf[FullHttpResponse])
-          NettyBodyWriter.writeAndFlush(response.body, ctx)
-        else
+        if (!jResponse.isInstanceOf[FullHttpResponse]) {
+          val contentLength = jResponse.headers.get(HttpHeaderNames.CONTENT_LENGTH) match {
+            case null  => None
+            case value => value.toLongOption
+          }
+          NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
+        } else
           None
     }
   }

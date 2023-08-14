@@ -29,7 +29,9 @@ import io.netty.channel._
 import io.netty.handler.codec.http.{DefaultHttpContent, LastHttpContent}
 object NettyBodyWriter {
 
-  def writeAndFlush(body: Body, ctx: ChannelHandlerContext)(implicit trace: Trace): Option[Task[Unit]] =
+  def writeAndFlush(body: Body, contentLength: Option[Long], ctx: ChannelHandlerContext)(implicit
+    trace: Trace,
+  ): Option[Task[Unit]] =
     body match {
       case body: ByteBufBody                  =>
         ctx.write(body.byteBuf)
@@ -66,27 +68,44 @@ object NettyBodyWriter {
         None
       case StreamBody(stream, _, _)           =>
         Some(
-          stream.chunks
-            .runFoldZIO(Option.empty[Chunk[Byte]]) {
-              case (Some(previous), current) =>
+          contentLength match {
+            case Some(length) =>
+              stream.chunks
+                .runFoldZIO(length) { (remaining, bytes) =>
+                  remaining - bytes.size match {
+                    case 0L =>
+                      NettyFutureExecutor.executed {
+                        ctx.write(new DefaultHttpContent(Unpooled.wrappedBuffer(bytes.toArray)))
+                        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+                      }.as(0)
+
+                    case n =>
+                      NettyFutureExecutor.executed {
+                        ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(bytes.toArray)))
+                      }.as(n)
+                  }
+                }
+                .flatMap {
+                  case 0L        => ZIO.unit
+                  case remaining =>
+                    val actualLength = length - remaining
+                    ZIO.logWarning(s"Expected Content-Length of $length, but sent $actualLength bytes") *>
+                      NettyFutureExecutor.executed {
+                        ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+                      }
+                }
+
+            case None =>
+              stream.chunks.mapZIO { bytes =>
                 NettyFutureExecutor.executed {
-                  ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(previous.toArray)))
-                } *>
-                  ZIO.succeed(Some(current))
-              case (_, current)              =>
-                ZIO.succeed(Some(current))
-            }
-            .flatMap { maybeLastChunk =>
-              // last chunk is handled separately to avoid fiber interrupt before EMPTY_LAST_CONTENT is sent
-              ZIO.attempt(
-                maybeLastChunk.foreach { lastChunk =>
-                  ctx.write(new DefaultHttpContent(Unpooled.wrappedBuffer(lastChunk.toArray)))
-                },
-              ) *>
+                  ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(bytes.toArray)))
+                }
+              }.runDrain.zipRight {
                 NettyFutureExecutor.executed {
                   ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
                 }
-            },
+              }
+          },
         )
       case ChunkBody(data, _, _)              =>
         ctx.write(Unpooled.wrappedBuffer(data.toArray))
