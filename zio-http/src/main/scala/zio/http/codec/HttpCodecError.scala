@@ -69,6 +69,10 @@ object HttpCodecError {
   }
   final case class CustomError(message: String)                                                extends HttpCodecError
 
+  final case class UnsupportedContentType(contentType: String) extends HttpCodecError {
+    def message = s"Unsupported content type $contentType"
+  }
+
   def isHttpCodecError(cause: Cause[Any]): Boolean = {
     !cause.isFailure && cause.defects.forall(e => e.isInstanceOf[HttpCodecError])
   }

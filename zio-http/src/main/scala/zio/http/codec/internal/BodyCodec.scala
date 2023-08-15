@@ -16,16 +16,18 @@
 
 package zio.http.codec.internal
 
+import java.nio.charset.Charset
+
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.{ZPipeline, ZStream}
 
 import zio.schema._
-import zio.schema.codec.BinaryCodec
+import zio.schema.codec.{BinaryCodec, Codec}
 
 import zio.http.codec.HttpCodecError
-import zio.http.{Body, FormField, MediaType}
+import zio.http.{Body, MediaType}
 
 /**
  * A BodyCodec encapsulates the logic necessary to both encode and decode bodies
@@ -46,9 +48,19 @@ private[internal] sealed trait BodyCodec[A] { self =>
   def decodeFromBody(body: Body, codec: BinaryCodec[Element])(implicit trace: Trace): IO[Throwable, A]
 
   /**
+   * Attempts to decode the `A` from a body using the given codec.
+   */
+  def decodeFromBody(body: Body, codec: Codec[String, Char, Element])(implicit trace: Trace): IO[Throwable, A]
+
+  /**
    * Encodes the `A` to a body in the given codec.
    */
   def encodeToBody(value: A, codec: BinaryCodec[Element])(implicit trace: Trace): Body
+
+  /**
+   * Encodes the `A` to a body in the given codec.
+   */
+  def encodeToBody(value: A, codec: Codec[String, Char, Element])(implicit trace: Trace): Body
 
   /**
    * Erases the type for easier use in the internal implementation.
@@ -82,7 +94,12 @@ private[internal] object BodyCodec {
 
     def decodeFromBody(body: Body, codec: BinaryCodec[Unit])(implicit trace: Trace): IO[Nothing, Unit] = ZIO.unit
 
+    def decodeFromBody(body: Body, codec: Codec[String, Char, Unit])(implicit trace: Trace): IO[Nothing, Unit] =
+      ZIO.unit
+
     def encodeToBody(value: Unit, codec: BinaryCodec[Unit])(implicit trace: Trace): Body = Body.empty
+
+    def encodeToBody(value: Unit, codec: Codec[String, Char, Unit])(implicit trace: Trace): Body = Body.empty
 
     def schema: Schema[Unit] = Schema[Unit]
 
@@ -100,8 +117,15 @@ private[internal] object BodyCodec {
           ZIO.fromEither(codec.decode(chunk))
         }.flatMap(validateZIO(schema))
 
+    def decodeFromBody(body: Body, codec: Codec[String, Char, A])(implicit trace: Trace): IO[Throwable, A] =
+      if (schema == Schema[Unit]) ZIO.unit.asInstanceOf[IO[Throwable, A]]
+      else body.asString.flatMap(chunk => ZIO.fromEither(codec.decode(chunk)))
+
     def encodeToBody(value: A, codec: BinaryCodec[A])(implicit trace: Trace): Body =
       Body.fromChunk(codec.encode(value))
+
+    def encodeToBody(value: A, codec: Codec[String, Char, A])(implicit trace: Trace): Body =
+      Body.fromString(codec.encode(value))
 
     type Element = A
   }
@@ -113,8 +137,16 @@ private[internal] object BodyCodec {
     ): IO[Throwable, ZStream[Any, Nothing, E]] =
       ZIO.succeed((body.asStream >>> codec.streamDecoder >>> validateStream(schema)).orDie)
 
+    def decodeFromBody(body: Body, codec: Codec[String, Char, E])(implicit
+      trace: Trace,
+    ): IO[Throwable, ZStream[Any, Nothing, E]] =
+      ZIO.succeed((body.asStream >>> ZPipeline.decodeCharsWith(Charset.defaultCharset()) >>> codec.streamDecoder).orDie)
+
     def encodeToBody(value: ZStream[Any, Nothing, E], codec: BinaryCodec[E])(implicit trace: Trace): Body =
       Body.fromStream(value >>> codec.streamEncoder)
+
+    def encodeToBody(value: ZStream[Any, Nothing, E], codec: Codec[String, Char, E])(implicit trace: Trace): Body =
+      Body.fromStream(value >>> codec.streamEncoder.map(_.toByte))
 
     type Element = E
   }

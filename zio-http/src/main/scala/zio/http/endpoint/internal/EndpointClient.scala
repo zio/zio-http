@@ -33,9 +33,17 @@ private[endpoint] final case class EndpointClient[P, I, E, O, M <: EndpointMiddl
     val request0 = endpoint.input.encodeRequest(invocation.input)
     val request  = request0.copy(url = endpointRoot ++ request0.url)
 
-    val requestPatch = invocation.middleware.input.encodeRequestPatch(mi)
+    val requestPatch            = invocation.middleware.input.encodeRequestPatch(mi)
+    val patchedRequest          = request.patch(requestPatch)
+    val withDefaultAcceptHeader =
+      if (patchedRequest.headers.exists(_.headerName == Header.Accept.name))
+        patchedRequest
+      else
+        patchedRequest.addHeader(
+          Header.Accept(MediaType.application.json, MediaType.parseCustomMediaType("application/protobuf").get),
+        )
 
-    client(request.patch(requestPatch)).orDie.flatMap { response =>
+    client.request(withDefaultAcceptHeader).orDie.flatMap { response =>
       if (response.status.isSuccess) {
         endpoint.output.decodeResponse(response).orDie
       } else {

@@ -130,6 +130,7 @@ lazy val zioHttp = (project in file("zio-http"))
       `zio-streams`,
       `zio-schema`,
       `zio-schema-json`,
+      `zio-schema-protobuf`,
       `zio-test`,
       `zio-test-sbt`,
       `netty-incubator`,
