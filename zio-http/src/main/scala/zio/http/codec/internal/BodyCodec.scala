@@ -16,12 +16,6 @@
 
 package zio.http.codec.internal
 
-import zio._
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
-import zio.stream.{ZPipeline, ZStream}
-
-import zio.http.{Body, MediaType}
 import java.nio.charset.Charset
 
 import zio._

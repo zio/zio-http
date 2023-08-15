@@ -17,7 +17,7 @@
 package zio.http.endpoint
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Trace, ZIO, Chunk}
+import zio.{Chunk, Trace, ZIO}
 
 import zio.http.Header.Accept.MediaTypeWithQFactor
 import zio.http._
