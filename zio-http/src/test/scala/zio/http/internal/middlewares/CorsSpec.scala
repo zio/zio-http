@@ -23,7 +23,6 @@ import zio.http.Header.AccessControlAllowMethods
 import zio.http.Middleware.{CorsConfig, cors}
 import zio.http._
 import zio.http.internal.HttpAppTestExtensions
-import zio.http.internal.middlewares.CorsSpec.app
 
 object CorsSpec extends ZIOHttpSpec with HttpAppTestExtensions {
   def extractStatus(response: Response): Status = response.status

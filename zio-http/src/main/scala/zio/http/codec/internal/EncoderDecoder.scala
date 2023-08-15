@@ -16,16 +16,13 @@
 
 package zio.http.codec.internal
 
-import java.time._
-import java.util.UUID
-
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 import zio.stream.ZStream
 
-import zio.schema.codec._
-import zio.schema.{Schema, StandardType}
+import zio.schema.Schema
+import zio.schema.codec.{BinaryCodec, Codec}
 
 import zio.http._
 import zio.http.codec._
@@ -36,14 +33,18 @@ private[codec] trait EncoderDecoder[-AtomTypes, Value] {
   ): Task[Value]
 
   def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z
+
 }
-private[codec] object EncoderDecoder                   {
-  def apply[AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value]): EncoderDecoder[AtomTypes, Value] = {
+private[codec] object EncoderDecoder {
+  def apply[AtomTypes, Value](
+    httpCodec: HttpCodec[AtomTypes, Value],
+    mediaType: Option[String],
+  ): EncoderDecoder[AtomTypes, Value] = {
     val flattened = httpCodec.alternatives
 
     flattened.length match {
       case 0 => Undefined()
-      case 1 => Single(flattened.head)
+      case 1 => Single(flattened.head, mediaType)
       case _ => Multiple(flattened)
     }
   }
@@ -51,8 +52,6 @@ private[codec] object EncoderDecoder                   {
   private final case class Multiple[-AtomTypes, Value](httpCodecs: Chunk[HttpCodec[AtomTypes, Value]])
       extends EncoderDecoder[AtomTypes, Value] {
     val singles = httpCodecs.map(Single(_))
-    val head    = singles.head
-    val tail    = singles.tail
 
     def decode(url: URL, status: Status, method: Method, headers: Headers, body: Body)(implicit
       trace: Trace,
@@ -132,91 +131,75 @@ private[codec] object EncoderDecoder                   {
     }
   }
 
-  private final case class Single[-AtomTypes, Value](httpCodec: HttpCodec[AtomTypes, Value])
-      extends EncoderDecoder[AtomTypes, Value] {
+  private final case class Single[-AtomTypes, Value](
+    httpCodec: HttpCodec[AtomTypes, Value],
+    outputType: Option[String] = None,
+  ) extends EncoderDecoder[AtomTypes, Value] {
     private val constructor   = Mechanic.makeConstructor(httpCodec)
     private val deconstructor = Mechanic.makeDeconstructor(httpCodec)
 
     private val flattened: AtomizedCodecs = AtomizedCodecs.flatten(httpCodec)
 
-    private val jsonEncoders: Chunk[Any => Body] =
-      flattened.content.map { bodyCodec =>
-        val erased    = bodyCodec.erase
-        val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
-        erased.encodeToBody(_, jsonCodec)
-      }
+    private val codecs: Map[String, MediaTypeCodec[_]] =
+      MediaTypeCodec.codecsFor(if (flattened.content.size == 1) outputType else None, flattened.content)
+
+    private def mediaTypeOrJson(bodyCodec: BodyCodec[_]): MediaType =
+      bodyCodec.mediaType.getOrElse(MediaType.application.`json`)
+    private def mediaTypeOrText(bodyCodec: BodyCodec[_]): MediaType =
+      bodyCodec.mediaType.getOrElse(MediaType.text.`plain`)
 
     private val formFieldEncoders: Chunk[(String, Any) => FormField] =
       flattened.content.map { bodyCodec => (name: String, value: Any) =>
         {
-          val erased = bodyCodec.erase
-          erased.schema match {
-            case Schema.Primitive(_, _) =>
-              FormField.simpleField(name, value.toString)
-            case _                      =>
-              val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
+          val erased    = bodyCodec.erase
+          val mediaType = bodyCodec.schema match {
+            case _: Schema.Primitive[_] => mediaTypeOrText(bodyCodec)
+            case _                      => mediaTypeOrJson(bodyCodec)
+          }
+
+          val codec = codecs
+            .get(mediaType.fullType)
+            .map(_.codecs(erased))
+
+          codec match {
+            case Some(codec: BinaryCodec[Any] @unchecked) if codec.isInstanceOf[BinaryCodec[Any]]                 =>
+              FormField.binaryField(
+                name,
+                codec.encode(value.asInstanceOf[erased.Element]),
+                mediaType,
+              )
+            case Some(codec: Codec[String, Char, Any] @unchecked) if codec.isInstanceOf[Codec[String, Char, Any]] =>
               FormField.textField(
                 name,
-                new String(jsonCodec.encode(value.asInstanceOf[erased.Element]).toArray, Charsets.Utf8),
-                MediaType.application.json,
+                codec.encode(value.asInstanceOf[erased.Element]),
+                mediaType,
               )
+            case _                                                                                                =>
+              throw HttpCodecError.UnsupportedContentType(mediaType.fullType)
           }
         }
       }
 
     implicit val trace: Trace = Trace.empty
 
-    private val jsonDecoders: Chunk[Body => IO[Throwable, _]]             =
-      flattened.content.map { bodyCodec =>
-        val jsonCodec = JsonCodec.schemaBasedBinaryCodec(bodyCodec.schema)
-        bodyCodec.decodeFromBody(_, jsonCodec)
-      }
     private val formFieldDecoders: Chunk[FormField => IO[Throwable, Any]] =
       flattened.content.map { bodyCodec => (field: FormField) =>
         {
           val erased = bodyCodec.erase
-          erased.schema match {
-            case Schema.Primitive(standardType, _) =>
-              field.asText.flatMap { text =>
-                standardType.asInstanceOf[StandardType[_]] match {
-                  case StandardType.UnitType           => ZIO.succeed(())
-                  case StandardType.StringType         => ZIO.succeed(text)
-                  case StandardType.BoolType           => ZIO.attempt(text.toBoolean)
-                  case StandardType.ByteType           => ZIO.attempt(text.toByte)
-                  case StandardType.ShortType          => ZIO.attempt(text.toShort)
-                  case StandardType.IntType            => ZIO.attempt(text.toInt)
-                  case StandardType.LongType           => ZIO.attempt(text.toLong)
-                  case StandardType.FloatType          => ZIO.attempt(text.toFloat)
-                  case StandardType.DoubleType         => ZIO.attempt(text.toDouble)
-                  case StandardType.BinaryType         => ZIO.die(new IllegalStateException("Binary is not supported"))
-                  case StandardType.CharType           => ZIO.attempt(text.charAt(0))
-                  case StandardType.UUIDType           => ZIO.attempt(UUID.fromString(text))
-                  case StandardType.BigDecimalType     => ZIO.attempt(BigDecimal(text))
-                  case StandardType.BigIntegerType     => ZIO.attempt(BigInt(text))
-                  case StandardType.DayOfWeekType      => ZIO.attempt(DayOfWeek.valueOf(text))
-                  case StandardType.MonthType          => ZIO.attempt(Month.valueOf(text))
-                  case StandardType.MonthDayType       => ZIO.attempt(MonthDay.parse(text))
-                  case StandardType.PeriodType         => ZIO.attempt(Period.parse(text))
-                  case StandardType.YearType           => ZIO.attempt(Year.parse(text))
-                  case StandardType.YearMonthType      => ZIO.attempt(YearMonth.parse(text))
-                  case StandardType.ZoneIdType         => ZIO.attempt(ZoneId.of(text))
-                  case StandardType.ZoneOffsetType     => ZIO.attempt(ZoneOffset.of(text))
-                  case StandardType.DurationType       => ZIO.attempt(java.time.Duration.parse(text))
-                  case StandardType.InstantType        => ZIO.attempt(Instant.parse(text))
-                  case StandardType.LocalDateType      => ZIO.attempt(LocalDate.parse(text))
-                  case StandardType.LocalTimeType      => ZIO.attempt(LocalTime.parse(text))
-                  case StandardType.LocalDateTimeType  => ZIO.attempt(LocalDateTime.parse(text))
-                  case StandardType.OffsetTimeType     => ZIO.attempt(OffsetTime.parse(text))
-                  case StandardType.OffsetDateTimeType => ZIO.attempt(OffsetDateTime.parse(text))
-                  case StandardType.ZonedDateTimeType  => ZIO.attempt(ZonedDateTime.parse(text))
-                }
-              }
-            case _                                 =>
-              val jsonCodec = JsonCodec.schemaBasedBinaryCodec(erased.schema)
-              field.asChunk.flatMap { chunk =>
-                ZIO.fromEither(jsonCodec.decode(chunk))
-              }
+          val codec  =
+            codecs
+              .get(field.contentType.fullType)
+              .map(_.codecs(erased))
+
+          codec match {
+            case Some(codec: BinaryCodec[Any] @unchecked) if codec.isInstanceOf[BinaryCodec[Any]]                 =>
+              field.asChunk.flatMap(chunk => ZIO.fromEither(codec.decode(chunk)))
+            case Some(codec: Codec[String, Char, Any] @unchecked) if codec.isInstanceOf[Codec[String, Char, Any]] =>
+              field.asText.flatMap(text => ZIO.fromEither(codec.decode(text)))
+            case _                                                                                                =>
+              ZIO.fail(HttpCodecError.UnsupportedContentType(field.contentType.fullType))
           }
+
         }
       }
     private val formBoundary                = Boundary("----zio-http-boundary-D4792A5C-93E0-43B5-9A1F-48E38FDE5714")
@@ -252,10 +235,12 @@ private[codec] object EncoderDecoder                   {
       decodeStatus(status, inputsBuilder.status)
       decodeMethod(method, inputsBuilder.method)
       decodeHeaders(headers, inputsBuilder.header)
-      decodeBody(body, inputsBuilder.content).as(constructor(inputsBuilder))
+      decodeBody(body, inputsBuilder.content, contentMediaType(headers)).as(constructor(inputsBuilder))
     }
 
-    final def encodeWith[Z](value: Value)(f: (URL, Option[Status], Option[Method], Headers, Body) => Z): Z = {
+    final def encodeWith[Z](value: Value)(
+      f: (URL, Option[Status], Option[Method], Headers, Body) => Z,
+    ): Z = {
       val inputs = deconstructor(value)
 
       val path               = encodePath(inputs.path)
@@ -263,8 +248,8 @@ private[codec] object EncoderDecoder                   {
       val status             = encodeStatus(inputs.status)
       val method             = encodeMethod(inputs.method)
       val headers            = encodeHeaders(inputs.header)
-      val body               = encodeBody(inputs.content)
       val contentTypeHeaders = encodeContentType(inputs.content)
+      val body               = encodeBody(inputs.content, contentTypeHeaders.get(Header.ContentType).get)
 
       f(URL(path, queryParams = query), status, method, headers ++ contentTypeHeaders, body)
     }
@@ -360,15 +345,18 @@ private[codec] object EncoderDecoder                   {
       }
     }
 
-    private def decodeBody(body: Body, inputs: Array[Any])(implicit trace: Trace): Task[Unit] = {
+    private def decodeBody(body: Body, inputs: Array[Any], contentType: MediaType)(implicit
+      trace: Trace,
+    ): Task[Unit] = {
       if (isByteStream) {
         ZIO.attempt(inputs(0) = body.asStream.orDie)
-      } else if (jsonDecoders.length == 0) {
+      } else if (flattened.content.isEmpty) {
         ZIO.unit
-      } else if (jsonDecoders.length == 1) {
-        jsonDecoders(0)(body).map { result => inputs(0) = result }.mapError { err =>
-          HttpCodecError.MalformedBody(err.getMessage(), Some(err))
-        }
+      } else if (flattened.content.size == 1) {
+        codecs(contentType.fullType)
+          .decodeSingle(body)
+          .map { result => inputs(0) = result }
+          .mapError { err => HttpCodecError.MalformedBody(err.getMessage(), Some(err)) }
       } else {
         body.asMultipartFormStream.flatMap { form =>
           if (onlyTheLastFieldIsStreaming)
@@ -529,15 +517,14 @@ private[codec] object EncoderDecoder                   {
       headers
     }
 
-    private def encodeMethod(inputs: Array[Any]): Option[zio.http.Method] =
+    private def encodeMethod(inputs: Array[Any]): Option[zio.http.Method]                =
       if (flattened.method.nonEmpty) {
         flattened.method.head match {
           case _: SimpleCodec.Unspecified[_] => Some(inputs(0).asInstanceOf[Method])
           case SimpleCodec.Specified(method) => Some(method)
         }
       } else None
-
-    private def encodeBody(inputs: Array[Any]): Body = {
+    private def encodeBody(inputs: Array[Any], contentType: => Header.ContentType): Body = {
       if (isByteStream) {
         Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, Byte]])
       } else {
@@ -546,10 +533,16 @@ private[codec] object EncoderDecoder                   {
         } else {
           if (isEventStream) {
             Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, ServerSentEvent]].map(_.encode))
-          } else if (jsonEncoders.length < 1) Body.empty
-          else {
-            val encoder = jsonEncoders(0)
-            encoder(inputs(0))
+          } else if (inputs.length < 1) {
+            Body.empty
+          } else {
+            val codec = {
+              codecs.getOrElse(
+                contentType.mediaType.fullType,
+                throw HttpCodecError.UnsupportedContentType(contentType.renderedValue),
+              )
+            }
+            codec.encodeSingle(inputs(0))
           }
         }
       }
@@ -583,9 +576,12 @@ private[codec] object EncoderDecoder                   {
           Headers(Header.ContentType(MediaType.multipart.`form-data`))
         } else {
           if (isEventStream) Headers(Header.ContentType(MediaType.text.`event-stream`))
-          else if (jsonEncoders.length < 1) Headers.empty
+          else if (flattened.content.length < 1) Headers.empty
           else {
-            val mediaType = flattened.content(0).mediaType.getOrElse(MediaType.application.json)
+            val mediaType = flattened.content(0).mediaType.getOrElse {
+              if (codecs.size == 1) MediaType.parseCustomMediaType(codecs.keys.head).get
+              else MediaType.application.json
+            }
             Headers(Header.ContentType(mediaType))
           }
         }
@@ -604,4 +600,7 @@ private[codec] object EncoderDecoder                   {
         case _                                                                     => false
       }
   }
+
+  private def contentMediaType(headers: Headers) =
+    headers.get(Header.ContentType).map(_.mediaType).getOrElse(MediaType.application.`json`)
 }
