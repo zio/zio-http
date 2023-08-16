@@ -17,9 +17,8 @@
 package zio.http.codec
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.http.Header
 import zio.http.Header.HeaderType
-import zio.http.internal.DateEncoding
+import zio.http.{Header, MediaType}
 
 private[codec] trait HeaderCodecs { self =>
   def string(name: String): HeaderCodec[String] =

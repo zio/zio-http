@@ -1,7 +1,6 @@
 package example
 
 import zio.http.codec.HttpCodec._
-import zio.http.codec.HttpCodecType.PathQuery
 import zio.http.codec._
 
 object CombinerTypesExample extends App {

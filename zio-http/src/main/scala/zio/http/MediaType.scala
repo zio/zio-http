@@ -27,7 +27,7 @@ final case class MediaType(
   extensions: Map[String, String] = Map.empty,
   parameters: Map[String, String] = Map.empty,
 ) {
-  def fullType: String = s"$mainType/$subType"
+  lazy val fullType: String = s"$mainType/$subType"
 }
 
 object MediaType extends MediaTypes {
@@ -37,11 +37,12 @@ object MediaType extends MediaTypes {
   def forContentType(contentType: String): Option[MediaType] = {
     val index = contentType.indexOf(";")
     if (index == -1)
-      contentTypeMap.get(contentType)
+      contentTypeMap.get(contentType).orElse(parseCustomMediaType(contentType))
     else {
       val (contentType1, parameter) = contentType.splitAt(index)
       contentTypeMap
         .get(contentType1)
+        .orElse(parseCustomMediaType(contentType1))
         .map(_.copy(parameters = parseOptionalParameters(parameter.split(";"))))
     }
   }
