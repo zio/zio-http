@@ -32,7 +32,7 @@ import zio.http.codec.HttpCodec.{authorization, query}
 import zio.http.codec.{Doc, HeaderCodec, HttpCodec, QueryCodec}
 import zio.http.netty.server.NettyDriver
 
-object EndpointRoundtripSpec extends ZIOHttpSpec {
+object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
     ZLayer.make[Server & Client & Scope](
       Server.live,
@@ -123,7 +123,7 @@ object EndpointRoundtripSpec extends ZIOHttpSpec {
     } yield result
 
   def spec: Spec[Any, Any] =
-    suite("EndpointRoundtripSpec")(
+    suite("RoundtripSpec")(
       test("simple get") {
         val usersPostAPI =
           Endpoint(GET / "users" / int("userId") / "posts" / int("postId")).out[Post]
