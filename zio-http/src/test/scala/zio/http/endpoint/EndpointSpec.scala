@@ -163,7 +163,9 @@ object EndpointSpec extends ZIOHttpSpec {
 
           for {
             response <- routes.toHttpApp.runZIO(
-              Request.get(URL.decode(s"/posts?id=$id").toOption.get),
+              Request
+                .get(URL.decode(s"/posts?id=$id").toOption.get)
+                .addHeader(Header.Accept(MediaType.text.`plain`)),
             )
             contentType = response.header(Header.ContentType)
           } yield assertTrue(extractStatus(response).code == 200) &&
