@@ -1,9 +1,9 @@
 package zio.http.netty
 
 import zio._
+import zio.test.Assertion._
 import zio.test.TestAspect.withLiveClock
 import zio.test.{Spec, TestEnvironment, assert}
-import zio.test.Assertion._
 
 import zio.stream.{ZStream, ZStreamAspect}
 
