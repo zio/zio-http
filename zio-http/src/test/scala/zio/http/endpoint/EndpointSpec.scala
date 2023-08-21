@@ -48,36 +48,35 @@ object EndpointSpec extends ZIOHttpSpec {
   def spec = suite("EndpointSpec")(
     suite("handler")(
       test("simple request with query parameter") {
-        check(Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.alphaNumericString) {
-          (userId, postId, username) =>
-            val testRoutes = testEndpoint(
-              Routes(
-                Endpoint(GET / "users" / int("userId"))
-                  .out[String]
-                  .implement {
-                    Handler.fromFunction { userId =>
-                      s"path(users, $userId)"
-                    }
-                  },
-                Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
-                  .query(query("name"))
-                  .out[String]
-                  .implement {
-                    Handler.fromFunction { case (userId, postId, name) =>
-                      s"path(users, $userId, posts, $postId) query(name=$name)"
-                    }
-                  },
-              ),
-            ) _
-            testRoutes(s"/users/$userId", s"path(users, $userId)") &&
-            testRoutes(
-              s"/users/$userId/posts/$postId?name=$username",
-              s"path(users, $userId, posts, $postId) query(name=$username)",
-            )
+        check(Gen.int, Gen.int, Gen.alphaNumericString) { (userId, postId, username) =>
+          val testRoutes = testEndpoint(
+            Routes(
+              Endpoint(GET / "users" / int("userId"))
+                .out[String]
+                .implement {
+                  Handler.fromFunction { userId =>
+                    s"path(users, $userId)"
+                  }
+                },
+              Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
+                .query(query("name"))
+                .out[String]
+                .implement {
+                  Handler.fromFunction { case (userId, postId, name) =>
+                    s"path(users, $userId, posts, $postId) query(name=$name)"
+                  }
+                },
+            ),
+          ) _
+          testRoutes(s"/users/$userId", s"path(users, $userId)") &&
+          testRoutes(
+            s"/users/$userId/posts/$postId?name=$username",
+            s"path(users, $userId, posts, $postId) query(name=$username)",
+          )
         }
       },
       test("simple request with header") {
-        check(Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.uuid) { (userId, postId, correlationId) =>
+        check(Gen.int, Gen.int, Gen.uuid) { (userId, postId, correlationId) =>
           val testRoutes = testEndpointWithHeaders(
             Routes(
               Endpoint(GET / "users" / int("userId"))
@@ -111,7 +110,7 @@ object EndpointSpec extends ZIOHttpSpec {
         }
       },
       test("optional query parameter") {
-        check(Gen.int(1, Int.MaxValue), Gen.alphaNumericString) { (userId, details) =>
+        check(Gen.int, Gen.alphaNumericString) { (userId, details) =>
           val testRoutes = testEndpoint(
             Routes(
               Endpoint(GET / "users" / int("userId"))
@@ -130,7 +129,7 @@ object EndpointSpec extends ZIOHttpSpec {
         }
       },
       test("multiple optional query parameters") {
-        check(Gen.int(1, Int.MaxValue), Gen.alphaNumericString, Gen.alphaNumericString) { (userId, key, value) =>
+        check(Gen.int, Gen.alphaNumericString, Gen.alphaNumericString) { (userId, key, value) =>
           val testRoutes = testEndpoint(
             Routes(
               Endpoint(GET / "users" / int("userId"))
@@ -151,7 +150,7 @@ object EndpointSpec extends ZIOHttpSpec {
         }
       },
       test("custom content type") {
-        check(Gen.int(1, Int.MaxValue)) { id =>
+        check(Gen.int) { id =>
           val endpoint =
             Endpoint(GET / "posts")
               .query(query("id"))
@@ -173,7 +172,7 @@ object EndpointSpec extends ZIOHttpSpec {
         }
       },
       test("custom status code") {
-        check(Gen.int(1, Int.MaxValue)) { id =>
+        check(Gen.int) { id =>
           val endpoint =
             Endpoint(GET / "posts")
               .query(query("id"))
@@ -192,7 +191,7 @@ object EndpointSpec extends ZIOHttpSpec {
       },
       suite("bad request for failed codec")(
         test("query codec") {
-          check(Gen.int(1, Int.MaxValue), Gen.boolean) { (id, notAnId) =>
+          check(Gen.int, Gen.boolean) { (id, notAnId) =>
             val endpoint =
               Endpoint(GET / "posts")
                 .query(queryInt("id"))
@@ -212,7 +211,7 @@ object EndpointSpec extends ZIOHttpSpec {
           }
         },
         test("header codec") {
-          check(Gen.int(1, Int.MaxValue), Gen.alphaNumericString) { (id, notACorrelationId) =>
+          check(Gen.int, Gen.alphaNumericString) { (id, notACorrelationId) =>
             val endpoint =
               Endpoint(GET / "posts")
                 .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
@@ -231,7 +230,7 @@ object EndpointSpec extends ZIOHttpSpec {
         },
       ),
       test("bad request for missing header")(
-        check(Gen.int(1, Int.MaxValue)) { id =>
+        check(Gen.int) { id =>
           val endpoint =
             Endpoint(GET / "posts")
               .header(HeaderCodec.name[java.util.UUID]("X-Correlation-ID"))
@@ -249,37 +248,36 @@ object EndpointSpec extends ZIOHttpSpec {
         },
       ),
       test("out of order api") {
-        check(Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.alphaNumericString, Gen.int(1, Int.MaxValue)) {
-          (userId, postId, name, age) =>
-            val testRoutes = testEndpoint(
-              Routes(
-                Endpoint(GET / "users" / int("userId"))
-                  .out[String]
-                  .implement {
-                    Handler.fromFunction { userId =>
-                      s"path(users, $userId)"
-                    }
-                  },
-                Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
-                  .query(query("name"))
-                  .query(query("age"))
-                  .out[String]
-                  .implement {
-                    Handler.fromFunction { case (userId, postId, name, age) =>
-                      s"path(users, $userId, posts, $postId) query(name=$name, age=$age)"
-                    }
-                  },
-              ),
-            ) _
-            testRoutes(s"/users/$userId", s"path(users, $userId)") &&
-            testRoutes(
-              s"/users/$userId/posts/$postId?name=$name&age=$age",
-              s"path(users, $userId, posts, $postId) query(name=$name, age=$age)",
-            )
+        check(Gen.int, Gen.int, Gen.alphaNumericString, Gen.int(1, Int.MaxValue)) { (userId, postId, name, age) =>
+          val testRoutes = testEndpoint(
+            Routes(
+              Endpoint(GET / "users" / int("userId"))
+                .out[String]
+                .implement {
+                  Handler.fromFunction { userId =>
+                    s"path(users, $userId)"
+                  }
+                },
+              Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
+                .query(query("name"))
+                .query(query("age"))
+                .out[String]
+                .implement {
+                  Handler.fromFunction { case (userId, postId, name, age) =>
+                    s"path(users, $userId, posts, $postId) query(name=$name, age=$age)"
+                  }
+                },
+            ),
+          ) _
+          testRoutes(s"/users/$userId", s"path(users, $userId)") &&
+          testRoutes(
+            s"/users/$userId/posts/$postId?name=$name&age=$age",
+            s"path(users, $userId, posts, $postId) query(name=$name, age=$age)",
+          )
         }
       },
       test("fallback") {
-        check(Gen.int(1, Int.MaxValue), Gen.alphaNumericString) { (userId, username) =>
+        check(Gen.int, Gen.alphaNumericString) { (userId, username) =>
           val testRoutes = testEndpoint(
             Routes(
               Endpoint(GET / "users")
@@ -298,174 +296,173 @@ object EndpointSpec extends ZIOHttpSpec {
         }
       },
       test("broad api") {
-        check(Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue)) {
-          (userId, postId, commentId, replyId) =>
-            val broadUsers                       =
-              Endpoint(GET / "users").out[String](Doc.p("Created user id")).implement {
-                Handler.succeed("path(users)")
+        check(Gen.int, Gen.int, Gen.int, Gen.int) { (userId, postId, commentId, replyId) =>
+          val broadUsers                       =
+            Endpoint(GET / "users").out[String](Doc.p("Created user id")).implement {
+              Handler.succeed("path(users)")
+            }
+          val broadUsersId                     =
+            Endpoint(GET / "users" / int("userId")).out[String].implement {
+              Handler.fromFunction { userId =>
+                s"path(users, $userId)"
               }
-            val broadUsersId                     =
-              Endpoint(GET / "users" / int("userId")).out[String].implement {
+            }
+          val boardUsersPosts                  =
+            Endpoint(GET / "users" / int("userId") / "posts")
+              .out[String]
+              .implement {
                 Handler.fromFunction { userId =>
-                  s"path(users, $userId)"
+                  s"path(users, $userId, posts)"
                 }
               }
-            val boardUsersPosts                  =
-              Endpoint(GET / "users" / int("userId") / "posts")
-                .out[String]
-                .implement {
-                  Handler.fromFunction { userId =>
-                    s"path(users, $userId, posts)"
-                  }
-                }
-            val boardUsersPostsId                =
-              Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
-                .out[String]
-                .implement {
-                  Handler.fromFunction { case (userId, postId) =>
-                    s"path(users, $userId, posts, $postId)"
-                  }
-                }
-            val boardUsersPostsComments          =
-              Endpoint(
-                GET /
-                  "users" / int("userId") / "posts" / int("postId") / "comments",
-              )
-                .out[String]
-                .implement {
-                  Handler.fromFunction { case (userId, postId) =>
-                    s"path(users, $userId, posts, $postId, comments)"
-                  }
-                }
-            val boardUsersPostsCommentsId        =
-              Endpoint(
-                GET /
-                  "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId"),
-              )
-                .out[String]
-                .implement {
-                  Handler.fromFunction { case (userId, postId, commentId) =>
-                    s"path(users, $userId, posts, $postId, comments, $commentId)"
-                  }
-                }
-            val broadPosts                       =
-              Endpoint(GET / "posts").out[String].implement(Handler.succeed("path(posts)"))
-            val broadPostsId                     =
-              Endpoint(GET / "posts" / int("postId")).out[String].implement {
-                Handler.fromFunction { postId =>
-                  s"path(posts, $postId)"
+          val boardUsersPostsId                =
+            Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (userId, postId) =>
+                  s"path(users, $userId, posts, $postId)"
                 }
               }
-            val boardPostsComments               =
-              Endpoint(GET / "posts" / int("postId") / "comments")
-                .out[String]
-                .implement {
-                  Handler.fromFunction { postId =>
-                    s"path(posts, $postId, comments)"
-                  }
-                }
-            val boardPostsCommentsId             =
-              Endpoint(GET / "posts" / int("postId") / "comments" / int("commentId"))
-                .out[String]
-                .implement {
-                  Handler.fromFunction { case (postId, commentId) =>
-                    s"path(posts, $postId, comments, $commentId)"
-                  }
-                }
-            val broadComments                    =
-              Endpoint(GET / "comments").out[String].implement(Handler.succeed("path(comments)"))
-            val broadCommentsId                  =
-              Endpoint(GET / "comments" / int("commentId")).out[String].implement {
-                Handler.fromFunction { commentId =>
-                  s"path(comments, $commentId)"
-                }
-              }
-            val broadUsersComments               =
-              Endpoint(GET / "users" / int("userId") / "comments")
-                .out[String]
-                .implement {
-                  Handler.fromFunction { userId =>
-                    s"path(users, $userId, comments)"
-                  }
-                }
-            val broadUsersCommentsId             =
-              Endpoint(GET / "users" / int("userId") / "comments" / int("commentId"))
-                .out[String]
-                .implement {
-                  Handler.fromFunction { case (userId, commentId) =>
-                    s"path(users, $userId, comments, $commentId)"
-                  }
-                }
-            val boardUsersPostsCommentsReplies   =
-              Endpoint(
-                GET /
-                  "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies",
-              )
-                .out[String]
-                .implement {
-                  Handler.fromFunction { case (userId, postId, commentId) =>
-                    s"path(users, $userId, posts, $postId, comments, $commentId, replies)"
-                  }
-                }
-            val boardUsersPostsCommentsRepliesId =
-              Endpoint(
-                GET /
-                  "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") /
-                  "replies" / int("replyId"),
-              )
-                .out[String]
-                .implement {
-                  Handler.fromFunction { case (userId, postId, commentId, replyId) =>
-                    s"path(users, $userId, posts, $postId, comments, $commentId, replies, $replyId)"
-                  }
-                }
-
-            val testRoutes = testEndpoint(
-              Routes(
-                broadUsers,
-                broadUsersId,
-                boardUsersPosts,
-                boardUsersPostsId,
-                boardUsersPostsComments,
-                boardUsersPostsCommentsId,
-                broadPosts,
-                broadPostsId,
-                boardPostsComments,
-                boardPostsCommentsId,
-                broadComments,
-                broadCommentsId,
-                broadUsersComments,
-                broadUsersCommentsId,
-                boardUsersPostsCommentsReplies,
-                boardUsersPostsCommentsRepliesId,
-              ),
-            ) _
-
-            testRoutes("/users", "path(users)") &&
-            testRoutes(s"/users/$userId", s"path(users, $userId)") &&
-            testRoutes(s"/users/$userId/posts", s"path(users, $userId, posts)") &&
-            testRoutes(s"/users/$userId/posts/$postId", s"path(users, $userId, posts, $postId)") &&
-            testRoutes(s"/users/$userId/posts/$postId/comments", s"path(users, $userId, posts, $postId, comments)") &&
-            testRoutes(
-              s"/users/$userId/posts/$postId/comments/$commentId",
-              s"path(users, $userId, posts, $postId, comments, $commentId)",
-            ) &&
-            testRoutes(s"/posts", "path(posts)") &&
-            testRoutes(s"/posts/$postId", s"path(posts, $postId)") &&
-            testRoutes(s"/posts/$postId/comments", s"path(posts, $postId, comments)") &&
-            testRoutes(s"/posts/$postId/comments/$commentId", s"path(posts, $postId, comments, $commentId)") &&
-            testRoutes("/comments", "path(comments)") &&
-            testRoutes(s"/comments/$commentId", s"path(comments, $commentId)") &&
-            testRoutes(s"/users/$userId/comments", s"path(users, $userId, comments)") &&
-            testRoutes(s"/users/$userId/comments/$commentId", s"path(users, $userId, comments, $commentId)") &&
-            testRoutes(
-              s"/users/$userId/posts/$postId/comments/$commentId/replies",
-              s"path(users, $userId, posts, $postId, comments, $commentId, replies)",
-            ) &&
-            testRoutes(
-              s"/users/$userId/posts/$postId/comments/$commentId/replies/$replyId",
-              s"path(users, $userId, posts, $postId, comments, $commentId, replies, $replyId)",
+          val boardUsersPostsComments          =
+            Endpoint(
+              GET /
+                "users" / int("userId") / "posts" / int("postId") / "comments",
             )
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (userId, postId) =>
+                  s"path(users, $userId, posts, $postId, comments)"
+                }
+              }
+          val boardUsersPostsCommentsId        =
+            Endpoint(
+              GET /
+                "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId"),
+            )
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (userId, postId, commentId) =>
+                  s"path(users, $userId, posts, $postId, comments, $commentId)"
+                }
+              }
+          val broadPosts                       =
+            Endpoint(GET / "posts").out[String].implement(Handler.succeed("path(posts)"))
+          val broadPostsId                     =
+            Endpoint(GET / "posts" / int("postId")).out[String].implement {
+              Handler.fromFunction { postId =>
+                s"path(posts, $postId)"
+              }
+            }
+          val boardPostsComments               =
+            Endpoint(GET / "posts" / int("postId") / "comments")
+              .out[String]
+              .implement {
+                Handler.fromFunction { postId =>
+                  s"path(posts, $postId, comments)"
+                }
+              }
+          val boardPostsCommentsId             =
+            Endpoint(GET / "posts" / int("postId") / "comments" / int("commentId"))
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (postId, commentId) =>
+                  s"path(posts, $postId, comments, $commentId)"
+                }
+              }
+          val broadComments                    =
+            Endpoint(GET / "comments").out[String].implement(Handler.succeed("path(comments)"))
+          val broadCommentsId                  =
+            Endpoint(GET / "comments" / int("commentId")).out[String].implement {
+              Handler.fromFunction { commentId =>
+                s"path(comments, $commentId)"
+              }
+            }
+          val broadUsersComments               =
+            Endpoint(GET / "users" / int("userId") / "comments")
+              .out[String]
+              .implement {
+                Handler.fromFunction { userId =>
+                  s"path(users, $userId, comments)"
+                }
+              }
+          val broadUsersCommentsId             =
+            Endpoint(GET / "users" / int("userId") / "comments" / int("commentId"))
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (userId, commentId) =>
+                  s"path(users, $userId, comments, $commentId)"
+                }
+              }
+          val boardUsersPostsCommentsReplies   =
+            Endpoint(
+              GET /
+                "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") / "replies",
+            )
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (userId, postId, commentId) =>
+                  s"path(users, $userId, posts, $postId, comments, $commentId, replies)"
+                }
+              }
+          val boardUsersPostsCommentsRepliesId =
+            Endpoint(
+              GET /
+                "users" / int("userId") / "posts" / int("postId") / "comments" / int("commentId") /
+                "replies" / int("replyId"),
+            )
+              .out[String]
+              .implement {
+                Handler.fromFunction { case (userId, postId, commentId, replyId) =>
+                  s"path(users, $userId, posts, $postId, comments, $commentId, replies, $replyId)"
+                }
+              }
+
+          val testRoutes = testEndpoint(
+            Routes(
+              broadUsers,
+              broadUsersId,
+              boardUsersPosts,
+              boardUsersPostsId,
+              boardUsersPostsComments,
+              boardUsersPostsCommentsId,
+              broadPosts,
+              broadPostsId,
+              boardPostsComments,
+              boardPostsCommentsId,
+              broadComments,
+              broadCommentsId,
+              broadUsersComments,
+              broadUsersCommentsId,
+              boardUsersPostsCommentsReplies,
+              boardUsersPostsCommentsRepliesId,
+            ),
+          ) _
+
+          testRoutes("/users", "path(users)") &&
+          testRoutes(s"/users/$userId", s"path(users, $userId)") &&
+          testRoutes(s"/users/$userId/posts", s"path(users, $userId, posts)") &&
+          testRoutes(s"/users/$userId/posts/$postId", s"path(users, $userId, posts, $postId)") &&
+          testRoutes(s"/users/$userId/posts/$postId/comments", s"path(users, $userId, posts, $postId, comments)") &&
+          testRoutes(
+            s"/users/$userId/posts/$postId/comments/$commentId",
+            s"path(users, $userId, posts, $postId, comments, $commentId)",
+          ) &&
+          testRoutes(s"/posts", "path(posts)") &&
+          testRoutes(s"/posts/$postId", s"path(posts, $postId)") &&
+          testRoutes(s"/posts/$postId/comments", s"path(posts, $postId, comments)") &&
+          testRoutes(s"/posts/$postId/comments/$commentId", s"path(posts, $postId, comments, $commentId)") &&
+          testRoutes("/comments", "path(comments)") &&
+          testRoutes(s"/comments/$commentId", s"path(comments, $commentId)") &&
+          testRoutes(s"/users/$userId/comments", s"path(users, $userId, comments)") &&
+          testRoutes(s"/users/$userId/comments/$commentId", s"path(users, $userId, comments, $commentId)") &&
+          testRoutes(
+            s"/users/$userId/posts/$postId/comments/$commentId/replies",
+            s"path(users, $userId, posts, $postId, comments, $commentId, replies)",
+          ) &&
+          testRoutes(
+            s"/users/$userId/posts/$postId/comments/$commentId/replies/$replyId",
+            s"path(users, $userId, posts, $postId, comments, $commentId, replies, $replyId)",
+          )
         }
       },
       test("composite in codecs") {
@@ -537,7 +534,7 @@ object EndpointSpec extends ZIOHttpSpec {
       },
       suite("request bodies")(
         test("simple input") {
-          check(Gen.string, Gen.int(1, Int.MaxValue)) { (postValue, postId) =>
+          check(Gen.string, Gen.int) { (postValue, postId) =>
             implicit val newPostSchema: Schema[NewPost]         = DeriveSchema.gen[NewPost]
             implicit val postCreatedSchema: Schema[PostCreated] = DeriveSchema.gen[PostCreated]
 
@@ -566,7 +563,7 @@ object EndpointSpec extends ZIOHttpSpec {
           }
         },
         test("bad request for failed codec") {
-          check(Gen.string, Gen.int(1, Int.MaxValue)) { (postValue, postId) =>
+          check(Gen.string, Gen.int) { (postValue, postId) =>
             implicit val newPostSchema: Schema[NewPost] = DeriveSchema.gen[NewPost]
 
             val endpoint =
@@ -590,7 +587,7 @@ object EndpointSpec extends ZIOHttpSpec {
       ),
       suite("404")(
         test("on wrong path") {
-          check(Gen.int(1, Int.MaxValue)) { userId =>
+          check(Gen.int) { userId =>
             val testRoutes = test404(
               Routes(
                 Endpoint(GET / "users" / int("userId"))
@@ -615,7 +612,7 @@ object EndpointSpec extends ZIOHttpSpec {
           }
         },
         test("on wrong method") {
-          check(Gen.int(1, Int.MaxValue), Gen.int(1, Int.MaxValue), Gen.alphaNumericString) { (userId, postId, name) =>
+          check(Gen.int, Gen.int, Gen.alphaNumericString) { (userId, postId, name) =>
             val testRoutes = test404(
               Routes(
                 Endpoint(GET / "users" / int("userId"))
@@ -642,7 +639,7 @@ object EndpointSpec extends ZIOHttpSpec {
       ),
       suite("custom error")(
         test("simple custom error response") {
-          check(Gen.int(1, Int.MaxValue), Gen.int) { (userId, customCode) =>
+          check(Gen.int, Gen.int) { (userId, customCode) =>
             val routes  =
               Endpoint(GET / "users" / int("userId"))
                 .out[String]
@@ -665,7 +662,7 @@ object EndpointSpec extends ZIOHttpSpec {
           }
         },
         test("status depending on the error subtype") {
-          check(Gen.int(1, 1000), Gen.int(1001, Int.MaxValue)) { (myUserId, invalidUserId) =>
+          check(Gen.int(Int.MinValue, 1000), Gen.int(1001, Int.MaxValue)) { (myUserId, invalidUserId) =>
             val routes =
               Endpoint(GET / "users" / int("userId"))
                 .out[String]
