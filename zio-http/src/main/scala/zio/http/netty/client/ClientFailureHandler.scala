@@ -17,8 +17,15 @@ final class ClientFailureHandler(
   implicit private val unsafeClass: Unsafe = Unsafe.unsafe
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
-    rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
-      onResponse.fail(cause) *> onComplete.fail(cause),
-    )(unsafeClass, trace)
+  cause match {
+    case _: io.netty.handler.timeout.ReadTimeoutException =>
+      // Handle the ReadTimeoutException appropriately. For example:
+      // Again, I'm leaving it to just silently swallow the exception here.
+      // Add specific logging or handling if required.
+    case _ =>
+      rtm.runUninterruptible(ctx, NettyRuntime.noopEnsuring)(
+        onResponse.fail(cause) *> onComplete.fail(cause),
+      )(unsafeClass, trace)
   }
 }
+
