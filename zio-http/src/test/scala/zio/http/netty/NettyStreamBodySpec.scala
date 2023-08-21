@@ -2,7 +2,8 @@ package zio.http.netty
 
 import zio._
 import zio.test.TestAspect.withLiveClock
-import zio.test.{Spec, TestEnvironment, assertTrue}
+import zio.test.{Spec, TestEnvironment, assert}
+import zio.test.Assertion._
 
 import zio.stream.{ZStream, ZStreamAspect}
 
@@ -90,18 +91,19 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           secondResponse           <- makeRequest(client, port)
           secondResponseBody       <- secondResponse.body.asStream.chunks.map(_.asString).runCollect
           firstResponseBody        <- firstResponseBodyReceive.join
-        } yield {
-          assertTrue(
-            firstResponse.status == Status.Ok,
-            firstResponse.headers.get(Header.ContentLength).isEmpty,
-            firstResponse.headers.get(Header.TransferEncoding) == Some(Header.TransferEncoding.Chunked),
-            firstResponseBody.reduce(_ + _) == message,
-            secondResponse.status == Status.Ok,
-            secondResponse.headers.get(Header.ContentLength).isEmpty,
-            secondResponse.headers.get(Header.TransferEncoding) == Some(Header.TransferEncoding.Chunked),
-            secondResponseBody == Chunk(message, ""),
-          )
-        }
+
+          assertFirst = 
+            assert(firstResponse.status)(equalTo(Status.Ok)) &&
+            assert(firstResponse.headers.get(Header.ContentLength))(isNone) &&
+            assert(firstResponse.headers.get(Header.TransferEncoding))(isSome(equalTo(Header.TransferEncoding.Chunked))) &&
+            assert(firstResponseBody.reduce(_ + _))(equalTo(message))
+
+          assertSecond = 
+            assert(secondResponse.status)(equalTo(Status.Ok)) &&
+            assert(secondResponse.headers.get(Header.ContentLength))(isNone) &&
+            assert(secondResponse.headers.get(Header.TransferEncoding))(isSome(equalTo(Header.TransferEncoding.Chunked))) &&
+            assert(secondResponseBody)(equalTo(Chunk(message, "")))
+        } yield assertFirst  && assertSecond
       },
     ).provide(
       singleConnectionClient,
