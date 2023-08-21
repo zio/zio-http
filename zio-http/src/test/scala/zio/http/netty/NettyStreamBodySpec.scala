@@ -92,18 +92,22 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           secondResponseBody       <- secondResponse.body.asStream.chunks.map(_.asString).runCollect
           firstResponseBody        <- firstResponseBodyReceive.join
 
-          assertFirst = 
+          assertFirst =
             assert(firstResponse.status)(equalTo(Status.Ok)) &&
-            assert(firstResponse.headers.get(Header.ContentLength))(isNone) &&
-            assert(firstResponse.headers.get(Header.TransferEncoding))(isSome(equalTo(Header.TransferEncoding.Chunked))) &&
-            assert(firstResponseBody.reduce(_ + _))(equalTo(message))
+              assert(firstResponse.headers.get(Header.ContentLength))(isNone) &&
+              assert(firstResponse.headers.get(Header.TransferEncoding))(
+                isSome(equalTo(Header.TransferEncoding.Chunked)),
+              ) &&
+              assert(firstResponseBody.reduce(_ + _))(equalTo(message))
 
-          assertSecond = 
+          assertSecond =
             assert(secondResponse.status)(equalTo(Status.Ok)) &&
-            assert(secondResponse.headers.get(Header.ContentLength))(isNone) &&
-            assert(secondResponse.headers.get(Header.TransferEncoding))(isSome(equalTo(Header.TransferEncoding.Chunked))) &&
-            assert(secondResponseBody)(equalTo(Chunk(message, "")))
-        } yield assertFirst  && assertSecond
+              assert(secondResponse.headers.get(Header.ContentLength))(isNone) &&
+              assert(secondResponse.headers.get(Header.TransferEncoding))(
+                isSome(equalTo(Header.TransferEncoding.Chunked)),
+              ) &&
+              assert(secondResponseBody)(equalTo(Chunk(message, "")))
+        } yield assertFirst && assertSecond
       },
     ).provide(
       singleConnectionClient,
