@@ -1,7 +1,6 @@
 import sbt._
 import sbt.Keys.scalaVersion
 
-// s
 object Dependencies {
   val JwtCoreVersion                = "9.1.1"
   val NettyVersion                  = "4.1.93.Final"
