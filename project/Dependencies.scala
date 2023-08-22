@@ -3,10 +3,10 @@ import sbt.Keys.scalaVersion
 
 object Dependencies {
   val JwtCoreVersion                = "9.1.1"
-  val NettyVersion                  = "4.1.94.Final"
+  val NettyVersion                  = "4.1.93.Final"
   val NettyIncubatorVersion         = "0.0.20.Final"
   val ScalaCompactCollectionVersion = "2.11.0"
-  val ZioVersion                    = "2.0.15+81-32928b56-SNAPSHOT"
+  val ZioVersion                    = "2.0.16"
   val ZioCliVersion                 = "0.5.0"
   val ZioSchemaVersion              = "0.4.13"
   val SttpVersion                   = "3.3.18"
