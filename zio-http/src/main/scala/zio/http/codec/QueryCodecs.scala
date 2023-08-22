@@ -41,4 +41,9 @@ private[codec] trait QueryCodecs {
   def paramAs[A](name: String)(implicit codec: TextCodec[A]): QueryCodec[A] =
     HttpCodec.Query(name, codec)
 
+  implicit class QueryCodecOps[A](queryCodec: QueryCodec[A]) {
+    def recover(f: HttpCodecError => Either[String, A]): QueryCodec[A] =
+      queryCodec.transformOrFailLeft(f, identity)
+  }
+
 }
