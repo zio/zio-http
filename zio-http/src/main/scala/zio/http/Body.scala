@@ -357,7 +357,7 @@ object Body {
 
     override def asStream(implicit trace: Trace): ZStream[Any, Throwable, Byte] = stream
 
-    override def contentType(newMediaType: MediaType): Body = contentType(newMediaType)
+    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
 
     override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
       copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
