@@ -148,6 +148,7 @@ object SegmentCodec          {
         val SegmentCodec = segments(index)
         var i            = 0
         var defined      = true
+        if (SegmentCodec.length > 1 && SegmentCodec.charAt(0) == '-') i += 1
         while (i < SegmentCodec.length) {
           if (!SegmentCodec.charAt(i).isDigit) {
             defined = false
@@ -170,6 +171,7 @@ object SegmentCodec          {
         val SegmentCodec = segments(index)
         var i            = 0
         var defined      = true
+        if (SegmentCodec.length > 1 && SegmentCodec.charAt(0) == '-') i += 1
         while (i < SegmentCodec.length) {
           if (!SegmentCodec.charAt(i).isDigit) {
             defined = false
