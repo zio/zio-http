@@ -30,6 +30,8 @@ import zio.http._
 import zio.http.codec.{HttpCodec, _}
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 
+import scala.meta.doc._
+
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
  * protocol. Every `API` has an input, which comes from a combination of the
@@ -46,6 +48,14 @@ import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
  * to generate a type-safe Scala client for the endpoint, and possibly, to
  * generate client libraries in other programming languages.
  */
+
+final case class Endpoint[R, E](route: Route[R, E]) {
+
+  lazy val doc = doc"""
+    It takes a `Route` and returns a `HttpApp`.
+  """
+}
+
 final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
   route: RoutePattern[PathInput],
   input: HttpCodec[HttpCodecType.RequestType, Input],
