@@ -49,13 +49,6 @@ import scala.meta.doc._
  * generate client libraries in other programming languages.
  */
 
-final case class Endpoint[R, E](route: Route[R, E]) {
-
-  lazy val doc = doc"""
-    It takes a `Route` and returns a `HttpApp`.
-  """
-}
-
 final case class Endpoint[PathInput, Input, Err, Output, Middleware <: EndpointMiddleware](
   route: RoutePattern[PathInput],
   input: HttpCodec[HttpCodecType.RequestType, Input],
@@ -706,6 +699,10 @@ object Endpoint {
       val codec = HttpCodec.enumeration(codec1, codec2, codec3, codec4, codec5, codec6, codec7, codec8)
       self.copy[PathInput, Input, alt.Out, Output, Middleware](error = self.error | codec)
     }
+  }
+
+  implicit val doc: Doc[HttpApp[Any]] = Doc.fromFunction { app =>
+    s"HttpApp[Any] with routes: ${app.routes.map(_.toString).mkString(", ")}"
   }
 
   private[endpoint] val defaultMediaTypes =
