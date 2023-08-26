@@ -47,7 +47,7 @@ Response.json("""{"greetings": "Hello World!"}""")
 
 `html` creates a response with data as html, content-type header set to text/html and status code 200
 ```scala mdoc
-import zio.http.html._
+import zio.http.template._
 
 Response.html(Html.fromString("html text"))
 ```
