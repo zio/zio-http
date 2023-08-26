@@ -18,7 +18,7 @@ package zio.http.codec
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
-import zio.http.html
+import zio.http.template
 
 /**
  * A `Doc` models documentation for an endpoint or input.
@@ -117,8 +117,8 @@ sealed trait Doc { self =>
     writer.toString()
   }
 
-  def toHtml: html.Html = {
-    import html._
+  def toHtml: template.Html = {
+    import template._
 
     self match {
       case Doc.Empty                      =>
@@ -347,8 +347,8 @@ object Doc {
         case Span.Sequence(left, right) => left.size + right.size
       }
 
-    def toHtml: html.Html = {
-      import html._
+    def toHtml: template.Html = {
+      import template._
 
       self match {
         case Span.Text(value)           => value

@@ -25,7 +25,7 @@ import zio.{Cause, Task, Trace, ZIO}
 
 import zio.stream.ZStream
 
-import zio.http.html.Html
+import zio.http.template.Html
 import zio.http.internal.HeaderOps
 
 final case class Response(

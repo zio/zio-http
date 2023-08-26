@@ -26,7 +26,7 @@ import zio.{Chunk, Scope, ZIO, ZLayer, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
-import zio.http.html.{body, div, id}
+import zio.http.template.{body, div, id}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
 
 object ServerSpec extends HttpRunnableSpec {
@@ -367,7 +367,7 @@ object ServerSpec extends HttpRunnableSpec {
       test("body") {
         val res =
           Handler
-            .html(zio.http.html.html(body(div(id := "foo", "bar"))))
+            .html(zio.http.template.html(body(div(id := "foo", "bar"))))
             .sandbox
             .toHttpApp
             .deploy
@@ -377,7 +377,7 @@ object ServerSpec extends HttpRunnableSpec {
         assertZIO(res)(equalTo("""<!DOCTYPE html><html><body><div id="foo">bar</div></body></html>"""))
       },
       test("content-type") {
-        val app = Handler.html(zio.http.html.html(body(div(id := "foo", "bar")))).sandbox.toHttpApp
+        val app = Handler.html(zio.http.template.html(body(div(id := "foo", "bar")))).sandbox.toHttpApp
         val res = app.deploy.header(Header.ContentType).run()
         assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.html))))
       },
