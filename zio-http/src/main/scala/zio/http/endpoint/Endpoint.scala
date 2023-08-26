@@ -30,8 +30,6 @@ import zio.http._
 import zio.http.codec.{HttpCodec, _}
 import zio.http.endpoint.Endpoint.{OutErrors, defaultMediaTypes}
 
-import scala.meta.doc._
-
 /**
  * An [[zio.http.endpoint.Endpoint]] represents an API endpoint for the HTTP
  * protocol. Every `API` has an input, which comes from a combination of the
@@ -701,7 +699,7 @@ object Endpoint {
     }
   }
 
-  implicit val doc: Doc[HttpApp[Any]] = Doc.fromFunction { app =>
+  implicit val doc: Doc = Doc.fromFunction { app =>
     s"HttpApp[Any] with routes: ${app.routes.map(_.toString).mkString(", ")}"
   }
 
