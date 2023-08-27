@@ -19,10 +19,10 @@ package zio.http
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 
+import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio._
 
 import zio.stream.{ZPipeline, ZStream}
 
