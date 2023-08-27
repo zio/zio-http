@@ -16,10 +16,10 @@
 
 package zio.http
 
+import zio._
 import zio.test.Assertion.equalTo
 import zio.test.TestAspect.{timeout, withLiveClock}
 import zio.test.{Gen, TestEnvironment, assertTrue, assertZIO, checkAll}
-import zio.{Exit, Scope, ZIO, durationInt}
 
 import zio.http.Header.AccessControlAllowMethods
 import zio.http.Middleware.{CorsConfig, cors}
@@ -101,12 +101,12 @@ object StaticServerSpec extends HttpRunnableSpec {
         .as(
           List(staticAppSpec, nonZIOSpec, throwableAppSpec, multiHeadersSpec),
         )
-    }.provideSomeShared[TestEnvironment](
-      DynamicServer.live,
-      severTestLayer,
-      testClientLayer,
-      Scope.default,
-    ) @@ timeout(30 seconds) @@ withLiveClock
+    }.provideSome[DynamicServer & Server.Config & Server & Client](Scope.default)
+      .provideShared(
+        DynamicServer.live,
+        severTestLayer,
+        testClientLayer,
+      ) @@ timeout(30 seconds) @@ withLiveClock
 
   def staticAppSpec    =
     suite("StaticAppSpec")(
