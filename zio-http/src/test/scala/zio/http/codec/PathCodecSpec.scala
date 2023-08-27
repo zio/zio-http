@@ -59,8 +59,8 @@ object PathCodecSpec extends ZIOHttpSpec {
               SegmentCodec.literal("posts") /
               SegmentCodec
                 .string("post-id")
-                .transformOrFailLeft(
-                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString))
+                .transformOrFailLeft(s =>
+                  Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
                 )(_.value)
           assertTrue(codec.segments.length == 5)
         },
@@ -106,8 +106,8 @@ object PathCodecSpec extends ZIOHttpSpec {
               SegmentCodec.literal("posts") /
               SegmentCodec
                 .string("post-id")
-                .transformOrFailLeft(
-                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString))
+                .transformOrFailLeft(s =>
+                  Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
                 )(_.value)
           assertTrue(
             codec.decode(Path("/users/1/posts/456")) == Right((UserId(1), PostId("456"))),
@@ -156,8 +156,8 @@ object PathCodecSpec extends ZIOHttpSpec {
               SegmentCodec.literal("posts") /
               SegmentCodec
                 .string("post-id")
-                .transformOrFailLeft(
-                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString))
+                .transformOrFailLeft(s =>
+                  Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
                 )(_.value)
 
           assertTrue(
