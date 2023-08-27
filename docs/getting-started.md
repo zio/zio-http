@@ -11,8 +11,8 @@ The first step when using ZIO HTTP is creating an HTTP app.
 
 ## Http and Handler
 
-`Handler` describes the transformation from an incoming `Request` to an outgoing `Response` type. The `Http` 
-type on top if this  provides input-dependent routing to different `Handler` values. There are some default 
+`Handler` describes the transformation from an incoming `Request` to an outgoing `Response` type. The `HttpApp` 
+type on top of this  provides input-dependent routing to different `Handler` values. There are some default 
 handler constructors such as `Handler.text`, `Handler.html`, `Handler.fromFile`, `Handler.fromData`, `Handler.fromStream`, `Handler.fromEffect`.
 
 A `Handler` can always be transformed to a `HttpApp` value using the `.toHttpApp` method, in which case the 
@@ -20,7 +20,7 @@ HTTP application will handle all routes.
 
 ### Creating a "_Hello World_" app
 
-Creating an HTTP app using ZIO Http is as simple as given below, this app will always respond with "Hello World!"
+Creating an HTTP app using ZIO HTTP is as simple as given below, this app will always respond with "Hello World!"
 
 ```scala mdoc:silent
 import zio.http._
@@ -28,7 +28,7 @@ import zio.http._
 val app = Handler.text("Hello World!").toHttpApp
 ```
 
-An application can be made using any of the available operators on `zio.Http`. In the above program for any Http request, the response is always `"Hello World!"`.
+An application can be made using any of the available operators on `HttpApp`. In the above program for any Http request, the response is always `"Hello World!"`.
 
 ### Routing
 
@@ -186,10 +186,10 @@ object HelloWorld extends ZIOAppDefault {
 
 ## Examples
 
-- [HTTP Server](https://zio.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/http_server)
-- [Advanced Server](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/advanced_server)
-- [WebSocket Server](https://zio.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/web-socket)
-- [Streaming Response](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-response)
-- [HTTP Client](https://zio.github.io/zio-http/docs/v1.x/examples/zio-http-basic-examples/http_client)
-- [File Streaming](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/stream-file)
-- [Authentication](https://zio.github.io/zio-http/docs/v1.x/examples/advanced-examples/authentication)
+- [HTTP Server](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/HelloWorld.scala)
+- [WebSocket Server](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/WebSocketEcho.scala)
+- [Streaming Response](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/RequestStreaming.scala)
+- [HTTP Client](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/HttpsClient.scala)
+- [File Streaming](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/FileStreaming.scala)
+- [Authentication](https://github.com/zio/zio-http/blob/main/zio-http-example/src/main/scala/example/AuthenticationServer.scala)
+- [All examples](https://github.com/zio/zio-http/tree/main/zio-http-example/src/main/scala/example)
