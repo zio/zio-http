@@ -55,15 +55,13 @@ object PathCodecSpec extends ZIOHttpSpec {
         test("transformed") {
           val codec =
             PathCodec.path("/users") /
-              SegmentCodec.int("user-id").transform(UserId.apply, (uid: UserId) => uid.value) /
+              SegmentCodec.int("user-id").transform(UserId.apply)(_.value) /
               SegmentCodec.literal("posts") /
               SegmentCodec
                 .string("post-id")
                 .transformOrFailLeft(
-                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
-                  (pid: PostId) => pid.value,
-                )
-
+                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString))
+                )(_.value)
           assertTrue(codec.segments.length == 5)
         },
       ),
@@ -104,15 +102,13 @@ object PathCodecSpec extends ZIOHttpSpec {
         test("transformed") {
           val codec =
             PathCodec.path("/users") /
-              SegmentCodec.int("user-id").transform(UserId.apply, (uid: UserId) => uid.value) /
+              SegmentCodec.int("user-id").transform(UserId.apply)(_.value) /
               SegmentCodec.literal("posts") /
               SegmentCodec
                 .string("post-id")
                 .transformOrFailLeft(
-                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
-                  (pid: PostId) => pid.value,
-                )
-
+                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString))
+                )(_.value)
           assertTrue(
             codec.decode(Path("/users/1/posts/456")) == Right((UserId(1), PostId("456"))),
             codec.decode(Path("/users/1/posts/abc")) == Left("Not a number"),
@@ -156,14 +152,13 @@ object PathCodecSpec extends ZIOHttpSpec {
         test("transformed") {
           val codec =
             PathCodec.path("/users") /
-              SegmentCodec.int("user-id").transform(UserId.apply, (uid: UserId) => uid.value) /
+              SegmentCodec.int("user-id").transform(UserId.apply)(_.value) /
               SegmentCodec.literal("posts") /
               SegmentCodec
                 .string("post-id")
                 .transformOrFailLeft(
-                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString)),
-                  (pid: PostId) => pid.value,
-                )
+                  s => Try(s.toInt).toEither.left.map(_ => "Not a number").map(n => PostId(n.toString))
+                )(_.value)
 
           assertTrue(
             codec.render == "/users/{user-id}/posts/{post-id}",
