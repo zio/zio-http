@@ -168,7 +168,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       },
     )
 
-  def connectionPoolSpec: Spec[Scope, Throwable] =
+  def connectionPoolSpec: Spec[Any, Throwable] =
     suite("ConnectionPool")(
       suite("fixed")(
         connectionPoolTests(
@@ -211,7 +211,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             "with keep-alive"    -> keepAliveHeader,
           ),
         ),
-      ).provideSome[Scope](
+      ).provideSome(
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         severTestLayer,
@@ -220,6 +220,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         NettyClientDriver.live,
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.default),
+        Scope.default,
       ),
     )
 
