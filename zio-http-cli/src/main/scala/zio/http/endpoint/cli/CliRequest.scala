@@ -54,7 +54,7 @@ private[cli] final case class CliRequest(
     }
     for {
 
-      forms     <- ZIO.foreach(body)(_.retrieve()).provideSome(clientLayer)
+      forms     <- ZIO.foreach(body)(_.retrieve()).provide(clientLayer)
       finalBody <- Body.fromMultipartFormUUID(Form(forms))
     } yield Request(method = method, url = url.host(host).port(port), body = finalBody, headers = headers)
   }

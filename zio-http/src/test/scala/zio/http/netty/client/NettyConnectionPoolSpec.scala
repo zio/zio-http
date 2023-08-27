@@ -211,7 +211,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             "with keep-alive"    -> keepAliveHeader,
           ),
         ),
-      ).provideSome(
+      ).provide(
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         severTestLayer,
