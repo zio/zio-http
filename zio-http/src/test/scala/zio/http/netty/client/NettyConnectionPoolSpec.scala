@@ -185,7 +185,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
             "with keep-alive"    -> keepAliveHeader,
           ),
         ),
-      ).provideSome[Scope](
+      ).provide(
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
         severTestLayer,
@@ -194,6 +194,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
         NettyClientDriver.live,
         DnsResolver.default,
         ZLayer.succeed(NettyConfig.default),
+        Scope.default,
       ),
       suite("dynamic")(
         connectionPoolTests(
