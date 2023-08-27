@@ -25,7 +25,7 @@ import zio.stream.ZStream
 
 import zio.http._
 import zio.http.codec.PathCodec.trailing
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
 
 object NettyConnectionPoolSpec extends HttpRunnableSpec {
@@ -188,7 +188,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       ).provide(
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
-        severTestLayer,
+        serverTestLayer,
         Client.customized,
         ZLayer.succeed(ZClient.Config.default.fixedConnectionPool(2)),
         NettyClientDriver.live,
@@ -214,7 +214,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
       ).provide(
         ZLayer(appKeepAliveEnabled.unit),
         DynamicServer.live,
-        severTestLayer,
+        serverTestLayer,
         Client.customized,
         ZLayer.succeed(ZClient.Config.default.dynamicConnectionPool(4, 16, 100.millis)),
         NettyClientDriver.live,

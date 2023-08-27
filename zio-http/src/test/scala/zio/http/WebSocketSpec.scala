@@ -23,7 +23,7 @@ import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 
 object WebSocketSpec extends HttpRunnableSpec {
 
@@ -213,7 +213,7 @@ object WebSocketSpec extends HttpRunnableSpec {
       serve.as(List(websocketSpec))
     }
   }
-    .provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
+    .provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@
     timeout(30 seconds) @@ diagnose(30.seconds) @@ withLiveClock @@ sequential
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
