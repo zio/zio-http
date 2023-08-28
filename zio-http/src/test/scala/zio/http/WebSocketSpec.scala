@@ -209,9 +209,7 @@ object WebSocketSpec extends HttpRunnableSpec {
   )
 
   override def spec = suite("Server") {
-    ZIO.scoped {
-      serve.as(List(websocketSpec))
-    }
+    serve.as(List(websocketSpec))
   }
     .provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@
     timeout(30 seconds) @@ diagnose(30.seconds) @@ withLiveClock @@ sequential
