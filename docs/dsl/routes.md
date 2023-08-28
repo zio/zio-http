@@ -138,7 +138,7 @@ Before you do this, you must first handle any typed errors produced by your rout
 
 Handling your errors ensures that the clients of your API will not encounter strange and unexpected responses, but will always be able to usefully interact with your web service, even in exceptional cases.
 
-If you wish to convert your errors into `InternalServerError`, without leaking any details on the specific nature of the errors, you can use `Routes#ignore`, and after dealing with your errors in this way, you can convert your routes into an HTTP application.
+If you wish to convert your failures automatically into suitable responses, without leaking any details on the specific nature of the errors, you can use `Routes#sandbox`, and after dealing with your errors in this way, you can convert your routes into an HTTP application.
 
 ## Running an App
 
