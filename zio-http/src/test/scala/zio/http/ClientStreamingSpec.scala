@@ -166,7 +166,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             )
           }
         } yield result
-      } @@ timeout(5.minutes) @@ samples(50) @@ TestAspect.ifEnvNotSet("CI"), // NOTE: random hangs on CI
+      } @@ timeout(5.minutes) @@ samples(50),
       test("decoding random pre-encoded form") {
         for {
           port   <- server(streamingServer)
@@ -199,7 +199,7 @@ object ClientStreamingSpec extends HttpRunnableSpec {
             )
           }
         } yield result
-      } @@ timeout(5.minutes) @@ samples(50) @@ TestAspect.ifEnvNotSet("CI"), // NOTE: random hangs on CI
+      } @@ timeout(5.minutes) @@ samples(50),
       test("decoding large form with random chunk and buffer sizes") {
         val N = 1024 * 1024
         for {
