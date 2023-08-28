@@ -130,6 +130,6 @@ object SSLSpec extends ZIOHttpSpec {
       ),
   ).provideShared(
     Server.default,
-  ) @@ ignore
+  )
 
 }
