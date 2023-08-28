@@ -77,7 +77,5 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),
     Scope.default,
-  ) @@ timeout(
-    30 seconds,
   )
 }

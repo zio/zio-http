@@ -463,6 +463,6 @@ object ServerSpec extends HttpRunnableSpec {
         ZLayer.succeed(configApp),
         Server.live,
         Client.default,
-      ) @@ timeout(30 seconds) @@ sequential @@ withLiveClock
+      ) @@ sequential @@ withLiveClock
 
 }

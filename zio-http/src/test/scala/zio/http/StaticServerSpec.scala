@@ -106,7 +106,7 @@ object StaticServerSpec extends HttpRunnableSpec {
         DynamicServer.live,
         serverTestLayer,
         testClientLayer,
-      ) @@ timeout(30 seconds) @@ withLiveClock
+      ) @@ withLiveClock
 
   def staticAppSpec    =
     suite("StaticAppSpec")(

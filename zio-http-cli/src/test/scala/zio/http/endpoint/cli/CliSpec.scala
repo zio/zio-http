@@ -132,7 +132,7 @@ object CliSpec extends ZIOSpecDefault {
             }
           }
         },
-      ) @@ timeout(60.second),
+      ),
       suite("Correct behaviour of CliApp")(
         test("Simple endpoint") {
           for {

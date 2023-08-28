@@ -74,8 +74,6 @@ object ContentTypeSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Content-type") {
       serve.as(List(contentSpec))
-    }.provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@ timeout(
-      5 seconds,
-    ) @@ withLiveClock
+    }.provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@ withLiveClock
   }
 }

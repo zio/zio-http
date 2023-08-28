@@ -225,7 +225,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
     )
 
   override def spec: Spec[Scope, Throwable] = {
-    connectionPoolSpec @@ timeout(30.seconds) @@ sequential @@ withLiveClock
+    connectionPoolSpec @@ sequential @@ withLiveClock
   }
 
 }

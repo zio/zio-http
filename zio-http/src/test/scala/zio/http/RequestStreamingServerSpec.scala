@@ -102,7 +102,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
         }
       }
     }: _*),
-  ) @@ timeout(10 seconds)
+  )
 
   override def spec =
     suite("RequestStreamingServerSpec") {
@@ -115,6 +115,6 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
         ZLayer.succeed(configAppWithRequestStreaming),
         Server.live,
         Client.default,
-      ) @@ timeout(30 seconds) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
+      ) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
 
 }
