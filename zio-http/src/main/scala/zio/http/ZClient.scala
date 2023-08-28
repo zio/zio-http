@@ -523,7 +523,6 @@ object ZClient {
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
-    shutdownQuietPeriod: Duration,
   ) {
     self =>
 
@@ -611,7 +610,6 @@ object ZClient {
       webSocketConfig = WebSocketConfig.default,
       idleTimeout = Some(50.seconds),
       connectionTimeout = None,
-      shutdownQuietPeriod = 100.milliseconds,
     )
   }
 
