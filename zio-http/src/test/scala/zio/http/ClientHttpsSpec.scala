@@ -61,7 +61,7 @@ object ClientHttpsSpec extends ZIOHttpSpec {
         )
         .map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
-    },
+    } @@ ignore,
     test("should throw DecoderException for handshake failure") {
       val actual = Client
         .request(
@@ -79,5 +79,5 @@ object ClientHttpsSpec extends ZIOHttpSpec {
     Scope.default,
   ) @@ timeout(
     30 seconds,
-  ) @@ ignore
+  )
 }
