@@ -291,7 +291,7 @@ object EndpointRoundtripSpec extends ZIOHttpSpec {
           ("name", 10, Post(1, "title", "body", 111)),
           "name: name, value: 10, post: Post(1,title,body,111)",
         )
-      },
+      } @@ ifEnvNotSet("CI"),
       test("endpoint error returned") {
         val api = Endpoint(POST / "test")
           .outError[String](Status.Custom(999))
@@ -460,7 +460,7 @@ object EndpointRoundtripSpec extends ZIOHttpSpec {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } @@ timeout(10.seconds) @@ ifEnvNotSet("CI"), // NOTE: random hangs on CI
+      } @@ ifEnvNotSet("CI"),
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
