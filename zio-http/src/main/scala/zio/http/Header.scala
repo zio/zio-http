@@ -884,7 +884,7 @@ object Header {
     val PUT: Allow     = Allow(NonEmptyChunk.single(Method.PUT))
     val PATCH: Allow   = Allow(NonEmptyChunk.single(Method.PATCH))
     val DELETE: Allow  = Allow(NonEmptyChunk.single(Method.DELETE))
-     : Allow   = Allow(NonEmptyChunk.single(Method.TRACE))
+    val TRACE: Allow   = Allow(NonEmptyChunk.single(Method.TRACE))
     val CONNECT: Allow = Allow(NonEmptyChunk.single(Method.CONNECT))
 
     def parse(value: String): Either[String, Allow] = {
