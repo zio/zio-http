@@ -16,16 +16,20 @@
 
 package zio.http.netty
 
-import zio.Config
-import zio.stacktracer.TracingImplicits.disableAutoTrace
+import java.util.concurrent.TimeUnit
+
+import zio.{Config, Duration}
 
 import zio.http.netty.NettyConfig.LeakDetectionLevel
 
 import io.netty.util.ResourceLeakDetector
+
 final case class NettyConfig(
   leakDetectionLevel: LeakDetectionLevel,
   channelType: ChannelType,
   nThreads: Int,
+  shutdownQuietPeriodDuration: Duration,
+  shutdownTimeoutDuration: Duration,
 ) extends EventLoopGroups.Config { self =>
 
   def channelType(channelType: ChannelType): NettyConfig = self.copy(channelType = channelType)
@@ -41,6 +45,10 @@ final case class NettyConfig(
    */
   def maxThreads(nThreads: Int): NettyConfig = self.copy(nThreads = nThreads)
 
+  val shutdownTimeUnit: TimeUnit = TimeUnit.MILLISECONDS
+
+  val shutdownQuietPeriod: Long = shutdownQuietPeriodDuration.toMillis
+  val shutdownTimeOut: Long     = shutdownTimeoutDuration.toMillis
 }
 
 object NettyConfig {
@@ -57,15 +65,25 @@ object NettyConfig {
           case other    => Left(Config.Error.InvalidData(message = s"Invalid channel type: $other"))
         }
         .withDefault(NettyConfig.default.channelType) ++
-      Config.int("max-threads").withDefault(NettyConfig.default.nThreads)).map {
-      case (leakDetectionLevel, channelType, maxThreads) =>
-        NettyConfig(leakDetectionLevel, channelType, maxThreads)
+      Config.int("max-threads").withDefault(NettyConfig.default.nThreads) ++
+      Config.duration("shutdown-quiet-period").withDefault(NettyConfig.default.shutdownQuietPeriodDuration) ++
+      Config.duration("shutdown-timeout").withDefault(NettyConfig.default.shutdownTimeoutDuration)).map {
+      case (leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout) =>
+        NettyConfig(leakDetectionLevel, channelType, maxThreads, quietPeriod, timeout)
     }
 
   lazy val default: NettyConfig = NettyConfig(
     LeakDetectionLevel.SIMPLE,
     ChannelType.AUTO,
     0,
+    // Defaults taken from io.netty.util.concurrent.AbstractEventExecutor
+    Duration.fromSeconds(2),
+    Duration.fromSeconds(15),
+  )
+
+  lazy val defaultWithFastShutdown: NettyConfig = default.copy(
+    shutdownQuietPeriodDuration = Duration.fromMillis(100),
+    shutdownTimeoutDuration = Duration.fromMillis(100),
   )
 
   sealed trait LeakDetectionLevel {

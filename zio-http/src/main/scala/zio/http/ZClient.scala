@@ -268,7 +268,7 @@ object ZClient {
 
   val default: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
-    (ZLayer.succeed(Config.default) ++ ZLayer.succeed(NettyConfig.default) ++
+    (ZLayer.succeed(Config.default) ++ ZLayer.succeed(NettyConfig.defaultWithFastShutdown) ++
       DnsResolver.default) >>> live
   }
 
@@ -523,6 +523,7 @@ object ZClient {
     webSocketConfig: WebSocketConfig,
     idleTimeout: Option[Duration],
     connectionTimeout: Option[Duration],
+    shutdownQuietPeriod: Duration,
   ) {
     self =>
 
@@ -610,6 +611,7 @@ object ZClient {
       webSocketConfig = WebSocketConfig.default,
       idleTimeout = Some(50.seconds),
       connectionTimeout = None,
+      shutdownQuietPeriod = 100.milliseconds,
     )
   }
 
