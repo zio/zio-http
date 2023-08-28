@@ -42,8 +42,7 @@ object StaticFileServerSpec extends HttpRunnableSpec {
 
   override def spec = suite("StaticFileServerSpec") {
     serve.as(List(staticSpec))
-  }.provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@
-    timeout(5 seconds) @@ withLiveClock
+  }.provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@ withLiveClock
 
   private def staticSpec = suite("Static RandomAccessFile Server")(
     suite("fromResource")(

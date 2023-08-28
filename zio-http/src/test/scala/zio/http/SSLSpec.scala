@@ -130,7 +130,6 @@ object SSLSpec extends ZIOHttpSpec {
       ),
   ).provideShared(
     Server.default,
-  ) @@
-    timeout(5 second) @@ ignore
+  ) @@ ignore
 
 }

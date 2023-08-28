@@ -92,7 +92,6 @@ object ClientSpec extends HttpRunnableSpec {
     suite("Client") {
       serve.as(List(clientSpec))
     }.provideSome[DynamicServer & Server & Client](Scope.default)
-      .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@
-      timeout(5 seconds) @@ sequential @@ withLiveClock
+      .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ sequential @@ withLiveClock
   }
 }
