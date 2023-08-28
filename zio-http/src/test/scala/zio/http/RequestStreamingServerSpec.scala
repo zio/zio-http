@@ -107,7 +107,7 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
   override def spec =
     suite("RequestStreamingServerSpec") {
       suite("app with request streaming") {
-        ZIO.scoped(appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec)))
+        appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec))
       }
     }.provideSome[DynamicServer & Server.Config & Server & Client](Scope.default)
       .provideShared(
