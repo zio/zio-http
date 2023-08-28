@@ -82,8 +82,8 @@ object NettyConfig {
   )
 
   lazy val defaultWithFastShutdown: NettyConfig = default.copy(
-    shutdownQuietPeriodDuration = Duration.fromMillis(100),
-    shutdownTimeoutDuration = Duration.fromMillis(100),
+    shutdownQuietPeriodDuration = Duration.fromMillis(50),
+    shutdownTimeoutDuration = Duration.fromMillis(250),
   )
 
   sealed trait LeakDetectionLevel {
