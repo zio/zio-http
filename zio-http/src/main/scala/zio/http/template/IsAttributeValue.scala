@@ -26,15 +26,15 @@ sealed trait IsAttributeValue[-A] {
 }
 
 object IsAttributeValue {
-  implicit val instanceString = new IsAttributeValue[String] {
+  implicit val instanceString: IsAttributeValue[String] = new IsAttributeValue[String] {
     override def apply(a: String): String = a
   }
 
-  implicit val instanceList = new IsAttributeValue[Seq[String]] {
+  implicit val instanceList: IsAttributeValue[Seq[String]] = new IsAttributeValue[Seq[String]] {
     override def apply(a: Seq[String]): String = a.mkString(" ")
   }
 
-  implicit val instanceTuple2Seq = new IsAttributeValue[Seq[(String, String)]] {
+  implicit val instanceTuple2Seq: IsAttributeValue[Seq[(String, String)]] = new IsAttributeValue[Seq[(String, String)]] {
     override def apply(a: Seq[(String, String)]): String =
       a.map { case (k, v) => s"""${k}:${v}""" }.mkString(";")
   }
