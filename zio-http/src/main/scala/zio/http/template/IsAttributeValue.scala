@@ -34,8 +34,9 @@ object IsAttributeValue {
     override def apply(a: Seq[String]): String = a.mkString(" ")
   }
 
-  implicit val instanceTuple2Seq: IsAttributeValue[Seq[(String, String)]] = new IsAttributeValue[Seq[(String, String)]] {
-    override def apply(a: Seq[(String, String)]): String =
-      a.map { case (k, v) => s"""${k}:${v}""" }.mkString(";")
-  }
+  implicit val instanceTuple2Seq: IsAttributeValue[Seq[(String, String)]] =
+    new IsAttributeValue[Seq[(String, String)]] {
+      override def apply(a: Seq[(String, String)]): String =
+        a.map { case (k, v) => s"""${k}:${v}""" }.mkString(";")
+    }
 }
