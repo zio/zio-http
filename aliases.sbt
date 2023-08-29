@@ -18,7 +18,7 @@ onLoadMessage := {
       |
       |Useful sbt tasks:
       |${item("fmt")}: Prepares source files using scalafix and scalafmt.
-      |${item("sFix")}: Fixes sources files using scalafix.
+      |${item("sFix")}: Fixes source files using scalafix.
       |${item("fmtCheck")}: Checks sources by applying both scalafix and scalafmt.
       |${item("sFixCheck")}: Checks sources by applying both scalafix.
       |
