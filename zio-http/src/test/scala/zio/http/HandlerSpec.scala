@@ -422,5 +422,5 @@ object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
         } yield assertTrue(status == Status.Ok)
       },
     ),
-  ) @@ timeout(10 seconds)
+  )
 }

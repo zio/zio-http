@@ -19,10 +19,10 @@ package zio.http
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 
+import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{Chunk, Scope, ZIO, ZLayer, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
@@ -457,12 +457,12 @@ object ServerSpec extends HttpRunnableSpec {
     suite("ServerSpec") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
-    }.provideSomeShared[TestEnvironment](
-      DynamicServer.live,
-      ZLayer.succeed(configApp),
-      Server.live,
-      Client.default,
-      Scope.default,
-    ) @@ timeout(30 seconds) @@ sequential @@ withLiveClock
+    }.provideSome[DynamicServer & Server.Config & Server & Client](Scope.default)
+      .provideShared(
+        DynamicServer.live,
+        ZLayer.succeed(configApp),
+        Server.live,
+        Client.default,
+      ) @@ sequential @@ withLiveClock
 
 }

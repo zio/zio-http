@@ -381,7 +381,7 @@ object Server {
     ZLayer.succeed(Config.default) >>> live
   }
 
-  lazy val live: ZLayer[Config, Throwable, Server] = {
+  val live: ZLayer[Config, Throwable, Server] = {
     implicit val trace: Trace = Trace.empty
     NettyDriver.live >+> base
   }

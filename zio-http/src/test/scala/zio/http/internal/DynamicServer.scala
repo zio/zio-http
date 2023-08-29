@@ -70,7 +70,7 @@ object DynamicServer {
 
   def httpURL: ZIO[DynamicServer, Nothing, String] = baseURL(Scheme.HTTP)
 
-  def live: ZLayer[Any, Nothing, DynamicServer] =
+  val live: ZLayer[Any, Nothing, DynamicServer] =
     ZLayer {
       for {
         ref <- Ref.make(Map.empty[Id, HttpApp[Any]])
