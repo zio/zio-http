@@ -268,7 +268,7 @@ object ZClient {
 
   val default: ZLayer[Any, Throwable, Client] = {
     implicit val trace: Trace = Trace.empty
-    (ZLayer.succeed(Config.default) ++ ZLayer.succeed(NettyConfig.default) ++
+    (ZLayer.succeed(Config.default) ++ ZLayer.succeed(NettyConfig.defaultWithFastShutdown) ++
       DnsResolver.default) >>> live
   }
 
