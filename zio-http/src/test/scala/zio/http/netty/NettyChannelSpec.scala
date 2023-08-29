@@ -73,7 +73,7 @@ object NettyChannelSpec extends ZIOHttpSpec {
         } yield assertTrue(out == 3)
       },
     ),
-  ) @@ timeout(5 second)
+  )
 
   final class EmbeddedTestChannel[A] {
     val jChannel: EmbeddedChannel = new EmbeddedChannel()

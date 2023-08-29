@@ -25,8 +25,8 @@ import zio.{Cause, Task, Trace, ZIO}
 
 import zio.stream.ZStream
 
-import zio.http.html.Html
 import zio.http.internal.HeaderOps
+import zio.http.template.Html
 
 final case class Response(
   status: Status = Status.Ok,

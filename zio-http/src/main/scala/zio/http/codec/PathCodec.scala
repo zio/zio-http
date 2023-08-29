@@ -324,25 +324,16 @@ sealed trait PathCodec[A] { self =>
 
   override def toString(): String = render
 
-  final def transform[A2](f: A => A2, g: A2 => A): PathCodec[A2] =
+  final def transform[A2](f: A => A2)(g: A2 => A): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), output => Right(g(output)))
 
-  final def transformOrFail[A2](
-    f: A => Either[String, A2],
-    g: A2 => Either[String, A],
-  ): PathCodec[A2] =
+  final def transformOrFail[A2](f: A => Either[String, A2])(g: A2 => Either[String, A]): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, f, g)
 
-  final def transformOrFailLeft[A2](
-    f: A => Either[String, A2],
-    g: A2 => A,
-  ): PathCodec[A2] =
+  final def transformOrFailLeft[A2](f: A => Either[String, A2])(g: A2 => A): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, f, output => Right(g(output)))
 
-  final def transformOrFailRight[A2](
-    f: A => A2,
-    g: A2 => Either[String, A],
-  ): PathCodec[A2] =
+  final def transformOrFailRight[A2](f: A => A2)(g: A2 => Either[String, A]): PathCodec[A2] =
     PathCodec.TransformOrFail[A, A2](self, in => Right(f(in)), g)
 }
 object PathCodec          {

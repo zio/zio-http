@@ -14,21 +14,32 @@
  * limitations under the License.
  */
 
-package zio.http.html
+package zio.http.template
 
-private[html] sealed trait EncodingState {
-  def nextElemSeparator: String
-  def inner: EncodingState
-}
+/**
+ * A ZIO Http styled general purpose templates
+ */
+object Template {
 
-object EncodingState {
-  case object NoIndentation extends EncodingState {
-    val nextElemSeparator: String = ""
-    def inner: EncodingState      = NoIndentation
-  }
-
-  final case class Indentation(current: Int, spaces: Int) extends EncodingState {
-    lazy val nextElemSeparator: String = "\n" + (" " * (current * spaces))
-    def inner: EncodingState           = Indentation(current + 1, spaces)
+  def container(heading: CharSequence)(element: Html): Html = {
+    html(
+      head(
+        title(s"ZIO Http - ${heading}"),
+        style("""
+                | body {
+                |   font-family: monospace;
+                |   font-size: 16px;
+                |   background-color: #edede0;
+                | }
+                |""".stripMargin),
+      ),
+      body(
+        div(
+          styles := Seq("margin" -> "auto", "padding" -> "2em 4em", "max-width" -> "80%"),
+          h1(heading),
+          element,
+        ),
+      ),
+    )
   }
 }

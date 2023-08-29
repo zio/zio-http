@@ -34,6 +34,6 @@ trait Driver {
 object Driver {
   final case class StartResult(port: Int, inFlightRequests: LongAdder)
 
-  def default: ZLayer[Server.Config, Throwable, Driver] =
+  val default: ZLayer[Server.Config, Throwable, Driver] =
     NettyDriver.live
 }

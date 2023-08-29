@@ -102,18 +102,19 @@ object RequestStreamingServerSpec extends HttpRunnableSpec {
         }
       }
     }: _*),
-  ) @@ timeout(10 seconds)
+  )
 
   override def spec =
     suite("RequestStreamingServerSpec") {
       suite("app with request streaming") {
-        ZIO.scoped(appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec)))
+        appWithReqStreaming.as(List(requestBodySpec, streamingServerSpec))
       }
-    }.provideSomeShared[Scope](
-      DynamicServer.live,
-      ZLayer.succeed(configAppWithRequestStreaming),
-      Server.live,
-      Client.default,
-    ) @@ timeout(30 seconds) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
+    }.provideSome[DynamicServer & Server.Config & Server & Client](Scope.default)
+      .provideShared(
+        DynamicServer.live,
+        ZLayer.succeed(configAppWithRequestStreaming),
+        Server.live,
+        Client.default,
+      ) @@ diagnose(15.seconds) @@ sequential @@ shrinks(0) @@ withLiveClock
 
 }

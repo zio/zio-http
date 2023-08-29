@@ -14,6 +14,21 @@
  * limitations under the License.
  */
 
-package zio.http
+package zio.http.template
 
-package object html extends Attributes with Elements {}
+private[template] sealed trait EncodingState {
+  def nextElemSeparator: String
+  def inner: EncodingState
+}
+
+object EncodingState {
+  case object NoIndentation extends EncodingState {
+    val nextElemSeparator: String = ""
+    def inner: EncodingState      = NoIndentation
+  }
+
+  final case class Indentation(current: Int, spaces: Int) extends EncodingState {
+    lazy val nextElemSeparator: String = "\n" + (" " * (current * spaces))
+    def inner: EncodingState           = Indentation(current + 1, spaces)
+  }
+}
