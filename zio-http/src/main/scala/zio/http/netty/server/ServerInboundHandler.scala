@@ -43,7 +43,6 @@ private[zio] final case class ServerInboundHandler(
   appRef: AppRef,
   config: Server.Config,
   runtime: NettyRuntime,
-  time: ServerTime,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
@@ -93,7 +92,7 @@ private[zio] final case class ServerInboundHandler(
             Exit.succeed(Response.fromThrowable(throwable))
           } else
             app(req)
-        if (!attemptImmediateWrite(ctx, exit, time)) {
+        if (!attemptImmediateWrite(ctx, exit)) {
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
         } else {
           releaseRequest()
@@ -139,7 +138,6 @@ private[zio] final case class ServerInboundHandler(
   private def attemptFastWrite(
     ctx: ChannelHandlerContext,
     response: Response,
-    time: ServerTime,
   ): Boolean = {
 
     def fastEncode(response: Response, bytes: Array[Byte]) = {
@@ -165,7 +163,6 @@ private[zio] final case class ServerInboundHandler(
     ctx: ChannelHandlerContext,
     response: Response,
     jRequest: HttpRequest,
-    time: ServerTime,
   ): Option[Task[Unit]] = {
     response.body match {
       case WebsocketBody(socketApp) if response.status == Status.SwitchingProtocols =>
@@ -185,11 +182,10 @@ private[zio] final case class ServerInboundHandler(
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
     exit: ZIO[Any, Response, Response],
-    time: ServerTime,
   ): Boolean = {
     exit match {
       case Exit.Success(response) if response ne null =>
-        attemptFastWrite(ctx, response, time)
+        attemptFastWrite(ctx, response)
       case _                                          => false
     }
   }
@@ -292,7 +288,7 @@ private[zio] final case class ServerInboundHandler(
 
   private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
     val response = Response.notFound(jReq.uri())
-    attemptFastWrite(ctx, response, time)
+    attemptFastWrite(ctx, response)
   }
 
   private def writeResponse(
@@ -316,9 +312,9 @@ private[zio] final case class ServerInboundHandler(
       }.flatMap { response =>
         ZIO.attempt {
           if (response ne null) {
-            val done = attemptFastWrite(ctx, response, time)
+            val done = attemptFastWrite(ctx, response)
             if (!done)
-              attemptFullWrite(ctx, response, jReq, time)
+              attemptFullWrite(ctx, response, jReq)
             else
               None
           } else {
@@ -329,7 +325,7 @@ private[zio] final case class ServerInboundHandler(
           }
         }.flatMap(_.getOrElse(ZIO.unit)).catchSomeCause { case cause =>
           ZIO.attempt(
-            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash), time),
+            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash)),
           )
         }
       }
@@ -350,7 +346,7 @@ private[zio] final case class ServerInboundHandler(
 object ServerInboundHandler {
 
   val live: ZLayer[
-    ServerTime with Server.Config with NettyRuntime with AppRef,
+    Server.Config with NettyRuntime with AppRef,
     Nothing,
     ServerInboundHandler,
   ] = {
@@ -360,9 +356,8 @@ object ServerInboundHandler {
         appRef <- ZIO.service[AppRef]
         rtm    <- ZIO.service[NettyRuntime]
         config <- ZIO.service[Server.Config]
-        time   <- ZIO.service[ServerTime]
 
-      } yield ServerInboundHandler(appRef, config, rtm, time)
+      } yield ServerInboundHandler(appRef, config, rtm)
     }
   }
 
