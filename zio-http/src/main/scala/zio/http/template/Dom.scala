@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.html
+package zio.http.template
 
 /**
  * Light weight DOM implementation that can be rendered as a html string.
@@ -32,7 +32,7 @@ sealed trait Dom { self =>
   def encode(spaces: Int): CharSequence =
     encode(EncodingState.Indentation(0, spaces))
 
-  private[html] def encode(state: EncodingState): CharSequence = self match {
+  private[template] def encode(state: EncodingState): CharSequence = self match {
     case Dom.Element(name, children) =>
       val attributes = children.collect { case self: Dom.Attribute => self.encode }
 

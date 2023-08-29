@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.http.html
+package zio.http.template
 
 import scala.language.implicitConversions
 
@@ -28,7 +28,7 @@ sealed trait Html { self =>
   def encode(spaces: Int): CharSequence =
     encode(EncodingState.Indentation(0, spaces))
 
-  private[html] def encode(state: EncodingState): CharSequence = {
+  private[template] def encode(state: EncodingState): CharSequence = {
     self match {
       case Html.Empty                        => ""
       case Html.Single(element)              => element.encode(state)

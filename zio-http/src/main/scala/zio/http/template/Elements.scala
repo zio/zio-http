@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package zio.http.html
+package zio.http.template
 
-import zio.http.html.Element.PartialElement
+import zio.http.template.Element.PartialElement
 
 trait Elements {
   final def a: PartialElement = PartialElement("a")

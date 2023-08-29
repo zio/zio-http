@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package zio.http.html
+package zio.http.template
 
 import zio.test.{assertTrue, check, checkAll}
 
 import zio.http.ZIOHttpSpec
-import zio.http.html.HtmlGen.{tagGen, voidTagGen}
+import zio.http.template.HtmlGen.{tagGen, voidTagGen}
 
 object DomSpec extends ZIOHttpSpec {
   def spec = suite("DomSpec")(
