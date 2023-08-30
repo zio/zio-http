@@ -140,9 +140,10 @@ object ZClientAspect {
             headers: Headers,
             body: Body,
             sslConfig: Option[ClientSSLConfig],
+            proxy: Option[Proxy],
           )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] =
             oldDriver
-              .request(version, method, url, headers, body, sslConfig)
+              .request(version, method, url, headers, body, sslConfig, proxy)
               .sandbox
               .exit
               .timed
@@ -210,9 +211,10 @@ object ZClientAspect {
             headers: Headers,
             body: Body,
             sslConfig: Option[ClientSSLConfig],
+            proxy: Option[Proxy],
           )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] = {
             oldDriver
-              .request(version, method, url, headers, body, sslConfig)
+              .request(version, method, url, headers, body, sslConfig, proxy)
               .sandbox
               .exit
               .timed
