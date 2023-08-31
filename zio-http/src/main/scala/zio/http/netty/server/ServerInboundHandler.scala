@@ -175,7 +175,7 @@ private[zio] final case class ServerInboundHandler(
         if (!jResponse.isInstanceOf[FullHttpResponse]) {
           val contentLength = jResponse.headers.get(HttpHeaderNames.CONTENT_LENGTH) match {
             case null  => None
-            case value => value.toLongOption
+            case value => Some(value.toLong)
           }
           NettyBodyWriter.writeAndFlush(response.body, contentLength, ctx)
         } else
