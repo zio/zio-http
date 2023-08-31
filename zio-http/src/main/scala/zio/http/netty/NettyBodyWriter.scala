@@ -75,9 +75,10 @@ object NettyBodyWriter {
                   remaining - bytes.size match {
                     case 0L =>
                       NettyFutureExecutor.executed {
+                        // Flushes the last body content and LastHttpContent together to avoid race conditions.
                         ctx.write(new DefaultHttpContent(Unpooled.wrappedBuffer(bytes.toArray)))
                         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-                      }.as(0)
+                      }.as(0L)
 
                     case n =>
                       NettyFutureExecutor.executed {
