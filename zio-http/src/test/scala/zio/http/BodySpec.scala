@@ -56,5 +56,5 @@ object BodySpec extends ZIOHttpSpec {
           ),
         ),
       ),
-    ) @@ timeout(10 seconds)
+    )
 }

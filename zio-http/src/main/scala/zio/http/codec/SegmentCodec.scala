@@ -66,26 +66,17 @@ sealed trait SegmentCodec[A] { self =>
     _render
   }
 
-  final def transform[A2](f: A => A2, g: A2 => A): PathCodec[A2] =
-    PathCodec.Segment(self).transform(f, g)
+  final def transform[A2](f: A => A2)(g: A2 => A): PathCodec[A2] =
+    PathCodec.Segment(self).transform(f)(g)
 
-  final def transformOrFail[A2](
-    f: A => Either[String, A2],
-    g: A2 => Either[String, A],
-  ): PathCodec[A2] =
-    PathCodec.Segment(self).transformOrFail(f, g)
+  final def transformOrFail[A2](f: A => Either[String, A2])(g: A2 => Either[String, A]): PathCodec[A2] =
+    PathCodec.Segment(self).transformOrFail(f)(g)
 
-  final def transformOrFailLeft[A2](
-    f: A => Either[String, A2],
-    g: A2 => A,
-  ): PathCodec[A2] =
-    PathCodec.Segment(self).transformOrFailLeft(f, g)
+  final def transformOrFailLeft[A2](f: A => Either[String, A2])(g: A2 => A): PathCodec[A2] =
+    PathCodec.Segment(self).transformOrFailLeft(f)(g)
 
-  final def transformOrFailRight[A2](
-    f: A => A2,
-    g: A2 => Either[String, A],
-  ): PathCodec[A2] =
-    PathCodec.Segment(self).transformOrFailRight(f, g)
+  final def transformOrFailRight[A2](f: A => A2)(g: A2 => Either[String, A]): PathCodec[A2] =
+    PathCodec.Segment(self).transformOrFailRight(f)(g)
 }
 object SegmentCodec          {
   def bool(name: String): SegmentCodec[Boolean] = SegmentCodec.BoolSeg(name)
@@ -148,6 +139,7 @@ object SegmentCodec          {
         val SegmentCodec = segments(index)
         var i            = 0
         var defined      = true
+        if (SegmentCodec.length > 1 && SegmentCodec.charAt(0) == '-') i += 1
         while (i < SegmentCodec.length) {
           if (!SegmentCodec.charAt(i).isDigit) {
             defined = false
@@ -170,6 +162,7 @@ object SegmentCodec          {
         val SegmentCodec = segments(index)
         var i            = 0
         var defined      = true
+        if (SegmentCodec.length > 1 && SegmentCodec.charAt(0) == '-') i += 1
         while (i < SegmentCodec.length) {
           if (!SegmentCodec.charAt(i).isDigit) {
             defined = false

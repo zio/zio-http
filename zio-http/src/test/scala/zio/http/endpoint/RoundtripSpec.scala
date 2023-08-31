@@ -32,7 +32,7 @@ import zio.http.codec.HttpCodec.{authorization, query}
 import zio.http.codec.{Doc, HeaderCodec, HttpCodec, QueryCodec}
 import zio.http.netty.server.NettyDriver
 
-object EndpointRoundtripSpec extends ZIOHttpSpec {
+object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
     ZLayer.make[Server & Client & Scope](
       Server.live,
@@ -123,7 +123,7 @@ object EndpointRoundtripSpec extends ZIOHttpSpec {
     } yield result
 
   def spec: Spec[Any, Any] =
-    suite("EndpointRoundtripSpec")(
+    suite("RoundtripSpec")(
       test("simple get") {
         val usersPostAPI =
           Endpoint(GET / "users" / int("userId") / "posts" / int("postId")).out[Post]
@@ -291,7 +291,7 @@ object EndpointRoundtripSpec extends ZIOHttpSpec {
           ("name", 10, Post(1, "title", "body", 111)),
           "name: name, value: 10, post: Post(1,title,body,111)",
         )
-      } @@ timeout(10.seconds) @@ ifEnvNotSet("CI"), // NOTE: random hangs on CI
+      } @@ ifEnvNotSet("CI"),
       test("endpoint error returned") {
         val api = Endpoint(POST / "test")
           .outError[String](Status.Custom(999))
@@ -460,7 +460,7 @@ object EndpointRoundtripSpec extends ZIOHttpSpec {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } @@ timeout(10.seconds) @@ ifEnvNotSet("CI"), // NOTE: random hangs on CI
+      } @@ ifEnvNotSet("CI"),
     ).provide(
       Server.live,
       ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
@@ -470,7 +470,7 @@ object EndpointRoundtripSpec extends ZIOHttpSpec {
       ZLayer.succeed(ZClient.Config.default),
       DnsResolver.default,
       Scope.default,
-    ) @@ withLiveClock @@ sequential @@ timeout(300.seconds)
+    ) @@ withLiveClock @@ sequential
 
   private def extraLogging: PartialFunction[Response, String] = { case r =>
     r.headers.get(Header.ContentType).map(_.renderedValue).mkString("ContentType: ", "", "")

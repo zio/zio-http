@@ -206,8 +206,16 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
 
 lazy val zioHttpCli = (project in file("zio-http-cli"))
   .settings(stdSettings("zio-http-cli"))
-  .settings(libraryDependencies ++= Seq(`zio-cli`))
+  .settings(
+    libraryDependencies ++= Seq(`zio-cli`),
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    libraryDependencies ++= Seq(
+      `zio-test`,
+      `zio-test-sbt`,
+    ),
+  )
   .dependsOn(zioHttp)
+  .dependsOn(zioHttpTestkit % Test)
 
 lazy val zioHttpExample = (project in file("zio-http-example"))
   .settings(stdSettings("zio-http-example"))

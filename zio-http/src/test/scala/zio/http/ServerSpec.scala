@@ -19,15 +19,15 @@ package zio.http
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 
+import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
-import zio.{Chunk, Scope, ZIO, ZLayer, durationInt}
 
 import zio.stream.{ZPipeline, ZStream}
 
-import zio.http.html.{body, div, id}
 import zio.http.internal.{DynamicServer, HttpGen, HttpRunnableSpec}
+import zio.http.template.{body, div, id}
 
 object ServerSpec extends HttpRunnableSpec {
 
@@ -367,7 +367,7 @@ object ServerSpec extends HttpRunnableSpec {
       test("body") {
         val res =
           Handler
-            .html(zio.http.html.html(body(div(id := "foo", "bar"))))
+            .html(zio.http.template.html(body(div(id := "foo", "bar"))))
             .sandbox
             .toHttpApp
             .deploy
@@ -377,7 +377,7 @@ object ServerSpec extends HttpRunnableSpec {
         assertZIO(res)(equalTo("""<!DOCTYPE html><html><body><div id="foo">bar</div></body></html>"""))
       },
       test("content-type") {
-        val app = Handler.html(zio.http.html.html(body(div(id := "foo", "bar")))).sandbox.toHttpApp
+        val app = Handler.html(zio.http.template.html(body(div(id := "foo", "bar")))).sandbox.toHttpApp
         val res = app.deploy.header(Header.ContentType).run()
         assertZIO(res)(isSome(equalTo(Header.ContentType(MediaType.text.html))))
       },
@@ -457,12 +457,12 @@ object ServerSpec extends HttpRunnableSpec {
     suite("ServerSpec") {
       val spec = dynamicAppSpec + responseSpec + requestSpec + requestBodySpec + serverErrorSpec
       suite("app without request streaming") { ZIO.scoped(app.as(List(spec))) }
-    }.provideSomeShared[TestEnvironment](
-      DynamicServer.live,
-      ZLayer.succeed(configApp),
-      Server.live,
-      Client.default,
-      Scope.default,
-    ) @@ timeout(30 seconds) @@ sequential @@ withLiveClock
+    }.provideSome[DynamicServer & Server.Config & Server & Client](Scope.default)
+      .provideShared(
+        DynamicServer.live,
+        ZLayer.succeed(configApp),
+        Server.live,
+        Client.default,
+      ) @@ sequential @@ withLiveClock
 
 }

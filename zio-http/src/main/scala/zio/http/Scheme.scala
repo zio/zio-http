@@ -17,6 +17,7 @@
 package zio.http
 
 import zio.Unsafe
+import zio.stacktracer.TracingImplicits.disableAutoTrace
 
 sealed trait Scheme { self =>
   def encode: String = self match {

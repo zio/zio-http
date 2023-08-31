@@ -21,9 +21,10 @@ import java.net.ConnectException
 import zio.test.Assertion._
 import zio.test.TestAspect.{sequential, timeout, withLiveClock}
 import zio.test._
-import zio.{Scope, ZIO, ZLayer, durationInt}
+import zio.{Scope, Trace, ZIO, ZLayer, durationInt}
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.ZClient.{Config, DriverLive}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
@@ -49,6 +50,26 @@ object ClientProxySpec extends HttpRunnableSpec {
         } yield out
       assertZIO(res.either)(isLeft(isSubtype[ConnectException](anything)))
     },
+    test("ZClient proxy respond Ok") {
+      val res =
+        for {
+          port <- ZIO.environmentWithZIO[DynamicServer](_.get.port)
+          url  <- ZIO.fromEither(URL.decode(s"http://localhost:$port"))
+          id   <- DynamicServer.deploy(Handler.ok.toHttpApp)
+          proxy = Proxy.empty.url(url).headers(Headers(DynamicServer.APP_ID, id))
+          zclient <- ZIO.serviceWith[Client](_.proxy(proxy))
+          out     <- zclient
+            .request(
+              Request.get(url = url),
+            )
+            .provide(
+              Scope.default,
+            )
+        } yield out
+      assertZIO(res.either)(isRight)
+    }.provideSome[DynamicServer](
+      Client.default,
+    ),
     test("proxy respond Ok") {
       val res =
         for {
@@ -109,6 +130,5 @@ object ClientProxySpec extends HttpRunnableSpec {
 
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("ClientProxy") {
     serve.as(List(clientProxySpec))
-  }.provideShared(DynamicServer.live, severTestLayer) @@
-    timeout(5 seconds) @@ sequential @@ withLiveClock
+  }.provideShared(DynamicServer.live, serverTestLayer) @@ sequential @@ withLiveClock
 }

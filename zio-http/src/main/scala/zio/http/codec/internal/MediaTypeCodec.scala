@@ -143,13 +143,29 @@ object MediaTypeCodec {
   def codecsFor(mediaType: Option[String], content: Chunk[BodyCodec[_]]): Map[String, MediaTypeCodec[_]] = {
     mediaType match {
       case Some(mt) =>
-        allByType.get(mt) match {
-          case Some(codec) => Map(mt -> codec.create(content))
-          case None        =>
-            throw HttpCodecError.UnsupportedContentType(
-              s"""The Accept header mime type $mt is currently not supported.
-                 |Supported mime types are: ${allByType.keys.mkString(", ")}""".stripMargin,
-            )
+        if (mt.contains('*')) {
+          MediaType.parseCustomMediaType(mt) match {
+            case Some(parsed) if parsed.mainType == "*" && parsed.subType == "*" =>
+              allByType.map { case (k, v) => k -> v.create(content) }
+            case Some(parsed) if parsed.subType == "*"                           =>
+              allByType.filter { case (k, _) => k.startsWith(parsed.mainType + "/") }.map { case (k, v) =>
+                k -> v.create(content)
+              }
+            case _                                                               =>
+              throw HttpCodecError.UnsupportedContentType(
+                s"""The Accept header mime type $mt is currently not supported.
+                   |Supported mime types are: ${allByType.keys.mkString(", ")}""".stripMargin,
+              )
+          }
+        } else {
+          allByType.get(mt) match {
+            case Some(codec) => Map(mt -> codec.create(content))
+            case None        =>
+              throw HttpCodecError.UnsupportedContentType(
+                s"""The Accept header mime type $mt is currently not supported.
+                   |Supported mime types are: ${allByType.keys.mkString(", ")}""".stripMargin,
+              )
+          }
         }
       case None     => allByType.map { case (k, v) => k -> v.create(content) }
     }

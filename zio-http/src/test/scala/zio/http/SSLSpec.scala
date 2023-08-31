@@ -36,27 +36,22 @@ object SSLSpec extends ZIOHttpSpec {
 
   val app: HttpApp[Any] = Routes(
     Method.GET / "success" -> handler(Response.ok),
-    Method.POST / "text"   -> handler { (req: Request) =>
-      for {
-        body <- req.body.asString
-      } yield Response.text(body)
-    },
   ).sandbox.toHttpApp
 
-  val successUrl =
-    URL.decode("https://localhost:8073/success").toOption.get
+  val httpUrl =
+    URL.decode("http://localhost:8073/success").toOption.get
 
-  val textUrl =
-    URL.decode("https://localhost:8073/text").toOption.get
+  val httpsUrl =
+    URL.decode("https://localhost:8073/success").toOption.get
 
   override def spec = suite("SSL")(
     Server
-      .serve(app)
+      .install(app)
       .as(
         List(
           test("succeed when client has the server certificate") {
             val actual = Client
-              .request(Request.get(successUrl))
+              .request(Request.get(httpsUrl))
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
@@ -69,7 +64,7 @@ object SSLSpec extends ZIOHttpSpec {
           ),
           test("fail with DecoderException when client doesn't have the server certificate") {
             val actual = Client
-              .request(Request.get(successUrl))
+              .request(Request.get(httpsUrl))
               .catchSome {
                 case e if e.getClass.getSimpleName == "DecoderException" =>
                   ZIO.succeed("DecoderException")
@@ -85,7 +80,7 @@ object SSLSpec extends ZIOHttpSpec {
           ),
           test("succeed when client has default SSL") {
             val actual = Client
-              .request(Request.get(successUrl))
+              .request(Request.get(httpsUrl))
               .map(_.status)
             assertZIO(actual)(equalTo(Status.Ok))
           }.provide(
@@ -98,26 +93,9 @@ object SSLSpec extends ZIOHttpSpec {
           ),
           test("Https Redirect when client makes http request") {
             val actual = Client
-              .request(Request.get(successUrl))
+              .request(Request.get(httpUrl))
               .map(_.status)
             assertZIO(actual)(equalTo(Status.PermanentRedirect))
-          }.provide(
-            Client.customized,
-            ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
-            NettyClientDriver.live,
-            DnsResolver.default,
-            ZLayer.succeed(NettyConfig.default),
-            Scope.default,
-          ),
-          test("Https request with a large payload should respond with 413") {
-            check(payload) { payload =>
-              val actual = Client
-                .request(
-                  Request.post(textUrl, Body.fromString(payload)),
-                )
-                .map(_.status)
-              assertZIO(actual)(equalTo(Status.RequestEntityTooLarge))
-            }
           }.provide(
             Client.customized,
             ZLayer.succeed(ZClient.Config.default.ssl(clientSSL1)),
@@ -129,8 +107,8 @@ object SSLSpec extends ZIOHttpSpec {
         ),
       ),
   ).provideShared(
-    Server.default,
-  ) @@
-    timeout(5 second) @@ ignore
+    Server.live,
+    ZLayer.succeed(config),
+  )
 
 }

@@ -91,6 +91,7 @@ final case class TestClient(
     headers: Headers,
     body: Body,
     sslConfig: Option[zio.http.ClientSSLConfig],
+    proxy: Option[Proxy],
   )(implicit trace: Trace): ZIO[Any, Throwable, Response] = {
     val notFound: PartialFunction[Request, ZIO[Any, Response, Response]] = { case _: Request =>
       ZIO.succeed(Response.notFound)

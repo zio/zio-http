@@ -34,8 +34,9 @@ object TestServerSpec extends ZIOHttpSpec {
           )
       } yield assertTrue(status(response1) == Status.Ok) &&
         assertTrue(status(response2) == Status.InternalServerError)
-    }.provideSome[Client with Driver with Scope](
+    }.provideSome[Client with Driver](
       TestServer.layer,
+      Scope.default,
     ),
     suite("Exact Request=>Response version")(
       test("matches") {
@@ -85,14 +86,14 @@ object TestServerSpec extends ZIOHttpSpec {
         } yield assertTrue(status(finalResponse) == Status.NotFound)
       },
     )
-      .provideSome[Client with Driver with Scope](
+      .provideSome[Client with Driver](
         TestServer.layer,
+        Scope.default,
       ),
   ).provide(
     ZLayer.succeed(Server.Config.default.onAnyOpenPort),
     Client.default,
     NettyDriver.live,
-    Scope.default,
   )
 
   private def requestToCorrectPort =
