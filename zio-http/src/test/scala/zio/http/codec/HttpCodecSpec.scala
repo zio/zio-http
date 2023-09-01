@@ -137,8 +137,8 @@ object HttpCodecSpec extends ZIOHttpSpec {
         test("paramBool encoding") {
           val requestTrue  = codecBool.encodeRequest(true)
           val requestFalse = codecBool.encodeRequest(false)
-          assert(requestTrue.url.queryParams.get(isAge).get.head)(Assertion.equalTo("true")) &&
-          assert(requestFalse.url.queryParams.get(isAge).get.head)(Assertion.equalTo("false"))
+          assert(requestTrue.url.queryParams.get(isAge).get)(Assertion.equalTo("true")) &&
+          assert(requestFalse.url.queryParams.get(isAge).get)(Assertion.equalTo("false"))
         },
       ) +
       suite("Codec with examples") {

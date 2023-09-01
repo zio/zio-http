@@ -62,7 +62,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
         for {
           server       <- ZIO.service[Server]
           client       <- ZIO.service[Client]
-          _            <- server.install(app).fork
+          _            <- server.install(app)
           response     <- client.request(
             Request(
               method = Method.GET,
@@ -78,7 +78,7 @@ object ResponseCompressionSpec extends ZIOHttpSpec {
         for {
           server       <- ZIO.service[Server]
           client       <- ZIO.service[Client]
-          _            <- server.install(app).fork
+          _            <- server.install(app)
           response     <- client.request(
             Request(
               method = Method.GET,

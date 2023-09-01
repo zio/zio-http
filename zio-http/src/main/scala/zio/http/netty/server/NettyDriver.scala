@@ -116,7 +116,6 @@ private[zio] object NettyDriver {
       ZLayer.succeed(
         new AtomicReference[(HttpApp[Any], ZEnvironment[Any])]((HttpApp.empty, ZEnvironment.empty)),
       ),
-      ZLayer.succeed(ServerTime.make(1000.millis)),
       NettyRuntime.live,
       ServerChannelInitializer.layer,
       ServerInboundHandler.live,
