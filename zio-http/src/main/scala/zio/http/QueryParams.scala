@@ -84,16 +84,28 @@ final case class QueryParams(map: Map[String, Chunk[String]]) {
     QueryParams(map.filter(p.tupled))
 
   /**
-   * Retrieves the query parameter values having the specified name.
+   * Retrieves all query parameter values having the specified name.
    */
-  def get(key: String): Option[Chunk[String]] = map.get(key)
+  def getAll(key: String): Option[Chunk[String]] = map.get(key)
 
   /**
-   * Retrieves the query parameter value having the specified name, or else uses
-   * the default iterable.
+   * Retrieves the first query parameter value having the specified name.
    */
-  def getOrElse(key: String, default: => Iterable[String]): Chunk[String] =
-    map.getOrElse(key, Chunk.fromIterable(default))
+  def get(key: String): Option[String] = getAll(key).flatMap(_.headOption)
+
+  /**
+   * Retrieves all query parameter values having the specified name, or else
+   * uses the default iterable.
+   */
+  def getAllOrElse(key: String, default: => Iterable[String]): Chunk[String] =
+    getAll(key).getOrElse(Chunk.fromIterable(default))
+
+  /**
+   * Retrieves the first query parameter value having the specified name, or
+   * else uses the default value.
+   */
+  def getOrElse(key: String, default: => String): String =
+    get(key).getOrElse(default)
 
   override def hashCode: Int = normalize.map.hashCode
 
