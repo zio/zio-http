@@ -283,7 +283,7 @@ private[codec] object EncoderDecoder {
 
         val queryParamValue =
           queryParams
-            .getOrElse(query.name, Nil)
+            .getAllOrElse(query.name, Nil)
             .collectFirst(query.textCodec)
 
         queryParamValue match {
