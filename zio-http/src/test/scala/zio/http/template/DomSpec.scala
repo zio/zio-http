@@ -88,28 +88,34 @@ object DomSpec extends ZIOHttpSpec {
     },
     test("xss protection for text nodes") {
       val dom = Dom.element(
-        "a", 
-        Dom.attr("href", "http://www.zio-http.com"), 
-        Dom.text("""<script type="text/javascript">alert("xss")</script>""")
+        "a",
+        Dom.attr("href", "http://www.zio-http.com"),
+        Dom.text("""<script type="text/javascript">alert("xss")</script>"""),
       )
-      assertTrue(dom.encode == """<a href="http://www.zio-http.com">&lt;script type=&quot;text/javascript&quot;&gt;alert(&quot;xss&quot;)&lt;/script&gt;</a>""")
+      assertTrue(
+        dom.encode == """<a href="http://www.zio-http.com">&lt;script type=&quot;text/javascript&quot;&gt;alert(&quot;xss&quot;)&lt;/script&gt;</a>""",
+      )
     },
     test("xss protection for attributes") {
       val dom = Dom.element(
-        "a", 
-        Dom.attr("href", """<script type="text/javascript">alert("xss")</script>"""), 
-        Dom.text("my link")
+        "a",
+        Dom.attr("href", """<script type="text/javascript">alert("xss")</script>"""),
+        Dom.text("my link"),
       )
-      assertTrue(dom.encode == """<a href="&lt;script type=&quot;text/javascript&quot;&gt;alert(&quot;xss&quot;)&lt;/script&gt;">my link</a>""")
+      assertTrue(
+        dom.encode == """<a href="&lt;script type=&quot;text/javascript&quot;&gt;alert(&quot;xss&quot;)&lt;/script&gt;">my link</a>""",
+      )
     },
     test("raw output") {
       val dom = Dom.element(
-        "a", 
-        Dom.attr("href", "http://www.zio-http.com"), 
-        Dom.raw("""<script type="text/javascript">alert("xss")</script>""")
+        "a",
+        Dom.attr("href", "http://www.zio-http.com"),
+        Dom.raw("""<script type="text/javascript">alert("xss")</script>"""),
       )
-      assertTrue(dom.encode == """<a href="http://www.zio-http.com"><script type="text/javascript">alert("xss")</script></a>""")
-    },    
+      assertTrue(
+        dom.encode == """<a href="http://www.zio-http.com"><script type="text/javascript">alert("xss")</script></a>""",
+      )
+    },
     suite("Self Closing")(
       test("void") {
         checkAll(voidTagGen) { name =>
