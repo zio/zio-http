@@ -75,8 +75,10 @@ object NettyBody extends BodyEncoding {
 
     private[zio] override def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] = asciiString.array()
 
-    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
+    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
+
+    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
+      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
   }
 
   private[zio] final case class ByteBufBody(
@@ -103,8 +105,10 @@ object NettyBody extends BodyEncoding {
     override private[zio] def unsafeAsArray(implicit unsafe: Unsafe): Array[Byte] =
       ByteBufUtil.getBytes(byteBuf)
 
-    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
+    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
+
+    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
+      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
   }
 
   private[zio] final case class AsyncBody(
@@ -142,8 +146,10 @@ object NettyBody extends BodyEncoding {
 
     override def toString(): String = s"AsyncBody($unsafeAsync)"
 
-    override def contentType(newMediaType: MediaType, newBoundary: Option[Boundary] = None): Body =
-      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(newBoundary))
+    override def contentType(newMediaType: MediaType): Body = copy(mediaType = Some(newMediaType))
+
+    override def contentType(newMediaType: MediaType, newBoundary: Boundary): Body =
+      copy(mediaType = Some(newMediaType), boundary = boundary.orElse(Some(newBoundary)))
   }
 
   private[zio] trait UnsafeAsync {

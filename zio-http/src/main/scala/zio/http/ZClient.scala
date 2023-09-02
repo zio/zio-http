@@ -191,7 +191,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
 
   private def requestRaw(method: Method, suffix: String, body: Body)(implicit
     trace: Trace,
-  ): ZIO[Env & Scope, Err, Response] =
+  ): ZIO[Env & Scope, Err, Response] = {
     driver
       .request(
         version,
@@ -202,6 +202,7 @@ final case class ZClient[-Env, -In, +Err, +Out](
         sslConfig,
         proxy,
       )
+  }
 
   def retry[Env1 <: Env](policy: Schedule[Env1, Err, Any]): ZClient[Env1, In, Err, Out] =
     transform[Env1, In, Err, Out](bodyEncoder, bodyDecoder, self.driver.retry(policy))
@@ -645,8 +646,14 @@ object ZClient {
       sslConfig: Option[ClientSSLConfig],
       proxy: Option[Proxy],
     )(implicit trace: Trace): ZIO[Scope, Throwable, Response] = {
-      val request = Request(version, method, url, headers, body, None)
+      val requestHeaders = body.mediaType match {
+        case None        => headers
+        case Some(value) => headers.removeHeader(Header.ContentType).addHeader(Header.ContentType(value))
+      }
+
+      val request = Request(version, method, url, requestHeaders, body, None)
       val cfg     = config.copy(ssl = sslConfig.orElse(config.ssl), proxy = proxy.orElse(config.proxy))
+
       requestAsync(request, cfg, () => WebSocketApp.unit, None)
     }
 
