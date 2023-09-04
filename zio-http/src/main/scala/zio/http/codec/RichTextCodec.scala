@@ -66,19 +66,16 @@ sealed trait RichTextCodec[A] { self =>
    * Tranforms this constant unit codec to a constant codec of another type.
    */
   final def as[B](b: => B)(implicit ev: A =:= Unit): RichTextCodec[B] =
-    self.asType[Unit].transform(_ => b, _ => ())
+    self.asType[Unit].transform(_ => b)(_ => ())
 
   final def asType[B](implicit ev: A =:= B): RichTextCodec[B] =
     self.asInstanceOf[RichTextCodec[B]]
 
   final def collectOrFail(failure: String)(pf: PartialFunction[A, A]): RichTextCodec[A] =
-    transformOrFailLeft[A](
-      {
-        case x if pf.isDefinedAt(x) => Right(pf(x))
-        case _                      => Left(failure)
-      },
-      a => a,
-    )
+    transformOrFailLeft[A] {
+      case x if pf.isDefinedAt(x) => Right(pf(x))
+      case _                      => Left(failure)
+    }(identity)
 
   final def decode(value: CharSequence): Either[String, A] =
     RichTextCodec.parse(value, self).map(_._2)
@@ -109,42 +106,38 @@ sealed trait RichTextCodec[A] { self =>
   final def encode(value: A): Either[String, String] = RichTextCodec.encode(value, self)
 
   final def optional(default: A): RichTextCodec[Option[A]] =
-    self.transform(a => Some(a), { case None => default; case Some(a) => a })
+    self.transform[Option[A]](a => Some(a))(_.fold(default)(identity))
 
   lazy val repeat: RichTextCodec[Chunk[A]] =
-    ((self ~ repeat).transform[NonEmptyChunk[A]](
-      t => NonEmptyChunk(t._1, t._2: _*),
-      c => (c.head, c.tail),
+    ((self ~ repeat).transform[NonEmptyChunk[A]](t => NonEmptyChunk(t._1, t._2: _*))(c =>
+      (c.head, c.tail),
     ) | RichTextCodec.empty.as(Chunk.empty[A]))
-      .transform[Chunk[A]](
-        _ match {
-          case Left(nonEmpty)    => nonEmpty
-          case Right(maybeEmpty) => maybeEmpty
-        },
-        c => c.nonEmptyOrElse[Either[NonEmptyChunk[A], Chunk[A]]](Right(c))(Left(_)),
-      )
+      .transform[Chunk[A]](_ match {
+        case Left(nonEmpty)    => nonEmpty
+        case Right(maybeEmpty) => maybeEmpty
+      })(c => c.nonEmptyOrElse[Either[NonEmptyChunk[A], Chunk[A]]](Right(c))(Left(_)))
 
   final def singleton: RichTextCodec[NonEmptyChunk[A]] =
-    self.transform(a => NonEmptyChunk(a), _.head)
+    self.transform(a => NonEmptyChunk(a))(_.head)
 
-  final def transform[B](f: A => B, g: B => A): RichTextCodec[B] =
-    self.transformOrFail[B](a => Right(f(a)), b => Right(g(b)))
+  final def transform[B](f: A => B)(g: B => A): RichTextCodec[B] =
+    self.transformOrFail[B](a => Right(f(a)))(b => Right(g(b)))
 
-  final def transformOrFail[B](f: A => Either[String, B], g: B => Either[String, A]): RichTextCodec[B] =
+  final def transformOrFail[B](f: A => Either[String, B])(g: B => Either[String, A]): RichTextCodec[B] =
     RichTextCodec.TransformOrFail(self, f, g)
 
-  final def transformOrFailLeft[B](f: A => Either[String, B], g: B => A): RichTextCodec[B] =
-    self.transformOrFail[B](f, b => Right(g(b)))
+  final def transformOrFailLeft[B](f: A => Either[String, B])(g: B => A): RichTextCodec[B] =
+    self.transformOrFail[B](f)(b => Right(g(b)))
 
-  final def transformOrFailRight[B](f: A => B, g: B => Either[String, A]): RichTextCodec[B] =
-    self.transformOrFail[B](a => Right(f(a)), g)
+  final def transformOrFailRight[B](f: A => B)(g: B => Either[String, A]): RichTextCodec[B] =
+    self.transformOrFail[B](a => Right(f(a)))(g)
 
   /**
    * Converts this codec of `A` into a codec of `Unit` by specifying a canonical
    * value to use when an HTTP client needs to generate a value for this codec.
    */
   final def const(canonical: A): RichTextCodec[Unit] =
-    self.transform[Unit](_ => (), _ => canonical)
+    self.transform[Unit](_ => ())(_ => canonical)
 
   /**
    * Attempts to validate a decoded value, or fails using the specified failure
@@ -195,7 +188,7 @@ object RichTextCodec {
    * A codec that describes a digit character.
    */
   val digit: RichTextCodec[Int] =
-    filter(c => c >= '0' && c <= '9').transform[Int](c => parseInt(c.toString), x => x.toString.head)
+    filter(c => c >= '0' && c <= '9').transform(c => parseInt(c.toString))(x => x.toString.head)
 
   /**
    * A codec that describes nothing at all. Such codecs successfully decode even
@@ -247,7 +240,7 @@ object RichTextCodec {
    * A codec that describes any number of whitespace characters.
    */
   lazy val whitespaces: RichTextCodec[Unit] =
-    whitespaceChar.repeat.transform(_ => (), _ => Chunk.empty)
+    whitespaceChar.repeat.transform(_ => ())(_ => Chunk.empty)
 
   /**
    * A codec that describes a single whitespace character.

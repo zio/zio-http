@@ -106,7 +106,7 @@ object EndpointGen {
     List(transformOrFail, withDoc, withExamples).map(_.asInstanceOf[Mapper[CliReprOf[Codec[_]], Any]])
 
   def transformOrFail[A] = Mapper[CliReprOf[Codec[A]], Any](
-    (repr, _: Any) => CliRepr(repr.value.transform((x: A) => x, (x: A) => x), repr.repr),
+    (repr, _: Any) => CliRepr(repr.value.transform((x: A) => x)((x: A) => x), repr.repr),
     Gen.empty,
   )
 

@@ -246,7 +246,7 @@ object RichTextCodecSpec extends ZIOHttpSpec {
         assertTrue(codec.decode("---123---").isLeft)
       },
       test("transformOrFail decoder") {
-        val codec = RichTextCodec.literal("123").transform[Int](_.toInt, _.toString)
+        val codec = RichTextCodec.literal("123").transform(_.toInt)(_.toString)
         assertTrue(success(123) == codec.decode("123--")) &&
         assertTrue(codec.decode("4123").isLeft)
       },
