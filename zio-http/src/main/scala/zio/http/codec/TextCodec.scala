@@ -94,6 +94,7 @@ object TextCodec {
     def isDefinedAt(value: String): Boolean = {
       var i       = 0
       var defined = true
+      if (value.length > 1 && value.charAt(0) == '-') i += 1
       while (i < value.length) {
         if (!value.charAt(i).isDigit) {
           defined = false
@@ -117,6 +118,7 @@ object TextCodec {
     def isDefinedAt(value: String): Boolean = {
       var i       = 0
       var defined = true
+      if (value.length > 1 && value.charAt(0) == '-') i += 1
       while (i < value.length) {
         if (!value.charAt(i).isDigit) {
           defined = false

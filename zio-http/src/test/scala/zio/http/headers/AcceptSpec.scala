@@ -21,9 +21,9 @@ import zio.test._
 
 import zio.http.Header.Accept
 import zio.http.Header.Accept.MediaTypeWithQFactor
-import zio.http.MediaType
+import zio.http.{MediaType, ZIOHttpSpec}
 
-object AcceptSpec extends ZIOSpecDefault {
+object AcceptSpec extends ZIOHttpSpec {
   import MediaType._
 
   override def spec = suite("Accept header suite")(

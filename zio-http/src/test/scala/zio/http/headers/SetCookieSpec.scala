@@ -17,11 +17,12 @@
 package zio.http.headers
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.SetCookie
+import zio.http.ZIOHttpSpec
 
-object SetCookieSpec extends ZIOSpecDefault {
+object SetCookieSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("SetCookieSpec suite")(
     test("SetCookie handle valid cookie") {
       val result = SetCookie.parse("foo=bar") match {

@@ -1,9 +1,9 @@
 ---
-id: html
-title: Html
+id: template
+title: Template
 ---
 
-The package `zio.http.html._` contains lightweight helpers for generating statically typed, safe html similiar in spirit to `scalatags`. 
+The package `zio.http.template._` contains lightweight helpers for generating statically typed, safe html similiar in spirit to `scalatags`. 
 
 ## Html and DOM
 
@@ -13,7 +13,7 @@ One possible way is to create an instance of `Html` directly from a `String` val
 from the compiler:
 
 ```scala mdoc:silent
-import zio.http.html._
+import zio.http.template._
 
 val divHtml1: Html = Html.fromString("""<div class="container1 container2"><a href="http://zio.dev">ZIO Homepage</a></div>""")
 ```
@@ -24,7 +24,7 @@ In order to improve on type safety one could use `Html` with `Dom` constructor f
 code is much more verbose:
 
 ```scala mdoc:silent
-import zio.http.html._
+import zio.http.template._
 
 val divHtml2: Html = Html.fromDomElement(
   Dom.element(
@@ -48,7 +48,7 @@ elements like `div` or `a` but also html attributes like `hrefAttr` or `styleAtt
 are suffixed `attr` to easily distinguish those from html elements: 
 
 ```scala mdoc:silent
-import zio.http.html._
+import zio.http.template._
 
 val divHtml3: Html = div(
   classAttr := "container1" :: "container2" :: Nil,
@@ -68,7 +68,7 @@ of `a(hrefAttr := "http://zio.dev", "ZIO Homepage")` one can use `a(hrefAttr("ht
 One can compose values of `Html` sequentially using the operator `++` to produce a larger `Html`: 
 
 ```scala mdoc:silent
-import zio.http.html._
+import zio.http.template._
 
 val fullHtml: Html = divHtml1 ++ divHtml2 ++ divHtml3
 ```

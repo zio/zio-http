@@ -23,7 +23,7 @@ import zio.test._
 
 import zio.http._
 
-object HttpCodecSpec extends ZIOSpecDefault {
+object HttpCodecSpec extends ZIOHttpSpec {
   val googleUrl     = URL.decode("http://google.com").toOption.get
   val usersUrl      = URL.decode("http://mywebservice.com/users").toOption.get
   val usersIdUrl    = URL.decode("http://mywebservice.com/users/42").toOption.get
@@ -137,8 +137,8 @@ object HttpCodecSpec extends ZIOSpecDefault {
         test("paramBool encoding") {
           val requestTrue  = codecBool.encodeRequest(true)
           val requestFalse = codecBool.encodeRequest(false)
-          assert(requestTrue.url.queryParams.get(isAge).get.head)(Assertion.equalTo("true")) &&
-          assert(requestFalse.url.queryParams.get(isAge).get.head)(Assertion.equalTo("false"))
+          assert(requestTrue.url.queryParams.get(isAge).get)(Assertion.equalTo("true")) &&
+          assert(requestFalse.url.queryParams.get(isAge).get)(Assertion.equalTo("false"))
         },
       ) +
       suite("Codec with examples") {

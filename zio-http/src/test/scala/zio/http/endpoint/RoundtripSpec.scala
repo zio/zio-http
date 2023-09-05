@@ -19,7 +19,7 @@ package zio.http.endpoint
 import zio._
 import zio.test.Assertion._
 import zio.test.TestAspect._
-import zio.test.{Spec, TestResult, ZIOSpecDefault, assert}
+import zio.test._
 
 import zio.stream.ZStream
 
@@ -29,10 +29,10 @@ import zio.http.Header.Authorization
 import zio.http.Method._
 import zio.http._
 import zio.http.codec.HttpCodec.{authorization, query}
-import zio.http.codec.{Doc, HttpCodec, QueryCodec}
+import zio.http.codec.{Doc, HeaderCodec, HttpCodec, QueryCodec}
 import zio.http.netty.server.NettyDriver
 
-object EndpointRoundtripSpec extends ZIOSpecDefault {
+object RoundtripSpec extends ZIOHttpSpec {
   val testLayer: ZLayer[Any, Throwable, Server & Client & Scope] =
     ZLayer.make[Server & Client & Scope](
       Server.live,
@@ -123,7 +123,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
     } yield result
 
   def spec: Spec[Any, Any] =
-    suite("EndpointRoundtripSpec")(
+    suite("RoundtripSpec")(
       test("simple get") {
         val usersPostAPI =
           Endpoint(GET / "users" / int("userId") / "posts" / int("postId")).out[Post]
@@ -141,6 +141,26 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
           (10, 20),
           Post(20, "title", "body", 10),
         )
+      },
+      test("simple get with protobuf encoding") {
+        val usersPostAPI =
+          Endpoint(GET / "users" / int("userId") / "posts" / int("postId"))
+            .out[Post]
+            .header(HeaderCodec.accept)
+
+        val usersPostHandler =
+          usersPostAPI.implement {
+            Handler.fromFunction { case (userId, postId, _) =>
+              Post(postId, "title", "body", userId)
+            }
+          }
+
+        testEndpoint(
+          usersPostAPI,
+          Routes(usersPostHandler),
+          (10, 20, Header.Accept(MediaType.parseCustomMediaType("application/protobuf").get)),
+          Post(20, "title", "body", 10),
+        ) && assertZIO(TestConsole.output)(contains("ContentType: application/protobuf\n"))
       },
       test("simple get with optional query params") {
         val api =
@@ -177,9 +197,9 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
       },
       test("throwing error in handler") {
         val api = Endpoint(POST / string("id") / "xyz" / string("name") / "abc")
-          .query(query("details"))
-          .query(query("args").optional)
-          .query(query("env").optional)
+          .query(QueryCodec.query("details"))
+          .query(QueryCodec.query("args").optional)
+          .query(QueryCodec.query("env").optional)
           .outError[String](Status.BadRequest)
           .out[String] ?? Doc.p("doc")
 
@@ -271,7 +291,7 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
           ("name", 10, Post(1, "title", "body", 111)),
           "name: name, value: 10, post: Post(1,title,body,111)",
         )
-      } @@ timeout(10.seconds) @@ ifEnvNotSet("CI"), // NOTE: random hangs on CI
+      } @@ ifEnvNotSet("CI"),
       test("endpoint error returned") {
         val api = Endpoint(POST / "test")
           .outError[String](Status.Custom(999))
@@ -440,6 +460,21 @@ object EndpointRoundtripSpec extends ZIOSpecDefault {
             s"name: xyz, value: 100, count: ${1024 * 1024}",
           )
         }
-      } @@ timeout(10.seconds) @@ ifEnvNotSet("CI"), // NOTE: random hangs on CI
-    ).provideLayer(testLayer) @@ withLiveClock @@ sequential @@ timeout(300.seconds)
+      } @@ ifEnvNotSet("CI"),
+    ).provide(
+      Server.live,
+      ZLayer.succeed(Server.Config.default.onAnyOpenPort.enableRequestStreaming),
+      Client.customized.map(env => ZEnvironment(env.get @@ clientDebugAspect)),
+      ClientDriver.shared,
+      NettyDriver.live,
+      ZLayer.succeed(ZClient.Config.default),
+      DnsResolver.default,
+      Scope.default,
+    ) @@ withLiveClock @@ sequential
+
+  private def extraLogging: PartialFunction[Response, String] = { case r =>
+    r.headers.get(Header.ContentType).map(_.renderedValue).mkString("ContentType: ", "", "")
+  }
+  private def clientDebugAspect                               =
+    ZClientAspect.debug(extraLogging)
 }

@@ -19,11 +19,12 @@ package zio.http.headers
 import java.time.{ZoneOffset, ZonedDateTime}
 
 import zio.Scope
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.http.Header.IfUnmodifiedSince
+import zio.http.ZIOHttpSpec
 
-object IfUnmodifiedSinceSpec extends ZIOSpecDefault {
+object IfUnmodifiedSinceSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("IfUnmodifiedSince suite")(
     test("IfUnmodifiedSince should be parsed correctly") {
       val ifModifiedSince = IfUnmodifiedSince.parse("Mon, 07 Nov 1994 08:49:37 GMT")

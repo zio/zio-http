@@ -20,9 +20,10 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.Allow
+import zio.http.ZIOHttpSpec
 import zio.http.internal.HttpGen
 
-object AllowSpec extends ZIOSpecDefault {
+object AllowSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Allow header suite")(
     test("allow header transformation must be symmetrical") {
       check(HttpGen.allowHeader) { allowHeader =>

@@ -23,7 +23,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect.timeout
 import zio.test._
 
-object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
+object HandlerSpec extends ZIOHttpSpec with ExitAssertion {
 
   def spec = suite("Handler")(
     suite("sandbox")(
@@ -422,5 +422,5 @@ object HandlerSpec extends ZIOSpecDefault with ExitAssertion {
         } yield assertTrue(status == Status.Ok)
       },
     ),
-  ) @@ timeout(10 seconds)
+  )
 }

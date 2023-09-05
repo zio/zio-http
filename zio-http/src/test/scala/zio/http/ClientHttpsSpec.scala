@@ -18,13 +18,13 @@ package zio.http
 
 import zio.test.Assertion.{anything, equalTo, fails, hasField}
 import zio.test.TestAspect.{ignore, timeout}
-import zio.test.{ZIOSpecDefault, assertZIO}
+import zio.test.assertZIO
 import zio.{Scope, ZLayer, durationInt}
 
 import zio.http.netty.NettyConfig
 import zio.http.netty.client.NettyClientDriver
 
-object ClientHttpsSpec extends ZIOSpecDefault {
+object ClientHttpsSpec extends ZIOHttpSpec {
 
   val sslConfig = ClientSSLConfig.FromTrustStoreResource(
     trustStorePath = "truststore.jks",
@@ -61,7 +61,7 @@ object ClientHttpsSpec extends ZIOSpecDefault {
         )
         .map(_.status)
       assertZIO(actual)(equalTo(Status.BadRequest))
-    },
+    } @@ ignore,
     test("should throw DecoderException for handshake failure") {
       val actual = Client
         .request(
@@ -77,7 +77,5 @@ object ClientHttpsSpec extends ZIOSpecDefault {
     DnsResolver.default,
     ZLayer.succeed(NettyConfig.default),
     Scope.default,
-  ) @@ timeout(
-    30 seconds,
-  ) @@ ignore
+  )
 }

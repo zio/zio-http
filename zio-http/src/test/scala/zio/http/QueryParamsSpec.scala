@@ -20,7 +20,7 @@ import zio.test.Assertion.equalTo
 import zio.test._
 import zio.{Chunk, ZIO}
 
-object QueryParamsSpec extends ZIOSpecDefault {
+object QueryParamsSpec extends ZIOHttpSpec {
 
   def spec =
     suite("QueryParams")(
@@ -228,6 +228,18 @@ object QueryParamsSpec extends ZIOSpecDefault {
             val result = queryParams.encode
             assertTrue(result == expected)
           }
+        },
+      ),
+      suite("get - getAll")(
+        test("success") {
+          val name        = "name"
+          val default     = "default"
+          val unknown     = "non-existent"
+          val queryParams = QueryParams(name -> "a", name -> "b")
+          assertTrue(queryParams.get(name).get == "a") &&
+          assertTrue(queryParams.getOrElse(unknown, default) == default) &&
+          assertTrue(queryParams.getAll(name).get.length == 2) &&
+          assertTrue(queryParams.getAllOrElse(unknown, Chunk(default)).length == 1)
         },
       ),
       suite("encode - decode")(

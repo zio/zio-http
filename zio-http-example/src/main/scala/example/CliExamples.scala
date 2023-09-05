@@ -73,6 +73,7 @@ object TestCliApp extends zio.cli.ZIOCliDefault with TestCliEndpoints {
         host = "localhost",
         port = 8080,
         endpoints = Chunk(getUser, getUserPosts, createUser),
+        cliStyle = true,
       )
       .cliApp
 }

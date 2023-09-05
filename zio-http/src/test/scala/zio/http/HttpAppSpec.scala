@@ -20,7 +20,7 @@ import zio._
 import zio.test.Assertion._
 import zio.test._
 
-object HttpAppSpec extends ZIOSpecDefault {
+object HttpAppSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   def spec = suite("HttpAppSpec")(

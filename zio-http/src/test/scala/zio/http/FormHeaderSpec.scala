@@ -20,7 +20,7 @@ import zio.test._
 
 import zio.http.internal.FormAST
 
-object FormHeaderSpec extends ZIOSpecDefault {
+object FormHeaderSpec extends ZIOHttpSpec {
 
   val contentType1 = "Content-Type: text/html; charset=utf-8".getBytes()
   val contextType2 = "Content-Type: multipart/form-data; boundary=something".getBytes

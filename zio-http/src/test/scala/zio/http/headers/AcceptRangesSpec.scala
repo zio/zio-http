@@ -20,9 +20,10 @@ import zio.Scope
 import zio.test._
 
 import zio.http.Header.AcceptRanges
+import zio.http.ZIOHttpSpec
 import zio.http.internal.HttpGen
 
-object AcceptRangesSpec extends ZIOSpecDefault {
+object AcceptRangesSpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Accept ranges header suite")(
       test("parsing valid values") {

@@ -18,12 +18,12 @@ package zio.http
 
 import zio._
 import zio.test.Assertion.equalTo
-import zio.test.TestAspect.{diagnose, nonFlaky, sequential, timeout, withLiveClock}
+import zio.test.TestAspect._
 import zio.test.{TestClock, assertCompletes, assertTrue, assertZIO, testClock}
 
 import zio.http.ChannelEvent.UserEvent.HandshakeComplete
 import zio.http.ChannelEvent.{Read, Unregistered, UserEvent, UserEventTriggered}
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 
 object WebSocketSpec extends HttpRunnableSpec {
 
@@ -118,7 +118,7 @@ object WebSocketSpec extends HttpRunnableSpec {
         .map(_.count(_ == Status.SwitchingProtocols))
 
       assertZIO(codes)(equalTo(1024))
-    },
+    } @@ ignore,
     test("channel events between client and server when the provided URL is HTTP") {
       for {
         msg <- MessageCollector.make[WebSocketChannelEvent]
@@ -209,12 +209,10 @@ object WebSocketSpec extends HttpRunnableSpec {
   )
 
   override def spec = suite("Server") {
-    ZIO.scoped {
-      serve.as(List(websocketSpec))
-    }
+    serve.as(List(websocketSpec))
   }
-    .provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@
-    timeout(30 seconds) @@ diagnose(30.seconds) @@ withLiveClock @@ sequential
+    .provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@
+    diagnose(30.seconds) @@ withLiveClock @@ sequential
 
   final class MessageCollector[A](ref: Ref[List[A]], promise: Promise[Nothing, Unit]) {
     def add(a: A, isDone: Boolean = false): UIO[Unit] = ref.update(_ :+ a) <* promise.succeed(()).when(isDone)

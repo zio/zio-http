@@ -65,7 +65,7 @@ this for you:
 
 ## Special Constructors Handler
 
-These are some special constructors for `Http` and `Handler`:
+These are some special constructors for `HttpApp` and `Handler`:
 
 ### Handler.ok
 
@@ -138,12 +138,12 @@ Before you do this, you must first handle any typed errors produced by your rout
 
 Handling your errors ensures that the clients of your API will not encounter strange and unexpected responses, but will always be able to usefully interact with your web service, even in exceptional cases.
 
-If you wish to convert your errors into `InternalServerError`, without leaking any details on the specific nature of the errors,  you can use `Routes#ignore`, and after dealing with your errors in this way, you can convert your routes into an HTTP application.
+If you wish to convert your failures automatically into suitable responses, without leaking any details on the specific nature of the errors, you can use `Routes#sandbox`, and after dealing with your errors in this way, you can convert your routes into an HTTP application.
 
 ## Running an App
 
 ZIO HTTP server needs an `HttpApp[R]` for running. We can use `Server.serve()` method to bootstrap the server with
-an `App[R]`:
+an `HttpApp[R]`:
 
 ```scala mdoc:silent
 object HelloWorld extends ZIOAppDefault {

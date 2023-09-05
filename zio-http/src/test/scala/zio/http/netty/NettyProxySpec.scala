@@ -19,9 +19,9 @@ package zio.http.netty
 import zio.test.Assertion.{equalTo, isNone, isNull, isSome}
 import zio.test._
 
-import zio.http.{Credentials, Proxy, URL}
+import zio.http.{Credentials, Proxy, URL, ZIOHttpSpec}
 
-object NettyProxySpec extends ZIOSpecDefault {
+object NettyProxySpec extends ZIOHttpSpec {
   private val validUrl = URL.decode("http://localhost:8123").toOption.getOrElse(URL.empty)
 
   override def spec = suite("Proxy")(

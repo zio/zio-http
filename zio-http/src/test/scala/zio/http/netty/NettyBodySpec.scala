@@ -20,12 +20,12 @@ import zio.test.Assertion.equalTo
 import zio.test._
 import zio.{Chunk, Scope}
 
-import zio.http.Charsets
+import zio.http.{Charsets, ZIOHttpSpec}
 
 import io.netty.channel.embedded.EmbeddedChannel
 import io.netty.util.AsciiString
 
-object NettyBodySpec extends ZIOSpecDefault {
+object NettyBodySpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("NettyBody")(
       suite("fromAsync")(

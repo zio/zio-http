@@ -21,7 +21,7 @@ import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.test.TestAspect.{timeout, withLiveClock}
 import zio.test._
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 
 object ContentTypeSpec extends HttpRunnableSpec {
 
@@ -74,8 +74,6 @@ object ContentTypeSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Content-type") {
       serve.as(List(contentSpec))
-    }.provideShared(DynamicServer.live, severTestLayer, Client.default, Scope.default) @@ timeout(
-      5 seconds,
-    ) @@ withLiveClock
+    }.provideShared(DynamicServer.live, serverTestLayer, Client.default, Scope.default) @@ withLiveClock
   }
 }

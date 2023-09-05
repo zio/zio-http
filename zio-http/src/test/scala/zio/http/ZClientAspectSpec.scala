@@ -22,7 +22,7 @@ import zio.{Chunk, Scope, ZIO, ZLayer}
 
 import zio.http.URL.Location
 
-object ZClientAspectSpec extends ZIOSpecDefault {
+object ZClientAspectSpec extends ZIOHttpSpec {
   def extractStatus(response: Response): Status = response.status
 
   val app: HttpApp[Any] = Handler.fromFunction[Request] { _ => Response.text("hello") }.toHttpApp

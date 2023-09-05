@@ -25,7 +25,7 @@ import zio.{Scope, durationInt}
 
 import zio.stream.ZStream
 
-object BodySpec extends ZIOSpecDefault {
+object BodySpec extends ZIOHttpSpec {
   private val testFile = new File(getClass.getResource("/TestFile.txt").getPath)
 
   override def spec: Spec[TestEnvironment with Scope, Throwable] =
@@ -55,6 +55,12 @@ object BodySpec extends ZIOSpecDefault {
             },
           ),
         ),
+      ),
+      suite("mediaType")(
+        test("updates the Body media type with the provided value") {
+          val body = Body.fromString("test").contentType(MediaType.text.plain)
+          assertTrue(body.mediaType == Option(MediaType.text.plain))
+        },
       ),
     ) @@ timeout(10 seconds)
 }

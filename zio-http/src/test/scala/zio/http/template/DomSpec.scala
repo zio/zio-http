@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package zio.http.html
+package zio.http.template
 
-import zio.test.{ZIOSpecDefault, assertTrue, check, checkAll}
+import zio.test.{assertTrue, check, checkAll}
 
-import zio.http.html.HtmlGen.{tagGen, voidTagGen}
+import zio.http.ZIOHttpSpec
+import zio.http.template.HtmlGen.{tagGen, voidTagGen}
 
-object DomSpec extends ZIOSpecDefault {
+object DomSpec extends ZIOHttpSpec {
   def spec = suite("DomSpec")(
     test("empty") {
       val dom = Dom.empty

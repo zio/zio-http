@@ -26,6 +26,7 @@ import scala.util.control.NonFatal
 import zio._
 import zio.stacktracer.TracingImplicits.disableAutoTrace
 
+import zio.http.Body.WebsocketBody
 import zio.http._
 import zio.http.netty._
 import zio.http.netty.model.Conversions
@@ -36,12 +37,12 @@ import io.netty.channel._
 import io.netty.handler.codec.http._
 import io.netty.handler.codec.http.websocketx.{WebSocketFrame => JWebSocketFrame, WebSocketServerProtocolHandler}
 import io.netty.handler.timeout.ReadTimeoutException
+
 @Sharable
 private[zio] final case class ServerInboundHandler(
   appRef: AppRef,
   config: Server.Config,
   runtime: NettyRuntime,
-  time: ServerTime,
 )(implicit trace: Trace)
     extends SimpleChannelInboundHandler[HttpObject](false) { self =>
 
@@ -91,7 +92,7 @@ private[zio] final case class ServerInboundHandler(
             Exit.succeed(Response.fromThrowable(throwable))
           } else
             app(req)
-        if (!attemptImmediateWrite(ctx, exit, time)) {
+        if (!attemptImmediateWrite(ctx, exit)) {
           writeResponse(ctx, env, exit, jReq)(releaseRequest)
         } else {
           releaseRequest()
@@ -137,18 +138,13 @@ private[zio] final case class ServerInboundHandler(
   private def attemptFastWrite(
     ctx: ChannelHandlerContext,
     response: Response,
-    time: ServerTime,
   ): Boolean = {
 
-    def fastEncode(response: Response, bytes: Array[Byte]): Boolean = {
-      if (response.frozen) {
-        val jResponse  = NettyResponseEncoder.fastEncode(response, bytes)
-        val djResponse = jResponse.retainedDuplicate()
-        setServerTime(time, response, djResponse)
-        ctx.writeAndFlush(djResponse, ctx.voidPromise())
-        true
-      } else
-        false
+    def fastEncode(response: Response, bytes: Array[Byte]) = {
+      val jResponse  = NettyResponseEncoder.fastEncode(response, bytes)
+      val djResponse = jResponse.retainedDuplicate()
+      ctx.writeAndFlush(djResponse, ctx.voidPromise())
+      true
     }
 
     response.body match {
@@ -156,7 +152,7 @@ private[zio] final case class ServerInboundHandler(
         try {
           fastEncode(response, body.unsafeAsArray)
         } catch {
-          case NonFatal(e) => fastEncode(withDefaultErrorResponse(e).freeze, Array.emptyByteArray)
+          case NonFatal(e) => fastEncode(withDefaultErrorResponse(e), Array.emptyByteArray)
         }
       case _                      => false
     }
@@ -167,33 +163,29 @@ private[zio] final case class ServerInboundHandler(
     ctx: ChannelHandlerContext,
     response: Response,
     jRequest: HttpRequest,
-    time: ServerTime,
   ): Option[Task[Unit]] = {
-    {
-      if (response.isWebSocket) {
-        upgradeToWebSocket(ctx, jRequest, response, runtime)
+    response.body match {
+      case WebsocketBody(socketApp) if response.status == Status.SwitchingProtocols =>
+        upgradeToWebSocket(ctx, jRequest, socketApp, runtime)
         None
-      } else {
+      case _                                                                        =>
         val jResponse = NettyResponseEncoder.encode(ctx, response, runtime)
-        setServerTime(time, response, jResponse)
+        // setServerTime(time, response, jResponse)
         ctx.writeAndFlush(jResponse)
         if (!jResponse.isInstanceOf[FullHttpResponse])
-          NettyBodyWriter
-            .writeAndFlush(response.body, ctx)
+          NettyBodyWriter.writeAndFlush(response.body, ctx)
         else
           None
-      }
     }
   }
 
   private def attemptImmediateWrite(
     ctx: ChannelHandlerContext,
     exit: ZIO[Any, Response, Response],
-    time: ServerTime,
   ): Boolean = {
     exit match {
       case Exit.Success(response) if response ne null =>
-        attemptFastWrite(ctx, response, time)
+        attemptFastWrite(ctx, response)
       case _                                          => false
     }
   }
@@ -216,7 +208,6 @@ private[zio] final case class ServerInboundHandler(
 
     nettyReq match {
       case nettyReq: FullHttpRequest =>
-//        println(s"Got ready http request")
         Request(
           body = NettyBody.fromByteBuf(
             nettyReq.content(),
@@ -229,7 +220,6 @@ private[zio] final case class ServerInboundHandler(
           remoteAddress = remoteAddress,
         )
       case nettyReq: HttpRequest     =>
-//        println(s"Got streaming http request")
         val handler = addAsyncBodyHandler(ctx)
         val body    = NettyBody.fromAsync(
           { async =>
@@ -250,11 +240,12 @@ private[zio] final case class ServerInboundHandler(
 
   }
 
-  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
-    val _ =
-      if (response.addServerTime)
-        jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
-  }
+  // TODO: reimplement it on server settings level
+//  private def setServerTime(time: ServerTime, response: Response, jResponse: HttpResponse): Unit = {
+//    val _ =
+//      if (response.addServerTime)
+//        jResponse.headers().set(HttpHeaderNames.DATE, time.refreshAndGet())
+//  }
 
   /*
    * Checks if the response requires to switch protocol to websocket. Returns
@@ -264,15 +255,12 @@ private[zio] final case class ServerInboundHandler(
   private def upgradeToWebSocket(
     ctx: ChannelHandlerContext,
     jReq: HttpRequest,
-    res: Response,
+    webSocketApp: WebSocketApp[Any],
     runtime: NettyRuntime,
   ): Unit = {
-    val app = res.socketApp
-
     jReq match {
       case jReq: FullHttpRequest =>
         val queue = runtime.runtime(ctx).unsafe.run(Queue.unbounded[WebSocketChannelEvent]).getOrThrowFiberFailure()
-        val webSocketApp = app.getOrElse(WebSocketApp.unit)
         runtime.runtime(ctx).unsafe.run {
           val nettyChannel     = NettyChannel.make[JWebSocketFrame](ctx.channel())
           val webSocketChannel = WebSocketChannel.make(nettyChannel, queue)
@@ -294,13 +282,13 @@ private[zio] final case class ServerInboundHandler(
       case jReq: HttpRequest =>
         val fullRequest = new DefaultFullHttpRequest(jReq.protocolVersion(), jReq.method(), jReq.uri())
         fullRequest.headers().setAll(jReq.headers())
-        upgradeToWebSocket(ctx: ChannelHandlerContext, fullRequest, res, runtime)
+        upgradeToWebSocket(ctx: ChannelHandlerContext, fullRequest, webSocketApp, runtime)
     }
   }
 
   private def writeNotFound(ctx: ChannelHandlerContext, jReq: HttpRequest): Unit = {
-    val response = Response.notFound(jReq.uri()).freeze
-    attemptFastWrite(ctx, response, time)
+    val response = Response.notFound(jReq.uri())
+    attemptFastWrite(ctx, response)
   }
 
   private def writeResponse(
@@ -324,9 +312,9 @@ private[zio] final case class ServerInboundHandler(
       }.flatMap { response =>
         ZIO.attempt {
           if (response ne null) {
-            val done = attemptFastWrite(ctx, response, time)
+            val done = attemptFastWrite(ctx, response)
             if (!done)
-              attemptFullWrite(ctx, response, jReq, time)
+              attemptFullWrite(ctx, response, jReq)
             else
               None
           } else {
@@ -337,7 +325,7 @@ private[zio] final case class ServerInboundHandler(
           }
         }.flatMap(_.getOrElse(ZIO.unit)).catchSomeCause { case cause =>
           ZIO.attempt(
-            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash).freeze, time),
+            attemptFastWrite(ctx, withDefaultErrorResponse(cause.squash)),
           )
         }
       }
@@ -358,7 +346,7 @@ private[zio] final case class ServerInboundHandler(
 object ServerInboundHandler {
 
   val live: ZLayer[
-    ServerTime with Server.Config with NettyRuntime with AppRef,
+    Server.Config with NettyRuntime with AppRef,
     Nothing,
     ServerInboundHandler,
   ] = {
@@ -368,9 +356,8 @@ object ServerInboundHandler {
         appRef <- ZIO.service[AppRef]
         rtm    <- ZIO.service[NettyRuntime]
         config <- ZIO.service[Server.Config]
-        time   <- ZIO.service[ServerTime]
 
-      } yield ServerInboundHandler(appRef, config, rtm, time)
+      } yield ServerInboundHandler(appRef, config, rtm)
     }
   }
 

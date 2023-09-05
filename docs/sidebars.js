@@ -90,6 +90,7 @@ const sidebars = {
             "dsl/cookies",
             "dsl/middleware",
             "dsl/html",
+            "dsl/template",
             {
               type: "category",
               label: "DSL",

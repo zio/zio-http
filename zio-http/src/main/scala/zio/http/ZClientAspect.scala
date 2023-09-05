@@ -109,6 +109,14 @@ object ZClientAspect {
    * Client aspect that logs a debug message to the console after each request
    */
   final def debug(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
+    debug(PartialFunction.empty)
+
+  /**
+   * Client aspect that logs a debug message to the console after each request
+   */
+  final def debug(
+    extraMessage: PartialFunction[Response, String],
+  )(implicit trace: Trace): ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] =
     new ZClientAspect[Nothing, Any, Nothing, Body, Nothing, Any, Nothing, Response] {
 
       /**
@@ -132,19 +140,19 @@ object ZClientAspect {
             headers: Headers,
             body: Body,
             sslConfig: Option[ClientSSLConfig],
+            proxy: Option[Proxy],
           )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] =
             oldDriver
-              .request(version, method, url, headers, body, sslConfig)
+              .request(version, method, url, headers, body, sslConfig, proxy)
               .sandbox
               .exit
               .timed
               .tap {
                 case (duration, Exit.Success(response)) =>
-                  Console
-                    .printLine(
-                      s"${response.status.code} $method ${url.encode} ${duration.toMillis}ms",
-                    )
-                    .orDie
+                  {
+                    Console.printLine(s"${response.status.code} $method ${url.encode} ${duration.toMillis}ms") *>
+                      Console.printLine(extraMessage(response)).when(extraMessage.isDefinedAt(response))
+                  }.orDie
                 case (duration, Exit.Failure(cause))    =>
                   Console
                     .printLine(
@@ -203,9 +211,10 @@ object ZClientAspect {
             headers: Headers,
             body: Body,
             sslConfig: Option[ClientSSLConfig],
+            proxy: Option[Proxy],
           )(implicit trace: Trace): ZIO[Env & Scope, Err, Response] = {
             oldDriver
-              .request(version, method, url, headers, body, sslConfig)
+              .request(version, method, url, headers, body, sslConfig, proxy)
               .sandbox
               .exit
               .timed
@@ -213,12 +222,12 @@ object ZClientAspect {
                 case (duration, Exit.Success(response)) =>
                   ZIO
                     .logLevel(level(response.status)) {
-                      val requestHeaders  =
+                      def requestHeaders  =
                         headers.collect {
                           case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
                             LogAnnotation(header.headerName, header.renderedValue)
                         }.toSet
-                      val responseHeaders =
+                      def responseHeaders =
                         response.headers.collect {
                           case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
                             LogAnnotation(header.headerName, header.renderedValue)

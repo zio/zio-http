@@ -22,7 +22,7 @@ import java.nio.charset._
 import zio._
 import zio.metrics._
 
-import zio.http.html._
+import zio.http.template._
 
 /**
  * A [[zio.http.HandlerAspect]] is a kind of [[zio.http.ProtocolStack]] that is
@@ -582,76 +582,6 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
     new HandlerAspect.InterceptPatchZIO[Env, S](fromRequest)
 
   /**
-   * Creates middleware that will track metrics.
-   *
-   * @param pathLabelMapper
-   *   A mapping function to map incoming paths to patterns, such as /users/1 to
-   *   /users/:id.
-   * @param totalRequestsName
-   *   Total HTTP requests metric name.
-   * @param requestDurationName
-   *   HTTP request duration metric name.
-   * @param requestDurationBoundaries
-   *   Boundaries for the HTTP request duration metric.
-   * @param extraLabels
-   *   A set of extra labels all metrics will be tagged with.
-   * @note
-   *   When using Prometheus as your metrics backend, make sure to provide a
-   *   `pathLabelMapper` in order to avoid
-   *   [[https://prometheus.io/docs/practices/naming/#labels high cardinality labels]].
-   */
-  def metrics(
-    pathLabelMapper: PartialFunction[Request, String] = Map.empty,
-    concurrentRequestsName: String = "http_concurrent_requests_total",
-    totalRequestsName: String = "http_requests_total",
-    requestDurationName: String = "http_request_duration_seconds",
-    requestDurationBoundaries: MetricKeyType.Histogram.Boundaries = defaultBoundaries,
-    extraLabels: Set[MetricLabel] = Set.empty,
-  ): HandlerAspect[Any, Unit] = {
-    val requestsTotal: Metric.Counter[RuntimeFlags] = Metric.counterInt(totalRequestsName)
-    val concurrentRequests: Metric.Gauge[Double]    = Metric.gauge(concurrentRequestsName)
-    val requestDuration: Metric.Histogram[Double]   = Metric.histogram(requestDurationName, requestDurationBoundaries)
-    val nanosToSeconds: Double                      = 1e9d
-
-    def labelsForRequest(req: Request): Set[MetricLabel] =
-      Set(
-        MetricLabel("method", req.method.toString),
-        MetricLabel("path", pathLabelMapper.lift(req).getOrElse(req.path.toString())),
-      ) ++ extraLabels
-
-    def labelsForResponse(res: Response): Set[MetricLabel] =
-      Set(
-        MetricLabel("status", res.status.code.toString),
-      )
-
-    def report(
-      start: Long,
-      requestLabels: Set[MetricLabel],
-      labels: Set[MetricLabel],
-    )(implicit trace: Trace): ZIO[Any, Nothing, Unit] =
-      for {
-        _   <- requestsTotal.tagged(labels).increment
-        _   <- concurrentRequests.tagged(requestLabels).decrement
-        end <- Clock.nanoTime
-        took = end - start
-        _ <- requestDuration.tagged(labels).update(took / nanosToSeconds)
-      } yield ()
-
-    HandlerAspect.interceptHandlerStateful(Handler.fromFunctionZIO[Request] { req =>
-      val requestLabels = labelsForRequest(req)
-
-      for {
-        start <- Clock.nanoTime
-        _     <- concurrentRequests.tagged(requestLabels).increment
-      } yield ((start, requestLabels), (req, ()))
-    })(Handler.fromFunctionZIO[((Long, Set[MetricLabel]), Response)] { case ((start, requestLabels), response) =>
-      val allLabels = requestLabels ++ labelsForResponse(response)
-
-      report(start, requestLabels, allLabels).as(response)
-    })
-  }
-
-  /**
    * Creates a middleware that produces a Patch for the Response
    */
   def patch(f: Response => Response.Patch): HandlerAspect[Any, Unit] =
@@ -705,12 +635,12 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
 
           ZIO
             .logLevel(level(response.status)) {
-              val requestHeaders  =
+              def requestHeaders  =
                 request.headers.collect {
                   case header: Header if loggedRequestHeaderNames.contains(header.headerName.toLowerCase) =>
                     LogAnnotation(header.headerName, header.renderedValue)
                 }.toSet
-              val responseHeaders =
+              def responseHeaders =
                 response.headers.collect {
                   case header: Header if loggedResponseHeaderNames.contains(header.headerName.toLowerCase) =>
                     LogAnnotation(header.headerName, header.renderedValue)

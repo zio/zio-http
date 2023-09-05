@@ -20,8 +20,9 @@ import zio.test._
 import zio.{NonEmptyChunk, Scope}
 
 import zio.http.Header.Vary
+import zio.http.ZIOHttpSpec
 
-object VarySpec extends ZIOSpecDefault {
+object VarySpec extends ZIOHttpSpec {
   override def spec: Spec[TestEnvironment with Scope, Nothing] =
     suite("Vary header suite")(
       test("parse valid values") {

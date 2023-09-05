@@ -22,11 +22,11 @@ import zio.test._
 import zio.http.internal.HttpGen
 import zio.http.netty._
 import zio.http.netty.model.Conversions
-import zio.http.{Body, QueryParams, Request, URL}
+import zio.http.{Body, QueryParams, Request, URL, ZIOHttpSpec}
 
 import io.netty.handler.codec.http.HttpHeaderNames
 
-object NettyRequestEncoderSpec extends ZIOSpecDefault {
+object NettyRequestEncoderSpec extends ZIOHttpSpec {
   import NettyRequestEncoder._
 
   val anyClientParam: Gen[Sized, Request] = HttpGen.requestGen(

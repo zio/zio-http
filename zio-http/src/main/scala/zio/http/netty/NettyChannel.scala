@@ -20,6 +20,7 @@ import zio.stacktracer.TracingImplicits.disableAutoTrace
 import zio.{Task, Trace, UIO, ZIO}
 
 import io.netty.channel.{Channel => JChannel, ChannelFuture => JChannelFuture}
+
 final case class NettyChannel[-A](
   private val channel: JChannel,
   private val convert: A => Any,

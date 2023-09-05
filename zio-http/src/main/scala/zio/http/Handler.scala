@@ -17,7 +17,7 @@
 package zio.http
 
 import zio._
-import zio.http.html.{Html, Template}
+import zio.http.template.{Html, Template}
 import zio.http.Header.HeaderType
 import zio.http.internal.HeaderModifier
 import zio.stream.ZStream
@@ -897,7 +897,7 @@ object Handler {
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {
       ZIO.environment[R].map { env =>
-        fromBody(Body.fromStream(stream.provideEnvironment(env), charset))
+        fromBody(Body.fromCharSequenceStream(stream.provideEnvironment(env), charset))
       }
     }.flatten
 

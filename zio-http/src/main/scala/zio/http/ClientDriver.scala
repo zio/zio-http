@@ -21,6 +21,7 @@ import zio.{Promise, Scope, Trace, ZIO, ZLayer}
 
 import zio.http.ClientDriver.ChannelInterface
 import zio.http.netty.client.ChannelState
+
 trait ClientDriver {
   type Connection
 

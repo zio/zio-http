@@ -291,7 +291,7 @@ object DnsResolver {
     }
   }
 
-  lazy val live: ZLayer[DnsResolver.Config, Nothing, DnsResolver] = {
+  val live: ZLayer[DnsResolver.Config, Nothing, DnsResolver] = {
     implicit val trace: Trace = Trace.empty
 
     ZLayer.scoped {

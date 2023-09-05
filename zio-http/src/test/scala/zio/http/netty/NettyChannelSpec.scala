@@ -19,14 +19,14 @@ package zio.http.netty
 import java.util
 
 import zio.test.TestAspect.timeout
-import zio.test.{TestClock, ZIOSpecDefault, assertTrue}
+import zio.test.{TestClock, assertTrue}
 import zio.{UIO, ZIO, durationInt}
 
-import zio.http.Channel
+import zio.http.{Channel, ZIOHttpSpec}
 
 import io.netty.channel.embedded.EmbeddedChannel
 
-object NettyChannelSpec extends ZIOSpecDefault {
+object NettyChannelSpec extends ZIOHttpSpec {
   def spec = suite("Channel")(
     suite("writeAndFlush")(
       test("await = false") {
@@ -73,7 +73,7 @@ object NettyChannelSpec extends ZIOSpecDefault {
         } yield assertTrue(out == 3)
       },
     ),
-  ) @@ timeout(5 second)
+  )
 
   final class EmbeddedTestChannel[A] {
     val jChannel: EmbeddedChannel = new EmbeddedChannel()

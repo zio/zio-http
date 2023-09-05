@@ -16,6 +16,8 @@
 
 package zio.http
 
+import zio.stacktracer.TracingImplicits.disableAutoTrace
+
 /**
  * Frame decoder configuration
  */

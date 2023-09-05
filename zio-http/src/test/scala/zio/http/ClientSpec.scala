@@ -25,7 +25,7 @@ import zio.test._
 
 import zio.stream.ZStream
 
-import zio.http.internal.{DynamicServer, HttpRunnableSpec, severTestLayer}
+import zio.http.internal.{DynamicServer, HttpRunnableSpec, serverTestLayer}
 
 object ClientSpec extends HttpRunnableSpec {
 
@@ -64,7 +64,7 @@ object ClientSpec extends HttpRunnableSpec {
       val app    = Handler.fromFunctionZIO[Request] { req => req.body.asString.map(Response.text(_)) }.sandbox.toHttpApp
       val stream = ZStream.fromIterable(List("a", "b", "c"), chunkSize = 1)
       val res    = app
-        .deploy(Request(method = Method.POST, body = Body.fromStream(stream)))
+        .deploy(Request(method = Method.POST, body = Body.fromCharSequenceStream(stream)))
         .flatMap(_.body.asString)
       assertZIO(res)(equalTo("abc"))
     },
@@ -91,7 +91,7 @@ object ClientSpec extends HttpRunnableSpec {
   override def spec = {
     suite("Client") {
       serve.as(List(clientSpec))
-    }.provideSomeShared[Scope](DynamicServer.live, severTestLayer, Client.default) @@
-      timeout(5 seconds) @@ sequential @@ withLiveClock
+    }.provideSome[DynamicServer & Server & Client](Scope.default)
+      .provideShared(DynamicServer.live, serverTestLayer, Client.default) @@ sequential @@ withLiveClock
   }
 }

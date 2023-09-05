@@ -24,7 +24,7 @@ import zio.test._
 import zio.http.internal.HttpGen
 import zio.http.{int => _, uuid => _, _}
 
-object RoutePatternSpec extends ZIOSpecDefault {
+object RoutePatternSpec extends ZIOHttpSpec {
   import zio.http.Method
   import zio.http.RoutePattern._
 
@@ -391,12 +391,12 @@ object RoutePatternSpec extends ZIOSpecDefault {
   def formatting =
     suite("formatting")(
       test("/users") {
-        assertTrue((Method.GET / "users").format(()) == Path("/users"))
+        assertTrue((Method.GET / "users").format(()) == Right(Path("/users")))
       },
       test("/users/{user-id}/posts/{post-id}") {
         val routePattern = Method.GET / "users" / int("user-id") / "posts" / string("post-id")
 
-        assertTrue(routePattern.format((1, "abc")) == Path("/users/1/posts/abc"))
+        assertTrue(routePattern.format((1, "abc")) == Right(Path("/users/1/posts/abc")))
       },
     )
 

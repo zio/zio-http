@@ -152,4 +152,8 @@ object Request {
     } else {
       URL(Path(path))
     }
+
+  object Patch {
+    val empty: Patch = Patch(Headers.empty, QueryParams.empty)
+  }
 }
