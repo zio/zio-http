@@ -198,8 +198,8 @@ lazy val zioHttpBenchmarks = (project in file("zio-http-benchmarks"))
       "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"    % "1.5.1",
       "com.softwaremill.sttp.client3" %% "core"                % "3.9.0",
 //      "dev.zio"                     %% "zio-interop-cats"    % "3.3.0",
-      "org.slf4j"                      % "slf4j-api"           % "2.0.7",
-      "org.slf4j"                      % "slf4j-simple"        % "2.0.7",
+      "org.slf4j"                      % "slf4j-api"           % "2.0.9",
+      "org.slf4j"                      % "slf4j-simple"        % "2.0.9",
     ),
   )
   .dependsOn(zioHttp)
