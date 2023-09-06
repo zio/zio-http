@@ -21,11 +21,12 @@ object Shading {
   } else Nil
 
   lazy val shadingEnabled = {
-    val enabled =  sys.props.get(sysprops.`publish.shaded`).fold(false)(_.toBoolean) ||
+    val enabled = sys.props.get(sysprops.`publish.shaded`).fold(false)(_.toBoolean) ||
       sys.env.get(env.PUBLISH_SHADED).fold(false)(_.toBoolean)
-    println(s"*** shading enabled: $enabled (env.PUBLISH_SHADED=${sys.env.get(env.PUBLISH_SHADED)}, sysprops.`publish.shaded`=${sys.props.get(sysprops.`publish.shaded`)})")
+    println(s"*** shading enabled: $enabled (env.PUBLISH_SHADED=${sys.env
+        .get(env.PUBLISH_SHADED)}, sysprops.`publish.shaded`=${sys.props.get(sysprops.`publish.shaded`)})")
     enabled
   }
 
-  def plugins(): Seq[Plugins] = if(shadingEnabled) Seq(ShadingPlugin) else Nil
+  def plugins(): Seq[Plugins] = if (shadingEnabled) Seq(ShadingPlugin) else Nil
 }
