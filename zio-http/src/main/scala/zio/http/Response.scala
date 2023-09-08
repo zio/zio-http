@@ -265,6 +265,9 @@ object Response {
   /**
    * Creates an empty response with status 301 or 302 depending on if it's
    * permanent or not.
+   *
+   * Note: if you want to direct a browser to the provided location you should
+   * use `Response#seeOther` instead.
    */
   def redirect(location: URL, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
