@@ -263,8 +263,11 @@ object Response {
   def ok: Response = status(Status.Ok)
 
   /**
-   * Creates an empty response with status 301 or 302 depending on if it's
+   * Creates an empty response with status 307 or 308 depending on if it's
    * permanent or not.
+   *
+   * Note: if you intend to always redirect a browser with a HTTP GET to the
+   * given location you very likely should use `Response#seeOther` instead.
    */
   def redirect(location: URL, isPermanent: Boolean = false): Response = {
     val status = if (isPermanent) Status.PermanentRedirect else Status.TemporaryRedirect
@@ -272,7 +275,7 @@ object Response {
   }
 
   /**
-   * Creates an empty response with status 303
+   * Creates an empty response with status 303.
    */
   def seeOther(location: URL): Response =
     Response(status = Status.SeeOther, headers = Headers(Header.Location(location)))
