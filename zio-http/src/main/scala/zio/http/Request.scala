@@ -19,7 +19,7 @@ package zio.http
 import java.net.InetAddress
 
 import zio.stacktracer.TracingImplicits.disableAutoTrace
-import zio.{Trace, ZIO}
+import zio.{NonEmptyChunk, Trace, ZIO}
 
 import zio.http.internal.HeaderOps
 
@@ -106,6 +106,39 @@ final case class Request(
    */
   def unnest(prefix: Path): Request =
     copy(url = self.url.copy(path = self.url.path.unnest(prefix)))
+
+  /**
+   * Returns the cookie with the given name if it exists.
+   */
+  def cookie(name: String): Option[Cookie] =
+    cookies.flatMap(_.filter(_.name == name).headOption)
+
+  /**
+   * Uses the cookie with the given name if it exists and runs `f` afterwards.
+   */
+  def cookieWith[R, A](name: String)(f: Cookie => ZIO[R, Throwable, A])(implicit trace: Trace): ZIO[R, Throwable, A] =
+    cookieWithOrFailImpl(name)(identity)(f)
+
+  /**
+   * Uses the cookie with the given name if it exists and runs `f` afterwards.
+   *
+   * Also, you can replace a `NoSuchElementException` from an absent cookie with
+   * `E`.
+   */
+  def cookieWithOrFail[R, E, A](name: String)(e: E)(f: Cookie => ZIO[R, E, A])(implicit trace: Trace): ZIO[R, E, A] =
+    cookieWithOrFailImpl(name)(_ => e)(f)
+
+  private def cookieWithOrFailImpl[R, E, A](name: String)(e: Throwable => E)(f: Cookie => ZIO[R, E, A])(implicit
+    trace: Trace,
+  ): ZIO[R, E, A] =
+    ZIO.getOrFailWith(e(new java.util.NoSuchElementException(s"cookie doesn't exist: $name")))(cookie(name)).flatMap(f)
+
+  /**
+   * Returns all cookies from the request.
+   */
+  def cookies: Option[NonEmptyChunk[Cookie]] =
+    header(Header.Cookie).map(_.value)
+
 }
 
 object Request {
