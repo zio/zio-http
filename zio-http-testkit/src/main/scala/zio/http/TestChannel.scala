@@ -14,6 +14,18 @@ case class TestChannel(
     promise.await
   def receive(implicit trace: Trace): Task[WebSocketChannelEvent]                     =
     in.take
+  def receiveAll[Env, Err](f: WebSocketChannelEvent => ZIO[Env, Err, Any])(implicit
+    trace: Trace,
+  ): ZIO[Env, Err, Unit] = {
+    lazy val loop: ZIO[Env, Err, Unit] =
+      in.take.flatMap {
+        case event @ ChannelEvent.ExceptionCaught(_) => f(event).unit
+        case event @ ChannelEvent.Unregistered       => f(event).unit
+        case event                                   => f(event) *> ZIO.yieldNow *> loop
+      }
+
+    loop
+  }
   def send(in: WebSocketChannelEvent)(implicit trace: Trace): Task[Unit]              =
     out.offer(in).unit
   def sendAll(in: Iterable[WebSocketChannelEvent])(implicit trace: Trace): Task[Unit] =

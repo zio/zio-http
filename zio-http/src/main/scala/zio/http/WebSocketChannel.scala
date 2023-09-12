@@ -38,6 +38,19 @@ private[http] object WebSocketChannel {
       def receive(implicit trace: Trace): Task[WebSocketChannelEvent] =
         queue.take
 
+      def receiveAll[Env, Err](f: WebSocketChannelEvent => ZIO[Env, Err, Any])(implicit
+        trace: Trace,
+      ): ZIO[Env, Err, Unit] = {
+        lazy val loop: ZIO[Env, Err, Unit] =
+          queue.take.flatMap {
+            case event @ ChannelEvent.ExceptionCaught(_) => f(event).unit
+            case event @ ChannelEvent.Unregistered       => f(event).unit
+            case event                                   => f(event) *> ZIO.yieldNow *> loop
+          }
+
+        loop
+      }
+
       def send(in: WebSocketChannelEvent)(implicit trace: Trace): Task[Unit] = {
         in match {
           case Read(message) => nettyChannel.writeAndFlush(frameToNetty(message))
