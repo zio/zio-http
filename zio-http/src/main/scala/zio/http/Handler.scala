@@ -897,7 +897,7 @@ object Handler {
   ): Handler[R, Throwable, Any, Response] =
     Handler.fromZIO {
       ZIO.environment[R].map { env =>
-        fromBody(Body.fromStream(stream.provideEnvironment(env), charset))
+        fromBody(Body.fromCharSequenceStream(stream.provideEnvironment(env), charset))
       }
     }.flatten
 

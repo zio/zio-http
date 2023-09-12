@@ -76,7 +76,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                   .deploy(
                     Request(
                       method = Method.POST,
-                      body = Body.fromStream(stream),
+                      body = Body.fromCharSequenceStream(stream),
                       headers = extraHeaders,
                     ),
                   )
@@ -113,7 +113,7 @@ object NettyConnectionPoolSpec extends HttpRunnableSpec {
                   Request(
                     method = Method.POST,
                     url = URL.root / "streaming",
-                    body = Body.fromStream(stream),
+                    body = Body.fromCharSequenceStream(stream),
                     headers = extraHeaders,
                   ),
                 )

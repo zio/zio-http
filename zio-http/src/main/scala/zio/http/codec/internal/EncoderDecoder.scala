@@ -283,7 +283,7 @@ private[codec] object EncoderDecoder {
 
         val queryParamValue =
           queryParams
-            .getOrElse(query.name, Nil)
+            .getAllOrElse(query.name, Nil)
             .collectFirst(query.textCodec)
 
         queryParamValue match {
@@ -532,7 +532,7 @@ private[codec] object EncoderDecoder {
           Body.fromMultipartForm(encodeMultipartFormData(inputs), formBoundary)
         } else {
           if (isEventStream) {
-            Body.fromStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, ServerSentEvent]].map(_.encode))
+            Body.fromCharSequenceStream(inputs(0).asInstanceOf[ZStream[Any, Nothing, ServerSentEvent]].map(_.encode))
           } else if (inputs.length < 1) {
             Body.empty
           } else {

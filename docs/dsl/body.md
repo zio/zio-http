@@ -65,7 +65,7 @@ To create an `Body` that encodes a Stream you can use `Body.fromStream`.
 - Using a Stream of String
 
 ```scala mdoc:silent
-  val streamHttpData2: Body = Body.fromStream(ZStream("a", "b", "c"), Charsets.Http)
+  val streamHttpData2: Body = Body.fromCharSequenceStream(ZStream("a", "b", "c"), Charsets.Http)
 ```
 
 ### Creating a Body from a `File`
