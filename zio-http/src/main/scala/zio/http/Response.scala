@@ -40,6 +40,9 @@ final case class Response(
   def addCookie(cookie: Cookie.Response): Response =
     self.copy(headers = self.headers ++ Headers(Header.SetCookie(cookie)))
 
+  def addFlashMessage(message: String): Response =
+    addCookie(Cookie.Response("zio-http-flash", message))
+
   /**
    * Collects the potentially streaming body of the response into a single
    * chunk.

@@ -243,4 +243,11 @@ object Middleware extends HandlerAspects {
         )
     }
   }
+
+  /**
+   * Creates a middleware for managing the flash scope.
+   */
+  def flashScopeHandling: HandlerAspect[Any, Unit] = Middleware.intercept { (req, resp) =>
+    req.cookie("zio-http-flash").fold(resp)(flash => resp.addCookie(Cookie.clear(flash.name)))
+  }
 }
