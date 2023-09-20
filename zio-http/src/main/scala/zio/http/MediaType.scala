@@ -33,6 +33,7 @@ final case class MediaType(
 object MediaType extends MediaTypes {
   private val extensionMap: Map[String, MediaType]   = allMediaTypes.flatMap(m => m.fileExtensions.map(_ -> m)).toMap
   private val contentTypeMap: Map[String, MediaType] = allMediaTypes.map(m => m.fullType -> m).toMap
+  val mainTypeMap                                    = allMediaTypes.map(m => m.mainType -> m).toMap
 
   def forContentType(contentType: String): Option[MediaType] = {
     val index = contentType.indexOf(";")

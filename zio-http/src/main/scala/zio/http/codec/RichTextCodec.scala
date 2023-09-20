@@ -33,6 +33,9 @@ import zio.{Chunk, NonEmptyChunk}
  */
 sealed trait RichTextCodec[A] { self =>
 
+  final def string(implicit ev: A =:= Chunk[Char]): RichTextCodec[String] =
+    self.asType[Chunk[Char]].transform(_.mkString, a => Chunk(a.toList: _*))
+
   /**
    * Returns a new codec that is the sequential composition of this codec and
    * the specified codec, but which only produces the value of this codec.
@@ -154,6 +157,7 @@ sealed trait RichTextCodec[A] { self =>
     collectOrFail(failure) {
       case x if p(x) => x
     }
+
 }
 object RichTextCodec {
   private[codec] case object Empty                                        extends RichTextCodec[Unit]
@@ -214,6 +218,8 @@ object RichTextCodec {
    * A codec that describes a letter character.
    */
   val letter: RichTextCodec[Char] = filter(_.isLetter) ?! "letter"
+
+  val string: RichTextCodec[String] = letter.repeat.string
 
   /**
    * A codec that describes a literal character sequence.
@@ -501,7 +507,7 @@ object RichTextCodec {
   private def encode[A](value: A, self: RichTextCodec[A]): Either[String, String] = {
     self match {
       case RichTextCodec.Empty                           => Right("")
-      case RichTextCodec.CharIn(_)                       => { Right(value.asInstanceOf[Char].toString) }
+      case RichTextCodec.CharIn(_)                       => Right(value.asInstanceOf[Char].toString)
       case RichTextCodec.TransformOrFail(codec, _, from) =>
         from(value) match {
           case Left(err)     => Left(err)
@@ -514,13 +520,12 @@ object RichTextCodec {
           case Right(b) => right.encode(b)
         }
       case RichTextCodec.Lazy(codec0)                    => codec0().encode(value)
-      case RichTextCodec.Zip(left, right, combiner)      => {
+      case RichTextCodec.Zip(left, right, combiner)      =>
         val (a, b) = combiner.separate(value)
         for {
           l <- left.encode(a)
           r <- right.encode(b)
         } yield l + r
-      }
       case RichTextCodec.Tagged(_, codec, _)             => codec.encode(value)
     }
   }
@@ -559,6 +564,7 @@ object RichTextCodec {
         } yield (r._1, combiner.combine(l._2, r._2))
 
       case RichTextCodec.Tagged(_, codec, _) => parse(value, codec)
+
     }
 
 }
