@@ -27,8 +27,8 @@ object RichTextCodecSpec extends ZIOHttpSpec {
 
   def textOf(doc: Doc): Option[String] =
     doc match {
-      case Doc.Paragraph(Doc.Span.Code(text)) => Some(text)
-      case _                                  => None
+      case Doc.Paragraph(Doc.Span.Code(text, _)) => Some(text)
+      case _                                     => None
     }
 
   override def spec = suite("Rich Text Codec Spec")(

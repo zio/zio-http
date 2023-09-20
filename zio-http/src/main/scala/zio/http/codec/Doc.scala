@@ -16,8 +16,7 @@
 
 package zio.http.codec
 
-import zio.stacktracer.TracingImplicits.disableAutoTrace
-
+import zio.http.codec.Doc.Span.CodeStyle
 import zio.http.template
 
 /**
@@ -39,6 +38,7 @@ sealed trait Doc { self =>
       case Doc.DescriptionList(xs)   => xs.forall(_._2.isEmpty)
       case Doc.Sequence(left, right) => left.isEmpty && right.isEmpty
       case Doc.Listing(xs, _)        => xs.forall(_.isEmpty)
+      case Doc.Raw(value, _)         => value.isEmpty
       case _                         => false
     }
 
@@ -49,18 +49,20 @@ sealed trait Doc { self =>
       def render(s: String): String = "  " * indent + s
 
       span match {
-        case Span.Text(value)           => render(value)
-        case Span.Code(value)           => render(s"```${value.trim}```")
-        case Span.Link(value, text)     => render(s"[${text.getOrElse(value)}]($value)")
-        case Span.Bold(value)           =>
+        case Span.Text(value)                   => render(value)
+        case Span.Code(value, CodeStyle.Block)  => render(s"```${value.trim}\n```")
+        case Span.Code(value, CodeStyle.Inline) => render(s"`$value`")
+        case Span.Link(value, text)             => render(s"[${text.getOrElse(value)}]($value)")
+        case Span.Bold(value)                   =>
           s"${render("**")}${renderSpan(value, indent).trim}${render("**")}"
-        case Span.Italic(value)         =>
+        case Span.Italic(value)                 =>
           s"${render("*")}${renderSpan(value, indent).trim}${render("*")}"
-        case Span.Error(value)          =>
+        case Span.Error(value)                  =>
           s"${render(s"""<span style="color:red">""")}${render(value)}${render("</span>")}"
-        case Span.Sequence(left, right) =>
-          renderSpan(left, indent)
-          renderSpan(right, indent)
+        case Span.Sequence(left, right)         =>
+          val l = renderSpan(left, indent)
+          val r = renderSpan(right, indent)
+          s"$l$r"
       }
     }
 
@@ -75,6 +77,7 @@ sealed trait Doc { self =>
         case Doc.Empty => ()
 
         case Doc.Header(value, level) =>
+          if (writer.nonEmpty && writer.last != '\n') append("\n")
           append(s"${"#" * level} $value\n\n")
 
         case Doc.Paragraph(value) =>
@@ -94,8 +97,8 @@ sealed trait Doc { self =>
             if (listingType == ListingType.Ordered) append(s"${i + 1}. ") else append("- ")
             doc match {
               case Listing(_, _)         =>
-                writer.append("\n")
                 render(doc, indent + 1)
+                writer.append("\n")
               case Sequence(left, right) =>
                 render(left, indent)
                 writer.deleteCharAt(writer.length - 1)
@@ -109,6 +112,12 @@ sealed trait Doc { self =>
         case Doc.Sequence(left, right) =>
           render(left, indent)
           render(right, indent)
+
+        case Doc.Raw(value, RawDocType.CommonMark) =>
+          writer.append(value)
+
+        case Doc.Raw(_, docType) =>
+          throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
 
       }
     }
@@ -155,6 +164,11 @@ sealed trait Doc { self =>
           case ListingType.Unordered => ul(elementsHtml)
           case ListingType.Ordered   => ol(elementsHtml)
         }
+
+      case Raw(value, RawDocType.Html) =>
+        Html.fromString(value)
+      case Raw(_, docType)             =>
+        throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
     }
   }
 
@@ -243,6 +257,12 @@ sealed trait Doc { self =>
         case Doc.Sequence(left, right) =>
           renderHelpDoc(left)
           renderHelpDoc(right)
+
+        case Doc.Raw(value, RawDocType.Plain) =>
+          writer.append(value)
+
+        case Doc.Raw(_, docType) =>
+          throw new IllegalArgumentException(s"Unsupported raw doc type: $docType")
       }
 
     def renderSpan(span: Span): Unit = {
@@ -256,7 +276,7 @@ sealed trait Doc { self =>
 
           writer.append(if (uppercase) value.toUpperCase() else value)
 
-        case Span.Code(value) =>
+        case Span.Code(value, _) =>
           setStyle(Console.WHITE)
           writer.append(value)
           resetStyle()
@@ -294,7 +314,19 @@ sealed trait Doc { self =>
 
 }
 object Doc {
+
+  def fromCommonMark(commonMark: String): Doc =
+    Doc.Raw(commonMark, RawDocType.CommonMark)
+
+  private sealed trait RawDocType
+  private object RawDocType {
+    case object Plain      extends RawDocType
+    case object CommonMark extends RawDocType
+    case object Html       extends RawDocType
+  }
+
   case object Empty                                                       extends Doc
+  private final case class Raw(value: String, docType: RawDocType)        extends Doc
   final case class Header(value: String, level: Int)                      extends Doc
   final case class Paragraph(value: Span)                                 extends Doc
   final case class DescriptionList(definitions: List[(Span, Doc)])        extends Doc
@@ -327,19 +359,23 @@ object Doc {
   def h3(t: String): Doc = Header(t, 3)
   def h4(t: String): Doc = Header(t, 4)
   def h5(t: String): Doc = Header(t, 5)
+  def h6(t: String): Doc = Header(t, 6)
 
   def p(t: String): Doc  = Doc.Paragraph(Span.text(t))
   def p(span: Span): Doc = Doc.Paragraph(span)
 
   sealed trait Span { self =>
-    final def +(that: Span): Span = Span.Sequence(self, that)
+    final def +(that: Span): Span =
+      if (self.isEmpty) that
+      else if (that.isEmpty) self
+      else Span.Sequence(self, that)
 
     final def isEmpty: Boolean = self.size == 0
 
     final def size: Int =
       self match {
         case Span.Text(value)           => value.length
-        case Span.Code(value)           => value.length
+        case Span.Code(value, _)        => value.length
         case Span.Error(value)          => value.length
         case Span.Bold(value)           => value.size
         case Span.Italic(value)         => value.size
@@ -351,27 +387,35 @@ object Doc {
       import template._
 
       self match {
-        case Span.Text(value)           => value
-        case Span.Code(value)           => code(value)
-        case Span.Error(value)          => span(styleAttr := ("color", "red") :: Nil, value)
-        case Span.Bold(value)           => b(value.toHtml)
-        case Span.Italic(value)         => i(value.toHtml)
-        case Span.Link(value, text)     =>
+        case Span.Text(value)                   => value
+        case Span.Code(value, CodeStyle.Block)  => pre(code(value))
+        case Span.Code(value, CodeStyle.Inline) => code(value)
+        case Span.Error(value)                  => span(styleAttr := ("color", "red") :: Nil, value)
+        case Span.Bold(value)                   => b(value.toHtml)
+        case Span.Italic(value)                 => i(value.toHtml)
+        case Span.Link(value, text)             =>
           a(href := value.toASCIIString, Html.fromString(text.getOrElse(value.toASCIIString)))
-        case Span.Sequence(left, right) => left.toHtml ++ right.toHtml
+        case Span.Sequence(left, right)         => left.toHtml ++ right.toHtml
       }
     }
   }
   object Span       {
     final case class Text(value: String)                             extends Span
-    final case class Code(value: String)                             extends Span
+    final case class Code(value: String, codeStyle: CodeStyle)       extends Span
     final case class Error(value: String)                            extends Span
     final case class Bold(value: Span)                               extends Span
     final case class Italic(value: Span)                             extends Span
     final case class Link(value: java.net.URI, text: Option[String]) extends Span
     final case class Sequence(left: Span, right: Span)               extends Span
 
-    def code(t: String): Span                       = Span.Code(t)
+    sealed trait CodeStyle
+    object CodeStyle {
+      case object Inline extends CodeStyle
+      case object Block  extends CodeStyle
+    }
+
+    def code(t: String): Span                       = Span.Code(t, CodeStyle.Inline)
+    def codeBlock(t: String): Span                  = Span.Code(t, CodeStyle.Block)
     def empty: Span                                 = Span.text("")
     def error(t: String): Span                      = Span.Error(t)
     def bold(span: Span): Span                      = Span.Bold(span)
@@ -380,7 +424,7 @@ object Doc {
     def italic(t: String): Span                     = Span.Italic(text(t))
     def text(t: String): Span                       = Span.Text(t)
     def link(uri: java.net.URI): Span               = Span.Link(uri, None)
-    def link(uri: java.net.URI, text: String): Span = Span.Link(uri, Some(text))
+    def link(uri: java.net.URI, text: String): Span = Span.Link(uri, Some(text).filter(_.nonEmpty))
     def spans(span: Span, spans0: Span*): Span      = spans(span :: spans0.toList)
     def spans(spans: Iterable[Span]): Span          = spans.toList.foldLeft(empty)(_ + _)
 
