@@ -666,7 +666,7 @@ object Handler {
         .runFoldZIO(Chunk.empty[Byte]) { case (acc, bytes) =>
           ZIO
             .succeed(acc ++ bytes)
-            .filterOrFail(_.sizeIs < limit)(new Exception("Too large input"))
+            .filterOrFail(_.size < limit)(new Exception("Too large input"))
         },
     )
 
