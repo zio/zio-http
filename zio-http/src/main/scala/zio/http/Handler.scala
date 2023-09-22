@@ -660,14 +660,14 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
 object Handler {
 
-  def asStreamBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
+  def asChunkBounded(request: Request, limit: Int)(implicit trace: Trace): Handler[Any, Throwable, Any, Chunk[Byte]] =
     Handler.fromZIO(
-      request.body.asStream
-        .chunks
+      request.body.asStream.chunks
         .runFoldZIO(Chunk.empty[Byte]) { case (acc, bytes) =>
-          ZIO.succeed(acc ++ bytes)
+          ZIO
+            .succeed(acc ++ bytes)
             .filterOrFail(_.sizeIs < limit)(new Exception("Too large input"))
-        }
+        },
     )
 
   /**
