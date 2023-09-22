@@ -86,6 +86,18 @@ object ClientSpec extends HttpRunnableSpec {
         loggedUrl <- ZTestLogger.logOutput.map(_.collectFirst { case m => m.annotations("url") }.mkString)
       } yield assertTrue(loggedUrl == s"$baseURL/")
     },
+    test("reading of unfinished body must fail") {
+      val app         = Handler.fromStream(ZStream.never).sandbox.toHttpApp
+      val requestCode = (client: Client) =>
+        (for {
+          response <- ZIO.scoped(client(Request()))
+          _        <- response.body.asStream.runForeach { _ => ZIO.succeed(0) }
+            .timeout(60.second) // timeout just in case it hangs
+        } yield ()).fold(success = _ => false, failure = _ => true)
+
+      val effect = app.deployAndRequest(requestCode).runZIO(())
+      assertZIO(effect)(isTrue)
+    },
   )
 
   override def spec = {

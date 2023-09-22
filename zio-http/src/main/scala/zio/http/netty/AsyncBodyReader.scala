@@ -38,11 +38,22 @@ abstract class AsyncBodyReader(implicit trace: Trace) extends SimpleChannelInbou
     this.synchronized {
       state match {
         case State.Buffering =>
-          state = State.Direct(callback)
-          buffer.result().foreach { case (chunk, isLast) =>
-            callback(chunk, isLast)
+          val result: Chunk[(Chunk[Byte], Boolean)] = buffer.result()
+          val readingDone: Boolean                  = result.lastOption match {
+            case None              => false
+            case Some((_, isLast)) => isLast
           }
-          ctx.read()
+
+          if (ctx.channel.isOpen || readingDone) {
+            state = State.Direct(callback)
+            result.foreach { case (chunk, isLast) =>
+              callback(chunk, isLast)
+            }
+            ctx.read()
+          } else {
+            throw new IllegalStateException("Attempting to read from a closed channel, which will never finish")
+          }
+
         case State.Direct(_) =>
           throw new IllegalStateException("Cannot connect twice")
       }
