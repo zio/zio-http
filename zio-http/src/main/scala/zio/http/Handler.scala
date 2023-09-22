@@ -660,6 +660,16 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
 
 object Handler {
 
+  def asStreamBounded(request: Request, limit: Int): Handler[Any, Throwable, Any, Chunk[Byte]] =
+    Handler.fromZIO(
+      request.body.asStream
+        .chunks
+        .runFoldZIO(Chunk.empty[Byte])((acc, bytes) =>
+          ZIO.succeed(acc ++ bytes)
+            .filterOrFail(_.sizeIs < limit)(new Exception("Too large input"))
+        )
+    )
+
   /**
    * Attempts to create a Handler that succeeds with the provided value,
    * capturing all exceptions on it's way.
