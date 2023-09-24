@@ -93,14 +93,12 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     else {
       HttpCodec
         .Fallback(self, that)
-        .transform[alternator.Out](
-          either => either.fold(alternator.left(_), alternator.right(_)),
-          value =>
-            alternator
-              .unleft(value)
-              .map(Left(_))
-              .orElse(alternator.unright(value).map(Right(_)))
-              .get, // TODO: Solve with partiality
+        .transform[alternator.Out](either => either.fold(alternator.left(_), alternator.right(_)))(value =>
+          alternator
+            .unleft(value)
+            .map(Left(_))
+            .orElse(alternator.unright(value).map(Right(_)))
+            .get, // TODO: Solve with partiality
         )
     }
   }
@@ -171,10 +169,10 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * semantically distinct values.
    */
   final def const(canonical: => Value): HttpCodec[AtomTypes, Unit] =
-    self.transform(_ => (), _ => canonical)
+    self.transform(_ => ())(_ => canonical)
 
   final def const[Value2](value2: => Value2)(implicit ev: Unit <:< Value): HttpCodec[AtomTypes, Value2] =
-    self.transform(_ => value2, _ => ev(()))
+    self.transform(_ => value2)(_ => ev(()))
 
   /**
    * Uses this codec to decode the Scala value from a request.
@@ -253,12 +251,10 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * value.
    */
   def expect(expected: Value): HttpCodec[AtomTypes, Unit] =
-    transformOrFailLeft(
-      actual =>
-        if (actual == expected) Right(())
-        else Left(s"Expected ${expected} but found ${actual}"),
-      _ => expected,
-    )
+    transformOrFailLeft(actual =>
+      if (actual == expected) Right(())
+      else Left(s"Expected ${expected} but found ${actual}"),
+    )(_ => expected)
 
   def named(name: String): HttpCodec[AtomTypes, Value] =
     HttpCodec.Annotated(self, Metadata.Named(name))
@@ -277,7 +273,7 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     Annotated(
       self
         .orElseEither(HttpCodec.empty)
-        .transform[Option[Value]](_.swap.toOption, _.fold[Either[Unit, Value]](Left(()))(Right(_)).swap),
+        .transform(_.swap.toOption)(_.fold[Either[Unit, Value]](Left(()))(Right(_)).swap),
       Metadata.Optional(),
     )
 
@@ -287,15 +283,13 @@ sealed trait HttpCodec[-AtomTypes, Value] {
     self | that
 
   final def toLeft[R]: HttpCodec[AtomTypes, Either[Value, R]] =
-    self.transformOrFail[Either[Value, R]](
-      value => Right(Left(value)),
-      either => either.swap.left.map(_ => "Error!"),
+    self.transformOrFail[Either[Value, R]](value => Right(Left(value)))(either =>
+      either.swap.left.map(_ => "Error!"),
     ) // TODO: Solve with partiality
 
   final def toRight[L]: HttpCodec[AtomTypes, Either[L, Value]] =
-    self.transformOrFail[Either[L, Value]](
-      value => Right(Right(value)),
-      either => either.left.map(_ => "Error!"),
+    self.transformOrFail[Either[L, Value]](value => Right(Right(value)))(either =>
+      either.left.map(_ => "Error!"),
     ) // TODO: Solve with partiality
 
   /**
@@ -309,23 +303,20 @@ sealed trait HttpCodec[-AtomTypes, Value] {
    * used in encoding, for example, when a client calls the endpoint on the
    * server.
    */
-  final def transform[Value2](f: Value => Value2, g: Value2 => Value): HttpCodec[AtomTypes, Value2] =
+  final def transform[Value2](f: Value => Value2)(g: Value2 => Value): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, in => Right(f(in)), output => Right(g(output)))
 
-  final def transformOrFail[Value2](
-    f: Value => Either[String, Value2],
+  final def transformOrFail[Value2](f: Value => Either[String, Value2])(
     g: Value2 => Either[String, Value],
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, f, g)
 
-  final def transformOrFailLeft[Value2](
-    f: Value => Either[String, Value2],
+  final def transformOrFailLeft[Value2](f: Value => Either[String, Value2])(
     g: Value2 => Value,
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, f, output => Right(g(output)))
 
-  final def transformOrFailRight[Value2](
-    f: Value => Value2,
+  final def transformOrFailRight[Value2](f: Value => Value2)(
     g: Value2 => Either[String, Value],
   ): HttpCodec[AtomTypes, Value2] =
     HttpCodec.TransformOrFail[AtomTypes, Value, Value2](self, in => Right(f(in)), g)
@@ -360,14 +351,12 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
       codec1: HttpCodec[AtomTypes, Sub1],
       codec2: HttpCodec[AtomTypes, Sub2],
     ): HttpCodec[AtomTypes, Value] =
-      (codec1 | codec2).transformOrFail(
-        either => Right(either.merge),
-        (value: Value) =>
-          value match {
-            case sub1: Sub1 => Right(Left(sub1))
-            case sub2: Sub2 => Right(Right(sub2))
-            case _          => Left(s"Unexpected error type")
-          },
+      (codec1 | codec2).transformOrFail(either => Right(either.merge))((value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(sub1))
+          case sub2: Sub2 => Right(Right(sub2))
+          case _          => Left(s"Unexpected error type")
+        },
       )
 
     def apply[AtomTypes, Sub1 <: Value: ClassTag, Sub2 <: Value: ClassTag, Sub3 <: Value: ClassTag](
@@ -375,15 +364,13 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
       codec2: HttpCodec[AtomTypes, Sub2],
       codec3: HttpCodec[AtomTypes, Sub3],
     ): HttpCodec[AtomTypes, Value] =
-      (codec1 | codec2 | codec3).transformOrFail(
-        either => Right(either.left.map(_.merge).merge),
-        (value: Value) =>
-          value match {
-            case sub1: Sub1 => Right(Left(Left(sub1)))
-            case sub2: Sub2 => Right(Left(Right(sub2)))
-            case sub3: Sub3 => Right(Right(sub3))
-            case _          => Left(s"Unexpected error type")
-          },
+      (codec1 | codec2 | codec3).transformOrFail(either => Right(either.left.map(_.merge).merge))((value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(sub1)))
+          case sub2: Sub2 => Right(Left(Right(sub2)))
+          case sub3: Sub3 => Right(Right(sub3))
+          case _          => Left(s"Unexpected error type")
+        },
       )
 
     def apply[
@@ -398,16 +385,16 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
       codec3: HttpCodec[AtomTypes, Sub3],
       codec4: HttpCodec[AtomTypes, Sub4],
     ): HttpCodec[AtomTypes, Value] =
-      (codec1 | codec2 | codec3 | codec4).transformOrFail(
-        either => Right(either.left.map(_.left.map(_.merge).merge).merge),
-        (value: Value) =>
-          value match {
-            case sub1: Sub1 => Right(Left(Left(Left(sub1))))
-            case sub2: Sub2 => Right(Left(Left(Right(sub2))))
-            case sub3: Sub3 => Right(Left(Right(sub3)))
-            case sub4: Sub4 => Right(Right(sub4))
-            case _          => Left(s"Unexpected error type")
-          },
+      (codec1 | codec2 | codec3 | codec4).transformOrFail(either =>
+        Right(either.left.map(_.left.map(_.merge).merge).merge),
+      )((value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(sub1))))
+          case sub2: Sub2 => Right(Left(Left(Right(sub2))))
+          case sub3: Sub3 => Right(Left(Right(sub3)))
+          case sub4: Sub4 => Right(Right(sub4))
+          case _          => Left(s"Unexpected error type")
+        },
       )
 
     def apply[
@@ -424,17 +411,17 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
       codec4: HttpCodec[AtomTypes, Sub4],
       codec5: HttpCodec[AtomTypes, Sub5],
     ): HttpCodec[AtomTypes, Value] =
-      (codec1 | codec2 | codec3 | codec4 | codec5).transformOrFail(
-        either => Right(either.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge),
-        (value: Value) =>
-          value match {
-            case sub1: Sub1 => Right(Left(Left(Left(Left(sub1)))))
-            case sub2: Sub2 => Right(Left(Left(Left(Right(sub2)))))
-            case sub3: Sub3 => Right(Left(Left(Right(sub3))))
-            case sub4: Sub4 => Right(Left(Right(sub4)))
-            case sub5: Sub5 => Right(Right(sub5))
-            case _          => Left(s"Unexpected error type")
-          },
+      (codec1 | codec2 | codec3 | codec4 | codec5).transformOrFail(either =>
+        Right(either.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge),
+      )((value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(Left(sub1)))))
+          case sub2: Sub2 => Right(Left(Left(Left(Right(sub2)))))
+          case sub3: Sub3 => Right(Left(Left(Right(sub3))))
+          case sub4: Sub4 => Right(Left(Right(sub4)))
+          case sub5: Sub5 => Right(Right(sub5))
+          case _          => Left(s"Unexpected error type")
+        },
       )
 
     def apply[
@@ -453,18 +440,18 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
       codec5: HttpCodec[AtomTypes, Sub5],
       codec6: HttpCodec[AtomTypes, Sub6],
     ): HttpCodec[AtomTypes, Value] =
-      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6).transformOrFail(
-        either => Right(either.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge),
-        (value: Value) =>
-          value match {
-            case sub1: Sub1 => Right(Left(Left(Left(Left(Left(sub1))))))
-            case sub2: Sub2 => Right(Left(Left(Left(Left(Right(sub2))))))
-            case sub3: Sub3 => Right(Left(Left(Left(Right(sub3)))))
-            case sub4: Sub4 => Right(Left(Left(Right(sub4))))
-            case sub5: Sub5 => Right(Left(Right(sub5)))
-            case sub6: Sub6 => Right(Right(sub6))
-            case _          => Left(s"Unexpected error type")
-          },
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6).transformOrFail(either =>
+        Right(either.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge),
+      )((value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(Left(Left(sub1))))))
+          case sub2: Sub2 => Right(Left(Left(Left(Left(Right(sub2))))))
+          case sub3: Sub3 => Right(Left(Left(Left(Right(sub3)))))
+          case sub4: Sub4 => Right(Left(Left(Right(sub4))))
+          case sub5: Sub5 => Right(Left(Right(sub5)))
+          case sub6: Sub6 => Right(Right(sub6))
+          case _          => Left(s"Unexpected error type")
+        },
       )
 
     def apply[
@@ -485,20 +472,19 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
       codec6: HttpCodec[AtomTypes, Sub6],
       codec7: HttpCodec[AtomTypes, Sub7],
     ): HttpCodec[AtomTypes, Value] =
-      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7).transformOrFail(
-        either =>
-          Right(either.left.map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge).merge),
-        (value: Value) =>
-          value match {
-            case sub1: Sub1 => Right(Left(Left(Left(Left(Left(Left(sub1)))))))
-            case sub2: Sub2 => Right(Left(Left(Left(Left(Left(Right(sub2)))))))
-            case sub3: Sub3 => Right(Left(Left(Left(Left(Right(sub3))))))
-            case sub4: Sub4 => Right(Left(Left(Left(Right(sub4)))))
-            case sub5: Sub5 => Right(Left(Left(Right(sub5))))
-            case sub6: Sub6 => Right(Left(Right(sub6)))
-            case sub7: Sub7 => Right(Right(sub7))
-            case _          => Left(s"Unexpected error type")
-          },
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7).transformOrFail(either =>
+        Right(either.left.map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge).merge),
+      )((value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(Left(Left(Left(sub1)))))))
+          case sub2: Sub2 => Right(Left(Left(Left(Left(Left(Right(sub2)))))))
+          case sub3: Sub3 => Right(Left(Left(Left(Left(Right(sub3))))))
+          case sub4: Sub4 => Right(Left(Left(Left(Right(sub4)))))
+          case sub5: Sub5 => Right(Left(Left(Right(sub5))))
+          case sub6: Sub6 => Right(Left(Right(sub6)))
+          case sub7: Sub7 => Right(Right(sub7))
+          case _          => Left(s"Unexpected error type")
+        },
       )
 
     def apply[
@@ -521,25 +507,24 @@ object HttpCodec extends ContentCodecs with HeaderCodecs with MethodCodecs with 
       codec7: HttpCodec[AtomTypes, Sub7],
       codec8: HttpCodec[AtomTypes, Sub8],
     ): HttpCodec[AtomTypes, Value] =
-      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8).transformOrFail(
-        either =>
-          Right(
-            either.left
-              .map(_.left.map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge).merge)
-              .merge,
-          ),
-        (value: Value) =>
-          value match {
-            case sub1: Sub1 => Right(Left(Left(Left(Left(Left(Left(Left(sub1))))))))
-            case sub2: Sub2 => Right(Left(Left(Left(Left(Left(Left(Right(sub2))))))))
-            case sub3: Sub3 => Right(Left(Left(Left(Left(Left(Right(sub3)))))))
-            case sub4: Sub4 => Right(Left(Left(Left(Left(Right(sub4))))))
-            case sub5: Sub5 => Right(Left(Left(Left(Right(sub5)))))
-            case sub6: Sub6 => Right(Left(Left(Right(sub6))))
-            case sub7: Sub7 => Right(Left(Right(sub7)))
-            case sub8: Sub8 => Right(Right(sub8))
-            case _          => Left(s"Unexpected error type")
-          },
+      (codec1 | codec2 | codec3 | codec4 | codec5 | codec6 | codec7 | codec8).transformOrFail(either =>
+        Right(
+          either.left
+            .map(_.left.map(_.left.map(_.left.map(_.left.map(_.left.map(_.merge).merge).merge).merge).merge).merge)
+            .merge,
+        ),
+      )((value: Value) =>
+        value match {
+          case sub1: Sub1 => Right(Left(Left(Left(Left(Left(Left(Left(sub1))))))))
+          case sub2: Sub2 => Right(Left(Left(Left(Left(Left(Left(Right(sub2))))))))
+          case sub3: Sub3 => Right(Left(Left(Left(Left(Left(Right(sub3)))))))
+          case sub4: Sub4 => Right(Left(Left(Left(Left(Right(sub4))))))
+          case sub5: Sub5 => Right(Left(Left(Left(Right(sub5)))))
+          case sub6: Sub6 => Right(Left(Left(Right(sub6))))
+          case sub7: Sub7 => Right(Left(Right(sub7)))
+          case sub8: Sub8 => Right(Right(sub8))
+          case _          => Left(s"Unexpected error type")
+        },
       )
   }
 
