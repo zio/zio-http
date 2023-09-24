@@ -66,27 +66,15 @@ object NettyBodyWriter {
         None
       case StreamBody(stream, _, _)           =>
         Some(
-          stream.chunks
-            .runFoldZIO(Option.empty[Chunk[Byte]]) {
-              case (Some(previous), current) =>
-                NettyFutureExecutor.executed {
-                  ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(previous.toArray)))
-                } *>
-                  ZIO.succeed(Some(current))
-              case (_, current)              =>
-                ZIO.succeed(Some(current))
+          stream.chunks.mapZIO { bytes =>
+            NettyFutureExecutor.executed {
+              ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(bytes.toArray)))
             }
-            .flatMap { maybeLastChunk =>
-              // last chunk is handled separately to avoid fiber interrupt before EMPTY_LAST_CONTENT is sent
-              ZIO.attempt(
-                maybeLastChunk.foreach { lastChunk =>
-                  ctx.write(new DefaultHttpContent(Unpooled.wrappedBuffer(lastChunk.toArray)))
-                },
-              ) *>
-                NettyFutureExecutor.executed {
-                  ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
-                }
-            },
+          }.runDrain.zipRight {
+            NettyFutureExecutor.executed {
+              ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+            }
+          },
         )
       case ChunkBody(data, _, _)              =>
         ctx.write(Unpooled.wrappedBuffer(data.toArray))

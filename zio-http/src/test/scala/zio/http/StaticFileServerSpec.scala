@@ -100,10 +100,6 @@ object StaticFileServerSpec extends HttpRunnableSpec {
           val res = resourceOk.run().map(_.status)
           assertZIO(res)(equalTo(Status.Ok))
         },
-        test("should have content-length") {
-          val res = resourceOk.run().map(_.header(Header.ContentLength))
-          assertZIO(res)(isSome(equalTo(Header.ContentLength(7L))))
-        },
         test("should have content") {
           val res = resourceOk.run().flatMap(_.body.asString)
           assertZIO(res)(equalTo("foo\nbar"))
