@@ -37,6 +37,12 @@ trait Channel[-In, +Out] { self =>
   def receive(implicit trace: Trace): Task[Out]
 
   /**
+   * Reads all messages from the channel, handling them with the specified
+   * function.
+   */
+  def receiveAll[Env, Err](f: Out => ZIO[Env, Err, Any])(implicit trace: Trace): ZIO[Env, Err, Unit]
+
+  /**
    * Send a message to the channel.
    */
   def send(in: In)(implicit trace: Trace): Task[Unit]
@@ -57,15 +63,17 @@ trait Channel[-In, +Out] { self =>
    */
   final def contramap[In2](f: In2 => In): Channel[In2, Out] =
     new Channel[In2, Out] {
-      def awaitShutdown(implicit trace: Trace): UIO[Unit]               =
+      def awaitShutdown(implicit trace: Trace): UIO[Unit]                                                =
         self.awaitShutdown
-      def receive(implicit trace: Trace): Task[Out]                     =
+      def receive(implicit trace: Trace): Task[Out]                                                      =
         self.receive
-      def send(in: In2)(implicit trace: Trace): Task[Unit]              =
+      def receiveAll[Env, Err](g: Out => ZIO[Env, Err, Any])(implicit trace: Trace): ZIO[Env, Err, Unit] =
+        self.receiveAll(g)
+      def send(in: In2)(implicit trace: Trace): Task[Unit]                                               =
         self.send(f(in))
-      def sendAll(in: Iterable[In2])(implicit trace: Trace): Task[Unit] =
+      def sendAll(in: Iterable[In2])(implicit trace: Trace): Task[Unit]                                  =
         self.sendAll(in.map(f))
-      def shutdown(implicit trace: Trace): UIO[Unit]                    =
+      def shutdown(implicit trace: Trace): UIO[Unit]                                                     =
         self.shutdown
     }
 
@@ -75,22 +83,17 @@ trait Channel[-In, +Out] { self =>
    */
   final def map[Out2](f: Out => Out2)(implicit trace: Trace): Channel[In, Out2] =
     new Channel[In, Out2] {
-      def awaitShutdown(implicit trace: Trace): UIO[Unit]              =
+      def awaitShutdown(implicit trace: Trace): UIO[Unit]                                                 =
         self.awaitShutdown
-      def receive(implicit trace: Trace): Task[Out2]                   =
+      def receive(implicit trace: Trace): Task[Out2]                                                      =
         self.receive.map(f)
-      def send(in: In)(implicit trace: Trace): Task[Unit]              =
+      def receiveAll[Env, Err](g: Out2 => ZIO[Env, Err, Any])(implicit trace: Trace): ZIO[Env, Err, Unit] =
+        self.receiveAll(f andThen g)
+      def send(in: In)(implicit trace: Trace): Task[Unit]                                                 =
         self.send(in)
-      def sendAll(in: Iterable[In])(implicit trace: Trace): Task[Unit] =
+      def sendAll(in: Iterable[In])(implicit trace: Trace): Task[Unit]                                    =
         self.sendAll(in)
-      def shutdown(implicit trace: Trace): UIO[Unit]                   =
+      def shutdown(implicit trace: Trace): UIO[Unit]                                                      =
         self.shutdown
     }
-
-  /**
-   * Reads all messages from the channel, handling them with the specified
-   * function.
-   */
-  final def receiveAll[Env](f: Out => ZIO[Env, Throwable, Any])(implicit trace: Trace): ZIO[Env, Throwable, Nothing] =
-    receive.flatMap(f).forever
 }

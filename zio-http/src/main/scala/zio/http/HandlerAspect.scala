@@ -596,7 +596,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
   /**
    * Creates a middleware that will redirect requests to the specified URL.
    */
-  def redirect(url: URL, isPermanent: Boolean): HandlerAspect[Any, Unit] =
+  def redirect(url: URL, isPermanent: Boolean = false): HandlerAspect[Any, Unit] =
     fail(Response.redirect(url, isPermanent))
 
   /**
@@ -604,7 +604,7 @@ private[http] trait HandlerAspects extends zio.http.internal.HeaderModifier[Hand
    * same path without trailing slash.
    */
   def redirectTrailingSlash(
-    isPermanent: Boolean,
+    isPermanent: Boolean = false,
   ): HandlerAspect[Any, Unit] =
     ifRequestThenElse(request => request.url.path.hasTrailingSlash && request.url.queryParams.isEmpty)(
       ifTrue = updatePath(_.dropTrailingSlash) ++ failWith(request => Response.redirect(request.url, isPermanent)),

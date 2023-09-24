@@ -106,6 +106,13 @@ final case class Request(
    */
   def unnest(prefix: Path): Request =
     copy(url = self.url.copy(path = self.url.path.unnest(prefix)))
+
+  def cookie(name: String): Option[Cookie] =
+    header(Header.Cookie).map(_.value).flatMap(_.filter(_.name == name).headOption)
+
+  def flashMessage: Option[String] =
+    cookie("zio-http-flash").map(_.content)
+
 }
 
 object Request {

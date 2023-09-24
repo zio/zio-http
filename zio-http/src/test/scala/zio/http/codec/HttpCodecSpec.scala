@@ -99,7 +99,7 @@ object HttpCodecSpec extends ZIOHttpSpec {
         test("no fallback for defects") {
           val e = new RuntimeException("boom")
 
-          val codec1 = HttpCodec.empty.transform[Unit](_ => throw e, _ => ()).const("route1")
+          val codec1 = HttpCodec.empty.transform[Unit](_ => throw e)(_ => ()).const("route1")
           val codec2 = HttpCodec.empty.const("route2")
 
           val fallback = codec1 | codec2
