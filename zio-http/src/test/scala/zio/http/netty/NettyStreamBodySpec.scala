@@ -1,9 +1,8 @@
 package zio.http.netty
 
 import zio._
-import zio.test.Assertion._
 import zio.test.TestAspect.withLiveClock
-import zio.test.{Spec, TestEnvironment, assert}
+import zio.test.{Spec, TestEnvironment, assertTrue}
 
 import zio.stream.{ZStream, ZStreamAspect}
 
@@ -20,7 +19,8 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
         handler(
           http.Response(
             status = Status.Ok,
-            // Content-Length header will be removed when the body is a stream
+            // content length header is important,
+            // in this case the server will not use chunked transfer encoding even if response is a stream
             headers = Headers(Header.ContentLength(len)),
             body = Body.fromStream(streams.next()),
           ),
@@ -76,9 +76,13 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           )
           client                   <- ZIO.service[Client]
           firstResponse            <- makeRequest(client, port)
-          firstResponseBodyReceive <- firstResponse.body.asStream.chunks.mapZIO { chunk =>
-            atLeastOneChunkReceived.succeed(()) *> ZIO.succeed(chunk.asString)
-          }.runCollect.fork
+          firstResponseBodyReceive <- firstResponse.body.asStream.chunks
+            .map(chunk => new String(chunk.toArray))
+            .mapZIO { chunk =>
+              atLeastOneChunkReceived.succeed(()) *> ZIO.succeed(chunk)
+            }
+            .runCollect
+            .fork
           _                        <- firstResponseQueue.offerAll(message.getBytes.toList)
           _                        <- atLeastOneChunkReceived.await
           // saying that there will be no more data in the first response stream
@@ -89,25 +93,20 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           // java.lang.IllegalStateException: unexpected message type: LastHttpContent"
           // exception will be thrown
           secondResponse           <- makeRequest(client, port)
-          secondResponseBody       <- secondResponse.body.asStream.chunks.map(_.asString).runCollect
-          firstResponseBody        <- firstResponseBodyReceive.join
-
-          assertFirst =
-            assert(firstResponse.status)(equalTo(Status.Ok)) &&
-              assert(firstResponse.headers.get(Header.ContentLength))(isNone) &&
-              assert(firstResponse.headers.get(Header.TransferEncoding))(
-                isSome(equalTo(Header.TransferEncoding.Chunked)),
-              ) &&
-              assert(firstResponseBody.reduce(_ + _))(equalTo(message))
-
-          assertSecond =
-            assert(secondResponse.status)(equalTo(Status.Ok)) &&
-              assert(secondResponse.headers.get(Header.ContentLength))(isNone) &&
-              assert(secondResponse.headers.get(Header.TransferEncoding))(
-                isSome(equalTo(Header.TransferEncoding.Chunked)),
-              ) &&
-              assert(secondResponseBody)(equalTo(Chunk(message, "")))
-        } yield assertFirst && assertSecond
+          secondResponseBody <- secondResponse.body.asStream.chunks.map(chunk => new String(chunk.toArray)).runCollect
+          firstResponseBody  <- firstResponseBodyReceive.join
+          value =
+            firstResponse.status == Status.Ok &&
+              // since response has not chunked transfer encoding header we can't guarantee that
+              // received chunks will be the same as it was transferred. So we need to check the whole body
+              firstResponseBody.reduce(_ + _) == message &&
+              secondResponse.status == Status.Ok &&
+              secondResponseBody == Chunk(message)
+        } yield {
+          assertTrue(
+            value,
+          )
+        }
       },
     ).provide(
       singleConnectionClient,
