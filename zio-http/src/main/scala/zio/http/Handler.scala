@@ -586,7 +586,7 @@ sealed trait Handler[-R, +Err, -In, +Out] { self =>
    * the handler has been appropriately sandboxed, turning all possible failures
    * into well-formed HTTP responses.
    */
-  def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response): HttpApp[R] = {
+  def toHttpApp(implicit err: Err <:< Response, in: Request <:< In, out: Out <:< Response, trace: Trace): HttpApp[R] = {
     val handler: Handler[R, Response, Request, Response] =
       self.asInstanceOf[Handler[R, Response, Request, Response]]
 
