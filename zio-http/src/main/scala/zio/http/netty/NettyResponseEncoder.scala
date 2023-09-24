@@ -39,10 +39,6 @@ private[zio] object NettyResponseEncoder {
       fastEncode(response, bytes)
     } else {
       val jHeaders         = Conversions.headersToNetty(response.headers)
-      // Prevent client from closing connection before server writes EMPTY_LAST_CONTENT.
-      if (response.body.isInstanceOf[Body.StreamBody]) {
-        jHeaders.remove(HttpHeaderNames.CONTENT_LENGTH)
-      }
       val jStatus          = Conversions.statusToNetty(response.status)
       val hasContentLength = jHeaders.contains(HttpHeaderNames.CONTENT_LENGTH)
       if (!hasContentLength) jHeaders.set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED)
