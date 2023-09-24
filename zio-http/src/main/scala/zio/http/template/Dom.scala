@@ -16,6 +16,8 @@
 
 package zio.http.template
 
+import zio.http.internal.OutputEncoder
+
 /**
  * Light weight DOM implementation that can be rendered as a html string.
  *
@@ -40,6 +42,7 @@ sealed trait Dom { self =>
       val elements   = children.collect {
         case self: Dom.Element => self
         case self: Dom.Text    => self
+        case self: Dom.Raw     => self
       }
 
       val noElements   = elements.isEmpty
@@ -61,9 +64,11 @@ sealed trait Dom { self =>
       else
         s"<$name ${attributes.mkString(" ")}>$inner</$name>"
 
-    case Dom.Text(data)             => data
-    case Dom.Attribute(name, value) => s"""$name="$value""""
+    case Dom.Text(data)             => OutputEncoder.encodeHtml(data.toString)
+    case Dom.Attribute(name, value) =>
+      s"""$name="${OutputEncoder.encodeHtml(value.toString)}""""
     case Dom.Empty                  => ""
+    case Dom.Raw(raw)               => raw
   }
 }
 
@@ -76,9 +81,13 @@ object Dom {
 
   def text(data: CharSequence): Dom = Dom.Text(data)
 
+  def raw(raw: CharSequence): Dom = Dom.Raw(raw)
+
   private[zio] final case class Element(name: CharSequence, children: Seq[Dom]) extends Dom
 
   private[zio] final case class Text(data: CharSequence) extends Dom
+
+  private[zio] final case class Raw(raw: CharSequence) extends Dom
 
   private[zio] final case class Attribute(name: CharSequence, value: CharSequence) extends Dom
 
