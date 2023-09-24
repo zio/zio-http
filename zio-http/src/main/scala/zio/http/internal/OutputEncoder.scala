@@ -24,7 +24,6 @@ private[http] object OutputEncoder {
   private val `>` = "&gt;"
   private val `"` = "&quot;"
   private val `'` = "&#x27;"
-  private val `/` = "&#x2F;"
 
   /**
    * Encode HTML characters that can cause XSS, according to OWASP
@@ -32,7 +31,7 @@ private[http] object OutputEncoder {
    * https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html#output-encoding-rules-summary
    *
    * Specification: Convert & to &amp;, Convert < to &lt;, Convert > to &gt;,
-   * Convert " to &quot;, Convert ' to &#x27;, Convert / to &#x2F;
+   * Convert " to &quot;, Convert ' to &#x27;
    *
    * Only use this function to encode characters inside HTML context:
    * <html>output</html
@@ -61,7 +60,6 @@ private[http] object OutputEncoder {
     case '>'     => `>`
     case '"'     => `"`
     case '\''    => `'`
-    case '/'     => `/`
     case _ @char => char.toString
   }
 
