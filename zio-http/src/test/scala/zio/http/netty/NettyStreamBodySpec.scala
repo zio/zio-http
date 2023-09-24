@@ -76,13 +76,9 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           )
           client                   <- ZIO.service[Client]
           firstResponse            <- makeRequest(client, port)
-          firstResponseBodyReceive <- firstResponse.body.asStream.chunks
-            .map(chunk => new String(chunk.toArray))
-            .mapZIO { chunk =>
-              atLeastOneChunkReceived.succeed(()) *> ZIO.succeed(chunk)
-            }
-            .runCollect
-            .fork
+          firstResponseBodyReceive <- firstResponse.body.asStream.chunks.mapZIO { chunk =>
+            atLeastOneChunkReceived.succeed(()).as(chunk.asString)
+          }.runCollect.fork
           _                        <- firstResponseQueue.offerAll(message.getBytes.toList)
           _                        <- atLeastOneChunkReceived.await
           // saying that there will be no more data in the first response stream
@@ -93,8 +89,8 @@ object NettyStreamBodySpec extends HttpRunnableSpec {
           // java.lang.IllegalStateException: unexpected message type: LastHttpContent"
           // exception will be thrown
           secondResponse           <- makeRequest(client, port)
-          secondResponseBody <- secondResponse.body.asStream.chunks.map(chunk => new String(chunk.toArray)).runCollect
-          firstResponseBody  <- firstResponseBodyReceive.join
+          secondResponseBody       <- secondResponse.body.asStream.chunks.map(_.asString).runCollect
+          firstResponseBody        <- firstResponseBodyReceive.join
           value =
             firstResponse.status == Status.Ok &&
               // since response has not chunked transfer encoding header we can't guarantee that
